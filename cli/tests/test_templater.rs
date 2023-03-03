@@ -23,19 +23,6 @@ fn test_templater_parse_error() {
     let work_dir = test_env.work_dir("repo");
     let render = |template| get_template_output(&work_dir, "@-", template);
 
-    insta::assert_snapshot!(render(r#"description ()"#), @r"
-    ------- stderr -------
-    Error: Failed to parse template: Syntax error
-    Caused by:  --> 1:13
-      |
-    1 | description ()
-      |             ^---
-      |
-      = expected <EOI>, `++`, `||`, `&&`, `==`, `!=`, `>=`, `>`, `<=`, `<`, `+`, `-`, `*`, `/`, or `%`
-    [EOF]
-    [exit status: 1]
-    ");
-
     // Typo
     test_env.add_config(
         r###"

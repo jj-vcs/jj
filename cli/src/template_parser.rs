@@ -62,7 +62,7 @@ impl Rule {
     fn to_symbol(self) -> Option<&'static str> {
         match self {
             Self::EOI => None,
-            Self::whitespace => None,
+            Self::WHITESPACE => None,
             Self::string_escape => None,
             Self::string_content_char => None,
             Self::string_content => None,
@@ -1076,6 +1076,16 @@ mod tests {
 
     #[test]
     fn test_string_literal() {
+        // Whitespace in string literal should be preserved
+        assert_eq!(
+            parse_into_kind(r#" " " "#),
+            Ok(ExpressionKind::String(" ".to_owned())),
+        );
+        assert_eq!(
+            parse_into_kind(r#" ' ' "#),
+            Ok(ExpressionKind::String(" ".to_owned())),
+        );
+
         // "\<char>" escapes
         assert_eq!(
             parse_into_kind(r#" "\t\r\n\"\\\0\e" "#),

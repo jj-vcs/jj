@@ -2295,6 +2295,9 @@ mod tests {
 
         // Parenthesized method chaining
         insta::assert_snapshot!(env.render_ok(r#"(hello).upper()"#), @"HELLO");
+
+        // Multi-line method chaining
+        insta::assert_snapshot!(env.render_ok("hello\n  .upper()"), @"HELLO");
     }
 
     #[test]
@@ -2303,11 +2306,11 @@ mod tests {
         env.add_keyword("description", || literal("".to_owned()));
         env.add_keyword("empty", || literal(true));
 
-        insta::assert_snapshot!(env.parse_err(r#"description ()"#), @r"
-         --> 1:13
+        insta::assert_snapshot!(env.parse_err(r#"foo bar"#), @r"
+         --> 1:5
           |
-        1 | description ()
-          |             ^---
+        1 | foo bar
+          |     ^---
           |
           = expected <EOI>, `++`, `||`, `&&`, `==`, `!=`, `>=`, `>`, `<=`, `<`, `+`, `-`, `*`, `/`, or `%`
         ");

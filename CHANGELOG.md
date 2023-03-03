@@ -70,6 +70,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj file show` now accepts `-T`/`--template` option to insert file metadata.
 
+* The template language now allows arbitrary whitespace between any operators.
+
 * The new configuration option `git.colocate=boolean` controls whether or not
   Git repositories are colocated by default.
 

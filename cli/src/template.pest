@@ -20,7 +20,7 @@
 // If making significant changes to this grammar, consider also updating the
 // tree-sitter grammar: https://github.com/bryceberger/tree-sitter-jjtemplate
 
-whitespace = _{ " " | "\t" | "\r" | "\n" | "\x0c" }
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" | "\x0c" }
 
 string_escape = @{
   "\\"
@@ -73,24 +73,23 @@ infix_ops = _{
   | rem_op
 }
 
-function = { identifier ~ "(" ~ whitespace* ~ function_arguments ~ whitespace* ~ ")" }
-keyword_argument = { identifier ~ whitespace* ~ "=" ~ whitespace* ~ template }
+function = { identifier ~ "(" ~ function_arguments ~ ")" }
+keyword_argument = { identifier ~ "=" ~ template }
 argument = _{ keyword_argument | template }
 function_arguments = {
-  argument ~ (whitespace* ~ "," ~ whitespace* ~ argument)* ~ (whitespace* ~ ",")?
+  argument ~ ("," ~ argument)* ~ ","?
   | ""
 }
 lambda = {
-  "|" ~ whitespace* ~ formal_parameters ~ whitespace* ~ "|"
-  ~ whitespace* ~ template
+  "|" ~ formal_parameters ~ "|" ~ template
 }
 formal_parameters = {
-  identifier ~ (whitespace* ~ "," ~ whitespace* ~ identifier)* ~ (whitespace* ~ ",")?
+  identifier ~ ("," ~ identifier)* ~ ","?
   | ""
 }
 
 primary = _{
-  ("(" ~ whitespace* ~ template ~ whitespace* ~ ")")
+  ("(" ~ template ~ ")")
   | function
   | lambda
   | identifier
@@ -104,18 +103,17 @@ term = {
 }
 
 expression = {
-  (prefix_ops ~ whitespace*)* ~ term
-  ~ (whitespace* ~ infix_ops ~ whitespace* ~ (prefix_ops ~ whitespace*)* ~ term)*
+  prefix_ops* ~ term ~ (infix_ops ~ prefix_ops* ~ term)*
 }
 
 template = {
-  expression ~ (whitespace* ~ concat_op ~ whitespace* ~ expression)*
+  expression ~ (concat_op ~ expression)*
 }
 
-program = _{ SOI ~ whitespace* ~ template? ~ whitespace* ~ EOI }
+program = _{ SOI ~ template? ~ EOI }
 
 function_alias_declaration = {
-  identifier ~ "(" ~ whitespace* ~ formal_parameters ~ whitespace* ~ ")"
+  identifier ~ "(" ~ formal_parameters ~ ")"
 }
 alias_declaration = _{
   SOI ~ (function_alias_declaration | identifier) ~ EOI
