@@ -508,9 +508,6 @@ jj currently does not support partial clones. To use jj with this repository, tr
                      the full repository contents."
                         .to_string(),
                 ),
-                GitImportError::RemoteReservedForLocalGitRepo => {
-                    Some("Run `jj git remote rename` to give different name.".to_string())
-                }
                 GitImportError::InternalBackend(_) => None,
                 GitImportError::InternalGitError(_) => None,
                 GitImportError::UnexpectedBackend(_) => None,

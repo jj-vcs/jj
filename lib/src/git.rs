@@ -61,6 +61,8 @@ use crate::view::View;
 
 /// Reserved remote name for the backing Git repo.
 pub const REMOTE_NAME_FOR_LOCAL_GIT_REPO: &str = "git";
+/// Git ref prefix that would conflict with the reserved "git" remote.
+pub const RESERVED_REMOTE_REF_NAMESPACE: &str = "refs/remotes/git/";
 /// Ref name used as a placeholder to unset HEAD without a commit.
 const UNBORN_ROOT_REF_NAME: &str = "refs/jj/root";
 /// Dummy file to be added to the index to indicate that the user is editing a
@@ -220,24 +222,6 @@ fn to_git_ref_name(parsed_ref: &RefName) -> Option<String> {
     }
 }
 
-fn to_remote_branch<'a>(parsed_ref: &'a RefName, remote_name: &str) -> Option<&'a str> {
-    match parsed_ref {
-        RefName::RemoteBranch(RemoteRefSymbolBuf { name, remote }) => {
-            (remote == remote_name).then_some(name)
-        }
-        RefName::LocalBranch(..) | RefName::Tag(..) => None,
-    }
-}
-
-/// Returns true if the `parsed_ref` won't be imported because its remote name
-/// is reserved.
-///
-/// Use this as a negative `git_ref_filter` to be passed in to
-/// `import_some_refs()`.
-pub fn is_reserved_git_remote_ref(parsed_ref: &RefName) -> bool {
-    to_remote_branch(parsed_ref, REMOTE_NAME_FOR_LOCAL_GIT_REPO).is_some()
-}
-
 #[derive(Debug, Error)]
 #[error("The repo is not backed by a Git repo")]
 pub struct UnexpectedGitBackendError;
@@ -320,11 +304,6 @@ pub enum GitImportError {
         #[source]
         err: BackendError,
     },
-    #[error(
-        "Git remote named '{name}' is reserved for local Git repository",
-        name = REMOTE_NAME_FOR_LOCAL_GIT_REPO
-    )]
-    RemoteReservedForLocalGitRepo,
     #[error("Unexpected backend error when importing refs")]
     InternalBackend(#[source] BackendError),
     #[error("Unexpected git error when importing refs")]
@@ -587,15 +566,16 @@ fn diff_refs_to_import(
             failed_ref_names.push(full_name_bytes.to_owned());
             continue;
         };
+        if full_name.starts_with(RESERVED_REMOTE_REF_NAMESPACE) {
+            failed_ref_names.push(full_name_bytes.to_owned());
+            continue;
+        }
         let Some(ref_name) = parse_git_ref(full_name) else {
             // Skip special refs such as refs/remotes/*/HEAD.
             continue;
         };
         if !git_ref_filter(&ref_name) {
             continue;
-        }
-        if is_reserved_git_remote_ref(&ref_name) {
-            return Err(GitImportError::RemoteReservedForLocalGitRepo);
         }
         let old_git_target = known_git_refs.get(full_name).copied().flatten();
         let Some(id) = resolve_git_ref_to_commit_id(&git_ref, old_git_target) else {

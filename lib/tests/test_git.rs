@@ -1175,10 +1175,22 @@ fn test_import_refs_reserved_remote_name() {
     let git_repo = get_git_repo(repo);
 
     empty_git_commit(&git_repo, "refs/remotes/git/main", &[]);
+    empty_git_commit(&git_repo, "refs/remotes/gita/main", &[]);
 
     let mut tx = repo.start_transaction();
-    let result = git::import_refs(tx.repo_mut(), &git_settings);
-    assert_matches!(result, Err(GitImportError::RemoteReservedForLocalGitRepo));
+    let stats = git::import_refs(tx.repo_mut(), &git_settings).unwrap();
+    assert_eq!(stats.failed_ref_names, ["refs/remotes/git/main"]);
+    let view = tx.repo().view();
+    assert_eq!(
+        view.git_refs().keys().collect_vec(),
+        ["refs/remotes/gita/main"]
+    );
+    assert_eq!(
+        view.all_remote_bookmarks()
+            .map(|(symbol, _)| symbol)
+            .collect_vec(),
+        [remote_symbol("main", "gita")]
+    );
 }
 
 #[test]
@@ -1197,8 +1209,6 @@ fn test_import_some_refs() {
     let commit_feat3 = empty_git_commit(&git_repo, "refs/remotes/origin/feature3", &[commit_feat1]);
     let commit_feat4 = empty_git_commit(&git_repo, "refs/remotes/origin/feature4", &[commit_feat3]);
     let commit_ign = empty_git_commit(&git_repo, "refs/remotes/origin/ignored", &[]);
-    // No error should be reported for the refs excluded by git_ref_filter.
-    empty_git_commit(&git_repo, "refs/remotes/git/main", &[]);
 
     fn get_remote_bookmark(ref_name: &RefName) -> Option<&str> {
         match ref_name {

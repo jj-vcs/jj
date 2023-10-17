@@ -208,12 +208,7 @@ fn init_git_refs(
     let mut tx = start_repo_transaction(&repo, string_args);
     // There should be no old refs to abandon, but enforce it.
     git_settings.abandon_unreachable_commits = false;
-    let stats = git::import_some_refs(
-        tx.repo_mut(),
-        &git_settings,
-        // Initial import shouldn't fail because of reserved remote name.
-        |ref_name| !git::is_reserved_git_remote_ref(ref_name),
-    )?;
+    let stats = git::import_refs(tx.repo_mut(), &git_settings)?;
     print_git_import_stats(ui, tx.repo(), &stats, false)?;
     if !tx.repo().has_changes() {
         return Ok(repo);

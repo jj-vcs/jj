@@ -1201,10 +1201,7 @@ impl WorkspaceCommandHelper {
     fn import_git_refs(&mut self, ui: &Ui) -> Result<(), CommandError> {
         let git_settings = self.settings().git_settings()?;
         let mut tx = self.start_transaction();
-        // Automated import shouldn't fail because of reserved remote name.
-        let stats = jj_lib::git::import_some_refs(tx.repo_mut(), &git_settings, |ref_name| {
-            !jj_lib::git::is_reserved_git_remote_ref(ref_name)
-        })?;
+        let stats = jj_lib::git::import_refs(tx.repo_mut(), &git_settings)?;
         crate::git_util::print_git_import_stats(ui, tx.repo(), &stats, false)?;
         if !tx.repo().has_changes() {
             return Ok(());
