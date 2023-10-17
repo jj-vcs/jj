@@ -1499,8 +1499,8 @@ pub enum GitFetchError {
         chars = INVALID_REFSPEC_CHARS.iter().join("`, `")
     )]
     InvalidBranchPattern(StringPattern),
-    #[error("Git remotes with slashes are incompatible with jj: {0}")]
-    RemoteWithSlash(String),
+    #[error(transparent)]
+    RemoteName(#[from] GitRemoteNameError),
     // TODO: I'm sure there are other errors possible, such as transport-level errors.
     #[error("Unexpected git error when fetching")]
     InternalGitError(#[from] git2::Error),
@@ -1581,9 +1581,7 @@ impl<'a> GitFetch<'a> {
         callbacks: RemoteCallbacks<'_>,
         depth: Option<NonZeroU32>,
     ) -> Result<(), GitFetchError> {
-        if remote_name.contains("/") {
-            return Err(GitFetchError::RemoteWithSlash(remote_name.to_owned()));
-        }
+        validate_remote_name(remote_name)?;
         self.fetch_impl
             .fetch(remote_name, branch_names, callbacks, depth)?;
         self.fetched.push(FetchedBranches {

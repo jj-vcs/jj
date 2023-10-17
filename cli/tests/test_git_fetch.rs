@@ -531,13 +531,15 @@ fn test_git_fetch_from_remote_named_git(subprocess: bool) {
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Failed to import refs from underlying Git repo
-    Caused by: Git remote named 'git' is reserved for local Git repository
-    Hint: Run `jj git remote rename` to give different name.
+    Error: Git remote named 'git' is reserved for local Git repository
+    Hint: Run `jj git remote rename` to give a different name.
     [EOF]
     [exit status: 1]
     ");
     }
+
+    // Fetch remote refs by using the git CLI.
+    git::fetch(&repo_path, "git");
 
     // Implicit import shouldn't fail because of the remote ref.
     let output = test_env.run_jj_in(&repo_path, ["bookmark", "list", "--all-remotes"]);
