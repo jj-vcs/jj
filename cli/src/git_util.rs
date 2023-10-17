@@ -325,6 +325,16 @@ pub fn print_git_import_stats(
         )?;
     }
 
+    if !stats.failed_ref_names.is_empty() {
+        writeln!(ui.warning_default(), "Failed to import some Git refs:")?;
+        let mut formatter = ui.stderr_formatter();
+        for name in &stats.failed_ref_names {
+            write!(formatter, "  ")?;
+            write!(formatter.labeled("git_ref"), "{name}")?;
+            writeln!(formatter)?;
+        }
+    }
+
     Ok(())
 }
 

@@ -1205,11 +1205,11 @@ impl WorkspaceCommandHelper {
         let stats = jj_lib::git::import_some_refs(tx.repo_mut(), &git_settings, |ref_name| {
             !jj_lib::git::is_reserved_git_remote_ref(ref_name)
         })?;
+        crate::git_util::print_git_import_stats(ui, tx.repo(), &stats, false)?;
         if !tx.repo().has_changes() {
             return Ok(());
         }
 
-        crate::git_util::print_git_import_stats(ui, tx.repo(), &stats, false)?;
         let mut tx = tx.into_inner();
         // Rebase here to show slightly different status message.
         let num_rebased = tx.repo_mut().rebase_descendants()?;

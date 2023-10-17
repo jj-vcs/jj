@@ -26,6 +26,7 @@ use std::path::PathBuf;
 use std::str;
 
 use bstr::BStr;
+use bstr::BString;
 use itertools::Itertools;
 use tempfile::NamedTempFile;
 use thiserror::Error;
@@ -346,6 +347,11 @@ pub struct GitImportStats {
     /// Remote `(ref_name, (old_remote_ref, new_target))`s to be merged in to
     /// the local refs.
     pub changed_remote_refs: BTreeMap<RefName, (RemoteRef, RefTarget)>,
+    /// Git ref names that couldn't be imported.
+    ///
+    /// This list doesn't include refs that are supposed to be ignored, such as
+    /// refs pointing to non-commit objects.
+    pub failed_ref_names: Vec<BString>,
 }
 
 #[derive(Debug)]
@@ -355,6 +361,8 @@ struct RefsToImport {
     /// Remote `(ref_name, (old_remote_ref, new_target))`s to be merged in to
     /// the local refs.
     changed_remote_refs: BTreeMap<RefName, (RemoteRef, RefTarget)>,
+    /// Git ref names that couldn't be imported.
+    failed_ref_names: Vec<BString>,
 }
 
 /// Reflect changes made in the underlying Git repo in the Jujutsu repo.
@@ -384,6 +392,7 @@ pub fn import_some_refs(
     let RefsToImport {
         changed_git_refs,
         changed_remote_refs,
+        failed_ref_names,
     } = diff_refs_to_import(mut_repo.view(), &git_repo, git_ref_filter)?;
 
     // Bulk-import all reachable Git commits to the backend to reduce overhead
@@ -476,6 +485,7 @@ pub fn import_some_refs(
     let stats = GitImportStats {
         abandoned_commits,
         changed_remote_refs,
+        failed_ref_names,
     };
     Ok(stats)
 }
@@ -559,6 +569,7 @@ fn diff_refs_to_import(
 
     let mut changed_git_refs = Vec::new();
     let mut changed_remote_refs = BTreeMap::new();
+    let mut failed_ref_names = Vec::new();
     let git_references = git_repo.references().map_err(GitImportError::from_git)?;
     let chain_git_refs_iters = || -> Result<_, gix::reference::iter::init::Error> {
         // Exclude uninteresting directories such as refs/jj/keep.
@@ -570,12 +581,14 @@ fn diff_refs_to_import(
     };
     for git_ref in chain_git_refs_iters().map_err(GitImportError::from_git)? {
         let git_ref = git_ref.map_err(GitImportError::from_git)?;
-        let Ok(full_name) = str::from_utf8(git_ref.name().as_bstr()) else {
-            // Skip non-utf8 refs.
+        let full_name_bytes = git_ref.name().as_bstr();
+        let Ok(full_name) = str::from_utf8(full_name_bytes) else {
+            // Non-utf8 refs cannot be imported.
+            failed_ref_names.push(full_name_bytes.to_owned());
             continue;
         };
         let Some(ref_name) = parse_git_ref(full_name) else {
-            // Skip other refs (such as notes) and symbolic refs.
+            // Skip special refs such as refs/remotes/*/HEAD.
             continue;
         };
         if !git_ref_filter(&ref_name) {
@@ -617,9 +630,13 @@ fn diff_refs_to_import(
         };
         changed_remote_refs.insert(ref_name, (old_remote_ref, RefTarget::absent()));
     }
+
+    // Stabilize output
+    failed_ref_names.sort_unstable();
     Ok(RefsToImport {
         changed_git_refs,
         changed_remote_refs,
+        failed_ref_names,
     })
 }
 

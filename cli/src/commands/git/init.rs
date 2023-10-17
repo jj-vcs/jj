@@ -214,10 +214,10 @@ fn init_git_refs(
         // Initial import shouldn't fail because of reserved remote name.
         |ref_name| !git::is_reserved_git_remote_ref(ref_name),
     )?;
+    print_git_import_stats(ui, tx.repo(), &stats, false)?;
     if !tx.repo().has_changes() {
         return Ok(repo);
     }
-    print_git_import_stats(ui, tx.repo(), &stats, false)?;
     if colocated {
         // If git.auto-local-bookmark = true, local bookmarks could be created for
         // the imported remote branches.
