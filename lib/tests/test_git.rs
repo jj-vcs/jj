@@ -44,6 +44,7 @@ use jj_lib::git::GitFetch;
 use jj_lib::git::GitFetchError;
 use jj_lib::git::GitImportError;
 use jj_lib::git::GitPushError;
+use jj_lib::git::GitRefKind;
 use jj_lib::git::GitRefUpdate;
 use jj_lib::git::RefName;
 use jj_lib::git_backend::GitBackend;
@@ -1209,19 +1210,12 @@ fn test_import_some_refs() {
     let commit_feat4 = empty_git_commit(&git_repo, "refs/remotes/origin/feature4", &[commit_feat3]);
     let commit_ign = empty_git_commit(&git_repo, "refs/remotes/origin/ignored", &[]);
 
-    fn get_remote_bookmark(ref_name: &RefName) -> Option<&str> {
-        match ref_name {
-            RefName::RemoteBranch(symbol) => (symbol.remote == "origin").then_some(&symbol.name),
-            _ => None,
-        }
-    }
-
     // Import bookmarks feature1, feature2, and feature3.
     let mut tx = repo.start_transaction();
-    git::import_some_refs(tx.repo_mut(), &git_settings, |ref_name| {
-        get_remote_bookmark(ref_name)
-            .map(|bookmark| bookmark.starts_with("feature"))
-            .unwrap_or(false)
+    git::import_some_refs(tx.repo_mut(), &git_settings, |kind, symbol| {
+        kind == GitRefKind::Bookmark
+            && symbol.remote == "origin"
+            && symbol.name.starts_with("feature")
     })
     .unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
@@ -1309,8 +1303,8 @@ fn test_import_some_refs() {
     delete_git_ref(&git_repo, "refs/remotes/origin/feature3");
     delete_git_ref(&git_repo, "refs/remotes/origin/feature4");
     let mut tx = repo.start_transaction();
-    git::import_some_refs(tx.repo_mut(), &git_settings, |ref_name| {
-        get_remote_bookmark(ref_name) == Some("feature2")
+    git::import_some_refs(tx.repo_mut(), &git_settings, |kind, symbol| {
+        kind == GitRefKind::Bookmark && symbol.remote == "origin" && symbol.name == "feature2"
     })
     .unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
@@ -1325,8 +1319,8 @@ fn test_import_some_refs() {
     // Import feature1: this should cause the bookmark to be deleted, but the
     // corresponding commit should stay because it is reachable from feature2.
     let mut tx = repo.start_transaction();
-    git::import_some_refs(tx.repo_mut(), &git_settings, |ref_name| {
-        get_remote_bookmark(ref_name) == Some("feature1")
+    git::import_some_refs(tx.repo_mut(), &git_settings, |kind, symbol| {
+        kind == GitRefKind::Bookmark && symbol.remote == "origin" && symbol.name == "feature1"
     })
     .unwrap();
     // No descendant should be rewritten.
@@ -1342,8 +1336,8 @@ fn test_import_some_refs() {
     // Import feature3: this should cause the bookmark to be deleted, but
     // feature4 should be left alone even though it is no longer in git.
     let mut tx = repo.start_transaction();
-    git::import_some_refs(tx.repo_mut(), &git_settings, |ref_name| {
-        get_remote_bookmark(ref_name) == Some("feature3")
+    git::import_some_refs(tx.repo_mut(), &git_settings, |kind, symbol| {
+        kind == GitRefKind::Bookmark && symbol.remote == "origin" && symbol.name == "feature3"
     })
     .unwrap();
     // No descendant should be rewritten
@@ -1358,8 +1352,8 @@ fn test_import_some_refs() {
 
     // Import feature4: both the head and the bookmark will disappear.
     let mut tx = repo.start_transaction();
-    git::import_some_refs(tx.repo_mut(), &git_settings, |ref_name| {
-        get_remote_bookmark(ref_name) == Some("feature4")
+    git::import_some_refs(tx.repo_mut(), &git_settings, |kind, symbol| {
+        kind == GitRefKind::Bookmark && symbol.remote == "origin" && symbol.name == "feature4"
     })
     .unwrap();
     // No descendant should be rewritten
