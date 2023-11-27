@@ -49,6 +49,10 @@ use jj_lib::revset::RevsetDiagnostics;
 use jj_lib::revset::RevsetModifier;
 use jj_lib::revset::RevsetParseContext;
 use jj_lib::revset::UserRevsetExpression;
+use jj_lib::signing::SigStatus;
+use jj_lib::signing::SignError;
+use jj_lib::signing::SignResult;
+use jj_lib::signing::Verification;
 use jj_lib::store::Store;
 use once_cell::unsync::OnceCell;
 
@@ -243,6 +247,19 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(self, diagnostics, build_ctx, property, function)
             }
+            CommitTemplatePropertyKind::CryptographicSignatureOpt(property) => {
+                let type_name = "CryptographicSignature";
+                let table = &self.build_fn_table.cryptographic_signature_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                let inner_property = property.try_unwrap(type_name);
+                build(
+                    self,
+                    diagnostics,
+                    build_ctx,
+                    Box::new(inner_property),
+                    function,
+                )
+            }
         }
     }
 }
@@ -319,6 +336,12 @@ impl<'repo> CommitTemplateLanguage<'repo> {
     ) -> CommitTemplatePropertyKind<'repo> {
         CommitTemplatePropertyKind::TreeDiff(Box::new(property))
     }
+
+    fn wrap_cryptographic_signature_opt(
+        property: impl TemplateProperty<Output = Option<CryptographicSignature>> + 'repo,
+    ) -> CommitTemplatePropertyKind<'repo> {
+        CommitTemplatePropertyKind::CryptographicSignatureOpt(Box::new(property))
+    }
 }
 
 pub enum CommitTemplatePropertyKind<'repo> {
@@ -332,6 +355,9 @@ pub enum CommitTemplatePropertyKind<'repo> {
     CommitOrChangeId(Box<dyn TemplateProperty<Output = CommitOrChangeId> + 'repo>),
     ShortestIdPrefix(Box<dyn TemplateProperty<Output = ShortestIdPrefix> + 'repo>),
     TreeDiff(Box<dyn TemplateProperty<Output = TreeDiff> + 'repo>),
+    CryptographicSignatureOpt(
+        Box<dyn TemplateProperty<Output = Option<CryptographicSignature>> + 'repo>,
+    ),
 }
 
 impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
@@ -347,6 +373,9 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             CommitTemplatePropertyKind::CommitOrChangeId(_) => "CommitOrChangeId",
             CommitTemplatePropertyKind::ShortestIdPrefix(_) => "ShortestIdPrefix",
             CommitTemplatePropertyKind::TreeDiff(_) => "TreeDiff",
+            CommitTemplatePropertyKind::CryptographicSignatureOpt(_) => {
+                "Option<CryptographicSignature>"
+            }
         }
     }
 
@@ -372,6 +401,9 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             // TODO: boolean cast could be implemented, but explicit
             // diff.empty() method might be better.
             CommitTemplatePropertyKind::TreeDiff(_) => None,
+            CommitTemplatePropertyKind::CryptographicSignatureOpt(property) => {
+                Some(Box::new(property.map(|sig| sig.is_some())))
+            }
         }
     }
 
@@ -408,6 +440,7 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
                 Some(property.into_template())
             }
             CommitTemplatePropertyKind::TreeDiff(_) => None,
+            CommitTemplatePropertyKind::CryptographicSignatureOpt(_) => None,
         }
     }
 
@@ -426,6 +459,7 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             (CommitTemplatePropertyKind::CommitOrChangeId(_), _) => None,
             (CommitTemplatePropertyKind::ShortestIdPrefix(_), _) => None,
             (CommitTemplatePropertyKind::TreeDiff(_), _) => None,
+            (CommitTemplatePropertyKind::CryptographicSignatureOpt(_), _) => None,
         }
     }
 
@@ -447,6 +481,7 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             (CommitTemplatePropertyKind::CommitOrChangeId(_), _) => None,
             (CommitTemplatePropertyKind::ShortestIdPrefix(_), _) => None,
             (CommitTemplatePropertyKind::TreeDiff(_), _) => None,
+            (CommitTemplatePropertyKind::CryptographicSignatureOpt(_), _) => None,
         }
     }
 }
@@ -463,6 +498,8 @@ pub struct CommitTemplateBuildFnTable<'repo> {
     pub commit_or_change_id_methods: CommitTemplateBuildMethodFnMap<'repo, CommitOrChangeId>,
     pub shortest_id_prefix_methods: CommitTemplateBuildMethodFnMap<'repo, ShortestIdPrefix>,
     pub tree_diff_methods: CommitTemplateBuildMethodFnMap<'repo, TreeDiff>,
+    pub cryptographic_signature_methods:
+        CommitTemplateBuildMethodFnMap<'repo, CryptographicSignature>,
 }
 
 impl<'repo> CommitTemplateBuildFnTable<'repo> {
@@ -475,6 +512,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             commit_or_change_id_methods: builtin_commit_or_change_id_methods(),
             shortest_id_prefix_methods: builtin_shortest_id_prefix_methods(),
             tree_diff_methods: builtin_tree_diff_methods(),
+            cryptographic_signature_methods: builtin_cryptographic_signature_methods(),
         }
     }
 
@@ -486,6 +524,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             commit_or_change_id_methods: HashMap::new(),
             shortest_id_prefix_methods: HashMap::new(),
             tree_diff_methods: HashMap::new(),
+            cryptographic_signature_methods: HashMap::new(),
         }
     }
 
@@ -497,6 +536,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             commit_or_change_id_methods,
             shortest_id_prefix_methods,
             tree_diff_methods,
+            cryptographic_signature_methods,
         } = extension;
 
         self.core.merge(core);
@@ -511,6 +551,10 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             shortest_id_prefix_methods,
         );
         merge_fn_map(&mut self.tree_diff_methods, tree_diff_methods);
+        merge_fn_map(
+            &mut self.cryptographic_signature_methods,
+            cryptographic_signature_methods,
+        );
     }
 }
 
@@ -619,6 +663,14 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
             let user_email = language.revset_parse_context.user_email().to_owned();
             let out_property = self_property.map(move |commit| commit.author().email == user_email);
             Ok(L::wrap_boolean(out_property))
+        },
+    );
+    map.insert(
+        "signature",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(CryptographicSignature::new);
+            Ok(L::wrap_cryptographic_signature_opt(out_property))
         },
     );
     map.insert(
@@ -1669,5 +1721,90 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
     // TODO: add types() and name_only()? or let users write their own template?
     // TODO: add support for external tools
     // TODO: add files() or map() to support custom summary-like formatting?
+    map
+}
+
+#[derive(Debug)]
+pub struct CryptographicSignature {
+    commit: Commit,
+}
+
+impl CryptographicSignature {
+    fn new(commit: Commit) -> Option<Self> {
+        commit.is_signed().then_some(Self { commit })
+    }
+
+    fn verify(&self) -> SignResult<Verification> {
+        self.commit
+            .verification()
+            .transpose()
+            .expect("must have signature")
+    }
+
+    fn status(&self) -> SignResult<SigStatus> {
+        self.verify().map(|verification| verification.status)
+    }
+
+    /// Defaults to empty string if key is not present.
+    fn key(&self) -> SignResult<String> {
+        self.verify()
+            .map(|verification| verification.key.unwrap_or_default())
+    }
+
+    /// Defaults to empty string if display is not present.
+    fn display(&self) -> SignResult<String> {
+        self.verify()
+            .map(|verification| verification.display.unwrap_or_default())
+    }
+
+    /// Defaults to empty string if backend is not present.
+    fn backend(&self) -> SignResult<String> {
+        self.verify()
+            .map(|verification| verification.backend().unwrap_or_default().into())
+    }
+}
+
+pub fn builtin_cryptographic_signature_methods<'repo>(
+) -> CommitTemplateBuildMethodFnMap<'repo, CryptographicSignature> {
+    type L<'repo> = CommitTemplateLanguage<'repo>;
+    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // code completion inside macro is quite restricted.
+    let mut map = CommitTemplateBuildMethodFnMap::<CryptographicSignature>::new();
+    map.insert(
+        "status",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.and_then(|sig| match sig.status() {
+                Ok(status) => Ok(status.to_string()),
+                Err(SignError::InvalidSignatureFormat) => Ok("invalid".to_string()),
+                Err(err) => Err(err.into()),
+            });
+            Ok(L::wrap_string(out_property))
+        },
+    );
+    map.insert(
+        "key",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.and_then(|sig| Ok(sig.key()?));
+            Ok(L::wrap_string(out_property))
+        },
+    );
+    map.insert(
+        "display",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.and_then(|sig| Ok(sig.display()?));
+            Ok(L::wrap_string(out_property))
+        },
+    );
+    map.insert(
+        "backend",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.and_then(|sig| Ok(sig.backend()?));
+            Ok(L::wrap_string(out_property))
+        },
+    );
     map
 }

@@ -18,6 +18,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj evolog` now accepts `--reversed`.
 
+* Add templater support for rendering commit signatures.
+
 ### Fixed bugs
 
 ## [0.25.0] - 2025-01-01

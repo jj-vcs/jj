@@ -1209,3 +1209,29 @@ fn test_log_diff_predefined_formats() {
     +c
     "###);
 }
+
+#[test]
+fn test_signature_templates() {
+    let test_env = TestEnvironment::default();
+
+    test_env.add_config(r#"signing.sign-all = true"#);
+    test_env.add_config(r#"signing.backend = "test""#);
+
+    test_env.jj_cmd_ok(test_env.env_root(), &["init", "repo", "--git"]);
+    let repo_path = test_env.env_root().join("repo");
+
+    let template = r#"if(signature,
+                         signature.status() ++ " " ++
+                         signature.display() ++ " " ++
+                         signature.backend(),
+                         "no"
+                      ) ++ " signature""#;
+
+    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-T", template]);
+    insta::assert_snapshot!(stdout, @r"
+        @  good test-display test signature
+        ◆  no signature");
+
+    let stdout = test_env.jj_cmd_success(&repo_path, &["show", "-T", template]);
+    insta::assert_snapshot!(stdout, @"good test-display test signature");
+}

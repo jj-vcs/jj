@@ -1027,6 +1027,17 @@ as follows:
 backends.ssh.allowed-signers = "/path/to/allowed-signers"
 ```
 
+## Commit Signature Verification
+
+By default signature verification and display is **disabled** as it incurs a
+performance cost when rendering medium to large change logs.
+
+If you want to display commit signatures in your templates, you can use
+`commit.signature()` (see [Commit type](./templates.md#commit-type)). The
+returned [CryptographicSignature
+Type](./templates.md#cryptographicsignature-type) provides methods to retrieve
+signature details.
+
 ## Git settings
 
 ### Default remotes for `jj git fetch` and `jj git push`

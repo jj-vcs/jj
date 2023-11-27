@@ -16,6 +16,7 @@
 //! various backends.
 
 use std::fmt::Debug;
+use std::fmt::Display;
 use std::sync::Mutex;
 
 use clru::CLruCache;
@@ -41,6 +42,17 @@ pub enum SigStatus {
     Bad,
 }
 
+impl Display for SigStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            SigStatus::Good => "good",
+            SigStatus::Unknown => "unknown",
+            SigStatus::Bad => "bad",
+        };
+        write!(f, "{s}")
+    }
+}
+
 /// The result of a signature verification.
 /// Key and display are optional additional info that backends can or can not
 /// provide to add additional information for the templater to potentially show.
@@ -54,6 +66,11 @@ pub struct Verification {
     /// A display string, if available. For GPG, this will be formatted primary
     /// user ID.
     pub display: Option<String>,
+    /// The name of the backend that provided this verification.
+    /// Is `None` when no backend was found that could read the signature.
+    ///
+    /// Always set by the Signer.
+    backend: Option<String>,
 }
 
 impl Verification {
@@ -64,6 +81,7 @@ impl Verification {
             status: SigStatus::Unknown,
             key: None,
             display: None,
+            backend: None,
         }
     }
 
@@ -73,7 +91,13 @@ impl Verification {
             status,
             key,
             display,
+            backend: None,
         }
+    }
+
+    /// The name of the backend that provided this verification.
+    pub fn backend(&self) -> Option<&str> {
+        self.backend.as_deref()
     }
 }
 
@@ -237,7 +261,10 @@ impl Signer {
             .find_map(|backend| match backend.verify(data, signature) {
                 Ok(check) if check.status == SigStatus::Unknown => None,
                 Err(SignError::InvalidSignatureFormat) => None,
-                e => Some(e),
+                e => Some(e.map(|mut v| {
+                    v.backend = Some(backend.name().to_owned());
+                    v
+                })),
             })
             .transpose()?;
 
