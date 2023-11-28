@@ -332,7 +332,9 @@ impl DetachedCommitBuilder {
     }
 
     pub fn set_sign_key(&mut self, sign_key: Option<String>) -> &mut Self {
-        self.sign_settings.key = sign_key;
+        if sign_key.is_some() {
+            self.sign_settings.key = sign_key;
+        }
         self
     }
 
