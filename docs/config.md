@@ -1211,6 +1211,17 @@ key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGj+J6N6SO+4P8dOZqfR1oiay2yxhhHnagH52
 sign-on-push = true
 ```
 
+### Manually signing commits
+
+You can use [`jj sign`](./cli-reference.md#jj-sign) to manually sign commits.
+
+
+!!! warning
+
+    `jj sign` is always signing commits, even if they are already signed by the
+    user. While this is cumbersome for users signing via hardware devices, we
+    cannot reliably check if a commit is already signed without creating a
+    signature (see [this issue](https://github.com/jj-vcs/jj/issues/5786)).
 
 ## Commit Signature Verification
 
