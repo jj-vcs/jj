@@ -143,6 +143,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Conditional configuration now supports `--when.commands` to change configuration
   based on subcommand.
 
+* The new `jj sign` command allows signing commits.
+
 ### Fixed bugs
 
 * `jj git fetch` with multiple remotes will now fetch from all remotes before
