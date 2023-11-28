@@ -79,6 +79,7 @@ This document contains the help content for the `jj` command-line program.
 * [`jj restore`↴](#jj-restore)
 * [`jj root`↴](#jj-root)
 * [`jj show`↴](#jj-show)
+* [`jj sign`↴](#jj-sign)
 * [`jj simplify-parents`↴](#jj-simplify-parents)
 * [`jj sparse`↴](#jj-sparse)
 * [`jj sparse edit`↴](#jj-sparse-edit)
@@ -149,6 +150,7 @@ To get started, see the tutorial at https://jj-vcs.github.io/jj/latest/tutorial/
 * `restore` — Restore paths from another revision
 * `root` — Show the current workspace root directory
 * `show` — Show commit description and changes in a revision
+* `sign` — Cryptographically sign a revision
 * `simplify-parents` — Simplify parent edges for the specified revision(s)
 * `sparse` — Manage which paths from the working-copy commit are present in the working copy
 * `split` — Split a revision in two
@@ -2210,6 +2212,22 @@ Show commit description and changes in a revision
 * `--context <CONTEXT>` — Number of lines of context to show
 * `--ignore-all-space` — Ignore whitespace when comparing lines
 * `--ignore-space-change` — Ignore changes in amount of whitespace when comparing lines
+
+
+
+## `jj sign`
+
+Cryptographically sign a revision
+
+**Usage:** `jj sign [OPTIONS]`
+
+###### **Options:**
+
+* `-r`, `--revisions <REVSETS>` — What revision(s) to sign
+
+   Note that revisions are always re-signed.
+
+   While that leads to discomfort for users, which sign with hardware devices, as of now we cannot reliably check if a commit is already signed by the user without creating a signature (see https://github.com/jj-vcs/jj/issues/5786).
 
 
 
