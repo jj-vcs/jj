@@ -140,8 +140,6 @@ enum Command {
     Restore(restore::RestoreArgs),
     Revert(revert::RevertArgs),
     Root(root::RootArgs),
-    #[command(hide = true)]
-    // TODO: Flesh out.
     Run(run::RunArgs),
     Show(show::ShowArgs),
     Sign(sign::SignArgs),
