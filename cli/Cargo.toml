@@ -103,6 +103,7 @@ shlex = { workspace = true }
 slab = { workspace = true }
 tempfile = { workspace = true }
 textwrap = { workspace = true }
+tokio = { workspace = true }
 thiserror = { workspace = true }
 timeago = { workspace = true }
 toml = { workspace = true }
