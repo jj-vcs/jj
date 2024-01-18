@@ -45,6 +45,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * External diff commands now support substitution variable `$width` for the
   number of available terminal columns.
 
+* Gerrit support implemented with the new command `jj gerrit upload`
+
 ### Fixed bugs
 
 ## [0.33.0] - 2025-09-03

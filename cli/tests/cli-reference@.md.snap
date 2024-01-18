@@ -47,6 +47,8 @@ This document contains the help content for the `jj` command-line program.
 * [`jj file track`↴](#jj-file-track)
 * [`jj file untrack`↴](#jj-file-untrack)
 * [`jj fix`↴](#jj-fix)
+* [`jj gerrit`↴](#jj-gerrit)
+* [`jj gerrit upload`↴](#jj-gerrit-upload)
 * [`jj git`↴](#jj-git)
 * [`jj git clone`↴](#jj-git-clone)
 * [`jj git export`↴](#jj-git-export)
@@ -142,6 +144,7 @@ To get started, see the tutorial [`jj help -k tutorial`].
 * `evolog` — Show how a change has evolved over time
 * `file` — File operations
 * `fix` — Update files with formatting fixes or other changes
+* `gerrit` — Interact with Gerrit Code Review
 * `git` — Commands for working with Git remotes and the underlying Git repo
 * `help` — Print this message or the help of the given subcommand(s)
 * `interdiff` — Compare the changes of two commits
@@ -1193,6 +1196,41 @@ output of the first tool.
 
 * `-s`, `--source <REVSETS>` — Fix files in the specified revision(s) and their descendants. If no revisions are specified, this defaults to the `revsets.fix` setting, or `reachable(@, mutable())` if it is not set
 * `--include-unchanged-files` — Fix unchanged files in addition to changed ones. If no paths are specified, all files in the repo will be fixed
+
+
+
+## `jj gerrit`
+
+Interact with Gerrit Code Review
+
+**Usage:** `jj gerrit <COMMAND>`
+
+###### **Subcommands:**
+
+* `upload` — Upload changes to Gerrit for code review, or update existing changes
+
+
+
+## `jj gerrit upload`
+
+Upload changes to Gerrit for code review, or update existing changes.
+
+Uploading in a set of revisions to Gerrit creates a single "change" for each revision included in the revset. These changes are then available for review on your Gerrit instance.
+
+Note: The gerrit commit Id may not match that of your local commit Id, since we add a `Change-Id` footer to the commit message if one does not already exist. This ID is based off the jj Change-Id, but is not the same.
+
+If a change already exists for a given revision (i.e. it contains the same `Change-Id`), this command will update the contents of the existing change to match.
+
+Note: this command takes 1-or-more revsets arguments, each of which can resolve to multiple revisions; so you may post trees or ranges of commits to Gerrit for review all at once.
+
+**Usage:** `jj gerrit upload [OPTIONS]`
+
+###### **Options:**
+
+* `-r`, `--revisions <REVISIONS>` — The revset, selecting which revisions are sent in to Gerrit. This can be any arbitrary set of commits. Note that when you push a commit at the head of a stack, all ancestors are pushed too. This means that `jj gerrit upload -r foo` is equivalent to `jj gerrit upload -r 'mutable()::foo`
+* `-b`, `--remote-branch <REMOTE_BRANCH>` — The location where your changes are intended to land. This should be a branch on the remote
+* `--remote <REMOTE>` — The Gerrit remote to push to. Can be configured with the `gerrit.remote` repository option as well. This is typically a full SSH URL for your Gerrit instance
+* `-n`, `--dry-run` — If true, do not actually push the changes to Gerrit
 
 
 
