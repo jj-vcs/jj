@@ -49,6 +49,7 @@ pub mod fileset;
 mod fileset_parser;
 pub mod fix;
 pub mod fmt_util;
+pub mod footer;
 pub mod fsmonitor;
 #[cfg(feature = "git")]
 pub mod git;
