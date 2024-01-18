@@ -68,6 +68,7 @@ etcetera = { workspace = true }
 futures = { workspace = true }
 gix = { workspace = true, optional = true }
 globset = { workspace = true }
+hex = { workspace = true }
 indexmap = { workspace = true }
 indoc = { workspace = true }
 itertools = { workspace = true }
@@ -78,6 +79,7 @@ os_pipe = { workspace = true }
 pest = { workspace = true }
 pest_derive = { workspace = true }
 pollster = { workspace = true }
+rand = { workspace = true }
 rayon = { workspace = true }
 regex = { workspace = true }
 rpassword = { workspace = true }
