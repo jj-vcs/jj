@@ -74,6 +74,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   output using template expressions, similar to `jj op log`. Also added
   `--no-op-diff` flag to suppress the operation diff.
 
+* Gerrit support implemented with the new command `jj gerrit send`
+
 ### Fixed bugs
 
 * `jj git clone` now correctly fetches all tags, unless `--fetch-tags` is
