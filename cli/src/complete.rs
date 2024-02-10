@@ -941,7 +941,7 @@ fn get_jj_command() -> Result<(JjBuilder, UserSettings), CommandError> {
     let mut config = config_env.resolve_config(&raw_config)?;
     // skip 2 because of the clap_complete prelude: jj -- jj <actual args...>
     let args = std::env::args_os().skip(2);
-    let args = expand_args(&ui, &app, args, &config)?;
+    let (args, _) = expand_args(&ui, &app, args, &config)?;
     let arg_matches = app
         .clone()
         .disable_version_flag(true)

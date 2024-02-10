@@ -3382,60 +3382,152 @@ fn resolve_default_command(
     Ok(string_args)
 }
 
-fn resolve_aliases(
+type AliasMap = HashMap<String, Vec<String>>;
+
+// NOTE: logging doesn't work in this function because we don't enable it until
+// after expanding arguments.
+fn expand_aliases(
     ui: &Ui,
     config: &StackedConfig,
     app: &Command,
     mut string_args: Vec<String>,
-) -> Result<Vec<String>, CommandError> {
+) -> Result<(Vec<String>, AliasMap), CommandError> {
     let defined_aliases: HashSet<_> = config.table_keys("aliases").collect();
-    let mut resolved_aliases = HashSet::new();
+    let mut expanded_aliases = HashSet::new();
     let mut real_commands = HashSet::new();
+
     for command in app.get_subcommands() {
         real_commands.insert(command.get_name());
-        for alias in command.get_all_aliases() {
-            real_commands.insert(alias);
-        }
     }
-    for alias in defined_aliases.intersection(&real_commands).sorted() {
-        writeln!(
-            ui.warning_default(),
-            "Cannot define an alias that overrides the built-in command '{alias}'"
-        )?;
+
+    let mut resolved_alias_map = HashMap::new();
+
+    for alias_name in &defined_aliases {
+        if real_commands.contains(alias_name) {
+            writeln!(
+                ui.warning_default(),
+                "Cannot define an alias that overrides the built-in command '{alias_name}'"
+            )?;
+            continue;
+        }
+
+        let alias_definition: Vec<String> = config.get(["aliases", alias_name])?;
+        resolved_alias_map.insert(alias_name.to_string(), alias_definition);
     }
 
     loop {
         let app_clone = app.clone().allow_external_subcommands(true);
         let matches = app_clone.try_get_matches_from(&string_args).ok();
         if let Some((command_name, submatches)) = matches.as_ref().and_then(|m| m.subcommand()) {
-            if !real_commands.contains(command_name) {
+            if !real_commands.contains(command_name) && app.find_subcommand(command_name).is_none()
+            {
                 let alias_name = command_name.to_string();
                 let alias_args = submatches
                     .get_many::<OsString>("")
                     .unwrap_or_default()
                     .map(|arg| arg.to_str().unwrap().to_string())
                     .collect_vec();
-                if resolved_aliases.contains(&*alias_name) {
+                if expanded_aliases.contains(&alias_name) {
                     return Err(user_error(format!(
                         "Recursive alias definition involving `{alias_name}`"
                     )));
                 }
-                if let Some(&alias_name) = defined_aliases.get(&*alias_name) {
-                    let alias_definition: Vec<String> = config.get(["aliases", alias_name])?;
+                if let Some(alias_definition) = resolved_alias_map.get(&alias_name) {
                     assert!(string_args.ends_with(&alias_args));
                     string_args.truncate(string_args.len() - 1 - alias_args.len());
-                    string_args.extend(alias_definition);
+                    string_args.extend(alias_definition.clone());
                     string_args.extend_from_slice(&alias_args);
-                    resolved_aliases.insert(alias_name);
+                    expanded_aliases.insert(alias_name.clone());
                     continue;
                 } else {
                     // Not a real command and not an alias, so return what we've resolved so far
-                    return Ok(string_args);
+                    break;
                 }
             }
         }
         // No more alias commands, or hit unknown option
-        return Ok(string_args);
+        break;
+    }
+
+    Ok((string_args, resolved_alias_map))
+}
+
+fn add_alias_help(app: &mut Command, mut aliases: AliasMap) {
+    let render_definition = |def: &[String]| match shlex::try_join(def.iter().map(|s| &**s)) {
+        Ok(s) => format!("Alias for \"{s}\""),
+        Err(_) => format!("Alias for {def:?}"),
+    };
+
+    // Add each alias to `Command` so it shows up in help
+    // Aliases may be defined in terms of other aliases, and it's allowed for them
+    // to be defined in any order in the TOML config. Repeat this algorithm
+    // until we no longer make progress.
+    let mut progress;
+    let mut try_again_later = HashMap::new();
+    loop {
+        progress = false;
+        // Sort by alias name to ensure deterministic order in help output
+        for (alias_name, alias_definition) in aliases.drain().sorted_by(|a, b| a.0.cmp(&b.0)) {
+            // Find the innermost subcommand so we can use its help.
+            let mut subcmd = &mut *app;
+            let mut depth = 0;
+            for arg in &alias_definition {
+                if subcmd.find_subcommand_mut(arg).is_some() {
+                    // hack: without -Zpolonius, the borrow checker thinks the command in the if
+                    // condition isn't assignable
+                    subcmd = subcmd.find_subcommand_mut(arg).unwrap();
+                    depth += 1;
+                } else {
+                    break;
+                }
+            }
+
+            if depth == 0 {
+                // We never found a valid subcommand. Skip this iteration; maybe it's an alias
+                // to another alias.
+                try_again_later.insert(alias_name, alias_definition);
+                continue;
+            };
+            progress = true;
+
+            if depth == 1 && alias_definition.len() == 1 {
+                // if this definition has no arguments, we can add it as a `visible_alias`,
+                // which renders nicer. note that this only works for the root
+                // command; for some reason, `visible_alias` does not seem to propagate from
+                // subcommands to the root :(
+                *subcmd = subcmd.clone().visible_alias(alias_name);
+            } else {
+                // have to add a standalone subcmd
+                let help = render_definition(&alias_definition);
+                let subcmd_alias = subcmd
+                    .clone()
+                    .name(alias_name.clone())
+                    // if we leave the built-in aliases, clap doesn't know whether to call the user
+                    // alias or the built-in command
+                    .alias(None)
+                    // TODO: for recursive aliases, it would be nice to show the full args this
+                    // expands to rather than just the immediately next alias
+                    .before_help(&help)
+                    .before_long_help(help);
+                *app = std::mem::take(app).subcommand(subcmd_alias);
+            }
+        }
+        if !progress {
+            break;
+        }
+        aliases.extend(try_again_later.drain());
+    }
+    // We may still have some unhandled aliases. That means there's an alias with
+    // valid toml syntax, but points to a subcommand that doesn't exist. Add
+    // help for that too.
+    for (name, definition) in try_again_later {
+        let help = render_definition(&definition);
+        // TODO: we can't distinguish empty/option-only aliases from aliases without a
+        // subcommand :( This leaves the default "global options" help in case
+        // it does happen to be valid. Perhaps we should do
+        // `app.try_parse_matches` here so we can distinguish the two?
+        let subcmd = Command::new(name).about(help);
+        *app = std::mem::take(app).subcommand(subcmd);
     }
 }
 
@@ -3512,7 +3604,7 @@ fn handle_shell_completion(
                 .chain(std::iter::repeat_n(OsString::new(), pad_len));
 
             // Expand aliases left of the completion index.
-            let mut expanded_args = expand_args(ui, app, padded_args.take(index + 1), config)?;
+            let (mut expanded_args, _) = expand_args(ui, app, padded_args.take(index + 1), config)?;
 
             // Adjust env var to compensate for shift of the completion point in the
             // expanded command line.
@@ -3537,7 +3629,7 @@ fn handle_shell_completion(
             expanded_args.extend(to_string_args(orig_args)?);
             expanded_args
         } else {
-            expand_args(ui, app, orig_args, config)?
+            expand_args(ui, app, orig_args, config)?.0
         };
         args.extend(resolved_aliases.into_iter().map(OsString::from));
     }
@@ -3559,10 +3651,10 @@ pub fn expand_args(
     app: &Command,
     args_os: impl IntoIterator<Item = OsString>,
     config: &StackedConfig,
-) -> Result<Vec<String>, CommandError> {
+) -> Result<(Vec<String>, AliasMap), CommandError> {
     let string_args = to_string_args(args_os)?;
     let string_args = resolve_default_command(ui, config, app, string_args)?;
-    resolve_aliases(ui, config, app, string_args)
+    expand_aliases(ui, config, app, string_args)
 }
 
 fn to_string_args(
@@ -3798,7 +3890,7 @@ impl<'a> CliRunner<'a> {
     }
 
     #[instrument(skip_all)]
-    fn run_internal(self, ui: &mut Ui, mut raw_config: RawConfig) -> Result<(), CommandError> {
+    fn run_internal(mut self, ui: &mut Ui, mut raw_config: RawConfig) -> Result<(), CommandError> {
         // `cwd` is canonicalized for consistency with `Workspace::workspace_root()` and
         // to easily compute relative paths between them.
         let cwd = env::current_dir()
@@ -3836,7 +3928,11 @@ impl<'a> CliRunner<'a> {
             return handle_shell_completion(&Ui::null(), &self.app, &config, &cwd);
         }
 
-        let string_args = expand_args(ui, &self.app, env::args_os(), &config)?;
+        // save this - since `expand_args` modifies app, it won't parse the same when we
+        // process -R
+        let original_app = self.app.clone();
+        let (string_args, aliases) = expand_args(ui, &self.app, env::args_os(), &config)?;
+        add_alias_help(&mut self.app, aliases);
         let (args, config_layers) = parse_early_args(&self.app, &string_args)?;
         if !config_layers.is_empty() {
             raw_config.as_mut().extend_layers(config_layers);
@@ -3846,7 +3942,7 @@ impl<'a> CliRunner<'a> {
         }
 
         if args.has_config_args() {
-            warn_if_args_mismatch(ui, &self.app, &config, &string_args)?;
+            warn_if_args_mismatch(ui, &original_app, &config, &string_args)?;
         }
 
         let (matches, args) = parse_args(&self.app, &string_args)
@@ -3897,7 +3993,7 @@ impl<'a> CliRunner<'a> {
         }
 
         if args.global_args.repository.is_some() {
-            warn_if_args_mismatch(ui, &self.app, &config, &string_args)?;
+            warn_if_args_mismatch(ui, &original_app, &config, &string_args)?;
         }
 
         let settings = UserSettings::from_config(config)?;
@@ -4015,7 +4111,9 @@ fn warn_if_args_mismatch(
     config: &StackedConfig,
     expected_args: &[String],
 ) -> Result<(), CommandError> {
-    let new_string_args = expand_args(ui, app, env::args_os(), config).ok();
+    let new_string_args = expand_args(ui, app, env::args_os(), config)
+        .ok()
+        .map(|(args, _)| args);
     if new_string_args.as_deref() != Some(expected_args) {
         writeln!(
             ui.warning_default(),

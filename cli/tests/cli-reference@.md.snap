@@ -275,6 +275,8 @@ See [`jj help -k bookmarks`] for more information.
 
 **Usage:** `jj bookmark <COMMAND>`
 
+**Command Alias:** `b`
+
 ###### **Subcommands:**
 
 * `create` — Create a new bookmark
@@ -538,6 +540,8 @@ This command is very similar to `jj split`. Differences include:
 
 **Usage:** `jj commit [OPTIONS] [FILESETS]...`
 
+**Command Alias:** `ci`
+
 ###### **Arguments:**
 
 * `<FILESETS>` — Put these paths in the first commit
@@ -730,6 +734,8 @@ Update the change description or other metadata [default alias: desc]
 Starts an editor to let you edit the description of changes. The editor will be $EDITOR, or `pico` if that's not defined (`Notepad` on Windows).
 
 **Usage:** `jj describe [OPTIONS] [REVSETS]...`
+
+**Command Alias:** `desc`
 
 ###### **Arguments:**
 
@@ -2666,6 +2672,8 @@ This includes:
 [Conflicted bookmarks]: https://jj-vcs.github.io/jj/latest/bookmarks/#conflicts
 
 **Usage:** `jj status [FILESETS]...`
+
+**Command Alias:** `st`
 
 ###### **Arguments:**
 

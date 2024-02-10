@@ -114,6 +114,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * A nearly identical string pattern system as revsets is now supported in the
   template language, and is exposed as `string.match(pattern)`.
 
+* `jj help` and `jj util completion` now support aliases.
+
 ### Fixed bugs
 
 * `jj git clone` now correctly fetches all tags, unless `--fetch-tags` is
