@@ -125,6 +125,7 @@ nav: # This lists all the files that become part of the documentation
       - Other related work: 'related-work.md'
 
   - Technical details:
+      - Core tenets: 'core_tenets.md'
       - Architecture: 'technical/architecture.md'
       - Concurrency: 'technical/concurrency.md'
       - Conflicts: 'technical/conflicts.md'
