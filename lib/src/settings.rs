@@ -257,11 +257,8 @@ impl UserSettings {
     // separate from sign_settings as those two are needed in pretty different
     // places
     pub fn signing_backend(&self) -> Result<Option<String>, ConfigGetError> {
-        let maybe_backend = self.get_string("signing.backend").optional()?;
-        match maybe_backend.as_deref() {
-            Some("none") | None => Ok(None),
-            Some(_) => Ok(maybe_backend),
-        }
+        let backend = self.get_string("signing.backend")?;
+        Ok((backend != "none").then_some(backend))
     }
 
     pub fn sign_settings(&self) -> SignSettings {

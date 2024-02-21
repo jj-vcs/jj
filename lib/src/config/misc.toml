@@ -11,6 +11,17 @@ abandon-unreachable-commits = true
 # hostname = <host>
 # username = <user>
 
+[signing]
+backend = "none"
+
+[signing.backends.gpg]
+allow-expired-keys = false
+program = "gpg"
+
+[signing.backends.ssh]
+# allowed-signers = <unknown>
+program = "ssh-keygen"
+
 [user]
 email = ""
 name = ""
