@@ -77,7 +77,7 @@
         [
           openssl
           libgit2
-          libssh2
+          openssh
         ]
         ++ lib.optionals stdenv.isDarwin [
           darwin.apple_sdk.frameworks.Security
@@ -95,7 +95,6 @@
       ];
 
       env = {
-        LIBSSH2_SYS_USE_PKG_CONFIG = "1";
         RUST_BACKTRACE = 1;
       };
     in {
