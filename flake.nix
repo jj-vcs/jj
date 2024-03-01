@@ -118,6 +118,9 @@
           ];
 
           cargoLock.lockFile = ./Cargo.lock;
+          cargoLock.outputHashes = {
+            "git2-0.20.0" = "sha256-38oCCouFCwmfaORKMHKsKslaf7xcqSsrBOFWX9/hwIw=";
+          };
           nativeBuildInputs = nativeBuildInputs ++ [pkgs.installShellFiles];
           inherit buildInputs nativeCheckInputs;
 
