@@ -558,21 +558,7 @@ fn commit_from_git_without_root_parent(
         .and_then(to_forward_hex)
         .and_then(|change_id_hex| ChangeId::try_from_hex(change_id_hex.as_str()).ok())
         .filter(|val| val.as_bytes().len() == CHANGE_ID_LENGTH)
-        // Otherwise, we reverse the bits of the commit id to create the change id.
-        // We don't want to use the first bytes unmodified because then it would be
-        // ambiguous if a given hash prefix refers to the commit id or the change id.
-        // It would have been enough to pick the last 16 bytes instead of the
-        // leading 16 bytes to address that. We also reverse the bits to make it
-        // less likely that users depend on any relationship between the two ids.
-        .unwrap_or_else(|| {
-            ChangeId::new(
-                id.as_bytes()[4..HASH_LENGTH]
-                    .iter()
-                    .rev()
-                    .map(|b| b.reverse_bits())
-                    .collect(),
-            )
-        });
+        .unwrap_or_else(|| change_id_from_git_commit_id(id));
 
     // shallow commits don't have parents their parents actually fetched, so we
     // discard them here
@@ -635,6 +621,21 @@ fn commit_from_git_without_root_parent(
         committer,
         secure_sig,
     })
+}
+
+fn change_id_from_git_commit_id(id: &CommitId) -> ChangeId {
+    // We reverse the bits of the commit id to create the change id. We don't
+    // want to use the first bytes unmodified because then it would be ambiguous
+    // if a given hash prefix refers to the commit id or the change id. It would
+    // have been enough to pick the last 16 bytes instead of the leading 16
+    // bytes to address that. We also reverse the bits to make it less likely
+    // that users depend on any relationship between the two ids.
+    let bytes = id.as_bytes()[4..HASH_LENGTH]
+        .iter()
+        .rev()
+        .map(|b| b.reverse_bits())
+        .collect();
+    ChangeId::new(bytes)
 }
 
 const EMPTY_STRING_PLACEHOLDER: &str = "JJ_EMPTY_STRING";
