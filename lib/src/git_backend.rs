@@ -35,9 +35,9 @@ use std::sync::MutexGuard;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
+use bstr::BStr;
 use futures::stream::BoxStream;
 use gix::bstr::BString;
-use gix::objs::CommitRef;
 use gix::objs::CommitRefIter;
 use gix::objs::WriteTo as _;
 use itertools::Itertools as _;
@@ -516,28 +516,23 @@ fn gix_open_opts_from_settings(settings: &UserSettings) -> gix::open::Options {
         .strict_config(true)
 }
 
-/// Reads the `jj:trees` header from the commit.
-fn root_tree_from_header(git_commit: &CommitRef) -> Result<Option<MergedTreeId>, ()> {
-    for (key, value) in &git_commit.extra_headers {
-        if *key == JJ_TREES_COMMIT_HEADER {
-            let mut tree_ids = SmallVec::new();
-            for hex in str::from_utf8(value.as_ref()).or(Err(()))?.split(' ') {
-                let tree_id = TreeId::try_from_hex(hex).or(Err(()))?;
-                if tree_id.as_bytes().len() != HASH_LENGTH {
-                    return Err(());
-                }
-                tree_ids.push(tree_id);
-            }
-            // It is invalid to use `jj:trees` with a non-conflicted tree. If this were
-            // allowed, it would be possible to construct a commit which appears to have
-            // different contents depending on whether it is viewed using `jj` or `git`.
-            if tree_ids.len() == 1 || tree_ids.len() % 2 == 0 {
-                return Err(());
-            }
-            return Ok(Some(MergedTreeId::Merge(Merge::from_vec(tree_ids))));
+/// Parses the `jj:trees` header value.
+fn root_tree_from_git_extra_header(value: &BStr) -> Result<MergedTreeId, ()> {
+    let mut tree_ids = SmallVec::new();
+    for hex in str::from_utf8(value.as_ref()).or(Err(()))?.split(' ') {
+        let tree_id = TreeId::try_from_hex(hex).or(Err(()))?;
+        if tree_id.as_bytes().len() != HASH_LENGTH {
+            return Err(());
         }
+        tree_ids.push(tree_id);
     }
-    Ok(None)
+    // It is invalid to use `jj:trees` with a non-conflicted tree. If this were
+    // allowed, it would be possible to construct a commit which appears to have
+    // different contents depending on whether it is viewed using `jj` or `git`.
+    if tree_ids.len() == 1 || tree_ids.len() % 2 == 0 {
+        return Err(());
+    }
+    Ok(MergedTreeId::Merge(Merge::from_vec(tree_ids)))
 }
 
 fn commit_from_git_without_root_parent(
@@ -571,18 +566,22 @@ fn commit_from_git_without_root_parent(
             .map(|oid| CommitId::from_bytes(oid.as_bytes()))
             .collect_vec()
     };
-    let tree_id = TreeId::from_bytes(commit.tree().as_bytes());
     // If this commit is a conflict, we'll update the root tree later, when we read
     // the extra metadata.
-    let root_tree = root_tree_from_header(&commit)
-        .map_err(|()| to_read_object_err("Invalid jj:trees header", id))?;
-    let root_tree = root_tree.unwrap_or_else(|| {
-        if uses_tree_conflict_format {
-            MergedTreeId::resolved(tree_id)
-        } else {
-            MergedTreeId::Legacy(tree_id)
-        }
-    });
+    let root_tree = commit
+        .extra_headers()
+        .find(JJ_TREES_COMMIT_HEADER)
+        .map(root_tree_from_git_extra_header)
+        .transpose()
+        .map_err(|()| to_read_object_err("Invalid jj:trees header", id))?
+        .unwrap_or_else(|| {
+            let tree_id = TreeId::from_bytes(commit.tree().as_bytes());
+            if uses_tree_conflict_format {
+                MergedTreeId::resolved(tree_id)
+            } else {
+                MergedTreeId::Legacy(tree_id)
+            }
+        });
     // Use lossy conversion as commit message with "mojibake" is still better than
     // nothing.
     // TODO: what should we do with commit.encoding?
