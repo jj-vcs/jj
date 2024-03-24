@@ -166,6 +166,7 @@ use crate::diff_util::DiffFormatArgs;
 use crate::diff_util::DiffRenderer;
 use crate::formatter::FormatRecorder;
 use crate::formatter::Formatter;
+use crate::formatter::FormatterExt as _;
 use crate::merge_tools::DiffEditor;
 use crate::merge_tools::MergeEditor;
 use crate::merge_tools::MergeToolConfigError;

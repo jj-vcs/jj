@@ -40,6 +40,7 @@ use crate::command_error::internal_error;
 use crate::command_error::user_error_with_hint;
 use crate::command_error::user_error_with_message;
 use crate::commands::git::maybe_add_gitignore;
+use crate::formatter::FormatterExt as _;
 use crate::git_util::is_colocated_git_workspace;
 use crate::git_util::print_git_export_stats;
 use crate::git_util::print_git_import_stats;

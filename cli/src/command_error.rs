@@ -70,6 +70,7 @@ use crate::description_util::TextEditError;
 use crate::diff_util::DiffRenderError;
 use crate::formatter::FormatRecorder;
 use crate::formatter::Formatter;
+use crate::formatter::FormatterExt as _;
 use crate::merge_tools::ConflictResolveError;
 use crate::merge_tools::DiffEditError;
 use crate::merge_tools::MergeToolConfigError;

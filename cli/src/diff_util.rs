@@ -83,6 +83,7 @@ use crate::command_error::cli_error;
 use crate::commit_templater;
 use crate::config::CommandNameAndArgs;
 use crate::formatter::Formatter;
+use crate::formatter::FormatterExt as _;
 use crate::merge_tools;
 use crate::merge_tools::DiffGenerateError;
 use crate::merge_tools::DiffToolMode;

@@ -29,6 +29,7 @@ use crate::cli_util::print_snapshot_stats;
 use crate::command_error::CommandError;
 use crate::diff_util::DiffFormat;
 use crate::diff_util::get_copy_records;
+use crate::formatter::FormatterExt as _;
 use crate::ui::Ui;
 
 /// Show high-level repo status [default alias: st]

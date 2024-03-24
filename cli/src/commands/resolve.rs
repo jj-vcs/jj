@@ -24,6 +24,7 @@ use crate::cli_util::print_conflicted_paths;
 use crate::command_error::CommandError;
 use crate::command_error::cli_error;
 use crate::complete;
+use crate::formatter::FormatterExt as _;
 use crate::ui::Ui;
 
 /// Resolve conflicted files with an external merge tool

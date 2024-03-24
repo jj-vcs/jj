@@ -39,6 +39,7 @@ use tracing::instrument;
 use crate::command_error::CommandError;
 use crate::config::CommandNameAndArgs;
 use crate::formatter::Formatter;
+use crate::formatter::FormatterExt as _;
 use crate::formatter::FormatterFactory;
 use crate::formatter::HeadingLabeledWriter;
 use crate::formatter::LabeledWriter;
@@ -507,7 +508,7 @@ impl Ui {
         let formatter = self
             .status_formatter()
             .unwrap_or_else(|| Box::new(PlainTextFormatter::new(io::sink())));
-        LabeledWriter::new(formatter, "hint")
+        formatter.into_labeled("hint")
     }
 
     /// Writer to print hint with the given heading.
@@ -527,7 +528,7 @@ impl Ui {
 
     /// Writer to print warning without the "Warning: " heading.
     pub fn warning_no_heading(&self) -> LabeledWriter<Box<dyn Formatter + '_>, &'static str> {
-        LabeledWriter::new(self.stderr_formatter(), "warning")
+        self.stderr_formatter().into_labeled("warning")
     }
 
     /// Writer to print warning with the given heading.
@@ -540,7 +541,7 @@ impl Ui {
 
     /// Writer to print error without the "Error: " heading.
     pub fn error_no_heading(&self) -> LabeledWriter<Box<dyn Formatter + '_>, &'static str> {
-        LabeledWriter::new(self.stderr_formatter(), "error")
+        self.stderr_formatter().into_labeled("error")
     }
 
     /// Writer to print error with the given heading.

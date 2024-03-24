@@ -73,14 +73,23 @@ impl<T: Formatter + ?Sized> Formatter for Box<T> {
     }
 }
 
-impl dyn Formatter + '_ {
-    pub fn labeled<S: AsRef<str>>(&mut self, label: S) -> LabeledWriter<&mut Self, S> {
-        LabeledWriter {
-            formatter: self,
-            label,
-        }
+/// [`Formatter`] adapters.
+pub trait FormatterExt: Formatter {
+    fn labeled<S: AsRef<str>>(&mut self, label: S) -> LabeledWriter<&mut Self, S> {
+        LabeledWriter::new(self, label)
     }
 
+    fn into_labeled<S: AsRef<str>>(self, label: S) -> LabeledWriter<Self, S>
+    where
+        Self: Sized,
+    {
+        LabeledWriter::new(self, label)
+    }
+}
+
+impl<T: Formatter + ?Sized> FormatterExt for T {}
+
+impl dyn Formatter + '_ {
     pub fn with_label<E>(
         &mut self,
         label: &str,
@@ -1381,16 +1390,9 @@ mod tests {
         "#,
         );
         let mut output: Vec<u8> = vec![];
-        let mut formatter: Box<dyn Formatter> =
-            Box::new(ColorFormatter::for_config(&mut output, &config, false).unwrap());
-        formatter
-            .as_mut()
-            .labeled("inner")
-            .with_heading("Should be noop: ");
-        let mut writer = formatter
-            .as_mut()
-            .labeled("inner")
-            .with_heading("Heading: ");
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
+        formatter.labeled("inner").with_heading("Should be noop: ");
+        let mut writer = formatter.labeled("inner").with_heading("Heading: ");
         write!(writer, "Message").unwrap();
         writeln!(writer, " continues").unwrap();
         drop(formatter);
@@ -1403,16 +1405,12 @@ mod tests {
     #[test]
     fn test_heading_labeled_writer_empty_string() {
         let mut output: Vec<u8> = vec![];
-        let mut formatter: Box<dyn Formatter> = Box::new(PlainTextFormatter::new(&mut output));
-        let mut writer = formatter
-            .as_mut()
-            .labeled("inner")
-            .with_heading("Heading: ");
+        let mut formatter = PlainTextFormatter::new(&mut output);
+        let mut writer = formatter.labeled("inner").with_heading("Heading: ");
         // write_fmt() is called even if the format string is empty. I don't
         // know if that's guaranteed, but let's record the current behavior.
         write!(writer, "").unwrap();
         write!(writer, "").unwrap();
-        drop(formatter);
         insta::assert_snapshot!(to_snapshot_string(output), @"Heading: [EOF]");
     }
 

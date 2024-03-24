@@ -32,6 +32,7 @@ use jj_lib::op_store::TimestampRange;
 
 use crate::formatter::FormatRecorder;
 use crate::formatter::Formatter;
+use crate::formatter::FormatterExt as _;
 use crate::formatter::LabeledWriter;
 use crate::formatter::PlainTextFormatter;
 use crate::text_util;

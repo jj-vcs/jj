@@ -44,6 +44,7 @@ use crate::diff_util::DiffFormatArgs;
 use crate::diff_util::DiffRenderer;
 use crate::diff_util::diff_formats_for_log;
 use crate::formatter::Formatter;
+use crate::formatter::FormatterExt as _;
 use crate::graphlog::GraphStyle;
 use crate::graphlog::get_graphlog;
 use crate::templater::TemplateRenderer;
