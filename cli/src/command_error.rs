@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::error;
+use std::error::Error as _;
 use std::io;
 use std::io::Write as _;
 use std::iter;
@@ -952,7 +953,7 @@ fn print_error_sources(ui: &Ui, source: Option<&dyn error::Error>) -> io::Result
                 writeln!(formatter, "{err}")?;
             } else {
                 writeln!(formatter.labeled("heading"), "Caused by:")?;
-                for (i, err) in iter::successors(Some(err), |err| err.source()).enumerate() {
+                for (i, err) in iter::successors(Some(err), |&err| err.source()).enumerate() {
                     write!(formatter.labeled("heading"), "{}: ", i + 1)?;
                     writeln!(formatter, "{err}")?;
                 }
@@ -1006,6 +1007,8 @@ fn handle_clap_error(ui: &mut Ui, err: &clap::Error, hints: &[ErrorHint]) -> io:
         _ => {}
     }
     write!(ui.stderr(), "{clap_str}")?;
+    // Skip the first source error, which should be printed inline.
+    print_error_sources(ui, err.source().and_then(|err| err.source()))?;
     print_error_hints(ui, hints)?;
     Ok(ExitCode::from(2))
 }
@@ -1018,7 +1021,7 @@ pub fn print_parse_diagnostics<T: error::Error>(
 ) -> io::Result<()> {
     for diag in diagnostics {
         writeln!(ui.warning_default(), "{context_message}")?;
-        for err in iter::successors(Some(diag as &dyn error::Error), |err| err.source()) {
+        for err in iter::successors(Some(diag as &dyn error::Error), |&err| err.source()) {
             writeln!(ui.stderr(), "{err}")?;
         }
         // If we add support for multiple error diagnostics, we might have to do
