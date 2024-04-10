@@ -320,9 +320,9 @@ pub(crate) fn cmd_log(
             // For users of e.g. Mercurial, where `.` indicates the current commit.
             writeln!(
                 ui.warning_default(),
-                "The argument {only_path:?} is being interpreted as a path, but this is often not \
-                 useful because all non-empty commits touch '.'.  If you meant to show the \
-                 working copy commit, pass -r '@' instead."
+                "The argument {only_path:?} is being interpreted as a fileset expression, but \
+                 this is often not useful because all non-empty commits touch '.'. If you meant \
+                 to show the working copy commit, pass -r '@' instead."
             )?;
         } else if revset.is_empty()
             && workspace_command
@@ -331,8 +331,8 @@ pub(crate) fn cmd_log(
         {
             writeln!(
                 ui.warning_default(),
-                "The argument {only_path:?} is being interpreted as a path. To specify a revset, \
-                 pass -r {only_path:?} instead."
+                "The argument {only_path:?} is being interpreted as a fileset expression. To \
+                 specify a revset, pass -r {only_path:?} instead."
             )?;
         }
     }

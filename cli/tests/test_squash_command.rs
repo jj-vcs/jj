@@ -270,10 +270,10 @@ fn test_squash_partial() {
     // We get a warning if we pass a positional argument that looks like a revset
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["squash", "b"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Warning: The argument "b" is being interpreted as a path. To specify a revset, pass -r "b" instead.
+    insta::assert_snapshot!(stderr, @r#"
+    Warning: The argument "b" is being interpreted as a fileset expression. To specify a revset, pass -r "b" instead.
     Nothing changed.
-    "###);
+    "#);
     insta::assert_snapshot!(stdout, @"");
 }
 

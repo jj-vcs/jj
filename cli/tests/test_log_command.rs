@@ -1031,9 +1031,7 @@ fn test_log_warn_path_might_be_revset() {
     │
     ~
     "###);
-    insta::assert_snapshot!(stderr, @r###"
-    Warning: The argument "." is being interpreted as a path, but this is often not useful because all non-empty commits touch '.'.  If you meant to show the working copy commit, pass -r '@' instead.
-    "###);
+    insta::assert_snapshot!(stderr, @r#"Warning: The argument "." is being interpreted as a fileset expression, but this is often not useful because all non-empty commits touch '.'. If you meant to show the working copy commit, pass -r '@' instead."#);
 
     // ...but checking `jj log .` makes sense in a subdirectory.
     let subdir = repo_path.join("dir");
@@ -1045,16 +1043,12 @@ fn test_log_warn_path_might_be_revset() {
     // Warn for `jj log @` instead of `jj log -r @`.
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["log", "@", "-T", "description"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
-    Warning: The argument "@" is being interpreted as a path. To specify a revset, pass -r "@" instead.
-    "###);
+    insta::assert_snapshot!(stderr, @r#"Warning: The argument "@" is being interpreted as a fileset expression. To specify a revset, pass -r "@" instead."#);
 
     // Warn when there's no path with the provided name.
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["log", "file2", "-T", "description"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
-    Warning: The argument "file2" is being interpreted as a path. To specify a revset, pass -r "file2" instead.
-    "###);
+    insta::assert_snapshot!(stderr, @r#"Warning: The argument "file2" is being interpreted as a fileset expression. To specify a revset, pass -r "file2" instead."#);
 
     // If an explicit revision is provided, then suppress the warning.
     let (stdout, stderr) =

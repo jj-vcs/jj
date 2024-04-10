@@ -210,8 +210,8 @@ pub(crate) fn cmd_squash(
             {
                 writeln!(
                     ui.warning_default(),
-                    "The argument {only_path:?} is being interpreted as a path. To specify a \
-                     revset, pass -r {only_path:?} instead."
+                    "The argument {only_path:?} is being interpreted as a fileset expression. To \
+                     specify a revset, pass -r {only_path:?} instead."
                 )?;
             }
         }
