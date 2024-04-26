@@ -188,6 +188,46 @@ fn test_backout_multiple() {
     "#);
 }
 
+#[test]
+fn test_backout_description_template() {
+    let test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env.add_config(
+        r#"
+        [templates]
+        backout_description = '''
+        separate(" ",
+          "Revert commit",
+          commit_id.short(),
+          '"' ++ description.first_line() ++ '"',
+        )
+        '''
+        "#,
+    );
+    let repo_path = test_env.env_root().join("repo");
+    create_commit(&test_env, &repo_path, "a", &[], &[("a", "a\n")]);
+
+    // Test the setup
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r#"
+    @  2443ea76b0b1 a
+    ◆  000000000000
+    "#);
+    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
+    insta::assert_snapshot!(stdout, @r###"
+    A a
+    "###);
+
+    // Verify that message of backed out commit follows the template
+    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["backout", "-r", "a"]);
+    insta::assert_snapshot!(stdout, @"");
+    insta::assert_snapshot!(stderr, @"");
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r#"
+    ○  1db880a5204e Revert commit 2443ea76b0b1 "a"
+    @  2443ea76b0b1 a
+    ◆  000000000000
+    "#);
+}
+
 fn get_log_output(test_env: &TestEnvironment, cwd: &Path) -> String {
     let template = r#"commit_id.short() ++ " " ++ description"#;
     test_env.jj_cmd_success(cwd, &["log", "-T", template])

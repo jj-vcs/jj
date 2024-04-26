@@ -122,7 +122,7 @@ To get started, see the tutorial at https://jj-vcs.github.io/jj/latest/tutorial/
 
 * `abandon` — Abandon a revision
 * `absorb` — Move changes from a revision into the stack of mutable revisions
-* `backout` — Apply the reverse of a revision on top of another revision
+* `backout` — Apply the reverse of given revisions on top of another revision
 * `bookmark` — Manage bookmarks [default alias: b]
 * `commit` — Update the description and create a new change on top
 * `config` — Manage config options
@@ -259,7 +259,9 @@ The modification made by `jj absorb` can be reviewed by `jj op show -p`.
 
 ## `jj backout`
 
-Apply the reverse of a revision on top of another revision
+Apply the reverse of given revisions on top of another revision
+
+The description of the new revisions can be customized with the `templates.backout_description` config variable.
 
 **Usage:** `jj backout [OPTIONS]`
 
