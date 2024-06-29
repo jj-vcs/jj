@@ -62,6 +62,9 @@ pub struct GitCloneArgs {
     /// Whether or not to colocate the Jujutsu repo with the git repo
     #[arg(long)]
     colocate: bool,
+    /// Disable colocation of the Jujutsu repo with the git repo
+    #[arg(long, conflicts_with = "colocate")]
+    no_colocate: bool,
     /// Create a shallow clone of the given depth
     #[arg(long)]
     depth: Option<NonZeroU32>,
@@ -111,13 +114,19 @@ pub fn cmd_git_clone(
     fs::create_dir_all(&wc_path)
         .map_err(|err| user_error_with_message(format!("Failed to create {wc_path_str}"), err))?;
 
+    let colocate = if command.settings().git_settings()?.colocate {
+        !args.no_colocate
+    } else {
+        args.colocate
+    };
+
     // Canonicalize because fs::remove_dir_all() doesn't seem to like e.g.
     // `/some/path/.`
     let canonical_wc_path = dunce::canonicalize(&wc_path)
         .map_err(|err| user_error_with_message(format!("Failed to create {wc_path_str}"), err))?;
 
     let clone_result = (|| -> Result<_, CommandError> {
-        let workspace_command = init_workspace(ui, command, &canonical_wc_path, args.colocate)?;
+        let workspace_command = init_workspace(ui, command, &canonical_wc_path, colocate)?;
         let mut workspace_command =
             configure_remote(ui, command, workspace_command, remote_name, &source)?;
         let default_branch = fetch_new_remote(ui, &mut workspace_command, remote_name, args.depth)?;
@@ -126,7 +135,7 @@ pub fn cmd_git_clone(
     if clone_result.is_err() {
         let clean_up_dirs = || -> io::Result<()> {
             fs::remove_dir_all(canonical_wc_path.join(".jj"))?;
-            if args.colocate {
+            if colocate {
                 fs::remove_dir_all(canonical_wc_path.join(".git"))?;
             }
             if !wc_path_existed {
@@ -163,7 +172,7 @@ pub fn cmd_git_clone(
         }
     }
 
-    if args.colocate {
+    if colocate {
         writeln!(
             ui.hint_default(),
             r"Running `git clean -xdf` will remove `.jj/`!",

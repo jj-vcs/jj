@@ -16,6 +16,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj file show` now accepts `-T`/`--template` option to insert file metadata.
 
+* The new configuration option `git.colocate=boolean` controls whether or not
+  Git repositories are colocated by default.
+
+* Both `jj git clone` and `jj git init` now take a `--no-colocate` flag to
+  disable colocation (in case `git.colocate` is set to `true`.)
+
 ### Fixed bugs
 
 ## [0.32.0] - 2025-08-06

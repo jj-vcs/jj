@@ -68,6 +68,10 @@ pub struct GitInitArgs {
     #[arg(long, conflicts_with = "git_repo")]
     colocate: bool,
 
+    /// Disable colocation of the Jujutsu repo with the git repo
+    #[arg(long, conflicts_with = "colocate")]
+    no_colocate: bool,
+
     /// Specifies a path to an **existing** git repository to be
     /// used as the backing git repo for the newly created `jj` repo.
     ///
@@ -98,13 +102,13 @@ pub fn cmd_git_init(
         .and_then(|_| dunce::canonicalize(wc_path))
         .map_err(|e| user_error_with_message("Failed to create workspace", e))?;
 
-    do_init(
-        ui,
-        command,
-        &wc_path,
-        args.colocate,
-        args.git_repo.as_deref(),
-    )?;
+    let colocate = if command.settings().git_settings()?.colocate {
+        !args.no_colocate
+    } else {
+        args.colocate
+    };
+
+    do_init(ui, command, &wc_path, colocate, args.git_repo.as_deref())?;
 
     let relative_wc_path = file_util::relative_path(cwd, &wc_path);
     writeln!(
@@ -112,7 +116,7 @@ pub fn cmd_git_init(
         r#"Initialized repo in "{}""#,
         relative_wc_path.display()
     )?;
-    if args.colocate {
+    if colocate {
         writeln!(
             ui.hint_default(),
             r"Running `git clean -xdf` will remove `.jj/`!",
