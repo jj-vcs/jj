@@ -8,9 +8,6 @@
 There are [pre-built binaries] of the last released version of `jj` for
 Windows, Mac, or Linux (the "musl" version should work on all distributions).
 
-If you'd like to install a prerelease version, you'll need to use one of the
-options below.
-
 #### Cargo Binstall
 
 If you use [`cargo-binstall`][cargo-binstall], you
@@ -24,6 +21,10 @@ cargo binstall --strategies crate-meta-data jj-cli
 Without the `--strategies` option, you may get equivalent binaries that should
 be compiled from the same source code.
 
+!!! note
+
+    If you'd like to install a prerelease version, you'll need to use one of the
+    options below.
 
 ### Linux
 
