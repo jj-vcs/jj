@@ -14,7 +14,7 @@ options below.
 #### Cargo Binstall
 
 If you use [`cargo-binstall`][cargo-binstall], you
-can install the same binaries of the last `jj` release from GitHub as follows:
+can install binaries of the latest `jj` release from GitHub as follows:
 
 ```shell
 # Will put the jj binary for the latest release in ~/.cargo/bin by default
