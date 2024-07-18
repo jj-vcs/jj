@@ -86,7 +86,7 @@ nix profile install 'github:jj-vcs/jj'
 
 #### Homebrew
 
-If you use linuxbrew, you can run:
+If you use Homebrew, you can run:
 
 ```shell
 # Installs the latest release
