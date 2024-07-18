@@ -88,7 +88,7 @@ move a specific file.
 
 Note that all `jj` commands can be run on any commit (not just the working-copy
 commit), but that's left out of the table to keep it simple. For example,
-`jj squash/amend -r <revision>` will move the diff from that revision into its
+`jj squash -r <revision>` will move the diff from that revision into its
 parent.
 
 <table>
@@ -278,13 +278,13 @@ parent.
     </tr>
     <tr>
       <td>Move the diff in the current change into the parent change</td>
-      <td><code>jj squash/amend</code></td>
+      <td><code>jj squash</code></td>
       <td><code>git commit --amend -a</code></td>
     </tr>
     <tr>
       <td>Interactively move part of the diff in the current change into the
           parent change</td>
-      <td><code>jj squash/amend -i</code></td>
+      <td><code>jj squash -i</code></td>
       <td><code>git add -p; git commit --amend</code></td>
     </tr>
     <tr>
@@ -317,7 +317,7 @@ parent.
     </tr>
     <tr>
       <td>Resolve conflicts and continue interrupted operation</td>
-      <td><code>echo resolved > filename; jj squash/amend</code> (operations
+      <td><code>echo resolved > filename; jj squash</code> (operations
           don't get interrupted, so no need to continue)</td>
       <td><code>echo resolved > filename; git add filename; git
           rebase/merge/cherry-pick --continue</code></td>
