@@ -10,10 +10,10 @@ like Git's `core.autocrlf`. This means that line endings will be checked out
 exactly as they are committed and committed exactly as authored. This is true on
 all platforms, but Windows users are most likely to miss CRLF conversion.
 
-If your Git repository expects Windows users to have `core.autocrlf` set to
-`true`, then the files are committed with LF line endings but are checked out
-with CRLF line endings. Jujutsu doesn't understand this and will convert the
-committed line endings to CRLF.
+Your Git repository may expect Windows users to have `core.autocrlf` set to
+`true`, so that files are checked out with line endings converted from LF to CRLF
+but committed with line endings converted from CRLF back to LF. Jujutsu doesn't
+understand this and preserves CRLF line endings in files when committing.
 
 After creating a colocated repository on Windows, you most likely want to set
 `core.autocrlf` to `input`, then `jj abandon` to convert all files on disk to LF
