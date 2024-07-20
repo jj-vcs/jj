@@ -292,8 +292,8 @@ Parent commit      : yyyyyyyy b624cf12 Existing work
 To avoid pushing change _wwwwwwww_ by mistake, use the configuration
 [git.private-commits](config.md#set-of-private-commits):
 
-```
-$ jj config set --user git.private-commits 'description(glob:"private:*")'
+```shell
+jj config set --user git.private-commits 'description(glob:"private:*")'
 ```
 
 ### I accidentally changed files in the wrong commit, how do I move the recent changes into another commit?

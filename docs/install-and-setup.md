@@ -54,13 +54,13 @@ cargo install --locked --bin jj jj-cli
 #### Arch Linux
 You can install the `jujutsu` package from the [official extra repository](https://archlinux.org/packages/extra/x86_64/jujutsu/):
 
-```
+```shell
 pacman -S jujutsu
 ```
 
 Or install from the [AUR repository](https://aur.archlinux.org/packages/jujutsu-git) with an [AUR Helper](https://wiki.archlinux.org/title/AUR_helpers):
 
-```
+```shell
 yay -S jujutsu-git
 ```
 
@@ -100,8 +100,7 @@ Details on how to enable the GURU repository can be found [here](https://wiki.ge
 
 Once you have synced the GURU repository, you can install `dev-vcs/jj` via Portage:
 
-
-```
+```shell
 emerge -av dev-vcs/jj
 ```
 

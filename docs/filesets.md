@@ -65,18 +65,18 @@ You can also specify patterns by using functions.
 
 Show diff excluding `Cargo.lock`.
 
-```
+```shell
 jj diff '~Cargo.lock'
 ```
 
 List files in `src` excluding Rust sources.
 
-```
+```shell
 jj file list 'src ~ glob:"**/*.rs"'
 ```
 
 Split a revision in two, putting `foo` into the second commit.
 
-```
+```shell
 jj split '~foo'
 ```

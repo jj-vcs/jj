@@ -70,7 +70,7 @@ change, resulting in a new commit hash, but the change ID will remain the same.
 
 You can see that our clone operation automatically created a new change:
 
-```
+```shell
 Working copy : kntqzsqt d7439b06 (empty) (no description set)
 ```
 

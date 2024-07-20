@@ -65,7 +65,7 @@ a conflict).
 As an example, imagine that you have a file which contains the following text,
 all in lowercase:
 
-```
+```text
 apple
 grape
 orange
@@ -78,7 +78,7 @@ since Jujutsu can't figure out how to combine these changes. Therefore, Jujutsu
 will materialize the conflict in the working copy using conflict markers, which
 would look like this:
 
-```
+```diff
 <<<<<<< Conflict 1 of 1
 %%%%%%% Changes from base to side #1
  apple
@@ -99,7 +99,7 @@ Therefore, to resolve this conflict, you would apply the diff (changing "grape"
 to "grapefruit") to the snapshot (the side with every line in uppercase),
 editing the file to look like this:
 
-```
+```text
 APPLE
 GRAPEFRUIT
 ORANGE
@@ -123,7 +123,7 @@ If you prefer to just see the contents of each side of the conflict without the
 diff, Jujutsu also supports a "snapshot" style, which can be enabled by setting
 the `ui.conflict-marker-style` config option to "snapshot":
 
-```
+```diff
 <<<<<<< Conflict 1 of 1
 +++++++ Contents of side #1
 apple
@@ -145,7 +145,7 @@ Some tools expect Git-style conflict markers, so Jujutsu also supports [Git's
 conflict markers by setting the `ui.conflict-marker-style` config option to
 "git":
 
-```
+```diff
 <<<<<<< Side #1 (Conflict 1 of 1)
 apple
 grapefruit
@@ -173,7 +173,7 @@ conflict marker. To ensure that it's always unambiguous which lines are conflict
 markers and which are just part of the file contents, `jj` sometimes uses
 conflict markers which are longer than normal:
 
-```
+```diff
 <<<<<<<<<<<<<<< Conflict 1 of 1
 %%%%%%%%%%%%%%% Changes from base to side #1
 -Heading
@@ -203,7 +203,7 @@ character, and one person changed `grape` to `grapefruit`, while another person
 added the missing newline character to make `grape\n`, the resulting conflict
 would look like this:
 
-```
+```diff
 <<<<<<< Conflict 1 of 1
 +++++++ Contents of side #1 (no terminating newline)
 grapefruit

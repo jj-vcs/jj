@@ -539,37 +539,37 @@ xyz` will add `xyz` to the list of `w`'s parents.
 
 Show the parent(s) of the working-copy commit (like `git log -1 HEAD`):
 
-```
+```shell
 jj log -r @-
 ```
 
 Show all ancestors of the working copy (like plain `git log`)
 
-```
+```shell
 jj log -r ::@
 ```
 
 Show commits not on any remote bookmark:
 
-```
+```shell
 jj log -r 'remote_bookmarks()..'
 ```
 
 Show commits not on `origin` (if you have other remotes like `fork`):
 
-```
+```shell
 jj log -r 'remote_bookmarks(remote=origin)..'
 ```
 
 Show the initial commits in the repo (the ones Git calls "root commits"):
 
-```
+```shell
 jj log -r 'root()+'
 ```
 
 Show some important commits (like `git --simplify-by-decoration`):
 
-```
+```shell
 jj log -r 'tags() | bookmarks()'
 ```
 
@@ -577,13 +577,13 @@ Show local commits leading up to the working copy, as well as descendants of
 those commits:
 
 
-```
+```shell
 jj log -r '(remote_bookmarks()..@)::'
 ```
 
 Show commits authored by "martinvonz" and containing the word "reset" in the
 description:
 
-```
+```shell
 jj log -r 'author(martinvonz) & description(reset)'
 ```
