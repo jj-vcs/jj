@@ -6,9 +6,9 @@ users should be aware of.
 ## Line endings are not converted
 
 Jujutsu does not currently honor `.gitattributes` and does not have a setting
-like Git's `core.autocrlf`. This means that line endings will be checked out
-exactly as they are committed and committed exactly as authored. This is true on
-all platforms, but Windows users are most likely to miss CRLF conversion.
+like Git's [`core.autocrlf`][git-autocrlf]. This means that line endings will be checked
+out exactly as they are committed and committed exactly as authored. This is true on all
+platforms, but Windows users are most likely to miss CRLF conversion.
 
 Your Git repository may expect Windows users to have `core.autocrlf` set to
 `true`, so that files are checked out with line endings converted from LF to CRLF
@@ -30,6 +30,8 @@ PS> jj abandon
 This setting ensures Git will check out files with LF line endings without
 converting them to CRLF. You'll want to make sure any tooling you use,
 especially IDEs, preserve LF line endings.
+
+[git-autocrlf]: https://git-scm.com/book/en/v2/Customizing-Git-Git-Configuration#_core_autocrlf
 
 ## Pagination
 
