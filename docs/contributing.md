@@ -398,8 +398,8 @@ back and forth, you can also rebuild the docs for the latest release as follows.
         v1.33.1 latest --push
     ```
 
-7. (Optional) When you are done, you may want to reset the `gh-bookmarks` to the
-same spot as it is in the upstream. If you configured the `upstream` remote,
+7. (Optional) When you are done, you may want to reset the `gh-pages` bookmark to the
+same spot as it is upstream. If you configured the "upstream" remote,
 this can be done with:
 
     ```shell
