@@ -54,6 +54,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Upgraded `scm-record` from v0.4.0 to v0.5.0. See release notes at
   <https://github.com/arxanas/scm-record/releases/tag/v0.5.0>.
 
+* The builtin pager is switched to
+  [streampager](https://github.com/markbt/streampager/). It can handle large
+  inputs better.
+
 ### Deprecations
 
 ### New features
