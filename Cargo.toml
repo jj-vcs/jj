@@ -92,6 +92,7 @@ rpassword = "7.3.1"
 rustix = { version = "0.38.43", features = ["fs"] }
 same-file = "1.0.6"
 sapling-renderdag = "0.1.0"
+sapling-streampager = "0.10.3"
 scm-record = "0.5.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.135"
