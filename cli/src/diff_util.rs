@@ -57,6 +57,7 @@ use jj_lib::files::DiffLineHunkSide;
 use jj_lib::files::DiffLineIterator;
 use jj_lib::files::DiffLineNumber;
 use jj_lib::matchers::Matcher;
+use jj_lib::merge::Merge;
 use jj_lib::merge::MergedTreeValue;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::ObjectId as _;
@@ -850,29 +851,23 @@ fn split_diff_hunks_by_matching_newline<'a, 'b>(
     })
 }
 
-struct FileContent {
+struct FileContent<T> {
     /// false if this file is likely text; true if it is likely binary.
     is_binary: bool,
-    contents: BString,
+    contents: T,
 }
 
-impl FileContent {
-    fn empty() -> Self {
-        Self {
-            is_binary: false,
-            contents: BString::default(),
-        }
-    }
-
+impl FileContent<BString> {
     pub(crate) fn is_empty(&self) -> bool {
         self.contents.is_empty()
     }
 }
 
-fn file_content_for_diff(
+fn file_content_for_diff<T>(
     path: &RepoPath,
     file: &mut MaterializedFileValue,
-) -> BackendResult<FileContent> {
+    map_resolved: impl FnOnce(BString) -> T,
+) -> BackendResult<FileContent<T>> {
     // If this is a binary file, don't show the full contents.
     // Determine whether it's binary by whether the first 8k bytes contain a null
     // character; this is the same heuristic used by git as of writing: https://github.com/git/git/blob/eea0e59ffbed6e33d171ace5be13cde9faa41639/xdiff-interface.c#L192-L198
@@ -884,7 +879,7 @@ fn file_content_for_diff(
     let start = &contents[..PEEK_SIZE.min(contents.len())];
     Ok(FileContent {
         is_binary: start.contains(&b'\0'),
-        contents,
+        contents: map_resolved(contents),
     })
 }
 
@@ -892,22 +887,41 @@ fn diff_content(
     path: &RepoPath,
     value: MaterializedTreeValue,
     conflict_marker_style: ConflictMarkerStyle,
-) -> BackendResult<FileContent> {
+) -> BackendResult<FileContent<BString>> {
+    diff_content_with(
+        path,
+        value,
+        |content| content,
+        |contents| materialize_merge_result_to_bytes(&contents, conflict_marker_style),
+    )
+}
+
+fn diff_content_with<T>(
+    path: &RepoPath,
+    value: MaterializedTreeValue,
+    map_resolved: impl FnOnce(BString) -> T,
+    map_conflict: impl FnOnce(Merge<BString>) -> T,
+) -> BackendResult<FileContent<T>> {
     match value {
-        MaterializedTreeValue::Absent => Ok(FileContent::empty()),
+        MaterializedTreeValue::Absent => Ok(FileContent {
+            is_binary: false,
+            contents: map_resolved(BString::default()),
+        }),
         MaterializedTreeValue::AccessDenied(err) => Ok(FileContent {
             is_binary: false,
-            contents: format!("Access denied: {err}").into(),
+            contents: map_resolved(format!("Access denied: {err}").into()),
         }),
-        MaterializedTreeValue::File(mut file) => file_content_for_diff(path, &mut file),
+        MaterializedTreeValue::File(mut file) => {
+            file_content_for_diff(path, &mut file, map_resolved)
+        }
         MaterializedTreeValue::Symlink { id: _, target } => Ok(FileContent {
             // Unix file paths can't contain null bytes.
             is_binary: false,
-            contents: target.into(),
+            contents: map_resolved(target.into()),
         }),
         MaterializedTreeValue::GitSubmodule(id) => Ok(FileContent {
             is_binary: false,
-            contents: format!("Git submodule checked out at {id}").into(),
+            contents: map_resolved(format!("Git submodule checked out at {id}").into()),
         }),
         // TODO: are we sure this is never binary?
         MaterializedTreeValue::FileConflict {
@@ -916,11 +930,11 @@ fn diff_content(
             executable: _,
         } => Ok(FileContent {
             is_binary: false,
-            contents: materialize_merge_result_to_bytes(&contents, conflict_marker_style),
+            contents: map_conflict(contents),
         }),
         MaterializedTreeValue::OtherConflict { id } => Ok(FileContent {
             is_binary: false,
-            contents: id.describe().into(),
+            contents: map_resolved(id.describe().into()),
         }),
         MaterializedTreeValue::Tree(id) => {
             panic!("Unexpected tree with id {id:?} in diff at path {path:?}");
@@ -1170,7 +1184,7 @@ struct GitDiffPart {
     /// Octal mode string or `None` if the file is absent.
     mode: Option<&'static str>,
     hash: String,
-    content: FileContent,
+    content: FileContent<BString>,
 }
 
 fn git_diff_part(
@@ -1187,7 +1201,10 @@ fn git_diff_part(
             return Ok(GitDiffPart {
                 mode: None,
                 hash: DUMMY_HASH.to_owned(),
-                content: FileContent::empty(),
+                content: FileContent {
+                    is_binary: false,
+                    contents: BString::default(),
+                },
             });
         }
         MaterializedTreeValue::AccessDenied(err) => {
@@ -1199,7 +1216,7 @@ fn git_diff_part(
         MaterializedTreeValue::File(mut file) => {
             mode = if file.executable { "100755" } else { "100644" };
             hash = file.id.hex();
-            content = file_content_for_diff(path, &mut file)?;
+            content = file_content_for_diff(path, &mut file, |content| content)?;
         }
         MaterializedTreeValue::Symlink { id, target } => {
             mode = "120000";
@@ -1214,7 +1231,10 @@ fn git_diff_part(
             // TODO: What should we actually do here?
             mode = "040000";
             hash = id.hex();
-            content = FileContent::empty();
+            content = FileContent {
+                is_binary: false,
+                contents: BString::default(),
+            };
         }
         MaterializedTreeValue::FileConflict {
             id: _,
