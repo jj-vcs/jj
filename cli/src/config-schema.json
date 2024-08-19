@@ -359,6 +359,15 @@
                     "type": "object",
                     "description": "Options for color-words diffs",
                     "properties": {
+                        "conflict": {
+                            "type": "string",
+                            "description": "How conflicts are processed and displayed",
+                            "enum": [
+                                "materialize",
+                                "pair"
+                            ],
+                            "default": "materialize"
+                        },
                         "max-inline-alternation": {
                             "type": "integer",
                             "description": "Maximum number of removed/added word alternation to inline",

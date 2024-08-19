@@ -16,6 +16,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* Color-words diff has gained [an option to compare conflict pairs without
+  materializing](docs/config.md#color-words-diff-options).
+
 * `jj show` patches can now be suppressed with `--no-patch`.
 
 ### Fixed bugs

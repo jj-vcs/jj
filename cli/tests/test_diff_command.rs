@@ -2238,6 +2238,13 @@ fn test_diff_conflict_sides_differ() {
     insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["diff", "--color=always", "-rleft1+right1"]);
     insta::assert_snapshot!(output, @"");
+    let output = work_dir.run_jj([
+        "diff",
+        "--color=always",
+        "--config=diff.color-words.conflict=pair",
+        "-rleft1+right1",
+    ]);
+    insta::assert_snapshot!(output, @"");
 
     let diff_git_materialized = |from: &str, to: &str| {
         work_dir.run_jj([
@@ -2253,6 +2260,16 @@ fn test_diff_conflict_sides_differ() {
             "diff",
             "--color=always",
             "--context=1",
+            &format!("--from={from}"),
+            &format!("--to={to}"),
+        ])
+    };
+    let diff_color_words_conflict_pair = |from: &str, to: &str| {
+        work_dir.run_jj([
+            "diff",
+            "--color=always",
+            "--context=1",
+            "--config=diff.color-words.conflict=pair",
             &format!("--from={from}"),
             &format!("--to={to}"),
         ])
@@ -2296,6 +2313,24 @@ fn test_diff_conflict_sides_differ() {
     [38;5;1m   5[39m [38;5;2m  13[39m: line 5
     [EOF]
     ");
+    insta::assert_snapshot!(diff_color_words_conflict_pair("base", "left1+right1"), @r"
+    [38;5;3mCreated conflict in file:[39m
+    [38;5;1m   1[39m [38;5;2m   1[39m: line 1
+    [38;5;1m   2[39m [38;5;2m   2[39m: line 2
+    [38;5;6m<<<<<<< Created conflict[39m
+    [38;5;6m+++++++ left side #1 to right side #1[39m
+    [38;5;1m   3[39m [38;5;2m   3[39m: [4m[38;5;1mline[38;5;2mleft[24m[39m [4m[38;5;2m3.1[24m[39m
+         [38;5;2m   4[39m: [4m[38;5;2mleft 3.2[24m[39m
+    [38;5;1m   3[39m [38;5;2m   5[39m: [4m[38;5;2mleft 3.[24m[39m3
+    [38;5;6m------- left side #1 to right base #1[39m
+    [38;5;2m   3[39m [38;5;1m   3[39m: line 3
+    [38;5;6m+++++++ left side #1 to right side #2[39m
+    [38;5;1m   3[39m [38;5;2m   3[39m: [4m[38;5;1mline[38;5;2mright[24m[39m 3[4m[38;5;2m.1[24m[39m
+    [38;5;6m>>>>>>> Conflict ends[39m
+    [38;5;1m   4[39m [38;5;2m   6[39m: line 4
+    [38;5;1m   5[39m [38;5;2m   7[39m: line 5
+    [EOF]
+    ");
 
     // Diff from conflict to resolved
     insta::assert_snapshot!(diff_git_materialized("left1+right1", "base"), @r"
@@ -2335,6 +2370,24 @@ fn test_diff_conflict_sides_differ() {
     [38;5;1m  13[39m [38;5;2m   5[39m: line 5
     [EOF]
     ");
+    insta::assert_snapshot!(diff_color_words_conflict_pair("left1+right1", "base"), @r"
+    [38;5;3mResolved conflict in file:[39m
+    [38;5;1m   1[39m [38;5;2m   1[39m: line 1
+    [38;5;1m   2[39m [38;5;2m   2[39m: line 2
+    [38;5;6m<<<<<<< Resolved conflict[39m
+    [38;5;6m+++++++ left side #1 to right side #1[39m
+    [38;5;1m   3[39m [38;5;2m   3[39m: [4m[38;5;1mleft[38;5;2mline[24m[39m [4m[38;5;1m3.1[24m[39m
+    [38;5;1m   4[39m     : [4m[38;5;1mleft 3.2[24m[39m
+    [38;5;1m   5[39m [38;5;2m   3[39m: [4m[38;5;1mleft 3.[24m[39m3
+    [38;5;6m------- left base #1 to right side #1[39m
+    [38;5;2m   3[39m [38;5;1m   3[39m: line 3
+    [38;5;6m+++++++ left side #2 to right side #1[39m
+    [38;5;1m   3[39m [38;5;2m   3[39m: [4m[38;5;1mright[38;5;2mline[24m[39m 3[4m[38;5;1m.1[24m[39m
+    [38;5;6m>>>>>>> Conflict ends[39m
+    [38;5;1m   6[39m [38;5;2m   4[39m: line 4
+    [38;5;1m   7[39m [38;5;2m   5[39m: line 5
+    [EOF]
+    ");
 
     // Diff between conflicts
     insta::assert_snapshot!(diff_git_materialized("left1+right1", "left2+right2"), @r"
@@ -2365,6 +2418,24 @@ fn test_diff_conflict_sides_differ() {
         ...
     [38;5;1m  12[39m [38;5;2m  13[39m: line 4
     [38;5;1m  13[39m     : [4m[38;5;1mline 5[24m[39m
+    [EOF]
+    ");
+    insta::assert_snapshot!(diff_color_words_conflict_pair("left1+right1", "left2+right2"), @r"
+    [38;5;3mModified conflict in file:[39m
+    [38;5;1m   1[39m [38;5;2m   1[39m: [4m[38;5;1mline[38;5;2mleft[24m[39m [4m[38;5;2m1.[24m[39m1
+    [38;5;1m   2[39m [38;5;2m   2[39m: line 2
+    [38;5;6m<<<<<<< Modified conflict[39m
+    [38;5;6m+++++++ left side #1 to right side #1[39m
+        ...
+    [38;5;1m   5[39m [38;5;2m   5[39m: left 3.3
+         [38;5;2m   6[39m: [4m[38;5;2mleft 3.4[24m[39m
+    [38;5;6m------- left base #1 to right base #1[39m
+    [38;5;2m   3[39m [38;5;1m   3[39m: line 3
+    [38;5;6m+++++++ left side #2 to right side #2[39m
+    [38;5;1m   3[39m [38;5;2m   3[39m: right 3.1
+    [38;5;6m>>>>>>> Conflict ends[39m
+    [38;5;1m   6[39m [38;5;2m   7[39m: line 4
+    [38;5;1m   7[39m     : [4m[38;5;1mline 5[24m[39m
     [EOF]
     ");
 }
@@ -2476,6 +2547,16 @@ fn test_diff_conflict_bases_differ() {
             &format!("--to={to}"),
         ])
     };
+    let diff_color_words_conflict_pair = |from: &str, to: &str| {
+        work_dir.run_jj([
+            "diff",
+            "--color=always",
+            "--context=1",
+            "--config=diff.color-words.conflict=pair",
+            &format!("--from={from}"),
+            &format!("--to={to}"),
+        ])
+    };
 
     // Diff between conflicts
     insta::assert_snapshot!(diff_git_materialized("left1+right1", "left2+right2"), @r"
@@ -2503,6 +2584,22 @@ fn test_diff_conflict_bases_differ() {
     [38;5;1m   9[39m [38;5;2m   9[39m: [4m[38;5;2m-line 3.2[24m[39m
     [38;5;1m  10[39m [38;5;2m  10[39m: +right 3.1
         ...
+    [EOF]
+    ");
+    insta::assert_snapshot!(diff_color_words_conflict_pair("left1+right1", "left2+right2"), @r"
+    [38;5;3mModified conflict in file:[39m
+    [38;5;1m   1[39m     : [4m[38;5;1mline 1[24m[39m
+    [38;5;1m   2[39m [38;5;2m   1[39m: line 2
+    [38;5;6m<<<<<<< Modified conflict[39m
+    [38;5;6m+++++++ left side #1 to right side #1[39m
+        ...
+    [38;5;6m------- left base #1 to right base #1[39m
+    [38;5;2m   3[39m [38;5;1m   2[39m: line 3[4m[38;5;1m.1[24m[39m
+    [38;5;2m   3[39m [38;5;1m   3[39m: [4m[38;5;1mline 3.2[24m[39m
+    [38;5;6m+++++++ left side #2 to right side #2[39m
+    [38;5;1m   3[39m [38;5;2m   2[39m: right 3.1
+    [38;5;6m>>>>>>> Conflict ends[39m
+    [38;5;1m   6[39m [38;5;2m   5[39m: line 4
     [EOF]
     ");
 }
@@ -2612,6 +2709,16 @@ fn test_diff_conflict_three_sides() {
             &format!("--to={to}"),
         ])
     };
+    let diff_color_words_conflict_pair = |from: &str, to: &str| {
+        work_dir.run_jj([
+            "diff",
+            "--color=always",
+            "--context=1",
+            "--config=diff.color-words.conflict=pair",
+            &format!("--from={from}"),
+            &format!("--to={to}"),
+        ])
+    };
 
     // Diff between conflicts
     insta::assert_snapshot!(diff_git_materialized("side1+side2", "side1+side2+side3"), @r"
@@ -2644,6 +2751,29 @@ fn test_diff_conflict_three_sides() {
          [38;5;2m  15[39m: [4m[38;5;2m+line 3 c.2[24m[39m
     [38;5;1m  13[39m [38;5;2m  16[39m: >>>>>>> Conflict 1 of 1 ends
     [38;5;1m  14[39m [38;5;2m  17[39m: line 5
+    [EOF]
+    ");
+    insta::assert_snapshot!(diff_color_words_conflict_pair("side1+side2", "side1+side2+side3"), @r"
+    [38;5;3mModified conflict in file:[39m
+    [38;5;1m   1[39m [38;5;2m   1[39m: line 1
+    [38;5;6m<<<<<<< Modified conflict[39m
+    [38;5;6m+++++++ left side #1 to right side #1[39m
+        ...
+    [38;5;6m------- left base #1 to right base #1[39m
+        ...
+    [38;5;6m+++++++ left side #2 to right side #2[39m
+        ...
+    [38;5;6m------- left side #1 to right base #2[39m
+    [38;5;2m   2[39m [38;5;1m   2[39m: line 2 [4m[38;5;2ma.1[24m[39m
+    [38;5;2m   3[39m     : [4m[38;5;2mline 3 a.2[24m[39m
+    [38;5;2m   4[39m [38;5;1m   2[39m: [4m[38;5;2mline 4 [24m[39mbase
+    [38;5;6m+++++++ left side #1 to right side #3[39m
+    [38;5;1m   2[39m [38;5;2m   2[39m: line 2 [4m[38;5;1ma.1[24m[39m
+    [38;5;1m   3[39m     : [4m[38;5;1mline 3 a.2[24m[39m
+    [38;5;1m   4[39m [38;5;2m   2[39m: [4m[38;5;1mline 4 [24m[39mbase
+         [38;5;2m   3[39m: [4m[38;5;2mline 3 c.2[24m[39m
+    [38;5;6m>>>>>>> Conflict ends[39m
+    [38;5;1m   5[39m [38;5;2m   5[39m: line 5
     [EOF]
     ");
 }

@@ -163,4 +163,24 @@ fn test_interdiff_conflicting() {
     +def
     [EOF]
     ");
+
+    let output = work_dir.run_jj([
+        "interdiff",
+        "--config=diff.color-words.conflict=pair",
+        "--color=always",
+        "--from=left",
+        "--to=right",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    [38;5;3mResolved conflict in file:[39m
+    [38;5;6m<<<<<<< Resolved conflict[39m
+    [38;5;6m+++++++ left side #1 to right side #1[39m
+    [38;5;1m   1[39m [38;5;2m   1[39m: [4m[38;5;1mabc[38;5;2mdef[24m[39m
+    [38;5;6m------- left base #1 to right side #1[39m
+    [38;5;2m   1[39m [38;5;1m   1[39m: [4m[38;5;2mfoo[38;5;1mdef[24m[39m
+    [38;5;6m+++++++ left side #2 to right side #1[39m
+    [38;5;1m   1[39m [38;5;2m   1[39m: [4m[38;5;1mbar[38;5;2mdef[24m[39m
+    [38;5;6m>>>>>>> Conflict ends[39m
+    [EOF]
+    ");
 }
