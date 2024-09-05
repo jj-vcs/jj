@@ -85,6 +85,9 @@ use crate::ui::Ui;
 ///    empty, no files will be affected by the tool. If there are multiple
 ///    patterns, the tool is applied only once to each file in the union of the
 ///    patterns.
+///  - `enabled`: Enables or disables the tool. If omitted, the tool is enabled.
+///    This is useful for defining disabled tools in user configuration that can
+///    be enabled in individual repositories with one config setting.
 ///
 /// For example, the following configuration defines how two code formatters
 /// (`clang-format` and `black`) will apply to three different file extensions
@@ -407,6 +410,8 @@ struct ToolConfig {
     command: CommandNameAndArgs,
     /// The matcher that determines if this tool matches a file.
     matcher: Box<dyn Matcher>,
+    /// Whether the tool is enabled
+    enabled: bool,
     // TODO: Store the `name` field here and print it with the command's stderr, to clearly
     // associate any errors/warnings with the tool and its configuration entry.
 }
@@ -424,6 +429,12 @@ struct ToolsConfig {
 struct RawToolConfig {
     command: CommandNameAndArgs,
     patterns: Vec<String>,
+    #[serde(default = "default_tool_enabled")]
+    enabled: bool,
+}
+
+fn default_tool_enabled() -> bool {
+    true
 }
 
 /// Parses the `fix.tools` config table.
@@ -432,7 +443,7 @@ struct RawToolConfig {
 /// not check for issues that might still occur later like missing executables.
 /// This is a place where we could fail earlier in some cases, though.
 fn get_tools_config(ui: &mut Ui, settings: &UserSettings) -> Result<ToolsConfig, CommandError> {
-    let tools: Vec<ToolConfig> = settings
+    let mut tools: Vec<ToolConfig> = settings
         .table_keys("fix.tools")
         // Sort keys early so errors are deterministic.
         .sorted()
@@ -458,11 +469,18 @@ fn get_tools_config(ui: &mut Ui, settings: &UserSettings) -> Result<ToolsConfig,
             Ok(ToolConfig {
                 command: tool.command,
                 matcher: expression.to_matcher(),
+                enabled: tool.enabled,
             })
         })
         .try_collect()?;
     if tools.is_empty() {
-        Err(config_error("No `fix.tools` are configured"))
+        return Err(config_error("No `fix.tools` are configured"));
+    }
+    tools.retain(|t| t.enabled);
+    if tools.is_empty() {
+        Err(config_error(
+            "At least one entry of `fix.tools` must be enabled.".to_string(),
+        ))
     } else {
         Ok(ToolsConfig { tools })
     }

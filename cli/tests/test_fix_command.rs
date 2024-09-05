@@ -145,6 +145,73 @@ fn test_config_multiple_tools_with_same_name() {
 }
 
 #[test]
+fn test_config_disabled_tools() {
+    let test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    let repo_path = test_env.env_root().join("repo");
+    let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
+    assert!(formatter_path.is_file());
+    let formatter = to_toml_value(formatter_path.to_str().unwrap());
+    test_env.add_config(format!(
+        r###"
+        [fix.tools.tool-1]
+        # default is enabled
+        command = [{formatter}, "--uppercase"]
+        patterns = ["foo"]
+
+        [fix.tools.tool-2]
+        enabled = true
+        command = [{formatter}, "--lowercase"]
+        patterns = ["bar"]
+
+        [fix.tools.tool-3]
+        enabled = false
+        command = [{formatter}, "--lowercase"]
+        patterns = ["baz"]
+        "###
+    ));
+
+    std::fs::write(repo_path.join("foo"), "Foo\n").unwrap();
+    std::fs::write(repo_path.join("bar"), "Bar\n").unwrap();
+    std::fs::write(repo_path.join("baz"), "Baz\n").unwrap();
+
+    let (_stdout, _stderr) = test_env.jj_cmd_ok(&repo_path, &["fix"]);
+
+    let content = test_env.jj_cmd_success(&repo_path, &["file", "show", "foo", "-r", "@"]);
+    insta::assert_snapshot!(content, @"FOO\n");
+    let content = test_env.jj_cmd_success(&repo_path, &["file", "show", "bar", "-r", "@"]);
+    insta::assert_snapshot!(content, @"bar\n");
+    let content = test_env.jj_cmd_success(&repo_path, &["file", "show", "baz", "-r", "@"]);
+    insta::assert_snapshot!(content, @"Baz\n");
+}
+
+#[test]
+fn test_config_disabled_tools_warning_when_all_tools_are_disabled() {
+    let test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    let repo_path = test_env.env_root().join("repo");
+    let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
+    assert!(formatter_path.is_file());
+    let formatter = to_toml_value(formatter_path.to_str().unwrap());
+    test_env.add_config(format!(
+        r###"
+        [fix.tools.tool-2]
+        enabled = false
+        command = [{formatter}, "--lowercase"]
+        patterns = ["bar"]
+        "###
+    ));
+
+    std::fs::write(repo_path.join("bar"), "Bar\n").unwrap();
+
+    let stderr = test_env.jj_cmd_failure(&repo_path, &["fix"]);
+    insta::assert_snapshot!(stderr, @r###"
+    Config error: At least one entry of `fix.tools` must be enabled.
+    For help, see https://jj-vcs.github.io/jj/latest/config/.
+    "###);
+}
+
+#[test]
 fn test_config_tables_overlapping_patterns() {
     let test_env = TestEnvironment::default();
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);

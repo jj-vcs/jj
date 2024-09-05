@@ -77,6 +77,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * New `git.sign-on-push` config option to automatically sign commits which are being
   pushed to a Git remote.
 
+* New `fix.tools.TOOL.enabled` config option to enable/disable tools. This is
+  useful for defining disabled tools in user configuration that can be enabled
+  in individual repositories with one config setting.
+
 ### Fixed bugs
 
 * Fixed diff selection by external tools with `jj split`/`commit -i FILESETS`.
