@@ -36,7 +36,6 @@ use jj_lib::repo::Repo;
 use jj_lib::revset;
 use jj_lib::revset::RevsetIteratorExt as _;
 
-use crate::cli_util::short_change_hash;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
 use crate::command_error::CommandError;
@@ -239,7 +238,6 @@ pub fn show_op_diff(
                     write_modified_change_summary(
                         formatter,
                         commit_summary_template,
-                        &change_id,
                         modified_change,
                     )
                 })?;
@@ -273,7 +271,6 @@ pub fn show_op_diff(
                     write_modified_change_summary(
                         formatter,
                         commit_summary_template,
-                        &change_id,
                         modified_change,
                     )
                 })?;
@@ -394,10 +391,8 @@ pub fn show_op_diff(
 fn write_modified_change_summary(
     formatter: &mut dyn Formatter,
     commit_summary_template: &TemplateRenderer<Commit>,
-    change_id: &ChangeId,
     modified_change: &ModifiedChange,
 ) -> Result<(), std::io::Error> {
-    writeln!(formatter, "Change {}", short_change_hash(change_id))?;
     for commit in &modified_change.added_commits {
         formatter.with_label("diff", |formatter| write!(formatter.labeled("added"), "+"))?;
         write!(formatter, " ")?;
