@@ -86,6 +86,9 @@ use crate::ui::Ui;
 ///    empty, no files will be affected by the tool. If there are multiple
 ///    patterns, the tool is applied only once to each file in the union of the
 ///    patterns.
+///  - `enabled`: Enables or disables the tool. If omitted, the tool is enabled.
+///    This is useful for defining disabled tools in user configuration that can
+///    be enabled in individual repositories with one config setting.
 ///
 /// For example, the following configuration defines how two code formatters
 /// (`clang-format` and `black`) will apply to three different file extensions
@@ -440,6 +443,12 @@ struct ToolsConfig {
 struct RawToolConfig {
     command: CommandNameAndArgs,
     patterns: Vec<String>,
+    #[serde(default = "default_tool_enabled")]
+    enabled: bool,
+}
+
+fn default_tool_enabled() -> bool {
+    true
 }
 
 /// Parses the `fix.tools` config table.
@@ -484,9 +493,18 @@ fn get_tools_config(ui: &mut Ui, settings: &UserSettings) -> Result<ToolsConfig,
         .table_keys("fix.tools")
         // Sort keys early so errors are deterministic.
         .sorted()
-        .map(|name| -> Result<ToolConfig, CommandError> {
+        .filter_map(
+            |name| -> Option<Result<(RawToolConfig, &str), CommandError>> {
+                match settings.get::<RawToolConfig>(["fix", "tools", name]) {
+                    Ok(tool) if tool.enabled => Some(Ok((tool, name))),
+                    Ok(_) => None,
+                    Err(err) => Some(Err(err.into())),
+                }
+            },
+        )
+        .map(|r| -> Result<ToolConfig, CommandError> {
+            let (tool, name) = r?;
             let mut diagnostics = FilesetDiagnostics::new();
-            let tool: RawToolConfig = settings.get(["fix", "tools", name])?;
             let expression = FilesetExpression::union_all(
                 tool.patterns
                     .iter()
