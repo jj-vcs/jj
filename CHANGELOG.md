@@ -24,6 +24,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   jj workspace can have its own Git HEAD. Existing repositories are migrated
   automatically.
 
+* New revset function `other_working_copies()` selects working-copy commits
+  in all but the current workspace.
+
 ### Fixed bugs
 
 * The default pager flags now include `-K` (`--quit-on-intr`), so pressing

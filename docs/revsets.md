@@ -453,7 +453,12 @@ revsets (expressions) as arguments.
   which does not evaluate to `none()`. If all revsets evaluate to `none()`, then
   the result of `coalesce` will also be `none()`.
 
-* `working_copies()`: The working copy commits across all the workspaces.
+* `working_copies()`: The working-copy commits across all the workspaces.
+
+* `other_working_copies()`: The working copy-commits across all the workspaces,
+  except for the current workspace. This is similar to `working_copies() ~ @`
+  but includes the current working-copy commit even if it is also being edited
+  in another workspace.
 
 * `at_operation(op, x)`: Evaluates `x` at the specified [operation][]. For
   example, `at_operation(@-, visible_heads())` will return all heads which were

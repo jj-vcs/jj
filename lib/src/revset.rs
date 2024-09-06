@@ -146,6 +146,7 @@ pub const PARENTS_RANGE_FULL: Range<u32> = 0..u32::MAX;
 pub enum RevsetCommitRef {
     WorkingCopy(WorkspaceNameBuf),
     WorkingCopies,
+    OtherWorkingCopies(WorkspaceNameBuf),
     Symbol(String),
     RemoteSymbol(RemoteRefSymbolBuf),
     ChangeId(HexPrefix),
@@ -416,6 +417,10 @@ impl<St: ExpressionState<CommitRef = RevsetCommitRef>> RevsetExpression<St> {
 
     pub fn working_copies() -> Arc<Self> {
         Arc::new(Self::CommitRef(RevsetCommitRef::WorkingCopies))
+    }
+
+    pub fn other_working_copies(name: WorkspaceNameBuf) -> Arc<Self> {
+        Arc::new(Self::CommitRef(RevsetCommitRef::OtherWorkingCopies(name)))
     }
 
     pub fn symbol(value: String) -> Arc<Self> {
@@ -908,6 +913,18 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
     map.insert("working_copies", |_diagnostics, function, _context| {
         function.expect_no_arguments()?;
         Ok(RevsetExpression::working_copies())
+    });
+    map.insert("other_working_copies", |_diagnostics, function, context| {
+        function.expect_no_arguments()?;
+        let ctx = context.workspace.as_ref().ok_or_else(|| {
+            RevsetParseError::with_span(
+                RevsetParseErrorKind::WorkingCopyWithoutWorkspace,
+                function.name_span,
+            )
+        })?;
+        Ok(RevsetExpression::other_working_copies(
+            ctx.workspace_name.to_owned(),
+        ))
     });
     map.insert("heads", |diagnostics, function, context| {
         let [arg] = function.expect_exact_arguments()?;
@@ -2967,6 +2984,15 @@ fn resolve_commit_ref(
         }
         RevsetCommitRef::WorkingCopies => {
             let wc_commits = repo.view().wc_commit_ids().values().cloned().collect_vec();
+            Ok(wc_commits)
+        }
+        RevsetCommitRef::OtherWorkingCopies(target_name) => {
+            let wc_commits = repo
+                .view()
+                .wc_commit_ids()
+                .iter()
+                .filter_map(|(name, commit_id)| (name != target_name).then_some(commit_id.clone()))
+                .collect_vec();
             Ok(wc_commits)
         }
         RevsetCommitRef::ChangeId(prefix) => {
