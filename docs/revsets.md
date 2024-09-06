@@ -637,19 +637,21 @@ for a comprehensive list.
   'trunk()' = 'your-bookmark@your-remote'
   ```
 
-* `builtin_log()`: Resolves to `present(@) |
+* `builtin_log()`: Resolves to `working_copies() |
   ancestors(immutable_heads().., 2) | trunk()`. It is used as the default value
   for `revsets.log`, which is the set of revisions shown by `jj log` if no
   revisions or paths are specified.
 
 * `builtin_immutable_heads()`: Resolves to `trunk() | tags() |
-  untracked_remote_bookmarks()`. It is used as the default definition for
+  untracked_remote_bookmarks() | other_working_copies()`. It is used as the
+  default definition for
   `immutable_heads()` below. It is not recommended to redefine this
   alias. Prefer to redefine `immutable_heads()` instead.
 
 * `immutable_heads()`: The heads of the set of immutable commits (not "heads
   that are immutable"). Resolves to `trunk() | tags() |
-  untracked_remote_bookmarks()` by default. It is actually defined as
+  untracked_remote_bookmarks() | other_working_copies()` by default. It is
+  actually defined as
   `builtin_immutable_heads()`, and can be overridden as required. The full set
   of immutable commits is `::immutable_heads()` (i.e., `immutable()`). See
   [here](config.md#set-of-immutable-commits) for details.

@@ -1058,7 +1058,7 @@ fn test_split_with_multiple_workspaces_same_working_copy() -> TestResult {
         .success();
     // Change the working copy in the second workspace.
     secondary_dir
-        .run_jj(["edit", "-r", "subject(first-commit)"])
+        .run_jj(["edit", "-r", "subject(first-commit)", "--ignore-immutable"])
         .success();
     // Check the working-copy commit in each workspace in the log output. The "@"
     // node in the graph indicates the current workspace's working-copy commit.
@@ -1074,11 +1074,13 @@ fn test_split_with_multiple_workspaces_same_working_copy() -> TestResult {
         &edit_script,
         ["", "next invocation\n", "write\nsecond-commit"].join("\0"),
     )?;
-    main_dir.run_jj(["split", "file2"]).success();
+    main_dir
+        .run_jj(["split", "file2", "--ignore-immutable"])
+        .success();
     // The working copy for both workspaces will be the second split commit.
     insta::assert_snapshot!(get_workspace_log_output(&main_dir), @"
     @  royxmykxtrkr default@ second@ second-commit
-    ○  qpvuntsmwlqt first-commit
+    ◆  qpvuntsmwlqt first-commit
     ◆  zzzzzzzzzzzz
     [EOF]
     ");
@@ -1089,11 +1091,14 @@ fn test_split_with_multiple_workspaces_same_working_copy() -> TestResult {
         &edit_script,
         ["", "next invocation\n", "write\nsecond-commit"].join("\0"),
     )?;
-    main_dir.run_jj(["split", "file2", "--parallel"]).success();
+    main_dir
+        .run_jj(["split", "file2", "--parallel", "--ignore-immutable"])
+        .success();
     insta::assert_snapshot!(get_workspace_log_output(&main_dir), @"
-    @  yostqsxwqrlt default@ second@ second-commit
-    │ ○  qpvuntsmwlqt first-commit
+    @  wmwvqwszqlqy default@
+    │ ○  vruxwmqvtpmx
     ├─╯
+    ◆  qpvuntsmwlqt second@ first-commit
     ◆  zzzzzzzzzzzz
     [EOF]
     ");
@@ -1121,7 +1126,7 @@ fn test_split_with_multiple_workspaces_different_working_copy() -> TestResult {
     // node in the graph indicates the current workspace's working-copy commit.
     insta::assert_snapshot!(get_workspace_log_output(&main_dir), @"
     @  qpvuntsmwlqt default@ first-commit
-    │ ○  pmmvwywvzvvn second@
+    │ ◆  pmmvwywvzvvn second@
     ├─╯
     ◆  zzzzzzzzzzzz
     [EOF]
@@ -1138,7 +1143,7 @@ fn test_split_with_multiple_workspaces_different_working_copy() -> TestResult {
     insta::assert_snapshot!(get_workspace_log_output(&main_dir), @"
     @  mzvwutvlkqwt default@ second-commit
     ○  qpvuntsmwlqt first-commit
-    │ ○  pmmvwywvzvvn second@
+    │ ◆  pmmvwywvzvvn second@
     ├─╯
     ◆  zzzzzzzzzzzz
     [EOF]
@@ -1155,7 +1160,7 @@ fn test_split_with_multiple_workspaces_different_working_copy() -> TestResult {
     @  vruxwmqvtpmx default@ second-commit
     │ ○  qpvuntsmwlqt first-commit
     ├─╯
-    │ ○  pmmvwywvzvvn second@
+    │ ◆  pmmvwywvzvvn second@
     ├─╯
     ◆  zzzzzzzzzzzz
     [EOF]

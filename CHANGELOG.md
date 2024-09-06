@@ -12,6 +12,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+* The working-copy commits of other workspaces are now considered immutable by
+  default. `builtin_immutable_heads()` now includes `other_working_copies()`,
+  and the default `jj log` revset shows all workspaces' working copies. Use
+  `--ignore-immutable` or redefine `immutable_heads()` to rewrite another
+  workspace's checked-out commit.
+
 ### Deprecations
 
 ### New features

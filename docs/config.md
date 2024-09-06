@@ -577,7 +577,8 @@ page](conflicts.md#conflict-markers).
 You can configure the set of immutable commits via
 `revset-aliases."immutable_heads()"`. The default set of immutable heads is
 `builtin_immutable_heads()`, which in turn is defined as `trunk() | tags() |
-untracked_remote_bookmarks()`. For example, to also consider the
+untracked_remote_bookmarks() | other_working_copies()`. For example, to also
+consider the
 `release@origin` bookmark immutable:
 
 ```toml

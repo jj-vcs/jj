@@ -773,7 +773,7 @@
                 "immutable_heads()": {
                     "type": "string",
                     "description": "Revisions to consider immutable. Ancestors of these are also considered immutable. The root commit is always considered immutable.",
-                    "default": "trunk() | tags() | untracked_remote_bookmarks()"
+                    "default": "trunk() | tags() | untracked_remote_bookmarks() | other_working_copies()"
                 }
             },
             "additionalProperties": {

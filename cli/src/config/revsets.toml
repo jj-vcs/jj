@@ -34,11 +34,11 @@ latest(
 
 # The default set of revisions shown by `jj log` if no revisions or paths are
 # specified.
-'builtin_log()' = 'present(@) | ancestors(immutable_heads().., 2) | trunk()'
+'builtin_log()' = 'working_copies() | ancestors(immutable_heads().., 2) | trunk()'
 
 # If immutable_heads() failed to evaluate, many jj commands wouldn't work. Use
 # present(expr) if symbols in expr might not always exist.
-'builtin_immutable_heads()' = 'trunk() | tags() | untracked_remote_bookmarks()'
+'builtin_immutable_heads()' = 'trunk() | tags() | untracked_remote_bookmarks() | other_working_copies()'
 'immutable_heads()' = 'builtin_immutable_heads()'
 'immutable()' = '::(immutable_heads() | root())'
 'mutable()' = '~immutable()'
