@@ -31,6 +31,7 @@ use itertools::Itertools as _;
 use jj_lib::commit::Commit;
 use jj_lib::git;
 use jj_lib::git::FailedRefExportReason;
+use jj_lib::git_backend::GitBackend;
 use jj_lib::git::GitExportStats;
 use jj_lib::git::GitImportOptions;
 use jj_lib::git::GitImportStats;
@@ -61,7 +62,11 @@ use crate::revset_util::parse_remote_auto_track_bookmarks_map;
 use crate::ui::ProgressOutput;
 use crate::ui::Ui;
 
-pub fn is_colocated_git_workspace(workspace: &Workspace, repo: &ReadonlyRepo) -> bool {
+pub fn is_colocated_git_workspace(
+    ui: Option<&Ui>,
+    workspace: &Workspace,
+    repo: &ReadonlyRepo,
+) -> bool {
     let Ok(git_backend) = git::get_git_backend(repo.store()) else {
         return false;
     };
@@ -76,7 +81,74 @@ pub fn is_colocated_git_workspace(workspace: &Workspace, repo: &ReadonlyRepo) ->
     let Ok(dot_git_path) = dunce::canonicalize(workspace.workspace_root().join(".git")) else {
         return false;
     };
-    dunce::canonicalize(git_workdir).ok().as_deref() == dot_git_path.parent()
+    if dunce::canonicalize(git_workdir).ok().as_deref() == dot_git_path.parent() {
+        return true;
+    }
+
+    // At this point we're not colocated. If there's a .git, warn the user.
+    if let Some(ui) = ui {
+        warn_about_unexpected_git_in_workspace(ui, workspace, git_backend);
+    }
+
+    false
+}
+
+/// Warns the user when a .git directory/file/symlink exists but the workspace
+/// is not colocated.
+fn warn_about_unexpected_git_in_workspace(
+    ui: &Ui,
+    workspace: &Workspace,
+    git_backend: &GitBackend,
+) {
+    let workspace_dot_git = workspace.workspace_root().join(".git");
+    let Ok(meta) = workspace_dot_git.symlink_metadata() else {
+        return;
+    };
+    // Check symlink first as is_dir follows symlinks
+    if meta.is_symlink() {
+        let target = std::fs::read_link(&workspace_dot_git)
+            .unwrap_or_else(|_| Path::new("<could not read link>").to_path_buf());
+        writeln!(
+            ui.warning_default(),
+            "Workspace has a .git symlink (pointing to {}), that isn't pointing to JJ's git \
+             repo",
+            target.display()
+        )
+        .ok();
+    } else if meta.is_dir() {
+        writeln!(
+            ui.warning_default(),
+            "Workspace has a .git directory that is not managed by JJ"
+        )
+        .ok();
+    } else if let Ok(_worktree_repo) = gix::open(workspace.workspace_root()) {
+        writeln!(
+            ui.warning_default(),
+            "Workspace is also a Git worktree that is not managed by JJ",
+        )
+        .ok();
+    } else {
+        let gitfile_contents = std::fs::read_to_string(&workspace_dot_git)
+            .unwrap_or_else(|_| "<could not read .git file>".to_string());
+        let gitdir = gitfile_contents
+            .strip_prefix("gitdir: ")
+            .unwrap_or(&gitfile_contents)
+            .trim();
+        writeln!(ui.warning_default(), "Workspace is a broken Git worktree").ok();
+        writeln!(ui.warning_no_heading(), "The .git file points at: {gitdir}").ok();
+        // work_dir may return Some even if colocated = false, because we may be in some
+        // secondary workspace, and we may have just opened the colocated primary
+        // workspace with a .git directory.
+        let git_repo = git_backend.git_repo();
+        let repair_dir = git_repo.work_dir().unwrap_or(git_repo.common_dir());
+        writeln!(
+            ui.hint_default(),
+            "If this is meant to be a colocated JJ workspace, you may like to try `git -C {} \
+             worktree repair`",
+            repair_dir.display()
+        )
+        .ok();
+    }
 }
 
 /// Parses user-specified remote URL or path to absolute form.

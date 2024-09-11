@@ -900,6 +900,7 @@ fn test_git_init_external_but_git_dir_exists() {
     let output = work_dir.run_jj(["git", "init", "--git-repo", git_repo_path.to_str().unwrap()]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
+    Warning: Workspace has a .git directory that is not managed by JJ
     Initialized repo in "."
     Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
@@ -907,6 +908,9 @@ fn test_git_init_external_but_git_dir_exists() {
 
     // The local ".git" repository is unrelated, so no commits should be imported
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    ------- stderr -------
+    Warning: Workspace has a .git directory that is not managed by JJ
+    ------- stdout -------
     @  e8849ae12c70
     ◆  000000000000
     [EOF]
@@ -915,12 +919,18 @@ fn test_git_init_external_but_git_dir_exists() {
     // Check that Git HEAD is not set because this isn't a colocated workspace
     work_dir.run_jj(["new"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    ------- stderr -------
+    Warning: Workspace has a .git directory that is not managed by JJ
+    ------- stdout -------
     @  1c1c95df80e5
     ○  e8849ae12c70
     ◆  000000000000
     [EOF]
     ");
     insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    ------- stderr -------
+    Warning: Workspace has a .git directory that is not managed by JJ
+    ------- stdout -------
     Workspace is currently not colocated with Git.
     Last imported/exported Git HEAD: (none)
     [EOF]
