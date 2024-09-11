@@ -188,10 +188,11 @@ impl GitBackend {
     }
 
     fn new(
-        base_repo: gix::ThreadSafeRepository,
+        maybe_colocated: MaybeColocatedGitRepo,
         extra_metadata_store: TableStore,
         git_settings: GitSettings,
     ) -> Self {
+        let base_repo = maybe_colocated.git_repo;
         let repo = base_repo.to_thread_local();
         let root_commit_id = CommitId::from_bytes(repo.object_hash().null_ref().as_bytes());
         let root_change_id = ChangeId::from_bytes(&[0; CHANGE_ID_LENGTH]);
@@ -229,7 +230,12 @@ impl GitBackend {
         .map_err(GitBackendInitError::InitRepository)?;
         let git_settings =
             GitSettings::from_settings(settings).map_err(GitBackendInitError::Config)?;
-        Self::init_with_repo(store_path, git_repo_path, git_repo, git_settings)
+        Self::init_with_repo(
+            store_path,
+            git_repo_path,
+            MaybeColocatedGitRepo { git_repo },
+            git_settings,
+        )
     }
 
     /// Initializes backend by creating a new Git repo at the specified
@@ -259,7 +265,12 @@ impl GitBackend {
         let git_repo_path = workspace_root.join(".git");
         let git_settings =
             GitSettings::from_settings(settings).map_err(GitBackendInitError::Config)?;
-        Self::init_with_repo(store_path, &git_repo_path, git_repo, git_settings)
+        Self::init_with_repo(
+            store_path,
+            &git_repo_path,
+            MaybeColocatedGitRepo { git_repo },
+            git_settings,
+        )
     }
 
     /// Initializes backend with an existing Git repo at the specified path.
@@ -267,6 +278,7 @@ impl GitBackend {
         settings: &UserSettings,
         store_path: &Path,
         git_repo_path: &Path,
+        workspace_root: Option<&Path>,
     ) -> Result<Self, Box<GitBackendInitError>> {
         let canonical_git_repo_path = {
             let path = store_path.join(git_repo_path);
@@ -274,11 +286,11 @@ impl GitBackend {
                 .context(&path)
                 .map_err(GitBackendInitError::Path)?
         };
-        let git_repo = gix::ThreadSafeRepository::open_opts(
-            canonical_git_repo_path,
+        let git_repo = MaybeColocatedGitRepo::open_automatic(
+            &canonical_git_repo_path,
+            workspace_root,
             gix_open_opts_from_settings(settings),
         )
-        .map_err(Box::new)
         .map_err(GitBackendInitError::OpenRepository)?;
         let git_settings =
             GitSettings::from_settings(settings).map_err(GitBackendInitError::Config)?;
@@ -288,7 +300,7 @@ impl GitBackend {
     fn init_with_repo(
         store_path: &Path,
         git_repo_path: &Path,
-        repo: gix::ThreadSafeRepository,
+        repo: MaybeColocatedGitRepo,
         git_settings: GitSettings,
     ) -> Result<Self, Box<GitBackendInitError>> {
         let extra_path = store_path.join("extra");
@@ -314,7 +326,7 @@ impl GitBackend {
             .map_err(GitBackendInitError::Path)?;
         let extra_metadata_store = TableStore::init(
             extra_path,
-            repo.to_thread_local().object_hash().len_in_bytes(),
+            repo.git_repo.to_thread_local().object_hash().len_in_bytes(),
         );
         Ok(Self::new(repo, extra_metadata_store, git_settings))
     }
@@ -322,7 +334,7 @@ impl GitBackend {
     pub fn load(
         settings: &UserSettings,
         store_path: &Path,
-        _workspace_root: Option<&Path>,
+        workspace_root: Option<&Path>,
     ) -> Result<Self, Box<GitBackendLoadError>> {
         let git_repo_path = {
             let target_path = store_path.join("git_target");
@@ -336,15 +348,15 @@ impl GitBackend {
                 .context(&git_repo_path)
                 .map_err(GitBackendLoadError::Path)?
         };
-        let repo = gix::ThreadSafeRepository::open_opts(
-            git_repo_path,
+        let repo = MaybeColocatedGitRepo::open_automatic(
+            &git_repo_path,
+            workspace_root,
             gix_open_opts_from_settings(settings),
         )
-        .map_err(Box::new)
         .map_err(GitBackendLoadError::OpenRepository)?;
         let extra_metadata_store = TableStore::load(
             store_path.join("extra"),
-            repo.to_thread_local().object_hash().len_in_bytes(),
+            repo.git_repo.to_thread_local().object_hash().len_in_bytes(),
         );
         let git_settings =
             GitSettings::from_settings(settings).map_err(GitBackendLoadError::Config)?;
@@ -1647,12 +1659,10 @@ recover.
 /// - **Canonicalization fails**: Assume not colocated (logged at debug level)
 /// - **common_dir mismatch**: Not colocated (`.git` exists but points
 ///   elsewhere)
-#[allow(dead_code)] // Used in the next commit (git: make GitBackend colocation-aware)
 pub(crate) struct MaybeColocatedGitRepo {
     pub git_repo: gix::ThreadSafeRepository,
 }
 
-#[allow(dead_code)] // Used in the next commit (git: make GitBackend colocation-aware)
 impl MaybeColocatedGitRepo {
     /// Opens the Git repository and detects colocation with the workspace.
     ///
@@ -1862,7 +1872,7 @@ mod tests {
         git_repo.find_reference("refs/heads/dummy2")?.delete()?;
         let commit_id2 = CommitId::from_bytes(git_commit_id2.as_bytes());
 
-        let backend = GitBackend::init_external(&settings, store_path, git_repo.path())?;
+        let backend = GitBackend::init_external(&settings, store_path, git_repo.path(), None)?;
 
         // Import the head commit and its ancestors
         backend.import_head_commits([&commit_id2])?;
@@ -1976,7 +1986,7 @@ mod tests {
             [] as [gix::ObjectId; 0],
         )?;
 
-        let backend = GitBackend::init_external(&settings, store_path, git_repo.path())?;
+        let backend = GitBackend::init_external(&settings, store_path, git_repo.path(), None)?;
 
         // read_commit() without import_head_commits() works as of now. This might be
         // changed later.
@@ -2036,7 +2046,7 @@ mod tests {
 
         let git_commit_id = git_repo.write_object(&commit)?;
 
-        let backend = GitBackend::init_external(&settings, store_path, git_repo.path())?;
+        let backend = GitBackend::init_external(&settings, store_path, git_repo.path(), None)?;
 
         let commit = backend
             .read_commit(&CommitId::from_bytes(git_commit_id.as_bytes()))
@@ -2135,7 +2145,7 @@ mod tests {
         let git_repo_path = temp_dir.path().join("git");
         let git_repo = git_init(git_repo_path, object_hash);
 
-        let backend = GitBackend::init_external(&settings, &store_path, git_repo.path())?;
+        let backend = GitBackend::init_external(&settings, &store_path, git_repo.path(), None)?;
         let original_change_id = ChangeId::from_hex("1111eeee1111eeee1111eeee1111eeee");
         let commit = Commit {
             parents: vec![backend.root_commit_id().clone()],
@@ -2160,7 +2170,7 @@ mod tests {
         // initialize a new store without those files, but reuse the same git
         // storage. This change-id must be derived from the git commit header.
         let no_extra_backend =
-            GitBackend::init_external(&settings, &empty_store_path, git_repo.path())?;
+            GitBackend::init_external(&settings, &empty_store_path, git_repo.path(), None)?;
         let no_extra_commit = no_extra_backend
             .read_commit(&initial_commit_id)
             .block_on()?;
@@ -2228,7 +2238,7 @@ mod tests {
         let git_repo_path = temp_dir.path().join("git");
         let git_repo = git_init(&git_repo_path, object_hash);
 
-        let backend = GitBackend::init_external(&settings, store_path, git_repo.path())?;
+        let backend = GitBackend::init_external(&settings, store_path, git_repo.path(), None)?;
         let mut commit = Commit {
             parents: vec![],
             predecessors: vec![],
@@ -2300,7 +2310,7 @@ mod tests {
         let git_repo_path = temp_dir.path().join("git");
         let git_repo = git_init(&git_repo_path, object_hash);
 
-        let backend = GitBackend::init_external(&settings, store_path, git_repo.path())?;
+        let backend = GitBackend::init_external(&settings, store_path, git_repo.path(), None)?;
         let create_tree = |i| {
             let blob_id = git_repo.write_blob(format!("content {i}")).unwrap();
             let mut tree_builder = git_repo.empty_tree().edit().unwrap();
