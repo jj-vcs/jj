@@ -819,18 +819,24 @@ fn test_git_init_colocated_dirty_working_copy() {
 fn test_git_init_external_but_git_dir_exists() {
     let test_env = TestEnvironment::default();
     let git_repo_path = test_env.env_root().join("git-repo");
+<<<<<<< conflict 2 of 7
++++++++ pwnzwmnu d76ac519 "git: make GitBackend colocation-aware" (rebase destination)
     let work_dir = test_env.work_dir("repo");
     git::init(&git_repo_path);
     init_git_repo(work_dir.root(), false);
     let output = work_dir.run_jj(["git", "init", "--git-repo", git_repo_path.to_str().unwrap()]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
+    Warning: Workspace has a .git directory that is not managed by JJ
     Initialized repo in "."
     [EOF]
     "#);
 
     // The local ".git" repository is unrelated, so no commits should be imported
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    ------- stderr -------
+    Warning: Workspace has a .git directory that is not managed by JJ
+    ------- stdout -------
     @  e8849ae12c70
     ◆  000000000000
     [EOF]
@@ -839,12 +845,18 @@ fn test_git_init_external_but_git_dir_exists() {
     // Check that Git HEAD is not set because this isn't a colocated workspace
     work_dir.run_jj(["new"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    ------- stderr -------
+    Warning: Workspace has a .git directory that is not managed by JJ
+    ------- stdout -------
     @  1c1c95df80e5
     ○  e8849ae12c70
     ◆  000000000000
     [EOF]
     ");
     insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    ------- stderr -------
+    Warning: Workspace has a .git directory that is not managed by JJ
+    ------- stdout -------
     Workspace is currently not colocated with Git.
     Last imported/exported Git HEAD: (none)
     [EOF]
