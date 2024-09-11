@@ -101,7 +101,7 @@ fn cmd_git_colocation_status(
     workspace_supports_git_colocation_commands(&workspace_command)?;
 
     let repo = workspace_command.repo();
-    let is_colocated = is_colocated_git_workspace(workspace_command.workspace(), repo);
+    let is_colocated = is_colocated_git_workspace(Some(ui), workspace_command.workspace(), repo);
     let git_head = repo.view().git_head();
 
     if is_colocated {
@@ -154,7 +154,11 @@ fn cmd_git_colocation_enable(
     workspace_supports_git_colocation_commands(&workspace_command)?;
 
     // Then ensure that the workspace is not already colocated before proceeding
-    if is_colocated_git_workspace(workspace_command.workspace(), workspace_command.repo()) {
+    if is_colocated_git_workspace(
+        Some(ui),
+        workspace_command.workspace(),
+        workspace_command.repo(),
+    ) {
         writeln!(ui.status(), "Workspace is already colocated with Git.")?;
         return Ok(());
     }
@@ -220,7 +224,11 @@ fn cmd_git_colocation_disable(
     workspace_supports_git_colocation_commands(&workspace_command)?;
 
     // Then ensure that the repo is colocated before proceeding
-    if !is_colocated_git_workspace(workspace_command.workspace(), workspace_command.repo()) {
+    if !is_colocated_git_workspace(
+        Some(ui),
+        workspace_command.workspace(),
+        workspace_command.repo(),
+    ) {
         writeln!(ui.status(), "Workspace is already not colocated with Git.")?;
         return Ok(());
     }
