@@ -53,22 +53,12 @@ use crate::formatter::FormatterExt as _;
 use crate::ui::ProgressOutput;
 use crate::ui::Ui;
 
-pub fn is_colocated_git_workspace(workspace: &Workspace, repo: &ReadonlyRepo) -> bool {
+pub fn is_colocated_git_workspace(_workspace: &Workspace, repo: &ReadonlyRepo) -> bool {
     let Ok(git_backend) = git::get_git_backend(repo.store()) else {
         return false;
     };
-    let Some(git_workdir) = git_backend.git_workdir() else {
-        return false; // Bare repository
-    };
-    if git_workdir == workspace.workspace_root() {
-        return true;
-    }
-    // Colocated workspace should have ".git" directory, file, or symlink. Compare
-    // its parent as the git_workdir might be resolved from the real ".git" path.
-    let Ok(dot_git_path) = dunce::canonicalize(workspace.workspace_root().join(".git")) else {
-        return false;
-    };
-    dunce::canonicalize(git_workdir).ok().as_deref() == dot_git_path.parent()
+
+    git_backend.is_colocated()
 }
 
 /// Parses user-specified remote URL or path to absolute form.
