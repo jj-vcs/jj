@@ -1252,7 +1252,7 @@ impl WorkspaceCommandHelper {
     }
 
     /// Snapshots the working copy if allowed, and imports Git refs if the
-    /// working copy is collocated with Git.
+    /// working copy is colocated with Git.
     ///
     /// Returns whether a snapshot was taken.
     #[instrument(skip_all)]
