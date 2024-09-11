@@ -822,6 +822,7 @@ fn test_git_init_external_but_git_dir_exists() {
     let output = work_dir.run_jj(["git", "init", "--git-repo", git_repo_path.to_str().unwrap()]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
+    Warning: Workspace has a .git directory that is not managed by JJ
     Initialized repo in "."
     [EOF]
     "#);
@@ -831,6 +832,9 @@ fn test_git_init_external_but_git_dir_exists() {
     @  e8849ae12c70
     ◆  000000000000
     [EOF]
+    ------- stderr -------
+    Warning: Workspace has a .git directory that is not managed by JJ
+    [EOF]
     ");
 
     // Check that Git HEAD is not set because this isn't a colocated workspace
@@ -839,6 +843,9 @@ fn test_git_init_external_but_git_dir_exists() {
     @  1c1c95df80e5
     ○  e8849ae12c70
     ◆  000000000000
+    [EOF]
+    ------- stderr -------
+    Warning: Workspace has a .git directory that is not managed by JJ
     [EOF]
     ");
 }

@@ -1059,7 +1059,7 @@ impl WorkspaceCommandHelper {
         let may_update_working_copy =
             loaded_at_head && !env.command.global_args().ignore_working_copy;
         let working_copy_shared_with_git =
-            crate::git_util::is_colocated_git_workspace(&workspace, &repo);
+            crate::git_util::is_colocated_git_workspace(Some(ui), &workspace, &repo);
 
         let helper = Self {
             workspace,
