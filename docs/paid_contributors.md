@@ -18,7 +18,7 @@ See [contribution docs](contributing.md#code-reviews) for details on this policy
 * steveklabnik
 * thoughtpolice
 
-## Google
+## Alphabet/Google
 
 * 06393993
 * 2079884FDavid
@@ -51,6 +51,7 @@ See [contribution docs](contributing.md#code-reviews) for details on this policy
 * qfel
 * Ralith
 * rdamazio
+* sbarfurth
 * solson
 * spectral54
 * steadmon

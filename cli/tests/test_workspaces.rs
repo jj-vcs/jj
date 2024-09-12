@@ -302,6 +302,30 @@ fn test_workspaces_add_ignore_working_copy() {
     "#);
 }
 
+/// Test that --no-integrate-operation is respected
+#[test]
+fn test_workspaces_add_no_integrate_operation() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+
+    // TODO: maybe better to error out early?
+    let output = main_dir.run_jj([
+        "workspace",
+        "add",
+        "--no-integrate-operation",
+        "../secondary",
+    ]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Created workspace in "../secondary"
+    Error: This command must be able to update the working copy.
+    Hint: Don't use --no-integrate-operation.
+    [EOF]
+    [exit status: 1]
+    "#);
+}
+
 /// Test that --at-op is respected
 #[test]
 fn test_workspaces_add_at_operation() {
