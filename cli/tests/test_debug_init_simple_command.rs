@@ -41,6 +41,17 @@ fn test_init_local() {
 
     let output = test_env.run_jj_in(
         ".",
+        ["debug", "init-simple", "--no-integrate-operation", "repo2"],
+    );
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: --no-integrate-operation is not respected
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let output = test_env.run_jj_in(
+        ".",
         ["debug", "init-simple", "--ignore-working-copy", "repo2"],
     );
     insta::assert_snapshot!(output, @"

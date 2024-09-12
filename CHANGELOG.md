@@ -16,6 +16,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* A new global flag `--no-integrate-operation` lets you run a command without
+  impacting the repo state or the working copy.
+
 ## [0.40.0] - 2026-04-01
 
 ### Release highlights
