@@ -108,6 +108,9 @@ pub fn cmd_git_init(
     command: &CommandHelper,
     args: &GitInitArgs,
 ) -> Result<(), CommandError> {
+    if command.global_args().no_integrate_operation {
+        return Err(cli_error("--no-integrate-operation is not respected"));
+    }
     if command.global_args().ignore_working_copy {
         return Err(cli_error("--ignore-working-copy is not respected"));
     }

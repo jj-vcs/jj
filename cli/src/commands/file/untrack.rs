@@ -109,8 +109,10 @@ Make sure they're ignored, then try again.",
     if working_copy_shared_with_git {
         export_working_copy_changes_to_git(ui, tx.repo_mut(), &wc_tree, &new_commit.tree())?;
     }
-    let repo = tx.commit("untrack paths")?;
-    locked_ws.finish(repo.op_id().clone())?;
+    if command.should_commit_transaction() {
+        let repo = tx.commit("untrack paths")?;
+        locked_ws.finish(repo.op_id().clone())?;
+    }
     print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&wc_tree])?;
     print_snapshot_stats(ui, &stats, workspace_command.env().path_converter())?;
     Ok(())

@@ -227,6 +227,74 @@ fn test_ignore_working_copy() {
 }
 
 #[test]
+fn test_no_integrate_operation() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(test_env.env_root(), &["git", "init", "repo"])
+        .success();
+
+    let repo_path = test_env.env_root().join("repo");
+
+    std::fs::write(repo_path.join("file1"), "initial").unwrap();
+    test_env
+        .run_jj_in(&repo_path, &["commit", "-m=initial"])
+        .success();
+    let op_log_output = test_env.run_jj_in(&repo_path, &["op", "log"]);
+    let working_copy_output = test_env.run_jj_in(&repo_path, &["debug", "working-copy"]);
+
+    // Modify the working copy and run a mutating operation. With
+    // --no-integrate-operation, the working copy gets snapshotted and the operation
+    // gets created, but there's no new operation in the operation log, and the
+    // working copy state is not updated.
+    std::fs::write(repo_path.join("file2"), "initial").unwrap();
+    let output = test_env.run_jj_in(&repo_path, &["squash", "--no-integrate-operation"]);
+    insta::assert_snapshot!(output.stdout, @"");
+    insta::assert_snapshot!(output.stderr, @r#"
+    Operation left uncommitted because --no-integrate-operation was requested: 464f25848f9e
+    [EOF]
+    "#);
+    let stderr = output.stderr.into_raw();
+    let first_line = stderr.split('\n').next().unwrap();
+    let op_id_hex = first_line[first_line.len() - 12..].to_string();
+    let output = test_env.run_jj_in(&repo_path, &["op", "log", "--ignore-working-copy"]);
+    assert_eq!(output.stdout, op_log_output.stdout);
+    let output = test_env.run_jj_in(&repo_path, &["debug", "working-copy"]);
+    assert_eq!(output.stdout, working_copy_output.stdout);
+
+    // We can see the resulting log and op log with --at-op
+    let stdout = test_env.run_jj_in(&repo_path, &["log", "-s", "--at-op", op_id_hex.as_str()]);
+    insta::assert_snapshot!(stdout, @r#"
+    @  mzvwutvl test.user@example.com 2001-02-03 08:05:11 10644da4
+    │  (empty) (no description set)
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:11 599772f7
+    │  initial
+    │  A file1
+    │  A file2
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    "#);
+    let stdout = test_env.run_jj_in(&repo_path, &["op", "log", "--at-op", op_id_hex.as_str()]);
+    insta::assert_snapshot!(stdout, @"
+    @  464f25848f9e test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    │  squash commits into e6fc2362ee5fdd5eb879befc0ae556a2f57b94a0
+    │  args: jj squash --no-integrate-operation
+    ○  02014cb2c38e test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    │  snapshot working copy
+    │  args: jj squash --no-integrate-operation
+    ○  27636204b50d test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    │  commit 289d54a4554ed0d7df9c47d566480a6b773ee431
+    │  args: jj commit '-m=initial'
+    ○  a6954b960f35 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    │  snapshot working copy
+    │  args: jj commit '-m=initial'
+    ○  8f47435a3990 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
+    │  add workspace 'default'
+    ○  000000000000 root()
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_repo_arg_with_git_init() {
     let test_env = TestEnvironment::default();
     let output = test_env.run_jj_in(".", ["git", "init", "-R=.", "repo"]);
@@ -1118,6 +1186,7 @@ fn test_help() {
     Global Options:
       -R, --repository <REPOSITORY>      Path to repository to operate on
           --ignore-working-copy          Don't snapshot the working copy, and don't update it
+          --no-integrate-operation       Run the command as usual but don't integrate any operations
           --ignore-immutable             Allow rewriting immutable commits
           --at-operation <AT_OPERATION>  Operation to load the repo at [aliases: --at-op]
           --debug                        Enable debug logging

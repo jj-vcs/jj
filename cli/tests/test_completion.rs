@@ -226,6 +226,7 @@ fn test_bookmark_names() {
     bbb-tracked	x
     --repository	Path to repository to operate on
     --ignore-working-copy	Don't snapshot the working copy, and don't update it
+    --no-integrate-operation	Run the command as usual but don't integrate any operations
     --ignore-immutable	Allow rewriting immutable commits
     --at-operation	Operation to load the repo at
     --debug	Enable debug logging
@@ -718,6 +719,7 @@ fn test_command_completion_short_name() {
     unset	Update a config file to unset the given option
     --repository	Path to repository to operate on
     --ignore-working-copy	Don't snapshot the working copy, and don't update it
+    --no-integrate-operation	Run the command as usual but don't integrate any operations
     --ignore-immutable	Allow rewriting immutable commits
     --at-operation	Operation to load the repo at
     --debug	Enable debug logging

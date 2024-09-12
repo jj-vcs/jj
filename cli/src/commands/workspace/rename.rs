@@ -72,12 +72,14 @@ pub fn cmd_workspace_rename(
 
     workspace_store.rename(&old_name, new_name)?;
 
-    let repo = tx.commit(format!(
-        "Renamed workspace '{old}' to '{new}'",
-        old = old_name.as_symbol(),
-        new = new_name.as_symbol()
-    ))?;
-    locked_ws.finish(repo.op_id().clone())?;
+    if command.should_commit_transaction() {
+        let repo = tx.commit(format!(
+            "Renamed workspace '{old}' to '{new}'",
+            old = old_name.as_symbol(),
+            new = new_name.as_symbol()
+        ))?;
+        locked_ws.finish(repo.op_id().clone())?;
+    }
 
     Ok(())
 }
