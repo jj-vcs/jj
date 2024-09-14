@@ -13,6 +13,7 @@ use jj_lib::fsmonitor::FsmonitorSettings;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::local_working_copy::TreeState;
 use jj_lib::local_working_copy::TreeStateError;
+use jj_lib::local_working_copy::WcMutConfig;
 use jj_lib::local_working_copy::WcTreeMutator;
 use jj_lib::matchers::EverythingMatcher;
 use jj_lib::matchers::Matcher;
@@ -20,7 +21,6 @@ use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree::TreeDiffEntry;
 use jj_lib::store::Store;
 use jj_lib::working_copy::CheckoutError;
-use jj_lib::working_copy::CheckoutOptions;
 use jj_lib::working_copy::SnapshotOptions;
 use pollster::FutureExt as _;
 use tempfile::TempDir;
@@ -117,7 +117,7 @@ pub(crate) fn check_out_trees(
     right_tree: &MergedTree,
     matcher: &dyn Matcher,
     diff_type: DiffType,
-    options: &CheckoutOptions,
+    conflict_marker_style: ConflictMarkerStyle,
 ) -> Result<DiffWorkingCopies, DiffCheckoutError> {
     let changed_files: Vec<_> = left_tree
         .diff_stream(right_tree, matcher)
@@ -135,9 +135,9 @@ pub(crate) fn check_out_trees(
         std::fs::create_dir(&wc_path).map_err(DiffCheckoutError::SetUpDir)?;
         std::fs::create_dir(&state_dir).map_err(DiffCheckoutError::SetUpDir)?;
         let mut state = TreeState::init(store, &state_dir)?;
-        let mut wc = wc_mut(&mut state, store, &wc_path);
-        wc.set_sparse_patterns(files, options)?;
-        wc.check_out(tree, options)?;
+        let mut wc = wc_mut(&mut state, store, &wc_path, conflict_marker_style);
+        wc.set_sparse_patterns(files)?;
+        wc.check_out(tree)?;
         if read_only {
             set_readonly_recursively(&wc_path).map_err(DiffCheckoutError::SetUpDir)?;
         }
@@ -179,10 +179,16 @@ impl DiffEditWorkingCopies {
         matcher: &dyn Matcher,
         diff_type: DiffType,
         instructions: Option<&str>,
-        options: &CheckoutOptions,
+        conflict_marker_style: ConflictMarkerStyle,
     ) -> Result<Self, DiffEditError> {
-        let working_copies =
-            check_out_trees(store, left_tree, right_tree, matcher, diff_type, options)?;
+        let working_copies = check_out_trees(
+            store,
+            left_tree,
+            right_tree,
+            matcher,
+            diff_type,
+            conflict_marker_style,
+        )?;
         let instructions_path_to_cleanup = instructions
             .map(|instructions| Self::write_edit_instructions(&working_copies, instructions))
             .transpose()?;
@@ -264,14 +270,18 @@ diff editing in mind and be a little inaccurate.
         let diff_wc = self.working_copies;
         // Snapshot changes in the temporary output directory.
         let mut output = diff_wc.output.unwrap_or(diff_wc.right);
-        let mut wc = wc_mut(&mut output.state, store, &output.wc_path);
+        let mut wc = wc_mut(
+            &mut output.state,
+            store,
+            &output.wc_path,
+            conflict_marker_style,
+        );
         wc.snapshot(&SnapshotOptions {
             base_ignores,
             fsmonitor_settings: FsmonitorSettings::None,
             progress: None,
             start_tracking_matcher: &EverythingMatcher,
             max_new_file_size: u64::MAX,
-            conflict_marker_style,
         })?;
         Ok(output.state.current_tree_id().clone())
     }
@@ -281,10 +291,14 @@ fn wc_mut<'a>(
     state: &'a mut TreeState,
     store: &'a Arc<Store>,
     working_copy_path: &'a Path,
+    conflict_marker_style: ConflictMarkerStyle,
 ) -> WcTreeMutator<'a> {
     WcTreeMutator {
         state,
         store,
         working_copy_path,
+        config: WcMutConfig {
+            conflict_marker_style,
+        },
     }
 }

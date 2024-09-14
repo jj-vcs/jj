@@ -101,7 +101,6 @@ use crate::repo_path::RepoPathComponent;
 use crate::store::Store;
 use crate::tree::Tree;
 use crate::working_copy::CheckoutError;
-use crate::working_copy::CheckoutOptions;
 use crate::working_copy::CheckoutStats;
 use crate::working_copy::LockedWorkingCopy;
 use crate::working_copy::ResetError;
@@ -941,6 +940,13 @@ pub struct WcTreeMutator<'a> {
     pub state: &'a mut TreeState,
     pub store: &'a Arc<Store>,
     pub working_copy_path: &'a Path,
+    pub config: WcMutConfig,
+}
+
+/// Configuration needed when mutating the working copy tree.
+#[derive(Clone)]
+pub struct WcMutConfig {
+    pub conflict_marker_style: ConflictMarkerStyle,
 }
 
 impl WcTreeMutator<'_> {
@@ -964,7 +970,6 @@ impl WcTreeMutator<'_> {
             progress,
             start_tracking_matcher,
             max_new_file_size,
-            conflict_marker_style,
         } = options;
 
         let sparse_matcher = self.state.sparse_matcher();
@@ -1011,7 +1016,6 @@ impl WcTreeMutator<'_> {
                 error: OnceLock::new(),
                 progress,
                 max_new_file_size,
-                conflict_marker_style,
             };
             // Here we use scope as a queue of per-directory jobs.
             rayon::scope(|scope| {
@@ -1155,7 +1159,6 @@ struct FileSnapshotter<'a> {
     error: OnceLock<SnapshotError>,
     progress: Option<&'a SnapshotProgress<'a>>,
     max_new_file_size: u64,
-    conflict_marker_style: ConflictMarkerStyle,
 }
 
 impl FileSnapshotter<'_> {
@@ -1511,7 +1514,7 @@ impl FileSnapshotter<'_> {
                 self.wc.store,
                 repo_path,
                 &content,
-                self.conflict_marker_style,
+                self.wc.config.conflict_marker_style,
                 materialized_conflict_data.map_or(MIN_CONFLICT_MARKER_LEN, |data| {
                     data.conflict_marker_len as usize
                 }),
@@ -1679,11 +1682,8 @@ impl WcTreeMutator<'_> {
         Ok(())
     }
 
-    pub fn check_out(
-        &mut self,
-        new_tree: &MergedTree,
-        options: &CheckoutOptions,
-    ) -> Result<CheckoutStats, CheckoutError> {
+    /// Check out the new tree.
+    pub fn check_out(&mut self, new_tree: &MergedTree) -> Result<CheckoutStats, CheckoutError> {
         let old_tree = self.current_tree().map_err(|err| match err {
             err @ BackendError::ObjectNotFound { .. } => CheckoutError::SourceNotFound {
                 source: Box::new(err),
@@ -1691,12 +1691,7 @@ impl WcTreeMutator<'_> {
             other => CheckoutError::InternalBackendError(other),
         })?;
         let stats = self
-            .update(
-                &old_tree,
-                new_tree,
-                self.state.sparse_matcher().as_ref(),
-                options.conflict_marker_style,
-            )
+            .update(&old_tree, new_tree, self.state.sparse_matcher().as_ref())
             .block_on()?;
         self.state.tree_id = new_tree.id();
         Ok(stats)
@@ -1705,7 +1700,6 @@ impl WcTreeMutator<'_> {
     pub fn set_sparse_patterns(
         &mut self,
         sparse_patterns: Vec<RepoPathBuf>,
-        options: &CheckoutOptions,
     ) -> Result<CheckoutStats, CheckoutError> {
         let tree = self.current_tree().map_err(|err| match err {
             err @ BackendError::ObjectNotFound { .. } => CheckoutError::SourceNotFound {
@@ -1718,21 +1712,9 @@ impl WcTreeMutator<'_> {
         let added_matcher = DifferenceMatcher::new(&new_matcher, &old_matcher);
         let removed_matcher = DifferenceMatcher::new(&old_matcher, &new_matcher);
         let empty_tree = MergedTree::resolved(Tree::empty(self.store.clone(), RepoPathBuf::root()));
-        let added_stats = self
-            .update(
-                &empty_tree,
-                &tree,
-                &added_matcher,
-                options.conflict_marker_style,
-            )
-            .block_on()?;
+        let added_stats = self.update(&empty_tree, &tree, &added_matcher).block_on()?;
         let removed_stats = self
-            .update(
-                &tree,
-                &empty_tree,
-                &removed_matcher,
-                options.conflict_marker_style,
-            )
+            .update(&tree, &empty_tree, &removed_matcher)
             .block_on()?;
         self.state.sparse_patterns = sparse_patterns;
         assert_eq!(added_stats.updated_files, 0);
@@ -1753,7 +1735,6 @@ impl WcTreeMutator<'_> {
         old_tree: &MergedTree,
         new_tree: &MergedTree,
         matcher: &dyn Matcher,
-        conflict_marker_style: ConflictMarkerStyle,
     ) -> Result<CheckoutStats, CheckoutError> {
         // TODO: maybe it's better not include the skipped counts in the "intended"
         // counts
@@ -1854,7 +1835,7 @@ impl WcTreeMutator<'_> {
                         choose_materialized_conflict_marker_len(&file.contents);
                     let data = materialize_merge_result_to_bytes_with_marker_len(
                         &file.contents,
-                        conflict_marker_style,
+                        self.config.conflict_marker_style,
                         conflict_marker_len,
                     )
                     .into();
@@ -2030,7 +2011,7 @@ impl WorkingCopy for LocalWorkingCopy {
 
     fn start_mutation(
         &self,
-        _wc_settings: WorkingCopySettings,
+        wc_settings: WorkingCopySettings,
     ) -> Result<Box<dyn LockedWorkingCopy>, WorkingCopyStateError> {
         let lock_path = self.state_path.join("working_copy.lock");
         let lock = FileLock::lock(lock_path).map_err(|err| WorkingCopyStateError {
@@ -2050,8 +2031,12 @@ impl WorkingCopy for LocalWorkingCopy {
         };
         let old_operation_id = wc.operation_id().clone();
         let old_tree_id = wc.tree_id()?.clone();
+        let wc_config = WcMutConfig {
+            conflict_marker_style: wc_settings.conflict_marker_style,
+        };
         Ok(Box::new(LockedLocalWorkingCopy {
             wc,
+            wc_config,
             old_operation_id,
             old_tree_id,
             tree_state_dirty: false,
@@ -2204,6 +2189,7 @@ impl WorkingCopyFactory for LocalWorkingCopyFactory {
 /// `finish()` or `discard()`.
 pub struct LockedLocalWorkingCopy {
     wc: LocalWorkingCopy,
+    wc_config: WcMutConfig,
     old_operation_id: OperationId,
     old_tree_id: MergedTreeId,
     tree_state_dirty: bool,
@@ -2220,6 +2206,7 @@ impl LockedLocalWorkingCopy {
             state: self.wc.tree_state.get_mut().unwrap(),
             store: &self.wc.store,
             working_copy_path: &self.wc.working_copy_path,
+            config: self.wc_config.clone(),
         })
     }
 }
@@ -2254,11 +2241,7 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
         Ok((tree_id, stats))
     }
 
-    fn check_out(
-        &mut self,
-        commit: &Commit,
-        options: &CheckoutOptions,
-    ) -> Result<CheckoutStats, CheckoutError> {
+    fn check_out(&mut self, commit: &Commit) -> Result<CheckoutStats, CheckoutError> {
         // TODO: Write a "pending_checkout" file with the new TreeId so we can
         // continue an interrupted update if we find such a file.
         let new_tree = commit.tree()?;
@@ -2266,7 +2249,7 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
             .wc_mut()
             .map_err(|(message, err)| CheckoutError::Other { message, err })?;
         if wc.state.tree_id != *commit.tree_id() {
-            let stats = wc.check_out(&new_tree, options)?;
+            let stats = wc.check_out(&new_tree)?;
             self.tree_state_dirty = true;
             Ok(stats)
         } else {
@@ -2305,14 +2288,13 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
     fn set_sparse_patterns(
         &mut self,
         new_sparse_patterns: Vec<RepoPathBuf>,
-        options: &CheckoutOptions,
     ) -> Result<CheckoutStats, CheckoutError> {
         // TODO: Write a "pending_checkout" file with new sparse patterns so we can
         // continue an interrupted update if we find such a file.
         let stats = self
             .wc_mut()
             .map_err(|(message, err)| CheckoutError::Other { message, err })?
-            .set_sparse_patterns(new_sparse_patterns, options)?;
+            .set_sparse_patterns(new_sparse_patterns)?;
         self.tree_state_dirty = true;
         Ok(stats)
     }
