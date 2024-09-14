@@ -15,7 +15,6 @@ use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathComponent;
 use jj_lib::tree::Tree;
-use jj_lib::working_copy::CheckoutOptions;
 use jj_lib::working_copy::SnapshotOptions;
 use jj_lib::working_copy::WorkingCopyOptions;
 use testutils::TestWorkspace;
@@ -85,9 +84,7 @@ fn checkout_with_opts(ws: &TestWorkspace, commit: &Commit, options: &WorkingCopy
         .working_copy()
         .start_mutation(options.clone())
         .unwrap();
-    locked_wc
-        .check_out(commit, &CheckoutOptions::empty_for_test())
-        .unwrap();
+    locked_wc.check_out(commit).unwrap();
     let op_id = ws.repo.op_id().clone();
     locked_wc.finish(op_id).unwrap();
 }
