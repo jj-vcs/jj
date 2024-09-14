@@ -678,11 +678,12 @@ fn test_config() {
     let dir = test_env.env_root();
 
     let output = test_env.run_jj_in(dir, ["--", "jj", "config", "get", "c"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @r###"
     core.fsmonitor	Whether to use an external filesystem monitor, useful for large repos
+    core.ignore-executable-bit	Whether to ignore changes to the executable bit for files on Unix. This is always treated as true on Windows
     core.watchman.register-snapshot-trigger	Whether to use triggers to monitor for changes in the background.
     [EOF]
-    ");
+    "###);
 
     let output = test_env.run_jj_in(dir, ["--", "jj", "config", "list", "c"]);
     insta::assert_snapshot!(output, @r"

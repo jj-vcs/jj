@@ -90,7 +90,7 @@ fn check_out(
 ) -> Result<TreeState, DiffCheckoutError> {
     std::fs::create_dir(&wc_dir).map_err(DiffCheckoutError::SetUpDir)?;
     std::fs::create_dir(&state_dir).map_err(DiffCheckoutError::SetUpDir)?;
-    let mut tree_state = TreeState::init(store, wc_dir, state_dir)?;
+    let mut tree_state = TreeState::init(store, wc_dir, state_dir, options.exec_config)?;
     tree_state.set_sparse_patterns(sparse_patterns, options)?;
     tree_state.check_out(tree, options)?;
     Ok(tree_state)

@@ -861,8 +861,9 @@ impl TreeState {
         store: Arc<Store>,
         working_copy_path: PathBuf,
         state_path: PathBuf,
+        exec_config: Option<bool>,
     ) -> Result<TreeState, TreeStateError> {
-        let mut wc = TreeState::empty(store, working_copy_path, state_path, None);
+        let mut wc = TreeState::empty(store, working_copy_path, state_path, exec_config);
         wc.save()?;
         Ok(wc)
     }
@@ -900,9 +901,7 @@ impl TreeState {
         let tree_state_path = state_path.join("tree_state");
         let file = match File::open(&tree_state_path) {
             Err(ref err) if err.kind() == io::ErrorKind::NotFound => {
-                let mut wc = TreeState::empty(store, working_copy_path, state_path, exec_config);
-                wc.save()?;
-                return Ok(wc);
+                return TreeState::init(store, working_copy_path, state_path, exec_config);
             }
             Err(err) => {
                 return Err(TreeStateError::ReadTreeState {
@@ -2170,6 +2169,7 @@ impl LocalWorkingCopy {
         state_path: PathBuf,
         operation_id: OperationId,
         workspace_id: WorkspaceId,
+        options: CheckoutOptions,
     ) -> Result<LocalWorkingCopy, WorkingCopyStateError> {
         let proto = crate::protos::working_copy::Checkout {
             operation_id: operation_id.to_bytes(),
@@ -2181,13 +2181,16 @@ impl LocalWorkingCopy {
             .open(state_path.join("checkout"))
             .unwrap();
         file.write_all(&proto.encode_to_vec()).unwrap();
-        let tree_state =
-            TreeState::init(store.clone(), working_copy_path.clone(), state_path.clone()).map_err(
-                |err| WorkingCopyStateError {
-                    message: "Failed to initialize working copy state".to_string(),
-                    err: err.into(),
-                },
-            )?;
+        let tree_state = TreeState::init(
+            store.clone(),
+            working_copy_path.clone(),
+            state_path.clone(),
+            options.exec_config,
+        )
+        .map_err(|err| WorkingCopyStateError {
+            message: "Failed to initialize working copy state".to_string(),
+            err: err.into(),
+        })?;
         Ok(LocalWorkingCopy {
             store,
             working_copy_path,
@@ -2202,8 +2205,9 @@ impl LocalWorkingCopy {
         store: Arc<Store>,
         working_copy_path: PathBuf,
         state_path: PathBuf,
+        options: CheckoutOptions,
     ) -> LocalWorkingCopy {
-        let ignore_exec = IgnoreExec::load_config(None, &working_copy_path);
+        let ignore_exec = IgnoreExec::load_config(options.exec_config, &working_copy_path);
         LocalWorkingCopy {
             store,
             working_copy_path,
@@ -2322,6 +2326,7 @@ impl WorkingCopyFactory for LocalWorkingCopyFactory {
         state_path: PathBuf,
         operation_id: OperationId,
         workspace_id: WorkspaceId,
+        options: CheckoutOptions,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError> {
         Ok(Box::new(LocalWorkingCopy::init(
             store,
@@ -2329,6 +2334,7 @@ impl WorkingCopyFactory for LocalWorkingCopyFactory {
             state_path,
             operation_id,
             workspace_id,
+            options,
         )?))
     }
 
@@ -2337,11 +2343,13 @@ impl WorkingCopyFactory for LocalWorkingCopyFactory {
         store: Arc<Store>,
         working_copy_path: PathBuf,
         state_path: PathBuf,
+        options: CheckoutOptions,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError> {
         Ok(Box::new(LocalWorkingCopy::load(
             store,
             working_copy_path,
             state_path,
+            options,
         )))
     }
 }

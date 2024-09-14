@@ -147,7 +147,7 @@ pub fn cmd_workspace_add(
     };
 
     if let Some(sparse_patterns) = sparsity {
-        let checkout_options = new_workspace_command.checkout_options();
+        let checkout_options = new_workspace_command.settings().checkout_options();
         let (mut locked_ws, _wc_commit) = new_workspace_command.start_working_copy_mutation()?;
         locked_ws
             .locked_wc()
