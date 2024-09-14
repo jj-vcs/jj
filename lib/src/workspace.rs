@@ -28,6 +28,7 @@ use thiserror::Error;
 use crate::backend::BackendInitError;
 use crate::backend::MergedTreeId;
 use crate::commit::Commit;
+use crate::config::ConfigGetError;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
 use crate::local_working_copy::LocalWorkingCopy;
@@ -60,6 +61,7 @@ use crate::working_copy::CheckoutStats;
 use crate::working_copy::LockedWorkingCopy;
 use crate::working_copy::WorkingCopy;
 use crate::working_copy::WorkingCopyFactory;
+use crate::working_copy::WorkingCopyOptions;
 use crate::working_copy::WorkingCopyStateError;
 
 #[derive(Error, Debug)]
@@ -80,6 +82,8 @@ pub enum WorkspaceInitError {
     Backend(#[from] BackendInitError),
     #[error(transparent)]
     SignInit(#[from] SignInitError),
+    #[error(transparent)]
+    ConfigGet(#[from] ConfigGetError),
 }
 
 #[derive(Error, Debug)]
@@ -96,6 +100,8 @@ pub enum WorkspaceLoadError {
     WorkingCopyState(#[from] WorkingCopyStateError),
     #[error(transparent)]
     Path(#[from] PathError),
+    #[error(transparent)]
+    Config(#[from] ConfigGetError),
 }
 
 /// The combination of a repo and a working copy.
@@ -111,6 +117,7 @@ pub struct Workspace {
     repo_path: PathBuf,
     repo_loader: RepoLoader,
     working_copy: Box<dyn WorkingCopy>,
+    wc_options: WorkingCopyOptions,
 }
 
 fn create_jj_dir(workspace_root: &Path) -> Result<PathBuf, WorkspaceInitError> {
@@ -157,12 +164,14 @@ impl Workspace {
         repo_path: PathBuf,
         working_copy: Box<dyn WorkingCopy>,
         repo_loader: RepoLoader,
-    ) -> Result<Workspace, PathError> {
+    ) -> Result<Workspace, WorkspaceInitError> {
         let workspace_root = dunce::canonicalize(workspace_root).context(workspace_root)?;
+        let options = WorkingCopyOptions::from_settings(repo_loader.settings())?;
         Ok(Self::new_no_canonicalize(
             workspace_root,
             repo_path,
             working_copy,
+            options,
             repo_loader,
         ))
     }
@@ -171,12 +180,14 @@ impl Workspace {
         workspace_root: PathBuf,
         repo_path: PathBuf,
         working_copy: Box<dyn WorkingCopy>,
+        wc_options: WorkingCopyOptions,
         repo_loader: RepoLoader,
     ) -> Self {
         Self {
             workspace_root,
             repo_path,
             repo_loader,
+            wc_options,
             working_copy,
         }
     }
@@ -421,7 +432,7 @@ impl Workspace {
     pub fn start_working_copy_mutation(
         &mut self,
     ) -> Result<LockedWorkspace, WorkingCopyStateError> {
-        let locked_wc = self.working_copy.start_mutation()?;
+        let locked_wc = self.working_copy.start_mutation(self.wc_options.clone())?;
         Ok(LockedWorkspace {
             base: self,
             locked_wc,
@@ -598,12 +609,16 @@ impl WorkspaceLoader for DefaultWorkspaceLoader {
             RepoLoader::init_from_file_system(user_settings, &self.repo_path, store_factories)?;
         let working_copy_factory = get_working_copy_factory(self, working_copy_factories)?;
         let working_copy = self.load_working_copy(repo_loader.store(), working_copy_factory)?;
-        let workspace = Workspace::new(
-            &self.workspace_root,
+        let workspace_root =
+            dunce::canonicalize(&self.workspace_root).context(&self.workspace_root)?;
+        let options = WorkingCopyOptions::from_settings(user_settings)?;
+        let workspace = Workspace::new_no_canonicalize(
+            workspace_root,
             self.repo_path.clone(),
             working_copy,
+            options,
             repo_loader,
-        )?;
+        );
         Ok(workspace)
     }
 

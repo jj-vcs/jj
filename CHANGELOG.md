@@ -132,6 +132,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj resolve` now accepts new built-in merge tools `:ours` and `:theirs`.
   These merge tools accept side #1 and side #2 of the conflict respectively.
 
+* Updated how we handle executable bits in the working copy to allow Unix to
+  ignore executable bit changes when using a nonstandard filesystem. We try to
+  detect the filesystem's behavior on Unix by default, but it can be overridden
+  manually by setting `core.executable-bit = "ignore" | "respect"`.
+
 ### Fixed bugs
 
 * `jj log -p --stat` now shows diff stats as well as the default color-words/git
