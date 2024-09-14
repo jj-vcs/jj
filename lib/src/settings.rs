@@ -37,6 +37,7 @@ use crate::config::ToConfigNamePath;
 use crate::fmt_util::binary_prefix;
 use crate::fsmonitor::FsmonitorSettings;
 use crate::signing::SignBehavior;
+use crate::working_copy::CheckoutOptions;
 
 #[derive(Debug, Clone)]
 pub struct UserSettings {
@@ -249,6 +250,14 @@ impl UserSettings {
             behavior: self.data.signing_behavior,
             user_email: self.data.user_email.clone(),
             key: self.data.signing_key.clone(),
+        }
+    }
+
+    /// Get options needed for checking-out a working copy.
+    pub fn checkout_options(&self) -> CheckoutOptions {
+        CheckoutOptions {
+            ignore_exec: self.get("core.ignore-executable-bit").ok(),
+            conflict_marker_style: self.get("ui.conflict-marker-style").unwrap_or_default(),
         }
     }
 }

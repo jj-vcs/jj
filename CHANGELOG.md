@@ -73,6 +73,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   adds the `--destination`, `--insert-after`, and `--insert-before` options to
   customize the location of reverted commits.
 
+* Updated how we handle executable bits in the working copy to allow Unix to
+  ignore executable bit changes when using a nonstandard filesystem. We try to
+  detect the filesystem's behavior on Unix by default, but it can be overridden
+  manually by setting `core.ignore-executable-bit = true`.
+
 ### Fixed bugs
 
 * `jj log -p --stat` now shows diff stats as well as the default color-words/git

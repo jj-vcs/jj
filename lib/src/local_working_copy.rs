@@ -129,15 +129,20 @@ pub enum ExecConfig {
 impl ExecConfig {
     /// Prepare a new executable configuration state.
     ///
-    /// On Windows we always ignore executable bit changes. On Unix, we check
-    /// whether executable bits are supported in the working copy's path to
-    /// determine respect/ignorance, but we default to respect.
-    fn new(wc_path: &Path) -> Self {
+    /// On Windows we always ignore executable bit changes. On Unix, we either
+    /// read the user's configuration or check whether executable bits are
+    /// supported in the working copy's path to determine respect/ignorance, but
+    /// we default to respect.
+    fn new(ignore_exec: Option<bool>, wc_path: &Path) -> Self {
         #[cfg(unix)]
-        let exec_config = match crate::file_util::check_executable_bit_support(wc_path) {
-            Ok(false) => ExecConfig::Ignore,
-            Ok(true) => ExecConfig::Respect,
-            Err(_) => ExecConfig::Respect,
+        let exec_config = {
+            let supports_exec = ignore_exec
+                .map(|ignore| !ignore)
+                .or_else(|| crate::file_util::check_executable_bit_support(wc_path).ok());
+            match supports_exec {
+                Some(false) => ExecConfig::Ignore,
+                Some(true) | None => ExecConfig::Respect,
+            }
         };
         #[cfg(windows)]
         let exec_config = ExecConfig::Ignore;
@@ -842,18 +847,24 @@ impl TreeState {
         store: Arc<Store>,
         working_copy_path: PathBuf,
         state_path: PathBuf,
+        ignore_exec: Option<bool>,
     ) -> Result<TreeState, TreeStateError> {
-        let mut wc = TreeState::empty(store, working_copy_path, state_path);
+        let mut wc = TreeState::empty(store, working_copy_path, state_path, ignore_exec);
         wc.save()?;
         Ok(wc)
     }
 
     /// Create a new empty tree state for this working copy path.
-    fn empty(store: Arc<Store>, working_copy_path: PathBuf, state_path: PathBuf) -> TreeState {
+    fn empty(
+        store: Arc<Store>,
+        working_copy_path: PathBuf,
+        state_path: PathBuf,
+        ignore_exec: Option<bool>,
+    ) -> TreeState {
         let tree_id = store.empty_merged_tree_id();
         TreeState {
             store,
-            exec_config: ExecConfig::new(&working_copy_path),
+            exec_config: ExecConfig::new(ignore_exec, &working_copy_path),
             working_copy_path,
             state_path,
             tree_id,
@@ -870,11 +881,12 @@ impl TreeState {
         store: Arc<Store>,
         working_copy_path: PathBuf,
         state_path: PathBuf,
+        ignore_exec: Option<bool>,
     ) -> Result<TreeState, TreeStateError> {
         let tree_state_path = state_path.join("tree_state");
         let file = match File::open(&tree_state_path) {
             Err(ref err) if err.kind() == io::ErrorKind::NotFound => {
-                return TreeState::init(store, working_copy_path, state_path);
+                return TreeState::init(store, working_copy_path, state_path, ignore_exec);
             }
             Err(err) => {
                 return Err(TreeStateError::ReadTreeState {
@@ -885,7 +897,7 @@ impl TreeState {
             Ok(file) => file,
         };
 
-        let mut wc = TreeState::empty(store, working_copy_path, state_path);
+        let mut wc = TreeState::empty(store, working_copy_path, state_path, ignore_exec);
         wc.read(&tree_state_path, file)?;
         Ok(wc)
     }
@@ -2060,6 +2072,7 @@ pub struct LocalWorkingCopy {
     state_path: PathBuf,
     checkout_state: OnceCell<CheckoutState>,
     tree_state: OnceCell<TreeState>,
+    ignore_exec: Option<bool>,
 }
 
 impl WorkingCopy for LocalWorkingCopy {
@@ -2103,6 +2116,7 @@ impl WorkingCopy for LocalWorkingCopy {
             // TODO: It's expensive to reload the whole tree. We should copy it from `self` if it
             // hasn't changed.
             tree_state: OnceCell::new(),
+            ignore_exec: self.ignore_exec,
         };
         let old_operation_id = wc.operation_id().clone();
         let old_tree_id = wc.tree_id()?.clone();
@@ -2131,6 +2145,7 @@ impl LocalWorkingCopy {
         state_path: PathBuf,
         operation_id: OperationId,
         workspace_id: WorkspaceId,
+        options: CheckoutOptions,
     ) -> Result<LocalWorkingCopy, WorkingCopyStateError> {
         let proto = crate::protos::working_copy::Checkout {
             operation_id: operation_id.to_bytes(),
@@ -2142,19 +2157,23 @@ impl LocalWorkingCopy {
             .open(state_path.join("checkout"))
             .unwrap();
         file.write_all(&proto.encode_to_vec()).unwrap();
-        let tree_state =
-            TreeState::init(store.clone(), working_copy_path.clone(), state_path.clone()).map_err(
-                |err| WorkingCopyStateError {
-                    message: "Failed to initialize working copy state".to_string(),
-                    err: err.into(),
-                },
-            )?;
+        let tree_state = TreeState::init(
+            store.clone(),
+            working_copy_path.clone(),
+            state_path.clone(),
+            options.ignore_exec,
+        )
+        .map_err(|err| WorkingCopyStateError {
+            message: "Failed to initialize working copy state".to_string(),
+            err: err.into(),
+        })?;
         Ok(LocalWorkingCopy {
             store,
             working_copy_path,
             state_path,
             checkout_state: OnceCell::new(),
             tree_state: OnceCell::with_value(tree_state),
+            ignore_exec: options.ignore_exec,
         })
     }
 
@@ -2162,6 +2181,7 @@ impl LocalWorkingCopy {
         store: Arc<Store>,
         working_copy_path: PathBuf,
         state_path: PathBuf,
+        options: CheckoutOptions,
     ) -> LocalWorkingCopy {
         LocalWorkingCopy {
             store,
@@ -2169,6 +2189,7 @@ impl LocalWorkingCopy {
             state_path,
             checkout_state: OnceCell::new(),
             tree_state: OnceCell::new(),
+            ignore_exec: options.ignore_exec,
         }
     }
 
@@ -2217,6 +2238,7 @@ impl LocalWorkingCopy {
                     self.store.clone(),
                     self.working_copy_path.clone(),
                     self.state_path.clone(),
+                    self.ignore_exec,
                 )
             })
             .map_err(|err| WorkingCopyStateError {
@@ -2279,6 +2301,7 @@ impl WorkingCopyFactory for LocalWorkingCopyFactory {
         state_path: PathBuf,
         operation_id: OperationId,
         workspace_id: WorkspaceId,
+        options: CheckoutOptions,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError> {
         Ok(Box::new(LocalWorkingCopy::init(
             store,
@@ -2286,6 +2309,7 @@ impl WorkingCopyFactory for LocalWorkingCopyFactory {
             state_path,
             operation_id,
             workspace_id,
+            options,
         )?))
     }
 
@@ -2294,11 +2318,13 @@ impl WorkingCopyFactory for LocalWorkingCopyFactory {
         store: Arc<Store>,
         working_copy_path: PathBuf,
         state_path: PathBuf,
+        options: CheckoutOptions,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError> {
         Ok(Box::new(LocalWorkingCopy::load(
             store,
             working_copy_path,
             state_path,
+            options,
         )))
     }
 }
