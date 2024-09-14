@@ -975,6 +975,7 @@ fn test_config() {
 
     let output = test_env.complete_fish(["config", "get", "c"]);
     insta::assert_snapshot!(output, @r"
+    core.executable-bit	Whether to ignore changes to the executable bit for files on Unix. This setting is unused on Windows.
     core.fsmonitor	Whether to use an external filesystem monitor, useful for large repos
     core.watchman.register-snapshot-trigger	Whether to use triggers to monitor for changes in the background.
     [EOF]
@@ -984,6 +985,7 @@ fn test_config() {
     insta::assert_snapshot!(output, @r"
     colors	Mapping from jj formatter labels to colors
     core
+    core.executable-bit	Whether to ignore changes to the executable bit for files on Unix. This setting is unused on Windows.
     core.fsmonitor	Whether to use an external filesystem monitor, useful for large repos
     core.watchman
     core.watchman.register-snapshot-trigger	Whether to use triggers to monitor for changes in the background.
@@ -992,6 +994,7 @@ fn test_config() {
 
     let output = test_env.complete_fish(["log", "--config", "c"]);
     insta::assert_snapshot!(output, @r"
+    core.executable-bit=	Whether to ignore changes to the executable bit for files on Unix. This setting is unused on Windows.
     core.fsmonitor=	Whether to use an external filesystem monitor, useful for large repos
     core.watchman.register-snapshot-trigger=	Whether to use triggers to monitor for changes in the background.
     [EOF]

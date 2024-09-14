@@ -357,6 +357,7 @@ impl From<WorkspaceInitError> for CommandError {
             }
             WorkspaceInitError::SignInit(err) => user_error(err),
             WorkspaceInitError::TransactionCommit(err) => err.into(),
+            WorkspaceInitError::ConfigGet(err) => config_error(err),
         }
     }
 }

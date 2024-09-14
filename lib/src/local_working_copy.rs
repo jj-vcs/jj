@@ -112,6 +112,7 @@ use crate::working_copy::SnapshotStats;
 use crate::working_copy::UntrackedReason;
 use crate::working_copy::WorkingCopy;
 use crate::working_copy::WorkingCopyFactory;
+use crate::working_copy::WorkingCopyOptions;
 use crate::working_copy::WorkingCopyStateError;
 
 /// How to handle file executable bit changes when managing file metadata.
@@ -119,7 +120,7 @@ use crate::working_copy::WorkingCopyStateError;
 /// Executable bits are always ignored on Windows, however on Unix they are
 /// respected by default, but may be ignored if we find that the filesystem
 /// doesn't support executable bits or by user configuration.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize)]
 pub enum ExecConfig {
     #[cfg(unix)]
     Respect, // We only respect executable bit changes through files on Unix.
@@ -2143,7 +2144,10 @@ impl WorkingCopy for LocalWorkingCopy {
         Ok(self.tree_state()?.sparse_patterns())
     }
 
-    fn start_mutation(&self) -> Result<Box<dyn LockedWorkingCopy>, WorkingCopyStateError> {
+    fn start_mutation(
+        &self,
+        options: WorkingCopyOptions,
+    ) -> Result<Box<dyn LockedWorkingCopy>, WorkingCopyStateError> {
         let lock_path = self.state_path.join("working_copy.lock");
         let lock = FileLock::lock(lock_path).map_err(|err| WorkingCopyStateError {
             message: "Failed to lock working copy".to_owned(),
@@ -2164,7 +2168,7 @@ impl WorkingCopy for LocalWorkingCopy {
         let old_operation_id = wc.operation_id().clone();
         let old_tree_id = wc.tree_id()?.clone();
         let wc_config = WcTreeConfig {
-            exec_config: self.default_exec_config,
+            exec_config: options.exec_config.unwrap_or(self.default_exec_config),
         };
         Ok(Box::new(LockedLocalWorkingCopy {
             wc,

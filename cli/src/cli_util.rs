@@ -142,6 +142,7 @@ use tracing_chrome::ChromeLayerBuilder;
 use tracing_subscriber::prelude::*;
 
 use crate::command_error::cli_error;
+use crate::command_error::config_error;
 use crate::command_error::config_error_with_message;
 use crate::command_error::handle_command_result;
 use crate::command_error::internal_error;
@@ -2560,6 +2561,7 @@ jj git init --colocate",
         WorkspaceLoadError::StoreLoadError(StoreLoadError::Signing(err)) => user_error(err),
         WorkspaceLoadError::WorkingCopyState(err) => internal_error(err),
         WorkspaceLoadError::NonUnicodePath | WorkspaceLoadError::Path(_) => user_error(err),
+        WorkspaceLoadError::Config(err) => config_error(err),
     }
 }
 

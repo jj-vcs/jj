@@ -28,11 +28,14 @@ use tracing::instrument;
 use crate::backend::BackendError;
 use crate::backend::MergedTreeId;
 use crate::commit::Commit;
+use crate::config::ConfigGetError;
+use crate::config::ConfigGetResultExt as _;
 use crate::conflicts::ConflictMarkerStyle;
 use crate::dag_walk;
 use crate::fsmonitor::FsmonitorSettings;
 use crate::gitignore::GitIgnoreError;
 use crate::gitignore::GitIgnoreFile;
+use crate::local_working_copy::ExecConfig;
 use crate::matchers::EverythingMatcher;
 use crate::matchers::Matcher;
 use crate::op_store::OpStoreError;
@@ -46,6 +49,7 @@ use crate::repo::RewriteRootCommit;
 use crate::repo_path::InvalidRepoPathError;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
+use crate::settings::UserSettings;
 use crate::store::Store;
 use crate::transaction::TransactionCommitError;
 
@@ -75,7 +79,10 @@ pub trait WorkingCopy: Send {
 
     /// Locks the working copy and returns an instance with methods for updating
     /// the working copy files and state.
-    fn start_mutation(&self) -> Result<Box<dyn LockedWorkingCopy>, WorkingCopyStateError>;
+    fn start_mutation(
+        &self,
+        options: WorkingCopyOptions,
+    ) -> Result<Box<dyn LockedWorkingCopy>, WorkingCopyStateError>;
 }
 
 /// The factory which creates and loads a specific type of working copy.
@@ -193,6 +200,37 @@ pub enum SnapshotError {
         #[source]
         err: Box<dyn std::error::Error + Send + Sync>,
     },
+}
+
+/// Options used by the [`LockedWorkingCopy`] during operations like checkouts
+/// or snapshots. These are assumed to stay un-changed while a working copy is
+/// mutated.
+///
+/// Some of these may be ignored by different working copy implementations.
+///
+/// Note that options that can't be loaded from user settings should likely be
+/// added to structs for other commands such as [`SnapshotOptions`].
+#[derive(Debug, Clone)]
+pub struct WorkingCopyOptions {
+    /// Whether to ignore changes to the executable bit for files on Unix. On
+    /// Windows there is no executable bit and this config is unused.
+    pub exec_config: Option<ExecConfig>,
+}
+
+impl WorkingCopyOptions {
+    /// Create an instance for use in tests.
+    pub fn empty_for_test() -> Self {
+        WorkingCopyOptions {
+            exec_config: None,
+        }
+    }
+
+    /// Create an instance from user settings.
+    pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
+        Ok(WorkingCopyOptions {
+            exec_config: settings.get("core.executable-bit").optional()?,
+        })
+    }
 }
 
 /// Options used when snapshotting the working copy. Some of them may be ignored
