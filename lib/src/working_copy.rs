@@ -127,11 +127,7 @@ pub trait LockedWorkingCopy {
     ) -> Result<(MergedTreeId, SnapshotStats), SnapshotError>;
 
     /// Check out the specified commit in the working copy.
-    fn check_out(
-        &mut self,
-        commit: &Commit,
-        options: &CheckoutOptions,
-    ) -> Result<CheckoutStats, CheckoutError>;
+    fn check_out(&mut self, commit: &Commit) -> Result<CheckoutStats, CheckoutError>;
 
     /// Update the workspace name.
     fn rename_workspace(&mut self, new_workspace_name: WorkspaceNameBuf);
@@ -155,7 +151,6 @@ pub trait LockedWorkingCopy {
     fn set_sparse_patterns(
         &mut self,
         new_sparse_patterns: Vec<RepoPathBuf>,
-        options: &CheckoutOptions,
     ) -> Result<CheckoutStats, CheckoutError>;
 
     /// Finish the modifications to the working copy by writing the updated
@@ -212,6 +207,8 @@ pub enum SnapshotError {
 /// added to structs for other commands such as [`SnapshotOptions`].
 #[derive(Debug, Clone)]
 pub struct WorkingCopyOptions {
+    /// Conflict marker style to use when materializing files.
+    pub conflict_marker_style: ConflictMarkerStyle,
     /// Whether to ignore changes to the executable bit for files on Unix. On
     /// Windows there is no executable bit and this config is unused.
     pub exec_config: Option<ExecConfig>,
@@ -221,6 +218,7 @@ impl WorkingCopyOptions {
     /// Create an instance for use in tests.
     pub fn empty_for_test() -> Self {
         WorkingCopyOptions {
+            conflict_marker_style: ConflictMarkerStyle::default(),
             exec_config: None,
         }
     }
@@ -228,6 +226,7 @@ impl WorkingCopyOptions {
     /// Create an instance from user settings.
     pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
         Ok(WorkingCopyOptions {
+            conflict_marker_style: settings.get("ui.conflict-marker-style")?,
             exec_config: settings.get("core.executable-bit").optional()?,
         })
     }
@@ -258,8 +257,6 @@ pub struct SnapshotOptions<'a> {
     /// (depending on implementation)
     /// return `SnapshotError::NewFileTooLarge`.
     pub max_new_file_size: u64,
-    /// Expected conflict marker style for checking for changed files.
-    pub conflict_marker_style: ConflictMarkerStyle,
 }
 
 impl SnapshotOptions<'_> {
@@ -271,7 +268,6 @@ impl SnapshotOptions<'_> {
             progress: None,
             start_tracking_matcher: &EverythingMatcher,
             max_new_file_size: u64::MAX,
-            conflict_marker_style: ConflictMarkerStyle::default(),
         }
     }
 }
@@ -298,22 +294,6 @@ pub enum UntrackedReason {
     },
     /// File does not match the fileset specified in snapshot.auto-track.
     FileNotAutoTracked,
-}
-
-/// Options used when checking out a tree in the working copy.
-#[derive(Clone)]
-pub struct CheckoutOptions {
-    /// Conflict marker style to use when materializing files
-    pub conflict_marker_style: ConflictMarkerStyle,
-}
-
-impl CheckoutOptions {
-    /// Create an instance for use in tests.
-    pub fn empty_for_test() -> Self {
-        CheckoutOptions {
-            conflict_marker_style: ConflictMarkerStyle::default(),
-        }
-    }
 }
 
 /// Stats about a checkout operation on a working copy. All "files" mentioned

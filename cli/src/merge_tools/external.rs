@@ -21,7 +21,6 @@ use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree::MergedTreeBuilder;
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::store::Store;
-use jj_lib::working_copy::CheckoutOptions;
 use pollster::FutureExt as _;
 use thiserror::Error;
 
@@ -378,9 +377,6 @@ pub fn edit_diff_external(
     let conflict_marker_style = editor
         .conflict_marker_style
         .unwrap_or(default_conflict_marker_style);
-    let options = CheckoutOptions {
-        conflict_marker_style,
-    };
 
     let got_output_field = find_all_variables(&editor.edit_args).contains(&"output");
     let diff_type = if got_output_field {
@@ -396,7 +392,7 @@ pub fn edit_diff_external(
         matcher,
         diff_type,
         instructions,
-        &options,
+        conflict_marker_style,
     )?;
 
     let patterns = diffedit_wc.working_copies.to_command_variables();
@@ -415,7 +411,7 @@ pub fn edit_diff_external(
         }));
     }
 
-    diffedit_wc.snapshot_results(store, base_ignores, options.conflict_marker_style)
+    diffedit_wc.snapshot_results(store, base_ignores, conflict_marker_style)
 }
 
 /// Generates textual diff by the specified `tool` and writes into `writer`.
@@ -431,9 +427,6 @@ pub fn generate_diff(
     let conflict_marker_style = tool
         .conflict_marker_style
         .unwrap_or(default_conflict_marker_style);
-    let options = CheckoutOptions {
-        conflict_marker_style,
-    };
     let store = left_tree.store();
     let diff_wc = check_out_trees(
         store,
@@ -441,7 +434,7 @@ pub fn generate_diff(
         right_tree,
         matcher,
         DiffType::TwoWay,
-        &options,
+        conflict_marker_style,
     )?;
     invoke_external_diff(ui, writer, tool, &diff_wc.to_command_variables())
 }
