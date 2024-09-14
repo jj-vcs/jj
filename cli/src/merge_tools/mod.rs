@@ -36,6 +36,7 @@ use jj_lib::repo_path::InvalidRepoPathError;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::repo_path::RepoPathUiConverter;
+use jj_lib::settings::ignore_executable_bit;
 use jj_lib::settings::UserSettings;
 use jj_lib::working_copy::SnapshotError;
 use pollster::FutureExt;
@@ -194,6 +195,7 @@ pub struct DiffEditor {
     base_ignores: Arc<GitIgnoreFile>,
     use_instructions: bool,
     conflict_marker_style: ConflictMarkerStyle,
+    exec_config: Option<bool>,
 }
 
 impl DiffEditor {
@@ -207,7 +209,8 @@ impl DiffEditor {
     ) -> Result<Self, MergeToolConfigError> {
         let tool = get_tool_config(settings, name)?
             .unwrap_or_else(|| MergeTool::external(ExternalMergeTool::with_program(name)));
-        Self::new_inner(tool, settings, base_ignores, conflict_marker_style)
+        let exec_config = ignore_executable_bit(settings.config());
+        Self::new_inner(tool, settings, base_ignores, conflict_marker_style, exec_config)
     }
 
     /// Loads the default diff editor from the settings.
@@ -224,7 +227,7 @@ impl DiffEditor {
             None
         }
         .unwrap_or_else(|| MergeTool::external(ExternalMergeTool::with_edit_args(&args)));
-        Self::new_inner(tool, settings, base_ignores, conflict_marker_style)
+        Self::new_inner(tool, settings, base_ignores, conflict_marker_style, ui.exec_config)
     }
 
     fn new_inner(
@@ -232,12 +235,14 @@ impl DiffEditor {
         settings: &UserSettings,
         base_ignores: Arc<GitIgnoreFile>,
         conflict_marker_style: ConflictMarkerStyle,
+        exec_config: Option<bool>,
     ) -> Result<Self, MergeToolConfigError> {
         Ok(DiffEditor {
             tool,
             base_ignores,
             use_instructions: settings.get_bool("ui.diff-instructions")?,
             conflict_marker_style,
+            exec_config,
         })
     }
 
@@ -273,6 +278,7 @@ impl DiffEditor {
                     instructions.as_deref(),
                     self.base_ignores.clone(),
                     self.conflict_marker_style,
+                    self.exec_config,
                 )
             }
         }

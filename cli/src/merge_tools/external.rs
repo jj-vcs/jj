@@ -373,12 +373,14 @@ pub fn edit_diff_external(
     instructions: Option<&str>,
     base_ignores: Arc<GitIgnoreFile>,
     default_conflict_marker_style: ConflictMarkerStyle,
+    exec_config: Option<bool>,
 ) -> Result<MergedTreeId, DiffEditError> {
     let conflict_marker_style = editor
         .conflict_marker_style
         .unwrap_or(default_conflict_marker_style);
     let options = CheckoutOptions {
         conflict_marker_style,
+        exec_config,
     };
 
     let got_output_field = find_all_variables(&editor.edit_args).contains(&"output");
@@ -427,6 +429,7 @@ pub fn generate_diff(
         .unwrap_or(default_conflict_marker_style);
     let options = CheckoutOptions {
         conflict_marker_style,
+        exec_config: ui.exec_config,
     };
     let store = left_tree.store();
     let diff_wc = check_out_trees(store, left_tree, right_tree, matcher, None, &options)?;

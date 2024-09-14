@@ -46,6 +46,7 @@ use crate::repo::RewriteRootCommit;
 use crate::repo_path::InvalidRepoPathError;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
+use crate::settings::UserSettings;
 use crate::store::Store;
 
 /// The trait all working-copy implementations must implement.
@@ -87,6 +88,7 @@ pub trait WorkingCopyFactory {
         state_path: PathBuf,
         operation_id: OperationId,
         workspace_id: WorkspaceId,
+        settings: &UserSettings,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError>;
 
     /// Load an existing working copy.
@@ -95,6 +97,7 @@ pub trait WorkingCopyFactory {
         store: Arc<Store>,
         working_copy_path: PathBuf,
         state_path: PathBuf,
+        settings: &UserSettings,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError>;
 }
 
@@ -266,6 +269,9 @@ pub enum UntrackedReason {
 pub struct CheckoutOptions {
     /// Conflict marker style to use when materializing files
     pub conflict_marker_style: ConflictMarkerStyle,
+    /// The executable-bit configuration: None if unset, Some(true) to care,
+    /// Some(false) to ignore.
+    pub exec_config: Option<bool>,
 }
 
 impl CheckoutOptions {
@@ -273,6 +279,7 @@ impl CheckoutOptions {
     pub fn empty_for_test() -> Self {
         CheckoutOptions {
             conflict_marker_style: ConflictMarkerStyle::default(),
+            exec_config: None, // TODO (rebase): double check this.
         }
     }
 }
