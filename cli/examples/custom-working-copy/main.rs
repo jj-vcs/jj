@@ -45,6 +45,7 @@ use jj_lib::working_copy::SnapshotOptions;
 use jj_lib::working_copy::SnapshotStats;
 use jj_lib::working_copy::WorkingCopy;
 use jj_lib::working_copy::WorkingCopyFactory;
+use jj_lib::working_copy::WorkingCopySettings;
 use jj_lib::working_copy::WorkingCopyStateError;
 use jj_lib::workspace::WorkingCopyFactories;
 use jj_lib::workspace::Workspace;
@@ -170,8 +171,11 @@ impl WorkingCopy for ConflictsWorkingCopy {
         self.inner.sparse_patterns()
     }
 
-    fn start_mutation(&self) -> Result<Box<dyn LockedWorkingCopy>, WorkingCopyStateError> {
-        let inner = self.inner.start_mutation()?;
+    fn start_mutation(
+        &self,
+        wc_settings: WorkingCopySettings,
+    ) -> Result<Box<dyn LockedWorkingCopy>, WorkingCopyStateError> {
+        let inner = self.inner.start_mutation(wc_settings)?;
         Ok(Box::new(LockedConflictsWorkingCopy {
             wc_path: self.working_copy_path.clone(),
             inner,

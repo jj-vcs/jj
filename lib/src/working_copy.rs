@@ -28,6 +28,7 @@ use tracing::instrument;
 use crate::backend::BackendError;
 use crate::backend::MergedTreeId;
 use crate::commit::Commit;
+use crate::config::ConfigGetError;
 use crate::conflicts::ConflictMarkerStyle;
 use crate::dag_walk;
 use crate::fsmonitor::FsmonitorSettings;
@@ -46,6 +47,7 @@ use crate::repo::RewriteRootCommit;
 use crate::repo_path::InvalidRepoPathError;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
+use crate::settings::UserSettings;
 use crate::store::Store;
 use crate::transaction::TransactionCommitError;
 
@@ -75,7 +77,10 @@ pub trait WorkingCopy: Send {
 
     /// Locks the working copy and returns an instance with methods for updating
     /// the working copy files and state.
-    fn start_mutation(&self) -> Result<Box<dyn LockedWorkingCopy>, WorkingCopyStateError>;
+    fn start_mutation(
+        &self,
+        wc_settings: WorkingCopySettings,
+    ) -> Result<Box<dyn LockedWorkingCopy>, WorkingCopyStateError>;
 }
 
 /// The factory which creates and loads a specific type of working copy.
@@ -157,6 +162,32 @@ pub trait LockedWorkingCopy {
         self: Box<Self>,
         operation_id: OperationId,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError>;
+}
+
+/// Options used by the [`LockedWorkingCopy`] during operations like checkouts
+/// or snapshots that can be loaded solely from user settings. These should not
+/// change during a working copy mutation.
+///
+/// Some of these may be ignored by different working copy implementations.
+///
+/// Options that can't be loaded from user settings should be added to structs
+/// for specific commands such as [`SnapshotOptions`].
+#[derive(Debug, Clone)]
+pub struct WorkingCopySettings {
+}
+
+impl WorkingCopySettings {
+    /// Create an instance for use in tests.
+    pub fn empty_for_test() -> Self {
+        WorkingCopySettings {
+        }
+    }
+
+    /// Create an instance from user settings.
+    pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
+        Ok(WorkingCopySettings {
+        })
+    }
 }
 
 /// An error while snapshotting the working copy.
