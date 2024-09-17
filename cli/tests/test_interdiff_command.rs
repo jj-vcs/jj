@@ -21,7 +21,7 @@ fn test_interdiff_basic() {
     let work_dir = test_env.work_dir("repo");
 
     work_dir.write_file("file1", "foo\n");
-    work_dir.run_jj(["new"]).success();
+    work_dir.run_jj(["new", "-madd file2 left"]).success();
     work_dir.write_file("file2", "foo\n");
     work_dir
         .run_jj(["bookmark", "create", "-r@", "left"])
@@ -29,7 +29,7 @@ fn test_interdiff_basic() {
 
     work_dir.run_jj(["new", "root()"]).success();
     work_dir.write_file("file3", "foo\n");
-    work_dir.run_jj(["new"]).success();
+    work_dir.run_jj(["new", "-madd file2 right"]).success();
     work_dir.write_file("file2", "foo\nbar\n");
     work_dir
         .run_jj(["bookmark", "create", "-r@", "right"])
@@ -39,6 +39,8 @@ fn test_interdiff_basic() {
     // implicit --to
     let output = work_dir.run_jj(["interdiff", "--from", "left"]);
     insta::assert_snapshot!(output, @r"
+    Modified commit description:
+       1    1: add file2 leftright
     Modified regular file file2:
        1    1: foo
             2: bar
@@ -49,6 +51,8 @@ fn test_interdiff_basic() {
     work_dir.run_jj(["new", "@-"]).success();
     let output = work_dir.run_jj(["interdiff", "--from", "left", "--to", "right"]);
     insta::assert_snapshot!(output, @r"
+    Modified commit description:
+       1    1: add file2 leftright
     Modified regular file file2:
        1    1: foo
             2: bar
@@ -65,6 +69,12 @@ fn test_interdiff_basic() {
 
     let output = work_dir.run_jj(["interdiff", "--from", "left", "--to", "right", "--git"]);
     insta::assert_snapshot!(output, @r"
+    diff --git a/JJ-COMMIT-DESCRIPTION b/JJ-COMMIT-DESCRIPTION
+    --- JJ-COMMIT-DESCRIPTION
+    +++ JJ-COMMIT-DESCRIPTION
+    @@ -1,1 +1,1 @@
+    -add file2 left
+    +add file2 right
     diff --git a/file2 b/file2
     index 257cc5642c..3bd1f0e297 100644
     --- a/file2

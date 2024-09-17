@@ -1882,6 +1882,11 @@ fn test_op_diff_divergent_change() {
     Changed commits:
     ○  + rlvkpnrz?? c5cad9ab 2b
        - rlvkpnrz hidden 4f7a567a (empty) (no description set)
+       diff --git a/JJ-COMMIT-DESCRIPTION b/JJ-COMMIT-DESCRIPTION
+       --- JJ-COMMIT-DESCRIPTION
+       +++ JJ-COMMIT-DESCRIPTION
+       @@ -0,0 +1,1 @@
+       +2b
        diff --git a/file b/file
        index d00491fd7e..5e0f51b37b 100644
        --- a/file
@@ -1891,6 +1896,11 @@ fn test_op_diff_divergent_change() {
        +2b
     ○  + rlvkpnrz?? f189cafa 2a
        - rlvkpnrz hidden 4f7a567a (empty) (no description set)
+       diff --git a/JJ-COMMIT-DESCRIPTION b/JJ-COMMIT-DESCRIPTION
+       --- JJ-COMMIT-DESCRIPTION
+       +++ JJ-COMMIT-DESCRIPTION
+       @@ -0,0 +1,1 @@
+       +2a
        diff --git a/file b/file
        index d00491fd7e..13a46f22fa 100644
        --- a/file
@@ -1923,6 +1933,12 @@ fn test_op_diff_divergent_change() {
     ○  + rlvkpnrz 17d68d92 2ab
        - rlvkpnrz hidden c5cad9ab 2b
        - rlvkpnrz hidden f189cafa 2a
+       diff --git a/JJ-COMMIT-DESCRIPTION b/JJ-COMMIT-DESCRIPTION
+       --- JJ-COMMIT-DESCRIPTION
+       +++ JJ-COMMIT-DESCRIPTION
+       @@ -1,1 +1,1 @@
+       -2b
+       +2ab
        diff --git a/file b/file
        index 5e0f51b37b..60327514e0 100644
        --- a/file

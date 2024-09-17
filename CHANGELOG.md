@@ -80,6 +80,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj diff --stat` now shows the change in size to binary files.
 
+* `jj interdiff`, `jj evolog -p`, and `jj op log -p` now show diff of commit
+  descriptions.
+
 * `jj log` and `jj op log` output can now be anonymized with the
   `builtin_log_redacted` and `builtin_op_log_redacted` templates.
 
