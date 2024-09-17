@@ -156,7 +156,7 @@ pub(crate) fn cmd_describe(
     assert!(!(args.edit && args.no_edit));
     let use_editor = args.edit || (shared_description.is_none() && !args.no_edit);
 
-    let commit_builders = commits
+    let mut commit_builders = commits
         .iter()
         .map(|commit| {
             let mut commit_builder = tx.repo_mut().rewrite_commit(commit).detach();
@@ -181,11 +181,7 @@ pub(crate) fn cmd_describe(
         })
         .collect_vec();
 
-    let commit_descriptions: Vec<(_, _)> = if !use_editor {
-        iter::zip(&commits, &commit_builders)
-            .map(|(commit, commit_builder)| (commit, commit_builder.description().to_owned()))
-            .collect()
-    } else {
+    if use_editor {
         let temp_commits: Vec<_> = iter::zip(&commits, &commit_builders)
             // Edit descriptions in topological order
             .rev()
@@ -199,7 +195,7 @@ pub(crate) fn cmd_describe(
         if let [(_, temp_commit)] = &*temp_commits {
             let template = description_template(ui, &tx, "", temp_commit)?;
             let description = edit_description(&text_editor, &template)?;
-            vec![(&commits[0], description)]
+            commit_builders[0].set_description(description);
         } else {
             let ParsedBulkEditMessage {
                 descriptions,
@@ -228,30 +224,25 @@ pub(crate) fn cmd_describe(
                 )));
             }
 
-            let commit_descriptions = commits
-                .iter()
-                .map(|commit| {
-                    let description = descriptions.get(commit.id()).unwrap().to_owned();
-                    (commit, description)
-                })
-                .collect();
-
-            commit_descriptions
+            for (commit, commit_builder) in iter::zip(&commits, &mut commit_builders) {
+                let description = descriptions.get(commit.id()).unwrap();
+                commit_builder.set_description(description);
+            }
         }
     };
 
     // Filter out unchanged commits to avoid rebasing descendants in
     // `transform_descendants` below unnecessarily.
-    let commit_descriptions: HashMap<_, _> = commit_descriptions
-        .into_iter()
-        .filter(|(commit, new_description)| {
-            new_description != commit.description()
+    let commit_builders: HashMap<_, _> = iter::zip(&commits, commit_builders)
+        .filter(|(old_commit, commit_builder)| {
+            old_commit.description() != commit_builder.description()
                 || args.reset_author
-                || args.author.as_ref().is_some_and(|(name, email)| {
-                    name != &commit.author().name || email != &commit.author().email
-                })
+                // Ignore author timestamp which could be updated if the old
+                // commit was discardable.
+                || old_commit.author().name != commit_builder.author().name
+                || old_commit.author().email != commit_builder.author().email
         })
-        .map(|(commit, new_description)| (commit.id(), new_description))
+        .map(|(old_commit, commit_builder)| (old_commit.id(), commit_builder))
         .collect();
 
     let mut num_described = 0;
@@ -262,32 +253,22 @@ pub(crate) fn cmd_describe(
     // rewriting the same commit multiple times, and adding additional entries
     // in the predecessor chain.
     tx.repo_mut().transform_descendants(
-        commit_descriptions
-            .keys()
-            .map(|&id| id.clone())
-            .collect_vec(),
+        commit_builders.keys().map(|&id| id.clone()).collect(),
         |rewriter| {
             let old_commit_id = rewriter.old_commit().id().clone();
-            let mut commit_builder = rewriter.reparent();
-            if let Some(description) = commit_descriptions.get(&old_commit_id) {
-                commit_builder = commit_builder.set_description(description);
-                if args.reset_author {
-                    let new_author = commit_builder.committer().clone();
-                    commit_builder = commit_builder.set_author(new_author);
-                }
-                if let Some((name, email)) = args.author.clone() {
-                    let new_author = Signature {
-                        name,
-                        email,
-                        timestamp: commit_builder.author().timestamp,
-                    };
-                    commit_builder = commit_builder.set_author(new_author);
-                }
+            let commit_builder = rewriter.reparent();
+            if let Some(temp_builder) = commit_builders.get(&old_commit_id) {
+                commit_builder
+                    .set_description(temp_builder.description())
+                    .set_author(temp_builder.author().clone())
+                    // Copy back committer for consistency with author timestamp
+                    .set_committer(temp_builder.committer().clone())
+                    .write()?;
                 num_described += 1;
             } else {
+                commit_builder.write()?;
                 num_reparented += 1;
             }
-            commit_builder.write()?;
             Ok(())
         },
     )?;
