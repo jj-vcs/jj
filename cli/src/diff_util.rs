@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::borrow::Borrow;
+use std::borrow::Cow;
 use std::cmp::max;
 use std::io;
 use std::iter;
@@ -60,6 +61,7 @@ use jj_lib::files::DiffLineIterator;
 use jj_lib::files::DiffLineNumber;
 use jj_lib::matchers::Matcher;
 use jj_lib::merge::Merge;
+use jj_lib::merge::MergeBuilder;
 use jj_lib::merge::MergedTreeValue;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::ObjectId as _;
@@ -434,13 +436,13 @@ impl<'a> DiffRenderer<'a> {
     ) -> Result<(), DiffRenderError> {
         formatter
             .with_label_async("diff", async |formatter| {
-                self.show_diff_inner(ui, formatter, trees, matcher, copy_records, width)
+                self.show_diff_trees(ui, formatter, trees, matcher, copy_records, width)
                     .await
             })
             .await
     }
 
-    async fn show_diff_inner(
+    async fn show_diff_trees(
         &self,
         ui: &Ui,
         formatter: &mut dyn Formatter,
@@ -537,6 +539,50 @@ impl<'a> DiffRenderer<'a> {
         Ok(())
     }
 
+    fn show_diff_commit_descriptions(
+        &self,
+        formatter: &mut dyn Formatter,
+        [from_description, to_description]: [&Merge<&str>; 2],
+    ) -> Result<(), DiffRenderError> {
+        if from_description == to_description {
+            return Ok(());
+        }
+        const DUMMY_PATH: &str = "JJ-COMMIT-DESCRIPTION";
+        for format in &self.formats {
+            match format {
+                // Omit diff from "short" formats. Printing dummy file path
+                // wouldn't be useful.
+                DiffFormat::Summary
+                | DiffFormat::Stat(_)
+                | DiffFormat::Types
+                | DiffFormat::NameOnly => {}
+                DiffFormat::Git(options) => {
+                    // Git format must be parsable, so use dummy file path.
+                    show_git_diff_texts(
+                        formatter,
+                        [DUMMY_PATH, DUMMY_PATH],
+                        [from_description, to_description],
+                        options,
+                        self.conflict_marker_style,
+                    )?;
+                }
+                DiffFormat::ColorWords(options) => {
+                    writeln!(formatter.labeled("header"), "Modified commit description:")?;
+                    show_color_words_diff_hunks(
+                        formatter,
+                        [from_description, to_description],
+                        options,
+                        self.conflict_marker_style,
+                    )?;
+                }
+                DiffFormat::Tool(_) => {
+                    // TODO: materialize commit description as file?
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Generates diff between `from_commits` and `to_commit` based off their
     /// parents. The `from_commits` will temporarily be rebased onto the
     /// `to_commit` parents to exclude unrelated changes.
@@ -549,18 +595,38 @@ impl<'a> DiffRenderer<'a> {
         matcher: &dyn Matcher,
         width: usize,
     ) -> Result<(), DiffRenderError> {
+        let from_description = if from_commits.is_empty() {
+            Merge::resolved("")
+        } else {
+            // TODO: use common predecessor as the base description?
+            MergeBuilder::from_iter(itertools::intersperse(
+                from_commits.iter().map(|c| c.description()),
+                "",
+            ))
+            .build()
+            .simplify()
+        };
+        let to_description = Merge::resolved(to_commit.description());
         let from_tree = rebase_to_dest_parent(self.repo, from_commits, to_commit)?;
         let to_tree = to_commit.tree_async().await?;
         let copy_records = CopyRecords::default(); // TODO
-        self.show_diff(
-            ui,
-            formatter,
-            [&from_tree, &to_tree],
-            matcher,
-            &copy_records,
-            width,
-        )
-        .await
+        formatter
+            .with_label_async("diff", async |formatter| {
+                self.show_diff_commit_descriptions(
+                    formatter,
+                    [&from_description, &to_description],
+                )?;
+                self.show_diff_trees(
+                    ui,
+                    formatter,
+                    [&from_tree, &to_tree],
+                    matcher,
+                    &copy_records,
+                    width,
+                )
+                .await
+            })
+            .await
     }
 
     /// Generates diff of the given `commit` compared to its parents.
@@ -706,9 +772,9 @@ impl ColorWordsDiffOptions {
     }
 }
 
-fn show_color_words_diff_hunks(
+fn show_color_words_diff_hunks<T: AsRef<[u8]>>(
     formatter: &mut dyn Formatter,
-    [lefts, rights]: [&Merge<BString>; 2],
+    [lefts, rights]: [&Merge<T>; 2],
     options: &ColorWordsDiffOptions,
     conflict_marker_style: ConflictMarkerStyle,
 ) -> io::Result<()> {
@@ -1903,6 +1969,29 @@ pub async fn show_git_diff(
         }
     }
     Ok(())
+}
+
+/// Generates diff of non-binary contents in Git format.
+fn show_git_diff_texts<T: AsRef<[u8]>>(
+    formatter: &mut dyn Formatter,
+    [left_path, right_path]: [&str; 2],
+    contents: [&Merge<T>; 2],
+    options: &UnifiedDiffOptions,
+    conflict_marker_style: ConflictMarkerStyle,
+) -> io::Result<()> {
+    formatter.with_label("file_header", |formatter| {
+        writeln!(formatter, "diff --git a/{left_path} b/{right_path}")?;
+        writeln!(formatter, "--- {left_path}")?;
+        writeln!(formatter, "+++ {right_path}")
+    })?;
+    let [left, right] = contents.map(|content| match content.as_resolved() {
+        Some(text) => Cow::Borrowed(BStr::new(text)),
+        None => Cow::Owned(materialize_merge_result_to_bytes(
+            content,
+            conflict_marker_style,
+        )),
+    });
+    show_unified_diff_hunks(formatter, [left.as_ref(), right.as_ref()], options)
 }
 
 #[instrument(skip_all)]

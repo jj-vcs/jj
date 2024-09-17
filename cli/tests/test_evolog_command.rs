@@ -94,6 +94,8 @@ fn test_evolog_with_or_without_diff() {
     ○  rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:08 b955b72e
        (empty) my description
        -- operation e0f8e58b3800 new empty commit
+       Modified commit description:
+               1: my description
     [EOF]
     ");
 
@@ -193,6 +195,11 @@ fn test_evolog_with_or_without_diff() {
     rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:08 b955b72e
     (empty) my description
     -- operation e0f8e58b3800 new empty commit
+    diff --git a/JJ-COMMIT-DESCRIPTION b/JJ-COMMIT-DESCRIPTION
+    --- JJ-COMMIT-DESCRIPTION
+    +++ JJ-COMMIT-DESCRIPTION
+    @@ -0,0 +1,1 @@
+    +my description
     [EOF]
     ");
 }
@@ -410,6 +417,15 @@ fn test_evolog_squash() {
     ○      qpvuntsm test.user@example.com 2001-02-03 08:05:15 5f3281c6
     ├─┬─╮  squashed 3
     │ │ │  -- operation 838e6d867fda squash commits into 5ec0619af5cb4f7707a556a71a6f96af0bc294d2
+    │ │ │  Modified commit description:
+    │ │ │     1     : <<<<<<< Conflict 1 of 1
+    │ │ │     2     : +++++++ Contents of side #1
+    │ │ │     3    1: squashed 2
+    │ │ │     4     : %%%%%%% Changes from base #1 to side #2
+    │ │ │     5     : +fourth
+    │ │ │     6    1: %%%%%%% Changes from base #2 to side #3
+    │ │ │     7     : +fifth
+    │ │ │     8     : >>>>>>> Conflict 1 of 1 ends
     │ │ ○  vruxwmqv hidden test.user@example.com 2001-02-03 08:05:15 770795d0
     │ │ │  fifth
     │ │ │  -- operation 1d38c000b52d snapshot working copy
@@ -418,6 +434,8 @@ fn test_evolog_squash() {
     │ │ ○  vruxwmqv hidden test.user@example.com 2001-02-03 08:05:14 2e0123d1
     │ │    (empty) fifth
     │ │    -- operation fc852ed87801 new empty commit
+    │ │    Modified commit description:
+    │ │            1: fifth
     │ ○  yqosqzyt hidden test.user@example.com 2001-02-03 08:05:14 ea8161b6
     │ │  fourth
     │ │  -- operation 3b09d55dfa6e snapshot working copy
@@ -426,9 +444,18 @@ fn test_evolog_squash() {
     │ ○  yqosqzyt hidden test.user@example.com 2001-02-03 08:05:13 1de5fdb6
     │    (empty) fourth
     │    -- operation 9404a551035a new empty commit
+    │    Modified commit description:
+    │            1: fourth
     ○    qpvuntsm hidden test.user@example.com 2001-02-03 08:05:12 5ec0619a
     ├─╮  squashed 2
     │ │  -- operation fa9796d12627 squash commits into 690858846504af0e42fde980fdacf9851559ebb8
+    │ │  Modified commit description:
+    │ │     1     : <<<<<<< Conflict 1 of 1
+    │ │     2     : +++++++ Contents of side #1
+    │ │     3    1: squashed 1
+    │ │     4    1: %%%%%%% Changes from base to side #2
+    │ │     5     : +third
+    │ │     6     : >>>>>>> Conflict 1 of 1 ends
     │ │  Removed regular file file2:
     │ │     1     : foo2
     │ │  Removed regular file file3:
@@ -447,12 +474,22 @@ fn test_evolog_squash() {
     │ ○  zsuskuln hidden test.user@example.com 2001-02-03 08:05:11 3a2a4253
     │ │  (empty) third
     │ │  -- operation 4611a6121e8a describe commit ebec10f449ad7ab92c7293efab5e3db2d8e9fea1
+    │ │  Modified commit description:
+    │ │          1: third
     │ ○  zsuskuln hidden test.user@example.com 2001-02-03 08:05:10 ebec10f4
     │    (empty) (no description set)
     │    -- operation 65c81703100d squash commits into 5878cbe03cdf599c9353e5a1a52a01f4c5e0e0fa
     ○    qpvuntsm hidden test.user@example.com 2001-02-03 08:05:10 69085884
     ├─╮  squashed 1
     │ │  -- operation 65c81703100d squash commits into 5878cbe03cdf599c9353e5a1a52a01f4c5e0e0fa
+    │ │  Modified commit description:
+    │ │     1     : <<<<<<< Conflict 1 of 1
+    │ │     2     : %%%%%%% Changes from base to side #1
+    │ │     3     : +first
+    │ │     4     : +++++++ Contents of side #2
+    │ │     5     : second
+    │ │     6     : >>>>>>> Conflict 1 of 1 ends
+    │ │          1: squashed 1
     │ ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:10 a3759c9d
     │ │  second
     │ │  -- operation a7b202f56742 snapshot working copy
@@ -462,6 +499,8 @@ fn test_evolog_squash() {
     │ ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:09 a5b2f625
     │    (empty) second
     │    -- operation 26f649a0cdfa new empty commit
+    │    Modified commit description:
+    │            1: second
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:09 5878cbe0
     │  first
     │  -- operation af15122a5868 snapshot working copy
@@ -470,6 +509,8 @@ fn test_evolog_squash() {
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 68a50538
     │  (empty) first
     │  -- operation 75545f7ff2df describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
+    │  Modified commit description:
+    │          1: first
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
        (empty) (no description set)
        -- operation 8f47435a3990 add workspace 'default'
