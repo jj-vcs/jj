@@ -15,6 +15,7 @@
 use std::collections::HashMap;
 use std::io;
 use std::io::Read as _;
+use std::iter;
 
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
@@ -139,6 +140,7 @@ pub(crate) fn cmd_describe(
         )
     };
 
+    let default_description_to_edit = tx.settings().get_string("ui.default-description")?;
     let shared_description = if args.stdin {
         let mut buffer = String::new();
         io::stdin().read_to_string(&mut buffer)?;
@@ -154,43 +156,43 @@ pub(crate) fn cmd_describe(
     assert!(!(args.edit && args.no_edit));
     let use_editor = args.edit || (shared_description.is_none() && !args.no_edit);
 
+    let commit_builders = commits
+        .iter()
+        .map(|commit| {
+            let mut commit_builder = tx.repo_mut().rewrite_commit(commit).detach();
+            if let Some(description) = &shared_description {
+                commit_builder.set_description(description);
+            } else if use_editor && commit_builder.description().is_empty() {
+                commit_builder.set_description(&default_description_to_edit);
+            }
+            if args.reset_author {
+                let new_author = commit_builder.committer().clone();
+                commit_builder.set_author(new_author);
+            }
+            if let Some((name, email)) = args.author.clone() {
+                let new_author = Signature {
+                    name,
+                    email,
+                    timestamp: commit_builder.author().timestamp,
+                };
+                commit_builder.set_author(new_author);
+            }
+            commit_builder
+        })
+        .collect_vec();
+
     let commit_descriptions: Vec<(_, _)> = if !use_editor {
-        commits
-            .iter()
-            .map(|commit| {
-                let new_description = shared_description
-                    .as_deref()
-                    .unwrap_or_else(|| commit.description());
-                (commit, new_description.to_owned())
-            })
+        iter::zip(&commits, &commit_builders)
+            .map(|(commit, commit_builder)| (commit, commit_builder.description().to_owned()))
             .collect()
     } else {
-        let temp_commits: Vec<(_, _)> = commits
-            .iter()
+        let temp_commits: Vec<_> = iter::zip(&commits, &commit_builders)
             // Edit descriptions in topological order
             .rev()
-            .map(|commit| -> Result<_, CommandError> {
-                let mut commit_builder = tx.repo_mut().rewrite_commit(commit).detach();
-                if let Some(description) = &shared_description {
-                    commit_builder.set_description(description);
-                } else if commit_builder.description().is_empty() {
-                    commit_builder
-                        .set_description(tx.settings().get_string("ui.default-description")?);
-                }
-                if args.reset_author {
-                    let new_author = commit_builder.committer().clone();
-                    commit_builder.set_author(new_author);
-                }
-                if let Some((name, email)) = args.author.clone() {
-                    let new_author = Signature {
-                        name,
-                        email,
-                        timestamp: commit_builder.author().timestamp,
-                    };
-                    commit_builder.set_author(new_author);
-                }
-                let temp_commit = commit_builder.write_hidden()?;
-                Ok((commit.id(), temp_commit))
+            .map(|(commit, commit_builder)| {
+                commit_builder
+                    .write_hidden()
+                    .map(|temp_commit| (commit.id(), temp_commit))
             })
             .try_collect()?;
 

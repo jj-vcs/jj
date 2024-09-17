@@ -632,6 +632,16 @@ fn test_describe_default_description() {
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
+
+    // Default description shouldn't be used if --no-edit
+    work_dir.run_jj(["new", "root()"]).success();
+    let output = work_dir.run_jj(["describe", "--no-edit", "--reset-author"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: kkmpptxz f652c321 (empty) (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
 }
 
 #[test]
