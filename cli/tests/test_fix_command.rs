@@ -2175,3 +2175,74 @@ fn test_fix_with_line_ranges_and_include_unchanged_files_all_lines() {
     let output = work_dir.run_jj(["file", "show", "empty.txt", "-r", "c2"]);
     insta::assert_snapshot!(output, @r"");
 }
+
+#[test]
+fn test_summary() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let formatter_path = assert_cmd::cargo::cargo_bin!("fake-formatter");
+    assert!(formatter_path.is_file());
+    let escaped_formatter_path = formatter_path.to_str().unwrap().replace('\\', r"\\");
+    test_env.add_config(format!(
+        r###"
+        [fix.tools.tool-1]
+        command = ["{formatter}", "--append", "fixed"]
+        patterns = ["all()"]
+        "###,
+        formatter = escaped_formatter_path.as_str()
+    ));
+
+    work_dir.write_file("file1", "foo\n");
+    work_dir.write_file("file2", "bar\n");
+    work_dir.run_jj(["describe", "-m", "work item 1"]).success();
+    let output = work_dir.run_jj(["fix", "--summary"]);
+    insta::assert_snapshot!(output, @r###"
+    ------- stderr -------
+    Fixed 1 commits of 1 checked.
+    qpvuntsm 2e8af140 work item 1
+    M file1
+    M file2
+    Working copy  (@) now at: qpvuntsm 2e8af140 work item 1
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Added 0 files, modified 2 files, removed 0 files
+    [EOF]
+    "###);
+}
+
+#[test]
+fn test_summary_multiple_commits() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let formatter_path = assert_cmd::cargo::cargo_bin!("fake-formatter");
+    assert!(formatter_path.is_file());
+    let escaped_formatter_path = formatter_path.to_str().unwrap().replace('\\', r"\\");
+    test_env.add_config(format!(
+        r###"
+        [fix.tools.tool-1]
+        command = ["{formatter}", "--append", "fixed"]
+        patterns = ["all()"]
+        "###,
+        formatter = escaped_formatter_path.as_str()
+    ));
+
+    work_dir.write_file("file1", "foo\n");
+    work_dir.run_jj(["describe", "-m", "work item 1"]).success();
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file2", "bar\n");
+    work_dir.run_jj(["describe", "-m", "work item 2"]).success();
+    let output = work_dir.run_jj(["fix", "--summary"]);
+    insta::assert_snapshot!(output, @r###"
+    ------- stderr -------
+    Fixed 2 commits of 2 checked.
+    kkmpptxz 63ab61b2 work item 2
+    M file2
+    qpvuntsm e0c80ab2 work item 1
+    M file1
+    Working copy  (@) now at: kkmpptxz 63ab61b2 work item 2
+    Parent commit (@-)      : qpvuntsm e0c80ab2 work item 1
+    Added 0 files, modified 2 files, removed 0 files
+    [EOF]
+    "###);
+}

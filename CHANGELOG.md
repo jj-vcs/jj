@@ -24,6 +24,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   jj workspace can have its own Git HEAD. Existing repositories are migrated
   automatically.
 
+* `jj fix` now supports `--summary` flag to display modified files per fixed
+   commit.
+
 ### Fixed bugs
 
 * A side of a conflict whose contents end with a carriage return no longer loses

@@ -100,7 +100,7 @@ use crate::templater::TemplateRenderer;
 use crate::text_util;
 use crate::ui::Ui;
 
-#[derive(clap::Args, Clone, Debug)]
+#[derive(clap::Args, Clone, Debug, Default)]
 #[command(next_help_heading = "Diff Formatting Options")]
 #[command(group(clap::ArgGroup::new("short-format").args(&["summary", "stat", "types", "name_only"])))]
 #[command(group(clap::ArgGroup::new("long-format").args(&["git", "color_words"])))]
