@@ -158,7 +158,9 @@ fn do_op_log(
             let commit_summary_template = {
                 let language =
                     workspace_env.commit_template_language(repo.as_ref(), &id_prefix_context);
-                workspace_env.parse_template(ui, &language, &template_text)?
+                workspace_env
+                    .parse_template(ui, &language, &template_text)?
+                    .labeled(["op_log", "commit"])
             };
             let path_converter = workspace_env.path_converter();
             let conflict_marker_style = workspace_env.conflict_marker_style();

@@ -68,7 +68,9 @@ pub(crate) fn cmd_show(
         Some(value) => value.to_string(),
         None => workspace_command.settings().get_string("templates.show")?,
     };
-    let template = workspace_command.parse_commit_template(ui, &template_string)?;
+    let template = workspace_command
+        .parse_commit_template(ui, &template_string)?
+        .labeled(["show", "commit"]);
     let diff_renderer = workspace_command.diff_renderer_for(&args.format)?;
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();

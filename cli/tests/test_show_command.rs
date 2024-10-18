@@ -84,13 +84,13 @@ fn test_show_basic() {
 
     let output = work_dir.run_jj(["show", "--color=debug"]);
     insta::assert_snapshot!(output, @r"
-    Commit ID: [38;5;4m<<commit_id::92e687faa4e5b681937f5a9c47feaa33e6b4892c>>[39m
-    Change ID: [38;5;5m<<change_id::rlvkpnrzqnoowoytxnquwvuryrwnrmlp>>[39m
-    Author   : [38;5;3m<<author name::Test User>>[39m <[38;5;3m<<author email local::test.user>><<author email::@>><<author email domain::example.com>>[39m> ([38;5;6m<<author timestamp local format::2001-02-03 08:05:09>>[39m)
-    Committer: [38;5;3m<<committer name::Test User>>[39m <[38;5;3m<<committer email local::test.user>><<committer email::@>><<committer email domain::example.com>>[39m> ([38;5;6m<<committer timestamp local format::2001-02-03 08:05:09>>[39m)
-
-    [38;5;3m<<description placeholder::    (no description set)>>[39m
-
+    <<show commit::Commit ID: >>[38;5;4m<<show commit commit_id::92e687faa4e5b681937f5a9c47feaa33e6b4892c>>[39m<<show commit::>>
+    <<show commit::Change ID: >>[38;5;5m<<show commit change_id::rlvkpnrzqnoowoytxnquwvuryrwnrmlp>>[39m<<show commit::>>
+    <<show commit::Author   : >>[38;5;3m<<show commit author name::Test User>>[39m<<show commit:: <>>[38;5;3m<<show commit author email local::test.user>><<show commit author email::@>><<show commit author email domain::example.com>>[39m<<show commit::> (>>[38;5;6m<<show commit author timestamp local format::2001-02-03 08:05:09>>[39m<<show commit::)>>
+    <<show commit::Committer: >>[38;5;3m<<show commit committer name::Test User>>[39m<<show commit:: <>>[38;5;3m<<show commit committer email local::test.user>><<show commit committer email::@>><<show commit committer email domain::example.com>>[39m<<show commit::> (>>[38;5;6m<<show commit committer timestamp local format::2001-02-03 08:05:09>>[39m<<show commit::)>>
+    <<show commit::>>
+    [38;5;3m<<show commit description placeholder::    (no description set)>>[39m<<show commit::>>
+    <<show commit::>>
     [38;5;3m<<diff header::Modified regular file file2:>>[39m
     [38;5;1m<<diff removed line_number::   1>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   1>>[39m<<diff::: foo>>
     <<diff::     >>[38;5;2m<<diff added line_number::   2>>[39m<<diff::: >>[4m[38;5;2m<<diff added token::bar>>[24m[39m
@@ -176,13 +176,13 @@ fn test_show_basic() {
 
     let output = work_dir.run_jj(["show", "--git", "--color=debug"]);
     insta::assert_snapshot!(output, @r"
-    Commit ID: [38;5;4m<<commit_id::92e687faa4e5b681937f5a9c47feaa33e6b4892c>>[39m
-    Change ID: [38;5;5m<<change_id::rlvkpnrzqnoowoytxnquwvuryrwnrmlp>>[39m
-    Author   : [38;5;3m<<author name::Test User>>[39m <[38;5;3m<<author email local::test.user>><<author email::@>><<author email domain::example.com>>[39m> ([38;5;6m<<author timestamp local format::2001-02-03 08:05:09>>[39m)
-    Committer: [38;5;3m<<committer name::Test User>>[39m <[38;5;3m<<committer email local::test.user>><<committer email::@>><<committer email domain::example.com>>[39m> ([38;5;6m<<committer timestamp local format::2001-02-03 08:05:09>>[39m)
-
-    [38;5;3m<<description placeholder::    (no description set)>>[39m
-
+    <<show commit::Commit ID: >>[38;5;4m<<show commit commit_id::92e687faa4e5b681937f5a9c47feaa33e6b4892c>>[39m<<show commit::>>
+    <<show commit::Change ID: >>[38;5;5m<<show commit change_id::rlvkpnrzqnoowoytxnquwvuryrwnrmlp>>[39m<<show commit::>>
+    <<show commit::Author   : >>[38;5;3m<<show commit author name::Test User>>[39m<<show commit:: <>>[38;5;3m<<show commit author email local::test.user>><<show commit author email::@>><<show commit author email domain::example.com>>[39m<<show commit::> (>>[38;5;6m<<show commit author timestamp local format::2001-02-03 08:05:09>>[39m<<show commit::)>>
+    <<show commit::Committer: >>[38;5;3m<<show commit committer name::Test User>>[39m<<show commit:: <>>[38;5;3m<<show commit committer email local::test.user>><<show commit committer email::@>><<show commit committer email domain::example.com>>[39m<<show commit::> (>>[38;5;6m<<show commit committer timestamp local format::2001-02-03 08:05:09>>[39m<<show commit::)>>
+    <<show commit::>>
+    [38;5;3m<<show commit description placeholder::    (no description set)>>[39m<<show commit::>>
+    <<show commit::>>
     [1m<<diff file_header::diff --git a/file2 b/file2>>[0m
     [1m<<diff file_header::index 523a4a9de8..485b56a572 100644>>[0m
     [1m<<diff file_header::--- a/file2>>[0m

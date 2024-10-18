@@ -457,56 +457,56 @@ fn test_log_builtin_templates_colored_debug() {
         .success();
 
     insta::assert_snapshot!(render(r#"builtin_log_oneline"#), @r"
-    [1m[38;5;2m<<log node working_copy::@>>[0m  [1m[38;5;13m<<log working_copy change_id shortest prefix::r>>[38;5;8m<<log working_copy change_id shortest rest::lvkpnrz>>[39m<<log working_copy:: >>[38;5;9m<<log working_copy email placeholder::(no email set)>>[39m<<log working_copy:: >>[38;5;14m<<log working_copy committer timestamp local format::2001-02-03 08:05:08>>[39m<<log working_copy:: >>[38;5;13m<<log working_copy bookmarks name::my-bookmark>>[39m<<log working_copy:: >>[38;5;12m<<log working_copy commit_id shortest prefix::a>>[38;5;8m<<log working_copy commit_id shortest rest::ec3ec96>>[39m<<log working_copy:: >>[38;5;10m<<log working_copy empty::(empty)>>[39m<<log working_copy:: >>[38;5;10m<<log working_copy empty description placeholder::(no description set)>>[39m<<log working_copy::>>[0m
-    <<log node::○>>  [1m[38;5;5m<<log change_id shortest prefix::q>>[0m[38;5;8m<<log change_id shortest rest::pvuntsm>>[39m<<log:: >>[38;5;3m<<log author email local::test.user>>[39m<<log:: >>[38;5;6m<<log committer timestamp local format::2001-02-03 08:05:07>>[39m<<log:: >>[1m[38;5;4m<<log commit_id shortest prefix::e>>[0m[38;5;8m<<log commit_id shortest rest::8849ae1>>[39m<<log:: >>[38;5;2m<<log empty::(empty)>>[39m<<log:: >>[38;5;2m<<log empty description placeholder::(no description set)>>[39m<<log::>>
-    [1m[38;5;14m<<log node immutable::◆>>[0m  [1m[38;5;5m<<log change_id shortest prefix::z>>[0m[38;5;8m<<log change_id shortest rest::zzzzzzz>>[39m<<log:: >>[38;5;2m<<log root::root()>>[39m<<log:: >>[1m[38;5;4m<<log commit_id shortest prefix::0>>[0m[38;5;8m<<log commit_id shortest rest::0000000>>[39m<<log::>>
+    [1m[38;5;2m<<log commit node working_copy::@>>[0m  [1m[38;5;13m<<log commit working_copy change_id shortest prefix::r>>[38;5;8m<<log commit working_copy change_id shortest rest::lvkpnrz>>[39m<<log commit working_copy:: >>[38;5;9m<<log commit working_copy email placeholder::(no email set)>>[39m<<log commit working_copy:: >>[38;5;14m<<log commit working_copy committer timestamp local format::2001-02-03 08:05:08>>[39m<<log commit working_copy:: >>[38;5;13m<<log commit working_copy bookmarks name::my-bookmark>>[39m<<log commit working_copy:: >>[38;5;12m<<log commit working_copy commit_id shortest prefix::a>>[38;5;8m<<log commit working_copy commit_id shortest rest::ec3ec96>>[39m<<log commit working_copy:: >>[38;5;10m<<log commit working_copy empty::(empty)>>[39m<<log commit working_copy:: >>[38;5;10m<<log commit working_copy empty description placeholder::(no description set)>>[39m<<log commit working_copy::>>[0m
+    <<log commit node::○>>  [1m[38;5;5m<<log commit change_id shortest prefix::q>>[0m[38;5;8m<<log commit change_id shortest rest::pvuntsm>>[39m<<log commit:: >>[38;5;3m<<log commit author email local::test.user>>[39m<<log commit:: >>[38;5;6m<<log commit committer timestamp local format::2001-02-03 08:05:07>>[39m<<log commit:: >>[1m[38;5;4m<<log commit commit_id shortest prefix::e>>[0m[38;5;8m<<log commit commit_id shortest rest::8849ae1>>[39m<<log commit:: >>[38;5;2m<<log commit empty::(empty)>>[39m<<log commit:: >>[38;5;2m<<log commit empty description placeholder::(no description set)>>[39m<<log commit::>>
+    [1m[38;5;14m<<log commit node immutable::◆>>[0m  [1m[38;5;5m<<log commit change_id shortest prefix::z>>[0m[38;5;8m<<log commit change_id shortest rest::zzzzzzz>>[39m<<log commit:: >>[38;5;2m<<log commit root::root()>>[39m<<log commit:: >>[1m[38;5;4m<<log commit commit_id shortest prefix::0>>[0m[38;5;8m<<log commit commit_id shortest rest::0000000>>[39m<<log commit::>>
     [EOF]
     ");
 
     insta::assert_snapshot!(render(r#"builtin_log_compact"#), @r"
-    [1m[38;5;2m<<log node working_copy::@>>[0m  [1m[38;5;13m<<log working_copy change_id shortest prefix::r>>[38;5;8m<<log working_copy change_id shortest rest::lvkpnrz>>[39m<<log working_copy:: >>[38;5;9m<<log working_copy email placeholder::(no email set)>>[39m<<log working_copy:: >>[38;5;14m<<log working_copy committer timestamp local format::2001-02-03 08:05:08>>[39m<<log working_copy:: >>[38;5;13m<<log working_copy bookmarks name::my-bookmark>>[39m<<log working_copy:: >>[38;5;12m<<log working_copy commit_id shortest prefix::a>>[38;5;8m<<log working_copy commit_id shortest rest::ec3ec96>>[39m<<log working_copy::>>[0m
-    │  [1m[38;5;10m<<log working_copy empty::(empty)>>[39m<<log working_copy:: >>[38;5;10m<<log working_copy empty description placeholder::(no description set)>>[39m<<log working_copy::>>[0m
-    <<log node::○>>  [1m[38;5;5m<<log change_id shortest prefix::q>>[0m[38;5;8m<<log change_id shortest rest::pvuntsm>>[39m<<log:: >>[38;5;3m<<log author email local::test.user>><<log author email::@>><<log author email domain::example.com>>[39m<<log:: >>[38;5;6m<<log committer timestamp local format::2001-02-03 08:05:07>>[39m<<log:: >>[1m[38;5;4m<<log commit_id shortest prefix::e>>[0m[38;5;8m<<log commit_id shortest rest::8849ae1>>[39m<<log::>>
-    │  [38;5;2m<<log empty::(empty)>>[39m<<log:: >>[38;5;2m<<log empty description placeholder::(no description set)>>[39m<<log::>>
-    [1m[38;5;14m<<log node immutable::◆>>[0m  [1m[38;5;5m<<log change_id shortest prefix::z>>[0m[38;5;8m<<log change_id shortest rest::zzzzzzz>>[39m<<log:: >>[38;5;2m<<log root::root()>>[39m<<log:: >>[1m[38;5;4m<<log commit_id shortest prefix::0>>[0m[38;5;8m<<log commit_id shortest rest::0000000>>[39m<<log::>>
+    [1m[38;5;2m<<log commit node working_copy::@>>[0m  [1m[38;5;13m<<log commit working_copy change_id shortest prefix::r>>[38;5;8m<<log commit working_copy change_id shortest rest::lvkpnrz>>[39m<<log commit working_copy:: >>[38;5;9m<<log commit working_copy email placeholder::(no email set)>>[39m<<log commit working_copy:: >>[38;5;14m<<log commit working_copy committer timestamp local format::2001-02-03 08:05:08>>[39m<<log commit working_copy:: >>[38;5;13m<<log commit working_copy bookmarks name::my-bookmark>>[39m<<log commit working_copy:: >>[38;5;12m<<log commit working_copy commit_id shortest prefix::a>>[38;5;8m<<log commit working_copy commit_id shortest rest::ec3ec96>>[39m<<log commit working_copy::>>[0m
+    │  [1m[38;5;10m<<log commit working_copy empty::(empty)>>[39m<<log commit working_copy:: >>[38;5;10m<<log commit working_copy empty description placeholder::(no description set)>>[39m<<log commit working_copy::>>[0m
+    <<log commit node::○>>  [1m[38;5;5m<<log commit change_id shortest prefix::q>>[0m[38;5;8m<<log commit change_id shortest rest::pvuntsm>>[39m<<log commit:: >>[38;5;3m<<log commit author email local::test.user>><<log commit author email::@>><<log commit author email domain::example.com>>[39m<<log commit:: >>[38;5;6m<<log commit committer timestamp local format::2001-02-03 08:05:07>>[39m<<log commit:: >>[1m[38;5;4m<<log commit commit_id shortest prefix::e>>[0m[38;5;8m<<log commit commit_id shortest rest::8849ae1>>[39m<<log commit::>>
+    │  [38;5;2m<<log commit empty::(empty)>>[39m<<log commit:: >>[38;5;2m<<log commit empty description placeholder::(no description set)>>[39m<<log commit::>>
+    [1m[38;5;14m<<log commit node immutable::◆>>[0m  [1m[38;5;5m<<log commit change_id shortest prefix::z>>[0m[38;5;8m<<log commit change_id shortest rest::zzzzzzz>>[39m<<log commit:: >>[38;5;2m<<log commit root::root()>>[39m<<log commit:: >>[1m[38;5;4m<<log commit commit_id shortest prefix::0>>[0m[38;5;8m<<log commit commit_id shortest rest::0000000>>[39m<<log commit::>>
     [EOF]
     ");
 
     insta::assert_snapshot!(render(r#"builtin_log_comfortable"#), @r"
-    [1m[38;5;2m<<log node working_copy::@>>[0m  [1m[38;5;13m<<log working_copy change_id shortest prefix::r>>[38;5;8m<<log working_copy change_id shortest rest::lvkpnrz>>[39m<<log working_copy:: >>[38;5;9m<<log working_copy email placeholder::(no email set)>>[39m<<log working_copy:: >>[38;5;14m<<log working_copy committer timestamp local format::2001-02-03 08:05:08>>[39m<<log working_copy:: >>[38;5;13m<<log working_copy bookmarks name::my-bookmark>>[39m<<log working_copy:: >>[38;5;12m<<log working_copy commit_id shortest prefix::a>>[38;5;8m<<log working_copy commit_id shortest rest::ec3ec96>>[39m<<log working_copy::>>[0m
-    │  [1m[38;5;10m<<log working_copy empty::(empty)>>[39m<<log working_copy:: >>[38;5;10m<<log working_copy empty description placeholder::(no description set)>>[39m<<log working_copy::>>[0m
-    │  <<log::>>
-    <<log node::○>>  [1m[38;5;5m<<log change_id shortest prefix::q>>[0m[38;5;8m<<log change_id shortest rest::pvuntsm>>[39m<<log:: >>[38;5;3m<<log author email local::test.user>><<log author email::@>><<log author email domain::example.com>>[39m<<log:: >>[38;5;6m<<log committer timestamp local format::2001-02-03 08:05:07>>[39m<<log:: >>[1m[38;5;4m<<log commit_id shortest prefix::e>>[0m[38;5;8m<<log commit_id shortest rest::8849ae1>>[39m<<log::>>
-    │  [38;5;2m<<log empty::(empty)>>[39m<<log:: >>[38;5;2m<<log empty description placeholder::(no description set)>>[39m<<log::>>
-    │  <<log::>>
-    [1m[38;5;14m<<log node immutable::◆>>[0m  [1m[38;5;5m<<log change_id shortest prefix::z>>[0m[38;5;8m<<log change_id shortest rest::zzzzzzz>>[39m<<log:: >>[38;5;2m<<log root::root()>>[39m<<log:: >>[1m[38;5;4m<<log commit_id shortest prefix::0>>[0m[38;5;8m<<log commit_id shortest rest::0000000>>[39m<<log::>>
-       <<log::>>
+    [1m[38;5;2m<<log commit node working_copy::@>>[0m  [1m[38;5;13m<<log commit working_copy change_id shortest prefix::r>>[38;5;8m<<log commit working_copy change_id shortest rest::lvkpnrz>>[39m<<log commit working_copy:: >>[38;5;9m<<log commit working_copy email placeholder::(no email set)>>[39m<<log commit working_copy:: >>[38;5;14m<<log commit working_copy committer timestamp local format::2001-02-03 08:05:08>>[39m<<log commit working_copy:: >>[38;5;13m<<log commit working_copy bookmarks name::my-bookmark>>[39m<<log commit working_copy:: >>[38;5;12m<<log commit working_copy commit_id shortest prefix::a>>[38;5;8m<<log commit working_copy commit_id shortest rest::ec3ec96>>[39m<<log commit working_copy::>>[0m
+    │  [1m[38;5;10m<<log commit working_copy empty::(empty)>>[39m<<log commit working_copy:: >>[38;5;10m<<log commit working_copy empty description placeholder::(no description set)>>[39m<<log commit working_copy::>>[0m
+    │  <<log commit::>>
+    <<log commit node::○>>  [1m[38;5;5m<<log commit change_id shortest prefix::q>>[0m[38;5;8m<<log commit change_id shortest rest::pvuntsm>>[39m<<log commit:: >>[38;5;3m<<log commit author email local::test.user>><<log commit author email::@>><<log commit author email domain::example.com>>[39m<<log commit:: >>[38;5;6m<<log commit committer timestamp local format::2001-02-03 08:05:07>>[39m<<log commit:: >>[1m[38;5;4m<<log commit commit_id shortest prefix::e>>[0m[38;5;8m<<log commit commit_id shortest rest::8849ae1>>[39m<<log commit::>>
+    │  [38;5;2m<<log commit empty::(empty)>>[39m<<log commit:: >>[38;5;2m<<log commit empty description placeholder::(no description set)>>[39m<<log commit::>>
+    │  <<log commit::>>
+    [1m[38;5;14m<<log commit node immutable::◆>>[0m  [1m[38;5;5m<<log commit change_id shortest prefix::z>>[0m[38;5;8m<<log commit change_id shortest rest::zzzzzzz>>[39m<<log commit:: >>[38;5;2m<<log commit root::root()>>[39m<<log commit:: >>[1m[38;5;4m<<log commit commit_id shortest prefix::0>>[0m[38;5;8m<<log commit commit_id shortest rest::0000000>>[39m<<log commit::>>
+       <<log commit::>>
     [EOF]
     ");
 
     insta::assert_snapshot!(render(r#"builtin_log_detailed"#), @r"
-    [1m[38;5;2m<<log node working_copy::@>>[0m  <<log::Commit ID: >>[38;5;4m<<log commit_id::aec3ec964d0771edea9da48a2a170bc6ffa1c725>>[39m<<log::>>
-    │  <<log::Change ID: >>[38;5;5m<<log change_id::rlvkpnrzqnoowoytxnquwvuryrwnrmlp>>[39m<<log::>>
-    │  <<log::Bookmarks: >>[38;5;5m<<log local_bookmarks name::my-bookmark>>[39m<<log::>>
-    │  <<log::Author   : >>[38;5;1m<<log name placeholder::(no name set)>>[39m<<log:: <>>[38;5;1m<<log email placeholder::(no email set)>>[39m<<log::> (>>[38;5;6m<<log author timestamp local format::2001-02-03 08:05:08>>[39m<<log::)>>
-    │  <<log::Committer: >>[38;5;1m<<log name placeholder::(no name set)>>[39m<<log:: <>>[38;5;1m<<log email placeholder::(no email set)>>[39m<<log::> (>>[38;5;6m<<log committer timestamp local format::2001-02-03 08:05:08>>[39m<<log::)>>
-    │  <<log::>>
-    │  [38;5;2m<<log empty description placeholder::    (no description set)>>[39m<<log::>>
-    │  <<log::>>
-    <<log node::○>>  <<log::Commit ID: >>[38;5;4m<<log commit_id::e8849ae12c709f2321908879bc724fdb2ab8a781>>[39m<<log::>>
-    │  <<log::Change ID: >>[38;5;5m<<log change_id::qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu>>[39m<<log::>>
-    │  <<log::Author   : >>[38;5;3m<<log author name::Test User>>[39m<<log:: <>>[38;5;3m<<log author email local::test.user>><<log author email::@>><<log author email domain::example.com>>[39m<<log::> (>>[38;5;6m<<log author timestamp local format::2001-02-03 08:05:07>>[39m<<log::)>>
-    │  <<log::Committer: >>[38;5;3m<<log committer name::Test User>>[39m<<log:: <>>[38;5;3m<<log committer email local::test.user>><<log committer email::@>><<log committer email domain::example.com>>[39m<<log::> (>>[38;5;6m<<log committer timestamp local format::2001-02-03 08:05:07>>[39m<<log::)>>
-    │  <<log::>>
-    │  [38;5;2m<<log empty description placeholder::    (no description set)>>[39m<<log::>>
-    │  <<log::>>
-    [1m[38;5;14m<<log node immutable::◆>>[0m  <<log::Commit ID: >>[38;5;4m<<log commit_id::0000000000000000000000000000000000000000>>[39m<<log::>>
-       <<log::Change ID: >>[38;5;5m<<log change_id::zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz>>[39m<<log::>>
-       <<log::Author   : >>[38;5;1m<<log name placeholder::(no name set)>>[39m<<log:: <>>[38;5;1m<<log email placeholder::(no email set)>>[39m<<log::> (>>[38;5;6m<<log author timestamp local format::1970-01-01 11:00:00>>[39m<<log::)>>
-       <<log::Committer: >>[38;5;1m<<log name placeholder::(no name set)>>[39m<<log:: <>>[38;5;1m<<log email placeholder::(no email set)>>[39m<<log::> (>>[38;5;6m<<log committer timestamp local format::1970-01-01 11:00:00>>[39m<<log::)>>
-       <<log::>>
-       [38;5;2m<<log empty description placeholder::    (no description set)>>[39m<<log::>>
-       <<log::>>
+    [1m[38;5;2m<<log commit node working_copy::@>>[0m  <<log commit::Commit ID: >>[38;5;4m<<log commit commit_id::aec3ec964d0771edea9da48a2a170bc6ffa1c725>>[39m<<log commit::>>
+    │  <<log commit::Change ID: >>[38;5;5m<<log commit change_id::rlvkpnrzqnoowoytxnquwvuryrwnrmlp>>[39m<<log commit::>>
+    │  <<log commit::Bookmarks: >>[38;5;5m<<log commit local_bookmarks name::my-bookmark>>[39m<<log commit::>>
+    │  <<log commit::Author   : >>[38;5;1m<<log commit name placeholder::(no name set)>>[39m<<log commit:: <>>[38;5;1m<<log commit email placeholder::(no email set)>>[39m<<log commit::> (>>[38;5;6m<<log commit author timestamp local format::2001-02-03 08:05:08>>[39m<<log commit::)>>
+    │  <<log commit::Committer: >>[38;5;1m<<log commit name placeholder::(no name set)>>[39m<<log commit:: <>>[38;5;1m<<log commit email placeholder::(no email set)>>[39m<<log commit::> (>>[38;5;6m<<log commit committer timestamp local format::2001-02-03 08:05:08>>[39m<<log commit::)>>
+    │  <<log commit::>>
+    │  [38;5;2m<<log commit empty description placeholder::    (no description set)>>[39m<<log commit::>>
+    │  <<log commit::>>
+    <<log commit node::○>>  <<log commit::Commit ID: >>[38;5;4m<<log commit commit_id::e8849ae12c709f2321908879bc724fdb2ab8a781>>[39m<<log commit::>>
+    │  <<log commit::Change ID: >>[38;5;5m<<log commit change_id::qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu>>[39m<<log commit::>>
+    │  <<log commit::Author   : >>[38;5;3m<<log commit author name::Test User>>[39m<<log commit:: <>>[38;5;3m<<log commit author email local::test.user>><<log commit author email::@>><<log commit author email domain::example.com>>[39m<<log commit::> (>>[38;5;6m<<log commit author timestamp local format::2001-02-03 08:05:07>>[39m<<log commit::)>>
+    │  <<log commit::Committer: >>[38;5;3m<<log commit committer name::Test User>>[39m<<log commit:: <>>[38;5;3m<<log commit committer email local::test.user>><<log commit committer email::@>><<log commit committer email domain::example.com>>[39m<<log commit::> (>>[38;5;6m<<log commit committer timestamp local format::2001-02-03 08:05:07>>[39m<<log commit::)>>
+    │  <<log commit::>>
+    │  [38;5;2m<<log commit empty description placeholder::    (no description set)>>[39m<<log commit::>>
+    │  <<log commit::>>
+    [1m[38;5;14m<<log commit node immutable::◆>>[0m  <<log commit::Commit ID: >>[38;5;4m<<log commit commit_id::0000000000000000000000000000000000000000>>[39m<<log commit::>>
+       <<log commit::Change ID: >>[38;5;5m<<log commit change_id::zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz>>[39m<<log commit::>>
+       <<log commit::Author   : >>[38;5;1m<<log commit name placeholder::(no name set)>>[39m<<log commit:: <>>[38;5;1m<<log commit email placeholder::(no email set)>>[39m<<log commit::> (>>[38;5;6m<<log commit author timestamp local format::1970-01-01 11:00:00>>[39m<<log commit::)>>
+       <<log commit::Committer: >>[38;5;1m<<log commit name placeholder::(no name set)>>[39m<<log commit:: <>>[38;5;1m<<log commit email placeholder::(no email set)>>[39m<<log commit::> (>>[38;5;6m<<log commit committer timestamp local format::1970-01-01 11:00:00>>[39m<<log commit::)>>
+       <<log commit::>>
+       [38;5;2m<<log commit empty description placeholder::    (no description set)>>[39m<<log commit::>>
+       <<log commit::>>
     [EOF]
     ");
 }
@@ -1126,44 +1126,44 @@ fn test_log_diff_predefined_formats() {
     // color labels
     let output = work_dir.run_jj(["log", "--no-graph", "--color=debug", "-r@", "-T", template]);
     insta::assert_snapshot!(output, @r"
-    <<log::=== color_words ===>>
-    [38;5;3m<<log diff color_words header::Modified regular file file1:>>[39m
-    [38;5;1m<<log diff color_words removed line_number::   1>>[39m<<log diff color_words:: >>[38;5;2m<<log diff color_words added line_number::   1>>[39m<<log diff color_words::: a>>
-    [38;5;1m<<log diff color_words removed line_number::   2>>[39m<<log diff color_words:: >>[38;5;2m<<log diff color_words added line_number::   2>>[39m<<log diff color_words::: b>>
-    <<log diff color_words::     >>[38;5;2m<<log diff color_words added line_number::   3>>[39m<<log diff color_words::: >>[4m[38;5;2m<<log diff color_words added token::c>>[24m[39m
-    [38;5;3m<<log diff color_words header::Modified regular file file2:>>[39m
-    [38;5;1m<<log diff color_words removed line_number::   1>>[39m<<log diff color_words:: >>[38;5;2m<<log diff color_words added line_number::   1>>[39m<<log diff color_words::: >>[4m[38;5;1m<<log diff color_words removed token::a>>[38;5;2m<<log diff color_words added token::b>>[24m[39m<<log diff color_words::>>
-    <<log diff color_words::     >>[38;5;2m<<log diff color_words added line_number::   2>>[39m<<log diff color_words::: >>[4m[38;5;2m<<log diff color_words added token::c>>[24m[39m
-    [38;5;3m<<log diff color_words header::Modified regular file rename-target (rename-source => rename-target):>>[39m
-    <<log::=== git ===>>
-    [1m<<log diff git file_header::diff --git a/file1 b/file1>>[0m
-    [1m<<log diff git file_header::index 422c2b7ab3..de980441c3 100644>>[0m
-    [1m<<log diff git file_header::--- a/file1>>[0m
-    [1m<<log diff git file_header::+++ b/file1>>[0m
-    [38;5;6m<<log diff git hunk_header::@@ -1,2 +1,3 @@>>[39m
-    <<log diff git context:: a>>
-    <<log diff git context:: b>>
-    [38;5;2m<<log diff git added::+>>[4m<<log diff git added token::c>>[24m[39m
-    [1m<<log diff git file_header::diff --git a/file2 b/file2>>[0m
-    [1m<<log diff git file_header::index 7898192261..9ddeb5c484 100644>>[0m
-    [1m<<log diff git file_header::--- a/file2>>[0m
-    [1m<<log diff git file_header::+++ b/file2>>[0m
-    [38;5;6m<<log diff git hunk_header::@@ -1,1 +1,2 @@>>[39m
-    [38;5;1m<<log diff git removed::->>[4m<<log diff git removed token::a>>[24m<<log diff git removed::>>[39m
-    [38;5;2m<<log diff git added::+>>[4m<<log diff git added token::b>>[24m<<log diff git added::>>[39m
-    [38;5;2m<<log diff git added::+>>[4m<<log diff git added token::c>>[24m[39m
-    [1m<<log diff git file_header::diff --git a/rename-source b/rename-target>>[0m
-    [1m<<log diff git file_header::rename from rename-source>>[0m
-    [1m<<log diff git file_header::rename to rename-target>>[0m
-    <<log::=== stat ===>>
-    <<log diff stat::file1                            | 1 >>[38;5;2m<<log diff stat added::+>>[38;5;1m<<log diff stat removed::>>[39m
-    <<log diff stat::file2                            | 3 >>[38;5;2m<<log diff stat added::++>>[38;5;1m<<log diff stat removed::->>[39m
-    <<log diff stat::{rename-source => rename-target} | 0>>[38;5;1m<<log diff stat removed::>>[39m
-    <<log diff stat stat-summary::3 files changed, 3 insertions(+), 1 deletion(-)>>
-    <<log::=== summary ===>>
-    [38;5;6m<<log diff summary modified::M file1>>[39m
-    [38;5;6m<<log diff summary modified::M file2>>[39m
-    [38;5;6m<<log diff summary renamed::R {rename-source => rename-target}>>[39m
+    <<log commit::=== color_words ===>>
+    [38;5;3m<<log commit diff color_words header::Modified regular file file1:>>[39m
+    [38;5;1m<<log commit diff color_words removed line_number::   1>>[39m<<log commit diff color_words:: >>[38;5;2m<<log commit diff color_words added line_number::   1>>[39m<<log commit diff color_words::: a>>
+    [38;5;1m<<log commit diff color_words removed line_number::   2>>[39m<<log commit diff color_words:: >>[38;5;2m<<log commit diff color_words added line_number::   2>>[39m<<log commit diff color_words::: b>>
+    <<log commit diff color_words::     >>[38;5;2m<<log commit diff color_words added line_number::   3>>[39m<<log commit diff color_words::: >>[4m[38;5;2m<<log commit diff color_words added token::c>>[24m[39m
+    [38;5;3m<<log commit diff color_words header::Modified regular file file2:>>[39m
+    [38;5;1m<<log commit diff color_words removed line_number::   1>>[39m<<log commit diff color_words:: >>[38;5;2m<<log commit diff color_words added line_number::   1>>[39m<<log commit diff color_words::: >>[4m[38;5;1m<<log commit diff color_words removed token::a>>[38;5;2m<<log commit diff color_words added token::b>>[24m[39m<<log commit diff color_words::>>
+    <<log commit diff color_words::     >>[38;5;2m<<log commit diff color_words added line_number::   2>>[39m<<log commit diff color_words::: >>[4m[38;5;2m<<log commit diff color_words added token::c>>[24m[39m
+    [38;5;3m<<log commit diff color_words header::Modified regular file rename-target (rename-source => rename-target):>>[39m
+    <<log commit::=== git ===>>
+    [1m<<log commit diff git file_header::diff --git a/file1 b/file1>>[0m
+    [1m<<log commit diff git file_header::index 422c2b7ab3..de980441c3 100644>>[0m
+    [1m<<log commit diff git file_header::--- a/file1>>[0m
+    [1m<<log commit diff git file_header::+++ b/file1>>[0m
+    [38;5;6m<<log commit diff git hunk_header::@@ -1,2 +1,3 @@>>[39m
+    <<log commit diff git context:: a>>
+    <<log commit diff git context:: b>>
+    [38;5;2m<<log commit diff git added::+>>[4m<<log commit diff git added token::c>>[24m[39m
+    [1m<<log commit diff git file_header::diff --git a/file2 b/file2>>[0m
+    [1m<<log commit diff git file_header::index 7898192261..9ddeb5c484 100644>>[0m
+    [1m<<log commit diff git file_header::--- a/file2>>[0m
+    [1m<<log commit diff git file_header::+++ b/file2>>[0m
+    [38;5;6m<<log commit diff git hunk_header::@@ -1,1 +1,2 @@>>[39m
+    [38;5;1m<<log commit diff git removed::->>[4m<<log commit diff git removed token::a>>[24m<<log commit diff git removed::>>[39m
+    [38;5;2m<<log commit diff git added::+>>[4m<<log commit diff git added token::b>>[24m<<log commit diff git added::>>[39m
+    [38;5;2m<<log commit diff git added::+>>[4m<<log commit diff git added token::c>>[24m[39m
+    [1m<<log commit diff git file_header::diff --git a/rename-source b/rename-target>>[0m
+    [1m<<log commit diff git file_header::rename from rename-source>>[0m
+    [1m<<log commit diff git file_header::rename to rename-target>>[0m
+    <<log commit::=== stat ===>>
+    <<log commit diff stat::file1                            | 1 >>[38;5;2m<<log commit diff stat added::+>>[38;5;1m<<log commit diff stat removed::>>[39m
+    <<log commit diff stat::file2                            | 3 >>[38;5;2m<<log commit diff stat added::++>>[38;5;1m<<log commit diff stat removed::->>[39m
+    <<log commit diff stat::{rename-source => rename-target} | 0>>[38;5;1m<<log commit diff stat removed::>>[39m
+    <<log commit diff stat stat-summary::3 files changed, 3 insertions(+), 1 deletion(-)>>
+    <<log commit::=== summary ===>>
+    [38;5;6m<<log commit diff summary modified::M file1>>[39m
+    [38;5;6m<<log commit diff summary modified::M file2>>[39m
+    [38;5;6m<<log commit diff summary renamed::R {rename-source => rename-target}>>[39m
     [EOF]
     ");
 

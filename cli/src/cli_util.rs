@@ -1767,6 +1767,7 @@ to the current parents may contain changes from multiple commits.
     pub fn commit_summary_template(&self) -> TemplateRenderer<'_, Commit> {
         let language = self.commit_template_language();
         self.reparse_valid_template(&language, &self.commit_summary_template_text)
+            .labeled(["commit"])
     }
 
     /// Template for one-line summary of an operation.
@@ -1779,6 +1780,7 @@ to the current parents may contain changes from multiple commits.
     pub fn short_change_id_template(&self) -> TemplateRenderer<'_, Commit> {
         let language = self.commit_template_language();
         self.reparse_valid_template(&language, SHORT_CHANGE_ID_TEMPLATE_TEXT)
+            .labeled(["commit"])
     }
 
     /// Returns one-line summary of the given `commit`.

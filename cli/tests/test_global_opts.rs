@@ -596,8 +596,8 @@ fn test_color_ui_messages() {
     let output = work_dir.run_jj(["st", "--color", "debug"]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
-    Working copy  (@) : [1m[38;5;13m<<working_copy change_id shortest prefix::m>>[38;5;8m<<working_copy change_id shortest rest::zvwutvl>>[39m<<working_copy:: >>[38;5;12m<<working_copy commit_id shortest prefix::8>>[38;5;8m<<working_copy commit_id shortest rest::afc18ff>>[39m<<working_copy:: >>[38;5;10m<<working_copy empty::(empty)>>[39m<<working_copy:: >>[38;5;10m<<working_copy empty description placeholder::(no description set)>>[0m
-    Parent commit (@-): [1m[38;5;5m<<change_id shortest prefix::q>>[0m[38;5;8m<<change_id shortest rest::pvuntsm>>[39m [1m[38;5;4m<<commit_id shortest prefix::e>>[0m[38;5;8m<<commit_id shortest rest::8849ae1>>[39m [38;5;2m<<empty::(empty)>>[39m [38;5;2m<<empty description placeholder::(no description set)>>[39m
+    Working copy  (@) : [1m[38;5;13m<<commit working_copy change_id shortest prefix::m>>[38;5;8m<<commit working_copy change_id shortest rest::zvwutvl>>[39m<<commit working_copy:: >>[38;5;12m<<commit working_copy commit_id shortest prefix::8>>[38;5;8m<<commit working_copy commit_id shortest rest::afc18ff>>[39m<<commit working_copy:: >>[38;5;10m<<commit working_copy empty::(empty)>>[39m<<commit working_copy:: >>[38;5;10m<<commit working_copy empty description placeholder::(no description set)>>[0m
+    Parent commit (@-): [1m[38;5;5m<<commit change_id shortest prefix::q>>[0m[38;5;8m<<commit change_id shortest rest::pvuntsm>>[39m<<commit:: >>[1m[38;5;4m<<commit commit_id shortest prefix::e>>[0m[38;5;8m<<commit commit_id shortest rest::8849ae1>>[39m<<commit:: >>[38;5;2m<<commit empty::(empty)>>[39m<<commit:: >>[38;5;2m<<commit empty description placeholder::(no description set)>>[39m
     [EOF]
     ");
 }
