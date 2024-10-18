@@ -91,7 +91,7 @@ pub fn cmd_op_show(
         let text = settings.get_string("templates.op_log")?;
         workspace_command
             .parse_operation_template(ui, &text)?
-            .labeled("operation")
+            .labeled(["operation"])
     };
 
     ui.request_pager();

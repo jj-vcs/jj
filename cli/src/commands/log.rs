@@ -174,10 +174,10 @@ pub(crate) fn cmd_log(
         };
         template = workspace_command
             .parse_template(ui, &language, &template_string)?
-            .labeled("log");
+            .labeled(["log"]);
         node_template = workspace_command
             .parse_template(ui, &language, &get_node_template(graph_style, settings)?)?
-            .labeled("node");
+            .labeled(["node"]);
     }
 
     {

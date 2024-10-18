@@ -736,13 +736,14 @@ impl<'a, C: Clone> TemplateRenderer<'a, C> {
         }
     }
 
-    /// Returns renderer that will format template with the given `label`.
+    /// Returns renderer that will format template with the given `labels`.
     ///
     /// This is equivalent to wrapping the content template with `label()`
-    /// function. For example, `content.labeled("foo").labeled("bar")` can be
-    /// expressed as `label("bar", label("foo", content))` in template.
-    pub fn labeled(mut self, label: impl Into<String>) -> Self {
-        self.labels.insert(0, label.into());
+    /// function. For example,
+    /// `content.labeled(["foo", "bar"]).labeled(["baz"])` can be expressed as
+    /// `label("baz", label("foo bar", content))` in template.
+    pub fn labeled<S: Into<String>>(mut self, labels: impl IntoIterator<Item = S>) -> Self {
+        self.labels.splice(0..0, labels.into_iter().map(Into::into));
         self
     }
 

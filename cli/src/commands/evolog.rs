@@ -112,14 +112,14 @@ pub(crate) fn cmd_evolog(
         };
         template = workspace_command
             .parse_template(ui, &language, &template_string)?
-            .labeled("log");
+            .labeled(["log"]);
         node_template = workspace_command
             .parse_template(
                 ui,
                 &language,
                 &get_node_template(graph_style, workspace_command.settings())?,
             )?
-            .labeled("node");
+            .labeled(["node"]);
     }
 
     ui.request_pager();

@@ -181,7 +181,7 @@ pub fn cmd_bookmark_list(
         };
         workspace_command
             .parse_template(ui, &language, &text)?
-            .labeled("bookmark_list")
+            .labeled(["bookmark_list"])
     };
 
     let mut bookmark_list_items: Vec<RefListItem> = Vec::new();

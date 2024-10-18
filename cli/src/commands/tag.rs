@@ -85,7 +85,7 @@ fn cmd_tag_list(
         };
         workspace_command
             .parse_template(ui, &language, &text)?
-            .labeled("tag_list")
+            .labeled(["tag_list"])
     };
 
     ui.request_pager();

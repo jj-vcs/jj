@@ -85,7 +85,7 @@ pub fn cmd_config_list(
         };
         command
             .parse_template(ui, &language, &text)?
-            .labeled("config_list")
+            .labeled(["config_list"])
     };
 
     let name_path = args.name.clone().unwrap_or_else(ConfigNamePathBuf::root);

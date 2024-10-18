@@ -1773,7 +1773,7 @@ to the current parents may contain changes from multiple commits.
     pub fn operation_summary_template(&self) -> TemplateRenderer<'_, Operation> {
         let language = self.operation_template_language();
         self.reparse_valid_template(&language, &self.op_summary_template_text)
-            .labeled("operation")
+            .labeled(["operation"])
     }
 
     pub fn short_change_id_template(&self) -> TemplateRenderer<'_, Commit> {
