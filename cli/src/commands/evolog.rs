@@ -119,7 +119,7 @@ pub(crate) fn cmd_evolog(
                 &language,
                 &get_node_template(graph_style, workspace_command.settings())?,
             )?
-            .labeled(["node"]);
+            .labeled(["log", "node"]);
     }
 
     ui.request_pager();

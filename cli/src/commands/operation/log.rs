@@ -139,7 +139,7 @@ fn do_op_log(
             .labeled(["op_log", "operation"]);
         op_node_template = workspace_env
             .parse_template(ui, &language, &get_node_template(graph_style, settings)?)?
-            .labeled(["node"]);
+            .labeled(["op_log", "operation", "node"]);
     }
 
     let diff_formats = diff_formats_for_log(settings, &args.diff_format, args.patch)?;
