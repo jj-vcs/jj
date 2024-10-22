@@ -2329,6 +2329,57 @@ fn test_check_out_reserved_file_path_vfat(vfat_path_str: &str, file_path_strs: &
     }
 }
 
+#[test_case(".git"; "root .git file")]
+#[test_case(".git/pwned"; "root .git dir")]
+fn test_check_out_reserved_file_path_dot_git_symlink(file_path_str: &str) {
+    if !check_symlink_support().unwrap() {
+        eprintln!("Skipping test because symlink isn't supported");
+        return;
+    }
+
+    let mut test_workspace = TestWorkspace::init();
+    let repo = &test_workspace.repo;
+    let workspace_root = test_workspace.workspace.workspace_root().to_owned();
+
+    // Create symlink .git -> ../git-repo
+    let git_repo_dir = test_workspace.env.root().join("git-repo");
+    let dot_git_path = workspace_root.join(".git");
+    std::fs::create_dir(&git_repo_dir).unwrap();
+    symlink_dir(&git_repo_dir, &dot_git_path).unwrap();
+    assert!(dot_git_path.exists());
+
+    let file_path = repo_path(file_path_str);
+    let disk_path = file_path.to_fs_path_unchecked(&workspace_root);
+    let tree1 = create_tree(repo, &[(file_path, "contents")]);
+    let tree2 = create_tree(repo, &[]);
+    let commit1 = commit_with_tree(repo.store(), tree1);
+    let commit2 = commit_with_tree(repo.store(), tree2);
+
+    // Checkout should fail.
+    let ws = &mut test_workspace.workspace;
+    let result = ws.check_out(repo.op_id().clone(), None, &commit1);
+    assert_matches!(result, Err(CheckoutError::ReservedPathComponent { .. }));
+
+    // Therefore, "pwned" file shouldn't be created.
+    assert!(!git_repo_dir.join("pwned").exists());
+    assert!(!dot_git_path.join("pwned").exists());
+
+    // Pretend that the checkout somehow succeeded.
+    let mut locked_ws = ws.start_working_copy_mutation().unwrap();
+    locked_ws.locked_wc().reset(&commit1).block_on().unwrap();
+    locked_ws.finish(repo.op_id().clone()).unwrap();
+    if file_path_str != ".git" {
+        std::fs::write(&disk_path, "").unwrap();
+    }
+
+    // Check out empty tree, which tries to remove the file.
+    let result = ws.check_out(repo.op_id().clone(), None, &commit2);
+    assert_matches!(result, Err(CheckoutError::ReservedPathComponent { .. }));
+
+    // The existing file shouldn't be removed.
+    assert!(disk_path.exists());
+}
+
 #[test]
 fn test_fsmonitor() {
     let test_repo = TestRepo::init();

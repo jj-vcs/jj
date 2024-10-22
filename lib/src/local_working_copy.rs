@@ -682,13 +682,10 @@ fn create_parent_dirs(
         // A directory named ".git" or ".jj" can be temporarily created. It
         // might trick workspace path discovery, but is harmless so long as the
         // directory is empty.
-        let new_dir_created = match fs::create_dir(&dir_path) {
-            Ok(()) => true, // New directory
+        let (new_dir_created, is_dir) = match fs::create_dir(&dir_path) {
+            Ok(()) => (true, true), // New directory
             Err(err) => match dir_path.symlink_metadata() {
-                Ok(m) if m.is_dir() => false, // Existing directory
-                Ok(_) => {
-                    return Ok(None); // Skip existing file or symlink
-                }
+                Ok(m) => (false, m.is_dir()), // Existing file or directory
                 Err(_) => {
                     return Err(CheckoutError::Other {
                         message: format!(
@@ -707,6 +704,9 @@ fn create_parent_dirs(
                 fs::remove_dir(&dir_path).ok();
             }
         })?;
+        if !is_dir {
+            return Ok(None); // Skip existing file or symlink
+        }
     }
 
     let mut file_path = dir_path;
