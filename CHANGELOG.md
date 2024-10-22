@@ -102,6 +102,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Fixed problem of loading large Git packfiles.
   https://github.com/GitoxideLabs/gitoxide/issues/2265
 
+* Fixed checkout of symlinks pointing to themselves or `.git`/`.jj` on Unix. The
+  problem would still remain on Windows if symlinks are enabled.
+  [#8348](https://github.com/jj-vcs/jj/issues/8348)
+
 ## [0.36.0] - 2025-12-03
 
 ### Release highlights
