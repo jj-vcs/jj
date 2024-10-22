@@ -258,6 +258,29 @@ pub fn persist_content_addressed_temp_file<P: AsRef<Path>>(
     }
 }
 
+/// Opaque value that can be tested to know whether file or directory paths
+/// point to the same filesystem entity.
+///
+/// The primary use case is to detect file name aliases on case-insensitive
+/// filesystem. On Unix, device and inode numbers are compared.
+#[derive(Debug, Eq, Hash, PartialEq)]
+pub struct FileIdentity(platform::FileIdentity);
+
+impl FileIdentity {
+    /// Queries file identity without following symlinks.
+    ///
+    /// BUG: On Windows, symbolic links would be followed.
+    pub fn from_symlink_path(path: impl AsRef<Path>) -> io::Result<Self> {
+        platform::file_identity_from_symlink_path(path.as_ref()).map(Self)
+    }
+
+    /// Queries file identity of the given `file`.
+    // TODO: do not consume file object
+    pub fn from_file(file: File) -> io::Result<Self> {
+        platform::file_identity_from_file(file).map(Self)
+    }
+}
+
 /// Reads from an async source and writes to a sync destination. Does not spawn
 /// a task, so writes will block.
 pub async fn copy_async_to_sync<R: AsyncRead, W: Write + ?Sized>(
@@ -308,8 +331,11 @@ impl<R: Read + Unpin> AsyncRead for BlockingAsyncReader<R> {
 mod platform {
     use std::convert::Infallible;
     use std::ffi::OsStr;
+    use std::fs;
+    use std::fs::File;
     use std::io;
     use std::os::unix::ffi::OsStrExt as _;
+    use std::os::unix::fs::MetadataExt as _;
     use std::os::unix::fs::PermissionsExt;
     use std::os::unix::fs::symlink;
     use std::path::Path;
@@ -362,13 +388,39 @@ mod platform {
     pub fn symlink_file<P: AsRef<Path>, Q: AsRef<Path>>(original: P, link: Q) -> io::Result<()> {
         symlink(original, link)
     }
+
+    #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+    pub struct FileIdentity {
+        // https://github.com/BurntSushi/same-file/blob/1.0.6/src/unix.rs#L30
+        dev: u64,
+        ino: u64,
+    }
+
+    impl FileIdentity {
+        fn from_metadata(metadata: fs::Metadata) -> Self {
+            Self {
+                dev: metadata.dev(),
+                ino: metadata.ino(),
+            }
+        }
+    }
+
+    pub fn file_identity_from_symlink_path(path: &Path) -> io::Result<FileIdentity> {
+        path.symlink_metadata().map(FileIdentity::from_metadata)
+    }
+
+    pub fn file_identity_from_file(file: File) -> io::Result<FileIdentity> {
+        file.metadata().map(FileIdentity::from_metadata)
+    }
 }
 
 #[cfg(windows)]
 mod platform {
+    use std::fs::File;
     use std::io;
     pub use std::os::windows::fs::symlink_dir;
     pub use std::os::windows::fs::symlink_file;
+    use std::path::Path;
 
     use winreg::RegKey;
     use winreg::enums::HKEY_LOCAL_MACHINE;
@@ -388,6 +440,22 @@ mod platform {
             hklm.open_subkey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AppModelUnlock")?;
         let developer_mode: u32 = sideloading.get_value("AllowDevelopmentWithoutDevLicense")?;
         Ok(developer_mode == 1)
+    }
+
+    pub type FileIdentity = same_file::Handle;
+
+    // FIXME: This shouldn't follow symlinks when querying file identity.
+    // Perhaps, we need to open file with FILE_FLAG_BACKUP_SEMANTICS and
+    // FILE_FLAG_OPEN_REPARSE_POINT, then pass it to from_file(). Alternatively,
+    // maybe we can use symlink_metadata(), volume_serial_number(), and
+    // file_index() when they get stabilized. See the same-file crate and std
+    // lstat() implementation. https://github.com/rust-lang/rust/issues/63010
+    pub fn file_identity_from_symlink_path(path: &Path) -> io::Result<FileIdentity> {
+        same_file::Handle::from_path(path)
+    }
+
+    pub fn file_identity_from_file(file: File) -> io::Result<FileIdentity> {
+        same_file::Handle::from_file(file)
     }
 }
 
@@ -515,6 +583,88 @@ mod tests {
         }
 
         assert!(persist_content_addressed_temp_file(temp_file, &target).is_ok());
+    }
+
+    #[test]
+    fn test_file_identity_hard_link() {
+        let temp_dir = new_temp_dir();
+        let file_path = temp_dir.path().join("file");
+        let other_file_path = temp_dir.path().join("other_file");
+        let link_path = temp_dir.path().join("link");
+        fs::write(&file_path, "").unwrap();
+        fs::write(&other_file_path, "").unwrap();
+        fs::hard_link(&file_path, &link_path).unwrap();
+        assert_eq!(
+            FileIdentity::from_symlink_path(&file_path).unwrap(),
+            FileIdentity::from_symlink_path(&link_path).unwrap()
+        );
+        assert_ne!(
+            FileIdentity::from_symlink_path(&other_file_path).unwrap(),
+            FileIdentity::from_symlink_path(&link_path).unwrap()
+        );
+        assert_eq!(
+            FileIdentity::from_symlink_path(&file_path).unwrap(),
+            FileIdentity::from_file(File::open(&link_path).unwrap()).unwrap()
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_file_identity_unix_symlink_dir() {
+        let temp_dir = new_temp_dir();
+        let dir_path = temp_dir.path().join("dir");
+        let symlink_path = temp_dir.path().join("symlink");
+        fs::create_dir(&dir_path).unwrap();
+        std::os::unix::fs::symlink("dir", &symlink_path).unwrap();
+        // symlink should be identical to itself
+        assert_eq!(
+            FileIdentity::from_symlink_path(&symlink_path).unwrap(),
+            FileIdentity::from_symlink_path(&symlink_path).unwrap()
+        );
+        // symlink should be different from the target directory
+        assert_ne!(
+            FileIdentity::from_symlink_path(&dir_path).unwrap(),
+            FileIdentity::from_symlink_path(&symlink_path).unwrap()
+        );
+        // File::open() follows symlinks
+        assert_eq!(
+            FileIdentity::from_symlink_path(&dir_path).unwrap(),
+            FileIdentity::from_file(File::open(&symlink_path).unwrap()).unwrap()
+        );
+        assert_ne!(
+            FileIdentity::from_symlink_path(&symlink_path).unwrap(),
+            FileIdentity::from_file(File::open(&symlink_path).unwrap()).unwrap()
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_file_identity_unix_symlink_loop() {
+        let temp_dir = new_temp_dir();
+        let lower_file_path = temp_dir.path().join("file");
+        let upper_file_path = temp_dir.path().join("FILE");
+        let lower_symlink_path = temp_dir.path().join("symlink");
+        let upper_symlink_path = temp_dir.path().join("SYMLINK");
+        fs::write(&lower_file_path, "").unwrap();
+        std::os::unix::fs::symlink("symlink", &lower_symlink_path).unwrap();
+        let is_icase_fs = upper_file_path.try_exists().unwrap();
+        // symlink should be identical to itself
+        assert_eq!(
+            FileIdentity::from_symlink_path(&lower_symlink_path).unwrap(),
+            FileIdentity::from_symlink_path(&lower_symlink_path).unwrap()
+        );
+        assert_ne!(
+            FileIdentity::from_symlink_path(&lower_symlink_path).unwrap(),
+            FileIdentity::from_symlink_path(&lower_file_path).unwrap()
+        );
+        if is_icase_fs {
+            assert_eq!(
+                FileIdentity::from_symlink_path(&lower_symlink_path).unwrap(),
+                FileIdentity::from_symlink_path(&upper_symlink_path).unwrap()
+            );
+        } else {
+            assert!(FileIdentity::from_symlink_path(&upper_symlink_path).is_err());
+        }
     }
 
     #[test]

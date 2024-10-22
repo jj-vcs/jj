@@ -80,6 +80,7 @@ use crate::conflicts::materialize_tree_value;
 pub use crate::eol::EolConversionMode;
 use crate::eol::TargetEolStrategy;
 use crate::file_util::BlockingAsyncReader;
+use crate::file_util::FileIdentity;
 use crate::file_util::check_symlink_support;
 use crate::file_util::copy_async_to_sync;
 use crate::file_util::persist_temp_file;
@@ -790,86 +791,88 @@ fn can_create_new_file(disk_path: &Path) -> Result<bool, CheckoutError> {
 
 const RESERVED_DIR_NAMES: &[&str] = &[".git", ".jj"];
 
-fn same_file_handle_from_path(disk_path: &Path) -> io::Result<Option<same_file::Handle>> {
-    match same_file::Handle::from_path(disk_path) {
-        Ok(handle) => Ok(Some(handle)),
+fn file_identity_from_symlink_path(disk_path: &Path) -> io::Result<Option<FileIdentity>> {
+    match FileIdentity::from_symlink_path(disk_path) {
+        Ok(identity) => Ok(Some(identity)),
         Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(None),
         Err(err) => Err(err),
     }
 }
 
-/// Wrapper for [`reject_reserved_existing_handle`] which avoids a syscall
-/// by converting the provided `file` to a `same_file::Handle` via its
+/// Wrapper for [`reject_reserved_existing_file_identity`] which avoids a
+/// syscall by converting the provided `file` to a `FileIdentity` via its
 /// file descriptor.
 ///
-/// See [`reject_reserved_existing_handle`] for more info.
+/// See [`reject_reserved_existing_file_identity`] for more info.
 fn reject_reserved_existing_file(file: File, disk_path: &Path) -> Result<(), CheckoutError> {
     // Note: since the file is open, we don't expect that it's possible for
     // `io::ErrorKind::NotFound` to be a possible error returned here.
-    let file_handle = same_file::Handle::from_file(file).map_err(|err| CheckoutError::Other {
+    let file_identity = FileIdentity::from_file(file).map_err(|err| CheckoutError::Other {
         message: format!("Failed to validate path {}", disk_path.display()),
         err: err.into(),
     })?;
 
-    reject_reserved_existing_handle(file_handle, disk_path)
+    reject_reserved_existing_file_identity(file_identity, disk_path)
 }
 
-/// Wrapper for [`reject_reserved_existing_handle`] which converts
-/// the provided `disk_path` to a `same_file::Handle`.
+/// Wrapper for [`reject_reserved_existing_file_identity`] which converts
+/// the provided `disk_path` to a `FileIdentity`.
 ///
-/// See [`reject_reserved_existing_handle`] for more info.
+/// See [`reject_reserved_existing_file_identity`] for more info.
 ///
 /// # Remarks
 ///
-/// Incurs an additional syscall cost to open and close the file
-/// descriptor/`HANDLE` for `disk_path`.
+/// On Windows, this incurs an additional syscall cost to open and close the
+/// file `HANDLE` for `disk_path`. On Unix, `lstat()` is used.
 fn reject_reserved_existing_path(disk_path: &Path) -> Result<(), CheckoutError> {
-    let Some(disk_handle) =
-        same_file_handle_from_path(disk_path).map_err(|err| CheckoutError::Other {
+    let Some(disk_identity) =
+        file_identity_from_symlink_path(disk_path).map_err(|err| CheckoutError::Other {
             message: format!("Failed to validate path {}", disk_path.display()),
             err: err.into(),
         })?
     else {
         // If the existing disk_path pointed to the reserved path, we would have
-        // gotten a handle back. Since we got nothing, the file does not exist
+        // gotten an identity back. Since we got nothing, the file does not exist
         // and cannot be a reserved path name.
         return Ok(());
     };
 
-    reject_reserved_existing_handle(disk_handle, disk_path)
+    reject_reserved_existing_file_identity(disk_identity, disk_path)
 }
 
 /// Suppose the `disk_path` exists, checks if the last component points to
 /// ".git" or ".jj" in the same parent directory.
 ///
-/// `disk_handle` is expected to be a handle to the file described by
+/// `disk_identity` is expected to be an identity of the file described by
 /// `disk_path`.
 ///
 /// # Remarks
 ///
-/// Incurs a syscall cost to open and close a file descriptor/`HANDLE` for
-/// each filename in `RESERVED_DIR_NAMES`.
-fn reject_reserved_existing_handle(
-    disk_handle: same_file::Handle,
+/// On Windows, this incurs a syscall cost to open and close a file `HANDLE` for
+/// each filename in `RESERVED_DIR_NAMES`. On Unix, `lstat()` is used.
+fn reject_reserved_existing_file_identity(
+    disk_identity: FileIdentity,
     disk_path: &Path,
 ) -> Result<(), CheckoutError> {
     let parent_dir_path = disk_path.parent().expect("content path shouldn't be root");
     for name in RESERVED_DIR_NAMES {
         let reserved_path = parent_dir_path.join(name);
 
-        let Some(reserved_handle) =
-            same_file_handle_from_path(&reserved_path).map_err(|err| CheckoutError::Other {
-                message: format!("Failed to validate path {}", disk_path.display()),
-                err: err.into(),
+        let Some(reserved_identity) =
+            file_identity_from_symlink_path(&reserved_path).map_err(|err| {
+                CheckoutError::Other {
+                    message: format!("Failed to validate path {}", disk_path.display()),
+                    err: err.into(),
+                }
             })?
         else {
             // If the existing disk_path pointed to the reserved path, we would have
-            // gotten a handle back. Since we got nothing, the file does not exist
+            // gotten an identity back. Since we got nothing, the file does not exist
             // and cannot be a reserved path name.
             continue;
         };
 
-        if disk_handle == reserved_handle {
+        if disk_identity == reserved_identity {
             return Err(CheckoutError::ReservedPathComponent {
                 path: disk_path.to_owned(),
                 name,

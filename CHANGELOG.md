@@ -123,6 +123,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj workspace add` now prevents creating an empty workspace name.
 
+* Fixed checkout of symlinks pointing to themselves or `.git`/`.jj` on Unix. The
+  problem would still remain on Windows if symlinks are enabled.
+  [#8348](https://github.com/jj-vcs/jj/issues/8348)
+
 ## [0.36.0] - 2025-12-03
 
 ### Release highlights
