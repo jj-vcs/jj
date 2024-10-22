@@ -14,6 +14,7 @@
 
 use std::convert::Infallible;
 use std::fs::File;
+use std::io;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt as _;
 use std::path::Component;
@@ -2039,6 +2040,53 @@ fn test_check_out_file_removal_over_existing_directory_symlink() {
 
     // "../escaped" shouldn't be removed.
     assert!(victim_file_path.exists());
+}
+
+#[test_case(".git"; "reserved .git dir")]
+#[test_case(".jj"; "reserved .jj dir")]
+#[test_case("symlink"; "looped")]
+#[test_case("unknown"; "dead")]
+#[cfg_attr(windows, ignore = "Windows impl follows symlink")] // FIXME
+fn test_check_out_symlink_unusual_target(link_target: &str) {
+    if !check_symlink_support().unwrap() {
+        eprintln!("Skipping test because symlink isn't supported");
+        return;
+    }
+
+    let mut test_workspace = TestWorkspace::init();
+    let repo = &test_workspace.repo;
+    let workspace_root = test_workspace.workspace.workspace_root().to_owned();
+    std::fs::create_dir(workspace_root.join(".git")).unwrap();
+
+    let symlink_path = repo_path("symlink");
+    let symlink_disk_path = symlink_path.to_fs_path_unchecked(&workspace_root);
+    let tree1 = create_tree_with(repo, |builder| {
+        builder.symlink(symlink_path, link_target);
+    });
+    let tree2 = create_tree(repo, &[]);
+    let commit1 = commit_with_tree(repo.store(), tree1);
+    let commit2 = commit_with_tree(repo.store(), tree2);
+
+    // Check out tree containing symlink
+    let ws = &mut test_workspace.workspace;
+    let stats = ws.check_out(repo.op_id().clone(), None, &commit1).unwrap();
+    assert_eq!(stats.added_files, 1);
+
+    // Symlink should be created
+    assert_eq!(
+        symlink_disk_path.read_link().unwrap().as_os_str(),
+        link_target
+    );
+
+    // Check out empty tree
+    let stats = ws.check_out(repo.op_id().clone(), None, &commit2).unwrap();
+    assert_eq!(stats.removed_files, 1);
+
+    // Symlink should be deleted
+    assert_matches!(
+        symlink_disk_path.symlink_metadata().map_err(|e| e.kind()),
+        Err(io::ErrorKind::NotFound)
+    );
 }
 
 #[test_case("../pwned"; "escape from root")]
