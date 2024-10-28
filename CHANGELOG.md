@@ -40,6 +40,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj absorb` now abandons the source commit if it becomes empty and has no
   description.
 
+* `jj git push` now pushes new non-tracking bookmarks by default. The
+  `--allow-new` flag (introduced by 0.24.0) and relates changes are reverted.
+  New `--allow-new-tracking` flag is required in order to push tracking
+  bookmarks to other remotes. [#5094](https://github.com/jj-vcs/jj/issues/5094)
+
 ### Deprecations
 
 * `--config-toml=TOML` is deprecated in favor of `--config=NAME=VALUE` and

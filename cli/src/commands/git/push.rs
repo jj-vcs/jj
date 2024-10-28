@@ -57,8 +57,8 @@ use crate::ui::Ui;
 
 /// Push to a Git remote
 ///
-/// By default, pushes tracking bookmarks pointing to
-/// `remote_bookmarks(remote=<remote>)..@`. Use `--bookmark` to push specific
+/// By default, pushes new non-tracking and existing tracking bookmarks pointing
+/// to `remote_bookmarks(remote=<remote>)..@`. Use `--bookmark` to push specific
 /// bookmarks. Use `--all` to push all bookmarks. Use `--change` to generate
 /// bookmark names based on the change IDs of specific commits.
 ///
@@ -117,11 +117,11 @@ pub struct GitPushArgs {
     /// correspond to missing local bookmarks.
     #[arg(long)]
     deleted: bool,
-    /// Allow pushing new bookmarks
+    /// Allow pushing tracking bookmarks to new remote
     ///
     /// Newly-created remote bookmarks will be tracked automatically.
     #[arg(long, short = 'N', conflicts_with = "what")]
-    allow_new: bool,
+    allow_new_tracking: bool,
     /// Allow pushing commits with empty descriptions
     #[arg(long)]
     allow_empty_description: bool,
@@ -181,7 +181,7 @@ pub fn cmd_git_push(
     if args.all {
         for (bookmark_name, targets) in view.local_remote_bookmarks(&remote) {
             let allow_new = true; // implied by --all
-            match classify_bookmark_update(bookmark_name, &remote, targets, allow_new) {
+            match classify_bookmark_update(view, bookmark_name, &remote, targets, allow_new) {
                 Ok(Some(update)) => bookmark_updates.push((bookmark_name.to_owned(), update)),
                 Ok(None) => {}
                 Err(reason) => reason.print(ui)?,
@@ -194,7 +194,7 @@ pub fn cmd_git_push(
                 continue;
             }
             let allow_new = false; // doesn't matter
-            match classify_bookmark_update(bookmark_name, &remote, targets, allow_new) {
+            match classify_bookmark_update(view, bookmark_name, &remote, targets, allow_new) {
                 Ok(Some(update)) => bookmark_updates.push((bookmark_name.to_owned(), update)),
                 Ok(None) => {}
                 Err(reason) => reason.print(ui)?,
@@ -207,7 +207,7 @@ pub fn cmd_git_push(
                 continue;
             }
             let allow_new = false; // doesn't matter
-            match classify_bookmark_update(bookmark_name, &remote, targets, allow_new) {
+            match classify_bookmark_update(view, bookmark_name, &remote, targets, allow_new) {
                 Ok(Some(update)) => bookmark_updates.push((bookmark_name.to_owned(), update)),
                 Ok(None) => {}
                 Err(reason) => reason.print(ui)?,
@@ -234,7 +234,7 @@ pub fn cmd_git_push(
                 continue;
             }
             let allow_new = true; // --change implies creation of remote bookmark
-            match classify_bookmark_update(bookmark_name, &remote, targets, allow_new) {
+            match classify_bookmark_update(view, bookmark_name, &remote, targets, allow_new) {
                 Ok(Some(update)) => bookmark_updates.push((bookmark_name.to_owned(), update)),
                 Ok(None) => writeln!(
                     ui.status(),
@@ -244,12 +244,13 @@ pub fn cmd_git_push(
             }
         }
 
+        let allow_new = args.allow_new_tracking;
         let bookmarks_by_name = find_bookmarks_to_push(view, &args.bookmark, &remote)?;
         for &(bookmark_name, targets) in &bookmarks_by_name {
             if !seen_bookmarks.insert(bookmark_name) {
                 continue;
             }
-            match classify_bookmark_update(bookmark_name, &remote, targets, args.allow_new) {
+            match classify_bookmark_update(view, bookmark_name, &remote, targets, allow_new) {
                 Ok(Some(update)) => bookmark_updates.push((bookmark_name.to_owned(), update)),
                 Ok(None) => writeln!(
                     ui.status(),
@@ -272,7 +273,7 @@ pub fn cmd_git_push(
             if !seen_bookmarks.insert(bookmark_name) {
                 continue;
             }
-            match classify_bookmark_update(bookmark_name, &remote, targets, args.allow_new) {
+            match classify_bookmark_update(view, bookmark_name, &remote, targets, allow_new) {
                 Ok(Some(update)) => bookmark_updates.push((bookmark_name.to_owned(), update)),
                 Ok(None) => {}
                 Err(reason) => reason.print(ui)?,
@@ -549,11 +550,20 @@ impl From<RejectedBookmarkUpdateReason> for CommandError {
 }
 
 fn classify_bookmark_update(
+    view: &View,
     bookmark_name: &str,
     remote_name: &str,
     targets: LocalAndRemoteRef,
     allow_new: bool,
 ) -> Result<Option<BookmarkPushUpdate>, RejectedBookmarkUpdateReason> {
+    let any_tracking = || {
+        view.remote_bookmarks_matching(
+            &StringPattern::exact(bookmark_name),
+            &StringPattern::everything(),
+        )
+        .filter(|&((_, remote), _)| remote != git::REMOTE_NAME_FOR_LOCAL_GIT_REPO)
+        .any(|(_, remote_ref)| remote_ref.is_tracking())
+    };
     let push_action = classify_bookmark_push_action(targets);
     match push_action {
         BookmarkPushAction::AlreadyMatches => Ok(None),
@@ -575,14 +585,16 @@ fn classify_bookmark_update(
                  bookmark."
             )),
         }),
-        BookmarkPushAction::Update(update) if update.old_target.is_none() && !allow_new => {
+        BookmarkPushAction::Update(update)
+            if update.old_target.is_none() && !allow_new && any_tracking() =>
+        {
             Err(RejectedBookmarkUpdateReason {
                 message: format!(
-                    "Refusing to create new remote bookmark {bookmark_name}@{remote_name}"
+                    "Refusing to track new remote {remote_name} by bookmark {bookmark_name}"
                 ),
                 hint: Some(
-                    "Use --allow-new to push new bookmark. Use --remote to specify the remote to \
-                     push to."
+                    "Use --allow-new-tracking to push bookmark to new remote. Use --remote to \
+                     specify the remote to push to."
                         .to_owned(),
                 ),
             })

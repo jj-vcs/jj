@@ -1154,7 +1154,7 @@ Create a new Git backed repo
 
 Push to a Git remote
 
-By default, pushes tracking bookmarks pointing to `remote_bookmarks(remote=<remote>)..@`. Use `--bookmark` to push specific bookmarks. Use `--all` to push all bookmarks. Use `--change` to generate bookmark names based on the change IDs of specific commits.
+By default, pushes new non-tracking and existing tracking bookmarks pointing to `remote_bookmarks(remote=<remote>)..@`. Use `--bookmark` to push specific bookmarks. Use `--all` to push all bookmarks. Use `--change` to generate bookmark names based on the change IDs of specific commits.
 
 Unlike in Git, the remote to push to is not derived from the tracked remote bookmarks. Use `--remote` to select the remote Git repository by name. There is no option to push to multiple remotes.
 
@@ -1181,7 +1181,7 @@ Before the command actually moves, creates, or deletes a remote bookmark, it mak
 * `--deleted` — Push all deleted bookmarks
 
    Only tracked bookmarks can be successfully deleted on the remote. A warning will be printed if any untracked bookmarks on the remote correspond to missing local bookmarks.
-* `-N`, `--allow-new` — Allow pushing new bookmarks
+* `-N`, `--allow-new-tracking` — Allow pushing tracking bookmarks to new remote
 
    Newly-created remote bookmarks will be tracked automatically.
 * `--allow-empty-description` — Allow pushing commits with empty descriptions
