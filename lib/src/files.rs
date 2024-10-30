@@ -21,6 +21,7 @@ use std::mem;
 
 use bstr::BStr;
 use bstr::BString;
+use either::Either;
 use itertools::Itertools as _;
 
 use crate::config::ConfigGetError;
@@ -317,47 +318,85 @@ where
     // more than 3 parts?
     let num_diffs = inputs.removes().len();
     let diff = Diff::by_line(inputs.removes().chain(inputs.adds()));
-    let hunks = resolve_diff_hunks(&diff, num_diffs);
+    let hunks = resolve_diff_hunks(&diff, num_diffs).map(MergeHunk::Borrowed);
     B::from_hunks(hunks)
+}
+
+/// `Cow`-like type over `Merge<T>`.
+#[derive(Clone, Debug)]
+enum MergeHunk<'input> {
+    Borrowed(Merge<&'input BStr>),
+    #[expect(dead_code)] // TODO
+    Owned(Merge<BString>),
+}
+
+impl MergeHunk<'_> {
+    fn len(&self) -> usize {
+        match self {
+            MergeHunk::Borrowed(merge) => merge.as_slice().len(),
+            MergeHunk::Owned(merge) => merge.as_slice().len(),
+        }
+    }
+
+    fn iter(&self) -> impl Iterator<Item = &BStr> {
+        match self {
+            MergeHunk::Borrowed(merge) => Either::Left(merge.iter().copied()),
+            MergeHunk::Owned(merge) => Either::Right(merge.iter().map(Borrow::borrow)),
+        }
+    }
+
+    fn as_resolved(&self) -> Option<&BStr> {
+        match self {
+            MergeHunk::Borrowed(merge) => merge.as_resolved().copied(),
+            MergeHunk::Owned(merge) => merge.as_resolved().map(Borrow::borrow),
+        }
+    }
+
+    fn into_owned(self) -> Merge<BString> {
+        match self {
+            MergeHunk::Borrowed(merge) => merge.map(|&s| s.to_owned()),
+            MergeHunk::Owned(merge) => merge,
+        }
+    }
 }
 
 /// `FromIterator` for merge result.
 trait FromMergeHunks<'input>: Sized {
-    fn from_hunks<I: IntoIterator<Item = Merge<&'input BStr>>>(hunks: I) -> Self;
+    fn from_hunks<I: IntoIterator<Item = MergeHunk<'input>>>(hunks: I) -> Self;
 }
 
 impl<'input> FromMergeHunks<'input> for MergeResult {
-    fn from_hunks<I: IntoIterator<Item = Merge<&'input BStr>>>(hunks: I) -> Self {
+    fn from_hunks<I: IntoIterator<Item = MergeHunk<'input>>>(hunks: I) -> Self {
         collect_hunks(hunks)
     }
 }
 
 impl<'input> FromMergeHunks<'input> for Merge<BString> {
-    fn from_hunks<I: IntoIterator<Item = Merge<&'input BStr>>>(hunks: I) -> Self {
+    fn from_hunks<I: IntoIterator<Item = MergeHunk<'input>>>(hunks: I) -> Self {
         collect_merged(hunks)
     }
 }
 
 impl<'input> FromMergeHunks<'input> for Option<BString> {
-    fn from_hunks<I: IntoIterator<Item = Merge<&'input BStr>>>(hunks: I) -> Self {
+    fn from_hunks<I: IntoIterator<Item = MergeHunk<'input>>>(hunks: I) -> Self {
         collect_resolved(hunks)
     }
 }
 
 /// Collects merged hunks into either fully-resolved content or list of
 /// partially-resolved hunks.
-fn collect_hunks<'input>(hunks: impl IntoIterator<Item = Merge<&'input BStr>>) -> MergeResult {
+fn collect_hunks<'input>(hunks: impl IntoIterator<Item = MergeHunk<'input>>) -> MergeResult {
     let mut resolved_hunk = BString::new(vec![]);
     let mut merge_hunks: Vec<Merge<BString>> = vec![];
     for hunk in hunks {
-        if let Some(&content) = hunk.as_resolved() {
+        if let Some(content) = hunk.as_resolved() {
             resolved_hunk.extend_from_slice(content);
         } else {
             if !resolved_hunk.is_empty() {
                 merge_hunks.push(Merge::resolved(resolved_hunk));
                 resolved_hunk = BString::new(vec![]);
             }
-            merge_hunks.push(hunk.map(|&s| s.to_owned()));
+            merge_hunks.push(hunk.into_owned());
         }
     }
 
@@ -373,20 +412,20 @@ fn collect_hunks<'input>(hunks: impl IntoIterator<Item = Merge<&'input BStr>>) -
 
 /// Collects merged hunks back to single `Merge` object, duplicating resolved
 /// hunks to all positive and negative terms.
-fn collect_merged<'input>(hunks: impl IntoIterator<Item = Merge<&'input BStr>>) -> Merge<BString> {
+fn collect_merged<'input>(hunks: impl IntoIterator<Item = MergeHunk<'input>>) -> Merge<BString> {
     let mut maybe_resolved = Merge::resolved(BString::default());
     for hunk in hunks {
-        if let Some(&content) = hunk.as_resolved() {
+        if let Some(content) = hunk.as_resolved() {
             for buf in maybe_resolved.iter_mut() {
                 buf.extend_from_slice(content);
             }
         } else {
             maybe_resolved = match maybe_resolved.into_resolved() {
-                Ok(content) => Merge::from_vec(vec![content; hunk.as_slice().len()]),
+                Ok(content) => Merge::from_vec(vec![content; hunk.len()]),
                 Err(conflict) => conflict,
             };
-            assert_eq!(maybe_resolved.as_slice().len(), hunk.as_slice().len());
-            for (buf, s) in iter::zip(maybe_resolved.iter_mut(), hunk) {
+            assert_eq!(maybe_resolved.as_slice().len(), hunk.len());
+            for (buf, s) in iter::zip(maybe_resolved.iter_mut(), hunk.iter()) {
                 buf.extend_from_slice(s);
             }
         }
@@ -395,13 +434,12 @@ fn collect_merged<'input>(hunks: impl IntoIterator<Item = Merge<&'input BStr>>) 
 }
 
 /// Collects resolved merge hunks. Short-circuits on unresolved hunk.
-fn collect_resolved<'input>(
-    hunks: impl IntoIterator<Item = Merge<&'input BStr>>,
-) -> Option<BString> {
-    hunks
-        .into_iter()
-        .map(|hunk| hunk.into_resolved().ok())
-        .collect()
+fn collect_resolved<'input>(hunks: impl IntoIterator<Item = MergeHunk<'input>>) -> Option<BString> {
+    let mut resolved_content = BString::default();
+    for hunk in hunks {
+        resolved_content.extend_from_slice(hunk.as_resolved()?);
+    }
+    Some(resolved_content)
 }
 
 /// Iterator that attempts to resolve trivial merge conflict for each hunk.
