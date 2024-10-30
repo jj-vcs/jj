@@ -1608,6 +1608,22 @@ you can:
 executable-path = "/path/to/git"
 ```
 
+## Merge settings
+
+### Granularity of hunks
+
+`jj` by default resolves content conflicts by splitting text into line-level
+hunks and merge them. This can be configured to split hunks further into
+word-level hunks.
+
+* `line`: split into line hunks (default)
+* `word`: split into word hunks
+
+```toml
+[merge]
+hunk-level = "line"
+```
+
 ## Filesystem monitor
 
 In large repositories, it may be beneficial to use a "filesystem monitor" to

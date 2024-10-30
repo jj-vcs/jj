@@ -15,6 +15,7 @@
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
+use crate::common::create_commit_with_files;
 
 #[test]
 fn test_new() {
@@ -162,6 +163,60 @@ fn test_new_merge() {
     Error: The Git backend does not support creating merge commits with the root commit as one of the parents.
     [EOF]
     [exit status: 1]
+    ");
+}
+
+#[test]
+fn test_new_merge_conflicts() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    create_commit_with_files(&work_dir, "1", &[], &[("file", "1a\n1b\n")]);
+    create_commit_with_files(&work_dir, "2", &["1"], &[("file", "1a 2a\n1b\n2c\n")]);
+    create_commit_with_files(&work_dir, "3", &["1"], &[("file", "3a 1a\n1b\n")]);
+
+    // merge line by line by default
+    let output = work_dir.run_jj(["new", "2|3"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: vruxwmqv 5234fbf2 (conflict) (empty) (no description set)
+    Parent commit (@-)      : royxmykx 1b282e07 3 | 3
+    Parent commit (@-)      : zsuskuln 7ac709e5 2 | 2
+    Added 0 files, modified 1 files, removed 0 files
+    Warning: There are unresolved conflicts at these paths:
+    file    2-sided conflict
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.read_file("file"), @r"
+    <<<<<<< Conflict 1 of 1
+    %%%%%%% Changes from base to side #1
+    -1a
+    +3a 1a
+    +++++++ Contents of side #2
+    1a 2a
+    >>>>>>> Conflict 1 of 1 ends
+    1b
+    2c
+    ");
+
+    // reset working copy
+    work_dir.run_jj(["new", "root()"]).success();
+
+    // merge word by word
+    let output = work_dir.run_jj(["new", "2|3", "--config=merge.hunk-level=word"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: znkkpsqq 892ac90f (empty) (no description set)
+    Parent commit (@-)      : royxmykx 1b282e07 3 | 3
+    Parent commit (@-)      : zsuskuln 7ac709e5 2 | 2
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.read_file("file"), @r"
+    3a 1a 2a
+    1b
+    2c
     ");
 }
 

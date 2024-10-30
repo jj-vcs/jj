@@ -30,6 +30,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * The default editor on Unix is now `nano` instead of `pico`.
 
+* New config option `merge.hunk-level = "word"` to enable word-level merging.
+
 ### Fixed bugs
 
 ## [0.33.0] - 2025-09-03

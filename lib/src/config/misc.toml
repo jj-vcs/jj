@@ -16,6 +16,9 @@ executable-path = "git"
 write-change-id-header = true
 colocate = true
 
+[merge]
+hunk-level = "line"
+
 [operation]
 hostname = ""
 username = ""

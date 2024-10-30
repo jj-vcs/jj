@@ -265,13 +265,29 @@ where
 /// Options for file-level merging.
 #[derive(Clone, Debug, Default)]
 pub struct FileMergeOptions {
-    // TODO: add word-by-word merge option
+    /// Granularity of hunks when merging files.
+    pub hunk_level: FileMergeHunkLevel,
 }
 
 impl FileMergeOptions {
-    pub fn from_settings(_settings: &UserSettings) -> Result<Self, ConfigGetError> {
-        Ok(Self {})
+    pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
+        Ok(Self {
+            // Maybe we can add hunk-level=file to disable content merging if
+            // needed. It wouldn't be translated to FileMergeHunkLevel.
+            hunk_level: settings.get("merge.hunk-level")?,
+        })
     }
+}
+
+/// Granularity of hunks when merging files.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FileMergeHunkLevel {
+    /// Splits into line hunks.
+    #[default]
+    Line,
+    /// Splits into word hunks.
+    Word,
 }
 
 /// Merge result in either fully-resolved or conflicts form, akin to
@@ -308,7 +324,7 @@ pub fn try_merge<T: AsRef<[u8]>>(inputs: &Merge<T>, options: &FileMergeOptions) 
     merge_inner(inputs, options)
 }
 
-fn merge_inner<'input, T, B>(inputs: &'input Merge<T>, _options: &FileMergeOptions) -> B
+fn merge_inner<'input, T, B>(inputs: &'input Merge<T>, options: &FileMergeOptions) -> B
 where
     T: AsRef<[u8]>,
     B: FromMergeHunks<'input>,
@@ -318,15 +334,36 @@ where
     // more than 3 parts?
     let num_diffs = inputs.removes().len();
     let diff = Diff::by_line(inputs.removes().chain(inputs.adds()));
-    let hunks = resolve_diff_hunks(&diff, num_diffs).map(MergeHunk::Borrowed);
-    B::from_hunks(hunks)
+    let hunks = resolve_diff_hunks(&diff, num_diffs);
+    match options.hunk_level {
+        FileMergeHunkLevel::Line => B::from_hunks(hunks.map(MergeHunk::Borrowed)),
+        FileMergeHunkLevel::Word => B::from_hunks(hunks.map(merge_hunk_by_word)),
+    }
+}
+
+fn merge_hunk_by_word(inputs: Merge<&BStr>) -> MergeHunk<'_> {
+    if inputs.is_resolved() {
+        return MergeHunk::Borrowed(inputs);
+    }
+    let num_diffs = inputs.removes().len();
+    let diff = Diff::by_word(inputs.removes().chain(inputs.adds()));
+    let hunks = resolve_diff_hunks(&diff, num_diffs);
+    // We could instead use collect_merged() to return partially-merged hunk.
+    // This would be more consistent with the line-based merge function, but
+    // might produce surprising results. Partially-merged conflicts would be
+    // hard to review because they would have mixed contexts.
+    if let Some(content) = collect_resolved(hunks.map(MergeHunk::Borrowed)) {
+        MergeHunk::Owned(Merge::resolved(content))
+    } else {
+        drop(diff);
+        MergeHunk::Borrowed(inputs)
+    }
 }
 
 /// `Cow`-like type over `Merge<T>`.
 #[derive(Clone, Debug)]
 enum MergeHunk<'input> {
     Borrowed(Merge<&'input BStr>),
-    #[expect(dead_code)] // TODO
     Owned(Merge<BString>),
 }
 
@@ -1048,5 +1085,33 @@ mod tests {
             }
         "};
         assert_eq!(merge(&conflict([left, base, right])), resolved(merged));
+    }
+
+    #[test]
+    fn test_merge_hunk_by_word() {
+        let options = FileMergeOptions {
+            hunk_level: FileMergeHunkLevel::Word,
+        };
+        let merge = |inputs: &_| merge(inputs, &options);
+        // No context line in between, but "\n" is a context word
+        assert_eq!(
+            merge(&conflict([b"c\nb\n", b"a\nb\n", b"a\nd\n"])),
+            resolved(b"c\nd\n")
+        );
+        // Both sides added to different positions
+        assert_eq!(merge(&conflict([b"a b", b"a", b"c a"])), resolved(b"c a b"));
+        // Both sides added to the same position: can't resolve word-level
+        // conflicts and the whole line should be left as a conflict
+        assert_eq!(
+            merge(&conflict([b"a b", b"a", b"a c"])),
+            conflict([b"a b", b"a", b"a c"])
+        );
+        // One side added, both sides added to the same position: the former
+        // word-level conflict could be resolved, but we preserve the original
+        // content in that case
+        assert_eq!(
+            merge(&conflict([b"a b", b"a", b"x a c"])),
+            conflict([b"a b", b"a", b"x a c"])
+        );
     }
 }
