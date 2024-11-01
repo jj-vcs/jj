@@ -105,8 +105,7 @@ fn tree_entries(tree: &MergedTree) -> Vec<(RepoPathBuf, Option<MergedTreeValue>)
 #[test]
 fn test_root() {
     // Test that the working copy is clean and empty after init.
-    let settings = testutils::user_settings();
-    let mut test_workspace = TestWorkspace::init(&settings);
+    let mut test_workspace = TestWorkspace::init();
 
     let wc = test_workspace.workspace.working_copy();
     assert_eq!(wc.sparse_patterns().unwrap(), vec![RepoPathBuf::root()]);
@@ -128,8 +127,7 @@ fn test_checkout_file_transitions(backend: TestRepoBackend) {
     // commit and another type in the other. Includes a "missing" type, so we cover
     // additions and removals as well.
 
-    let settings = testutils::user_settings();
-    let mut test_workspace = TestWorkspace::init_with_backend(&settings, backend);
+    let mut test_workspace = TestWorkspace::init_with_backend(backend);
     let repo = &test_workspace.repo;
     let store = repo.store().clone();
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
@@ -374,8 +372,7 @@ fn test_checkout_file_transitions(backend: TestRepoBackend) {
 // Test case for issue #2165
 #[test]
 fn test_conflict_subdirectory() {
-    let settings = testutils::user_settings();
-    let mut test_workspace = TestWorkspace::init(&settings);
+    let mut test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
 
     let path = RepoPath::from_internal_string("sub/file");
@@ -406,7 +403,8 @@ fn test_conflict_subdirectory() {
 #[test]
 fn test_acl() {
     let settings = testutils::user_settings();
-    let test_workspace = TestWorkspace::init_with_backend(&settings, TestRepoBackend::Git);
+    let test_workspace =
+        TestWorkspace::init_with_backend_and_settings(TestRepoBackend::Git, &settings);
     let repo = &test_workspace.repo;
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
 
@@ -497,8 +495,7 @@ fn test_acl() {
 
 #[test]
 fn test_tree_builder_file_directory_transition() {
-    let settings = testutils::user_settings();
-    let test_workspace = TestWorkspace::init(&settings);
+    let test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
     let store = repo.store();
     let mut ws = test_workspace.workspace;
@@ -547,8 +544,7 @@ fn test_tree_builder_file_directory_transition() {
 
 #[test]
 fn test_conflicting_changes_on_disk() {
-    let settings = testutils::user_settings();
-    let test_workspace = TestWorkspace::init(&settings);
+    let test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
     let mut ws = test_workspace.workspace;
     let workspace_root = ws.workspace_root().to_owned();
@@ -630,8 +626,7 @@ fn test_conflicting_changes_on_disk() {
 
 #[test]
 fn test_reset() {
-    let settings = testutils::user_settings();
-    let mut test_workspace = TestWorkspace::init(&settings);
+    let mut test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
     let op_id = repo.op_id().clone();
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
@@ -692,8 +687,7 @@ fn test_checkout_discard() {
     // Start a mutation, do a checkout, and then discard the mutation. The working
     // copy files should remain changed, but the state files should not be
     // written.
-    let settings = testutils::user_settings();
-    let mut test_workspace = TestWorkspace::init(&settings);
+    let mut test_workspace = TestWorkspace::init();
     let repo = test_workspace.repo.clone();
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
 
@@ -750,8 +744,7 @@ fn test_checkout_discard() {
 
 #[test]
 fn test_snapshot_file_directory_transition() {
-    let settings = testutils::user_settings();
-    let mut test_workspace = TestWorkspace::init(&settings);
+    let mut test_workspace = TestWorkspace::init();
     let repo = test_workspace.repo.clone();
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
     let checkout_options = CheckoutOptions::empty_for_test();
@@ -799,8 +792,7 @@ fn test_snapshot_file_directory_transition() {
 
 #[test]
 fn test_materialize_snapshot_conflicted_files() {
-    let settings = testutils::user_settings();
-    let mut test_workspace = TestWorkspace::init(&settings);
+    let mut test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo.clone();
     let ws = &mut test_workspace.workspace;
     let workspace_root = ws.workspace_root().to_owned();
@@ -924,8 +916,7 @@ fn test_materialize_snapshot_conflicted_files() {
 fn test_snapshot_racy_timestamps() {
     // Tests that file modifications are detected even if they happen the same
     // millisecond as the updated working copy state.
-    let settings = testutils::user_settings();
-    let mut test_workspace = TestWorkspace::init(&settings);
+    let mut test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
 
@@ -951,8 +942,7 @@ fn test_snapshot_racy_timestamps() {
 fn test_snapshot_special_file() {
     // Tests that we ignore when special files (such as sockets and pipes) exist on
     // disk.
-    let settings = testutils::user_settings();
-    let mut test_workspace = TestWorkspace::init(&settings);
+    let mut test_workspace = TestWorkspace::init();
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
     let store = test_workspace.repo.store();
     let ws = &mut test_workspace.workspace;
@@ -1009,8 +999,7 @@ fn test_snapshot_special_file() {
 fn test_gitignores() {
     // Tests that .gitignore files are respected.
 
-    let settings = testutils::user_settings();
-    let mut test_workspace = TestWorkspace::init(&settings);
+    let mut test_workspace = TestWorkspace::init();
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
 
     let gitignore_path = RepoPath::from_internal_string(".gitignore");
@@ -1069,8 +1058,7 @@ fn test_gitignores_in_ignored_dir() {
     // Tests that .gitignore files in an ignored directory are ignored, i.e. that
     // they cannot override the ignores from the parent
 
-    let settings = testutils::user_settings();
-    let mut test_workspace = TestWorkspace::init(&settings);
+    let mut test_workspace = TestWorkspace::init();
     let op_id = test_workspace.repo.op_id().clone();
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
 
@@ -1120,8 +1108,7 @@ fn test_gitignores_checkout_never_overwrites_ignored() {
     // Tests that a .gitignore'd file doesn't get overwritten if check out a commit
     // where the file is tracked.
 
-    let settings = testutils::user_settings();
-    let mut test_workspace = TestWorkspace::init(&settings);
+    let mut test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
 
@@ -1159,8 +1146,7 @@ fn test_gitignores_ignored_directory_already_tracked() {
     // Tests that a .gitignore'd directory that already has a tracked file in it
     // does not get removed when snapshotting the working directory.
 
-    let settings = testutils::user_settings();
-    let mut test_workspace = TestWorkspace::init(&settings);
+    let mut test_workspace = TestWorkspace::init();
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
     let repo = test_workspace.repo.clone();
 
@@ -1265,8 +1251,7 @@ fn test_dotgit_ignored() {
     // Tests that .git directories and files are always ignored (we could accept
     // them if the backend is not git).
 
-    let settings = testutils::user_settings();
-    let mut test_workspace = TestWorkspace::init(&settings);
+    let mut test_workspace = TestWorkspace::init();
     let store = test_workspace.repo.store().clone();
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
 
@@ -1298,8 +1283,7 @@ fn test_dotgit_ignored() {
 fn test_git_submodule() {
     // Tests that git submodules are ignored.
 
-    let settings = testutils::user_settings();
-    let mut test_workspace = TestWorkspace::init_with_backend(&settings, TestRepoBackend::Git);
+    let mut test_workspace = TestWorkspace::init_with_backend(TestRepoBackend::Git);
     let repo = test_workspace.repo.clone();
     let store = repo.store().clone();
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
@@ -1405,8 +1389,7 @@ fn test_git_submodule() {
 
 #[test]
 fn test_check_out_existing_file_cannot_be_removed() {
-    let settings = testutils::user_settings();
-    let mut test_workspace = TestWorkspace::init(&settings);
+    let mut test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
 
@@ -1450,8 +1433,7 @@ fn test_check_out_existing_file_cannot_be_removed() {
 
 #[test]
 fn test_check_out_existing_file_replaced_with_directory() {
-    let settings = testutils::user_settings();
-    let mut test_workspace = TestWorkspace::init(&settings);
+    let mut test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
 
@@ -1493,8 +1475,7 @@ fn test_check_out_existing_directory_symlink() {
         return;
     }
 
-    let settings = testutils::user_settings();
-    let mut test_workspace = TestWorkspace::init(&settings);
+    let mut test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
 
@@ -1529,8 +1510,7 @@ fn test_check_out_existing_directory_symlink_icase_fs() {
         return;
     }
 
-    let settings = testutils::user_settings();
-    let mut test_workspace = TestWorkspace::init(&settings);
+    let mut test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
     let is_icase_fs = check_icase_fs(&workspace_root);
@@ -1571,8 +1551,7 @@ fn test_check_out_existing_file_symlink_icase_fs(victim_exists: bool) {
         return;
     }
 
-    let settings = testutils::user_settings();
-    let mut test_workspace = TestWorkspace::init(&settings);
+    let mut test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
     let is_icase_fs = check_icase_fs(&workspace_root);
@@ -1625,8 +1604,7 @@ fn test_check_out_file_removal_over_existing_directory_symlink() {
         return;
     }
 
-    let settings = testutils::user_settings();
-    let mut test_workspace = TestWorkspace::init(&settings);
+    let mut test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
 
@@ -1674,8 +1652,7 @@ fn test_check_out_file_removal_over_existing_directory_symlink() {
 #[test_case("../pwned"; "escape from root")]
 #[test_case("sub/../../pwned"; "escape from sub dir")]
 fn test_check_out_malformed_file_path(file_path_str: &str) {
-    let settings = testutils::user_settings();
-    let mut test_workspace = TestWorkspace::init(&settings);
+    let mut test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
 
@@ -1701,8 +1678,7 @@ fn test_check_out_malformed_file_path(file_path_str: &str) {
 #[test_case(r"sub\..\../pwned"; "path separator")]
 #[test_case("d:/pwned"; "drive letter")]
 fn test_check_out_malformed_file_path_windows(file_path_str: &str) {
-    let settings = testutils::user_settings();
-    let mut test_workspace = TestWorkspace::init(&settings);
+    let mut test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
 
@@ -1740,8 +1716,7 @@ fn test_check_out_malformed_file_path_windows(file_path_str: &str) {
 #[test_case("sub/.git/pwned"; "sub .git dir")]
 #[test_case("sub/.jj/pwned"; "sub .jj dir")]
 fn test_check_out_reserved_file_path(file_path_str: &str) {
-    let settings = testutils::user_settings();
-    let mut test_workspace = TestWorkspace::init(&settings);
+    let mut test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
     std::fs::create_dir(workspace_root.join(".git")).unwrap();
@@ -1801,8 +1776,7 @@ fn test_check_out_reserved_file_path(file_path_str: &str) {
 #[test_case("sub/.gIT/pwned"; "sub .git dir")]
 #[test_case("sub/.Jj/pwned"; "sub .jj dir")]
 fn test_check_out_reserved_file_path_icase_fs(file_path_str: &str) {
-    let settings = testutils::user_settings();
-    let mut test_workspace = TestWorkspace::init(&settings);
+    let mut test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
     std::fs::create_dir(workspace_root.join(".git")).unwrap();
@@ -1873,8 +1847,7 @@ fn test_check_out_reserved_file_path_icase_fs(file_path_str: &str) {
 #[test_case("sub/.gi\u{200e}t/pwned"; "sub .git dir")]
 #[test_case("sub/.jj\u{200f}/pwned"; "sub .jj dir")]
 fn test_check_out_reserved_file_path_hfs_plus(file_path_str: &str) {
-    let settings = testutils::user_settings();
-    let mut test_workspace = TestWorkspace::init(&settings);
+    let mut test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
     std::fs::create_dir(workspace_root.join(".git")).unwrap();
@@ -1946,8 +1919,7 @@ fn test_check_out_reserved_file_path_hfs_plus(file_path_str: &str) {
 // - https://en.wikipedia.org/wiki/8.3_filename
 // - See is_ntfs_dotgit() of Git and pathauditor of Mercurial
 fn test_check_out_reserved_file_path_vfat(vfat_path_str: &str, file_path_strs: &[&str]) {
-    let settings = testutils::user_settings();
-    let mut test_workspace = TestWorkspace::init(&settings);
+    let mut test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
     std::fs::create_dir(workspace_root.join(".git")).unwrap();
@@ -2022,8 +1994,7 @@ fn test_check_out_reserved_file_path_vfat(vfat_path_str: &str, file_path_strs: &
 
 #[test]
 fn test_fsmonitor() {
-    let settings = testutils::user_settings();
-    let mut test_workspace = TestWorkspace::init(&settings);
+    let mut test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
 
@@ -2120,8 +2091,7 @@ fn test_fsmonitor() {
 
 #[test]
 fn test_snapshot_max_new_file_size() {
-    let settings = testutils::user_settings();
-    let mut test_workspace = TestWorkspace::init(&settings);
+    let mut test_workspace = TestWorkspace::init();
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
     let small_path = RepoPath::from_internal_string("small");
     let large_path = RepoPath::from_internal_string("large");

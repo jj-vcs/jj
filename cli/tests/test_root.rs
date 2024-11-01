@@ -24,8 +24,7 @@ use crate::common::TestEnvironment;
 #[test_case(TestRepoBackend::Git ; "git backend")]
 fn test_root(backend: TestRepoBackend) {
     let test_env = TestEnvironment::default();
-    let settings = testutils::user_settings();
-    let test_workspace = TestWorkspace::init_with_backend(&settings, backend);
+    let test_workspace = TestWorkspace::init_with_backend(backend);
     let root = test_workspace.workspace.workspace_root();
     let subdir = root.join("subdir");
     std::fs::create_dir(&subdir).unwrap();

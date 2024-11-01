@@ -251,22 +251,30 @@ pub struct TestWorkspace {
 }
 
 impl TestWorkspace {
-    pub fn init(settings: &UserSettings) -> Self {
-        Self::init_with_backend(settings, TestRepoBackend::Test)
+    pub fn init() -> Self {
+        Self::init_with_backend(TestRepoBackend::Test)
     }
 
-    pub fn init_with_backend(settings: &UserSettings, backend: TestRepoBackend) -> Self {
-        Self::init_with_backend_and_signer(
-            settings,
-            backend,
-            Signer::from_settings(settings).unwrap(),
-        )
+    pub fn init_with_backend(backend: TestRepoBackend) -> Self {
+        Self::init_with_backend_and_settings(backend, &user_settings())
+    }
+
+    pub fn init_with_settings(settings: &UserSettings) -> Self {
+        Self::init_with_backend_and_settings(TestRepoBackend::Test, settings)
+    }
+
+    pub fn init_with_backend_and_settings(
+        backend: TestRepoBackend,
+        settings: &UserSettings,
+    ) -> Self {
+        let signer = Signer::from_settings(settings).unwrap();
+        Self::init_with_backend_and_signer(backend, signer, settings)
     }
 
     pub fn init_with_backend_and_signer(
-        settings: &UserSettings,
         backend: TestRepoBackend,
         signer: Signer,
+        settings: &UserSettings,
     ) -> Self {
         let env = TestEnvironment::init();
 

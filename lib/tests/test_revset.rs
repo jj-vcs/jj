@@ -967,8 +967,7 @@ fn resolve_commit_ids_in_workspace(
 
 #[test]
 fn test_evaluate_expression_root_and_checkout() {
-    let settings = testutils::user_settings();
-    let test_workspace = TestWorkspace::init(&settings);
+    let test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
 
     let root_operation = repo.loader().root_operation();
@@ -1128,8 +1127,7 @@ fn test_evaluate_expression_roots() {
 
 #[test]
 fn test_evaluate_expression_parents() {
-    let settings = testutils::user_settings();
-    let test_workspace = TestWorkspace::init(&settings);
+    let test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
 
     let root_commit = repo.store().root_commit();
@@ -3526,8 +3524,7 @@ fn test_evaluate_expression_filter_combinator() {
 
 #[test]
 fn test_evaluate_expression_file() {
-    let settings = testutils::user_settings();
-    let test_workspace = TestWorkspace::init(&settings);
+    let test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
 
     let mut tx = repo.start_transaction();
@@ -3638,8 +3635,7 @@ fn test_evaluate_expression_file() {
 
 #[test]
 fn test_evaluate_expression_diff_contains() {
-    let settings = testutils::user_settings();
-    let test_workspace = TestWorkspace::init(&settings);
+    let test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
 
     let mut tx = repo.start_transaction();
@@ -3780,8 +3776,7 @@ fn test_evaluate_expression_diff_contains() {
 
 #[test]
 fn test_evaluate_expression_file_merged_parents() {
-    let settings = testutils::user_settings();
-    let test_workspace = TestWorkspace::init(&settings);
+    let test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
 
     let mut tx = repo.start_transaction();
@@ -3850,8 +3845,7 @@ fn test_evaluate_expression_file_merged_parents() {
 
 #[test]
 fn test_evaluate_expression_conflict() {
-    let settings = testutils::user_settings();
-    let test_workspace = TestWorkspace::init(&settings);
+    let test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
 
     let mut tx = repo.start_transaction();

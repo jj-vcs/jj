@@ -142,7 +142,7 @@ fn test_init_external_git() {
 fn test_init_with_default_config(backend: TestRepoBackend) {
     // Test that we can create a repo without setting any non-default config
     let settings = UserSettings::from_config(StackedConfig::with_defaults()).unwrap();
-    let test_workspace = TestWorkspace::init_with_backend(&settings, backend);
+    let test_workspace = TestWorkspace::init_with_backend_and_settings(backend, &settings);
     let repo = &test_workspace.repo;
     let wc_commit_id = repo
         .view()
@@ -160,7 +160,7 @@ fn test_init_with_default_config(backend: TestRepoBackend) {
 fn test_init_checkout(backend: TestRepoBackend) {
     // Test the contents of the working-copy commit after init
     let settings = testutils::user_settings();
-    let test_workspace = TestWorkspace::init_with_backend(&settings, backend);
+    let test_workspace = TestWorkspace::init_with_backend_and_settings(backend, &settings);
     let repo = &test_workspace.repo;
     let wc_commit_id = repo
         .view()

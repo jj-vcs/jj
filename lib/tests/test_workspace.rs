@@ -45,7 +45,7 @@ fn test_load_bad_path() {
 #[test]
 fn test_init_additional_workspace() {
     let settings = testutils::user_settings();
-    let test_workspace = TestWorkspace::init(&settings);
+    let test_workspace = TestWorkspace::init_with_settings(&settings);
     let workspace = &test_workspace.workspace;
 
     let ws2_id = WorkspaceId::new("ws2".to_string());
@@ -95,8 +95,7 @@ fn test_init_additional_workspace() {
 /// Test cross-thread access to a workspace, which requires it to be Send
 #[test]
 fn test_sendable() {
-    let settings = testutils::user_settings();
-    let test_workspace = TestWorkspace::init(&settings);
+    let test_workspace = TestWorkspace::init();
     let root = test_workspace.workspace.workspace_root().to_owned();
 
     thread::spawn(move || {

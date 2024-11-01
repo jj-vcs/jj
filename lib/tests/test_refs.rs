@@ -21,8 +21,7 @@ use testutils::TestWorkspace;
 
 #[test]
 fn test_merge_ref_targets() {
-    let settings = testutils::user_settings();
-    let test_workspace = TestWorkspace::init(&settings);
+    let test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
 
     // 6 7

@@ -105,7 +105,7 @@ fn test_bad_locking_children(backend: TestRepoBackend) {
     // Test that two new commits created on separate machines are both visible (not
     // lost due to lack of locking)
     let settings = testutils::user_settings();
-    let test_workspace = TestWorkspace::init_with_backend(&settings, backend);
+    let test_workspace = TestWorkspace::init_with_backend_and_settings(backend, &settings);
     let repo = &test_workspace.repo;
     let workspace_root = test_workspace.workspace.workspace_root();
 
@@ -178,7 +178,7 @@ fn test_bad_locking_interrupted(backend: TestRepoBackend) {
     // that's a descendant of the other is resolved without creating a new
     // operation.
     let settings = testutils::user_settings();
-    let test_workspace = TestWorkspace::init_with_backend(&settings, backend);
+    let test_workspace = TestWorkspace::init_with_backend_and_settings(backend, &settings);
     let test_env = &test_workspace.env;
     let repo = &test_workspace.repo;
 

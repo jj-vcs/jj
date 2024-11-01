@@ -33,8 +33,7 @@ fn to_owned_path_vec(paths: &[&RepoPath]) -> Vec<RepoPathBuf> {
 
 #[test]
 fn test_sparse_checkout() {
-    let settings = testutils::user_settings();
-    let mut test_workspace = TestWorkspace::init(&settings);
+    let mut test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
     let working_copy_path = test_workspace.workspace.workspace_root().to_owned();
 
@@ -177,8 +176,7 @@ fn test_sparse_checkout() {
 /// Test that sparse patterns are respected on commit
 #[test]
 fn test_sparse_commit() {
-    let settings = testutils::user_settings();
-    let mut test_workspace = TestWorkspace::init(&settings);
+    let mut test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
     let op_id = repo.op_id().clone();
     let working_copy_path = test_workspace.workspace.workspace_root().to_owned();
@@ -277,8 +275,7 @@ fn test_sparse_commit() {
 #[test]
 fn test_sparse_commit_gitignore() {
     // Test that (untracked) .gitignore files in parent directories are respected
-    let settings = testutils::user_settings();
-    let mut test_workspace = TestWorkspace::init(&settings);
+    let mut test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
     let working_copy_path = test_workspace.workspace.workspace_root().to_owned();
 

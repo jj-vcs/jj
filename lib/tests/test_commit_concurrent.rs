@@ -47,8 +47,7 @@ fn test_commit_parallel(backend: TestRepoBackend) {
     // This loads a Repo instance and creates and commits many concurrent
     // transactions from it. It then reloads the repo. That should merge all the
     // operations and all commits should be visible.
-    let settings = testutils::user_settings();
-    let test_workspace = TestWorkspace::init_with_backend(&settings, backend);
+    let test_workspace = TestWorkspace::init_with_backend(backend);
     let repo = &test_workspace.repo;
 
     let num_threads = max(num_cpus::get(), 4);
@@ -78,7 +77,7 @@ fn test_commit_parallel_instances(backend: TestRepoBackend) {
     // Like the test above but creates a new repo instance for every thread, which
     // makes it behave very similar to separate processes.
     let settings = testutils::user_settings();
-    let test_workspace = TestWorkspace::init_with_backend(&settings, backend);
+    let test_workspace = TestWorkspace::init_with_backend_and_settings(backend, &settings);
     let test_env = &test_workspace.env;
 
     let num_threads = max(num_cpus::get(), 4);

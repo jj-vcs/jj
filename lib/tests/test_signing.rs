@@ -58,7 +58,7 @@ fn manual(backend: TestRepoBackend) {
     let settings = user_settings(true);
 
     let signer = Signer::new(Some(Box::new(TestSigningBackend)), vec![]);
-    let test_workspace = TestWorkspace::init_with_backend_and_signer(&settings, backend, signer);
+    let test_workspace = TestWorkspace::init_with_backend_and_signer(backend, signer, &settings);
 
     let repo = &test_workspace.repo;
 
@@ -87,7 +87,7 @@ fn keep_on_rewrite(backend: TestRepoBackend) {
     let settings = user_settings(true);
 
     let signer = Signer::new(Some(Box::new(TestSigningBackend)), vec![]);
-    let test_workspace = TestWorkspace::init_with_backend_and_signer(&settings, backend, signer);
+    let test_workspace = TestWorkspace::init_with_backend_and_signer(backend, signer, &settings);
 
     let repo = &test_workspace.repo;
 
@@ -112,7 +112,7 @@ fn manual_drop_on_rewrite(backend: TestRepoBackend) {
     let settings = user_settings(true);
 
     let signer = Signer::new(Some(Box::new(TestSigningBackend)), vec![]);
-    let test_workspace = TestWorkspace::init_with_backend_and_signer(&settings, backend, signer);
+    let test_workspace = TestWorkspace::init_with_backend_and_signer(backend, signer, &settings);
 
     let repo = &test_workspace.repo;
 
@@ -141,7 +141,7 @@ fn forced(backend: TestRepoBackend) {
     let settings = user_settings(true);
 
     let signer = Signer::new(Some(Box::new(TestSigningBackend)), vec![]);
-    let test_workspace = TestWorkspace::init_with_backend_and_signer(&settings, backend, signer);
+    let test_workspace = TestWorkspace::init_with_backend_and_signer(backend, signer, &settings);
 
     let repo = &test_workspace.repo;
 
@@ -163,7 +163,7 @@ fn configured(backend: TestRepoBackend) {
     let settings = user_settings(true);
 
     let signer = Signer::new(Some(Box::new(TestSigningBackend)), vec![]);
-    let test_workspace = TestWorkspace::init_with_backend_and_signer(&settings, backend, signer);
+    let test_workspace = TestWorkspace::init_with_backend_and_signer(backend, signer, &settings);
 
     let repo = &test_workspace.repo;
 
