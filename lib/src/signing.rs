@@ -27,6 +27,8 @@ use crate::gpg_signing::GpgBackend;
 use crate::settings::UserSettings;
 use crate::ssh_signing::SshBackend;
 use crate::store::COMMIT_CACHE_CAPACITY;
+#[cfg(feature = "testing")]
+use crate::test_signing_backend::TestSigningBackend;
 
 /// A status of the signature, part of the [Verification] type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -166,6 +168,8 @@ impl Signer {
         let mut backends: Vec<Box<dyn SigningBackend>> = vec![
             Box::new(GpgBackend::from_settings(settings).map_err(SignInitError::BackendConfig)?),
             Box::new(SshBackend::from_settings(settings).map_err(SignInitError::BackendConfig)?),
+            #[cfg(feature = "testing")]
+            Box::new(TestSigningBackend),
             // Box::new(X509Backend::from_settings(settings).map_err(..)?),
         ];
 
