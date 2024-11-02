@@ -500,15 +500,7 @@ impl<St: ExpressionState> RevsetExpression<St> {
 
     /// Commits that are in any of the `expressions`.
     pub fn union_all(expressions: &[Rc<Self>]) -> Rc<Self> {
-        match expressions {
-            [] => Self::none(),
-            [expression] => expression.clone(),
-            _ => {
-                // Build balanced tree to minimize the recursion depth.
-                let (left, right) = expressions.split_at(expressions.len() / 2);
-                Self::union(&Self::union_all(left), &Self::union_all(right))
-            }
-        }
+        to_binary_expression(expressions, &Self::none, &Self::union)
     }
 
     /// Commits that are in `self` and in `other`.
@@ -524,15 +516,11 @@ impl<St: ExpressionState> RevsetExpression<St> {
     /// Commits that are in the first expression in `expressions` that is not
     /// `none()`.
     pub fn coalesce(expressions: &[Rc<Self>]) -> Rc<Self> {
-        match expressions {
-            [] => Self::none(),
-            [expression] => expression.clone(),
-            _ => {
-                // Build balanced tree to minimize the recursion depth.
-                let (left, right) = expressions.split_at(expressions.len() / 2);
-                Rc::new(Self::Coalesce(Self::coalesce(left), Self::coalesce(right)))
-            }
-        }
+        to_binary_expression(expressions, &Self::none, &Self::coalesce2)
+    }
+
+    fn coalesce2(self: &Rc<Self>, other: &Rc<Self>) -> Rc<Self> {
+        Rc::new(Self::Coalesce(self.clone(), other.clone()))
     }
 }
 
@@ -1162,6 +1150,27 @@ pub fn parse_with_modifier(
         },
     )
     .map_err(|err| err.extend_function_candidates(context.aliases_map.function_names()))
+}
+
+/// Constructs binary tree from `expressions` list, `unit` node, and associative
+/// `binary` operation.
+fn to_binary_expression<T: Clone>(
+    expressions: &[T],
+    unit: &impl Fn() -> T,
+    binary: &impl Fn(&T, &T) -> T,
+) -> T {
+    match expressions {
+        [] => unit(),
+        [expression] => expression.clone(),
+        _ => {
+            // Build balanced tree to minimize the recursion depth.
+            let (left, right) = expressions.split_at(expressions.len() / 2);
+            binary(
+                &to_binary_expression(left, unit, binary),
+                &to_binary_expression(right, unit, binary),
+            )
+        }
+    }
 }
 
 /// `Some` for rewritten expression, or `None` to reuse the original expression.
