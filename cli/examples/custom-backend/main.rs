@@ -60,7 +60,9 @@ fn create_store_factories() -> StoreFactories {
     // must match `Backend::name()`.
     store_factories.add_backend(
         "jit",
-        Box::new(|settings, store_path| Ok(Box::new(JitBackend::load(settings, store_path)?))),
+        Box::new(|settings, store_path, _workspace_root| {
+            Ok(Box::new(JitBackend::load(settings, store_path)?))
+        }),
     );
     store_factories
 }
