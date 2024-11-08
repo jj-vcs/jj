@@ -578,8 +578,12 @@ impl WorkspaceLoader for DefaultWorkspaceLoader {
         store_factories: &StoreFactories,
         working_copy_factories: &WorkingCopyFactories,
     ) -> Result<Workspace, WorkspaceLoadError> {
-        let repo_loader =
-            RepoLoader::init_from_file_system(user_settings, &self.repo_path, store_factories)?;
+        let repo_loader = RepoLoader::init_from_file_system(
+            user_settings,
+            &self.repo_path,
+            store_factories,
+            Some(self.workspace_root()),
+        )?;
         let working_copy_factory = get_working_copy_factory(self, working_copy_factories)?;
         let working_copy = working_copy_factory.load_working_copy(
             repo_loader.store().clone(),
