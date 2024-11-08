@@ -306,6 +306,7 @@ impl GitBackend {
     pub fn load(
         settings: &UserSettings,
         store_path: &Path,
+        _workspace_root: Option<&Path>,
     ) -> Result<Self, Box<GitBackendLoadError>> {
         let git_repo_path = {
             let target_path = store_path.join("git_target");
@@ -328,6 +329,14 @@ impl GitBackend {
         let git_settings =
             GitSettings::from_settings(settings).map_err(GitBackendLoadError::Config)?;
         Ok(Self::new(repo, extra_metadata_store, git_settings))
+    }
+
+    pub fn load_at_workspace(
+        settings: &UserSettings,
+        store_path: &Path,
+        workspace_root: Option<&Path>,
+    ) -> Result<Self, Box<GitBackendLoadError>> {
+        Self::load(settings, store_path, workspace_root)
     }
 
     fn lock_git_repo(&self) -> MutexGuard<'_, gix::Repository> {
