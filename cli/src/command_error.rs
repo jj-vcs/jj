@@ -366,6 +366,7 @@ impl From<WorkspaceInitError> for CommandError {
             }
             WorkspaceInitError::SignInit(err) => user_error(err),
             WorkspaceInitError::TransactionCommit(err) => err.into(),
+            WorkspaceInitError::LoadNewlyCreated(err) => internal_error(err),
         }
     }
 }
