@@ -1735,3 +1735,34 @@ fn get_colocation_status(work_dir: &TestWorkDir) -> CommandOutput {
         "--quiet", // suppress hint
     ])
 }
+
+#[test]
+fn test_git_colocated_create_workspace_moving_wc() {
+    let test_env = TestEnvironment::default();
+    let repo_path = test_env.env_root().join("repo");
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "--colocate", "repo"]);
+    test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "second_wc_parent"]);
+    let second_wc_parent =
+        test_env.jj_cmd_success(&repo_path, &["log", "-Tcommit_id", "-r@-", "--no-graph"]);
+    test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "should be git head"]);
+    test_env.jj_cmd_ok(
+        &repo_path,
+        &["workspace", "add", "../second", "-r", &second_wc_parent],
+    );
+
+    // The second workspace is not colocated. So creating it should not
+    // move git_head(). This tests whether we managed to reload the workspace
+    // command effectively in the middle of `jj workspace add`; if we did not,
+    // it will still think it's colocated in the default workspace.
+    //
+    // This test should survive switching to multi-git-head views, where each
+    // workspace gets its own git_head().
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    ○  3ee64208816f8264850a1cfcb99ac75e878c207a second@
+    │ @  076d128fc75cb291f908b77ffe9ff24c80de4fd7 default@
+    │ ○  005cf6c5b5e5fd032b804d98d11212a5317b4f3a git_head() should be git head
+    ├─╯
+    ○  ad5ff99a9ee8726ffe511430e4569f1d57bd550e second_wc_parent
+    ◆  0000000000000000000000000000000000000000
+    ");
+}
