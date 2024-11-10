@@ -704,6 +704,55 @@ fn test_command_completion(shell: Shell) {
 }
 
 #[test]
+fn test_command_completion_short_name() {
+    let test_env = TestEnvironment::default();
+
+    // Short command names should be omitted
+    let output = test_env.complete_fish(["config", ""]);
+    insta::assert_snapshot!(output, @"
+    edit	Start an editor on a jj config file
+    get	Get the value of a given config option.
+    list	List variables set in config files, along with their values
+    path	Print the paths to the config files
+    set	Update a config file to set the given option to a given value
+    unset	Update a config file to unset the given option
+    --repository	Path to repository to operate on
+    --ignore-working-copy	Don't snapshot the working copy, and don't update it
+    --ignore-immutable	Allow rewriting immutable commits
+    --at-operation	Operation to load the repo at
+    --debug	Enable debug logging
+    --color	When to colorize output
+    --quiet	Silence non-primary command output
+    --no-pager	Disable the pager
+    --config	Additional configuration options (can be repeated)
+    --config-file	Additional configuration files (can be repeated)
+    --help	Print help (see more with '--help')
+    [EOF]
+    ");
+
+    // Long command name should be suggested
+    let output = test_env.complete_fish(["config", "e"]);
+    insta::assert_snapshot!(output, @"
+    edit	Start an editor on a jj config file
+    [EOF]
+    ");
+
+    // Command arguments should be suggested for the short name
+    let output = test_env.complete_fish(["config", "e", "--u"]);
+    insta::assert_snapshot!(output, @"
+    --user	Target the user-level config
+    [EOF]
+    ");
+
+    // Command arguments should be suggested for the long name
+    let output = test_env.complete_fish(["config", "edit", "--u"]);
+    insta::assert_snapshot!(output, @"
+    --user	Target the user-level config
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_remote_names() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init"]).success();
@@ -817,22 +866,22 @@ fn test_aliases_are_completed(shell: Shell) {
     match shell {
         Shell::Bash => {
             insta::assert_snapshot!(output, @"
-            c
-            d
+            create
+            delete
             [EOF]
             ");
         }
         Shell::Zsh => {
             insta::assert_snapshot!(output, @"
-            c:Create a new bookmark
-            d:Delete an existing bookmark and propagate the deletion to remotes on the next push
+            create:Create a new bookmark
+            delete:Delete an existing bookmark and propagate the deletion to remotes on the next push
             [EOF]
             ");
         }
         Shell::Fish => {
             insta::assert_snapshot!(output, @"
-            c	Create a new bookmark
-            d	Delete an existing bookmark and propagate the deletion to remotes on the next push
+            create	Create a new bookmark
+            delete	Delete an existing bookmark and propagate the deletion to remotes on the next push
             [EOF]
             ");
         }

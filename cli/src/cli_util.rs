@@ -3733,9 +3733,12 @@ fn handle_shell_completion(
         args.extend(resolved_aliases.into_iter().map(OsString::from));
     }
     let ran_completion = clap_complete::CompleteEnv::with_factory(|| {
-        app.clone()
-            // for completing aliases
-            .allow_external_subcommands(true)
+        let mut app = app.clone();
+        // Dynamic completer can produce completion for hidden aliases, so we
+        // can remove short subcommand names from the completion candidates.
+        hide_short_subcommand_aliases(&mut app);
+        // for completing aliases
+        app.allow_external_subcommands(true)
     })
     .try_complete(args.iter(), Some(cwd))?;
     assert!(
@@ -3743,6 +3746,27 @@ fn handle_shell_completion(
         "This function should not be called without the COMPLETE variable set."
     );
     Ok(())
+}
+
+/// Removes prefix command names (e.g. "c" for "create") from visible aliases,
+/// and adds them to (hidden) aliases.
+fn hide_short_subcommand_aliases(cmd: &mut Command) {
+    for cmd in cmd.get_subcommands_mut() {
+        hide_short_subcommand_aliases(cmd);
+    }
+    let (short_aliases, new_visible_aliases) = cmd
+        .get_visible_aliases()
+        .map(|name| name.to_owned())
+        .partition::<Vec<_>, _>(|name| cmd.get_name().starts_with(name));
+    if short_aliases.is_empty() {
+        return;
+    }
+    *cmd = mem::take(cmd)
+        // clear existing visible aliases and add new
+        .visible_alias(None)
+        .visible_aliases(new_visible_aliases)
+        // add to hidden aliases
+        .aliases(short_aliases);
 }
 
 pub fn expand_args(
