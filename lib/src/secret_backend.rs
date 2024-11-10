@@ -65,7 +65,7 @@ impl SecretBackend {
 
     /// Loads the backend from the given path.
     pub fn load(settings: &UserSettings, store_path: &Path) -> Result<Self, BackendLoadError> {
-        let inner = GitBackend::load(settings, store_path, None)?;
+        let inner = GitBackend::load(settings, store_path)?;
         Ok(Self { inner })
     }
 
