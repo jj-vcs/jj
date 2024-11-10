@@ -14,7 +14,9 @@
 
 use std::io::ErrorKind;
 use std::io::Write as _;
+use std::process::Command;
 
+use indoc::indoc;
 use itertools::Itertools as _;
 use jj_lib::commit::Commit;
 use jj_lib::file_util::IoResultExt as _;
@@ -47,8 +49,18 @@ pub struct GitColocationEnableArgs {}
 /// This moves the Git repository that is at the root of the Jujutsu
 /// workspace into the .jj directory. Once this is done you will no longer
 /// be able to use Git commands directly in the Jujutsu workspace.
+///
+/// If there are secondary colocated workspaces (created with
+/// `jj workspace add`), this command will fail unless --force
+/// is specified. Without --force, you should first forget those workspaces
+/// with `jj workspace forget`.
 #[derive(clap::Args, Clone, Debug)]
-pub struct GitColocationDisableArgs {}
+pub struct GitColocationDisableArgs {
+    /// Force disabling colocation even if secondary colocated workspaces exist.
+    /// This will leave those workspaces in a broken state.
+    #[arg(long)]
+    force: bool,
+}
 
 /// Manage Jujutsu repository colocation with Git
 #[derive(clap::Subcommand, Clone, Debug)]
@@ -152,7 +164,7 @@ async fn cmd_git_colocation_enable(
     // Make sure that the workspace supports git colocation commands
     workspace_supports_git_colocation_commands(&workspace_command)?;
 
-    // Then ensure that the workspace is not already colocated before proceeding
+    // Then ensure that the workspace is not already colocated before proceeding.
     if is_colocated_git_workspace(workspace_command.workspace(), workspace_command.repo()) {
         writeln!(ui.status(), "Workspace is already colocated with Git.")?;
         return Ok(());
@@ -211,17 +223,52 @@ async fn cmd_git_colocation_enable(
 async fn cmd_git_colocation_disable(
     ui: &mut Ui,
     command: &CommandHelper,
-    _args: &GitColocationDisableArgs,
+    args: &GitColocationDisableArgs,
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui)?;
 
     // Make sure that the repository supports git colocation commands
     workspace_supports_git_colocation_commands(&workspace_command)?;
 
-    // Then ensure that the repo is colocated before proceeding
+    // Then ensure that the repo is colocated before proceeding.
     if !is_colocated_git_workspace(workspace_command.workspace(), workspace_command.repo()) {
         writeln!(ui.status(), "Workspace is already not colocated with Git.")?;
         return Ok(());
+    }
+
+    // Check for secondary colocated workspaces (git worktrees)
+    if !args.force {
+        let workspace_root = workspace_command.workspace_root();
+        let dot_git_path = workspace_root.join(".git");
+
+        // Use git worktree list to find secondary worktrees
+        let output = Command::new("git")
+            .arg("-C")
+            .arg(&dot_git_path)
+            .arg("worktree")
+            .arg("list")
+            .arg("--porcelain")
+            .output();
+
+        if let Ok(output) = output
+            && output.status.success()
+        {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            // Count worktrees - each worktree block starts with "worktree "
+            let worktree_count = stdout
+                .lines()
+                .filter(|l| l.starts_with("worktree "))
+                .count();
+            if worktree_count > 1 {
+                return Err(user_error(indoc! {"
+                    Cannot disable colocation: secondary colocated workspaces exist.
+                    These workspaces would become broken Git worktrees.
+                    Either:
+                      - Run `jj workspace forget <name>` for each secondary workspace first
+                      - Use --force to disable anyway (secondary workspaces will be broken)
+                "}));
+            }
+        }
     }
 
     let workspace_root = workspace_command.workspace_root();
