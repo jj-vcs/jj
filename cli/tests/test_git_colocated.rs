@@ -1488,6 +1488,8 @@ fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     separate(" ",
       commit_id,
       bookmarks,
+      if(git_head, "git_head()"),
+      working_copies,
       description,
     )
     "#;
@@ -1734,4 +1736,47 @@ fn get_colocation_status(work_dir: &TestWorkDir) -> CommandOutput {
         "--ignore-working-copy",
         "--quiet", // suppress hint
     ])
+}
+
+// REVIEW(JP): Does this test actually tests what we want? There is no
+// difference when commenting out the additional code in `jj workspace add`.
+#[test]
+fn test_git_colocated_create_workspace_moving_wc() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir
+        .run_jj(["commit", "-m", "second_wc_parent"])
+        .success();
+    let output = work_dir
+        .run_jj(["log", "-Tcommit_id", "-r@-", "--no-graph"])
+        .success();
+    let second_wc_parent = output.stdout.normalized();
+
+    work_dir
+        .run_jj(["commit", "-m", "should be git head"])
+        .success();
+    work_dir
+        .run_jj(["workspace", "add", "../second", "-r", &second_wc_parent])
+        .success();
+
+    // The second workspace is not colocated. So creating it should not
+    // move git_head(). This tests whether we managed to reload the workspace
+    // command effectively in the middle of `jj workspace add`; if we did not,
+    // it will still think it's colocated in the default workspace.
+    //
+    // This test should survive switching to multi-git-head views, where each
+    // workspace gets its own git_head().
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  dff72cf4427ad90c331d81a97d68dbdd6b1b9894 default@
+    ○  b24869b3336626eca0f69ba14929c1be0a38e0e7 git_head() should be git head
+    │ ○  fa5c7df5654c7f8f4dd49ea881a4bb70a06c389e second@
+    ├─╯
+    ○  410296fbafc1655b3335548eff3b26753c6888c2 second_wc_parent
+    ◆  0000000000000000000000000000000000000000
+    [EOF]
+    ");
 }
