@@ -181,7 +181,7 @@ fn init_external_git_repo(test_repo: &TestRepo, name: &Path) -> TestResult<Arc<R
         settings,
         &repo_dir,
         &|settings, store_path| {
-            let backend = GitBackend::init_external(settings, store_path, git_repo_path, None)?;
+            let backend = GitBackend::init_external(settings, store_path, git_repo_path)?;
             Ok(Box::new(backend))
         },
         Signer::from_settings(settings).unwrap(),
@@ -2404,7 +2404,6 @@ impl GitRepoData {
                     settings,
                     store_path,
                     git_repo.path(),
-                    Some(&jj_repo_dir),
                 )?))
             },
             Signer::from_settings(&settings).unwrap(),
@@ -3981,7 +3980,6 @@ fn test_init() -> TestResult {
                 settings,
                 store_path,
                 git_repo.path(),
-                Some(&jj_repo_dir),
             )?))
         },
         Signer::from_settings(&settings)?,
@@ -4906,7 +4904,6 @@ fn set_up_push_repos(settings: &UserSettings, temp_dir: &TempDir) -> PushTestSet
                 settings,
                 store_path,
                 clone_repo.path(),
-                Some(&jj_repo_dir),
             )?))
         },
         Signer::from_settings(settings).unwrap(),
