@@ -110,7 +110,7 @@ pub enum GitBackendInitError {
     #[error("Failed to initialize git repository")]
     InitRepository(#[source] gix::init::Error),
     #[error("Failed to open git repository")]
-    OpenRepository(#[source] gix::open::Error),
+    OpenRepository(#[source] Box<gix::open::Error>),
     #[error("Failed to encode git repository path")]
     EncodeRepositoryPath(#[source] BadPathEncoding),
     #[error(transparent)]
@@ -128,7 +128,7 @@ impl From<Box<GitBackendInitError>> for BackendInitError {
 #[derive(Debug, Error)]
 pub enum GitBackendLoadError {
     #[error("Failed to open git repository")]
-    OpenRepository(#[source] gix::open::Error),
+    OpenRepository(#[source] Box<gix::open::Error>),
     #[error("Failed to decode git repository path")]
     DecodeRepositoryPath(#[source] BadPathEncoding),
     #[error(transparent)]
@@ -270,6 +270,7 @@ impl GitBackend {
             canonical_git_repo_path,
             gix_open_opts_from_settings(settings),
         )
+        .map_err(Box::new)
         .map_err(GitBackendInitError::OpenRepository)?;
         let git_settings =
             GitSettings::from_settings(settings).map_err(GitBackendInitError::Config)?;
@@ -328,6 +329,7 @@ impl GitBackend {
             git_repo_path,
             gix_open_opts_from_settings(settings),
         )
+        .map_err(Box::new)
         .map_err(GitBackendLoadError::OpenRepository)?;
         let extra_metadata_store = TableStore::load(store_path.join("extra"), HASH_LENGTH);
         let git_settings =
