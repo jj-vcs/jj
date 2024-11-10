@@ -113,7 +113,14 @@ fn test_git_colocation_enable_empty() {
         )
         .success();
     let work_dir = test_env.work_dir("repo");
+    let workspace_root = work_dir.root();
     let setup_op_id = work_dir.current_operation_id();
+
+    // Verify initial state: no .git at workspace root
+    assert!(
+        !workspace_root.join(".git").exists(),
+        ".git should not exist before enable"
+    );
 
     // Run colocate command
     let output = work_dir.run_jj(["git", "colocation", "enable"]);
@@ -122,6 +129,22 @@ fn test_git_colocation_enable_empty() {
     Workspace successfully converted into a colocated Jujutsu/Git workspace.
     [EOF]
     ");
+
+    // Verify filesystem changes: .git now exists at workspace root
+    assert!(
+        workspace_root.join(".git").exists(),
+        ".git should exist after enable"
+    );
+    assert!(
+        !workspace_root
+            .join(".jj")
+            .join("repo")
+            .join("store")
+            .join("git")
+            .exists(),
+        "Internal git store should be moved"
+    );
+    assert_eq!(read_git_target(workspace_root), "../../../.git");
 
     // Verify that Git HEAD was set correctly
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
@@ -132,6 +155,13 @@ fn test_git_colocation_enable_empty() {
 
     // No repo change required
     assert_eq!(setup_op_id, work_dir.current_operation_id());
+
+    // Verify workspace is still functional
+    let output = work_dir.run_jj(["status"]);
+    assert!(
+        output.status.success(),
+        "jj status should work after enable"
+    );
 }
 
 #[test]
@@ -173,7 +203,7 @@ fn test_git_colocation_enable_with_existing_git_dir() {
 
     // Try to colocate - should fail
     let output = work_dir.run_jj(["git", "colocation", "enable"]);
-    insta::assert_snapshot!(output.strip_stderr_last_line(), @r"
+    insta::assert_snapshot!(output.strip_stderr_last_line(), @"
     ------- stderr -------
     Error: A .git directory already exists in the workspace root. Cannot colocate.
     [EOF]
@@ -251,7 +281,14 @@ fn test_git_colocation_disable_empty() {
         .run_jj_in(test_env.env_root(), ["git", "init", "--colocate", "repo"])
         .success();
     let work_dir = test_env.work_dir("repo");
+    let workspace_root = work_dir.root();
     let setup_op_id = work_dir.current_operation_id();
+
+    // Verify initial state: .git exists at workspace root
+    assert!(
+        workspace_root.join(".git").exists(),
+        ".git should exist before disable"
+    );
 
     // Verify that Git HEAD is unset
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
@@ -268,8 +305,31 @@ fn test_git_colocation_disable_empty() {
     [EOF]
     ");
 
+    // Verify filesystem changes: .git removed, internal git store exists
+    assert!(
+        !workspace_root.join(".git").exists(),
+        ".git should be removed after disable"
+    );
+    assert!(
+        workspace_root
+            .join(".jj")
+            .join("repo")
+            .join("store")
+            .join("git")
+            .exists(),
+        "Internal git store should be restored"
+    );
+    assert_eq!(read_git_target(workspace_root), "git");
+
     // No repo change required
     assert_eq!(setup_op_id, work_dir.current_operation_id());
+
+    // Verify workspace is still functional
+    let output = work_dir.run_jj(["status"]);
+    assert!(
+        output.status.success(),
+        "jj status should work after disable"
+    );
 }
 
 #[test]
