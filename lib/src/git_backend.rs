@@ -104,7 +104,7 @@ pub enum GitBackendInitError {
     #[error("Failed to initialize git repository")]
     InitRepository(#[source] gix::init::Error),
     #[error("Failed to open git repository")]
-    OpenRepository(#[source] Box<gix::open::Error>),
+    OpenRepository(#[source] gix::open::Error),
     #[error("Failed to encode git repository path")]
     EncodeRepositoryPath(#[source] BadPathEncoding),
     #[error(transparent)]
@@ -122,7 +122,7 @@ impl From<Box<GitBackendInitError>> for BackendInitError {
 #[derive(Debug, Error)]
 pub enum GitBackendLoadError {
     #[error("Failed to open git repository")]
-    OpenRepository(#[source] Box<gix::open::Error>),
+    OpenRepository(#[source] gix::open::Error),
     #[error("Failed to decode git repository path")]
     DecodeRepositoryPath(#[source] BadPathEncoding),
     #[error(transparent)]
@@ -220,12 +220,7 @@ impl GitBackend {
         .map_err(GitBackendInitError::InitRepository)?;
         let git_settings =
             GitSettings::from_settings(settings).map_err(GitBackendInitError::Config)?;
-        Self::init_with_repo(
-            store_path,
-            git_repo_path,
-            MaybeColocatedGitRepo { git_repo },
-            git_settings,
-        )
+        Self::init_with_repo(store_path, git_repo_path, git_repo, git_settings)
     }
 
     /// Initializes backend by creating a new Git repo at the specified
@@ -251,12 +246,7 @@ impl GitBackend {
         let git_repo_path = workspace_root.join(".git");
         let git_settings =
             GitSettings::from_settings(settings).map_err(GitBackendInitError::Config)?;
-        Self::init_with_repo(
-            store_path,
-            &git_repo_path,
-            MaybeColocatedGitRepo { git_repo },
-            git_settings,
-        )
+        Self::init_with_repo(store_path, &git_repo_path, git_repo, git_settings)
     }
 
     /// Initializes backend with an existing Git repo at the specified path.
@@ -264,7 +254,6 @@ impl GitBackend {
         settings: &UserSettings,
         store_path: &Path,
         git_repo_path: &Path,
-        workspace_root: Option<&Path>,
     ) -> Result<Self, Box<GitBackendInitError>> {
         let canonical_git_repo_path = {
             let path = store_path.join(git_repo_path);
@@ -272,9 +261,8 @@ impl GitBackend {
                 .context(&path)
                 .map_err(GitBackendInitError::Path)?
         };
-        let git_repo = MaybeColocatedGitRepo::open_automatic(
-            &canonical_git_repo_path,
-            workspace_root,
+        let git_repo = gix::ThreadSafeRepository::open_opts(
+            canonical_git_repo_path,
             gix_open_opts_from_settings(settings),
         )
         .map_err(GitBackendInitError::OpenRepository)?;
@@ -286,7 +274,7 @@ impl GitBackend {
     fn init_with_repo(
         store_path: &Path,
         git_repo_path: &Path,
-        repo: MaybeColocatedGitRepo,
+        repo: gix::ThreadSafeRepository,
         git_settings: GitSettings,
     ) -> Result<Self, Box<GitBackendInitError>> {
         let extra_path = store_path.join("extra");
@@ -311,10 +299,27 @@ impl GitBackend {
             .context(&target_path)
             .map_err(GitBackendInitError::Path)?;
         let extra_metadata_store = TableStore::init(extra_path, HASH_LENGTH);
-        Ok(Self::new(repo, extra_metadata_store, git_settings))
+        Ok(Self::new(
+            MaybeColocatedGitRepo { git_repo: repo },
+            extra_metadata_store,
+            git_settings,
+        ))
     }
 
     pub fn load(
+        settings: &UserSettings,
+        store_path: &Path,
+    ) -> Result<Self, Box<GitBackendLoadError>> {
+        Self::load_at_workspace(settings, store_path, None)
+    }
+
+    /// Loads the GitBackend, optionally detecting colocation with a workspace.
+    ///
+    /// If `workspace_root` is provided and the workspace is colocated (has a
+    /// `.git` that points to the same underlying repo), the backend will use
+    /// the workspace's git worktree. This enables proper HEAD management for
+    /// secondary colocated workspaces.
+    pub fn load_at_workspace(
         settings: &UserSettings,
         store_path: &Path,
         workspace_root: Option<&Path>,
@@ -331,16 +336,18 @@ impl GitBackend {
                 .context(&git_repo_path)
                 .map_err(GitBackendLoadError::Path)?
         };
-        let repo = MaybeColocatedGitRepo::open_automatic(
-            &git_repo_path,
-            workspace_root,
-            gix_open_opts_from_settings(settings),
-        )
-        .map_err(GitBackendLoadError::OpenRepository)?;
+        let open_opts = gix_open_opts_from_settings(settings);
+        let maybe_colocated =
+            MaybeColocatedGitRepo::open_automatic(&git_repo_path, workspace_root, open_opts)
+                .map_err(|e| GitBackendLoadError::OpenRepository(*e))?;
         let extra_metadata_store = TableStore::load(store_path.join("extra"), HASH_LENGTH);
         let git_settings =
             GitSettings::from_settings(settings).map_err(GitBackendLoadError::Config)?;
-        Ok(Self::new(repo, extra_metadata_store, git_settings))
+        Ok(Self::new(
+            maybe_colocated,
+            extra_metadata_store,
+            git_settings,
+        ))
     }
 
     fn lock_git_repo(&self) -> MutexGuard<'_, gix::Repository> {
@@ -1568,28 +1575,33 @@ recover.
     Ok(id.detach())
 }
 
-/// Helper for the GitBackend to open a git repo and detect when Git
-/// regards the workspace root as a working directory for it. Common scenarios:
+/// Helper for the GitBackend to open a git repo and detect colocation.
 ///
-/// - bare, in the .jj/repo/store/git directory;
-/// - colocated + non-bare, as a .git directory at the workspace root;
-/// - a git worktree (= .git file) pointing to the same git repo as the JJ
-///   store;
-/// - a .git symlink pointing to the same git repo as the JJ store
-/// - etc.
-///
-/// Also represents a newly created git repo in one of those configurations, if
-/// constructed manually.
+/// A workspace is considered "colocated" when Git regards the workspace root
+/// as a working directory for the same repo that jj uses internally. This
+/// enables automatic import/export of Git refs on every jj command.
 ///
 /// ## Detection Algorithm
 ///
-/// Detection uses `common_dir()` comparison: if `.git` exists at the workspace
-/// root and its `common_dir()` matches the store repo's `common_dir()`, the
-/// workspace is colocated.
+/// Colocation is detected by comparing `common_dir()` paths (canonicalized):
+/// 1. Open the Git repository that jj's store points to
+/// 2. Attempt to open `<workspace_root>/.git` as a Git repository
+/// 3. If both succeed and their `common_dir()` paths match, we're colocated
 ///
-/// ## Non-colocated Scenarios
+/// The `common_dir()` comparison handles Git worktrees correctly, as all
+/// worktrees of a repository share the same common directory.
 ///
-/// Non-colocated cases (where CLI may want to warn, see
+/// ## Supported Scenarios
+///
+/// - **Bare repo**: In `.jj/repo/store/git` directory (not colocated)
+/// - **Colocated non-bare**: `.git` directory at workspace root
+/// - **Git worktree**: `.git` file pointing to same repo as jj store
+/// - **Symlink**: `.git` symlink pointing to same repo as jj store
+///
+/// ## Corner Cases
+///
+/// When detection fails or finds a mismatch, jj is not colocated but may warn
+/// the user (see `warn_about_unexpected_git_in_workspace` in
 /// `cli/src/git_util.rs`):
 ///
 /// - **gix::open fails**: Not colocated (e.g., broken worktree, invalid `.git`
@@ -1809,8 +1821,7 @@ mod tests {
             .unwrap();
         let commit_id2 = CommitId::from_bytes(git_commit_id2.as_bytes());
 
-        let backend =
-            GitBackend::init_external(&settings, store_path, git_repo.path(), None).unwrap();
+        let backend = GitBackend::init_external(&settings, store_path, git_repo.path()).unwrap();
 
         // Import the head commit and its ancestors
         backend.import_head_commits([&commit_id2]).unwrap();
@@ -1926,8 +1937,7 @@ mod tests {
             )
             .unwrap();
 
-        let backend =
-            GitBackend::init_external(&settings, store_path, git_repo.path(), None).unwrap();
+        let backend = GitBackend::init_external(&settings, store_path, git_repo.path()).unwrap();
 
         // read_commit() without import_head_commits() works as of now. This might be
         // changed later.
@@ -1986,8 +1996,7 @@ mod tests {
 
         let git_commit_id = git_repo.write_object(&commit).unwrap();
 
-        let backend =
-            GitBackend::init_external(&settings, store_path, git_repo.path(), None).unwrap();
+        let backend = GitBackend::init_external(&settings, store_path, git_repo.path()).unwrap();
 
         let commit = backend
             .read_commit(&CommitId::from_bytes(git_commit_id.as_bytes()))
@@ -2176,8 +2185,7 @@ mod tests {
         let git_repo_path = temp_dir.path().join("git");
         let git_repo = git_init(&git_repo_path);
 
-        let backend =
-            GitBackend::init_external(&settings, store_path, git_repo.path(), None).unwrap();
+        let backend = GitBackend::init_external(&settings, store_path, git_repo.path()).unwrap();
         let mut commit = Commit {
             parents: vec![],
             predecessors: vec![],
@@ -2247,8 +2255,7 @@ mod tests {
         let git_repo_path = temp_dir.path().join("git");
         let git_repo = git_init(&git_repo_path);
 
-        let backend =
-            GitBackend::init_external(&settings, store_path, git_repo.path(), None).unwrap();
+        let backend = GitBackend::init_external(&settings, store_path, git_repo.path()).unwrap();
         let create_tree = |i| {
             let blob_id = git_repo.write_blob(format!("content {i}")).unwrap();
             let mut tree_builder = git_repo.empty_tree().edit().unwrap();

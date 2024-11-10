@@ -35,7 +35,13 @@ pub mod git_util {
     use jj_lib::repo::ReadonlyRepo;
     use jj_lib::workspace::Workspace;
 
-    pub fn is_colocated_git_workspace(_workspace: &Workspace, _repo: &ReadonlyRepo) -> bool {
+    use crate::ui::Ui;
+
+    pub fn is_colocated_git_workspace(
+        _ui: Option<&Ui>,
+        _workspace: &Workspace,
+        _repo: &ReadonlyRepo,
+    ) -> bool {
         false
     }
 
