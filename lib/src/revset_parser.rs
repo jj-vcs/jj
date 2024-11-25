@@ -1144,6 +1144,14 @@ mod tests {
 
     #[test]
     fn test_parse_identifier() {
+        // Integer is a symbol
+        assert_eq!(parse_into_kind("0"), Ok(ExpressionKind::Identifier("0")));
+        // Tag/bookmark name separated by /
+        assert_eq!(
+            parse_into_kind("foo_bar/baz"),
+            Ok(ExpressionKind::Identifier("foo_bar/baz"))
+        );
+
         // Internal '.', '-', and '+' are allowed
         assert_eq!(
             parse_into_kind("foo.bar-v1+7"),
@@ -1178,6 +1186,12 @@ mod tests {
 
         // Parse a parenthesized symbol
         assert_eq!(parse_normalized("(foo)"), parse_normalized("foo"));
+
+        // Non-ASCII tag/bookmark name
+        assert_eq!(
+            parse_into_kind("柔術+jj"),
+            Ok(ExpressionKind::Identifier("柔術+jj"))
+        );
     }
 
     #[test]
@@ -1321,6 +1335,19 @@ mod tests {
             parse_into_kind(r#""main@origin""#),
             Ok(ExpressionKind::String("main@origin".to_owned()))
         );
+
+        // Non-ASCII name
+        assert_eq!(
+            parse_into_kind("柔術@"),
+            Ok(ExpressionKind::AtWorkspace("柔術".to_owned()))
+        );
+        assert_eq!(
+            parse_into_kind("柔@術"),
+            Ok(ExpressionKind::RemoteSymbol {
+                name: "柔".to_owned(),
+                remote: "術".to_owned()
+            })
+        );
     }
 
     #[test]
@@ -1330,6 +1357,9 @@ mod tests {
         assert!(aliases_map.insert("@", "none()").is_err());
         assert!(aliases_map.insert("a@", "none()").is_err());
         assert!(aliases_map.insert("a@b", "none()").is_err());
+        // Non-ASCII character isn't allowed in alias symbol. This rule can be
+        // relaxed if needed.
+        assert!(aliases_map.insert("柔術", "none()").is_err());
     }
 
     #[test]
