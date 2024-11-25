@@ -18,6 +18,12 @@ identifier_part = @{ (ASCII_ALPHANUMERIC | "_" | "/")+ }
 identifier = @{
   identifier_part ~ (("." | "-" | "+") ~ identifier_part)*
 }
+// TODO: remove "/", ".", "+" for consistency with fileset?
+strict_identifier_part = @{ (ASCII_ALPHANUMERIC | "_" | "/")+ }
+strict_identifier = @{
+  strict_identifier_part ~ (("." | "-" | "+") ~ strict_identifier_part)*
+}
+
 symbol = _{
   identifier
   | string_literal
@@ -68,19 +74,19 @@ infix_op = _{ union_op | intersection_op | difference_op | compat_add_op | compa
 
 function = { function_name ~ "(" ~ whitespace* ~ function_arguments ~ whitespace* ~ ")" }
 function_name = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
-keyword_argument = { identifier ~ whitespace* ~ "=" ~ whitespace* ~ expression }
+keyword_argument = { strict_identifier ~ whitespace* ~ "=" ~ whitespace* ~ expression }
 argument = _{ keyword_argument | expression }
 function_arguments = {
   argument ~ (whitespace* ~ "," ~ whitespace* ~ argument)* ~ (whitespace* ~ ",")?
   | ""
 }
 formal_parameters = {
-  identifier ~ (whitespace* ~ "," ~ whitespace* ~ identifier)* ~ (whitespace* ~ ",")?
+  strict_identifier ~ (whitespace* ~ "," ~ whitespace* ~ strict_identifier)* ~ (whitespace* ~ ",")?
   | ""
 }
 
 // TODO: change rhs to string_literal to require quoting? #2101
-string_pattern = { identifier ~ pattern_kind_op ~ symbol }
+string_pattern = { strict_identifier ~ pattern_kind_op ~ symbol }
 
 primary = {
   "(" ~ whitespace* ~ expression ~ whitespace* ~ ")"
@@ -108,7 +114,7 @@ expression = {
   ~ (whitespace* ~ infix_op ~ whitespace* ~ (negate_op ~ whitespace*)* ~ range_expression)*
 }
 
-program_modifier = { identifier ~ pattern_kind_op ~ !":" }
+program_modifier = { strict_identifier ~ pattern_kind_op ~ !":" }
 program = _{
   SOI ~ whitespace* ~ (program_modifier ~ whitespace*)? ~ expression ~ whitespace* ~ EOI
 }
@@ -117,5 +123,5 @@ function_alias_declaration = {
   function_name ~ "(" ~ whitespace* ~ formal_parameters ~ whitespace* ~ ")"
 }
 alias_declaration = _{
-  SOI ~ (function_alias_declaration | identifier) ~ EOI
+  SOI ~ (function_alias_declaration | strict_identifier) ~ EOI
 }

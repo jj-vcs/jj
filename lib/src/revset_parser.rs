@@ -58,7 +58,7 @@ const FUNCTION_CALL_PARSER: FunctionCallParser<Rule> = FunctionCallParser {
     function_name_rule: Rule::function_name,
     function_arguments_rule: Rule::function_arguments,
     keyword_argument_rule: Rule::keyword_argument,
-    argument_name_rule: Rule::identifier,
+    argument_name_rule: Rule::strict_identifier,
     argument_value_rule: Rule::expression,
 };
 
@@ -83,6 +83,8 @@ impl Rule {
             Rule::whitespace => None,
             Rule::identifier_part => None,
             Rule::identifier => None,
+            Rule::strict_identifier_part => None,
+            Rule::strict_identifier => None,
             Rule::symbol => None,
             Rule::string_escape => None,
             Rule::string_content_char => None,
@@ -469,7 +471,7 @@ pub(super) fn parse_program(revset_str: &str) -> Result<ExpressionNode, RevsetPa
         Rule::program_modifier => {
             let (lhs, op) = first.into_inner().collect_tuple().unwrap();
             let rhs = pairs.next().unwrap();
-            assert_eq!(lhs.as_rule(), Rule::identifier);
+            assert_eq!(lhs.as_rule(), Rule::strict_identifier);
             assert_eq!(op.as_rule(), Rule::pattern_kind_op);
             assert_eq!(rhs.as_rule(), Rule::expression);
             let span = lhs.as_span().start_pos().span(&rhs.as_span().end_pos());
@@ -629,7 +631,7 @@ fn parse_primary_node(pair: Pair<Rule>) -> Result<ExpressionNode, RevsetParseErr
         }
         Rule::string_pattern => {
             let (lhs, op, rhs) = first.into_inner().collect_tuple().unwrap();
-            assert_eq!(lhs.as_rule(), Rule::identifier);
+            assert_eq!(lhs.as_rule(), Rule::strict_identifier);
             assert_eq!(op.as_rule(), Rule::pattern_kind_op);
             let kind = lhs.as_str();
             let value = parse_as_string_literal(rhs);
@@ -691,7 +693,7 @@ impl AliasDeclarationParser for RevsetAliasParser {
         let mut pairs = RevsetParser::parse(Rule::alias_declaration, source)?;
         let first = pairs.next().unwrap();
         match first.as_rule() {
-            Rule::identifier => Ok(AliasDeclaration::Symbol(first.as_str().to_owned())),
+            Rule::strict_identifier => Ok(AliasDeclaration::Symbol(first.as_str().to_owned())),
             Rule::function_alias_declaration => {
                 let (name_pair, params_pair) = first.into_inner().collect_tuple().unwrap();
                 assert_eq!(name_pair.as_rule(), Rule::function_name);
@@ -701,7 +703,7 @@ impl AliasDeclarationParser for RevsetAliasParser {
                 let params = params_pair
                     .into_inner()
                     .map(|pair| match pair.as_rule() {
-                        Rule::identifier => pair.as_str().to_owned(),
+                        Rule::strict_identifier => pair.as_str().to_owned(),
                         r => panic!("unexpected formal parameter rule {r:?}"),
                     })
                     .collect_vec();

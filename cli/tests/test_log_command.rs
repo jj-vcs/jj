@@ -454,16 +454,16 @@ fn test_log_bad_short_prefixes() {
     test_env.add_config(r#"revsets.short-prefixes = "!nval!d""#);
     let stderr = test_env.jj_cmd_failure(&repo_path, &["status"]);
     insta::assert_snapshot!(stderr,
-        @r###"
+        @r"
     Config error: Invalid `revsets.short-prefixes`
     Caused by:  --> 1:1
       |
     1 | !nval!d
       | ^---
       |
-      = expected <identifier> or <expression>
+      = expected <strict_identifier> or <expression>
     For help, see https://jj-vcs.github.io/jj/latest/config/.
-    "###);
+    ");
 
     // Warn on resolution of short prefixes
     test_env.add_config("revsets.short-prefixes = 'missing'");

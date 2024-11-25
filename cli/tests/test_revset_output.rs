@@ -266,15 +266,15 @@ fn test_bad_function_call() {
     "###);
 
     let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r", "remote_bookmarks(=foo)"]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Error: Failed to parse revset: Syntax error
     Caused by:  --> 1:18
       |
     1 | remote_bookmarks(=foo)
       |                  ^---
       |
-      = expected <identifier> or <expression>
-    "###);
+      = expected <strict_identifier> or <expression>
+    ");
 
     let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r", "remote_bookmarks(remote=)"]);
     insta::assert_snapshot!(stderr, @r###"
@@ -601,20 +601,20 @@ fn test_bad_alias_decl() {
     insta::assert_snapshot!(stdout, @r###"
     ◆  zzzzzzzz root() 00000000
     "###);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Warning: Failed to load "revset-aliases."bad"":  --> 1:1
       |
     1 | "bad"
       | ^---
       |
-      = expected <identifier> or <function_name>
+      = expected <strict_identifier> or <function_name>
     Warning: Failed to load "revset-aliases.badfn(a, a)":  --> 1:7
       |
     1 | badfn(a, a)
       |       ^--^
       |
       = Redefinition of function parameter
-    "###);
+    "#);
 }
 
 #[test]
