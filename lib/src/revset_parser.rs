@@ -934,91 +934,6 @@ mod tests {
 
     #[test]
     fn test_parse_revset() {
-        // Parse "@" (the current working copy)
-        assert_eq!(parse_into_kind("@"), Ok(ExpressionKind::AtCurrentWorkspace));
-        assert_eq!(
-            parse_into_kind("main@"),
-            Ok(ExpressionKind::AtWorkspace("main".to_owned()))
-        );
-        assert_eq!(
-            parse_into_kind("main@origin"),
-            Ok(ExpressionKind::RemoteSymbol {
-                name: "main".to_owned(),
-                remote: "origin".to_owned()
-            })
-        );
-        // Quoted component in @ expression
-        assert_eq!(
-            parse_into_kind(r#""foo bar"@"#),
-            Ok(ExpressionKind::AtWorkspace("foo bar".to_owned()))
-        );
-        assert_eq!(
-            parse_into_kind(r#""foo bar"@origin"#),
-            Ok(ExpressionKind::RemoteSymbol {
-                name: "foo bar".to_owned(),
-                remote: "origin".to_owned()
-            })
-        );
-        assert_eq!(
-            parse_into_kind(r#"main@"foo bar""#),
-            Ok(ExpressionKind::RemoteSymbol {
-                name: "main".to_owned(),
-                remote: "foo bar".to_owned()
-            })
-        );
-        assert_eq!(
-            parse_into_kind(r#"'foo bar'@'bar baz'"#),
-            Ok(ExpressionKind::RemoteSymbol {
-                name: "foo bar".to_owned(),
-                remote: "bar baz".to_owned()
-            })
-        );
-        // Quoted "@" is not interpreted as a working copy or remote symbol
-        assert_eq!(
-            parse_into_kind(r#""@""#),
-            Ok(ExpressionKind::String("@".to_owned()))
-        );
-        assert_eq!(
-            parse_into_kind(r#""main@""#),
-            Ok(ExpressionKind::String("main@".to_owned()))
-        );
-        assert_eq!(
-            parse_into_kind(r#""main@origin""#),
-            Ok(ExpressionKind::String("main@origin".to_owned()))
-        );
-        // Internal '.', '-', and '+' are allowed
-        assert_eq!(
-            parse_into_kind("foo.bar-v1+7"),
-            Ok(ExpressionKind::Identifier("foo.bar-v1+7"))
-        );
-        assert_eq!(
-            parse_normalized("foo.bar-v1+7-"),
-            parse_normalized("(foo.bar-v1+7)-")
-        );
-        // '.' is not allowed at the beginning or end
-        assert_eq!(
-            parse_into_kind(".foo"),
-            Err(RevsetParseErrorKind::SyntaxError)
-        );
-        assert_eq!(
-            parse_into_kind("foo."),
-            Err(RevsetParseErrorKind::SyntaxError)
-        );
-        // Multiple '.', '-', '+' are not allowed
-        assert_eq!(
-            parse_into_kind("foo.+bar"),
-            Err(RevsetParseErrorKind::SyntaxError)
-        );
-        assert_eq!(
-            parse_into_kind("foo--bar"),
-            Err(RevsetParseErrorKind::SyntaxError)
-        );
-        assert_eq!(
-            parse_into_kind("foo+-bar"),
-            Err(RevsetParseErrorKind::SyntaxError)
-        );
-        // Parse a parenthesized symbol
-        assert_eq!(parse_normalized("(foo)"), parse_normalized("foo"));
         // Parse a quoted symbol
         assert_eq!(
             parse_into_kind("\"foo\""),
@@ -1226,6 +1141,44 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_identifier() {
+        // Internal '.', '-', and '+' are allowed
+        assert_eq!(
+            parse_into_kind("foo.bar-v1+7"),
+            Ok(ExpressionKind::Identifier("foo.bar-v1+7"))
+        );
+        assert_eq!(
+            parse_normalized("foo.bar-v1+7-"),
+            parse_normalized("(foo.bar-v1+7)-")
+        );
+        // '.' is not allowed at the beginning or end
+        assert_eq!(
+            parse_into_kind(".foo"),
+            Err(RevsetParseErrorKind::SyntaxError)
+        );
+        assert_eq!(
+            parse_into_kind("foo."),
+            Err(RevsetParseErrorKind::SyntaxError)
+        );
+        // Multiple '.', '-', '+' are not allowed
+        assert_eq!(
+            parse_into_kind("foo.+bar"),
+            Err(RevsetParseErrorKind::SyntaxError)
+        );
+        assert_eq!(
+            parse_into_kind("foo--bar"),
+            Err(RevsetParseErrorKind::SyntaxError)
+        );
+        assert_eq!(
+            parse_into_kind("foo+-bar"),
+            Err(RevsetParseErrorKind::SyntaxError)
+        );
+
+        // Parse a parenthesized symbol
+        assert_eq!(parse_normalized("(foo)"), parse_normalized("foo"));
+    }
+
+    #[test]
     fn test_parse_string_literal() {
         // "\<char>" escapes
         assert_eq!(
@@ -1307,6 +1260,64 @@ mod tests {
         assert_matches!(
             parse_into_kind(r#"(exact:("foo" ))"#),
             Err(RevsetParseErrorKind::NotInfixOperator { .. })
+        );
+    }
+
+    #[test]
+    fn parse_at_workspace_and_remote_symbol() {
+        // Parse "@" (the current working copy)
+        assert_eq!(parse_into_kind("@"), Ok(ExpressionKind::AtCurrentWorkspace));
+        assert_eq!(
+            parse_into_kind("main@"),
+            Ok(ExpressionKind::AtWorkspace("main".to_owned()))
+        );
+        assert_eq!(
+            parse_into_kind("main@origin"),
+            Ok(ExpressionKind::RemoteSymbol {
+                name: "main".to_owned(),
+                remote: "origin".to_owned()
+            })
+        );
+
+        // Quoted component in @ expression
+        assert_eq!(
+            parse_into_kind(r#""foo bar"@"#),
+            Ok(ExpressionKind::AtWorkspace("foo bar".to_owned()))
+        );
+        assert_eq!(
+            parse_into_kind(r#""foo bar"@origin"#),
+            Ok(ExpressionKind::RemoteSymbol {
+                name: "foo bar".to_owned(),
+                remote: "origin".to_owned()
+            })
+        );
+        assert_eq!(
+            parse_into_kind(r#"main@"foo bar""#),
+            Ok(ExpressionKind::RemoteSymbol {
+                name: "main".to_owned(),
+                remote: "foo bar".to_owned()
+            })
+        );
+        assert_eq!(
+            parse_into_kind(r#"'foo bar'@'bar baz'"#),
+            Ok(ExpressionKind::RemoteSymbol {
+                name: "foo bar".to_owned(),
+                remote: "bar baz".to_owned()
+            })
+        );
+
+        // Quoted "@" is not interpreted as a working copy or remote symbol
+        assert_eq!(
+            parse_into_kind(r#""@""#),
+            Ok(ExpressionKind::String("@".to_owned()))
+        );
+        assert_eq!(
+            parse_into_kind(r#""main@""#),
+            Ok(ExpressionKind::String("main@".to_owned()))
+        );
+        assert_eq!(
+            parse_into_kind(r#""main@origin""#),
+            Ok(ExpressionKind::String("main@origin".to_owned()))
         );
     }
 
