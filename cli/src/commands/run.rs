@@ -379,13 +379,7 @@ pub struct RunArgs {
     args: Vec<String>,
 
     /// The revisions to change
-    #[arg(
-        long = "revision",
-        short,
-        default_value = "reachable(@, mutable())",
-        value_name = "REVSETS",
-        alias = "revisions"
-    )]
+    #[arg(long = "revision", short, value_name = "REVSETS", alias = "revisions")]
     revisions: Vec<RevisionArg>,
 
     /// A no-op option to match the interface of `git rebase -x`
@@ -409,11 +403,20 @@ pub async fn cmd_run(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui).await?;
     // The commits are already returned in reverse topological order.
-    let resolved_commits: Vec<_> = workspace_command
-        .parse_union_revsets(ui, &args.revisions)?
-        .evaluate_to_commits()?
-        .try_collect()
-        .await?;
+    let resolved_commits: Vec<_> = if args.revisions.is_empty() {
+        let revs = workspace_command.settings().get_string("revsets.run")?;
+        workspace_command
+            .parse_revset(ui, &RevisionArg::from(revs))?
+            .evaluate_to_commits()?
+            .try_collect()
+            .await?
+    } else {
+        workspace_command
+            .parse_union_revsets(ui, &args.revisions)?
+            .evaluate_to_commits()?
+            .try_collect()
+            .await?
+    };
 
     workspace_command
         .check_rewritable(resolved_commits.iter().ids())

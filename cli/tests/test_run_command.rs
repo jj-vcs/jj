@@ -330,6 +330,89 @@ fn test_run_root_flag() {
 }
 
 #[test]
+fn test_run_uses_revsets_run_as_default() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    // `fake-formatter --tee ran.txt` is a portable way to create an empty
+    // `ran.txt`, equivalent to `touch ran.txt` but available on all platforms.
+    let fake_formatter = assert_cmd::cargo::cargo_bin("fake-formatter");
+    assert!(fake_formatter.is_file());
+    let fake_formatter_path = fake_formatter.to_string_lossy().into_owned();
+    let work_dir = test_env.work_dir("repo");
+
+    // Two sibling commits, `foo` and `bar`.
+    work_dir.write_file("file", "foo");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "foo"])
+        .success();
+    work_dir.run_jj(["new", "root()"]).success();
+    work_dir.write_file("file", "bar");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "bar"])
+        .success();
+    work_dir.run_jj(["edit", "foo"]).success();
+
+    test_env.add_config(r#"revsets.run = "bar""#);
+
+    // Running `jj run` with `revsets.run=bar` should only modify bar
+    work_dir
+        .run_jj([
+            "--config=revsets.run=\"bar\"",
+            "run",
+            "--",
+            &fake_formatter_path,
+            "--tee",
+            "ran.txt",
+        ])
+        .success();
+
+    insta::assert_snapshot!(
+        work_dir.run_jj(["file", "list", "-r", "foo"]),
+        @r"
+    file
+    [EOF]
+    "
+    );
+    insta::assert_snapshot!(
+        work_dir.run_jj(["file", "list", "-r", "bar"]),
+        @r"
+    file
+    ran.txt
+    [EOF]
+    "
+    );
+
+    // Run again but now with foo in the config
+    work_dir.run_jj(["undo"]).success();
+    work_dir
+        .run_jj([
+            "--config=revsets.run=\"foo\"",
+            "run",
+            "--",
+            &fake_formatter_path,
+            "--tee",
+            "ran.txt",
+        ])
+        .success();
+
+    insta::assert_snapshot!(
+        work_dir.run_jj(["file", "list", "-r", "foo"]),
+        @r"
+    file
+    ran.txt
+    [EOF]
+    "
+    );
+    insta::assert_snapshot!(
+        work_dir.run_jj(["file", "list", "-r", "bar"]),
+        @r"
+    file
+    [EOF]
+    "
+    );
+}
+
+#[test]
 fn test_run_failure_rewrites_nothing() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
