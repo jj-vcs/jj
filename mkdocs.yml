@@ -132,6 +132,7 @@ nav:
       - 'Design Docs': 'design_docs.md'
       - 'Design Doc Blueprint': 'design_doc_blueprint.md'
       - 'Temporary Voting for Governance': 'governance/temporary-voting.md'
+      - 'Governance': 'governance/GOVERNANCE.md'
 
 - 'Design docs':
     - 'git-submodules': 'design/git-submodules.md'
