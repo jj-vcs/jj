@@ -984,10 +984,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
         |language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let repo = language.repo;
-            let out_property = self_property.map(|commit| {
-                let maybe_entries = repo.resolve_change_id(commit.change_id());
-                maybe_entries.map_or(true, |entries| !entries.contains(commit.id()))
-            });
+            let out_property = self_property.map(|commit| commit.is_hidden(repo));
             Ok(L::wrap_boolean(out_property))
         },
     );
