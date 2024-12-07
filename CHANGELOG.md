@@ -2017,6 +2017,9 @@ changes. Two select improvements:
   below it, similar to a "scissor line" in git. When editing multiple commits,
   only ignore until the next `JJ: describe` line.
 
+* The `--stat` option for `jj log`, `jj show` and `jj diff` now has a
+  short alias `-S`
+
 ### Fixed bugs
 
 * The `$NO_COLOR` environment variable must now be non-empty to be respected.
