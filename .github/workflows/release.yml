@@ -4,7 +4,7 @@ on:
   release:
     types: [published]
 
-permissions: {}
+permissions: read-all
 
 env:
   CARGO_INCREMENTAL: 0
@@ -57,7 +57,7 @@ jobs:
       shell: bash
       run: |
         outdir="target/${{ matrix.target }}/release"
-        staging="jj-${{ github.event.release.tag_name }}-${{ matrix.target }}"
+        staging="jj-${RELEASE_TAG_NAME}-${{ matrix.target }}"
         mkdir "$staging"
         cp {README.md,LICENSE} "$staging/"
         if [ "${{ matrix.os }}" = "windows-2022" ]; then
@@ -70,6 +70,8 @@ jobs:
           tar czf "$staging.tar.gz" -C "$staging" .
           echo "ASSET=$staging.tar.gz" >> $GITHUB_ENV
         fi
+      env:
+        RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
     - name: Upload release archive
       uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5
       env:
@@ -103,9 +105,11 @@ jobs:
       - name: Compile docs and zip them up
         run: |
           uv run -- mkdocs build -f mkdocs-offline.yml
-          archive="jj-${{ github.event.release.tag_name }}-docs-html.tar.gz"
+          archive="jj-${RELEASE_TAG_NAME}-docs-html.tar.gz"
           tar czf "$archive" -C "rendered-docs" .
           echo "ASSET=$archive" >> $GITHUB_ENV
+        env:
+          RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
       - name: Upload release archive
         uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5
         env:
@@ -139,6 +143,8 @@ jobs:
           git config user.email 'jj-docs[bot]@users.noreply.github.io'
           # Using the 'latest' tag below makes the website default
           # to this version.
-          .github/scripts/docs-build-deploy "${{ github.event.release.tag_name }}" latest --update-aliases --push
+          .github/scripts/docs-build-deploy "${RELEASE_TAG_NAME}" latest --update-aliases --push
+        env:
+          RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
       - name: "Show `git diff --stat`"
         run: git diff --stat gh-pages^ gh-pages || echo "(No diffs)"
