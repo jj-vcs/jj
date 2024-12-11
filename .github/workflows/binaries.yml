@@ -5,7 +5,7 @@ on:
     branches:
       - main
 
-permissions: read-all
+permissions: {}
 
 jobs:
   binaries:
@@ -42,6 +42,8 @@ jobs:
     name: Build binary artifacts
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
       - name: Install packages (Ubuntu)
         if: startsWith(matrix.os, 'ubuntu')
         run: |
@@ -61,7 +63,7 @@ jobs:
         run: |
           outdir="target/${{ matrix.target }}/release"
           BIN=$outdir/jj
-          [[ "${{ matrix.os }}" == "windows-latest" ]] && BIN+=".exe" 
+          [[ "${{ matrix.os }}" == "windows-latest" ]] && BIN+=".exe"
 
           mkdir -p target/out
           cp $BIN target/out
