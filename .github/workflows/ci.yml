@@ -259,3 +259,29 @@ jobs:
       # if the runner happens to provide a compatible version
       - name: Check that `mkdocs` can build the docs
         run: uv run --python-preference=only-managed -- mkdocs build --strict
+
+  check-zizmor:
+    name: check (zizmor)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@38f3f104447c67c051c4a08e39b64a148898af3a
+
+      - name: Run zizmor
+        run: uvx zizmor --format sarif . > results.sarif 
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@9e8d0789d4a0fa9ceb6b1738f7e269594bdd67f0
+        with:
+          sarif_file: results.sarif
+          category: zizmor
