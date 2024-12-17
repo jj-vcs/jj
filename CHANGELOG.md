@@ -36,6 +36,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     Inner items of inline tables are no longer merged across configuration
     files.
 
+* `jj resolve` will now attempt to resolve all conflicted files instead of
+  resolving the first conflicted file. To resolve a single file, pass a file
+  path to `jj resolve`.
+
 ### Deprecations
 
 ### New features

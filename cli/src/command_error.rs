@@ -66,6 +66,7 @@ use crate::formatter::Formatter;
 use crate::merge_tools::ConflictResolveError;
 use crate::merge_tools::DiffEditError;
 use crate::merge_tools::MergeToolConfigError;
+use crate::merge_tools::MergeToolPartialResolutionError;
 use crate::revset_util::UserRevsetEvaluationError;
 use crate::template_parser::TemplateParseError;
 use crate::template_parser::TemplateParseErrorKind;
@@ -418,7 +419,17 @@ impl From<DiffRenderError> for CommandError {
 
 impl From<ConflictResolveError> for CommandError {
     fn from(err: ConflictResolveError) -> Self {
-        user_error_with_message("Failed to resolve conflicts", err)
+        match err {
+            ConflictResolveError::Backend(err) => err.into(),
+            ConflictResolveError::Io(err) => err.into(),
+            _ => user_error_with_message("Failed to resolve conflicts", err),
+        }
+    }
+}
+
+impl From<MergeToolPartialResolutionError> for CommandError {
+    fn from(err: MergeToolPartialResolutionError) -> Self {
+        user_error(err)
     }
 }
 

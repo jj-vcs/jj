@@ -547,7 +547,7 @@ pub enum UiPathParseError {
 
 /// Converts `RepoPath`s to and from plain strings as displayed to the user
 /// (e.g. relative to CWD).
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum RepoPathUiConverter {
     /// Variant for a local file system. Paths are interpreted relative to `cwd`
     /// with the repo rooted in `base`.
