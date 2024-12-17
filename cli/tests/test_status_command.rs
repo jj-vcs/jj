@@ -368,3 +368,69 @@ fn test_status_simplify_conflict_sides() {
     Then run `jj squash` to move the resolution into the conflicted commit.
     "###);
 }
+
+#[test]
+fn test_status_untracked_files() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config(r#"snapshot.auto-track = "none()""#);
+
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    let repo_path = test_env.env_root().join("repo");
+
+    std::fs::write(repo_path.join("initially-untracked-file"), "...").unwrap();
+    std::fs::write(repo_path.join("always-untracked-file"), "...").unwrap();
+
+    let stdout = test_env.jj_cmd_success(&repo_path, &["status"]);
+    insta::assert_snapshot!(stdout, @r"
+    Untracked paths:
+    ? always-untracked-file
+    ? initially-untracked-file
+    Working copy : qpvuntsm 230dd059 (empty) (no description set)
+    Parent commit: zzzzzzzz 00000000 (empty) (no description set)
+    ");
+
+    test_env.jj_cmd_success(&repo_path, &["file", "track", "initially-untracked-file"]);
+
+    let stdout = test_env.jj_cmd_success(&repo_path, &["status"]);
+    insta::assert_snapshot!(stdout, @r"
+    Working copy changes:
+    A initially-untracked-file
+    Untracked paths:
+    ? always-untracked-file
+    Working copy : qpvuntsm 203bfea9 (no description set)
+    Parent commit: zzzzzzzz 00000000 (empty) (no description set)
+    ");
+
+    test_env.jj_cmd_ok(&repo_path, &["new"]);
+
+    let stdout = test_env.jj_cmd_success(&repo_path, &["status"]);
+    insta::assert_snapshot!(stdout, @r"
+    Untracked paths:
+    ? always-untracked-file
+    Working copy : mzvwutvl 69b48d55 (empty) (no description set)
+    Parent commit: qpvuntsm 203bfea9 (no description set)
+    ");
+
+    test_env.jj_cmd_success(&repo_path, &["file", "untrack", "initially-untracked-file"]);
+    let stdout = test_env.jj_cmd_success(&repo_path, &["status"]);
+    insta::assert_snapshot!(stdout, @r"
+    Working copy changes:
+    D initially-untracked-file
+    Untracked paths:
+    ? always-untracked-file
+    ? initially-untracked-file
+    Working copy : mzvwutvl 16169825 (no description set)
+    Parent commit: qpvuntsm 203bfea9 (no description set)
+    ");
+
+    test_env.jj_cmd_ok(&repo_path, &["new"]);
+
+    let stdout = test_env.jj_cmd_success(&repo_path, &["status"]);
+    insta::assert_snapshot!(stdout, @r"
+    Untracked paths:
+    ? always-untracked-file
+    ? initially-untracked-file
+    Working copy : yostqsxw 9b87b665 (empty) (no description set)
+    Parent commit: mzvwutvl 16169825 (no description set)
+    ");
+}

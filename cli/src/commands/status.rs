@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::io;
+
 use itertools::Itertools;
 use jj_lib::copies::CopyRecords;
 use jj_lib::repo::Repo;
@@ -47,7 +49,7 @@ pub(crate) fn cmd_status(
     command: &CommandHelper,
     args: &StatusArgs,
 ) -> Result<(), CommandError> {
-    let (workspace_command, _snapshot_stats) = command.workspace_helper_with_stats(ui)?;
+    let (workspace_command, snapshot_stats) = command.workspace_helper_with_stats(ui)?;
     let repo = workspace_command.repo();
     let maybe_wc_commit = workspace_command
         .get_wc_commit_id()
@@ -63,26 +65,44 @@ pub(crate) fn cmd_status(
     if let Some(wc_commit) = &maybe_wc_commit {
         let parent_tree = wc_commit.parent_tree(repo.as_ref())?;
         let tree = wc_commit.tree()?;
-        if tree.id() == parent_tree.id() {
+
+        let wc_has_changes = tree.id() != parent_tree.id();
+        let wc_has_untracked = !snapshot_stats.untracked_paths.is_empty();
+        if !wc_has_changes && !wc_has_untracked {
             writeln!(formatter, "The working copy is clean")?;
         } else {
-            writeln!(formatter, "Working copy changes:")?;
-            let mut copy_records = CopyRecords::default();
-            for parent in wc_commit.parent_ids() {
-                let records = get_copy_records(repo.store(), parent, wc_commit.id(), &matcher)?;
-                copy_records.add_records(records)?;
+            if wc_has_changes {
+                writeln!(formatter, "Working copy changes:")?;
+                let mut copy_records = CopyRecords::default();
+                for parent in wc_commit.parent_ids() {
+                    let records = get_copy_records(repo.store(), parent, wc_commit.id(), &matcher)?;
+                    copy_records.add_records(records)?;
+                }
+                let diff_renderer = workspace_command.diff_renderer(vec![DiffFormat::Summary]);
+                let width = ui.term_width();
+                diff_renderer.show_diff(
+                    ui,
+                    formatter,
+                    &parent_tree,
+                    &tree,
+                    &matcher,
+                    &copy_records,
+                    width,
+                )?;
             }
-            let diff_renderer = workspace_command.diff_renderer(vec![DiffFormat::Summary]);
-            let width = ui.term_width();
-            diff_renderer.show_diff(
-                ui,
-                formatter,
-                &parent_tree,
-                &tree,
-                &matcher,
-                &copy_records,
-                width,
-            )?;
+
+            if wc_has_untracked {
+                // TODO: make sure this always display all untracked non-ignored files, even
+                // when using watchman. See https://github.com/jj-vcs/jj/commit/168c7979feab40d58f49fe19683975697a7bc089 for details.
+                writeln!(formatter, "Untracked paths:")?;
+                formatter.with_label("diff", |formatter| {
+                    for path in snapshot_stats.untracked_paths.keys() {
+                        let ui_path = workspace_command.path_converter().format_file_path(path);
+                        writeln!(formatter.labeled("untracked"), "? {ui_path}")?;
+                    }
+                    io::Result::Ok(())
+                })?;
+            }
         }
 
         // TODO: Conflicts should also be filtered by the `matcher`. See the related
