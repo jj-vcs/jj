@@ -74,6 +74,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * New template function `config(name)` to access to configuration variable from
   template.
 
+* New `git.sign-on-push` config option to automatically sign commits which are being
+  pushed to a Git remote.
+
 ### Fixed bugs
 
 * Fixed diff selection by external tools with `jj split`/`commit -i FILESETS`.

@@ -1405,6 +1405,146 @@ fn test_git_push_to_remote_named_git() {
     "#);
 }
 
+#[test]
+fn test_git_push_sign_on_push() {
+    let (test_env, workspace_root) = set_up();
+    let template = r#"
+    separate("\n",
+      description.first_line(),
+      if(signature,
+        separate(", ",
+          "Signature: " ++ signature.display(),
+          "Status: " ++ signature.status(),
+          "Key: " ++ signature.key(),
+        )
+      )
+    )
+    "#;
+    test_env.jj_cmd_ok(
+        &workspace_root,
+        &["new", "bookmark2", "-m", "commit to be signed 1"],
+    );
+    test_env.jj_cmd_ok(&workspace_root, &["new", "-m", "commit to be signed 2"]);
+    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "set", "bookmark2"]);
+    test_env.jj_cmd_ok(
+        &workspace_root,
+        &["new", "-m", "commit which should not be signed 1"],
+    );
+    test_env.jj_cmd_ok(
+        &workspace_root,
+        &["new", "-m", "commit which should not be signed 2"],
+    );
+    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["log", "-T", template]);
+    // There should be no signed commits initially
+    insta::assert_snapshot!(stdout, @r#"
+    @  commit which should not be signed 2
+    ○  commit which should not be signed 1
+    ○  commit to be signed 2
+    ○  commit to be signed 1
+    ○  description 2
+    │ ○  description 1
+    ├─╯
+    ◆
+    "#);
+    insta::assert_snapshot!(stderr, @"");
+    test_env.add_config(
+        r#"
+    signing.backend = "test"
+    signing.key = "impeccable"
+    git.sign-on-push = true
+    "#,
+    );
+    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["git", "push", "--dry-run"]);
+    insta::assert_snapshot!(stdout, @"");
+    insta::assert_snapshot!(stderr, @r#"
+    Changes to push to origin:
+      Move forward bookmark bookmark2 from 8476341eb395 to 8710e91a14a1
+    Dry-run requested, not pushing.
+    "#);
+    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["log", "-T", template]);
+    // There should be no signed commits after performing a dry run
+    insta::assert_snapshot!(stdout, @r#"
+    @  commit which should not be signed 2
+    ○  commit which should not be signed 1
+    ○  commit to be signed 2
+    ○  commit to be signed 1
+    ○  description 2
+    │ ○  description 1
+    ├─╯
+    ◆
+    "#);
+    insta::assert_snapshot!(stderr, @"");
+    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["git", "push"]);
+    insta::assert_snapshot!(stdout, @"");
+    insta::assert_snapshot!(stderr, @r#"
+    Updated signatures of 2 commits
+    Rebased 2 descendant commits
+    Changes to push to origin:
+      Move forward bookmark bookmark2 from 8476341eb395 to a6259c482040
+    Working copy now at: kmkuslsw b5f47345 (empty) commit which should not be signed 2
+    Parent commit      : kpqxywon 90df08d3 (empty) commit which should not be signed 1
+    "#);
+    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["log", "-T", template]);
+    // Only commits which are being pushed should be signed
+    insta::assert_snapshot!(stdout, @r#"
+    @  commit which should not be signed 2
+    ○  commit which should not be signed 1
+    ○  commit to be signed 2
+    │  Signature: test-display, Status: good, Key: impeccable
+    ○  commit to be signed 1
+    │  Signature: test-display, Status: good, Key: impeccable
+    ○  description 2
+    │ ○  description 1
+    ├─╯
+    ◆
+    "#);
+    insta::assert_snapshot!(stderr, @"");
+
+    // Immutable commits should not be signed
+    let (stdout, stderr) = test_env.jj_cmd_ok(
+        &workspace_root,
+        &[
+            "bookmark",
+            "create",
+            "bookmark3",
+            "-r",
+            "description('commit which should not be signed 1')",
+        ],
+    );
+    insta::assert_snapshot!(stdout, @"");
+    insta::assert_snapshot!(stderr, @"Created 1 bookmarks pointing to kpqxywon 90df08d3 bookmark3 | (empty) commit which should not be signed 1");
+    let (stdout, stderr) = test_env.jj_cmd_ok(
+        &workspace_root,
+        &["bookmark", "move", "bookmark2", "--to", "bookmark3"],
+    );
+    insta::assert_snapshot!(stdout, @"");
+    insta::assert_snapshot!(stderr, @"Moved 1 bookmarks to kpqxywon 90df08d3 bookmark2* bookmark3 | (empty) commit which should not be signed 1");
+    test_env.add_config(r#"revset-aliases."immutable_heads()" = "bookmark3""#);
+    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["git", "push"]);
+    insta::assert_snapshot!(stdout, @"");
+    insta::assert_snapshot!(stderr, @r#"
+    Warning: Refusing to create new remote bookmark bookmark3@origin
+    Hint: Use --allow-new to push new bookmark. Use --remote to specify the remote to push to.
+    Changes to push to origin:
+      Move forward bookmark bookmark2 from a6259c482040 to 90df08d3d612
+    "#);
+    let (stdout, stderr) =
+        test_env.jj_cmd_ok(&workspace_root, &["log", "-T", template, "-r", "::"]);
+    insta::assert_snapshot!(stdout, @r#"
+    @  commit which should not be signed 2
+    ◆  commit which should not be signed 1
+    ◆  commit to be signed 2
+    │  Signature: test-display, Status: good, Key: impeccable
+    ◆  commit to be signed 1
+    │  Signature: test-display, Status: good, Key: impeccable
+    ◆  description 2
+    │ ○  description 1
+    ├─╯
+    ◆
+    "#);
+    insta::assert_snapshot!(stderr, @"");
+}
+
 fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> String {
     // --quiet to suppress deleted bookmarks hint
     test_env.jj_cmd_success(repo_path, &["bookmark", "list", "--all-remotes", "--quiet"])
