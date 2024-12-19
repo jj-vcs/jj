@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::fmt::Write;
 use std::path::Path;
 
 use git2::Oid;
@@ -771,6 +772,370 @@ fn test_git_colocated_undo_head_move() {
     "#);
 }
 
+#[test]
+fn test_git_colocated_update_index_preserves_timestamps() {
+    let test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "--colocate", "repo"]);
+    let repo_path = test_env.env_root().join("repo");
+
+    // Create a commit with some files
+    std::fs::write(repo_path.join("file1.txt"), "will be unchanged\n").unwrap();
+    std::fs::write(repo_path.join("file2.txt"), "will be modified\n").unwrap();
+    std::fs::write(repo_path.join("file3.txt"), "will be deleted\n").unwrap();
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "commit1"]);
+    test_env.jj_cmd_ok(&repo_path, &["new"]);
+
+    // Create a commit with some changes to the files
+    std::fs::write(repo_path.join("file2.txt"), "modified\n").unwrap();
+    std::fs::remove_file(repo_path.join("file3.txt")).unwrap();
+    std::fs::write(repo_path.join("file4.txt"), "added\n").unwrap();
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "commit2"]);
+    test_env.jj_cmd_ok(&repo_path, &["new"]);
+
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r#"
+    @  051508d190ffd04fe2d79367ad8e9c3713ac2375
+    ○  563dbc583c0d82eb10c40d3f3276183ea28a0fa7 commit2 git_head()
+    ○  3c270b473dd871b20d196316eb038f078f80c219 commit1
+    ◆  0000000000000000000000000000000000000000
+    "#);
+
+    insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    Unconflicted Mode(FILE) ed48318d9bf4 ctime=0:0 mtime=0:0 size=0 file1.txt
+    Unconflicted Mode(FILE) 2e0996000b7e ctime=0:0 mtime=0:0 size=0 file2.txt
+    Unconflicted Mode(FILE) d5f7fc3f74f7 ctime=0:0 mtime=0:0 size=0 file4.txt
+    "#);
+
+    // Update index with stats for all files. We may want to do this automatically
+    // in the future after we update the index in `git::reset_head` (#3786), but for
+    // now, we at least want to preserve existing stat information when possible.
+    update_git_index(&repo_path);
+
+    insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    Unconflicted Mode(FILE) ed48318d9bf4 ctime=[nonzero] mtime=[nonzero] size=18 file1.txt
+    Unconflicted Mode(FILE) 2e0996000b7e ctime=[nonzero] mtime=[nonzero] size=9 file2.txt
+    Unconflicted Mode(FILE) d5f7fc3f74f7 ctime=[nonzero] mtime=[nonzero] size=6 file4.txt
+    "#);
+
+    // Edit parent commit, causing the changes to be removed from the index without
+    // touching the working copy
+    test_env.jj_cmd_ok(&repo_path, &["edit", "commit2"]);
+
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r#"
+    @  563dbc583c0d82eb10c40d3f3276183ea28a0fa7 commit2
+    ○  3c270b473dd871b20d196316eb038f078f80c219 commit1 git_head()
+    ◆  0000000000000000000000000000000000000000
+    "#);
+
+    // Index should contain stat for unchanged file still.
+    insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    Unconflicted Mode(FILE) ed48318d9bf4 ctime=[nonzero] mtime=[nonzero] size=18 file1.txt
+    Unconflicted Mode(FILE) 28d2718c947b ctime=0:0 mtime=0:0 size=0 file2.txt
+    Unconflicted Mode(FILE) 528557ab3a42 ctime=0:0 mtime=0:0 size=0 file3.txt
+    "#);
+
+    // Create sibling commit, causing working copy to match index
+    test_env.jj_cmd_ok(&repo_path, &["new", "commit1"]);
+
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r#"
+    @  ccb1b1807383dba5ff4d335fd9fb92aa540f4632
+    │ ○  563dbc583c0d82eb10c40d3f3276183ea28a0fa7 commit2
+    ├─╯
+    ○  3c270b473dd871b20d196316eb038f078f80c219 commit1 git_head()
+    ◆  0000000000000000000000000000000000000000
+    "#);
+
+    // Index should contain stat for unchanged file still.
+    insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    Unconflicted Mode(FILE) ed48318d9bf4 ctime=[nonzero] mtime=[nonzero] size=18 file1.txt
+    Unconflicted Mode(FILE) 28d2718c947b ctime=0:0 mtime=0:0 size=0 file2.txt
+    Unconflicted Mode(FILE) 528557ab3a42 ctime=0:0 mtime=0:0 size=0 file3.txt
+    "#);
+}
+
+#[test]
+fn test_git_colocated_update_index_merge_conflict() {
+    let test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "--colocate", "repo"]);
+    let repo_path = test_env.env_root().join("repo");
+
+    // Set up conflict files
+    std::fs::write(repo_path.join("conflict.txt"), "base\n").unwrap();
+    std::fs::write(repo_path.join("base.txt"), "base\n").unwrap();
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "base"]);
+
+    test_env.jj_cmd_ok(&repo_path, &["new", "base"]);
+    std::fs::write(repo_path.join("conflict.txt"), "left\n").unwrap();
+    std::fs::write(repo_path.join("left.txt"), "left\n").unwrap();
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "left"]);
+
+    test_env.jj_cmd_ok(&repo_path, &["new", "base"]);
+    std::fs::write(repo_path.join("conflict.txt"), "right\n").unwrap();
+    std::fs::write(repo_path.join("right.txt"), "right\n").unwrap();
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "right"]);
+
+    insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 base.txt
+    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 conflict.txt
+    "#);
+
+    // Update index with stat for base.txt
+    update_git_index(&repo_path);
+
+    insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 base.txt
+    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 conflict.txt
+    "#);
+
+    // Create merge conflict
+    test_env.jj_cmd_ok(&repo_path, &["new", "left", "right"]);
+
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r#"
+    @    aea7acd77752c3f74914de1fe327075a579bf7c6
+    ├─╮
+    │ ○  df62ad35fc873e89ade730fa9a407cd5cfa5e6ba right
+    ○ │  68cc2177623364e4f0719d6ec8da1d6ea8d6087e left git_head()
+    ├─╯
+    ○  14b3ff6c73a234ab2a26fc559512e0f056a46bd9 base
+    ◆  0000000000000000000000000000000000000000
+    "#);
+
+    // The index should contain the tree of the Git HEAD. The stat for base.txt
+    // should not change.
+    insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 base.txt
+    Unconflicted Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 conflict.txt
+    Unconflicted Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 left.txt
+    "#);
+
+    test_env.jj_cmd_ok(&repo_path, &["new"]);
+
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r#"
+    @  cae33b49a8a514996983caaf171c5edbf0d70e78
+    ×    aea7acd77752c3f74914de1fe327075a579bf7c6 git_head()
+    ├─╮
+    │ ○  df62ad35fc873e89ade730fa9a407cd5cfa5e6ba right
+    ○ │  68cc2177623364e4f0719d6ec8da1d6ea8d6087e left
+    ├─╯
+    ○  14b3ff6c73a234ab2a26fc559512e0f056a46bd9 base
+    ◆  0000000000000000000000000000000000000000
+    "#);
+
+    // The Git HEAD now contains ".jjconflict" files instead of the real contents.
+    insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 .jjconflict-base-0/base.txt
+    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 .jjconflict-base-0/conflict.txt
+    Unconflicted Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 .jjconflict-base-0/left.txt
+    Unconflicted Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 .jjconflict-base-0/right.txt
+    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-0/base.txt
+    Unconflicted Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 .jjconflict-side-0/conflict.txt
+    Unconflicted Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 .jjconflict-side-0/left.txt
+    Unconflicted Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-0/right.txt
+    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-1/base.txt
+    Unconflicted Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-1/conflict.txt
+    Unconflicted Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 .jjconflict-side-1/left.txt
+    Unconflicted Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-1/right.txt
+    Unconflicted Mode(FILE) 5dc38902e68e ctime=0:0 mtime=0:0 size=0 README
+    "#);
+}
+
+#[test]
+fn test_git_colocated_update_index_rebase_conflict() {
+    let test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "--colocate", "repo"]);
+    let repo_path = test_env.env_root().join("repo");
+
+    // Set up conflict files
+    std::fs::write(repo_path.join("conflict.txt"), "base\n").unwrap();
+    std::fs::write(repo_path.join("base.txt"), "base\n").unwrap();
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "base"]);
+
+    test_env.jj_cmd_ok(&repo_path, &["new", "base"]);
+    std::fs::write(repo_path.join("conflict.txt"), "left\n").unwrap();
+    std::fs::write(repo_path.join("left.txt"), "left\n").unwrap();
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "left"]);
+
+    test_env.jj_cmd_ok(&repo_path, &["new", "base"]);
+    std::fs::write(repo_path.join("conflict.txt"), "right\n").unwrap();
+    std::fs::write(repo_path.join("right.txt"), "right\n").unwrap();
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "right"]);
+
+    test_env.jj_cmd_ok(&repo_path, &["edit", "left"]);
+
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r#"
+    @  68cc2177623364e4f0719d6ec8da1d6ea8d6087e left
+    │ ○  df62ad35fc873e89ade730fa9a407cd5cfa5e6ba right
+    ├─╯
+    ○  14b3ff6c73a234ab2a26fc559512e0f056a46bd9 base git_head()
+    ◆  0000000000000000000000000000000000000000
+    "#);
+
+    insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 base.txt
+    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 conflict.txt
+    "#);
+
+    // Update index with stat for base.txt
+    update_git_index(&repo_path);
+
+    insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 base.txt
+    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 conflict.txt
+    "#);
+
+    // Create rebase conflict
+    test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "left", "-d", "right"]);
+
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r#"
+    @  233cb41e128e74aa2fcbf01c85d69b33a118faa8 left
+    ○  df62ad35fc873e89ade730fa9a407cd5cfa5e6ba right git_head()
+    ○  14b3ff6c73a234ab2a26fc559512e0f056a46bd9 base
+    ◆  0000000000000000000000000000000000000000
+    "#);
+
+    // The index should contain the tree of the Git HEAD. The stat for base.txt
+    // should not change.
+    insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 base.txt
+    Unconflicted Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 conflict.txt
+    Unconflicted Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 right.txt
+    "#);
+
+    test_env.jj_cmd_ok(&repo_path, &["new"]);
+
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r#"
+    @  6d84b9021f9e07b69770687071c4e8e71113e688
+    ×  233cb41e128e74aa2fcbf01c85d69b33a118faa8 left git_head()
+    ○  df62ad35fc873e89ade730fa9a407cd5cfa5e6ba right
+    ○  14b3ff6c73a234ab2a26fc559512e0f056a46bd9 base
+    ◆  0000000000000000000000000000000000000000
+    "#);
+
+    // The Git HEAD now contains ".jjconflict" files instead of the real contents.
+    insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 .jjconflict-base-0/base.txt
+    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 .jjconflict-base-0/conflict.txt
+    Unconflicted Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 .jjconflict-base-0/left.txt
+    Unconflicted Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 .jjconflict-base-0/right.txt
+    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-0/base.txt
+    Unconflicted Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-0/conflict.txt
+    Unconflicted Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 .jjconflict-side-0/left.txt
+    Unconflicted Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-0/right.txt
+    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-1/base.txt
+    Unconflicted Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 .jjconflict-side-1/conflict.txt
+    Unconflicted Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 .jjconflict-side-1/left.txt
+    Unconflicted Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-1/right.txt
+    Unconflicted Mode(FILE) 5dc38902e68e ctime=0:0 mtime=0:0 size=0 README
+    "#);
+}
+
+#[test]
+fn test_git_colocated_update_index_3_sided_conflict() {
+    let test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "--colocate", "repo"]);
+    let repo_path = test_env.env_root().join("repo");
+
+    // Set up conflict files
+    std::fs::write(repo_path.join("conflict.txt"), "base\n").unwrap();
+    std::fs::write(repo_path.join("base.txt"), "base\n").unwrap();
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "base"]);
+
+    test_env.jj_cmd_ok(&repo_path, &["new", "base"]);
+    std::fs::write(repo_path.join("conflict.txt"), "side-1\n").unwrap();
+    std::fs::write(repo_path.join("side-1.txt"), "side-1\n").unwrap();
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "side-1"]);
+
+    test_env.jj_cmd_ok(&repo_path, &["new", "base"]);
+    std::fs::write(repo_path.join("conflict.txt"), "side-2\n").unwrap();
+    std::fs::write(repo_path.join("side-2.txt"), "side-2\n").unwrap();
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "side-2"]);
+
+    test_env.jj_cmd_ok(&repo_path, &["new", "base"]);
+    std::fs::write(repo_path.join("conflict.txt"), "side-3\n").unwrap();
+    std::fs::write(repo_path.join("side-3.txt"), "side-3\n").unwrap();
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "side-3"]);
+
+    insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 base.txt
+    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 conflict.txt
+    "#);
+
+    // Update index with stat for base.txt
+    update_git_index(&repo_path);
+
+    insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 base.txt
+    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 conflict.txt
+    "#);
+
+    // Create 3-sided merge conflict
+    test_env.jj_cmd_ok(&repo_path, &["new", "side-1", "side-2", "side-3"]);
+
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r#"
+    @      faee07ad76218d193f2784f4988daa2ac46db30c
+    ├─┬─╮
+    │ │ ○  86e722ea6a9da2551f1e05bc9aa914acd1cb2304 side-3
+    │ ○ │  b8b9ca2d8178c4ba727a61e2258603f30ac7c6d3 side-2
+    │ ├─╯
+    ○ │  a4b3ce25ef4857172e7777567afd497a917a0486 side-1 git_head()
+    ├─╯
+    ○  14b3ff6c73a234ab2a26fc559512e0f056a46bd9 base
+    ◆  0000000000000000000000000000000000000000
+    "#);
+
+    // The index should contain the tree of the Git HEAD. The stat for base.txt
+    // should not change.
+    insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 base.txt
+    Unconflicted Mode(FILE) dd8f930010b3 ctime=0:0 mtime=0:0 size=0 conflict.txt
+    Unconflicted Mode(FILE) dd8f930010b3 ctime=0:0 mtime=0:0 size=0 side-1.txt
+    "#);
+
+    test_env.jj_cmd_ok(&repo_path, &["new"]);
+
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r#"
+    @  b0e5644063c2a12fb265e5f65cd88c6a2e1cf865
+    ×      faee07ad76218d193f2784f4988daa2ac46db30c git_head()
+    ├─┬─╮
+    │ │ ○  86e722ea6a9da2551f1e05bc9aa914acd1cb2304 side-3
+    │ ○ │  b8b9ca2d8178c4ba727a61e2258603f30ac7c6d3 side-2
+    │ ├─╯
+    ○ │  a4b3ce25ef4857172e7777567afd497a917a0486 side-1
+    ├─╯
+    ○  14b3ff6c73a234ab2a26fc559512e0f056a46bd9 base
+    ◆  0000000000000000000000000000000000000000
+    "#);
+
+    // The Git HEAD now contains ".jjconflict" files instead of the real contents.
+    insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 .jjconflict-base-0/base.txt
+    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 .jjconflict-base-0/conflict.txt
+    Unconflicted Mode(FILE) dd8f930010b3 ctime=0:0 mtime=0:0 size=0 .jjconflict-base-0/side-1.txt
+    Unconflicted Mode(FILE) 7b44e11df720 ctime=0:0 mtime=0:0 size=0 .jjconflict-base-0/side-2.txt
+    Unconflicted Mode(FILE) 42f37a71bf20 ctime=0:0 mtime=0:0 size=0 .jjconflict-base-0/side-3.txt
+    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 .jjconflict-base-1/base.txt
+    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 .jjconflict-base-1/conflict.txt
+    Unconflicted Mode(FILE) dd8f930010b3 ctime=0:0 mtime=0:0 size=0 .jjconflict-base-1/side-1.txt
+    Unconflicted Mode(FILE) 7b44e11df720 ctime=0:0 mtime=0:0 size=0 .jjconflict-base-1/side-2.txt
+    Unconflicted Mode(FILE) 42f37a71bf20 ctime=0:0 mtime=0:0 size=0 .jjconflict-base-1/side-3.txt
+    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-0/base.txt
+    Unconflicted Mode(FILE) dd8f930010b3 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-0/conflict.txt
+    Unconflicted Mode(FILE) dd8f930010b3 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-0/side-1.txt
+    Unconflicted Mode(FILE) 7b44e11df720 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-0/side-2.txt
+    Unconflicted Mode(FILE) 42f37a71bf20 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-0/side-3.txt
+    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-1/base.txt
+    Unconflicted Mode(FILE) 7b44e11df720 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-1/conflict.txt
+    Unconflicted Mode(FILE) dd8f930010b3 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-1/side-1.txt
+    Unconflicted Mode(FILE) 7b44e11df720 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-1/side-2.txt
+    Unconflicted Mode(FILE) 42f37a71bf20 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-1/side-3.txt
+    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-2/base.txt
+    Unconflicted Mode(FILE) 42f37a71bf20 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-2/conflict.txt
+    Unconflicted Mode(FILE) dd8f930010b3 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-2/side-1.txt
+    Unconflicted Mode(FILE) 7b44e11df720 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-2/side-2.txt
+    Unconflicted Mode(FILE) 42f37a71bf20 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-2/side-3.txt
+    Unconflicted Mode(FILE) 5dc38902e68e ctime=0:0 mtime=0:0 size=0 README
+    "#);
+}
+
 fn get_log_output_divergence(test_env: &TestEnvironment, repo_path: &Path) -> String {
     let template = r#"
     separate(" ",
@@ -810,6 +1175,45 @@ fn get_log_output_with_stderr(
     )
     "#;
     test_env.jj_cmd_ok(workspace_root, &["log", "-T", template, "-r=all()"])
+}
+
+fn update_git_index(repo_path: &Path) {
+    git2::Repository::open(repo_path)
+        .unwrap()
+        .diff_index_to_workdir(None, Some(git2::DiffOptions::new().update_index(true)))
+        .unwrap()
+        .stats()
+        .unwrap();
+}
+
+fn get_index_state(repo_path: &Path) -> String {
+    let git_repo = gix::open(repo_path).expect("git repo should exist");
+    let mut buffer = String::new();
+    // We can't use the real time from disk, since it would change each time the
+    // tests are run. Instead, we just show whether it's zero or nonzero.
+    let format_time = |time: gix::index::entry::stat::Time| {
+        if time.secs == 0 && time.nsecs == 0 {
+            "0:0"
+        } else {
+            "[nonzero]"
+        }
+    };
+    let index = git_repo.index_or_empty().unwrap();
+    for entry in index.entries() {
+        writeln!(
+            &mut buffer,
+            "{:12} {:?} {} ctime={} mtime={} size={} {}",
+            format!("{:?}", entry.stage()),
+            entry.mode,
+            entry.id.to_hex_with_len(12),
+            format_time(entry.stat.ctime),
+            format_time(entry.stat.mtime),
+            entry.stat.size,
+            entry.path_in(index.path_backing()),
+        )
+        .unwrap();
+    }
+    buffer
 }
 
 #[test]

@@ -30,9 +30,11 @@ use itertools::Itertools;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
+use jj_lib::backend::MergedTreeId;
 use jj_lib::backend::MillisSinceEpoch;
 use jj_lib::backend::Signature;
 use jj_lib::backend::Timestamp;
+use jj_lib::backend::TreeValue;
 use jj_lib::commit::Commit;
 use jj_lib::commit_builder::CommitBuilder;
 use jj_lib::git;
@@ -55,10 +57,12 @@ use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::repo_path::RepoPath;
+use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::settings::GitSettings;
 use jj_lib::settings::UserSettings;
 use jj_lib::signing::Signer;
 use jj_lib::str_util::StringPattern;
+use jj_lib::tree_builder::TreeBuilder;
 use jj_lib::workspace::Workspace;
 use maplit::btreemap;
 use maplit::hashset;
@@ -2157,6 +2161,23 @@ fn test_reset_head_to_root() {
     assert!(git_repo.find_reference("refs/jj/root").is_err());
 }
 
+fn get_index_state(workspace_root: &Path) -> String {
+    let git_repo = gix::open(workspace_root).unwrap();
+    let index = git_repo.index().unwrap();
+    index
+        .entries()
+        .iter()
+        .map(|entry| {
+            format!(
+                "{:?} {} {:?}\n",
+                entry.flags.stage(),
+                entry.path_in(index.path_backing()),
+                entry.mode
+            )
+        })
+        .join("")
+}
+
 #[test]
 fn test_reset_head_with_index() {
     // Create colocated workspace
@@ -2184,21 +2205,227 @@ fn test_reset_head_with_index() {
 
     // Set Git HEAD to commit2's parent (i.e. commit1)
     git::reset_head(tx.repo_mut(), &git_repo, &commit2).unwrap();
-    assert!(git_repo.index().unwrap().is_empty());
+    insta::assert_snapshot!(get_index_state(&workspace_root), @"");
 
     // Add "staged changes" to the Git index
-    let file_path = RepoPath::from_internal_string("file.txt");
-    testutils::write_working_copy_file(&workspace_root, file_path, "i am a file\n");
-    git_repo
-        .index()
-        .unwrap()
-        .add_path(&file_path.to_fs_path_unchecked(Path::new("")))
-        .unwrap();
-    assert!(!git_repo.index().unwrap().is_empty());
+    {
+        let file_path = RepoPath::from_internal_string("file.txt");
+        testutils::write_working_copy_file(&workspace_root, file_path, "i am a file\n");
+        let mut index = git_repo.index().unwrap();
+        index.read(true).unwrap();
+        index
+            .add_path(&file_path.to_fs_path_unchecked(Path::new("")))
+            .unwrap();
+        index.write().unwrap();
+    }
+    insta::assert_snapshot!(get_index_state(&workspace_root), @"Unconflicted file.txt Mode(FILE)");
 
-    // Reset head to and the Git index
+    // Reset head and the Git index
     git::reset_head(tx.repo_mut(), &git_repo, &commit2).unwrap();
-    assert!(git_repo.index().unwrap().is_empty());
+    insta::assert_snapshot!(get_index_state(&workspace_root), @"");
+}
+
+#[test]
+fn test_reset_head_with_index_no_conflict() {
+    // Create colocated workspace
+    let settings = testutils::user_settings();
+    let temp_dir = testutils::new_temp_dir();
+    let workspace_root = temp_dir.path().join("repo");
+    gix::init(&workspace_root).unwrap();
+    let (_workspace, repo) =
+        Workspace::init_external_git(&settings, &workspace_root, &workspace_root.join(".git"))
+            .unwrap();
+
+    let mut tx = repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+
+    // Build tree containing every mode of file
+    let tree_id = {
+        let mut tree_builder =
+            TreeBuilder::new(repo.store().clone(), repo.store().empty_tree_id().clone());
+        testutils::write_normal_file(
+            &mut tree_builder,
+            RepoPath::from_internal_string("some/dir/normal-file"),
+            "file\n",
+        );
+        testutils::write_executable_file(
+            &mut tree_builder,
+            RepoPath::from_internal_string("some/dir/executable-file"),
+            "file\n",
+        );
+        testutils::write_symlink(
+            &mut tree_builder,
+            RepoPath::from_internal_string("some/dir/symlink"),
+            "./normal-file",
+        );
+        tree_builder.set(
+            RepoPathBuf::from_internal_string("some/dir/commit"),
+            TreeValue::GitSubmodule(testutils::write_random_commit(mut_repo).id().clone()),
+        );
+        MergedTreeId::resolved(tree_builder.write_tree().unwrap())
+    };
+
+    let parent_commit = mut_repo
+        .new_commit(vec![repo.store().root_commit_id().clone()], tree_id.clone())
+        .write()
+        .unwrap();
+
+    let wc_commit = mut_repo
+        .new_commit(vec![parent_commit.id().clone()], tree_id.clone())
+        .write()
+        .unwrap();
+
+    // Reset head to working copy commit
+    git::reset_head(
+        mut_repo,
+        &git2::Repository::open(&workspace_root).unwrap(),
+        &wc_commit,
+    )
+    .unwrap();
+
+    // Git index should contain all files from the tree.
+    // `Mode(DIR | SYMLINK)` actually means `MODE(COMMIT)`, as in a git submodule.
+    insta::assert_snapshot!(get_index_state(&workspace_root), @r#"
+    Unconflicted some/dir/commit Mode(DIR | SYMLINK)
+    Unconflicted some/dir/executable-file Mode(FILE | FILE_EXECUTABLE)
+    Unconflicted some/dir/normal-file Mode(FILE)
+    Unconflicted some/dir/symlink Mode(SYMLINK)
+    "#);
+}
+
+#[test]
+fn test_reset_head_with_index_merge_conflict() {
+    // Create colocated workspace
+    let settings = testutils::user_settings();
+    let temp_dir = testutils::new_temp_dir();
+    let workspace_root = temp_dir.path().join("repo");
+    gix::init(&workspace_root).unwrap();
+    let (_workspace, repo) =
+        Workspace::init_external_git(&settings, &workspace_root, &workspace_root.join(".git"))
+            .unwrap();
+
+    let mut tx = repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+
+    // Build conflict trees containing every mode of file
+    let base_tree_id = {
+        let mut tree_builder =
+            TreeBuilder::new(repo.store().clone(), repo.store().empty_tree_id().clone());
+        testutils::write_normal_file(
+            &mut tree_builder,
+            RepoPath::from_internal_string("some/dir/normal-file"),
+            "base\n",
+        );
+        testutils::write_executable_file(
+            &mut tree_builder,
+            RepoPath::from_internal_string("some/dir/executable-file"),
+            "base\n",
+        );
+        testutils::write_symlink(
+            &mut tree_builder,
+            RepoPath::from_internal_string("some/dir/symlink"),
+            "./normal-file",
+        );
+        tree_builder.set(
+            RepoPathBuf::from_internal_string("some/dir/commit"),
+            TreeValue::GitSubmodule(testutils::write_random_commit(mut_repo).id().clone()),
+        );
+        MergedTreeId::resolved(tree_builder.write_tree().unwrap())
+    };
+
+    let left_tree_id = {
+        let mut tree_builder =
+            TreeBuilder::new(repo.store().clone(), repo.store().empty_tree_id().clone());
+        testutils::write_normal_file(
+            &mut tree_builder,
+            RepoPath::from_internal_string("some/dir/normal-file"),
+            "left\n",
+        );
+        testutils::write_executable_file(
+            &mut tree_builder,
+            RepoPath::from_internal_string("some/dir/executable-file"),
+            "left\n",
+        );
+        testutils::write_symlink(
+            &mut tree_builder,
+            RepoPath::from_internal_string("some/dir/symlink"),
+            "./executable-file",
+        );
+        tree_builder.set(
+            RepoPathBuf::from_internal_string("some/dir/commit"),
+            TreeValue::GitSubmodule(testutils::write_random_commit(mut_repo).id().clone()),
+        );
+        MergedTreeId::resolved(tree_builder.write_tree().unwrap())
+    };
+
+    let right_tree_id = {
+        let mut tree_builder =
+            TreeBuilder::new(repo.store().clone(), repo.store().empty_tree_id().clone());
+        testutils::write_normal_file(
+            &mut tree_builder,
+            RepoPath::from_internal_string("some/dir/normal-file"),
+            "right\n",
+        );
+        testutils::write_executable_file(
+            &mut tree_builder,
+            RepoPath::from_internal_string("some/dir/executable-file"),
+            "right\n",
+        );
+        testutils::write_symlink(
+            &mut tree_builder,
+            RepoPath::from_internal_string("some/dir/symlink"),
+            "./commit",
+        );
+        tree_builder.set(
+            RepoPathBuf::from_internal_string("some/dir/commit"),
+            TreeValue::GitSubmodule(testutils::write_random_commit(mut_repo).id().clone()),
+        );
+        MergedTreeId::resolved(tree_builder.write_tree().unwrap())
+    };
+
+    let base_commit = mut_repo
+        .new_commit(
+            vec![repo.store().root_commit_id().clone()],
+            base_tree_id.clone(),
+        )
+        .write()
+        .unwrap();
+    let left_commit = mut_repo
+        .new_commit(vec![base_commit.id().clone()], left_tree_id.clone())
+        .write()
+        .unwrap();
+    let right_commit = mut_repo
+        .new_commit(vec![base_commit.id().clone()], right_tree_id.clone())
+        .write()
+        .unwrap();
+
+    // Create working copy commit with resolution of conflict by taking the right
+    // tree. This shouldn't affect the index, since the index is based on the parent
+    // commit.
+    let wc_commit = mut_repo
+        .new_commit(
+            vec![left_commit.id().clone(), right_commit.id().clone()],
+            right_tree_id.clone(),
+        )
+        .write()
+        .unwrap();
+
+    // Reset head to working copy commit with merge conflict
+    git::reset_head(
+        mut_repo,
+        &git2::Repository::open(&workspace_root).unwrap(),
+        &wc_commit,
+    )
+    .unwrap();
+
+    // Files from left commit (HEAD) should be added to index as "Unconflicted".
+    // `Mode(DIR | SYMLINK)` actually means `MODE(COMMIT)`, as in a git submodule.
+    insta::assert_snapshot!(get_index_state(&workspace_root), @r#"
+    Unconflicted some/dir/commit Mode(DIR | SYMLINK)
+    Unconflicted some/dir/executable-file Mode(FILE | FILE_EXECUTABLE)
+    Unconflicted some/dir/normal-file Mode(FILE)
+    Unconflicted some/dir/symlink Mode(SYMLINK)
+    "#);
 }
 
 #[test]
