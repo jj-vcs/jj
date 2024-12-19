@@ -703,7 +703,11 @@ pub fn export_some_refs(
                 current_oid.as_ref()
             };
             if new_oid != current_oid.as_ref() {
-                update_git_head(&git_repo, old_target, current_oid)?;
+                update_git_head(
+                    &git_repo,
+                    gix::refs::transaction::PreviousValue::MustExistAndMatch(old_target),
+                    current_oid,
+                )?;
             }
         }
     }
@@ -942,7 +946,7 @@ fn update_git_ref(
 /// is `None` (meaning absent), dummy placeholder ref will be set.
 fn update_git_head(
     git_repo: &gix::Repository,
-    old_target: gix::refs::Target,
+    expected_ref: gix::refs::transaction::PreviousValue,
     new_oid: Option<gix::ObjectId>,
 ) -> Result<(), GitExportError> {
     let mut ref_edits = Vec::new();
@@ -969,7 +973,7 @@ fn update_git_head(
                 message: "export from jj".into(),
                 ..Default::default()
             },
-            expected: gix::refs::transaction::PreviousValue::MustExistAndMatch(old_target),
+            expected: expected_ref,
             new: new_target,
         },
         name: "HEAD".try_into().unwrap(),
