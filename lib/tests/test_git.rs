@@ -2408,14 +2408,89 @@ fn test_reset_head_with_index_merge_conflict() {
     // Reset head to working copy commit with merge conflict
     git::reset_head(mut_repo, &wc_commit).unwrap();
 
-    // Files from left commit (HEAD) should be added to index as "Unconflicted".
+    // Index should contain conflicted files from merge of parent commits.
     // `Mode(DIR | SYMLINK)` actually means `MODE(COMMIT)`, as in a git submodule.
     insta::assert_snapshot!(get_index_state(&workspace_root), @r#"
-    Unconflicted some/dir/commit Mode(DIR | SYMLINK)
-    Unconflicted some/dir/executable-file Mode(FILE | FILE_EXECUTABLE)
-    Unconflicted some/dir/normal-file Mode(FILE)
-    Unconflicted some/dir/symlink Mode(SYMLINK)
+    Base some/dir/commit Mode(DIR | SYMLINK)
+    Ours some/dir/commit Mode(DIR | SYMLINK)
+    Theirs some/dir/commit Mode(DIR | SYMLINK)
+    Base some/dir/executable-file Mode(FILE | FILE_EXECUTABLE)
+    Ours some/dir/executable-file Mode(FILE | FILE_EXECUTABLE)
+    Theirs some/dir/executable-file Mode(FILE | FILE_EXECUTABLE)
+    Base some/dir/normal-file Mode(FILE)
+    Ours some/dir/normal-file Mode(FILE)
+    Theirs some/dir/normal-file Mode(FILE)
+    Base some/dir/symlink Mode(SYMLINK)
+    Ours some/dir/symlink Mode(SYMLINK)
+    Theirs some/dir/symlink Mode(SYMLINK)
     "#);
+}
+
+#[test]
+fn test_reset_head_with_index_file_directory_conflict() {
+    // Create colocated workspace
+    let settings = testutils::user_settings();
+    let temp_dir = testutils::new_temp_dir();
+    let workspace_root = temp_dir.path().join("repo");
+    gix::init(&workspace_root).unwrap();
+    let (_workspace, repo) =
+        Workspace::init_external_git(&settings, &workspace_root, &workspace_root.join(".git"))
+            .unwrap();
+
+    let mut tx = repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+
+    // Build conflict trees containing file-directory conflict
+    let left_tree_id = {
+        let mut tree_builder =
+            TreeBuilder::new(repo.store().clone(), repo.store().empty_tree_id().clone());
+        testutils::write_normal_file(
+            &mut tree_builder,
+            RepoPath::from_internal_string("test/dir/file"),
+            "dir\n",
+        );
+        MergedTreeId::resolved(tree_builder.write_tree().unwrap())
+    };
+
+    let right_tree_id = {
+        let mut tree_builder =
+            TreeBuilder::new(repo.store().clone(), repo.store().empty_tree_id().clone());
+        testutils::write_normal_file(
+            &mut tree_builder,
+            RepoPath::from_internal_string("test"),
+            "file\n",
+        );
+        MergedTreeId::resolved(tree_builder.write_tree().unwrap())
+    };
+
+    let left_commit = mut_repo
+        .new_commit(
+            vec![repo.store().root_commit_id().clone()],
+            left_tree_id.clone(),
+        )
+        .write()
+        .unwrap();
+    let right_commit = mut_repo
+        .new_commit(
+            vec![repo.store().root_commit_id().clone()],
+            right_tree_id.clone(),
+        )
+        .write()
+        .unwrap();
+
+    let wc_commit = mut_repo
+        .new_commit(
+            vec![left_commit.id().clone(), right_commit.id().clone()],
+            repo.store().empty_merged_tree_id().clone(),
+        )
+        .write()
+        .unwrap();
+
+    // Reset head to working copy commit with file-directory conflict
+    git::reset_head(mut_repo, &wc_commit).unwrap();
+
+    // Only the file should be added to the index (the tree should be skipped).
+    insta::assert_snapshot!(get_index_state(&workspace_root), @"Theirs test Mode(FILE)");
 }
 
 #[test]

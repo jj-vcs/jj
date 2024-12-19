@@ -25,16 +25,18 @@ use std::num::NonZeroU32;
 use std::path::PathBuf;
 use std::str;
 
+use bstr::BStr;
 use itertools::Itertools;
 use tempfile::NamedTempFile;
 use thiserror::Error;
 
 use crate::backend::BackendError;
 use crate::backend::CommitId;
-use crate::backend::TreeId;
+use crate::backend::TreeValue;
 use crate::commit::Commit;
 use crate::git_backend::GitBackend;
 use crate::index::Index;
+use crate::merged_tree::MergedTree;
 use crate::object_id::ObjectId;
 use crate::op_store::RefTarget;
 use crate::op_store::RefTargetOptionExt;
@@ -44,6 +46,7 @@ use crate::refs;
 use crate::refs::BookmarkPushUpdate;
 use crate::repo::MutableRepo;
 use crate::repo::Repo;
+use crate::repo_path::RepoPath;
 use crate::revset::RevsetExpression;
 use crate::settings::GitSettings;
 use crate::store::Store;
@@ -1024,39 +1027,29 @@ pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), 
             .map_err(GitExportError::from_git)?;
     }
 
-    // This is a way to find the tree ID associated with the raw Git commit, meaning
-    // it contains the ".jjconflict" trees as well. This is temporary; we just want
-    // to maintain the same behavior from git2.
-    let parent_tree_id = if first_parent_id == mut_repo.store().root_commit_id() {
-        mut_repo.store().empty_tree_id().clone()
-    } else {
-        TreeId::new(
-            git_repo
-                .find_commit(gix::ObjectId::from_bytes_or_panic(
-                    first_parent_id.as_bytes(),
-                ))
-                .map_err(GitExportError::from_git)?
-                .tree_id()
-                .map_err(GitExportError::from_git)?
-                .as_bytes()
-                .to_owned(),
-        )
-    };
+    let parent_tree = wc_commit.parent_tree(mut_repo)?;
 
-    let mut index = if &parent_tree_id == mut_repo.store().empty_tree_id() {
-        // If the tree is empty, gix can fail to load the object (since Git doesn't
-        // require the empty tree to actually be present in the object database), so we
-        // just use an empty index directly.
-        gix::index::File::from_state(
-            gix::index::State::new(git_repo.object_hash()),
-            git_repo.index_path(),
-        )
+    // Use the merged parent tree as the Git index, allowing `git diff` to show the
+    // same changes as `jj diff`. If the merged parent tree has 2-sided conflicts,
+    // then the Git index will also be conflicted.
+    let mut index = if let Some(tree) = parent_tree.as_merge().as_resolved() {
+        if tree.id() == mut_repo.store().empty_tree_id() {
+            // If the tree is empty, gix can fail to load the object (since Git doesn't
+            // require the empty tree to actually be present in the object database), so we
+            // just use an empty index directly.
+            gix::index::File::from_state(
+                gix::index::State::new(git_repo.object_hash()),
+                git_repo.index_path(),
+            )
+        } else {
+            // If the parent tree is resolved, we can use gix's `index_from_tree` method.
+            // This is more efficient than iterating over the tree and adding each entry.
+            git_repo
+                .index_from_tree(&gix::ObjectId::from_bytes_or_panic(tree.id().as_bytes()))
+                .map_err(GitExportError::from_git)?
+        }
     } else {
-        git_repo
-            .index_from_tree(&gix::ObjectId::from_bytes_or_panic(
-                parent_tree_id.as_bytes(),
-            ))
-            .map_err(GitExportError::from_git)?
+        build_index_from_merged_tree(&git_repo, parent_tree)?
     };
 
     // Match entries in the new index with entries in the old index, and copy stat
@@ -1081,6 +1074,87 @@ pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), 
         .map_err(GitExportError::from_git)?;
 
     Ok(())
+}
+
+fn build_index_from_merged_tree(
+    git_repo: &gix::Repository,
+    merged_tree: MergedTree,
+) -> Result<gix::index::File, GitExportError> {
+    let mut index = gix::index::File::from_state(
+        gix::index::State::new(git_repo.object_hash()),
+        git_repo.index_path(),
+    );
+
+    let mut push_index_entry =
+        |path: &RepoPath, maybe_entry: &Option<TreeValue>, stage: gix::index::entry::Stage| {
+            let Some(entry) = maybe_entry else {
+                return;
+            };
+
+            let (id, mode) = match entry {
+                TreeValue::File { id, executable } => {
+                    if *executable {
+                        (id.as_bytes(), gix::index::entry::Mode::FILE_EXECUTABLE)
+                    } else {
+                        (id.as_bytes(), gix::index::entry::Mode::FILE)
+                    }
+                }
+                TreeValue::Symlink(id) => (id.as_bytes(), gix::index::entry::Mode::SYMLINK),
+                TreeValue::Tree(_) => {
+                    // This case is only possible if there is a file-directory conflict, since
+                    // `MergedTree::entries` handles the recursion otherwise. We only materialize a
+                    // file in the working copy for file-directory conflicts, so we don't add the
+                    // tree to the index here either.
+                    return;
+                }
+                TreeValue::GitSubmodule(id) => (id.as_bytes(), gix::index::entry::Mode::COMMIT),
+                TreeValue::Conflict(_) => panic!("unexpected merged tree entry: {entry:?}"),
+            };
+
+            let path = BStr::new(path.as_internal_file_string());
+
+            // It is safe to push the entry because we ensure that we only add each path to
+            // a stage once, and we sort the entries after we finish adding them.
+            index.dangerously_push_entry(
+                gix::index::entry::Stat::default(),
+                gix::ObjectId::from_bytes_or_panic(id),
+                gix::index::entry::Flags::from_stage(stage),
+                mode,
+                path,
+            );
+        };
+
+    for (path, entry) in merged_tree.entries() {
+        let entry = entry?;
+        if let Some(resolved) = entry.as_resolved() {
+            push_index_entry(&path, resolved, gix::index::entry::Stage::Unconflicted);
+            continue;
+        }
+
+        let conflict = entry.simplify();
+        if let [left, base, right] = conflict.as_slice() {
+            // 2-sided conflicts can be represented in the Git index
+            push_index_entry(&path, left, gix::index::entry::Stage::Ours);
+            push_index_entry(&path, base, gix::index::entry::Stage::Base);
+            push_index_entry(&path, right, gix::index::entry::Stage::Theirs);
+        } else {
+            // We can't represent many-sided conflicts in the Git index, so just add the
+            // first side as staged. This is preferable to adding the first 2 sides as a
+            // conflict, since some tools rely on being able to resolve conflicts using the
+            // index, which could lead to an incorrect conflict resolution if the index
+            // didn't contain all of the conflict sides.
+            push_index_entry(
+                &path,
+                conflict.first(),
+                gix::index::entry::Stage::Unconflicted,
+            );
+        }
+    }
+
+    // Required after `dangerously_push_entry` for correctness
+    index.sort_entries();
+
+    Ok(index)
 }
 
 #[derive(Debug, Error)]

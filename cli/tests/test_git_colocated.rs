@@ -899,12 +899,15 @@ fn test_git_colocated_update_index_merge_conflict() {
     ◆  0000000000000000000000000000000000000000
     "#);
 
-    // The index should contain the tree of the Git HEAD. The stat for base.txt
-    // should not change.
+    // Conflict should be added in index with correct blob IDs. The stat for
+    // base.txt should not change.
     insta::assert_snapshot!(get_index_state(&repo_path), @r#"
     Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 base.txt
-    Unconflicted Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 conflict.txt
+    Base         Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 conflict.txt
+    Ours         Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 conflict.txt
+    Theirs       Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 conflict.txt
     Unconflicted Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 left.txt
+    Unconflicted Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 right.txt
     "#);
 
     test_env.jj_cmd_ok(&repo_path, &["new"]);
@@ -920,21 +923,14 @@ fn test_git_colocated_update_index_merge_conflict() {
     ◆  0000000000000000000000000000000000000000
     "#);
 
-    // The Git HEAD now contains ".jjconflict" files instead of the real contents.
+    // Index should be the same after `jj new`.
     insta::assert_snapshot!(get_index_state(&repo_path), @r#"
-    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 .jjconflict-base-0/base.txt
-    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 .jjconflict-base-0/conflict.txt
-    Unconflicted Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 .jjconflict-base-0/left.txt
-    Unconflicted Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 .jjconflict-base-0/right.txt
-    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-0/base.txt
-    Unconflicted Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 .jjconflict-side-0/conflict.txt
-    Unconflicted Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 .jjconflict-side-0/left.txt
-    Unconflicted Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-0/right.txt
-    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-1/base.txt
-    Unconflicted Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-1/conflict.txt
-    Unconflicted Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 .jjconflict-side-1/left.txt
-    Unconflicted Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-1/right.txt
-    Unconflicted Mode(FILE) 5dc38902e68e ctime=0:0 mtime=0:0 size=0 README
+    Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 base.txt
+    Base         Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 conflict.txt
+    Ours         Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 conflict.txt
+    Theirs       Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 conflict.txt
+    Unconflicted Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 left.txt
+    Unconflicted Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 right.txt
     "#);
 }
 
@@ -992,8 +988,8 @@ fn test_git_colocated_update_index_rebase_conflict() {
     ◆  0000000000000000000000000000000000000000
     "#);
 
-    // The index should contain the tree of the Git HEAD. The stat for base.txt
-    // should not change.
+    // Index should contain files from parent commit, so there should be no conflict
+    // in conflict.txt yet. The stat for base.txt should not change.
     insta::assert_snapshot!(get_index_state(&repo_path), @r#"
     Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 base.txt
     Unconflicted Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 conflict.txt
@@ -1010,21 +1006,15 @@ fn test_git_colocated_update_index_rebase_conflict() {
     ◆  0000000000000000000000000000000000000000
     "#);
 
-    // The Git HEAD now contains ".jjconflict" files instead of the real contents.
+    // Now the working copy commit's parent is conflicted, so the index should have
+    // a conflict with correct blob IDs.
     insta::assert_snapshot!(get_index_state(&repo_path), @r#"
-    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 .jjconflict-base-0/base.txt
-    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 .jjconflict-base-0/conflict.txt
-    Unconflicted Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 .jjconflict-base-0/left.txt
-    Unconflicted Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 .jjconflict-base-0/right.txt
-    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-0/base.txt
-    Unconflicted Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-0/conflict.txt
-    Unconflicted Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 .jjconflict-side-0/left.txt
-    Unconflicted Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-0/right.txt
-    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-1/base.txt
-    Unconflicted Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 .jjconflict-side-1/conflict.txt
-    Unconflicted Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 .jjconflict-side-1/left.txt
-    Unconflicted Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-1/right.txt
-    Unconflicted Mode(FILE) 5dc38902e68e ctime=0:0 mtime=0:0 size=0 README
+    Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 base.txt
+    Base         Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 conflict.txt
+    Ours         Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 conflict.txt
+    Theirs       Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 conflict.txt
+    Unconflicted Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 left.txt
+    Unconflicted Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 right.txt
     "#);
 }
 
@@ -1082,12 +1072,14 @@ fn test_git_colocated_update_index_3_sided_conflict() {
     ◆  0000000000000000000000000000000000000000
     "#);
 
-    // The index should contain the tree of the Git HEAD. The stat for base.txt
-    // should not change.
+    // We can't add conflicts with more than 2 sides to the index, so they should
+    // show as unconflicted. The stat for base.txt should not change.
     insta::assert_snapshot!(get_index_state(&repo_path), @r#"
     Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 base.txt
     Unconflicted Mode(FILE) dd8f930010b3 ctime=0:0 mtime=0:0 size=0 conflict.txt
     Unconflicted Mode(FILE) dd8f930010b3 ctime=0:0 mtime=0:0 size=0 side-1.txt
+    Unconflicted Mode(FILE) 7b44e11df720 ctime=0:0 mtime=0:0 size=0 side-2.txt
+    Unconflicted Mode(FILE) 42f37a71bf20 ctime=0:0 mtime=0:0 size=0 side-3.txt
     "#);
 
     test_env.jj_cmd_ok(&repo_path, &["new"]);
@@ -1105,34 +1097,13 @@ fn test_git_colocated_update_index_3_sided_conflict() {
     ◆  0000000000000000000000000000000000000000
     "#);
 
-    // The Git HEAD now contains ".jjconflict" files instead of the real contents.
+    // Index should be the same after `jj new`.
     insta::assert_snapshot!(get_index_state(&repo_path), @r#"
-    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 .jjconflict-base-0/base.txt
-    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 .jjconflict-base-0/conflict.txt
-    Unconflicted Mode(FILE) dd8f930010b3 ctime=0:0 mtime=0:0 size=0 .jjconflict-base-0/side-1.txt
-    Unconflicted Mode(FILE) 7b44e11df720 ctime=0:0 mtime=0:0 size=0 .jjconflict-base-0/side-2.txt
-    Unconflicted Mode(FILE) 42f37a71bf20 ctime=0:0 mtime=0:0 size=0 .jjconflict-base-0/side-3.txt
-    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 .jjconflict-base-1/base.txt
-    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 .jjconflict-base-1/conflict.txt
-    Unconflicted Mode(FILE) dd8f930010b3 ctime=0:0 mtime=0:0 size=0 .jjconflict-base-1/side-1.txt
-    Unconflicted Mode(FILE) 7b44e11df720 ctime=0:0 mtime=0:0 size=0 .jjconflict-base-1/side-2.txt
-    Unconflicted Mode(FILE) 42f37a71bf20 ctime=0:0 mtime=0:0 size=0 .jjconflict-base-1/side-3.txt
-    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-0/base.txt
-    Unconflicted Mode(FILE) dd8f930010b3 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-0/conflict.txt
-    Unconflicted Mode(FILE) dd8f930010b3 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-0/side-1.txt
-    Unconflicted Mode(FILE) 7b44e11df720 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-0/side-2.txt
-    Unconflicted Mode(FILE) 42f37a71bf20 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-0/side-3.txt
-    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-1/base.txt
-    Unconflicted Mode(FILE) 7b44e11df720 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-1/conflict.txt
-    Unconflicted Mode(FILE) dd8f930010b3 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-1/side-1.txt
-    Unconflicted Mode(FILE) 7b44e11df720 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-1/side-2.txt
-    Unconflicted Mode(FILE) 42f37a71bf20 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-1/side-3.txt
-    Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-2/base.txt
-    Unconflicted Mode(FILE) 42f37a71bf20 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-2/conflict.txt
-    Unconflicted Mode(FILE) dd8f930010b3 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-2/side-1.txt
-    Unconflicted Mode(FILE) 7b44e11df720 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-2/side-2.txt
-    Unconflicted Mode(FILE) 42f37a71bf20 ctime=0:0 mtime=0:0 size=0 .jjconflict-side-2/side-3.txt
-    Unconflicted Mode(FILE) 5dc38902e68e ctime=0:0 mtime=0:0 size=0 README
+    Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 base.txt
+    Unconflicted Mode(FILE) dd8f930010b3 ctime=0:0 mtime=0:0 size=0 conflict.txt
+    Unconflicted Mode(FILE) dd8f930010b3 ctime=0:0 mtime=0:0 size=0 side-1.txt
+    Unconflicted Mode(FILE) 7b44e11df720 ctime=0:0 mtime=0:0 size=0 side-2.txt
+    Unconflicted Mode(FILE) 42f37a71bf20 ctime=0:0 mtime=0:0 size=0 side-3.txt
     "#);
 }
 
