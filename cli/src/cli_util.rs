@@ -2011,9 +2011,8 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
             .transpose()?;
 
         if self.working_copy_shared_with_git {
-            let git_repo = self.git_backend().unwrap().open_git_repo()?;
             if let Some(wc_commit) = &maybe_new_wc_commit {
-                git::reset_head(tx.repo_mut(), &git_repo, wc_commit)?;
+                git::reset_head(tx.repo_mut(), wc_commit)?;
             }
             let refs = git::export_refs(tx.repo_mut())?;
             print_failed_git_export(ui, &refs)?;

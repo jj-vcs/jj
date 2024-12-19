@@ -25,13 +25,13 @@ use std::num::NonZeroU32;
 use std::path::PathBuf;
 use std::str;
 
-use git2::Oid;
 use itertools::Itertools;
 use tempfile::NamedTempFile;
 use thiserror::Error;
 
 use crate::backend::BackendError;
 use crate::backend::CommitId;
+use crate::backend::TreeId;
 use crate::commit::Commit;
 use crate::git_backend::GitBackend;
 use crate::index::Index;
@@ -592,6 +592,8 @@ pub enum GitExportError {
     InternalGitError(#[source] Box<dyn std::error::Error + Send + Sync>),
     #[error("The repo is not backed by a Git repo")]
     UnexpectedBackend,
+    #[error(transparent)]
+    Backend(#[from] BackendError),
 }
 
 impl GitExportError {
@@ -987,73 +989,97 @@ fn update_git_head(
 
 /// Sets Git HEAD to the parent of the given working-copy commit and resets
 /// the Git index.
-pub fn reset_head(
-    mut_repo: &mut MutableRepo,
-    git_repo: &git2::Repository,
-    wc_commit: &Commit,
-) -> Result<(), git2::Error> {
+pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), GitExportError> {
+    let git_repo = get_git_repo(mut_repo.store()).ok_or(GitExportError::UnexpectedBackend)?;
+
     let first_parent_id = &wc_commit.parent_ids()[0];
     let first_parent = if first_parent_id != mut_repo.store().root_commit_id() {
         RefTarget::normal(first_parent_id.clone())
     } else {
         RefTarget::absent()
     };
-    if first_parent.is_present() {
-        let git_head = mut_repo.view().git_head();
-        let new_git_commit_id = Oid::from_bytes(first_parent_id.as_bytes()).unwrap();
-        let new_git_commit = git_repo.find_commit(new_git_commit_id)?;
-        if git_head != &first_parent {
-            git_repo.set_head_detached(new_git_commit_id)?;
-        }
 
-        let is_same_tree = if git_head == &first_parent {
-            true
-        } else if let Some(git_head_id) = git_head.as_normal() {
-            let git_head_oid = Oid::from_bytes(git_head_id.as_bytes()).unwrap();
-            let git_head_commit = git_repo.find_commit(git_head_oid)?;
-            new_git_commit.tree_id() == git_head_commit.tree_id()
-        } else {
-            false
-        };
-        let skip_reset = if is_same_tree {
-            // HEAD already points to a commit with the correct tree contents,
-            // so we only need to reset the Git index. We can skip the reset if
-            // the Git index is empty (i.e. `git add` was never used).
-            // In large repositories, this is around 2x faster if the Git index is empty
-            // (~0.89s to check the diff, vs. ~1.72s to reset), and around 8% slower if
-            // it isn't (~1.86s to check the diff AND reset).
-            let diff = git_repo.diff_tree_to_index(
-                Some(&new_git_commit.tree()?),
-                None,
-                Some(git2::DiffOptions::new().skip_binary_check(true)),
-            )?;
-            diff.deltas().len() == 0
-        } else {
-            false
-        };
-        if !skip_reset {
-            git_repo.reset(new_git_commit.as_object(), git2::ResetType::Mixed, None)?;
-        }
-    } else {
-        // Can't detach HEAD without a commit. Use placeholder ref to nullify the HEAD.
-        // We can't set_head() an arbitrary unborn ref, so use reference_symbolic()
-        // instead. Git CLI appears to deal with that. It would be nice if Git CLI
-        // couldn't create a commit without setting a valid branch name.
-        if mut_repo.git_head().is_present() {
-            match git_repo.find_reference(UNBORN_ROOT_REF_NAME) {
-                Ok(mut git_repo_ref) => git_repo_ref.delete()?,
-                Err(err) if err.code() == git2::ErrorCode::NotFound => {}
-                Err(err) => return Err(err),
-            }
-            git_repo.reference_symbolic("HEAD", UNBORN_ROOT_REF_NAME, true, "unset HEAD by jj")?;
-        }
-        // git_reset() of libgit2 requires a commit object. Do that manually.
-        let mut index = git_repo.index()?;
-        index.clear()?; // or read empty tree
-        index.write()?;
-        git_repo.cleanup_state()?;
+    // If the first parent of the working copy has changed, reset the Git HEAD.
+    if mut_repo.git_head() != first_parent {
+        update_git_head(
+            &git_repo,
+            // TODO: we might want to use `PreviousValue::MustExistAndMatch` to handle concurrent
+            // modifications properly (#3754)
+            gix::refs::transaction::PreviousValue::MustExist,
+            first_parent
+                .as_normal()
+                .map(|id| gix::ObjectId::from_bytes_or_panic(id.as_bytes())),
+        )?;
+        mut_repo.set_git_head_target(first_parent);
     }
-    mut_repo.set_git_head_target(first_parent);
+
+    // If there is an ongoing operation (merge, rebase, etc.), we need to clean it
+    // up. This function isn't implemented in `gix`, so we need to use `git2`.
+    if git_repo.state().is_some() {
+        get_git_backend(mut_repo.store())
+            .ok_or(GitExportError::UnexpectedBackend)?
+            .open_git_repo()
+            .map_err(GitExportError::from_git)?
+            .cleanup_state()
+            .map_err(GitExportError::from_git)?;
+    }
+
+    // This is a way to find the tree ID associated with the raw Git commit, meaning
+    // it contains the ".jjconflict" trees as well. This is temporary; we just want
+    // to maintain the same behavior from git2.
+    let parent_tree_id = if first_parent_id == mut_repo.store().root_commit_id() {
+        mut_repo.store().empty_tree_id().clone()
+    } else {
+        TreeId::new(
+            git_repo
+                .find_commit(gix::ObjectId::from_bytes_or_panic(
+                    first_parent_id.as_bytes(),
+                ))
+                .map_err(GitExportError::from_git)?
+                .tree_id()
+                .map_err(GitExportError::from_git)?
+                .as_bytes()
+                .to_owned(),
+        )
+    };
+
+    let mut index = if &parent_tree_id == mut_repo.store().empty_tree_id() {
+        // If the tree is empty, gix can fail to load the object (since Git doesn't
+        // require the empty tree to actually be present in the object database), so we
+        // just use an empty index directly.
+        gix::index::File::from_state(
+            gix::index::State::new(git_repo.object_hash()),
+            git_repo.index_path(),
+        )
+    } else {
+        git_repo
+            .index_from_tree(&gix::ObjectId::from_bytes_or_panic(
+                parent_tree_id.as_bytes(),
+            ))
+            .map_err(GitExportError::from_git)?
+    };
+
+    // Match entries in the new index with entries in the old index, and copy stat
+    // information if the entry didn't change.
+    if let Some(old_index) = git_repo.try_index().map_err(GitExportError::from_git)? {
+        index
+            .entries_mut_with_paths()
+            .merge_join_by(old_index.entries(), |(entry, path), old_entry| {
+                gix::index::Entry::cmp_filepaths(path, old_entry.path(&old_index))
+                    .then_with(|| entry.stage().cmp(&old_entry.stage()))
+            })
+            .filter_map(|merged| merged.both())
+            .map(|((entry, _), old_entry)| (entry, old_entry))
+            .filter(|(entry, old_entry)| entry.id == old_entry.id && entry.mode == old_entry.mode)
+            .for_each(|(entry, old_entry)| entry.stat = old_entry.stat);
+    }
+
+    debug_assert!(index.verify_entries().is_ok());
+
+    index
+        .write(gix::index::write::Options::default())
+        .map_err(GitExportError::from_git)?;
+
     Ok(())
 }
 

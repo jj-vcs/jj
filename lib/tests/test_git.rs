@@ -2129,7 +2129,7 @@ fn test_reset_head_to_root() {
         .unwrap();
 
     // Set Git HEAD to commit2's parent (i.e. commit1)
-    git::reset_head(tx.repo_mut(), &git_repo, &commit2).unwrap();
+    git::reset_head(tx.repo_mut(), &commit2).unwrap();
     assert!(git_repo.head().is_ok());
     assert_eq!(
         tx.repo_mut().git_head(),
@@ -2137,7 +2137,7 @@ fn test_reset_head_to_root() {
     );
 
     // Set Git HEAD back to root
-    git::reset_head(tx.repo_mut(), &git_repo, &commit1).unwrap();
+    git::reset_head(tx.repo_mut(), &commit1).unwrap();
     assert!(git_repo.head().is_err());
     assert!(tx.repo_mut().git_head().is_absent());
 
@@ -2145,7 +2145,7 @@ fn test_reset_head_to_root() {
     git_repo
         .reference("refs/jj/root", git_id(&commit1), false, "")
         .unwrap();
-    git::reset_head(tx.repo_mut(), &git_repo, &commit2).unwrap();
+    git::reset_head(tx.repo_mut(), &commit2).unwrap();
     assert!(git_repo.head().is_ok());
     assert_eq!(
         tx.repo_mut().git_head(),
@@ -2154,7 +2154,7 @@ fn test_reset_head_to_root() {
     assert!(git_repo.find_reference("refs/jj/root").is_ok());
 
     // Set Git HEAD back to root
-    git::reset_head(tx.repo_mut(), &git_repo, &commit1).unwrap();
+    git::reset_head(tx.repo_mut(), &commit1).unwrap();
     assert!(git_repo.head().is_err());
     assert!(tx.repo_mut().git_head().is_absent());
     // The placeholder ref should be deleted
@@ -2204,7 +2204,7 @@ fn test_reset_head_with_index() {
         .unwrap();
 
     // Set Git HEAD to commit2's parent (i.e. commit1)
-    git::reset_head(tx.repo_mut(), &git_repo, &commit2).unwrap();
+    git::reset_head(tx.repo_mut(), &commit2).unwrap();
     insta::assert_snapshot!(get_index_state(&workspace_root), @"");
 
     // Add "staged changes" to the Git index
@@ -2221,7 +2221,7 @@ fn test_reset_head_with_index() {
     insta::assert_snapshot!(get_index_state(&workspace_root), @"Unconflicted file.txt Mode(FILE)");
 
     // Reset head and the Git index
-    git::reset_head(tx.repo_mut(), &git_repo, &commit2).unwrap();
+    git::reset_head(tx.repo_mut(), &commit2).unwrap();
     insta::assert_snapshot!(get_index_state(&workspace_root), @"");
 }
 
@@ -2276,12 +2276,7 @@ fn test_reset_head_with_index_no_conflict() {
         .unwrap();
 
     // Reset head to working copy commit
-    git::reset_head(
-        mut_repo,
-        &git2::Repository::open(&workspace_root).unwrap(),
-        &wc_commit,
-    )
-    .unwrap();
+    git::reset_head(mut_repo, &wc_commit).unwrap();
 
     // Git index should contain all files from the tree.
     // `Mode(DIR | SYMLINK)` actually means `MODE(COMMIT)`, as in a git submodule.
@@ -2411,12 +2406,7 @@ fn test_reset_head_with_index_merge_conflict() {
         .unwrap();
 
     // Reset head to working copy commit with merge conflict
-    git::reset_head(
-        mut_repo,
-        &git2::Repository::open(&workspace_root).unwrap(),
-        &wc_commit,
-    )
-    .unwrap();
+    git::reset_head(mut_repo, &wc_commit).unwrap();
 
     // Files from left commit (HEAD) should be added to index as "Unconflicted".
     // `Mode(DIR | SYMLINK)` actually means `MODE(COMMIT)`, as in a git submodule.
