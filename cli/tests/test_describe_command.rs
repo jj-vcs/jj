@@ -140,6 +140,35 @@ fn test_describe() {
     std::fs::write(&edit_script, "fail").unwrap();
     let stderr = test_env.jj_cmd_failure(&repo_path, &["describe"]);
     assert!(stderr.contains("exited with an error"));
+
+    // ignore everything after the first ignore-rest line
+    std::fs::write(
+        &edit_script,
+        indoc! {"
+            write
+            description from editor
+
+            content of message from editor
+            JJ: ignore-rest
+            content after ignore line should not be included
+            JJ: ignore-rest
+            ignore everything until EOF or next description
+        "},
+    )
+    .unwrap();
+    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["describe"]);
+    insta::assert_snapshot!(stdout, @"");
+    insta::assert_snapshot!(stderr, @r#"
+    Working copy now at: qpvuntsm 10fa2dc7 (empty) description from editor
+    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    "#);
+    let stdout =
+        test_env.jj_cmd_success(&repo_path, &["log", "--no-graph", "-r@", "-Tdescription"]);
+    insta::assert_snapshot!(stdout, @r#"
+    description from editor
+
+    content of message from editor
+    "#);
 }
 
 #[test]
@@ -384,6 +413,42 @@ fn test_describe_multiple_commits() {
     std::fs::write(&edit_script, "fail").unwrap();
     let stderr = test_env.jj_cmd_failure(&repo_path, &["describe", "@", "@-"]);
     assert!(stderr.contains("exited with an error"));
+
+    // describe lines should take priority over ignore-rest
+    std::fs::write(
+        &edit_script,
+        indoc! {"
+            write
+            JJ: describe 0d76a92ca7cc -------
+            description from editor for @-
+
+            JJ: ignore-rest
+            content after ignore-rest should not be included
+
+            JJ: describe a42f5755e688 -------
+            description from editor for @--
+
+            JJ: ignore-rest
+            each commit should skip their own ignore-rest
+        "},
+    )
+    .unwrap();
+    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["describe", "@-", "@--"]);
+    insta::assert_snapshot!(stdout, @"");
+    insta::assert_snapshot!(stderr, @r#"
+    Updated 2 commits
+    Rebased 1 descendant commits
+    Working copy now at: kkmpptxz 1d7701ee (empty) description from editor of @
+    Parent commit      : rlvkpnrz 5389926e (empty) description from editor for @-
+    "#);
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r#"
+    @  1d7701eec9bc description from editor of @
+    │
+    │  further commit message of @
+    ○  5389926ebed6 description from editor for @-
+    ○  eaa8547ae37a description from editor for @--
+    ◆  000000000000
+    "#);
 }
 
 #[test]

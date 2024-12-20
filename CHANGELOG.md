@@ -78,6 +78,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * New `$marker_length` variable to allow merge tools to support longer conflict
   markers (equivalent to "%L" for Git merge drivers).
 
+* `jj describe` now accepts a `JJ: ignore-rest` line that ignores everything
+  below it, similar to a "scissor line" in git. When editing multiple commits,
+  only ignore until the next `JJ: describe` line.
+
 ### Fixed bugs
 
 * The `$NO_COLOR` environment variable must now be non-empty to be respected.

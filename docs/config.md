@@ -185,6 +185,8 @@ concat(
     "\nJJ: This commit contains the following changes:\n", "",
     indent("JJ:     ", diff.stat(72)),
   ),
+  "\nJJ: ignore-rest\n",
+  diff.git(),
 )
 '''
 ```

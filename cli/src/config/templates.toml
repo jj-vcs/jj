@@ -29,8 +29,6 @@ if(overridden,
 ) ++ "\n"
 '''
 
-# TODO: Provide hook point for diff customization (#1946)? We might want a
-# syntax to comment out full text diffs without using the "JJ:" prefix.
 draft_commit_description = '''
 concat(
   description,
