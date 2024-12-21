@@ -73,6 +73,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   conflicts to be materialized and parsed correctly in files which already
   contain lines that look like conflict markers.
 
+* `jj evolog` now accepts `--reversed`.
+
 ### Fixed bugs
 
 * The `$NO_COLOR` environment variable must now be non-empty to be respected.

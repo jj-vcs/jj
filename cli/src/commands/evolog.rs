@@ -16,6 +16,10 @@ use clap_complete::ArgValueCandidates;
 use itertools::Itertools;
 use jj_lib::commit::Commit;
 use jj_lib::dag_walk::topo_order_reverse_ok;
+use jj_lib::graph::GraphEdge;
+use jj_lib::graph::GraphEdgeType;
+use jj_lib::graph::GraphNode;
+use jj_lib::graph::ReverseGraphIterator;
 use jj_lib::matchers::EverythingMatcher;
 use tracing::instrument;
 
@@ -57,6 +61,9 @@ pub(crate) struct EvologArgs {
         value_name = "LIMIT"
     )]
     deprecated_limit: Option<usize>,
+    /// Show revisions in the opposite order (older revisions first)
+    #[arg(long)]
+    reversed: bool,
     /// Don't show the graph, show a flat list of revisions
     #[arg(long)]
     no_graph: bool,
@@ -151,14 +158,53 @@ pub(crate) fn cmd_evolog(
     if !args.no_graph {
         let mut raw_output = formatter.raw()?;
         let mut graph = get_graphlog(graph_style, raw_output.as_mut());
-        for commit in commits {
-            let edges = commit
-                .predecessor_ids()
-                .iter()
-                .map(|id| Edge::Direct(id.clone()))
-                .collect_vec();
+
+        let graph_nodes: Vec<Result<GraphNode<Commit>, ()>> = commits
+            .iter()
+            .map(|c| {
+                let edges = c
+                    .predecessors()
+                    // TODO: Figure out what to do with this unwrap, if this approach works.
+                    .map(|p| GraphEdge::direct(p.unwrap().clone()))
+                    .collect_vec();
+                Ok((c.clone(), edges))
+            })
+            .collect_vec();
+
+        // TODO: This exists to strip out the Result types because ReverseGraphIterator
+        // assumes that the error type of its input iterator is RevsetEvaluationError
+        // when in this case, the input iterator is infallible (E is `()`), or at the
+        // very least a different error type. This is clunky but monkeying around in
+        // lib/src/graph proved to be a bit much for me.
+        let mut iter_nodes = vec![];
+        if args.reversed {
+            let reverse = ReverseGraphIterator::new(graph_nodes.iter().cloned()).unwrap();
+            for r in reverse {
+                iter_nodes.push(r.unwrap().clone());
+            }
+        } else {
+            for n in graph_nodes.iter() {
+                iter_nodes.push(n.as_ref().unwrap().clone());
+            }
+        }
+
+        for node in iter_nodes.iter() {
+            let (commit, edges) = node.clone();
+            let mut graphlog_edges = vec![];
+            for edge in edges {
+                match edge.edge_type {
+                    GraphEdgeType::Direct => {
+                        graphlog_edges.push(Edge::Direct(edge.target.id().clone()));
+                    }
+                    // `graph_nodes` only produces GraphEdges of type Direct, so handling
+                    // the other cases is irrelevant.
+                    // TODO: Should this even be a match then?
+                    _ => unreachable!(),
+                }
+            }
             let mut buffer = vec![];
-            let within_graph = with_content_format.sub_width(graph.width(commit.id(), &edges));
+            let within_graph =
+                with_content_format.sub_width(graph.width(commit.id(), &graphlog_edges));
             within_graph.write(ui.new_formatter(&mut buffer).as_mut(), |formatter| {
                 template.format(&commit, formatter)
             })?;
@@ -180,13 +226,19 @@ pub(crate) fn cmd_evolog(
             let node_symbol = format_template(ui, &Some(commit.clone()), &node_template);
             graph.add_node(
                 commit.id(),
-                &edges,
+                &graphlog_edges,
                 &node_symbol,
                 &String::from_utf8_lossy(&buffer),
             )?;
         }
     } else {
-        for commit in commits {
+        let commits_iter: Box<dyn Iterator<Item = _>> = if args.reversed {
+            Box::new(commits.iter().rev())
+        } else {
+            Box::new(commits.iter())
+        };
+
+        for commit in commits_iter {
             with_content_format
                 .write(formatter, |formatter| template.format(&commit, formatter))?;
             if let Some(renderer) = &diff_renderer {
