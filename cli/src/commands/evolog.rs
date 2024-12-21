@@ -12,10 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::convert::Infallible;
+
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools;
+use jj_lib::backend::BackendError;
+use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::dag_walk::topo_order_reverse_ok;
+use jj_lib::graph::reverse_graph;
+use jj_lib::graph::GraphEdge;
+use jj_lib::graph::GraphNode;
 use jj_lib::matchers::EverythingMatcher;
 use tracing::instrument;
 
@@ -28,6 +35,7 @@ use crate::command_error::CommandError;
 use crate::commit_templater::CommitTemplateLanguage;
 use crate::complete;
 use crate::diff_util::DiffFormatArgs;
+use crate::graphlog::convert_edge_type;
 use crate::graphlog::get_graphlog;
 use crate::graphlog::Edge;
 use crate::graphlog::GraphStyle;
@@ -57,6 +65,9 @@ pub(crate) struct EvologArgs {
         value_name = "LIMIT"
     )]
     deprecated_limit: Option<usize>,
+    /// Show revisions in the opposite order (older revisions first)
+    #[arg(long)]
+    reversed: bool,
     /// Don't show the graph, show a flat list of revisions
     #[arg(long)]
     no_graph: bool,
@@ -151,14 +162,31 @@ pub(crate) fn cmd_evolog(
     if !args.no_graph {
         let mut raw_output = formatter.raw()?;
         let mut graph = get_graphlog(graph_style, raw_output.as_mut());
-        for commit in commits {
-            let edges = commit
-                .predecessor_ids()
-                .iter()
-                .map(|id| Edge::Direct(id.clone()))
-                .collect_vec();
+
+        let commit_dag: Vec<GraphNode<Commit>> = commits
+            .into_iter()
+            .map(|c| -> Result<_, BackendError> {
+                let edges = c.predecessors().map_ok(GraphEdge::direct).try_collect()?;
+                Ok((c, edges))
+            })
+            .try_collect()?;
+
+        let iter_nodes = if args.reversed {
+            reverse_graph(commit_dag.into_iter().map(Result::<_, Infallible>::Ok)).unwrap()
+        } else {
+            commit_dag
+        };
+
+        for node in iter_nodes {
+            let (commit, edges) = node;
+            // Slightly different edge type used for display.
+            let graphlog_edges: Vec<Edge<CommitId>> = edges
+                .into_iter()
+                .map(|e| convert_edge_type(e).map(|e| e.id().clone()))
+                .collect();
             let mut buffer = vec![];
-            let within_graph = with_content_format.sub_width(graph.width(commit.id(), &edges));
+            let within_graph =
+                with_content_format.sub_width(graph.width(commit.id(), &graphlog_edges));
             within_graph.write(ui.new_formatter(&mut buffer).as_mut(), |formatter| {
                 template.format(&commit, formatter)
             })?;
@@ -180,12 +208,16 @@ pub(crate) fn cmd_evolog(
             let node_symbol = format_template(ui, &Some(commit.clone()), &node_template);
             graph.add_node(
                 commit.id(),
-                &edges,
+                &graphlog_edges,
                 &node_symbol,
                 &String::from_utf8_lossy(&buffer),
             )?;
         }
     } else {
+        if args.reversed {
+            commits.reverse();
+        }
+
         for commit in commits {
             with_content_format
                 .write(formatter, |formatter| template.format(&commit, formatter))?;

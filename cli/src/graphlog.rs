@@ -18,6 +18,8 @@ use std::io::Write;
 
 use itertools::Itertools;
 use jj_lib::config::ConfigGetError;
+use jj_lib::graph::GraphEdge;
+use jj_lib::graph::GraphEdgeType;
 use jj_lib::settings::UserSettings;
 use renderdag::Ancestor;
 use renderdag::GraphRowRenderer;
@@ -29,6 +31,28 @@ pub enum Edge<T> {
     Direct(T),
     Indirect(T),
     Missing,
+}
+
+impl<T> Edge<T> {
+    pub fn map<U>(self, f: impl FnOnce(T) -> U) -> Edge<U> {
+        match self {
+            Edge::Direct(inner) => Edge::Direct(f(inner)),
+            Edge::Indirect(inner) => Edge::Indirect(f(inner)),
+            Edge::Missing => Edge::Missing,
+        }
+    }
+}
+
+/// Used to convert a jj_lib GraphEdge into a graphlog Edge.
+pub fn convert_edge_type<N>(e: GraphEdge<N>) -> Edge<N> {
+    // TODO: Is it possible for the ClI to use the GraphEdge type directly?
+    // These two types seem to correspond exactly, only differing in minor
+    // implementation details.
+    match e.edge_type {
+        GraphEdgeType::Missing => Edge::Missing,
+        GraphEdgeType::Direct => Edge::Direct(e.target),
+        GraphEdgeType::Indirect => Edge::Indirect(e.target),
+    }
 }
 
 pub trait GraphLog<K: Clone + Eq + Hash> {

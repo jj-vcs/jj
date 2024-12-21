@@ -16,6 +16,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj evolog` now accepts `--reversed`.
+
 ### Fixed bugs
 
 ## [0.25.0] - 2025-01-01

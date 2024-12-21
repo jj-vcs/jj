@@ -348,3 +348,70 @@ fn test_evolog_with_no_template() {
     - name_placeholder
     "#);
 }
+
+#[test]
+fn test_evolog_reversed_no_graph() {
+    let test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    let repo_path = test_env.env_root().join("repo");
+
+    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "a"]);
+    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "b"]);
+    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "c"]);
+    let stdout = test_env.jj_cmd_success(&repo_path, &["evolog", "--reversed", "--no-graph"]);
+    insta::assert_snapshot!(stdout, @r"
+    qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 230dd059
+    (empty) (no description set)
+    qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 d8d5f980
+    (empty) a
+    qpvuntsm hidden test.user@example.com 2001-02-03 08:05:09 b4584f54
+    (empty) b
+    qpvuntsm test.user@example.com 2001-02-03 08:05:10 5cb22a87
+    (empty) c
+    ");
+}
+
+#[test]
+fn test_evolog_reverse_with_graph() {
+    let test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    let repo_path = test_env.env_root().join("repo");
+
+    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "a"]);
+    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "b"]);
+    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "c"]);
+    test_env.jj_cmd_ok(&repo_path, &["new", "-r", "description(c)", "-m", "d"]);
+    test_env.jj_cmd_ok(&repo_path, &["new", "-r", "description(c)", "-m", "e"]);
+    test_env.jj_cmd_ok(
+        &repo_path,
+        &[
+            "squash",
+            "--from",
+            "description(d)|description(e)",
+            "--to",
+            "description(c)",
+            "-m",
+            "c+d+e",
+        ],
+    );
+    let stdout = test_env.jj_cmd_success(
+        &repo_path,
+        &["evolog", "-r", "description(c+d+e)", "--reversed"],
+    );
+    insta::assert_snapshot!(stdout, @r"
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 230dd059
+    │  (empty) (no description set)
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 d8d5f980
+    │  (empty) a
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:09 b4584f54
+    │  (empty) b
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:10 5cb22a87
+    │  (empty) c
+    │ ○  mzvwutvl hidden test.user@example.com 2001-02-03 08:05:11 280cbb6e
+    ├─╯  (empty) d
+    │ ○  royxmykx hidden test.user@example.com 2001-02-03 08:05:12 031df638
+    ├─╯  (empty) e
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:13 a177c2f2
+       (empty) c+d+e
+    ");
+}

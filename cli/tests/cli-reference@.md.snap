@@ -797,6 +797,7 @@ Lists the previous commits which a change has pointed to. The current commit of 
 
   Default value: `@`
 * `-n`, `--limit <LIMIT>` — Limit number of revisions to show
+* `--reversed` — Show revisions in the opposite order (older revisions first)
 * `--no-graph` — Don't show the graph, show a flat list of revisions
 * `-T`, `--template <TEMPLATE>` — Render each revision using the given template
 
