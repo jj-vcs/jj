@@ -183,11 +183,13 @@ pub fn run_mergetool_external(
         .conflict_marker_style
         .unwrap_or(default_conflict_marker_style);
 
+    let uses_marker_length = find_all_variables(&editor.merge_args).contains(&"marker_length");
+
     // If the merge tool doesn't get conflict markers pre-populated in the output
-    // file, we should default to accepting MIN_CONFLICT_MARKER_LEN since the
-    // merge tool is unlikely to know about our rules for conflict marker length.
-    // In the future, we may want to add a "$markerLength" variable.
-    let conflict_marker_len = if editor.merge_tool_edits_conflict_markers {
+    // file and doesn't accept "$marker_length", then we should default to accepting
+    // MIN_CONFLICT_MARKER_LEN since the merge tool can't know about our rules for
+    // conflict marker length.
+    let conflict_marker_len = if editor.merge_tool_edits_conflict_markers || uses_marker_length {
         choose_materialized_conflict_marker_len(&content)
     } else {
         MIN_CONFLICT_MARKER_LEN
@@ -220,7 +222,7 @@ pub fn run_mergetool_external(
         // resolving the root path ever makes sense.
         "".to_owned()
     };
-    let paths: HashMap<&str, _> = files
+    let mut variables: HashMap<&str, _> = files
         .iter()
         .map(|(role, contents)| -> Result<_, ConflictResolveError> {
             let path = temp_dir.path().join(format!("{role}{suffix}"));
@@ -237,9 +239,10 @@ pub fn run_mergetool_external(
             ))
         })
         .try_collect()?;
+    variables.insert("marker_length", conflict_marker_len.to_string());
 
     let mut cmd = Command::new(&editor.program);
-    cmd.args(interpolate_variables(&editor.merge_args, &paths));
+    cmd.args(interpolate_variables(&editor.merge_args, &variables));
     tracing::info!(?cmd, "Invoking the external merge tool:");
     let exit_status = cmd
         .status()
@@ -260,7 +263,7 @@ pub fn run_mergetool_external(
     }
 
     let output_file_contents: Vec<u8> =
-        std::fs::read(paths.get("output").unwrap()).map_err(ExternalToolError::Io)?;
+        std::fs::read(variables.get("output").unwrap()).map_err(ExternalToolError::Io)?;
     if output_file_contents.is_empty() || output_file_contents == initial_output_content {
         return Err(ConflictResolveError::EmptyOrUnchanged);
     }

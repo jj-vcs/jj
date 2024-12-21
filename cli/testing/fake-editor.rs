@@ -27,6 +27,8 @@ use itertools::Itertools;
 struct Args {
     /// Path to the file to edit
     file: PathBuf,
+    /// Other arguments to the editor
+    other_args: Vec<String>,
 }
 
 fn main() {
@@ -60,6 +62,20 @@ fn main() {
                 let actual = String::from_utf8(fs::read(&args.file).unwrap()).unwrap();
                 if actual != payload {
                     eprintln!("fake-editor: Unexpected content.\n");
+                    eprintln!("EXPECTED: <{payload}>\nRECEIVED: <{actual}>");
+                    exit(1)
+                }
+            }
+            ["expect-arg", index] => {
+                let index = index.parse::<usize>().unwrap();
+                let Some(actual) = args.other_args.get(index) else {
+                    eprintln!("fake-editor: Missing argument at index {index}.\n");
+                    eprintln!("EXPECTED: <{payload}>");
+                    exit(1)
+                };
+
+                if actual != payload {
+                    eprintln!("fake-editor: Unexpected argument at index {index}.\n");
                     eprintln!("EXPECTED: <{payload}>\nRECEIVED: <{actual}>");
                     exit(1)
                 }

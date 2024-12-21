@@ -860,6 +860,11 @@ merge-tool-edits-conflict-markers = true    # See below for an explanation
 - `$base` is replaced with the path to a file containing the contents of the
   conflicted file in the last common ancestor of the two sides of the conflict.
 
+- `$marker_length` is replaced with the length of the conflict markers which
+  should be used for the file. This can be useful if the merge tool parses
+  and/or generates conflict markers. Usually, `jj` uses conflict markers of
+  length 7, but they can be longer if necessary to make parsing unambiguous.
+
 ### Editing conflict markers with a tool or a text editor
 
 By default, the merge tool starts with an empty output file. If the tool puts

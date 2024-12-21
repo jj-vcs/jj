@@ -1097,6 +1097,265 @@ fn test_resolve_conflicts_with_executable() {
 }
 
 #[test]
+fn test_resolve_long_conflict_markers() {
+    let mut test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    let repo_path = test_env.env_root().join("repo");
+
+    // Makes it easier to read the diffs between conflicts
+    test_env.add_config("ui.conflict-marker-style = 'snapshot'");
+
+    // Create a conflict which requires long conflict markers to be materialized
+    create_commit(
+        &test_env,
+        &repo_path,
+        "base",
+        &[],
+        &[("file", "======= base\n")],
+    );
+    create_commit(
+        &test_env,
+        &repo_path,
+        "a",
+        &["base"],
+        &[("file", "<<<<<<< a\n")],
+    );
+    create_commit(
+        &test_env,
+        &repo_path,
+        "b",
+        &["base"],
+        &[("file", ">>>>>>> b\n")],
+    );
+    create_commit(&test_env, &repo_path, "conflict", &["a", "b"], &[]);
+    insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["resolve", "--list"]), 
+    @"file    2-sided conflict");
+    insta::assert_snapshot!(
+        std::fs::read_to_string(repo_path.join("file")).unwrap(),
+        @r##"
+    <<<<<<<<<<< Conflict 1 of 1
+    +++++++++++ Contents of side #1
+    <<<<<<< a
+    ----------- Contents of base
+    ======= base
+    +++++++++++ Contents of side #2
+    >>>>>>> b
+    >>>>>>>>>>> Conflict 1 of 1 ends
+    "##
+    );
+    let editor_script = test_env.set_up_fake_editor();
+    // Allow signaling that conflict markers were produced even if not editing
+    // conflict markers materialized in the output file
+    test_env.add_config("merge-tools.fake-editor.merge-conflict-exit-codes = [1]");
+
+    // By default, conflict markers of length 7 or longer are parsed for
+    // compatibility with Git merge tools
+    std::fs::write(
+        &editor_script,
+        indoc! {b"
+        write
+        <<<<<<<
+        A
+        |||||||
+        BASE
+        =======
+        B
+        >>>>>>>
+        \0fail
+        "},
+    )
+    .unwrap();
+    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["resolve"]);
+    insta::assert_snapshot!(stdout, @r#""#);
+    insta::assert_snapshot!(stderr, @r#"
+    Resolving conflicts in: file
+    Working copy now at: vruxwmqv 2b985546 conflict | (conflict) conflict
+    Parent commit      : zsuskuln 64177fd4 a | a
+    Parent commit      : royxmykx db442c1e b | b
+    Added 0 files, modified 1 files, removed 0 files
+    There are unresolved conflicts at these paths:
+    file    2-sided conflict
+    New conflicts appeared in these commits:
+      vruxwmqv 2b985546 conflict | (conflict) conflict
+    To resolve the conflicts, start by updating to it:
+      jj new vruxwmqv
+    Then use `jj resolve`, or edit the conflict markers in the file directly.
+    Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
+    Then run `jj squash` to move the resolution into the conflicted commit.
+    "#);
+    insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff", "--git"]), 
+    @r##"
+    diff --git a/file b/file
+    --- a/file
+    +++ b/file
+    @@ -1,8 +1,8 @@
+    -<<<<<<<<<<< Conflict 1 of 1
+    -+++++++++++ Contents of side #1
+    -<<<<<<< a
+    ------------ Contents of base
+    -======= base
+    -+++++++++++ Contents of side #2
+    ->>>>>>> b
+    ->>>>>>>>>>> Conflict 1 of 1 ends
+    +<<<<<<< Conflict 1 of 1
+    ++++++++ Contents of side #1
+    +A
+    +------- Contents of base
+    +BASE
+    ++++++++ Contents of side #2
+    +B
+    +>>>>>>> Conflict 1 of 1 ends
+    "##);
+    insta::assert_snapshot!(
+        test_env.jj_cmd_success(&repo_path, &["resolve", "--list"]),
+        @"file    2-sided conflict"
+    );
+
+    // If the merge tool edits the output file with materialized markers, the
+    // markers must match the length of the materialized markers to be parsed
+    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    std::fs::write(
+        &editor_script,
+        indoc! {b"
+        dump editor
+        \0write
+        <<<<<<<<<<<
+        <<<<<<< A
+        |||||||||||
+        ======= BASE
+        ===========
+        >>>>>>> B
+        >>>>>>>>>>>
+        \0fail
+        "},
+    )
+    .unwrap();
+    let (stdout, stderr) = test_env.jj_cmd_ok(
+        &repo_path,
+        &[
+            "resolve",
+            "--config=merge-tools.fake-editor.merge-tool-edits-conflict-markers=true",
+        ],
+    );
+    insta::assert_snapshot!(stdout, @r#""#);
+    insta::assert_snapshot!(stderr, @r#"
+    Resolving conflicts in: file
+    Working copy now at: vruxwmqv fac9406d conflict | (conflict) conflict
+    Parent commit      : zsuskuln 64177fd4 a | a
+    Parent commit      : royxmykx db442c1e b | b
+    Added 0 files, modified 1 files, removed 0 files
+    There are unresolved conflicts at these paths:
+    file    2-sided conflict
+    New conflicts appeared in these commits:
+      vruxwmqv fac9406d conflict | (conflict) conflict
+    To resolve the conflicts, start by updating to it:
+      jj new vruxwmqv
+    Then use `jj resolve`, or edit the conflict markers in the file directly.
+    Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
+    Then run `jj squash` to move the resolution into the conflicted commit.
+    "#);
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r##"
+    <<<<<<<<<<< Conflict 1 of 1
+    +++++++++++ Contents of side #1
+    <<<<<<< a
+    ----------- Contents of base
+    ======= base
+    +++++++++++ Contents of side #2
+    >>>>>>> b
+    >>>>>>>>>>> Conflict 1 of 1 ends
+    "##);
+    insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff", "--git"]), 
+    @r##"
+    diff --git a/file b/file
+    --- a/file
+    +++ b/file
+    @@ -1,8 +1,8 @@
+     <<<<<<<<<<< Conflict 1 of 1
+     +++++++++++ Contents of side #1
+    -<<<<<<< a
+    +<<<<<<< A
+     ----------- Contents of base
+    -======= base
+    +======= BASE
+     +++++++++++ Contents of side #2
+    ->>>>>>> b
+    +>>>>>>> B
+     >>>>>>>>>>> Conflict 1 of 1 ends
+    "##);
+    insta::assert_snapshot!(
+        test_env.jj_cmd_success(&repo_path, &["resolve", "--list"]),
+        @"file    2-sided conflict"
+    );
+
+    // If the merge tool accepts the marker length as an argument, then the conflict
+    // markers should be at least as long as "$marker_length"
+    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    std::fs::write(
+        &editor_script,
+        indoc! {b"
+        expect-arg 0
+        11\0write
+        <<<<<<<<<<<
+        <<<<<<< A
+        |||||||||||
+        ======= BASE
+        ===========
+        >>>>>>> B
+        >>>>>>>>>>>
+        \0fail
+        "},
+    )
+    .unwrap();
+    let (stdout, stderr) = test_env.jj_cmd_ok(
+        &repo_path,
+        &[
+            "resolve",
+            r#"--config=merge-tools.fake-editor.merge-args=["$output", "$marker_length"]"#,
+        ],
+    );
+    insta::assert_snapshot!(stdout, @r#""#);
+    insta::assert_snapshot!(stderr, @r#"
+    Resolving conflicts in: file
+    Working copy now at: vruxwmqv 1b29631a conflict | (conflict) conflict
+    Parent commit      : zsuskuln 64177fd4 a | a
+    Parent commit      : royxmykx db442c1e b | b
+    Added 0 files, modified 1 files, removed 0 files
+    There are unresolved conflicts at these paths:
+    file    2-sided conflict
+    New conflicts appeared in these commits:
+      vruxwmqv 1b29631a conflict | (conflict) conflict
+    To resolve the conflicts, start by updating to it:
+      jj new vruxwmqv
+    Then use `jj resolve`, or edit the conflict markers in the file directly.
+    Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
+    Then run `jj squash` to move the resolution into the conflicted commit.
+    "#);
+    insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff", "--git"]), 
+    @r##"
+    diff --git a/file b/file
+    --- a/file
+    +++ b/file
+    @@ -1,8 +1,8 @@
+     <<<<<<<<<<< Conflict 1 of 1
+     +++++++++++ Contents of side #1
+    -<<<<<<< a
+    +<<<<<<< A
+     ----------- Contents of base
+    -======= base
+    +======= BASE
+     +++++++++++ Contents of side #2
+    ->>>>>>> b
+    +>>>>>>> B
+     >>>>>>>>>>> Conflict 1 of 1 ends
+    "##);
+    insta::assert_snapshot!(
+        test_env.jj_cmd_success(&repo_path, &["resolve", "--list"]),
+        @"file    2-sided conflict"
+    );
+}
+
+#[test]
 fn test_multiple_conflicts() {
     let mut test_env = TestEnvironment::default();
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
