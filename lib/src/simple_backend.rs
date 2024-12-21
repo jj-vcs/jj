@@ -467,11 +467,16 @@ fn tree_from_proto(proto: crate::protos::simple_store::Tree) -> Tree {
 fn tree_value_to_proto(value: &TreeValue) -> crate::protos::simple_store::TreeValue {
     let mut proto = crate::protos::simple_store::TreeValue::default();
     match value {
-        TreeValue::File { id, executable } => {
+        TreeValue::File {
+            id,
+            executable,
+            copy_id,
+        } => {
             proto.value = Some(crate::protos::simple_store::tree_value::Value::File(
                 crate::protos::simple_store::tree_value::File {
                     id: id.to_bytes(),
                     executable: *executable,
+                    copy_id: copy_id.to_bytes(),
                 },
             ));
         }
@@ -503,10 +508,15 @@ fn tree_value_from_proto(proto: crate::protos::simple_store::TreeValue) -> TreeV
             TreeValue::Tree(TreeId::new(id))
         }
         crate::protos::simple_store::tree_value::Value::File(
-            crate::protos::simple_store::tree_value::File { id, executable, .. },
+            crate::protos::simple_store::tree_value::File {
+                id,
+                executable,
+                copy_id,
+            },
         ) => TreeValue::File {
             id: FileId::new(id),
             executable,
+            copy_id: CopyId::new(copy_id),
         },
         crate::protos::simple_store::tree_value::Value::SymlinkId(id) => {
             TreeValue::Symlink(SymlinkId::new(id))

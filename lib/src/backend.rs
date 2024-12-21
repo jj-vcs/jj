@@ -61,6 +61,15 @@ impl ChangeId {
     }
 }
 
+impl CopyId {
+    /// Returns a placeholder copy id to be used when we don't have a real copy
+    /// id yet.
+    // TODO: Delete this
+    pub fn placeholder() -> Self {
+        Self::new(vec![])
+    }
+}
+
 #[derive(ContentHash, Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord)]
 pub struct MillisSinceEpoch(pub i64);
 
@@ -290,7 +299,11 @@ pub type BackendResult<T> = Result<T, BackendError>;
 pub enum TreeValue {
     // TODO: When there's a CopyId here, the copy object's path must match
     // the path identified by the tree.
-    File { id: FileId, executable: bool },
+    File {
+        id: FileId,
+        executable: bool,
+        copy_id: CopyId,
+    },
     Symlink(SymlinkId),
     Tree(TreeId),
     GitSubmodule(CommitId),

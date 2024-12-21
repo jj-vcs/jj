@@ -47,7 +47,7 @@ use jj_lib::backend::SigningFn;
 use jj_lib::backend::SymlinkId;
 use jj_lib::backend::Tree;
 use jj_lib::backend::TreeId;
-use jj_lib::dag_walk::topo_order_forward;
+use jj_lib::dag_walk::topo_order_reverse;
 use jj_lib::index::Index;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo_path::RepoPath;
@@ -284,7 +284,7 @@ impl Backend for TestBackend {
         // Return all copy histories to test that the caller correctly ignores histories
         // that are not relevant to the trees they're working with.
         let mut histories = vec![];
-        for id in topo_order_forward(
+        for id in topo_order_reverse(
             copies.keys(),
             |id| *id,
             |id| copies.get(*id).unwrap().parents.iter(),

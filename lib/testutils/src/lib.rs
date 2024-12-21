@@ -31,6 +31,7 @@ use jj_lib::backend::Backend;
 use jj_lib::backend::BackendInitError;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
+use jj_lib::backend::CopyId;
 use jj_lib::backend::FileId;
 use jj_lib::backend::MergedTreeId;
 use jj_lib::backend::MillisSinceEpoch;
@@ -459,6 +460,7 @@ impl Drop for TestTreeFileEntryBuilder<'_> {
             TreeValue::File {
                 id,
                 executable: self.executable,
+                copy_id: CopyId::placeholder(),
             },
         );
     }
@@ -554,7 +556,11 @@ pub fn dump_tree(store: &Arc<Store>, tree_id: &MergedTreeId) -> String {
     let tree = store.get_root_tree(tree_id).unwrap();
     for (path, result) in tree.entries() {
         match result.unwrap().into_resolved() {
-            Ok(Some(TreeValue::File { id, executable: _ })) => {
+            Ok(Some(TreeValue::File {
+                id,
+                executable: _,
+                copy_id: _,
+            })) => {
                 let file_buf = read_file(store, &path, &id);
                 let file_contents = String::from_utf8_lossy(&file_buf);
                 writeln!(&mut buf, "  file {path:?} ({id}): {file_contents:?}").unwrap();

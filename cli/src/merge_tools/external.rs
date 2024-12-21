@@ -9,6 +9,7 @@ use std::sync::Arc;
 
 use bstr::BString;
 use itertools::Itertools as _;
+use jj_lib::backend::CopyId;
 use jj_lib::backend::MergedTreeId;
 use jj_lib::backend::TreeValue;
 use jj_lib::conflicts;
@@ -317,7 +318,11 @@ fn run_mergetool_external_single_file(
     let new_tree_value = match new_file_ids.into_resolved() {
         Ok(file_id) => {
             let executable = file.executable.expect("should have been resolved");
-            Merge::resolved(file_id.map(|id| TreeValue::File { id, executable }))
+            Merge::resolved(file_id.map(|id| TreeValue::File {
+                id,
+                executable,
+                copy_id: CopyId::placeholder(),
+            }))
         }
         // Update the file ids only, leaving the executable flags unchanged
         Err(file_ids) => conflict.with_new_file_ids(&file_ids),

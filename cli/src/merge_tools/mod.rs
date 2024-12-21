@@ -20,6 +20,7 @@ use std::sync::Arc;
 
 use itertools::Itertools as _;
 use jj_lib::backend::BackendError;
+use jj_lib::backend::CopyId;
 use jj_lib::backend::MergedTreeId;
 use jj_lib::backend::TreeValue;
 use jj_lib::config::ConfigGetError;
@@ -464,8 +465,11 @@ fn pick_conflict_side(
         let file = &merge_tool_file.file;
         let file_id = file.ids.get_add(add_index).unwrap();
         let executable = file.executable.expect("should have been resolved");
-        let new_tree_value =
-            Merge::resolved(file_id.clone().map(|id| TreeValue::File { id, executable }));
+        let new_tree_value = Merge::resolved(file_id.clone().map(|id| TreeValue::File {
+            id,
+            executable,
+            copy_id: CopyId::placeholder(),
+        }));
         tree_builder.set_or_remove(merge_tool_file.repo_path.clone(), new_tree_value);
     }
     tree_builder.write_tree(tree.store())
