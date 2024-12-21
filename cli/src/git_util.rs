@@ -74,11 +74,15 @@ pub fn map_git_error(err: git2::Error) -> CommandError {
     }
 }
 
+pub fn get_git_backend(store: &Store) -> Result<&GitBackend, CommandError> {
+    store
+        .backend_impl()
+        .downcast_ref()
+        .ok_or_else(|| user_error("The repo is not backed by a git repo"))
+}
+
 pub fn get_git_repo(store: &Store) -> Result<git2::Repository, CommandError> {
-    match store.backend_impl().downcast_ref::<GitBackend>() {
-        None => Err(user_error("The repo is not backed by a git repo")),
-        Some(git_backend) => Ok(git_backend.open_git_repo()?),
-    }
+    Ok(get_git_backend(store)?.open_git_repo()?)
 }
 
 pub fn is_colocated_git_workspace(workspace: &Workspace, repo: &ReadonlyRepo) -> bool {

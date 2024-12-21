@@ -14,11 +14,12 @@
 
 use std::io::Write;
 
-use jj_lib::repo::Repo;
+use jj_lib::repo::Repo as _;
 
 use crate::cli_util::CommandHelper;
+use crate::command_error::user_error_with_message;
 use crate::command_error::CommandError;
-use crate::git_util::get_git_repo;
+use crate::git_util::get_git_backend;
 use crate::ui::Ui;
 
 /// List Git remotes
@@ -31,16 +32,25 @@ pub fn cmd_git_remote_list(
     _args: &GitRemoteListArgs,
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui)?;
-    let repo = workspace_command.repo();
-    let git_repo = get_git_repo(repo.store())?;
-    for remote_name in git_repo.remotes()?.iter().flatten() {
-        let remote = git_repo.find_remote(remote_name)?;
-        writeln!(
-            ui.stdout(),
-            "{} {}",
-            remote_name,
-            remote.url().unwrap_or("<no URL>")
-        )?;
+    let git_backend = get_git_backend(workspace_command.repo().store())?;
+    let git_repo = git_backend.git_repo();
+    for remote_name in git_repo.remote_names() {
+        let remote = match git_repo.try_find_remote(&*remote_name) {
+            Some(Ok(remote)) => remote,
+            Some(Err(err)) => {
+                return Err(user_error_with_message(
+                    format!("Failed to load configured remote {remote_name}"),
+                    err,
+                ))
+            }
+            None => continue, // ignore empty [remote "<name>"] section
+        };
+        // TODO: print push url (by default or by some flag)?
+        let fetch_url = remote
+            .url(gix::remote::Direction::Fetch)
+            .map(|url| url.to_bstring())
+            .unwrap_or_else(|| "<no URL>".into());
+        writeln!(ui.stdout(), "{remote_name} {fetch_url}")?;
     }
     Ok(())
 }
