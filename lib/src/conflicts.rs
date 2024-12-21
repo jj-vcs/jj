@@ -33,6 +33,7 @@ use tokio::io::AsyncReadExt as _;
 use crate::backend::BackendError;
 use crate::backend::BackendResult;
 use crate::backend::CommitId;
+use crate::backend::CopyId;
 use crate::backend::FileId;
 use crate::backend::SymlinkId;
 use crate::backend::TreeId;
@@ -154,6 +155,7 @@ impl MaterializedTreeValue {
 pub struct MaterializedFileValue {
     pub id: FileId,
     pub executable: bool,
+    pub copy_id: CopyId,
     pub reader: Pin<Box<dyn AsyncRead>>,
 }
 
@@ -188,6 +190,8 @@ pub struct MaterializedFileConflictValue {
     /// Merged executable bit. `None` if there are changes in both executable
     /// bit and file absence.
     pub executable: Option<bool>,
+    /// Merged copy id. `None` if no single value could be determined.
+    pub copy_id: Option<CopyId>,
 }
 
 /// Reads the data associated with a `MergedTreeValue` so it can be written to
@@ -212,11 +216,16 @@ async fn materialize_tree_value_no_access_denied(
 ) -> BackendResult<MaterializedTreeValue> {
     match value.into_resolved() {
         Ok(None) => Ok(MaterializedTreeValue::Absent),
-        Ok(Some(TreeValue::File { id, executable })) => {
+        Ok(Some(TreeValue::File {
+            id,
+            executable,
+            copy_id,
+        })) => {
             let reader = store.read_file(path, &id).await?;
             Ok(MaterializedTreeValue::File(MaterializedFileValue {
                 id,
                 executable,
+                copy_id,
                 reader,
             }))
         }
@@ -256,6 +265,7 @@ pub async fn try_materialize_file_conflict_value(
         ids,
         contents,
         executable,
+        copy_id: Some(CopyId::placeholder()),
     }))
 }
 

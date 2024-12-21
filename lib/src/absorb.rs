@@ -106,8 +106,12 @@ pub async fn split_hunks_to_trees(
         let left_path = entry.path.source();
         let right_path = entry.path.target();
         let (left_value, right_value) = entry.values?;
-        let (left_text, executable) = match to_file_value(left_value) {
-            Ok(Some(mut value)) => (value.read_all(left_path).await?, value.executable),
+        let (left_text, executable, copy_id) = match to_file_value(left_value) {
+            Ok(Some(mut value)) => (
+                value.read_all(left_path).await?,
+                value.executable,
+                value.copy_id,
+            ),
             // New file should have no destinations
             Ok(None) => continue,
             Err(reason) => {
@@ -156,7 +160,11 @@ pub async fn split_hunks_to_trees(
                     .store()
                     .write_file(left_path, &mut new_text.as_slice())
                     .await?;
-                Merge::normal(TreeValue::File { id, executable })
+                Merge::normal(TreeValue::File {
+                    id,
+                    executable,
+                    copy_id: copy_id.clone(),
+                })
             };
             tree_builder.set_or_remove(left_path.to_owned(), new_tree_value);
         }

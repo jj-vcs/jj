@@ -410,7 +410,7 @@ impl Backend for TestBackend {
 #[cfg(test)]
 mod tests {
 
-    use pollster::FutureExt;
+    use pollster::FutureExt as _;
 
     use super::*;
     use crate::repo_path_buf;
