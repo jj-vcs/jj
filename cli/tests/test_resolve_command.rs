@@ -950,6 +950,159 @@ fn test_description_with_dir_and_deletion() {
 }
 
 #[test]
+fn test_resolve_conflicts_with_executable() {
+    let mut test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    let repo_path = test_env.env_root().join("repo");
+
+    // Create a conflict in "file1" where all 3 terms are executables, and create a
+    // conflict in "file2" where one side set the executable bit.
+    create_commit(
+        &test_env,
+        &repo_path,
+        "base",
+        &[],
+        &[("file1", "base1\n"), ("file2", "base2\n")],
+    );
+    test_env.jj_cmd_ok(&repo_path, &["file", "chmod", "x", "file1"]);
+    create_commit(
+        &test_env,
+        &repo_path,
+        "a",
+        &["base"],
+        &[("file1", "a1\n"), ("file2", "a2\n")],
+    );
+    create_commit(
+        &test_env,
+        &repo_path,
+        "b",
+        &["base"],
+        &[("file1", "b1\n"), ("file2", "b2\n")],
+    );
+    test_env.jj_cmd_ok(&repo_path, &["file", "chmod", "x", "file2"]);
+    create_commit(&test_env, &repo_path, "conflict", &["a", "b"], &[]);
+    insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["resolve", "--list"]), 
+    @r#"
+    file1    2-sided conflict including an executable
+    file2    2-sided conflict including an executable
+    "#);
+    insta::assert_snapshot!(
+        std::fs::read_to_string(repo_path.join("file1")).unwrap(),
+        @r##"
+    <<<<<<< Conflict 1 of 1
+    %%%%%%% Changes from base to side #1
+    -base1
+    +a1
+    +++++++ Contents of side #2
+    b1
+    >>>>>>> Conflict 1 of 1 ends
+    "##
+    );
+    insta::assert_snapshot!(
+        std::fs::read_to_string(repo_path.join("file2")).unwrap(),
+        @r##"
+    <<<<<<< Conflict 1 of 1
+    %%%%%%% Changes from base to side #1
+    -base2
+    +a2
+    +++++++ Contents of side #2
+    b2
+    >>>>>>> Conflict 1 of 1 ends
+    "##
+    );
+    let editor_script = test_env.set_up_fake_editor();
+
+    // TODO: resolving the conflict in "file1" should produce an executable, but it
+    // currently doesn't
+    std::fs::write(&editor_script, b"write\nresolution1\n").unwrap();
+    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["resolve", "file1"]);
+    insta::assert_snapshot!(stdout, @r#""#);
+    insta::assert_snapshot!(stderr, @r#"
+    Resolving conflicts in: file1
+    Working copy now at: znkkpsqq 1a12c872 conflict | (conflict) conflict
+    Parent commit      : mzvwutvl 08932848 a | a
+    Parent commit      : yqosqzyt b69b3de6 b | b
+    Added 0 files, modified 1 files, removed 0 files
+    There are unresolved conflicts at these paths:
+    file2    2-sided conflict including an executable
+    New conflicts appeared in these commits:
+      znkkpsqq 1a12c872 conflict | (conflict) conflict
+    To resolve the conflicts, start by updating to it:
+      jj new znkkpsqq
+    Then use `jj resolve`, or edit the conflict markers in the file directly.
+    Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
+    Then run `jj squash` to move the resolution into the conflicted commit.
+    "#);
+    insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff", "--git"]), 
+    @r##"
+    diff --git a/file1 b/file1
+    old mode 100755
+    new mode 100644
+    index 0000000000..95cc18629d
+    --- a/file1
+    +++ b/file1
+    @@ -1,7 +1,1 @@
+    -<<<<<<< Conflict 1 of 1
+    -%%%%%%% Changes from base to side #1
+    --base1
+    -+a1
+    -+++++++ Contents of side #2
+    -b1
+    ->>>>>>> Conflict 1 of 1 ends
+    +resolution1
+    "##);
+    insta::assert_snapshot!(
+        test_env.jj_cmd_success(&repo_path, &["resolve", "--list"]),
+        @"file2    2-sided conflict including an executable"
+    );
+
+    // TODO: resolving the conflict in "file2" should produce an executable, but it
+    // currently doesn't
+    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    std::fs::write(&editor_script, b"write\nresolution2\n").unwrap();
+    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["resolve", "file2"]);
+    insta::assert_snapshot!(stdout, @r#""#);
+    insta::assert_snapshot!(stderr, @r#"
+    Resolving conflicts in: file2
+    Working copy now at: znkkpsqq 5b6d14ea conflict | (conflict) conflict
+    Parent commit      : mzvwutvl 08932848 a | a
+    Parent commit      : yqosqzyt b69b3de6 b | b
+    Added 0 files, modified 1 files, removed 0 files
+    There are unresolved conflicts at these paths:
+    file1    2-sided conflict including an executable
+    New conflicts appeared in these commits:
+      znkkpsqq 5b6d14ea conflict | (conflict) conflict
+    To resolve the conflicts, start by updating to it:
+      jj new znkkpsqq
+    Then use `jj resolve`, or edit the conflict markers in the file directly.
+    Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
+    Then run `jj squash` to move the resolution into the conflicted commit.
+    "#);
+    insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff", "--git"]), 
+    @r##"
+    diff --git a/file2 b/file2
+    old mode 100755
+    new mode 100644
+    index 0000000000..775f078581
+    --- a/file2
+    +++ b/file2
+    @@ -1,7 +1,1 @@
+    -<<<<<<< Conflict 1 of 1
+    -%%%%%%% Changes from base to side #1
+    --base2
+    -+a2
+    -+++++++ Contents of side #2
+    -b2
+    ->>>>>>> Conflict 1 of 1 ends
+    +resolution2
+    "##);
+    insta::assert_snapshot!(
+        test_env.jj_cmd_success(&repo_path, &["resolve", "--list"]),
+        @"file1    2-sided conflict including an executable"
+    );
+}
+
+#[test]
 fn test_multiple_conflicts() {
     let mut test_env = TestEnvironment::default();
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
