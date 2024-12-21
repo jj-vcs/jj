@@ -88,6 +88,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * On Windows, workspace paths (printed by `jj root`) no longer use UNC-style
   `\\?\` paths unless necessary.
 
+* On Windows, `jj git clone` now converts local Git remote path to
+  slash-separated path.
+
 * `jj resolve` no longer removes the executable bit on resolved files when using
   an external merge tool.
 

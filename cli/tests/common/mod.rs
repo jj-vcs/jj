@@ -321,16 +321,20 @@ impl TestEnvironment {
 
     pub fn normalize_output(&self, text: &str) -> String {
         let text = text.replace("jj.exe", "jj");
-        let regex = Regex::new(&format!(
-            r"{}(\S+)",
-            regex::escape(&self.env_root.display().to_string())
-        ))
-        .unwrap();
-        regex
-            .replace_all(&text, |caps: &Captures| {
-                format!("$TEST_ENV{}", caps[1].replace('\\', "/"))
-            })
-            .to_string()
+        let env_root = self.env_root.display().to_string();
+        // Platform-native $TEST_ENV
+        let regex = Regex::new(&format!(r"{}(\S+)", regex::escape(&env_root))).unwrap();
+        let text = regex.replace_all(&text, |caps: &Captures| {
+            format!("$TEST_ENV{}", caps[1].replace('\\', "/"))
+        });
+        // Slash-separated $TEST_ENV
+        let text = if cfg!(windows) {
+            let regex = Regex::new(&regex::escape(&env_root.replace('\\', "/"))).unwrap();
+            regex.replace_all(&text, regex::NoExpand("$TEST_ENV"))
+        } else {
+            text
+        };
+        text.into_owned()
     }
 
     /// Used before mutating operations to create more predictable commit ids

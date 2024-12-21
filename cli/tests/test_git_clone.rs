@@ -162,6 +162,24 @@ fn test_git_clone() {
 }
 
 #[test]
+fn test_git_clone_bad_source() {
+    let test_env = TestEnvironment::default();
+
+    let stderr = test_env.jj_cmd_cli_error(test_env.env_root(), &["git", "clone", "", "dest"]);
+    insta::assert_snapshot!(stderr, @r#"Error: local path "" does not specify a path to a repository"#);
+
+    // Invalid port number
+    let stderr = test_env.jj_cmd_cli_error(
+        test_env.env_root(),
+        &["git", "clone", "https://example.net:bad-port/bar", "dest"],
+    );
+    insta::assert_snapshot!(stderr, @r#"
+    Error: URL "https://example.net:bad-port/bar" can not be parsed as valid URL
+    Caused by: invalid port number
+    "#);
+}
+
+#[test]
 fn test_git_clone_colocate() {
     let test_env = TestEnvironment::default();
     test_env.add_config("git.auto-local-bookmark = true");
