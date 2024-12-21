@@ -183,12 +183,12 @@ pub(crate) fn cmd_evolog(
                 iter_nodes.push(r.unwrap().clone());
             }
         } else {
-            for n in graph_nodes.iter() {
+            for n in graph_nodes {
                 iter_nodes.push(n.as_ref().unwrap().clone());
             }
         }
 
-        for node in iter_nodes.iter() {
+        for node in iter_nodes {
             let (commit, edges) = node.clone();
             let mut graphlog_edges = vec![];
             for edge in edges {
@@ -239,8 +239,7 @@ pub(crate) fn cmd_evolog(
         };
 
         for commit in commits_iter {
-            with_content_format
-                .write(formatter, |formatter| template.format(&commit, formatter))?;
+            with_content_format.write(formatter, |formatter| template.format(commit, formatter))?;
             if let Some(renderer) = &diff_renderer {
                 let predecessors: Vec<_> = commit.predecessors().try_collect()?;
                 let width = ui.term_width();
@@ -248,7 +247,7 @@ pub(crate) fn cmd_evolog(
                     ui,
                     formatter,
                     &predecessors,
-                    &commit,
+                    commit,
                     &EverythingMatcher,
                     width,
                 )?;
