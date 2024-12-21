@@ -14,6 +14,7 @@
 
 use std::any::Any;
 use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::fmt::Error;
 use std::fmt::Formatter;
@@ -29,6 +30,7 @@ use std::time::SystemTime;
 use async_trait::async_trait;
 use futures::stream;
 use futures::stream::BoxStream;
+use gix::hashtable::hash_set::HashSet;
 use jj_lib::backend::make_root_commit;
 use jj_lib::backend::Backend;
 use jj_lib::backend::BackendError;
@@ -38,6 +40,8 @@ use jj_lib::backend::Commit;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::Conflict;
 use jj_lib::backend::ConflictId;
+use jj_lib::backend::CopyHistory;
+use jj_lib::backend::CopyId;
 use jj_lib::backend::CopyRecord;
 use jj_lib::backend::FileId;
 use jj_lib::backend::SecureSig;
@@ -68,6 +72,7 @@ pub struct TestBackendData {
     files: HashMap<RepoPathBuf, HashMap<FileId, Vec<u8>>>,
     symlinks: HashMap<RepoPathBuf, HashMap<SymlinkId, String>>,
     conflicts: HashMap<RepoPathBuf, HashMap<ConflictId, Conflict>>,
+    copies: HashMap<CopyId, CopyHistory>,
 }
 
 #[derive(Clone, Default)]
@@ -249,6 +254,51 @@ impl Backend for TestBackend {
         Ok(id)
     }
 
+    async fn read_copy(&self, id: &CopyId) -> BackendResult<CopyHistory> {
+        let copy = self.locked_data().copies.get(id).cloned().ok_or_else(|| {
+            BackendError::ObjectNotFound {
+                object_type: "copy".to_string(),
+                hash: id.hex(),
+                source: "".into(),
+            }
+        })?;
+        Ok(copy)
+    }
+
+    async fn write_copy(&self, contents: &CopyHistory) -> BackendResult<CopyId> {
+        let id = CopyId::new(get_hash(contents));
+        self.locked_data()
+            .copies
+            .insert(id.clone(), contents.clone());
+        Ok(id)
+    }
+
+    async fn get_related_copies(&self, copy_id: &CopyId) -> BackendResult<Vec<CopyHistory>> {
+        let copies = &self.locked_data().copies;
+        if !copies.contains_key(copy_id) {
+            return Err(BackendError::ObjectNotFound {
+                object_type: "copy history".to_string(),
+                hash: copy_id.hex(),
+                source: "".into(),
+            });
+        }
+        // Return all copy histories to test that the caller correctly ignores histories
+        // that are not relevant to the trees they're working with.
+        let mut work: VecDeque<_> = copies.iter().collect();
+        let mut histories = vec![];
+        let mut emitted = HashSet::new();
+        while let Some((id, copy)) = work.pop_front() {
+            if copy.parents.iter().all(|id| emitted.contains(id)) {
+                histories.push(copy.clone());
+                emitted.insert(id);
+            } else {
+                work.push_back((id, copy));
+            }
+        }
+        histories.reverse();
+        Ok(histories)
+    }
+
     async fn read_tree(&self, path: &RepoPath, id: &TreeId) -> BackendResult<Tree> {
         if id == &self.empty_tree_id {
             return Ok(Tree::default());
@@ -354,5 +404,48 @@ impl Backend for TestBackend {
 
     fn gc(&self, _index: &dyn Index, _keep_newer: SystemTime) -> BackendResult<()> {
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use pollster::FutureExt;
+
+    use super::*;
+    use crate::repo_path_buf;
+
+    fn copy_history(path: &str, parents: &[CopyId]) -> CopyHistory {
+        CopyHistory {
+            current_path: repo_path_buf(path),
+            parents: parents.to_vec(),
+            salt: vec![],
+        }
+    }
+
+    #[test]
+    fn get_related_copies() {
+        let backend = TestBackend::with_data(Arc::new(Mutex::new(TestBackendData::default())));
+
+        // Test with a single chain so the resulting order is deterministic
+        let copy1 = copy_history("foo1", &[]);
+        let copy1_id = backend.write_copy(&copy1).block_on().unwrap();
+        let copy2 = copy_history("foo2", &[copy1_id.clone()]);
+        let copy2_id = backend.write_copy(&copy2).block_on().unwrap();
+        let copy3 = copy_history("foo3", &[copy2_id.clone()]);
+        let copy3_id = backend.write_copy(&copy3).block_on().unwrap();
+
+        // Error when looking up by non-existent id
+        assert!(backend
+            .get_related_copies(&CopyId::from_hex("abcd"))
+            .block_on()
+            .is_err());
+
+        // Looking up by any id returns the related copies in the same order (children
+        // before parents)
+        let related = backend.get_related_copies(&copy1_id).block_on().unwrap();
+        assert_eq!(related, vec![copy3.clone(), copy2.clone(), copy1.clone()]);
+        let related: Vec<CopyHistory> = backend.get_related_copies(&copy3_id).block_on().unwrap();
+        assert_eq!(related, vec![copy3.clone(), copy2.clone(), copy1.clone()]);
     }
 }
