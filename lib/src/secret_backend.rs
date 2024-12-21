@@ -32,6 +32,8 @@ use crate::backend::Commit;
 use crate::backend::CommitId;
 use crate::backend::Conflict;
 use crate::backend::ConflictId;
+use crate::backend::CopyHistory;
+use crate::backend::CopyId;
 use crate::backend::CopyRecord;
 use crate::backend::FileId;
 use crate::backend::SigningFn;
@@ -159,6 +161,24 @@ impl Backend for SecretBackend {
 
     async fn write_symlink(&self, path: &RepoPath, target: &str) -> BackendResult<SymlinkId> {
         self.inner.write_symlink(path, target).await
+    }
+
+    async fn read_copy(&self, _id: &CopyId) -> BackendResult<CopyHistory> {
+        Err(BackendError::Unsupported(
+            "The secret backend doesn't support copies".to_string(),
+        ))
+    }
+
+    async fn write_copy(&self, _contents: &CopyHistory) -> BackendResult<CopyId> {
+        Err(BackendError::Unsupported(
+            "The secret backend doesn't support copies".to_string(),
+        ))
+    }
+
+    async fn get_related_copies(&self, _copy_id: &CopyId) -> BackendResult<Vec<CopyHistory>> {
+        Err(BackendError::Unsupported(
+            "The secret backend doesn't support copies".to_string(),
+        ))
     }
 
     async fn read_tree(&self, path: &RepoPath, id: &TreeId) -> BackendResult<Tree> {

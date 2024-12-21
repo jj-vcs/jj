@@ -51,6 +51,7 @@ id_type!(pub TreeId { hex() });
 id_type!(pub FileId { hex() });
 id_type!(pub SymlinkId { hex() });
 id_type!(pub ConflictId { hex() });
+id_type!(pub CopyId { hex() });
 
 impl ChangeId {
     /// Returns the hex string representation of this ID, which uses `z-k`
@@ -196,6 +197,24 @@ pub struct CopyRecord {
     pub source_commit: CommitId,
 }
 
+/// Describes the copy history of a file. The copy object is unchanged when a
+/// file is modified.
+#[derive(ContentHash, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
+pub struct CopyHistory {
+    /// The file's current path.
+    pub current_path: RepoPathBuf,
+    /// IDs of the files that became the current incarnation of this file.
+    ///
+    /// A newly created file has no parents. A regular copy or rename has one
+    /// parent. A merge of multiple files has multiple parents.
+    pub parents: Vec<CopyId>,
+    /// An optional piece of data to give the Copy object a different ID. May be
+    /// randomly generated. This allows a commit to say that a file was replaced
+    /// by a new incarnation of it, indicating a logically distinct file
+    /// taking the place of the previous file at the path.
+    pub salt: Vec<u8>,
+}
+
 /// Error that may occur during backend initialization.
 #[derive(Debug, Error)]
 #[error(transparent)]
@@ -269,6 +288,8 @@ pub type BackendResult<T> = Result<T, BackendError>;
 
 #[derive(ContentHash, Debug, PartialEq, Eq, Clone, Hash)]
 pub enum TreeValue {
+    // TODO: When there's a CopyId here, the copy object's path must match
+    // the path identified by the tree.
     File { id: FileId, executable: bool },
     Symlink(SymlinkId),
     Tree(TreeId),
@@ -439,6 +460,29 @@ pub trait Backend: Send + Sync + Debug {
     async fn read_symlink(&self, path: &RepoPath, id: &SymlinkId) -> BackendResult<String>;
 
     async fn write_symlink(&self, path: &RepoPath, target: &str) -> BackendResult<SymlinkId>;
+
+    /// Read the specified `CopyHistory` object.
+    ///
+    /// Backends that don't support copy tracking may return
+    /// `BackendError::Unsupported`.
+    async fn read_copy(&self, id: &CopyId) -> BackendResult<CopyHistory>;
+
+    /// Write the `CopyHistory` object and return its ID.
+    ///
+    /// Backends that don't support copy tracking may return
+    /// `BackendError::Unsupported`.
+    async fn write_copy(&self, copy: &CopyHistory) -> BackendResult<CopyId>;
+
+    /// Find all copy histories that are related to the specified one. This is
+    /// defined as those that are ancestors of the given specified one, plus
+    /// their descendants. Children must be returned before parents.
+    ///
+    /// It is valid (but wasteful) to include other copy histories, such as
+    /// siblings, or even completely unrelated copy histories.
+    ///
+    /// Backends that don't support copy tracking may return
+    /// `BackendError::Unsupported`.
+    async fn get_related_copies(&self, copy_id: &CopyId) -> BackendResult<Vec<CopyHistory>>;
 
     async fn read_tree(&self, path: &RepoPath, id: &TreeId) -> BackendResult<Tree>;
 

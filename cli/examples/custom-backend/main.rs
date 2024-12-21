@@ -32,6 +32,8 @@ use jj_lib::backend::Commit;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::Conflict;
 use jj_lib::backend::ConflictId;
+use jj_lib::backend::CopyHistory;
+use jj_lib::backend::CopyId;
 use jj_lib::backend::CopyRecord;
 use jj_lib::backend::FileId;
 use jj_lib::backend::SigningFn;
@@ -169,6 +171,18 @@ impl Backend for JitBackend {
 
     async fn write_symlink(&self, path: &RepoPath, target: &str) -> BackendResult<SymlinkId> {
         self.inner.write_symlink(path, target).await
+    }
+
+    async fn read_copy(&self, id: &CopyId) -> BackendResult<CopyHistory> {
+        self.inner.read_copy(id).await
+    }
+
+    async fn write_copy(&self, contents: &CopyHistory) -> BackendResult<CopyId> {
+        self.inner.write_copy(contents).await
+    }
+
+    async fn get_related_copies(&self, copy_id: &CopyId) -> BackendResult<Vec<CopyHistory>> {
+        self.inner.get_related_copies(copy_id).await
     }
 
     async fn read_tree(&self, path: &RepoPath, id: &TreeId) -> BackendResult<Tree> {
