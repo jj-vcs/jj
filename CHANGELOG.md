@@ -88,6 +88,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * On Windows, workspace paths (printed by `jj root`) no longer use UNC-style
   `\\?\` paths unless necessary.
 
+* `jj resolve` no longer removes the executable bit on resolved files when using
+  an external merge tool.
+
 ## [0.24.0] - 2024-12-04
 
 ### Release highlights

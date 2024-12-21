@@ -296,7 +296,12 @@ pub fn run_mergetool_external(
     let new_tree_value = match new_file_ids.into_resolved() {
         Ok(new_file_id) => Merge::normal(TreeValue::File {
             id: new_file_id.unwrap(),
-            executable: false,
+            executable: conflict
+                .to_executable_merge()
+                .as_ref()
+                .and_then(Merge::resolve_trivial)
+                .copied()
+                .unwrap_or_default(),
         }),
         Err(new_file_ids) => conflict.with_new_file_ids(&new_file_ids),
     };

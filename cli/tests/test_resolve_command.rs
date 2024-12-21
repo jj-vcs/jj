@@ -1012,21 +1012,20 @@ fn test_resolve_conflicts_with_executable() {
     );
     let editor_script = test_env.set_up_fake_editor();
 
-    // TODO: resolving the conflict in "file1" should produce an executable, but it
-    // currently doesn't
+    // Test resolving the conflict in "file1", which should produce an executable
     std::fs::write(&editor_script, b"write\nresolution1\n").unwrap();
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["resolve", "file1"]);
     insta::assert_snapshot!(stdout, @r#""#);
     insta::assert_snapshot!(stderr, @r#"
     Resolving conflicts in: file1
-    Working copy now at: znkkpsqq 1a12c872 conflict | (conflict) conflict
+    Working copy now at: znkkpsqq eb159d56 conflict | (conflict) conflict
     Parent commit      : mzvwutvl 08932848 a | a
     Parent commit      : yqosqzyt b69b3de6 b | b
     Added 0 files, modified 1 files, removed 0 files
     There are unresolved conflicts at these paths:
     file2    2-sided conflict including an executable
     New conflicts appeared in these commits:
-      znkkpsqq 1a12c872 conflict | (conflict) conflict
+      znkkpsqq eb159d56 conflict | (conflict) conflict
     To resolve the conflicts, start by updating to it:
       jj new znkkpsqq
     Then use `jj resolve`, or edit the conflict markers in the file directly.
@@ -1036,9 +1035,7 @@ fn test_resolve_conflicts_with_executable() {
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff", "--git"]), 
     @r##"
     diff --git a/file1 b/file1
-    old mode 100755
-    new mode 100644
-    index 0000000000..95cc18629d
+    index 0000000000..95cc18629d 100755
     --- a/file1
     +++ b/file1
     @@ -1,7 +1,1 @@
@@ -1056,22 +1053,21 @@ fn test_resolve_conflicts_with_executable() {
         @"file2    2-sided conflict including an executable"
     );
 
-    // TODO: resolving the conflict in "file2" should produce an executable, but it
-    // currently doesn't
+    // Test resolving the conflict in "file2", which should produce an executable
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
     std::fs::write(&editor_script, b"write\nresolution2\n").unwrap();
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["resolve", "file2"]);
     insta::assert_snapshot!(stdout, @r#""#);
     insta::assert_snapshot!(stderr, @r#"
     Resolving conflicts in: file2
-    Working copy now at: znkkpsqq 5b6d14ea conflict | (conflict) conflict
+    Working copy now at: znkkpsqq 4dccbb3c conflict | (conflict) conflict
     Parent commit      : mzvwutvl 08932848 a | a
     Parent commit      : yqosqzyt b69b3de6 b | b
     Added 0 files, modified 1 files, removed 0 files
     There are unresolved conflicts at these paths:
     file1    2-sided conflict including an executable
     New conflicts appeared in these commits:
-      znkkpsqq 5b6d14ea conflict | (conflict) conflict
+      znkkpsqq 4dccbb3c conflict | (conflict) conflict
     To resolve the conflicts, start by updating to it:
       jj new znkkpsqq
     Then use `jj resolve`, or edit the conflict markers in the file directly.
@@ -1081,9 +1077,7 @@ fn test_resolve_conflicts_with_executable() {
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff", "--git"]), 
     @r##"
     diff --git a/file2 b/file2
-    old mode 100755
-    new mode 100644
-    index 0000000000..775f078581
+    index 0000000000..775f078581 100755
     --- a/file2
     +++ b/file2
     @@ -1,7 +1,1 @@
