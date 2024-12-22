@@ -85,24 +85,7 @@ where
     pub fn new(
         input: impl Iterator<Item = Result<GraphNode<N>, RevsetEvaluationError>>,
     ) -> Result<Self, RevsetEvaluationError> {
-        let mut entries = vec![];
-        let mut reverse_edges: HashMap<N, Vec<GraphEdge<N>>> = HashMap::new();
-        for item in input {
-            let (node, edges) = item?;
-            for GraphEdge { target, edge_type } in edges {
-                reverse_edges.entry(target).or_default().push(GraphEdge {
-                    target: node.clone(),
-                    edge_type,
-                });
-            }
-            entries.push(node);
-        }
-
-        let mut items = vec![];
-        for node in entries.into_iter() {
-            let edges = reverse_edges.get(&node).cloned().unwrap_or_default();
-            items.push((node, edges));
-        }
+        let items = reverse_graph(input)?;
         Ok(Self { items })
     }
 }
@@ -113,6 +96,31 @@ impl<N> Iterator for ReverseGraphIterator<N> {
     fn next(&mut self) -> Option<Self::Item> {
         self.items.pop().map(Ok)
     }
+}
+
+/// Creates new graph in which edges are reversed.
+fn reverse_graph<N: Clone + Eq + Hash, E>(
+    input: impl Iterator<Item = Result<GraphNode<N>, E>>,
+) -> Result<Vec<GraphNode<N>>, E> {
+    let mut entries = vec![];
+    let mut reverse_edges: HashMap<N, Vec<GraphEdge<N>>> = HashMap::new();
+    for item in input {
+        let (node, edges) = item?;
+        for GraphEdge { target, edge_type } in edges {
+            reverse_edges.entry(target).or_default().push(GraphEdge {
+                target: node.clone(),
+                edge_type,
+            });
+        }
+        entries.push(node);
+    }
+
+    let mut items = vec![];
+    for node in entries.into_iter() {
+        let edges = reverse_edges.get(&node).cloned().unwrap_or_default();
+        items.push((node, edges));
+    }
+    Ok(items)
 }
 
 /// Graph iterator adapter to group topological branches.
