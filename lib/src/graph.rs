@@ -82,9 +82,7 @@ impl<N> ReverseGraphIterator<N>
 where
     N: Hash + Eq + Clone,
 {
-    pub fn new(
-        input: impl Iterator<Item = Result<GraphNode<N>, RevsetEvaluationError>>,
-    ) -> Result<Self, RevsetEvaluationError> {
+    pub fn new<E>(input: impl Iterator<Item = Result<GraphNode<N>, E>>) -> Result<Self, E> {
         let mut entries = vec![];
         let mut reverse_edges: HashMap<N, Vec<GraphEdge<N>>> = HashMap::new();
         for item in input {
