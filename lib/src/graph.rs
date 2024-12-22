@@ -75,7 +75,7 @@ fn reachable_targets<N>(edges: &[GraphEdge<N>]) -> impl DoubleEndedIterator<Item
 }
 
 pub struct ReverseGraphIterator<N> {
-    items: Vec<GraphNode<N>>,
+    items: std::vec::IntoIter<GraphNode<N>>,
 }
 
 impl<N> ReverseGraphIterator<N>
@@ -85,7 +85,7 @@ where
     pub fn new(
         input: impl Iterator<Item = Result<GraphNode<N>, RevsetEvaluationError>>,
     ) -> Result<Self, RevsetEvaluationError> {
-        let items = reverse_graph(input)?;
+        let items = reverse_graph(input)?.into_iter();
         Ok(Self { items })
     }
 }
@@ -94,11 +94,11 @@ impl<N> Iterator for ReverseGraphIterator<N> {
     type Item = Result<GraphNode<N>, RevsetEvaluationError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.items.pop().map(Ok)
+        self.items.next().map(Ok)
     }
 }
 
-/// Creates new graph in which edges are reversed.
+/// Creates new graph in which nodes and edges are reversed.
 fn reverse_graph<N: Clone + Eq + Hash, E>(
     input: impl Iterator<Item = Result<GraphNode<N>, E>>,
 ) -> Result<Vec<GraphNode<N>>, E> {
@@ -116,7 +116,7 @@ fn reverse_graph<N: Clone + Eq + Hash, E>(
     }
 
     let mut items = vec![];
-    for node in entries.into_iter() {
+    for node in entries.into_iter().rev() {
         let edges = reverse_edges.get(&node).cloned().unwrap_or_default();
         items.push((node, edges));
     }
