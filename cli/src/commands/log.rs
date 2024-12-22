@@ -17,8 +17,8 @@ use clap_complete::ArgValueCompleter;
 use jj_lib::backend::CommitId;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigGetResultExt as _;
+use jj_lib::graph::reverse_graph;
 use jj_lib::graph::GraphEdgeType;
-use jj_lib::graph::ReverseGraphIterator;
 use jj_lib::graph::TopoGroupedGraphIterator;
 use jj_lib::repo::Repo;
 use jj_lib::revset::RevsetEvaluationError;
@@ -208,7 +208,7 @@ pub(crate) fn cmd_log(
                     }
                 }
                 if args.reversed {
-                    Box::new(ReverseGraphIterator::new(forward_iter)?)
+                    Box::new(reverse_graph(forward_iter)?.into_iter().map(Ok))
                 } else {
                     Box::new(forward_iter)
                 }

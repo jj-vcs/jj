@@ -19,8 +19,6 @@ use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::hash::Hash;
 
-use crate::revset::RevsetEvaluationError;
-
 /// Node and edges pair of type `N`.
 pub type GraphNode<N> = (N, Vec<GraphEdge<N>>);
 
@@ -74,32 +72,8 @@ fn reachable_targets<N>(edges: &[GraphEdge<N>]) -> impl DoubleEndedIterator<Item
         .map(|edge| &edge.target)
 }
 
-pub struct ReverseGraphIterator<N> {
-    items: std::vec::IntoIter<GraphNode<N>>,
-}
-
-impl<N> ReverseGraphIterator<N>
-where
-    N: Hash + Eq + Clone,
-{
-    pub fn new(
-        input: impl Iterator<Item = Result<GraphNode<N>, RevsetEvaluationError>>,
-    ) -> Result<Self, RevsetEvaluationError> {
-        let items = reverse_graph(input)?.into_iter();
-        Ok(Self { items })
-    }
-}
-
-impl<N> Iterator for ReverseGraphIterator<N> {
-    type Item = Result<GraphNode<N>, RevsetEvaluationError>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.items.next().map(Ok)
-    }
-}
-
 /// Creates new graph in which nodes and edges are reversed.
-fn reverse_graph<N: Clone + Eq + Hash, E>(
+pub fn reverse_graph<N: Clone + Eq + Hash, E>(
     input: impl Iterator<Item = Result<GraphNode<N>, E>>,
 ) -> Result<Vec<GraphNode<N>>, E> {
     let mut entries = vec![];

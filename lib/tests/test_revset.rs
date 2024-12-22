@@ -26,8 +26,8 @@ use jj_lib::commit::Commit;
 use jj_lib::fileset::FilesetExpression;
 use jj_lib::git;
 use jj_lib::git_backend::GitBackend;
+use jj_lib::graph::reverse_graph;
 use jj_lib::graph::GraphEdge;
-use jj_lib::graph::ReverseGraphIterator;
 use jj_lib::id_prefix::IdPrefixContext;
 use jj_lib::object_id::ObjectId;
 use jj_lib::op_store::RefTarget;
@@ -3942,7 +3942,7 @@ fn test_evaluate_expression_conflict() {
 }
 
 #[test]
-fn test_reverse_graph_iterator() {
+fn test_reverse_graph() {
     let settings = testutils::user_settings();
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
@@ -3977,10 +3977,7 @@ fn test_reverse_graph_iterator() {
         repo.as_ref(),
         &[&commit_a, &commit_c, &commit_d, &commit_e, &commit_f],
     );
-    let commits: Vec<_> = ReverseGraphIterator::new(revset.iter_graph())
-        .unwrap()
-        .try_collect()
-        .unwrap();
+    let commits = reverse_graph(revset.iter_graph()).unwrap();
     assert_eq!(commits.len(), 5);
     assert_eq!(commits[0].0, *commit_a.id());
     assert_eq!(commits[1].0, *commit_c.id());
