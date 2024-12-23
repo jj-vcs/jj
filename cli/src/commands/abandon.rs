@@ -36,19 +36,17 @@ use crate::ui::Ui;
 /// commit. This is true in general; it is not specific to this command.
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct AbandonArgs {
-    /// The revision(s) to abandon
+    /// The revision(s) to abandon (default: @)
     #[arg(
-        default_value = "@",
         value_name = "REVSETS",
         add = ArgValueCandidates::new(complete::mutable_revisions)
     )]
-    revisions: Vec<RevisionArg>,
+    revisions_pos: Vec<RevisionArg>,
+    #[arg(short = 'r', hide = true, value_name = "REVSETS")]
+    revisions_opt: Vec<RevisionArg>,
     /// Do not print every abandoned commit on a separate line
     #[arg(long, short)]
     summary: bool,
-    /// Ignored (but lets you pass `-r` for consistency with other commands)
-    #[arg(short = 'r', hide = true, action = clap::ArgAction::Count)]
-    unused_revision: u8,
     /// Do not modify the content of the children of the abandoned commits
     #[arg(long)]
     restore_descendants: bool,
@@ -61,10 +59,14 @@ pub(crate) fn cmd_abandon(
     args: &AbandonArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
-    let to_abandon: Vec<_> = workspace_command
-        .parse_union_revsets(ui, &args.revisions)?
-        .evaluate_to_commits()?
-        .try_collect()?;
+    let to_abandon: Vec<_> = if !args.revisions_pos.is_empty() || !args.revisions_opt.is_empty() {
+        workspace_command
+            .parse_union_revsets(ui, &[&*args.revisions_pos, &*args.revisions_opt].concat())?
+    } else {
+        workspace_command.parse_revset(ui, &RevisionArg::AT)?
+    }
+    .evaluate_to_commits()?
+    .try_collect()?;
     if to_abandon.is_empty() {
         writeln!(ui.status(), "No revisions to abandon.")?;
         return Ok(());

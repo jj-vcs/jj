@@ -43,16 +43,14 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 #[command(visible_aliases = &["desc"])]
 pub(crate) struct DescribeArgs {
-    /// The revision(s) whose description to edit
+    /// The revision(s) whose description to edit (default: @)
     #[arg(
-        default_value = "@",
         value_name = "REVSETS",
         add = ArgValueCandidates::new(complete::mutable_revisions)
     )]
-    revisions: Vec<RevisionArg>,
-    /// Ignored (but lets you pass `-r` for consistency with other commands)
-    #[arg(short = 'r', hide = true, action = clap::ArgAction::Count)]
-    unused_revision: u8,
+    revisions_pos: Vec<RevisionArg>,
+    #[arg(short = 'r', hide = true, value_name = "REVSETS")]
+    revisions_opt: Vec<RevisionArg>,
     /// The change description to use (don't open editor)
     ///
     /// If multiple revisions are specified, the same description will be used
@@ -99,10 +97,14 @@ pub(crate) fn cmd_describe(
     args: &DescribeArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
-    let commits: Vec<_> = workspace_command
-        .parse_union_revsets(ui, &args.revisions)?
-        .evaluate_to_commits()?
-        .try_collect()?; // in reverse topological order
+    let commits: Vec<_> = if !args.revisions_pos.is_empty() || !args.revisions_opt.is_empty() {
+        workspace_command
+            .parse_union_revsets(ui, &[&*args.revisions_pos, &*args.revisions_opt].concat())?
+    } else {
+        workspace_command.parse_revset(ui, &RevisionArg::AT)?
+    }
+    .evaluate_to_commits()?
+    .try_collect()?; // in reverse topological order
     if commits.is_empty() {
         writeln!(ui.status(), "No revisions to describe.")?;
         return Ok(());

@@ -120,7 +120,7 @@ fn test_basics() {
 
     // Test abandoning the same commit twice directly
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["abandon", "b", "b"]);
+    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["abandon", "-rb", "b"]);
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @r###"
     Abandoned commit zsuskuln 1394f625 b | b
@@ -377,10 +377,8 @@ fn test_abandon_restore_descendants() {
     std::fs::write(repo_path.join("file"), "baz\n").unwrap();
 
     // Remove the commit containing "bar"
-    let (stdout, stderr) = test_env.jj_cmd_ok(
-        &repo_path,
-        &["abandon", "-r", "@-", "--restore-descendants"],
-    );
+    let (stdout, stderr) =
+        test_env.jj_cmd_ok(&repo_path, &["abandon", "-r@-", "--restore-descendants"]);
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @r#"
     Abandoned commit rlvkpnrz 225adef1 (no description set)

@@ -214,9 +214,7 @@ If a working-copy commit gets abandoned, it will be given a new, empty commit. T
 
 ###### **Arguments:**
 
-* `<REVSETS>` — The revision(s) to abandon
-
-  Default value: `@`
+* `<REVSETS>` — The revision(s) to abandon (default: @)
 
 ###### **Options:**
 
@@ -650,9 +648,7 @@ Starts an editor to let you edit the description of changes. The editor will be 
 
 ###### **Arguments:**
 
-* `<REVSETS>` — The revision(s) whose description to edit
-
-  Default value: `@`
+* `<REVSETS>` — The revision(s) whose description to edit (default: @)
 
 ###### **Options:**
 

@@ -204,7 +204,7 @@ fn test_describe_multiple_commits() {
     // Set the description of multiple commits using `-m` flag
     let (stdout, stderr) = test_env.jj_cmd_ok(
         &repo_path,
-        &["describe", "@", "@--", "-m", "description from CLI"],
+        &["describe", "-r@", "-r@--", "-m", "description from CLI"],
     );
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @r###"
@@ -224,7 +224,7 @@ fn test_describe_multiple_commits() {
     // each commit and doesn't update commits if no changes are made.
     // Commit descriptions are edited in topological order
     std::fs::write(&edit_script, "dump editor0").unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["describe", "@", "@-"]);
+    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["describe", "-r@", "@-"]);
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @r###"
     Nothing changed.
