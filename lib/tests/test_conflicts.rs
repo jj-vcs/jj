@@ -628,18 +628,222 @@ fn test_materialize_conflict_no_newlines_at_eof() {
         &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Diff);
     insta::assert_snapshot!(materialized,
         @r###"
-    <<<<<<< Conflict 1 of 1
+    <<<<<<< Conflict 1 of 1 [noeol]
     %%%%%%% Changes from base to side #1
-    -base+++++++ Contents of side #2
-    right>>>>>>> Conflict 1 of 1 ends
+    -base
+    +
+    +++++++ Contents of side #2
+    right
+    >>>>>>> Conflict 1 of 1 ends
     "###
     );
-    // BUG(#3968): These conflict markers cannot be parsed
-    insta::assert_debug_snapshot!(parse_conflict(
-        materialized.as_bytes(),
-        conflict.num_sides(),
-        MIN_CONFLICT_MARKER_LEN
-    ),@"None");
+    insta::assert_debug_snapshot!(
+        parse_conflict(
+            materialized.as_bytes(),
+            conflict.num_sides(),
+            MIN_CONFLICT_MARKER_LEN
+        ),
+        @r#"
+    Some(
+        [
+            Conflicted(
+                [
+                    "",
+                    "base",
+                    "right",
+                ],
+            ),
+        ],
+    )
+    "#);
+}
+
+#[test]
+fn test_materialize_conflict_mixed_eol_and_no_eol() {
+    let test_repo = TestRepo::init();
+    let store = test_repo.repo.store();
+
+    let path = RepoPath::from_internal_string("file");
+    let base_id = testutils::write_file(store, path, "line 1\nline 2\nline 3\nbase");
+    let left_empty_id =
+        testutils::write_file(store, path, "line 1\nline 2 - left\nline 3\nbase\nleft\n");
+    let right_id = testutils::write_file(store, path, "line 1\nline 2 - right\nline 3\nright");
+
+    let conflict = Merge::from_removes_adds(
+        vec![Some(base_id.clone())],
+        vec![Some(left_empty_id.clone()), Some(right_id.clone())],
+    );
+    let materialized =
+        &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Diff);
+    insta::assert_snapshot!(materialized,
+        @r##"
+    line 1
+    <<<<<<< Conflict 1 of 2
+    %%%%%%% Changes from base to side #1
+    -line 2
+    +line 2 - left
+    +++++++ Contents of side #2
+    line 2 - right
+    >>>>>>> Conflict 1 of 2 ends
+    line 3
+    <<<<<<< Conflict 2 of 2 [noeol]
+    %%%%%%% Changes from base to side #1
+     base
+    +left
+    +
+    +++++++ Contents of side #2
+    right
+    >>>>>>> Conflict 2 of 2 ends
+    "##
+    );
+    insta::assert_debug_snapshot!(
+        parse_conflict(
+            materialized.as_bytes(),
+            conflict.num_sides(),
+            MIN_CONFLICT_MARKER_LEN
+        ),
+        @r#"
+    Some(
+        [
+            Resolved(
+                "line 1\n",
+            ),
+            Conflicted(
+                [
+                    "line 2 - left\n",
+                    "line 2\n",
+                    "line 2 - right\n",
+                ],
+            ),
+            Resolved(
+                "line 3\n",
+            ),
+            Conflicted(
+                [
+                    "base\nleft\n",
+                    "base",
+                    "right",
+                ],
+            ),
+        ],
+    )
+    "#);
+
+    let materialized =
+        &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Snapshot);
+    insta::assert_snapshot!(materialized,
+        @r##"
+    line 1
+    <<<<<<< Conflict 1 of 2
+    +++++++ Contents of side #1
+    line 2 - left
+    ------- Contents of base
+    line 2
+    +++++++ Contents of side #2
+    line 2 - right
+    >>>>>>> Conflict 1 of 2 ends
+    line 3
+    <<<<<<< Conflict 2 of 2 [noeol]
+    +++++++ Contents of side #1
+    base
+    left
+
+    ------- Contents of base
+    base
+    +++++++ Contents of side #2
+    right
+    >>>>>>> Conflict 2 of 2 ends
+    "##
+    );
+    insta::assert_debug_snapshot!(
+        parse_conflict(
+            materialized.as_bytes(),
+            conflict.num_sides(),
+            MIN_CONFLICT_MARKER_LEN
+        ),
+        @r#"
+    Some(
+        [
+            Resolved(
+                "line 1\n",
+            ),
+            Conflicted(
+                [
+                    "line 2 - left\n",
+                    "line 2\n",
+                    "line 2 - right\n",
+                ],
+            ),
+            Resolved(
+                "line 3\n",
+            ),
+            Conflicted(
+                [
+                    "base\nleft\n",
+                    "base",
+                    "right",
+                ],
+            ),
+        ],
+    )
+    "#);
+
+    let materialized =
+        &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Git);
+    insta::assert_snapshot!(materialized,
+        @r##"
+    line 1
+    <<<<<<< Side #1 (Conflict 1 of 2)
+    line 2 - left
+    ||||||| Base
+    line 2
+    =======
+    line 2 - right
+    >>>>>>> Side #2 (Conflict 1 of 2 ends)
+    line 3
+    <<<<<<< Side #1 (Conflict 2 of 2) [noeol]
+    base
+    left
+
+    ||||||| Base
+    base
+    =======
+    right
+    >>>>>>> Side #2 (Conflict 2 of 2 ends)
+    "##
+    );
+    insta::assert_debug_snapshot!(
+        parse_conflict(
+            materialized.as_bytes(),
+            conflict.num_sides(),
+            MIN_CONFLICT_MARKER_LEN
+        ),
+        @r#"
+    Some(
+        [
+            Resolved(
+                "line 1\n",
+            ),
+            Conflicted(
+                [
+                    "line 2 - left\n",
+                    "line 2\n",
+                    "line 2 - right\n",
+                ],
+            ),
+            Resolved(
+                "line 3\n",
+            ),
+            Conflicted(
+                [
+                    "base\nleft\n",
+                    "base",
+                    "right",
+                ],
+            ),
+        ],
+    )
+    "#);
 }
 
 #[test]

@@ -141,6 +141,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `[diff.<format>]` configuration now applies to `.diff().<format>()` commit
   template methods.
 
+* Conflicts at the end of files which don't end with a newline character are
+  now materialized in a way that can be parsed correctly.
+  [#3968](https://github.com/jj-vcs/jj/issues/3968)
+
 ## [0.25.0] - 2025-01-01
 
 ### Release highlights
