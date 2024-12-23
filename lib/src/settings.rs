@@ -146,20 +146,36 @@ fn to_timestamp(value: ConfigValue) -> Result<Timestamp, Box<dyn std::error::Err
 
 impl UserSettings {
     pub fn from_config(config: StackedConfig) -> Result<Self, ConfigGetError> {
-        let user_name = config.get("user.name").unwrap_or_default();
-        let user_email = config.get("user.email").unwrap_or_default();
+        let user_name = config.get("user.name").optional()?.unwrap_or_default();
+        let user_email = config.get("user.email").optional()?.unwrap_or_default();
         let commit_timestamp = config
             .get_value_with("debug.commit-timestamp", to_timestamp)
             .optional()?;
         let operation_timestamp = config
             .get_value_with("debug.operation-timestamp", to_timestamp)
             .optional()?;
+        // whoami::fallible::*() failure isn't a ConfigGetError, but user would
+        // have to set the corresponding config keys if these parameter can't be
+        // obtained from the system. Instead of handling environment data here,
+        // it might be better to load them by CLI and insert as a config layer.
         let operation_hostname = config
             .get("operation.hostname")
-            .unwrap_or_else(|_| whoami::fallible::hostname().expect("valid hostname"));
+            .optional()?
+            .map_or_else(whoami::fallible::hostname, Ok)
+            .map_err(|err| ConfigGetError::Type {
+                name: "operation.hostname".to_owned(),
+                error: err.into(),
+                source_path: None,
+            })?;
         let operation_username = config
             .get("operation.username")
-            .unwrap_or_else(|_| whoami::username());
+            .optional()?
+            .map_or_else(whoami::fallible::username, Ok)
+            .map_err(|err| ConfigGetError::Type {
+                name: "operation.username".to_owned(),
+                error: err.into(),
+                source_path: None,
+            })?;
         let rng_seed = config.get::<u64>("debug.randomness-seed").optional()?;
         Ok(UserSettings {
             config,
