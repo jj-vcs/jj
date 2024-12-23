@@ -41,8 +41,12 @@ use crate::signing::SignBehavior;
 #[derive(Debug, Clone)]
 pub struct UserSettings {
     config: StackedConfig,
+    user_name: String,
+    user_email: String,
     commit_timestamp: Option<Timestamp>,
     operation_timestamp: Option<Timestamp>,
+    operation_hostname: String,
+    operation_username: String,
     rng: Arc<JJRng>,
 }
 
@@ -106,7 +110,7 @@ impl SignSettings {
             } else {
                 SignBehavior::Keep
             },
-            user_email: settings.user_email(),
+            user_email: settings.user_email().to_owned(),
             key: settings.get_string("signing.key").ok(),
         }
     }
@@ -142,17 +146,29 @@ fn to_timestamp(value: ConfigValue) -> Result<Timestamp, Box<dyn std::error::Err
 
 impl UserSettings {
     pub fn from_config(config: StackedConfig) -> Result<Self, ConfigGetError> {
+        let user_name = config.get("user.name").unwrap_or_default();
+        let user_email = config.get("user.email").unwrap_or_default();
         let commit_timestamp = config
             .get_value_with("debug.commit-timestamp", to_timestamp)
             .optional()?;
         let operation_timestamp = config
             .get_value_with("debug.operation-timestamp", to_timestamp)
             .optional()?;
+        let operation_hostname = config
+            .get("operation.hostname")
+            .unwrap_or_else(|_| whoami::fallible::hostname().expect("valid hostname"));
+        let operation_username = config
+            .get("operation.username")
+            .unwrap_or_else(|_| whoami::username());
         let rng_seed = config.get::<u64>("debug.randomness-seed").optional()?;
         Ok(UserSettings {
             config,
+            user_name,
+            user_email,
             commit_timestamp,
             operation_timestamp,
+            operation_hostname,
+            operation_username,
             rng: Arc::new(JJRng::new(rng_seed)),
         })
     }
@@ -168,15 +184,15 @@ impl UserSettings {
         self.rng.clone()
     }
 
-    pub fn user_name(&self) -> String {
-        self.get_string("user.name").unwrap_or_default()
+    pub fn user_name(&self) -> &str {
+        &self.user_name
     }
 
     // Must not be changed to avoid git pushing older commits with no set name
     pub const USER_NAME_PLACEHOLDER: &'static str = "(no name configured)";
 
-    pub fn user_email(&self) -> String {
-        self.get_string("user.email").unwrap_or_default()
+    pub fn user_email(&self) -> &str {
+        &self.user_email
     }
 
     pub fn fsmonitor_settings(&self) -> Result<FsmonitorSettings, ConfigGetError> {
@@ -195,21 +211,19 @@ impl UserSettings {
         self.operation_timestamp
     }
 
-    pub fn operation_hostname(&self) -> String {
-        self.get_string("operation.hostname")
-            .unwrap_or_else(|_| whoami::fallible::hostname().expect("valid hostname"))
+    pub fn operation_hostname(&self) -> &str {
+        &self.operation_hostname
     }
 
-    pub fn operation_username(&self) -> String {
-        self.get_string("operation.username")
-            .unwrap_or_else(|_| whoami::username())
+    pub fn operation_username(&self) -> &str {
+        &self.operation_username
     }
 
     pub fn signature(&self) -> Signature {
         let timestamp = self.commit_timestamp.unwrap_or_else(Timestamp::now);
         Signature {
-            name: self.user_name(),
-            email: self.user_email(),
+            name: self.user_name().to_owned(),
+            email: self.user_email().to_owned(),
             timestamp,
         }
     }

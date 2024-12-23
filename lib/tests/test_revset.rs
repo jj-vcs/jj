@@ -69,8 +69,7 @@ fn resolve_symbol_with_extensions(
 ) -> Result<Vec<CommitId>, RevsetResolutionError> {
     let aliases_map = RevsetAliasesMap::default();
     let now = chrono::Local::now();
-    let context =
-        RevsetParseContext::new(&aliases_map, String::new(), now.into(), extensions, None);
+    let context = RevsetParseContext::new(&aliases_map, "", now.into(), extensions, None);
     let expression = parse(&mut RevsetDiagnostics::new(), symbol, &context).unwrap();
     assert_matches!(*expression, RevsetExpression::CommitRef(_));
     let symbol_resolver = DefaultSymbolResolver::new(repo, extensions.symbol_resolvers());
@@ -2971,7 +2970,7 @@ fn test_evaluate_expression_mine() {
         .set_parents(vec![commit1.id().clone()])
         .set_author(Signature {
             name: "name2".to_string(),
-            email: settings.user_email(),
+            email: settings.user_email().to_owned(),
             timestamp,
         })
         .write()

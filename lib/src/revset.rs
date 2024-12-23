@@ -850,7 +850,7 @@ static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, RevsetFunction>> = Lazy:
         // are generally (although not universally) treated as case‐insensitive too, so
         // we use a case‐insensitive match here.
         Ok(RevsetExpression::filter(RevsetFilterPredicate::Author(
-            StringPattern::exact_i(&context.user_email),
+            StringPattern::exact_i(context.user_email),
         )))
     });
     map.insert("committer", |diagnostics, function, _context| {
@@ -2629,7 +2629,7 @@ impl RevsetExtensions {
 #[derive(Clone)]
 pub struct RevsetParseContext<'a> {
     aliases_map: &'a RevsetAliasesMap,
-    user_email: String,
+    user_email: &'a str,
     date_pattern_context: DatePatternContext,
     extensions: &'a RevsetExtensions,
     workspace: Option<RevsetWorkspaceContext<'a>>,
@@ -2638,7 +2638,7 @@ pub struct RevsetParseContext<'a> {
 impl<'a> RevsetParseContext<'a> {
     pub fn new(
         aliases_map: &'a RevsetAliasesMap,
-        user_email: String,
+        user_email: &'a str,
         date_pattern_context: DatePatternContext,
         extensions: &'a RevsetExtensions,
         workspace: Option<RevsetWorkspaceContext<'a>>,
@@ -2656,8 +2656,8 @@ impl<'a> RevsetParseContext<'a> {
         self.aliases_map
     }
 
-    pub fn user_email(&self) -> &str {
-        &self.user_email
+    pub fn user_email(&self) -> &'a str {
+        self.user_email
     }
 
     pub fn date_pattern_context(&self) -> &DatePatternContext {
@@ -2706,7 +2706,7 @@ mod tests {
         let extensions = RevsetExtensions::default();
         let context = RevsetParseContext::new(
             &aliases_map,
-            "test.user@example.com".to_string(),
+            "test.user@example.com",
             chrono::Utc::now().fixed_offset().into(),
             &extensions,
             None,
@@ -2735,7 +2735,7 @@ mod tests {
         let extensions = RevsetExtensions::default();
         let context = RevsetParseContext::new(
             &aliases_map,
-            "test.user@example.com".to_string(),
+            "test.user@example.com",
             chrono::Utc::now().fixed_offset().into(),
             &extensions,
             Some(workspace_ctx),
@@ -2760,7 +2760,7 @@ mod tests {
         let extensions = RevsetExtensions::default();
         let context = RevsetParseContext::new(
             &aliases_map,
-            "test.user@example.com".to_string(),
+            "test.user@example.com",
             chrono::Utc::now().fixed_offset().into(),
             &extensions,
             None,

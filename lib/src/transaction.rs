@@ -155,8 +155,8 @@ pub fn create_op_metadata(
         .operation_timestamp()
         .unwrap_or_else(Timestamp::now);
     let end_time = start_time;
-    let hostname = user_settings.operation_hostname();
-    let username = user_settings.operation_username();
+    let hostname = user_settings.operation_hostname().to_owned();
+    let username = user_settings.operation_username().to_owned();
     OperationMetadata {
         start_time,
         end_time,
