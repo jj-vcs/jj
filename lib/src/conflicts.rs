@@ -265,52 +265,56 @@ impl ConflictMarkerLineChar {
     }
 }
 
-/// Represents a conflict marker line parsed from the file. Conflict marker
-/// lines consist of a single ASCII character repeated for a certain length.
+/// Represents a conflict marker line added to a file. Conflict marker lines
+/// consist of a single ASCII character repeated for a certain length followed
+/// by some optional text.
 struct ConflictMarkerLine {
-    kind: ConflictMarkerLineChar,
+    char: ConflictMarkerLineChar,
     len: usize,
 }
 
-/// Write a conflict marker to an output file.
-fn write_conflict_marker(
-    output: &mut dyn Write,
-    kind: ConflictMarkerLineChar,
-    len: usize,
-    suffix_text: &str,
-) -> io::Result<()> {
-    let conflict_marker = BString::new(vec![kind.to_byte(); len]);
-
-    if suffix_text.is_empty() {
-        writeln!(output, "{conflict_marker}")
-    } else {
-        writeln!(output, "{conflict_marker} {suffix_text}")
+impl ConflictMarkerLine {
+    fn new(char: ConflictMarkerLineChar, len: usize) -> Self {
+        Self { char, len }
     }
-}
 
-/// Parse a conflict marker from a line of a file. The conflict marker may have
-/// any length (even less than MIN_CONFLICT_MARKER_LEN).
-fn parse_conflict_marker_any_len(line: &[u8]) -> Option<ConflictMarkerLine> {
-    let first_byte = *line.first()?;
-    let kind = ConflictMarkerLineChar::parse_byte(first_byte)?;
-    let len = line.iter().take_while(|&&b| b == first_byte).count();
+    /// Write a conflict marker to an output file.
+    fn write(&self, output: &mut dyn Write, suffix_text: &str) -> io::Result<()> {
+        let conflict_marker = BString::new(vec![self.char.to_byte(); self.len]);
 
-    if let Some(next_byte) = line.get(len) {
-        // If there is a character after the marker, it must be ASCII whitespace
-        if !next_byte.is_ascii_whitespace() {
-            return None;
+        if suffix_text.is_empty() {
+            writeln!(output, "{conflict_marker}")
+        } else {
+            writeln!(output, "{conflict_marker} {suffix_text}")
         }
     }
 
-    Some(ConflictMarkerLine { kind, len })
+    /// Parse a conflict marker from a line of a file. The conflict marker may
+    /// have any length (even less than MIN_CONFLICT_MARKER_LEN).
+    fn parse_any_len(line: &[u8]) -> Option<Self> {
+        let first_byte = *line.first()?;
+        let char = ConflictMarkerLineChar::parse_byte(first_byte)?;
+        let len = line.iter().take_while(|&&b| b == first_byte).count();
+
+        if let Some(next_byte) = line.get(len) {
+            // If there is a character after the marker, it must be ASCII whitespace
+            if !next_byte.is_ascii_whitespace() {
+                return None;
+            }
+        }
+
+        Some(ConflictMarkerLine { char, len })
+    }
+
+    /// Parse a conflict marker, expecting it to be at least a certain length.
+    /// Any shorter conflict markers are ignored.
+    fn parse(line: &[u8], expected_len: usize) -> Option<Self> {
+        Self::parse_any_len(line).filter(|marker| marker.len >= expected_len)
+    }
 }
 
-/// Parse a conflict marker, expecting it to be at least a certain length. Any
-/// shorter conflict markers are ignored.
-fn parse_conflict_marker(line: &[u8], expected_len: usize) -> Option<ConflictMarkerLineChar> {
-    parse_conflict_marker_any_len(line)
-        .filter(|marker| marker.len >= expected_len)
-        .map(|marker| marker.kind)
+fn parse_conflict_marker_char(line: &[u8], expected_len: usize) -> Option<ConflictMarkerLineChar> {
+    ConflictMarkerLine::parse(line, expected_len).map(|marker| marker.char)
 }
 
 /// Given a Merge of files, choose the conflict marker length to use when
@@ -319,7 +323,7 @@ pub fn choose_materialized_conflict_marker_len<T: AsRef<[u8]>>(single_hunk: &Mer
     let max_existing_marker_len = single_hunk
         .iter()
         .flat_map(|file| file.as_ref().lines_with_terminator())
-        .filter_map(parse_conflict_marker_any_len)
+        .filter_map(ConflictMarkerLine::parse_any_len)
         .map(|marker| marker.len)
         .max()
         .unwrap_or_default();
@@ -456,34 +460,18 @@ fn materialize_git_style_conflict(
     conflict_marker_len: usize,
     output: &mut dyn Write,
 ) -> io::Result<()> {
-    write_conflict_marker(
-        output,
-        ConflictMarkerLineChar::ConflictStart,
-        conflict_marker_len,
-        &format!("Side #1 ({conflict_info})"),
-    )?;
+    ConflictMarkerLine::new(ConflictMarkerLineChar::ConflictStart, conflict_marker_len)
+        .write(output, &format!("Side #1 ({conflict_info})"))?;
     output.write_all(left)?;
-    write_conflict_marker(
-        output,
-        ConflictMarkerLineChar::GitAncestor,
-        conflict_marker_len,
-        "Base",
-    )?;
+    ConflictMarkerLine::new(ConflictMarkerLineChar::GitAncestor, conflict_marker_len)
+        .write(output, "Base")?;
     output.write_all(base)?;
     // VS Code doesn't seem to support any trailing text on the separator line
-    write_conflict_marker(
-        output,
-        ConflictMarkerLineChar::GitSeparator,
-        conflict_marker_len,
-        "",
-    )?;
+    ConflictMarkerLine::new(ConflictMarkerLineChar::GitSeparator, conflict_marker_len)
+        .write(output, "")?;
     output.write_all(right)?;
-    write_conflict_marker(
-        output,
-        ConflictMarkerLineChar::ConflictEnd,
-        conflict_marker_len,
-        &format!("Side #2 ({conflict_info} ends)"),
-    )?;
+    ConflictMarkerLine::new(ConflictMarkerLineChar::ConflictEnd, conflict_marker_len)
+        .write(output, &format!("Side #2 ({conflict_info} ends)"))?;
 
     Ok(())
 }
@@ -497,44 +485,30 @@ fn materialize_jj_style_conflict(
 ) -> io::Result<()> {
     // Write a positive snapshot (side) of a conflict
     let write_side = |add_index: usize, data: &[u8], output: &mut dyn Write| {
-        write_conflict_marker(
-            output,
-            ConflictMarkerLineChar::Add,
-            conflict_marker_len,
-            &format!("Contents of side #{}", add_index + 1),
-        )?;
+        ConflictMarkerLine::new(ConflictMarkerLineChar::Add, conflict_marker_len)
+            .write(output, &format!("Contents of side #{}", add_index + 1))?;
         output.write_all(data)
     };
 
     // Write a negative snapshot (base) of a conflict
     let write_base = |base_str: &str, data: &[u8], output: &mut dyn Write| {
-        write_conflict_marker(
-            output,
-            ConflictMarkerLineChar::Remove,
-            conflict_marker_len,
-            &format!("Contents of {base_str}"),
-        )?;
+        ConflictMarkerLine::new(ConflictMarkerLineChar::Remove, conflict_marker_len)
+            .write(output, &format!("Contents of {base_str}"))?;
         output.write_all(data)
     };
 
     // Write a diff from a negative term to a positive term
     let write_diff =
         |base_str: &str, add_index: usize, diff: &[DiffHunk], output: &mut dyn Write| {
-            write_conflict_marker(
+            ConflictMarkerLine::new(ConflictMarkerLineChar::Diff, conflict_marker_len).write(
                 output,
-                ConflictMarkerLineChar::Diff,
-                conflict_marker_len,
                 &format!("Changes from {base_str} to side #{}", add_index + 1),
             )?;
             write_diff_hunks(diff, output)
         };
 
-    write_conflict_marker(
-        output,
-        ConflictMarkerLineChar::ConflictStart,
-        conflict_marker_len,
-        conflict_info,
-    )?;
+    ConflictMarkerLine::new(ConflictMarkerLineChar::ConflictStart, conflict_marker_len)
+        .write(output, conflict_info)?;
     let mut add_index = 0;
     for (base_index, left) in hunk.removes().enumerate() {
         // The vast majority of conflicts one actually tries to resolve manually have 1
@@ -584,12 +558,8 @@ fn materialize_jj_style_conflict(
     for (add_index, slice) in hunk.adds().enumerate().skip(add_index) {
         write_side(add_index, slice, output)?;
     }
-    write_conflict_marker(
-        output,
-        ConflictMarkerLineChar::ConflictEnd,
-        conflict_marker_len,
-        &format!("{conflict_info} ends"),
-    )?;
+    ConflictMarkerLine::new(ConflictMarkerLineChar::ConflictEnd, conflict_marker_len)
+        .write(output, &format!("{conflict_info} ends"))?;
     Ok(())
 }
 
@@ -655,7 +625,7 @@ pub fn parse_conflict(
     let mut conflict_start = None;
     let mut conflict_start_len = 0;
     for line in input.lines_with_terminator() {
-        match parse_conflict_marker(line, expected_marker_len) {
+        match parse_conflict_marker_char(line, expected_marker_len) {
             Some(ConflictMarkerLineChar::ConflictStart) => {
                 conflict_start = Some(pos);
                 conflict_start_len = line.len();
@@ -699,7 +669,7 @@ fn parse_conflict_hunk(input: &[u8], expected_marker_len: usize) -> Merge<BStrin
     let initial_conflict_marker = input
         .lines_with_terminator()
         .next()
-        .and_then(|line| parse_conflict_marker(line, expected_marker_len));
+        .and_then(|line| parse_conflict_marker_char(line, expected_marker_len));
 
     match initial_conflict_marker {
         // JJ-style conflicts must start with one of these 3 conflict marker lines
@@ -729,7 +699,7 @@ fn parse_jj_style_conflict_hunk(input: &[u8], expected_marker_len: usize) -> Mer
     let mut removes = vec![];
     let mut adds = vec![];
     for line in input.lines_with_terminator() {
-        match parse_conflict_marker(line, expected_marker_len) {
+        match parse_conflict_marker_char(line, expected_marker_len) {
             Some(ConflictMarkerLineChar::Diff) => {
                 state = State::Diff;
                 removes.push(BString::new(vec![]));
@@ -801,7 +771,7 @@ fn parse_git_style_conflict_hunk(input: &[u8], expected_marker_len: usize) -> Me
     let mut base = BString::new(vec![]);
     let mut right = BString::new(vec![]);
     for line in input.lines_with_terminator() {
-        match parse_conflict_marker(line, expected_marker_len) {
+        match parse_conflict_marker_char(line, expected_marker_len) {
             Some(ConflictMarkerLineChar::GitAncestor) => {
                 if state == State::Left {
                     state = State::Base;
