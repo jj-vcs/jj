@@ -166,7 +166,7 @@ fn test_rewrite(backend: TestRepoBackend) {
         ],
     );
 
-    let mut config = StackedConfig::empty();
+    let mut config = StackedConfig::with_defaults();
     config.add_layer(
         ConfigLayer::parse(
             ConfigSource::User,
@@ -221,7 +221,7 @@ fn test_rewrite(backend: TestRepoBackend) {
 #[test_case(TestRepoBackend::Local ; "local backend")]
 #[test_case(TestRepoBackend::Git ; "git backend")]
 fn test_rewrite_update_missing_user(backend: TestRepoBackend) {
-    let missing_user_settings = UserSettings::from_config(StackedConfig::empty()).unwrap();
+    let missing_user_settings = UserSettings::from_config(StackedConfig::with_defaults()).unwrap();
     let test_repo = TestRepo::init_with_backend(backend);
     let repo = &test_repo.repo;
 
@@ -240,7 +240,7 @@ fn test_rewrite_update_missing_user(backend: TestRepoBackend) {
     assert_eq!(initial_commit.committer().name, "");
     assert_eq!(initial_commit.committer().email, "");
 
-    let mut config = StackedConfig::empty();
+    let mut config = StackedConfig::with_defaults();
     config.add_layer(
         ConfigLayer::parse(
             ConfigSource::User,
