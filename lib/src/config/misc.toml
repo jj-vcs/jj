@@ -1,3 +1,9 @@
+[core]
+fsmonitor = "none"
+
+[core.watchman]
+register_snapshot_trigger = false
+
 [debug]
 # commit-timestamp = <now>
 # operation-timestamp = <now>
