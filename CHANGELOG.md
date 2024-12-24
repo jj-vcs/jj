@@ -103,6 +103,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj resolve` no longer removes the executable bit on resolved files when using
   an external merge tool.
 
+* Conflicts at the end of files which don't end with a newline character are
+  now materialized in a way that can be parsed correctly.
+  [#3968](https://github.com/jj-vcs/jj/issues/3968)
+
 ## [0.24.0] - 2024-12-04
 
 ### Release highlights
