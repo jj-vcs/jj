@@ -424,7 +424,7 @@ fn config_files_for(
 ///
 /// This function sets up 1, 2, and 6.
 pub fn config_from_environment(default_layers: impl IntoIterator<Item = ConfigLayer>) -> RawConfig {
-    let mut config = StackedConfig::empty();
+    let mut config = StackedConfig::with_defaults();
     config.extend_layers(default_layers);
     config.add_layer(env_base_layer());
     config.add_layer(env_overrides_layer());

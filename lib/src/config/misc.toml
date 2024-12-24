@@ -1,0 +1,33 @@
+[core]
+fsmonitor = "none"
+
+[core.watchman]
+register_snapshot_trigger = false
+
+[debug]
+# commit-timestamp = <now>
+# operation-timestamp = <now>
+# randomness-seed = <random>
+
+[git]
+abandon-unreachable-commits = true
+# auto-local-bookmark = false
+
+[operation]
+# hostname = <host>
+# username = <user>
+
+[signing]
+backend = "none"
+
+[signing.backends.gpg]
+allow-expired-keys = false
+program = "gpg"
+
+[signing.backends.ssh]
+# allowed-signers = <unknown>
+program = "ssh-keygen"
+
+[user]
+email = ""
+name = ""

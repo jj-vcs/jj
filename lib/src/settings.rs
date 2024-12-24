@@ -64,14 +64,13 @@ pub struct GitSettings {
 impl GitSettings {
     pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
         let auto_local_bookmark = {
+            // TODO: Drop support for git.auto-local-branch and move the default
+            // value to config/*.toml
             let opt1 = settings.get_bool("git.auto-local-bookmark").optional()?;
             let opt2 = settings.get_bool("git.auto-local-branch").optional()?;
             opt1.or(opt2).unwrap_or(false)
         };
-        let abandon_unreachable_commits = settings
-            .get_bool("git.abandon-unreachable-commits")
-            .optional()?
-            .unwrap_or(true);
+        let abandon_unreachable_commits = settings.get_bool("git.abandon-unreachable-commits")?;
         Ok(GitSettings {
             auto_local_bookmark,
             abandon_unreachable_commits,
@@ -146,8 +145,8 @@ fn to_timestamp(value: ConfigValue) -> Result<Timestamp, Box<dyn std::error::Err
 
 impl UserSettings {
     pub fn from_config(config: StackedConfig) -> Result<Self, ConfigGetError> {
-        let user_name = config.get("user.name").optional()?.unwrap_or_default();
-        let user_email = config.get("user.email").optional()?.unwrap_or_default();
+        let user_name = config.get("user.name")?;
+        let user_email = config.get("user.email")?;
         let commit_timestamp = config
             .get_value_with("debug.commit-timestamp", to_timestamp)
             .optional()?;
@@ -258,11 +257,8 @@ impl UserSettings {
     // separate from sign_settings as those two are needed in pretty different
     // places
     pub fn signing_backend(&self) -> Result<Option<String>, ConfigGetError> {
-        let maybe_backend = self.get_string("signing.backend").optional()?;
-        match maybe_backend.as_deref() {
-            Some("none") | None => Ok(None),
-            Some(_) => Ok(maybe_backend),
-        }
+        let backend = self.get_string("signing.backend")?;
+        Ok((backend != "none").then_some(backend))
     }
 
     pub fn sign_settings(&self) -> SignSettings {

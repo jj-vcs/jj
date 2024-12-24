@@ -2221,7 +2221,7 @@ mod tests {
     // UserSettings type. testutils returns jj_lib (2)'s UserSettings, whereas
     // our UserSettings type comes from jj_lib (1).
     fn user_settings() -> UserSettings {
-        let config = StackedConfig::empty();
+        let config = StackedConfig::with_defaults();
         UserSettings::from_config(config).unwrap()
     }
 }

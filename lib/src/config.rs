@@ -27,6 +27,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use itertools::Itertools as _;
+use once_cell::sync::Lazy;
 use serde::de::IntoDeserializer as _;
 use serde::Deserialize;
 use thiserror::Error;
@@ -595,6 +596,14 @@ impl StackedConfig {
         StackedConfig { layers: vec![] }
     }
 
+    /// Creates a stack of configuration layers containing the default variables
+    /// referred to by `jj-lib`.
+    pub fn with_defaults() -> Self {
+        StackedConfig {
+            layers: DEFAULT_CONFIG_LAYERS.to_vec(),
+        }
+    }
+
     /// Loads config file from the specified `path`, inserts it at the position
     /// specified by `source`. The file should exist.
     pub fn load_file(
@@ -832,6 +841,11 @@ fn merge_items(lower_item: &mut ConfigItem, upper_item: &ConfigItem) {
         };
     }
 }
+
+static DEFAULT_CONFIG_LAYERS: Lazy<[Arc<ConfigLayer>; 1]> = Lazy::new(|| {
+    let parse = |text: &str| Arc::new(ConfigLayer::parse(ConfigSource::Default, text).unwrap());
+    [parse(include_str!("config/misc.toml"))]
+});
 
 #[cfg(test)]
 mod tests {

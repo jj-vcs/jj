@@ -120,10 +120,7 @@ impl SshBackend {
     }
 
     pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
-        let program = settings
-            .get_string("signing.backends.ssh.program")
-            .optional()?
-            .unwrap_or_else(|| "ssh-keygen".into());
+        let program = settings.get_string("signing.backends.ssh.program")?;
         let allowed_signers = settings
             .get_string("signing.backends.ssh.allowed-signers")
             .optional()?;
