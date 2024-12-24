@@ -1027,6 +1027,30 @@ as follows:
 backends.ssh.allowed-signers = "/path/to/allowed-signers"
 ```
 
+## Commit Signature Verification
+
+`jj` attempts to verify any signatures found on commits when
+displaying them with `jj log` or `jj show`.
+
+By default signature verification and display is **disabled** as it incurs a
+performance cost when rendering medium to large change logs.
+
+If you want to verify and display commit signatures, you can use the
+provided template:
+```sh
+jj log -Tbuiltin_log_detailed_with_sig
+```
+
+If you always want to display commit signatures, you can set the
+[default template](#default-template):
+```toml
+[templates]
+log = "builtin_log_detailed_with_sig"
+```
+
+See [CommitSignature Type](./templates.md#commitsignature-type) for available template methods.
+
+
 ## Git settings
 
 ### Default remotes for `jj git fetch` and `jj git push`
