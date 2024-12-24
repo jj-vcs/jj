@@ -164,3 +164,23 @@ ORANGE
 This conflict marker style only supports 2-sided conflicts though, so it falls
 back to the similar "snapshot" conflict markers if there are more than 2 sides
 to the conflict.
+
+## Long conflict markers
+
+Some files may contain lines which could be confused for conflict markers. For
+instance, a line could start with `=======`, which looks like a Git-style
+conflict marker. To ensure that it's always unambiguous which lines are conflict
+markers and which are just part of the file contents, `jj` sometimes uses
+conflict markers which are longer than normal:
+
+```
+<<<<<<<<<<<<<<< Conflict 1 of 1
+%%%%%%%%%%%%%%% Changes from base to side #1
+-Heading
++HEADING
+ =======
++++++++++++++++ Contents of side #2
+New Heading
+===========
+>>>>>>>>>>>>>>> Conflict 1 of 1 ends
+```
