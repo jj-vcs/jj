@@ -146,6 +146,11 @@ impl ConfigNamePathBuf {
         self.0.is_empty()
     }
 
+    /// Returns true if the `base` is a prefix of this path.
+    pub fn starts_with(&self, base: impl AsRef<[toml_edit::Key]>) -> bool {
+        self.0.starts_with(base.as_ref())
+    }
+
     /// Returns iterator of path components (or keys.)
     pub fn components(&self) -> slice::Iter<'_, toml_edit::Key> {
         self.0.iter()

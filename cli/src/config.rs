@@ -13,8 +13,8 @@
 // limitations under the License.
 
 use std::borrow::Cow;
+use std::collections::BTreeSet;
 use std::collections::HashMap;
-use std::collections::HashSet;
 use std::env;
 use std::fmt;
 use std::path::Path;
@@ -103,28 +103,40 @@ pub fn resolved_config_values(
     stacked_config: &StackedConfig,
     filter_prefix: &ConfigNamePathBuf,
 ) -> Vec<AnnotatedValue> {
-    // Collect annotated values from each config.
+    // Collect annotated values in reverse order and mark each value shadowed by
+    // value or table in upper layers.
     let mut config_vals = vec![];
-    for layer in stacked_config.layers() {
-        // TODO: Err(item) means all descendant paths are overridden by the
-        // current layer. For example, the default ui.pager.<field> should be
-        // marked as overridden if user had ui.pager = [...] set.
-        let Ok(Some(top_item)) = layer.look_up_item(filter_prefix) else {
-            continue;
+    let mut upper_value_names = BTreeSet::new();
+    for layer in stacked_config.layers().iter().rev() {
+        let top_item = match layer.look_up_item(filter_prefix) {
+            Ok(Some(item)) => item,
+            Ok(None) => continue, // parent is a table, but no value found
+            Err(_) => {
+                // parent is not a table, shadows lower layers
+                upper_value_names.insert(filter_prefix.clone());
+                continue;
+            }
         };
-        let mut config_stack = vec![(filter_prefix.clone(), top_item)];
-        while let Some((name, item)) = config_stack.pop() {
+        let mut config_stack = vec![(filter_prefix.clone(), top_item, false)];
+        while let Some((name, item, is_parent_overridden)) = config_stack.pop() {
             if let Some(table) = item.as_table() {
-                // table.iter() does not implement DoubleEndedIterator as of
-                // toml_edit 0.22.22.
-                let frame = config_stack.len();
+                // current table and children may be shadowed by value in upper layer
+                let is_overridden = is_parent_overridden || upper_value_names.contains(&name);
                 for (k, v) in table {
                     let mut sub_name = name.clone();
                     sub_name.push(k);
-                    config_stack.push((sub_name, v));
+                    config_stack.push((sub_name, v, is_overridden)); // in reverse order
                 }
-                config_stack[frame..].reverse();
             } else {
+                // current value may be shadowed by value or table in upper layer
+                let maybe_child = upper_value_names
+                    .range(&name..)
+                    .next()
+                    .filter(|next| next.starts_with(&name));
+                let is_overridden = is_parent_overridden || maybe_child.is_some();
+                if maybe_child != Some(&name) {
+                    upper_value_names.insert(name.clone());
+                }
                 let value = item
                     .clone()
                     .into_value()
@@ -133,20 +145,12 @@ pub fn resolved_config_values(
                     name,
                     value,
                     source: layer.source,
-                    // Note: Value updated below.
-                    is_overridden: false,
+                    is_overridden,
                 });
             }
         }
     }
-
-    // Walk through config values in reverse order and mark each overridden value as
-    // overridden.
-    let mut names_found = HashSet::new();
-    for val in config_vals.iter_mut().rev() {
-        val.is_overridden = !names_found.insert(&val.name);
-    }
-
+    config_vals.reverse();
     config_vals
 }
 
@@ -702,6 +706,8 @@ impl TryFrom<Vec<String>> for NonEmptyCommandArgsVec {
 
 #[cfg(test)]
 mod tests {
+    use std::fmt::Write as _;
+
     use anyhow::anyhow;
     use assert_matches::assert_matches;
     use indoc::indoc;
@@ -1038,6 +1044,112 @@ mod tests {
         ]
         "#
         );
+    }
+
+    #[test]
+    fn test_resolved_config_values_overridden() {
+        let list = |layers: &[&ConfigLayer], prefix: &str| -> String {
+            let mut config = StackedConfig::empty();
+            config.extend_layers(layers.iter().copied().cloned());
+            let prefix = if prefix.is_empty() {
+                ConfigNamePathBuf::root()
+            } else {
+                prefix.parse().unwrap()
+            };
+            let mut output = String::new();
+            for annotated in resolved_config_values(&config, &prefix) {
+                let AnnotatedValue { name, value, .. } = &annotated;
+                let sigil = if annotated.is_overridden { '!' } else { ' ' };
+                writeln!(output, "{sigil}{name} = {value}").unwrap();
+            }
+            output
+        };
+
+        let mut layer0 = ConfigLayer::empty(ConfigSource::User);
+        layer0.set_value("a.b.e", "0.0").unwrap();
+        layer0.set_value("a.b.c.f", "0.1").unwrap();
+        layer0.set_value("a.b.d", "0.2").unwrap();
+        let mut layer1 = ConfigLayer::empty(ConfigSource::User);
+        layer1.set_value("a.b", "1.0").unwrap();
+        layer1.set_value("a.c", "1.1").unwrap();
+        let mut layer2 = ConfigLayer::empty(ConfigSource::User);
+        layer2.set_value("a.b.g", "2.0").unwrap();
+        layer2.set_value("a.b.d", "2.1").unwrap();
+
+        // a.b.* is shadowed by a.b
+        let layers = [&layer0, &layer1];
+        insta::assert_snapshot!(list(&layers, ""), @r#"
+        !a.b.e = "0.0"
+        !a.b.c.f = "0.1"
+        !a.b.d = "0.2"
+         a.b = "1.0"
+         a.c = "1.1"
+        "#);
+        insta::assert_snapshot!(list(&layers, "a.b"), @r#"
+        !a.b.e = "0.0"
+        !a.b.c.f = "0.1"
+        !a.b.d = "0.2"
+         a.b = "1.0"
+        "#);
+        insta::assert_snapshot!(list(&layers, "a.b.c"), @r#"!a.b.c.f = "0.1""#);
+        insta::assert_snapshot!(list(&layers, "a.b.d"), @r#"!a.b.d = "0.2""#);
+
+        // a.b is shadowed by a.b.*
+        let layers = [&layer1, &layer2];
+        insta::assert_snapshot!(list(&layers, ""), @r#"
+        !a.b = "1.0"
+         a.c = "1.1"
+         a.b.g = "2.0"
+         a.b.d = "2.1"
+        "#);
+        insta::assert_snapshot!(list(&layers, "a.b"), @r#"
+        !a.b = "1.0"
+         a.b.g = "2.0"
+         a.b.d = "2.1"
+        "#);
+
+        // a.b.d is shadowed by a.b.d
+        let layers = [&layer0, &layer2];
+        insta::assert_snapshot!(list(&layers, ""), @r#"
+         a.b.e = "0.0"
+         a.b.c.f = "0.1"
+        !a.b.d = "0.2"
+         a.b.g = "2.0"
+         a.b.d = "2.1"
+        "#);
+        insta::assert_snapshot!(list(&layers, "a.b"), @r#"
+         a.b.e = "0.0"
+         a.b.c.f = "0.1"
+        !a.b.d = "0.2"
+         a.b.g = "2.0"
+         a.b.d = "2.1"
+        "#);
+        insta::assert_snapshot!(list(&layers, "a.b.c"), @r#" a.b.c.f = "0.1""#);
+        insta::assert_snapshot!(list(&layers, "a.b.d"), @r#"
+        !a.b.d = "0.2"
+         a.b.d = "2.1"
+        "#);
+
+        // a.b.* is shadowed by a.b, which is shadowed by a.b.*
+        let layers = [&layer0, &layer1, &layer2];
+        insta::assert_snapshot!(list(&layers, ""), @r#"
+        !a.b.e = "0.0"
+        !a.b.c.f = "0.1"
+        !a.b.d = "0.2"
+        !a.b = "1.0"
+         a.c = "1.1"
+         a.b.g = "2.0"
+         a.b.d = "2.1"
+        "#);
+        insta::assert_snapshot!(list(&layers, "a.b"), @r#"
+        !a.b.e = "0.0"
+        !a.b.c.f = "0.1"
+        !a.b.d = "0.2"
+        !a.b = "1.0"
+         a.b.g = "2.0"
+         a.b.d = "2.1"
+        "#);
+        insta::assert_snapshot!(list(&layers, "a.b.c"), @r#"!a.b.c.f = "0.1""#);
     }
 
     #[test]
