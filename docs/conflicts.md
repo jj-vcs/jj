@@ -184,3 +184,33 @@ New Heading
 ===========
 >>>>>>>>>>>>>>> Conflict 1 of 1 ends
 ```
+
+## Conflict with no newline at end of file
+
+On POSIX systems, text files are generally assumed to be a series of lines, with
+each line terminated by a newline character. However, some files may not end
+with a newline character, and it's important that `jj` doesn't lose any
+information about the contents of a file when materializing conflicts.
+
+Therefore, when `jj` encounters a conflict involving a missing terminating
+newline character, it will add a `[noeol]` marker to the start of the conflict
+to indicate that there was a missing End-Of-Line (EOL) character, and it will
+automatically add a newline character after every base and side of the conflict.
+
+For instance, if a file originally contained "grape" as its last line with no
+terminating newline character, and one person changed "grape" to "grapefruit",
+while another person added the missing newline character, the resulting conflict
+would look like this:
+
+```
+<<<<<<< Conflict 1 of 1 [noeol]
++++++++ Contents of side #1
+grapefruit
+%%%%%%% Changes from base to side #2
+ grape
++
+>>>>>>> Conflict 1 of 1 ends
+```
+
+The correct resolution of this conflict would be "grapefruit" followed by a
+terminating newline character.
