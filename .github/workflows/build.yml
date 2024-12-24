@@ -127,7 +127,7 @@ jobs:
         with:
           python-version: 3.11
       - name: Install uv
-        uses: astral-sh/setup-uv@180f8b44399608a850e1db031fa65c77746566d3
+        uses: astral-sh/setup-uv@887a942a15af3a7626099df99e897a18d9e5ab3a
         with:
           # If you bump the version, also update docs/contributing.md
           # and all other workflows that install uv
@@ -142,7 +142,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - name: Install uv
-        uses: astral-sh/setup-uv@180f8b44399608a850e1db031fa65c77746566d3
+        uses: astral-sh/setup-uv@887a942a15af3a7626099df99e897a18d9e5ab3a
       # 'only-managed' means that uv will always download Python, even
       # if the runner happens to provide a compatible version
       - name: Check that `mkdocs` can build the docs
