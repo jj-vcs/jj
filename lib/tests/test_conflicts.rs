@@ -629,9 +629,9 @@ fn test_materialize_conflict_no_newlines_at_eof() {
     insta::assert_snapshot!(materialized,
         @r###"
     <<<<<<< Conflict 1 of 1
-    %%%%%%% Changes from base to side #1
+    %%%%%%% Changes from base to side #1 [-noeol]
     -base
-    +++++++ Contents of side #2
+    +++++++ Contents of side #2 [noeol]
     right
     >>>>>>> Conflict 1 of 1 ends
     "###
@@ -2057,7 +2057,7 @@ fn test_update_conflict_from_content_no_eol() {
     +++++++ Contents of side #1
     base
     left
-    %%%%%%% Changes from base to side #2
+    %%%%%%% Changes from base to side #2 [noeol]
     -base
     +right
     >>>>>>> Conflict 2 of 2 ends
@@ -2096,9 +2096,9 @@ fn test_update_conflict_from_content_no_eol() {
     +++++++ Contents of side #1
     base
     left
-    ------- Contents of base
+    ------- Contents of base [noeol]
     base
-    +++++++ Contents of side #2
+    +++++++ Contents of side #2 [noeol]
     right
     >>>>>>> Conflict 2 of 2 ends
     "##
@@ -2134,11 +2134,11 @@ fn test_update_conflict_from_content_no_eol() {
     <<<<<<< Side #1 (Conflict 2 of 2)
     base
     left
-    ||||||| Base
+    ||||||| Base [noeol]
     base
     =======
     right
-    >>>>>>> Side #2 (Conflict 2 of 2 ends)
+    >>>>>>> Side #2 [noeol] (Conflict 2 of 2 ends)
     "##
     );
     // Parse with "diff" markers to ensure the file is actually parsed
@@ -2197,15 +2197,15 @@ fn test_update_conflict_from_content_no_eol_in_diff_hunk() {
     <<<<<<< Conflict 1 of 1
     +++++++ Contents of side #1
     side
-    %%%%%%% Changes from base #1 to side #2
+    %%%%%%% Changes from base #1 to side #2 [-noeol]
      add newline
     -line
     +line
-    %%%%%%% Changes from base #2 to side #3
+    %%%%%%% Changes from base #2 to side #3 [+noeol]
      remove newline
     -line
     +line
-    %%%%%%% Changes from base #3 to side #4
+    %%%%%%% Changes from base #3 to side #4 [noeol]
      no newline
     -line 1
     +line 2
@@ -2253,7 +2253,7 @@ fn test_update_conflict_from_content_only_no_eol_change() {
         @r##"
     line 1
     <<<<<<< Conflict 1 of 1
-    %%%%%%% Changes from base to side #1
+    %%%%%%% Changes from base to side #1 [+noeol]
     +line 2
     +++++++ Contents of side #2
     line 2

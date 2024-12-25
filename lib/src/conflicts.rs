@@ -58,6 +58,15 @@ pub const MIN_CONFLICT_MARKER_LEN: usize = 7;
 /// existing markers.
 const CONFLICT_MARKER_LEN_INCREMENT: usize = 4;
 
+/// Comment for missing terminating newline in a term of a conflict.
+const NO_EOL_COMMENT: &str = " [noeol]";
+
+/// Comment for missing terminating newline in the "add" side of a diff.
+const ADD_NO_EOL_COMMENT: &str = " [+noeol]";
+
+/// Comment for missing terminating newline in the "remove" side of a diff.
+const REMOVE_NO_EOL_COMMENT: &str = " [-noeol]";
+
 fn write_diff_hunks(hunks: &[DiffHunk], file: &mut dyn Write) -> io::Result<()> {
     for hunk in hunks {
         match hunk.kind {
@@ -460,7 +469,7 @@ fn materialize_git_style_conflict(
         output,
         ConflictMarkerLineChar::ConflictStart,
         conflict_marker_len,
-        &format!("Side #1 ({conflict_info})"),
+        &format!("Side #1{} ({conflict_info})", maybe_no_eol_comment(left)),
     )?;
     write_and_ensure_newline(output, left)?;
 
@@ -468,7 +477,7 @@ fn materialize_git_style_conflict(
         output,
         ConflictMarkerLineChar::GitAncestor,
         conflict_marker_len,
-        "Base",
+        &format!("Base{}", maybe_no_eol_comment(base)),
     )?;
     write_and_ensure_newline(output, base)?;
 
@@ -485,7 +494,10 @@ fn materialize_git_style_conflict(
         output,
         ConflictMarkerLineChar::ConflictEnd,
         conflict_marker_len,
-        &format!("Side #2 ({conflict_info} ends)"),
+        &format!(
+            "Side #2{} ({conflict_info} ends)",
+            maybe_no_eol_comment(right)
+        ),
     )?;
 
     Ok(())
@@ -504,7 +516,11 @@ fn materialize_jj_style_conflict(
             output,
             ConflictMarkerLineChar::Add,
             conflict_marker_len,
-            &format!("Contents of side #{}", add_index + 1),
+            &format!(
+                "Contents of side #{}{}",
+                add_index + 1,
+                maybe_no_eol_comment(data)
+            ),
         )?;
         write_and_ensure_newline(output, data)
     };
@@ -515,7 +531,7 @@ fn materialize_jj_style_conflict(
             output,
             ConflictMarkerLineChar::Remove,
             conflict_marker_len,
-            &format!("Contents of {base_str}"),
+            &format!("Contents of {base_str}{}", maybe_no_eol_comment(data)),
         )?;
         write_and_ensure_newline(output, data)
     };
@@ -523,11 +539,26 @@ fn materialize_jj_style_conflict(
     // Write a diff from a negative term to a positive term
     let write_diff =
         |base_str: &str, add_index: usize, diff: &[DiffHunk], output: &mut dyn Write| {
+            let no_eol_remove = diff
+                .last()
+                .is_some_and(|diff_hunk| has_no_eol(diff_hunk.contents[0]));
+            let no_eol_add = diff
+                .last()
+                .is_some_and(|diff_hunk| has_no_eol(diff_hunk.contents[1]));
+            let no_eol_comment = match (no_eol_remove, no_eol_add) {
+                (true, true) => NO_EOL_COMMENT,
+                (true, _) => REMOVE_NO_EOL_COMMENT,
+                (_, true) => ADD_NO_EOL_COMMENT,
+                _ => "",
+            };
             write_conflict_marker(
                 output,
                 ConflictMarkerLineChar::Diff,
                 conflict_marker_len,
-                &format!("Changes from {base_str} to side #{}", add_index + 1),
+                &format!(
+                    "Changes from {base_str} to side #{}{no_eol_comment}",
+                    add_index + 1
+                ),
             )?;
             write_diff_hunks(diff, output)
         };
@@ -594,6 +625,14 @@ fn materialize_jj_style_conflict(
         &format!("{conflict_info} ends"),
     )?;
     Ok(())
+}
+
+fn maybe_no_eol_comment(slice: &[u8]) -> &'static str {
+    if has_no_eol(slice) {
+        NO_EOL_COMMENT
+    } else {
+        ""
+    }
 }
 
 // Write a chunk of data, ensuring that it doesn't end with a line which is
