@@ -630,16 +630,33 @@ fn test_materialize_conflict_no_newlines_at_eof() {
         @r###"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
-    -base+++++++ Contents of side #2
-    right>>>>>>> Conflict 1 of 1 ends
+    -base
+    +++++++ Contents of side #2
+    right
+    >>>>>>> Conflict 1 of 1 ends
     "###
     );
-    // BUG(#3968): These conflict markers cannot be parsed
-    insta::assert_debug_snapshot!(parse_conflict(
-        materialized.as_bytes(),
-        conflict.num_sides(),
-        MIN_CONFLICT_MARKER_LEN
-    ),@"None");
+    // The conflict markers are parsed with the trailing newline, but it is removed
+    // by `update_from_content`
+    insta::assert_debug_snapshot!(
+        parse_conflict(
+            materialized.as_bytes(),
+            conflict.num_sides(),
+            MIN_CONFLICT_MARKER_LEN
+        ),
+        @r#"
+    Some(
+        [
+            Conflicted(
+                [
+                    "",
+                    "base\n",
+                    "right\n",
+                ],
+            ),
+        ],
+    )
+    "#);
 }
 
 #[test]
@@ -2004,6 +2021,258 @@ fn test_update_conflict_from_content_with_long_markers() {
     line 2
     line 3
     "##
+    );
+}
+
+#[test]
+fn test_update_conflict_from_content_no_eol() {
+    let test_repo = TestRepo::init();
+    let store = test_repo.repo.store();
+
+    let path = RepoPath::from_internal_string("file");
+    let base_id = testutils::write_file(store, path, "line 1\nline 2\nline 3\nbase");
+    let left_empty_id =
+        testutils::write_file(store, path, "line 1\nline 2 left\nline 3\nbase\nleft\n");
+    let right_id = testutils::write_file(store, path, "line 1\nline 2 right\nline 3\nright");
+
+    let conflict = Merge::from_removes_adds(
+        vec![Some(base_id)],
+        vec![Some(left_empty_id), Some(right_id)],
+    );
+
+    let materialized =
+        &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Diff);
+    insta::assert_snapshot!(materialized,
+        @r##"
+    line 1
+    <<<<<<< Conflict 1 of 2
+    %%%%%%% Changes from base to side #1
+    -line 2
+    +line 2 left
+    +++++++ Contents of side #2
+    line 2 right
+    >>>>>>> Conflict 1 of 2 ends
+    line 3
+    <<<<<<< Conflict 2 of 2
+    +++++++ Contents of side #1
+    base
+    left
+    %%%%%%% Changes from base to side #2
+    -base
+    +right
+    >>>>>>> Conflict 2 of 2 ends
+    "##
+    );
+    // Parse with "snapshot" markers to ensure the file is actually parsed
+    assert_eq!(
+        update_from_content(
+            &conflict,
+            store,
+            path,
+            materialized.as_bytes(),
+            ConflictMarkerStyle::Snapshot,
+            MIN_CONFLICT_MARKER_LEN,
+        )
+        .block_on()
+        .unwrap(),
+        conflict
+    );
+
+    let materialized =
+        &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Snapshot);
+    insta::assert_snapshot!(materialized,
+        @r##"
+    line 1
+    <<<<<<< Conflict 1 of 2
+    +++++++ Contents of side #1
+    line 2 left
+    ------- Contents of base
+    line 2
+    +++++++ Contents of side #2
+    line 2 right
+    >>>>>>> Conflict 1 of 2 ends
+    line 3
+    <<<<<<< Conflict 2 of 2
+    +++++++ Contents of side #1
+    base
+    left
+    ------- Contents of base
+    base
+    +++++++ Contents of side #2
+    right
+    >>>>>>> Conflict 2 of 2 ends
+    "##
+    );
+    // Parse with "diff" markers to ensure the file is actually parsed
+    assert_eq!(
+        update_from_content(
+            &conflict,
+            store,
+            path,
+            materialized.as_bytes(),
+            ConflictMarkerStyle::Diff,
+            MIN_CONFLICT_MARKER_LEN,
+        )
+        .block_on()
+        .unwrap(),
+        conflict
+    );
+
+    let materialized =
+        &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Git);
+    insta::assert_snapshot!(materialized,
+        @r##"
+    line 1
+    <<<<<<< Side #1 (Conflict 1 of 2)
+    line 2 left
+    ||||||| Base
+    line 2
+    =======
+    line 2 right
+    >>>>>>> Side #2 (Conflict 1 of 2 ends)
+    line 3
+    <<<<<<< Side #1 (Conflict 2 of 2)
+    base
+    left
+    ||||||| Base
+    base
+    =======
+    right
+    >>>>>>> Side #2 (Conflict 2 of 2 ends)
+    "##
+    );
+    // Parse with "diff" markers to ensure the file is actually parsed
+    assert_eq!(
+        update_from_content(
+            &conflict,
+            store,
+            path,
+            materialized.as_bytes(),
+            ConflictMarkerStyle::Diff,
+            MIN_CONFLICT_MARKER_LEN,
+        )
+        .block_on()
+        .unwrap(),
+        conflict
+    );
+}
+
+#[test]
+fn test_update_conflict_from_content_no_eol_in_diff_hunk() {
+    let test_repo = TestRepo::init();
+    let store = test_repo.repo.store();
+
+    let path = RepoPath::from_internal_string("file");
+    // Create a conflict with all 4 possible cases for diff "noeol" markers
+    let side_1_id = testutils::write_file(store, path, "side\n");
+    let base_1_id = testutils::write_file(store, path, "add newline\nline");
+    let side_2_id = testutils::write_file(store, path, "add newline\nline\n");
+    let base_2_id = testutils::write_file(store, path, "remove newline\nline\n");
+    let side_3_id = testutils::write_file(store, path, "remove newline\nline");
+    let base_3_id = testutils::write_file(store, path, "no newline\nline 1");
+    let side_4_id = testutils::write_file(store, path, "no newline\nline 2");
+    let base_4_id = testutils::write_file(store, path, "with newline\nline 1\n");
+    let side_5_id = testutils::write_file(store, path, "with newline\nline 2\n");
+
+    let conflict = Merge::from_removes_adds(
+        vec![
+            Some(base_1_id),
+            Some(base_2_id),
+            Some(base_3_id),
+            Some(base_4_id),
+        ],
+        vec![
+            Some(side_1_id),
+            Some(side_2_id),
+            Some(side_3_id),
+            Some(side_4_id),
+            Some(side_5_id),
+        ],
+    );
+
+    let materialized =
+        &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Diff);
+    insta::assert_snapshot!(materialized,
+        @r##"
+    <<<<<<< Conflict 1 of 1
+    +++++++ Contents of side #1
+    side
+    %%%%%%% Changes from base #1 to side #2
+     add newline
+    -line
+    +line
+    %%%%%%% Changes from base #2 to side #3
+     remove newline
+    -line
+    +line
+    %%%%%%% Changes from base #3 to side #4
+     no newline
+    -line 1
+    +line 2
+    %%%%%%% Changes from base #4 to side #5
+     with newline
+    -line 1
+    +line 2
+    >>>>>>> Conflict 1 of 1 ends
+    "##
+    );
+    // Parse with "snapshot" markers to ensure the file is actually parsed
+    assert_eq!(
+        update_from_content(
+            &conflict,
+            store,
+            path,
+            materialized.as_bytes(),
+            ConflictMarkerStyle::Snapshot,
+            MIN_CONFLICT_MARKER_LEN,
+        )
+        .block_on()
+        .unwrap(),
+        conflict
+    );
+}
+
+#[test]
+fn test_update_conflict_from_content_only_no_eol_change() {
+    let test_repo = TestRepo::init();
+    let store = test_repo.repo.store();
+
+    let path = RepoPath::from_internal_string("file");
+    // Create a conflict which would be resolved by the "A-B+A = A" rule if the
+    // missing newline is wrongly ignored
+    let left_id = testutils::write_file(store, path, "line 1\nline 2");
+    let base_id = testutils::write_file(store, path, "line 1\n");
+    let right_id = testutils::write_file(store, path, "line 1\nline 2\n");
+
+    let conflict =
+        Merge::from_removes_adds(vec![Some(base_id)], vec![Some(left_id), Some(right_id)]);
+
+    let materialized =
+        &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Diff);
+    insta::assert_snapshot!(materialized,
+        @r##"
+    line 1
+    <<<<<<< Conflict 1 of 1
+    %%%%%%% Changes from base to side #1
+    +line 2
+    +++++++ Contents of side #2
+    line 2
+    >>>>>>> Conflict 1 of 1 ends
+    "##
+    );
+    // Parse with "snapshot" markers to ensure the file is actually parsed
+    assert_eq!(
+        update_from_content(
+            &conflict,
+            store,
+            path,
+            materialized.as_bytes(),
+            ConflictMarkerStyle::Snapshot,
+            MIN_CONFLICT_MARKER_LEN,
+        )
+        .block_on()
+        .unwrap(),
+        conflict
     );
 }
 
