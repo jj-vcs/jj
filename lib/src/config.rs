@@ -34,7 +34,9 @@ use thiserror::Error;
 use toml_edit::DocumentMut;
 use toml_edit::ImDocument;
 
+pub use crate::config_resolver::migrate;
 pub use crate::config_resolver::resolve;
+pub use crate::config_resolver::ConfigMigrationRule;
 pub use crate::config_resolver::ConfigResolutionContext;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
@@ -164,6 +166,14 @@ impl ConfigNamePathBuf {
     }
 }
 
+// Help obtain owned value from ToConfigNamePath::Output. If we add a slice
+// type (like &Path for PathBuf), this will be From<&ConfigNamePath>.
+impl From<&ConfigNamePathBuf> for ConfigNamePathBuf {
+    fn from(value: &ConfigNamePathBuf) -> Self {
+        value.clone()
+    }
+}
+
 impl<K: Into<toml_edit::Key>> FromIterator<K> for ConfigNamePathBuf {
     fn from_iter<I: IntoIterator<Item = K>>(iter: I) -> Self {
         let keys = iter.into_iter().map(|k| k.into()).collect();
@@ -203,7 +213,7 @@ impl fmt::Display for ConfigNamePathBuf {
 /// constrained by the source type.
 pub trait ToConfigNamePath: Sized {
     /// Path type to be converted from `Self`.
-    type Output: Borrow<ConfigNamePathBuf>;
+    type Output: Borrow<ConfigNamePathBuf> + Into<ConfigNamePathBuf>;
 
     /// Converts this object into a dotted config name path.
     fn into_name_path(self) -> Self::Output;
@@ -683,6 +693,11 @@ impl StackedConfig {
     /// Layers sorted by precedence.
     pub fn layers(&self) -> &[Arc<ConfigLayer>] {
         &self.layers
+    }
+
+    /// Mutable references to layers sorted by precedence.
+    pub fn layers_mut(&mut self) -> &mut [Arc<ConfigLayer>] {
+        &mut self.layers
     }
 
     /// Layers of the specified `source`.

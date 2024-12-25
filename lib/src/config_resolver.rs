@@ -18,6 +18,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use itertools::Itertools as _;
 use serde::de::IntoDeserializer as _;
 use serde::Deserialize as _;
 use toml_edit::DocumentMut;
@@ -25,8 +26,11 @@ use toml_edit::DocumentMut;
 use crate::config::ConfigGetError;
 use crate::config::ConfigItem;
 use crate::config::ConfigLayer;
+use crate::config::ConfigNamePathBuf;
+use crate::config::ConfigUpdateError;
 use crate::config::ConfigValue;
 use crate::config::StackedConfig;
+use crate::config::ToConfigNamePath;
 
 // Prefixed by "--" so these keys look unusual. It's also nice that "-" is
 // placed earlier than the other keys in lexicographical order.
@@ -175,6 +179,95 @@ fn pop_scope_tables(layer: &mut ConfigLayer) -> Result<toml_edit::ArrayOfTables,
             source_path: layer.path.clone(),
         }),
     }
+}
+
+/// Rule to migrate deprecated config variables.
+pub struct ConfigMigrationRule {
+    inner: MigrationRule,
+}
+
+enum MigrationRule {
+    RenameValue {
+        old_name: ConfigNamePathBuf,
+        new_name: ConfigNamePathBuf,
+    },
+}
+
+impl ConfigMigrationRule {
+    /// Creates rule that moves value from `old_name` to `new_name`.
+    pub fn rename_value(old_name: impl ToConfigNamePath, new_name: impl ToConfigNamePath) -> Self {
+        let inner = MigrationRule::RenameValue {
+            old_name: old_name.into_name_path().into(),
+            new_name: new_name.into_name_path().into(),
+        };
+        ConfigMigrationRule { inner }
+    }
+
+    // TODO: rename + update value, generic Box<dyn Fn>, etc.
+
+    /// Returns true if `layer` contains an item to be migrated.
+    fn matches(&self, layer: &ConfigLayer) -> bool {
+        match &self.inner {
+            MigrationRule::RenameValue { old_name, .. } => {
+                matches!(layer.look_up_item(old_name), Ok(Some(_)))
+            }
+        }
+    }
+
+    /// Migrates `layer` item. Returns a description of the applied migration.
+    fn apply(&self, layer: &mut ConfigLayer) -> Result<String, ConfigUpdateError> {
+        match &self.inner {
+            MigrationRule::RenameValue { old_name, new_name } => {
+                rename_value(layer, old_name, new_name)
+            }
+        }
+    }
+}
+
+fn rename_value(
+    layer: &mut ConfigLayer,
+    old_name: &ConfigNamePathBuf,
+    new_name: &ConfigNamePathBuf,
+) -> Result<String, ConfigUpdateError> {
+    let value = layer.delete_value(old_name)?.expect("tested by matches()");
+    if matches!(layer.look_up_item(new_name), Ok(Some(_))) {
+        return Ok(format!("{old_name} is deleted (superseded by {new_name})"));
+    }
+    layer.set_value(new_name, value)?;
+    Ok(format!("{old_name} is renamed to {new_name}"))
+}
+
+/// Applies migration `rules` to `config`. Returns descriptions of the applied
+/// migrations.
+pub fn migrate(
+    config: &mut StackedConfig,
+    rules: &[ConfigMigrationRule],
+) -> Result<Vec<String>, ConfigUpdateError> {
+    let mut descriptions = Vec::new();
+    for layer in config.layers_mut() {
+        migrate_layer(layer, rules, &mut descriptions)?;
+    }
+    Ok(descriptions)
+}
+
+fn migrate_layer(
+    layer: &mut Arc<ConfigLayer>,
+    rules: &[ConfigMigrationRule],
+    descriptions: &mut Vec<String>,
+) -> Result<(), ConfigUpdateError> {
+    let rules_to_apply = rules
+        .iter()
+        .filter(|rule| rule.matches(layer))
+        .collect_vec();
+    if rules_to_apply.is_empty() {
+        return Ok(());
+    }
+    let layer_mut = Arc::make_mut(layer);
+    for rule in rules_to_apply {
+        let desc = rule.apply(layer_mut)?;
+        descriptions.push(desc);
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -431,5 +524,66 @@ mod tests {
             resolve(&new_config("[--scope]"), &context),
             Err(ConfigGetError::Type { .. })
         );
+    }
+
+    #[test]
+    fn test_migrate_noop() {
+        let mut config = StackedConfig::empty();
+        config.add_layer(new_user_layer(indoc! {"
+            foo = 'foo'
+        "}));
+        config.add_layer(new_user_layer(indoc! {"
+            bar = 'bar'
+        "}));
+
+        let old_layers = config.layers().to_vec();
+        let rules = [ConfigMigrationRule::rename_value("baz", "foo")];
+        let descriptions = migrate(&mut config, &rules).unwrap();
+        assert!(descriptions.is_empty());
+        assert!(Arc::ptr_eq(&config.layers()[0], &old_layers[0]));
+        assert!(Arc::ptr_eq(&config.layers()[1], &old_layers[1]));
+    }
+
+    #[test]
+    fn test_migrate_rename_value() {
+        let mut config = StackedConfig::empty();
+        config.add_layer(new_user_layer(indoc! {"
+            [foo]
+            old = 'foo.old #0'
+            [bar]
+            old = 'bar.old #0'
+            [baz]
+            new = 'baz.new #0'
+        "}));
+        config.add_layer(new_user_layer(indoc! {"
+            [bar]
+            old = 'bar.old #1'
+        "}));
+
+        let rules = [
+            ConfigMigrationRule::rename_value("foo.old", "foo.new"),
+            ConfigMigrationRule::rename_value("bar.old", "baz.new"),
+        ];
+        let descriptions = migrate(&mut config, &rules).unwrap();
+        insta::assert_debug_snapshot!(descriptions, @r#"
+        [
+            "foo.old is renamed to foo.new",
+            "bar.old is deleted (superseded by baz.new)",
+            "bar.old is renamed to baz.new",
+        ]
+        "#);
+        insta::assert_snapshot!(config.layers()[0].data, @r"
+        [foo]
+        new = 'foo.old #0'
+        [bar]
+        [baz]
+        new = 'baz.new #0'
+        ");
+        insta::assert_snapshot!(config.layers()[1].data, @r"
+        [bar]
+
+        [baz]
+        new = 'bar.old #1'
+        ");
     }
 }
