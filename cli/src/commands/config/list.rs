@@ -74,32 +74,27 @@ pub fn cmd_config_list(
             .labeled("config_list")
     };
 
-    ui.request_pager();
-    let mut formatter = ui.stdout_formatter();
     let name_path = args.name.clone().unwrap_or_else(ConfigNamePathBuf::root);
-    let mut wrote_values = false;
-    for annotated in resolved_config_values(command.settings().config(), &name_path) {
-        // Remove overridden values.
-        if annotated.is_overridden && !args.include_overridden {
-            continue;
-        }
-
-        if let Some(target_source) = args.level.get_source_kind() {
-            if target_source != annotated.source {
-                continue;
-            }
-        }
-
-        // Skip built-ins if not included.
-        if !args.include_defaults && annotated.source == ConfigSource::Default {
-            continue;
-        }
-
-        template.format(&annotated, formatter.as_mut())?;
-        wrote_values = true;
+    let mut annotated_values = resolved_config_values(command.settings().config(), &name_path);
+    // The default layer could be excluded beforehand as layers[len..], but we
+    // can't do the same for "annotated.source == target_source" in order for
+    // resolved_config_values() to mark values overridden by the upper layers.
+    if let Some(target_source) = args.level.get_source_kind() {
+        annotated_values.retain(|annotated| annotated.source == target_source);
+    } else if !args.include_defaults {
+        annotated_values.retain(|annotated| annotated.source != ConfigSource::Default);
     }
-    drop(formatter);
-    if !wrote_values {
+    if !args.include_overridden {
+        annotated_values.retain(|annotated| !annotated.is_overridden);
+    }
+
+    if !annotated_values.is_empty() {
+        ui.request_pager();
+        let mut formatter = ui.stdout_formatter();
+        for annotated in &annotated_values {
+            template.format(annotated, formatter.as_mut())?;
+        }
+    } else {
         // Note to stderr explaining why output is empty.
         if let Some(name) = &args.name {
             writeln!(ui.warning_default(), "No matching config key for {name}")?;
