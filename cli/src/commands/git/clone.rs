@@ -34,6 +34,7 @@ use crate::command_error::user_error;
 use crate::command_error::user_error_with_message;
 use crate::command_error::CommandError;
 use crate::commands::git::maybe_add_gitignore;
+use crate::git_util::get_config_git_shell;
 use crate::git_util::get_git_repo;
 use crate::git_util::map_git_error;
 use crate::git_util::print_git_import_stats;
@@ -129,6 +130,7 @@ pub fn cmd_git_clone(
     // `/some/path/.`
     let canonical_wc_path = dunce::canonicalize(&wc_path)
         .map_err(|err| user_error_with_message(format!("Failed to create {wc_path_str}"), err))?;
+    let shell = get_config_git_shell(command)?;
     let clone_result = do_git_clone(
         ui,
         command,
@@ -137,6 +139,7 @@ pub fn cmd_git_clone(
         remote_name,
         &source,
         &canonical_wc_path,
+        shell,
     );
     if clone_result.is_err() {
         let clean_up_dirs = || -> io::Result<()> {
@@ -196,6 +199,7 @@ fn do_git_clone(
     remote_name: &str,
     source: &str,
     wc_path: &Path,
+    shell: bool,
 ) -> Result<(WorkspaceCommandHelper, GitFetchStats), CommandError> {
     let (workspace, repo) = if colocate {
         Workspace::init_colocated_git(command.settings(), wc_path)?
@@ -214,7 +218,7 @@ fn do_git_clone(
     let mut fetch_tx = workspace_command.start_transaction();
     let git_settings = command.settings().git_settings()?;
 
-    let stats = with_remote_git_callbacks(ui, None, |cb| {
+    let stats = with_remote_git_callbacks(ui, None, shell, |cb| {
         git::fetch(
             fetch_tx.repo_mut(),
             &git_repo,
@@ -223,14 +227,30 @@ fn do_git_clone(
             cb,
             &git_settings,
             depth,
+            shell,
         )
     })
     .map_err(|err| match err {
-        GitFetchError::NoSuchRemote(_) => {
-            panic!("shouldn't happen as we just created the git remote")
+        GitFetchError::NoSuchRemote(repo_name) => {
+            user_error(format!("Could not find repository at '{repo_name}'"))
+        }
+        GitFetchError::GitNotFound => {
+            user_error(format!("Could not find a `git` executable in the OS path"))
         }
         GitFetchError::GitImportError(err) => CommandError::from(err),
         GitFetchError::InternalGitError(err) => map_git_error(err),
+        GitFetchError::GitForkError(err) => CommandError::with_message(
+            crate::command_error::CommandErrorKind::Internal,
+            "External git process failed",
+            err,
+        ),
+        GitFetchError::GitExternalError(err) => {
+            CommandError::new(crate::command_error::CommandErrorKind::Internal, err)
+        }
+        GitFetchError::PathConversionError(path) => CommandError::new(
+            crate::command_error::CommandErrorKind::Internal,
+            format!("Failed to convert path {} to string", path.display()),
+        ),
         GitFetchError::InvalidBranchPattern => {
             unreachable!("we didn't provide any globs")
         }

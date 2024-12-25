@@ -12,6 +12,7 @@ register_snapshot_trigger = false
 [git]
 abandon-unreachable-commits = true
 # auto-local-bookmark = false
+# shell = false
 
 [operation]
 # hostname = <host>

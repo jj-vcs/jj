@@ -34,6 +34,8 @@ use crate::backend::BackendError;
 use crate::backend::CommitId;
 use crate::commit::Commit;
 use crate::git_backend::GitBackend;
+use crate::git_subprocess::GitSubprocessContext;
+use crate::git_subprocess::IoError;
 use crate::index::Index;
 use crate::object_id::ObjectId;
 use crate::op_store::RefTarget;
@@ -1078,6 +1080,21 @@ fn is_remote_not_found_err(err: &git2::Error) -> bool {
     )
 }
 
+fn repository_not_found_err(err: &git2::Error) -> Option<&str> {
+    let mut s = None;
+    if matches!(
+        (err.class(), err.code()),
+        (git2::ErrorClass::Repository, git2::ErrorCode::GenericError)
+    ) && err.message().starts_with("could not find repository at ")
+    {
+        let mut sp = err.message().split('\'');
+        sp.next();
+        s = sp.next();
+    }
+
+    s
+}
+
 fn is_remote_exists_err(err: &git2::Error) -> bool {
     matches!(
         (err.class(), err.code()),
@@ -1227,9 +1244,34 @@ pub enum GitFetchError {
     // TODO: I'm sure there are other errors possible, such as transport-level errors.
     #[error("Unexpected git error when fetching")]
     InternalGitError(#[from] git2::Error),
+    #[error("`git` executable not found")]
+    GitNotFound,
+    #[error("Failed to fork git process")]
+    GitForkError(#[from] std::io::Error),
+    #[error("git process failed: {0}")]
+    GitExternalError(String),
+    #[error("failed to convert path {0:?} to a string")]
+    PathConversionError(std::path::PathBuf),
 }
 
-fn fetch_options(
+fn shell_fetch_options(
+    callbacks: RemoteCallbacks<'_>,
+    depth: Option<NonZeroU32>,
+) -> git2::FetchOptions<'_> {
+    let mut proxy_options = git2::ProxyOptions::new();
+    proxy_options.auto();
+
+    let mut fetch_options = git2::FetchOptions::new();
+    fetch_options.proxy_options(proxy_options);
+    fetch_options.remote_callbacks(callbacks.into_git());
+    if let Some(depth) = depth {
+        fetch_options.depth(depth.get().try_into().unwrap_or(i32::MAX));
+    }
+
+    fetch_options
+}
+
+fn git2_fetch_options(
     callbacks: RemoteCallbacks<'_>,
     depth: Option<NonZeroU32>,
 ) -> git2::FetchOptions<'_> {
@@ -1257,6 +1299,8 @@ struct GitFetch<'a> {
     git_settings: &'a GitSettings,
     fetch_options: git2::FetchOptions<'a>,
     fetched: Vec<FetchedBranches>,
+    depth: Option<NonZeroU32>,
+    shell: bool,
 }
 
 impl<'a> GitFetch<'a> {
@@ -1265,6 +1309,8 @@ impl<'a> GitFetch<'a> {
         git_repo: &'a git2::Repository,
         git_settings: &'a GitSettings,
         fetch_options: git2::FetchOptions<'a>,
+        depth: Option<NonZeroU32>,
+        shell: bool,
     ) -> Self {
         GitFetch {
             mut_repo,
@@ -1272,15 +1318,32 @@ impl<'a> GitFetch<'a> {
             git_settings,
             fetch_options,
             fetched: vec![],
+            depth,
+            shell,
         }
     }
 
-    /// Perform a `git fetch` on the local git repo, updating the
-    /// remote-tracking branches in the git repo.
-    ///
-    /// Keeps track of the {branch_names, remote_name} pair the refs can be
-    /// subsequently imported into the `jj` repo by calling `import_refs()`.
-    fn fetch(
+    fn expand_refspecs(
+        remote_name: &str,
+        branch_names: &[StringPattern],
+    ) -> Result<Vec<String>, GitFetchError> {
+        branch_names
+            .iter()
+            .map(|pattern| {
+                pattern
+                    .to_glob()
+                    .filter(
+                        /* This triggered by non-glob `*`s in addition to INVALID_REFSPEC_CHARS
+                         * because `to_glob()` escapes such `*`s as `[*]`. */
+                        |glob| !glob.contains(INVALID_REFSPEC_CHARS),
+                    )
+                    .map(|glob| format!("+refs/heads/{glob}:refs/remotes/{remote_name}/{glob}"))
+            })
+            .collect::<Option<_>>()
+            .ok_or(GitFetchError::InvalidBranchPattern)
+    }
+
+    fn git2_fetch(
         &mut self,
         branch_names: &[StringPattern],
         remote_name: &str,
@@ -1294,27 +1357,22 @@ impl<'a> GitFetch<'a> {
         })?;
         // At this point, we are only updating Git's remote tracking branches, not the
         // local branches.
-        let refspecs: Vec<_> = branch_names
-            .iter()
-            .map(|pattern| {
-                pattern
-                    .to_glob()
-                    .filter(
-                        /* This triggered by non-glob `*`s in addition to INVALID_REFSPEC_CHARS
-                         * because `to_glob()` escapes such `*`s as `[*]`. */
-                        |glob| !glob.contains(INVALID_REFSPEC_CHARS),
-                    )
-                    .map(|glob| format!("+refs/heads/{glob}:refs/remotes/{remote_name}/{glob}"))
-            })
-            .collect::<Option<_>>()
-            .ok_or(GitFetchError::InvalidBranchPattern)?;
+        let refspecs: Vec<_> = Self::expand_refspecs(remote_name, branch_names)?;
         if refspecs.is_empty() {
             // Don't fall back to the base refspecs.
             return Ok(None);
         }
 
         tracing::debug!("remote.download");
-        remote.download(&refspecs, Some(&mut self.fetch_options))?;
+        remote
+            .download(&refspecs, Some(&mut self.fetch_options))
+            .map_err(|err| {
+                if let Some(s) = repository_not_found_err(&err) {
+                    GitFetchError::NoSuchRemote(s.to_string())
+                } else {
+                    GitFetchError::InternalGitError(err)
+                }
+            })?;
         tracing::debug!("remote.prune");
         remote.prune(None)?;
         tracing::debug!("remote.update_tips");
@@ -1346,6 +1404,59 @@ impl<'a> GitFetch<'a> {
         tracing::debug!("remote.disconnect");
         remote.disconnect()?;
         Ok(default_branch)
+    }
+
+    fn shell_fetch(
+        &mut self,
+        branch_names: &[StringPattern],
+        remote_name: &str,
+    ) -> Result<Option<String>, GitFetchError> {
+        // At this point, we are only updating Git's remote tracking branches, not the
+        // local branches.
+        let refspecs: Vec<_> = Self::expand_refspecs(remote_name, branch_names)?;
+        if refspecs.is_empty() {
+            // Don't fall back to the base refspecs.
+            return Ok(None);
+        }
+
+        let git_ctx = GitSubprocessContext::from_git2(self.git_repo)?;
+
+        let mut prunes = Vec::new();
+        for refspec in refspecs {
+            git_ctx.spawn_fetch(remote_name, self.depth, &refspec, &mut prunes)?;
+        }
+        for branch in prunes {
+            git_ctx.spawn_branch_prune(remote_name, &branch)?;
+        }
+
+        self.fetched.push(FetchedBranches {
+            branches: branch_names.to_vec(),
+            remote: remote_name.to_string(),
+        });
+
+        // TODO: We could make it optional to get the default branch since we only care
+        // about it on clone.
+        let default_branch = git_ctx.spawn_remote_show(remote_name)?;
+        tracing::debug!(default_branch = default_branch);
+
+        Ok(default_branch)
+    }
+
+    /// Perform a `git fetch` on the local git repo, updating the
+    /// remote-tracking branches in the git repo.
+    ///
+    /// Keeps track of the {branch_names, remote_name} pair the refs can be
+    /// subsequently imported into the `jj` repo by calling `import_refs()`.
+    fn fetch(
+        &mut self,
+        branch_names: &[StringPattern],
+        remote_name: &str,
+    ) -> Result<Option<String>, GitFetchError> {
+        if self.shell {
+            self.shell_fetch(branch_names, remote_name)
+        } else {
+            self.git2_fetch(branch_names, remote_name)
+        }
     }
 
     /// Import the previously fetched remote-tracking branches into the jj repo
@@ -1403,12 +1514,20 @@ pub fn fetch(
     callbacks: RemoteCallbacks<'_>,
     git_settings: &GitSettings,
     depth: Option<NonZeroU32>,
+    shell: bool,
 ) -> Result<GitFetchStats, GitFetchError> {
+    // git fetch remote_name branch_names
     let mut git_fetch = GitFetch::new(
         mut_repo,
         git_repo,
         git_settings,
-        fetch_options(callbacks, depth),
+        if shell {
+            shell_fetch_options(callbacks, depth)
+        } else {
+            git2_fetch_options(callbacks, depth)
+        },
+        depth,
+        shell,
     );
     let default_branch = git_fetch.fetch(branch_names, remote_name)?;
     let import_stats = git_fetch.import_refs()?;
@@ -1436,6 +1555,14 @@ pub enum GitPushError {
     // and errors caused by the remote rejecting the push.
     #[error("Unexpected git error when pushing")]
     InternalGitError(#[from] git2::Error),
+    #[error("`git` executable not found")]
+    GitNotFound,
+    #[error("Failed to fork git process")]
+    GitForkError(#[from] IoError),
+    #[error("git process failed: {0}")]
+    GitExternalError(String),
+    #[error("failed to convert path {0:?} to a string")]
+    PathConversionError(std::path::PathBuf),
 }
 
 #[derive(Clone, Debug)]
@@ -1460,6 +1587,7 @@ pub fn push_branches(
     remote_name: &str,
     targets: &GitBranchPushTargets,
     callbacks: RemoteCallbacks<'_>,
+    shell: bool,
 ) -> Result<(), GitPushError> {
     let ref_updates = targets
         .branch_updates
@@ -1470,7 +1598,14 @@ pub fn push_branches(
             new_target: update.new_target.clone(),
         })
         .collect_vec();
-    push_updates(mut_repo, git_repo, remote_name, &ref_updates, callbacks)?;
+    push_updates(
+        mut_repo,
+        git_repo,
+        remote_name,
+        &ref_updates,
+        callbacks,
+        shell,
+    )?;
 
     // TODO: add support for partially pushed refs? we could update the view
     // excluding rejected refs, but the transaction would be aborted anyway
@@ -1495,6 +1630,7 @@ pub fn push_updates(
     remote_name: &str,
     updates: &[GitRefUpdate],
     callbacks: RemoteCallbacks<'_>,
+    shell: bool,
 ) -> Result<(), GitPushError> {
     let mut qualified_remote_refs_expected_locations = HashMap::new();
     let mut refspecs = vec![];
@@ -1517,17 +1653,77 @@ pub fn push_updates(
     }
     // TODO(ilyagr): `push_refs`, or parts of it, should probably be inlined. This
     // requires adjusting some tests.
-    push_refs(
-        repo,
-        git_repo,
-        remote_name,
-        &qualified_remote_refs_expected_locations,
-        &refspecs,
-        callbacks,
-    )
+    if shell {
+        shell_push_refs(
+            git_repo,
+            remote_name,
+            &qualified_remote_refs_expected_locations,
+            &refspecs,
+        )
+    } else {
+        git2_push_refs(
+            repo,
+            git_repo,
+            remote_name,
+            &qualified_remote_refs_expected_locations,
+            &refspecs,
+            callbacks,
+        )
+    }
 }
 
-fn push_refs(
+fn check_allow_push(
+    repo: &dyn Repo,
+    dst_refname: &str,
+    actual_remote_location: Option<&CommitId>,
+    expected_remote_location: Option<&CommitId>,
+    local_location: Option<&CommitId>,
+    failed_ref_matches: &mut Vec<String>,
+) -> bool {
+    match allow_push(
+        repo.index(),
+        actual_remote_location,
+        expected_remote_location,
+        local_location,
+    ) {
+        Ok(PushAllowReason::NormalMatch) => {}
+        Ok(PushAllowReason::UnexpectedNoop) => {
+            tracing::info!(
+                "The push of {dst_refname} is unexpectedly a no-op, the remote branch is already \
+                 at {actual_remote_location:?}. We expected it to be at \
+                 {expected_remote_location:?}. We don't consider this an error.",
+            );
+        }
+        Ok(PushAllowReason::ExceptionalFastforward) => {
+            // TODO(ilyagr): We could consider printing a user-facing message at
+            // this point.
+            tracing::info!(
+                "We allow the push of {dst_refname} to {local_location:?}, even though it is \
+                 unexpectedly at {actual_remote_location:?} on the server rather than the \
+                 expected {expected_remote_location:?}. The desired location is a descendant of \
+                 the actual location, and the actual location is a descendant of the expected \
+                 location.",
+            );
+        }
+        Err(()) => {
+            // While we show debug info in the message with `--debug`,
+            // there's probably no need to show the detailed commit
+            // locations to the user normally. They should do a `jj git
+            // fetch`, and the resulting branch conflicts should contain
+            // all the information they need.
+            tracing::info!(
+                "Cannot push {dst_refname} to {local_location:?}; it is at unexpectedly at \
+                 {actual_remote_location:?} on the server as opposed to the expected \
+                 {expected_remote_location:?}",
+            );
+            failed_ref_matches.push(dst_refname.to_string());
+            return false;
+        }
+    }
+    true
+}
+
+fn git2_push_refs(
     repo: &dyn Repo,
     git_repo: &git2::Repository,
     remote_name: &str,
@@ -1568,47 +1764,14 @@ fn push_refs(
                     |oid: git2::Oid| (!oid.is_zero()).then(|| CommitId::from_bytes(oid.as_bytes()));
                 let actual_remote_location = oid_to_maybe_commitid(update.src());
                 let local_location = oid_to_maybe_commitid(update.dst());
-
-                match allow_push(
-                    repo.index(),
+                check_allow_push(
+                    repo,
+                    dst_refname,
                     actual_remote_location.as_ref(),
                     expected_remote_location,
                     local_location.as_ref(),
-                ) {
-                    Ok(PushAllowReason::NormalMatch) => {}
-                    Ok(PushAllowReason::UnexpectedNoop) => {
-                        tracing::info!(
-                            "The push of {dst_refname} is unexpectedly a no-op, the remote branch \
-                             is already at {actual_remote_location:?}. We expected it to be at \
-                             {expected_remote_location:?}. We don't consider this an error.",
-                        );
-                    }
-                    Ok(PushAllowReason::ExceptionalFastforward) => {
-                        // TODO(ilyagr): We could consider printing a user-facing message at
-                        // this point.
-                        tracing::info!(
-                            "We allow the push of {dst_refname} to {local_location:?}, even \
-                             though it is unexpectedly at {actual_remote_location:?} on the \
-                             server rather than the expected {expected_remote_location:?}. The \
-                             desired location is a descendant of the actual location, and the \
-                             actual location is a descendant of the expected location.",
-                        );
-                    }
-                    Err(()) => {
-                        // While we show debug info in the message with `--debug`,
-                        // there's probably no need to show the detailed commit
-                        // locations to the user normally. They should do a `jj git
-                        // fetch`, and the resulting branch conflicts should contain
-                        // all the information they need.
-                        tracing::info!(
-                            "Cannot push {dst_refname} to {local_location:?}; it is at \
-                             unexpectedly at {actual_remote_location:?} on the server as opposed \
-                             to the expected {expected_remote_location:?}",
-                        );
-
-                        failed_push_negotiations.push(dst_refname.to_string());
-                    }
-                }
+                    &mut failed_push_negotiations,
+                );
             }
             if failed_push_negotiations.is_empty() {
                 Ok(())
@@ -1651,6 +1814,58 @@ fn push_refs(
                     .collect(),
             ))
         }
+    }
+}
+
+fn shell_push_refs(
+    git_repo: &git2::Repository,
+    remote_name: &str,
+    qualified_remote_refs_expected_locations: &HashMap<&str, Option<&CommitId>>,
+    refspecs: &[String],
+) -> Result<(), GitPushError> {
+    if remote_name == REMOTE_NAME_FOR_LOCAL_GIT_REPO {
+        return Err(GitPushError::RemoteReservedForLocalGitRepo);
+    }
+
+    let git_ctx = GitSubprocessContext::from_git2(git_repo)?;
+
+    let mut remaining_remote_refs: HashSet<_> = qualified_remote_refs_expected_locations
+        .keys()
+        .copied()
+        .collect();
+    let mut failed_ref_matches = vec![];
+    for full_refspec in refspecs {
+        let remote_ref = full_refspec.split(":").last();
+        let expected_remote_location = remote_ref.and_then(|remote_ref| {
+            qualified_remote_refs_expected_locations
+                .get(remote_ref)
+                .and_then(|x| x.map(|y| y.to_string()))
+        });
+        git_ctx.spawn_push(
+            remote_name,
+            remote_ref,
+            full_refspec,
+            expected_remote_location.as_deref(),
+            &mut failed_ref_matches,
+        )?;
+        if let Some(remote_ref) = remote_ref {
+            remaining_remote_refs.remove(remote_ref);
+        }
+    }
+
+    if !failed_ref_matches.is_empty() {
+        failed_ref_matches.sort();
+        Err(GitPushError::RefInUnexpectedLocation(failed_ref_matches))
+    } else if remaining_remote_refs.is_empty() {
+        Ok(())
+    } else {
+        Err(GitPushError::RefUpdateRejected(
+            remaining_remote_refs
+                .iter()
+                .sorted()
+                .map(|name| name.to_string())
+                .collect(),
+        ))
     }
 }
 

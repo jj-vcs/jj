@@ -2232,8 +2232,9 @@ fn test_init() {
     assert!(!repo.view().heads().contains(&jj_id(&initial_git_commit)));
 }
 
-#[test]
-fn test_fetch_empty_repo() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "shell out to git for remote calls")]
+fn test_fetch_empty_repo(shell: bool) {
     let test_data = GitRepoData::create();
     let git_settings = GitSettings::default();
 
@@ -2246,6 +2247,7 @@ fn test_fetch_empty_repo() {
         git::RemoteCallbacks::default(),
         &git_settings,
         None,
+        shell,
     )
     .unwrap();
     // No default bookmark and no refs
@@ -2255,8 +2257,9 @@ fn test_fetch_empty_repo() {
     assert_eq!(tx.repo_mut().view().bookmarks().count(), 0);
 }
 
-#[test]
-fn test_fetch_initial_commit_head_is_not_set() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "shell out to git for remote calls")]
+fn test_fetch_initial_commit_head_is_not_set(shell: bool) {
     let test_data = GitRepoData::create();
     let git_settings = GitSettings {
         auto_local_bookmark: true,
@@ -2273,6 +2276,7 @@ fn test_fetch_initial_commit_head_is_not_set() {
         git::RemoteCallbacks::default(),
         &git_settings,
         None,
+        shell,
     )
     .unwrap();
     // No default bookmark because the origin repo's HEAD wasn't set
@@ -2306,8 +2310,9 @@ fn test_fetch_initial_commit_head_is_not_set() {
     );
 }
 
-#[test]
-fn test_fetch_initial_commit_head_is_set() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "shell out to git for remote calls")]
+fn test_fetch_initial_commit_head_is_set(shell: bool) {
     let test_data = GitRepoData::create();
     let git_settings = GitSettings {
         auto_local_bookmark: true,
@@ -2334,6 +2339,7 @@ fn test_fetch_initial_commit_head_is_set() {
         git::RemoteCallbacks::default(),
         &git_settings,
         None,
+        shell,
     )
     .unwrap();
 
@@ -2341,8 +2347,9 @@ fn test_fetch_initial_commit_head_is_set() {
     assert!(stats.import_stats.abandoned_commits.is_empty());
 }
 
-#[test]
-fn test_fetch_success() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "shell out to git for remote calls")]
+fn test_fetch_success(shell: bool) {
     let mut test_data = GitRepoData::create();
     let git_settings = GitSettings {
         auto_local_bookmark: true,
@@ -2359,6 +2366,7 @@ fn test_fetch_success() {
         git::RemoteCallbacks::default(),
         &git_settings,
         None,
+        shell,
     )
     .unwrap();
     test_data.repo = tx.commit("test").unwrap();
@@ -2383,6 +2391,7 @@ fn test_fetch_success() {
         git::RemoteCallbacks::default(),
         &git_settings,
         None,
+        shell,
     )
     .unwrap();
     // The default bookmark is "main"
@@ -2423,8 +2432,9 @@ fn test_fetch_success() {
     );
 }
 
-#[test]
-fn test_fetch_prune_deleted_ref() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "shell out to git for remote calls")]
+fn test_fetch_prune_deleted_ref(shell: bool) {
     let test_data = GitRepoData::create();
     let git_settings = GitSettings {
         auto_local_bookmark: true,
@@ -2441,6 +2451,7 @@ fn test_fetch_prune_deleted_ref() {
         git::RemoteCallbacks::default(),
         &git_settings,
         None,
+        shell,
     )
     .unwrap();
     // Test the setup
@@ -2465,6 +2476,7 @@ fn test_fetch_prune_deleted_ref() {
         git::RemoteCallbacks::default(),
         &git_settings,
         None,
+        shell,
     )
     .unwrap();
     assert_eq!(stats.import_stats.abandoned_commits, vec![jj_id(&commit)]);
@@ -2475,8 +2487,9 @@ fn test_fetch_prune_deleted_ref() {
         .is_absent());
 }
 
-#[test]
-fn test_fetch_no_default_branch() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "shell out to git for remote calls")]
+fn test_fetch_no_default_branch(shell: bool) {
     let test_data = GitRepoData::create();
     let git_settings = GitSettings {
         auto_local_bookmark: true,
@@ -2493,6 +2506,7 @@ fn test_fetch_no_default_branch() {
         git::RemoteCallbacks::default(),
         &git_settings,
         None,
+        shell,
     )
     .unwrap();
 
@@ -2517,14 +2531,16 @@ fn test_fetch_no_default_branch() {
         git::RemoteCallbacks::default(),
         &git_settings,
         None,
+        shell,
     )
     .unwrap();
     // There is no default bookmark
     assert_eq!(stats.default_branch, None);
 }
 
-#[test]
-fn test_fetch_empty_refspecs() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "shell out to git for remote calls")]
+fn test_fetch_empty_refspecs(shell: bool) {
     let test_data = GitRepoData::create();
     let git_settings = GitSettings::default();
     empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
@@ -2539,6 +2555,7 @@ fn test_fetch_empty_refspecs() {
         git::RemoteCallbacks::default(),
         &git_settings,
         None,
+        shell,
     )
     .unwrap();
     assert!(tx
@@ -2553,8 +2570,9 @@ fn test_fetch_empty_refspecs() {
         .is_absent());
 }
 
-#[test]
-fn test_fetch_no_such_remote() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "shell out to git for remote calls")]
+fn test_fetch_no_such_remote(shell: bool) {
     let test_data = GitRepoData::create();
     let git_settings = GitSettings::default();
     let mut tx = test_data.repo.start_transaction();
@@ -2566,6 +2584,7 @@ fn test_fetch_no_such_remote() {
         git::RemoteCallbacks::default(),
         &git_settings,
         None,
+        shell,
     );
     assert!(matches!(result, Err(GitFetchError::NoSuchRemote(_))));
 }
@@ -2663,8 +2682,9 @@ fn set_up_push_repos(settings: &UserSettings, temp_dir: &TempDir) -> PushTestSet
     }
 }
 
-#[test]
-fn test_push_bookmarks_success() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "shell out to git for remote calls")]
+fn test_push_bookmarks_success(shell: bool) {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let mut setup = set_up_push_repos(&settings, &temp_dir);
@@ -2686,6 +2706,7 @@ fn test_push_bookmarks_success() {
         "origin",
         &targets,
         git::RemoteCallbacks::default(),
+        shell,
     );
     assert_eq!(result, Ok(()));
 
@@ -2728,8 +2749,9 @@ fn test_push_bookmarks_success() {
     assert!(!tx.repo_mut().has_changes());
 }
 
-#[test]
-fn test_push_bookmarks_deletion() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "shell out to git for remote calls")]
+fn test_push_bookmarks_deletion(shell: bool) {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let mut setup = set_up_push_repos(&settings, &temp_dir);
@@ -2755,6 +2777,7 @@ fn test_push_bookmarks_deletion() {
         "origin",
         &targets,
         git::RemoteCallbacks::default(),
+        shell,
     );
     assert_eq!(result, Ok(()));
 
@@ -2780,8 +2803,9 @@ fn test_push_bookmarks_deletion() {
     assert!(!tx.repo_mut().has_changes());
 }
 
-#[test]
-fn test_push_bookmarks_mixed_deletion_and_addition() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "shell out to git for remote calls")]
+fn test_push_bookmarks_mixed_deletion_and_addition(shell: bool) {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let mut setup = set_up_push_repos(&settings, &temp_dir);
@@ -2812,6 +2836,7 @@ fn test_push_bookmarks_mixed_deletion_and_addition() {
         "origin",
         &targets,
         git::RemoteCallbacks::default(),
+        shell,
     );
     assert_eq!(result, Ok(()));
 
@@ -2849,8 +2874,9 @@ fn test_push_bookmarks_mixed_deletion_and_addition() {
     assert!(!tx.repo_mut().has_changes());
 }
 
-#[test]
-fn test_push_bookmarks_not_fast_forward() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "shell out to git for remote calls")]
+fn test_push_bookmarks_not_fast_forward(shell: bool) {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
@@ -2871,6 +2897,7 @@ fn test_push_bookmarks_not_fast_forward() {
         "origin",
         &targets,
         git::RemoteCallbacks::default(),
+        shell,
     );
     assert_eq!(result, Ok(()));
 
@@ -2887,8 +2914,9 @@ fn test_push_bookmarks_not_fast_forward() {
 // may want to add tests for when a bookmark unexpectedly moved backwards or
 // unexpectedly does not exist for bookmark deletion.
 
-#[test]
-fn test_push_updates_unexpectedly_moved_sideways_on_remote() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "shell out to git for remote calls")]
+fn test_push_updates_unexpectedly_moved_sideways_on_remote(shell: bool) {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
@@ -2916,6 +2944,7 @@ fn test_push_updates_unexpectedly_moved_sideways_on_remote() {
             "origin",
             &targets,
             git::RemoteCallbacks::default(),
+            shell,
         )
     };
 
@@ -2952,8 +2981,9 @@ fn test_push_updates_unexpectedly_moved_sideways_on_remote() {
     );
 }
 
-#[test]
-fn test_push_updates_unexpectedly_moved_forward_on_remote() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "shell out to git for remote calls")]
+fn test_push_updates_unexpectedly_moved_forward_on_remote(shell: bool) {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
@@ -2983,6 +3013,7 @@ fn test_push_updates_unexpectedly_moved_forward_on_remote() {
             "origin",
             &targets,
             git::RemoteCallbacks::default(),
+            shell,
         )
     };
 
@@ -3006,16 +3037,25 @@ fn test_push_updates_unexpectedly_moved_forward_on_remote() {
         Err(GitPushError::RefInUnexpectedLocation(_))
     );
 
-    // Moving the bookmark *forwards* is OK, as an exception matching our bookmark
-    // conflict resolution rules
-    assert_eq!(
-        attempt_push_expecting_parent(Some(setup.child_of_main_commit.id().clone())),
-        Ok(())
-    );
+    if shell {
+        // git is strict about honouring the expected location on --force-with-lease
+        assert_matches!(
+            attempt_push_expecting_parent(Some(setup.child_of_main_commit.id().clone())),
+            Err(GitPushError::RefInUnexpectedLocation(_))
+        );
+    } else {
+        // Moving the bookmark *forwards* is OK, as an exception matching our bookmark
+        // conflict resolution rules
+        assert_eq!(
+            attempt_push_expecting_parent(Some(setup.child_of_main_commit.id().clone())),
+            Ok(())
+        );
+    }
 }
 
-#[test]
-fn test_push_updates_unexpectedly_exists_on_remote() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "shell out to git for remote calls")]
+fn test_push_updates_unexpectedly_exists_on_remote(shell: bool) {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
@@ -3041,6 +3081,7 @@ fn test_push_updates_unexpectedly_exists_on_remote() {
             "origin",
             &targets,
             git::RemoteCallbacks::default(),
+            shell,
         )
     };
 
@@ -3049,15 +3090,25 @@ fn test_push_updates_unexpectedly_exists_on_remote() {
         Err(GitPushError::RefInUnexpectedLocation(_))
     );
 
-    // We *can* move the bookmark forward even if we didn't expect it to exist
-    assert_eq!(
-        attempt_push_expecting_absence(Some(setup.child_of_main_commit.id().clone())),
-        Ok(())
-    );
+    if shell {
+        // Git is strict with enforcing the expected location
+        assert_matches!(
+            attempt_push_expecting_absence(Some(setup.child_of_main_commit.id().clone())),
+            Err(GitPushError::RefInUnexpectedLocation(_))
+        );
+    } else {
+        // In git2: We *can* move the bookmark forward even if we didn't expect it to
+        // exist
+        assert_eq!(
+            attempt_push_expecting_absence(Some(setup.child_of_main_commit.id().clone())),
+            Ok(())
+        );
+    }
 }
 
-#[test]
-fn test_push_updates_success() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "shell out to git for remote calls")]
+fn test_push_updates_success(shell: bool) {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
@@ -3072,6 +3123,7 @@ fn test_push_updates_success() {
             new_target: Some(setup.child_of_main_commit.id().clone()),
         }],
         git::RemoteCallbacks::default(),
+        shell,
     );
     assert_eq!(result, Ok(()));
 
@@ -3094,8 +3146,9 @@ fn test_push_updates_success() {
     assert_eq!(new_target, Some(new_oid));
 }
 
-#[test]
-fn test_push_updates_no_such_remote() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "shell out to git for remote calls")]
+fn test_push_updates_no_such_remote(shell: bool) {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
@@ -3109,12 +3162,14 @@ fn test_push_updates_no_such_remote() {
             new_target: Some(setup.child_of_main_commit.id().clone()),
         }],
         git::RemoteCallbacks::default(),
+        shell,
     );
     assert!(matches!(result, Err(GitPushError::NoSuchRemote(_))));
 }
 
-#[test]
-fn test_push_updates_invalid_remote() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "shell out to git for remote calls")]
+fn test_push_updates_invalid_remote(shell: bool) {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
@@ -3128,6 +3183,7 @@ fn test_push_updates_invalid_remote() {
             new_target: Some(setup.child_of_main_commit.id().clone()),
         }],
         git::RemoteCallbacks::default(),
+        shell,
     );
     assert!(matches!(result, Err(GitPushError::NoSuchRemote(_))));
 }
