@@ -296,8 +296,8 @@ commit to any other commit using `jj squash -i --from X --into Y`.
 
 ## Status
 
-The tool is fairly feature-complete, but some important features like (the
-equivalent of) `git blame` are not yet supported. There
+The tool is fairly feature-complete, but some important features like support
+for Git submodules are not yet completed. There
 are also several performance bugs. It's likely that workflows and setups
 different from what the core developers use are not well supported, e.g. there
 is no native support for email-based workflows.
