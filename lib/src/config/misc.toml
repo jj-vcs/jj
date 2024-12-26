@@ -11,7 +11,7 @@ register_snapshot_trigger = false
 
 [git]
 abandon-unreachable-commits = true
-# auto-local-bookmark = false
+auto-local-bookmark = false
 
 [operation]
 hostname = ""

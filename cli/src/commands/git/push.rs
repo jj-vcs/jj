@@ -218,7 +218,7 @@ pub fn cmd_git_push(
         let mut seen_bookmarks: HashSet<&str> = HashSet::new();
 
         // Process --change bookmarks first because matching bookmarks can be moved.
-        let bookmark_prefix = get_change_bookmark_prefix(ui, tx.settings())?;
+        let bookmark_prefix = tx.settings().get_string("git.push-bookmark-prefix")?;
         let change_bookmark_names =
             update_change_bookmarks(ui, &mut tx, &args.change, &bookmark_prefix)?;
         let change_bookmarks = change_bookmark_names.iter().map(|bookmark_name| {
@@ -502,23 +502,6 @@ fn get_default_push_remote(
         Ok(remote)
     } else {
         Ok(DEFAULT_REMOTE.to_owned())
-    }
-}
-
-fn get_change_bookmark_prefix(ui: &Ui, settings: &UserSettings) -> Result<String, CommandError> {
-    // TODO: Drop support support for git.push-branch-prefix in 0.28.0+ and move
-    // the default value to config/*.toml
-    if let Some(prefix) = settings.get_string("git.push-branch-prefix").optional()? {
-        writeln!(
-            ui.warning_default(),
-            "Config git.push-branch-prefix is deprecated. Please switch to \
-             git.push-bookmark-prefix",
-        )?;
-        Ok(prefix)
-    } else if let Some(prefix) = settings.get_string("git.push-bookmark-prefix").optional()? {
-        Ok(prefix)
-    } else {
-        Ok("push-".to_owned())
     }
 }
 

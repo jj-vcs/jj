@@ -62,17 +62,9 @@ pub struct GitSettings {
 
 impl GitSettings {
     pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
-        let auto_local_bookmark = {
-            // TODO: Drop support for git.auto-local-branch and move the default
-            // value to config/*.toml
-            let opt1 = settings.get_bool("git.auto-local-bookmark").optional()?;
-            let opt2 = settings.get_bool("git.auto-local-branch").optional()?;
-            opt1.or(opt2).unwrap_or(false)
-        };
-        let abandon_unreachable_commits = settings.get_bool("git.abandon-unreachable-commits")?;
         Ok(GitSettings {
-            auto_local_bookmark,
-            abandon_unreachable_commits,
+            auto_local_bookmark: settings.get_bool("git.auto-local-bookmark")?,
+            abandon_unreachable_commits: settings.get_bool("git.abandon-unreachable-commits")?,
         })
     }
 }

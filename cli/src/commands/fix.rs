@@ -462,6 +462,7 @@ fn get_tools_config(ui: &mut Ui, settings: &UserSettings) -> Result<ToolsConfig,
             matcher: Box::new(EverythingMatcher),
         });
 
+        // TODO: Reimplement as a ConfigMigrationRule
         writeln!(
             ui.warning_default(),
             r"The `fix.tool-command` config option is deprecated and will be removed in a future version."

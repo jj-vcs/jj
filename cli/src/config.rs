@@ -593,7 +593,12 @@ fn parse_config_arg_item(item_str: &str) -> Result<(ConfigNamePathBuf, ConfigVal
 
 /// List of rules to migrate deprecated config variables.
 pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
-    vec![] // TODO
+    vec![
+        // TODO: Delete in jj 0.32+
+        ConfigMigrationRule::rename_value("git.auto-local-branch", "git.auto-local-bookmark"),
+        // TODO: Delete in jj 0.28+
+        ConfigMigrationRule::rename_value("git.push-branch-prefix", "git.push-bookmark-prefix"),
+    ]
 }
 
 /// Command name and arguments specified by config.

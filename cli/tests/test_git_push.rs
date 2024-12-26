@@ -710,12 +710,12 @@ fn test_git_push_changes() {
         ],
     );
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r#"
-    Warning: Config git.push-branch-prefix is deprecated. Please switch to git.push-bookmark-prefix
+    insta::assert_snapshot!(stderr, @r"
+    Warning: Deprecated config: git.push-branch-prefix is renamed to git.push-bookmark-prefix
     Creating bookmark branch-yostqsxwqrlt for revision yostqsxwqrlt
     Changes to push to origin:
       Add bookmark branch-yostqsxwqrlt to 38cb417ce3a6
-    "#);
+    ");
 }
 
 #[test]
