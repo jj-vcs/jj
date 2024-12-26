@@ -59,6 +59,7 @@ use jj_lib::commit::Commit;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::config::ConfigLayer;
+use jj_lib::config::ConfigMigrationRule;
 use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigSource;
 use jj_lib::config::StackedConfig;
@@ -283,6 +284,7 @@ struct CommandHelperData {
     matches: ArgMatches,
     global_args: GlobalArgs,
     config_env: ConfigEnv,
+    config_migrations: Vec<ConfigMigrationRule>,
     raw_config: RawConfig,
     settings: UserSettings,
     revset_extensions: Arc<RevsetExtensions>,
@@ -349,7 +351,10 @@ impl CommandHelper {
         let repo_path = workspace_root.join(".jj").join("repo");
         config_env.reset_repo_path(&repo_path);
         config_env.reload_repo_config(&mut raw_config)?;
-        let config = config_env.resolve_config(&raw_config)?;
+        let mut config = config_env.resolve_config(&raw_config)?;
+        // No migration messages here, which would usually be emitted before.
+        jj_lib::config::migrate(&mut config, &self.data.config_migrations)
+            .map_err(|err| config_error_with_message("Migration failed", err))?;
         Ok(self.data.settings.with_new_config(config)?)
     }
 
@@ -3466,6 +3471,7 @@ pub struct CliRunner {
     tracing_subscription: TracingSubscription,
     app: Command,
     config_layers: Vec<ConfigLayer>,
+    config_migrations: Vec<ConfigMigrationRule>,
     store_factories: StoreFactories,
     working_copy_factories: WorkingCopyFactories,
     workspace_loader_factory: Box<dyn WorkspaceLoaderFactory>,
@@ -3491,6 +3497,7 @@ impl CliRunner {
             tracing_subscription,
             app: crate::commands::default_app(),
             config_layers: crate::config::default_config_layers(),
+            config_migrations: crate::config::default_config_migrations(),
             store_factories: StoreFactories::default(),
             working_copy_factories: default_working_copy_factories(),
             workspace_loader_factory: Box::new(DefaultWorkspaceLoaderFactory),
@@ -3528,6 +3535,12 @@ impl CliRunner {
     pub fn add_extra_config(mut self, layer: ConfigLayer) -> Self {
         assert_eq!(layer.source, ConfigSource::Default);
         self.config_layers.push(layer);
+        self
+    }
+
+    /// Adds config migration rule in addition to the default rules.
+    pub fn add_extra_config_migration(mut self, rule: ConfigMigrationRule) -> Self {
+        self.config_migrations.push(rule);
         self
     }
 
@@ -3642,6 +3655,13 @@ impl CliRunner {
                 )
             })?;
         let mut config_env = ConfigEnv::from_environment()?;
+        let mut last_config_migration_descriptions = Vec::new();
+        let mut migrate_config = |config: &mut StackedConfig| -> Result<(), CommandError> {
+            last_config_migration_descriptions =
+                jj_lib::config::migrate(config, &self.config_migrations)
+                    .map_err(|err| config_error_with_message("Migration failed", err))?;
+            Ok(())
+        };
         // Use cwd-relative workspace configs to resolve default command and
         // aliases. WorkspaceLoader::init() won't do any heavy lifting other
         // than the path resolution.
@@ -3655,6 +3675,7 @@ impl CliRunner {
             config_env.reload_repo_config(&mut raw_config)?;
         }
         let mut config = config_env.resolve_config(&raw_config)?;
+        migrate_config(&mut config)?;
         ui.reset(&config)?;
 
         if env::var_os("COMPLETE").is_some() {
@@ -3666,6 +3687,7 @@ impl CliRunner {
         if !config_layers.is_empty() {
             raw_config.as_mut().extend_layers(config_layers);
             config = config_env.resolve_config(&raw_config)?;
+            migrate_config(&mut config)?;
             ui.reset(&config)?;
         }
         if !args.config_toml.is_empty() {
@@ -3692,6 +3714,7 @@ impl CliRunner {
             config_env.reset_repo_path(loader.repo_path());
             config_env.reload_repo_config(&mut raw_config)?;
             config = config_env.resolve_config(&raw_config)?;
+            migrate_config(&mut config)?;
             Ok(loader)
         } else {
             maybe_cwd_workspace_loader
@@ -3699,6 +3722,10 @@ impl CliRunner {
 
         // Apply workspace configs and --config arguments.
         ui.reset(&config)?;
+        // Print only the last migration messages to omit duplicates.
+        for desc in &last_config_migration_descriptions {
+            writeln!(ui.warning_default(), "Deprecated config: {desc}")?;
+        }
 
         // If -R or --config* is specified, check if the expanded arguments differ.
         if args.global_args.repository.is_some() || args.global_args.early_args.has_config_args() {
@@ -3720,6 +3747,7 @@ impl CliRunner {
             matches,
             global_args: args.global_args,
             config_env,
+            config_migrations: self.config_migrations,
             raw_config,
             settings,
             revset_extensions: self.revset_extensions.into(),

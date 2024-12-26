@@ -26,6 +26,7 @@ use jj_lib::config::ConfigFile;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigLoadError;
+use jj_lib::config::ConfigMigrationRule;
 use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigResolutionContext;
 use jj_lib::config::ConfigSource;
@@ -588,6 +589,11 @@ fn parse_config_arg_item(item_str: &str) -> Result<(ConfigNamePathBuf, ConfigVal
     let value = parse_value_or_bare_string(value_str)
         .map_err(|err| config_error_with_message("--config value cannot be parsed", err))?;
     Ok((name, value))
+}
+
+/// List of rules to migrate deprecated config variables.
+pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
+    vec![] // TODO
 }
 
 /// Command name and arguments specified by config.
