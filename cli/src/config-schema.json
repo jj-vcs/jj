@@ -593,13 +593,6 @@
             "type": "object",
             "description": "Settings for jj fix",
             "properties": {
-                "tool-command": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "description": "Shell command that takes file content on stdin and returns fixed file content on stdout (deprecated)"
-                },
                 "tools": {
                     "type": "object",
                     "additionalProperties": {

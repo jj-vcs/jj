@@ -28,7 +28,6 @@ use jj_lib::backend::TreeValue;
 use jj_lib::fileset;
 use jj_lib::fileset::FilesetDiagnostics;
 use jj_lib::fileset::FilesetExpression;
-use jj_lib::matchers::EverythingMatcher;
 use jj_lib::matchers::Matcher;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree::MergedTreeBuilder;
@@ -106,20 +105,6 @@ use crate::ui::Ui;
 /// currently unspecified, and may change between releases. If two tools affect
 /// the same file, the second tool to run will receive its input from the
 /// output of the first tool.
-///
-/// There is also a deprecated configuration schema that defines a single
-/// command that will affect all changed files in the specified revisions. For
-/// example, the following configuration would apply the Rust formatter to all
-/// changed files (whether they are Rust files or not):
-///
-/// ```toml
-/// [fix]
-/// tool-command = ["rustfmt", "--emit", "stdout"]
-/// ```
-///
-/// The tool defined by `tool-command` acts as if it was the first entry in
-/// `fix.tools`, and uses `pattern = "all()"``. Support for `tool-command`
-/// will be removed in a future version.
 #[derive(clap::Args, Clone, Debug)]
 #[command(verbatim_doc_comment)]
 pub(crate) struct FixArgs {
@@ -443,43 +428,10 @@ struct RawToolConfig {
 
 /// Parses the `fix.tools` config table.
 ///
-/// Parses the deprecated `fix.tool-command` config as if it was the first entry
-/// in `fix.tools`.
-///
 /// Fails if any of the commands or patterns are obviously unusable, but does
 /// not check for issues that might still occur later like missing executables.
 /// This is a place where we could fail earlier in some cases, though.
 fn get_tools_config(ui: &mut Ui, settings: &UserSettings) -> Result<ToolsConfig, CommandError> {
-    let mut tools_config = ToolsConfig { tools: Vec::new() };
-    // TODO: Remove this block of code and associated documentation after at least
-    // one release where the feature is marked deprecated.
-    if let Ok(tool_command) = settings.get::<CommandNameAndArgs>("fix.tool-command") {
-        // This doesn't change the displayed indices of the `fix.tools` definitions, and
-        // doesn't have a `name` that could conflict with them. That would matter more
-        // if we already had better error handling that made use of the `name`.
-        tools_config.tools.push(ToolConfig {
-            command: tool_command,
-            matcher: Box::new(EverythingMatcher),
-        });
-
-        // TODO: Reimplement as a ConfigMigrationRule
-        writeln!(
-            ui.warning_default(),
-            r"The `fix.tool-command` config option is deprecated and will be removed in a future version."
-        )?;
-        writeln!(
-            ui.hint_default(),
-            r###"Replace it with the following:
-            [fix.tools.legacy-tool-command]
-            command = {}
-            patterns = ["all()"]
-            "###,
-            settings
-                .get_value("fix.tool-command")
-                .unwrap()
-                .decorated("", "") // trim whitespace
-        )?;
-    }
     let tools: Vec<ToolConfig> = settings
         .table_keys("fix.tools")
         // Sort keys early so errors are deterministic.
@@ -509,15 +461,9 @@ fn get_tools_config(ui: &mut Ui, settings: &UserSettings) -> Result<ToolsConfig,
             })
         })
         .try_collect()?;
-    tools_config.tools.extend(tools);
-    if tools_config.tools.is_empty() {
-        // TODO: This is not a useful message when one or both fields are present but
-        // have the wrong type. After removing `fix.tool-command`, it will be simpler to
-        // propagate any errors from `settings.get_array("fix.tools")`.
-        Err(config_error(
-            "At least one entry of `fix.tools` or `fix.tool-command` is required.".to_string(),
-        ))
+    if tools.is_empty() {
+        Err(config_error("No `fix.tools` are configured"))
     } else {
-        Ok(tools_config)
+        Ok(ToolsConfig { tools })
     }
 }

@@ -1007,20 +1007,6 @@ currently unspecified, and may change between releases. If two tools affect
 the same file, the second tool to run will receive its input from the
 output of the first tool.
 
-There is also a deprecated configuration schema that defines a single
-command that will affect all changed files in the specified revisions. For
-example, the following configuration would apply the Rust formatter to all
-changed files (whether they are Rust files or not):
-
-```toml
-[fix]
-tool-command = ["rustfmt", "--emit", "stdout"]
-```
-
-The tool defined by `tool-command` acts as if it was the first entry in
-`fix.tools`, and uses `pattern = "all()"``. Support for `tool-command`
-will be removed in a future version.
-
 **Usage:** `jj fix [OPTIONS] [FILESETS]...`
 
 ###### **Arguments:**
