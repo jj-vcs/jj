@@ -195,6 +195,15 @@ pub enum ConfigMigrateLayerError {
     /// Cannot delete old value or set new value.
     #[error(transparent)]
     Update(#[from] ConfigUpdateError),
+    /// Old config value cannot be converted.
+    #[error("Invalid type or value for {name}")]
+    Type {
+        /// Dotted config name path.
+        name: String,
+        /// Source error.
+        #[source]
+        error: DynError,
+    },
 }
 
 impl ConfigMigrateLayerError {
@@ -206,6 +215,8 @@ impl ConfigMigrateLayerError {
     }
 }
 
+type DynError = Box<dyn std::error::Error + Send + Sync>;
+
 /// Rule to migrate deprecated config variables.
 pub struct ConfigMigrationRule {
     inner: MigrationRule,
@@ -215,6 +226,12 @@ enum MigrationRule {
     RenameValue {
         old_name: ConfigNamePathBuf,
         new_name: ConfigNamePathBuf,
+    },
+    RenameUpdateValue {
+        old_name: ConfigNamePathBuf,
+        new_name: ConfigNamePathBuf,
+        #[allow(clippy::type_complexity)] // type alias wouldn't help readability
+        new_value_fn: Box<dyn Fn(&ConfigValue) -> Result<ConfigValue, DynError>>,
     },
 }
 
@@ -228,12 +245,31 @@ impl ConfigMigrationRule {
         ConfigMigrationRule { inner }
     }
 
-    // TODO: rename + update value, generic Box<dyn Fn>, etc.
+    /// Creates rule that moves value from `old_name` to `new_name`, and updates
+    /// the value.
+    ///
+    /// If `new_value_fn(&old_value)` returned an error, the whole migration
+    /// process would fail.
+    pub fn rename_update_value(
+        old_name: impl ToConfigNamePath,
+        new_name: impl ToConfigNamePath,
+        new_value_fn: impl Fn(&ConfigValue) -> Result<ConfigValue, DynError> + 'static,
+    ) -> Self {
+        let inner = MigrationRule::RenameUpdateValue {
+            old_name: old_name.into_name_path().into(),
+            new_name: new_name.into_name_path().into(),
+            new_value_fn: Box::new(new_value_fn),
+        };
+        ConfigMigrationRule { inner }
+    }
+
+    // TODO: update value, generic Box<dyn Fn>, etc.
 
     /// Returns true if `layer` contains an item to be migrated.
     fn matches(&self, layer: &ConfigLayer) -> bool {
         match &self.inner {
-            MigrationRule::RenameValue { old_name, .. } => {
+            MigrationRule::RenameValue { old_name, .. }
+            | MigrationRule::RenameUpdateValue { old_name, .. } => {
                 matches!(layer.look_up_item(old_name), Ok(Some(_)))
             }
         }
@@ -245,6 +281,11 @@ impl ConfigMigrationRule {
             MigrationRule::RenameValue { old_name, new_name } => {
                 rename_value(layer, old_name, new_name)
             }
+            MigrationRule::RenameUpdateValue {
+                old_name,
+                new_name,
+                new_value_fn,
+            } => rename_update_value(layer, old_name, new_name, new_value_fn),
         }
     }
 }
@@ -260,6 +301,24 @@ fn rename_value(
     }
     layer.set_value(new_name, value)?;
     Ok(format!("{old_name} is renamed to {new_name}"))
+}
+
+fn rename_update_value(
+    layer: &mut ConfigLayer,
+    old_name: &ConfigNamePathBuf,
+    new_name: &ConfigNamePathBuf,
+    new_value_fn: impl FnOnce(&ConfigValue) -> Result<ConfigValue, DynError>,
+) -> Result<String, ConfigMigrateLayerError> {
+    let old_value = layer.delete_value(old_name)?.expect("tested by matches()");
+    if matches!(layer.look_up_item(new_name), Ok(Some(_))) {
+        return Ok(format!("{old_name} is deleted (superseded by {new_name})"));
+    }
+    let new_value = new_value_fn(&old_value).map_err(|error| ConfigMigrateLayerError::Type {
+        name: old_name.to_string(),
+        error,
+    })?;
+    layer.set_value(new_name, new_value.clone())?;
+    Ok(format!("{old_name} is updated to {new_name} = {new_value}"))
 }
 
 /// Applies migration `rules` to `config`. Returns descriptions of the applied
@@ -635,5 +694,70 @@ mod tests {
         [baz]
         new = 'bar.old #1'
         ");
+    }
+
+    #[test]
+    fn test_migrate_rename_update_value() {
+        let mut config = StackedConfig::empty();
+        config.add_layer(new_user_layer(indoc! {"
+            [foo]
+            old = 'foo.old #0'
+            [bar]
+            old = 'bar.old #0'
+            [baz]
+            new = 'baz.new #0'
+        "}));
+        config.add_layer(new_user_layer(indoc! {"
+            [bar]
+            old = 'bar.old #1'
+        "}));
+
+        let rules = [
+            // to array
+            ConfigMigrationRule::rename_update_value("foo.old", "foo.new", |old_value| {
+                let val = old_value.clone().decorated("", "");
+                Ok(ConfigValue::from_iter([val]))
+            }),
+            // update string or error
+            ConfigMigrationRule::rename_update_value("bar.old", "baz.new", |old_value| {
+                let s = old_value.as_str().ok_or("not a string")?;
+                Ok(format!("{s} updated").into())
+            }),
+        ];
+        let descriptions = migrate(&mut config, &rules).unwrap();
+        insta::assert_debug_snapshot!(descriptions, @r#"
+        [
+            "foo.old is updated to foo.new = ['foo.old #0']",
+            "bar.old is deleted (superseded by baz.new)",
+            "bar.old is updated to baz.new = \"bar.old #1 updated\"",
+        ]
+        "#);
+        insta::assert_snapshot!(config.layers()[0].data, @r"
+        [foo]
+        new = ['foo.old #0']
+        [bar]
+        [baz]
+        new = 'baz.new #0'
+        ");
+        insta::assert_snapshot!(config.layers()[1].data, @r#"
+        [bar]
+
+        [baz]
+        new = "bar.old #1 updated"
+        "#);
+
+        config.add_layer(new_user_layer(indoc! {"
+            [bar]
+            old = false  # not a string
+        "}));
+        insta::assert_debug_snapshot!(migrate(&mut config, &rules).unwrap_err(), @r#"
+        ConfigMigrateError {
+            error: Type {
+                name: "bar.old",
+                error: "not a string",
+            },
+            source_path: None,
+        }
+        "#);
     }
 }
