@@ -18,9 +18,17 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt;
 use std::fmt::Debug;
+use std::fs::File;
+use std::io;
+use std::io::BufRead;
+use std::io::BufReader;
+use std::io::ErrorKind;
 use std::iter;
+use std::path::Path;
 
+use ignore::gitignore;
 use itertools::Itertools as _;
+use thiserror::Error;
 use tracing::instrument;
 
 use crate::repo_path::RepoPath;
@@ -503,6 +511,114 @@ impl<V: Debug> Debug for RepoPathTree<V> {
                     .sorted_unstable_by_key(|&(name, _)| name),
             )
             .finish()
+    }
+}
+
+/// Matches file paths with glob patterns.
+///
+/// Patterns are provided as `(dir, pattern)` pairs, where `dir` should be the
+/// longest directory path that contains no glob meta characters, and `pattern`
+/// will be evaluated relative to `dir`.
+#[derive(Clone, Debug)]
+pub struct GitAttributesMatcher {
+    matcher: gitignore::Gitignore,
+}
+
+#[derive(Debug, Error)]
+pub enum GitAttributesMatcherError {
+    #[error("failed to parse .gitattributes file")]
+    GitIgnoreError(#[from] ignore::Error),
+    #[error("failed to read .gitattributes file")]
+    ReadError(#[from] io::Error),
+    #[error("invalid pattern in .gitattributes: {0}")]
+    InvalidPattern(String),
+}
+
+fn parse_gitignore(
+    f: File,
+    root: impl AsRef<Path>,
+    builder: &mut gitignore::GitignoreBuilder,
+) -> Result<(), GitAttributesMatcherError> {
+    let reader = BufReader::new(f);
+
+    for line in reader.lines() {
+        let line = line?;
+        let line = match line.trim().split_whitespace().next() {
+            Some(l) => l,
+            None => continue,
+        };
+
+        // See https://git-scm.com/docs/gitattributes, these are the two
+        // differences from a standard .gitignore file as far as patterns go.
+        if line.starts_with("!") {
+            return Err(GitAttributesMatcherError::InvalidPattern(
+                "negative patterns are not allowed in .gitattributes files".to_string(),
+            ));
+        }
+        if line.ends_with("/") {
+            return Err(GitAttributesMatcherError::InvalidPattern(format!(
+                "trailing slash does not match a directory in .gitattributes, try {}** instead",
+                line
+            )));
+        }
+
+        builder.add_line(Some(root.as_ref().to_path_buf()), line)?;
+    }
+
+    Ok(())
+}
+
+impl GitAttributesMatcher {
+    /// Create a new matcher for the contents of a .gitattributes file
+    pub fn new() -> Result<Self, GitAttributesMatcherError> {
+        // TODO(brandon): We shouldn't assume `jj` is being run from the root.
+        let root = Path::new(".");
+        let mut builder = gitignore::GitignoreBuilder::new(&root);
+
+        let gitattributes_path = root.join(".gitattributes");
+
+        match File::open(gitattributes_path) {
+            Ok(f) => parse_gitignore(f, &root, &mut builder)?,
+            Err(e) => {
+                // If the file doesn't exist, we'll create a blank Gitignore,
+                // equivalent to Gitignore::empty()
+                if e.kind() != ErrorKind::NotFound {
+                    return Err(GitAttributesMatcherError::ReadError(e));
+                }
+            }
+        }
+
+        Ok(GitAttributesMatcher {
+            matcher: builder.build()?,
+        })
+    }
+}
+
+impl Matcher for GitAttributesMatcher {
+    fn matches(&self, file: &RepoPath) -> bool {
+        // TODO(brandon): Figure out if we need to handle is_dir
+        let path = match file.to_fs_path(self.matcher.path()) {
+            Ok(p) => p,
+            Err(_) => return false,
+        };
+        match self.matcher.matched(path, false) {
+            ignore::Match::None => false,
+            ignore::Match::Ignore(_) => true,
+            ignore::Match::Whitelist(_) => false,
+        }
+    }
+
+    fn visit(&self, dir: &RepoPath) -> Visit {
+        let dir = match dir.to_fs_path(self.matcher.path()) {
+            Ok(p) => p,
+            Err(_) => return Visit::Nothing,
+        };
+        // TODO(brandon): Try to understand if these make sense
+        match self.matcher.matched(dir, false) {
+            ignore::Match::None => Visit::Nothing,
+            ignore::Match::Ignore(_) => Visit::AllRecursively,
+            ignore::Match::Whitelist(_) => Visit::Nothing,
+        }
     }
 }
 
