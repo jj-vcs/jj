@@ -62,7 +62,7 @@ pub(crate) fn cmd_help(
     args_to_show_help.extend(args.command.iter().map(|s| s.as_str()));
     args_to_show_help.push("--help");
 
-    // TODO: `help log -- -r` will gives an cryptic error, ideally, it should state
+    // TODO: `help log -- -r` will give a cryptic error, ideally, it should state
     // that the subcommand `log -r` doesn't exist.
     let help_err = command
         .app()
@@ -140,7 +140,7 @@ pub fn show_keyword_hint_after_help() -> StyledStr {
     let mut ret = StyledStr::new();
     writeln!(
         ret,
-        "{} list available keywords. Use {} to show help for one of these keywords.",
+        "{} lists available keywords. Use {} to show help for one of these keywords.",
         "'jj help --help'".bold(),
         "'jj help -k'".bold(),
     )
