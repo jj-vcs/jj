@@ -82,7 +82,7 @@ pretty_assertions = "1.4.1"
 proc-macro2 = "1.0.92"
 prost = "0.12.6"
 prost-build = "0.12.6"
-quote = "1.0.36"
+quote = "1.0.38"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
 rayon = "1.10.0"
@@ -102,7 +102,7 @@ smallvec = { version = "1.13.2", features = [
     "union",
 ] }
 strsim = "0.11.1"
-syn = "2.0.91"
+syn = "2.0.92"
 tempfile = "3.14.0"
 test-case = "3.3.1"
 textwrap = "0.16.1"
