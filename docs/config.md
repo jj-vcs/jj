@@ -702,17 +702,17 @@ to edit the diff in your terminal.
 
 You can try a different tool temporarily by doing e.g. `jj split --tool meld` or
 you can set the option to change the default. This requires that you have an
-appropriate tool installed, e.g. [Meld](https://meldmerge.org/) to use the
-`meld` diff editor.
+appropriate tool installed, see for example [the instructions for using
+Meld](#using-meld-as-a-diff-editor).
 
 **Suggestion:** If possible, it is recommended to try an external diff tool like
-`meld` (see below for some other possibilities) for splitting commits and other
-diff editing, in addition to the built-in diff editor. It is good to know the
-capabilities of both. The built-in diff editor does not require external tools
-to be available, is faster for tasks like picking hunks, and does not require
-leaving the terminal. External tools give you the flexibility of picking out
-portions of lines from the diff or even arbitrarily editing the text of the
-files.
+[Meld](#using-meld-as-a-diff-editor) (see below for some other possibilities)
+for splitting commits and other diff editing, in addition to the built-in diff
+editor. It is good to know the capabilities of both. The built-in diff editor
+does not require external tools to be available, is faster for tasks like
+picking hunks, and does not require leaving the terminal. External tools give
+you the flexibility of picking out portions of lines from the diff or even
+arbitrarily editing the text of the files.
 
 If `ui.diff-editor` is a string, e.g. `"meld"`, the arguments will be read from
 the following config keys.
@@ -823,6 +823,32 @@ When editing a diff, jj will include a synthetic file called `JJ-INSTRUCTIONS`
 in the diff with instructions on how to edit the diff. Any changes you make to
 this file will be ignored. To suppress the creation of this file, set
 `ui.diff-instructions = false`.
+
+### Using Meld as a diff editor
+
+[Meld](https://meldmerge.org) is a nice and polished free diff editor. It can be
+obtained as follows:
+
+- **Linux:** use your favorite package manager, e.g. `sudo apt install meld`.
+
+- **Windows:** Meld can be downloaded from <https://meldmerge.org/>.
+
+- **Mac OS:** Install Homebrew and run `brew install --cask deheselle-meld`.
+  This will install both an app in `/Applications/Meld.app` and the command-line
+  `meld` command that `jj` uses. You can read about [more details and other
+  options](https://gist.github.com/ilyagr/1b40f6061d8ad320cee4c12843df1a23) but,
+  as of this writing, this is by far the easiest.
+
+  *Warning:* Do *not* use the Homebrew `meld` package.
+  It does not work on ARM Macs and may have problems on recent versions of Mac
+  OS.
+
+`jj` has two diff editing configurations that use Meld: `meld` for a 2-pane view
+and `meld-3` for a [three-pane view](#experimental-3-pane-diff-editing).
+
+There is also a `meld` [merge tool](#3-way-merge-tools-for-conflict-resolution)
+that can be useful, but does not support displaying the merge base while
+merging.
 
 ### Using Vim as a diff editor
 
