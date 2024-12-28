@@ -476,10 +476,16 @@ fn ensure_parent_table<'a, 'b>(
     let mut keys = name.components();
     let leaf_key = keys.next_back().ok_or(&name.0[..])?;
     let parent_table = keys.enumerate().try_fold(root_table, |table, (i, key)| {
-        let sub_item = table.entry(key).or_insert_with(toml_edit::table);
+        let sub_item = table.entry(key).or_insert_with(new_implicit_table);
         sub_item.as_table_mut().ok_or(&name.0[..=i])
     })?;
     Ok((parent_table, leaf_key))
+}
+
+fn new_implicit_table() -> ConfigItem {
+    let mut table = ConfigTable::new();
+    table.set_implicit(true);
+    ConfigItem::Table(table)
 }
 
 /// Wrapper for file-based [`ConfigLayer`], providing convenient methods for
@@ -952,8 +958,6 @@ mod tests {
         // exist
         assert_matches!(layer.delete_value("bar.baz.blah.blah"), Ok(None));
         insta::assert_snapshot!(layer.data, @r#"
-        [bar]
-
         [bar.baz]
         blah = "2"
         "#);
