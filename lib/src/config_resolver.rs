@@ -233,6 +233,11 @@ enum MigrationRule {
         #[allow(clippy::type_complexity)] // type alias wouldn't help readability
         new_value_fn: Box<dyn Fn(&ConfigValue) -> Result<ConfigValue, DynError>>,
     },
+    Custom {
+        matches_fn: Box<dyn Fn(&ConfigLayer) -> bool>,
+        #[allow(clippy::type_complexity)] // type alias wouldn't help readability
+        apply_fn: Box<dyn Fn(&mut ConfigLayer) -> Result<String, ConfigMigrateLayerError>>,
+    },
 }
 
 impl ConfigMigrationRule {
@@ -263,7 +268,20 @@ impl ConfigMigrationRule {
         ConfigMigrationRule { inner }
     }
 
-    // TODO: update value, generic Box<dyn Fn>, etc.
+    // TODO: update value, etc.
+
+    /// Creates rule that updates config layer by `apply_fn`. `match_fn` should
+    /// return true if the layer contains items to be updated.
+    pub fn custom(
+        matches_fn: impl Fn(&ConfigLayer) -> bool + 'static,
+        apply_fn: impl Fn(&mut ConfigLayer) -> Result<String, ConfigMigrateLayerError> + 'static,
+    ) -> Self {
+        let inner = MigrationRule::Custom {
+            matches_fn: Box::new(matches_fn),
+            apply_fn: Box::new(apply_fn),
+        };
+        ConfigMigrationRule { inner }
+    }
 
     /// Returns true if `layer` contains an item to be migrated.
     fn matches(&self, layer: &ConfigLayer) -> bool {
@@ -272,6 +290,7 @@ impl ConfigMigrationRule {
             | MigrationRule::RenameUpdateValue { old_name, .. } => {
                 matches!(layer.look_up_item(old_name), Ok(Some(_)))
             }
+            MigrationRule::Custom { matches_fn, .. } => matches_fn(layer),
         }
     }
 
@@ -286,6 +305,7 @@ impl ConfigMigrationRule {
                 new_name,
                 new_value_fn,
             } => rename_update_value(layer, old_name, new_name, new_value_fn),
+            MigrationRule::Custom { apply_fn, .. } => apply_fn(layer),
         }
     }
 }
