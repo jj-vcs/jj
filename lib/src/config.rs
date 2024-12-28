@@ -397,7 +397,7 @@ impl ConfigLayer {
             .map_err(|keys| ConfigUpdateError::WouldOverwriteValue {
                 name: keys.join("."),
             })?;
-        match parent_table.entry(leaf_key) {
+        match parent_table.entry_format(leaf_key) {
             toml_edit::Entry::Occupied(mut entry) => {
                 if !entry.get().is_value() {
                     return Err(ConfigUpdateError::WouldOverwriteTable {
@@ -409,6 +409,9 @@ impl ConfigLayer {
             }
             toml_edit::Entry::Vacant(entry) => {
                 entry.insert(toml_edit::value(new_value));
+                // Reset whitespace formatting (i.e. insert space before '=')
+                let mut new_key = parent_table.key_mut(leaf_key).unwrap();
+                new_key.leaf_decor_mut().clear();
                 Ok(None)
             }
         }
@@ -476,7 +479,7 @@ fn ensure_parent_table<'a, 'b>(
     let mut keys = name.components();
     let leaf_key = keys.next_back().ok_or(&name.0[..])?;
     let parent_table = keys.enumerate().try_fold(root_table, |table, (i, key)| {
-        let sub_item = table.entry(key).or_insert_with(new_implicit_table);
+        let sub_item = table.entry_format(key).or_insert_with(new_implicit_table);
         sub_item.as_table_mut().ok_or(&name.0[..=i])
     })?;
     Ok((parent_table, leaf_key))
@@ -915,6 +918,31 @@ mod tests {
 
         [bar.baz]
         blah = "2"
+        "#);
+    }
+
+    #[test]
+    fn test_config_layer_set_value_formatting() {
+        let mut layer = ConfigLayer::empty(ConfigSource::User);
+        // Quoting style should be preserved on insertion
+        layer
+            .set_value(
+                "'foo' . bar . 'baz'",
+                ConfigValue::from_str("'value'").unwrap(),
+            )
+            .unwrap();
+        insta::assert_snapshot!(layer.data, @r"
+        ['foo' . bar]
+        'baz' = 'value'
+        ");
+
+        // Style of existing keys isn't updated
+        layer.set_value("foo.bar.baz", "new value").unwrap();
+        layer.set_value("foo.'bar'.blah", 0).unwrap();
+        insta::assert_snapshot!(layer.data, @r#"
+        ['foo' . bar]
+        'baz' = "new value"
+        blah = 0
         "#);
     }
 

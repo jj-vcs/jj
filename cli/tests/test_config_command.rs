@@ -522,13 +522,13 @@ fn test_config_set_for_user() {
     // Ensure test-key successfully written to user config.
     let user_config_toml = std::fs::read_to_string(&user_config_path)
         .unwrap_or_else(|_| panic!("Failed to read file {}", user_config_path.display()));
-    insta::assert_snapshot!(user_config_toml, @r###"
+    insta::assert_snapshot!(user_config_toml, @r#"
     test-key = "test-val"
 
     [test-table]
     foo = true
-    "bar()" = 0
-    "###);
+    'bar()' = 0
+    "#);
 }
 
 #[test]
