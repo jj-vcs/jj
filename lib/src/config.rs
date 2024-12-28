@@ -407,12 +407,15 @@ impl ConfigLayer {
         name: impl ToConfigNamePath,
         new_value: impl Into<ConfigValue>,
     ) -> Result<Option<ConfigValue>, ConfigUpdateError> {
+        let would_overwrite_table = |name| ConfigUpdateError::WouldOverwriteValue { name };
         let name = name.into_name_path();
         let name = name.borrow();
-        let (parent_table, leaf_key) = ensure_parent_table(self.data.as_table_mut(), name)
-            .map_err(|keys| ConfigUpdateError::WouldOverwriteValue {
-                name: keys.join("."),
-            })?;
+        let (leaf_key, table_keys) = name
+            .0
+            .split_last()
+            .ok_or_else(|| would_overwrite_table(name.to_string()))?;
+        let parent_table = ensure_table(self.data.as_table_mut(), table_keys)
+            .map_err(|keys| would_overwrite_table(keys.join(".")))?;
         match parent_table.entry_format(leaf_key) {
             toml_edit::Entry::Occupied(mut entry) => {
                 if !entry.get().is_value() {
@@ -466,6 +469,22 @@ impl ConfigLayer {
             toml_edit::Entry::Vacant(_) => Ok(None),
         }
     }
+
+    /// Inserts tables down to the `name` path. Returns mutable reference to the
+    /// leaf table.
+    ///
+    /// This function errors out if attempted to overwrite a non-table node. In
+    /// file-system analogy, this is equivalent to `std::fs::create_dir_all()`.
+    pub fn ensure_table(
+        &mut self,
+        name: impl ToConfigNamePath,
+    ) -> Result<&mut ConfigTableLike, ConfigUpdateError> {
+        let would_overwrite_table = |name| ConfigUpdateError::WouldOverwriteValue { name };
+        let name = name.into_name_path();
+        let name = name.borrow();
+        ensure_table(self.data.as_table_mut(), &name.0)
+            .map_err(|keys| would_overwrite_table(keys.join(".")))
+    }
 }
 
 /// Looks up item from the `root_item`. Returns `Some(item)` if an item found at
@@ -487,19 +506,18 @@ fn look_up_item<'a>(
     Ok(Some(cur_item))
 }
 
-/// Inserts tables down to the parent of the `name` path. Returns `Err(keys)` if
-/// middle node exists at the prefix name `keys` and wasn't a table.
-fn ensure_parent_table<'a, 'b>(
+/// Inserts tables recursively. Returns `Err(keys)` if middle node exists at the
+/// prefix name `keys` and wasn't a table.
+fn ensure_table<'a, 'b>(
     root_table: &'a mut ConfigTableLike<'a>,
-    name: &'b ConfigNamePathBuf,
-) -> Result<(&'a mut ConfigTableLike<'a>, &'b toml_edit::Key), &'b [toml_edit::Key]> {
-    let mut keys = name.components();
-    let leaf_key = keys.next_back().ok_or(&name.0[..])?;
-    let parent_table = keys.enumerate().try_fold(root_table, |table, (i, key)| {
-        let sub_item = table.entry_format(key).or_insert_with(new_implicit_table);
-        sub_item.as_table_like_mut().ok_or(&name.0[..=i])
-    })?;
-    Ok((parent_table, leaf_key))
+    keys: &'b [toml_edit::Key],
+) -> Result<&'a mut ConfigTableLike<'a>, &'b [toml_edit::Key]> {
+    keys.iter()
+        .enumerate()
+        .try_fold(root_table, |table, (i, key)| {
+            let sub_item = table.entry_format(key).or_insert_with(new_implicit_table);
+            sub_item.as_table_like_mut().ok_or(&keys[..=i])
+        })
 }
 
 fn new_implicit_table() -> ConfigItem {
