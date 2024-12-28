@@ -1072,9 +1072,10 @@ fn test_git_colocated_update_index_3_sided_conflict() {
     ◆  0000000000000000000000000000000000000000
     "#);
 
-    // We can't add conflicts with more than 2 sides to the index, so they should
-    // show as unconflicted. The stat for base.txt should not change.
+    // We can't add conflicts with more than 2 sides to the index, so we add a dummy
+    // conflict instead. The stat for base.txt should not change.
     insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    Ours         Mode(FILE) eb8299123d2a ctime=0:0 mtime=0:0 size=0 .jj-do-not-resolve-this-conflict
     Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 base.txt
     Unconflicted Mode(FILE) dd8f930010b3 ctime=0:0 mtime=0:0 size=0 conflict.txt
     Unconflicted Mode(FILE) dd8f930010b3 ctime=0:0 mtime=0:0 size=0 side-1.txt
@@ -1099,6 +1100,20 @@ fn test_git_colocated_update_index_3_sided_conflict() {
 
     // Index should be the same after `jj new`.
     insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    Ours         Mode(FILE) eb8299123d2a ctime=0:0 mtime=0:0 size=0 .jj-do-not-resolve-this-conflict
+    Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 base.txt
+    Unconflicted Mode(FILE) dd8f930010b3 ctime=0:0 mtime=0:0 size=0 conflict.txt
+    Unconflicted Mode(FILE) dd8f930010b3 ctime=0:0 mtime=0:0 size=0 side-1.txt
+    Unconflicted Mode(FILE) 7b44e11df720 ctime=0:0 mtime=0:0 size=0 side-2.txt
+    Unconflicted Mode(FILE) 42f37a71bf20 ctime=0:0 mtime=0:0 size=0 side-3.txt
+    "#);
+
+    // If we add a file named ".jj-do-not-resolve-this-conflict", it should take
+    // precedence over the dummy conflict.
+    std::fs::write(repo_path.join(".jj-do-not-resolve-this-conflict"), "file\n").unwrap();
+    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    Unconflicted Mode(FILE) f73f3093ff86 ctime=0:0 mtime=0:0 size=0 .jj-do-not-resolve-this-conflict
     Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 base.txt
     Unconflicted Mode(FILE) dd8f930010b3 ctime=0:0 mtime=0:0 size=0 conflict.txt
     Unconflicted Mode(FILE) dd8f930010b3 ctime=0:0 mtime=0:0 size=0 side-1.txt

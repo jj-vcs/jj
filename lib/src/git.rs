@@ -57,6 +57,9 @@ use crate::view::View;
 pub const REMOTE_NAME_FOR_LOCAL_GIT_REPO: &str = "git";
 /// Ref name used as a placeholder to unset HEAD without a commit.
 const UNBORN_ROOT_REF_NAME: &str = "refs/jj/root";
+/// Dummy file to be added to the index to indicate that the user is editing a
+/// commit with a conflict that isn't represented in the Git index.
+const INDEX_DUMMY_CONFLICT_FILE: &str = ".jj-do-not-resolve-this-conflict";
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Hash, Debug)]
 pub enum RefName {
@@ -1030,8 +1033,8 @@ pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), 
     let parent_tree = wc_commit.parent_tree(mut_repo)?;
 
     // Use the merged parent tree as the Git index, allowing `git diff` to show the
-    // same changes as `jj diff`. If the merged parent tree has 2-sided conflicts,
-    // then the Git index will also be conflicted.
+    // same changes as `jj diff`. If the merged parent tree has conflicts, then the
+    // Git index will also be conflicted.
     let mut index = if let Some(tree) = parent_tree.as_merge().as_resolved() {
         if tree.id() == mut_repo.store().empty_tree_id() {
             // If the tree is empty, gix can fail to load the object (since Git doesn't
@@ -1124,6 +1127,8 @@ fn build_index_from_merged_tree(
             );
         };
 
+    let mut has_many_sided_conflict = false;
+
     for (path, entry) in merged_tree.entries() {
         let entry = entry?;
         if let Some(resolved) = entry.as_resolved() {
@@ -1142,7 +1147,10 @@ fn build_index_from_merged_tree(
             // first side as staged. This is preferable to adding the first 2 sides as a
             // conflict, since some tools rely on being able to resolve conflicts using the
             // index, which could lead to an incorrect conflict resolution if the index
-            // didn't contain all of the conflict sides.
+            // didn't contain all of the conflict sides. Instead, we add a dummy conflict of
+            // a file named ".jj-do-not-resolve-this-conflict" to prevent the user from
+            // accidentally committing the conflict markers.
+            has_many_sided_conflict = true;
             push_index_entry(
                 &path,
                 conflict.first(),
@@ -1151,8 +1159,33 @@ fn build_index_from_merged_tree(
         }
     }
 
-    // Required after `dangerously_push_entry` for correctness
+    // Required after `dangerously_push_entry` for correctness. We use do a lookup
+    // in the index after this, so it must be sorted before we do the lookup.
     index.sort_entries();
+
+    // If the conflict had an unrepresentable conflict and the dummy file path isn't
+    // already added in the index, add a dummy file as a conflict.
+    if has_many_sided_conflict
+        && index
+            .entry_index_by_path(INDEX_DUMMY_CONFLICT_FILE.into())
+            .is_err()
+    {
+        let file_blob = git_repo
+            .write_blob(
+                b"The working copy commit contains conflicts which cannot be resolved using Git.\n",
+            )
+            .map_err(GitExportError::from_git)?;
+        index.dangerously_push_entry(
+            gix::index::entry::Stat::default(),
+            file_blob.detach(),
+            gix::index::entry::Flags::from_stage(gix::index::entry::Stage::Ours),
+            gix::index::entry::Mode::FILE,
+            INDEX_DUMMY_CONFLICT_FILE.into(),
+        );
+        // We need to sort again for correctness before writing the index file since we
+        // added a new entry.
+        index.sort_entries();
+    }
 
     Ok(index)
 }
