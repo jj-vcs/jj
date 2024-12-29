@@ -1059,7 +1059,6 @@ impl WorkspaceCommandHelper {
     #[instrument(skip_all)]
     fn import_git_head(&mut self, ui: &Ui) -> Result<(), CommandError> {
         assert!(self.may_update_working_copy);
-        let command = self.env.command.clone();
         let mut tx = self.start_transaction();
         git::import_head(tx.repo_mut())?;
         if !tx.repo().has_changes() {
@@ -1083,13 +1082,13 @@ impl WorkspaceCommandHelper {
             let workspace_id = self.workspace_id().to_owned();
             let new_git_head_commit = tx.repo().store().get_commit(new_git_head_id)?;
             tx.repo_mut()
-                .check_out(workspace_id, command.settings(), &new_git_head_commit)?;
+                .check_out(workspace_id, self.env.settings(), &new_git_head_commit)?;
             let mut locked_ws = self.workspace.start_working_copy_mutation()?;
             // The working copy was presumably updated by the git command that updated
             // HEAD, so we just need to reset our working copy
             // state to it without updating working copy files.
             locked_ws.locked_wc().reset(&new_git_head_commit)?;
-            tx.repo_mut().rebase_descendants(command.settings())?;
+            tx.repo_mut().rebase_descendants(self.env.settings())?;
             self.user_repo = ReadonlyUserRepo::new(tx.commit("import git head")?);
             locked_ws.finish(self.user_repo.repo.op_id().clone())?;
             if old_git_head.is_present() {
@@ -1783,7 +1782,6 @@ to the current parents may contain changes from multiple commits.
             .map_err(snapshot_command_error)?;
 
         // Compare working-copy tree and operation with repo's, and reload as needed.
-        let command = self.env.command.clone();
         let mut locked_ws = self
             .workspace
             .start_working_copy_mutation()
@@ -1853,13 +1851,13 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
         if new_tree_id != *wc_commit.tree_id() {
             let mut tx = start_repo_transaction(
                 &self.user_repo.repo,
-                command.settings(),
-                command.string_args(),
+                self.env.settings(),
+                self.env.command.string_args(),
             );
             tx.set_is_snapshot(true);
             let mut_repo = tx.repo_mut();
             let commit = mut_repo
-                .rewrite_commit(command.settings(), &wc_commit)
+                .rewrite_commit(self.env.settings(), &wc_commit)
                 .set_tree_id(new_tree_id)
                 .write()
                 .map_err(snapshot_command_error)?;
@@ -1869,7 +1867,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
 
             // Rebase descendants
             let num_rebased = mut_repo
-                .rebase_descendants(command.settings())
+                .rebase_descendants(self.env.settings())
                 .map_err(snapshot_command_error)?;
             if num_rebased > 0 {
                 writeln!(
