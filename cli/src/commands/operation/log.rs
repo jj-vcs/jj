@@ -100,7 +100,7 @@ fn do_op_log(
     current_op: &Operation,
     args: &OperationLogArgs,
 ) -> Result<(), CommandError> {
-    let settings = workspace_env.settings();
+    let settings = repo_loader.settings();
     let graph_style = GraphStyle::from_settings(settings)?;
     let with_content_format = LogContentFormat::new(ui, settings)?;
 

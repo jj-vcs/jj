@@ -337,6 +337,11 @@ impl CommandHelper {
         &self.data.raw_config
     }
 
+    /// Settings for the current command and workspace.
+    ///
+    /// This may be different from the settings for new workspace created by
+    /// e.g. `jj git init`. There may be conditional variables and repo config
+    /// `.jj/repo/config.toml` loaded for the cwd workspace.
     pub fn settings(&self) -> &UserSettings {
         &self.data.settings
     }
@@ -724,6 +729,7 @@ impl AdvanceBookmarksSettings {
 /// Metadata and configuration loaded for a specific workspace.
 pub struct WorkspaceCommandEnvironment {
     command: CommandHelper,
+    settings: UserSettings,
     revset_aliases_map: RevsetAliasesMap,
     template_aliases_map: TemplateAliasesMap,
     path_converter: RepoPathUiConverter,
@@ -736,29 +742,27 @@ pub struct WorkspaceCommandEnvironment {
 impl WorkspaceCommandEnvironment {
     #[instrument(skip_all)]
     fn new(ui: &Ui, command: &CommandHelper, workspace: &Workspace) -> Result<Self, CommandError> {
-        let revset_aliases_map = revset_util::load_revset_aliases(ui, command.settings().config())?;
-        let template_aliases_map = load_template_aliases(ui, command.settings().config())?;
+        let settings = workspace.settings();
+        let revset_aliases_map = revset_util::load_revset_aliases(ui, settings.config())?;
+        let template_aliases_map = load_template_aliases(ui, settings.config())?;
         let path_converter = RepoPathUiConverter::Fs {
             cwd: command.cwd().to_owned(),
             base: workspace.workspace_root().to_owned(),
         };
         let mut env = Self {
             command: command.clone(),
+            settings: settings.clone(),
             revset_aliases_map,
             template_aliases_map,
             path_converter,
             workspace_id: workspace.workspace_id().to_owned(),
             immutable_heads_expression: RevsetExpression::root(),
             short_prefixes_expression: None,
-            conflict_marker_style: command.settings().get("ui.conflict-marker-style")?,
+            conflict_marker_style: settings.get("ui.conflict-marker-style")?,
         };
         env.immutable_heads_expression = env.load_immutable_heads_expression(ui)?;
         env.short_prefixes_expression = env.load_short_prefixes_expression(ui)?;
         Ok(env)
-    }
-
-    pub fn settings(&self) -> &UserSettings {
-        self.command.settings()
     }
 
     pub(crate) fn path_converter(&self) -> &RepoPathUiConverter {
@@ -774,7 +778,7 @@ impl WorkspaceCommandEnvironment {
             path_converter: &self.path_converter,
             workspace_id: &self.workspace_id,
         };
-        let now = if let Some(timestamp) = self.settings().commit_timestamp() {
+        let now = if let Some(timestamp) = self.settings.commit_timestamp() {
             chrono::Local
                 .timestamp_millis_opt(timestamp.timestamp.0)
                 .unwrap()
@@ -783,7 +787,7 @@ impl WorkspaceCommandEnvironment {
         };
         RevsetParseContext::new(
             &self.revset_aliases_map,
-            self.settings().user_email(),
+            self.settings.user_email(),
             now.into(),
             self.command.revset_extensions(),
             Some(workspace_context),
@@ -836,10 +840,10 @@ impl WorkspaceCommandEnvironment {
         ui: &Ui,
     ) -> Result<Option<Rc<UserRevsetExpression>>, CommandError> {
         let revset_string = self
-            .settings()
+            .settings
             .get_string("revsets.short-prefixes")
             .optional()?
-            .map_or_else(|| self.settings().get_string("revsets.log"), Ok)?;
+            .map_or_else(|| self.settings.get_string("revsets.log"), Ok)?;
         if revset_string.is_empty() {
             Ok(None)
         } else {
@@ -976,7 +980,7 @@ impl WorkspaceCommandHelper {
         env: WorkspaceCommandEnvironment,
         loaded_at_head: bool,
     ) -> Result<Self, CommandError> {
-        let settings = env.settings();
+        let settings = workspace.settings();
         let commit_summary_template_text = settings.get_string("templates.commit_summary")?;
         let op_summary_template_text = settings.get_string("templates.op_summary")?;
         let may_update_working_copy =
@@ -999,8 +1003,9 @@ impl WorkspaceCommandHelper {
         Ok(helper)
     }
 
+    /// Settings for this workspace.
     pub fn settings(&self) -> &UserSettings {
-        self.env.settings()
+        self.workspace.settings()
     }
 
     pub fn git_backend(&self) -> Option<&GitBackend> {
@@ -2287,6 +2292,7 @@ impl WorkspaceCommandTransaction<'_> {
         self.helper
     }
 
+    /// Settings for this workspace.
     pub fn settings(&self) -> &UserSettings {
         self.helper.settings()
     }
