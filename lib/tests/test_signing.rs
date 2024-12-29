@@ -48,7 +48,7 @@ fn good_verification() -> Option<Verification> {
     Some(Verification {
         status: SigStatus::Good,
         key: Some("impeccable".to_owned()),
-        display: None,
+        display: Some("test".into()),
     })
 }
 

@@ -63,13 +63,13 @@ impl SigningBackend for TestSigningBackend {
             Ok(Verification {
                 status: SigStatus::Good,
                 key,
-                display: None,
+                display: Some("test-display".into()),
             })
         } else {
             Ok(Verification {
                 status: SigStatus::Bad,
                 key,
-                display: None,
+                display: Some("test-display".into()),
             })
         }
     }
