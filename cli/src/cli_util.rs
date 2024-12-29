@@ -346,6 +346,20 @@ impl CommandHelper {
         &self.data.settings
     }
 
+    /// Resolves configuration for new workspace located at the specified path.
+    pub fn settings_for_new_workspace(
+        &self,
+        workspace_root: &Path,
+    ) -> Result<UserSettings, CommandError> {
+        let mut config_env = self.data.config_env.clone();
+        let mut raw_config = self.data.raw_config.clone();
+        let repo_path = workspace_root.join(".jj").join("repo");
+        config_env.reset_repo_path(&repo_path);
+        config_env.reload_repo_config(&mut raw_config)?;
+        let config = config_env.resolve_config(&raw_config)?;
+        Ok(self.data.settings.with_new_config(config)?)
+    }
+
     /// Loads text editor from the settings.
     pub fn text_editor(&self) -> Result<TextEditor, ConfigGetError> {
         TextEditor::from_settings(self.settings())

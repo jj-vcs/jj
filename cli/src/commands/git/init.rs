@@ -154,20 +154,20 @@ fn do_init(
         GitInitMode::Internal
     };
 
+    let settings = command.settings_for_new_workspace(workspace_root)?;
     match &init_mode {
         GitInitMode::Colocate => {
-            let (workspace, repo) =
-                Workspace::init_colocated_git(command.settings(), workspace_root)?;
+            let (workspace, repo) = Workspace::init_colocated_git(&settings, workspace_root)?;
             let workspace_command = command.for_workable_repo(ui, workspace, repo)?;
             maybe_add_gitignore(&workspace_command)?;
         }
         GitInitMode::External(git_repo_path) => {
             let (workspace, repo) =
-                Workspace::init_external_git(command.settings(), workspace_root, git_repo_path)?;
+                Workspace::init_external_git(&settings, workspace_root, git_repo_path)?;
             // Import refs first so all the reachable commits are indexed in
             // chronological order.
             let colocated = is_colocated_git_workspace(&workspace, &repo);
-            let repo = init_git_refs(ui, command, repo, colocated)?;
+            let repo = init_git_refs(ui, repo, command.string_args(), colocated)?;
             let mut workspace_command = command.for_workable_repo(ui, workspace, repo)?;
             maybe_add_gitignore(&workspace_command)?;
             workspace_command.maybe_snapshot(ui)?;
@@ -186,7 +186,7 @@ fn do_init(
             print_trackable_remote_bookmarks(ui, workspace_command.repo().view())?;
         }
         GitInitMode::Internal => {
-            Workspace::init_internal_git(command.settings(), workspace_root)?;
+            Workspace::init_internal_git(&settings, workspace_root)?;
         }
     }
     Ok(())
@@ -199,13 +199,13 @@ fn do_init(
 /// moves the Git HEAD to the working copy parent.
 fn init_git_refs(
     ui: &mut Ui,
-    command: &CommandHelper,
     repo: Arc<ReadonlyRepo>,
+    string_args: &[String],
     colocated: bool,
 ) -> Result<Arc<ReadonlyRepo>, CommandError> {
-    let mut tx = start_repo_transaction(&repo, command.string_args());
+    let mut git_settings = repo.settings().git_settings()?;
+    let mut tx = start_repo_transaction(&repo, string_args);
     // There should be no old refs to abandon, but enforce it.
-    let mut git_settings = command.settings().git_settings()?;
     git_settings.abandon_unreachable_commits = false;
     let stats = git::import_some_refs(
         tx.repo_mut(),

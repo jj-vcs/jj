@@ -61,7 +61,7 @@ pub(crate) fn cmd_init(
 Set `ui.allow-init-native` to allow initializing a repo with the native backend.",
         ));
     }
-    Workspace::init_local(command.settings(), &wc_path)?;
+    Workspace::init_local(&command.settings_for_new_workspace(&wc_path)?, &wc_path)?;
 
     let relative_wc_path = file_util::relative_path(cwd, &wc_path);
     writeln!(

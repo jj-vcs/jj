@@ -16,8 +16,11 @@ use std::path;
 use std::path::Path;
 use std::path::PathBuf;
 
+use indoc::formatdoc;
+
 use crate::common::get_stderr_string;
 use crate::common::get_stdout_string;
+use crate::common::to_toml_value;
 use crate::common::TestEnvironment;
 
 fn set_up_non_empty_git_repo(git_repo: &git2::Repository) {
@@ -584,6 +587,88 @@ fn test_git_clone_trunk_deleted() {
     Warning: Failed to resolve `revset-aliases.trunk()`: Revision "main@origin" doesn't exist
     Hint: Use `jj config edit --repo` to adjust the `trunk()` alias.
     "#);
+}
+
+#[test]
+fn test_git_clone_conditional_config() {
+    let test_env = TestEnvironment::default();
+    let source_repo_path = test_env.env_root().join("source");
+    let old_workspace_root = test_env.env_root().join("old");
+    let new_workspace_root = test_env.env_root().join("new");
+    let source_git_repo = git2::Repository::init(source_repo_path).unwrap();
+    set_up_non_empty_git_repo(&source_git_repo);
+
+    let jj_cmd_ok = |current_dir: &Path, args: &[&str]| {
+        let mut cmd = test_env.jj_cmd(current_dir, args);
+        cmd.env_remove("JJ_EMAIL");
+        cmd.env_remove("JJ_OP_HOSTNAME");
+        cmd.env_remove("JJ_OP_USERNAME");
+        let assert = cmd.assert().success();
+        let stdout = test_env.normalize_output(&get_stdout_string(&assert));
+        let stderr = test_env.normalize_output(&get_stderr_string(&assert));
+        (stdout, stderr)
+    };
+    let log_template = r#"separate(' ', author.email(), description.first_line()) ++ "\n""#;
+    let op_log_template = r#"separate(' ', user, description.first_line()) ++ "\n""#;
+
+    // Override user.email and operation.username conditionally
+    test_env.add_config(formatdoc! {"
+        user.email = 'base@example.org'
+        operation.hostname = 'base'
+        operation.username = 'base'
+        [[--scope]]
+        --when.repositories = [{new_workspace_root}]
+        user.email = 'new-repo@example.org'
+        operation.username = 'new-repo'
+        ",
+        new_workspace_root = to_toml_value(new_workspace_root.to_str().unwrap()),
+    });
+
+    // Override operation.hostname by repo config, which should be loaded into
+    // the command settings, but shouldn't be copied to the new repo.
+    jj_cmd_ok(test_env.env_root(), &["git", "init", "old"]);
+    jj_cmd_ok(
+        &old_workspace_root,
+        &["config", "set", "--repo", "operation.hostname", "old-repo"],
+    );
+    jj_cmd_ok(&old_workspace_root, &["new"]);
+    let (stdout, _stderr) = jj_cmd_ok(&old_workspace_root, &["op", "log", "-T", op_log_template]);
+    insta::assert_snapshot!(stdout, @r"
+    @  base@old-repo new empty commit
+    ○  base@base add workspace 'default'
+    ○  @
+    ");
+
+    // Clone repo at the old workspace directory.
+    let (_stdout, stderr) = jj_cmd_ok(
+        &old_workspace_root,
+        &["git", "clone", "../source", "../new"],
+    );
+    insta::assert_snapshot!(stderr, @r#"
+    Fetching into new repo in "$TEST_ENV/new"
+    bookmark: main@origin [new] untracked
+    Setting the revset alias "trunk()" to "main@origin"
+    Working copy now at: zxsnswpr 5695b5e5 (empty) (no description set)
+    Parent commit      : mzyxwzks 9f01a0e0 main | message
+    Added 1 files, modified 0 files, removed 0 files
+    "#);
+    jj_cmd_ok(&new_workspace_root, &["new"]);
+    let (stdout, _stderr) = jj_cmd_ok(&new_workspace_root, &["log", "-T", log_template]);
+    insta::assert_snapshot!(stdout, @r"
+    @  new-repo@example.org
+    ○  new-repo@example.org
+    ◆  some.one@example.com message
+    │
+    ~
+    ");
+    let (stdout, _stderr) = jj_cmd_ok(&new_workspace_root, &["op", "log", "-T", op_log_template]);
+    insta::assert_snapshot!(stdout, @r"
+    @  new-repo@base new empty commit
+    ○  new-repo@base check out git remote's default branch
+    ○  new-repo@base fetch from git remote into empty repo
+    ○  new-repo@base add workspace 'default'
+    ○  @
+    ");
 }
 
 #[test]

@@ -144,6 +144,11 @@ fn to_timestamp(value: ConfigValue) -> Result<Timestamp, Box<dyn std::error::Err
 
 impl UserSettings {
     pub fn from_config(config: StackedConfig) -> Result<Self, ConfigGetError> {
+        let rng_seed = config.get::<u64>("debug.randomness-seed").optional()?;
+        Self::from_config_and_rng(config, Arc::new(JJRng::new(rng_seed)))
+    }
+
+    fn from_config_and_rng(config: StackedConfig, rng: Arc<JJRng>) -> Result<Self, ConfigGetError> {
         let user_name = config.get("user.name")?;
         let user_email = config.get("user.email")?;
         let commit_timestamp = config
@@ -162,12 +167,19 @@ impl UserSettings {
             operation_hostname,
             operation_username,
         };
-        let rng_seed = config.get::<u64>("debug.randomness-seed").optional()?;
         Ok(UserSettings {
             config: Arc::new(config),
             data: Arc::new(data),
-            rng: Arc::new(JJRng::new(rng_seed)),
+            rng,
         })
+    }
+
+    /// Like [`UserSettings::from_config()`], but retains the internal state.
+    ///
+    /// This ensures that no duplicated change IDs are generated within the
+    /// current process. New `debug.randomness-seed` value is ignored.
+    pub fn with_new_config(&self, config: StackedConfig) -> Result<Self, ConfigGetError> {
+        Self::from_config_and_rng(config, self.rng.clone())
     }
 
     pub fn get_rng(&self) -> Arc<JJRng> {

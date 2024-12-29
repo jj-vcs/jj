@@ -43,6 +43,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Fixed diff selection by external tools with `jj split`/`commit -i FILESETS`.
   [#5252](https://github.com/jj-vcs/jj/issues/5252)
 
+* Conditional configuration now applies when initializing new repository.
+  [#5144](https://github.com/jj-vcs/jj/issues/5144)
+
 ## [0.25.0] - 2025-01-01
 
 ### Release highlights

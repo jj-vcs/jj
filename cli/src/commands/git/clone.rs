@@ -197,10 +197,11 @@ fn do_git_clone(
     source: &str,
     wc_path: &Path,
 ) -> Result<(WorkspaceCommandHelper, GitFetchStats), CommandError> {
+    let settings = command.settings_for_new_workspace(wc_path)?;
     let (workspace, repo) = if colocate {
-        Workspace::init_colocated_git(command.settings(), wc_path)?
+        Workspace::init_colocated_git(&settings, wc_path)?
     } else {
-        Workspace::init_internal_git(command.settings(), wc_path)?
+        Workspace::init_internal_git(&settings, wc_path)?
     };
     let git_repo = get_git_repo(repo.store())?;
     writeln!(
@@ -211,8 +212,8 @@ fn do_git_clone(
     let mut workspace_command = command.for_workable_repo(ui, workspace, repo)?;
     maybe_add_gitignore(&workspace_command)?;
     git_repo.remote(remote_name, source).unwrap();
+    let git_settings = workspace_command.settings().git_settings()?;
     let mut fetch_tx = workspace_command.start_transaction();
-    let git_settings = command.settings().git_settings()?;
 
     let stats = with_remote_git_callbacks(ui, None, |cb| {
         git::fetch(
