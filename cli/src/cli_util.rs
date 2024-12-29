@@ -347,14 +347,6 @@ impl CommandHelper {
         &self.data.revset_extensions
     }
 
-    /// Loads template aliases from the configs.
-    ///
-    /// For most commands that depend on a loaded repo, you should use
-    /// `WorkspaceCommandHelper::template_aliases_map()` instead.
-    fn load_template_aliases(&self, ui: &Ui) -> Result<TemplateAliasesMap, CommandError> {
-        load_template_aliases(ui, self.settings().config())
-    }
-
     /// Parses template of the given language into evaluation tree.
     ///
     /// This function also loads template aliases from the settings. Use
@@ -368,7 +360,7 @@ impl CommandHelper {
         wrap_self: impl Fn(PropertyPlaceholder<C>) -> L::Property,
     ) -> Result<TemplateRenderer<'a, C>, CommandError> {
         let mut diagnostics = TemplateDiagnostics::new();
-        let aliases = self.load_template_aliases(ui)?;
+        let aliases = load_template_aliases(ui, self.settings().config())?;
         let template = template_builder::parse(
             language,
             &mut diagnostics,
@@ -736,7 +728,7 @@ impl WorkspaceCommandEnvironment {
     #[instrument(skip_all)]
     fn new(ui: &Ui, command: &CommandHelper, workspace: &Workspace) -> Result<Self, CommandError> {
         let revset_aliases_map = revset_util::load_revset_aliases(ui, command.settings().config())?;
-        let template_aliases_map = command.load_template_aliases(ui)?;
+        let template_aliases_map = load_template_aliases(ui, command.settings().config())?;
         let path_converter = RepoPathUiConverter::Fs {
             cwd: command.cwd().to_owned(),
             base: workspace.workspace_root().to_owned(),
