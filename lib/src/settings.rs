@@ -40,19 +40,24 @@ use crate::signing::SignBehavior;
 
 #[derive(Debug, Clone)]
 pub struct UserSettings {
-    config: StackedConfig,
+    config: Arc<StackedConfig>,
+    data: Arc<UserSettingsData>,
+    rng: Arc<JJRng>,
+}
+
+#[derive(Debug)]
+struct UserSettingsData {
     user_name: String,
     user_email: String,
     commit_timestamp: Option<Timestamp>,
     operation_timestamp: Option<Timestamp>,
     operation_hostname: String,
     operation_username: String,
-    rng: Arc<JJRng>,
 }
 
 #[derive(Debug, Clone)]
 pub struct RepoSettings {
-    _config: StackedConfig,
+    _config: Arc<StackedConfig>,
 }
 
 #[derive(Debug, Clone)]
@@ -175,15 +180,18 @@ impl UserSettings {
                 error: err.into(),
                 source_path: None,
             })?;
-        let rng_seed = config.get::<u64>("debug.randomness-seed").optional()?;
-        Ok(UserSettings {
-            config,
+        let data = UserSettingsData {
             user_name,
             user_email,
             commit_timestamp,
             operation_timestamp,
             operation_hostname,
             operation_username,
+        };
+        let rng_seed = config.get::<u64>("debug.randomness-seed").optional()?;
+        Ok(UserSettings {
+            config: Arc::new(config),
+            data: Arc::new(data),
             rng: Arc::new(JJRng::new(rng_seed)),
         })
     }
@@ -200,14 +208,14 @@ impl UserSettings {
     }
 
     pub fn user_name(&self) -> &str {
-        &self.user_name
+        &self.data.user_name
     }
 
     // Must not be changed to avoid git pushing older commits with no set name
     pub const USER_NAME_PLACEHOLDER: &'static str = "(no name configured)";
 
     pub fn user_email(&self) -> &str {
-        &self.user_email
+        &self.data.user_email
     }
 
     pub fn fsmonitor_settings(&self) -> Result<FsmonitorSettings, ConfigGetError> {
@@ -219,23 +227,23 @@ impl UserSettings {
     pub const USER_EMAIL_PLACEHOLDER: &'static str = "(no email configured)";
 
     pub fn commit_timestamp(&self) -> Option<Timestamp> {
-        self.commit_timestamp
+        self.data.commit_timestamp
     }
 
     pub fn operation_timestamp(&self) -> Option<Timestamp> {
-        self.operation_timestamp
+        self.data.operation_timestamp
     }
 
     pub fn operation_hostname(&self) -> &str {
-        &self.operation_hostname
+        &self.data.operation_hostname
     }
 
     pub fn operation_username(&self) -> &str {
-        &self.operation_username
+        &self.data.operation_username
     }
 
     pub fn signature(&self) -> Signature {
-        let timestamp = self.commit_timestamp.unwrap_or_else(Timestamp::now);
+        let timestamp = self.data.commit_timestamp.unwrap_or_else(Timestamp::now);
         Signature {
             name: self.user_name().to_owned(),
             email: self.user_email().to_owned(),
