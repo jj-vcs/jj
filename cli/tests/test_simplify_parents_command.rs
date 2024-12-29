@@ -133,33 +133,35 @@ fn test_simplify_parents_redundant_parent(args: &[&str]) {
     create_commit(&test_env, &repo_path, "c", &["a", "b"]);
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-r", "all()", "-T", "description"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @r###"
-    @    c
-    ├─╮
-    │ ○  b
-    ├─╯
-    ○  a
-    ◆
-    "###);
+        insta::assert_snapshot!(stdout, @r###"
+        @    c
+        ├─╮
+        │ ○  b
+        ├─╯
+        ○  a
+        ◆
+        "###);
     }
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, args);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
-    Removed 1 edges from 1 out of 3 commits.
-    Working copy now at: royxmykx 0ac2063b c | c
-    Parent commit      : zsuskuln 1394f625 b | b
-    "###);
+        insta::assert_snapshot!(stdout, @"");
+    }
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(stderr, @r###"
+        Removed 1 edges from 1 out of 3 commits.
+        Working copy now at: royxmykx 0ac2063b c | c
+        Parent commit      : zsuskuln 1394f625 b | b
+        "###);
     }
 
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-r", "all()", "-T", "description"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @r###"
-    @  c
-    ○  b
-    ○  a
-    ◆
-    "###);
+        insta::assert_snapshot!(stdout, @r###"
+        @  c
+        ○  b
+        ○  a
+        ◆
+        "###);
     }
 }
 

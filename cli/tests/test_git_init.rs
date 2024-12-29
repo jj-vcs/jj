@@ -223,6 +223,8 @@ fn test_git_init_external_import_trunk(bare: bool) {
     );
     insta::allow_duplicates! {
         insta::assert_snapshot!(stdout, @"");
+    }
+    insta::allow_duplicates! {
         insta::assert_snapshot!(stderr, @r###"
         Done importing changes from the underlying Git repo.
         Setting the revset alias "trunk()" to "trunk@origin"
@@ -239,9 +241,9 @@ fn test_git_init_external_import_trunk(bare: bool) {
         &["config", "list", "--repo", "revset-aliases.\"trunk()\""],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @r###"
-    revset-aliases."trunk()" = "trunk@origin"
-    "###);
+        insta::assert_snapshot!(stdout, @r###"
+        revset-aliases."trunk()" = "trunk@origin"
+        "###);
     }
 }
 

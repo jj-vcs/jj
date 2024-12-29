@@ -815,6 +815,8 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
     let (stdout, stderr) = test_env.jj_cmd_ok(&secondary_path, &["st"]);
     insta::allow_duplicates! {
         insta::assert_snapshot!(stderr, @"");
+    }
+    insta::allow_duplicates! {
         insta::assert_snapshot!(stdout, @r###"
         Working copy changes:
         A added
@@ -823,6 +825,8 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
         Working copy : kmkuslsw 15df8cb5 RECOVERY COMMIT FROM `jj workspace update-stale`
         Parent commit: rzvqmyuk 96b31daf (empty) (no description set)
         "###);
+    }
+    insta::allow_duplicates! {
         // The modified file should have the same contents it had before (not reset to
         // the base contents)
         insta::assert_snapshot!(std::fs::read_to_string(secondary_path.join("modified")).unwrap(), @r###"
@@ -833,6 +837,8 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
     let (stdout, stderr) = test_env.jj_cmd_ok(&secondary_path, &["evolog"]);
     insta::allow_duplicates! {
         insta::assert_snapshot!(stderr, @"");
+    }
+    insta::allow_duplicates! {
         insta::assert_snapshot!(stdout, @r###"
         @  kmkuslsw test.user@example.com 2001-02-03 08:05:18 secondary@ 15df8cb5
         │  RECOVERY COMMIT FROM `jj workspace update-stale`
