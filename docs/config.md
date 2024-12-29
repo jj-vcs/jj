@@ -1345,7 +1345,7 @@ config files or environment variables. For example,
 
 ```shell
 # Must not have spaces around the `=`
-jj --config ui.color=always --config ui.diff-editor=kdiff3 split
+jj --config ui.color=always --config ui.diff-editor=meld split
 ```
 
 Config value should be specified as a TOML expression. If string value doesn't
