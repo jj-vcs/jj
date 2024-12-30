@@ -408,6 +408,11 @@ impl Workspace {
         &self.repo_loader
     }
 
+    /// Settings for this workspace.
+    pub fn settings(&self) -> &UserSettings {
+        self.repo_loader.settings()
+    }
+
     pub fn working_copy(&self) -> &dyn WorkingCopy {
         self.working_copy.as_ref()
     }
