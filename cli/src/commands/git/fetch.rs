@@ -73,7 +73,7 @@ pub fn cmd_git_fetch(
     let remotes = if args.all_remotes {
         get_all_remotes(&git_repo)?
     } else if args.remotes.is_empty() {
-        get_default_fetch_remotes(ui, command.settings(), &git_repo)?
+        get_default_fetch_remotes(ui, workspace_command.settings(), &git_repo)?
     } else {
         args.remotes.clone()
     };

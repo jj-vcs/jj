@@ -171,7 +171,7 @@ pub fn cmd_git_push(
     let remote = if let Some(name) = &args.remote {
         name.clone()
     } else {
-        get_default_push_remote(ui, command.settings(), &git_repo)?
+        get_default_push_remote(ui, workspace_command.settings(), &git_repo)?
     };
 
     let mut tx = workspace_command.start_transaction();
@@ -218,7 +218,7 @@ pub fn cmd_git_push(
         let mut seen_bookmarks: HashSet<&str> = HashSet::new();
 
         // Process --change bookmarks first because matching bookmarks can be moved.
-        let bookmark_prefix = get_change_bookmark_prefix(ui, command.settings())?;
+        let bookmark_prefix = get_change_bookmark_prefix(ui, tx.settings())?;
         let change_bookmark_names =
             update_change_bookmarks(ui, &mut tx, &args.change, &bookmark_prefix)?;
         let change_bookmarks = change_bookmark_names.iter().map(|bookmark_name| {
@@ -295,7 +295,7 @@ pub fn cmd_git_push(
         return Ok(());
     }
 
-    validate_commits_ready_to_push(ui, &bookmark_updates, &remote, &tx, command, args)?;
+    validate_commits_ready_to_push(ui, &bookmark_updates, &remote, &tx, args)?;
     if let Some(mut formatter) = ui.status_formatter() {
         writeln!(formatter, "Changes to push to {remote}:")?;
         print_commits_ready_to_push(formatter.as_mut(), tx.repo(), &bookmark_updates)?;
@@ -341,7 +341,6 @@ fn validate_commits_ready_to_push(
     bookmark_updates: &[(String, BookmarkPushUpdate)],
     remote: &str,
     tx: &WorkspaceCommandTransaction,
-    command: &CommandHelper,
     args: &GitPushArgs,
 ) -> Result<(), CommandError> {
     let workspace_helper = tx.base_workspace_helper();
@@ -361,7 +360,7 @@ fn validate_commits_ready_to_push(
         .union(workspace_helper.env().immutable_heads_expression())
         .range(&RevsetExpression::commits(new_heads));
 
-    let settings = command.settings();
+    let settings = workspace_helper.settings();
     let is_private = if let Ok(revset) = settings.get_string("git.private-commits") {
         workspace_helper
             .parse_revset(ui, &RevisionArg::from(revset))?

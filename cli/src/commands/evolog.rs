@@ -90,8 +90,8 @@ pub(crate) fn cmd_evolog(
     let start_commit = workspace_command.resolve_single_rev(ui, &args.revision)?;
 
     let diff_renderer = workspace_command.diff_renderer_for_log(&args.diff_format, args.patch)?;
-    let graph_style = GraphStyle::from_settings(command.settings())?;
-    let with_content_format = LogContentFormat::new(ui, command.settings())?;
+    let graph_style = GraphStyle::from_settings(workspace_command.settings())?;
+    let with_content_format = LogContentFormat::new(ui, workspace_command.settings())?;
 
     let template;
     let node_template;
@@ -99,7 +99,7 @@ pub(crate) fn cmd_evolog(
         let language = workspace_command.commit_template_language();
         let template_string = match &args.template {
             Some(value) => value.to_string(),
-            None => command.settings().get_string("templates.log")?,
+            None => workspace_command.settings().get_string("templates.log")?,
         };
         template = workspace_command
             .parse_template(
@@ -113,7 +113,7 @@ pub(crate) fn cmd_evolog(
             .parse_template(
                 ui,
                 &language,
-                &get_node_template(graph_style, command.settings())?,
+                &get_node_template(graph_style, workspace_command.settings())?,
                 CommitTemplateLanguage::wrap_commit_opt,
             )?
             .labeled("node");

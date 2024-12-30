@@ -51,7 +51,9 @@ pub(crate) fn cmd_simplify_parents(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
     let revs = if args.source.is_empty() && args.revisions.is_empty() {
-        let revs = command.settings().get_string("revsets.simplify-parents")?;
+        let revs = workspace_command
+            .settings()
+            .get_string("revsets.simplify-parents")?;
         workspace_command
             .parse_revset(ui, &RevisionArg::from(revs))?
             .expression()

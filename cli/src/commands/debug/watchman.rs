@@ -53,7 +53,7 @@ pub fn cmd_debug_watchman(
     match subcommand {
         DebugWatchmanCommand::Status => {
             // TODO(ilyagr): It would be nice to add colors here
-            let config = match command.settings().fsmonitor_settings()? {
+            let config = match workspace_command.settings().fsmonitor_settings()? {
                 FsmonitorSettings::Watchman(config) => {
                     writeln!(ui.stdout(), "Watchman is enabled via `core.fsmonitor`.")?;
                     writeln!(

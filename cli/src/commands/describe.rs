@@ -152,7 +152,7 @@ pub(crate) fn cmd_describe(
                 let mut commit_builder = tx.repo_mut().rewrite_commit(commit).detach();
                 if commit_builder.description().is_empty() {
                     commit_builder
-                        .set_description(command.settings().get_string("ui.default-description")?);
+                        .set_description(tx.settings().get_string("ui.default-description")?);
                 }
                 if args.reset_author {
                     let new_author = commit_builder.committer().clone();

@@ -134,8 +134,7 @@ new working-copy commit.
         join_message_paragraphs(&args.message_paragraphs)
     } else {
         if commit_builder.description().is_empty() {
-            commit_builder
-                .set_description(command.settings().get_string("ui.default-description")?);
+            commit_builder.set_description(tx.settings().get_string("ui.default-description")?);
         }
         let temp_commit = commit_builder.write_hidden()?;
         let template = description_template(ui, &tx, "", &temp_commit)?;

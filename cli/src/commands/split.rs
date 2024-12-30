@@ -141,8 +141,7 @@ The remainder will be in the second commit.
         let mut commit_builder = tx.repo_mut().rewrite_commit(&commit).detach();
         commit_builder.set_tree_id(selected_tree_id);
         if commit_builder.description().is_empty() {
-            commit_builder
-                .set_description(command.settings().get_string("ui.default-description")?);
+            commit_builder.set_description(tx.settings().get_string("ui.default-description")?);
         }
         let temp_commit = commit_builder.write_hidden()?;
         let template = description_template(

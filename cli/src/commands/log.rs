@@ -112,12 +112,13 @@ pub(crate) fn cmd_log(
     args: &LogArgs,
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui)?;
+    let settings = workspace_command.settings();
 
     let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
     let revset_expression = {
         // only use default revset if neither revset nor path are specified
         let mut expression = if args.revisions.is_empty() && args.paths.is_empty() {
-            let revset_string = command.settings().get_string("revsets.log")?;
+            let revset_string = settings.get_string("revsets.log")?;
             workspace_command.parse_revset(ui, &RevisionArg::from(revset_string))?
         } else if !args.revisions.is_empty() {
             workspace_command.parse_union_revsets(ui, &args.revisions)?
@@ -140,12 +141,10 @@ pub(crate) fn cmd_log(
 
     let store = repo.store();
     let diff_renderer = workspace_command.diff_renderer_for_log(&args.diff_format, args.patch)?;
-    let graph_style = GraphStyle::from_settings(command.settings())?;
+    let graph_style = GraphStyle::from_settings(settings)?;
 
-    let use_elided_nodes = command
-        .settings()
-        .get_bool("ui.log-synthetic-elided-nodes")?;
-    let with_content_format = LogContentFormat::new(ui, command.settings())?;
+    let use_elided_nodes = settings.get_bool("ui.log-synthetic-elided-nodes")?;
+    let with_content_format = LogContentFormat::new(ui, settings)?;
 
     let template;
     let node_template;
@@ -153,7 +152,7 @@ pub(crate) fn cmd_log(
         let language = workspace_command.commit_template_language();
         let template_string = match &args.template {
             Some(value) => value.to_string(),
-            None => command.settings().get_string("templates.log")?,
+            None => settings.get_string("templates.log")?,
         };
         template = workspace_command
             .parse_template(
@@ -167,7 +166,7 @@ pub(crate) fn cmd_log(
             .parse_template(
                 ui,
                 &language,
-                &get_node_template(graph_style, command.settings())?,
+                &get_node_template(graph_style, settings)?,
                 CommitTemplateLanguage::wrap_commit_opt,
             )?
             .labeled("node");

@@ -149,9 +149,9 @@ pub(crate) fn cmd_fix(
     args: &FixArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
-    let tools_config = get_tools_config(ui, command.settings())?;
+    let tools_config = get_tools_config(ui, workspace_command.settings())?;
     let root_commits: Vec<CommitId> = if args.source.is_empty() {
-        let revs = command.settings().get_string("revsets.fix")?;
+        let revs = workspace_command.settings().get_string("revsets.fix")?;
         workspace_command.parse_revset(ui, &RevisionArg::from(revs))?
     } else {
         workspace_command.parse_union_revsets(ui, &args.source)?

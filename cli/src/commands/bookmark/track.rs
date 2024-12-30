@@ -88,7 +88,7 @@ pub fn cmd_bookmark_track(
     if let Some(mut formatter) = ui.status_formatter() {
         let template = {
             let language = workspace_command.commit_template_language();
-            let text = command
+            let text = workspace_command
                 .settings()
                 .get::<String>("templates.bookmark_list")?;
             workspace_command

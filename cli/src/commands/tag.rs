@@ -69,7 +69,7 @@ fn cmd_tag_list(
         let language = workspace_command.commit_template_language();
         let text = match &args.template {
             Some(value) => value.to_owned(),
-            None => command.settings().get("templates.tag_list")?,
+            None => workspace_command.settings().get("templates.tag_list")?,
         };
         workspace_command
             .parse_template(ui, &language, &text, CommitTemplateLanguage::wrap_ref_name)?

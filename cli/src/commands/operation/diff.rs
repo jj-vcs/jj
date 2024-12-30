@@ -99,6 +99,7 @@ pub fn cmd_op_diff(
     let workspace_command = command.workspace_helper(ui)?;
     let workspace_env = workspace_command.env();
     let repo_loader = workspace_command.workspace().repo_loader();
+    let settings = workspace_command.settings();
     let from_op;
     let to_op;
     if args.from.is_some() || args.to.is_some() {
@@ -109,8 +110,8 @@ pub fn cmd_op_diff(
         let to_op_parents: Vec<_> = to_op.parents().try_collect()?;
         from_op = repo_loader.merge_operations(to_op_parents, None)?;
     }
-    let graph_style = GraphStyle::from_settings(command.settings())?;
-    let with_content_format = LogContentFormat::new(ui, command.settings())?;
+    let graph_style = GraphStyle::from_settings(settings)?;
+    let with_content_format = LogContentFormat::new(ui, settings)?;
 
     let from_repo = repo_loader.load_at(&from_op)?;
     let to_repo = repo_loader.load_at(&to_op)?;
@@ -123,7 +124,7 @@ pub fn cmd_op_diff(
     let merged_repo = tx.repo();
 
     let diff_renderer = {
-        let formats = diff_formats_for_log(command.settings(), &args.diff_format, args.patch)?;
+        let formats = diff_formats_for_log(settings, &args.diff_format, args.patch)?;
         let path_converter = workspace_env.path_converter();
         let conflict_marker_style = workspace_env.conflict_marker_style();
         (!formats.is_empty())
@@ -132,7 +133,7 @@ pub fn cmd_op_diff(
     let id_prefix_context = workspace_env.new_id_prefix_context();
     let commit_summary_template = {
         let language = workspace_env.commit_template_language(merged_repo, &id_prefix_context);
-        let text = command.settings().get_string("templates.commit_summary")?;
+        let text = settings.get_string("templates.commit_summary")?;
         workspace_env.parse_template(ui, &language, &text, CommitTemplateLanguage::wrap_commit)?
     };
 
