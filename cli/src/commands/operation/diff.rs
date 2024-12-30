@@ -116,7 +116,7 @@ pub fn cmd_op_diff(
     let to_repo = repo_loader.load_at(&to_op)?;
 
     // Create a new transaction starting from `to_repo`.
-    let mut tx = to_repo.start_transaction(command.settings());
+    let mut tx = to_repo.start_transaction();
     // Merge index from `from_repo` to `to_repo`, so commits in `from_repo` are
     // accessible.
     tx.repo_mut().merge_index(&from_repo);

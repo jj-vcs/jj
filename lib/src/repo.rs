@@ -295,12 +295,9 @@ impl ReadonlyRepo {
         self.loader.settings()
     }
 
-    pub fn start_transaction(
-        self: &Arc<ReadonlyRepo>,
-        user_settings: &UserSettings,
-    ) -> Transaction {
+    pub fn start_transaction(self: &Arc<ReadonlyRepo>) -> Transaction {
         let mut_repo = MutableRepo::new(self.clone(), self.readonly_index(), &self.view);
-        Transaction::new(mut_repo, user_settings)
+        Transaction::new(mut_repo, self.settings())
     }
 
     pub fn reload_at_head(
@@ -779,7 +776,7 @@ impl RepoLoader {
         };
         let final_op = if num_operations > 1 {
             let base_repo = self.load_at(&base_op)?;
-            let mut tx = base_repo.start_transaction(settings);
+            let mut tx = base_repo.start_transaction();
             for other_op in operations {
                 tx.merge_operation(other_op)?;
                 tx.repo_mut().rebase_descendants(settings)?;

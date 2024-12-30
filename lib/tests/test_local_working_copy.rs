@@ -241,7 +241,7 @@ fn test_checkout_file_transitions(backend: TestRepoBackend) {
                 return;
             }
             Kind::GitSubmodule => {
-                let mut tx = repo.start_transaction(settings);
+                let mut tx = repo.start_transaction();
                 let id = write_random_commit(tx.repo_mut(), settings).id().clone();
                 tx.commit("test").unwrap();
                 Merge::normal(TreeValue::GitSubmodule(id))
@@ -1305,7 +1305,7 @@ fn test_git_submodule() {
     let repo = test_workspace.repo.clone();
     let store = repo.store().clone();
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
 
     let added_path = RepoPath::from_internal_string("added");
     let submodule_path = RepoPath::from_internal_string("submodule");

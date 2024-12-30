@@ -94,7 +94,7 @@ fn test_index_commits_standard_cases() {
     // o root
 
     let root_commit_id = repo.store().root_commit_id();
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let mut graph_builder = CommitGraphBuilder::new(&settings, tx.repo_mut());
     let commit_a = graph_builder.initial_commit();
     let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
@@ -151,7 +151,7 @@ fn test_index_commits_criss_cross() {
     // Create a long chain of criss-crossed merges. If they were traversed without
     // keeping track of visited nodes, it would be 2^50 visits, so if this test
     // finishes in reasonable time, we know that we don't do a naive traversal.
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let mut graph_builder = CommitGraphBuilder::new(&settings, tx.repo_mut());
     let mut left_commits = vec![graph_builder.initial_commit()];
     let mut right_commits = vec![graph_builder.initial_commit()];
@@ -306,14 +306,14 @@ fn test_index_commits_previous_operations() {
     // |/
     // o root
 
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let mut graph_builder = CommitGraphBuilder::new(&settings, tx.repo_mut());
     let commit_a = graph_builder.initial_commit();
     let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
     let commit_c = graph_builder.commit_with_parents(&[&commit_b]);
     let repo = tx.commit("test").unwrap();
 
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     tx.repo_mut().remove_head(commit_c.id());
     let repo = tx.commit("test").unwrap();
 
@@ -349,7 +349,7 @@ fn test_index_commits_hidden_but_referenced() {
     // history, but that's not guaranteed if old operations have been discarded.
     // This can also happen if imported remote bookmarks get immediately
     // abandoned because the other bookmark has moved.
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let commit_a = write_random_commit(tx.repo_mut(), &settings);
     let commit_b = write_random_commit(tx.repo_mut(), &settings);
     let commit_c = write_random_commit(tx.repo_mut(), &settings);
@@ -403,7 +403,7 @@ fn test_index_commits_incremental() {
     // o root
 
     let root_commit = repo.store().root_commit();
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let commit_a = child_commit(tx.repo_mut(), &settings, &root_commit)
         .write()
         .unwrap();
@@ -413,7 +413,7 @@ fn test_index_commits_incremental() {
     // There should be the root commit, plus 1 more
     assert_eq!(index.num_commits(), 1 + 1);
 
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let commit_b = child_commit(tx.repo_mut(), &settings, &commit_a)
         .write()
         .unwrap();
@@ -455,7 +455,7 @@ fn test_index_commits_incremental_empty_transaction() {
     // o root
 
     let root_commit = repo.store().root_commit();
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let commit_a = child_commit(tx.repo_mut(), &settings, &root_commit)
         .write()
         .unwrap();
@@ -465,7 +465,7 @@ fn test_index_commits_incremental_empty_transaction() {
     // There should be the root commit, plus 1 more
     assert_eq!(index.num_commits(), 1 + 1);
 
-    repo.start_transaction(&settings).commit("test").unwrap();
+    repo.start_transaction().commit("test").unwrap();
 
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
     let index = as_readonly_composite(&repo);
@@ -497,7 +497,7 @@ fn test_index_commits_incremental_already_indexed() {
     // o root
 
     let root_commit = repo.store().root_commit();
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let commit_a = child_commit(tx.repo_mut(), &settings, &root_commit)
         .write()
         .unwrap();
@@ -505,7 +505,7 @@ fn test_index_commits_incremental_already_indexed() {
 
     assert!(repo.index().has_id(commit_a.id()));
     assert_eq!(as_readonly_composite(&repo).num_commits(), 1 + 1);
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     mut_repo.add_head(&commit_a).unwrap();
     assert_eq!(as_mutable_composite(mut_repo).num_commits(), 1 + 1);
@@ -517,7 +517,7 @@ fn create_n_commits(
     repo: &Arc<ReadonlyRepo>,
     num_commits: i32,
 ) -> Arc<ReadonlyRepo> {
-    let mut tx = repo.start_transaction(settings);
+    let mut tx = repo.start_transaction();
     for _ in 0..num_commits {
         write_random_commit(tx.repo_mut(), settings);
     }
@@ -619,7 +619,7 @@ fn test_reindex_no_segments_dir() {
     let test_env = &test_repo.env;
     let repo = &test_repo.repo;
 
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let commit_a = write_random_commit(tx.repo_mut(), &settings);
     let repo = tx.commit("test").unwrap();
     assert!(repo.index().has_id(commit_a.id()));
@@ -640,7 +640,7 @@ fn test_reindex_corrupt_segment_files() {
     let test_env = &test_repo.env;
     let repo = &test_repo.repo;
 
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let commit_a = write_random_commit(tx.repo_mut(), &settings);
     let repo = tx.commit("test").unwrap();
     assert!(repo.index().has_id(commit_a.id()));
@@ -678,17 +678,17 @@ fn test_reindex_from_merged_operation() {
     // o
     let mut txs = Vec::new();
     for _ in 0..2 {
-        let mut tx = repo.start_transaction(&settings);
+        let mut tx = repo.start_transaction();
         let commit = write_random_commit(tx.repo_mut(), &settings);
         let repo = tx.commit("test").unwrap();
-        let mut tx = repo.start_transaction(&settings);
+        let mut tx = repo.start_transaction();
         tx.repo_mut().remove_head(commit.id());
         txs.push(tx);
     }
     let repo = commit_transactions(&settings, txs);
     let mut op_ids_to_delete = Vec::new();
     op_ids_to_delete.push(repo.op_id());
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     write_random_commit(tx.repo_mut(), &settings);
     let repo = tx.commit("test").unwrap();
     op_ids_to_delete.push(repo.op_id());
@@ -718,12 +718,12 @@ fn test_reindex_missing_commit() {
     let test_env = &test_repo.env;
     let repo = &test_repo.repo;
 
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let missing_commit = write_random_commit(tx.repo_mut(), &settings);
     let repo = tx.commit("test").unwrap();
     let bad_op_id = repo.op_id();
 
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     tx.repo_mut().remove_head(missing_commit.id());
     let repo = tx.commit("test").unwrap();
 
@@ -764,7 +764,7 @@ fn test_change_id_index() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
 
     let root_commit = repo.store().root_commit();
     let mut commit_number = 0;

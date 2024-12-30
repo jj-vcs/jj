@@ -64,7 +64,7 @@ fn manual(backend: TestRepoBackend) {
 
     let settings = settings.clone();
     let repo = repo.clone();
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let commit1 = create_random_commit(tx.repo_mut(), &settings)
         .set_sign_behavior(SignBehavior::Own)
         .write()
@@ -94,14 +94,14 @@ fn keep_on_rewrite(backend: TestRepoBackend) {
 
     let settings = settings.clone();
     let repo = repo.clone();
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let commit = create_random_commit(tx.repo_mut(), &settings)
         .set_sign_behavior(SignBehavior::Own)
         .write()
         .unwrap();
     tx.commit("test").unwrap();
 
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     let rewritten = mut_repo.rewrite_commit(&settings, &commit).write().unwrap();
 
@@ -120,14 +120,14 @@ fn manual_drop_on_rewrite(backend: TestRepoBackend) {
 
     let settings = settings.clone();
     let repo = repo.clone();
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let commit = create_random_commit(tx.repo_mut(), &settings)
         .set_sign_behavior(SignBehavior::Own)
         .write()
         .unwrap();
     tx.commit("test").unwrap();
 
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     let rewritten = mut_repo
         .rewrite_commit(&settings, &commit)
@@ -150,7 +150,7 @@ fn forced(backend: TestRepoBackend) {
 
     let settings = settings.clone();
     let repo = repo.clone();
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let commit = create_random_commit(tx.repo_mut(), &settings)
         .set_sign_behavior(SignBehavior::Force)
         .set_author(someone_else())
@@ -173,7 +173,7 @@ fn configured(backend: TestRepoBackend) {
 
     let settings = settings.clone();
     let repo = repo.clone();
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let commit = write_random_commit(tx.repo_mut(), &settings);
     tx.commit("test").unwrap();
 

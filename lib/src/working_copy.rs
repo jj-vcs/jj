@@ -437,7 +437,7 @@ pub fn create_and_check_out_recovery_commit(
     user_settings: &UserSettings,
     description: &str,
 ) -> Result<(Arc<ReadonlyRepo>, Commit), RecoverWorkspaceError> {
-    let mut tx = repo.start_transaction(user_settings);
+    let mut tx = repo.start_transaction();
     let repo_mut = tx.repo_mut();
 
     let commit_id = repo

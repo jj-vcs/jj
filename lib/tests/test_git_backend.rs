@@ -114,7 +114,7 @@ fn test_gc() {
     // |/
     // B
     // A
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let mut graph_builder = CommitGraphBuilder::new(&settings, tx.repo_mut());
     let commit_a = graph_builder.initial_commit();
     let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
@@ -249,7 +249,7 @@ fn test_copy_detection() {
         RepoPathBuf::from_internal_string("file2"),
     ];
 
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let commit_a = make_commit(
         &mut tx,
         &settings,

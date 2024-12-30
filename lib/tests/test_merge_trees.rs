@@ -559,7 +559,7 @@ fn test_simplify_conflict_after_resolving_parent() {
     // rebase C2 (the rebased C) onto the resolved conflict. C3 should not have
     // a conflict since it changed an unrelated line.
     let path = RepoPath::from_internal_string("dir/file");
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let tree_a = create_tree(repo, &[(path, "abc\ndef\nghi\n")]);
     let commit_a = tx
         .repo_mut()
@@ -672,7 +672,7 @@ fn test_rebase_on_lossy_merge() {
     // had, it would have been resolved to just "2" before the rebase and we
     // get a conflict after the rebase).
     let path = RepoPath::from_internal_string("foo");
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let repo_mut = tx.repo_mut();
     let tree_1 = create_tree(repo, &[(path, "1")]);
     let tree_2 = create_tree(repo, &[(path, "2")]);

@@ -79,7 +79,7 @@ fn test_initial(backend: TestRepoBackend) {
         ],
     );
 
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let author_signature = Signature {
         name: "author name".to_string(),
         email: "author email".to_string(),
@@ -147,7 +147,7 @@ fn test_rewrite(backend: TestRepoBackend) {
         ],
     );
 
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let initial_commit = tx
         .repo_mut()
         .new_commit(
@@ -182,7 +182,7 @@ fn test_rewrite(backend: TestRepoBackend) {
     let repo = test_env.load_repo_at_head(&rewrite_settings, test_repo.repo_path());
     let store = repo.store();
     let initial_commit = store.get_commit(initial_commit.id()).unwrap();
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let rewritten_commit = tx
         .repo_mut()
         .rewrite_commit(&rewrite_settings, &initial_commit)
@@ -230,7 +230,7 @@ fn test_rewrite_update_missing_user(backend: TestRepoBackend) {
     let test_env = &test_repo.env;
     let repo = &test_repo.repo;
 
-    let mut tx = repo.start_transaction(&missing_user_settings);
+    let mut tx = repo.start_transaction();
     let initial_commit = tx
         .repo_mut()
         .new_commit(
@@ -260,7 +260,7 @@ fn test_rewrite_update_missing_user(backend: TestRepoBackend) {
     let settings = UserSettings::from_config(config).unwrap();
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
     let initial_commit = repo.store().get_commit(initial_commit.id()).unwrap();
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let rewritten_commit = tx
         .repo_mut()
         .rewrite_commit(&settings, &initial_commit)
@@ -290,7 +290,7 @@ fn test_rewrite_resets_author_timestamp(backend: TestRepoBackend) {
     let settings =
         UserSettings::from_config(config_with_commit_timestamp(initial_timestamp)).unwrap();
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let initial_commit = tx
         .repo_mut()
         .new_commit(
@@ -313,7 +313,7 @@ fn test_rewrite_resets_author_timestamp(backend: TestRepoBackend) {
         UserSettings::from_config(config_with_commit_timestamp(new_timestamp_1)).unwrap();
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
     let initial_commit = repo.store().get_commit(initial_commit.id()).unwrap();
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let rewritten_commit_1 = tx
         .repo_mut()
         .rewrite_commit(&settings, &initial_commit)
@@ -337,7 +337,7 @@ fn test_rewrite_resets_author_timestamp(backend: TestRepoBackend) {
         UserSettings::from_config(config_with_commit_timestamp(new_timestamp_2)).unwrap();
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
     let rewritten_commit_1 = repo.store().get_commit(rewritten_commit_1.id()).unwrap();
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let rewritten_commit_2 = tx
         .repo_mut()
         .rewrite_commit(&settings, &rewritten_commit_1)
@@ -363,7 +363,7 @@ fn test_commit_builder_descendants(backend: TestRepoBackend) {
     let repo = &test_repo.repo;
     let store = repo.store().clone();
 
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let mut graph_builder = CommitGraphBuilder::new(&settings, tx.repo_mut());
     let commit1 = graph_builder.initial_commit();
     let commit2 = graph_builder.commit_with_parents(&[&commit1]);
@@ -371,7 +371,7 @@ fn test_commit_builder_descendants(backend: TestRepoBackend) {
     let repo = tx.commit("test").unwrap();
 
     // Test with for_new_commit()
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     tx.repo_mut()
         .new_commit(
             &settings,
@@ -387,7 +387,7 @@ fn test_commit_builder_descendants(backend: TestRepoBackend) {
     assert_eq!(rebase_map.len(), 0);
 
     // Test with for_rewrite_from()
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let commit4 = tx
         .repo_mut()
         .rewrite_commit(&settings, &commit2)
@@ -401,7 +401,7 @@ fn test_commit_builder_descendants(backend: TestRepoBackend) {
     assert_eq!(rebase_map.len(), 1);
 
     // Test with for_rewrite_from() but new change id
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     tx.repo_mut()
         .rewrite_commit(&settings, &commit2)
         .generate_new_change_id()

@@ -37,7 +37,7 @@ fn test_id_prefix() {
     let root_commit_id = repo.store().root_commit_id();
     let root_change_id = repo.store().root_change_id();
 
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let mut create_commit = |parent_id: &CommitId| {
         let signature = Signature {
             name: "Some One".to_string(),
@@ -264,7 +264,7 @@ fn test_id_prefix_divergent() {
     let repo = &test_repo.repo;
     let root_commit_id = repo.store().root_commit_id();
 
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let mut create_commit_with_change_id =
         |parent_id: &CommitId, description: &str, change_id: ChangeId| {
             let signature = Signature {
@@ -403,7 +403,7 @@ fn test_id_prefix_hidden() {
     let repo = &test_repo.repo;
     let root_commit_id = repo.store().root_commit_id();
 
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let mut commits = vec![];
     for i in 0..10 {
         let signature = Signature {

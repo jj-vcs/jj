@@ -578,11 +578,7 @@ impl CommandHelper {
                     )?;
                     let base_repo = repo_loader.load_at(&op_heads[0])?;
                     // TODO: It may be helpful to print each operation we're merging here
-                    let mut tx = start_repo_transaction(
-                        &base_repo,
-                        &self.data.settings,
-                        &self.data.string_args,
-                    );
+                    let mut tx = start_repo_transaction(&base_repo, &self.data.string_args);
                     for other_op_head in op_heads.into_iter().skip(1) {
                         tx.merge_operation(other_op_head)?;
                         let num_rebased = tx.repo_mut().rebase_descendants(&self.data.settings)?;
@@ -1841,11 +1837,8 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
                 .map_err(snapshot_command_error)?
         };
         if new_tree_id != *wc_commit.tree_id() {
-            let mut tx = start_repo_transaction(
-                &self.user_repo.repo,
-                self.env.settings(),
-                self.env.command.string_args(),
-            );
+            let mut tx =
+                start_repo_transaction(&self.user_repo.repo, self.env.command.string_args());
             tx.set_is_snapshot(true);
             let mut_repo = tx.repo_mut();
             let commit = mut_repo
@@ -1933,8 +1926,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
     }
 
     pub fn start_transaction(&mut self) -> WorkspaceCommandTransaction {
-        let tx =
-            start_repo_transaction(self.repo(), self.settings(), self.env.command.string_args());
+        let tx = start_repo_transaction(self.repo(), self.env.command.string_args());
         let id_prefix_context = mem::take(&mut self.user_repo.id_prefix_context);
         WorkspaceCommandTransaction {
             helper: self,
@@ -2424,12 +2416,8 @@ jj git init --colocate",
     }
 }
 
-pub fn start_repo_transaction(
-    repo: &Arc<ReadonlyRepo>,
-    settings: &UserSettings,
-    string_args: &[String],
-) -> Transaction {
-    let mut tx = repo.start_transaction(settings);
+pub fn start_repo_transaction(repo: &Arc<ReadonlyRepo>, string_args: &[String]) -> Transaction {
+    let mut tx = repo.start_transaction();
     // TODO: Either do better shell-escaping here or store the values in some list
     // type (which we currently don't have).
     let shell_escape = |arg: &String| {

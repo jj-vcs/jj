@@ -109,7 +109,7 @@ fn test_bad_locking_children(backend: TestRepoBackend) {
     let repo = &test_workspace.repo;
     let workspace_root = test_workspace.workspace.workspace_root();
 
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let initial = create_random_commit(tx.repo_mut(), &settings)
         .set_parents(vec![repo.store().root_commit_id().clone()])
         .write()
@@ -130,7 +130,7 @@ fn test_bad_locking_children(backend: TestRepoBackend) {
         .repo_loader()
         .load_at_head(&settings)
         .unwrap();
-    let mut machine1_tx = machine1_repo.start_transaction(&settings);
+    let mut machine1_tx = machine1_repo.start_transaction();
     let child1 = create_random_commit(machine1_tx.repo_mut(), &settings)
         .set_parents(vec![initial.id().clone()])
         .write()
@@ -151,7 +151,7 @@ fn test_bad_locking_children(backend: TestRepoBackend) {
         .repo_loader()
         .load_at_head(&settings)
         .unwrap();
-    let mut machine2_tx = machine2_repo.start_transaction(&settings);
+    let mut machine2_tx = machine2_repo.start_transaction();
     let child2 = create_random_commit(machine2_tx.repo_mut(), &settings)
         .set_parents(vec![initial.id().clone()])
         .write()
@@ -191,7 +191,7 @@ fn test_bad_locking_interrupted(backend: TestRepoBackend) {
     let test_env = &test_workspace.env;
     let repo = &test_workspace.repo;
 
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     let initial = create_random_commit(tx.repo_mut(), &settings)
         .set_parents(vec![repo.store().root_commit_id().clone()])
         .write()
@@ -205,7 +205,7 @@ fn test_bad_locking_interrupted(backend: TestRepoBackend) {
     let op_heads_dir = test_workspace.repo_path().join("op_heads");
     let backup_path = test_workspace.root_dir().join("backup");
     copy_directory(&op_heads_dir, &backup_path);
-    let mut tx = repo.start_transaction(&settings);
+    let mut tx = repo.start_transaction();
     create_random_commit(tx.repo_mut(), &settings)
         .set_parents(vec![initial.id().clone()])
         .write()
