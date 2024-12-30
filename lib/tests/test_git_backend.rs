@@ -29,7 +29,6 @@ use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
-use jj_lib::settings::UserSettings;
 use jj_lib::store::Store;
 use jj_lib::transaction::Transaction;
 use maplit::hashset;
@@ -77,13 +76,12 @@ fn get_copy_records(
 
 fn make_commit(
     tx: &mut Transaction,
-    settings: &UserSettings,
     parents: Vec<CommitId>,
     content: &[(&RepoPath, &str)],
 ) -> Commit {
     let tree = create_tree(tx.base_repo(), content);
     tx.repo_mut()
-        .new_commit(settings, parents, tree.id())
+        .new_commit(parents, tree.id())
         .write()
         .unwrap()
 }
@@ -96,7 +94,6 @@ fn test_gc() {
         return;
     }
 
-    let settings = testutils::user_settings();
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = test_repo.repo;
     let git_repo_path = get_git_backend(&repo).git_repo_path();
@@ -115,7 +112,7 @@ fn test_gc() {
     // B
     // A
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(&settings, tx.repo_mut());
+    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
     let commit_a = graph_builder.initial_commit();
     let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
     let commit_c = graph_builder.commit_with_parents(&[&commit_b]);
@@ -123,7 +120,7 @@ fn test_gc() {
     let commit_e = graph_builder.commit_with_parents(&[&commit_b]);
     let commit_f = graph_builder.commit_with_parents(&[&commit_b]);
     let commit_g = graph_builder.commit_with_parents(&[&commit_e, &commit_f]);
-    let commit_h = create_random_commit(tx.repo_mut(), &settings)
+    let commit_h = create_random_commit(tx.repo_mut())
         .set_parents(vec![commit_f.id().clone()])
         .set_predecessors(vec![commit_d.id().clone()])
         .write()
@@ -239,7 +236,6 @@ fn test_gc() {
 
 #[test]
 fn test_copy_detection() {
-    let settings = testutils::user_settings();
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_repo.repo;
 
@@ -252,19 +248,16 @@ fn test_copy_detection() {
     let mut tx = repo.start_transaction();
     let commit_a = make_commit(
         &mut tx,
-        &settings,
         vec![repo.store().root_commit_id().clone()],
         &[(&paths[0], "content")],
     );
     let commit_b = make_commit(
         &mut tx,
-        &settings,
         vec![commit_a.id().clone()],
         &[(&paths[1], "content")],
     );
     let commit_c = make_commit(
         &mut tx,
-        &settings,
         vec![commit_b.id().clone()],
         &[(&paths[2], "content")],
     );

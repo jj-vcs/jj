@@ -23,7 +23,7 @@ fn test_load_at_operation() {
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
-    let commit = write_random_commit(tx.repo_mut(), &settings);
+    let commit = write_random_commit(tx.repo_mut());
     let repo = tx.commit("add commit").unwrap();
 
     let mut tx = repo.start_transaction();
@@ -38,7 +38,7 @@ fn test_load_at_operation() {
         &test_repo.env.default_store_factories(),
     )
     .unwrap();
-    let head_repo = loader.load_at_head(&settings).unwrap();
+    let head_repo = loader.load_at_head().unwrap();
     assert!(!head_repo.view().heads().contains(commit.id()));
 
     // If we load the repo at the previous operation, we should see the commit since

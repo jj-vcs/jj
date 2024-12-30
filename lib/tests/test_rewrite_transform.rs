@@ -32,12 +32,11 @@ use testutils::TestRepo;
 // A
 #[test]
 fn test_transform_descendants_sync() {
-    let settings = testutils::user_settings();
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(&settings, tx.repo_mut());
+    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
     let commit_a = graph_builder.initial_commit();
     let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
     let commit_c = graph_builder.commit_with_parents(&[&commit_b]);
@@ -48,13 +47,13 @@ fn test_transform_descendants_sync() {
 
     let mut rebased = HashMap::new();
     tx.repo_mut()
-        .transform_descendants(&settings, vec![commit_b.id().clone()], |mut rewriter| {
+        .transform_descendants(vec![commit_b.id().clone()], |mut rewriter| {
             rewriter.replace_parent(commit_a.id(), [commit_g.id()]);
             if *rewriter.old_commit() == commit_c {
                 rewriter.abandon();
             } else {
                 let old_commit_id = rewriter.old_commit().id().clone();
-                let new_commit = rewriter.rebase(&settings)?.write()?;
+                let new_commit = rewriter.rebase()?.write()?;
                 rebased.insert(old_commit_id, new_commit);
             }
             Ok(())
@@ -90,22 +89,21 @@ fn test_transform_descendants_sync() {
 // A
 #[test]
 fn test_transform_descendants_sync_linearize_merge() {
-    let settings = testutils::user_settings();
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(&settings, tx.repo_mut());
+    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
     let commit_a = graph_builder.initial_commit();
     let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
     let commit_c = graph_builder.commit_with_parents(&[&commit_a, &commit_b]);
 
     let mut rebased = HashMap::new();
     tx.repo_mut()
-        .transform_descendants(&settings, vec![commit_c.id().clone()], |mut rewriter| {
+        .transform_descendants(vec![commit_c.id().clone()], |mut rewriter| {
             rewriter.replace_parent(commit_a.id(), [commit_b.id()]);
             let old_commit_id = rewriter.old_commit().id().clone();
-            let new_commit = rewriter.rebase(&settings)?.write()?;
+            let new_commit = rewriter.rebase()?.write()?;
             rebased.insert(old_commit_id, new_commit);
             Ok(())
         })

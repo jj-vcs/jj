@@ -138,18 +138,18 @@ don't make any changes, then the operation will be aborted.",
     } else {
         let new_commit = tx
             .repo_mut()
-            .rewrite_commit(command.settings(), &target_commit)
+            .rewrite_commit(&target_commit)
             .set_tree_id(tree_id)
             .write()?;
         // rebase_descendants early; otherwise `new_commit` would always have
         // a conflicted change id at this point.
         let (num_rebased, extra_msg) = if args.restore_descendants {
             (
-                tx.repo_mut().reparent_descendants(command.settings())?,
+                tx.repo_mut().reparent_descendants()?,
                 " (while preserving their content)",
             )
         } else {
-            (tx.repo_mut().rebase_descendants(command.settings())?, "")
+            (tx.repo_mut().rebase_descendants()?, "")
         };
         if let Some(mut formatter) = ui.status_formatter() {
             write!(formatter, "Created ")?;

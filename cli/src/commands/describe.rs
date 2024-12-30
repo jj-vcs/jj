@@ -148,10 +148,7 @@ pub(crate) fn cmd_describe(
             // Edit descriptions in topological order
             .rev()
             .map(|commit| -> Result<_, CommandError> {
-                let mut commit_builder = tx
-                    .repo_mut()
-                    .rewrite_commit(command.settings(), commit)
-                    .detach();
+                let mut commit_builder = tx.repo_mut().rewrite_commit(commit).detach();
                 if commit_builder.description().is_empty() {
                     commit_builder
                         .set_description(command.settings().get_string("ui.default-description")?);
@@ -244,14 +241,13 @@ pub(crate) fn cmd_describe(
     // rewriting the same commit multiple times, and adding additional entries
     // in the predecessor chain.
     tx.repo_mut().transform_descendants(
-        command.settings(),
         commit_descriptions
             .keys()
             .map(|&id| id.clone())
             .collect_vec(),
         |rewriter| {
             let old_commit_id = rewriter.old_commit().id().clone();
-            let mut commit_builder = rewriter.rebase(command.settings())?;
+            let mut commit_builder = rewriter.rebase()?;
             if let Some(description) = commit_descriptions.get(&old_commit_id) {
                 commit_builder = commit_builder.set_description(description);
                 if args.reset_author {

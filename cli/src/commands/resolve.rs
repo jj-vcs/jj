@@ -115,7 +115,7 @@ pub(crate) fn cmd_resolve(
     let new_tree_id = merge_editor.edit_file(&tree, repo_path)?;
     let new_commit = tx
         .repo_mut()
-        .rewrite_commit(command.settings(), &commit)
+        .rewrite_commit(&commit)
         .set_tree_id(new_tree_id)
         .write()?;
     tx.finish(

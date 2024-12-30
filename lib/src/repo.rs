@@ -300,11 +300,8 @@ impl ReadonlyRepo {
         Transaction::new(mut_repo, self.settings())
     }
 
-    pub fn reload_at_head(
-        &self,
-        user_settings: &UserSettings,
-    ) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
-        self.loader().load_at_head(user_settings)
+    pub fn reload_at_head(&self) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
+        self.loader().load_at_head()
     }
 
     #[instrument]
@@ -711,14 +708,11 @@ impl RepoLoader {
         &self.submodule_store
     }
 
-    pub fn load_at_head(
-        &self,
-        user_settings: &UserSettings,
-    ) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
+    pub fn load_at_head(&self) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
         let op = op_heads_store::resolve_op_heads(
             self.op_heads_store.as_ref(),
             &self.op_store,
-            |op_heads| self._resolve_op_heads(op_heads, user_settings),
+            |op_heads| self._resolve_op_heads(op_heads),
         )?;
         let view = op.view()?;
         self._finish_load(op, view)
@@ -765,7 +759,6 @@ impl RepoLoader {
     /// operation if the `operations` is empty.
     pub fn merge_operations(
         &self,
-        settings: &UserSettings,
         operations: Vec<Operation>,
         tx_description: Option<&str>,
     ) -> Result<Operation, RepoLoaderError> {
@@ -779,7 +772,7 @@ impl RepoLoader {
             let mut tx = base_repo.start_transaction();
             for other_op in operations {
                 tx.merge_operation(other_op)?;
-                tx.repo_mut().rebase_descendants(settings)?;
+                tx.repo_mut().rebase_descendants()?;
             }
             let tx_description = tx_description.map_or_else(
                 || format!("merge {num_operations} operations"),
@@ -794,17 +787,9 @@ impl RepoLoader {
         Ok(final_op)
     }
 
-    fn _resolve_op_heads(
-        &self,
-        op_heads: Vec<Operation>,
-        user_settings: &UserSettings,
-    ) -> Result<Operation, RepoLoaderError> {
+    fn _resolve_op_heads(&self, op_heads: Vec<Operation>) -> Result<Operation, RepoLoaderError> {
         assert!(!op_heads.is_empty());
-        self.merge_operations(
-            user_settings,
-            op_heads,
-            Some("reconcile divergent operations"),
-        )
+        self.merge_operations(op_heads, Some("reconcile divergent operations"))
     }
 
     fn _finish_load(
@@ -900,21 +885,14 @@ impl MutableRepo {
     }
 
     /// Returns a [`CommitBuilder`] to write new commit to the repo.
-    pub fn new_commit(
-        &mut self,
-        settings: &UserSettings,
-        parents: Vec<CommitId>,
-        tree_id: MergedTreeId,
-    ) -> CommitBuilder {
+    pub fn new_commit(&mut self, parents: Vec<CommitId>, tree_id: MergedTreeId) -> CommitBuilder {
+        let settings = self.base_repo.settings();
         DetachedCommitBuilder::for_new_commit(self, settings, parents, tree_id).attach(self)
     }
 
     /// Returns a [`CommitBuilder`] to rewrite an existing commit in the repo.
-    pub fn rewrite_commit(
-        &mut self,
-        settings: &UserSettings,
-        predecessor: &Commit,
-    ) -> CommitBuilder {
+    pub fn rewrite_commit(&mut self, predecessor: &Commit) -> CommitBuilder {
+        let settings = self.base_repo.settings();
         DetachedCommitBuilder::for_rewrite_from(self, settings, predecessor).attach(self)
         // CommitBuilder::write will record the rewrite in
         // `self.rewritten_commits`
@@ -1074,16 +1052,16 @@ impl MutableRepo {
 
     /// Updates bookmarks, working copies, and anonymous heads after rewriting
     /// and/or abandoning commits.
-    pub fn update_rewritten_references(&mut self, settings: &UserSettings) -> BackendResult<()> {
-        self.update_all_references(settings)?;
+    pub fn update_rewritten_references(&mut self) -> BackendResult<()> {
+        self.update_all_references()?;
         self.update_heads();
         Ok(())
     }
 
-    fn update_all_references(&mut self, settings: &UserSettings) -> BackendResult<()> {
+    fn update_all_references(&mut self) -> BackendResult<()> {
         let rewrite_mapping = self.resolve_rewrite_mapping_with(|_| true);
         self.update_local_bookmarks(&rewrite_mapping);
-        self.update_wc_commits(settings, &rewrite_mapping)?;
+        self.update_wc_commits(&rewrite_mapping)?;
         Ok(())
     }
 
@@ -1114,7 +1092,6 @@ impl MutableRepo {
 
     fn update_wc_commits(
         &mut self,
-        settings: &UserSettings,
         rewrite_mapping: &HashMap<CommitId, Vec<CommitId>>,
     ) -> BackendResult<()> {
         let changed_wc_commits = self
@@ -1144,11 +1121,7 @@ impl MutableRepo {
                     .try_collect()?;
                 let merged_parents_tree = merge_commit_trees(self, &new_commits)?;
                 let commit = self
-                    .new_commit(
-                        settings,
-                        new_commit_ids.clone(),
-                        merged_parents_tree.id().clone(),
-                    )
+                    .new_commit(new_commit_ids.clone(), merged_parents_tree.id().clone())
                     .write()?;
                 recreated_wc_commits.insert(old_commit_id, commit.clone());
                 commit
@@ -1245,7 +1218,6 @@ impl MutableRepo {
     /// will not be called for descendants of those commits.
     pub fn transform_descendants(
         &mut self,
-        settings: &UserSettings,
         roots: Vec<CommitId>,
         mut callback: impl FnMut(CommitRewriter) -> BackendResult<()>,
     ) -> BackendResult<()> {
@@ -1255,7 +1227,7 @@ impl MutableRepo {
             let rewriter = CommitRewriter::new(self, old_commit, new_parent_ids);
             callback(rewriter)?;
         }
-        self.update_rewritten_references(settings)?;
+        self.update_rewritten_references()?;
         // Since we didn't necessarily visit all descendants of rewritten commits (e.g.
         // if they were rewritten in the callback), there can still be commits left to
         // rebase, so we don't clear `parent_mapping` here.
@@ -1288,16 +1260,14 @@ impl MutableRepo {
     /// bookmarks of the abandoned commit.
     pub fn rebase_descendants_with_options_return_map(
         &mut self,
-        settings: &UserSettings,
         options: RebaseOptions,
     ) -> BackendResult<HashMap<CommitId, CommitId>> {
         let mut rebased: HashMap<CommitId, CommitId> = HashMap::new();
         let roots = self.parent_mapping.keys().cloned().collect_vec();
-        self.transform_descendants(settings, roots, |rewriter| {
+        self.transform_descendants(roots, |rewriter| {
             if rewriter.parents_changed() {
                 let old_commit_id = rewriter.old_commit().id().clone();
-                let rebased_commit: RebasedCommit =
-                    rebase_commit_with_options(settings, rewriter, &options)?;
+                let rebased_commit: RebasedCommit = rebase_commit_with_options(rewriter, &options)?;
                 let new_commit_id = match rebased_commit {
                     RebasedCommit::Rewritten(new_commit) => new_commit.id().clone(),
                     RebasedCommit::Abandoned { parent_id } => parent_id,
@@ -1320,12 +1290,12 @@ impl MutableRepo {
     /// emptied following the rebase operation. To customize the rebase
     /// behavior, use
     /// [`MutableRepo::rebase_descendants_with_options_return_map`].
-    pub fn rebase_descendants(&mut self, settings: &UserSettings) -> BackendResult<usize> {
+    pub fn rebase_descendants(&mut self) -> BackendResult<usize> {
         let roots = self.parent_mapping.keys().cloned().collect_vec();
         let mut num_rebased = 0;
-        self.transform_descendants(settings, roots, |rewriter| {
+        self.transform_descendants(roots, |rewriter| {
             if rewriter.parents_changed() {
-                let builder = rewriter.rebase(settings)?;
+                let builder = rewriter.rebase()?;
                 builder.write()?;
                 num_rebased += 1;
             }
@@ -1341,12 +1311,12 @@ impl MutableRepo {
     /// be recursively reparented onto the new version of their parents.
     /// The content of those descendants will remain untouched.
     /// Returns the number of reparented descendants.
-    pub fn reparent_descendants(&mut self, settings: &UserSettings) -> BackendResult<usize> {
+    pub fn reparent_descendants(&mut self) -> BackendResult<usize> {
         let roots = self.parent_mapping.keys().cloned().collect_vec();
         let mut num_reparented = 0;
-        self.transform_descendants(settings, roots, |rewriter| {
+        self.transform_descendants(roots, |rewriter| {
             if rewriter.parents_changed() {
-                let builder = rewriter.reparent(settings);
+                let builder = rewriter.reparent();
                 builder.write()?;
                 num_reparented += 1;
             }
@@ -1386,15 +1356,10 @@ impl MutableRepo {
     pub fn check_out(
         &mut self,
         workspace_id: WorkspaceId,
-        settings: &UserSettings,
         commit: &Commit,
     ) -> Result<Commit, CheckOutCommitError> {
         let wc_commit = self
-            .new_commit(
-                settings,
-                vec![commit.id().clone()],
-                commit.tree_id().clone(),
-            )
+            .new_commit(vec![commit.id().clone()], commit.tree_id().clone())
             .write()?;
         self.edit(workspace_id, &wc_commit)?;
         Ok(wc_commit)

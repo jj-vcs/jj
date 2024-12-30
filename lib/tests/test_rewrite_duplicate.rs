@@ -23,7 +23,6 @@ use testutils::TestRepo;
 
 #[test]
 fn test_duplicate_linear_contents() {
-    let settings = testutils::user_settings();
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -43,7 +42,6 @@ fn test_duplicate_linear_contents() {
     let commit_a = tx
         .repo_mut()
         .new_commit(
-            &settings,
             vec![repo.store().root_commit_id().clone()],
             empty_tree_id.clone(),
         )
@@ -51,22 +49,22 @@ fn test_duplicate_linear_contents() {
         .unwrap();
     let commit_b = tx
         .repo_mut()
-        .new_commit(&settings, vec![commit_a.id().clone()], tree_1.id())
+        .new_commit(vec![commit_a.id().clone()], tree_1.id())
         .write()
         .unwrap();
     let commit_c = tx
         .repo_mut()
-        .new_commit(&settings, vec![commit_b.id().clone()], tree_1_2.id())
+        .new_commit(vec![commit_b.id().clone()], tree_1_2.id())
         .write()
         .unwrap();
     let commit_d = tx
         .repo_mut()
-        .new_commit(&settings, vec![commit_c.id().clone()], tree_2.id())
+        .new_commit(vec![commit_c.id().clone()], tree_2.id())
         .write()
         .unwrap();
     let commit_e = tx
         .repo_mut()
-        .new_commit(&settings, vec![commit_d.id().clone()], tree_2.id())
+        .new_commit(vec![commit_d.id().clone()], tree_2.id())
         .write()
         .unwrap();
     let repo = tx.commit("test").unwrap();
@@ -76,7 +74,6 @@ fn test_duplicate_linear_contents() {
                                 parent_commit_ids: &[&CommitId],
                                 children_commit_ids: &[&CommitId]| {
         duplicate_commits(
-            &settings,
             tx.repo_mut(),
             &target_commits.iter().copied().cloned().collect_vec(),
             &parent_commit_ids.iter().copied().cloned().collect_vec(),

@@ -122,7 +122,7 @@ pub(crate) fn cmd_file_chmod(
 
     let new_tree_id = tree_builder.write_tree(store)?;
     tx.repo_mut()
-        .rewrite_commit(command.settings(), &commit)
+        .rewrite_commit(&commit)
         .set_tree_id(new_tree_id)
         .write()?;
     tx.finish(

@@ -47,7 +47,7 @@ fn test_init_local() {
 
     // Just test that we can write a commit to the store
     let mut tx = repo.start_transaction();
-    write_random_commit(tx.repo_mut(), &settings);
+    write_random_commit(tx.repo_mut());
 }
 
 #[test]
@@ -75,7 +75,7 @@ fn test_init_internal_git() {
 
     // Just test that we can write a commit to the store
     let mut tx = repo.start_transaction();
-    write_random_commit(tx.repo_mut(), &settings);
+    write_random_commit(tx.repo_mut());
 }
 
 #[test]
@@ -100,7 +100,7 @@ fn test_init_colocated_git() {
 
     // Just test that we can write a commit to the store
     let mut tx = repo.start_transaction();
-    write_random_commit(tx.repo_mut(), &settings);
+    write_random_commit(tx.repo_mut());
 }
 
 #[test]
@@ -134,7 +134,7 @@ fn test_init_external_git() {
 
     // Just test that we can write a commit to the store
     let mut tx = repo.start_transaction();
-    write_random_commit(tx.repo_mut(), &settings);
+    write_random_commit(tx.repo_mut());
 }
 
 #[test_case(TestRepoBackend::Local ; "local backend")]

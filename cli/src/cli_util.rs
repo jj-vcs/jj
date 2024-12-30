@@ -581,7 +581,7 @@ impl CommandHelper {
                     let mut tx = start_repo_transaction(&base_repo, &self.data.string_args);
                     for other_op_head in op_heads.into_iter().skip(1) {
                         tx.merge_operation(other_op_head)?;
-                        let num_rebased = tx.repo_mut().rebase_descendants(&self.data.settings)?;
+                        let num_rebased = tx.repo_mut().rebase_descendants()?;
                         if num_rebased > 0 {
                             writeln!(
                                 ui.status(),
@@ -1070,13 +1070,13 @@ impl WorkspaceCommandHelper {
             let workspace_id = self.workspace_id().to_owned();
             let new_git_head_commit = tx.repo().store().get_commit(new_git_head_id)?;
             tx.repo_mut()
-                .check_out(workspace_id, self.env.settings(), &new_git_head_commit)?;
+                .check_out(workspace_id, &new_git_head_commit)?;
             let mut locked_ws = self.workspace.start_working_copy_mutation()?;
             // The working copy was presumably updated by the git command that updated
             // HEAD, so we just need to reset our working copy
             // state to it without updating working copy files.
             locked_ws.locked_wc().reset(&new_git_head_commit)?;
-            tx.repo_mut().rebase_descendants(self.env.settings())?;
+            tx.repo_mut().rebase_descendants()?;
             self.user_repo = ReadonlyUserRepo::new(tx.commit("import git head")?);
             locked_ws.finish(self.user_repo.repo.op_id().clone())?;
             if old_git_head.is_present() {
@@ -1117,7 +1117,7 @@ impl WorkspaceCommandHelper {
         print_git_import_stats(ui, tx.repo(), &stats, false)?;
         let mut tx = tx.into_inner();
         // Rebase here to show slightly different status message.
-        let num_rebased = tx.repo_mut().rebase_descendants(self.settings())?;
+        let num_rebased = tx.repo_mut().rebase_descendants()?;
         if num_rebased > 0 {
             writeln!(
                 ui.status(),
@@ -1192,7 +1192,6 @@ impl WorkspaceCommandHelper {
             locked_ws.locked_wc(),
             &self.user_repo.repo,
             workspace_id,
-            self.env.settings(),
             "RECOVERY COMMIT FROM `jj workspace update-stale`
 
 This commit contains changes that were written to the working copy by an
@@ -1842,7 +1841,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
             tx.set_is_snapshot(true);
             let mut_repo = tx.repo_mut();
             let commit = mut_repo
-                .rewrite_commit(self.env.settings(), &wc_commit)
+                .rewrite_commit(&wc_commit)
                 .set_tree_id(new_tree_id)
                 .write()
                 .map_err(snapshot_command_error)?;
@@ -1852,7 +1851,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
 
             // Rebase descendants
             let num_rebased = mut_repo
-                .rebase_descendants(self.env.settings())
+                .rebase_descendants()
                 .map_err(snapshot_command_error)?;
             if num_rebased > 0 {
                 writeln!(
@@ -1945,7 +1944,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
             writeln!(ui.status(), "Nothing changed.")?;
             return Ok(());
         }
-        let num_rebased = tx.repo_mut().rebase_descendants(self.settings())?;
+        let num_rebased = tx.repo_mut().rebase_descendants()?;
         if num_rebased > 0 {
             writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
         }
@@ -1959,8 +1958,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
                 .is_some()
             {
                 let wc_commit = tx.repo().store().get_commit(wc_commit_id)?;
-                tx.repo_mut()
-                    .check_out(workspace_id.clone(), self.settings(), &wc_commit)?;
+                tx.repo_mut().check_out(workspace_id.clone(), &wc_commit)?;
                 writeln!(
                     ui.warning_default(),
                     "The working-copy commit in workspace '{}' became immutable, so a new commit \
@@ -2280,9 +2278,8 @@ impl WorkspaceCommandTransaction<'_> {
 
     pub fn check_out(&mut self, commit: &Commit) -> Result<Commit, CheckOutCommitError> {
         let workspace_id = self.helper.workspace_id().to_owned();
-        let settings = self.helper.settings();
         self.id_prefix_context.take(); // invalidate
-        self.tx.repo_mut().check_out(workspace_id, settings, commit)
+        self.tx.repo_mut().check_out(workspace_id, commit)
     }
 
     pub fn edit(&mut self, commit: &Commit) -> Result<(), EditCommitError> {

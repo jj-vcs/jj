@@ -55,7 +55,6 @@ fn missing(commit: &Commit) -> GraphEdge<CommitId> {
 #[test_case(false ; "keep transitive edges")]
 #[test_case(true ; "skip transitive edges")]
 fn test_graph_iterator_linearized(skip_transitive_edges: bool) {
-    let settings = testutils::user_settings();
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -68,7 +67,7 @@ fn test_graph_iterator_linearized(skip_transitive_edges: bool) {
     // |
     // root
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(&settings, tx.repo_mut());
+    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
     let commit_a = graph_builder.initial_commit();
     let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
     let commit_c = graph_builder.commit_with_parents(&[&commit_a]);
@@ -91,7 +90,6 @@ fn test_graph_iterator_linearized(skip_transitive_edges: bool) {
 #[test_case(false ; "keep transitive edges")]
 #[test_case(true ; "skip transitive edges")]
 fn test_graph_iterator_virtual_octopus(skip_transitive_edges: bool) {
-    let settings = testutils::user_settings();
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -106,7 +104,7 @@ fn test_graph_iterator_virtual_octopus(skip_transitive_edges: bool) {
     //  \|/         ~ ~ ~
     //  root
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(&settings, tx.repo_mut());
+    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
     let commit_a = graph_builder.initial_commit();
     let commit_b = graph_builder.initial_commit();
     let commit_c = graph_builder.initial_commit();
@@ -142,7 +140,6 @@ fn test_graph_iterator_virtual_octopus(skip_transitive_edges: bool) {
 #[test_case(false ; "keep transitive edges")]
 #[test_case(true ; "skip transitive edges")]
 fn test_graph_iterator_simple_fork(skip_transitive_edges: bool) {
-    let settings = testutils::user_settings();
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -158,7 +155,7 @@ fn test_graph_iterator_simple_fork(skip_transitive_edges: bool) {
     // |
     // root
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(&settings, tx.repo_mut());
+    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
     let commit_a = graph_builder.initial_commit();
     let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
     let commit_c = graph_builder.commit_with_parents(&[&commit_b]);
@@ -184,7 +181,6 @@ fn test_graph_iterator_simple_fork(skip_transitive_edges: bool) {
 #[test_case(false ; "keep transitive edges")]
 #[test_case(true ; "skip transitive edges")]
 fn test_graph_iterator_multiple_missing(skip_transitive_edges: bool) {
-    let settings = testutils::user_settings();
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -198,7 +194,7 @@ fn test_graph_iterator_multiple_missing(skip_transitive_edges: bool) {
     //  \|/
     //  root
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(&settings, tx.repo_mut());
+    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
     let commit_a = graph_builder.initial_commit();
     let commit_b = graph_builder.initial_commit();
     let commit_c = graph_builder.initial_commit();
@@ -226,7 +222,6 @@ fn test_graph_iterator_multiple_missing(skip_transitive_edges: bool) {
 #[test_case(false ; "keep transitive edges")]
 #[test_case(true ; "skip transitive edges")]
 fn test_graph_iterator_edge_to_ancestor(skip_transitive_edges: bool) {
-    let settings = testutils::user_settings();
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -243,7 +238,7 @@ fn test_graph_iterator_edge_to_ancestor(skip_transitive_edges: bool) {
     //   |
     //  root
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(&settings, tx.repo_mut());
+    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
     let commit_a = graph_builder.initial_commit();
     let commit_b = graph_builder.initial_commit();
     let commit_c = graph_builder.commit_with_parents(&[&commit_a]);
@@ -273,7 +268,6 @@ fn test_graph_iterator_edge_to_ancestor(skip_transitive_edges: bool) {
 #[test_case(false ; "keep transitive edges")]
 #[test_case(true ; "skip transitive edges")]
 fn test_graph_iterator_edge_escapes_from_(skip_transitive_edges: bool) {
-    let settings = testutils::user_settings();
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -294,7 +288,7 @@ fn test_graph_iterator_edge_escapes_from_(skip_transitive_edges: bool) {
     //   |
     //  root
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(&settings, tx.repo_mut());
+    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
     let commit_a = graph_builder.initial_commit();
     let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
     let commit_c = graph_builder.commit_with_parents(&[&commit_a]);

@@ -195,7 +195,7 @@ pub(crate) fn cmd_new(
     let merged_tree = merge_commit_trees(tx.repo(), &parent_commits)?;
     let new_commit = tx
         .repo_mut()
-        .new_commit(command.settings(), parent_commit_ids, merged_tree.id())
+        .new_commit(parent_commit_ids, merged_tree.id())
         .set_description(join_message_paragraphs(&args.message_paragraphs))
         .write()?;
 
@@ -208,15 +208,10 @@ pub(crate) fn cmd_new(
             .cloned()
             .chain(std::iter::once(new_commit.id().clone()))
             .collect_vec();
-        rebase_commit(
-            command.settings(),
-            tx.repo_mut(),
-            child_commit,
-            new_parent_ids,
-        )?;
+        rebase_commit(tx.repo_mut(), child_commit, new_parent_ids)?;
         num_rebased += 1;
     }
-    num_rebased += tx.repo_mut().rebase_descendants(command.settings())?;
+    num_rebased += tx.repo_mut().rebase_descendants()?;
 
     if args.no_edit {
         if let Some(mut formatter) = ui.status_formatter() {

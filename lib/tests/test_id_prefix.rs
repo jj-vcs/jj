@@ -31,7 +31,6 @@ use testutils::TestRepoBackend;
 
 #[test]
 fn test_id_prefix() {
-    let settings = testutils::user_settings();
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_repo.repo;
     let root_commit_id = repo.store().root_commit_id();
@@ -48,11 +47,7 @@ fn test_id_prefix() {
             },
         };
         tx.repo_mut()
-            .new_commit(
-                &settings,
-                vec![parent_id.clone()],
-                repo.store().empty_merged_tree_id(),
-            )
+            .new_commit(vec![parent_id.clone()], repo.store().empty_merged_tree_id())
             .set_author(signature.clone())
             .set_committer(signature)
             .write()
@@ -259,7 +254,6 @@ fn test_id_prefix() {
 
 #[test]
 fn test_id_prefix_divergent() {
-    let settings = testutils::user_settings();
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_repo.repo;
     let root_commit_id = repo.store().root_commit_id();
@@ -276,11 +270,7 @@ fn test_id_prefix_divergent() {
                 },
             };
             tx.repo_mut()
-                .new_commit(
-                    &settings,
-                    vec![parent_id.clone()],
-                    repo.store().empty_merged_tree_id(),
-                )
+                .new_commit(vec![parent_id.clone()], repo.store().empty_merged_tree_id())
                 .set_description(description)
                 .set_author(signature.clone())
                 .set_committer(signature)
@@ -398,7 +388,6 @@ fn test_id_prefix_divergent() {
 
 #[test]
 fn test_id_prefix_hidden() {
-    let settings = testutils::user_settings();
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_repo.repo;
     let root_commit_id = repo.store().root_commit_id();
@@ -417,7 +406,6 @@ fn test_id_prefix_hidden() {
         let commit = tx
             .repo_mut()
             .new_commit(
-                &settings,
                 vec![root_commit_id.clone()],
                 repo.store().empty_merged_tree_id(),
             )
@@ -469,7 +457,7 @@ fn test_id_prefix_hidden() {
     let hidden_commit = &commits[8];
     tx.repo_mut()
         .record_abandoned_commit(hidden_commit.id().clone());
-    tx.repo_mut().rebase_descendants(&settings).unwrap();
+    tx.repo_mut().rebase_descendants().unwrap();
     let repo = tx.commit("test").unwrap();
 
     let prefix = |x: &str| HexPrefix::new(x).unwrap();

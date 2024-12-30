@@ -542,7 +542,6 @@ fn test_simplify_conflict() {
 
 #[test]
 fn test_simplify_conflict_after_resolving_parent() {
-    let settings = testutils::user_settings();
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -563,46 +562,30 @@ fn test_simplify_conflict_after_resolving_parent() {
     let tree_a = create_tree(repo, &[(path, "abc\ndef\nghi\n")]);
     let commit_a = tx
         .repo_mut()
-        .new_commit(
-            &settings,
-            vec![repo.store().root_commit_id().clone()],
-            tree_a.id(),
-        )
+        .new_commit(vec![repo.store().root_commit_id().clone()], tree_a.id())
         .write()
         .unwrap();
     let tree_b = create_tree(repo, &[(path, "Abc\ndef\nghi\n")]);
     let commit_b = tx
         .repo_mut()
-        .new_commit(&settings, vec![commit_a.id().clone()], tree_b.id())
+        .new_commit(vec![commit_a.id().clone()], tree_b.id())
         .write()
         .unwrap();
     let tree_c = create_tree(repo, &[(path, "Abc\ndef\nGhi\n")]);
     let commit_c = tx
         .repo_mut()
-        .new_commit(&settings, vec![commit_b.id().clone()], tree_c.id())
+        .new_commit(vec![commit_b.id().clone()], tree_c.id())
         .write()
         .unwrap();
     let tree_d = create_tree(repo, &[(path, "abC\ndef\nghi\n")]);
     let commit_d = tx
         .repo_mut()
-        .new_commit(&settings, vec![commit_a.id().clone()], tree_d.id())
+        .new_commit(vec![commit_a.id().clone()], tree_d.id())
         .write()
         .unwrap();
 
-    let commit_b2 = rebase_commit(
-        &settings,
-        tx.repo_mut(),
-        commit_b,
-        vec![commit_d.id().clone()],
-    )
-    .unwrap();
-    let commit_c2 = rebase_commit(
-        &settings,
-        tx.repo_mut(),
-        commit_c,
-        vec![commit_b2.id().clone()],
-    )
-    .unwrap();
+    let commit_b2 = rebase_commit(tx.repo_mut(), commit_b, vec![commit_d.id().clone()]).unwrap();
+    let commit_c2 = rebase_commit(tx.repo_mut(), commit_c, vec![commit_b2.id().clone()]).unwrap();
 
     // Test the setup: Both B and C should have conflicts.
     let tree_b2 = commit_b2.tree().unwrap();
@@ -614,18 +597,12 @@ fn test_simplify_conflict_after_resolving_parent() {
     let tree_b3 = create_tree(repo, &[(path, "AbC\ndef\nghi\n")]);
     let commit_b3 = tx
         .repo_mut()
-        .rewrite_commit(&settings, &commit_b2)
+        .rewrite_commit(&commit_b2)
         .set_tree_id(tree_b3.id())
         .write()
         .unwrap();
-    let commit_c3 = rebase_commit(
-        &settings,
-        tx.repo_mut(),
-        commit_c2,
-        vec![commit_b3.id().clone()],
-    )
-    .unwrap();
-    tx.repo_mut().rebase_descendants(&settings).unwrap();
+    let commit_c3 = rebase_commit(tx.repo_mut(), commit_c2, vec![commit_b3.id().clone()]).unwrap();
+    tx.repo_mut().rebase_descendants().unwrap();
     let repo = tx.commit("test").unwrap();
 
     // The conflict should now be resolved.
@@ -652,7 +629,6 @@ fn test_simplify_conflict_after_resolving_parent() {
 
 #[test]
 fn test_rebase_on_lossy_merge() {
-    let settings = testutils::user_settings();
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -678,24 +654,19 @@ fn test_rebase_on_lossy_merge() {
     let tree_2 = create_tree(repo, &[(path, "2")]);
     let tree_3 = create_tree(repo, &[(path, "3")]);
     let commit_a = repo_mut
-        .new_commit(
-            &settings,
-            vec![repo.store().root_commit_id().clone()],
-            tree_1.id(),
-        )
+        .new_commit(vec![repo.store().root_commit_id().clone()], tree_1.id())
         .write()
         .unwrap();
     let commit_b = repo_mut
-        .new_commit(&settings, vec![commit_a.id().clone()], tree_2.id())
+        .new_commit(vec![commit_a.id().clone()], tree_2.id())
         .write()
         .unwrap();
     let commit_c = repo_mut
-        .new_commit(&settings, vec![commit_a.id().clone()], tree_2.id())
+        .new_commit(vec![commit_a.id().clone()], tree_2.id())
         .write()
         .unwrap();
     let commit_d = repo_mut
         .new_commit(
-            &settings,
             vec![commit_b.id().clone(), commit_c.id().clone()],
             tree_2.id(),
         )
@@ -703,11 +674,10 @@ fn test_rebase_on_lossy_merge() {
         .unwrap();
 
     let commit_c2 = repo_mut
-        .new_commit(&settings, vec![commit_a.id().clone()], tree_3.id())
+        .new_commit(vec![commit_a.id().clone()], tree_3.id())
         .write()
         .unwrap();
     let commit_d2 = rebase_commit(
-        &settings,
         repo_mut,
         commit_d,
         vec![commit_b.id().clone(), commit_c2.id().clone()],

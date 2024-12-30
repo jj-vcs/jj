@@ -95,7 +95,7 @@ pub(crate) fn cmd_backout(
         let new_parent_ids = parents.iter().map(|commit| commit.id().clone()).collect();
         let new_commit = tx
             .repo_mut()
-            .new_commit(command.settings(), new_parent_ids, new_tree.id())
+            .new_commit(new_parent_ids, new_tree.id())
             .set_description(new_commit_description)
             .write()?;
         parents = vec![new_commit];

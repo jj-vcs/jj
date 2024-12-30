@@ -229,10 +229,9 @@ pub(crate) fn cmd_duplicate(
         && args.insert_after.is_empty()
         && args.insert_before.is_empty()
     {
-        duplicate_commits_onto_parents(command.settings(), tx.repo_mut(), &to_duplicate)?
+        duplicate_commits_onto_parents(tx.repo_mut(), &to_duplicate)?
     } else {
         duplicate_commits(
-            command.settings(),
             tx.repo_mut(),
             &to_duplicate,
             &parent_commit_ids,

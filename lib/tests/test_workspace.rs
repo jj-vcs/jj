@@ -52,7 +52,6 @@ fn test_init_additional_workspace() {
     let ws2_root = test_workspace.root_dir().join("ws2_root");
     std::fs::create_dir(&ws2_root).unwrap();
     let (ws2, repo) = Workspace::init_workspace_with_existing_repo(
-        &settings,
         &ws2_root,
         test_workspace.repo_path(),
         &test_workspace.repo,

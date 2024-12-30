@@ -124,7 +124,6 @@ fn create_jj_dir(workspace_root: &Path) -> Result<PathBuf, WorkspaceInitError> {
 }
 
 fn init_working_copy(
-    user_settings: &UserSettings,
     repo: &Arc<ReadonlyRepo>,
     workspace_root: &Path,
     jj_dir: &Path,
@@ -135,11 +134,8 @@ fn init_working_copy(
     std::fs::create_dir(&working_copy_state_path).context(&working_copy_state_path)?;
 
     let mut tx = repo.start_transaction();
-    tx.repo_mut().check_out(
-        workspace_id.clone(),
-        user_settings,
-        &repo.store().root_commit(),
-    )?;
+    tx.repo_mut()
+        .check_out(workspace_id.clone(), &repo.store().root_commit())?;
     let repo = tx.commit(format!("add workspace '{}'", workspace_id.as_str()))?;
 
     let working_copy = working_copy_factory.init_working_copy(
@@ -313,7 +309,6 @@ impl Workspace {
                 RepoInitError::Path(err) => WorkspaceInitError::Path(err),
             })?;
             let (working_copy, repo) = init_working_copy(
-                user_settings,
                 &repo,
                 workspace_root,
                 &jj_dir,
@@ -350,7 +345,6 @@ impl Workspace {
     }
 
     pub fn init_workspace_with_existing_repo(
-        user_settings: &UserSettings,
         workspace_root: &Path,
         repo_path: &Path,
         repo: &Arc<ReadonlyRepo>,
@@ -372,7 +366,6 @@ impl Workspace {
             .context(&repo_file_path)?;
 
         let (working_copy, repo) = init_working_copy(
-            user_settings,
             repo,
             workspace_root,
             &jj_dir,

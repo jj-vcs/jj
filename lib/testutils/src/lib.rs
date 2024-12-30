@@ -166,7 +166,7 @@ impl TestEnvironment {
     ) -> Arc<ReadonlyRepo> {
         RepoLoader::init_from_file_system(settings, repo_path, &self.default_store_factories())
             .unwrap()
-            .load_at_head(settings)
+            .load_at_head()
             .unwrap()
     }
 }
@@ -318,14 +318,14 @@ impl TestWorkspace {
     }
 }
 
-pub fn commit_transactions(settings: &UserSettings, txs: Vec<Transaction>) -> Arc<ReadonlyRepo> {
+pub fn commit_transactions(txs: Vec<Transaction>) -> Arc<ReadonlyRepo> {
     let repo_loader = txs[0].base_repo().loader().clone();
     let mut op_ids = vec![];
     for tx in txs {
         op_ids.push(tx.commit("test").unwrap().op_id().clone());
         std::thread::sleep(std::time::Duration::from_millis(1));
     }
-    let repo = repo_loader.load_at_head(settings).unwrap();
+    let repo = repo_loader.load_at_head().unwrap();
     // Test the setup. The assumption here is that the parent order matches the
     // order in which they were merged (which currently matches the transaction
     // commit order), so we want to know make sure they appear in a certain
@@ -406,18 +406,11 @@ pub fn create_random_tree(repo: &Arc<ReadonlyRepo>) -> MergedTreeId {
     create_tree(repo, &[(&path, "contents")]).id()
 }
 
-pub fn create_random_commit<'repo>(
-    mut_repo: &'repo mut MutableRepo,
-    settings: &UserSettings,
-) -> CommitBuilder<'repo> {
+pub fn create_random_commit(mut_repo: &mut MutableRepo) -> CommitBuilder<'_> {
     let tree_id = create_random_tree(mut_repo.base_repo());
     let number = rand::random::<u32>();
     mut_repo
-        .new_commit(
-            settings,
-            vec![mut_repo.store().root_commit_id().clone()],
-            tree_id,
-        )
+        .new_commit(vec![mut_repo.store().root_commit_id().clone()], tree_id)
         .set_description(format!("random commit {number}"))
 }
 
@@ -478,8 +471,8 @@ pub fn dump_tree(store: &Arc<Store>, tree_id: &MergedTreeId) -> String {
     buf
 }
 
-pub fn write_random_commit(mut_repo: &mut MutableRepo, settings: &UserSettings) -> Commit {
-    create_random_commit(mut_repo, settings).write().unwrap()
+pub fn write_random_commit(mut_repo: &mut MutableRepo) -> Commit {
+    create_random_commit(mut_repo).write().unwrap()
 }
 
 pub fn write_working_copy_file(workspace_root: &Path, path: &RepoPath, contents: &str) {
@@ -496,21 +489,17 @@ pub fn write_working_copy_file(workspace_root: &Path, path: &RepoPath, contents:
     file.write_all(contents.as_bytes()).unwrap();
 }
 
-pub struct CommitGraphBuilder<'settings, 'repo> {
-    settings: &'settings UserSettings,
+pub struct CommitGraphBuilder<'repo> {
     mut_repo: &'repo mut MutableRepo,
 }
 
-impl<'settings, 'repo> CommitGraphBuilder<'settings, 'repo> {
-    pub fn new(
-        settings: &'settings UserSettings,
-        mut_repo: &'repo mut MutableRepo,
-    ) -> CommitGraphBuilder<'settings, 'repo> {
-        CommitGraphBuilder { settings, mut_repo }
+impl<'repo> CommitGraphBuilder<'repo> {
+    pub fn new(mut_repo: &'repo mut MutableRepo) -> Self {
+        CommitGraphBuilder { mut_repo }
     }
 
     pub fn initial_commit(&mut self) -> Commit {
-        write_random_commit(self.mut_repo, self.settings)
+        write_random_commit(self.mut_repo)
     }
 
     pub fn commit_with_parents(&mut self, parents: &[&Commit]) -> Commit {
@@ -518,7 +507,7 @@ impl<'settings, 'repo> CommitGraphBuilder<'settings, 'repo> {
             .iter()
             .map(|commit| commit.id().clone())
             .collect_vec();
-        create_random_commit(self.mut_repo, self.settings)
+        create_random_commit(self.mut_repo)
             .set_parents(parent_ids)
             .write()
             .unwrap()

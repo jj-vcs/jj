@@ -124,20 +124,20 @@ aborted.
         )?;
         // Commit the new child on top of the parent's parents.
         tx.repo_mut()
-            .rewrite_commit(command.settings(), &commit)
+            .rewrite_commit(&commit)
             .set_parents(parent.parent_ids().to_vec())
             .set_description(description)
             .write()?;
     } else {
         let new_parent = tx
             .repo_mut()
-            .rewrite_commit(command.settings(), &parent)
+            .rewrite_commit(&parent)
             .set_tree_id(new_parent_tree_id)
             .set_predecessors(vec![parent.id().clone(), commit.id().clone()])
             .write()?;
         // Commit the new child on top of the new parent.
         tx.repo_mut()
-            .rewrite_commit(command.settings(), &commit)
+            .rewrite_commit(&commit)
             .set_parents(vec![new_parent.id().clone()])
             .write()?;
     }

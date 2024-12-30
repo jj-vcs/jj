@@ -113,7 +113,6 @@ pub(crate) fn cmd_parallelize(
     }
 
     tx.repo_mut().transform_descendants(
-        command.settings(),
         target_commits.iter().ids().cloned().collect_vec(),
         |mut rewriter| {
             // Commits in the target set do not depend on each other but they still depend
@@ -137,7 +136,7 @@ pub(crate) fn cmd_parallelize(
                 rewriter.set_new_rewritten_parents(&new_parents);
             }
             if rewriter.parents_changed() {
-                let builder = rewriter.rebase(command.settings())?;
+                let builder = rewriter.rebase()?;
                 builder.write()?;
             }
             Ok(())

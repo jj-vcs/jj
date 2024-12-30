@@ -57,7 +57,7 @@ pub fn cmd_op_show(
     let repo_loader = workspace_command.workspace().repo_loader();
     let op = workspace_command.resolve_single_op(&args.operation)?;
     let parents: Vec<_> = op.parents().try_collect()?;
-    let parent_op = repo_loader.merge_operations(command.settings(), parents, None)?;
+    let parent_op = repo_loader.merge_operations(parents, None)?;
     let parent_repo = repo_loader.load_at(&parent_op)?;
     let repo = repo_loader.load_at(&op)?;
 

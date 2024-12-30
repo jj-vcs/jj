@@ -253,7 +253,6 @@ from the source will be moved into the destination.
 
     let repo_path = tx.base_workspace_helper().repo_path().to_owned();
     match rewrite::squash_commits(
-        settings,
         tx.repo_mut(),
         &source_commits,
         destination,

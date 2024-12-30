@@ -30,14 +30,12 @@ use jj_lib::repo::Repo;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::RevsetExpression;
-use jj_lib::settings::UserSettings;
 use testutils::create_tree;
 use testutils::TestRepo;
 
-fn create_commit_fn<'a>(
-    mut_repo: &'a mut MutableRepo,
-    settings: &'a UserSettings,
-) -> impl FnMut(&str, &[&CommitId], MergedTreeId) -> Commit + 'a {
+fn create_commit_fn(
+    mut_repo: &mut MutableRepo,
+) -> impl FnMut(&str, &[&CommitId], MergedTreeId) -> Commit + '_ {
     // stabilize commit IDs for ease of debugging
     let signature = Signature {
         name: "Some One".to_owned(),
@@ -50,7 +48,7 @@ fn create_commit_fn<'a>(
     move |description, parent_ids, tree_id| {
         let parent_ids = parent_ids.iter().map(|&id| id.clone()).collect();
         mut_repo
-            .new_commit(settings, parent_ids, tree_id)
+            .new_commit(parent_ids, tree_id)
             .set_author(signature.clone())
             .set_committer(signature.clone())
             .set_description(description)
@@ -105,7 +103,6 @@ fn format_annotation(repo: &dyn Repo, annotation: &FileAnnotation) -> String {
 
 #[test]
 fn test_annotate_linear() {
-    let settings = testutils::user_settings();
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -113,7 +110,7 @@ fn test_annotate_linear() {
     let file_path = RepoPath::from_internal_string("file");
 
     let mut tx = repo.start_transaction();
-    let mut create_commit = create_commit_fn(tx.repo_mut(), &settings);
+    let mut create_commit = create_commit_fn(tx.repo_mut());
     let content1 = "";
     let content2 = "2a\n2b\n";
     let content3 = "2b\n3\n";
@@ -143,7 +140,6 @@ fn test_annotate_linear() {
 
 #[test]
 fn test_annotate_merge_simple() {
-    let settings = testutils::user_settings();
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -158,7 +154,7 @@ fn test_annotate_merge_simple() {
     // |/
     // 1    "1"
     let mut tx = repo.start_transaction();
-    let mut create_commit = create_commit_fn(tx.repo_mut(), &settings);
+    let mut create_commit = create_commit_fn(tx.repo_mut());
     let content1 = "1\n";
     let content2 = "2\n1\n";
     let content3 = "1\n3\n";
@@ -218,7 +214,6 @@ fn test_annotate_merge_simple() {
 
 #[test]
 fn test_annotate_merge_split() {
-    let settings = testutils::user_settings();
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -233,7 +228,7 @@ fn test_annotate_merge_split() {
     // |/
     // 1    "1a 1b"
     let mut tx = repo.start_transaction();
-    let mut create_commit = create_commit_fn(tx.repo_mut(), &settings);
+    let mut create_commit = create_commit_fn(tx.repo_mut());
     let content1 = "1a\n1b\n";
     let content2 = "2\n1a\n";
     let content3 = "1b\n3\n";
@@ -259,7 +254,6 @@ fn test_annotate_merge_split() {
 
 #[test]
 fn test_annotate_merge_split_interleaved() {
-    let settings = testutils::user_settings();
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -278,7 +272,7 @@ fn test_annotate_merge_split_interleaved() {
     // |
     // 1    "1a 1b"
     let mut tx = repo.start_transaction();
-    let mut create_commit = create_commit_fn(tx.repo_mut(), &settings);
+    let mut create_commit = create_commit_fn(tx.repo_mut());
     let content1 = "1a\n1b\n";
     let content2 = "2a\n2b\n";
     let content3 = "1a\n1b\n2a\n2b\n";
@@ -312,7 +306,6 @@ fn test_annotate_merge_split_interleaved() {
 
 #[test]
 fn test_annotate_merge_dup() {
-    let settings = testutils::user_settings();
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -327,7 +320,7 @@ fn test_annotate_merge_dup() {
     // |/
     // 1    "1"
     let mut tx = repo.start_transaction();
-    let mut create_commit = create_commit_fn(tx.repo_mut(), &settings);
+    let mut create_commit = create_commit_fn(tx.repo_mut());
     let content1 = "1\n";
     let content2 = "2\n1\n";
     let content3 = "1\n3\n";
@@ -365,7 +358,6 @@ fn test_annotate_merge_dup() {
 
 #[test]
 fn test_annotate_file_directory_transition() {
-    let settings = testutils::user_settings();
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -374,7 +366,7 @@ fn test_annotate_file_directory_transition() {
     let file_path2 = RepoPath::from_internal_string("file");
 
     let mut tx = repo.start_transaction();
-    let mut create_commit = create_commit_fn(tx.repo_mut(), &settings);
+    let mut create_commit = create_commit_fn(tx.repo_mut());
     let tree1 = create_tree(repo, &[(file_path1, "1\n")]);
     let tree2 = create_tree(repo, &[(file_path2, "2\n")]);
     let commit1 = create_commit("commit1", &[root_commit_id], tree1.id());

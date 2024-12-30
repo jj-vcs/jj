@@ -138,10 +138,7 @@ The remainder will be in the second commit.
     // Create the first commit, which includes the changes selected by the user.
     let selected_tree = tx.repo().store().get_root_tree(&selected_tree_id)?;
     let first_commit = {
-        let mut commit_builder = tx
-            .repo_mut()
-            .rewrite_commit(command.settings(), &commit)
-            .detach();
+        let mut commit_builder = tx.repo_mut().rewrite_commit(&commit).detach();
         commit_builder.set_tree_id(selected_tree_id);
         if commit_builder.description().is_empty() {
             commit_builder
@@ -179,10 +176,7 @@ The remainder will be in the second commit.
         } else {
             vec![first_commit.id().clone()]
         };
-        let mut commit_builder = tx
-            .repo_mut()
-            .rewrite_commit(command.settings(), &commit)
-            .detach();
+        let mut commit_builder = tx.repo_mut().rewrite_commit(&commit).detach();
         commit_builder
             .set_parents(parents)
             .set_tree_id(new_tree.id())
@@ -219,10 +213,8 @@ The remainder will be in the second commit.
     tx.repo_mut()
         .set_rewritten_commit(commit.id().clone(), second_commit.id().clone());
     let mut num_rebased = 0;
-    tx.repo_mut().transform_descendants(
-        command.settings(),
-        vec![commit.id().clone()],
-        |mut rewriter| {
+    tx.repo_mut()
+        .transform_descendants(vec![commit.id().clone()], |mut rewriter| {
             num_rebased += 1;
             if args.parallel {
                 rewriter
@@ -230,10 +222,9 @@ The remainder will be in the second commit.
             }
             // We don't need to do anything special for the non-parallel case
             // since we already marked the original commit as rewritten.
-            rewriter.rebase(command.settings())?.write()?;
+            rewriter.rebase()?.write()?;
             Ok(())
-        },
-    )?;
+        })?;
 
     if let Some(mut formatter) = ui.status_formatter() {
         if num_rebased > 0 {

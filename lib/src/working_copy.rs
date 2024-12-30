@@ -46,7 +46,6 @@ use crate::repo::RewriteRootCommit;
 use crate::repo_path::InvalidRepoPathError;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
-use crate::settings::UserSettings;
 use crate::store::Store;
 
 /// The trait all working-copy implementations must implement.
@@ -434,7 +433,6 @@ pub fn create_and_check_out_recovery_commit(
     locked_wc: &mut dyn LockedWorkingCopy,
     repo: &Arc<ReadonlyRepo>,
     workspace_id: WorkspaceId,
-    user_settings: &UserSettings,
     description: &str,
 ) -> Result<(Arc<ReadonlyRepo>, Commit), RecoverWorkspaceError> {
     let mut tx = repo.start_transaction();
@@ -446,11 +444,7 @@ pub fn create_and_check_out_recovery_commit(
         .ok_or_else(|| RecoverWorkspaceError::WorkspaceMissingWorkingCopy(workspace_id.clone()))?;
     let commit = repo.store().get_commit(commit_id)?;
     let new_commit = repo_mut
-        .new_commit(
-            user_settings,
-            vec![commit_id.clone()],
-            commit.tree_id().clone(),
-        )
+        .new_commit(vec![commit_id.clone()], commit.tree_id().clone())
         .set_description(description)
         .write()?;
     repo_mut.set_wc_commit(workspace_id, new_commit.id().clone())?;

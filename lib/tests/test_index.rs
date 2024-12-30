@@ -38,7 +38,6 @@ use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::revset::ResolvedExpression;
 use jj_lib::revset::GENERATION_RANGE_FULL;
-use jj_lib::settings::UserSettings;
 use maplit::hashset;
 use testutils::commit_transactions;
 use testutils::create_random_commit;
@@ -47,12 +46,8 @@ use testutils::write_random_commit;
 use testutils::CommitGraphBuilder;
 use testutils::TestRepo;
 
-fn child_commit<'repo>(
-    mut_repo: &'repo mut MutableRepo,
-    settings: &UserSettings,
-    commit: &Commit,
-) -> CommitBuilder<'repo> {
-    create_random_commit(mut_repo, settings).set_parents(vec![commit.id().clone()])
+fn child_commit<'repo>(mut_repo: &'repo mut MutableRepo, commit: &Commit) -> CommitBuilder<'repo> {
+    create_random_commit(mut_repo).set_parents(vec![commit.id().clone()])
 }
 
 // Helper just to reduce line wrapping
@@ -75,7 +70,6 @@ fn test_index_commits_empty_repo() {
 
 #[test]
 fn test_index_commits_standard_cases() {
-    let settings = testutils::user_settings();
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -95,7 +89,7 @@ fn test_index_commits_standard_cases() {
 
     let root_commit_id = repo.store().root_commit_id();
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(&settings, tx.repo_mut());
+    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
     let commit_a = graph_builder.initial_commit();
     let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
     let commit_c = graph_builder.commit_with_parents(&[&commit_a]);
@@ -142,7 +136,6 @@ fn test_index_commits_standard_cases() {
 
 #[test]
 fn test_index_commits_criss_cross() {
-    let settings = testutils::user_settings();
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -152,7 +145,7 @@ fn test_index_commits_criss_cross() {
     // keeping track of visited nodes, it would be 2^50 visits, so if this test
     // finishes in reasonable time, we know that we don't do a naive traversal.
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(&settings, tx.repo_mut());
+    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
     let mut left_commits = vec![graph_builder.initial_commit()];
     let mut right_commits = vec![graph_builder.initial_commit()];
     for gen in 1..num_generations {
@@ -307,7 +300,7 @@ fn test_index_commits_previous_operations() {
     // o root
 
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(&settings, tx.repo_mut());
+    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
     let commit_a = graph_builder.initial_commit();
     let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
     let commit_c = graph_builder.commit_with_parents(&[&commit_b]);
@@ -350,9 +343,9 @@ fn test_index_commits_hidden_but_referenced() {
     // This can also happen if imported remote bookmarks get immediately
     // abandoned because the other bookmark has moved.
     let mut tx = repo.start_transaction();
-    let commit_a = write_random_commit(tx.repo_mut(), &settings);
-    let commit_b = write_random_commit(tx.repo_mut(), &settings);
-    let commit_c = write_random_commit(tx.repo_mut(), &settings);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit(tx.repo_mut());
+    let commit_c = write_random_commit(tx.repo_mut());
     tx.repo_mut().remove_head(commit_a.id());
     tx.repo_mut().remove_head(commit_b.id());
     tx.repo_mut().remove_head(commit_c.id());
@@ -404,9 +397,7 @@ fn test_index_commits_incremental() {
 
     let root_commit = repo.store().root_commit();
     let mut tx = repo.start_transaction();
-    let commit_a = child_commit(tx.repo_mut(), &settings, &root_commit)
-        .write()
-        .unwrap();
+    let commit_a = child_commit(tx.repo_mut(), &root_commit).write().unwrap();
     let repo = tx.commit("test").unwrap();
 
     let index = as_readonly_composite(&repo);
@@ -414,12 +405,8 @@ fn test_index_commits_incremental() {
     assert_eq!(index.num_commits(), 1 + 1);
 
     let mut tx = repo.start_transaction();
-    let commit_b = child_commit(tx.repo_mut(), &settings, &commit_a)
-        .write()
-        .unwrap();
-    let commit_c = child_commit(tx.repo_mut(), &settings, &commit_b)
-        .write()
-        .unwrap();
+    let commit_b = child_commit(tx.repo_mut(), &commit_a).write().unwrap();
+    let commit_c = child_commit(tx.repo_mut(), &commit_b).write().unwrap();
     tx.commit("test").unwrap();
 
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
@@ -456,9 +443,7 @@ fn test_index_commits_incremental_empty_transaction() {
 
     let root_commit = repo.store().root_commit();
     let mut tx = repo.start_transaction();
-    let commit_a = child_commit(tx.repo_mut(), &settings, &root_commit)
-        .write()
-        .unwrap();
+    let commit_a = child_commit(tx.repo_mut(), &root_commit).write().unwrap();
     let repo = tx.commit("test").unwrap();
 
     let index = as_readonly_composite(&repo);
@@ -486,7 +471,6 @@ fn test_index_commits_incremental_empty_transaction() {
 #[test]
 fn test_index_commits_incremental_already_indexed() {
     // Tests that trying to add a commit that's already been added is a no-op.
-    let settings = testutils::user_settings();
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -498,9 +482,7 @@ fn test_index_commits_incremental_already_indexed() {
 
     let root_commit = repo.store().root_commit();
     let mut tx = repo.start_transaction();
-    let commit_a = child_commit(tx.repo_mut(), &settings, &root_commit)
-        .write()
-        .unwrap();
+    let commit_a = child_commit(tx.repo_mut(), &root_commit).write().unwrap();
     let repo = tx.commit("test").unwrap();
 
     assert!(repo.index().has_id(commit_a.id()));
@@ -512,14 +494,10 @@ fn test_index_commits_incremental_already_indexed() {
 }
 
 #[must_use]
-fn create_n_commits(
-    settings: &UserSettings,
-    repo: &Arc<ReadonlyRepo>,
-    num_commits: i32,
-) -> Arc<ReadonlyRepo> {
+fn create_n_commits(repo: &Arc<ReadonlyRepo>, num_commits: i32) -> Arc<ReadonlyRepo> {
     let mut tx = repo.start_transaction();
     for _ in 0..num_commits {
-        write_random_commit(tx.repo_mut(), settings);
+        write_random_commit(tx.repo_mut());
     }
     tx.commit("test").unwrap()
 }
@@ -551,64 +529,62 @@ fn commits_by_level(repo: &Arc<ReadonlyRepo>) -> Vec<u32> {
 
 #[test]
 fn test_index_commits_incremental_squashed() {
-    let settings = testutils::user_settings();
-
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
-    let repo = create_n_commits(&settings, repo, 1);
+    let repo = create_n_commits(repo, 1);
     assert_eq!(commits_by_level(&repo), vec![2]);
-    let repo = create_n_commits(&settings, &repo, 1);
+    let repo = create_n_commits(&repo, 1);
     assert_eq!(commits_by_level(&repo), vec![3]);
 
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
-    let repo = create_n_commits(&settings, repo, 2);
+    let repo = create_n_commits(repo, 2);
     assert_eq!(commits_by_level(&repo), vec![3]);
 
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
-    let repo = create_n_commits(&settings, repo, 100);
+    let repo = create_n_commits(repo, 100);
     assert_eq!(commits_by_level(&repo), vec![101]);
 
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
-    let repo = create_n_commits(&settings, repo, 1);
-    let repo = create_n_commits(&settings, &repo, 2);
-    let repo = create_n_commits(&settings, &repo, 4);
-    let repo = create_n_commits(&settings, &repo, 8);
-    let repo = create_n_commits(&settings, &repo, 16);
-    let repo = create_n_commits(&settings, &repo, 32);
+    let repo = create_n_commits(repo, 1);
+    let repo = create_n_commits(&repo, 2);
+    let repo = create_n_commits(&repo, 4);
+    let repo = create_n_commits(&repo, 8);
+    let repo = create_n_commits(&repo, 16);
+    let repo = create_n_commits(&repo, 32);
     assert_eq!(commits_by_level(&repo), vec![64]);
 
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
-    let repo = create_n_commits(&settings, repo, 32);
-    let repo = create_n_commits(&settings, &repo, 16);
-    let repo = create_n_commits(&settings, &repo, 8);
-    let repo = create_n_commits(&settings, &repo, 4);
-    let repo = create_n_commits(&settings, &repo, 2);
+    let repo = create_n_commits(repo, 32);
+    let repo = create_n_commits(&repo, 16);
+    let repo = create_n_commits(&repo, 8);
+    let repo = create_n_commits(&repo, 4);
+    let repo = create_n_commits(&repo, 2);
     assert_eq!(commits_by_level(&repo), vec![57, 6]);
 
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
-    let repo = create_n_commits(&settings, repo, 30);
-    let repo = create_n_commits(&settings, &repo, 15);
-    let repo = create_n_commits(&settings, &repo, 7);
-    let repo = create_n_commits(&settings, &repo, 3);
-    let repo = create_n_commits(&settings, &repo, 1);
+    let repo = create_n_commits(repo, 30);
+    let repo = create_n_commits(&repo, 15);
+    let repo = create_n_commits(&repo, 7);
+    let repo = create_n_commits(&repo, 3);
+    let repo = create_n_commits(&repo, 1);
     assert_eq!(commits_by_level(&repo), vec![31, 15, 7, 3, 1]);
 
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
-    let repo = create_n_commits(&settings, repo, 10);
-    let repo = create_n_commits(&settings, &repo, 10);
-    let repo = create_n_commits(&settings, &repo, 10);
-    let repo = create_n_commits(&settings, &repo, 10);
-    let repo = create_n_commits(&settings, &repo, 10);
-    let repo = create_n_commits(&settings, &repo, 10);
-    let repo = create_n_commits(&settings, &repo, 10);
-    let repo = create_n_commits(&settings, &repo, 10);
-    let repo = create_n_commits(&settings, &repo, 10);
+    let repo = create_n_commits(repo, 10);
+    let repo = create_n_commits(&repo, 10);
+    let repo = create_n_commits(&repo, 10);
+    let repo = create_n_commits(&repo, 10);
+    let repo = create_n_commits(&repo, 10);
+    let repo = create_n_commits(&repo, 10);
+    let repo = create_n_commits(&repo, 10);
+    let repo = create_n_commits(&repo, 10);
+    let repo = create_n_commits(&repo, 10);
     assert_eq!(commits_by_level(&repo), vec![71, 20]);
 }
 
@@ -620,7 +596,7 @@ fn test_reindex_no_segments_dir() {
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
-    let commit_a = write_random_commit(tx.repo_mut(), &settings);
+    let commit_a = write_random_commit(tx.repo_mut());
     let repo = tx.commit("test").unwrap();
     assert!(repo.index().has_id(commit_a.id()));
 
@@ -641,7 +617,7 @@ fn test_reindex_corrupt_segment_files() {
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
-    let commit_a = write_random_commit(tx.repo_mut(), &settings);
+    let commit_a = write_random_commit(tx.repo_mut());
     let repo = tx.commit("test").unwrap();
     assert!(repo.index().has_id(commit_a.id()));
 
@@ -664,7 +640,6 @@ fn test_reindex_corrupt_segment_files() {
 
 #[test]
 fn test_reindex_from_merged_operation() {
-    let settings = testutils::user_settings();
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -679,17 +654,17 @@ fn test_reindex_from_merged_operation() {
     let mut txs = Vec::new();
     for _ in 0..2 {
         let mut tx = repo.start_transaction();
-        let commit = write_random_commit(tx.repo_mut(), &settings);
+        let commit = write_random_commit(tx.repo_mut());
         let repo = tx.commit("test").unwrap();
         let mut tx = repo.start_transaction();
         tx.repo_mut().remove_head(commit.id());
         txs.push(tx);
     }
-    let repo = commit_transactions(&settings, txs);
+    let repo = commit_transactions(txs);
     let mut op_ids_to_delete = Vec::new();
     op_ids_to_delete.push(repo.op_id());
     let mut tx = repo.start_transaction();
-    write_random_commit(tx.repo_mut(), &settings);
+    write_random_commit(tx.repo_mut());
     let repo = tx.commit("test").unwrap();
     op_ids_to_delete.push(repo.op_id());
     let operation_to_reload = repo.operation();
@@ -719,7 +694,7 @@ fn test_reindex_missing_commit() {
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
-    let missing_commit = write_random_commit(tx.repo_mut(), &settings);
+    let missing_commit = write_random_commit(tx.repo_mut());
     let repo = tx.commit("test").unwrap();
     let bad_op_id = repo.op_id();
 
@@ -760,7 +735,6 @@ fn test_index_store_type() {
 
 #[test]
 fn test_change_id_index() {
-    let settings = testutils::user_settings();
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -772,7 +746,6 @@ fn test_change_id_index() {
         commit_number += 1;
         tx.repo_mut()
             .new_commit(
-                &settings,
                 vec![root_commit.id().clone()],
                 root_commit.tree_id().clone(),
             )

@@ -70,7 +70,7 @@ pub(crate) fn cmd_file_untrack(
     let new_tree_id = tree_builder.write_tree(&store)?;
     let new_commit = tx
         .repo_mut()
-        .rewrite_commit(command.settings(), &wc_commit)
+        .rewrite_commit(&wc_commit)
         .set_tree_id(new_tree_id)
         .write()?;
     // Reset the working copy to the new commit
@@ -105,7 +105,7 @@ Make sure they're ignored, then try again.",
             locked_ws.locked_wc().reset(&new_commit)?;
         }
     }
-    let num_rebased = tx.repo_mut().rebase_descendants(command.settings())?;
+    let num_rebased = tx.repo_mut().rebase_descendants()?;
     if num_rebased > 0 {
         writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
     }

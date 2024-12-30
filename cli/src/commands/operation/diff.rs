@@ -107,7 +107,7 @@ pub fn cmd_op_diff(
     } else {
         to_op = workspace_command.resolve_single_op(args.operation.as_deref().unwrap_or("@"))?;
         let to_op_parents: Vec<_> = to_op.parents().try_collect()?;
-        from_op = repo_loader.merge_operations(command.settings(), to_op_parents, None)?;
+        from_op = repo_loader.merge_operations(to_op_parents, None)?;
     }
     let graph_style = GraphStyle::from_settings(command.settings())?;
     let with_content_format = LogContentFormat::new(ui, command.settings())?;

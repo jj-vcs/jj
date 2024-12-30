@@ -115,10 +115,7 @@ new working-copy commit.
         )?;
     }
 
-    let mut commit_builder = tx
-        .repo_mut()
-        .rewrite_commit(command.settings(), &commit)
-        .detach();
+    let mut commit_builder = tx.repo_mut().rewrite_commit(&commit).detach();
     commit_builder.set_tree_id(tree_id);
     if args.reset_author {
         commit_builder.set_author(commit_builder.committer().clone());
@@ -154,11 +151,7 @@ new working-copy commit.
     if !workspace_ids.is_empty() {
         let new_wc_commit = tx
             .repo_mut()
-            .new_commit(
-                command.settings(),
-                vec![new_commit.id().clone()],
-                commit.tree_id().clone(),
-            )
+            .new_commit(vec![new_commit.id().clone()], commit.tree_id().clone())
             .write()?;
 
         // Does nothing if there's no bookmarks to advance.

@@ -48,7 +48,6 @@ use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::revset::ResolvedRevsetExpression;
 use crate::revset::RevsetEvaluationError;
-use crate::settings::UserSettings;
 
 /// The source commit to absorb into its ancestry.
 #[derive(Clone, Debug)]
@@ -266,49 +265,44 @@ pub fn absorb_hunks(
     repo: &mut MutableRepo,
     source: &AbsorbSource,
     mut selected_trees: HashMap<CommitId, MergedTreeBuilder>,
-    settings: &UserSettings,
 ) -> BackendResult<(Vec<Commit>, usize)> {
     let store = repo.store().clone();
     let mut rewritten_commits = Vec::new();
     let mut num_rebased = 0;
     // Rewrite commits in topological order so that descendant commits wouldn't
     // be rewritten multiple times.
-    repo.transform_descendants(
-        settings,
-        selected_trees.keys().cloned().collect(),
-        |rewriter| {
-            // Remove selected hunks from the source commit by reparent()
-            if rewriter.old_commit().id() == source.commit.id() {
-                let commit_builder = rewriter.reparent(settings);
-                if commit_builder.is_discardable()? {
-                    commit_builder.abandon();
-                } else {
-                    commit_builder.write()?;
-                    num_rebased += 1;
-                }
-                return Ok(());
-            }
-            let Some(tree_builder) = selected_trees.remove(rewriter.old_commit().id()) else {
-                rewriter.rebase(settings)?.write()?;
+    repo.transform_descendants(selected_trees.keys().cloned().collect(), |rewriter| {
+        // Remove selected hunks from the source commit by reparent()
+        if rewriter.old_commit().id() == source.commit.id() {
+            let commit_builder = rewriter.reparent();
+            if commit_builder.is_discardable()? {
+                commit_builder.abandon();
+            } else {
+                commit_builder.write()?;
                 num_rebased += 1;
-                return Ok(());
-            };
-            // Merge hunks between source parent tree and selected tree
-            let selected_tree_id = tree_builder.write_tree(&store)?;
-            let commit_builder = rewriter.rebase(settings)?;
-            let destination_tree = store.get_root_tree(commit_builder.tree_id())?;
-            let selected_tree = store.get_root_tree(&selected_tree_id)?;
-            let new_tree = destination_tree.merge(&source.parent_tree, &selected_tree)?;
-            let mut predecessors = commit_builder.predecessors().to_vec();
-            predecessors.push(source.commit.id().clone());
-            let new_commit = commit_builder
-                .set_tree_id(new_tree.id())
-                .set_predecessors(predecessors)
-                .write()?;
-            rewritten_commits.push(new_commit);
-            Ok(())
-        },
-    )?;
+            }
+            return Ok(());
+        }
+        let Some(tree_builder) = selected_trees.remove(rewriter.old_commit().id()) else {
+            rewriter.rebase()?.write()?;
+            num_rebased += 1;
+            return Ok(());
+        };
+        // Merge hunks between source parent tree and selected tree
+        let selected_tree_id = tree_builder.write_tree(&store)?;
+        let commit_builder = rewriter.rebase()?;
+        let destination_tree = store.get_root_tree(commit_builder.tree_id())?;
+        let selected_tree = store.get_root_tree(&selected_tree_id)?;
+        let new_tree = destination_tree.merge(&source.parent_tree, &selected_tree)?;
+        let mut predecessors = commit_builder.predecessors().to_vec();
+        predecessors.push(source.commit.id().clone());
+        let new_commit = commit_builder
+            .set_tree_id(new_tree.id())
+            .set_predecessors(predecessors)
+            .write()?;
+        rewritten_commits.push(new_commit);
+        Ok(())
+    })?;
     Ok((rewritten_commits, num_rebased))
 }
 

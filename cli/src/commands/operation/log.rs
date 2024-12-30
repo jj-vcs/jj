@@ -151,7 +151,7 @@ fn do_op_log(
                          op: &Operation,
                          with_content_format: &LogContentFormat| {
             let parents: Vec<_> = op.parents().try_collect()?;
-            let parent_op = repo_loader.merge_operations(settings, parents, None)?;
+            let parent_op = repo_loader.merge_operations(parents, None)?;
             let parent_repo = repo_loader.load_at(&parent_op)?;
             let repo = repo_loader.load_at(op)?;
 

@@ -79,11 +79,11 @@ pub(crate) fn cmd_abandon(
     }
     let (num_rebased, extra_msg) = if args.restore_descendants {
         (
-            tx.repo_mut().reparent_descendants(command.settings())?,
+            tx.repo_mut().reparent_descendants()?,
             " (while preserving their content)",
         )
     } else {
-        (tx.repo_mut().rebase_descendants(command.settings())?, "")
+        (tx.repo_mut().rebase_descendants()?, "")
     };
 
     if let Some(mut formatter) = ui.status_formatter() {

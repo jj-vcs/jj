@@ -44,7 +44,6 @@ use crate::repo::Repo;
 use crate::repo_path::RepoPath;
 use crate::revset::RevsetExpression;
 use crate::revset::RevsetIteratorExt;
-use crate::settings::UserSettings;
 use crate::store::Store;
 
 /// Merges `commits` and tries to resolve any conflicts recursively.
@@ -119,13 +118,12 @@ pub fn restore_tree(
 }
 
 pub fn rebase_commit(
-    settings: &UserSettings,
     mut_repo: &mut MutableRepo,
     old_commit: Commit,
     new_parents: Vec<CommitId>,
 ) -> BackendResult<Commit> {
     let rewriter = CommitRewriter::new(mut_repo, old_commit, new_parents);
-    let builder = rewriter.rebase(settings)?;
+    let builder = rewriter.rebase()?;
     builder.write()
 }
 
@@ -223,7 +221,6 @@ impl<'repo> CommitRewriter<'repo> {
     /// for the new commit. Returns `None` if the commit was abandoned.
     pub fn rebase_with_empty_behavior(
         self,
-        settings: &UserSettings,
         empty: EmptyBehaviour,
     ) -> BackendResult<Option<CommitBuilder<'repo>>> {
         let old_parents: Vec<_> = self.old_commit.parents().try_collect()?;
@@ -282,7 +279,7 @@ impl<'repo> CommitRewriter<'repo> {
 
         let builder = self
             .mut_repo
-            .rewrite_commit(settings, &self.old_commit)
+            .rewrite_commit(&self.old_commit)
             .set_parents(self.new_parents)
             .set_tree_id(new_tree_id);
         Ok(Some(builder))
@@ -290,16 +287,16 @@ impl<'repo> CommitRewriter<'repo> {
 
     /// Rebase the old commit onto the new parents. Returns a `CommitBuilder`
     /// for the new commit.
-    pub fn rebase(self, settings: &UserSettings) -> BackendResult<CommitBuilder<'repo>> {
-        let builder = self.rebase_with_empty_behavior(settings, EmptyBehaviour::Keep)?;
+    pub fn rebase(self) -> BackendResult<CommitBuilder<'repo>> {
+        let builder = self.rebase_with_empty_behavior(EmptyBehaviour::Keep)?;
         Ok(builder.unwrap())
     }
 
     /// Rewrite the old commit onto the new parents without changing its
     /// contents. Returns a `CommitBuilder` for the new commit.
-    pub fn reparent(self, settings: &UserSettings) -> CommitBuilder<'repo> {
+    pub fn reparent(self) -> CommitBuilder<'repo> {
         self.mut_repo
-            .rewrite_commit(settings, &self.old_commit)
+            .rewrite_commit(&self.old_commit)
             .set_parents(self.new_parents)
     }
 }
@@ -310,7 +307,6 @@ pub enum RebasedCommit {
 }
 
 pub fn rebase_commit_with_options(
-    settings: &UserSettings,
     mut rewriter: CommitRewriter<'_>,
     options: &RebaseOptions,
 ) -> BackendResult<RebasedCommit> {
@@ -324,7 +320,7 @@ pub fn rebase_commit_with_options(
         _ => None,
     };
     let new_parents_len = rewriter.new_parents.len();
-    if let Some(builder) = rewriter.rebase_with_empty_behavior(settings, options.empty)? {
+    if let Some(builder) = rewriter.rebase_with_empty_behavior(options.empty)? {
         let new_commit = builder.write()?;
         Ok(RebasedCommit::Rewritten(new_commit))
     } else {
@@ -415,7 +411,6 @@ pub enum MoveCommitsTarget {
 /// `new_children` can be rewritten, and there will be no cycles in the
 /// resulting graph. Commits in `target` should be in reverse topological order.
 pub fn move_commits(
-    settings: &UserSettings,
     mut_repo: &mut MutableRepo,
     new_parent_ids: &[CommitId],
     new_children: &[Commit],
@@ -754,7 +749,6 @@ pub fn move_commits(
         if rewriter.parents_changed() {
             let is_target_commit = target_commit_ids.contains(&old_commit_id);
             let rebased_commit = rebase_commit_with_options(
-                settings,
                 rewriter,
                 if is_target_commit {
                     options
@@ -773,7 +767,7 @@ pub fn move_commits(
             num_skipped_rebases += 1;
         }
     }
-    mut_repo.update_rewritten_references(settings)?;
+    mut_repo.update_rewritten_references()?;
 
     Ok(MoveCommitsStats {
         num_rebased_targets,
@@ -805,7 +799,6 @@ pub struct DuplicateCommitsStats {
 /// should not be ancestors of `parent_commit_ids`. Commits in `target_commits`
 /// should be in reverse topological order (children before parents).
 pub fn duplicate_commits(
-    settings: &UserSettings,
     mut_repo: &mut MutableRepo,
     target_commits: &[CommitId],
     parent_commit_ids: &[CommitId],
@@ -880,7 +873,7 @@ pub fn duplicate_commits(
                 .collect()
         };
         let new_commit = CommitRewriter::new(mut_repo, original_commit, new_parent_ids)
-            .rebase(settings)?
+            .rebase()?
             .generate_new_change_id()
             .write()?;
         duplicated_old_to_new.insert(original_commit_id.clone(), new_commit);
@@ -899,7 +892,7 @@ pub fn duplicate_commits(
 
     // Rebase new children onto the target heads.
     let children_commit_ids_set: HashSet<CommitId> = children_commit_ids.iter().cloned().collect();
-    mut_repo.transform_descendants(settings, children_commit_ids.to_vec(), |mut rewriter| {
+    mut_repo.transform_descendants(children_commit_ids.to_vec(), |mut rewriter| {
         if children_commit_ids_set.contains(rewriter.old_commit().id()) {
             let mut child_new_parent_ids = IndexSet::new();
             for old_parent_id in rewriter.old_commit().parent_ids() {
@@ -919,7 +912,7 @@ pub fn duplicate_commits(
             rewriter.set_new_parents(child_new_parent_ids.into_iter().collect());
         }
         num_rebased += 1;
-        rewriter.rebase(settings)?.write()?;
+        rewriter.rebase()?.write()?;
         Ok(())
     })?;
 
@@ -935,7 +928,6 @@ pub fn duplicate_commits(
 /// Commits in `target_commits` should be in reverse topological order (children
 /// before parents).
 pub fn duplicate_commits_onto_parents(
-    settings: &UserSettings,
     mut_repo: &mut MutableRepo,
     target_commits: &[CommitId],
 ) -> BackendResult<DuplicateCommitsStats> {
@@ -960,7 +952,7 @@ pub fn duplicate_commits_onto_parents(
             })
             .collect();
         let new_commit = mut_repo
-            .rewrite_commit(settings, &original_commit)
+            .rewrite_commit(&original_commit)
             .generate_new_change_id()
             .set_parents(new_parent_ids)
             .write()?;
@@ -1061,7 +1053,6 @@ pub enum SquashResult {
 /// resulting commit. Caller is responsible for setting the description and
 /// finishing the commit.
 pub fn squash_commits<E>(
-    settings: &UserSettings,
     repo: &mut MutableRepo,
     sources: &[CommitToSquash],
     destination: &Commit,
@@ -1107,7 +1098,7 @@ where
             // Apply the reverse of the selected changes onto the source
             let new_source_tree =
                 source_tree.merge(&source.commit.selected_tree, &source.commit.parent_tree)?;
-            repo.rewrite_commit(settings, &source.commit.commit)
+            repo.rewrite_commit(&source.commit.commit)
                 .set_tree_id(new_source_tree.id().clone())
                 .write()?;
         }
@@ -1122,8 +1113,7 @@ where
         // rewritten sources. Otherwise it will likely already have the content
         // changes we're moving, so applying them will have no effect and the
         // changes will disappear.
-        let rebase_map =
-            repo.rebase_descendants_with_options_return_map(settings, Default::default())?;
+        let rebase_map = repo.rebase_descendants_with_options_return_map(Default::default())?;
         let rebased_destination_id = rebase_map.get(destination.id()).unwrap().clone();
         rewritten_destination = repo.store().get_commit(&rebased_destination_id)?;
     }
@@ -1141,7 +1131,7 @@ where
     );
 
     let destination = repo
-        .rewrite_commit(settings, &rewritten_destination)
+        .rewrite_commit(&rewritten_destination)
         .set_tree_id(destination_tree.id().clone())
         .set_predecessors(predecessors)
         .set_description(description_fn(&abandoned_commits)?)

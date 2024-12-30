@@ -252,7 +252,6 @@ pub(crate) fn cmd_fix(
     let mut num_checked_commits = 0;
     let mut num_fixed_commits = 0;
     tx.repo_mut().transform_descendants(
-        command.settings(),
         root_commits.iter().cloned().collect_vec(),
         |mut rewriter| {
             // TODO: Build the trees in parallel before `transform_descendants()` and only
@@ -287,7 +286,7 @@ pub(crate) fn cmd_fix(
             if changes > 0 {
                 num_fixed_commits += 1;
                 let new_tree = tree_builder.write_tree(rewriter.mut_repo().store())?;
-                let builder = rewriter.reparent(command.settings());
+                let builder = rewriter.reparent();
                 builder.set_tree_id(new_tree).write()?;
             }
             Ok(())

@@ -109,7 +109,6 @@ pub fn cmd_workspace_add(
     let working_copy_factory = command.get_working_copy_factory()?;
     let repo_path = old_workspace_command.repo_path();
     let (new_workspace, repo) = Workspace::init_workspace_with_existing_repo(
-        command.settings(),
         &destination_path,
         repo_path,
         repo,
@@ -185,10 +184,7 @@ pub fn cmd_workspace_add(
 
     let tree = merge_commit_trees(tx.repo(), &parents)?;
     let parent_ids = parents.iter().ids().cloned().collect_vec();
-    let new_wc_commit = tx
-        .repo_mut()
-        .new_commit(command.settings(), parent_ids, tree.id())
-        .write()?;
+    let new_wc_commit = tx.repo_mut().new_commit(parent_ids, tree.id()).write()?;
 
     tx.edit(&new_wc_commit)?;
     tx.finish(
