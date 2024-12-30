@@ -86,7 +86,6 @@ use crate::rewrite::rebase_commit_with_options;
 use crate::rewrite::CommitRewriter;
 use crate::rewrite::RebaseOptions;
 use crate::rewrite::RebasedCommit;
-use crate::settings::RepoSettings;
 use crate::settings::UserSettings;
 use crate::signing::SignInitError;
 use crate::signing::Signer;
@@ -177,7 +176,7 @@ impl ReadonlyRepo {
 
     #[allow(clippy::too_many_arguments)]
     pub fn init(
-        user_settings: &UserSettings,
+        settings: &UserSettings,
         repo_path: &Path,
         backend_initializer: &BackendInitializer,
         signer: Signer,
@@ -190,25 +189,24 @@ impl ReadonlyRepo {
 
         let store_path = repo_path.join("store");
         fs::create_dir(&store_path).context(&store_path)?;
-        let backend = backend_initializer(user_settings, &store_path)?;
+        let backend = backend_initializer(settings, &store_path)?;
         let backend_path = store_path.join("type");
         fs::write(&backend_path, backend.name()).context(&backend_path)?;
         let store = Store::new(backend, signer);
-        let repo_settings = user_settings.with_repo(&repo_path);
 
         let op_store_path = repo_path.join("op_store");
         fs::create_dir(&op_store_path).context(&op_store_path)?;
         let root_op_data = RootOperationData {
             root_commit_id: store.root_commit_id().clone(),
         };
-        let op_store = op_store_initializer(user_settings, &op_store_path, root_op_data);
+        let op_store = op_store_initializer(settings, &op_store_path, root_op_data);
         let op_store_type_path = op_store_path.join("type");
         fs::write(&op_store_type_path, op_store.name()).context(&op_store_type_path)?;
         let op_store: Arc<dyn OpStore> = Arc::from(op_store);
 
         let op_heads_path = repo_path.join("op_heads");
         fs::create_dir(&op_heads_path).context(&op_heads_path)?;
-        let op_heads_store = op_heads_store_initializer(user_settings, &op_heads_path);
+        let op_heads_store = op_heads_store_initializer(settings, &op_heads_path);
         let op_heads_type_path = op_heads_path.join("type");
         fs::write(&op_heads_type_path, op_heads_store.name()).context(&op_heads_type_path)?;
         op_heads_store.update_op_heads(&[], op_store.root_operation_id())?;
@@ -216,21 +214,21 @@ impl ReadonlyRepo {
 
         let index_path = repo_path.join("index");
         fs::create_dir(&index_path).context(&index_path)?;
-        let index_store = index_store_initializer(user_settings, &index_path)?;
+        let index_store = index_store_initializer(settings, &index_path)?;
         let index_type_path = index_path.join("type");
         fs::write(&index_type_path, index_store.name()).context(&index_type_path)?;
         let index_store: Arc<dyn IndexStore> = Arc::from(index_store);
 
         let submodule_store_path = repo_path.join("submodule_store");
         fs::create_dir(&submodule_store_path).context(&submodule_store_path)?;
-        let submodule_store = submodule_store_initializer(user_settings, &submodule_store_path);
+        let submodule_store = submodule_store_initializer(settings, &submodule_store_path);
         let submodule_store_type_path = submodule_store_path.join("type");
         fs::write(&submodule_store_type_path, submodule_store.name())
             .context(&submodule_store_type_path)?;
         let submodule_store = Arc::from(submodule_store);
 
         let loader = RepoLoader {
-            repo_settings,
+            settings: settings.clone(),
             store,
             op_store,
             op_heads_store,
@@ -293,7 +291,7 @@ impl ReadonlyRepo {
         self.loader.index_store()
     }
 
-    pub fn settings(&self) -> &RepoSettings {
+    pub fn settings(&self) -> &UserSettings {
         self.loader.settings()
     }
 
@@ -628,7 +626,7 @@ pub enum RepoLoaderError {
 /// a given operation.
 #[derive(Clone)]
 pub struct RepoLoader {
-    repo_settings: RepoSettings,
+    settings: UserSettings,
     store: Arc<Store>,
     op_store: Arc<dyn OpStore>,
     op_heads_store: Arc<dyn OpHeadsStore>,
@@ -638,7 +636,7 @@ pub struct RepoLoader {
 
 impl RepoLoader {
     pub fn new(
-        repo_settings: RepoSettings,
+        settings: UserSettings,
         store: Arc<Store>,
         op_store: Arc<dyn OpStore>,
         op_heads_store: Arc<dyn OpHeadsStore>,
@@ -646,7 +644,7 @@ impl RepoLoader {
         submodule_store: Arc<dyn SubmoduleStore>,
     ) -> Self {
         Self {
-            repo_settings,
+            settings,
             store,
             op_store,
             op_heads_store,
@@ -659,34 +657,31 @@ impl RepoLoader {
     /// various `.jj/repo/<backend>/type` files and loading the right
     /// backends from `store_factories`.
     pub fn init_from_file_system(
-        user_settings: &UserSettings,
+        settings: &UserSettings,
         repo_path: &Path,
         store_factories: &StoreFactories,
     ) -> Result<Self, StoreLoadError> {
         let store = Store::new(
-            store_factories.load_backend(user_settings, &repo_path.join("store"))?,
-            Signer::from_settings(user_settings)?,
+            store_factories.load_backend(settings, &repo_path.join("store"))?,
+            Signer::from_settings(settings)?,
         );
-        let repo_settings = user_settings.with_repo(repo_path);
         let root_op_data = RootOperationData {
             root_commit_id: store.root_commit_id().clone(),
         };
         let op_store = Arc::from(store_factories.load_op_store(
-            user_settings,
+            settings,
             &repo_path.join("op_store"),
             root_op_data,
         )?);
-        let op_heads_store = Arc::from(
-            store_factories.load_op_heads_store(user_settings, &repo_path.join("op_heads"))?,
-        );
+        let op_heads_store =
+            Arc::from(store_factories.load_op_heads_store(settings, &repo_path.join("op_heads"))?);
         let index_store =
-            Arc::from(store_factories.load_index_store(user_settings, &repo_path.join("index"))?);
+            Arc::from(store_factories.load_index_store(settings, &repo_path.join("index"))?);
         let submodule_store = Arc::from(
-            store_factories
-                .load_submodule_store(user_settings, &repo_path.join("submodule_store"))?,
+            store_factories.load_submodule_store(settings, &repo_path.join("submodule_store"))?,
         );
         Ok(Self {
-            repo_settings,
+            settings: settings.clone(),
             store,
             op_store,
             op_heads_store,
@@ -695,8 +690,8 @@ impl RepoLoader {
         })
     }
 
-    pub fn settings(&self) -> &RepoSettings {
-        &self.repo_settings
+    pub fn settings(&self) -> &UserSettings {
+        &self.settings
     }
 
     pub fn store(&self) -> &Arc<Store> {

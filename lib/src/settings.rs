@@ -14,7 +14,6 @@
 
 #![allow(missing_docs)]
 
-use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -53,11 +52,6 @@ struct UserSettingsData {
     operation_timestamp: Option<Timestamp>,
     operation_hostname: String,
     operation_username: String,
-}
-
-#[derive(Debug, Clone)]
-pub struct RepoSettings {
-    _config: Arc<StackedConfig>,
 }
 
 #[derive(Debug, Clone)]
@@ -194,13 +188,6 @@ impl UserSettings {
             data: Arc::new(data),
             rng: Arc::new(JJRng::new(rng_seed)),
         })
-    }
-
-    // TODO: Reconsider UserSettings/RepoSettings abstraction. See
-    // https://github.com/jj-vcs/jj/issues/616#issuecomment-1345170699
-    pub fn with_repo(&self, _repo_path: &Path) -> RepoSettings {
-        let config = self.config.clone();
-        RepoSettings { _config: config }
     }
 
     pub fn get_rng(&self) -> Arc<JJRng> {
