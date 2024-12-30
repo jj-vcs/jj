@@ -15,10 +15,10 @@
 //! Generic APIs to work with cryptographic signatures created and verified by
 //! various backends.
 
-use std::collections::HashMap;
 use std::fmt::Debug;
-use std::sync::RwLock;
+use std::sync::Mutex;
 
+use clru::CLruCache;
 use thiserror::Error;
 
 use crate::backend::CommitId;
@@ -26,6 +26,7 @@ use crate::config::ConfigGetError;
 use crate::gpg_signing::GpgBackend;
 use crate::settings::UserSettings;
 use crate::ssh_signing::SshBackend;
+use crate::store::COMMIT_CACHE_CAPACITY;
 
 /// A status of the signature, part of the [Verification] type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -146,7 +147,7 @@ pub enum SignBehavior {
 }
 
 /// Wraps low-level signing backends and adds caching, similar to `Store`.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Signer {
     /// The backend that is used for signing commits.
     /// Optional because signing might not be configured.
@@ -155,7 +156,7 @@ pub struct Signer {
     /// Main backend is also used for verification, but it's not in this list
     /// for ownership reasons.
     backends: Vec<Box<dyn SigningBackend>>,
-    cache: RwLock<HashMap<CommitId, Verification>>,
+    cache: Mutex<CLruCache<CommitId, Verification>>,
 }
 
 impl Signer {
@@ -191,7 +192,7 @@ impl Signer {
         Self {
             main_backend,
             backends: other_backends,
-            cache: Default::default(),
+            cache: Mutex::new(CLruCache::new(COMMIT_CACHE_CAPACITY.try_into().unwrap())),
         }
     }
 
@@ -217,7 +218,7 @@ impl Signer {
         data: &[u8],
         signature: &[u8],
     ) -> SignResult<Verification> {
-        let cached = self.cache.read().unwrap().get(commit_id).cloned();
+        let cached = self.cache.lock().unwrap().get(commit_id).cloned();
         if let Some(check) = cached {
             return Ok(check);
         }
@@ -242,9 +243,9 @@ impl Signer {
             // it's correct to not cache unknowns here
             if verification.status != SigStatus::Unknown {
                 self.cache
-                    .write()
+                    .lock()
                     .unwrap()
-                    .insert(commit_id.clone(), verification.clone());
+                    .put(commit_id.clone(), verification.clone());
             }
             Ok(verification)
         } else {
@@ -253,9 +254,9 @@ impl Signer {
             //
             // not sure about how much of an optimization this is
             self.cache
-                .write()
+                .lock()
                 .unwrap()
-                .insert(commit_id.clone(), Verification::unknown());
+                .put(commit_id.clone(), Verification::unknown());
             Ok(Verification::unknown())
         }
     }

@@ -51,7 +51,7 @@ use crate::tree_builder::TreeBuilder;
 
 // There are more tree objects than commits, and trees are often shared across
 // commits.
-const COMMIT_CACHE_CAPACITY: usize = 100;
+pub(crate) const COMMIT_CACHE_CAPACITY: usize = 100;
 const TREE_CACHE_CAPACITY: usize = 1000;
 
 /// Wraps the low-level backend and makes it return more convenient types. Also
