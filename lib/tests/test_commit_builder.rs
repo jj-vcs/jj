@@ -132,9 +132,10 @@ fn test_initial(backend: TestRepoBackend) {
 #[test_case(TestRepoBackend::Git ; "git backend")]
 fn test_rewrite(backend: TestRepoBackend) {
     let settings = testutils::user_settings();
-    let test_repo = TestRepo::init_with_backend(backend);
+    let test_repo = TestRepo::init_with_backend_and_settings(backend, &settings);
+    let test_env = &test_repo.env;
     let repo = &test_repo.repo;
-    let store = repo.store().clone();
+    let store = repo.store();
 
     let root_file_path = RepoPath::from_internal_string("file");
     let dir_file_path = RepoPath::from_internal_string("dir/file");
@@ -178,6 +179,9 @@ fn test_rewrite(backend: TestRepoBackend) {
         .unwrap(),
     );
     let rewrite_settings = UserSettings::from_config(config).unwrap();
+    let repo = test_env.load_repo_at_head(&rewrite_settings, test_repo.repo_path());
+    let store = repo.store();
+    let initial_commit = store.get_commit(initial_commit.id()).unwrap();
     let mut tx = repo.start_transaction(&settings);
     let rewritten_commit = tx
         .repo_mut()
@@ -222,7 +226,8 @@ fn test_rewrite(backend: TestRepoBackend) {
 #[test_case(TestRepoBackend::Git ; "git backend")]
 fn test_rewrite_update_missing_user(backend: TestRepoBackend) {
     let missing_user_settings = UserSettings::from_config(StackedConfig::with_defaults()).unwrap();
-    let test_repo = TestRepo::init_with_backend(backend);
+    let test_repo = TestRepo::init_with_backend_and_settings(backend, &missing_user_settings);
+    let test_env = &test_repo.env;
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction(&missing_user_settings);
@@ -239,6 +244,7 @@ fn test_rewrite_update_missing_user(backend: TestRepoBackend) {
     assert_eq!(initial_commit.author().email, "");
     assert_eq!(initial_commit.committer().name, "");
     assert_eq!(initial_commit.committer().email, "");
+    tx.commit("test").unwrap();
 
     let mut config = StackedConfig::with_defaults();
     config.add_layer(
@@ -252,6 +258,9 @@ fn test_rewrite_update_missing_user(backend: TestRepoBackend) {
         .unwrap(),
     );
     let settings = UserSettings::from_config(config).unwrap();
+    let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
+    let initial_commit = repo.store().get_commit(initial_commit.id()).unwrap();
+    let mut tx = repo.start_transaction(&settings);
     let rewritten_commit = tx
         .repo_mut()
         .rewrite_commit(&settings, &initial_commit)
@@ -274,12 +283,13 @@ fn test_rewrite_update_missing_user(backend: TestRepoBackend) {
 #[test_case(TestRepoBackend::Git ; "git backend")]
 fn test_rewrite_resets_author_timestamp(backend: TestRepoBackend) {
     let test_repo = TestRepo::init_with_backend(backend);
-    let repo = &test_repo.repo;
+    let test_env = &test_repo.env;
 
     // Create discardable commit
     let initial_timestamp = "2001-02-03T04:05:06+07:00";
     let settings =
         UserSettings::from_config(config_with_commit_timestamp(initial_timestamp)).unwrap();
+    let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
     let mut tx = repo.start_transaction(&settings);
     let initial_commit = tx
         .repo_mut()
@@ -290,6 +300,7 @@ fn test_rewrite_resets_author_timestamp(backend: TestRepoBackend) {
         )
         .write()
         .unwrap();
+    tx.commit("test").unwrap();
 
     let initial_timestamp =
         Timestamp::from_datetime(chrono::DateTime::parse_from_rfc3339(initial_timestamp).unwrap());
@@ -300,12 +311,17 @@ fn test_rewrite_resets_author_timestamp(backend: TestRepoBackend) {
     let new_timestamp_1 = "2002-03-04T05:06:07+08:00";
     let settings =
         UserSettings::from_config(config_with_commit_timestamp(new_timestamp_1)).unwrap();
+    let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
+    let initial_commit = repo.store().get_commit(initial_commit.id()).unwrap();
+    let mut tx = repo.start_transaction(&settings);
     let rewritten_commit_1 = tx
         .repo_mut()
         .rewrite_commit(&settings, &initial_commit)
         .set_description("No longer discardable")
         .write()
         .unwrap();
+    tx.repo_mut().rebase_descendants(&settings).unwrap();
+    tx.commit("test").unwrap();
 
     let new_timestamp_1 =
         Timestamp::from_datetime(chrono::DateTime::parse_from_rfc3339(new_timestamp_1).unwrap());
@@ -319,12 +335,17 @@ fn test_rewrite_resets_author_timestamp(backend: TestRepoBackend) {
     let new_timestamp_2 = "2003-04-05T06:07:08+09:00";
     let settings =
         UserSettings::from_config(config_with_commit_timestamp(new_timestamp_2)).unwrap();
+    let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
+    let rewritten_commit_1 = repo.store().get_commit(rewritten_commit_1.id()).unwrap();
+    let mut tx = repo.start_transaction(&settings);
     let rewritten_commit_2 = tx
         .repo_mut()
         .rewrite_commit(&settings, &rewritten_commit_1)
         .set_description("New description")
         .write()
         .unwrap();
+    tx.repo_mut().rebase_descendants(&settings).unwrap();
+    tx.commit("test").unwrap();
 
     let new_timestamp_2 =
         Timestamp::from_datetime(chrono::DateTime::parse_from_rfc3339(new_timestamp_2).unwrap());
