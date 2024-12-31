@@ -12,6 +12,27 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+### Deprecations
+
+### New features
+
+### Fixed bugs
+
+## [0.25.0] - 2025-01-01
+
+### Release highlights
+
+It's the holidays, and this release was overall pretty quiet, without many major
+changes. Two select improvements:
+
+* Improvements to configuration management, including support for [conditional
+  variables](docs/config.md#conditional-variables) in config files.
+
+* Large files in the working copy will no longer cause commands to fail; instead
+  the large files will remain intact but untracked in the working copy.
+
+### Breaking changes
+
 * Configuration variables are no longer "stringly" typed. For example, `true` is
   not converted to a string `"true"`, and vice versa.
 
@@ -102,6 +123,34 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj resolve` no longer removes the executable bit on resolved files when using
   an external merge tool.
+
+### Contributors
+
+Thanks to the people who made this release happen!
+
+* Alex Stefanov (@umnikos)
+* Anton Älgmyr (@algmyr)
+* Austin Seipp (@thoughtpolice)
+* Benjamin Tan (@bnjmnt4n)
+* Bryce Berger (@bryceberger)
+* Daniel Ploch (@torquestomp)
+* David Crespo (@david-crespo)
+* George Tsiamasiotis (@gtsiam)
+* Jochen Kupperschmidt (@homeworkprod)
+* Keane Nguyen (@keanemind)
+* Martin von Zweigbergk (@martinvonz)
+* Matt Kulukundis (@fowles)
+* Milo Moisson (@mrnossiom)
+* petricavalry (@petricavalry)
+* Philip Metzger (@PhilipMetzger)
+* Remo Senekowitsch (@senekor)
+* Scott Taylor (@scott2000)
+* Shane Sveller (@shanesveller)
+* Stephen Jennings (@jennings)
+* Tim Janik (@tim-janik)
+* Vamsi Avula (@avamsi)
+* Waleed Khan (@arxanas)
+* Yuya Nishihara (@yuja)
 
 ## [0.24.0] - 2024-12-04
 
