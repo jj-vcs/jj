@@ -69,7 +69,7 @@ fn parse_gpg_verify_output(
                 .next()
                 .and_then(|bs| str::from_utf8(bs).ok())
                 .map(|value| value.trim().to_owned());
-            Some(Verification::new(status, key, display))
+            Some(Verification::new(status, key, display, Some("gpg".into())))
         })
         .ok_or(SignError::InvalidSignatureFormat)
 }
@@ -216,7 +216,12 @@ mod tests {
     fn gpg_verify_bad_signature() {
         assert_eq!(
             parse_gpg_verify_output(b"[GNUPG:] BADSIG 123 456", true).unwrap(),
-            Verification::new(SigStatus::Bad, Some("123".into()), Some("456".into()))
+            Verification::new(
+                SigStatus::Bad,
+                Some("123".into()),
+                Some("456".into()),
+                Some("gpg".into())
+            )
         );
     }
 
@@ -224,7 +229,12 @@ mod tests {
     fn gpg_verify_unknown_signature() {
         assert_eq!(
             parse_gpg_verify_output(b"[GNUPG:] NO_PUBKEY 123", true).unwrap(),
-            Verification::new(SigStatus::Unknown, Some("123".into()), None)
+            Verification::new(
+                SigStatus::Unknown,
+                Some("123".into()),
+                None,
+                Some("gpg".into())
+            )
         );
     }
 
@@ -232,7 +242,12 @@ mod tests {
     fn gpg_verify_good_signature() {
         assert_eq!(
             parse_gpg_verify_output(b"[GNUPG:] GOODSIG 123 456", true).unwrap(),
-            Verification::new(SigStatus::Good, Some("123".into()), Some("456".into()))
+            Verification::new(
+                SigStatus::Good,
+                Some("123".into()),
+                Some("456".into()),
+                Some("gpg".into())
+            )
         );
     }
 
@@ -240,12 +255,22 @@ mod tests {
     fn gpg_verify_expired_signature() {
         assert_eq!(
             parse_gpg_verify_output(b"[GNUPG:] EXPKEYSIG 123 456", true).unwrap(),
-            Verification::new(SigStatus::Good, Some("123".into()), Some("456".into()))
+            Verification::new(
+                SigStatus::Good,
+                Some("123".into()),
+                Some("456".into()),
+                Some("gpg".into())
+            )
         );
 
         assert_eq!(
             parse_gpg_verify_output(b"[GNUPG:] EXPKEYSIG 123 456", false).unwrap(),
-            Verification::new(SigStatus::Bad, Some("123".into()), Some("456".into()))
+            Verification::new(
+                SigStatus::Bad,
+                Some("123".into()),
+                Some("456".into()),
+                Some("gpg".into())
+            )
         );
     }
 }

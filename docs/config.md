@@ -1027,6 +1027,49 @@ as follows:
 backends.ssh.allowed-signers = "/path/to/allowed-signers"
 ```
 
+## Commit Signature Verification
+
+`jj` attempts to verify any signatures found on commits when
+displaying them with `jj log` or `jj show`.
+
+By default signature verification and display is **disabled** as it incurs a
+performance cost when rendering medium to large change logs.
+
+If you want to verify and display commit signatures, you can use the
+provided template:
+```sh
+jj log -Tbuiltin_log_detailed_with_sig
+```
+
+If you always want to display commit signatures, you can set the
+[default template](#default-template):
+```toml
+[templates]
+log = "builtin_log_detailed_with_sig"
+```
+
+See [CommitSignature Type](./templates.md#commitsignature-type) for available template methods.
+
+### Sign commits only on `jj git push`
+
+Instead of signing all commits during creation when `signing.sign-all` is
+set to `true`, the `git.sign-on-push` configuration can be used to sign
+commits only upon running `jj git push`. All mutable unsigned commits
+being pushed will be signed prior to pushing. This might be preferred if the
+signing backend requires user interaction or is slow, so that signing is
+performed in a single batch operation.
+
+```toml
+# Configure signing backend as before, without setting `signing.sign-all`
+[signing]
+backend = "ssh"
+key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGj+J6N6SO+4P8dOZqfR1oiay2yxhhHnagH52avUqw5h"
+
+[git]
+sign-on-push = true
+```
+
+
 ## Git settings
 
 ### Default remotes for `jj git fetch` and `jj git push`
