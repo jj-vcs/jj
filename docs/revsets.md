@@ -461,8 +461,8 @@ for a comprehensive list.
 
 * `builtin_immutable_heads()`: Resolves to
   `present(trunk()) | tags() | untracked_remote_bookmarks()`. It is used as the
-   default definition for `immutable_heads()` below. it is not recommended to
-   redefined this alias. Prefer to redefine `immutable_heads()` instead.
+   default definition for `immutable_heads()` below. It is not recommended to
+   redefine this alias. Prefer to redefine `immutable_heads()` instead.
 
 * `immutable_heads()`: Resolves to
   `present(trunk()) | tags() | untracked_remote_bookmarks()` by default. It is
