@@ -14,6 +14,7 @@
 
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
+use indoc::formatdoc;
 use itertools::Itertools as _;
 use jj_lib::commit::Commit;
 use jj_lib::commit::CommitIteratorExt;
@@ -249,22 +250,21 @@ fn select_diff(
         let parent_tree = source.parent_tree(tx.repo())?;
         let source_tree = source.tree()?;
         let format_instructions = || {
-            format!(
-                "\
-You are moving changes from: {}
-into commit: {}
+            formatdoc! {"
+                You are moving changes from: {source}
+                into commit: {destination}
 
-The left side of the diff shows the contents of the parent commit. The
-right side initially shows the contents of the commit you're moving
-changes from.
+                The left side of the diff shows the contents of the parent commit. The
+                right side initially shows the contents of the commit you're moving
+                changes from.
 
-Adjust the right side until the diff shows the changes you want to move
-to the destination. If you don't make any changes, then all the changes
-from the source will be moved into the destination.
-",
-                tx.format_commit_summary(source),
-                tx.format_commit_summary(destination)
-            )
+                Adjust the right side until the diff shows the changes you want to move
+                to the destination. If you don't make any changes, then all the changes
+                from the source will be moved into the destination.
+                ",
+                source = tx.format_commit_summary(source),
+                destination = tx.format_commit_summary(destination),
+            }
         };
         let selected_tree_id =
             diff_selector.select(&parent_tree, &source_tree, matcher, format_instructions)?;
