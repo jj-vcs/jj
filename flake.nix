@@ -127,9 +127,9 @@
             installManPage ./jj.1
 
             installShellCompletion --cmd jj \
-              --bash <($out/bin/jj util completion bash) \
-              --fish <($out/bin/jj util completion fish) \
-              --zsh <($out/bin/jj util completion zsh)
+              --bash <(COMPLETE=bash $out/bin/jj) \
+              --fish <(COMPLETE=fish $out/bin/jj) \
+              --zsh <(COMPLETE=zsh $out/bin/jj)
           '';
 
           meta = {
