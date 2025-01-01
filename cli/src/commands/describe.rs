@@ -110,6 +110,7 @@ pub(crate) fn cmd_describe(
         return Ok(());
     }
     workspace_command.check_rewritable(commits.iter().ids())?;
+    let text_editor = workspace_command.text_editor()?;
 
     let mut tx = workspace_command.start_transaction();
     let tx_description = if commits.len() == 1 {
@@ -172,12 +173,7 @@ pub(crate) fn cmd_describe(
 
         if let [(_, temp_commit)] = &*temp_commits {
             let template = description_template(ui, &tx, "", temp_commit)?;
-            let description = edit_description(
-                tx.base_workspace_helper().repo_path(),
-                &template,
-                command.settings(),
-            )?;
-
+            let description = edit_description(&text_editor, &template)?;
             vec![(&commits[0], description)]
         } else {
             let ParsedBulkEditMessage {
@@ -185,7 +181,7 @@ pub(crate) fn cmd_describe(
                 missing,
                 duplicates,
                 unexpected,
-            } = edit_multiple_descriptions(ui, &tx, &temp_commits, command.settings())?;
+            } = edit_multiple_descriptions(ui, &text_editor, &tx, &temp_commits)?;
             if !missing.is_empty() {
                 return Err(user_error(format!(
                     "The description for the following commits were not found in the edited \

@@ -157,6 +157,7 @@ pub(crate) fn cmd_squash(
         .to_matcher();
     let diff_selector =
         workspace_command.diff_selector(ui, args.tool.as_deref(), args.interactive)?;
+    let text_editor = workspace_command.text_editor()?;
     let description = SquashedDescription::from_args(args);
     workspace_command
         .check_rewritable(sources.iter().chain(std::iter::once(&destination)).ids())?;
@@ -164,7 +165,6 @@ pub(crate) fn cmd_squash(
     let mut tx = workspace_command.start_transaction();
     let tx_description = format!("squash commits into {}", destination.id().hex());
     let source_commits = select_diff(&tx, &sources, &destination, &matcher, &diff_selector)?;
-    let repo_path = tx.base_workspace_helper().repo_path().to_owned();
     match rewrite::squash_commits(
         tx.repo_mut(),
         &source_commits,
@@ -175,12 +175,7 @@ pub(crate) fn cmd_squash(
             SquashedDescription::UseDestination => Ok(destination.description().to_owned()),
             SquashedDescription::Combine => {
                 let abandoned_commits = abandoned_commits.iter().map(|c| &c.commit).collect_vec();
-                combine_messages(
-                    &repo_path,
-                    &abandoned_commits,
-                    &destination,
-                    command.settings(),
-                )
+                combine_messages(&text_editor, &abandoned_commits, &destination)
             }
         },
     )? {

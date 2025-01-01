@@ -19,7 +19,6 @@ use jj_lib::file_util::PathError;
 use jj_lib::settings::UserSettings;
 use thiserror::Error;
 
-use crate::cli_util::edit_temp_file;
 use crate::cli_util::short_commit_hash;
 use crate::cli_util::WorkspaceCommandTransaction;
 use crate::command_error::CommandError;
@@ -155,24 +154,16 @@ where
     text_util::complete_newline(description.trim_matches('\n'))
 }
 
-pub fn edit_description(
-    repo_path: &Path,
-    description: &str,
-    settings: &UserSettings,
-) -> Result<String, CommandError> {
+pub fn edit_description(editor: &TextEditor, description: &str) -> Result<String, CommandError> {
     let description = format!(
         r#"{description}
 JJ: Lines starting with "JJ:" (like this one) will be removed.
 "#
     );
 
-    let description = edit_temp_file(
-        "description",
-        ".jjdescription",
-        repo_path,
-        &description,
-        settings,
-    )?;
+    let description = editor
+        .edit_str(description, Some(".jjdescription"))
+        .map_err(|err| err.with_name("description"))?;
 
     Ok(cleanup_description_lines(description.lines()))
 }
@@ -180,9 +171,9 @@ JJ: Lines starting with "JJ:" (like this one) will be removed.
 /// Edits the descriptions of the given commits in a single editor session.
 pub fn edit_multiple_descriptions(
     ui: &Ui,
+    editor: &TextEditor,
     tx: &WorkspaceCommandTransaction,
     commits: &[(&CommitId, Commit)],
-    settings: &UserSettings,
 ) -> Result<ParsedBulkEditMessage<CommitId>, CommandError> {
     let mut commits_map = IndexMap::new();
     let mut bulk_message = String::new();
@@ -206,13 +197,9 @@ pub fn edit_multiple_descriptions(
     }
     bulk_message.push_str("JJ: Lines starting with \"JJ: \" (like this one) will be removed.\n");
 
-    let bulk_message = edit_temp_file(
-        "description",
-        ".jjdescription",
-        tx.base_workspace_helper().repo_path(),
-        &bulk_message,
-        settings,
-    )?;
+    let bulk_message = editor
+        .edit_str(bulk_message, Some(".jjdescription"))
+        .map_err(|err| err.with_name("description"))?;
 
     Ok(parse_bulk_edit_message(&bulk_message, &commits_map)?)
 }
@@ -300,10 +287,9 @@ where
 /// then that one is used. Otherwise we concatenate the messages and ask the
 /// user to edit the result in their editor.
 pub fn combine_messages(
-    repo_path: &Path,
+    editor: &TextEditor,
     sources: &[&Commit],
     destination: &Commit,
-    settings: &UserSettings,
 ) -> Result<String, CommandError> {
     let non_empty = sources
         .iter()
@@ -330,7 +316,7 @@ pub fn combine_messages(
         combined.push_str("\nJJ: Description from source commit:\n");
         combined.push_str(commit.description());
     }
-    edit_description(repo_path, &combined, settings)
+    edit_description(editor, &combined)
 }
 
 /// Create a description from a list of paragraphs.

@@ -87,6 +87,7 @@ pub(crate) fn cmd_commit(
     let advanceable_bookmarks = workspace_command.get_advanceable_bookmarks(commit.parent_ids())?;
     let diff_selector =
         workspace_command.diff_selector(ui, args.tool.as_deref(), args.interactive)?;
+    let text_editor = workspace_command.text_editor()?;
     let mut tx = workspace_command.start_transaction();
     let base_tree = commit.parent_tree(tx.repo())?;
     let format_instructions = || {
@@ -138,11 +139,7 @@ new working-copy commit.
         }
         let temp_commit = commit_builder.write_hidden()?;
         let template = description_template(ui, &tx, "", &temp_commit)?;
-        edit_description(
-            tx.base_workspace_helper().repo_path(),
-            &template,
-            command.settings(),
-        )?
+        edit_description(&text_editor, &template)?
     };
     commit_builder.set_description(description);
     let new_commit = commit_builder.write(tx.repo_mut())?;

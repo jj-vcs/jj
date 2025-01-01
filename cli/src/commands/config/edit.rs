@@ -15,7 +15,6 @@
 use tracing::instrument;
 
 use super::ConfigLevelArgs;
-use crate::cli_util::run_ui_editor;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::ui::Ui;
@@ -36,9 +35,11 @@ pub fn cmd_config_edit(
     command: &CommandHelper,
     args: &ConfigEditArgs,
 ) -> Result<(), CommandError> {
+    let editor = command.text_editor()?;
     let file = args.level.edit_config_file(command)?;
     if !file.path().exists() {
         file.save()?;
     }
-    run_ui_editor(command.settings(), file.path())
+    editor.edit_file(file.path())?;
+    Ok(())
 }

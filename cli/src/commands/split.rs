@@ -101,6 +101,7 @@ pub(crate) fn cmd_split(
         args.tool.as_deref(),
         args.interactive || args.paths.is_empty(),
     )?;
+    let text_editor = workspace_command.text_editor()?;
     let mut tx = workspace_command.start_transaction();
     let end_tree = commit.tree()?;
     let base_tree = commit.parent_tree(tx.repo())?;
@@ -151,11 +152,7 @@ The remainder will be in the second commit.
             "Enter a description for the first commit.",
             &temp_commit,
         )?;
-        let description = edit_description(
-            tx.base_workspace_helper().repo_path(),
-            &template,
-            command.settings(),
-        )?;
+        let description = edit_description(&text_editor, &template)?;
         commit_builder.set_description(description);
         commit_builder.write(tx.repo_mut())?
     };
@@ -195,11 +192,7 @@ The remainder will be in the second commit.
                 "Enter a description for the second commit.",
                 &temp_commit,
             )?;
-            edit_description(
-                tx.base_workspace_helper().repo_path(),
-                &template,
-                command.settings(),
-            )?
+            edit_description(&text_editor, &template)?
         };
         commit_builder.set_description(description);
         commit_builder.write(tx.repo_mut())?

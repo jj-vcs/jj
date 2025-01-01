@@ -17,15 +17,14 @@ use std::path::Path;
 
 use itertools::Itertools;
 use jj_lib::repo_path::RepoPathBuf;
-use jj_lib::settings::UserSettings;
 use tracing::instrument;
 
 use super::update_sparse_patterns_with;
-use crate::cli_util::edit_temp_file;
 use crate::cli_util::CommandHelper;
 use crate::command_error::internal_error;
 use crate::command_error::user_error_with_message;
 use crate::command_error::CommandError;
+use crate::description_util::TextEditor;
 use crate::ui::Ui;
 
 /// Start an editor to update the patterns that are present in the working copy
@@ -39,9 +38,9 @@ pub fn cmd_sparse_edit(
     _args: &SparseEditArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
-    let repo_path = workspace_command.repo_path().to_owned();
+    let editor = workspace_command.text_editor()?;
     update_sparse_patterns_with(ui, &mut workspace_command, |_ui, old_patterns| {
-        let mut new_patterns = edit_sparse(&repo_path, old_patterns, command.settings())?;
+        let mut new_patterns = edit_sparse(&editor, old_patterns)?;
         new_patterns.sort_unstable();
         new_patterns.dedup();
         Ok(new_patterns)
@@ -49,9 +48,8 @@ pub fn cmd_sparse_edit(
 }
 
 fn edit_sparse(
-    repo_path: &Path,
+    editor: &TextEditor,
     sparse: &[RepoPathBuf],
-    settings: &UserSettings,
 ) -> Result<Vec<RepoPathBuf>, CommandError> {
     let mut content = String::new();
     for sparse_path in sparse {
@@ -66,13 +64,9 @@ fn edit_sparse(
         writeln!(&mut content, "{path_string}").unwrap();
     }
 
-    let content = edit_temp_file(
-        "sparse patterns",
-        ".jjsparse",
-        repo_path,
-        &content,
-        settings,
-    )?;
+    let content = editor
+        .edit_str(content, Some(".jjsparse"))
+        .map_err(|err| err.with_name("sparse patterns"))?;
 
     content
         .lines()

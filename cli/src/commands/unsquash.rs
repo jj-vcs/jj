@@ -78,6 +78,7 @@ pub(crate) fn cmd_unsquash(
     } else {
         None
     };
+    let text_editor = workspace_command.text_editor()?;
     let mut tx = workspace_command.start_transaction();
     let parent_base_tree = parent.parent_tree(tx.repo())?;
     let new_parent_tree_id;
@@ -116,12 +117,7 @@ aborted.
     // case).
     if new_parent_tree_id == parent_base_tree.id() {
         tx.repo_mut().record_abandoned_commit(parent.id().clone());
-        let description = combine_messages(
-            tx.base_workspace_helper().repo_path(),
-            &[&parent],
-            &commit,
-            command.settings(),
-        )?;
+        let description = combine_messages(&text_editor, &[&parent], &commit)?;
         // Commit the new child on top of the parent's parents.
         tx.repo_mut()
             .rewrite_commit(&commit)

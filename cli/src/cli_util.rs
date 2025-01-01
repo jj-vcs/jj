@@ -2836,26 +2836,6 @@ impl LogContentFormat {
     }
 }
 
-pub fn run_ui_editor(settings: &UserSettings, edit_path: &Path) -> Result<(), CommandError> {
-    let editor = TextEditor::from_settings(settings)?;
-    editor.edit_file(edit_path)?;
-    Ok(())
-}
-
-pub fn edit_temp_file(
-    error_name: &str,
-    tempfile_suffix: &str,
-    dir: &Path,
-    content: &str,
-    settings: &UserSettings,
-) -> Result<String, CommandError> {
-    let editor = TextEditor::from_settings(settings)?.with_temp_dir(dir);
-    let edited = editor
-        .edit_str(content, Some(tempfile_suffix))
-        .map_err(|err| err.with_name(error_name))?;
-    Ok(edited)
-}
-
 pub fn short_commit_hash(commit_id: &CommitId) -> String {
     format!("{commit_id:.12}")
 }
