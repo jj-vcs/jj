@@ -21,6 +21,7 @@ use jj_lib::matchers::Matcher;
 use jj_lib::object_id::ObjectId;
 use jj_lib::repo::Repo;
 use jj_lib::rewrite;
+use jj_lib::rewrite::CommitToSquash;
 use jj_lib::settings::UserSettings;
 use tracing::instrument;
 
@@ -218,38 +219,7 @@ fn move_diff(
     tx.base_workspace_helper()
         .check_rewritable(sources.iter().chain(std::iter::once(destination)).ids())?;
 
-    let mut source_commits = vec![];
-    for source in sources {
-        let parent_tree = source.parent_tree(tx.repo())?;
-        let source_tree = source.tree()?;
-        let format_instructions = || {
-            format!(
-                "\
-You are moving changes from: {}
-into commit: {}
-
-The left side of the diff shows the contents of the parent commit. The
-right side initially shows the contents of the commit you're moving
-changes from.
-
-Adjust the right side until the diff shows the changes you want to move
-to the destination. If you don't make any changes, then all the changes
-from the source will be moved into the destination.
-",
-                tx.format_commit_summary(source),
-                tx.format_commit_summary(destination)
-            )
-        };
-        let selected_tree_id =
-            diff_selector.select(&parent_tree, &source_tree, matcher, format_instructions)?;
-        let selected_tree = tx.repo().store().get_root_tree(&selected_tree_id)?;
-
-        source_commits.push(rewrite::CommitToSquash {
-            commit: source.clone(),
-            selected_tree,
-            parent_tree,
-        });
-    }
+    let source_commits = select_diff(tx, sources, destination, matcher, diff_selector)?;
 
     let repo_path = tx.base_workspace_helper().repo_path().to_owned();
     match rewrite::squash_commits(
@@ -290,4 +260,45 @@ from the source will be moved into the destination.
         }
         rewrite::SquashResult::NewCommit(_) => Ok(()),
     }
+}
+
+fn select_diff(
+    tx: &WorkspaceCommandTransaction,
+    sources: &[Commit],
+    destination: &Commit,
+    matcher: &dyn Matcher,
+    diff_selector: &DiffSelector,
+) -> Result<Vec<CommitToSquash>, CommandError> {
+    let mut source_commits = vec![];
+    for source in sources {
+        let parent_tree = source.parent_tree(tx.repo())?;
+        let source_tree = source.tree()?;
+        let format_instructions = || {
+            format!(
+                "\
+You are moving changes from: {}
+into commit: {}
+
+The left side of the diff shows the contents of the parent commit. The
+right side initially shows the contents of the commit you're moving
+changes from.
+
+Adjust the right side until the diff shows the changes you want to move
+to the destination. If you don't make any changes, then all the changes
+from the source will be moved into the destination.
+",
+                tx.format_commit_summary(source),
+                tx.format_commit_summary(destination)
+            )
+        };
+        let selected_tree_id =
+            diff_selector.select(&parent_tree, &source_tree, matcher, format_instructions)?;
+        let selected_tree = tx.repo().store().get_root_tree(&selected_tree_id)?;
+        source_commits.push(CommitToSquash {
+            commit: source.clone(),
+            selected_tree,
+            parent_tree,
+        });
+    }
+    Ok(source_commits)
 }
