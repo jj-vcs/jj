@@ -1,6 +1,10 @@
 use std::collections::HashMap;
+use std::fs;
+use std::io;
 use std::io::Write as _;
 use std::path::Path;
+use std::path::PathBuf;
+use std::process::ExitStatus;
 
 use bstr::ByteVec as _;
 use indexmap::IndexMap;
@@ -9,6 +13,9 @@ use itertools::FoldWhile;
 use itertools::Itertools;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
+use jj_lib::config::ConfigGetError;
+use jj_lib::file_util::IoResultExt as _;
+use jj_lib::file_util::PathError;
 use jj_lib::settings::UserSettings;
 use thiserror::Error;
 
@@ -16,9 +23,114 @@ use crate::cli_util::edit_temp_file;
 use crate::cli_util::short_commit_hash;
 use crate::cli_util::WorkspaceCommandTransaction;
 use crate::command_error::CommandError;
+use crate::config::CommandNameAndArgs;
 use crate::formatter::PlainTextFormatter;
 use crate::text_util;
 use crate::ui::Ui;
+
+#[derive(Debug, Error)]
+pub enum TextEditError {
+    #[error("Failed to run editor '{name}'")]
+    FailedToRun { name: String, source: io::Error },
+    #[error("Editor '{command}' exited with {status}")]
+    ExitStatus { command: String, status: ExitStatus },
+}
+
+#[derive(Debug, Error)]
+#[error("Failed to edit {name}", name = name.as_deref().unwrap_or("file"))]
+pub struct TempTextEditError {
+    #[source]
+    pub error: Box<dyn std::error::Error + Send + Sync>,
+    /// Short description of the edited content.
+    pub name: Option<String>,
+    /// Path to the temporary file.
+    pub path: Option<PathBuf>,
+}
+
+impl TempTextEditError {
+    fn new(error: Box<dyn std::error::Error + Send + Sync>, path: Option<PathBuf>) -> Self {
+        TempTextEditError {
+            error,
+            name: None,
+            path,
+        }
+    }
+
+    /// Adds short description of the edited content.
+    pub fn with_name(mut self, name: impl Into<String>) -> Self {
+        self.name = Some(name.into());
+        self
+    }
+}
+
+/// Configured text editor.
+#[derive(Clone, Debug)]
+pub struct TextEditor {
+    editor: CommandNameAndArgs,
+    dir: Option<PathBuf>,
+}
+
+impl TextEditor {
+    pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
+        let editor = settings.get("ui.editor")?;
+        Ok(TextEditor { editor, dir: None })
+    }
+
+    pub fn with_temp_dir(mut self, dir: impl Into<PathBuf>) -> Self {
+        self.dir = Some(dir.into());
+        self
+    }
+
+    /// Opens the given `path` in editor.
+    pub fn edit_file(&self, path: impl AsRef<Path>) -> Result<(), TextEditError> {
+        let mut cmd = self.editor.to_command();
+        cmd.arg(path.as_ref());
+        tracing::info!(?cmd, "running editor");
+        let status = cmd.status().map_err(|source| TextEditError::FailedToRun {
+            name: self.editor.split_name().into_owned(),
+            source,
+        })?;
+        if status.success() {
+            Ok(())
+        } else {
+            let command = self.editor.to_string();
+            Err(TextEditError::ExitStatus { command, status })
+        }
+    }
+
+    /// Writes the given `content` to temporary file and opens it in editor.
+    pub fn edit_str(
+        &self,
+        content: impl AsRef<[u8]>,
+        suffix: Option<&str>,
+    ) -> Result<String, TempTextEditError> {
+        let path = self
+            .write_temp_file(content.as_ref(), suffix)
+            .map_err(|err| TempTextEditError::new(err.into(), None))?;
+        self.edit_file(&path)
+            .map_err(|err| TempTextEditError::new(err.into(), Some(path.clone())))?;
+        let edited = fs::read_to_string(&path)
+            .context(&path)
+            .map_err(|err| TempTextEditError::new(err.into(), Some(path.clone())))?;
+        // Delete the file only if everything went well.
+        fs::remove_file(path).ok();
+        Ok(edited)
+    }
+
+    fn write_temp_file(&self, content: &[u8], suffix: Option<&str>) -> Result<PathBuf, PathError> {
+        let dir = self.dir.clone().unwrap_or_else(tempfile::env::temp_dir);
+        let mut file = tempfile::Builder::new()
+            .prefix("editor-")
+            .suffix(suffix.unwrap_or(""))
+            .tempfile_in(&dir)
+            .context(&dir)?;
+        file.write_all(content).context(file.path())?;
+        let (_, path) = file
+            .keep()
+            .or_else(|err| Err(err.error).context(err.file.path()))?;
+        Ok(path)
+    }
+}
 
 /// Cleanup a description by normalizing line endings, and removing leading and
 /// trailing blank lines.

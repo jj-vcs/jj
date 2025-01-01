@@ -140,9 +140,17 @@ fn test_describe() {
     std::fs::write(&edit_script, "fail").unwrap();
     let stderr = test_env.jj_cmd_failure(&repo_path, &["describe"]);
     insta::with_settings!({
-        filters => [(r"\bEditor '[^']*'", "Editor '<redacted>'")],
+        filters => [
+            (r"\bEditor '[^']*'", "Editor '<redacted>'"),
+            (r"\b(editor-)[^.]*(\.jjdescription)\b", "$1<redacted>$2"),
+            ("exit code", "exit status"), // Windows
+        ],
     }, {
-        insta::assert_snapshot!(stderr, @"Error: Editor '<redacted>' exited with an error");
+        insta::assert_snapshot!(stderr, @r"
+        Error: Failed to edit description
+        Caused by: Editor '<redacted>' exited with exit status: 1
+        Hint: Edited description is left in $TEST_ENV/repo/.jj/repo/editor-<redacted>.jjdescription
+        ");
     });
 
     // ignore everything after the first ignore-rest line
@@ -417,9 +425,17 @@ fn test_describe_multiple_commits() {
     std::fs::write(&edit_script, "fail").unwrap();
     let stderr = test_env.jj_cmd_failure(&repo_path, &["describe", "@", "@-"]);
     insta::with_settings!({
-        filters => [(r"\bEditor '[^']*'", "Editor '<redacted>'")],
+        filters => [
+            (r"\bEditor '[^']*'", "Editor '<redacted>'"),
+            (r"\b(editor-)[^.]*(\.jjdescription)\b", "$1<redacted>$2"),
+            ("exit code", "exit status"), // Windows
+        ],
     }, {
-        insta::assert_snapshot!(stderr, @"Error: Editor '<redacted>' exited with an error");
+        insta::assert_snapshot!(stderr, @r"
+        Error: Failed to edit description
+        Caused by: Editor '<redacted>' exited with exit status: 1
+        Hint: Edited description is left in $TEST_ENV/repo/.jj/repo/editor-<redacted>.jjdescription
+        ");
     });
 
     // describe lines should take priority over ignore-rest

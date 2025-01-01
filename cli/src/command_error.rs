@@ -62,6 +62,8 @@ use thiserror::Error;
 use crate::cli_util::short_operation_hash;
 use crate::config::ConfigEnvError;
 use crate::description_util::ParseBulkEditMessageError;
+use crate::description_util::TempTextEditError;
+use crate::description_util::TextEditError;
 use crate::diff_util::DiffRenderError;
 use crate::formatter::FormatRecorder;
 use crate::formatter::Formatter;
@@ -440,6 +442,24 @@ impl From<MergeToolConfigError> for CommandError {
             }
             _ => user_error_with_message("Failed to load tool configuration", err),
         }
+    }
+}
+
+impl From<TextEditError> for CommandError {
+    fn from(err: TextEditError) -> Self {
+        user_error(err)
+    }
+}
+
+impl From<TempTextEditError> for CommandError {
+    fn from(err: TempTextEditError) -> Self {
+        let hint = err.path.as_ref().map(|path| {
+            let name = err.name.as_deref().unwrap_or("file");
+            format!("Edited {name} is left in {path}", path = path.display())
+        });
+        let mut cmd_err = user_error(err);
+        cmd_err.extend_hints(hint);
+        cmd_err
     }
 }
 

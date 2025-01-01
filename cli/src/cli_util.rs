@@ -21,7 +21,6 @@ use std::env::VarError;
 use std::ffi::OsString;
 use std::fmt;
 use std::fmt::Debug;
-use std::fs;
 use std::io;
 use std::io::Write as _;
 use std::iter;
@@ -149,17 +148,16 @@ use crate::command_error::internal_error_with_message;
 use crate::command_error::print_parse_diagnostics;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_hint;
-use crate::command_error::user_error_with_message;
 use crate::command_error::CommandError;
 use crate::commit_templater::CommitTemplateLanguage;
 use crate::commit_templater::CommitTemplateLanguageExtension;
 use crate::complete;
 use crate::config::config_from_environment;
 use crate::config::parse_config_args;
-use crate::config::CommandNameAndArgs;
 use crate::config::ConfigArgKind;
 use crate::config::ConfigEnv;
 use crate::config::RawConfig;
+use crate::description_util::TextEditor;
 use crate::diff_util;
 use crate::diff_util::DiffFormat;
 use crate::diff_util::DiffFormatArgs;
@@ -341,6 +339,11 @@ impl CommandHelper {
 
     pub fn settings(&self) -> &UserSettings {
         &self.data.settings
+    }
+
+    /// Loads text editor from the settings.
+    pub fn text_editor(&self) -> Result<TextEditor, ConfigGetError> {
+        TextEditor::from_settings(self.settings())
     }
 
     pub fn revset_extensions(&self) -> &Arc<RevsetExtensions> {
@@ -1449,6 +1452,13 @@ to the current parents may contain changes from multiple commits.
         } else {
             MergeEditor::from_settings(ui, self.settings(), conflict_marker_style)
         }
+    }
+
+    /// Loads text editor from the settings.
+    ///
+    /// Temporary files will be created in the repository directory.
+    pub fn text_editor(&self) -> Result<TextEditor, ConfigGetError> {
+        Ok(TextEditor::from_settings(self.settings())?.with_temp_dir(self.repo_path()))
     }
 
     pub fn resolve_single_op(&self, op_str: &str) -> Result<Operation, OpsetEvaluationError> {
@@ -2827,26 +2837,8 @@ impl LogContentFormat {
 }
 
 pub fn run_ui_editor(settings: &UserSettings, edit_path: &Path) -> Result<(), CommandError> {
-    let editor: CommandNameAndArgs = settings.get("ui.editor")?;
-    let mut cmd = editor.to_command();
-    cmd.arg(edit_path);
-    tracing::info!(?cmd, "running editor");
-    let exit_status = cmd.status().map_err(|err| {
-        user_error_with_message(
-            format!(
-                // The executable couldn't be found or run; command-line arguments are not relevant
-                "Failed to run editor '{name}'",
-                name = editor.split_name(),
-            ),
-            err,
-        )
-    })?;
-    if !exit_status.success() {
-        return Err(user_error(format!(
-            "Editor '{editor}' exited with an error"
-        )));
-    }
-
+    let editor = TextEditor::from_settings(settings)?;
+    editor.edit_file(edit_path)?;
     Ok(())
 }
 
@@ -2857,39 +2849,10 @@ pub fn edit_temp_file(
     content: &str,
     settings: &UserSettings,
 ) -> Result<String, CommandError> {
-    let path = (|| -> Result<_, io::Error> {
-        let mut file = tempfile::Builder::new()
-            .prefix("editor-")
-            .suffix(tempfile_suffix)
-            .tempfile_in(dir)?;
-        file.write_all(content.as_bytes())?;
-        let (_, path) = file.keep().map_err(|e| e.error)?;
-        Ok(path)
-    })()
-    .map_err(|e| {
-        user_error_with_message(
-            format!(
-                r#"Failed to create {} file in "{}""#,
-                error_name,
-                dir.display(),
-            ),
-            e,
-        )
-    })?;
-
-    run_ui_editor(settings, &path)?;
-
-    let edited = fs::read_to_string(&path).map_err(|e| {
-        user_error_with_message(
-            format!(r#"Failed to read {} file "{}""#, error_name, path.display()),
-            e,
-        )
-    })?;
-
-    // Delete the file only if everything went well.
-    // TODO: Tell the user the name of the file we left behind.
-    std::fs::remove_file(path).ok();
-
+    let editor = TextEditor::from_settings(settings)?.with_temp_dir(dir);
+    let edited = editor
+        .edit_str(content, Some(tempfile_suffix))
+        .map_err(|err| err.with_name(error_name))?;
     Ok(edited)
 }
 
