@@ -139,7 +139,11 @@ fn test_describe() {
     // Fails if the editor fails
     std::fs::write(&edit_script, "fail").unwrap();
     let stderr = test_env.jj_cmd_failure(&repo_path, &["describe"]);
-    assert!(stderr.contains("exited with an error"));
+    insta::with_settings!({
+        filters => [(r"\bEditor '[^']*'", "Editor '<redacted>'")],
+    }, {
+        insta::assert_snapshot!(stderr, @"Error: Editor '<redacted>' exited with an error");
+    });
 
     // ignore everything after the first ignore-rest line
     std::fs::write(
@@ -412,7 +416,11 @@ fn test_describe_multiple_commits() {
     // Fails if the editor fails
     std::fs::write(&edit_script, "fail").unwrap();
     let stderr = test_env.jj_cmd_failure(&repo_path, &["describe", "@", "@-"]);
-    assert!(stderr.contains("exited with an error"));
+    insta::with_settings!({
+        filters => [(r"\bEditor '[^']*'", "Editor '<redacted>'")],
+    }, {
+        insta::assert_snapshot!(stderr, @"Error: Editor '<redacted>' exited with an error");
+    });
 
     // describe lines should take priority over ignore-rest
     std::fs::write(
