@@ -161,6 +161,7 @@
       });
 
       devShells.default = pkgs.mkShell {
+        name = "jujutsu";
         packages = with pkgs; [
           # NOTE (aseipp): explicitly add rust-src to the rustc compiler only in
           # devShell. this in turn causes a dependency on the rust compiler src,
