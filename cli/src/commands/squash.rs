@@ -22,7 +22,6 @@ use jj_lib::object_id::ObjectId;
 use jj_lib::repo::Repo;
 use jj_lib::rewrite;
 use jj_lib::rewrite::CommitToSquash;
-use jj_lib::settings::UserSettings;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -157,21 +156,57 @@ pub(crate) fn cmd_squash(
         .to_matcher();
     let diff_selector =
         workspace_command.diff_selector(ui, args.tool.as_deref(), args.interactive)?;
+    let description = SquashedDescription::from_args(args);
+    workspace_command
+        .check_rewritable(sources.iter().chain(std::iter::once(&destination)).ids())?;
+
     let mut tx = workspace_command.start_transaction();
     let tx_description = format!("squash commits into {}", destination.id().hex());
-    move_diff(
-        ui,
-        &mut tx,
-        command.settings(),
-        &sources,
+    let source_commits = select_diff(&tx, &sources, &destination, &matcher, &diff_selector)?;
+    let repo_path = tx.base_workspace_helper().repo_path().to_owned();
+    match rewrite::squash_commits(
+        tx.repo_mut(),
+        &source_commits,
         &destination,
-        matcher.as_ref(),
-        &diff_selector,
-        SquashedDescription::from_args(args),
-        args.revision.is_none() && args.from.is_empty() && args.into.is_none(),
-        &args.paths,
         args.keep_emptied,
-    )?;
+        |abandoned_commits| match description {
+            SquashedDescription::Exact(description) => Ok(description),
+            SquashedDescription::UseDestination => Ok(destination.description().to_owned()),
+            SquashedDescription::Combine => {
+                let abandoned_commits = abandoned_commits.iter().map(|c| &c.commit).collect_vec();
+                combine_messages(
+                    &repo_path,
+                    &abandoned_commits,
+                    &destination,
+                    command.settings(),
+                )
+            }
+        },
+    )? {
+        rewrite::SquashResult::NoChanges => {
+            if diff_selector.is_interactive() {
+                return Err(user_error("No changes selected"));
+            }
+
+            if let [only_path] = &*args.paths {
+                let no_rev_arg =
+                    args.revision.is_none() && args.from.is_empty() && args.into.is_none();
+                if no_rev_arg
+                    && tx
+                        .base_workspace_helper()
+                        .parse_revset(ui, &RevisionArg::from(only_path.to_owned()))
+                        .is_ok()
+                {
+                    writeln!(
+                        ui.warning_default(),
+                        "The argument {only_path:?} is being interpreted as a path. To specify a \
+                         revset, pass -r {only_path:?} instead."
+                    )?;
+                }
+            }
+        }
+        rewrite::SquashResult::NewCommit(_) => {}
+    }
     tx.finish(ui, tx_description)?;
     Ok(())
 }
@@ -199,66 +234,6 @@ impl SquashedDescription {
         } else {
             SquashedDescription::Combine
         }
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-fn move_diff(
-    ui: &mut Ui,
-    tx: &mut WorkspaceCommandTransaction,
-    settings: &UserSettings,
-    sources: &[Commit],
-    destination: &Commit,
-    matcher: &dyn Matcher,
-    diff_selector: &DiffSelector,
-    description: SquashedDescription,
-    no_rev_arg: bool,
-    path_arg: &[String],
-    keep_emptied: bool,
-) -> Result<(), CommandError> {
-    tx.base_workspace_helper()
-        .check_rewritable(sources.iter().chain(std::iter::once(destination)).ids())?;
-
-    let source_commits = select_diff(tx, sources, destination, matcher, diff_selector)?;
-
-    let repo_path = tx.base_workspace_helper().repo_path().to_owned();
-    match rewrite::squash_commits(
-        tx.repo_mut(),
-        &source_commits,
-        destination,
-        keep_emptied,
-        |abandoned_commits| match description {
-            SquashedDescription::Exact(description) => Ok(description),
-            SquashedDescription::UseDestination => Ok(destination.description().to_owned()),
-            SquashedDescription::Combine => {
-                let abandoned_commits = abandoned_commits.iter().map(|c| &c.commit).collect_vec();
-                combine_messages(&repo_path, &abandoned_commits, destination, settings)
-            }
-        },
-    )? {
-        rewrite::SquashResult::NoChanges => {
-            if diff_selector.is_interactive() {
-                return Err(user_error("No changes selected"));
-            }
-
-            if let [only_path] = path_arg {
-                if no_rev_arg
-                    && tx
-                        .base_workspace_helper()
-                        .parse_revset(ui, &RevisionArg::from(only_path.to_owned()))
-                        .is_ok()
-                {
-                    writeln!(
-                        ui.warning_default(),
-                        "The argument {only_path:?} is being interpreted as a path. To specify a \
-                         revset, pass -r {only_path:?} instead."
-                    )?;
-                }
-            }
-
-            Ok(())
-        }
-        rewrite::SquashResult::NewCommit(_) => Ok(()),
     }
 }
 
