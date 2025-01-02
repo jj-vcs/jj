@@ -887,9 +887,7 @@ fn diff_content(
             is_binary: false,
             contents: format!("Access denied: {err}").into_bytes(),
         }),
-        MaterializedTreeValue::File { mut reader, .. } => {
-            file_content_for_diff(&mut reader).map_err(Into::into)
-        }
+        MaterializedTreeValue::File { mut reader, .. } => file_content_for_diff(&mut reader),
         MaterializedTreeValue::Symlink { id: _, target } => Ok(FileContent {
             // Unix file paths can't contain null bytes.
             is_binary: false,
