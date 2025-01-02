@@ -152,21 +152,8 @@ impl UserSettings {
         let operation_timestamp = config
             .get_value_with("debug.operation-timestamp", to_timestamp)
             .optional()?;
-        // Instead of handling environment data here, it might be better to load
-        // them by CLI and insert as a config layer.
-        // TODO: warn empty hostname/username by CLI?
-        let operation_hostname = config
-            .get("operation.hostname")
-            .optional()?
-            .map_or_else(whoami::fallible::hostname, Ok)
-            .inspect_err(|err| tracing::warn!(?err, "operation.hostname couldn't be set"))
-            .unwrap_or_default();
-        let operation_username = config
-            .get("operation.username")
-            .optional()?
-            .map_or_else(whoami::fallible::username, Ok)
-            .inspect_err(|err| tracing::warn!(?err, "operation.username couldn't be set"))
-            .unwrap_or_default();
+        let operation_hostname = config.get("operation.hostname")?;
+        let operation_username = config.get("operation.username")?;
         let data = UserSettingsData {
             user_name,
             user_email,

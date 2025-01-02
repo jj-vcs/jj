@@ -2056,7 +2056,6 @@ dependencies = [
  "tracing",
  "version_check",
  "watchman_client",
- "whoami",
  "winreg",
  "zstd",
 ]

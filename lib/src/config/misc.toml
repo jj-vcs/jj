@@ -14,8 +14,8 @@ abandon-unreachable-commits = true
 # auto-local-bookmark = false
 
 [operation]
-# hostname = <host>
-# username = <user>
+hostname = ""
+username = ""
 
 [signing]
 backend = "none"

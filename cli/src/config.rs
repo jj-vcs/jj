@@ -438,9 +438,23 @@ pub fn config_from_environment(default_layers: impl IntoIterator<Item = ConfigLa
     RawConfig(config)
 }
 
+const OP_HOSTNAME: &str = "operation.hostname";
+const OP_USERNAME: &str = "operation.username";
+
 /// Environment variables that should be overridden by config values
 fn env_base_layer() -> ConfigLayer {
     let mut layer = ConfigLayer::empty(ConfigSource::EnvBase);
+    // TODO: warn if hostname/username is empty after loading config files?
+    if let Ok(value) = whoami::fallible::hostname()
+        .inspect_err(|err| tracing::warn!(?err, "failed to get hostname"))
+    {
+        layer.set_value(OP_HOSTNAME, value).unwrap();
+    }
+    if let Ok(value) = whoami::fallible::username()
+        .inspect_err(|err| tracing::warn!(?err, "failed to get username"))
+    {
+        layer.set_value(OP_USERNAME, value).unwrap();
+    }
     if !env::var("NO_COLOR").unwrap_or_default().is_empty() {
         // "User-level configuration files and per-instance command-line arguments
         // should override $NO_COLOR." https://no-color.org/
@@ -496,10 +510,10 @@ fn env_overrides_layer() -> ConfigLayer {
         layer.set_value("debug.operation-timestamp", value).unwrap();
     }
     if let Ok(value) = env::var("JJ_OP_HOSTNAME") {
-        layer.set_value("operation.hostname", value).unwrap();
+        layer.set_value(OP_HOSTNAME, value).unwrap();
     }
     if let Ok(value) = env::var("JJ_OP_USERNAME") {
-        layer.set_value("operation.username", value).unwrap();
+        layer.set_value(OP_USERNAME, value).unwrap();
     }
     if let Ok(value) = env::var("JJ_EDITOR") {
         layer.set_value("ui.editor", value).unwrap();
