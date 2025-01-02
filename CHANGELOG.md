@@ -157,7 +157,7 @@ changes. Two select improvements:
   `--config-file=PATH`.
 
 * The `Signature.username()` template method is deprecated for
-  `Signature().email().local()`.
+  `Signature.email().local()`.
 
 ### New features
 
