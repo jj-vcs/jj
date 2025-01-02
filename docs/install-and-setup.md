@@ -276,3 +276,14 @@ source-bash $(jj util completion)
 ```
 
 (dynamic completions not available yet)
+
+### Powershell
+
+Insert this line in your $PROFILE file:
+(usually $HOME\Documents\PowerShell\Microsoft.PowerShell_profile.ps1)
+
+```shell
+Invoke-Expression (& { (jj util completion power-shell | Out-String) })
+```
+
+(dynamic completions not available yet)
