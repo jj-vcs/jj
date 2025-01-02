@@ -152,28 +152,21 @@ impl UserSettings {
         let operation_timestamp = config
             .get_value_with("debug.operation-timestamp", to_timestamp)
             .optional()?;
-        // whoami::fallible::*() failure isn't a ConfigGetError, but user would
-        // have to set the corresponding config keys if these parameter can't be
-        // obtained from the system. Instead of handling environment data here,
-        // it might be better to load them by CLI and insert as a config layer.
+        // Instead of handling environment data here, it might be better to load
+        // them by CLI and insert as a config layer.
+        // TODO: warn empty hostname/username by CLI?
         let operation_hostname = config
             .get("operation.hostname")
             .optional()?
             .map_or_else(whoami::fallible::hostname, Ok)
-            .map_err(|err| ConfigGetError::Type {
-                name: "operation.hostname".to_owned(),
-                error: err.into(),
-                source_path: None,
-            })?;
+            .inspect_err(|err| tracing::warn!(?err, "operation.hostname couldn't be set"))
+            .unwrap_or_default();
         let operation_username = config
             .get("operation.username")
             .optional()?
             .map_or_else(whoami::fallible::username, Ok)
-            .map_err(|err| ConfigGetError::Type {
-                name: "operation.username".to_owned(),
-                error: err.into(),
-                source_path: None,
-            })?;
+            .inspect_err(|err| tracing::warn!(?err, "operation.username couldn't be set"))
+            .unwrap_or_default();
         let data = UserSettingsData {
             user_name,
             user_email,
