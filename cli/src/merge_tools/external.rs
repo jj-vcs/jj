@@ -212,7 +212,7 @@ pub fn run_mergetool_external(
     };
 
     let temp_dir = new_utf8_temp_dir("jj-resolve-").map_err(ExternalToolError::SetUpDir)?;
-    let suffix = if let Some(filename) = repo_path.components().last() {
+    let suffix = if let Some(filename) = repo_path.components().next_back() {
         let name = filename
             .to_fs_name()
             .map_err(|err| err.with_path(repo_path))?;
