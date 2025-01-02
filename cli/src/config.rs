@@ -444,7 +444,6 @@ const OP_USERNAME: &str = "operation.username";
 /// Environment variables that should be overridden by config values
 fn env_base_layer() -> ConfigLayer {
     let mut layer = ConfigLayer::empty(ConfigSource::EnvBase);
-    // TODO: warn if hostname/username is empty after loading config files?
     if let Ok(value) = whoami::fallible::hostname()
         .inspect_err(|err| tracing::warn!(?err, "failed to get hostname"))
     {
@@ -453,6 +452,10 @@ fn env_base_layer() -> ConfigLayer {
     if let Ok(value) = whoami::fallible::username()
         .inspect_err(|err| tracing::warn!(?err, "failed to get username"))
     {
+        layer.set_value(OP_USERNAME, value).unwrap();
+    } else if let Ok(value) = env::var("USER") {
+        // On Unix, $USER is set by login(1). Use it as a fallback because
+        // getpwuid() of musl libc appears not (fully?) supporting nsswitch.
         layer.set_value(OP_USERNAME, value).unwrap();
     }
     if !env::var("NO_COLOR").unwrap_or_default().is_empty() {
