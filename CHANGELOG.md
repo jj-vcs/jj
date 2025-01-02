@@ -127,7 +127,7 @@ changes. Two select improvements:
 * The following configuration variables are now parsed strictly:
   `colors.<labels>`, `git.abandon-unreachable-commits`,
   `git.auto-local-bookmark`, `git.push-bookmark-prefix`, `revsets.log`,
-  `revsets.short-prefixes` `signing.backend`, `operation.hostname`,
+  `revsets.short-prefixes`, `signing.backend`, `operation.hostname`,
   `operation.username`, `ui.allow-init-native`, `ui.color`,
   `ui.default-description`, `ui.progress-indicator`, `ui.quiet`, `user.email`,
   `user.name`
