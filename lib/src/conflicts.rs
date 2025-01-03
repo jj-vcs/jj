@@ -58,6 +58,15 @@ pub const MIN_CONFLICT_MARKER_LEN: usize = 7;
 /// existing markers.
 const CONFLICT_MARKER_LEN_INCREMENT: usize = 4;
 
+/// Marker for missing terminating newline in a term of a conflict.
+const NO_EOL_MARKER: &str = " [noeol]";
+
+/// Marker for missing terminating newline in the "add" side of a diff.
+const ADD_NO_EOL_MARKER: &str = " [+noeol]";
+
+/// Marker for missing terminating newline in the "remove" side of a diff.
+const REMOVE_NO_EOL_MARKER: &str = " [-noeol]";
+
 fn write_diff_hunks(hunks: &[DiffHunk], file: &mut dyn Write) -> io::Result<()> {
     for hunk in hunks {
         match hunk.kind {
@@ -65,17 +74,17 @@ fn write_diff_hunks(hunks: &[DiffHunk], file: &mut dyn Write) -> io::Result<()> 
                 debug_assert!(hunk.contents.iter().all_equal());
                 for line in hunk.contents[0].lines_with_terminator() {
                     file.write_all(b" ")?;
-                    file.write_all(line)?;
+                    write_and_ensure_newline(file, line)?;
                 }
             }
             DiffHunkKind::Different => {
                 for line in hunk.contents[0].lines_with_terminator() {
                     file.write_all(b"-")?;
-                    file.write_all(line)?;
+                    write_and_ensure_newline(file, line)?;
                 }
                 for line in hunk.contents[1].lines_with_terminator() {
                     file.write_all(b"+")?;
-                    file.write_all(line)?;
+                    write_and_ensure_newline(file, line)?;
                 }
             }
         }
@@ -460,16 +469,18 @@ fn materialize_git_style_conflict(
         output,
         ConflictMarkerLineChar::ConflictStart,
         conflict_marker_len,
-        &format!("Side #1 ({conflict_info})"),
+        &format!("Side #1{} ({conflict_info})", maybe_no_eol_marker(left)),
     )?;
-    output.write_all(left)?;
+    write_and_ensure_newline(output, left)?;
+
     write_conflict_marker(
         output,
         ConflictMarkerLineChar::GitAncestor,
         conflict_marker_len,
-        "Base",
+        &format!("Base{}", maybe_no_eol_marker(base)),
     )?;
-    output.write_all(base)?;
+    write_and_ensure_newline(output, base)?;
+
     // VS Code doesn't seem to support any trailing text on the separator line
     write_conflict_marker(
         output,
@@ -477,12 +488,16 @@ fn materialize_git_style_conflict(
         conflict_marker_len,
         "",
     )?;
-    output.write_all(right)?;
+
+    write_and_ensure_newline(output, right)?;
     write_conflict_marker(
         output,
         ConflictMarkerLineChar::ConflictEnd,
         conflict_marker_len,
-        &format!("Side #2 ({conflict_info} ends)"),
+        &format!(
+            "Side #2{} ({conflict_info} ends)",
+            maybe_no_eol_marker(right)
+        ),
     )?;
 
     Ok(())
@@ -501,9 +516,13 @@ fn materialize_jj_style_conflict(
             output,
             ConflictMarkerLineChar::Add,
             conflict_marker_len,
-            &format!("Contents of side #{}", add_index + 1),
+            &format!(
+                "Contents of side #{}{}",
+                add_index + 1,
+                maybe_no_eol_marker(data)
+            ),
         )?;
-        output.write_all(data)
+        write_and_ensure_newline(output, data)
     };
 
     // Write a negative snapshot (base) of a conflict
@@ -512,19 +531,34 @@ fn materialize_jj_style_conflict(
             output,
             ConflictMarkerLineChar::Remove,
             conflict_marker_len,
-            &format!("Contents of {base_str}"),
+            &format!("Contents of {base_str}{}", maybe_no_eol_marker(data)),
         )?;
-        output.write_all(data)
+        write_and_ensure_newline(output, data)
     };
 
     // Write a diff from a negative term to a positive term
     let write_diff =
         |base_str: &str, add_index: usize, diff: &[DiffHunk], output: &mut dyn Write| {
+            let no_eol_remove = diff
+                .last()
+                .is_some_and(|diff_hunk| has_no_eol(diff_hunk.contents[0]));
+            let no_eol_add = diff
+                .last()
+                .is_some_and(|diff_hunk| has_no_eol(diff_hunk.contents[1]));
+            let no_eol_marker = match (no_eol_remove, no_eol_add) {
+                (true, true) => NO_EOL_MARKER,
+                (true, _) => REMOVE_NO_EOL_MARKER,
+                (_, true) => ADD_NO_EOL_MARKER,
+                _ => "",
+            };
             write_conflict_marker(
                 output,
                 ConflictMarkerLineChar::Diff,
                 conflict_marker_len,
-                &format!("Changes from {base_str} to side #{}", add_index + 1),
+                &format!(
+                    "Changes from {base_str} to side #{}{no_eol_marker}",
+                    add_index + 1
+                ),
             )?;
             write_diff_hunks(diff, output)
         };
@@ -591,6 +625,29 @@ fn materialize_jj_style_conflict(
         &format!("{conflict_info} ends"),
     )?;
     Ok(())
+}
+
+fn maybe_no_eol_marker(slice: &[u8]) -> &'static str {
+    if has_no_eol(slice) {
+        NO_EOL_MARKER
+    } else {
+        ""
+    }
+}
+
+// Write a chunk of data, ensuring that it doesn't end with a line which is
+// missing its terminating newline.
+fn write_and_ensure_newline(output: &mut dyn Write, data: &[u8]) -> io::Result<()> {
+    output.write_all(data)?;
+    if has_no_eol(data) {
+        writeln!(output)?;
+    }
+    Ok(())
+}
+
+// Check whether a slice is missing its terminating newline character.
+fn has_no_eol(slice: &[u8]) -> bool {
+    slice.last().is_some_and(|&last| last != b'\n')
 }
 
 fn diff_size(hunks: &[DiffHunk]) -> usize {
@@ -873,7 +930,7 @@ pub async fn update_from_content(
     // conflicts initially. If unsuccessful, attempt to parse conflicts from with
     // the arity of the unsimplified conflicts since such a conflict may be
     // present in the working copy if written by an earlier version of jj.
-    let (used_file_ids, hunks) = 'hunks: {
+    let (used_file_ids, mut hunks) = 'hunks: {
         if let Some(hunks) = parse_conflict(
             content,
             simplified_file_ids.num_sides(),
@@ -891,6 +948,20 @@ pub async fn update_from_content(
         let file_id = store.write_file(path, &mut &content[..]).await?;
         return Ok(Merge::normal(file_id));
     };
+
+    // If there is a conflict at the end of the file and a term ends with a newline,
+    // check whether the original term ended with a newline. If it didn't, then
+    // remove the newline since it was added automatically when materializing.
+    if let Some(last_hunk) = hunks.last_mut().filter(|hunk| !hunk.is_resolved()) {
+        for (used_file_id, term) in zip(used_file_ids.iter(), last_hunk.iter_mut()) {
+            if term.last() == Some(&b'\n') {
+                let used_file_content = get_file_contents(store, path, used_file_id).block_on()?;
+                if has_no_eol(&used_file_content) {
+                    term.pop();
+                }
+            }
+        }
+    }
 
     let mut contents = used_file_ids.map(|_| vec![]);
     for hunk in hunks {
