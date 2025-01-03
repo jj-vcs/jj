@@ -24,17 +24,20 @@ use std::io::Read;
 use std::num::NonZeroU32;
 use std::path::PathBuf;
 use std::str;
+use std::sync::Arc;
 
-use git2::Oid;
+use bstr::BStr;
 use itertools::Itertools;
 use tempfile::NamedTempFile;
 use thiserror::Error;
 
 use crate::backend::BackendError;
 use crate::backend::CommitId;
+use crate::backend::TreeValue;
 use crate::commit::Commit;
 use crate::git_backend::GitBackend;
 use crate::index::Index;
+use crate::merged_tree::MergedTree;
 use crate::object_id::ObjectId;
 use crate::op_store::RefTarget;
 use crate::op_store::RefTargetOptionExt;
@@ -44,6 +47,7 @@ use crate::refs;
 use crate::refs::BookmarkPushUpdate;
 use crate::repo::MutableRepo;
 use crate::repo::Repo;
+use crate::repo_path::RepoPath;
 use crate::revset::RevsetExpression;
 use crate::settings::GitSettings;
 use crate::store::Store;
@@ -54,6 +58,9 @@ use crate::view::View;
 pub const REMOTE_NAME_FOR_LOCAL_GIT_REPO: &str = "git";
 /// Ref name used as a placeholder to unset HEAD without a commit.
 const UNBORN_ROOT_REF_NAME: &str = "refs/jj/root";
+/// Dummy file to be added to the index to indicate that the user is editing a
+/// commit with a conflict that isn't represented in the Git index.
+const INDEX_DUMMY_CONFLICT_FILE: &str = ".jj-do-not-resolve-this-conflict";
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Hash, Debug)]
 pub enum RefName {
@@ -592,6 +599,8 @@ pub enum GitExportError {
     InternalGitError(#[source] Box<dyn std::error::Error + Send + Sync>),
     #[error("The repo is not backed by a Git repo")]
     UnexpectedBackend,
+    #[error(transparent)]
+    Backend(#[from] BackendError),
 }
 
 impl GitExportError {
@@ -703,7 +712,11 @@ pub fn export_some_refs(
                 current_oid.as_ref()
             };
             if new_oid != current_oid.as_ref() {
-                update_git_head(&git_repo, old_target, current_oid)?;
+                update_git_head(
+                    &git_repo,
+                    gix::refs::transaction::PreviousValue::MustExistAndMatch(old_target),
+                    current_oid,
+                )?;
             }
         }
     }
@@ -942,7 +955,7 @@ fn update_git_ref(
 /// is `None` (meaning absent), dummy placeholder ref will be set.
 fn update_git_head(
     git_repo: &gix::Repository,
-    old_target: gix::refs::Target,
+    expected_ref: gix::refs::transaction::PreviousValue,
     new_oid: Option<gix::ObjectId>,
 ) -> Result<(), GitExportError> {
     let mut ref_edits = Vec::new();
@@ -969,7 +982,7 @@ fn update_git_head(
                 message: "export from jj".into(),
                 ..Default::default()
             },
-            expected: gix::refs::transaction::PreviousValue::MustExistAndMatch(old_target),
+            expected: expected_ref,
             new: new_target,
         },
         name: "HEAD".try_into().unwrap(),
@@ -983,74 +996,215 @@ fn update_git_head(
 
 /// Sets Git HEAD to the parent of the given working-copy commit and resets
 /// the Git index.
-pub fn reset_head(
-    mut_repo: &mut MutableRepo,
-    git_repo: &git2::Repository,
-    wc_commit: &Commit,
-) -> Result<(), git2::Error> {
+pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), GitExportError> {
+    let git_repo = get_git_repo(mut_repo.store()).ok_or(GitExportError::UnexpectedBackend)?;
+
     let first_parent_id = &wc_commit.parent_ids()[0];
     let first_parent = if first_parent_id != mut_repo.store().root_commit_id() {
         RefTarget::normal(first_parent_id.clone())
     } else {
         RefTarget::absent()
     };
-    if first_parent.is_present() {
-        let git_head = mut_repo.view().git_head();
-        let new_git_commit_id = Oid::from_bytes(first_parent_id.as_bytes()).unwrap();
-        let new_git_commit = git_repo.find_commit(new_git_commit_id)?;
-        if git_head != &first_parent {
-            git_repo.set_head_detached(new_git_commit_id)?;
-        }
 
-        let is_same_tree = if git_head == &first_parent {
-            true
-        } else if let Some(git_head_id) = git_head.as_normal() {
-            let git_head_oid = Oid::from_bytes(git_head_id.as_bytes()).unwrap();
-            let git_head_commit = git_repo.find_commit(git_head_oid)?;
-            new_git_commit.tree_id() == git_head_commit.tree_id()
+    // If the first parent of the working copy has changed, reset the Git HEAD.
+    if mut_repo.git_head() != first_parent {
+        update_git_head(
+            &git_repo,
+            gix::refs::transaction::PreviousValue::Any,
+            first_parent
+                .as_normal()
+                .map(|id| gix::ObjectId::from_bytes_or_panic(id.as_bytes())),
+        )?;
+        mut_repo.set_git_head_target(first_parent);
+    }
+
+    // If there is an ongoing operation (merge, rebase, etc.), we need to clean it
+    // up. This function isn't implemented in `gix`, so we need to use `git2`.
+    if git_repo.state().is_some() {
+        get_git_backend(mut_repo.store())
+            .ok_or(GitExportError::UnexpectedBackend)?
+            .open_git_repo()
+            .map_err(GitExportError::from_git)?
+            .cleanup_state()
+            .map_err(GitExportError::from_git)?;
+    }
+
+    let parent_tree = wc_commit.parent_tree(mut_repo)?;
+
+    // Use the merged parent tree as the Git index, allowing `git diff` to show the
+    // same changes as `jj diff`. If the merged parent tree has conflicts, then the
+    // Git index will also be conflicted.
+    let mut index = if let Some(tree) = parent_tree.as_merge().as_resolved() {
+        if tree.id() == mut_repo.store().empty_tree_id() {
+            // If the tree is empty, gix fails to load the object, so we just use an empty
+            // index directly.
+            gix::index::File::from_state(
+                gix::index::State::new(git_repo.object_hash()),
+                git_repo.index_path(),
+            )
         } else {
-            false
-        };
-        let skip_reset = if is_same_tree {
-            // HEAD already points to a commit with the correct tree contents,
-            // so we only need to reset the Git index. We can skip the reset if
-            // the Git index is empty (i.e. `git add` was never used).
-            // In large repositories, this is around 2x faster if the Git index is empty
-            // (~0.89s to check the diff, vs. ~1.72s to reset), and around 8% slower if
-            // it isn't (~1.86s to check the diff AND reset).
-            let diff = git_repo.diff_tree_to_index(
-                Some(&new_git_commit.tree()?),
-                None,
-                Some(git2::DiffOptions::new().skip_binary_check(true)),
-            )?;
-            diff.deltas().len() == 0
-        } else {
-            false
-        };
-        if !skip_reset {
-            git_repo.reset(new_git_commit.as_object(), git2::ResetType::Mixed, None)?;
+            // If the parent tree is resolved, we can use gix's `index_from_tree` method.
+            // This is more efficient than iterating over the tree and adding each entry.
+            git_repo
+                .index_from_tree(&gix::ObjectId::from_bytes_or_panic(tree.id().as_bytes()))
+                .map_err(GitExportError::from_git)?
         }
     } else {
-        // Can't detach HEAD without a commit. Use placeholder ref to nullify the HEAD.
-        // We can't set_head() an arbitrary unborn ref, so use reference_symbolic()
-        // instead. Git CLI appears to deal with that. It would be nice if Git CLI
-        // couldn't create a commit without setting a valid branch name.
-        if mut_repo.git_head().is_present() {
-            match git_repo.find_reference(UNBORN_ROOT_REF_NAME) {
-                Ok(mut git_repo_ref) => git_repo_ref.delete()?,
-                Err(err) if err.code() == git2::ErrorCode::NotFound => {}
-                Err(err) => return Err(err),
-            }
-            git_repo.reference_symbolic("HEAD", UNBORN_ROOT_REF_NAME, true, "unset HEAD by jj")?;
-        }
-        // git_reset() of libgit2 requires a commit object. Do that manually.
-        let mut index = git_repo.index()?;
-        index.clear()?; // or read empty tree
-        index.write()?;
-        git_repo.cleanup_state()?;
+        build_index_from_merged_tree(mut_repo.store(), &git_repo, parent_tree)?
+    };
+
+    // Match entries in the new index with entries in the old index, and copy stat
+    // information if the entry didn't change.
+    if let Some(old_index) = git_repo.try_index().map_err(GitExportError::from_git)? {
+        index
+            .entries_mut_with_paths()
+            .merge_join_by(old_index.entries(), |(entry, path), old_entry| {
+                gix::index::Entry::cmp_filepaths(path, old_entry.path(&old_index))
+                    .then_with(|| entry.stage().cmp(&old_entry.stage()))
+            })
+            .filter_map(|merged| merged.both())
+            .map(|((entry, _), old_entry)| (entry, old_entry))
+            .filter(|(entry, old_entry)| entry.id == old_entry.id && entry.mode == old_entry.mode)
+            .for_each(|(entry, old_entry)| entry.stat = old_entry.stat);
     }
-    mut_repo.set_git_head_target(first_parent);
+
+    debug_assert!(index.verify_entries().is_ok());
+
+    index
+        .write(gix::index::write::Options::default())
+        .map_err(GitExportError::from_git)?;
+
     Ok(())
+}
+
+fn build_index_from_merged_tree(
+    store: &Arc<Store>,
+    git_repo: &gix::Repository,
+    merged_tree: MergedTree,
+) -> Result<gix::index::File, GitExportError> {
+    fn push_index_entry(
+        index: &mut gix::index::File,
+        store: &Arc<Store>,
+        path: &RepoPath,
+        maybe_entry: &Option<TreeValue>,
+        stage: gix::index::entry::Stage,
+    ) -> Result<(), GitExportError> {
+        let Some(entry) = maybe_entry else {
+            return Ok(());
+        };
+
+        let (id, mode) = match entry {
+            TreeValue::File { id, executable } => {
+                if *executable {
+                    (id.as_bytes(), gix::index::entry::Mode::FILE_EXECUTABLE)
+                } else {
+                    (id.as_bytes(), gix::index::entry::Mode::FILE)
+                }
+            }
+            TreeValue::Symlink(id) => (id.as_bytes(), gix::index::entry::Mode::SYMLINK),
+            TreeValue::Tree(tree_id) => {
+                for (path, entry) in store.get_tree(path.to_owned(), tree_id)?.entries() {
+                    push_index_entry(index, store, &path, &Some(entry), stage)?;
+                }
+                return Ok(());
+            }
+            TreeValue::GitSubmodule(id) => (id.as_bytes(), gix::index::entry::Mode::COMMIT),
+            TreeValue::Conflict(_) => panic!("unexpected merged tree entry: {entry:?}"),
+        };
+
+        let path = BStr::new(path.as_internal_file_string());
+
+        // It is safe to push the entry because we ensure that we only add each path to
+        // a stage once, and we sort the entries after we finish adding them.
+        index.dangerously_push_entry(
+            gix::index::entry::Stat::default(),
+            gix::ObjectId::from_bytes_or_panic(id),
+            gix::index::entry::Flags::from_stage(stage),
+            mode,
+            path,
+        );
+
+        Ok(())
+    }
+
+    let mut index = gix::index::File::from_state(
+        gix::index::State::new(git_repo.object_hash()),
+        git_repo.index_path(),
+    );
+
+    let mut has_many_sided_conflict = false;
+
+    for (path, entry) in merged_tree.entries() {
+        let entry = entry?;
+        if let Some(resolved) = entry.as_resolved() {
+            push_index_entry(
+                &mut index,
+                store,
+                &path,
+                resolved,
+                gix::index::entry::Stage::Unconflicted,
+            )?;
+            continue;
+        }
+
+        let conflict = entry.simplify();
+        if let [left, base, right] = conflict.as_slice() {
+            // 2-sided conflicts can be represented in the Git index
+            for (term, stage) in [
+                (left, gix::index::entry::Stage::Ours),
+                (base, gix::index::entry::Stage::Base),
+                (right, gix::index::entry::Stage::Theirs),
+            ] {
+                push_index_entry(&mut index, store, &path, term, stage)?;
+            }
+        } else {
+            // We can't represent many-sided conflicts in the Git index, so just add the
+            // first side as staged. This is preferable to adding the first 2 sides as a
+            // conflict, since some tools rely on being able to resolve conflicts using the
+            // index, which could lead to an incorrect conflict resolution if the index
+            // didn't contain all of the conflict sides. Instead, we add a dummy conflict of
+            // a file named ".jj-do-not-resolve-this-conflict" to prevent the user from
+            // accidentally committing the conflict markers.
+            has_many_sided_conflict = true;
+            push_index_entry(
+                &mut index,
+                store,
+                &path,
+                conflict.first(),
+                gix::index::entry::Stage::Unconflicted,
+            )?;
+        }
+    }
+
+    // Required after `dangerously_push_entry` for correctness. We use do a lookup
+    // in the index after this, so it must be sorted before we do the lookup.
+    index.sort_entries();
+
+    // If the conflict had an unrepresentable conflict and the dummy file path isn't
+    // already added in the index, add a dummy file as a conflict.
+    if has_many_sided_conflict
+        && index
+            .entry_index_by_path(INDEX_DUMMY_CONFLICT_FILE.into())
+            .is_err()
+    {
+        let file_blob = git_repo
+            .write_blob(
+                b"The working copy commit contains conflicts which cannot be resolved using Git.\n",
+            )
+            .map_err(GitExportError::from_git)?;
+        index.dangerously_push_entry(
+            gix::index::entry::Stat::default(),
+            file_blob.detach(),
+            gix::index::entry::Flags::from_stage(gix::index::entry::Stage::Ours),
+            gix::index::entry::Mode::FILE,
+            INDEX_DUMMY_CONFLICT_FILE.into(),
+        );
+        // We need to sort again for correctness before writing the index file since we
+        // added a new entry.
+        index.sort_entries();
+    }
+
+    Ok(index)
 }
 
 #[derive(Debug, Error)]

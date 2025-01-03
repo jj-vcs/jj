@@ -2125,7 +2125,7 @@ fn test_reset_head_to_root() {
         .unwrap();
 
     // Set Git HEAD to commit2's parent (i.e. commit1)
-    git::reset_head(tx.repo_mut(), &git_repo, &commit2).unwrap();
+    git::reset_head(tx.repo_mut(), &commit2).unwrap();
     assert!(git_repo.head().is_ok());
     assert_eq!(
         tx.repo_mut().git_head(),
@@ -2133,7 +2133,7 @@ fn test_reset_head_to_root() {
     );
 
     // Set Git HEAD back to root
-    git::reset_head(tx.repo_mut(), &git_repo, &commit1).unwrap();
+    git::reset_head(tx.repo_mut(), &commit1).unwrap();
     assert!(git_repo.head().is_err());
     assert!(tx.repo_mut().git_head().is_absent());
 
@@ -2141,7 +2141,7 @@ fn test_reset_head_to_root() {
     git_repo
         .reference("refs/jj/root", git_id(&commit1), false, "")
         .unwrap();
-    git::reset_head(tx.repo_mut(), &git_repo, &commit2).unwrap();
+    git::reset_head(tx.repo_mut(), &commit2).unwrap();
     assert!(git_repo.head().is_ok());
     assert_eq!(
         tx.repo_mut().git_head(),
@@ -2150,7 +2150,7 @@ fn test_reset_head_to_root() {
     assert!(git_repo.find_reference("refs/jj/root").is_ok());
 
     // Set Git HEAD back to root
-    git::reset_head(tx.repo_mut(), &git_repo, &commit1).unwrap();
+    git::reset_head(tx.repo_mut(), &commit1).unwrap();
     assert!(git_repo.head().is_err());
     assert!(tx.repo_mut().git_head().is_absent());
     // The placeholder ref should be deleted
@@ -2164,6 +2164,13 @@ fn test_reset_head_with_index() {
     let temp_dir = testutils::new_temp_dir();
     let workspace_root = temp_dir.path().join("repo");
     let git_repo = git2::Repository::init(&workspace_root).unwrap();
+    // The index may be outdated compared to what was written to disk, so we want to
+    // reload it each time.
+    let read_index = || {
+        let mut index = git_repo.index().unwrap();
+        index.read(true).unwrap();
+        index
+    };
     let (_workspace, repo) =
         Workspace::init_external_git(&settings, &workspace_root, &workspace_root.join(".git"))
             .unwrap();
@@ -2183,23 +2190,29 @@ fn test_reset_head_with_index() {
         .unwrap();
 
     // Set Git HEAD to commit2's parent (i.e. commit1)
-    git::reset_head(tx.repo_mut(), &git_repo, &commit2).unwrap();
-    assert!(git_repo.index().unwrap().is_empty());
+    git::reset_head(tx.repo_mut(), &commit2).unwrap();
+    assert!(read_index().is_empty());
 
     // Add "staged changes" to the Git index
-    let file_path = RepoPath::from_internal_string("file.txt");
-    testutils::write_working_copy_file(&workspace_root, file_path, "i am a file\n");
-    git_repo
-        .index()
-        .unwrap()
-        .add_path(&file_path.to_fs_path_unchecked(Path::new("")))
-        .unwrap();
-    assert!(!git_repo.index().unwrap().is_empty());
+    {
+        let file_path = RepoPath::from_internal_string("file.txt");
+        testutils::write_working_copy_file(&workspace_root, file_path, "i am a file\n");
+        let mut index = read_index();
+        index
+            .add_path(&file_path.to_fs_path_unchecked(Path::new("")))
+            .unwrap();
+        index.write().unwrap();
+    }
+    assert!(!read_index().is_empty());
 
-    // Reset head to and the Git index
-    git::reset_head(tx.repo_mut(), &git_repo, &commit2).unwrap();
-    assert!(git_repo.index().unwrap().is_empty());
+    // Reset head and the Git index
+    git::reset_head(tx.repo_mut(), &commit2).unwrap();
+    assert!(read_index().is_empty());
 }
+
+// TODO: add test for nested directories being added to index properly
+// TODO: add test for file-directory conflicts in index
+// TODO: add test for tree containing ".jj-do-not-resolve-this-conflict" file
 
 #[test]
 fn test_init() {

@@ -12,6 +12,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+* In colocated repos, the Git index now contains the changes from all parents
+  of the working copy instead of just the first parent (`HEAD`). 2-sided
+  conflicts from the merged parents are now added to the Git index as conflicts
+  as well.
+
 ### Deprecations
 
 ### New features
