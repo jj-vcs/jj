@@ -15,6 +15,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj init --git` and `jj init --git-repo` have been removed. They were
   deprecated in early 2024. Use `jj git init` instead.
 
+* The following deprecated commands have been removed:
+  - `jj cat` is replaced by `jj file show`.
+  - `jj chmod` is replaced by `jj file chmod`.
+  - `jj files` is replaced by `jj file list`.
+
 ### Deprecations
 
 ### New features
