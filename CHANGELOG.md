@@ -23,6 +23,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The deprecated `-l` short alias for `--limit` in `jj log`, `jj op log`
   and `jj obslog` has been removed. The `-n` short alias can be used instead.
 
+* The deprecated `--siblings` options for `jj split` has been removed.
+  `jj split --parallel` can be used instead.
+
 ### Deprecations
 
 ### New features
