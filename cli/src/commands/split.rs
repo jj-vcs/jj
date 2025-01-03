@@ -65,8 +65,7 @@ pub(crate) struct SplitArgs {
     revision: RevisionArg,
     /// Split the revision into two parallel revisions instead of a parent and
     /// child
-    // TODO: Delete `--siblings` alias in jj 0.25+
-    #[arg(long, short, alias = "siblings")]
+    #[arg(long, short)]
     parallel: bool,
     /// Files matching any of these filesets are put in the first commit
     #[arg(

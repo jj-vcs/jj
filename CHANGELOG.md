@@ -15,6 +15,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj init --git` and `jj init --git-repo` have been removed. They were
   deprecated in early 2024. Use `jj git init` instead.
 
+* The following deprecated commands have been removed:
+  - `jj cat` is replaced by `jj file show`.
+  - `jj chmod` is replaced by `jj file chmod`.
+  - `jj files` is replaced by `jj file list`.
+
+* The deprecated `-l` short alias for `--limit` in `jj log`, `jj op log`
+  and `jj obslog` has been removed. The `-n` short alias can be used instead.
+
+* The deprecated `--siblings` options for `jj split` has been removed.
+  `jj split --parallel` can be used instead.
+
 ### Deprecations
 
 ### New features

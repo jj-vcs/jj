@@ -87,11 +87,6 @@ enum Command {
     // TODO: Remove in jj 0.28+
     #[command(subcommand, hide = true)]
     Branch(bookmark::BookmarkCommand),
-    #[command(alias = "print", hide = true)]
-    Cat(file::show::FileShowArgs),
-    // TODO: Delete `chmod` in jj 0.25+
-    #[command(hide = true)]
-    Chmod(file::chmod::FileChmodArgs),
     Commit(commit::CommitArgs),
     #[command(subcommand)]
     Config(config::ConfigCommand),
@@ -106,10 +101,6 @@ enum Command {
     Evolog(evolog::EvologArgs),
     #[command(subcommand)]
     File(file::FileCommand),
-    /// List files in a revision (DEPRECATED use `jj file list`)
-    // TODO: Delete `files` in jj 0.25+
-    #[command(hide = true)]
-    Files(file::list::FileListArgs),
     Fix(fix::FixArgs),
     #[command(subcommand)]
     Git(git::GitCommand),
@@ -185,14 +176,6 @@ pub fn run_command(ui: &mut Ui, command_helper: &CommandHelper) -> Result<(), Co
             let cmd = renamed_cmd("branch", "bookmark", bookmark::cmd_bookmark);
             cmd(ui, command_helper, args)
         }
-        Command::Cat(args) => {
-            let cmd = renamed_cmd("cat", "file show", file::show::cmd_file_show);
-            cmd(ui, command_helper, args)
-        }
-        Command::Chmod(args) => {
-            let cmd = renamed_cmd("chmod", "file chmod", file::chmod::cmd_file_chmod);
-            cmd(ui, command_helper, args)
-        }
         Command::Commit(args) => commit::cmd_commit(ui, command_helper, args),
         Command::Config(args) => config::cmd_config(ui, command_helper, args),
         Command::Debug(args) => debug::cmd_debug(ui, command_helper, args),
@@ -202,10 +185,6 @@ pub fn run_command(ui: &mut Ui, command_helper: &CommandHelper) -> Result<(), Co
         Command::Duplicate(args) => duplicate::cmd_duplicate(ui, command_helper, args),
         Command::Edit(args) => edit::cmd_edit(ui, command_helper, args),
         Command::File(args) => file::cmd_file(ui, command_helper, args),
-        Command::Files(args) => {
-            let cmd = renamed_cmd("files", "file list", file::list::cmd_file_list);
-            cmd(ui, command_helper, args)
-        }
         Command::Fix(args) => fix::cmd_fix(ui, command_helper, args),
         Command::Git(args) => git::cmd_git(ui, command_helper, args),
         Command::Help(args) => help::cmd_help(ui, command_helper, args),
