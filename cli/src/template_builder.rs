@@ -1318,22 +1318,32 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
     map.insert(
         "truncate_start",
         |language, diagnostics, build_ctx, function| {
-            let [width_node, content_node] = function.expect_exact_arguments()?;
+            let ([width_node, content_node], [tail_node]) =
+                function.expect_named_arguments(&["", "", "tail"])?;
             let width = expect_usize_expression(language, diagnostics, build_ctx, width_node)?;
             let content =
                 expect_template_expression(language, diagnostics, build_ctx, content_node)?;
-            let template = new_truncate_template(content, width, text_util::write_truncated_start);
+            let tail = tail_node
+                .map(|node| expect_plain_text_expression(language, diagnostics, build_ctx, node))
+                .transpose()?;
+            let template =
+                new_truncate_template(content, width, tail, text_util::write_truncated_start);
             Ok(L::wrap_template(template))
         },
     );
     map.insert(
         "truncate_end",
         |language, diagnostics, build_ctx, function| {
-            let [width_node, content_node] = function.expect_exact_arguments()?;
+            let ([width_node, content_node], [tail_node]) =
+                function.expect_named_arguments(&["", "", "tail"])?;
             let width = expect_usize_expression(language, diagnostics, build_ctx, width_node)?;
             let content =
                 expect_template_expression(language, diagnostics, build_ctx, content_node)?;
-            let template = new_truncate_template(content, width, text_util::write_truncated_end);
+            let tail = tail_node
+                .map(|node| expect_plain_text_expression(language, diagnostics, build_ctx, node))
+                .transpose()?;
+            let template =
+                new_truncate_template(content, width, tail, text_util::write_truncated_end);
             Ok(L::wrap_template(template))
         },
     );
@@ -1450,17 +1460,28 @@ where
 fn new_truncate_template<'a, W>(
     content: Box<dyn Template + 'a>,
     width: Box<dyn TemplateProperty<Output = usize> + 'a>,
+    tail: Option<Box<dyn TemplateProperty<Output = String> + 'a>>,
     write_truncated: W,
 ) -> Box<dyn Template + 'a>
 where
-    W: Fn(&mut dyn Formatter, &FormatRecorder, usize) -> io::Result<usize> + 'a,
+    W: Fn(&mut dyn Formatter, &FormatRecorder, usize, &str) -> io::Result<usize> + 'a,
 {
     let template = ReformatTemplate::new(content, move |formatter, recorded| {
         let width = match width.extract() {
             Ok(width) => width,
             Err(err) => return formatter.handle_error(err),
         };
-        write_truncated(formatter.as_mut(), recorded, width)?;
+        let tail = match tail.as_ref().map(|t| t.extract()) {
+            Some(Err(err)) => return formatter.handle_error(err),
+            Some(Ok(tail)) => Some(tail),
+            None => None,
+        };
+        write_truncated(
+            formatter.as_mut(),
+            recorded,
+            width,
+            tail.as_deref().unwrap_or_default(),
+        )?;
         Ok(())
     });
     Box::new(template)
@@ -2771,8 +2792,14 @@ mod tests {
             env.render_ok(r"truncate_start(2, label('red', 'foobar')) ++ 'baz'"),
             @"[38;5;9mar[39mbaz");
         insta::assert_snapshot!(
+            env.render_ok(r"truncate_start(2, label('red', 'foobar'), tail='**') ++ 'baz'"),
+            @"**[38;5;9mar[39mbaz");
+        insta::assert_snapshot!(
             env.render_ok(r"truncate_end(2, label('red', 'foobar')) ++ 'baz'"),
             @"[38;5;9mfo[39mbaz");
+        insta::assert_snapshot!(
+            env.render_ok(r"truncate_end(2, label('red', 'foobar'), tail='**') ++ 'baz'"),
+            @"[38;5;9mfo[39m**baz");
     }
 
     #[test]

@@ -8,6 +8,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+* `truncate_start` and `truncate_end` now accept an optional `tail` named
+  argument, to indicate when truncation has occurred.
+
 ### Release highlights
 
 ### Breaking changes
