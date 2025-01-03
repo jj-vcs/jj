@@ -12,6 +12,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+* `jj init --git` and `jj init --git-repo` have been removed. They were
+  deprecated in early 2024. Use `jj git init` instead.
+
 ### Deprecations
 
 ### New features

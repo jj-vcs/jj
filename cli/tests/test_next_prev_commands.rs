@@ -709,7 +709,7 @@ fn test_next_editing() {
 fn test_prev_conflict() {
     // Make the first commit our new parent.
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["init", "repo", "--git"]);
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
     let file_path = repo_path.join("content.txt");
     std::fs::write(&file_path, "first").unwrap();
@@ -747,7 +747,7 @@ fn test_prev_conflict() {
 fn test_prev_conflict_editing() {
     // Edit the third commit.
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["init", "repo", "--git"]);
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
     let file_path = repo_path.join("content.txt");
     test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "first"]);
@@ -781,7 +781,7 @@ fn test_next_conflict() {
     // There is a conflict in the third commit, so after next it should be the new
     // parent.
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["init", "repo", "--git"]);
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
     let file_path = repo_path.join("content.txt");
     std::fs::write(&file_path, "first").unwrap();
@@ -817,7 +817,7 @@ fn test_next_conflict_editing() {
     // There is a conflict in the third commit, so after next it should be our
     // working copy.
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["init", "repo", "--git"]);
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
     let file_path = repo_path.join("content.txt");
     test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "first"]);
@@ -848,7 +848,7 @@ fn test_next_conflict_editing() {
 fn test_next_conflict_head() {
     // When editing a head with conflicts, `jj next --conflict [--edit]` errors out.
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["init", "repo", "--git"]);
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
     let file_path = repo_path.join("file");
     std::fs::write(&file_path, "first").unwrap();
@@ -1111,7 +1111,7 @@ fn test_next_offset_when_wc_has_descendants() {
     let test_env = TestEnvironment::default();
     test_env.add_config(r#"ui.movement.edit = false"#);
 
-    test_env.jj_cmd_ok(test_env.env_root(), &["init", "repo", "--git"]);
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
 
     test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "base"]);

@@ -14,12 +14,10 @@
 
 use std::io::Write;
 
-use clap::ArgGroup;
 use jj_lib::file_util;
 use jj_lib::workspace::Workspace;
 use tracing::instrument;
 
-use super::git;
 use crate::cli_util::CommandHelper;
 use crate::command_error::cli_error;
 use crate::command_error::user_error_with_hint;
@@ -32,19 +30,10 @@ use crate::ui::Ui;
 /// If the given directory does not exist, it will be created. If no directory
 /// is given, the current directory is used.
 #[derive(clap::Args, Clone, Debug)]
-#[command(group(ArgGroup::new("backend").args(&["git", "git_repo"])))]
 pub(crate) struct InitArgs {
     /// The destination directory
     #[arg(default_value = ".", value_hint = clap::ValueHint::DirPath)]
     destination: String,
-    /// DEPRECATED: Use `jj git init`
-    /// Use the Git backend, creating a jj repo backed by a Git repo
-    #[arg(long, hide = true)]
-    git: bool,
-    /// DEPRECATED: Use `jj git init`
-    /// Path to a git repo the jj repo will be backed by
-    #[arg(long, hide = true, value_hint = clap::ValueHint::DirPath)]
-    git_repo: Option<String>,
 }
 
 #[instrument(skip_all)]
@@ -65,26 +54,14 @@ pub(crate) fn cmd_init(
         .and_then(|_| dunce::canonicalize(wc_path))
         .map_err(|e| user_error_with_message("Failed to create workspace", e))?;
 
-    // Preserve existing behaviour where `jj init` is not able to create
-    // a colocated repo.
-    let colocate = false;
-    if args.git || args.git_repo.is_some() {
-        git::init::do_init(ui, command, &wc_path, colocate, args.git_repo.as_deref())?;
-        writeln!(
-            ui.warning_default(),
-            "`--git` and `--git-repo` are deprecated.
-Use `jj git init` instead"
-        )?;
-    } else {
-        if !command.settings().get_bool("ui.allow-init-native")? {
-            return Err(user_error_with_hint(
-                "The native backend is disallowed by default.",
-                "Did you mean to call `jj git init`?
+    if !command.settings().get_bool("ui.allow-init-native")? {
+        return Err(user_error_with_hint(
+            "The native backend is disallowed by default.",
+            "Did you mean to call `jj git init`?
 Set `ui.allow-init-native` to allow initializing a repo with the native backend.",
-            ));
-        }
-        Workspace::init_local(command.settings(), &wc_path)?;
+        ));
     }
+    Workspace::init_local(command.settings(), &wc_path)?;
 
     let relative_wc_path = file_util::relative_path(cwd, &wc_path);
     writeln!(

@@ -186,7 +186,7 @@ fn test_describe() {
 #[test]
 fn test_describe_editor_env() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["init", "repo", "--git"]);
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
 
     // Fails if the editor doesn't exist

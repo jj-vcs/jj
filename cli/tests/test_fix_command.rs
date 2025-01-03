@@ -886,7 +886,7 @@ fn test_stderr_failure() {
 #[test]
 fn test_missing_command() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["init", "repo", "--git"]);
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
     test_env.add_config(r#"fix.tool-command = ["this_executable_shouldnt_exist"]"#);
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["fix", "-s", "@"]);
