@@ -105,6 +105,10 @@ changes. Two select improvements:
   below it, similar to a "scissor line" in git. When editing multiple commits,
   only ignore until the next `JJ: describe` line.
 
+* `enabled`: Enables or disables the tool. If omitted, the tool is enabled.
+  This is useful for defining disabled tools in user configuration that can be
+  enabled in individual repositories with one config setting.
+
 ### Fixed bugs
 
 * The `$NO_COLOR` environment variable must now be non-empty to be respected.
