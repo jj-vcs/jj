@@ -295,6 +295,15 @@ diff.tool = "vimdiff"
 diff-invocation-mode = "file-by-file"
 ```
 
+By default `jj` will display a warning when the command exits with a non-success
+error code. The `diff-expected-exit-codes` config can suppress this warning
+message for specific exit codes:
+
+```toml
+[merge-tools.delta]
+diff-expected-exit-codes = [0, 1]
+```
+
 ### Conflict marker style
 
 You can configure which style of conflict markers to use when materializing

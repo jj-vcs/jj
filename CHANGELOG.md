@@ -43,6 +43,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj status` now shows untracked files when they reside directly under a tracked directory.
 
+* New `merge-tools.<TOOL>.diff-expected-exit-codes` config option to suppress
+  warnings from tools exiting with non-zero exit codes.
+
 ### Fixed bugs
 
 * Fixed diff selection by external tools with `jj split`/`commit -i FILESETS`.

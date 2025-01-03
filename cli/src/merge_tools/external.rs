@@ -50,6 +50,8 @@ pub struct ExternalMergeTool {
     /// Arguments to pass to the program when generating diffs.
     /// `$left` and `$right` are replaced with the corresponding directories.
     pub diff_args: Vec<String>,
+    /// Exit codes to be treated as success when generating diffs.
+    pub diff_expected_exit_codes: Vec<i32>,
     /// Whether to execute the tool with a pair of directories or individual
     /// files.
     pub diff_invocation_mode: DiffToolMode,
@@ -101,6 +103,7 @@ impl Default for ExternalMergeTool {
             // `edit-args = false`, or `edit-args = []`, or `edit = { disabled =
             // true }` to go with `edit = { args = [...] }`.
             diff_args: ["$left", "$right"].map(ToOwned::to_owned).to_vec(),
+            diff_expected_exit_codes: vec![0],
             edit_args: ["$left", "$right"].map(ToOwned::to_owned).to_vec(),
             merge_args: vec![],
             merge_conflict_exit_codes: vec![],
@@ -411,7 +414,10 @@ pub fn invoke_external_diff(
     // will exit with 1 if inputs are different.
     let exit_status = child.wait().map_err(ExternalToolError::Io)?;
     tracing::info!(?cmd, ?exit_status, "The external diff generator exited:");
-    if !exit_status.success() {
+    let exit_ok = exit_status
+        .code()
+        .is_some_and(|status| tool.diff_expected_exit_codes.contains(&status));
+    if !exit_ok {
         writeln!(
             ui.warning_default(),
             "Tool exited with {exit_status} (run with --debug to see the exact invocation)",

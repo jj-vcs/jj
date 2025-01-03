@@ -2042,6 +2042,36 @@ fn test_diff_external_tool() {
     std::fs::write(repo_path.join("file3"), "foo\n").unwrap();
 
     let edit_script = test_env.set_up_fake_diff_editor();
+
+    // nonzero exit codes should print a warning
+    std::fs::write(&edit_script, "fail").unwrap();
+    let (stdout, stderr) = test_env.jj_cmd_ok(
+        &repo_path,
+        &["diff", "--config=ui.diff.tool=fake-diff-editor"],
+    );
+    let mut insta_settings = insta::Settings::clone_current();
+    insta_settings.add_filter("exit (status|code)", "<exit status>");
+    insta_settings.bind(|| {
+        insta::assert_snapshot!(stdout, @r"");
+        insta::assert_snapshot!(stderr, @r#"
+        Warning: Tool exited with <exit status>: 1 (run with --debug to see the exact invocation)
+        "#);
+    });
+
+    // nonzero exit codes should not print a warning if it's an expected exit code
+    std::fs::write(&edit_script, "fail").unwrap();
+    let (stdout, stderr) = test_env.jj_cmd_ok(
+        &repo_path,
+        &[
+            "diff",
+            "--tool",
+            "fake-diff-editor",
+            "--config=merge-tools.fake-diff-editor.diff-expected-exit-codes=[1]",
+        ],
+    );
+    insta::assert_snapshot!(stdout, @r"");
+    insta::assert_snapshot!(stderr, @r"");
+
     std::fs::write(
         &edit_script,
         "print-files-before\0print --\0print-files-after",

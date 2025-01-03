@@ -380,6 +380,14 @@
                             "type": "string"
                         }
                     },
+                    "diff-expected-exit-codes": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        },
+                        "description": "Array of exit codes that do not indicate tool failure, i.e. [0, 1] for unix diff.",
+                        "default": [0]
+                    },
                     "diff-invocation-mode": {
                       "description": "Invoke the tool with directories or individual files",
                       "enum": [
