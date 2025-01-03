@@ -68,7 +68,7 @@ If you want to know the internals of bookmark tracking, consult the
   actual state only when it's actively communicating with the remote. However,
   `jj` does store the last-seen position of the remote bookmark; this is the
   commit `jj show <bookmark name>@<remote name>` would show. This notion is
-  completely analogous to Git's "remote-tracking bookmarks".
+  completely analogous to Git's "remote-tracking branches".
 - A **tracked (remote) bookmark** is defined above. You can make a remote bookmark
   tracked with the [`jj bookmark track` command](#manually-tracking-a-bookmark), for
   example.
@@ -146,8 +146,8 @@ well for repositories where multiple people work on a large number of bookmarks.
 The default can be changed by setting the config `git.auto-local-bookmark = true`.
 Then, `jj git fetch` tracks every *newly fetched* bookmark with a local bookmark.
 Branches that already existed before the `jj git fetch` are not affected. This
-is similar to Mercurial, which fetches all its bookmarks (equivalent to Git
-bookmarks) by default.
+is similar to Mercurial, which fetches all its bookmarks (equivalent to Git's
+branches) by default.
 
 ## Bookmark movement
 
