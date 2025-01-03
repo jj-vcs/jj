@@ -85,14 +85,6 @@ pub(crate) struct LogArgs {
     /// Applied after revisions are filtered and reordered.
     #[arg(long, short = 'n')]
     limit: Option<usize>,
-    // TODO: Delete `-l` alias in jj 0.25+
-    #[arg(
-        short = 'l',
-        hide = true,
-        conflicts_with = "limit",
-        value_name = "LIMIT"
-    )]
-    deprecated_limit: Option<usize>,
     /// Don't show the graph, show a flat list of revisions
     #[arg(long)]
     no_graph: bool,
@@ -186,13 +178,7 @@ pub(crate) fn cmd_log(
         let mut formatter = ui.stdout_formatter();
         let formatter = formatter.as_mut();
 
-        if args.deprecated_limit.is_some() {
-            writeln!(
-                ui.warning_default(),
-                "The -l shorthand is deprecated, use -n instead."
-            )?;
-        }
-        let limit = args.limit.or(args.deprecated_limit).unwrap_or(usize::MAX);
+        let limit = args.limit.unwrap_or(usize::MAX);
 
         if !args.no_graph {
             let mut raw_output = formatter.raw()?;

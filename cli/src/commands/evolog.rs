@@ -57,14 +57,6 @@ pub(crate) struct EvologArgs {
     /// Limit number of revisions to show
     #[arg(long, short = 'n')]
     limit: Option<usize>,
-    // TODO: Delete `-l` alias in jj 0.25+
-    #[arg(
-        short = 'l',
-        hide = true,
-        conflicts_with = "limit",
-        value_name = "LIMIT"
-    )]
-    deprecated_limit: Option<usize>,
     /// Show revisions in the opposite order (older revisions first)
     #[arg(long)]
     reversed: bool,
@@ -150,13 +142,7 @@ pub(crate) fn cmd_evolog(
             predecessors
         },
     )?;
-    if args.deprecated_limit.is_some() {
-        writeln!(
-            ui.warning_default(),
-            "The -l shorthand is deprecated, use -n instead."
-        )?;
-    }
-    if let Some(n) = args.limit.or(args.deprecated_limit) {
+    if let Some(n) = args.limit {
         commits.truncate(n);
     }
     if !args.no_graph {

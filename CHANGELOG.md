@@ -20,6 +20,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - `jj chmod` is replaced by `jj file chmod`.
   - `jj files` is replaced by `jj file list`.
 
+* The deprecated `-l` short alias for `--limit` in `jj log`, `jj op log`
+  and `jj obslog` has been removed. The `-n` short alias can be used instead.
+
 ### Deprecations
 
 ### New features
