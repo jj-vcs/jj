@@ -2182,7 +2182,7 @@ Infrequently used commands such as for generating shell completions
 * `config-schema` — Print the JSON schema for the jj TOML config format
 * `exec` — Execute an external command via jj
 * `gc` — Run backend-dependent garbage collection
-* `mangen` — Print a ROFF (manpage)
+* `mangen` — Generate and write manpages
 * `markdown-help` — Print the CLI help for all subcommands in Markdown
 
 
@@ -2301,9 +2301,15 @@ Previous versions of a change that are reachable via the evolution log are not g
 
 ## `jj util mangen`
 
-Print a ROFF (manpage)
+Generate and write manpages
 
-**Usage:** `jj util mangen`
+**Usage:** `jj util mangen [DESTINATION]`
+
+###### **Arguments:**
+
+* `<DESTINATION>` — The destination where manpages will be written to
+
+  Default value: `man`
 
 
 

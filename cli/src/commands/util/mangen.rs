@@ -12,24 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::io::Write as _;
+use std::path::PathBuf;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::ui::Ui;
 
-/// Print a ROFF (manpage)
+/// Generate and write manpages.
 #[derive(clap::Args, Clone, Debug)]
-pub struct UtilMangenArgs {}
+pub struct UtilMangenArgs {
+    /// The destination where manpages will be written to.
+    #[arg(default_value = "man")]
+    destination: PathBuf,
+}
 
 pub fn cmd_util_mangen(
-    ui: &mut Ui,
+    _ui: &mut Ui,
     command: &CommandHelper,
-    _args: &UtilMangenArgs,
+    args: &UtilMangenArgs,
 ) -> Result<(), CommandError> {
-    let mut buf = vec![];
-    let man = clap_mangen::Man::new(command.app().clone());
-    man.render(&mut buf)?;
-    ui.stdout().write_all(&buf)?;
+    let man1_dir = args.destination.join("man1");
+    std::fs::create_dir_all(&man1_dir)?;
+    let app = command.app().clone();
+    clap_mangen::generate_to(app, man1_dir)?;
     Ok(())
 }
