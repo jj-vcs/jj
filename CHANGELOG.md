@@ -17,6 +17,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### New features
 
 * `jj evolog` now accepts `--reversed`.
+* Add a new template alias `builtin_op_log_oneline()` along with `format_snapshot_operation_oneline`, `format_root_operation_oneline` and `format_operation_oneline`
 
 ### Fixed bugs
 
