@@ -4,7 +4,7 @@ on:
   release:
     types: [published]
 
-permissions: read-all
+permissions: {}
 
 env:
   CARGO_INCREMENTAL: 0
@@ -17,74 +17,83 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        build: [linux-x86_64-musl, linux-aarch64-musl, macos-x86_64, macos-aarch64, win-msvc]
+        build: [
+          linux-x86_64-musl,
+          linux-aarch64-musl,
+          macos-x86_64,
+          macos-aarch64,
+          win-msvc,
+        ]
         include:
-        - build: linux-x86_64-musl
-          os: ubuntu-24.04
-          target: x86_64-unknown-linux-musl
-        - build: linux-aarch64-musl
-          os: ubuntu-24.04
-          target: aarch64-unknown-linux-musl
-        - build: macos-x86_64
-          os: macos-13
-          target: x86_64-apple-darwin
-        - build: macos-aarch64
-          os: macos-14
-          target: aarch64-apple-darwin
-        - build: win-msvc
-          os: windows-2022
-          target: x86_64-pc-windows-msvc
+          - build: linux-x86_64-musl
+            os: ubuntu-24.04
+            target: x86_64-unknown-linux-musl
+          - build: linux-aarch64-musl
+            os: ubuntu-24.04
+            target: aarch64-unknown-linux-musl
+          - build: macos-x86_64
+            os: macos-13
+            target: x86_64-apple-darwin
+          - build: macos-aarch64
+            os: macos-14
+            target: aarch64-apple-darwin
+          - build: win-msvc
+            os: windows-2022
+            target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-    - name: Install packages (Ubuntu)
-      if: matrix.os == 'ubuntu-24.04'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y --no-install-recommends xz-utils liblz4-tool musl-tools
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@a54c7afa936fefeb4456b2dd8068152669aa8203
-      with:
-        toolchain: stable
-        target: ${{ matrix.target }}
-    - name: Download cross-compilation tool (linux-aarch64)
-      if: matrix.target == 'aarch64-unknown-linux-musl'
-      run: wget -c https://github.com/cross-rs/cross/releases/download/v0.2.5/cross-x86_64-unknown-linux-gnu.tar.gz -O - | tar -xz
-    - name: Build release binary
-      shell: bash
-      run: |
-        CARGO_CMD=cargo
-        if [ "${{ matrix.target }}" = "aarch64-unknown-linux-musl" ]; then
-          CARGO_CMD=$PWD/cross
-        fi
-        $CARGO_CMD build --target ${{ matrix.target }} --verbose --release --features packaging,vendored-openssl
-    - name: Build archive
-      shell: bash
-      run: |
-        outdir="target/${{ matrix.target }}/release"
-        staging="jj-${{ github.event.release.tag_name }}-${{ matrix.target }}"
-        mkdir "$staging"
-        cp {README.md,LICENSE} "$staging/"
-        if [ "${{ matrix.os }}" = "windows-2022" ]; then
-          cp "$outdir/jj.exe" "$staging/"
-          cd "$staging"
-          7z a "../$staging.zip" .
-          echo "ASSET=$staging.zip" >> $GITHUB_ENV
-        else
-          cp "$outdir/jj" "$staging/"
-          tar czf "$staging.tar.gz" -C "$staging" .
-          echo "ASSET=$staging.tar.gz" >> $GITHUB_ENV
-        fi
-    - name: Upload release archive
-      uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ github.event.release.upload_url }}
-        asset_path: ${{ env.ASSET }}
-        asset_name: ${{ env.ASSET }}
-        asset_content_type: application/octet-stream
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install packages (Ubuntu)
+        if: matrix.os == 'ubuntu-24.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xz-utils liblz4-tool musl-tools
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@a54c7afa936fefeb4456b2dd8068152669aa8203
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+      - name: Download cross-compilation tool (linux-aarch64)
+        if: matrix.target == 'aarch64-unknown-linux-musl'
+        run: wget -c https://github.com/cross-rs/cross/releases/download/v0.2.5/cross-x86_64-unknown-linux-gnu.tar.gz -O - | tar -xz
+      - name: Build release binary
+        shell: bash
+        run: |
+          CARGO_CMD=cargo
+          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-musl" ]; then
+            CARGO_CMD=$PWD/cross
+          fi
+          $CARGO_CMD build --target ${{ matrix.target }} --verbose --release --features packaging,vendored-openssl
+      - name: Build archive
+        shell: bash
+        run: |
+          outdir="target/${{ matrix.target }}/release"
+          staging="jj-${RELEASE_TAG_NAME}-${{ matrix.target }}"
+          mkdir "$staging"
+          cp {README.md,LICENSE} "$staging/"
+          if [ "${{ matrix.os }}" = "windows-2022" ]; then
+            cp "$outdir/jj.exe" "$staging/"
+            cd "$staging"
+            7z a "../$staging.zip" .
+            echo "ASSET=$staging.zip" >> $GITHUB_ENV
+          else
+            cp "$outdir/jj" "$staging/"
+            tar czf "$staging.tar.gz" -C "$staging" .
+            echo "ASSET=$staging.tar.gz" >> $GITHUB_ENV
+          fi
+      - name: Upload release archive
+        uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ${{ env.ASSET }}
+          asset_name: ${{ env.ASSET }}
+          asset_content_type: application/octet-stream
 
   docs-release-archive:
     runs-on: ubuntu-latest
@@ -97,6 +106,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends xz-utils liblz4-tool musl-tools
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
         with:
           python-version: 3.11
@@ -107,13 +118,14 @@ jobs:
       - name: Compile docs and zip them up
         run: |
           uv run -- mkdocs build -f mkdocs-offline.yml
-          archive="jj-${{ github.event.release.tag_name }}-docs-html.tar.gz"
+          archive="jj-${RELEASE_TAG_NAME}-docs-html.tar.gz"
           tar czf "$archive" -C "rendered-docs" .
           echo "ASSET=$archive" >> $GITHUB_ENV
       - name: Upload release archive
         uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
           asset_path: ${{ env.ASSET }}
@@ -127,7 +139,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - run:  "git fetch origin gh-pages --depth=1"
+        with:
+          persist-credentials: false
+      - run: "git fetch origin gh-pages --depth=1"
       - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
         with:
           python-version: 3.11
@@ -141,6 +155,8 @@ jobs:
           git config user.email 'jj-docs[bot]@users.noreply.github.io'
           # Using the 'latest' tag below makes the website default
           # to this version.
-          .github/scripts/docs-build-deploy 'https://jj-vcs.github.io/jj' "${{ github.event.release.tag_name }}" latest --update-aliases --push
+          .github/scripts/docs-build-deploy 'https://jj-vcs.github.io/jj' "${RELEASE_TAG_NAME}" latest --update-aliases --push
+        env:
+          RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
       - name: "Show `git diff --stat`"
         run: git diff --stat gh-pages^ gh-pages || echo "(No diffs)"
