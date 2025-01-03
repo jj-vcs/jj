@@ -386,7 +386,7 @@ mod tests {
         insta::assert_debug_snapshot!(get(":builtin", "").unwrap(), @"Builtin");
 
         // Just program name, edit_args are filled by default
-        insta::assert_debug_snapshot!(get("my diff", "").unwrap(), @r###"
+        insta::assert_debug_snapshot!(get("my diff", "").unwrap(), @r#"
         External(
             ExternalMergeTool {
                 program: "my diff",
@@ -394,6 +394,7 @@ mod tests {
                     "$left",
                     "$right",
                 ],
+                diff_expected_exit_codes: [],
                 diff_invocation_mode: Dir,
                 edit_args: [
                     "$left",
@@ -405,7 +406,7 @@ mod tests {
                 conflict_marker_style: None,
             },
         )
-        "###);
+        "#);
 
         // Pick from merge-tools
         insta::assert_debug_snapshot!(get(
@@ -413,7 +414,7 @@ mod tests {
         [merge-tools."foo bar"]
         edit-args = ["--edit", "args", "$left", "$right"]
         "#,
-        ).unwrap(), @r###"
+        ).unwrap(), @r#"
         External(
             ExternalMergeTool {
                 program: "foo bar",
@@ -421,6 +422,7 @@ mod tests {
                     "$left",
                     "$right",
                 ],
+                diff_expected_exit_codes: [],
                 diff_invocation_mode: Dir,
                 edit_args: [
                     "--edit",
@@ -434,7 +436,7 @@ mod tests {
                 conflict_marker_style: None,
             },
         )
-        "###);
+        "#);
     }
 
     #[test]
@@ -456,7 +458,7 @@ mod tests {
         insta::assert_debug_snapshot!(get("").unwrap(), @"Builtin");
 
         // Just program name, edit_args are filled by default
-        insta::assert_debug_snapshot!(get(r#"ui.diff-editor = "my-diff""#).unwrap(), @r###"
+        insta::assert_debug_snapshot!(get(r#"ui.diff-editor = "my-diff""#).unwrap(), @r#"
         External(
             ExternalMergeTool {
                 program: "my-diff",
@@ -464,6 +466,7 @@ mod tests {
                     "$left",
                     "$right",
                 ],
+                diff_expected_exit_codes: [],
                 diff_invocation_mode: Dir,
                 edit_args: [
                     "$left",
@@ -475,11 +478,11 @@ mod tests {
                 conflict_marker_style: None,
             },
         )
-        "###);
+        "#);
 
         // String args (with interpolation variables)
         insta::assert_debug_snapshot!(
-            get(r#"ui.diff-editor = "my-diff -l $left -r $right""#).unwrap(), @r###"
+            get(r#"ui.diff-editor = "my-diff -l $left -r $right""#).unwrap(), @r#"
         External(
             ExternalMergeTool {
                 program: "my-diff",
@@ -487,6 +490,7 @@ mod tests {
                     "$left",
                     "$right",
                 ],
+                diff_expected_exit_codes: [],
                 diff_invocation_mode: Dir,
                 edit_args: [
                     "-l",
@@ -500,11 +504,11 @@ mod tests {
                 conflict_marker_style: None,
             },
         )
-        "###);
+        "#);
 
         // List args (with interpolation variables)
         insta::assert_debug_snapshot!(
-            get(r#"ui.diff-editor = ["my-diff", "--diff", "$left", "$right"]"#).unwrap(), @r###"
+            get(r#"ui.diff-editor = ["my-diff", "--diff", "$left", "$right"]"#).unwrap(), @r#"
         External(
             ExternalMergeTool {
                 program: "my-diff",
@@ -512,6 +516,7 @@ mod tests {
                     "$left",
                     "$right",
                 ],
+                diff_expected_exit_codes: [],
                 diff_invocation_mode: Dir,
                 edit_args: [
                     "--diff",
@@ -524,7 +529,7 @@ mod tests {
                 conflict_marker_style: None,
             },
         )
-        "###);
+        "#);
 
         // Pick from merge-tools
         insta::assert_debug_snapshot!(get(
@@ -533,7 +538,7 @@ mod tests {
         [merge-tools."foo bar"]
         edit-args = ["--edit", "args", "$left", "$right"]
         "#,
-        ).unwrap(), @r###"
+        ).unwrap(), @r#"
         External(
             ExternalMergeTool {
                 program: "foo bar",
@@ -541,6 +546,7 @@ mod tests {
                     "$left",
                     "$right",
                 ],
+                diff_expected_exit_codes: [],
                 diff_invocation_mode: Dir,
                 edit_args: [
                     "--edit",
@@ -554,7 +560,7 @@ mod tests {
                 conflict_marker_style: None,
             },
         )
-        "###);
+        "#);
 
         // Pick from merge-tools, but no edit-args specified
         insta::assert_debug_snapshot!(get(
@@ -563,7 +569,7 @@ mod tests {
         [merge-tools.my-diff]
         program = "MyDiff"
         "#,
-        ).unwrap(), @r###"
+        ).unwrap(), @r#"
         External(
             ExternalMergeTool {
                 program: "MyDiff",
@@ -571,6 +577,7 @@ mod tests {
                     "$left",
                     "$right",
                 ],
+                diff_expected_exit_codes: [],
                 diff_invocation_mode: Dir,
                 edit_args: [
                     "$left",
@@ -582,10 +589,10 @@ mod tests {
                 conflict_marker_style: None,
             },
         )
-        "###);
+        "#);
 
         // List args should never be a merge-tools key, edit_args are filled by default
-        insta::assert_debug_snapshot!(get(r#"ui.diff-editor = ["meld"]"#).unwrap(), @r###"
+        insta::assert_debug_snapshot!(get(r#"ui.diff-editor = ["meld"]"#).unwrap(), @r#"
         External(
             ExternalMergeTool {
                 program: "meld",
@@ -593,6 +600,7 @@ mod tests {
                     "$left",
                     "$right",
                 ],
+                diff_expected_exit_codes: [],
                 diff_invocation_mode: Dir,
                 edit_args: [
                     "$left",
@@ -604,7 +612,7 @@ mod tests {
                 conflict_marker_style: None,
             },
         )
-        "###);
+        "#);
 
         // Invalid type
         assert!(get(r#"ui.diff-editor.k = 0"#).is_err());
@@ -634,7 +642,7 @@ mod tests {
         [merge-tools."foo bar"]
         merge-args = ["$base", "$left", "$right", "$output"]
         "#,
-        ).unwrap(), @r###"
+        ).unwrap(), @r#"
         External(
             ExternalMergeTool {
                 program: "foo bar",
@@ -642,6 +650,7 @@ mod tests {
                     "$left",
                     "$right",
                 ],
+                diff_expected_exit_codes: [],
                 diff_invocation_mode: Dir,
                 edit_args: [
                     "$left",
@@ -658,7 +667,7 @@ mod tests {
                 conflict_marker_style: None,
             },
         )
-        "###);
+        "#);
     }
 
     #[test]
@@ -683,7 +692,7 @@ mod tests {
 
         // String args
         insta::assert_debug_snapshot!(
-            get(r#"ui.merge-editor = "my-merge $left $base $right $output""#).unwrap(), @r###"
+            get(r#"ui.merge-editor = "my-merge $left $base $right $output""#).unwrap(), @r#"
         External(
             ExternalMergeTool {
                 program: "my-merge",
@@ -691,6 +700,7 @@ mod tests {
                     "$left",
                     "$right",
                 ],
+                diff_expected_exit_codes: [],
                 diff_invocation_mode: Dir,
                 edit_args: [
                     "$left",
@@ -707,13 +717,13 @@ mod tests {
                 conflict_marker_style: None,
             },
         )
-        "###);
+        "#);
 
         // List args
         insta::assert_debug_snapshot!(
             get(
                 r#"ui.merge-editor = ["my-merge", "$left", "$base", "$right", "$output"]"#,
-            ).unwrap(), @r###"
+            ).unwrap(), @r#"
         External(
             ExternalMergeTool {
                 program: "my-merge",
@@ -721,6 +731,7 @@ mod tests {
                     "$left",
                     "$right",
                 ],
+                diff_expected_exit_codes: [],
                 diff_invocation_mode: Dir,
                 edit_args: [
                     "$left",
@@ -737,7 +748,7 @@ mod tests {
                 conflict_marker_style: None,
             },
         )
-        "###);
+        "#);
 
         // Pick from merge-tools
         insta::assert_debug_snapshot!(get(
@@ -746,7 +757,7 @@ mod tests {
         [merge-tools."foo bar"]
         merge-args = ["$base", "$left", "$right", "$output"]
         "#,
-        ).unwrap(), @r###"
+        ).unwrap(), @r#"
         External(
             ExternalMergeTool {
                 program: "foo bar",
@@ -754,6 +765,7 @@ mod tests {
                     "$left",
                     "$right",
                 ],
+                diff_expected_exit_codes: [],
                 diff_invocation_mode: Dir,
                 edit_args: [
                     "$left",
@@ -770,7 +782,7 @@ mod tests {
                 conflict_marker_style: None,
             },
         )
-        "###);
+        "#);
 
         // List args should never be a merge-tools key
         insta::assert_debug_snapshot!(
