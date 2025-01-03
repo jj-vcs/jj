@@ -16,6 +16,7 @@
 //! various backends.
 
 use std::fmt::Debug;
+use std::fmt::Display;
 use std::sync::Mutex;
 
 use clru::CLruCache;
@@ -27,6 +28,8 @@ use crate::gpg_signing::GpgBackend;
 use crate::settings::UserSettings;
 use crate::ssh_signing::SshBackend;
 use crate::store::COMMIT_CACHE_CAPACITY;
+#[cfg(feature = "testing")]
+use crate::test_signing_backend::TestSigningBackend;
 
 /// A status of the signature, part of the [Verification] type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -37,6 +40,17 @@ pub enum SigStatus {
     Unknown,
     /// Valid signature that does not match the signed data.
     Bad,
+}
+
+impl Display for SigStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            SigStatus::Good => "good",
+            SigStatus::Unknown => "unknown",
+            SigStatus::Bad => "bad",
+        };
+        write!(f, "{s}")
+    }
 }
 
 /// The result of a signature verification.
@@ -52,6 +66,11 @@ pub struct Verification {
     /// A display string, if available. For GPG, this will be formatted primary
     /// user ID.
     pub display: Option<String>,
+    /// The name of the backend that provided this verification.
+    /// Is `None` when no backend was found that could read the signature.
+    ///
+    /// Always set by the Signer.
+    backend: Option<String>,
 }
 
 impl Verification {
@@ -62,6 +81,7 @@ impl Verification {
             status: SigStatus::Unknown,
             key: None,
             display: None,
+            backend: None,
         }
     }
 
@@ -71,7 +91,13 @@ impl Verification {
             status,
             key,
             display,
+            backend: None,
         }
+    }
+
+    /// The name of the backend that provided this verification.
+    pub fn backend(&self) -> Option<&str> {
+        self.backend.as_deref()
     }
 }
 
@@ -166,6 +192,8 @@ impl Signer {
         let mut backends: Vec<Box<dyn SigningBackend>> = vec![
             Box::new(GpgBackend::from_settings(settings).map_err(SignInitError::BackendConfig)?),
             Box::new(SshBackend::from_settings(settings).map_err(SignInitError::BackendConfig)?),
+            #[cfg(feature = "testing")]
+            Box::new(TestSigningBackend),
             // Box::new(X509Backend::from_settings(settings).map_err(..)?),
         ];
 
@@ -233,7 +261,10 @@ impl Signer {
             .find_map(|backend| match backend.verify(data, signature) {
                 Ok(check) if check.status == SigStatus::Unknown => None,
                 Err(SignError::InvalidSignatureFormat) => None,
-                e => Some(e),
+                e => Some(e.map(|mut v| {
+                    v.backend = Some(backend.name().to_owned());
+                    v
+                })),
             })
             .transpose()?;
 

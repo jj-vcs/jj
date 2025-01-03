@@ -1,3 +1,5 @@
+use insta::allow_duplicates;
+use insta::assert_debug_snapshot;
 use jj_lib::backend::MillisSinceEpoch;
 use jj_lib::backend::Signature;
 use jj_lib::backend::Timestamp;
@@ -5,13 +7,11 @@ use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
 use jj_lib::repo::Repo;
 use jj_lib::settings::UserSettings;
-use jj_lib::signing::SigStatus;
 use jj_lib::signing::SignBehavior;
 use jj_lib::signing::Signer;
-use jj_lib::signing::Verification;
+use jj_lib::test_signing_backend::TestSigningBackend;
 use test_case::test_case;
 use testutils::create_random_commit;
-use testutils::test_signing_backend::TestSigningBackend;
 use testutils::write_random_commit;
 use testutils::TestRepoBackend;
 use testutils::TestWorkspace;
@@ -44,14 +44,6 @@ fn someone_else() -> Signature {
     }
 }
 
-fn good_verification() -> Option<Verification> {
-    Some(Verification {
-        status: SigStatus::Good,
-        key: Some("impeccable".to_owned()),
-        display: None,
-    })
-}
-
 #[test_case(TestRepoBackend::Local ; "local backend")]
 #[test_case(TestRepoBackend::Git ; "git backend")]
 fn manual(backend: TestRepoBackend) {
@@ -75,11 +67,31 @@ fn manual(backend: TestRepoBackend) {
         .unwrap();
     tx.commit("test").unwrap();
 
-    let commit1 = repo.store().get_commit(commit1.id()).unwrap();
-    assert_eq!(commit1.verification().unwrap(), good_verification());
+    allow_duplicates! {
+        let commit1 = repo.store().get_commit(commit1.id()).unwrap();
+        assert_debug_snapshot!(
+            commit1.verification().unwrap(),
+            @r#"
+        Some(
+            Verification {
+                status: Good,
+                key: Some(
+                    "impeccable",
+                ),
+                display: Some(
+                    "test-display",
+                ),
+                backend: Some(
+                    "test",
+                ),
+            },
+        )
+        "#,
+        );
 
-    let commit2 = repo.store().get_commit(commit2.id()).unwrap();
-    assert_eq!(commit2.verification().unwrap(), None);
+        let commit2 = repo.store().get_commit(commit2.id()).unwrap();
+        assert_debug_snapshot!(commit2.verification().unwrap(), @"None");
+    }
 }
 
 #[test_case(TestRepoBackend::Git ; "git backend")]
@@ -104,7 +116,22 @@ fn keep_on_rewrite(backend: TestRepoBackend) {
     let rewritten = mut_repo.rewrite_commit(&commit).write().unwrap();
 
     let commit = repo.store().get_commit(rewritten.id()).unwrap();
-    assert_eq!(commit.verification().unwrap(), good_verification());
+    assert_debug_snapshot!(commit.verification().unwrap(), @r#"
+    Some(
+        Verification {
+            status: Good,
+            key: Some(
+                "impeccable",
+            ),
+            display: Some(
+                "test-display",
+            ),
+            backend: Some(
+                "test",
+            ),
+        },
+    )
+    "#);
 }
 
 #[test_case(TestRepoBackend::Git ; "git backend")]
@@ -155,7 +182,22 @@ fn forced(backend: TestRepoBackend) {
     tx.commit("test").unwrap();
 
     let commit = repo.store().get_commit(commit.id()).unwrap();
-    assert_eq!(commit.verification().unwrap(), good_verification());
+    assert_debug_snapshot!(commit.verification().unwrap(), @r#"
+    Some(
+        Verification {
+            status: Good,
+            key: Some(
+                "impeccable",
+            ),
+            display: Some(
+                "test-display",
+            ),
+            backend: Some(
+                "test",
+            ),
+        },
+    )
+    "#);
 }
 
 #[test_case(TestRepoBackend::Git ; "git backend")]
@@ -173,5 +215,20 @@ fn configured(backend: TestRepoBackend) {
     tx.commit("test").unwrap();
 
     let commit = repo.store().get_commit(commit.id()).unwrap();
-    assert_eq!(commit.verification().unwrap(), good_verification());
+    assert_debug_snapshot!(commit.verification().unwrap(), @r#"
+    Some(
+        Verification {
+            status: Good,
+            key: Some(
+                "impeccable",
+            ),
+            display: Some(
+                "test-display",
+            ),
+            backend: Some(
+                "test",
+            ),
+        },
+    )
+    "#);
 }

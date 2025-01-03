@@ -93,6 +93,7 @@ This type cannot be printed. The following methods are defined.
 * `parents() -> List<Commit>`
 * `author() -> Signature`
 * `committer() -> Signature`
+* `signature() -> Option<CryptographicSignature>`
 * `mine() -> Boolean`: Commits where the author's email matches the email of the current
   user.
 * `working_copies() -> String`: For multi-workspace repository, indicate
@@ -128,6 +129,31 @@ The following methods are defined.
   ChangeId, whose canonical hex representation is "reversed" (z-k).
 * `.short([len: Integer]) -> String`
 * `.shortest([min_len: Integer]) -> ShortestIdPrefix`: Shortest unique prefix.
+
+### CryptographicSignature type
+
+The following methods are defined.
+
+* `.status() -> String`: The signature's status (`"good"`, `"bad"`, `"unknown"`, `"invalid"`).
+* `.key() -> String`: The signature's key id representation (for GPG, this is the key fingerprint).
+* `.display() -> String`: The signature's display string (for GPG this is the formatted primary user ID).
+* `.backend() -> String`: The signature backend (e.g. `"gpg"`).
+
+!!! warning
+
+    Calling any of `.status()`, `.key()`, `.display()`, or `.backend()` is
+    slow, as it incurs the performance cost of verifying the signature (for
+    example shelling out to `gpg` or `ssh-keygen`). Though consecutive calls
+    will be faster, because the backend caches the verification result.
+
+!!! info
+
+    As opposed to calling any of `.status()`, `.key()`, `.display()`, or
+    `.backend()`, checking for signature presence through boolean coercion is
+    fast:
+    ```
+    if(commit.signature(), "commit has a signature", "commit is unsigned")
+    ```
 
 ### Email type
 
