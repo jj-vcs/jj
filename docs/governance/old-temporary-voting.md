@@ -1,4 +1,8 @@
-# Getting Community Buy-in for Working Group Proposals
+# Old: Getting Community Buy-in for Working Group Proposals
+
+> [!IMPORTANT]
+> This document is outdated; as of #5040 it is succeeded by an actual working
+> group of maintainers under a governance structure.
 
 ## Introduction
 
