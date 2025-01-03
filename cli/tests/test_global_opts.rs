@@ -13,10 +13,14 @@
 // limitations under the License.
 
 use std::ffi::OsString;
+use std::path::Path;
 
 use indoc::indoc;
+use itertools::Itertools as _;
+use regex::Regex;
 
 use crate::common::get_stderr_string;
+use crate::common::get_stdout_string;
 use crate::common::strip_last_line;
 use crate::common::TestEnvironment;
 
@@ -772,6 +776,107 @@ fn test_conditional_config() {
     Working copy now at: yqosqzyt 3bd315a9 (empty) home
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
     ");
+}
+
+/// Test that `jj` command works with the default configuration.
+#[test]
+fn test_default_config() {
+    let mut test_env = TestEnvironment::default();
+    let config_dir = test_env.env_root().join("empty-config");
+    std::fs::create_dir(&config_dir).unwrap();
+    test_env.set_config_path(&config_dir);
+
+    let envs_to_drop = test_env
+        .jj_cmd(test_env.env_root(), &[])
+        .get_envs()
+        .filter_map(|(name, _)| name.to_str())
+        .filter(|&name| name.starts_with("JJ_") && name != "JJ_CONFIG")
+        .map(|name| name.to_owned())
+        .sorted_unstable()
+        .collect_vec();
+    insta::assert_debug_snapshot!(envs_to_drop, @r#"
+    [
+        "JJ_EMAIL",
+        "JJ_OP_HOSTNAME",
+        "JJ_OP_TIMESTAMP",
+        "JJ_OP_USERNAME",
+        "JJ_RANDOMNESS_SEED",
+        "JJ_TIMESTAMP",
+        "JJ_TZ_OFFSET_MINS",
+        "JJ_USER",
+    ]
+    "#);
+    let jj_cmd_ok = |current_dir: &Path, args: &[&str]| {
+        let mut cmd = test_env.jj_cmd(current_dir, args);
+        for name in &envs_to_drop {
+            cmd.env_remove(name);
+        }
+        let assert = cmd.assert().success();
+        let stdout = test_env.normalize_output(&get_stdout_string(&assert));
+        let stderr = test_env.normalize_output(&get_stderr_string(&assert));
+        (stdout, stderr)
+    };
+
+    let mut insta_settings = insta::Settings::clone_current();
+    insta_settings.add_filter(r"\b[a-zA-Z0-9\-._]+@[a-zA-Z0-9\-._]+\b", "<user>@<host>");
+    insta_settings.add_filter(
+        r"\b[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\b",
+        "<date-time>",
+    );
+    insta_settings.add_filter(r"\b[k-z]{8,12}\b", "<change-id>");
+    insta_settings.add_filter(r"\b[0-9a-f]{8,12}\b", "<id>");
+    let _guard = insta_settings.bind_to_scope();
+
+    let maskable_op_user = {
+        let maskable_re = Regex::new(r"^[a-zA-Z0-9\-._]+$").unwrap();
+        let hostname = whoami::fallible::hostname().expect("hostname should be set");
+        let username = whoami::fallible::username().expect("username should be set");
+        maskable_re.is_match(&hostname) && maskable_re.is_match(&username)
+    };
+
+    let (stdout, stderr) = jj_cmd_ok(test_env.env_root(), &["config", "list"]);
+    insta::assert_snapshot!(stdout, @"");
+    insta::assert_snapshot!(stderr, @"Warning: No config to list");
+
+    let repo_path = test_env.env_root().join("repo");
+    let (stdout, stderr) = jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    insta::assert_snapshot!(stdout, @"");
+    insta::assert_snapshot!(stderr, @r#"Initialized repo in "repo""#);
+
+    let (stdout, stderr) = jj_cmd_ok(&repo_path, &["new"]);
+    insta::assert_snapshot!(stdout, @"");
+    insta::assert_snapshot!(stderr, @r#"
+    Working copy now at: <change-id> <id> (empty) (no description set)
+    Parent commit      : <change-id> <id> (empty) (no description set)
+    Warning: Name and email not configured. Until configured, your commits will be created with the empty identity, and can't be pushed to remotes. To configure, run:
+      jj config set --user user.name "Some One"
+      jj config set --user user.email "<user>@<host>"
+    "#);
+
+    let (stdout, stderr) = jj_cmd_ok(&repo_path, &["log"]);
+    insta::assert_snapshot!(stdout, @r"
+    @  <change-id> (no email set) <date-time> <id>
+    │  (empty) (no description set)
+    ○  <change-id> (no email set) <date-time> <id>
+    │  (empty) (no description set)
+    ◆  <change-id> root() <id>
+    ");
+    insta::assert_snapshot!(stderr, @"");
+
+    let time_config =
+        "--config=template-aliases.'format_time_range(t)'='format_timestamp(t.end())'";
+    let (stdout, stderr) = jj_cmd_ok(&repo_path, &["op", "log", time_config]);
+    if maskable_op_user {
+        insta::assert_snapshot!(stdout, @r"
+        @  <id> <user>@<host> <date-time>
+        │  new empty commit
+        │  args: jj new
+        ○  <id> <user>@<host> <date-time>
+        │  add workspace 'default'
+        ○  <id> root()
+        ");
+    }
+    insta::assert_snapshot!(stderr, @"");
 }
 
 #[test]

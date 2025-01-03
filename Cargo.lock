@@ -1997,6 +1997,7 @@ dependencies = [
  "tracing-chrome",
  "tracing-subscriber",
  "unicode-width",
+ "whoami",
 ]
 
 [[package]]
