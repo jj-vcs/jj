@@ -1997,6 +1997,7 @@ dependencies = [
  "tracing-chrome",
  "tracing-subscriber",
  "unicode-width",
+ "whoami",
 ]
 
 [[package]]
@@ -2055,7 +2056,6 @@ dependencies = [
  "tracing",
  "version_check",
  "watchman_client",
- "whoami",
  "winreg",
  "zstd",
 ]
