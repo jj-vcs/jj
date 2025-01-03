@@ -25,11 +25,13 @@ pub mod description_util;
 pub mod diff_util;
 pub mod formatter;
 pub mod generic_templater;
+#[cfg(feature = "git")]
 pub mod git_util;
 pub mod graphlog;
 pub mod merge_tools;
 pub mod movement_util;
 pub mod operation_templater;
+#[cfg(feature = "git")]
 mod progress;
 pub mod revset_util;
 pub mod template_builder;

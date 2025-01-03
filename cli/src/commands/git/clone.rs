@@ -19,8 +19,11 @@ use std::mem;
 use std::num::NonZeroU32;
 use std::path::Path;
 
+#[cfg(feature = "git")]
 use jj_lib::git;
+#[cfg(feature = "git")]
 use jj_lib::git::GitFetchError;
+#[cfg(feature = "git")]
 use jj_lib::git::GitFetchStats;
 use jj_lib::repo::Repo;
 use jj_lib::str_util::StringPattern;

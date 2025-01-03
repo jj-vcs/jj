@@ -7,6 +7,7 @@ use std::time::Instant;
 use crossterm::terminal::Clear;
 use crossterm::terminal::ClearType;
 use jj_lib::fmt_util::binary_prefix;
+#[cfg(feature = "git")]
 use jj_lib::git;
 use jj_lib::repo_path::RepoPath;
 
@@ -23,6 +24,7 @@ pub struct Progress {
     guard: Option<CleanupGuard>,
 }
 
+#[allow(dead_code)]
 impl Progress {
     pub fn new(now: Instant) -> Self {
         Self {

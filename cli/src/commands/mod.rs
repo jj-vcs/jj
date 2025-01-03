@@ -29,6 +29,7 @@ mod edit;
 mod evolog;
 mod file;
 mod fix;
+#[cfg(feature = "git")]
 mod git;
 mod help;
 mod init;
@@ -111,6 +112,7 @@ enum Command {
     #[command(hide = true)]
     Files(file::list::FileListArgs),
     Fix(fix::FixArgs),
+    #[cfg(feature = "git")]
     #[command(subcommand)]
     Git(git::GitCommand),
     Help(help::HelpArgs),
@@ -207,6 +209,7 @@ pub fn run_command(ui: &mut Ui, command_helper: &CommandHelper) -> Result<(), Co
             cmd(ui, command_helper, args)
         }
         Command::Fix(args) => fix::cmd_fix(ui, command_helper, args),
+        #[cfg(feature = "git")]
         Command::Git(args) => git::cmd_git(ui, command_helper, args),
         Command::Help(args) => help::cmd_help(ui, command_helper, args),
         Command::Init(args) => init::cmd_init(ui, command_helper, args),

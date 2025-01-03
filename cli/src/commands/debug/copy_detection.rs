@@ -15,8 +15,11 @@
 use std::fmt::Debug;
 use std::io::Write as _;
 
+#[cfg(feature = "git")]
 use futures::executor::block_on_stream;
+#[cfg(feature = "git")]
 use jj_lib::backend::Backend;
+#[cfg(feature = "git")]
 use jj_lib::backend::CopyRecord;
 
 use crate::cli_util::CommandHelper;
@@ -32,16 +35,29 @@ pub struct CopyDetectionArgs {
     revision: RevisionArg,
 }
 
+#[cfg(not(feature = "git"))]
+pub fn cmd_debug_copy_detection(
+    ui: &mut Ui,
+    _command: &CommandHelper,
+    _args: &CopyDetectionArgs,
+) -> Result<(), CommandError> {
+    writeln!(ui.stderr(), "Not compiled with git support.")?;
+    Ok(())
+}
+
+#[cfg(feature = "git")]
 pub fn cmd_debug_copy_detection(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &CopyDetectionArgs,
 ) -> Result<(), CommandError> {
     let ws = command.workspace_helper(ui)?;
+
     let Some(git) = ws.git_backend() else {
         writeln!(ui.stderr(), "Not a git backend.")?;
         return Ok(());
     };
+
     let commit = ws.resolve_single_rev(ui, &args.revision)?;
     for parent_id in commit.parent_ids() {
         for CopyRecord { target, source, .. } in
