@@ -16,8 +16,8 @@ use std::fmt::Debug;
 use std::io::Write as _;
 
 use futures::executor::block_on_stream;
-use jj_lib::backend::Backend;
 use jj_lib::backend::CopyRecord;
+use jj_lib::repo::Repo;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
@@ -38,14 +38,12 @@ pub fn cmd_debug_copy_detection(
     args: &CopyDetectionArgs,
 ) -> Result<(), CommandError> {
     let ws = command.workspace_helper(ui)?;
-    let Some(git) = ws.git_backend() else {
-        writeln!(ui.stderr(), "Not a git backend.")?;
-        return Ok(());
-    };
+    let store = ws.repo().store();
+
     let commit = ws.resolve_single_rev(ui, &args.revision)?;
     for parent_id in commit.parent_ids() {
         for CopyRecord { target, source, .. } in
-            block_on_stream(git.get_copy_records(None, parent_id, commit.id())?)
+            block_on_stream(store.get_copy_records(None, parent_id, commit.id())?)
                 .filter_map(|r| r.ok())
         {
             writeln!(

@@ -553,11 +553,8 @@ fn bookmark_views_from_proto_legacy(
                 // bookmark. Alternatively, we could read
                 // git.auto-local-bookmark setting here, but that wouldn't always work since the
                 // setting could be toggled after the bookmark got merged.
-                #[cfg(feature = "git")]
                 let is_git_tracking =
-                    remote_bookmark.remote_name == crate::git::REMOTE_NAME_FOR_LOCAL_GIT_REPO;
-                #[cfg(not(feature = "git"))]
-                let is_git_tracking = false;
+                    crate::git::is_special_git_remote(&remote_bookmark.remote_name);
                 let default_state = if is_git_tracking || local_target.is_present() {
                     RemoteRefState::Tracking
                 } else {

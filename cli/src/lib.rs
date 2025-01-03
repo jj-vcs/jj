@@ -25,7 +25,19 @@ pub mod description_util;
 pub mod diff_util;
 pub mod formatter;
 pub mod generic_templater;
+#[cfg(feature = "git")]
 pub mod git_util;
+#[cfg(not(feature = "git"))]
+/// A stub module that provides a no-op implementation of some of the functions
+/// in the `git` module.
+pub mod git_util {
+    use jj_lib::repo::ReadonlyRepo;
+    use jj_lib::workspace::Workspace;
+
+    pub fn is_colocated_git_workspace(_workspace: &Workspace, _repo: &ReadonlyRepo) -> bool {
+        false
+    }
+}
 pub mod graphlog;
 pub mod merge_tools;
 pub mod movement_util;

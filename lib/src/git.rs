@@ -1222,6 +1222,14 @@ fn is_remote_exists_err(err: &git2::Error) -> bool {
     )
 }
 
+/// Determine, by its name, if a remote refers to the special local-only "git"
+/// remote that is used in the Git backend.
+///
+/// This function always returns false if the "git" feature is not enabled.
+pub fn is_special_git_remote(remote: &str) -> bool {
+    remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO
+}
+
 pub fn add_remote(
     git_repo: &git2::Repository,
     remote_name: &str,

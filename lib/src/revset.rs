@@ -2161,17 +2161,7 @@ fn resolve_commit_ref(
                 .filter(|(_, remote_ref)| {
                     remote_ref_state.map_or(true, |state| remote_ref.state == state)
                 })
-                .filter(|&((_, remote_name), _)| {
-                    #[cfg(feature = "git")]
-                    {
-                        remote_name != crate::git::REMOTE_NAME_FOR_LOCAL_GIT_REPO
-                    }
-                    #[cfg(not(feature = "git"))]
-                    {
-                        let _ = remote_name;
-                        true
-                    }
-                })
+                .filter(|&((_, remote_name), _)| !crate::git::is_special_git_remote(remote_name))
                 .flat_map(|(_, remote_ref)| remote_ref.target.added_ids())
                 .cloned()
                 .collect();

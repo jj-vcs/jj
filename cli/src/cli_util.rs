@@ -17,7 +17,6 @@ use std::cell::OnceCell;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::env;
-use std::env::VarError;
 use std::ffi::OsString;
 use std::fmt;
 use std::fmt::Debug;
@@ -64,12 +63,9 @@ use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigSource;
 use jj_lib::config::StackedConfig;
 use jj_lib::conflicts::ConflictMarkerStyle;
-use jj_lib::file_util;
 use jj_lib::fileset;
 use jj_lib::fileset::FilesetDiagnostics;
 use jj_lib::fileset::FilesetExpression;
-use jj_lib::git;
-use jj_lib::git_backend::GitBackend;
 use jj_lib::gitignore::GitIgnoreError;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::id_prefix::IdPrefixContext;
@@ -165,9 +161,6 @@ use crate::diff_util::DiffRenderer;
 use crate::formatter::FormatRecorder;
 use crate::formatter::Formatter;
 use crate::formatter::PlainTextFormatter;
-use crate::git_util::is_colocated_git_workspace;
-use crate::git_util::print_failed_git_export;
-use crate::git_util::print_git_import_stats;
 use crate::merge_tools::DiffEditor;
 use crate::merge_tools::MergeEditor;
 use crate::merge_tools::MergeToolConfigError;
@@ -662,10 +655,6 @@ impl ReadonlyUserRepo {
             id_prefix_context: OnceCell::new(),
         }
     }
-
-    pub fn git_backend(&self) -> Option<&GitBackend> {
-        self.repo.store().backend_impl().downcast_ref()
-    }
 }
 
 /// A advanceable bookmark to satisfy the "advance-bookmarks" feature.
@@ -999,7 +988,9 @@ impl WorkspaceCommandHelper {
         let op_summary_template_text = settings.get_string("templates.op_summary")?;
         let may_update_working_copy =
             loaded_at_head && !env.command.global_args().ignore_working_copy;
-        let working_copy_shared_with_git = is_colocated_git_workspace(&workspace, &repo);
+        let working_copy_shared_with_git =
+            crate::git_util::is_colocated_git_workspace(&workspace, &repo);
+
         let helper = Self {
             workspace,
             user_repo: ReadonlyUserRepo::new(repo),
@@ -1020,10 +1011,6 @@ impl WorkspaceCommandHelper {
     /// Settings for this workspace.
     pub fn settings(&self) -> &UserSettings {
         self.workspace.settings()
-    }
-
-    pub fn git_backend(&self) -> Option<&GitBackend> {
-        self.user_repo.git_backend()
     }
 
     pub fn check_working_copy_writable(&self) -> Result<(), CommandError> {
@@ -1048,6 +1035,7 @@ impl WorkspaceCommandHelper {
             return Ok(SnapshotStats::default());
         }
 
+        #[cfg(feature = "git")]
         if self.working_copy_shared_with_git {
             self.import_git_head(ui).map_err(snapshot_command_error)?;
         }
@@ -1058,6 +1046,7 @@ impl WorkspaceCommandHelper {
         let stats = self.snapshot_working_copy(ui)?;
 
         // import_git_refs() can rebase the working-copy commit.
+        #[cfg(feature = "git")]
         if self.working_copy_shared_with_git {
             self.import_git_refs(ui).map_err(snapshot_command_error)?;
         }
@@ -1078,11 +1067,12 @@ impl WorkspaceCommandHelper {
     /// The old working-copy commit will be abandoned if it's discardable. The
     /// working-copy state will be reset to point to the new Git HEAD. The
     /// working-copy contents won't be updated.
+    #[cfg(feature = "git")]
     #[instrument(skip_all)]
     fn import_git_head(&mut self, ui: &Ui) -> Result<(), CommandError> {
         assert!(self.may_update_working_copy);
         let mut tx = self.start_transaction();
-        git::import_head(tx.repo_mut())?;
+        jj_lib::git::import_head(tx.repo_mut())?;
         if !tx.repo().has_changes() {
             return Ok(());
         }
@@ -1136,19 +1126,20 @@ impl WorkspaceCommandHelper {
     ///
     /// This function does not import the Git HEAD, but the HEAD may be reset to
     /// the working copy parent if the repository is colocated.
+    #[cfg(feature = "git")]
     #[instrument(skip_all)]
     fn import_git_refs(&mut self, ui: &Ui) -> Result<(), CommandError> {
         let git_settings = self.settings().git_settings()?;
         let mut tx = self.start_transaction();
         // Automated import shouldn't fail because of reserved remote name.
-        let stats = git::import_some_refs(tx.repo_mut(), &git_settings, |ref_name| {
-            !git::is_reserved_git_remote_ref(ref_name)
+        let stats = jj_lib::git::import_some_refs(tx.repo_mut(), &git_settings, |ref_name| {
+            !jj_lib::git::is_reserved_git_remote_ref(ref_name)
         })?;
         if !tx.repo().has_changes() {
             return Ok(());
         }
 
-        print_git_import_stats(ui, tx.repo(), &stats, false)?;
+        crate::git_util::print_git_import_stats(ui, tx.repo(), &stats, false)?;
         let mut tx = tx.into_inner();
         // Rebase here to show slightly different status message.
         let num_rebased = tx.repo_mut().rebase_descendants()?;
@@ -1164,6 +1155,11 @@ impl WorkspaceCommandHelper {
             "Done importing changes from the underlying Git repo."
         )?;
         Ok(())
+    }
+
+    #[cfg(feature = "git")]
+    fn git_backend(&self) -> Option<&jj_lib::git_backend::GitBackend> {
+        self.user_repo.repo.store().backend_impl().downcast_ref()
     }
 
     pub fn repo(&self) -> &Arc<ReadonlyRepo> {
@@ -1356,6 +1352,12 @@ to the current parents may contain changes from multiple commits.
         self.env.path_converter()
     }
 
+    #[cfg(not(feature = "git"))]
+    pub fn base_ignores(&self) -> Result<Arc<GitIgnoreFile>, GitIgnoreError> {
+        Ok(GitIgnoreFile::empty())
+    }
+
+    #[cfg(feature = "git")]
     #[instrument(skip_all)]
     pub fn base_ignores(&self) -> Result<Arc<GitIgnoreFile>, GitIgnoreError> {
         let get_excludes_file_path = |config: &gix::config::File| -> Option<PathBuf> {
@@ -1364,7 +1366,7 @@ to the current parents may contain changes from multiple commits.
             if let Some(value) = config.string("core.excludesFile") {
                 let path = str::from_utf8(&value)
                     .ok()
-                    .map(file_util::expand_home_path)?;
+                    .map(jj_lib::file_util::expand_home_path)?;
                 // The configured path is usually absolute, but if it's relative,
                 // the "git" command would read the file at the work-tree directory.
                 Some(self.workspace_root().join(path))
@@ -1373,7 +1375,7 @@ to the current parents may contain changes from multiple commits.
             }
         };
 
-        fn xdg_config_home() -> Result<PathBuf, VarError> {
+        fn xdg_config_home() -> Result<PathBuf, std::env::VarError> {
             if let Ok(x) = std::env::var("XDG_CONFIG_HOME") {
                 if !x.is_empty() {
                     return Ok(PathBuf::from(x));
@@ -1908,9 +1910,11 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
                 .map_err(snapshot_command_error)?;
             }
 
+            #[cfg(feature = "git")]
             if self.working_copy_shared_with_git {
-                let refs = git::export_refs(mut_repo).map_err(snapshot_command_error)?;
-                print_failed_git_export(ui, &refs).map_err(snapshot_command_error)?;
+                let refs = jj_lib::git::export_refs(mut_repo).map_err(snapshot_command_error)?;
+                crate::git_util::print_failed_git_export(ui, &refs)
+                    .map_err(snapshot_command_error)?;
             }
 
             let repo = tx
@@ -2029,12 +2033,13 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
             .map(|commit_id| tx.repo().store().get_commit(commit_id))
             .transpose()?;
 
+        #[cfg(feature = "git")]
         if self.working_copy_shared_with_git {
             if let Some(wc_commit) = &maybe_new_wc_commit {
-                git::reset_head(tx.repo_mut(), wc_commit)?;
+                jj_lib::git::reset_head(tx.repo_mut(), wc_commit)?;
             }
-            let refs = git::export_refs(tx.repo_mut())?;
-            print_failed_git_export(ui, &refs)?;
+            let refs = jj_lib::git::export_refs(tx.repo_mut())?;
+            crate::git_util::print_failed_git_export(ui, &refs)?;
         }
 
         self.user_repo = ReadonlyUserRepo::new(tx.commit(description)?);

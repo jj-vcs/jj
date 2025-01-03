@@ -80,7 +80,7 @@ jobs:
         RUST_BACKTRACE: 1
 
   build-no-git:
-    name: Build jj-lib without Git support
+    name: Build without Git support
     runs-on: ubuntu-24.04
 
     steps:
@@ -91,7 +91,7 @@ jobs:
       with:
         toolchain: 1.76
     - name: Build
-      run: cargo build -p jj-lib --no-default-features --verbose
+      run: cargo build -p jj-cli --no-default-features --verbose
 
   check-protos:
     name: Check protos

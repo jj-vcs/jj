@@ -16,7 +16,6 @@ use std::collections::HashSet;
 
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools;
-use jj_lib::git;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::str_util::StringPattern;
 
@@ -174,8 +173,7 @@ pub fn cmd_bookmark_list(
             .partition::<Vec<_>, _>(|&(_, remote_ref)| remote_ref.is_tracking());
 
         if args.tracked {
-            tracking_remote_refs
-                .retain(|&(remote, _)| remote != git::REMOTE_NAME_FOR_LOCAL_GIT_REPO);
+            tracking_remote_refs.retain(|&(remote, _)| !jj_lib::git::is_special_git_remote(remote));
         } else if !args.all_remotes && args.remotes.is_none() {
             tracking_remote_refs.retain(|&(_, remote_ref)| remote_ref.target != *local_target);
         }
@@ -199,7 +197,7 @@ pub fn cmd_bookmark_list(
             found_deleted_local_bookmark = true;
             found_deleted_tracking_local_bookmark |= tracking_remote_refs
                 .iter()
-                .any(|&(remote, _)| remote != git::REMOTE_NAME_FOR_LOCAL_GIT_REPO);
+                .any(|&(remote, _)| !jj_lib::git::is_special_git_remote(remote));
         }
 
         if !args.tracked && (args.all_remotes || args.remotes.is_some()) {

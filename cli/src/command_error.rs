@@ -30,10 +30,6 @@ use jj_lib::dsl_util::Diagnostics;
 use jj_lib::fileset::FilePatternParseError;
 use jj_lib::fileset::FilesetParseError;
 use jj_lib::fileset::FilesetParseErrorKind;
-use jj_lib::git::GitConfigParseError;
-use jj_lib::git::GitExportError;
-use jj_lib::git::GitImportError;
-use jj_lib::git::GitRemoteManagementError;
 use jj_lib::gitignore::GitIgnoreError;
 use jj_lib::op_heads_store::OpHeadResolutionError;
 use jj_lib::op_heads_store::OpHeadsStoreError;
@@ -463,46 +459,62 @@ impl From<TempTextEditError> for CommandError {
     }
 }
 
-impl From<git2::Error> for CommandError {
-    fn from(err: git2::Error) -> Self {
-        user_error_with_message("Git operation failed", err)
-    }
-}
+#[cfg(feature = "git")]
+mod git {
+    use jj_lib::git::GitConfigParseError;
+    use jj_lib::git::GitExportError;
+    use jj_lib::git::GitImportError;
+    use jj_lib::git::GitRemoteManagementError;
 
-impl From<GitImportError> for CommandError {
-    fn from(err: GitImportError) -> Self {
-        let hint = match &err {
-            GitImportError::MissingHeadTarget { .. }
-            | GitImportError::MissingRefAncestor { .. } => Some(
-                "\
+    use super::*;
+
+    impl From<git2::Error> for CommandError {
+        fn from(err: git2::Error) -> Self {
+            user_error_with_message("Git operation failed", err)
+        }
+    }
+
+    impl From<GitImportError> for CommandError {
+        fn from(err: GitImportError) -> Self {
+            let hint = match &err {
+                GitImportError::MissingHeadTarget { .. }
+                | GitImportError::MissingRefAncestor { .. } => Some(
+                    "\
 Is this Git repository a partial clone (cloned with the --filter argument)?
 jj currently does not support partial clones. To use jj with this repository, try re-cloning with \
-                 the full repository contents."
-                    .to_string(),
-            ),
-            GitImportError::RemoteReservedForLocalGitRepo => {
-                Some("Run `jj git remote rename` to give different name.".to_string())
-            }
-            GitImportError::InternalBackend(_) => None,
-            GitImportError::InternalGitError(_) => None,
-            GitImportError::UnexpectedBackend => None,
-        };
-        let mut cmd_err =
-            user_error_with_message("Failed to import refs from underlying Git repo", err);
-        cmd_err.extend_hints(hint);
-        cmd_err
+                     the full repository contents."
+                        .to_string(),
+                ),
+                GitImportError::RemoteReservedForLocalGitRepo => {
+                    Some("Run `jj git remote rename` to give different name.".to_string())
+                }
+                GitImportError::InternalBackend(_) => None,
+                GitImportError::InternalGitError(_) => None,
+                GitImportError::UnexpectedBackend => None,
+            };
+            let mut cmd_err =
+                user_error_with_message("Failed to import refs from underlying Git repo", err);
+            cmd_err.extend_hints(hint);
+            cmd_err
+        }
     }
-}
 
-impl From<GitExportError> for CommandError {
-    fn from(err: GitExportError) -> Self {
-        internal_error_with_message("Failed to export refs to underlying Git repo", err)
+    impl From<GitExportError> for CommandError {
+        fn from(err: GitExportError) -> Self {
+            internal_error_with_message("Failed to export refs to underlying Git repo", err)
+        }
     }
-}
 
-impl From<GitRemoteManagementError> for CommandError {
-    fn from(err: GitRemoteManagementError) -> Self {
-        user_error(err)
+    impl From<GitRemoteManagementError> for CommandError {
+        fn from(err: GitRemoteManagementError) -> Self {
+            user_error(err)
+        }
+    }
+
+    impl From<GitConfigParseError> for CommandError {
+        fn from(err: GitConfigParseError) -> Self {
+            internal_error_with_message("Failed to parse Git config", err)
+        }
     }
 }
 
@@ -584,12 +596,6 @@ impl From<clap::Error> for CommandError {
         let mut cmd_err = cli_error(err);
         cmd_err.extend_hints(hint);
         cmd_err
-    }
-}
-
-impl From<GitConfigParseError> for CommandError {
-    fn from(err: GitConfigParseError) -> Self {
-        internal_error_with_message("Failed to parse Git config", err)
     }
 }
 

@@ -23,7 +23,6 @@ use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::dag_walk;
-use jj_lib::git::REMOTE_NAME_FOR_LOCAL_GIT_REPO;
 use jj_lib::graph::GraphEdge;
 use jj_lib::graph::TopoGroupedGraphIterator;
 use jj_lib::matchers::EverythingMatcher;
@@ -354,7 +353,7 @@ pub fn show_op_diff(
     )
     // Skip updates to the local git repo, since they should typically be covered in
     // local branches.
-    .filter(|((_, remote_name), _)| *remote_name != REMOTE_NAME_FOR_LOCAL_GIT_REPO)
+    .filter(|((_, remote_name), _)| !jj_lib::git::is_special_git_remote(remote_name))
     .collect_vec();
     if !changed_remote_bookmarks.is_empty() {
         writeln!(formatter)?;

@@ -23,7 +23,7 @@ include = [
     "/tests/",
     "!*.pending-snap",
     "!*.snap*",
-    "/tests/cli-reference@.md.snap"
+    "/tests/cli-reference@.md.snap",
 ]
 
 [[bin]]
@@ -61,8 +61,8 @@ crossterm = { workspace = true }
 dirs = { workspace = true }
 dunce = { workspace = true }
 futures = { workspace = true }
-git2 = { workspace = true }
-gix = { workspace = true }
+git2 = { workspace = true, optional = true }
+gix = { workspace = true, optional = true }
 glob = { workspace = true }
 indexmap = { workspace = true }
 indoc = { workspace = true }
@@ -109,8 +109,9 @@ testutils = { workspace = true }
 jj-cli = { path = ".", features = ["test-fakes"], default-features = false }
 
 [features]
-default = ["watchman"]
+default = ["watchman", "git"]
 bench = ["dep:criterion"]
+git = ["jj-lib/git", "dep:git2", "dep:gix"]
 gix-max-performance = ["jj-lib/gix-max-performance"]
 packaging = ["gix-max-performance"]
 test-fakes = ["jj-lib/testing"]

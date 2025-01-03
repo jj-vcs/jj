@@ -14,7 +14,6 @@
 
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
-use jj_lib::git;
 
 use super::find_remote_bookmarks;
 use crate::cli_util::CommandHelper;
@@ -53,7 +52,7 @@ pub fn cmd_bookmark_untrack(
     let view = workspace_command.repo().view();
     let mut names = Vec::new();
     for (name, remote_ref) in find_remote_bookmarks(view, &args.names)? {
-        if name.remote == git::REMOTE_NAME_FOR_LOCAL_GIT_REPO {
+        if jj_lib::git::is_special_git_remote(&name.remote) {
             // This restriction can be lifted if we want to support untracked @git
             // bookmarks.
             writeln!(
