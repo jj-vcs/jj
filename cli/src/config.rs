@@ -63,9 +63,12 @@ const fn is_bare_char(b: u8) -> bool {
         | b'>' | b'?' | b'@' | b'\\' | b'^' | b'_' | b'`' | b'|' | b'~' => true,
         // there may be an error in integer, float, or date-time, but that's rare
         b'+' | b'-' | b'.' | b':' => true,
-        // comma and equal don't construct a compound value by themselves, but
-        // they suggest that the value is an inline array or table
-        b',' | b'=' => false,
+        // comma doesn't construct a compound value by itself, and it might be
+        // used in real name #5233
+        b',' => true,
+        // equal doesn't construct a compound value by itself, but it suggest
+        // that the value is an inline table
+        b'=' => false,
         // unpaired quotes are often typo
         b'"' | b'\'' => false,
         // symbols that construct an inline array or table
@@ -737,6 +740,7 @@ mod tests {
         // Bare string
         assert_eq!(parse("").unwrap().as_str(), Some(""));
         assert_eq!(parse("John Doe").unwrap().as_str(), Some("John Doe"));
+        assert_eq!(parse("Doe, John").unwrap().as_str(), Some("Doe, John"));
         assert_eq!(
             parse("<foo+bar@example.org>").unwrap().as_str(),
             Some("<foo+bar@example.org>")
