@@ -16,6 +16,8 @@ use std::io;
 
 use itertools::Itertools;
 use jj_lib::copies::CopyRecords;
+use jj_lib::matchers::DifferenceMatcher;
+use jj_lib::matchers::GitAttributesMatcher;
 use jj_lib::repo::Repo;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetFilterPredicate;
@@ -61,6 +63,11 @@ pub(crate) fn cmd_status(
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();
     let formatter = formatter.as_mut();
+
+    let matcher = DifferenceMatcher::new(
+        matcher,
+        GitAttributesMatcher::new().expect("gitattributes matcher failed"),
+    );
 
     if let Some(wc_commit) = &maybe_wc_commit {
         let parent_tree = wc_commit.parent_tree(repo.as_ref())?;

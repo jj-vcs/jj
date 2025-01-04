@@ -543,26 +543,34 @@ fn parse_gitignore(
 
     for line in reader.lines() {
         let line = line?;
-        let line = match line.trim().split_whitespace().next() {
+        let mut parts = line.trim().split_whitespace();
+        let pattern = match parts.next() {
             Some(l) => l,
             None => continue,
         };
 
+        // Simple heuristic to detect LFS files
+        let is_lfs = parts.any(|p| p == "filter=lfs");
+        if !is_lfs {
+            // We only want to ignore LFS files
+            continue;
+        }
+
         // See https://git-scm.com/docs/gitattributes, these are the two
         // differences from a standard .gitignore file as far as patterns go.
-        if line.starts_with("!") {
+        if pattern.starts_with("!") {
             return Err(GitAttributesMatcherError::InvalidPattern(
                 "negative patterns are not allowed in .gitattributes files".to_string(),
             ));
         }
-        if line.ends_with("/") {
+        if pattern.ends_with("/") {
             return Err(GitAttributesMatcherError::InvalidPattern(format!(
                 "trailing slash does not match a directory in .gitattributes, try {}** instead",
-                line
+                pattern
             )));
         }
 
-        builder.add_line(Some(root.as_ref().to_path_buf()), line)?;
+        builder.add_line(Some(root.as_ref().to_path_buf()), pattern)?;
     }
 
     Ok(())
@@ -578,7 +586,9 @@ impl GitAttributesMatcher {
         let gitattributes_path = root.join(".gitattributes");
 
         match File::open(gitattributes_path) {
-            Ok(f) => parse_gitignore(f, &root, &mut builder)?,
+            Ok(f) => {
+                parse_gitignore(f, &root, &mut builder)?;
+            }
             Err(e) => {
                 // If the file doesn't exist, we'll create a blank Gitignore,
                 // equivalent to Gitignore::empty()
@@ -601,9 +611,13 @@ impl Matcher for GitAttributesMatcher {
             Ok(p) => p,
             Err(_) => return false,
         };
-        match self.matcher.matched(path, false) {
+        let m_match = self.matcher.matched(&path, false);
+        match m_match {
             ignore::Match::None => false,
-            ignore::Match::Ignore(_) => true,
+            ignore::Match::Ignore(_) => {
+                tracing::debug!(?m_match, ?path, "matching a file");
+                true
+            }
             ignore::Match::Whitelist(_) => false,
         }
     }
@@ -614,9 +628,13 @@ impl Matcher for GitAttributesMatcher {
             Err(_) => return Visit::Nothing,
         };
         // TODO(brandon): Try to understand if these make sense
-        match self.matcher.matched(dir, false) {
+        let m_match = self.matcher.matched(&dir, true);
+        match m_match {
             ignore::Match::None => Visit::Nothing,
-            ignore::Match::Ignore(_) => Visit::AllRecursively,
+            ignore::Match::Ignore(_) => {
+                tracing::debug!(?m_match, ?dir, "visiting a dir");
+                Visit::AllRecursively
+            }
             ignore::Match::Whitelist(_) => Visit::Nothing,
         }
     }

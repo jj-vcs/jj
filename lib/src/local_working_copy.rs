@@ -1696,7 +1696,10 @@ impl TreeState {
             .update(
                 &old_tree,
                 new_tree,
-                self.sparse_matcher().as_ref(),
+                &DifferenceMatcher::new(
+                    self.sparse_matcher().as_ref(),
+                    self.git_attributes_matcher(),
+                ),
                 options.conflict_marker_style,
             )
             .block_on()?;
