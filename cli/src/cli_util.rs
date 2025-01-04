@@ -17,6 +17,7 @@ use std::cell::OnceCell;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::env;
+#[cfg(feature = "git")]
 use std::env::VarError;
 use std::ffi::OsString;
 use std::fmt;
@@ -64,11 +65,14 @@ use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigSource;
 use jj_lib::config::StackedConfig;
 use jj_lib::conflicts::ConflictMarkerStyle;
+#[cfg(feature = "git")]
 use jj_lib::file_util;
 use jj_lib::fileset;
 use jj_lib::fileset::FilesetDiagnostics;
 use jj_lib::fileset::FilesetExpression;
+#[cfg(feature = "git")]
 use jj_lib::git;
+#[cfg(feature = "git")]
 use jj_lib::git_backend::GitBackend;
 use jj_lib::gitignore::GitIgnoreError;
 use jj_lib::gitignore::GitIgnoreFile;
@@ -165,8 +169,11 @@ use crate::diff_util::DiffRenderer;
 use crate::formatter::FormatRecorder;
 use crate::formatter::Formatter;
 use crate::formatter::PlainTextFormatter;
+#[cfg(feature = "git")]
 use crate::git_util::is_colocated_git_workspace;
+#[cfg(feature = "git")]
 use crate::git_util::print_failed_git_export;
+#[cfg(feature = "git")]
 use crate::git_util::print_git_import_stats;
 use crate::merge_tools::DiffEditor;
 use crate::merge_tools::MergeEditor;
@@ -634,6 +641,7 @@ impl ReadonlyUserRepo {
         }
     }
 
+    #[cfg(feature = "git")]
     pub fn git_backend(&self) -> Option<&GitBackend> {
         self.repo.store().backend_impl().downcast_ref()
     }
@@ -971,7 +979,12 @@ impl WorkspaceCommandHelper {
         let op_summary_template_text = settings.get_string("templates.op_summary")?;
         let may_update_working_copy =
             loaded_at_head && !env.command.global_args().ignore_working_copy;
+
+        #[cfg(feature = "git")]
         let working_copy_shared_with_git = is_colocated_git_workspace(&workspace, &repo);
+        #[cfg(not(feature = "git"))]
+        let working_copy_shared_with_git = false;
+
         let helper = Self {
             workspace,
             user_repo: ReadonlyUserRepo::new(repo),
@@ -993,6 +1006,7 @@ impl WorkspaceCommandHelper {
         self.env.settings()
     }
 
+    #[cfg(feature = "git")]
     pub fn git_backend(&self) -> Option<&GitBackend> {
         self.user_repo.git_backend()
     }
@@ -1016,6 +1030,7 @@ impl WorkspaceCommandHelper {
     #[instrument(skip_all)]
     fn maybe_snapshot_impl(&mut self, ui: &Ui) -> Result<(), SnapshotWorkingCopyError> {
         if self.may_update_working_copy {
+            #[cfg(feature = "git")]
             if self.working_copy_shared_with_git {
                 self.import_git_head(ui).map_err(snapshot_command_error)?;
             }
@@ -1026,6 +1041,7 @@ impl WorkspaceCommandHelper {
             self.snapshot_working_copy(ui)?;
 
             // import_git_refs() can rebase the working-copy commit.
+            #[cfg(feature = "git")]
             if self.working_copy_shared_with_git {
                 self.import_git_refs(ui).map_err(snapshot_command_error)?;
             }
@@ -1047,6 +1063,7 @@ impl WorkspaceCommandHelper {
     /// The old working-copy commit will be abandoned if it's discardable. The
     /// working-copy state will be reset to point to the new Git HEAD. The
     /// working-copy contents won't be updated.
+    #[cfg(feature = "git")]
     #[instrument(skip_all)]
     fn import_git_head(&mut self, ui: &Ui) -> Result<(), CommandError> {
         assert!(self.may_update_working_copy);
@@ -1105,6 +1122,7 @@ impl WorkspaceCommandHelper {
     ///
     /// This function does not import the Git HEAD, but the HEAD may be reset to
     /// the working copy parent if the repository is colocated.
+    #[cfg(feature = "git")]
     #[instrument(skip_all)]
     fn import_git_refs(&mut self, ui: &Ui) -> Result<(), CommandError> {
         let git_settings = self.settings().git_settings()?;
@@ -1322,6 +1340,12 @@ to the current parents may contain changes from multiple commits.
         self.env.path_converter()
     }
 
+    #[cfg(not(feature = "git"))]
+    pub fn base_ignores(&self) -> Result<Arc<GitIgnoreFile>, GitIgnoreError> {
+        Ok(GitIgnoreFile::empty())
+    }
+
+    #[cfg(feature = "git")]
     #[instrument(skip_all)]
     pub fn base_ignores(&self) -> Result<Arc<GitIgnoreFile>, GitIgnoreError> {
         let get_excludes_file_path = |config: &gix::config::File| -> Option<PathBuf> {
@@ -1837,13 +1861,23 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
             };
         self.user_repo = ReadonlyUserRepo::new(repo);
         let (new_tree_id, stats) = {
-            let mut options = options;
-            let progress = crate::progress::snapshot_progress(ui);
-            options.progress = progress.as_ref().map(|x| x as _);
-            locked_ws
-                .locked_wc()
-                .snapshot(&options)
-                .map_err(snapshot_command_error)?
+            #[cfg(feature = "git")]
+            {
+                let mut options = options;
+                let progress = crate::progress::snapshot_progress(ui);
+                options.progress = progress.as_ref().map(|x| x as _);
+                locked_ws
+                    .locked_wc()
+                    .snapshot(&options)
+                    .map_err(snapshot_command_error)?
+            }
+            #[cfg(not(feature = "git"))]
+            {
+                locked_ws
+                    .locked_wc()
+                    .snapshot(&options)
+                    .map_err(snapshot_command_error)?
+            }
         };
         if new_tree_id != *wc_commit.tree_id() {
             let mut tx =
@@ -1871,6 +1905,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
                 .map_err(snapshot_command_error)?;
             }
 
+            #[cfg(feature = "git")]
             if self.working_copy_shared_with_git {
                 let refs = git::export_refs(mut_repo).map_err(snapshot_command_error)?;
                 print_failed_git_export(ui, &refs).map_err(snapshot_command_error)?;
@@ -1992,6 +2027,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
             .map(|commit_id| tx.repo().store().get_commit(commit_id))
             .transpose()?;
 
+        #[cfg(feature = "git")]
         if self.working_copy_shared_with_git {
             let git_repo = self.git_backend().unwrap().open_git_repo()?;
             if let Some(wc_commit) = &maybe_new_wc_commit {

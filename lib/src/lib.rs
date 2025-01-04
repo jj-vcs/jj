@@ -53,6 +53,13 @@ pub mod fsmonitor;
 pub mod git;
 #[cfg(feature = "git")]
 pub mod git_backend;
+#[cfg(not(feature = "git"))]
+/// Stub module for when the `git` feature is disabled.
+pub mod git {
+    // TODO FIXME: hack
+    /// Reserved remote name for the backing Git repo.
+    pub const REMOTE_NAME_FOR_LOCAL_GIT_REPO: &str = "git";
+}
 pub mod gitignore;
 pub mod gpg_signing;
 pub mod graph;

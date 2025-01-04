@@ -30,9 +30,13 @@ use jj_lib::dsl_util::Diagnostics;
 use jj_lib::fileset::FilePatternParseError;
 use jj_lib::fileset::FilesetParseError;
 use jj_lib::fileset::FilesetParseErrorKind;
+#[cfg(feature = "git")]
 use jj_lib::git::GitConfigParseError;
+#[cfg(feature = "git")]
 use jj_lib::git::GitExportError;
+#[cfg(feature = "git")]
 use jj_lib::git::GitImportError;
+#[cfg(feature = "git")]
 use jj_lib::git::GitRemoteManagementError;
 use jj_lib::gitignore::GitIgnoreError;
 use jj_lib::op_heads_store::OpHeadResolutionError;
@@ -463,12 +467,14 @@ impl From<TempTextEditError> for CommandError {
     }
 }
 
+#[cfg(feature = "git")]
 impl From<git2::Error> for CommandError {
     fn from(err: git2::Error) -> Self {
         user_error_with_message("Git operation failed", err)
     }
 }
 
+#[cfg(feature = "git")]
 impl From<GitImportError> for CommandError {
     fn from(err: GitImportError) -> Self {
         let hint = match &err {
@@ -494,12 +500,14 @@ jj currently does not support partial clones. To use jj with this repository, tr
     }
 }
 
+#[cfg(feature = "git")]
 impl From<GitExportError> for CommandError {
     fn from(err: GitExportError) -> Self {
         internal_error_with_message("Failed to export refs to underlying Git repo", err)
     }
 }
 
+#[cfg(feature = "git")]
 impl From<GitRemoteManagementError> for CommandError {
     fn from(err: GitRemoteManagementError) -> Self {
         user_error(err)
@@ -587,6 +595,7 @@ impl From<clap::Error> for CommandError {
     }
 }
 
+#[cfg(feature = "git")]
 impl From<GitConfigParseError> for CommandError {
     fn from(err: GitConfigParseError) -> Self {
         internal_error_with_message("Failed to parse Git config", err)
