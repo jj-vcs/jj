@@ -362,6 +362,11 @@
                     "type": "string",
                     "description": "The remote to which commits are pushed",
                     "default": "origin"
+                },
+                "shell": {
+                    "type": "boolean",
+                    "description": "Whether jj shells out to git for network operations (push/fetch/clone)",
+                    "default": false
                 }
             }
         },

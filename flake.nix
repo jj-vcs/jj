@@ -176,6 +176,7 @@
 
           # Foreign dependencies
           openssl zstd libgit2 libssh2
+          git
           pkg-config
 
           # Additional tools recommended by contributing.md
