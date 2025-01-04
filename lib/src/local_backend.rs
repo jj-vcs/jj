@@ -187,7 +187,7 @@ impl Backend for LocalBackend {
     async fn read_file(&self, _path: &RepoPath, id: &FileId) -> BackendResult<Box<dyn Read>> {
         let path = self.file_path(id);
         let file = File::open(path).map_err(|err| map_not_found_err(err, id))?;
-        Ok(Box::new(zstd::Decoder::new(file).map_err(to_other_err)?))
+        Ok(Box::new(file))
     }
 
     async fn write_file(
@@ -196,7 +196,7 @@ impl Backend for LocalBackend {
         contents: &mut (dyn Read + Send),
     ) -> BackendResult<FileId> {
         let temp_file = NamedTempFile::new_in(&self.path).map_err(to_other_err)?;
-        let mut encoder = zstd::Encoder::new(temp_file.as_file(), 0).map_err(to_other_err)?;
+        let mut file = temp_file.as_file();
         let mut hasher = Blake2b512::new();
         let mut buff: Vec<u8> = vec![0; 1 << 14];
         loop {
@@ -205,10 +205,10 @@ impl Backend for LocalBackend {
                 break;
             }
             let bytes = &buff[..bytes_read];
-            encoder.write_all(bytes).map_err(to_other_err)?;
+            file.write_all(bytes).map_err(to_other_err)?;
             hasher.update(bytes);
         }
-        encoder.finish().map_err(to_other_err)?;
+        file.flush().map_err(to_other_err)?;
         let id = FileId::new(hasher.finalize().to_vec());
 
         persist_content_addressed_temp_file(temp_file, self.file_path(&id))

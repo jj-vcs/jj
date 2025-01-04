@@ -74,7 +74,6 @@ tokio = { workspace = true, optional = true }
 toml_edit = { workspace = true }
 tracing = { workspace = true }
 watchman_client = { workspace = true, optional = true }
-zstd = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 rustix = { workspace = true }
