@@ -150,6 +150,76 @@ fn test_commit_interactive() {
 
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "###);
+
+    let stdout = test_env.jj_cmd_success(&workspace_path, &["log", "--summary"]);
+    insta::assert_snapshot!(stdout, @r"
+    @  mzvwutvl test.user@example.com 2001-02-03 08:05:11 21b846a6
+    │  (no description set)
+    │  A file2
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:11 7d156390
+    │  add files
+    │  A file1
+    ◆  zzzzzzzz root() 00000000
+    ");
+}
+
+#[test]
+fn test_commit_interactive_with_paths() {
+    let mut test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    let workspace_path = test_env.env_root().join("repo");
+
+    std::fs::write(workspace_path.join("file2"), "").unwrap();
+    std::fs::write(workspace_path.join("file3"), "").unwrap();
+    test_env.jj_cmd_ok(&workspace_path, &["new", "-medit"]);
+    std::fs::write(workspace_path.join("file1"), "foo\n").unwrap();
+    std::fs::write(workspace_path.join("file2"), "bar\n").unwrap();
+    std::fs::write(workspace_path.join("file3"), "baz\n").unwrap();
+
+    let edit_script = test_env.set_up_fake_editor();
+    std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
+    let diff_editor = test_env.set_up_fake_diff_editor();
+    let diff_script = [
+        "files-before file2",
+        "files-after JJ-INSTRUCTIONS file1 file2",
+        "reset file2",
+    ]
+    .join("\0");
+    std::fs::write(diff_editor, diff_script).unwrap();
+
+    // Select file1 and file2 by args, then select file1 interactively
+    let (_stdout, stderr) =
+        test_env.jj_cmd_ok(&workspace_path, &["commit", "-i", "file1", "file2"]);
+    insta::assert_snapshot!(stderr, @r"
+    Working copy now at: kkmpptxz f3e6062e (no description set)
+    Parent commit      : rlvkpnrz 9453cb28 edit
+    ");
+
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+    edit
+
+    JJ: This commit contains the following changes:
+    JJ:     A file1
+
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "#);
+
+    let stdout = test_env.jj_cmd_success(&workspace_path, &["log", "--summary"]);
+    insta::assert_snapshot!(stdout, @r"
+    @  kkmpptxz test.user@example.com 2001-02-03 08:05:09 f3e6062e
+    │  (no description set)
+    │  M file2
+    │  M file3
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 9453cb28
+    │  edit
+    │  A file1
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 497ed465
+    │  (no description set)
+    │  A file2
+    │  A file3
+    ◆  zzzzzzzz root() 00000000
+    ");
 }
 
 #[test]

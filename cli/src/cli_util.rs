@@ -2862,6 +2862,8 @@ impl DiffSelector {
 
     /// Restores diffs from the `right_tree` to the `left_tree` by using an
     /// interactive editor if enabled.
+    ///
+    /// Only files matching the `matcher` will be copied to the new tree.
     pub fn select(
         &self,
         left_tree: &MergedTree,
@@ -2869,10 +2871,15 @@ impl DiffSelector {
         matcher: &dyn Matcher,
         format_instructions: impl FnOnce() -> String,
     ) -> Result<MergedTreeId, CommandError> {
+        let selected_tree_id = restore_tree(right_tree, left_tree, matcher)?;
         match self {
-            DiffSelector::NonInteractive => Ok(restore_tree(right_tree, left_tree, matcher)?),
+            DiffSelector::NonInteractive => Ok(selected_tree_id),
             DiffSelector::Interactive(editor) => {
-                Ok(editor.edit(left_tree, right_tree, matcher, format_instructions)?)
+                // edit_diff_external() is designed to edit the right tree,
+                // whereas we want to update the left tree. Unmatched paths
+                // shouldn't be based off the right tree.
+                let right_tree = right_tree.store().get_root_tree(&selected_tree_id)?;
+                Ok(editor.edit(left_tree, &right_tree, matcher, format_instructions)?)
             }
         }
     }
