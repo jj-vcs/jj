@@ -342,6 +342,245 @@ fn test_restore_restore_descendants() {
     "#);
 }
 
+#[test]
+fn test_restore_interactive() {
+    let mut test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    let repo_path = test_env.env_root().join("repo");
+
+    create_commit(
+        &test_env,
+        &repo_path,
+        "a",
+        &[],
+        &[("file1", "a1\n"), ("file2", "a2\n")],
+    );
+    create_commit(
+        &test_env,
+        &repo_path,
+        "b",
+        &["a"],
+        &[("file1", "b1\n"), ("file2", "b2\n"), ("file3", "b3\n")],
+    );
+    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "--summary"]);
+    insta::assert_snapshot!(stdout, @r"
+    @  zsuskuln test.user@example.com 2001-02-03 08:05:11 b c0745ce2
+    │  b
+    │  M file1
+    │  M file2
+    │  A file3
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a 186caaef
+    │  a
+    │  A file1
+    │  A file2
+    ◆  zzzzzzzz root() 00000000
+    ");
+
+    let diff_editor = test_env.set_up_fake_diff_editor();
+    let diff_script = [
+        "files-before file1 file2 file3",
+        "files-after JJ-INSTRUCTIONS file1 file2",
+        "reset file2",
+        "dump JJ-INSTRUCTIONS instrs",
+    ]
+    .join("\0");
+    std::fs::write(diff_editor, diff_script).unwrap();
+
+    // Restore file1 and file3
+    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["restore", "-i", "--from=@-"]);
+    insta::assert_snapshot!(stderr, @r"
+    Created zsuskuln bccde490 b | b
+    Working copy now at: zsuskuln bccde490 b | b
+    Parent commit      : rlvkpnrz 186caaef a | a
+    Added 0 files, modified 1 files, removed 1 files
+    ");
+
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @r"
+    You are restoring changes from: rlvkpnrz 186caaef a | a
+    to commit: zsuskuln c0745ce2 b | b
+
+    The diff initially shows all changes restored. Adjust the right side until it
+    shows the contents you want for the destination commit.
+    ");
+
+    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "--summary"]);
+    insta::assert_snapshot!(stdout, @r"
+    @  zsuskuln test.user@example.com 2001-02-03 08:05:13 b bccde490
+    │  b
+    │  M file2
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a 186caaef
+    │  a
+    │  A file1
+    │  A file2
+    ◆  zzzzzzzz root() 00000000
+    ");
+
+    // Try again with --tool, which should imply --interactive
+    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["restore", "--tool=fake-diff-editor"]);
+    insta::assert_snapshot!(stderr, @r"
+    Created zsuskuln 5921de19 b | b
+    Working copy now at: zsuskuln 5921de19 b | b
+    Parent commit      : rlvkpnrz 186caaef a | a
+    Added 0 files, modified 1 files, removed 1 files
+    ");
+
+    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "--summary"]);
+    insta::assert_snapshot!(stdout, @r"
+    @  zsuskuln test.user@example.com 2001-02-03 08:05:16 b 5921de19
+    │  b
+    │  M file2
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a 186caaef
+    │  a
+    │  A file1
+    │  A file2
+    ◆  zzzzzzzz root() 00000000
+    ");
+}
+
+#[test]
+fn test_restore_interactive_merge() {
+    let mut test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    let repo_path = test_env.env_root().join("repo");
+
+    create_commit(&test_env, &repo_path, "a", &[], &[("file1", "a1\n")]);
+    create_commit(&test_env, &repo_path, "b", &[], &[("file2", "b1\n")]);
+    create_commit(
+        &test_env,
+        &repo_path,
+        "c",
+        &["a", "b"],
+        &[("file1", "c1\n"), ("file2", "c2\n"), ("file3", "c3\n")],
+    );
+    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "--summary"]);
+    insta::assert_snapshot!(stdout, @r"
+    @    royxmykx test.user@example.com 2001-02-03 08:05:13 c 34042291
+    ├─╮  c
+    │ │  M file1
+    │ │  M file2
+    │ │  A file3
+    │ ○  zsuskuln test.user@example.com 2001-02-03 08:05:11 b 29e70804
+    │ │  b
+    │ │  A file2
+    ○ │  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a 79c1b823
+    ├─╯  a
+    │    A file1
+    ◆  zzzzzzzz root() 00000000
+    ");
+
+    let diff_editor = test_env.set_up_fake_diff_editor();
+    let diff_script = [
+        "files-before file1 file2 file3",
+        "files-after JJ-INSTRUCTIONS file1 file2",
+        "reset file2",
+        "dump JJ-INSTRUCTIONS instrs",
+    ]
+    .join("\0");
+    std::fs::write(diff_editor, diff_script).unwrap();
+
+    // Restore file1 and file3
+    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["restore", "-i"]);
+    insta::assert_snapshot!(stderr, @r"
+    Created royxmykx 72e0cbf4 c | c
+    Working copy now at: royxmykx 72e0cbf4 c | c
+    Parent commit      : rlvkpnrz 79c1b823 a | a
+    Parent commit      : zsuskuln 29e70804 b | b
+    Added 0 files, modified 1 files, removed 1 files
+    ");
+
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @r"
+    You are restoring changes from: rlvkpnrz 79c1b823 a | a
+                                    zsuskuln 29e70804 b | b
+    to commit: royxmykx 34042291 c | c
+
+    The diff initially shows all changes restored. Adjust the right side until it
+    shows the contents you want for the destination commit.
+    ");
+
+    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "--summary"]);
+    insta::assert_snapshot!(stdout, @r"
+    @    royxmykx test.user@example.com 2001-02-03 08:05:15 c 72e0cbf4
+    ├─╮  c
+    │ │  M file2
+    │ ○  zsuskuln test.user@example.com 2001-02-03 08:05:11 b 29e70804
+    │ │  b
+    │ │  A file2
+    ○ │  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a 79c1b823
+    ├─╯  a
+    │    A file1
+    ◆  zzzzzzzz root() 00000000
+    ");
+}
+
+#[test]
+fn test_restore_interactive_with_paths() {
+    let mut test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    let repo_path = test_env.env_root().join("repo");
+
+    create_commit(
+        &test_env,
+        &repo_path,
+        "a",
+        &[],
+        &[("file1", "a1\n"), ("file2", "a2\n")],
+    );
+    create_commit(
+        &test_env,
+        &repo_path,
+        "b",
+        &["a"],
+        &[("file1", "b1\n"), ("file2", "b2\n"), ("file3", "b3\n")],
+    );
+    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "--summary"]);
+    insta::assert_snapshot!(stdout, @r"
+    @  zsuskuln test.user@example.com 2001-02-03 08:05:11 b c0745ce2
+    │  b
+    │  M file1
+    │  M file2
+    │  A file3
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a 186caaef
+    │  a
+    │  A file1
+    │  A file2
+    ◆  zzzzzzzz root() 00000000
+    ");
+
+    let diff_editor = test_env.set_up_fake_diff_editor();
+    let diff_script = [
+        "files-before file1 file2",
+        "files-after JJ-INSTRUCTIONS file1 file2",
+        "reset file2",
+    ]
+    .join("\0");
+    std::fs::write(diff_editor, diff_script).unwrap();
+
+    // Restore file1 (file2 is reset by interactive editor)
+    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["restore", "-i", "file1", "file2"]);
+    insta::assert_snapshot!(stderr, @r"
+    Created zsuskuln 7187da33 b | b
+    Working copy now at: zsuskuln 7187da33 b | b
+    Parent commit      : rlvkpnrz 186caaef a | a
+    Added 0 files, modified 1 files, removed 0 files
+    ");
+
+    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "--summary"]);
+    insta::assert_snapshot!(stdout, @r"
+    @  zsuskuln test.user@example.com 2001-02-03 08:05:13 b 7187da33
+    │  b
+    │  M file2
+    │  A file3
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a 186caaef
+    │  a
+    │  A file1
+    │  A file2
+    ◆  zzzzzzzz root() 00000000
+    ");
+}
+
 fn create_commit(
     test_env: &TestEnvironment,
     repo_path: &Path,

@@ -16,8 +16,9 @@ use std::io::Write;
 
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
+use indoc::formatdoc;
+use itertools::Itertools as _;
 use jj_lib::object_id::ObjectId;
-use jj_lib::rewrite::restore_tree;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -92,6 +93,12 @@ pub(crate) struct RestoreArgs {
     /// the user might not even realize something went wrong.
     #[arg(long, short, hide = true)]
     revision: Option<RevisionArg>,
+    /// Interactively choose which parts to restore
+    #[arg(long, short)]
+    interactive: bool,
+    /// Specify diff editor to be used (implies --interactive)
+    #[arg(long, value_name = "NAME")]
+    tool: Option<String>,
     /// Preserve the content (not the diff) when rebasing descendants
     #[arg(long)]
     restore_descendants: bool,
@@ -104,7 +111,7 @@ pub(crate) fn cmd_restore(
     args: &RestoreArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
-    let (from_tree, to_commit);
+    let (from_commits, from_tree, to_commit);
     if args.revision.is_some() {
         return Err(user_error(
             "`jj restore` does not have a `--revision`/`-r` option. If you'd like to modify\nthe \
@@ -115,21 +122,41 @@ pub(crate) fn cmd_restore(
     if args.from.is_some() || args.to.is_some() {
         to_commit = workspace_command
             .resolve_single_rev(ui, args.to.as_ref().unwrap_or(&RevisionArg::AT))?;
-        from_tree = workspace_command
-            .resolve_single_rev(ui, args.from.as_ref().unwrap_or(&RevisionArg::AT))?
-            .tree()?;
+        let from_commit = workspace_command
+            .resolve_single_rev(ui, args.from.as_ref().unwrap_or(&RevisionArg::AT))?;
+        from_tree = from_commit.tree()?;
+        from_commits = vec![from_commit];
     } else {
         to_commit = workspace_command
             .resolve_single_rev(ui, args.changes_in.as_ref().unwrap_or(&RevisionArg::AT))?;
         from_tree = to_commit.parent_tree(workspace_command.repo().as_ref())?;
+        from_commits = to_commit.parents().try_collect()?;
     }
     workspace_command.check_rewritable([to_commit.id()])?;
 
     let matcher = workspace_command
         .parse_file_patterns(ui, &args.paths)?
         .to_matcher();
+    let diff_selector =
+        workspace_command.diff_selector(ui, args.tool.as_deref(), args.interactive)?;
     let to_tree = to_commit.tree()?;
-    let new_tree_id = restore_tree(&from_tree, &to_tree, matcher.as_ref())?;
+    let format_instructions = || {
+        formatdoc! {"
+            You are restoring changes from: {from_commits}
+            to commit: {to_commit}
+
+            The diff initially shows all changes restored. Adjust the right side until it
+            shows the contents you want for the destination commit.
+            ",
+            from_commits = from_commits
+                .iter()
+                .map(|commit| workspace_command.format_commit_summary(commit))
+                //      "You are restoring changes from: "
+                .join("\n                                "),
+            to_commit = workspace_command.format_commit_summary(&to_commit),
+        }
+    };
+    let new_tree_id = diff_selector.select(&to_tree, &from_tree, &matcher, format_instructions)?;
     if &new_tree_id == to_commit.tree_id() {
         writeln!(ui.status(), "Nothing changed.")?;
     } else {

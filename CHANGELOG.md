@@ -32,6 +32,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj evolog` now accepts `--reversed`.
 
+* `jj restore` now supports `-i`/`--interactive` selection.
+
 * Add templater support for rendering commit signatures.
 
 ### Fixed bugs
