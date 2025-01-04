@@ -46,33 +46,18 @@ the `.jj/repo/store/type` file. There are similar files for the other backends
 
 ### Overview
 
-Here's a diagram showing some important types in the library crate. The
-following sections describe each component.
+Here's a diagram showing some important types in the library crate, and how they
+relate. For example, given a `Workspace`, you can use it to get a `WorkingCopy`
+or a `RepoLoader`. A `Transaction` is required to acquire a `MutableRepo`, etc.
+The following sections describe each component.
 
-```mermaid
-graph TD;
-    ReadonlyRepo-->Store;
-    ReadonlyRepo-->OpStore;
-    ReadonlyRepo-->OpHeadsStore;
-    ReadonlyRepo-->ReadonlyIndex
-    MutableIndex-->ReadonlyIndex;
-    Store-->Backend;
-    GitBackend-->Backend;
-    LocalBackend-->Backend;
-    LocalBackend-->StackedTable;
-    MutableRepo-->ReadonlyRepo;
-    MutableRepo-->MutableIndex;
-    Transaction-->MutableRepo;
-    WorkingCopy-->TreeState;
-    Workspace-->WorkingCopy;
-    Workspace-->RepoLoader;
-    RepoLoader-->Store;
-    RepoLoader-->OpStore;
-    RepoLoader-->OpHeadsStore;
-    RepoLoader-->ReadonlyRepo;
-    Git-->GitBackend;
-    GitBackend-->StackedTable;
-```
+![Type diagram](types.svg)
+
+_This diagram was created with [Excalidraw]. You can get a copy of it [at this
+location][types-drawing], and Right Click > "Copy to Clipboard as SVG"._
+
+[Excalidraw]: https://excalidraw.com/
+[types-drawing]: https://excalidraw.com/#json=wuOSusqzm6MjoXatFk1kn,aCySj27AVmQMf7aJdMzMCw
 
 ### Backend
 
