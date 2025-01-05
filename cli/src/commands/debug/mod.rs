@@ -12,18 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod copy_detection;
-pub mod fileset;
-pub mod index;
-pub mod local_working_copy;
-pub mod operation;
-pub mod reindex;
-pub mod revset;
-pub mod snapshot;
-pub mod template;
-pub mod tree;
-pub mod watchman;
-pub mod working_copy;
+mod copy_detection;
+mod fileset;
+mod index;
+mod local_working_copy;
+mod operation;
+mod reindex;
+mod revset;
+mod snapshot;
+mod template;
+mod tree;
+mod watchman;
+mod working_copy;
 
 use std::any::Any;
 use std::fmt::Debug;

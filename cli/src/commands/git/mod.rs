@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod clone;
-pub mod export;
-pub mod fetch;
-pub mod import;
-pub mod init;
-pub mod push;
-pub mod remote;
-pub mod submodule;
+mod clone;
+mod export;
+mod fetch;
+mod import;
+mod init;
+mod push;
+mod remote;
+mod submodule;
 
 use std::path::Path;
 

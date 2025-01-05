@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod annotate;
-pub mod chmod;
-pub mod list;
-pub mod show;
-pub mod track;
+mod annotate;
+mod chmod;
+mod list;
+mod show;
+mod track;
 pub mod untrack;
 
 use crate::cli_util::CommandHelper;

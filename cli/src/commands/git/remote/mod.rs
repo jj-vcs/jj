@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod add;
-pub mod list;
-pub mod remove;
-pub mod rename;
-pub mod set_url;
+mod add;
+mod list;
+mod remove;
+mod rename;
+mod set_url;
 
 use clap::Subcommand;
 

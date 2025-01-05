@@ -112,7 +112,7 @@ pub fn cmd_git_init(
     Ok(())
 }
 
-pub fn do_init(
+fn do_init(
     ui: &mut Ui,
     command: &CommandHelper,
     workspace_root: &Path,
