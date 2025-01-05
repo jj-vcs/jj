@@ -36,6 +36,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Add templater support for rendering commit signatures.
 
+* `jj status` now shows untracked files when they reside directly under a tracked directory.
+
 ### Fixed bugs
 
 * Fixed diff selection by external tools with `jj split`/`commit -i FILESETS`.
