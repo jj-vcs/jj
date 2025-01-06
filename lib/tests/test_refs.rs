@@ -240,7 +240,7 @@ fn test_merge_ref_targets() {
     //
     // Under the hood, the conflict is simplified as below:
     // ```
-    // 3 4 5      3 4 5      5 4
+    // 3 4 5      3 4 5      4 5
     //  2 /   =>   2 3   =>   2
     //   3
     // ```
@@ -256,7 +256,7 @@ fn test_merge_ref_targets() {
         ),
         RefTarget::from_legacy_form(
             [commit2.id().clone()],
-            [commit5.id().clone(), commit4.id().clone()]
+            [commit4.id().clone(), commit5.id().clone()]
         )
     );
 
@@ -289,7 +289,7 @@ fn test_merge_ref_targets() {
     //
     // Under the hood, the conflict is simplified as below:
     // ```
-    // 3 4 1      3 4 1      1 4
+    // 3 4 1      3 4 1      4 1
     //  2 /   =>   2 3   =>   2
     //   3
     // ```
@@ -305,7 +305,7 @@ fn test_merge_ref_targets() {
         ),
         RefTarget::from_legacy_form(
             [commit2.id().clone()],
-            [commit1.id().clone(), commit4.id().clone()]
+            [commit4.id().clone(), commit1.id().clone()]
         )
     );
 
