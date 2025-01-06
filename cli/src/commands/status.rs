@@ -64,11 +64,6 @@ pub(crate) fn cmd_status(
     let mut formatter = ui.stdout_formatter();
     let formatter = formatter.as_mut();
 
-    let matcher = DifferenceMatcher::new(
-        matcher,
-        GitAttributesMatcher::new().expect("gitattributes matcher failed"),
-    );
-
     if let Some(wc_commit) = &maybe_wc_commit {
         let parent_tree = wc_commit.parent_tree(repo.as_ref())?;
         let tree = wc_commit.tree()?;

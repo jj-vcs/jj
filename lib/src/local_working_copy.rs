@@ -761,7 +761,13 @@ impl TreeState {
     }
 
     fn git_attributes_matcher(&self) -> Box<dyn Matcher> {
-        Box::new(GitAttributesMatcher::new().expect("failed to init GitAttributesMatcher"))
+        let merged_tree = self.current_tree().unwrap();
+        let tree = merged_tree.as_merge().first();
+
+        Box::new(
+            GitAttributesMatcher::new(tree, self.working_copy_path())
+                .expect("failed to init GitAttributesMatcher"),
+        )
     }
 
     pub fn init(

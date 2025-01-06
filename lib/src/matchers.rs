@@ -22,17 +22,16 @@ use std::fs::File;
 use std::io;
 use std::io::BufRead;
 use std::io::BufReader;
-use std::io::ErrorKind;
 use std::iter;
 use std::path::Path;
 
-use ignore::gitignore;
 use itertools::Itertools as _;
 use thiserror::Error;
 use tracing::instrument;
 
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathComponentBuf;
+use crate::tree::Tree;
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum Visit {
@@ -514,6 +513,15 @@ impl<V: Debug> Debug for RepoPathTree<V> {
     }
 }
 
+#[derive(Clone, Debug)]
+struct IgnoreWrapper(ignore::gitignore::Gitignore);
+
+impl Default for IgnoreWrapper {
+    fn default() -> Self {
+        Self(ignore::gitignore::Gitignore::empty())
+    }
+}
+
 /// Matches file paths with glob patterns.
 ///
 /// Patterns are provided as `(dir, pattern)` pairs, where `dir` should be the
@@ -521,7 +529,7 @@ impl<V: Debug> Debug for RepoPathTree<V> {
 /// will be evaluated relative to `dir`.
 #[derive(Clone, Debug)]
 pub struct GitAttributesMatcher {
-    matcher: gitignore::Gitignore,
+    tree: RepoPathTree<IgnoreWrapper>,
 }
 
 #[derive(Debug, Error)]
@@ -534,10 +542,9 @@ pub enum GitAttributesMatcherError {
     InvalidPattern(String),
 }
 
-fn parse_gitignore(
+fn parse_gitattributes(
     f: File,
-    root: impl AsRef<Path>,
-    builder: &mut gitignore::GitignoreBuilder,
+    builder: &mut ignore::gitignore::GitignoreBuilder,
 ) -> Result<(), GitAttributesMatcherError> {
     let reader = BufReader::new(f);
 
@@ -548,6 +555,11 @@ fn parse_gitignore(
             Some(l) => l,
             None => continue,
         };
+
+        // lines starting with # are ignored
+        if pattern.starts_with('#') {
+            continue;
+        }
 
         // Simple heuristic to detect LFS files
         let is_lfs = parts.any(|p| p == "filter=lfs");
@@ -563,14 +575,12 @@ fn parse_gitignore(
                 "negative patterns are not allowed in .gitattributes files".to_string(),
             ));
         }
-        if pattern.ends_with("/") {
-            return Err(GitAttributesMatcherError::InvalidPattern(format!(
-                "trailing slash does not match a directory in .gitattributes, try {}** instead",
-                pattern
-            )));
-        }
 
-        builder.add_line(Some(root.as_ref().to_path_buf()), pattern)?;
+        // git somehow accepts this but ignores it
+        if pattern.ends_with("/") {
+            continue;
+        }
+        builder.add_line(None, pattern)?;
     }
 
     Ok(())
@@ -578,65 +588,51 @@ fn parse_gitignore(
 
 impl GitAttributesMatcher {
     /// Create a new matcher for the contents of a .gitattributes file
-    pub fn new() -> Result<Self, GitAttributesMatcherError> {
-        // TODO(brandon): We shouldn't assume `jj` is being run from the root.
-        let root = Path::new(".");
-        let mut builder = gitignore::GitignoreBuilder::new(&root);
+    pub fn new(tree: &Tree, repo_root: &Path) -> Result<Self, GitAttributesMatcherError> {
+        let git_attributes_matcher = FileGlobsMatcher::new([(
+            tree.dir(),
+            glob::Pattern::new("**/.gitattributes")
+                .expect("This is a statically known valid pattern"),
+        )]);
+        let entries = tree.entries_matching(&git_attributes_matcher);
+        let mut tree = RepoPathTree::default();
+        for (path, _) in entries {
+            let gitattributes_path = path
+                .to_fs_path(repo_root)
+                .expect("The file matcher only returns valid paths");
 
-        let gitattributes_path = root.join(".gitattributes");
+            if gitattributes_path.exists() {
+                let relative_path = path
+                    .parent()
+                    .expect("There is always a parent directory for files")
+                    .to_owned();
+                let location = repo_root.join(relative_path.to_internal_dir_string());
+                let mut builder = ignore::gitignore::GitignoreBuilder::new(location);
+                let file = File::open(&gitattributes_path)?;
 
-        match File::open(gitattributes_path) {
-            Ok(f) => {
-                parse_gitignore(f, &root, &mut builder)?;
-            }
-            Err(e) => {
-                // If the file doesn't exist, we'll create a blank Gitignore,
-                // equivalent to Gitignore::empty()
-                if e.kind() != ErrorKind::NotFound {
-                    return Err(GitAttributesMatcherError::ReadError(e));
-                }
+                parse_gitattributes(file, &mut builder)?;
+                tree.add(&relative_path).value = IgnoreWrapper(builder.build()?);
             }
         }
-
-        Ok(GitAttributesMatcher {
-            matcher: builder.build()?,
-        })
+        Ok(GitAttributesMatcher { tree })
     }
 }
 
 impl Matcher for GitAttributesMatcher {
     fn matches(&self, file: &RepoPath) -> bool {
-        // TODO(brandon): Figure out if we need to handle is_dir
-        let path = match file.to_fs_path(self.matcher.path()) {
-            Ok(p) => p,
-            Err(_) => return false,
-        };
-        let m_match = self.matcher.matched(&path, false);
-        match m_match {
-            ignore::Match::None => false,
-            ignore::Match::Ignore(_) => {
-                tracing::debug!(?m_match, ?path, "matching a file");
-                true
-            }
-            ignore::Match::Whitelist(_) => false,
-        }
+        self.tree
+            .walk_to(file)
+            .take_while(|(_, tail_path)| !tail_path.is_root())
+            .any(|(sub, tail_path)| {
+                let Ok(path) = tail_path.to_fs_path(sub.value.0.path()) else {
+                    return false;
+                };
+                matches!(sub.value.0.matched(path, false), ignore::Match::Ignore(_))
+            })
     }
 
-    fn visit(&self, dir: &RepoPath) -> Visit {
-        let dir = match dir.to_fs_path(self.matcher.path()) {
-            Ok(p) => p,
-            Err(_) => return Visit::Nothing,
-        };
-        // TODO(brandon): Try to understand if these make sense
-        let m_match = self.matcher.matched(&dir, true);
-        match m_match {
-            ignore::Match::None => Visit::Nothing,
-            ignore::Match::Ignore(_) => {
-                tracing::debug!(?m_match, ?dir, "visiting a dir");
-                Visit::AllRecursively
-            }
-            ignore::Match::Whitelist(_) => Visit::Nothing,
-        }
+    fn visit(&self, _dir: &RepoPath) -> Visit {
+        Visit::Nothing
     }
 }
 
