@@ -628,6 +628,58 @@ fn test_simplify_conflict_after_resolving_parent() {
 // and the executable bit need testing.
 
 #[test]
+fn test_rebase_linearize_lossy_merge() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    // Test this rebase:
+    // D    foo=2          D' foo=2
+    // |\                  |
+    // | C  foo=2          |
+    // | |           =>    B  foo=2
+    // B |  foo=2          |
+    // |/                  |
+    // A    foo=1          A  foo=1
+    //
+    // Since both B and C changed "1" to "2" but only one "2" remains in D, it
+    // effectively discarded a change from "1" to "2". One reasonable result in
+    // D' is therefore "1". However, since `jj show D` etc. currently don't tell
+    // the user about the discarded change, it's surprising that the change in
+    // commit D is interpreted that way. If we're going to change that, we will
+    // probably also need to drop the "A+(A-B)=A" rule so it requires an
+    // explicit action from the user to resolve such conflicts.
+    let path = RepoPath::from_internal_string("foo");
+    let mut tx = repo.start_transaction();
+    let repo_mut = tx.repo_mut();
+    let tree_1 = create_tree(repo, &[(path, "1")]);
+    let tree_2 = create_tree(repo, &[(path, "2")]);
+    let commit_a = repo_mut
+        .new_commit(vec![repo.store().root_commit_id().clone()], tree_1.id())
+        .write()
+        .unwrap();
+    let commit_b = repo_mut
+        .new_commit(vec![commit_a.id().clone()], tree_2.id())
+        .write()
+        .unwrap();
+    let commit_c = repo_mut
+        .new_commit(vec![commit_a.id().clone()], tree_2.id())
+        .write()
+        .unwrap();
+    let commit_d = repo_mut
+        .new_commit(
+            vec![commit_b.id().clone(), commit_c.id().clone()],
+            tree_2.id(),
+        )
+        .write()
+        .unwrap();
+
+    let commit_d2 = rebase_commit(repo_mut, commit_d, vec![commit_b.id().clone()]).unwrap();
+
+    // TODO: Should be tree 2
+    assert_eq!(*commit_d2.tree_id(), tree_1.id());
+}
+
+#[test]
 fn test_rebase_on_lossy_merge() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
