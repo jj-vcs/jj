@@ -73,13 +73,13 @@ fn run_custom_command(
     match command {
         CustomCommand::InitJit => {
             let wc_path = command_helper.cwd();
+            let settings = command_helper.settings_for_new_workspace(wc_path)?;
             // Initialize a workspace with the custom backend
             Workspace::init_with_backend(
-                command_helper.settings(),
+                &settings,
                 wc_path,
                 &|settings, store_path| Ok(Box::new(JitBackend::init(settings, store_path)?)),
-                Signer::from_settings(command_helper.settings())
-                    .map_err(WorkspaceInitError::SignInit)?,
+                Signer::from_settings(&settings).map_err(WorkspaceInitError::SignInit)?,
             )?;
             Ok(())
         }
