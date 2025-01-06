@@ -426,8 +426,6 @@ fn operation_from_proto(proto: crate::protos::op_store::Operation) -> Operation 
 
 fn view_to_proto(view: &View) -> crate::protos::op_store::View {
     let mut proto = crate::protos::op_store::View {
-        // New/loaded view should have been migrated to the latest format
-        has_git_refs_migrated_to_remote: true,
         ..Default::default()
     };
     for (workspace_id, commit_id) in &view.wc_commit_ids {
@@ -504,10 +502,6 @@ fn view_from_proto(proto: crate::protos::op_store::View) -> View {
         view.git_head = RefTarget::normal(CommitId::new(proto.git_head_legacy));
     }
 
-    if !proto.has_git_refs_migrated_to_remote {
-        migrate_git_refs_to_remote(&mut view);
-    }
-
     view
 }
 
@@ -582,42 +576,6 @@ fn bookmark_views_from_proto_legacy(
         }
     }
     (local_bookmarks, remote_views)
-}
-
-fn migrate_git_refs_to_remote(view: &mut View) {
-    if view.git_refs.is_empty() {
-        // Not a repo backed by Git?
-        return;
-    }
-
-    tracing::info!("migrating Git-tracking bookmarks");
-    let mut git_view = RemoteView::default();
-    for (full_name, target) in &view.git_refs {
-        if let Some(name) = full_name.strip_prefix("refs/heads/") {
-            assert!(!name.is_empty());
-            let remote_ref = RemoteRef {
-                target: target.clone(),
-                // Git-tracking bookmarks should never be untracked.
-                state: RemoteRefState::Tracking,
-            };
-            git_view.bookmarks.insert(name.to_owned(), remote_ref);
-        }
-    }
-    #[cfg(feature = "git")]
-    {
-        view.remote_views.insert(
-            crate::git::REMOTE_NAME_FOR_LOCAL_GIT_REPO.to_owned(),
-            git_view,
-        );
-
-        // jj < 0.9 might have imported refs from remote named "git"
-        let reserved_git_ref_prefix = format!(
-            "refs/remotes/{}/",
-            crate::git::REMOTE_NAME_FOR_LOCAL_GIT_REPO
-        );
-        view.git_refs
-            .retain(|name, _| !name.starts_with(&reserved_git_ref_prefix));
-    }
 }
 
 fn ref_target_to_proto(value: &RefTarget) -> Option<crate::protos::op_store::RefTarget> {
@@ -897,104 +855,6 @@ mod tests {
             bookmark_views_from_proto_legacy(bookmarks_legacy);
         assert_eq!(local_bookmarks_reconstructed, local_bookmarks);
         assert_eq!(remote_views_reconstructed, remote_views);
-    }
-
-    #[test]
-    fn test_migrate_git_refs_remote_named_git() {
-        let normal_ref_target = |id_hex| RefTarget::normal(CommitId::from_hex(id_hex));
-        let normal_new_remote_ref = |id_hex| RemoteRef {
-            target: normal_ref_target(id_hex),
-            state: RemoteRefState::New,
-        };
-        let normal_tracking_remote_ref = |id_hex| RemoteRef {
-            target: normal_ref_target(id_hex),
-            state: RemoteRefState::Tracking,
-        };
-        let bookmark_to_proto =
-            |name: &str, local_ref_target, remote_bookmarks| crate::protos::op_store::Bookmark {
-                name: name.to_owned(),
-                local_target: ref_target_to_proto(local_ref_target),
-                remote_bookmarks,
-            };
-        let remote_bookmark_to_proto =
-            |remote_name: &str, ref_target| crate::protos::op_store::RemoteBookmark {
-                remote_name: remote_name.to_owned(),
-                target: ref_target_to_proto(ref_target),
-                state: None, // to be generated based on local bookmark existence
-            };
-        let git_ref_to_proto = |name: &str, ref_target| crate::protos::op_store::GitRef {
-            name: name.to_owned(),
-            target: ref_target_to_proto(ref_target),
-            ..Default::default()
-        };
-
-        let proto = crate::protos::op_store::View {
-            bookmarks: vec![
-                bookmark_to_proto(
-                    "main",
-                    &normal_ref_target("111111"),
-                    vec![
-                        remote_bookmark_to_proto("git", &normal_ref_target("222222")),
-                        remote_bookmark_to_proto("gita", &normal_ref_target("333333")),
-                    ],
-                ),
-                bookmark_to_proto(
-                    "untracked",
-                    RefTarget::absent_ref(),
-                    vec![remote_bookmark_to_proto(
-                        "gita",
-                        &normal_ref_target("777777"),
-                    )],
-                ),
-            ],
-            git_refs: vec![
-                git_ref_to_proto("refs/heads/main", &normal_ref_target("444444")),
-                git_ref_to_proto("refs/remotes/git/main", &normal_ref_target("555555")),
-                git_ref_to_proto("refs/remotes/gita/main", &normal_ref_target("666666")),
-                git_ref_to_proto("refs/remotes/gita/untracked", &normal_ref_target("888888")),
-            ],
-            has_git_refs_migrated_to_remote: false,
-            ..Default::default()
-        };
-
-        let view = view_from_proto(proto);
-        assert_eq!(
-            view.local_bookmarks,
-            btreemap! {
-                "main".to_owned() => normal_ref_target("111111"),
-            },
-        );
-        assert_eq!(
-            view.remote_views,
-            btreemap! {
-                "git".to_owned() => RemoteView {
-                    bookmarks: btreemap! {
-                        "main".to_owned() => normal_tracking_remote_ref("444444"), // refs/heads/main
-                    },
-                },
-                "gita".to_owned() => RemoteView {
-                    bookmarks: btreemap! {
-                        "main".to_owned() => normal_tracking_remote_ref("333333"),
-                        "untracked".to_owned() => normal_new_remote_ref("777777"),
-                    },
-                },
-            },
-        );
-        assert_eq!(
-            view.git_refs,
-            btreemap! {
-                "refs/heads/main".to_owned() => normal_ref_target("444444"),
-                "refs/remotes/gita/main".to_owned() => normal_ref_target("666666"),
-                "refs/remotes/gita/untracked".to_owned() => normal_ref_target("888888"),
-            },
-        );
-
-        // Once migrated, "git" remote bookmarks shouldn't be populated again.
-        let mut proto = view_to_proto(&view);
-        assert!(proto.has_git_refs_migrated_to_remote);
-        proto.bookmarks.clear();
-        let view = view_from_proto(proto);
-        assert!(!view.remote_views.contains_key("git"));
     }
 
     #[test]

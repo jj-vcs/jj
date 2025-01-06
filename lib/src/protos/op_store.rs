@@ -122,9 +122,6 @@ pub struct View {
     pub git_head_legacy: ::prost::alloc::vec::Vec<u8>,
     #[prost(message, optional, tag = "9")]
     pub git_head: ::core::option::Option<RefTarget>,
-    /// Whether "@git" bookmark have been migrated to remote_targets.
-    #[prost(bool, tag = "10")]
-    pub has_git_refs_migrated_to_remote: bool,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
