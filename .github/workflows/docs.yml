@@ -13,7 +13,7 @@ jobs:
     if: github.repository_owner == 'martinvonz' # Stops this job from running on forks
     strategy:
       matrix:
-        os: [ubuntu-latest]
+        os: [ubuntu-24.04]
     runs-on: ${{ matrix.os }}
 
     steps:

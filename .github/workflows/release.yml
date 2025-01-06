@@ -87,7 +87,7 @@ jobs:
         asset_content_type: application/octet-stream
 
   docs-release-archive:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
 
@@ -121,7 +121,7 @@ jobs:
           asset_content_type: application/octet-stream
 
   docs-deploy-website-latest-release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
 

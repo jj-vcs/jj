@@ -15,7 +15,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: ${{ github.actor == 'dependabot[bot]' }}
     steps:
     - name: Enable auto-merge for Dependabot PRs
