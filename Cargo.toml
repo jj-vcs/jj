@@ -68,7 +68,7 @@ hex = "0.4.3"
 ignore = "0.4.23"
 indexmap = { version = "2.7.0", features = ["serde"] }
 indoc = "2.0.4"
-insta = { version = "1.41.1", features = ["filters"] }
+insta = { version = "1.42.0", features = ["filters"] }
 itertools = "0.13.0"
 libc = { version = "0.2.169" }
 maplit = "1.0.2"
@@ -102,7 +102,7 @@ smallvec = { version = "1.13.2", features = [
     "union",
 ] }
 strsim = "0.11.1"
-syn = "2.0.94"
+syn = "2.0.95"
 tempfile = "3.15.0"
 test-case = "3.3.1"
 textwrap = "0.16.1"
