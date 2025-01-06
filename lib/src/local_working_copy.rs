@@ -1330,7 +1330,16 @@ impl FileSnapshotter<'_> {
                     new_file_state,
                 )?;
             } else {
-                self.deleted_files_tx.send(tracked_path.to_owned()).ok();
+                let was_submodule = self
+                    .current_tree
+                    .path_value(tracked_path)?
+                    .resolve_trivial()
+                    .map(|t| matches!(t, Some(TreeValue::GitSubmodule(_))))
+                    .unwrap_or(false);
+
+                if was_submodule {
+                    self.deleted_files_tx.send(tracked_path.to_owned()).ok();
+                }
             }
         }
         Ok(())
