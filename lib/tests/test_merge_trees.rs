@@ -13,7 +13,9 @@
 // limitations under the License.
 
 use itertools::Itertools;
+use jj_lib::backend::MergedTreeId;
 use jj_lib::backend::TreeValue;
+use jj_lib::merge::Merge;
 use jj_lib::repo::Repo;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
@@ -675,8 +677,7 @@ fn test_rebase_linearize_lossy_merge() {
 
     let commit_d2 = rebase_commit(repo_mut, commit_d, vec![commit_b.id().clone()]).unwrap();
 
-    // TODO: Should be tree 2
-    assert_eq!(*commit_d2.tree_id(), tree_1.id());
+    assert_eq!(*commit_d2.tree_id(), tree_2.id());
 }
 
 #[test]
@@ -685,7 +686,7 @@ fn test_rebase_on_lossy_merge() {
     let repo = &test_repo.repo;
 
     // Test this rebase:
-    // D    foo=2          D'   foo=3
+    // D    foo=2          D'   foo=2+(3-1) (conflict)
     // |\                  |\
     // | C  foo=2          | C' foo=3
     // | |           =>    | |
@@ -695,10 +696,10 @@ fn test_rebase_on_lossy_merge() {
     //
     // Commit D effectively discarded a change from "1" to "2", so one
     // reasonable result in D' is "3". That's what the result would be if we
-    // didn't have the "A+(A-B)=A" rule. It's also what the result currently
-    // is because we don't attempt to resolve the auto-merged parents (if we
-    // had, it would have been resolved to just "2" before the rebase and we
-    // get a conflict after the rebase).
+    // didn't have the "A+(A-B)=A" rule. However, because we resolve the
+    // auto-merged parents to just "2" before the rebase in order to be
+    // consistent with `jj show D` and other commands for inspecting the
+    // commit, we instead get a conflict after the rebase.
     let path = RepoPath::from_internal_string("foo");
     let mut tx = repo.start_transaction();
     let repo_mut = tx.repo_mut();
@@ -736,5 +737,11 @@ fn test_rebase_on_lossy_merge() {
     )
     .unwrap();
 
-    assert_eq!(*commit_d2.tree_id(), tree_3.id());
+    let expected_tree_id = Merge::from_vec(vec![
+        tree_2.id().to_merge(),
+        tree_1.id().to_merge(),
+        tree_3.id().to_merge(),
+    ])
+    .flatten();
+    assert_eq!(*commit_d2.tree_id(), MergedTreeId::Merge(expected_tree_id));
 }
