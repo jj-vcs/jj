@@ -55,6 +55,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * New `merge-tools.<TOOL>.diff-expected-exit-codes` config option to suppress
   warnings from tools exiting with non-zero exit codes.
 
+* Add a new template alias `builtin_op_log_oneline` along with `format_operation_oneline` and `format_snapshot_operation_oneline`
+
 ### Fixed bugs
 
 * Fixed diff selection by external tools with `jj split`/`commit -i FILESETS`.

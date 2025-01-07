@@ -141,7 +141,7 @@ fn test_op_log_with_no_template() {
     let repo_path = test_env.env_root().join("repo");
 
     let stderr = test_env.jj_cmd_cli_error(&repo_path, &["op", "log", "-T"]);
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(stderr, @r"
     error: a value is required for '--template <TEMPLATE>' but none was supplied
 
     For more information, try '--help'.
@@ -157,11 +157,12 @@ fn test_op_log_with_no_template() {
     - builtin_op_log_compact
     - builtin_op_log_node
     - builtin_op_log_node_ascii
+    - builtin_op_log_oneline
     - commit_summary_separator
     - description_placeholder
     - email_placeholder
     - name_placeholder
-    "#);
+    ");
 }
 
 #[test]
@@ -299,6 +300,13 @@ fn test_op_log_builtin_templates() {
 
     [EOF]
     "#);
+
+    insta::assert_snapshot!(render(r#"builtin_op_log_oneline"#), @r"
+    d009cfc04993 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00 describe commit 230dd059e1b059aefc0da06a2e5a7dbf22362f22 args: jj describe -m 'description 0'
+    eac759b9ab75 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00 add workspace 'default'
+    000000000000 root()
+    [EOF]
+    ");
 }
 
 #[test]

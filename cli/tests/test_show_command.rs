@@ -250,7 +250,7 @@ fn test_show_with_no_template() {
     let repo_path = test_env.env_root().join("repo");
 
     let stderr = test_env.jj_cmd_cli_error(&repo_path, &["show", "-T"]);
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(stderr, @r"
     error: a value is required for '--template <TEMPLATE>' but none was supplied
 
     For more information, try '--help'.
@@ -266,11 +266,12 @@ fn test_show_with_no_template() {
     - builtin_op_log_compact
     - builtin_op_log_node
     - builtin_op_log_node_ascii
+    - builtin_op_log_oneline
     - commit_summary_separator
     - description_placeholder
     - email_placeholder
     - name_placeholder
-    "#);
+    ");
 }
 
 #[test]

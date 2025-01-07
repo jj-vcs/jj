@@ -151,6 +151,15 @@ label(if(current_operation, "current_operation"),
 )
 '''
 builtin_op_log_comfortable = 'builtin_op_log_compact ++ "\n"'
+builtin_op_log_oneline = '''
+label(if(current_operation, "current_operation"),
+  coalesce(
+    if(snapshot, format_snapshot_operation_oneline(self)),
+    if(root, format_root_operation(self)),
+    format_operation_oneline(self),
+  )
+)
+'''
 
 description_placeholder = 'label("description placeholder", "(no description set)")'
 email_placeholder = 'label("email placeholder", "(no email set)")'
@@ -236,6 +245,16 @@ if(ref.tracking_present(), surround("(", ")", separate(", ",
 '''
 'format_snapshot_operation(op)' = 'format_operation(op)'
 'format_root_operation(root)' = 'separate(" ", root.id().short(), label("root", "root()")) ++ "\n"'
+
+
+'format_operation_oneline(op)' = '''
+  separate(" ",
+    op.id().short(), op.user(), format_time_range(op.time()),
+    op.description().first_line(), 
+    if(op.tags(), op.tags()),
+  ) ++ "\n"
+'''
+'format_snapshot_operation_oneline(op)' = 'format_operation_oneline(op)'
 
 # We have "hidden" override "divergent", since a hidden revision does not cause
 # change id conflicts and is not affected by such conflicts; you have to use the
