@@ -122,8 +122,8 @@
           '';
 
           postInstall = ''
-            $out/bin/jj util mangen > ./jj.1
-            installManPage ./jj.1
+            $out/bin/jj util install-man-pages man
+            installManPage ./man/man1/*
 
             installShellCompletion --cmd jj \
               --bash <(COMPLETE=bash $out/bin/jj) \

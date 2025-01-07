@@ -40,6 +40,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   resolving the first conflicted file. To resolve a single file, pass a file
   path to `jj resolve`.
 
+* `jj util mangen` is replaced with `jj util install-man-pages`, which can
+  install man pages for all `jj` subcommands to a given path.
+
 ### Deprecations
 
 ### New features
