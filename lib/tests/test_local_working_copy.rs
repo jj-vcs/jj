@@ -30,6 +30,9 @@ use jj_lib::file_util::check_symlink_support;
 use jj_lib::file_util::try_symlink;
 use jj_lib::fsmonitor::FsmonitorSettings;
 use jj_lib::local_working_copy::LocalWorkingCopy;
+use jj_lib::matchers::EverythingMatcher;
+use jj_lib::matchers::Matcher;
+use jj_lib::matchers::NothingMatcher;
 use jj_lib::merge::Merge;
 use jj_lib::merge::MergedTreeValue;
 use jj_lib::merged_tree::MergedTree;
@@ -1279,19 +1282,26 @@ fn test_dotgit_ignored() {
     assert_eq!(new_tree.id(), empty_tree_id);
 }
 
-#[test]
-fn test_git_submodule() {
+#[test_case(&EverythingMatcher; "snapshot.auto-track = all()")]
+#[test_case(&NothingMatcher; "snapshot.auto-track = none()")]
+fn test_git_submodule(start_tracking_matcher: &dyn Matcher) {
     // Tests that git submodules are ignored.
 
     let mut test_workspace = TestWorkspace::init_with_backend(TestRepoBackend::Git);
     let repo = test_workspace.repo.clone();
     let store = repo.store().clone();
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
+    let snapshot_options = SnapshotOptions {
+        start_tracking_matcher,
+        ..SnapshotOptions::empty_for_test()
+    };
     let mut tx = repo.start_transaction();
 
-    let added_path = RepoPath::from_internal_string("added");
-    let submodule_path = RepoPath::from_internal_string("submodule");
-    let added_submodule_path = RepoPath::from_internal_string("submodule/added");
+    // Add files in sub directory. Sub directories are traversed differently
+    // depending on start_tracking_matcher and .gitignore. #5246
+    let added_path = RepoPath::from_internal_string("sub/added");
+    let submodule_path = RepoPath::from_internal_string("sub/module");
+    let added_submodule_path = RepoPath::from_internal_string("sub/module/added");
 
     let mut tree_builder = MergedTreeBuilder::new(store.empty_merged_tree_id());
 
@@ -1341,7 +1351,9 @@ fn test_git_submodule() {
 
     // Check that the files present in the submodule are not tracked
     // when we snapshot
-    let new_tree = test_workspace.snapshot().unwrap();
+    let (new_tree, _stats) = test_workspace
+        .snapshot_with_options(&snapshot_options)
+        .unwrap();
     assert_eq!(new_tree.id(), tree_id1);
 
     // Check that the files in the submodule are not deleted
@@ -1371,7 +1383,9 @@ fn test_git_submodule() {
 
     // Check that the files present in the submodule are not tracked
     // when we snapshot
-    let new_tree = test_workspace.snapshot().unwrap();
+    let (new_tree, _stats) = test_workspace
+        .snapshot_with_options(&snapshot_options)
+        .unwrap();
     assert_eq!(new_tree.id(), tree_id2);
 
     // Check out the empty tree, which shouldn't fail

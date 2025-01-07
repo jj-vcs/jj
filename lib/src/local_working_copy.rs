@@ -1310,6 +1310,9 @@ impl FileSnapshotter<'_> {
     /// Visits only paths we're already tracking.
     fn visit_tracked_files(&self, file_states: FileStates<'_>) -> Result<(), SnapshotError> {
         for (tracked_path, current_file_state) in file_states {
+            if current_file_state.file_type == FileType::GitSubmodule {
+                continue;
+            }
             if !self.matcher.matches(tracked_path) {
                 continue;
             }
