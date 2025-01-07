@@ -3130,6 +3130,10 @@ impl EarlyArgs {
             },
         )
     }
+
+    fn has_config_args(&self) -> bool {
+        !self.config.is_empty() || !self.config_toml.is_empty() || !self.config_file.is_empty()
+    }
 }
 
 /// Wrapper around revset expression argument.
@@ -3681,14 +3685,14 @@ impl CliRunner {
         // Apply workspace configs and --config arguments.
         ui.reset(&config)?;
 
-        // If -R is specified, check if the expanded arguments differ. Aliases
-        // can also be injected by --config, but that's obviously wrong.
-        if args.global_args.repository.is_some() {
+        // If -R or --config* is specified, check if the expanded arguments differ.
+        if args.global_args.repository.is_some() || args.global_args.early_args.has_config_args() {
             let new_string_args = expand_args(ui, &self.app, env::args_os(), &config).ok();
             if new_string_args.as_ref() != Some(&string_args) {
                 writeln!(
                     ui.warning_default(),
-                    "Command aliases cannot be loaded from -R/--repository path"
+                    "Command aliases cannot be loaded from -R/--repository path or \
+                     --config/--config-file arguments."
                 )?;
             }
         }

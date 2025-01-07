@@ -286,9 +286,9 @@ fn test_alias_in_repo_config() {
     insta::assert_snapshot!(stdout, @r###"
     user alias
     "###);
-    insta::assert_snapshot!(stderr, @r###"
-    Warning: Command aliases cannot be loaded from -R/--repository path
-    "###);
+    insta::assert_snapshot!(
+        stderr,
+        @"Warning: Command aliases cannot be loaded from -R/--repository path or --config/--config-file arguments.");
 
     // Aliases are loaded from the cwd-relative workspace even with -R.
     let (stdout, stderr) =
@@ -296,9 +296,9 @@ fn test_alias_in_repo_config() {
     insta::assert_snapshot!(stdout, @r###"
     repo1 alias
     "###);
-    insta::assert_snapshot!(stderr, @r###"
-    Warning: Command aliases cannot be loaded from -R/--repository path
-    "###);
+    insta::assert_snapshot!(
+        stderr,
+        @"Warning: Command aliases cannot be loaded from -R/--repository path or --config/--config-file arguments.");
 
     // No warning if the expanded command is identical.
     let (stdout, stderr) = test_env.jj_cmd_ok(
@@ -321,4 +321,23 @@ fn test_alias_in_repo_config() {
         ],
     );
     insta::assert_snapshot!(stdout, @r#"aliases.l = ['log', '-r@', '--no-graph', '-T"user alias\n"']"#);
+}
+
+#[test]
+fn test_alias_in_config_arg() {
+    let test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    let repo_path = test_env.env_root().join("repo");
+    test_env.add_config(r#"aliases.l = ['log', '-r@', '--no-graph', '-T"user alias\n"']"#);
+
+    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["l"]);
+    insta::assert_snapshot!(stdout, @"user alias");
+    insta::assert_snapshot!(stderr, @"");
+
+    let alias_arg = r#"--config=aliases.l=['log', '-r@', '--no-graph', '-T"arg alias\n"']"#;
+    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &[alias_arg, "l"]);
+    insta::assert_snapshot!(stdout, @"user alias");
+    insta::assert_snapshot!(
+        stderr,
+        @"Warning: Command aliases cannot be loaded from -R/--repository path or --config/--config-file arguments.");
 }
