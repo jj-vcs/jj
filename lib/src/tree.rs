@@ -310,7 +310,7 @@ pub fn merge_trees(side1_tree: &Tree, base_tree: &Tree, side2_tree: &Tree) -> Ba
     assert_eq!(side1_tree.dir(), dir);
     assert_eq!(side2_tree.dir(), dir);
 
-    if let Some(resolved) = trivial_merge(&[base_tree], &[side1_tree, side2_tree]) {
+    if let Some(resolved) = trivial_merge(&[side1_tree, base_tree, side2_tree]) {
         return Ok((*resolved).clone());
     }
 

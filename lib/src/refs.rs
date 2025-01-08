@@ -91,7 +91,7 @@ pub fn merge_ref_targets(
     base: &RefTarget,
     right: &RefTarget,
 ) -> RefTarget {
-    if let Some(&resolved) = trivial_merge(&[base], &[left, right]) {
+    if let Some(&resolved) = trivial_merge(&[left, base, right]) {
         return resolved.clone();
     }
 
@@ -129,7 +129,7 @@ pub fn merge_remote_refs(
     let target = merge_ref_targets(index, &left.target, &base.target, &right.target);
     // Merged state shouldn't conflict atm since we only have two states, but if
     // it does, keep the original state. The choice is arbitrary.
-    let state = *trivial_merge(&[base.state], &[left.state, right.state]).unwrap_or(&base.state);
+    let state = *trivial_merge(&[left.state, base.state, right.state]).unwrap_or(&base.state);
     RemoteRef { target, state }
 }
 

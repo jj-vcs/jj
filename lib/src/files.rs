@@ -21,7 +21,7 @@ use std::mem;
 
 use bstr::BStr;
 use bstr::BString;
-use itertools::Itertools as _;
+use itertools::Itertools;
 
 use crate::diff::Diff;
 use crate::diff::DiffHunk;
@@ -214,7 +214,9 @@ fn merge_hunks(diff: &Diff, num_diffs: usize) -> MergeResult {
             }
             DiffHunkKind::Different => {
                 let parts = &diff_hunk.contents;
-                if let Some(resolved) = trivial_merge(&parts[..num_diffs], &parts[num_diffs..]) {
+                let interleaved =
+                    itertools::interleave(&parts[num_diffs..], &parts[..num_diffs]).collect_vec();
+                if let Some(resolved) = trivial_merge(&interleaved) {
                     resolved_hunk.extend_from_slice(resolved);
                 } else {
                     if !resolved_hunk.is_empty() {

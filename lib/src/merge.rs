@@ -41,20 +41,16 @@ use crate::store::Store;
 use crate::tree::Tree;
 
 /// Attempt to resolve trivial conflicts between the inputs. There must be
-/// exactly one more adds than removes.
-pub fn trivial_merge<'a, T>(removes: &'a [T], adds: &'a [T]) -> Option<&'a T>
+/// an odd number of terms.
+pub fn trivial_merge<T>(terms: &[T]) -> Option<&T>
 where
     T: Eq + Hash,
 {
-    assert_eq!(
-        adds.len(),
-        removes.len() + 1,
-        "trivial_merge() requires exactly one more adds than removes"
+    assert!(
+        terms.len() % 2 == 1,
+        "trivial_merge() requires an odd number of terms"
     );
-    trivial_merge_inner(
-        itertools::interleave(adds, removes),
-        adds.len() + removes.len(),
-    )
+    trivial_merge_inner(terms.iter(), terms.len())
 }
 
 fn trivial_merge_inner<T>(mut values: impl Iterator<Item = T>, values_len: usize) -> Option<T>
@@ -142,10 +138,7 @@ impl<T> Merge<T> {
     /// terms alternate.
     pub fn from_vec(values: impl Into<SmallVec<[T; 1]>>) -> Self {
         let values = values.into();
-        assert!(
-            values.len() & 1 != 0,
-            "must have one more adds than removes"
-        );
+        assert!(values.len() % 2 != 0, "must have an odd number of terms");
         Merge { values }
     }
 
@@ -698,70 +691,70 @@ fn describe_conflict_term(value: &TreeValue) -> String {
 mod tests {
     use super::*;
 
-    fn c<T: Clone>(removes: &[T], adds: &[T]) -> Merge<T> {
-        Merge::from_removes_adds(removes.to_vec(), adds.to_vec())
+    fn c<T: Clone>(terms: &[T]) -> Merge<T> {
+        Merge::from_vec(terms.to_vec())
     }
 
     #[test]
     fn test_trivial_merge() {
-        assert_eq!(trivial_merge(&[], &[0]), Some(&0));
-        assert_eq!(trivial_merge(&[0], &[0, 0]), Some(&0));
-        assert_eq!(trivial_merge(&[0], &[0, 1]), Some(&1));
-        assert_eq!(trivial_merge(&[0], &[1, 0]), Some(&1));
-        assert_eq!(trivial_merge(&[0], &[1, 1]), Some(&1));
-        assert_eq!(trivial_merge(&[0], &[1, 2]), None);
-        assert_eq!(trivial_merge(&[0, 0], &[0, 0, 0]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 0], &[0, 0, 1]), Some(&1));
-        assert_eq!(trivial_merge(&[0, 0], &[0, 1, 0]), Some(&1));
-        assert_eq!(trivial_merge(&[0, 0], &[0, 1, 1]), Some(&1));
-        assert_eq!(trivial_merge(&[0, 0], &[0, 1, 2]), None);
-        assert_eq!(trivial_merge(&[0, 0], &[1, 0, 0]), Some(&1));
-        assert_eq!(trivial_merge(&[0, 0], &[1, 0, 1]), Some(&1));
-        assert_eq!(trivial_merge(&[0, 0], &[1, 0, 2]), None);
-        assert_eq!(trivial_merge(&[0, 0], &[1, 1, 0]), Some(&1));
-        assert_eq!(trivial_merge(&[0, 0], &[1, 1, 1]), Some(&1));
-        assert_eq!(trivial_merge(&[0, 0], &[1, 1, 2]), None);
-        assert_eq!(trivial_merge(&[0, 0], &[1, 2, 0]), None);
-        assert_eq!(trivial_merge(&[0, 0], &[1, 2, 1]), None);
-        assert_eq!(trivial_merge(&[0, 0], &[1, 2, 2]), None);
-        assert_eq!(trivial_merge(&[0, 0], &[1, 2, 3]), None);
-        assert_eq!(trivial_merge(&[0, 1], &[0, 0, 0]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 1], &[0, 0, 1]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 1], &[0, 0, 2]), None);
-        assert_eq!(trivial_merge(&[0, 1], &[0, 1, 0]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 1], &[0, 1, 1]), Some(&1));
-        assert_eq!(trivial_merge(&[0, 1], &[0, 1, 2]), Some(&2));
-        assert_eq!(trivial_merge(&[0, 1], &[0, 2, 0]), None);
-        assert_eq!(trivial_merge(&[0, 1], &[0, 2, 1]), Some(&2));
-        assert_eq!(trivial_merge(&[0, 1], &[0, 2, 2]), Some(&2));
-        assert_eq!(trivial_merge(&[0, 1], &[0, 2, 3]), None);
-        assert_eq!(trivial_merge(&[0, 1], &[1, 0, 0]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 1], &[1, 0, 1]), Some(&1));
-        assert_eq!(trivial_merge(&[0, 1], &[1, 0, 2]), Some(&2));
-        assert_eq!(trivial_merge(&[0, 1], &[1, 1, 0]), Some(&1));
-        assert_eq!(trivial_merge(&[0, 1], &[1, 1, 1]), Some(&1));
-        assert_eq!(trivial_merge(&[0, 1], &[1, 1, 2]), None);
-        assert_eq!(trivial_merge(&[0, 1], &[1, 2, 0]), Some(&2));
-        assert_eq!(trivial_merge(&[0, 1], &[1, 2, 1]), None);
-        assert_eq!(trivial_merge(&[0, 1], &[1, 2, 2]), Some(&2));
-        assert_eq!(trivial_merge(&[0, 1], &[1, 2, 3]), None);
-        assert_eq!(trivial_merge(&[0, 1], &[2, 0, 0]), None);
-        assert_eq!(trivial_merge(&[0, 1], &[2, 0, 1]), Some(&2));
-        assert_eq!(trivial_merge(&[0, 1], &[2, 0, 2]), Some(&2));
-        assert_eq!(trivial_merge(&[0, 1], &[2, 0, 3]), None);
-        assert_eq!(trivial_merge(&[0, 1], &[2, 1, 0]), Some(&2));
-        assert_eq!(trivial_merge(&[0, 1], &[2, 1, 1]), None);
-        assert_eq!(trivial_merge(&[0, 1], &[2, 1, 2]), Some(&2));
-        assert_eq!(trivial_merge(&[0, 1], &[2, 1, 3]), None);
-        assert_eq!(trivial_merge(&[0, 1], &[2, 2, 0]), Some(&2));
-        assert_eq!(trivial_merge(&[0, 1], &[2, 2, 1]), Some(&2));
-        assert_eq!(trivial_merge(&[0, 1], &[2, 2, 2]), None);
-        assert_eq!(trivial_merge(&[0, 1], &[2, 2, 3]), None);
-        assert_eq!(trivial_merge(&[0, 1], &[2, 3, 0]), None);
-        assert_eq!(trivial_merge(&[0, 1], &[2, 3, 1]), None);
-        assert_eq!(trivial_merge(&[0, 1], &[2, 3, 2]), None);
-        assert_eq!(trivial_merge(&[0, 1], &[2, 3, 3]), None);
-        assert_eq!(trivial_merge(&[0, 1], &[2, 3, 4]), None);
+        assert_eq!(trivial_merge(&[0]), Some(&0));
+        assert_eq!(trivial_merge(&[0, 0, 0]), Some(&0));
+        assert_eq!(trivial_merge(&[0, 0, 1]), Some(&1));
+        assert_eq!(trivial_merge(&[1, 0, 0]), Some(&1));
+        assert_eq!(trivial_merge(&[1, 0, 1]), Some(&1));
+        assert_eq!(trivial_merge(&[1, 0, 2]), None);
+        assert_eq!(trivial_merge(&[0, 0, 0, 0, 0]), Some(&0));
+        assert_eq!(trivial_merge(&[0, 0, 0, 0, 1]), Some(&1));
+        assert_eq!(trivial_merge(&[0, 0, 1, 0, 0]), Some(&1));
+        assert_eq!(trivial_merge(&[0, 0, 1, 0, 1]), Some(&1));
+        assert_eq!(trivial_merge(&[0, 0, 1, 0, 2]), None);
+        assert_eq!(trivial_merge(&[1, 0, 0, 0, 0]), Some(&1));
+        assert_eq!(trivial_merge(&[1, 0, 0, 0, 1]), Some(&1));
+        assert_eq!(trivial_merge(&[1, 0, 0, 0, 2]), None);
+        assert_eq!(trivial_merge(&[1, 0, 1, 0, 0]), Some(&1));
+        assert_eq!(trivial_merge(&[1, 0, 1, 0, 1]), Some(&1));
+        assert_eq!(trivial_merge(&[1, 0, 1, 0, 2]), None);
+        assert_eq!(trivial_merge(&[1, 0, 2, 0, 0]), None);
+        assert_eq!(trivial_merge(&[1, 0, 2, 0, 1]), None);
+        assert_eq!(trivial_merge(&[1, 0, 2, 0, 2]), None);
+        assert_eq!(trivial_merge(&[1, 0, 2, 0, 3]), None);
+        assert_eq!(trivial_merge(&[0, 0, 0, 1, 0]), Some(&0));
+        assert_eq!(trivial_merge(&[0, 0, 0, 1, 1]), Some(&0));
+        assert_eq!(trivial_merge(&[0, 0, 0, 1, 2]), None);
+        assert_eq!(trivial_merge(&[0, 0, 1, 1, 0]), Some(&0));
+        assert_eq!(trivial_merge(&[0, 0, 1, 1, 1]), Some(&1));
+        assert_eq!(trivial_merge(&[0, 0, 1, 1, 2]), Some(&2));
+        assert_eq!(trivial_merge(&[0, 0, 2, 1, 0]), None);
+        assert_eq!(trivial_merge(&[0, 0, 2, 1, 1]), Some(&2));
+        assert_eq!(trivial_merge(&[0, 0, 2, 1, 2]), Some(&2));
+        assert_eq!(trivial_merge(&[0, 0, 2, 1, 3]), None);
+        assert_eq!(trivial_merge(&[1, 0, 0, 1, 0]), Some(&0));
+        assert_eq!(trivial_merge(&[1, 0, 0, 1, 1]), Some(&1));
+        assert_eq!(trivial_merge(&[1, 0, 0, 1, 2]), Some(&2));
+        assert_eq!(trivial_merge(&[1, 0, 1, 1, 0]), Some(&1));
+        assert_eq!(trivial_merge(&[1, 0, 1, 1, 1]), Some(&1));
+        assert_eq!(trivial_merge(&[1, 0, 1, 1, 2]), None);
+        assert_eq!(trivial_merge(&[1, 0, 2, 1, 0]), Some(&2));
+        assert_eq!(trivial_merge(&[1, 0, 2, 1, 1]), None);
+        assert_eq!(trivial_merge(&[1, 0, 2, 1, 2]), Some(&2));
+        assert_eq!(trivial_merge(&[1, 0, 2, 1, 3]), None);
+        assert_eq!(trivial_merge(&[2, 0, 0, 1, 0]), None);
+        assert_eq!(trivial_merge(&[2, 0, 0, 1, 1]), Some(&2));
+        assert_eq!(trivial_merge(&[2, 0, 0, 1, 2]), Some(&2));
+        assert_eq!(trivial_merge(&[2, 0, 0, 1, 3]), None);
+        assert_eq!(trivial_merge(&[2, 0, 1, 1, 0]), Some(&2));
+        assert_eq!(trivial_merge(&[2, 0, 1, 1, 1]), None);
+        assert_eq!(trivial_merge(&[2, 0, 1, 1, 2]), Some(&2));
+        assert_eq!(trivial_merge(&[2, 0, 1, 1, 3]), None);
+        assert_eq!(trivial_merge(&[2, 0, 2, 1, 0]), Some(&2));
+        assert_eq!(trivial_merge(&[2, 0, 2, 1, 1]), Some(&2));
+        assert_eq!(trivial_merge(&[2, 0, 2, 1, 2]), None);
+        assert_eq!(trivial_merge(&[2, 0, 2, 1, 3]), None);
+        assert_eq!(trivial_merge(&[2, 0, 3, 1, 0]), None);
+        assert_eq!(trivial_merge(&[2, 0, 3, 1, 1]), None);
+        assert_eq!(trivial_merge(&[2, 0, 3, 1, 2]), None);
+        assert_eq!(trivial_merge(&[2, 0, 3, 1, 3]), None);
+        assert_eq!(trivial_merge(&[2, 0, 3, 1, 4]), None);
     }
 
     #[test]
@@ -821,176 +814,98 @@ mod tests {
     #[test]
     fn test_get_simplified_mapping() {
         // 1-way merge
-        assert_eq!(c(&[], &[0]).get_simplified_mapping(), vec![0]);
+        assert_eq!(c(&[0]).get_simplified_mapping(), vec![0]);
         // 3-way merge
-        assert_eq!(c(&[0], &[0, 0]).get_simplified_mapping(), vec![2]);
-        assert_eq!(c(&[0], &[0, 1]).get_simplified_mapping(), vec![2]);
-        assert_eq!(c(&[0], &[1, 0]).get_simplified_mapping(), vec![0]);
-        assert_eq!(c(&[0], &[1, 1]).get_simplified_mapping(), vec![0, 1, 2]);
-        assert_eq!(c(&[0], &[1, 2]).get_simplified_mapping(), vec![0, 1, 2]);
+        assert_eq!(c(&[0, 0, 0]).get_simplified_mapping(), vec![2]);
+        assert_eq!(c(&[0, 0, 1]).get_simplified_mapping(), vec![2]);
+        assert_eq!(c(&[1, 0, 0]).get_simplified_mapping(), vec![0]);
+        assert_eq!(c(&[1, 0, 1]).get_simplified_mapping(), vec![0, 1, 2]);
+        assert_eq!(c(&[1, 0, 2]).get_simplified_mapping(), vec![0, 1, 2]);
         // 5-way merge
-        assert_eq!(c(&[0, 0], &[0, 0, 0]).get_simplified_mapping(), vec![4]);
-        assert_eq!(c(&[0, 0], &[0, 0, 1]).get_simplified_mapping(), vec![4]);
-        assert_eq!(c(&[0, 0], &[0, 1, 0]).get_simplified_mapping(), vec![2]);
+        assert_eq!(c(&[0, 0, 0, 0, 0]).get_simplified_mapping(), vec![4]);
+        assert_eq!(c(&[0, 0, 0, 0, 1]).get_simplified_mapping(), vec![4]);
+        assert_eq!(c(&[0, 0, 1, 0, 0]).get_simplified_mapping(), vec![2]);
+        assert_eq!(c(&[0, 0, 1, 0, 1]).get_simplified_mapping(), vec![2, 3, 4]);
+        assert_eq!(c(&[0, 0, 1, 0, 2]).get_simplified_mapping(), vec![2, 3, 4]);
+        assert_eq!(c(&[1, 0, 0, 0, 0]).get_simplified_mapping(), vec![0]);
+        assert_eq!(c(&[1, 0, 0, 0, 1]).get_simplified_mapping(), vec![0, 3, 4]);
+        assert_eq!(c(&[1, 0, 0, 0, 2]).get_simplified_mapping(), vec![0, 3, 4]);
+        assert_eq!(c(&[1, 0, 1, 0, 0]).get_simplified_mapping(), vec![0, 3, 2]);
         assert_eq!(
-            c(&[0, 0], &[0, 1, 1]).get_simplified_mapping(),
-            vec![2, 3, 4]
-        );
-        assert_eq!(
-            c(&[0, 0], &[0, 1, 2]).get_simplified_mapping(),
-            vec![2, 3, 4]
-        );
-        assert_eq!(c(&[0, 0], &[1, 0, 0]).get_simplified_mapping(), vec![0]);
-        assert_eq!(
-            c(&[0, 0], &[1, 0, 1]).get_simplified_mapping(),
-            vec![0, 3, 4]
-        );
-        assert_eq!(
-            c(&[0, 0], &[1, 0, 2]).get_simplified_mapping(),
-            vec![0, 3, 4]
-        );
-        assert_eq!(
-            c(&[0, 0], &[1, 1, 0]).get_simplified_mapping(),
-            vec![0, 3, 2]
-        );
-        assert_eq!(
-            c(&[0, 0], &[1, 1, 1]).get_simplified_mapping(),
+            c(&[1, 0, 1, 0, 1]).get_simplified_mapping(),
             vec![0, 1, 2, 3, 4]
         );
         assert_eq!(
-            c(&[0, 0], &[1, 1, 2]).get_simplified_mapping(),
+            c(&[1, 0, 1, 0, 2]).get_simplified_mapping(),
+            vec![0, 1, 2, 3, 4]
+        );
+        assert_eq!(c(&[1, 0, 2, 0, 0]).get_simplified_mapping(), vec![0, 3, 2]);
+        assert_eq!(
+            c(&[1, 0, 2, 0, 1]).get_simplified_mapping(),
             vec![0, 1, 2, 3, 4]
         );
         assert_eq!(
-            c(&[0, 0], &[1, 2, 0]).get_simplified_mapping(),
-            vec![0, 3, 2]
-        );
-        assert_eq!(
-            c(&[0, 0], &[1, 2, 1]).get_simplified_mapping(),
+            c(&[1, 0, 2, 0, 2]).get_simplified_mapping(),
             vec![0, 1, 2, 3, 4]
         );
         assert_eq!(
-            c(&[0, 0], &[1, 2, 2]).get_simplified_mapping(),
+            c(&[1, 0, 2, 0, 3]).get_simplified_mapping(),
+            vec![0, 1, 2, 3, 4]
+        );
+        assert_eq!(c(&[0, 0, 0, 1, 0]).get_simplified_mapping(), vec![2, 3, 4]);
+        assert_eq!(c(&[0, 0, 0, 1, 1]).get_simplified_mapping(), vec![2]);
+        assert_eq!(c(&[0, 0, 0, 1, 2]).get_simplified_mapping(), vec![2, 3, 4]);
+        assert_eq!(c(&[0, 0, 1, 1, 0]).get_simplified_mapping(), vec![4]);
+        assert_eq!(c(&[0, 0, 1, 1, 1]).get_simplified_mapping(), vec![4]);
+        assert_eq!(c(&[0, 0, 1, 1, 2]).get_simplified_mapping(), vec![4]);
+        assert_eq!(c(&[0, 0, 2, 1, 0]).get_simplified_mapping(), vec![2, 3, 4]);
+        assert_eq!(c(&[0, 0, 2, 1, 1]).get_simplified_mapping(), vec![2]);
+        assert_eq!(c(&[0, 0, 2, 1, 2]).get_simplified_mapping(), vec![2, 3, 4]);
+        assert_eq!(c(&[0, 0, 2, 1, 3]).get_simplified_mapping(), vec![2, 3, 4]);
+        assert_eq!(c(&[1, 0, 0, 1, 0]).get_simplified_mapping(), vec![2]);
+        assert_eq!(c(&[1, 0, 0, 1, 1]).get_simplified_mapping(), vec![4]);
+        assert_eq!(c(&[1, 0, 0, 1, 2]).get_simplified_mapping(), vec![4]);
+        assert_eq!(c(&[1, 0, 1, 1, 0]).get_simplified_mapping(), vec![2]);
+        assert_eq!(c(&[1, 0, 1, 1, 1]).get_simplified_mapping(), vec![4, 1, 2]);
+        assert_eq!(c(&[1, 0, 1, 1, 2]).get_simplified_mapping(), vec![4, 1, 2]);
+        assert_eq!(c(&[1, 0, 2, 1, 0]).get_simplified_mapping(), vec![2]);
+        assert_eq!(c(&[1, 0, 2, 1, 1]).get_simplified_mapping(), vec![4, 1, 2]);
+        assert_eq!(c(&[1, 0, 2, 1, 2]).get_simplified_mapping(), vec![4, 1, 2]);
+        assert_eq!(c(&[1, 0, 2, 1, 3]).get_simplified_mapping(), vec![4, 1, 2]);
+        assert_eq!(c(&[2, 0, 0, 1, 0]).get_simplified_mapping(), vec![0, 3, 4]);
+        assert_eq!(c(&[2, 0, 0, 1, 1]).get_simplified_mapping(), vec![0]);
+        assert_eq!(c(&[2, 0, 0, 1, 2]).get_simplified_mapping(), vec![0, 3, 4]);
+        assert_eq!(c(&[2, 0, 0, 1, 3]).get_simplified_mapping(), vec![0, 3, 4]);
+        assert_eq!(c(&[2, 0, 1, 1, 0]).get_simplified_mapping(), vec![0]);
+        assert_eq!(c(&[2, 0, 1, 1, 1]).get_simplified_mapping(), vec![0, 1, 4]);
+        assert_eq!(c(&[2, 0, 1, 1, 2]).get_simplified_mapping(), vec![0, 1, 4]);
+        assert_eq!(c(&[2, 0, 1, 1, 3]).get_simplified_mapping(), vec![0, 1, 4]);
+        assert_eq!(c(&[2, 0, 2, 1, 0]).get_simplified_mapping(), vec![0, 3, 2]);
+        assert_eq!(c(&[2, 0, 2, 1, 1]).get_simplified_mapping(), vec![0, 1, 2]);
+        assert_eq!(
+            c(&[2, 0, 2, 1, 2]).get_simplified_mapping(),
             vec![0, 1, 2, 3, 4]
         );
         assert_eq!(
-            c(&[0, 0], &[1, 2, 3]).get_simplified_mapping(),
+            c(&[2, 0, 2, 1, 3]).get_simplified_mapping(),
+            vec![0, 1, 2, 3, 4]
+        );
+        assert_eq!(c(&[2, 0, 3, 1, 0]).get_simplified_mapping(), vec![0, 3, 2]);
+        assert_eq!(c(&[2, 0, 3, 1, 1]).get_simplified_mapping(), vec![0, 1, 2]);
+        assert_eq!(
+            c(&[2, 0, 3, 1, 2]).get_simplified_mapping(),
             vec![0, 1, 2, 3, 4]
         );
         assert_eq!(
-            c(&[0, 1], &[0, 0, 0]).get_simplified_mapping(),
-            vec![2, 3, 4]
-        );
-        assert_eq!(c(&[0, 1], &[0, 0, 1]).get_simplified_mapping(), vec![2]);
-        assert_eq!(
-            c(&[0, 1], &[0, 0, 2]).get_simplified_mapping(),
-            vec![2, 3, 4]
-        );
-        assert_eq!(c(&[0, 1], &[0, 1, 0]).get_simplified_mapping(), vec![4]);
-        assert_eq!(c(&[0, 1], &[0, 1, 1]).get_simplified_mapping(), vec![4]);
-        assert_eq!(c(&[0, 1], &[0, 1, 2]).get_simplified_mapping(), vec![4]);
-        assert_eq!(
-            c(&[0, 1], &[0, 2, 0]).get_simplified_mapping(),
-            vec![2, 3, 4]
-        );
-        assert_eq!(c(&[0, 1], &[0, 2, 1]).get_simplified_mapping(), vec![2]);
-        assert_eq!(
-            c(&[0, 1], &[0, 2, 2]).get_simplified_mapping(),
-            vec![2, 3, 4]
-        );
-        assert_eq!(
-            c(&[0, 1], &[0, 2, 3]).get_simplified_mapping(),
-            vec![2, 3, 4]
-        );
-        assert_eq!(c(&[0, 1], &[1, 0, 0]).get_simplified_mapping(), vec![2]);
-        assert_eq!(c(&[0, 1], &[1, 0, 1]).get_simplified_mapping(), vec![4]);
-        assert_eq!(c(&[0, 1], &[1, 0, 2]).get_simplified_mapping(), vec![4]);
-        assert_eq!(c(&[0, 1], &[1, 1, 0]).get_simplified_mapping(), vec![2]);
-        assert_eq!(
-            c(&[0, 1], &[1, 1, 1]).get_simplified_mapping(),
-            vec![4, 1, 2]
-        );
-        assert_eq!(
-            c(&[0, 1], &[1, 1, 2]).get_simplified_mapping(),
-            vec![4, 1, 2]
-        );
-        assert_eq!(c(&[0, 1], &[1, 2, 0]).get_simplified_mapping(), vec![2]);
-        assert_eq!(
-            c(&[0, 1], &[1, 2, 1]).get_simplified_mapping(),
-            vec![4, 1, 2]
-        );
-        assert_eq!(
-            c(&[0, 1], &[1, 2, 2]).get_simplified_mapping(),
-            vec![4, 1, 2]
-        );
-        assert_eq!(
-            c(&[0, 1], &[1, 2, 3]).get_simplified_mapping(),
-            vec![4, 1, 2]
-        );
-        assert_eq!(
-            c(&[0, 1], &[2, 0, 0]).get_simplified_mapping(),
-            vec![0, 3, 4]
-        );
-        assert_eq!(c(&[0, 1], &[2, 0, 1]).get_simplified_mapping(), vec![0]);
-        assert_eq!(
-            c(&[0, 1], &[2, 0, 2]).get_simplified_mapping(),
-            vec![0, 3, 4]
-        );
-        assert_eq!(
-            c(&[0, 1], &[2, 0, 3]).get_simplified_mapping(),
-            vec![0, 3, 4]
-        );
-        assert_eq!(c(&[0, 1], &[2, 1, 0]).get_simplified_mapping(), vec![0]);
-        assert_eq!(
-            c(&[0, 1], &[2, 1, 1]).get_simplified_mapping(),
-            vec![0, 1, 4]
-        );
-        assert_eq!(
-            c(&[0, 1], &[2, 1, 2]).get_simplified_mapping(),
-            vec![0, 1, 4]
-        );
-        assert_eq!(
-            c(&[0, 1], &[2, 1, 3]).get_simplified_mapping(),
-            vec![0, 1, 4]
-        );
-        assert_eq!(
-            c(&[0, 1], &[2, 2, 0]).get_simplified_mapping(),
-            vec![0, 3, 2]
-        );
-        assert_eq!(
-            c(&[0, 1], &[2, 2, 1]).get_simplified_mapping(),
-            vec![0, 1, 2]
-        );
-        assert_eq!(
-            c(&[0, 1], &[2, 2, 2]).get_simplified_mapping(),
+            c(&[2, 0, 3, 1, 3]).get_simplified_mapping(),
             vec![0, 1, 2, 3, 4]
         );
         assert_eq!(
-            c(&[0, 1], &[2, 2, 3]).get_simplified_mapping(),
+            c(&[2, 0, 3, 1, 4]).get_simplified_mapping(),
             vec![0, 1, 2, 3, 4]
         );
         assert_eq!(
-            c(&[0, 1], &[2, 3, 0]).get_simplified_mapping(),
-            vec![0, 3, 2]
-        );
-        assert_eq!(
-            c(&[0, 1], &[2, 3, 1]).get_simplified_mapping(),
-            vec![0, 1, 2]
-        );
-        assert_eq!(
-            c(&[0, 1], &[2, 3, 2]).get_simplified_mapping(),
-            vec![0, 1, 2, 3, 4]
-        );
-        assert_eq!(
-            c(&[0, 1], &[2, 3, 3]).get_simplified_mapping(),
-            vec![0, 1, 2, 3, 4]
-        );
-        assert_eq!(
-            c(&[0, 1], &[2, 3, 4]).get_simplified_mapping(),
-            vec![0, 1, 2, 3, 4]
-        );
-        assert_eq!(
-            c(&[0, 1, 2], &[3, 4, 5, 0]).get_simplified_mapping(),
+            c(&[3, 0, 4, 1, 5, 2, 0]).get_simplified_mapping(),
             vec![0, 3, 4, 5, 2]
         );
     }
@@ -998,126 +913,111 @@ mod tests {
     #[test]
     fn test_simplify() {
         // 1-way merge
-        assert_eq!(c(&[], &[0]).simplify(), c(&[], &[0]));
+        assert_eq!(c(&[0]).simplify(), c(&[0]));
         // 3-way merge
-        assert_eq!(c(&[0], &[0, 0]).simplify(), c(&[], &[0]));
-        assert_eq!(c(&[0], &[0, 1]).simplify(), c(&[], &[1]));
-        assert_eq!(c(&[0], &[1, 0]).simplify(), c(&[], &[1]));
-        assert_eq!(c(&[0], &[1, 1]).simplify(), c(&[0], &[1, 1]));
-        assert_eq!(c(&[0], &[1, 2]).simplify(), c(&[0], &[1, 2]));
+        assert_eq!(c(&[0, 0, 0]).simplify(), c(&[0]));
+        assert_eq!(c(&[0, 0, 1]).simplify(), c(&[1]));
+        assert_eq!(c(&[1, 0, 0]).simplify(), c(&[1]));
+        assert_eq!(c(&[1, 0, 1]).simplify(), c(&[1, 0, 1]));
+        assert_eq!(c(&[1, 0, 2]).simplify(), c(&[1, 0, 2]));
         // 5-way merge
-        assert_eq!(c(&[0, 0], &[0, 0, 0]).simplify(), c(&[], &[0]));
-        assert_eq!(c(&[0, 0], &[0, 0, 1]).simplify(), c(&[], &[1]));
-        assert_eq!(c(&[0, 0], &[0, 1, 0]).simplify(), c(&[], &[1]));
-        assert_eq!(c(&[0, 0], &[0, 1, 1]).simplify(), c(&[0], &[1, 1]));
-        assert_eq!(c(&[0, 0], &[0, 1, 2]).simplify(), c(&[0], &[1, 2]));
-        assert_eq!(c(&[0, 0], &[1, 0, 0]).simplify(), c(&[], &[1]));
-        assert_eq!(c(&[0, 0], &[1, 0, 1]).simplify(), c(&[0], &[1, 1]));
-        assert_eq!(c(&[0, 0], &[1, 0, 2]).simplify(), c(&[0], &[1, 2]));
-        assert_eq!(c(&[0, 0], &[1, 1, 0]).simplify(), c(&[0], &[1, 1]));
-        assert_eq!(c(&[0, 0], &[1, 1, 1]).simplify(), c(&[0, 0], &[1, 1, 1]));
-        assert_eq!(c(&[0, 0], &[1, 1, 2]).simplify(), c(&[0, 0], &[1, 1, 2]));
-        assert_eq!(c(&[0, 0], &[1, 2, 0]).simplify(), c(&[0], &[1, 2]));
-        assert_eq!(c(&[0, 0], &[1, 2, 1]).simplify(), c(&[0, 0], &[1, 2, 1]));
-        assert_eq!(c(&[0, 0], &[1, 2, 2]).simplify(), c(&[0, 0], &[1, 2, 2]));
-        assert_eq!(c(&[0, 0], &[1, 2, 3]).simplify(), c(&[0, 0], &[1, 2, 3]));
-        assert_eq!(c(&[0, 1], &[0, 0, 0]).simplify(), c(&[1], &[0, 0]));
-        assert_eq!(c(&[0, 1], &[0, 0, 1]).simplify(), c(&[], &[0]));
-        assert_eq!(c(&[0, 1], &[0, 0, 2]).simplify(), c(&[1], &[0, 2]));
-        assert_eq!(c(&[0, 1], &[0, 1, 0]).simplify(), c(&[], &[0]));
-        assert_eq!(c(&[0, 1], &[0, 1, 1]).simplify(), c(&[], &[1]));
-        assert_eq!(c(&[0, 1], &[0, 1, 2]).simplify(), c(&[], &[2]));
-        assert_eq!(c(&[0, 1], &[0, 2, 0]).simplify(), c(&[1], &[2, 0]));
-        assert_eq!(c(&[0, 1], &[0, 2, 1]).simplify(), c(&[], &[2]));
-        assert_eq!(c(&[0, 1], &[0, 2, 2]).simplify(), c(&[1], &[2, 2]));
-        assert_eq!(c(&[0, 1], &[0, 2, 3]).simplify(), c(&[1], &[2, 3]));
-        assert_eq!(c(&[0, 1], &[1, 0, 0]).simplify(), c(&[], &[0]));
-        assert_eq!(c(&[0, 1], &[1, 0, 1]).simplify(), c(&[], &[1]));
-        assert_eq!(c(&[0, 1], &[1, 0, 2]).simplify(), c(&[], &[2]));
-        assert_eq!(c(&[0, 1], &[1, 1, 0]).simplify(), c(&[], &[1]));
-        assert_eq!(c(&[0, 1], &[1, 1, 1]).simplify(), c(&[0], &[1, 1]));
-        assert_eq!(c(&[0, 1], &[1, 1, 2]).simplify(), c(&[0], &[2, 1]));
-        assert_eq!(c(&[0, 1], &[1, 2, 0]).simplify(), c(&[], &[2]));
-        assert_eq!(c(&[0, 1], &[1, 2, 1]).simplify(), c(&[0], &[1, 2]));
-        assert_eq!(c(&[0, 1], &[1, 2, 2]).simplify(), c(&[0], &[2, 2]));
-        assert_eq!(c(&[0, 1], &[1, 2, 3]).simplify(), c(&[0], &[3, 2]));
-        assert_eq!(c(&[0, 1], &[2, 0, 0]).simplify(), c(&[1], &[2, 0]));
-        assert_eq!(c(&[0, 1], &[2, 0, 1]).simplify(), c(&[], &[2]));
-        assert_eq!(c(&[0, 1], &[2, 0, 2]).simplify(), c(&[1], &[2, 2]));
-        assert_eq!(c(&[0, 1], &[2, 0, 3]).simplify(), c(&[1], &[2, 3]));
-        assert_eq!(c(&[0, 1], &[2, 1, 0]).simplify(), c(&[], &[2]));
-        assert_eq!(c(&[0, 1], &[2, 1, 1]).simplify(), c(&[0], &[2, 1]));
-        assert_eq!(c(&[0, 1], &[2, 1, 2]).simplify(), c(&[0], &[2, 2]));
-        assert_eq!(c(&[0, 1], &[2, 1, 3]).simplify(), c(&[0], &[2, 3]));
-        assert_eq!(c(&[0, 1], &[2, 2, 0]).simplify(), c(&[1], &[2, 2]));
-        assert_eq!(c(&[0, 1], &[2, 2, 1]).simplify(), c(&[0], &[2, 2]));
-        assert_eq!(c(&[0, 1], &[2, 2, 2]).simplify(), c(&[0, 1], &[2, 2, 2]));
-        assert_eq!(c(&[0, 1], &[2, 2, 3]).simplify(), c(&[0, 1], &[2, 2, 3]));
-        assert_eq!(c(&[0, 1], &[2, 3, 0]).simplify(), c(&[1], &[2, 3]));
-        assert_eq!(c(&[0, 1], &[2, 3, 1]).simplify(), c(&[0], &[2, 3]));
-        assert_eq!(c(&[0, 1], &[2, 3, 2]).simplify(), c(&[0, 1], &[2, 3, 2]));
-        assert_eq!(c(&[0, 1], &[2, 3, 3]).simplify(), c(&[0, 1], &[2, 3, 3]));
-        assert_eq!(c(&[0, 1], &[2, 3, 4]).simplify(), c(&[0, 1], &[2, 3, 4]));
-        assert_eq!(
-            c(&[0, 1, 2], &[3, 4, 5, 0]).simplify(),
-            c(&[1, 2], &[3, 5, 4])
-        );
+        assert_eq!(c(&[0, 0, 0, 0, 0]).simplify(), c(&[0]));
+        assert_eq!(c(&[0, 0, 0, 0, 1]).simplify(), c(&[1]));
+        assert_eq!(c(&[0, 0, 1, 0, 0]).simplify(), c(&[1]));
+        assert_eq!(c(&[0, 0, 1, 0, 1]).simplify(), c(&[1, 0, 1]));
+        assert_eq!(c(&[0, 0, 1, 0, 2]).simplify(), c(&[1, 0, 2]));
+        assert_eq!(c(&[1, 0, 0, 0, 0]).simplify(), c(&[1]));
+        assert_eq!(c(&[1, 0, 0, 0, 1]).simplify(), c(&[1, 0, 1]));
+        assert_eq!(c(&[1, 0, 0, 0, 2]).simplify(), c(&[1, 0, 2]));
+        assert_eq!(c(&[1, 0, 1, 0, 0]).simplify(), c(&[1, 0, 1]));
+        assert_eq!(c(&[1, 0, 1, 0, 1]).simplify(), c(&[1, 0, 1, 0, 1]));
+        assert_eq!(c(&[1, 0, 1, 0, 2]).simplify(), c(&[1, 0, 1, 0, 2]));
+        assert_eq!(c(&[1, 0, 2, 0, 0]).simplify(), c(&[1, 0, 2]));
+        assert_eq!(c(&[1, 0, 2, 0, 1]).simplify(), c(&[1, 0, 2, 0, 1]));
+        assert_eq!(c(&[1, 0, 2, 0, 2]).simplify(), c(&[1, 0, 2, 0, 2]));
+        assert_eq!(c(&[1, 0, 2, 0, 3]).simplify(), c(&[1, 0, 2, 0, 3]));
+        assert_eq!(c(&[0, 0, 0, 1, 0]).simplify(), c(&[0, 1, 0]));
+        assert_eq!(c(&[0, 0, 0, 1, 1]).simplify(), c(&[0]));
+        assert_eq!(c(&[0, 0, 0, 1, 2]).simplify(), c(&[0, 1, 2]));
+        assert_eq!(c(&[0, 0, 1, 1, 0]).simplify(), c(&[0]));
+        assert_eq!(c(&[0, 0, 1, 1, 1]).simplify(), c(&[1]));
+        assert_eq!(c(&[0, 0, 1, 1, 2]).simplify(), c(&[2]));
+        assert_eq!(c(&[0, 0, 2, 1, 0]).simplify(), c(&[2, 1, 0]));
+        assert_eq!(c(&[0, 0, 2, 1, 1]).simplify(), c(&[2]));
+        assert_eq!(c(&[0, 0, 2, 1, 2]).simplify(), c(&[2, 1, 2]));
+        assert_eq!(c(&[0, 0, 2, 1, 3]).simplify(), c(&[2, 1, 3]));
+        assert_eq!(c(&[1, 0, 0, 1, 0]).simplify(), c(&[0]));
+        assert_eq!(c(&[1, 0, 0, 1, 1]).simplify(), c(&[1]));
+        assert_eq!(c(&[1, 0, 0, 1, 2]).simplify(), c(&[2]));
+        assert_eq!(c(&[1, 0, 1, 1, 0]).simplify(), c(&[1]));
+        assert_eq!(c(&[1, 0, 1, 1, 1]).simplify(), c(&[1, 0, 1]));
+        assert_eq!(c(&[1, 0, 1, 1, 2]).simplify(), c(&[2, 0, 1]));
+        assert_eq!(c(&[1, 0, 2, 1, 0]).simplify(), c(&[2]));
+        assert_eq!(c(&[1, 0, 2, 1, 1]).simplify(), c(&[1, 0, 2]));
+        assert_eq!(c(&[1, 0, 2, 1, 2]).simplify(), c(&[2, 0, 2]));
+        assert_eq!(c(&[1, 0, 2, 1, 3]).simplify(), c(&[3, 0, 2]));
+        assert_eq!(c(&[2, 0, 0, 1, 0]).simplify(), c(&[2, 1, 0]));
+        assert_eq!(c(&[2, 0, 0, 1, 1]).simplify(), c(&[2]));
+        assert_eq!(c(&[2, 0, 0, 1, 2]).simplify(), c(&[2, 1, 2]));
+        assert_eq!(c(&[2, 0, 0, 1, 3]).simplify(), c(&[2, 1, 3]));
+        assert_eq!(c(&[2, 0, 1, 1, 0]).simplify(), c(&[2]));
+        assert_eq!(c(&[2, 0, 1, 1, 1]).simplify(), c(&[2, 0, 1]));
+        assert_eq!(c(&[2, 0, 1, 1, 2]).simplify(), c(&[2, 0, 2]));
+        assert_eq!(c(&[2, 0, 1, 1, 3]).simplify(), c(&[2, 0, 3]));
+        assert_eq!(c(&[2, 0, 2, 1, 0]).simplify(), c(&[2, 1, 2]));
+        assert_eq!(c(&[2, 0, 2, 1, 1]).simplify(), c(&[2, 0, 2]));
+        assert_eq!(c(&[2, 0, 2, 1, 2]).simplify(), c(&[2, 0, 2, 1, 2]));
+        assert_eq!(c(&[2, 0, 2, 1, 3]).simplify(), c(&[2, 0, 2, 1, 3]));
+        assert_eq!(c(&[2, 0, 3, 1, 0]).simplify(), c(&[2, 1, 3]));
+        assert_eq!(c(&[2, 0, 3, 1, 1]).simplify(), c(&[2, 0, 3]));
+        assert_eq!(c(&[2, 0, 3, 1, 2]).simplify(), c(&[2, 0, 3, 1, 2]));
+        assert_eq!(c(&[2, 0, 3, 1, 3]).simplify(), c(&[2, 0, 3, 1, 3]));
+        assert_eq!(c(&[2, 0, 3, 1, 4]).simplify(), c(&[2, 0, 3, 1, 4]));
+        assert_eq!(c(&[3, 0, 4, 1, 5, 2, 0]).simplify(), c(&[3, 1, 5, 2, 4]));
     }
 
     #[test]
     fn test_update_from_simplified() {
         // 1-way merge
-        assert_eq!(
-            c(&[], &[0]).update_from_simplified(c(&[], &[1])),
-            c(&[], &[1])
-        );
+        assert_eq!(c(&[0]).update_from_simplified(c(&[1])), c(&[1]));
         // 3-way merge
+        assert_eq!(c(&[0, 0, 0]).update_from_simplified(c(&[1])), c(&[0, 0, 1]));
+        assert_eq!(c(&[1, 0, 0]).update_from_simplified(c(&[2])), c(&[2, 0, 0]));
         assert_eq!(
-            c(&[0], &[0, 0]).update_from_simplified(c(&[], &[1])),
-            c(&[0], &[0, 1])
-        );
-        assert_eq!(
-            c(&[0], &[1, 0]).update_from_simplified(c(&[], &[2])),
-            c(&[0], &[2, 0])
-        );
-        assert_eq!(
-            c(&[0], &[1, 2]).update_from_simplified(c(&[1], &[2, 3])),
-            c(&[1], &[2, 3])
+            c(&[1, 0, 2]).update_from_simplified(c(&[2, 1, 3])),
+            c(&[2, 1, 3])
         );
         // 5-way merge
         assert_eq!(
-            c(&[0, 0], &[0, 0, 0]).update_from_simplified(c(&[], &[1])),
-            c(&[0, 0], &[0, 0, 1])
+            c(&[0, 0, 0, 0, 0]).update_from_simplified(c(&[1])),
+            c(&[0, 0, 0, 0, 1])
         );
         assert_eq!(
-            c(&[0, 1], &[0, 0, 0]).update_from_simplified(c(&[3], &[2, 1])),
-            c(&[0, 3], &[0, 2, 1])
+            c(&[0, 0, 0, 1, 0]).update_from_simplified(c(&[2, 3, 1])),
+            c(&[0, 0, 2, 3, 1])
         );
         assert_eq!(
-            c(&[1, 0], &[0, 0, 0]).update_from_simplified(c(&[3], &[2, 1])),
-            c(&[3, 0], &[0, 1, 2])
+            c(&[0, 1, 0, 0, 0]).update_from_simplified(c(&[2, 3, 1])),
+            c(&[0, 3, 1, 0, 2])
         );
         assert_eq!(
-            c(&[0, 1], &[2, 3, 4]).update_from_simplified(c(&[1, 2], &[3, 4, 5])),
-            c(&[1, 2], &[3, 4, 5])
+            c(&[2, 0, 3, 1, 4]).update_from_simplified(c(&[3, 1, 4, 2, 5])),
+            c(&[3, 1, 4, 2, 5])
         );
 
-        assert_eq!(
-            c(&[0, 1, 2], &[0, 3, 3, 4]).simplify(),
-            c(&[1, 2], &[3, 3, 4])
-        );
+        assert_eq!(c(&[0, 0, 3, 1, 3, 2, 4]).simplify(), c(&[3, 1, 3, 2, 4]));
         // Check that the `3`s are replaced correctly and that `4` ends up in the
         // correct position.
         assert_eq!(
-            c(&[0, 1, 2], &[0, 3, 3, 4]).update_from_simplified(c(&[1, 2], &[10, 11, 4])),
-            c(&[0, 1, 2], &[0, 10, 11, 4])
+            c(&[0, 0, 3, 1, 3, 2, 4]).update_from_simplified(c(&[10, 1, 11, 2, 4])),
+            c(&[0, 0, 10, 1, 11, 2, 4])
         );
     }
 
     #[test]
     fn test_merge_invariants() {
-        fn check_invariants(removes: &[u32], adds: &[u32]) {
-            let merge = Merge::from_removes_adds(removes.to_vec(), adds.to_vec());
+        fn check_invariants(terms: &[u32]) {
+            let merge = Merge::from_vec(terms.to_vec());
             // `simplify()` is idempotent
             assert_eq!(
                 merge.clone().simplify().simplify(),
@@ -1132,15 +1032,15 @@ mod tests {
             );
         }
         // 1-way merge
-        check_invariants(&[], &[0]);
+        check_invariants(&[0]);
         for i in 0..=1 {
             for j in 0..=i + 1 {
                 // 3-way merge
-                check_invariants(&[0], &[i, j]);
+                check_invariants(&[i, 0, j]);
                 for k in 0..=j + 1 {
                     for l in 0..=k + 1 {
                         // 5-way merge
-                        check_invariants(&[0, i], &[j, k, l]);
+                        check_invariants(&[j, 0, k, i, l]);
                     }
                 }
             }
@@ -1149,32 +1049,32 @@ mod tests {
 
     #[test]
     fn test_swap_remove() {
-        let mut x = c(&[1, 3, 5], &[0, 2, 4, 6]);
+        let mut x = c(&[0, 1, 2, 3, 4, 5, 6]);
         assert_eq!(x.swap_remove(0, 1), (1, 2));
-        assert_eq!(x, c(&[5, 3], &[0, 6, 4]));
+        assert_eq!(x, c(&[0, 5, 6, 3, 4]));
         assert_eq!(x.swap_remove(1, 0), (3, 0));
-        assert_eq!(x, c(&[5], &[4, 6]));
+        assert_eq!(x, c(&[4, 5, 6]));
         assert_eq!(x.swap_remove(0, 1), (5, 6));
-        assert_eq!(x, c(&[], &[4]));
+        assert_eq!(x, c(&[4]));
     }
 
     #[test]
     fn test_pad_to() {
-        let mut x = c(&[], &[1]);
+        let mut x = c(&[1]);
         x.pad_to(3, &2);
-        assert_eq!(x, c(&[2, 2], &[1, 2, 2]));
+        assert_eq!(x, c(&[1, 2, 2, 2, 2]));
         // No change if the requested size is smaller
         x.pad_to(1, &3);
-        assert_eq!(x, c(&[2, 2], &[1, 2, 2]));
+        assert_eq!(x, c(&[1, 2, 2, 2, 2]));
     }
 
     #[test]
     fn test_iter() {
         // 1-way merge
-        assert_eq!(c(&[], &[1]).iter().collect_vec(), vec![&1]);
+        assert_eq!(c(&[1]).iter().collect_vec(), vec![&1]);
         // 5-way merge
         assert_eq!(
-            c(&[1, 2], &[3, 4, 5]).iter().collect_vec(),
+            c(&[3, 1, 4, 2, 5]).iter().collect_vec(),
             vec![&3, &1, &4, &2, &5]
         );
     }
@@ -1182,11 +1082,11 @@ mod tests {
     #[test]
     fn test_from_iter() {
         // 1-way merge
-        assert_eq!(MergeBuilder::from_iter([1]).build(), c(&[], &[1]));
+        assert_eq!(MergeBuilder::from_iter([1]).build(), c(&[1]));
         // 5-way merge
         assert_eq!(
             MergeBuilder::from_iter([1, 2, 3, 4, 5]).build(),
-            c(&[2, 4], &[1, 3, 5])
+            c(&[1, 2, 3, 4, 5])
         );
     }
 
@@ -1207,12 +1107,12 @@ mod tests {
         // 1-way merge
         let mut builder: MergeBuilder<i32> = Default::default();
         builder.extend([1]);
-        assert_eq!(builder.build(), c(&[], &[1]));
+        assert_eq!(builder.build(), c(&[1]));
         // 5-way merge
         let mut builder: MergeBuilder<i32> = Default::default();
         builder.extend([1, 2]);
         builder.extend([3, 4, 5]);
-        assert_eq!(builder.build(), c(&[2, 4], &[1, 3, 5]));
+        assert_eq!(builder.build(), c(&[1, 2, 3, 4, 5]));
     }
 
     #[test]
@@ -1221,9 +1121,9 @@ mod tests {
             i + 1
         }
         // 1-way merge
-        assert_eq!(c(&[], &[1]).map(increment), c(&[], &[2]));
+        assert_eq!(c(&[1]).map(increment), c(&[2]));
         // 3-way merge
-        assert_eq!(c(&[1], &[3, 5]).map(increment), c(&[2], &[4, 6]));
+        assert_eq!(c(&[3, 1, 5]).map(increment), c(&[4, 2, 6]));
     }
 
     #[test]
@@ -1236,12 +1136,12 @@ mod tests {
             }
         }
         // 1-way merge
-        assert_eq!(c(&[], &[1]).maybe_map(sqrt), Some(c(&[], &[1])));
-        assert_eq!(c(&[], &[-1]).maybe_map(sqrt), None);
+        assert_eq!(c(&[1]).maybe_map(sqrt), Some(c(&[1])));
+        assert_eq!(c(&[-1]).maybe_map(sqrt), None);
         // 3-way merge
-        assert_eq!(c(&[1], &[4, 9]).maybe_map(sqrt), Some(c(&[1], &[2, 3])));
-        assert_eq!(c(&[-1], &[4, 9]).maybe_map(sqrt), None);
-        assert_eq!(c(&[1], &[-4, 9]).maybe_map(sqrt), None);
+        assert_eq!(c(&[4, 1, 9]).maybe_map(sqrt), Some(c(&[2, 1, 3])));
+        assert_eq!(c(&[4, -1, 9]).maybe_map(sqrt), None);
+        assert_eq!(c(&[-4, 1, 9]).maybe_map(sqrt), None);
     }
 
     #[test]
@@ -1254,29 +1154,26 @@ mod tests {
             }
         }
         // 1-way merge
-        assert_eq!(c(&[], &[1]).try_map(sqrt), Ok(c(&[], &[1])));
-        assert_eq!(c(&[], &[-1]).try_map(sqrt), Err(()));
+        assert_eq!(c(&[1]).try_map(sqrt), Ok(c(&[1])));
+        assert_eq!(c(&[-1]).try_map(sqrt), Err(()));
         // 3-way merge
-        assert_eq!(c(&[1], &[4, 9]).try_map(sqrt), Ok(c(&[1], &[2, 3])));
-        assert_eq!(c(&[-1], &[4, 9]).try_map(sqrt), Err(()));
-        assert_eq!(c(&[1], &[-4, 9]).try_map(sqrt), Err(()));
+        assert_eq!(c(&[4, 1, 9]).try_map(sqrt), Ok(c(&[2, 1, 3])));
+        assert_eq!(c(&[4, -1, 9]).try_map(sqrt), Err(()));
+        assert_eq!(c(&[-4, 1, 9]).try_map(sqrt), Err(()));
     }
 
     #[test]
     fn test_flatten() {
         // 1-way merge of 1-way merge
-        assert_eq!(c(&[], &[c(&[], &[0])]).flatten(), c(&[], &[0]));
+        assert_eq!(c(&[c(&[0])]).flatten(), c(&[0]));
         // 1-way merge of 3-way merge
-        assert_eq!(c(&[], &[c(&[0], &[1, 2])]).flatten(), c(&[0], &[1, 2]));
+        assert_eq!(c(&[c(&[1, 0, 2])]).flatten(), c(&[1, 0, 2]));
         // 3-way merge of 1-way merges
-        assert_eq!(
-            c(&[c(&[], &[0])], &[c(&[], &[1]), c(&[], &[2])]).flatten(),
-            c(&[0], &[1, 2])
-        );
+        assert_eq!(c(&[c(&[1]), c(&[0]), c(&[2])]).flatten(), c(&[1, 0, 2]));
         // 3-way merge of 3-way merges
         assert_eq!(
-            c(&[c(&[0], &[1, 2])], &[c(&[3], &[4, 5]), c(&[6], &[7, 8])]).flatten(),
-            c(&[3, 2, 1, 6], &[4, 5, 0, 7, 8])
+            c(&[c(&[4, 3, 5]), c(&[1, 0, 2]), c(&[7, 6, 8])]).flatten(),
+            c(&[4, 3, 5, 2, 0, 1, 7, 6, 8])
         );
     }
 }
