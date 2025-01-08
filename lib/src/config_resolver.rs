@@ -24,7 +24,6 @@ use serde::Deserialize as _;
 use toml_edit::DocumentMut;
 
 use crate::config::ConfigGetError;
-use crate::config::ConfigItem;
 use crate::config::ConfigLayer;
 use crate::config::ConfigNamePathBuf;
 use crate::config::ConfigUpdateError;
@@ -170,15 +169,12 @@ fn pop_scope_tables(layer: &mut ConfigLayer) -> Result<toml_edit::ArrayOfTables,
     let Some(item) = layer.data.remove(SCOPE_TABLE_KEY) else {
         return Ok(toml_edit::ArrayOfTables::new());
     };
-    // TODO: item.into_array_of_tables()
-    match item {
-        ConfigItem::ArrayOfTables(tables) => Ok(tables),
-        _ => Err(ConfigGetError::Type {
+    item.into_array_of_tables()
+        .map_err(|item| ConfigGetError::Type {
             name: SCOPE_TABLE_KEY.to_owned(),
             error: format!("Expected an array of tables, but is {}", item.type_name()).into(),
             source_path: layer.path.clone(),
-        }),
-    }
+        })
 }
 
 /// Rule to migrate deprecated config variables.

@@ -691,7 +691,10 @@ fn test_config_unset_non_existent_key() {
 
 #[test]
 fn test_config_unset_inline_table_key() {
-    let test_env = TestEnvironment::default();
+    let mut test_env = TestEnvironment::default();
+    // Test with fresh new config file
+    let user_config_path = test_env.config_path().join("config.toml");
+    test_env.set_config_path(&user_config_path);
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
 
@@ -699,12 +702,12 @@ fn test_config_unset_inline_table_key() {
         &repo_path,
         &["config", "set", "--user", "inline-table", "{ foo = true }"],
     );
-    let stderr = test_env.jj_cmd_failure(
+    test_env.jj_cmd_ok(
         &repo_path,
         &["config", "unset", "--user", "inline-table.foo"],
     );
-
-    insta::assert_snapshot!(stderr, @r#"Error: "inline-table.foo" doesn't exist"#);
+    let user_config_toml = std::fs::read_to_string(&user_config_path).unwrap();
+    insta::assert_snapshot!(user_config_toml, @"inline-table = {}");
 }
 
 #[test]
@@ -724,7 +727,7 @@ fn test_config_unset_table_like() {
     )
     .unwrap();
 
-    // Inline table is a "value", so it can be deleted.
+    // Inline table is syntactically a "value", so it can be deleted.
     test_env.jj_cmd_success(
         test_env.env_root(),
         &["config", "unset", "--user", "inline-table"],

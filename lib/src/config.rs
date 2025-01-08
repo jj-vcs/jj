@@ -103,13 +103,14 @@ pub enum ConfigUpdateError {
         /// Dotted config name path.
         name: String,
     },
-    /// Table exists at the path, which shouldn't be overwritten by a value.
+    /// Non-inline table exists at the path, which shouldn't be overwritten by a
+    /// value.
     #[error("Would overwrite entire table {name}")]
     WouldOverwriteTable {
         /// Dotted config name path.
         name: String,
     },
-    /// Table exists at the path, which shouldn't be deleted.
+    /// Non-inline table exists at the path, which shouldn't be deleted.
     #[error("Would delete entire table {name}")]
     WouldDeleteTable {
         /// Dotted config name path.
@@ -397,7 +398,8 @@ impl ConfigLayer {
     /// Sets `new_value` to the `name` path. Returns old value if any.
     ///
     /// This function errors out if attempted to overwrite a non-table middle
-    /// node or a leaf table (in the same way as file/directory operation.)
+    /// node or a leaf non-inline table. An inline table can be overwritten
+    /// because it's syntactically a value.
     pub fn set_value(
         &mut self,
         name: impl ToConfigNamePath,
@@ -411,7 +413,6 @@ impl ConfigLayer {
             })?;
         match parent_table.entry_format(leaf_key) {
             toml_edit::Entry::Occupied(mut entry) => {
-                // TODO: Don't overwrite inline table because it is a merge-able item
                 if !entry.get().is_value() {
                     return Err(ConfigUpdateError::WouldOverwriteTable {
                         name: name.to_string(),
@@ -433,7 +434,8 @@ impl ConfigLayer {
     /// Deletes value specified by the `name` path. Returns old value if any.
     ///
     /// Returns `Ok(None)` if middle node wasn't a table or a value wasn't
-    /// found. Returns `Err` if attempted to delete a table.
+    /// found. Returns `Err` if attempted to delete a non-inline table. An
+    /// inline table can be deleted because it's syntactically a value.
     pub fn delete_value(
         &mut self,
         name: impl ToConfigNamePath,
@@ -445,16 +447,14 @@ impl ConfigLayer {
         let leaf_key = keys
             .next_back()
             .ok_or_else(|| would_delete_table(name.to_string()))?;
-        let root_table = self.data.as_table_mut();
-        let Some(parent_table) =
-            // TODO: as_table_like_mut()
-            keys.try_fold(root_table, |table, key| table.get_mut(key)?.as_table_mut())
-        else {
+        let Some(parent_table) = keys.try_fold(
+            self.data.as_table_mut() as &mut ConfigTableLike,
+            |table, key| table.get_mut(key)?.as_table_like_mut(),
+        ) else {
             return Ok(None);
         };
         match parent_table.entry(leaf_key) {
             toml_edit::Entry::Occupied(entry) => {
-                // TODO: Don't delete inline table because it is a merge-able item
                 if !entry.get().is_value() {
                     return Err(would_delete_table(name.to_string()));
                 }
@@ -488,15 +488,14 @@ fn look_up_item<'a>(
 /// Inserts tables down to the parent of the `name` path. Returns `Err(keys)` if
 /// middle node exists at the prefix name `keys` and wasn't a table.
 fn ensure_parent_table<'a, 'b>(
-    root_table: &'a mut ConfigTable,
+    root_table: &'a mut ConfigTableLike<'a>,
     name: &'b ConfigNamePathBuf,
-) -> Result<(&'a mut ConfigTable, &'b toml_edit::Key), &'b [toml_edit::Key]> {
+) -> Result<(&'a mut ConfigTableLike<'a>, &'b toml_edit::Key), &'b [toml_edit::Key]> {
     let mut keys = name.components();
     let leaf_key = keys.next_back().ok_or(&name.0[..])?;
     let parent_table = keys.enumerate().try_fold(root_table, |table, (i, key)| {
         let sub_item = table.entry_format(key).or_insert_with(new_implicit_table);
-        // TODO: as_table_like_mut()
-        sub_item.as_table_mut().ok_or(&name.0[..=i])
+        sub_item.as_table_like_mut().ok_or(&name.0[..=i])
     })?;
     Ok((parent_table, leaf_key))
 }
@@ -884,11 +883,15 @@ mod tests {
         layer
             .set_value("bar.qux", ConfigValue::from_iter([("inline", "table")]))
             .unwrap();
+        layer
+            .set_value("bar.to-update", ConfigValue::from_iter([("some", true)]))
+            .unwrap();
         insta::assert_snapshot!(layer.data, @r#"
         foo = 1
 
         [bar]
         qux = { inline = "table" }
+        to-update = { some = true }
 
         [bar.baz]
         blah = "2"
@@ -900,6 +903,13 @@ mod tests {
             .unwrap();
         // Can overwrite inline table
         layer.set_value("bar.qux", "new bar.qux").unwrap();
+        // Can add value to inline table
+        layer
+            .set_value(
+                "bar.to-update.new",
+                ConfigValue::from_iter([("table", "value")]),
+            )
+            .unwrap();
         // Cannot overwrite table
         assert_matches!(
             layer.set_value("bar", 0),
@@ -915,6 +925,7 @@ mod tests {
 
         [bar]
         qux = "new bar.qux"
+        to-update = { some = true, new = { table = "value" } }
 
         [bar.baz]
         blah = "2"
@@ -961,11 +972,15 @@ mod tests {
         layer
             .set_value("bar.qux", ConfigValue::from_iter([("inline", "table")]))
             .unwrap();
+        layer
+            .set_value("bar.to-update", ConfigValue::from_iter([("some", true)]))
+            .unwrap();
         insta::assert_snapshot!(layer.data, @r#"
         foo = 1
 
         [bar]
         qux = { inline = "table" }
+        to-update = { some = true }
 
         [bar.baz]
         blah = "2"
@@ -977,6 +992,9 @@ mod tests {
         // Can delete inline table
         let old_value = layer.delete_value("bar.qux").unwrap();
         assert!(old_value.is_some_and(|v| v.is_inline_table()));
+        // Can delete inner value from inline table
+        let old_value = layer.delete_value("bar.to-update.some").unwrap();
+        assert_eq!(old_value.and_then(|v| v.as_bool()), Some(true));
         // Cannot delete table
         assert_matches!(
             layer.delete_value("bar"),
@@ -986,6 +1004,9 @@ mod tests {
         // exist
         assert_matches!(layer.delete_value("bar.baz.blah.blah"), Ok(None));
         insta::assert_snapshot!(layer.data, @r#"
+        [bar]
+        to-update = {}
+
         [bar.baz]
         blah = "2"
         "#);
