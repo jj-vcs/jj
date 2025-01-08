@@ -3,7 +3,8 @@ name: nix
 on:
   push:
     branches:
-      - main
+      - '**'
+      - '!main' # Don't build on main, because merge_group will do that already.
   pull_request:
   merge_group:
 
