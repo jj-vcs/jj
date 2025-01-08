@@ -122,10 +122,12 @@ pub fn resolved_config_values(
         };
         let mut config_stack = vec![(filter_prefix.clone(), top_item, false)];
         while let Some((name, item, is_parent_overridden)) = config_stack.pop() {
-            if let Some(table) = item.as_table() {
+            // Cannot retain inline table formatting because inner values may be
+            // overridden independently.
+            if let Some(table) = item.as_table_like() {
                 // current table and children may be shadowed by value in upper layer
                 let is_overridden = is_parent_overridden || upper_value_names.contains(&name);
-                for (k, v) in table {
+                for (k, v) in table.iter() {
                     let mut sub_name = name.clone();
                     sub_name.push(k);
                     config_stack.push((sub_name, v, is_overridden)); // in reverse order

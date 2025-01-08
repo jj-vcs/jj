@@ -31,6 +31,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   conflicts from the merged parents are now added to the Git index as conflicts
   as well.
 
+* The following change introduced in 0.25.0 is reverted:
+  - `jj config list` now prints inline tables `{ key = value, .. }` literally.
+    Inner items of inline tables are no longer merged across configuration
+    files.
+
 ### Deprecations
 
 ### New features

@@ -166,6 +166,7 @@ fn pop_scope_tables(layer: &mut ConfigLayer) -> Result<toml_edit::ArrayOfTables,
     let Some(item) = layer.data.remove(SCOPE_TABLE_KEY) else {
         return Ok(toml_edit::ArrayOfTables::new());
     };
+    // TODO: item.into_array_of_tables()
     match item {
         ConfigItem::ArrayOfTables(tables) => Ok(tables),
         _ => Err(ConfigGetError::Type {

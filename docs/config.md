@@ -33,8 +33,7 @@ syntax. We cover some of the basics below.
 The first thing to remember is that the value of a setting (the part to the
 right of the `=` sign) should be surrounded in quotes if it's a string.
 
-### Dotted style, headings, and inline tables
-
+### Dotted style and headings
 In TOML, anything under a heading can be dotted instead. For example,
 `user.name = "YOUR NAME"` is equivalent to:
 
@@ -48,7 +47,7 @@ For future reference, here are a couple of more complicated examples,
 ```toml
 # Dotted style
 template-aliases."format_short_id(id)" = "id.shortest(12)"
-colors."commit_id prefix" = { bold = true }
+colors."commit_id prefix".bold = true
 
 # is equivalent to:
 [template-aliases]
@@ -57,14 +56,6 @@ colors."commit_id prefix" = { bold = true }
 [colors]
 "commit_id prefix" = { bold = true }
 ```
-
-Dotted and non-inline table items are merged one by one if the same keys exist
-in multiple files. In the example above, `template-aliases` and `colors` are
-the tables to be merged. `template-aliases."format_short_id(id)"` and
-`colors."commit_id prefix"` in the default settings are overridden. On the other
-hand, inner items of an inline table are *not* merged. For example, `{ bold =
-true }` wouldn't be merged as `{ fg = "blue", bold = true }` even if the default
-settings had `colors."commit_id prefix" = { fg = "blue" }`.
 
 The docs below refer to keys in text using dotted notation, but example
 blocks will use heading notation to be unambiguous. If you are confident with TOML

@@ -41,8 +41,10 @@ use crate::file_util::PathError;
 
 /// Config value or table node.
 pub type ConfigItem = toml_edit::Item;
-/// Table of config key and value pairs.
+/// Non-inline table of config key and value pairs.
 pub type ConfigTable = toml_edit::Table;
+/// Non-inline or inline table of config key and value pairs.
+pub type ConfigTableLike<'a> = dyn toml_edit::TableLike + 'a;
 /// Generic config value.
 pub type ConfigValue = toml_edit::Value;
 
@@ -356,15 +358,15 @@ impl ConfigLayer {
 
     // Add .get_value(name) if needed. look_up_*() are low-level API.
 
-    /// Looks up sub non-inline table by the `name` path. Returns `Some(table)`
-    /// if a table was found at the path. Returns `Err(item)` if middle or leaf
-    /// node wasn't a table.
+    /// Looks up sub table by the `name` path. Returns `Some(table)` if a table
+    /// was found at the path. Returns `Err(item)` if middle or leaf node wasn't
+    /// a table.
     pub fn look_up_table(
         &self,
         name: impl ToConfigNamePath,
-    ) -> Result<Option<&ConfigTable>, &ConfigItem> {
+    ) -> Result<Option<&ConfigTableLike>, &ConfigItem> {
         match self.look_up_item(name) {
-            Ok(Some(item)) => match item.as_table() {
+            Ok(Some(item)) => match item.as_table_like() {
                 Some(table) => Ok(Some(table)),
                 None => Err(item),
             },
@@ -399,6 +401,7 @@ impl ConfigLayer {
             })?;
         match parent_table.entry_format(leaf_key) {
             toml_edit::Entry::Occupied(mut entry) => {
+                // TODO: Don't overwrite inline table because it is a merge-able item
                 if !entry.get().is_value() {
                     return Err(ConfigUpdateError::WouldOverwriteTable {
                         name: name.to_string(),
@@ -434,12 +437,14 @@ impl ConfigLayer {
             .ok_or_else(|| would_delete_table(name.to_string()))?;
         let root_table = self.data.as_table_mut();
         let Some(parent_table) =
+            // TODO: as_table_like_mut()
             keys.try_fold(root_table, |table, key| table.get_mut(key)?.as_table_mut())
         else {
             return Ok(None);
         };
         match parent_table.entry(leaf_key) {
             toml_edit::Entry::Occupied(entry) => {
+                // TODO: Don't delete inline table because it is a merge-able item
                 if !entry.get().is_value() {
                     return Err(would_delete_table(name.to_string()));
                 }
@@ -452,14 +457,14 @@ impl ConfigLayer {
 }
 
 /// Looks up item from the `root_item`. Returns `Some(item)` if an item found at
-/// the path. Returns `Err(item)` if middle node wasn't a non-inline table.
+/// the path. Returns `Err(item)` if middle node wasn't a table.
 fn look_up_item<'a>(
     root_item: &'a ConfigItem,
     name: &ConfigNamePathBuf,
 ) -> Result<Option<&'a ConfigItem>, &'a ConfigItem> {
     let mut cur_item = root_item;
     for key in name.components() {
-        let Some(table) = cur_item.as_table() else {
+        let Some(table) = cur_item.as_table_like() else {
             return Err(cur_item);
         };
         cur_item = match table.get(key) {
@@ -480,6 +485,7 @@ fn ensure_parent_table<'a, 'b>(
     let leaf_key = keys.next_back().ok_or(&name.0[..])?;
     let parent_table = keys.enumerate().try_fold(root_table, |table, (i, key)| {
         let sub_item = table.entry_format(key).or_insert_with(new_implicit_table);
+        // TODO: as_table_like_mut()
         sub_item.as_table_mut().ok_or(&name.0[..=i])
     })?;
     Ok((parent_table, leaf_key))
@@ -575,29 +581,10 @@ impl ConfigFile {
 ///
 /// There's no tombstone notation to remove items from the lower layers.
 ///
-/// # Inline and non-inline tables
-///
-/// An inline table is considered a value (or a file in file-system analogy.)
-/// It would probably make sense because the syntax looks like an assignment
-/// `key = { .. }`, and "no newlines are allowed between the curly braces." It's
-/// unlikely that user defined a large inline table like `ui = { .. }`.
-///
-/// - Inline tables will never be merged across layers, and the uppermost table
-///   is always taken.
-/// - Inner values of an inline table cannot be addressed by a dotted name path.
-///   (e.g. `foo.bar` is not a valid path to `foo = { bar = x }`.)
-/// - A lower inline table is shadowed by an upper non-inline table, just like a
-///   file is shadowed by a directory of the same name. (e.g. `foo = { bar = x
-///   }` is not merged, but shadowed by `foo.baz = y`.)
-/// - A non-inline table can be converted to an inline table (or a value) on
-///   `.get()`, but not the other way around. This specifically allows parsing
-///   of a structured value from a merged table.
-///
-/// # Array of tables
-///
-/// If we employ the "array of tables" notation, array items will be gathered
-/// from all layers, as if the array were a directory, and each item had a
-/// unique file name. This merging strategy is not implemented yet.
+/// Beware that arrays of tables are no different than inline arrays. They are
+/// values, so are never merged. This might be confusing because they would be
+/// merged if two TOML documents are concatenated literally. Avoid using array
+/// of tables syntax.
 #[derive(Clone, Debug)]
 pub struct StackedConfig {
     /// Layers sorted by `source` (the lowest precedence one first.)
@@ -735,15 +722,14 @@ impl StackedConfig {
         })
     }
 
-    /// Looks up sub non-inline table from all layers, merges fields as needed.
+    /// Looks up sub table from all layers, merges fields as needed.
     ///
     /// Use `table_keys(prefix)` and `get([prefix, key])` instead if table
     /// values have to be converted to non-generic value type.
     pub fn get_table(&self, name: impl ToConfigNamePath) -> Result<ConfigTable, ConfigGetError> {
-        // Not using .into_table() because inline table shouldn't be converted.
-        self.get_item_with(name, |item| match item {
-            ConfigItem::Table(table) => Ok(table),
-            _ => Err(format!("Expected a table, but is {}", item.type_name())),
+        self.get_item_with(name, |item| {
+            item.into_table()
+                .map_err(|item| format!("Expected a table, but is {}", item.type_name()))
         })
     }
 
@@ -770,8 +756,8 @@ impl StackedConfig {
         })
     }
 
-    /// Returns iterator over sub non-inline table keys in order of layer
-    /// precedence. Duplicated keys are omitted.
+    /// Returns iterator over sub table keys in order of layer precedence.
+    /// Duplicated keys are omitted.
     pub fn table_keys(&self, name: impl ToConfigNamePath) -> impl Iterator<Item = &str> {
         let name = name.into_name_path();
         let name = name.borrow();
@@ -797,7 +783,7 @@ fn get_merged_item(
             Ok(None) => continue, // parent is a table, but no value found
             Err(_) => break,      // parent is not a table, shadows lower layers
         };
-        if item.is_table() {
+        if item.is_table_like() {
             to_merge.push((item, index));
         } else if to_merge.is_empty() {
             return Some((item.clone(), index)); // no need to allocate vec
@@ -818,12 +804,11 @@ fn get_merged_item(
     Some((merged, top_index))
 }
 
-/// Looks up non-inline tables to be merged from `layers`, returns in reverse
-/// order.
+/// Looks up tables to be merged from `layers`, returns in reverse order.
 fn get_tables_to_merge<'a>(
     layers: &'a [Arc<ConfigLayer>],
     name: &ConfigNamePathBuf,
-) -> Vec<&'a ConfigTable> {
+) -> Vec<&'a ConfigTableLike<'a>> {
     let mut to_merge = Vec::new();
     for layer in layers.iter().rev() {
         match layer.look_up_table(name) {
@@ -837,14 +822,14 @@ fn get_tables_to_merge<'a>(
 
 /// Merges `upper_item` fields into `lower_item` recursively.
 fn merge_items(lower_item: &mut ConfigItem, upper_item: &ConfigItem) {
-    // Inline table is a value, not a table to be merged.
-    let (Some(lower_table), Some(upper_table)) = (lower_item.as_table_mut(), upper_item.as_table())
+    let (Some(lower_table), Some(upper_table)) =
+        (lower_item.as_table_like_mut(), upper_item.as_table_like())
     else {
         // Not a table, the upper item wins.
         *lower_item = upper_item.clone();
         return;
     };
-    for (key, upper) in upper_table {
+    for (key, upper) in upper_table.iter() {
         match lower_table.entry(key) {
             toml_edit::Entry::Occupied(entry) => {
                 merge_items(entry.into_mut(), upper);
@@ -1143,23 +1128,10 @@ mod tests {
             a.b = { d = 'a.b.d #1' }
         "}));
 
-        // Inline table should override the lower value
+        // Inline tables are merged
         insta::assert_snapshot!(
             config.get_value("a.b").unwrap(),
-            @" { d = 'a.b.d #1' }");
-
-        // For API consistency, inner key of inline table cannot be addressed by
-        // a dotted name path. This could be supported, but it would be weird if
-        // a value could sometimes be accessed as a table.
-        assert_matches!(
-            config.get_value("a.b.d"),
-            Err(ConfigGetError::NotFound { name }) if name == "a.b.d"
-        );
-        assert_matches!(
-            config.get_table("a.b"),
-            Err(ConfigGetError::Type { name, .. }) if name == "a.b"
-        );
-        assert_eq!(config.table_keys("a.b").collect_vec(), vec![""; 0]);
+            @" { c = 'a.b.c #0' , d = 'a.b.d #1' }");
     }
 
     #[test]
@@ -1172,29 +1144,12 @@ mod tests {
             a.b.d = 'a.b.d #1'
         "}));
 
-        // Non-inline table is not merged with the lower inline table. It might
-        // be tempting to merge them, but then the resulting type would become
-        // unclear. If the merged type were an inline table, the path "a.b.d"
-        // would be shadowed by the lower layer. If the type were a non-inline
-        // table, new path "a.b.c" would be born in the upper layer.
         insta::assert_snapshot!(
             config.get_value("a.b").unwrap(),
-            @"{ d = 'a.b.d #1' }");
-        assert_matches!(
-            config.get_value("a.b.c"),
-            Err(ConfigGetError::NotFound { name }) if name == "a.b.c"
-        );
-        insta::assert_snapshot!(
-            config.get_value("a.b.d").unwrap(),
-            @" 'a.b.d #1'");
-
-        insta::assert_snapshot!(
-            config.get_table("a.b").unwrap(),
-            @"d = 'a.b.d #1'");
+            @" { c = 'a.b.c #0' , d = 'a.b.d #1'}");
         insta::assert_snapshot!(
             config.get_table("a").unwrap(),
-            @"b.d = 'a.b.d #1'");
-        assert_eq!(config.table_keys("a.b").collect_vec(), vec!["d"]);
+            @"b = { c = 'a.b.c #0' , d = 'a.b.d #1'}");
     }
 
     #[test]
