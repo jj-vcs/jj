@@ -678,6 +678,7 @@ mod tests {
     use maplit::hashset;
 
     use super::*;
+    use crate::tests::new_temp_dir;
 
     fn create_view() -> View {
         let new_remote_ref = |target: &RefTarget| RemoteRef {
@@ -777,7 +778,7 @@ mod tests {
 
     #[test]
     fn test_read_write_view() {
-        let temp_dir = testutils::new_temp_dir();
+        let temp_dir = new_temp_dir();
         let root_data = RootOperationData {
             root_commit_id: CommitId::from_hex("000000"),
         };
@@ -790,7 +791,7 @@ mod tests {
 
     #[test]
     fn test_read_write_operation() {
-        let temp_dir = testutils::new_temp_dir();
+        let temp_dir = new_temp_dir();
         let root_data = RootOperationData {
             root_commit_id: CommitId::from_hex("000000"),
         };
