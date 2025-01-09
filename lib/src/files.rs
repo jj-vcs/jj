@@ -26,7 +26,6 @@ use itertools::Itertools;
 use crate::diff::Diff;
 use crate::diff::DiffHunk;
 use crate::diff::DiffHunkKind;
-use crate::merge::trivial_merge;
 use crate::merge::Merge;
 
 /// A diff line which may contain small hunks originating from both sides.
@@ -213,20 +212,18 @@ fn merge_hunks(diff: &Diff, num_diffs: usize) -> MergeResult {
                 resolved_hunk.extend_from_slice(diff_hunk.contents[0]);
             }
             DiffHunkKind::Different => {
-                let parts = &diff_hunk.contents;
-                let interleaved =
-                    itertools::interleave(&parts[num_diffs..], &parts[..num_diffs]).collect_vec();
-                if let Some(resolved) = trivial_merge(&interleaved) {
+                let merge = Merge::from_removes_adds(
+                    diff_hunk.contents[..num_diffs].iter().copied(),
+                    diff_hunk.contents[num_diffs..].iter().copied(),
+                );
+                if let Some(resolved) = merge.resolve_trivial() {
                     resolved_hunk.extend_from_slice(resolved);
                 } else {
                     if !resolved_hunk.is_empty() {
                         merge_hunks.push(Merge::resolved(resolved_hunk));
                         resolved_hunk = BString::new(vec![]);
                     }
-                    merge_hunks.push(Merge::from_removes_adds(
-                        parts[..num_diffs].iter().copied().map(BString::from),
-                        parts[num_diffs..].iter().copied().map(BString::from),
-                    ));
+                    merge_hunks.push(merge.map(|&s| s.to_owned()));
                 }
             }
         }
