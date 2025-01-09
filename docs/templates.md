@@ -130,6 +130,16 @@ The following methods are defined.
 * `.short([len: Integer]) -> String`
 * `.shortest([min_len: Integer]) -> ShortestIdPrefix`: Shortest unique prefix.
 
+### ConfigValue type
+
+This type can be printed in TOML syntax. The following methods are defined.
+
+* `.as_boolean() -> Boolean`: Extract boolean.
+* `.as_integer() -> Integer`: Extract integer.
+* `.as_string() -> String`: Extract string. This does not convert non-string
+  value (e.g. integer) to string.
+* `.as_string_list() -> List<String>`: Extract list of strings.
+
 ### CryptographicSignature type
 
 The following methods are defined.

@@ -22,6 +22,7 @@ use std::rc::Rc;
 
 use jj_lib::backend::Signature;
 use jj_lib::backend::Timestamp;
+use jj_lib::config::ConfigValue;
 
 use crate::formatter::FormatRecorder;
 use crate::formatter::Formatter;
@@ -65,6 +66,12 @@ impl<T: Template + ?Sized> Template for Box<T> {
 impl<T: Template> Template for Option<T> {
     fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
         self.as_ref().map_or(Ok(()), |t| t.format(formatter))
+    }
+}
+
+impl Template for ConfigValue {
+    fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
+        write!(formatter, "{self}")
     }
 }
 

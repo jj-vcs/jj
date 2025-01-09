@@ -45,6 +45,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj util mangen` is replaced with `jj util install-man-pages`, which can
   install man pages for all `jj` subcommands to a given path.
 
+* In `jj config list` template, `value` is now typed as `ConfigValue`, not as
+  `String` serialized in TOML syntax.
+
 ### Deprecations
 
 ### New features

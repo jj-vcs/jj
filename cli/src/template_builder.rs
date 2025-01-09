@@ -19,8 +19,11 @@ use std::io;
 use itertools::Itertools as _;
 use jj_lib::backend::Signature;
 use jj_lib::backend::Timestamp;
+use jj_lib::config::ConfigValue;
 use jj_lib::dsl_util::AliasExpandError as _;
 use jj_lib::time_util::DatePattern;
+use serde::de::IntoDeserializer as _;
+use serde::Deserialize;
 
 use crate::formatter::FormatRecorder;
 use crate::formatter::Formatter;
@@ -71,6 +74,9 @@ pub trait TemplateLanguage<'a> {
     fn wrap_integer_opt(
         property: impl TemplateProperty<Output = Option<i64>> + 'a,
     ) -> Self::Property;
+    fn wrap_config_value(
+        property: impl TemplateProperty<Output = ConfigValue> + 'a,
+    ) -> Self::Property;
     fn wrap_signature(property: impl TemplateProperty<Output = Signature> + 'a) -> Self::Property;
     fn wrap_email(property: impl TemplateProperty<Output = Email> + 'a) -> Self::Property;
     fn wrap_size_hint(property: impl TemplateProperty<Output = SizeHint> + 'a) -> Self::Property;
@@ -118,6 +124,7 @@ macro_rules! impl_core_wrap_property_fns {
                 wrap_boolean(bool) => Boolean,
                 wrap_integer(i64) => Integer,
                 wrap_integer_opt(Option<i64>) => IntegerOpt,
+                wrap_config_value(jj_lib::config::ConfigValue) => ConfigValue,
                 wrap_signature(jj_lib::backend::Signature) => Signature,
                 wrap_email($crate::templater::Email) => Email,
                 wrap_size_hint($crate::templater::SizeHint) => SizeHint,
@@ -181,6 +188,7 @@ pub enum CoreTemplatePropertyKind<'a> {
     Boolean(Box<dyn TemplateProperty<Output = bool> + 'a>),
     Integer(Box<dyn TemplateProperty<Output = i64> + 'a>),
     IntegerOpt(Box<dyn TemplateProperty<Output = Option<i64>> + 'a>),
+    ConfigValue(Box<dyn TemplateProperty<Output = ConfigValue> + 'a>),
     Signature(Box<dyn TemplateProperty<Output = Signature> + 'a>),
     Email(Box<dyn TemplateProperty<Output = Email> + 'a>),
     SizeHint(Box<dyn TemplateProperty<Output = SizeHint> + 'a>),
@@ -209,6 +217,7 @@ impl<'a> IntoTemplateProperty<'a> for CoreTemplatePropertyKind<'a> {
             CoreTemplatePropertyKind::Boolean(_) => "Boolean",
             CoreTemplatePropertyKind::Integer(_) => "Integer",
             CoreTemplatePropertyKind::IntegerOpt(_) => "Option<Integer>",
+            CoreTemplatePropertyKind::ConfigValue(_) => "ConfigValue",
             CoreTemplatePropertyKind::Signature(_) => "Signature",
             CoreTemplatePropertyKind::Email(_) => "Email",
             CoreTemplatePropertyKind::SizeHint(_) => "SizeHint",
@@ -232,6 +241,7 @@ impl<'a> IntoTemplateProperty<'a> for CoreTemplatePropertyKind<'a> {
             CoreTemplatePropertyKind::IntegerOpt(property) => {
                 Some(Box::new(property.map(|opt| opt.is_some())))
             }
+            CoreTemplatePropertyKind::ConfigValue(_) => None,
             CoreTemplatePropertyKind::Signature(_) => None,
             CoreTemplatePropertyKind::Email(property) => {
                 Some(Box::new(property.map(|e| !e.0.is_empty())))
@@ -274,6 +284,7 @@ impl<'a> IntoTemplateProperty<'a> for CoreTemplatePropertyKind<'a> {
             CoreTemplatePropertyKind::Boolean(property) => Some(property.into_template()),
             CoreTemplatePropertyKind::Integer(property) => Some(property.into_template()),
             CoreTemplatePropertyKind::IntegerOpt(property) => Some(property.into_template()),
+            CoreTemplatePropertyKind::ConfigValue(property) => Some(property.into_template()),
             CoreTemplatePropertyKind::Signature(property) => Some(property.into_template()),
             CoreTemplatePropertyKind::Email(property) => Some(property.into_template()),
             CoreTemplatePropertyKind::SizeHint(_) => None,
@@ -309,6 +320,7 @@ impl<'a> IntoTemplateProperty<'a> for CoreTemplatePropertyKind<'a> {
             (CoreTemplatePropertyKind::Boolean(_), _) => None,
             (CoreTemplatePropertyKind::Integer(_), _) => None,
             (CoreTemplatePropertyKind::IntegerOpt(_), _) => None,
+            (CoreTemplatePropertyKind::ConfigValue(_), _) => None,
             (CoreTemplatePropertyKind::Signature(_), _) => None,
             (CoreTemplatePropertyKind::Email(_), _) => None,
             (CoreTemplatePropertyKind::SizeHint(_), _) => None,
@@ -332,6 +344,7 @@ impl<'a> IntoTemplateProperty<'a> for CoreTemplatePropertyKind<'a> {
             (CoreTemplatePropertyKind::Boolean(_), _) => None,
             (CoreTemplatePropertyKind::Integer(_), _) => None,
             (CoreTemplatePropertyKind::IntegerOpt(_), _) => None,
+            (CoreTemplatePropertyKind::ConfigValue(_), _) => None,
             (CoreTemplatePropertyKind::Signature(_), _) => None,
             (CoreTemplatePropertyKind::Email(_), _) => None,
             (CoreTemplatePropertyKind::SizeHint(_), _) => None,
@@ -380,6 +393,7 @@ pub struct CoreTemplateBuildFnTable<'a, L: TemplateLanguage<'a> + ?Sized> {
     pub string_methods: TemplateBuildMethodFnMap<'a, L, String>,
     pub boolean_methods: TemplateBuildMethodFnMap<'a, L, bool>,
     pub integer_methods: TemplateBuildMethodFnMap<'a, L, i64>,
+    pub config_value_methods: TemplateBuildMethodFnMap<'a, L, ConfigValue>,
     pub email_methods: TemplateBuildMethodFnMap<'a, L, Email>,
     pub signature_methods: TemplateBuildMethodFnMap<'a, L, Signature>,
     pub size_hint_methods: TemplateBuildMethodFnMap<'a, L, SizeHint>,
@@ -403,6 +417,7 @@ impl<'a, L: TemplateLanguage<'a> + ?Sized> CoreTemplateBuildFnTable<'a, L> {
             string_methods: builtin_string_methods(),
             boolean_methods: HashMap::new(),
             integer_methods: HashMap::new(),
+            config_value_methods: builtin_config_value_methods(),
             signature_methods: builtin_signature_methods(),
             email_methods: builtin_email_methods(),
             size_hint_methods: builtin_size_hint_methods(),
@@ -417,6 +432,7 @@ impl<'a, L: TemplateLanguage<'a> + ?Sized> CoreTemplateBuildFnTable<'a, L> {
             string_methods: HashMap::new(),
             boolean_methods: HashMap::new(),
             integer_methods: HashMap::new(),
+            config_value_methods: HashMap::new(),
             signature_methods: HashMap::new(),
             email_methods: HashMap::new(),
             size_hint_methods: HashMap::new(),
@@ -431,6 +447,7 @@ impl<'a, L: TemplateLanguage<'a> + ?Sized> CoreTemplateBuildFnTable<'a, L> {
             string_methods,
             boolean_methods,
             integer_methods,
+            config_value_methods,
             signature_methods,
             email_methods,
             size_hint_methods,
@@ -442,6 +459,7 @@ impl<'a, L: TemplateLanguage<'a> + ?Sized> CoreTemplateBuildFnTable<'a, L> {
         merge_fn_map(&mut self.string_methods, string_methods);
         merge_fn_map(&mut self.boolean_methods, boolean_methods);
         merge_fn_map(&mut self.integer_methods, integer_methods);
+        merge_fn_map(&mut self.config_value_methods, config_value_methods);
         merge_fn_map(&mut self.signature_methods, signature_methods);
         merge_fn_map(&mut self.email_methods, email_methods);
         merge_fn_map(&mut self.size_hint_methods, size_hint_methods);
@@ -512,6 +530,11 @@ impl<'a, L: TemplateLanguage<'a> + ?Sized> CoreTemplateBuildFnTable<'a, L> {
                     Box::new(inner_property),
                     function,
                 )
+            }
+            CoreTemplatePropertyKind::ConfigValue(property) => {
+                let table = &self.config_value_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(language, diagnostics, build_ctx, property, function)
             }
             CoreTemplatePropertyKind::Signature(property) => {
                 let table = &self.signature_methods;
@@ -882,6 +905,58 @@ fn string_index_to_char_boundary(s: &str, i: isize) -> usize {
         let p = magnitude.min(s.len());
         (0..=p).rev().find(|&p| s.is_char_boundary(p)).unwrap()
     }
+}
+
+fn builtin_config_value_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
+) -> TemplateBuildMethodFnMap<'a, L, ConfigValue> {
+    fn extract<'de, T: Deserialize<'de>>(value: ConfigValue) -> Result<T, TemplatePropertyError> {
+        T::deserialize(value.into_deserializer())
+            // map to err.message() because TomlError appends newline to it
+            .map_err(|err| TemplatePropertyError(err.message().into()))
+    }
+
+    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // code completion inside macro is quite restricted.
+    let mut map = TemplateBuildMethodFnMap::<L, ConfigValue>::new();
+    // These methods are called "as_<type>", not "to_<type>" to clarify that
+    // they'll never convert types (e.g. integer to string.) Since templater
+    // doesn't provide binding syntax, there's no need to distinguish between
+    // reference and consuming access.
+    map.insert(
+        "as_boolean",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.and_then(extract);
+            Ok(L::wrap_boolean(out_property))
+        },
+    );
+    map.insert(
+        "as_integer",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.and_then(extract);
+            Ok(L::wrap_integer(out_property))
+        },
+    );
+    map.insert(
+        "as_string",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.and_then(extract);
+            Ok(L::wrap_string(out_property))
+        },
+    );
+    map.insert(
+        "as_string_list",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.and_then(extract);
+            Ok(L::wrap_string_list(out_property))
+        },
+    );
+    // TODO: add is_<type>() -> Boolean?
+    // TODO: add .get(key) -> ConfigValue or Option<ConfigValue>?
+    map
 }
 
 fn builtin_signature_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
@@ -2425,6 +2500,46 @@ mod tests {
         // ranges with end > start are empty
         insta::assert_snapshot!(env.render_ok(r#""abcdef".substr(4, 2)"#), @"");
         insta::assert_snapshot!(env.render_ok(r#""abcdef".substr(-2, -4)"#), @"");
+    }
+
+    #[test]
+    fn test_config_value_method() {
+        let mut env = TestTemplateEnv::new();
+        env.add_keyword("boolean", || {
+            L::wrap_config_value(Literal(ConfigValue::from(true)))
+        });
+        env.add_keyword("integer", || {
+            L::wrap_config_value(Literal(ConfigValue::from(42)))
+        });
+        env.add_keyword("string", || {
+            L::wrap_config_value(Literal(ConfigValue::from("foo")))
+        });
+        env.add_keyword("string_list", || {
+            L::wrap_config_value(Literal(ConfigValue::from_iter(["foo", "bar"])))
+        });
+
+        insta::assert_snapshot!(env.render_ok("boolean"), @"true");
+        insta::assert_snapshot!(env.render_ok("integer"), @"42");
+        insta::assert_snapshot!(env.render_ok("string"), @r#""foo""#);
+        insta::assert_snapshot!(env.render_ok("string_list"), @r#"["foo", "bar"]"#);
+
+        insta::assert_snapshot!(env.render_ok("boolean.as_boolean()"), @"true");
+        insta::assert_snapshot!(env.render_ok("integer.as_integer()"), @"42");
+        insta::assert_snapshot!(env.render_ok("string.as_string()"), @"foo");
+        insta::assert_snapshot!(env.render_ok("string_list.as_string_list()"), @"foo bar");
+
+        insta::assert_snapshot!(
+            env.render_ok("boolean.as_integer()"),
+            @"<Error: invalid type: boolean `true`, expected i64>");
+        insta::assert_snapshot!(
+            env.render_ok("integer.as_string()"),
+            @"<Error: invalid type: integer `42`, expected a string>");
+        insta::assert_snapshot!(
+            env.render_ok("string.as_string_list()"),
+            @r#"<Error: invalid type: string "foo", expected a sequence>"#);
+        insta::assert_snapshot!(
+            env.render_ok("string_list.as_boolean()"),
+            @"<Error: invalid type: sequence, expected a boolean>");
     }
 
     #[test]

@@ -49,7 +49,7 @@ pub struct ConfigListArgs {
     /// The following keywords are defined:
     ///
     /// * `name: String`: Config name.
-    /// * `value: String`: Serialized value in TOML syntax.
+    /// * `value: ConfigValue`: Value to be formatted in TOML syntax.
     /// * `overridden: Boolean`: True if the value is shadowed by other.
     ///
     /// For the syntax, see https://jj-vcs.github.io/jj/latest/templates/
@@ -115,11 +115,9 @@ fn config_template_language() -> GenericTemplateLanguage<'static, AnnotatedValue
         Ok(L::wrap_string(out_property))
     });
     language.add_keyword("value", |self_property| {
-        // TODO: would be nice if we can provide raw dynamically-typed value
         // .decorated("", "") to trim leading/trailing whitespace
-        let out_property =
-            self_property.map(|annotated| annotated.value.decorated("", "").to_string());
-        Ok(L::wrap_string(out_property))
+        let out_property = self_property.map(|annotated| annotated.value.decorated("", ""));
+        Ok(L::wrap_config_value(out_property))
     });
     language.add_keyword("overridden", |self_property| {
         let out_property = self_property.map(|annotated| annotated.is_overridden);

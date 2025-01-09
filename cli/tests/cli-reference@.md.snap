@@ -576,7 +576,7 @@ List variables set in config file, along with their values
    The following keywords are defined:
 
    * `name: String`: Config name.
-   * `value: String`: Serialized value in TOML syntax.
+   * `value: ConfigValue`: Value to be formatted in TOML syntax.
    * `overridden: Boolean`: True if the value is shadowed by other.
 
    For the syntax, see https://jj-vcs.github.io/jj/latest/templates/
