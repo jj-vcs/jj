@@ -1,4 +1,4 @@
-# Templates
+# Templating language
 
 Jujutsu supports a functional language to customize output of commands.
 The language consists of literals, keywords, operators, functions, and

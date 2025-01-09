@@ -111,6 +111,7 @@ nav:
 
 - 'Configuration':
       - 'Settings': 'config.md'
+      - 'Template configuration': 'template-config.md'
 
 - 'Comparisons':
       - 'Git comparison': 'git-comparison.md'

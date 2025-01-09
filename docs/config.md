@@ -169,31 +169,17 @@ default-command = ["log", "--reversed"]
 
 ### Default description
 
-The editor content of a commit description can be populated by the
-`draft_commit_description` template.
-
-```toml
-[templates]
-draft_commit_description = '''
-concat(
-  description,
-  surround(
-    "\nJJ: This commit contains the following changes:\n", "",
-    indent("JJ:     ", diff.stat(72)),
-  ),
-  "\nJJ: ignore-rest\n",
-  diff.git(),
-)
-'''
-```
-
-The value of the `ui.default-description` setting can also be used in order to
-fill in things like BUG=, TESTED= etc.
+The value of the `ui.default-description` setting can be used in order to fill
+in things like BUG=, TESTED= etc.
 
 ```toml
 [ui]
 default-description = "\n\nTESTED=TODO"
 ```
+
+The contents of the editor when editing descriptions (including comments) can be
+changed with the setting
+[`template-aliases.draft_commit_description`](template-config.md#description-editor-contents).
 
 ### Diff colors and styles
 
@@ -360,29 +346,11 @@ The default value for `revsets.log` is
 
 ### Default Template
 
-You can configure the template used when no `-T` is specified.
+See the following documentation to change the default templates:
 
-- `templates.log` for `jj log`
-- `templates.op_log` for `jj op log`
-- `templates.show` for `jj show`
-
-```toml
-[templates]
-# Use builtin log template
-log = "builtin_log_compact"
-# Use builtin op log template
-op_log = "builtin_op_log_compact"
-# Use builtin show template
-show = "builtin_log_detailed"
-```
-
-If you want to see the full description when you do `jj log` you can add this to
-your config:
-
-```toml
-[templates]
-log = "builtin_log_compact_full_description"
-```
+* [`templates.log`](template-config.md#log)
+* [`templates.op_log`](template-config.md#operation-log)
+* [`templates.show`](template-config.md#show)
 
 ### Graph style
 
@@ -394,25 +362,8 @@ graph.style = "square"
 
 #### Node style
 
-The symbols used to represent commits or operations can be customized via
-templates.
-
-- `templates.log_node` for commits (with `Option<Commit>` keywords)
-- `templates.op_log_node` for operations (with `Operation` keywords)
-
-For example:
-```toml
-[templates]
-log_node = '''
-coalesce(
-  if(!self, "🮀"),
-  if(current_working_copy, "@"),
-  if(root, "┴"),
-  if(immutable, "●", "○"),
-)
-'''
-op_log_node = 'if(current_operation, "@", "○")'
-```
+See [`templates.log_node`](template-config.md#log-nodes) and
+[`templates.op_log_node`](template-config.md#operation-log-nodes).
 
 ### Wrap log content
 
@@ -426,30 +377,12 @@ log-word-wrap = true
 
 ### Display of commit and change ids
 
-Can be customized by the `format_short_id()` template alias.
+To change the presentation of commit and change ids, adjust the
+[`format_short_id()` template alias](template-config.md#format_short_id).  The
+linked doc also explains how to change them separately.
 
-```toml
-[template-aliases]
-# Highlight unique prefix and show at least 12 characters (default)
-'format_short_id(id)' = 'id.shortest(12)'
-# Just the shortest possible unique prefix
-'format_short_id(id)' = 'id.shortest()'
-# Show unique prefix and the rest surrounded by brackets
-'format_short_id(id)' = 'id.shortest(12).prefix() ++ "[" ++ id.shortest(12).rest() ++ "]"'
-# Always show 12 characters
-'format_short_id(id)' = 'id.short(12)'
-```
-
-To customize these separately, use the `format_short_commit_id()` and
-`format_short_change_id()` aliases:
-
-```toml
-[template-aliases]
-# Uppercase change ids. `jj` treats change and commit ids as case-insensitive.
-'format_short_change_id(id)' = 'format_short_id(id).upper()'
-```
-
-To get shorter prefixes for certain revisions, set `revsets.short-prefixes`:
+To control which revisions get priority for shorter prefixes, set
+`revsets.short-prefixes`:
 
 ```toml
 [revsets]
@@ -459,51 +392,19 @@ short-prefixes = "(main..@)::"
 
 ### Relative timestamps
 
-Can be customized by the `format_timestamp()` template alias.
-
-```toml
-[template-aliases]
-# Full timestamp in ISO 8601 format
-'format_timestamp(timestamp)' = 'timestamp'
-# Relative timestamp rendered as "x days/hours/seconds ago"
-'format_timestamp(timestamp)' = 'timestamp.ago()'
-```
-
-`jj op log` defaults to relative timestamps. To use absolute timestamps, you
-will need to modify the `format_time_range()` template alias.
-
-```toml
-[template-aliases]
-'format_time_range(time_range)' = 'time_range.start() ++ " - " ++ time_range.end()'
-```
+You can use relative timestamps by adjusting the [`format_timestamp()` template
+alias](template-config.md#format_timestamp).
 
 ### Author format
 
-Can be customized by the `format_short_signature()` template alias.
-
-```toml
-[template-aliases]
-# Full email address (default)
-'format_short_signature(signature)' = 'signature.email()'
-# Both name and email address
-'format_short_signature(signature)' = 'signature'
-# Username part of the email address
-'format_short_signature(signature)' = 'signature.username()'
-```
+The [`format_short_signature()` template
+alias](template-config.md#format_short_signature) controls how commit authors
+are displayed.
 
 ### Commit timestamp
 
-Commits have both an "author timestamp" and "committer timestamp". By default,
-jj displays the committer timestamp, but can be changed to show the author
-timestamp instead.
-
-The function must return a timestamp because the return value will likely be
-formatted with `format_timestamp()`.
-
-```toml
-[template-aliases]
-'commit_timestamp(commit)' = 'commit.author().timestamp()'
-```
+The [`commit_timestamp()` template alias](template-config.md#commit_timestamp)
+controls whether the author or committer timestamp is displayed in the log.
 
 ### Signature format
 
