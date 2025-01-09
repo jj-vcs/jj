@@ -42,27 +42,18 @@ use crate::tree::Tree;
 
 /// Attempt to resolve trivial conflicts between the inputs. There must be
 /// an odd number of terms.
-pub fn trivial_merge<T>(terms: &[T]) -> Option<&T>
+pub fn trivial_merge<T>(values: &[T]) -> Option<&T>
 where
     T: Eq + Hash,
 {
     assert!(
-        terms.len() % 2 == 1,
+        values.len() % 2 == 1,
         "trivial_merge() requires an odd number of terms"
     );
-    trivial_merge_inner(terms.iter(), terms.len())
-}
-
-fn trivial_merge_inner<T>(mut values: impl Iterator<Item = T>, values_len: usize) -> Option<T>
-where
-    T: Eq + Hash,
-{
     // Optimize the common cases of 3-way merge and 1-way (non-)merge
-    if values_len == 1 {
-        let add = values.next().unwrap();
+    if let [add] = values {
         return Some(add);
-    } else if values_len == 3 {
-        let (add0, remove, add1) = values.next_tuple().unwrap();
+    } else if let [add0, remove, add1] = values {
         return if add0 == add1 {
             Some(add0)
         } else if add0 == remove {
@@ -77,7 +68,7 @@ where
     // Number of occurrences of each value, with positive indexes counted as +1 and
     // negative as -1, thereby letting positive and negative terms with the same
     // value (i.e. key in the map) cancel each other.
-    let mut counts: HashMap<T, i32> = HashMap::new();
+    let mut counts: HashMap<&T, i32> = HashMap::new();
     for (value, n) in zip(values, [1, -1].into_iter().cycle()) {
         counts.entry(value).and_modify(|e| *e += n).or_insert(n);
     }
@@ -317,7 +308,7 @@ impl<T> Merge<T> {
     where
         T: Eq + Hash,
     {
-        trivial_merge_inner(self.values.iter(), self.values.len())
+        trivial_merge(&self.values)
     }
 
     /// Pads this merge with to the specified number of sides with the specified
