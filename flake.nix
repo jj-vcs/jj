@@ -12,13 +12,18 @@
     rust-overlay.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { self, nixpkgs, flake-utils, rust-overlay }: {
-    overlays.default = (final: prev: {
-      jujutsu = self.packages.${final.system}.jujutsu;
-    });
-  } //
-  (flake-utils.lib.eachDefaultSystem (system:
-    let
+  outputs = {
+    self,
+    nixpkgs,
+    flake-utils,
+    rust-overlay,
+  }:
+    {
+      overlays.default = final: prev: {
+        jujutsu = self.packages.${final.system}.jujutsu;
+      };
+    }
+    // (flake-utils.lib.eachDefaultSystem (system: let
       pkgs = import nixpkgs {
         inherit system;
         overlays = [
@@ -29,10 +34,9 @@
       filterSrc = src: regexes:
         pkgs.lib.cleanSourceWith {
           inherit src;
-          filter = path: type:
-            let
-              relPath = pkgs.lib.removePrefix (toString src + "/") (toString path);
-            in
+          filter = path: type: let
+            relPath = pkgs.lib.removePrefix (toString src + "/") (toString path);
+          in
             pkgs.lib.all (re: builtins.match re relPath == null) regexes;
         };
 
@@ -43,48 +47,52 @@
         cargo = ourRustVersion;
       };
 
-      # these are needed in both devShell and buildInputs
-      darwinDeps = with pkgs; lib.optionals stdenv.isDarwin [
-        darwin.apple_sdk.frameworks.Security
-        darwin.apple_sdk.frameworks.SystemConfiguration
-        libiconv
+      nativeBuildInputs = with pkgs;
+        [
+          gzip
+          pkg-config
+
+          # for libz-ng-sys (zlib-ng)
+          # TODO: switch to the packaged zlib-ng and drop this dependency
+          cmake
+        ]
+        ++ lib.optionals stdenv.isLinux [
+          mold-wrapped
+        ];
+
+      buildInputs = with pkgs;
+        [
+          openssl
+          libgit2
+          libssh2
+        ]
+        ++ lib.optionals stdenv.isDarwin [
+          darwin.apple_sdk.frameworks.Security
+          darwin.apple_sdk.frameworks.SystemConfiguration
+          libiconv
+        ];
+
+      nativeCheckInputs = with pkgs; [
+        # for signing tests
+        gnupg
+        openssh
       ];
 
-      # these are needed in both devShell and buildInputs
-      linuxNativeDeps = with pkgs; lib.optionals stdenv.isLinux [
-        mold-wrapped
-      ];
+      env = {
+        LIBSSH2_SYS_USE_PKG_CONFIG = "1";
+        RUST_BACKTRACE = 1;
+      };
+    in {
+      formatter = pkgs.alejandra;
+      checks.jujutsu = self.packages.${system}.jujutsu;
 
-      # on macOS and Linux, use faster parallel linkers that are much more
-      # efficient than the defaults. these noticeably improve link time even for
-      # medium sized rust projects like jj
-      rustLinkerFlags =
-        if pkgs.stdenv.isLinux then
-          [ "-fuse-ld=mold" "-Wl,--compress-debug-sections=zstd" ]
-        else if pkgs.stdenv.isDarwin then
-          # on darwin, /usr/bin/ld actually looks at the environment variable
-          # $DEVELOPER_DIR, which is set by the nix stdenv, and if set,
-          # automatically uses it to route the `ld` invocation to the binary
-          # within. in the devShell though, that isn't what we want; it's
-          # functional, but Xcode's linker as of ~v15 (not yet open source)
-          # is ultra-fast and very shiny; it is enabled via -ld_new, and on by
-          # default as of v16+
-          [ "--ld-path=$(unset DEVELOPER_DIR; /usr/bin/xcrun --find ld)" "-ld_new" ]
-        else
-          [ ];
-
-      rustLinkFlagsString = pkgs.lib.concatStringsSep " " (pkgs.lib.concatMap (x:
-        [ "-C" "link-arg=${x}" ]
-      ) rustLinkerFlags);
-    in
-    {
       packages = {
         jujutsu = ourRustPlatform.buildRustPackage {
           pname = "jujutsu";
           version = "unstable-${self.shortRev or "dirty"}";
 
-          buildFeatures = [ "packaging" ];
-          cargoBuildFlags = [ "--bin" "jj" ]; # don't build and install the fake editors
+          buildFeatures = ["packaging"];
+          cargoBuildFlags = ["--bin" "jj"]; # don't build and install the fake editors
           useNextest = true;
           src = filterSrc ./. [
             ".*\\.nix$"
@@ -94,32 +102,16 @@
           ];
 
           cargoLock.lockFile = ./Cargo.lock;
-          nativeBuildInputs = with pkgs; [
-            gzip
-            installShellFiles
-            makeWrapper
-            pkg-config
+          nativeBuildInputs = nativeBuildInputs ++ [pkgs.installShellFiles];
+          inherit buildInputs nativeCheckInputs;
 
-            # for libz-ng-sys (zlib-ng)
-            # TODO: switch to the packaged zlib-ng and drop this dependency
-            cmake
-
-            # for signing tests
-            gnupg
-            openssh
-          ] ++ linuxNativeDeps;
-          buildInputs = with pkgs; [
-            openssl libgit2 libssh2
-          ] ++ darwinDeps;
-
-          LIBSSH2_SYS_USE_PKG_CONFIG = "1";
-          RUSTFLAGS = pkgs.lib.optionalString pkgs.stdenv.isLinux "-C link-arg=-fuse-ld=mold";
-          NIX_JJ_GIT_HASH = self.rev or "";
-          CARGO_INCREMENTAL = "0";
-
-          preCheck = ''
-            export RUST_BACKTRACE=1
-          '';
+          env =
+            env
+            // {
+              RUSTFLAGS = pkgs.lib.optionalString pkgs.stdenv.isLinux "-C link-arg=-fuse-ld=mold";
+              NIX_JJ_GIT_HASH = self.rev or "";
+              CARGO_INCREMENTAL = "0";
+            };
 
           postInstall = ''
             $out/bin/jj util mangen > ./jj.1
@@ -141,26 +133,7 @@
         default = self.packages.${system}.jujutsu;
       };
 
-      formatter = pkgs.nixpkgs-fmt;
-
-      checks.jujutsu = self.packages.${system}.jujutsu.overrideAttrs ({ ... }: {
-        # FIXME (aseipp): when running `nix flake check`, this will override the
-        # main package, and nerf the build and installation phases. this is
-        # because for some inexplicable reason, the cargo cache gets invalidated
-        # in between buildPhase and checkPhase, causing every nix CI build to be
-        # 2x as long.
-        #
-        # upstream issue: https://github.com/NixOS/nixpkgs/issues/291222
-        buildPhase = "true";
-        installPhase = "touch $out";
-        # NOTE (aseipp): buildRustPackage also, by default, runs `cargo check`
-        # in `--release` mode, which is far slower; the existing CI builds all
-        # use the default `test` profile, so we should too.
-        cargoCheckType = "test";
-      });
-
-      devShells.default = pkgs.mkShell {
-        name = "jujutsu";
+      devShells.default = let
         packages = with pkgs; [
           # NOTE (aseipp): explicitly add rust-src to the rustc compiler only in
           # devShell. this in turn causes a dependency on the rust compiler src,
@@ -170,12 +143,8 @@
           #
           # relevant PR: https://github.com/rust-lang/rust/pull/129687
           (ourRustVersion.override {
-            extensions = [ "rust-src" "rust-analyzer" ];
+            extensions = ["rust-src" "rust-analyzer"];
           })
-
-          # Foreign dependencies
-          openssl libgit2 libssh2
-          pkg-config
 
           # Additional tools recommended by contributing.md
           cargo-deny
@@ -189,24 +158,40 @@
           # In case you need to run `cargo run --bin gen-protos`
           protobuf
 
-          # for libz-ng-sys (zlib-ng)
-          # TODO: switch to the packaged zlib-ng and drop this dependency
-          cmake
-
-          # To run the signing tests
-          gnupg
-          openssh
-
           # For building the documentation website
           uv
-        ] ++ darwinDeps ++ linuxNativeDeps;
+        ];
 
-        shellHook = ''
-          export RUST_BACKTRACE=1
-          export LIBSSH2_SYS_USE_PKG_CONFIG=1
+        # on macOS and Linux, use faster parallel linkers that are much more
+        # efficient than the defaults. these noticeably improve link time even for
+        # medium sized rust projects like jj
+        rustLinkerFlags =
+          if pkgs.stdenv.isLinux
+          then ["-fuse-ld=mold" "-Wl,--compress-debug-sections=zstd"]
+          else if pkgs.stdenv.isDarwin
+          then
+            # on darwin, /usr/bin/ld actually looks at the environment variable
+            # $DEVELOPER_DIR, which is set by the nix stdenv, and if set,
+            # automatically uses it to route the `ld` invocation to the binary
+            # within. in the devShell though, that isn't what we want; it's
+            # functional, but Xcode's linker as of ~v15 (not yet open source)
+            # is ultra-fast and very shiny; it is enabled via -ld_new, and on by
+            # default as of v16+
+            ["--ld-path=$(unset DEVELOPER_DIR; /usr/bin/xcrun --find ld)" "-ld_new"]
+          else [];
 
-          export RUSTFLAGS="-Zthreads=0 ${rustLinkFlagsString}"
-        '';
-      };
+        rustLinkFlagsString =
+          pkgs.lib.concatStringsSep " "
+          (pkgs.lib.concatMap (x: ["-C" "link-arg=${x}"]) rustLinkerFlags);
+
+        devShellEnv = {
+          RUSTFLAGS = "-Zthreads=0 ${rustLinkFlagsString}";
+        };
+      in
+        pkgs.mkShell {
+          name = "jujutsu";
+          packages = packages ++ nativeBuildInputs ++ buildInputs ++ nativeCheckInputs;
+          env = env // devShellEnv;
+        };
     }));
 }
