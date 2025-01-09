@@ -54,9 +54,9 @@ use crate::ui::Ui;
 /// rendered as a synthetic node labeled "(elided revisions)".
 ///
 /// The working-copy commit is indicated by a `@` symbol in the graph. Immutable
-/// revisions (https://jj-vcs.github.io/jj/latest/config/#set-of-immutable-commits)
+/// revisions (https://jj-vcs.github.io/jj/latest/revset-aliases/#immutable_heads)
 /// have a `◆` symbol. Other commits have a `○` symbol. To customize these
-/// symbols, see https://jj-vcs.github.io/jj/latest/config/#node-style.
+/// symbols, see https://jj-vcs.github.io/jj/latest/template-config/#log-nodes.
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct LogArgs {
     /// Which revisions to show

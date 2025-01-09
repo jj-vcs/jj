@@ -708,7 +708,7 @@ Thanks to the people who made this release happen!
 * `jj backout --revision` has been renamed to `jj backout --revisions`.
   The short alias `-r` is still supported.
 
-* [The default `immutable_heads()` set](docs/config.md#set-of-immutable-commits)
+* [The default `immutable_heads()` set](docs/revset-config.md#immutable_heads)
   now includes `untracked_remote_branches()` with the assumption that untracked
   branches aren't managed by you. Therefore, untracked branches are no longer
   displayed in `jj log` by default.

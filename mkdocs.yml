@@ -111,6 +111,7 @@ nav:
 
 - 'Configuration':
       - 'Settings': 'config.md'
+      - 'Revset configuration': 'revset-config.md'
       - 'Template configuration': 'template-config.md'
 
 - 'Comparisons':

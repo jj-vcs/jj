@@ -306,43 +306,15 @@ page](conflicts.md#conflict-markers).
 
 ### Set of immutable commits
 
-You can configure the set of immutable commits via
-`revset-aliases."immutable_heads()"`. The default set of immutable heads is
-`builtin_immutable_heads()`, which in turn is defined as
-`present(trunk()) | tags() | untracked_remote_bookmarks()`. For example, to
-also consider the `release@origin` bookmark immutable:
-
-```toml
-[revset-aliases]
-"immutable_heads()" = "builtin_immutable_heads() | release@origin"
-```
-
-To prevent rewriting commits authored by other users:
-
-```toml
-# The `trunk().. &` bit is an optimization to scan for non-`mine()` commits
-# only among commits that are not in `trunk()`.
-[revset-aliases]
-"immutable_heads()" = "builtin_immutable_heads() | (trunk().. & ~mine())"
-```
-
-Ancestors of the configured set are also immutable. The root commit is always
-immutable even if the set is empty.
+You can change which revisions are immutable by setting the
+[`immutable_heads()` revset alias](revset-config.md#immutable_heads).
 
 ## Log
 
 ### Default revisions
 
-You can configure the revisions `jj log` would show when neither `-r` nor any paths are specified.
-
-```toml
-[revsets]
-# Show commits that are not in `main@origin`
-log = "main@origin.."
-```
-
-The default value for `revsets.log` is
-`'present(@) | ancestors(immutable_heads().., 2) | present(trunk())'`.
+You can change which revisions are logged by default with the [`revsets.log`
+setting](revset-config.md#revsets-log).
 
 ### Default Template
 
@@ -381,14 +353,8 @@ To change the presentation of commit and change ids, adjust the
 [`format_short_id()` template alias](template-config.md#format_short_id).  The
 linked doc also explains how to change them separately.
 
-To control which revisions get priority for shorter prefixes, set
-`revsets.short-prefixes`:
-
-```toml
-[revsets]
-# Prioritize the current bookmark
-short-prefixes = "(main..@)::"
-```
+To change which revisions get the shortest prefixes, see [commit and change Id
+short prefixes](revset-config.md#revsets-short-prefixes).
 
 ### Relative timestamps
 
