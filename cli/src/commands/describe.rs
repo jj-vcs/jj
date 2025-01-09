@@ -230,7 +230,7 @@ pub(crate) fn cmd_describe(
         .collect();
 
     let mut num_described = 0;
-    let mut num_rebased = 0;
+    let mut num_reparented = 0;
     // Even though `MutRepo::rewrite_commit` and `MutRepo::rebase_descendants` can
     // handle rewriting of a commit even if it is a descendant of another commit
     // being rewritten, using `MutRepo::transform_descendants` prevents us from
@@ -243,7 +243,7 @@ pub(crate) fn cmd_describe(
             .collect_vec(),
         |rewriter| {
             let old_commit_id = rewriter.old_commit().id().clone();
-            let mut commit_builder = rewriter.rebase()?;
+            let mut commit_builder = rewriter.reparent();
             if let Some(description) = commit_descriptions.get(&old_commit_id) {
                 commit_builder = commit_builder.set_description(description);
                 if args.reset_author {
@@ -260,7 +260,7 @@ pub(crate) fn cmd_describe(
                 }
                 num_described += 1;
             } else {
-                num_rebased += 1;
+                num_reparented += 1;
             }
             commit_builder.write()?;
             Ok(())
@@ -269,8 +269,8 @@ pub(crate) fn cmd_describe(
     if num_described > 1 {
         writeln!(ui.status(), "Updated {num_described} commits")?;
     }
-    if num_rebased > 0 {
-        writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
+    if num_reparented > 0 {
+        writeln!(ui.status(), "Rebased {num_reparented} descendant commits")?;
     }
     tx.finish(ui, tx_description)?;
     Ok(())
