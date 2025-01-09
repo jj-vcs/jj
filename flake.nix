@@ -178,10 +178,10 @@
           pkg-config
 
           # Additional tools recommended by contributing.md
+          bacon
           cargo-deny
           cargo-insta
           cargo-nextest
-          cargo-watch
 
           # Miscellaneous tools
           watchman
