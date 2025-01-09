@@ -15,6 +15,8 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
+use jj_lib::settings::UserSettings;
+
 use crate::template_builder;
 use crate::template_builder::BuildContext;
 use crate::template_builder::CoreTemplateBuildFnTable;
@@ -35,6 +37,7 @@ use crate::templater::TemplateProperty;
 /// types. It's cloned several times internally. Keyword functions need to be
 /// registered to extract properties from the self object.
 pub struct GenericTemplateLanguage<'a, C> {
+    settings: UserSettings,
     build_fn_table: GenericTemplateBuildFnTable<'a, C>,
 }
 
@@ -42,15 +45,18 @@ impl<'a, C> GenericTemplateLanguage<'a, C> {
     /// Sets up environment with no keywords.
     ///
     /// New keyword functions can be registered by `add_keyword()`.
-    // It's not "Default" in a way that the core methods table is NOT empty.
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
-        Self::with_keywords(HashMap::new())
+    pub fn new(settings: &UserSettings) -> Self {
+        Self::with_keywords(HashMap::new(), settings)
     }
 
     /// Sets up environment with the given `keywords` table.
-    pub fn with_keywords(keywords: GenericTemplateBuildKeywordFnMap<'a, C>) -> Self {
+    pub fn with_keywords(
+        keywords: GenericTemplateBuildKeywordFnMap<'a, C>,
+        settings: &UserSettings,
+    ) -> Self {
         GenericTemplateLanguage {
+            // Clone settings to keep lifetime simple. It's cheap.
+            settings: settings.clone(),
             build_fn_table: GenericTemplateBuildFnTable {
                 core: CoreTemplateBuildFnTable::builtin(),
                 keywords,
@@ -85,6 +91,10 @@ impl<'a, C: 'a> TemplateLanguage<'a> for GenericTemplateLanguage<'a, C> {
     type Property = GenericTemplatePropertyKind<'a, C>;
 
     template_builder::impl_core_wrap_property_fns!('a, GenericTemplatePropertyKind::Core);
+
+    fn settings(&self) -> &UserSettings {
+        &self.settings
+    }
 
     fn build_function(
         &self,

@@ -49,6 +49,7 @@ use jj_lib::revset::RevsetDiagnostics;
 use jj_lib::revset::RevsetModifier;
 use jj_lib::revset::RevsetParseContext;
 use jj_lib::revset::UserRevsetExpression;
+use jj_lib::settings::UserSettings;
 use jj_lib::signing::SigStatus;
 use jj_lib::signing::SignError;
 use jj_lib::signing::SignResult;
@@ -150,6 +151,10 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
     type Property = CommitTemplatePropertyKind<'repo>;
 
     template_builder::impl_core_wrap_property_fns!('repo, CommitTemplatePropertyKind::Core);
+
+    fn settings(&self) -> &UserSettings {
+        self.repo.base_repo().settings()
+    }
 
     fn build_function(
         &self,

@@ -23,6 +23,7 @@ use jj_lib::object_id::ObjectId;
 use jj_lib::op_store::OperationId;
 use jj_lib::operation::Operation;
 use jj_lib::repo::RepoLoader;
+use jj_lib::settings::UserSettings;
 
 use crate::template_builder;
 use crate::template_builder::merge_fn_map;
@@ -88,6 +89,10 @@ impl TemplateLanguage<'static> for OperationTemplateLanguage {
     type Property = OperationTemplatePropertyKind;
 
     template_builder::impl_core_wrap_property_fns!('static, OperationTemplatePropertyKind::Core);
+
+    fn settings(&self) -> &UserSettings {
+        self.repo_loader.settings()
+    }
 
     fn build_function(
         &self,

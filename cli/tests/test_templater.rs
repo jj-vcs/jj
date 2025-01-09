@@ -481,6 +481,47 @@ fn test_templater_bad_alias_decl() {
     "###);
 }
 
+#[test]
+fn test_templater_config_function() {
+    let test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    let repo_path = test_env.env_root().join("repo");
+    let render = |template| get_template_output(&test_env, &repo_path, "@-", template);
+    let render_err = |template| test_env.jj_cmd_failure(&repo_path, &["log", "-T", template]);
+
+    insta::assert_snapshot!(
+        render("config('user.name')"),
+        @r#""Test User""#);
+    insta::assert_snapshot!(
+        render("config('user')"),
+        @r#"{ email = "test.user@example.com", name = "Test User" }"#);
+    insta::assert_snapshot!(render_err("config('invalid name')"), @r"
+    Error: Failed to parse template: Failed to parse config name
+    Caused by:
+    1:  --> 1:8
+      |
+    1 | config('invalid name')
+      |        ^------------^
+      |
+      = Failed to parse config name
+    2: TOML parse error at line 1, column 9
+      |
+    1 | invalid name
+      |         ^
+    ");
+    insta::assert_snapshot!(render_err("config('unknown')"), @r"
+    Error: Failed to parse template: Failed to get config value
+    Caused by:
+    1:  --> 1:1
+      |
+    1 | config('unknown')
+      | ^----^
+      |
+      = Failed to get config value
+    2: Value not found for unknown
+    ");
+}
+
 fn get_template_output(
     test_env: &TestEnvironment,
     repo_path: &Path,

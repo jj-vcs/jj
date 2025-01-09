@@ -65,6 +65,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Add a new template alias `builtin_op_log_oneline` along with `format_operation_oneline` and `format_snapshot_operation_oneline`
 
+* New template function `config(name)` to access to configuration variable from
+  template.
+
 ### Fixed bugs
 
 * Fixed diff selection by external tools with `jj split`/`commit -i FILESETS`.

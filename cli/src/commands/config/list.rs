@@ -15,6 +15,7 @@
 use clap_complete::ArgValueCandidates;
 use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigSource;
+use jj_lib::settings::UserSettings;
 use tracing::instrument;
 
 use super::ConfigLevelArgs;
@@ -64,7 +65,7 @@ pub fn cmd_config_list(
     args: &ConfigListArgs,
 ) -> Result<(), CommandError> {
     let template = {
-        let language = config_template_language();
+        let language = config_template_language(command.settings());
         let text = match &args.template {
             Some(value) => value.to_owned(),
             None => command.settings().get_string("templates.config_list")?,
@@ -107,9 +108,11 @@ pub fn cmd_config_list(
 
 // AnnotatedValue will be cloned internally in the templater. If the cloning
 // cost matters, wrap it with Rc.
-fn config_template_language() -> GenericTemplateLanguage<'static, AnnotatedValue> {
+fn config_template_language(
+    settings: &UserSettings,
+) -> GenericTemplateLanguage<'static, AnnotatedValue> {
     type L = GenericTemplateLanguage<'static, AnnotatedValue>;
-    let mut language = L::new();
+    let mut language = L::new(settings);
     language.add_keyword("name", |self_property| {
         let out_property = self_property.map(|annotated| annotated.name.to_string());
         Ok(L::wrap_string(out_property))

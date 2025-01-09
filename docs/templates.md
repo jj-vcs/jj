@@ -76,6 +76,7 @@ The following functions are defined.
   Insert separator between **non-empty** contents.
 * `surround(prefix: Template, suffix: Template, content: Template) -> Template`:
   Surround **non-empty** content with texts such as parentheses.
+* `config(name: String) -> ConfigValue`: Look up configuration value by `name`.
 
 ## Types
 

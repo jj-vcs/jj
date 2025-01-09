@@ -19,8 +19,10 @@ use std::io;
 use itertools::Itertools as _;
 use jj_lib::backend::Signature;
 use jj_lib::backend::Timestamp;
+use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigValue;
 use jj_lib::dsl_util::AliasExpandError as _;
+use jj_lib::settings::UserSettings;
 use jj_lib::time_util::DatePattern;
 use serde::de::IntoDeserializer as _;
 use serde::Deserialize;
@@ -87,6 +89,8 @@ pub trait TemplateLanguage<'a> {
 
     fn wrap_template(template: Box<dyn Template + 'a>) -> Self::Property;
     fn wrap_list_template(template: Box<dyn ListTemplate + 'a>) -> Self::Property;
+
+    fn settings(&self) -> &UserSettings;
 
     /// Translates the given global `function` call to a property.
     ///
@@ -1490,6 +1494,24 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
         });
         Ok(L::wrap_template(Box::new(template)))
     });
+    map.insert("config", |language, _diagnostics, _build_ctx, function| {
+        // Dynamic lookup can be implemented if needed. The name is literal
+        // string for now so the error can be reported early.
+        let [name_node] = function.expect_exact_arguments()?;
+        let name: ConfigNamePathBuf =
+            template_parser::expect_string_literal_with(name_node, |name, span| {
+                name.parse().map_err(|err| {
+                    TemplateParseError::expression("Failed to parse config name", span)
+                        .with_source(err)
+                })
+            })?;
+        let value = language.settings().get_value(&name).map_err(|err| {
+            TemplateParseError::expression("Failed to get config value", function.name_span)
+                .with_source(err)
+        })?;
+        // .decorated("", "") to trim leading/trailing whitespace
+        Ok(L::wrap_config_value(Literal(value.decorated("", ""))))
+    });
     map
 }
 
@@ -1796,6 +1818,7 @@ mod tests {
     use std::iter;
 
     use jj_lib::backend::MillisSinceEpoch;
+    use jj_lib::config::StackedConfig;
 
     use super::*;
     use crate::formatter;
@@ -1814,8 +1837,13 @@ mod tests {
 
     impl TestTemplateEnv {
         fn new() -> Self {
+            Self::with_config(StackedConfig::with_defaults())
+        }
+
+        fn with_config(config: StackedConfig) -> Self {
+            let settings = UserSettings::from_config(config).unwrap();
             TestTemplateEnv {
-                language: L::new(),
+                language: L::new(&settings),
                 aliases_map: TemplateAliasesMap::new(),
                 color_rules: Vec::new(),
             }
