@@ -1564,7 +1564,7 @@ pub fn fetch(
     Ok(stats)
 }
 
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug)]
 pub enum GitPushError {
     #[error("No git remote named '{0}'")]
     NoSuchRemote(String),

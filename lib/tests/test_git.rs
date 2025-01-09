@@ -2979,7 +2979,7 @@ fn test_push_bookmarks_success() {
         &targets,
         git::RemoteCallbacks::default(),
     );
-    assert_eq!(result, Ok(()));
+    assert_matches!(result, Ok(()));
 
     // Check that the ref got updated in the source repo
     let source_repo = git2::Repository::open(&setup.source_repo_dir).unwrap();
@@ -3048,7 +3048,7 @@ fn test_push_bookmarks_deletion() {
         &targets,
         git::RemoteCallbacks::default(),
     );
-    assert_eq!(result, Ok(()));
+    assert_matches!(result, Ok(()));
 
     // Check that the ref got deleted in the source repo
     assert!(source_repo.find_reference("refs/heads/main").is_err());
@@ -3105,7 +3105,7 @@ fn test_push_bookmarks_mixed_deletion_and_addition() {
         &targets,
         git::RemoteCallbacks::default(),
     );
-    assert_eq!(result, Ok(()));
+    assert_matches!(result, Ok(()));
 
     // Check that the topic ref got updated in the source repo
     let source_repo = git2::Repository::open(&setup.source_repo_dir).unwrap();
@@ -3164,7 +3164,7 @@ fn test_push_bookmarks_not_fast_forward() {
         &targets,
         git::RemoteCallbacks::default(),
     );
-    assert_eq!(result, Ok(()));
+    assert_matches!(result, Ok(()));
 
     // Check that the ref got updated in the source repo
     let source_repo = git2::Repository::open(&setup.source_repo_dir).unwrap();
@@ -3238,7 +3238,7 @@ fn test_push_updates_unexpectedly_moved_sideways_on_remote() {
     );
 
     // Moving the bookmark to the same place it already is is OK.
-    assert_eq!(
+    assert_matches!(
         attempt_push_expecting_sideways(Some(setup.main_commit.id().clone())),
         Ok(())
     );
@@ -3300,7 +3300,7 @@ fn test_push_updates_unexpectedly_moved_forward_on_remote() {
 
     // Moving the bookmark *forwards* is OK, as an exception matching our bookmark
     // conflict resolution rules
-    assert_eq!(
+    assert_matches!(
         attempt_push_expecting_parent(Some(setup.child_of_main_commit.id().clone())),
         Ok(())
     );
@@ -3342,7 +3342,7 @@ fn test_push_updates_unexpectedly_exists_on_remote() {
     );
 
     // We *can* move the bookmark forward even if we didn't expect it to exist
-    assert_eq!(
+    assert_matches!(
         attempt_push_expecting_absence(Some(setup.child_of_main_commit.id().clone())),
         Ok(())
     );
@@ -3365,7 +3365,7 @@ fn test_push_updates_success() {
         }],
         git::RemoteCallbacks::default(),
     );
-    assert_eq!(result, Ok(()));
+    assert_matches!(result, Ok(()));
 
     // Check that the ref got updated in the source repo
     let source_repo = git2::Repository::open(&setup.source_repo_dir).unwrap();
