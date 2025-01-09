@@ -5,16 +5,15 @@
 
 ### Download pre-built binaries for a release
 
-There are [pre-built binaries](https://github.com/jj-vcs/jj/releases/latest)
-of the last released version of `jj` for Windows, Mac, or Linux (the "musl"
-version should work on all distributions).
+There are [pre-built binaries] of the last released version of `jj` for
+Windows, Mac, or Linux (the "musl" version should work on all distributions).
 
 If you'd like to install a prerelease version, you'll need to use one of the
 options below.
 
 #### Cargo Binstall
 
-If you use [`cargo-binstall`](https://github.com/cargo-bins/cargo-binstall), you
+If you use [`cargo-binstall`][cargo-binstall], you
 can install the same binaries of the last `jj` release from GitHub as follows:
 
 ```shell
@@ -134,7 +133,7 @@ cargo install --features vendored-openssl --locked --bin jj jj-cli
 #### From Source, Homebrew OpenSSL
 
 First make sure that you have a Rust version >= 1.76. You will also need
-[Homebrew](https://brew.sh/) installed. You may then need to run some or all of
+[Homebrew] installed. You may then need to run some or all of
 these:
 
 ```shell
@@ -171,7 +170,7 @@ brew install jj
 #### MacPorts
 
 You can also install `jj` via [the MacPorts `jujutsu`
-port](https://ports.macports.org/port/jujutsu/):
+port][macports]:
 
 ```shell
 # Installs the latest release
@@ -217,18 +216,25 @@ well as some command-specific ones like `--revision`, `--from` and `--to`. You
 can activate them with the alternative "dynamic" instructions below. They should
 still complete everything the static completions did, so only activate one of
 them. Please let us know if you encounter any issues, so we can ensure a smooth
-transition once we default to these new completions. Our initial experience
-is that these new completions work best with `fish`. If you have ideas about
-specific completions that could be added, please share them
-[here](https://github.com/jj-vcs/jj/issues/4763).
+transition once we default to these new completions.
+
+!!! info "Why are the improved completions not the default?"
+
+   To get the improved completions it is required to set the `COMPLETION` env
+   variable to your current shell before using the completion command, as they're
+   not the default yet. See the upstream clap issue [#3166][clap] for the
+   explanation.
+
 
 ### Bash
+
+#### Standard
 
 ```shell
 source <(jj util completion bash)
 ```
 
-dynamic:
+#### Dynamic
 
 ```shell
 source <(COMPLETE=bash jj)
@@ -236,13 +242,15 @@ source <(COMPLETE=bash jj)
 
 ### Zsh
 
+#### Standard
+
 ```shell
 autoload -U compinit
 compinit
 source <(jj util completion zsh)
 ```
 
-dynamic:
+#### Dynamic
 
 ```shell
 source <(COMPLETE=zsh jj)
@@ -250,11 +258,13 @@ source <(COMPLETE=zsh jj)
 
 ### Fish
 
+#### Standard
+
 ```shell
 jj util completion fish | source
 ```
 
-dynamic:
+#### Dynamic
 
 ```shell
 COMPLETE=fish jj | source
@@ -287,3 +297,9 @@ Invoke-Expression (& { (jj util completion power-shell | Out-String) })
 ```
 
 (dynamic completions not available yet)
+
+[cargo-binstall]: https://github.com/cargo-bins/cargo-binstall
+[clap]: https://github.com/clap-rs/clap/issues/3166
+[Homebrew]: https://brew.sh/
+[macports]: https://ports.macports.org/port/jujutsu/
+[pre-built binaries]: https://github.com/jj-vcs/jj/releases/latest
