@@ -133,7 +133,7 @@ nav: # This lists all the files that become part of the documentation
       - Operation log: 'operation-log.md'
       - Glossary: 'glossary.md'
 
-  - Configuration:
+  - Reference:
       - Settings: 'config.md'
       - Fileset language: 'filesets.md'
       - Revset language: 'revsets.md'
