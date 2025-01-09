@@ -22,6 +22,7 @@ use jj_lib::extensions_map::ExtensionsMap;
 use jj_lib::object_id::ObjectId;
 use jj_lib::op_store::OperationId;
 use jj_lib::operation::Operation;
+use jj_lib::repo::RepoLoader;
 
 use crate::template_builder;
 use crate::template_builder::merge_fn_map;
@@ -49,7 +50,7 @@ pub trait OperationTemplateLanguageExtension {
 }
 
 pub struct OperationTemplateLanguage {
-    root_op_id: OperationId,
+    repo_loader: RepoLoader,
     current_op_id: Option<OperationId>,
     build_fn_table: OperationTemplateBuildFnTable,
     cache_extensions: ExtensionsMap,
@@ -59,7 +60,7 @@ impl OperationTemplateLanguage {
     /// Sets up environment where operation template will be transformed to
     /// evaluation tree.
     pub fn new(
-        root_op_id: &OperationId,
+        repo_loader: &RepoLoader,
         current_op_id: Option<&OperationId>,
         extensions: &[impl AsRef<dyn OperationTemplateLanguageExtension>],
     ) -> Self {
@@ -74,7 +75,8 @@ impl OperationTemplateLanguage {
         }
 
         OperationTemplateLanguage {
-            root_op_id: root_op_id.clone(),
+            // Clone these to keep lifetime simple
+            repo_loader: repo_loader.clone(),
             current_op_id: current_op_id.cloned(),
             build_fn_table,
             cache_extensions,
@@ -336,7 +338,7 @@ fn builtin_operation_methods() -> OperationTemplateBuildMethodFnMap<Operation> {
         "root",
         |language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let root_op_id = language.root_op_id.clone();
+            let root_op_id = language.repo_loader.op_store().root_operation_id().clone();
             let out_property = self_property.map(move |op| op.id() == &root_op_id);
             Ok(L::wrap_boolean(out_property))
         },

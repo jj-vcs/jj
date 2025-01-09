@@ -1717,7 +1717,7 @@ to the current parents may contain changes from multiple commits.
     /// Creates operation template language environment for this workspace.
     pub fn operation_template_language(&self) -> OperationTemplateLanguage {
         OperationTemplateLanguage::new(
-            self.repo().op_store().root_operation_id(),
+            self.workspace.repo_loader(),
             Some(self.repo().op_id()),
             self.env.operation_template_extensions(),
         )

@@ -108,7 +108,7 @@ fn do_op_log(
     let op_node_template;
     {
         let language = OperationTemplateLanguage::new(
-            repo_loader.op_store().root_operation_id(),
+            repo_loader,
             Some(current_op.id()),
             workspace_env.operation_template_extensions(),
         );
