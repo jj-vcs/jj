@@ -220,10 +220,10 @@ transition once we default to these new completions.
 
 !!! info "Why are the improved completions not the default?"
 
-   To get the improved completions it is required to set the `COMPLETION` env
-   variable to your current shell before using the completion command, as they're
-   not the default yet. See the upstream clap issue [#3166][clap] for the
-   explanation.
+    To get the improved completions it is required to set the `COMPLETION` env
+    variable to your current shell before using the completion command, as
+    they're not the default yet. See the upstream clap issue [#3166][clap]
+    for the explanation.
 
 
 ### Bash
