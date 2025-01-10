@@ -49,6 +49,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj git {push,clone,fetch}` can now spawn an external `git` subprocess, via the `git.subprocess = true` config knob.
+
 * `jj evolog` now accepts `--reversed`.
 
 * `jj restore` now supports `-i`/`--interactive` selection.
@@ -63,6 +65,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Add a new template alias `builtin_op_log_oneline` along with `format_operation_oneline` and `format_snapshot_operation_oneline`
 
 ### Fixed bugs
+
+* Fixes SSH bugs when interacting with Git remotes due to `libgit2`'s limitations.
+  [#4979](https://github.com/jj-vcs/jj/issues/4979)
 
 * Fixed diff selection by external tools with `jj split`/`commit -i FILESETS`.
   [#5252](https://github.com/jj-vcs/jj/issues/5252)

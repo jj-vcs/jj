@@ -362,6 +362,15 @@
                     "type": "string",
                     "description": "The remote to which commits are pushed",
                     "default": "origin"
+                },
+                "subprocess": {
+                    "type": "boolean",
+                    "description": "Whether jj spawns a git subprocess for network operations (push/fetch/clone)",
+                    "default": false
+                },
+                "path": {
+                    "type": "string",
+                    "description": "Path to the git executable"
                 }
             }
         },

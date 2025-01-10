@@ -86,9 +86,19 @@ jobs:
         tool: nextest
     - name: Build
       run: cargo build --workspace --all-targets --verbose ${{ matrix.cargo_flags }}
-    - name: Test
+    - name: Test [non-windows]
+      if: ${{ matrix.os != 'windows-latest' }}
+      run: |
+        export TEST_GIT_PATH="$(which git)";
+        cargo nextest run --workspace --all-targets --verbose ${{ matrix.cargo_flags }}
+      env:
+        RUST_BACKTRACE: 1
+        CARGO_TERM_COLOR: always
+    - name: Test [windows]
+      if: ${{ matrix.os == 'windows-latest' }}
       run: cargo nextest run --workspace --all-targets --verbose ${{ matrix.cargo_flags }}
       env:
+        TEST_GIT_PATH: 'C:\Program Files\Git\bin\git.exe'
         RUST_BACKTRACE: 1
         CARGO_TERM_COLOR: always
 

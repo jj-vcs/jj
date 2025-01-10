@@ -34,6 +34,7 @@ use crate::command_error::user_error;
 use crate::command_error::user_error_with_message;
 use crate::command_error::CommandError;
 use crate::commands::git::maybe_add_gitignore;
+use crate::git_util::get_config_git_path;
 use crate::git_util::get_git_repo;
 use crate::git_util::map_git_error;
 use crate::git_util::print_git_import_stats;
@@ -97,6 +98,13 @@ fn is_empty_dir(path: &Path) -> bool {
     }
 }
 
+struct CloneArgs<'a> {
+    depth: Option<NonZeroU32>,
+    remote_name: &'a str,
+    source: &'a str,
+    wc_path: &'a Path,
+}
+
 pub fn cmd_git_clone(
     ui: &mut Ui,
     command: &CommandHelper,
@@ -129,14 +137,18 @@ pub fn cmd_git_clone(
     // `/some/path/.`
     let canonical_wc_path = dunce::canonicalize(&wc_path)
         .map_err(|err| user_error_with_message(format!("Failed to create {wc_path_str}"), err))?;
+    let git_executable_path = get_config_git_path(command)?;
     let clone_result = do_git_clone(
         ui,
         command,
+        git_executable_path.as_deref(),
         args.colocate,
-        args.depth,
-        remote_name,
-        &source,
-        &canonical_wc_path,
+        CloneArgs {
+            depth: args.depth,
+            remote_name,
+            source: &source,
+            wc_path: &canonical_wc_path,
+        },
     );
     if clone_result.is_err() {
         let clean_up_dirs = || -> io::Result<()> {
@@ -191,12 +203,17 @@ pub fn cmd_git_clone(
 fn do_git_clone(
     ui: &mut Ui,
     command: &CommandHelper,
+    git_executable_path: Option<&Path>,
     colocate: bool,
-    depth: Option<NonZeroU32>,
-    remote_name: &str,
-    source: &str,
-    wc_path: &Path,
+    clone_args: CloneArgs<'_>,
 ) -> Result<(WorkspaceCommandHelper, GitFetchStats), CommandError> {
+    let CloneArgs {
+        depth,
+        remote_name,
+        source,
+        wc_path,
+    } = clone_args;
+
     let settings = command.settings_for_new_workspace(wc_path)?;
     let (workspace, repo) = if colocate {
         Workspace::init_colocated_git(&settings, wc_path)?
@@ -215,10 +232,11 @@ fn do_git_clone(
     let git_settings = workspace_command.settings().git_settings()?;
     let mut fetch_tx = workspace_command.start_transaction();
 
-    let stats = with_remote_git_callbacks(ui, None, |cb| {
+    let stats = with_remote_git_callbacks(ui, None, git_executable_path.is_some(), |cb| {
         git::fetch(
             fetch_tx.repo_mut(),
             &git_repo,
+            git_executable_path,
             remote_name,
             &[StringPattern::everything()],
             cb,
@@ -227,11 +245,12 @@ fn do_git_clone(
         )
     })
     .map_err(|err| match err {
-        GitFetchError::NoSuchRemote(_) => {
-            panic!("shouldn't happen as we just created the git remote")
+        GitFetchError::NoSuchRemote(repo_name) => {
+            user_error(format!("Could not find repository at '{repo_name}'"))
         }
         GitFetchError::GitImportError(err) => CommandError::from(err),
         GitFetchError::InternalGitError(err) => map_git_error(err),
+        GitFetchError::Subprocess(err) => user_error(err),
         GitFetchError::InvalidBranchPattern => {
             unreachable!("we didn't provide any globs")
         }

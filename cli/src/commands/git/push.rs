@@ -49,6 +49,7 @@ use crate::command_error::CommandError;
 use crate::commands::git::get_single_remote;
 use crate::complete;
 use crate::formatter::Formatter;
+use crate::git_util::get_config_git_path;
 use crate::git_util::get_git_repo;
 use crate::git_util::map_git_error;
 use crate::git_util::with_remote_git_callbacks;
@@ -166,6 +167,7 @@ pub fn cmd_git_push(
     args: &GitPushArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
+    let git_executable_path = get_config_git_path(command)?;
     let git_repo = get_git_repo(workspace_command.repo().store())?;
 
     let remote = if let Some(name) = &args.remote {
@@ -313,9 +315,22 @@ pub fn cmd_git_push(
     let mut sideband_progress_callback = |progress_message: &[u8]| {
         _ = writer.write(ui, progress_message);
     };
-    with_remote_git_callbacks(ui, Some(&mut sideband_progress_callback), |cb| {
-        git::push_branches(tx.repo_mut(), &git_repo, &remote, &targets, cb)
-    })
+
+    with_remote_git_callbacks(
+        ui,
+        Some(&mut sideband_progress_callback),
+        git_executable_path.is_some(),
+        |cb| {
+            git::push_branches(
+                tx.repo_mut(),
+                &git_repo,
+                git_executable_path.as_deref(),
+                &remote,
+                &targets,
+                cb,
+            )
+        },
+    )
     .map_err(|err| match err {
         GitPushError::InternalGitError(err) => map_git_error(err),
         GitPushError::RefInUnexpectedLocation(refs) => user_error_with_hint(

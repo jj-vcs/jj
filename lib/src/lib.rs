@@ -65,6 +65,8 @@ pub mod git {
 }
 #[cfg(feature = "git")]
 pub mod git_backend;
+#[cfg(feature = "git")]
+mod git_subprocess;
 pub mod gitignore;
 pub mod gpg_signing;
 pub mod graph;

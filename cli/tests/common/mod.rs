@@ -80,6 +80,7 @@ impl Default for TestEnvironment {
 'format_time_range(time_range)' = 'time_range.start() ++ " - " ++ time_range.end()'
         "#,
         );
+
         env
     }
 }
@@ -278,6 +279,15 @@ impl TestEnvironment {
 
     pub fn add_env_var(&mut self, key: impl Into<String>, val: impl Into<String>) {
         self.env_vars.insert(key.into(), val.into());
+    }
+
+    pub fn set_up_git_subprocessing(&self) {
+        self.add_config("git.subprocess = true");
+
+        // add a git path from env: this is only used if git.subprocess = true
+        if let Ok(git_path) = std::env::var("TEST_GIT_PATH") {
+            self.add_config(format!("git.executable_path = '{}'", git_path.trim()));
+        }
     }
 
     pub fn current_operation_id(&self, repo_path: &Path) -> String {
