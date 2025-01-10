@@ -45,6 +45,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj util mangen` is replaced with `jj util install-man-pages`, which can
   install man pages for all `jj` subcommands to a given path.
 
+* Upgraded `scm-record` from v0.4.0 to v0.5.0. See release notes at
+  <https://github.com/arxanas/scm-record/releases/tag/v0.5.0>.
+
 ### Deprecations
 
 ### New features
