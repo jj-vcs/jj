@@ -79,6 +79,58 @@ impl fmt::Display for RefName {
     }
 }
 
+/// Representation of a Git refspec
+///
+/// It is often the case that we need only parts of the refspec,
+/// Passing strings around and repeatedly parsing them is sub-optimal, confusing
+/// and error prone
+#[derive(Debug, Hash, PartialEq, Eq)]
+pub(crate) struct RefSpec {
+    forced: bool,
+    source: Option<String>,
+    destination: String,
+}
+
+impl RefSpec {
+    fn forced(source: impl Into<String>, destination: impl Into<String>) -> Self {
+        RefSpec {
+            forced: true,
+            source: Some(source.into()),
+            destination: destination.into(),
+        }
+    }
+
+    fn delete(destination: impl Into<String>) -> Self {
+        // We don't force push on branch deletion
+        RefSpec {
+            forced: false,
+            source: None,
+            destination: destination.into(),
+        }
+    }
+
+    pub(crate) fn to_git_format(&self) -> String {
+        format!(
+            "{}{}",
+            if self.forced { "+" } else { "" },
+            self.to_git_format_not_forced()
+        )
+    }
+
+    /// Format git refspec without the leading force flag '+'
+    ///
+    /// When independently setting --force-with-lease, having the
+    /// leading flag overrides the lease, so we need to print it
+    /// without it
+    pub(crate) fn to_git_format_not_forced(&self) -> String {
+        if let Some(s) = &self.source {
+            format!("{}:{}", s, self.destination)
+        } else {
+            format!(":{}", self.destination)
+        }
+    }
+}
+
 pub fn parse_git_ref(ref_name: &str) -> Option<RefName> {
     if let Some(branch_name) = ref_name.strip_prefix("refs/heads/") {
         // Git CLI says 'HEAD' is not a valid branch name
@@ -1452,8 +1504,14 @@ impl<'a> GitFetch<'a> {
                          * because `to_glob()` escapes such `*`s as `[*]`. */
                         |glob| !glob.contains(INVALID_REFSPEC_CHARS),
                     )
-                    .map(|glob| format!("+refs/heads/{glob}:refs/remotes/{remote_name}/{glob}"))
+                    .map(|glob| {
+                        RefSpec::forced(
+                            format!("refs/heads/{glob}"),
+                            format!("refs/remotes/{remote_name}/{glob}"),
+                        )
+                    })
             })
+            .map(|refspec| refspec.map(|r| r.to_git_format()))
             .collect::<Option<_>>()
             .ok_or(GitFetchError::InvalidBranchPattern)?;
         if refspecs.is_empty() {
@@ -1655,16 +1713,17 @@ pub fn push_updates(
             // We always force-push. We use the push_negotiation callback in
             // `push_refs` to check that the refs did not unexpectedly move on
             // the remote.
-            refspecs.push(format!("+{}:{}", new_target.hex(), update.qualified_name));
+            refspecs.push(RefSpec::forced(new_target.hex(), &update.qualified_name));
         } else {
             // Prefixing this with `+` to force-push or not should make no
             // difference. The push negotiation happens regardless, and wouldn't
             // allow creating a branch if it's not a fast-forward.
-            refspecs.push(format!(":{}", update.qualified_name));
+            refspecs.push(RefSpec::delete(&update.qualified_name));
         }
     }
     // TODO(ilyagr): `push_refs`, or parts of it, should probably be inlined. This
     // requires adjusting some tests.
+    let refspecs: Vec<String> = refspecs.iter().map(RefSpec::to_git_format).collect();
     push_refs(
         repo,
         git_repo,
