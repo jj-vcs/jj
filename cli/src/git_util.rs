@@ -41,6 +41,7 @@ use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
+use jj_lib::settings::GitSettings;
 use jj_lib::store::Store;
 use jj_lib::str_util::StringPattern;
 use jj_lib::workspace::Workspace;
@@ -286,29 +287,40 @@ type SidebandProgressCallback<'a> = &'a mut dyn FnMut(&[u8]);
 pub fn with_remote_git_callbacks<T>(
     ui: &Ui,
     sideband_progress_callback: Option<SidebandProgressCallback<'_>>,
+    git_settings: &GitSettings,
     f: impl FnOnce(git::RemoteCallbacks<'_>) -> T,
 ) -> T {
-    let mut callbacks = git::RemoteCallbacks::default();
-    let mut progress_callback = None;
-    if let Some(mut output) = ui.progress_output() {
-        let mut progress = Progress::new(Instant::now());
-        progress_callback = Some(move |x: &git::Progress| {
-            _ = progress.update(Instant::now(), x, &mut output);
-        });
+    if git_settings.subprocess {
+        // TODO: with git2, we are able to display progress from the data that is given
+        // With the git processes themselves, this is significantly harder, as it
+        // requires parsing the output directly
+        //
+        // In any case, this would be the place to add that funcionalty
+        f(git::RemoteCallbacks::default())
+    } else {
+        let mut callbacks = git::RemoteCallbacks::default();
+        let mut progress_callback = None;
+        if let Some(mut output) = ui.progress_output() {
+            let mut progress = Progress::new(Instant::now());
+            progress_callback = Some(move |x: &git::Progress| {
+                _ = progress.update(Instant::now(), x, &mut output);
+            });
+        }
+        callbacks.progress = progress_callback
+            .as_mut()
+            .map(|x| x as &mut dyn FnMut(&git::Progress));
+        callbacks.sideband_progress =
+            sideband_progress_callback.map(|x| x as &mut dyn FnMut(&[u8]));
+        let mut get_ssh_keys = get_ssh_keys; // Coerce to unit fn type
+        callbacks.get_ssh_keys = Some(&mut get_ssh_keys);
+        let mut get_pw =
+            |url: &str, _username: &str| pinentry_get_pw(url).or_else(|| terminal_get_pw(ui, url));
+        callbacks.get_password = Some(&mut get_pw);
+        let mut get_user_pw =
+            |url: &str| Some((terminal_get_username(ui, url)?, terminal_get_pw(ui, url)?));
+        callbacks.get_username_password = Some(&mut get_user_pw);
+        f(callbacks)
     }
-    callbacks.progress = progress_callback
-        .as_mut()
-        .map(|x| x as &mut dyn FnMut(&git::Progress));
-    callbacks.sideband_progress = sideband_progress_callback.map(|x| x as &mut dyn FnMut(&[u8]));
-    let mut get_ssh_keys = get_ssh_keys; // Coerce to unit fn type
-    callbacks.get_ssh_keys = Some(&mut get_ssh_keys);
-    let mut get_pw =
-        |url: &str, _username: &str| pinentry_get_pw(url).or_else(|| terminal_get_pw(ui, url));
-    callbacks.get_password = Some(&mut get_pw);
-    let mut get_user_pw =
-        |url: &str| Some((terminal_get_username(ui, url)?, terminal_get_pw(ui, url)?));
-    callbacks.get_username_password = Some(&mut get_user_pw);
-    f(callbacks)
 }
 
 pub fn print_git_import_stats(
@@ -639,7 +651,7 @@ pub fn git_fetch(
     let git_settings = tx.settings().git_settings()?;
 
     for remote in remotes {
-        let stats = with_remote_git_callbacks(ui, None, |cb| {
+        let stats = with_remote_git_callbacks(ui, None, &git_settings, |cb| {
             git::fetch(
                 tx.repo_mut(),
                 git_repo,

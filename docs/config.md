@@ -1210,6 +1210,28 @@ from the private set.
 Private commits prevent their descendants from being pushed, since doing so
 would require pushing the private commit as well.
 
+### Git subprocessing behaviour
+
+By default, Git remote interactions are handled by [`libgit2`](https://github.com/libgit2/libgit2).
+This sometimes causes [SSH problems](https://github.com/jj-vcs/jj/issues/4979) that
+cannot be solved by `jj` directly.
+
+To sidestep this, there is an option to spawn a `git` subprocess to handle those
+remote interactions:
+
+```toml
+[git]
+subprocess = true
+```
+
+Additionally, if `git` is not on your OS path, or you want to specify a
+particular binary, you can:
+
+```toml
+[git]
+executable-path = "/path/to/git"
+```
+
 ## Filesystem monitor
 
 In large repositories, it may be beneficial to use a "filesystem monitor" to

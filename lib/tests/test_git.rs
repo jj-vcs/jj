@@ -114,6 +114,19 @@ fn get_git_repo(repo: &Arc<ReadonlyRepo>) -> git2::Repository {
     get_git_backend(repo).open_git_repo().unwrap()
 }
 
+fn get_git_settings(subprocess: bool) -> GitSettings {
+    let executable_path = std::env::var("TEST_GIT_EXECUTABLE_PATH")
+        .as_ref()
+        .map(Path::new)
+        .unwrap_or(Path::new("git"))
+        .to_owned();
+    GitSettings {
+        subprocess,
+        executable_path,
+        ..Default::default()
+    }
+}
+
 #[test]
 fn test_import_refs() {
     let git_settings = GitSettings {
@@ -2528,10 +2541,11 @@ fn test_init() {
     assert!(!repo.view().heads().contains(&jj_id(&initial_git_commit)));
 }
 
-#[test]
-fn test_fetch_empty_repo() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_fetch_empty_repo(subprocess: bool) {
     let test_data = GitRepoData::create();
-    let git_settings = GitSettings::default();
+    let git_settings = get_git_settings(subprocess);
 
     let mut tx = test_data.repo.start_transaction();
     let stats = git::fetch(
@@ -2551,12 +2565,13 @@ fn test_fetch_empty_repo() {
     assert_eq!(tx.repo_mut().view().bookmarks().count(), 0);
 }
 
-#[test]
-fn test_fetch_initial_commit_head_is_not_set() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_fetch_initial_commit_head_is_not_set(subprocess: bool) {
     let test_data = GitRepoData::create();
     let git_settings = GitSettings {
         auto_local_bookmark: true,
-        ..Default::default()
+        ..get_git_settings(subprocess)
     };
     let initial_git_commit = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
 
@@ -2602,12 +2617,13 @@ fn test_fetch_initial_commit_head_is_not_set() {
     );
 }
 
-#[test]
-fn test_fetch_initial_commit_head_is_set() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_fetch_initial_commit_head_is_set(subprocess: bool) {
     let test_data = GitRepoData::create();
     let git_settings = GitSettings {
         auto_local_bookmark: true,
-        ..Default::default()
+        ..get_git_settings(subprocess)
     };
     let initial_git_commit = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
     test_data.origin_repo.set_head("refs/heads/main").unwrap();
@@ -2637,12 +2653,13 @@ fn test_fetch_initial_commit_head_is_set() {
     assert!(stats.import_stats.abandoned_commits.is_empty());
 }
 
-#[test]
-fn test_fetch_success() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_fetch_success(subprocess: bool) {
     let mut test_data = GitRepoData::create();
     let git_settings = GitSettings {
         auto_local_bookmark: true,
-        ..Default::default()
+        ..get_git_settings(subprocess)
     };
     let initial_git_commit = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
 
@@ -2719,12 +2736,13 @@ fn test_fetch_success() {
     );
 }
 
-#[test]
-fn test_fetch_prune_deleted_ref() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_fetch_prune_deleted_ref(subprocess: bool) {
     let test_data = GitRepoData::create();
     let git_settings = GitSettings {
         auto_local_bookmark: true,
-        ..Default::default()
+        ..get_git_settings(subprocess)
     };
     let commit = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
 
@@ -2771,12 +2789,13 @@ fn test_fetch_prune_deleted_ref() {
         .is_absent());
 }
 
-#[test]
-fn test_fetch_no_default_branch() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_fetch_no_default_branch(subprocess: bool) {
     let test_data = GitRepoData::create();
     let git_settings = GitSettings {
         auto_local_bookmark: true,
-        ..Default::default()
+        ..get_git_settings(subprocess)
     };
     let initial_git_commit = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
 
@@ -2819,10 +2838,11 @@ fn test_fetch_no_default_branch() {
     assert_eq!(stats.default_branch, None);
 }
 
-#[test]
-fn test_fetch_empty_refspecs() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_fetch_empty_refspecs(subprocess: bool) {
     let test_data = GitRepoData::create();
-    let git_settings = GitSettings::default();
+    let git_settings = get_git_settings(subprocess);
     empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
 
     // Base refspecs shouldn't be respected
@@ -2849,10 +2869,11 @@ fn test_fetch_empty_refspecs() {
         .is_absent());
 }
 
-#[test]
-fn test_fetch_no_such_remote() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_fetch_no_such_remote(subprocess: bool) {
     let test_data = GitRepoData::create();
-    let git_settings = GitSettings::default();
+    let git_settings = get_git_settings(subprocess);
     let mut tx = test_data.repo.start_transaction();
     let result = git::fetch(
         tx.repo_mut(),
@@ -2997,13 +3018,15 @@ fn set_up_push_repos(settings: &UserSettings, temp_dir: &TempDir) -> PushTestSet
     }
 }
 
-#[test]
-fn test_push_bookmarks_success() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_push_bookmarks_success(subprocess: bool) {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let mut setup = set_up_push_repos(&settings, &temp_dir);
     let clone_repo = get_git_repo(&setup.jj_repo);
     let mut tx = setup.jj_repo.start_transaction();
+    let git_settings = get_git_settings(subprocess);
 
     let targets = GitBranchPushTargets {
         branch_updates: vec![(
@@ -3017,6 +3040,7 @@ fn test_push_bookmarks_success() {
     let result = git::push_branches(
         tx.repo_mut(),
         &clone_repo,
+        &git_settings,
         "origin",
         &targets,
         git::RemoteCallbacks::default(),
@@ -3062,13 +3086,15 @@ fn test_push_bookmarks_success() {
     assert!(!tx.repo_mut().has_changes());
 }
 
-#[test]
-fn test_push_bookmarks_deletion() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_push_bookmarks_deletion(subprocess: bool) {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let mut setup = set_up_push_repos(&settings, &temp_dir);
     let clone_repo = get_git_repo(&setup.jj_repo);
     let mut tx = setup.jj_repo.start_transaction();
+    let git_settings = get_git_settings(subprocess);
 
     let source_repo = git2::Repository::open(&setup.source_repo_dir).unwrap();
     // Test the setup
@@ -3086,6 +3112,7 @@ fn test_push_bookmarks_deletion() {
     let result = git::push_branches(
         tx.repo_mut(),
         &get_git_repo(&setup.jj_repo),
+        &git_settings,
         "origin",
         &targets,
         git::RemoteCallbacks::default(),
@@ -3114,13 +3141,15 @@ fn test_push_bookmarks_deletion() {
     assert!(!tx.repo_mut().has_changes());
 }
 
-#[test]
-fn test_push_bookmarks_mixed_deletion_and_addition() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_push_bookmarks_mixed_deletion_and_addition(subprocess: bool) {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let mut setup = set_up_push_repos(&settings, &temp_dir);
     let clone_repo = get_git_repo(&setup.jj_repo);
     let mut tx = setup.jj_repo.start_transaction();
+    let git_settings = get_git_settings(subprocess);
 
     let targets = GitBranchPushTargets {
         branch_updates: vec![
@@ -3143,6 +3172,7 @@ fn test_push_bookmarks_mixed_deletion_and_addition() {
     let result = git::push_branches(
         tx.repo_mut(),
         &clone_repo,
+        &git_settings,
         "origin",
         &targets,
         git::RemoteCallbacks::default(),
@@ -3183,12 +3213,14 @@ fn test_push_bookmarks_mixed_deletion_and_addition() {
     assert!(!tx.repo_mut().has_changes());
 }
 
-#[test]
-fn test_push_bookmarks_not_fast_forward() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_push_bookmarks_not_fast_forward(subprocess: bool) {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
     let mut tx = setup.jj_repo.start_transaction();
+    let git_settings = get_git_settings(subprocess);
 
     let targets = GitBranchPushTargets {
         branch_updates: vec![(
@@ -3202,6 +3234,7 @@ fn test_push_bookmarks_not_fast_forward() {
     let result = git::push_branches(
         tx.repo_mut(),
         &get_git_repo(&setup.jj_repo),
+        &git_settings,
         "origin",
         &targets,
         git::RemoteCallbacks::default(),
@@ -3221,11 +3254,13 @@ fn test_push_bookmarks_not_fast_forward() {
 // may want to add tests for when a bookmark unexpectedly moved backwards or
 // unexpectedly does not exist for bookmark deletion.
 
-#[test]
-fn test_push_updates_unexpectedly_moved_sideways_on_remote() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_push_updates_unexpectedly_moved_sideways_on_remote(subprocess: bool) {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
+    let git_settings = get_git_settings(subprocess);
 
     // The main bookmark is actually at `main_commit` on the remote. If we expect
     // it to be at `sideways_commit`, it unexpectedly moved sideways from our
@@ -3247,6 +3282,7 @@ fn test_push_updates_unexpectedly_moved_sideways_on_remote() {
         git::push_updates(
             setup.jj_repo.as_ref(),
             &get_git_repo(&setup.jj_repo),
+            &git_settings,
             "origin",
             &targets,
             git::RemoteCallbacks::default(),
@@ -3286,11 +3322,13 @@ fn test_push_updates_unexpectedly_moved_sideways_on_remote() {
     );
 }
 
-#[test]
-fn test_push_updates_unexpectedly_moved_forward_on_remote() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_push_updates_unexpectedly_moved_forward_on_remote(subprocess: bool) {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
+    let git_settings = get_git_settings(subprocess);
 
     // The main bookmark is actually at `main_commit` on the remote. If we
     // expected it to be at `parent_of_commit`, it unexpectedly moved forward
@@ -3314,6 +3352,7 @@ fn test_push_updates_unexpectedly_moved_forward_on_remote() {
         git::push_updates(
             setup.jj_repo.as_ref(),
             &get_git_repo(&setup.jj_repo),
+            &git_settings,
             "origin",
             &targets,
             git::RemoteCallbacks::default(),
@@ -3340,19 +3379,29 @@ fn test_push_updates_unexpectedly_moved_forward_on_remote() {
         Err(GitPushError::RefInUnexpectedLocation(_))
     );
 
-    // Moving the bookmark *forwards* is OK, as an exception matching our bookmark
-    // conflict resolution rules
-    assert_matches!(
-        attempt_push_expecting_parent(Some(setup.child_of_main_commit.id().clone())),
-        Ok(())
-    );
+    if subprocess {
+        // git is strict about honouring the expected location on --force-with-lease
+        assert_matches!(
+            attempt_push_expecting_parent(Some(setup.child_of_main_commit.id().clone())),
+            Err(GitPushError::RefInUnexpectedLocation(_))
+        );
+    } else {
+        // Moving the bookmark *forwards* is OK, as an exception matching our bookmark
+        // conflict resolution rules
+        assert_matches!(
+            attempt_push_expecting_parent(Some(setup.child_of_main_commit.id().clone())),
+            Ok(())
+        );
+    }
 }
 
-#[test]
-fn test_push_updates_unexpectedly_exists_on_remote() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_push_updates_unexpectedly_exists_on_remote(subprocess: bool) {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
+    let git_settings = get_git_settings(subprocess);
 
     // The main bookmark is actually at `main_commit` on the remote. In this test,
     // we expect it to not exist on the remote at all.
@@ -3372,6 +3421,7 @@ fn test_push_updates_unexpectedly_exists_on_remote() {
         git::push_updates(
             setup.jj_repo.as_ref(),
             &get_git_repo(&setup.jj_repo),
+            &git_settings,
             "origin",
             &targets,
             git::RemoteCallbacks::default(),
@@ -3383,22 +3433,34 @@ fn test_push_updates_unexpectedly_exists_on_remote() {
         Err(GitPushError::RefInUnexpectedLocation(_))
     );
 
-    // We *can* move the bookmark forward even if we didn't expect it to exist
-    assert_matches!(
-        attempt_push_expecting_absence(Some(setup.child_of_main_commit.id().clone())),
-        Ok(())
-    );
+    if subprocess {
+        // Git is strict with enforcing the expected location
+        assert_matches!(
+            attempt_push_expecting_absence(Some(setup.child_of_main_commit.id().clone())),
+            Err(GitPushError::RefInUnexpectedLocation(_))
+        );
+    } else {
+        // In git2: We *can* move the bookmark forward even if we didn't expect it to
+        // exist
+        assert_matches!(
+            attempt_push_expecting_absence(Some(setup.child_of_main_commit.id().clone())),
+            Ok(())
+        );
+    }
 }
 
-#[test]
-fn test_push_updates_success() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_push_updates_success(subprocess: bool) {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
+    let git_settings = get_git_settings(subprocess);
     let clone_repo = get_git_repo(&setup.jj_repo);
     let result = git::push_updates(
         setup.jj_repo.as_ref(),
         &clone_repo,
+        &git_settings,
         "origin",
         &[GitRefUpdate {
             qualified_name: "refs/heads/main".to_string(),
@@ -3428,14 +3490,17 @@ fn test_push_updates_success() {
     assert_eq!(new_target, Some(new_oid));
 }
 
-#[test]
-fn test_push_updates_no_such_remote() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_push_updates_no_such_remote(subprocess: bool) {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
+    let git_settings = get_git_settings(subprocess);
     let result = git::push_updates(
         setup.jj_repo.as_ref(),
         &get_git_repo(&setup.jj_repo),
+        &git_settings,
         "invalid-remote",
         &[GitRefUpdate {
             qualified_name: "refs/heads/main".to_string(),
@@ -3447,14 +3512,17 @@ fn test_push_updates_no_such_remote() {
     assert!(matches!(result, Err(GitPushError::NoSuchRemote(_))));
 }
 
-#[test]
-fn test_push_updates_invalid_remote() {
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_push_updates_invalid_remote(subprocess: bool) {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
+    let git_settings = get_git_settings(subprocess);
     let result = git::push_updates(
         setup.jj_repo.as_ref(),
         &get_git_repo(&setup.jj_repo),
+        &git_settings,
         "http://invalid-remote",
         &[GitRefUpdate {
             qualified_name: "refs/heads/main".to_string(),

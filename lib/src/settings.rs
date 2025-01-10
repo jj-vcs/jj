@@ -14,6 +14,7 @@
 
 #![allow(missing_docs)]
 
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -58,6 +59,8 @@ struct UserSettingsData {
 pub struct GitSettings {
     pub auto_local_bookmark: bool,
     pub abandon_unreachable_commits: bool,
+    pub subprocess: bool,
+    pub executable_path: PathBuf,
 }
 
 impl GitSettings {
@@ -65,6 +68,8 @@ impl GitSettings {
         Ok(GitSettings {
             auto_local_bookmark: settings.get_bool("git.auto-local-bookmark")?,
             abandon_unreachable_commits: settings.get_bool("git.abandon-unreachable-commits")?,
+            subprocess: settings.get_bool("git.subprocess")?,
+            executable_path: settings.get("git.executable-path")?,
         })
     }
 }
@@ -74,6 +79,8 @@ impl Default for GitSettings {
         GitSettings {
             auto_local_bookmark: false,
             abandon_unreachable_commits: true,
+            subprocess: false,
+            executable_path: PathBuf::from("git"),
         }
     }
 }

@@ -86,9 +86,20 @@ jobs:
         tool: nextest
     - name: Build
       run: cargo build --workspace --all-targets --verbose ${{ matrix.cargo_flags }}
-    - name: Test
+    - name: Test [non-windows]
+      if: ${{ matrix.os != 'windows-latest' }}
+      run: |
+        cargo nextest run --workspace --all-targets --verbose ${{ matrix.cargo_flags }}
+      env:
+        RUST_BACKTRACE: 1
+        CARGO_TERM_COLOR: always
+    - name: Test [windows]
+      if: ${{ matrix.os == 'windows-latest' }}
       run: cargo nextest run --workspace --all-targets --verbose ${{ matrix.cargo_flags }}
       env:
+        # tests clear the PATH variable (but is only felt on windows),
+        # so we need to set the git executable
+        TEST_GIT_EXECUTABLE_PATH: 'C:\Program Files\Git\bin\git.exe'
         RUST_BACKTRACE: 1
         CARGO_TERM_COLOR: always
 

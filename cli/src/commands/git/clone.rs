@@ -204,8 +204,7 @@ fn fetch_new_remote(
     )?;
     let git_settings = workspace_command.settings().git_settings()?;
     let mut fetch_tx = workspace_command.start_transaction();
-
-    let stats = with_remote_git_callbacks(ui, None, |cb| {
+    let stats = with_remote_git_callbacks(ui, None, &git_settings, |cb| {
         git::fetch(
             fetch_tx.repo_mut(),
             &git_repo,
@@ -222,6 +221,7 @@ fn fetch_new_remote(
         }
         GitFetchError::GitImportError(err) => CommandError::from(err),
         GitFetchError::InternalGitError(err) => map_git_error(err),
+        GitFetchError::Subprocess(err) => user_error(err),
         GitFetchError::InvalidBranchPattern => {
             unreachable!("we didn't provide any globs")
         }

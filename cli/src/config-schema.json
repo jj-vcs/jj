@@ -380,6 +380,16 @@
                     "type": "boolean",
                     "description": "Whether jj should sign commits before pushing",
                     "default": "false"
+                },
+                "subprocess": {
+                    "type": "boolean",
+                    "description": "Whether jj spawns a git subprocess for network operations (push/fetch/clone)",
+                    "default": false
+                },
+                "executable-path": {
+                    "type": "string",
+                    "description": "Path to the git executable",
+                    "default": "git"
                 }
             }
         },

@@ -68,6 +68,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj git {push,clone,fetch}` can now spawn an external `git` subprocess, via
+   the `git.subprocess = true` config knob. This provides an alternative that,
+   when turned on, fixes SSH bugs when interacting with Git remotes due to
+   `libgit2`s limitations [#4979](https://github.com/jj-vcs/jj/issues/4979).
+
 * `jj describe` now accepts `--edit`.
 
 * `jj evolog` and `jj op log` now accept `--reversed`.
