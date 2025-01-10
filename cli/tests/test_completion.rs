@@ -819,4 +819,8 @@ fn test_files() {
     f_not_yet_renamed
     f_unchanged
     ");
+
+    let outside_repo = test_env.env_root();
+    let stdout = test_env.jj_cmd_success(outside_repo, &["--", "jj", "log", "f_"]);
+    insta::assert_snapshot!(stdout, @r"");
 }
