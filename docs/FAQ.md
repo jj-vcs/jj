@@ -33,6 +33,42 @@ revision visible again.
 
 See [revsets] and [templates] for further guidance.
 
+### What are elided revisions in the output of `jj log`? How can I display them?
+
+"Elided revisions" appears in the log when one revision descends from another,
+both are in the revset, but the revisions connecting them are _not_ in the
+revset.
+
+For example, suppose you log the revset `tyl|mus` which contains exactly two
+revisions:
+
+```sh
+$  jj log -r 'tyl|mus'
+○  musnqzvt me@example.com 1 minute ago 9a09f8a5
+│  Revision C
+~  (elided revisions)
+○  tylynnzk me@example.com 1 minute ago f26967c8
+│  Revision A
+```
+
+Only the two revisions in the revset are displayed. The text "(elided
+revisions)" is shown to indicate that `musnqzvt` descends from `tylynnzk`, but
+the nodes connecting them are not in the revset.
+
+To view the elided revisions, change the [revset expression](revsets.md) so it
+includes the connecting revisions.  The `connected()` revset function does
+exactly this:
+
+```sh
+$ jj log -r 'connected(tyl|mus)'
+○  musnqzvt me@example.com 43 seconds ago 9a09f8a5
+│  Revision C
+○  rsvnrznr me@example.com 43 seconds ago 5b490f30
+│  Revision B
+○  tylynnzk me@example.com 43 seconds ago f26967c8
+│  Revision A
+```
+
 ### How can I get `jj log` to show me what `git log` would show me?
 
 Use `jj log -r ..`. The `..` [operator] lists all visible commits in the repo, excluding the root (which is never interesting and is shared by all repos).
