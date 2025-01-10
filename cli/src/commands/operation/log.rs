@@ -17,7 +17,9 @@ use std::slice;
 use itertools::Itertools as _;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigGetResultExt as _;
+use jj_lib::graph::reverse_graph;
 use jj_lib::graph::GraphEdge;
+use jj_lib::op_store::OpStoreError;
 use jj_lib::op_walk;
 use jj_lib::operation::Operation;
 use jj_lib::repo::RepoLoader;
@@ -47,8 +49,13 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 pub struct OperationLogArgs {
     /// Limit number of operations to show
+    ///
+    /// Applied after operations are reordered.
     #[arg(long, short = 'n')]
     limit: Option<usize>,
+    /// Show operations in the opposite order (older operations first)
+    #[arg(long)]
+    reversed: bool,
     /// Don't show the graph, show a flat list of operations
     #[arg(long)]
     no_graph: bool,
@@ -190,16 +197,27 @@ fn do_op_log(
     let mut formatter = ui.stdout_formatter();
     let formatter = formatter.as_mut();
     let limit = args.limit.unwrap_or(usize::MAX);
-    let iter = op_walk::walk_ancestors(slice::from_ref(current_op)).take(limit);
+    let iter = op_walk::walk_ancestors(slice::from_ref(current_op));
+
     if !args.no_graph {
         let mut raw_output = formatter.raw()?;
         let mut graph = get_graphlog(graph_style, raw_output.as_mut());
-        for op in iter {
+        let iter = iter.map(|op| -> Result<_, OpStoreError> {
             let op = op?;
-            let mut edges = vec![];
-            for id in op.parent_ids() {
-                edges.push(GraphEdge::direct(id.clone()));
-            }
+            let edges = op.parents().map_ok(GraphEdge::direct).try_collect()?;
+            Ok((op, edges))
+        });
+        let iter_nodes: Box<dyn Iterator<Item = _>> = if args.reversed {
+            Box::new(reverse_graph(iter)?.into_iter().map(Ok))
+        } else {
+            Box::new(iter)
+        };
+        for node in iter_nodes.take(limit) {
+            let (op, edges) = node?;
+            let edges = edges
+                .into_iter()
+                .map(|e| e.map(|e| e.id().clone()))
+                .collect_vec();
             let mut buffer = vec![];
             let within_graph = with_content_format.sub_width(graph.width(op.id(), &edges));
             within_graph.write(ui.new_formatter(&mut buffer).as_mut(), |formatter| {
@@ -221,7 +239,12 @@ fn do_op_log(
             )?;
         }
     } else {
-        for op in iter {
+        let iter: Box<dyn Iterator<Item = _>> = if args.reversed {
+            Box::new(iter.collect_vec().into_iter().rev())
+        } else {
+            Box::new(iter)
+        };
+        for op in iter.take(limit) {
             let op = op?;
             with_content_format.write(formatter, |formatter| template.format(&op, formatter))?;
             if let Some(show) = &maybe_show_op_diff {
