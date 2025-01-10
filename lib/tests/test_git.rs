@@ -2866,6 +2866,44 @@ fn test_fetch_no_such_remote() {
     assert!(matches!(result, Err(GitFetchError::NoSuchRemote(_))));
 }
 
+#[test]
+fn test_fetch_multiple_branches() {
+    let test_data = GitRepoData::create();
+    let _initial_git_commit = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
+    let git_settings = GitSettings {
+        auto_local_bookmark: true,
+        ..Default::default()
+    };
+
+    let mut tx = test_data.repo.start_transaction();
+    let fetch_stats = git::fetch(
+        tx.repo_mut(),
+        &test_data.git_repo,
+        "origin",
+        &[
+            StringPattern::Exact("main".to_string()),
+            StringPattern::Exact("noexist1".to_string()),
+            StringPattern::Exact("noexist2".to_string()),
+        ],
+        git::RemoteCallbacks::default(),
+        &git_settings,
+        None,
+    )
+    .unwrap();
+
+    assert_eq!(
+        fetch_stats
+            .import_stats
+            .changed_remote_refs
+            .keys()
+            .collect_vec(),
+        vec![&RefName::RemoteBranch {
+            branch: "main".to_string(),
+            remote: "origin".to_string()
+        }]
+    );
+}
+
 struct PushTestSetup {
     source_repo_dir: PathBuf,
     jj_repo: Arc<ReadonlyRepo>,

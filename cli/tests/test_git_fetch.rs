@@ -799,6 +799,7 @@ fn test_git_fetch_bookmarks_some_missing() {
     add_git_remote(&test_env, &repo_path, "origin");
     add_git_remote(&test_env, &repo_path, "rem1");
     add_git_remote(&test_env, &repo_path, "rem2");
+    add_git_remote(&test_env, &repo_path, "rem3");
 
     // single missing bookmark, implicit remotes (@origin)
     let (_stdout, stderr) =
@@ -838,22 +839,25 @@ fn test_git_fetch_bookmarks_some_missing() {
     let (_stdout, stderr) = test_env.jj_cmd_ok(
         &repo_path,
         &[
-            "git", "fetch", "--branch", "rem1", "--branch", "rem2", "--remote", "rem1", "--remote",
-            "rem2",
+            "git", "fetch", "--branch", "rem1", "--branch", "rem2", "--branch", "rem3", "--remote",
+            "rem1", "--remote", "rem2", "--remote", "rem3",
         ],
     );
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     bookmark: rem1@rem1 [new] tracked
     bookmark: rem2@rem2 [new] tracked
-    "###);
-    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r###"
+    bookmark: rem3@rem3 [new] tracked
+    ");
+    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
     origin: oputwtnw ffecd2d6 message
       @origin: oputwtnw ffecd2d6 message
     rem1: qxosxrvv 6a211027 message
       @rem1: qxosxrvv 6a211027 message
     rem2: yszkquru 2497a8a0 message
       @rem2: yszkquru 2497a8a0 message
-    "###);
+    rem3: lvsrtwwm 4ffdff2b message
+      @rem3: lvsrtwwm 4ffdff2b message
+    ");
 
     // multiple bookmarks, one exists, one doesn't
     let (_stdout, stderr) = test_env.jj_cmd_ok(
@@ -866,14 +870,16 @@ fn test_git_fetch_bookmarks_some_missing() {
     Warning: No branch matching `notexist` found on any specified/configured remote
     Nothing changed.
     "###);
-    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r###"
+    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
     origin: oputwtnw ffecd2d6 message
       @origin: oputwtnw ffecd2d6 message
     rem1: qxosxrvv 6a211027 message
       @rem1: qxosxrvv 6a211027 message
     rem2: yszkquru 2497a8a0 message
       @rem2: yszkquru 2497a8a0 message
-    "###);
+    rem3: lvsrtwwm 4ffdff2b message
+      @rem3: lvsrtwwm 4ffdff2b message
+    ");
 }
 
 // See `test_undo_restore_commands.rs` for fetch-undo-push and fetch-undo-fetch
