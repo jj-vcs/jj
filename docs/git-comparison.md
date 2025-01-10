@@ -324,7 +324,7 @@ parent.
     </tr>
     <tr>
       <td>Create a copy of a commit on top of another commit</td>
-      <td><code>jj duplicate &lt;source&gt;; -d &lt;destination&gt;</code></td>
+      <td><code>jj duplicate &lt;source&gt; -d &lt;destination&gt;</code></td>
       <td><code>git co &lt;destination&gt;; git cherry-pick &lt;source&gt;</code></td>
     </tr>
     <tr>
