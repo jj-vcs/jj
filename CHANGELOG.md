@@ -45,6 +45,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj util mangen` is replaced with `jj util install-man-pages`, which can
   install man pages for all `jj` subcommands to a given path.
 
+* Add dynamic autocompletion for the `jj --config key=value` argument
+
 ### Deprecations
 
 ### New features

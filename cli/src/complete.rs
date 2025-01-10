@@ -390,6 +390,7 @@ fn config_keys_rec(
     properties: &serde_json::Map<String, serde_json::Value>,
     acc: &mut Vec<CompletionCandidate>,
     only_leaves: bool,
+    include_eq: bool,
 ) {
     for (key, value) in properties {
         let mut prefix = prefix.clone();
@@ -409,20 +410,23 @@ fn config_keys_rec(
                     continue;
                 };
                 let properties = properties.as_object().unwrap();
-                config_keys_rec(prefix, properties, acc, only_leaves);
+                config_keys_rec(prefix, properties, acc, only_leaves, include_eq);
             }
             _ => {
                 let help = value
                     .get("description")
                     .map(|desc| desc.as_str().unwrap().to_string().into());
-                let escaped_key = prefix.to_string();
+                let mut escaped_key = prefix.to_string();
+                if include_eq {
+                    escaped_key.push('=');
+                }
                 acc.push(CompletionCandidate::new(escaped_key).help(help));
             }
         }
     }
 }
 
-fn config_keys_impl(only_leaves: bool) -> Vec<CompletionCandidate> {
+fn config_keys_impl(only_leaves: bool, include_eq: bool) -> Vec<CompletionCandidate> {
     let schema: serde_json::Value = serde_json::from_str(CONFIG_SCHEMA).unwrap();
     let schema = schema.as_object().unwrap();
     let properties = schema["properties"].as_object().unwrap();
@@ -433,16 +437,21 @@ fn config_keys_impl(only_leaves: bool) -> Vec<CompletionCandidate> {
         properties,
         &mut candidates,
         only_leaves,
+        include_eq,
     );
     candidates
 }
 
 pub fn config_keys() -> Vec<CompletionCandidate> {
-    config_keys_impl(false)
+    config_keys_impl(false, false)
 }
 
 pub fn leaf_config_keys() -> Vec<CompletionCandidate> {
-    config_keys_impl(true)
+    config_keys_impl(true, false)
+}
+
+pub fn leaf_config_keys_eq() -> Vec<CompletionCandidate> {
+    config_keys_impl(true, true)
 }
 
 fn dir_prefix_from<'a>(path: &'a str, current: &str) -> Option<&'a str> {
