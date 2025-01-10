@@ -533,6 +533,12 @@ fn test_config() {
     core.watchman
     core.watchman.register_snapshot_trigger	Whether to use triggers to monitor for changes in the background.
     ");
+
+    let stdout = test_env.jj_cmd_success(dir, &["--", "jj", "log", "--config", "c"]);
+    insta::assert_snapshot!(stdout, @r"
+    core.fsmonitor=	Whether to use an external filesystem monitor, useful for large repos
+    core.watchman.register_snapshot_trigger=	Whether to use triggers to monitor for changes in the background.
+    ");
 }
 
 fn create_commit(
