@@ -17,7 +17,6 @@ use std::convert::Infallible;
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools;
 use jj_lib::backend::BackendError;
-use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::dag_walk::topo_order_reverse_ok;
 use jj_lib::graph::reverse_graph;
@@ -35,9 +34,7 @@ use crate::command_error::CommandError;
 use crate::commit_templater::CommitTemplateLanguage;
 use crate::complete;
 use crate::diff_util::DiffFormatArgs;
-use crate::graphlog::convert_edge_type;
 use crate::graphlog::get_graphlog;
-use crate::graphlog::Edge;
 use crate::graphlog::GraphStyle;
 use crate::ui::Ui;
 
@@ -165,11 +162,10 @@ pub(crate) fn cmd_evolog(
 
         for node in iter_nodes {
             let (commit, edges) = node;
-            // Slightly different edge type used for display.
-            let graphlog_edges: Vec<Edge<CommitId>> = edges
+            let graphlog_edges = edges
                 .into_iter()
-                .map(|e| convert_edge_type(e).map(|e| e.id().clone()))
-                .collect();
+                .map(|e| e.map(|e| e.id().clone()))
+                .collect_vec();
             let mut buffer = vec![];
             let within_graph =
                 with_content_format.sub_width(graph.width(commit.id(), &graphlog_edges));

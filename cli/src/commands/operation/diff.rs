@@ -46,7 +46,6 @@ use crate::diff_util::DiffFormatArgs;
 use crate::diff_util::DiffRenderer;
 use crate::formatter::Formatter;
 use crate::graphlog::get_graphlog;
-use crate::graphlog::Edge;
 use crate::graphlog::GraphStyle;
 use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
@@ -227,10 +226,6 @@ pub fn show_op_diff(
             for node in graph_iter {
                 let (change_id, edges) = node.unwrap();
                 let modified_change = changes.get(&change_id).unwrap();
-                let edges = edges
-                    .iter()
-                    .map(|edge| Edge::Direct(edge.target.clone()))
-                    .collect_vec();
 
                 let mut buffer = vec![];
                 let within_graph = with_content_format.sub_width(graph.width(&change_id, &edges));

@@ -17,6 +17,7 @@ use std::slice;
 use itertools::Itertools as _;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigGetResultExt as _;
+use jj_lib::graph::GraphEdge;
 use jj_lib::op_walk;
 use jj_lib::operation::Operation;
 use jj_lib::repo::RepoLoader;
@@ -34,7 +35,6 @@ use crate::diff_util::DiffFormatArgs;
 use crate::diff_util::DiffRenderer;
 use crate::formatter::Formatter;
 use crate::graphlog::get_graphlog;
-use crate::graphlog::Edge;
 use crate::graphlog::GraphStyle;
 use crate::operation_templater::OperationTemplateLanguage;
 use crate::ui::Ui;
@@ -198,7 +198,7 @@ fn do_op_log(
             let op = op?;
             let mut edges = vec![];
             for id in op.parent_ids() {
-                edges.push(Edge::Direct(id.clone()));
+                edges.push(GraphEdge::direct(id.clone()));
             }
             let mut buffer = vec![];
             let within_graph = with_content_format.sub_width(graph.width(op.id(), &edges));

@@ -18,6 +18,7 @@ use jj_lib::backend::CommitId;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::graph::reverse_graph;
+use jj_lib::graph::GraphEdge;
 use jj_lib::graph::GraphEdgeType;
 use jj_lib::graph::TopoGroupedGraphIterator;
 use jj_lib::repo::Repo;
@@ -37,7 +38,6 @@ use crate::commit_templater::CommitTemplateLanguage;
 use crate::complete;
 use crate::diff_util::DiffFormatArgs;
 use crate::graphlog::get_graphlog;
-use crate::graphlog::Edge;
 use crate::graphlog::GraphStyle;
 use crate::ui::Ui;
 
@@ -203,31 +203,31 @@ pub(crate) fn cmd_log(
 
                 // The graph is keyed by (CommitId, is_synthetic)
                 let mut graphlog_edges = vec![];
-                // TODO: Should we update revset.iter_graph() to yield this flag instead of all
-                // the missing edges since we don't care about where they point here
-                // anyway?
-                let mut has_missing = false;
+                // TODO: Should we update revset.iter_graph() to yield a `has_missing` flag
+                // instead of all the missing edges since we don't care about
+                // where they point here anyway?
+                let mut missing_edge_id = None;
                 let mut elided_targets = vec![];
                 for edge in edges {
                     match edge.edge_type {
                         GraphEdgeType::Missing => {
-                            has_missing = true;
+                            missing_edge_id = Some(edge.target);
                         }
                         GraphEdgeType::Direct => {
-                            graphlog_edges.push(Edge::Direct((edge.target, false)));
+                            graphlog_edges.push(GraphEdge::direct((edge.target, false)));
                         }
                         GraphEdgeType::Indirect => {
                             if use_elided_nodes {
                                 elided_targets.push(edge.target.clone());
-                                graphlog_edges.push(Edge::Direct((edge.target, true)));
+                                graphlog_edges.push(GraphEdge::direct((edge.target, true)));
                             } else {
-                                graphlog_edges.push(Edge::Indirect((edge.target, false)));
+                                graphlog_edges.push(GraphEdge::indirect((edge.target, false)));
                             }
                         }
                     }
                 }
-                if has_missing {
-                    graphlog_edges.push(Edge::Missing);
+                if let Some(missing_edge_id) = missing_edge_id {
+                    graphlog_edges.push(GraphEdge::missing((missing_edge_id, false)));
                 }
                 let mut buffer = vec![];
                 let key = (commit_id, false);
@@ -261,7 +261,7 @@ pub(crate) fn cmd_log(
                 for elided_target in elided_targets {
                     let elided_key = (elided_target, true);
                     let real_key = (elided_key.0.clone(), false);
-                    let edges = [Edge::Direct(real_key)];
+                    let edges = [GraphEdge::direct(real_key)];
                     let mut buffer = vec![];
                     let within_graph =
                         with_content_format.sub_width(graph.width(&elided_key, &edges));
