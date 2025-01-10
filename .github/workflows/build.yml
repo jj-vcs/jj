@@ -4,7 +4,12 @@ on:
   push:
     branches:
       - '**'
-      - '!main' # Don't build on main, because merge_group will do that already.
+      # Disable builds on these branches, because they will become a pull
+      # request, and be handled by merge_group below.
+      - '!dependabot/**'
+      # `main` and `gh-readonly-queue` are handled by merge_group specifically.
+      - '!gh-readonly-queue/**'
+      - '!main'
   pull_request:
   merge_group:
 
