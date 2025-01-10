@@ -184,14 +184,16 @@
           pkgs.lib.concatStringsSep " "
           (pkgs.lib.concatMap (x: ["-C" "link-arg=${x}"]) rustLinkerFlags);
 
-        devShellEnv = {
-          RUSTFLAGS = "-Zthreads=0 ${rustLinkFlagsString}";
-        };
+        # The `RUSTFLAGS` environment variable is set in `shellHook` instead of `env`
+        # to allow the `xcrun` command above to be interpreted by the shell.
+        shellHook = ''
+          export RUSTFLAGS="-Zthreads=0 ${rustLinkFlagsString}"
+        '';
       in
         pkgs.mkShell {
           name = "jujutsu";
           packages = packages ++ nativeBuildInputs ++ buildInputs ++ nativeCheckInputs;
-          env = env // devShellEnv;
+          inherit env shellHook;
         };
     }));
 }
