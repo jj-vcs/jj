@@ -48,6 +48,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * In `jj config list` template, `value` is now typed as `ConfigValue`, not as
   `String` serialized in TOML syntax.
 
+* Upgraded `scm-record` from v0.4.0 to v0.5.0. See release notes at
+  <https://github.com/arxanas/scm-record/releases/tag/v0.5.0>.
+
 ### Deprecations
 
 ### New features
