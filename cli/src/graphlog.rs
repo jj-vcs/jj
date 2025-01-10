@@ -16,7 +16,6 @@ use std::hash::Hash;
 use std::io;
 use std::io::Write;
 
-use itertools::Itertools;
 use jj_lib::config::ConfigGetError;
 use jj_lib::graph::GraphEdge;
 use jj_lib::graph::GraphEdgeType;
@@ -25,46 +24,16 @@ use renderdag::Ancestor;
 use renderdag::GraphRowRenderer;
 use renderdag::Renderer;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-// An edge to another node in the graph
-pub enum Edge<T> {
-    Direct(T),
-    Indirect(T),
-    Missing,
-}
-
-impl<T> Edge<T> {
-    pub fn map<U>(self, f: impl FnOnce(T) -> U) -> Edge<U> {
-        match self {
-            Edge::Direct(inner) => Edge::Direct(f(inner)),
-            Edge::Indirect(inner) => Edge::Indirect(f(inner)),
-            Edge::Missing => Edge::Missing,
-        }
-    }
-}
-
-/// Used to convert a jj_lib GraphEdge into a graphlog Edge.
-pub fn convert_edge_type<N>(e: GraphEdge<N>) -> Edge<N> {
-    // TODO: Is it possible for the ClI to use the GraphEdge type directly?
-    // These two types seem to correspond exactly, only differing in minor
-    // implementation details.
-    match e.edge_type {
-        GraphEdgeType::Missing => Edge::Missing,
-        GraphEdgeType::Direct => Edge::Direct(e.target),
-        GraphEdgeType::Indirect => Edge::Indirect(e.target),
-    }
-}
-
 pub trait GraphLog<K: Clone + Eq + Hash> {
     fn add_node(
         &mut self,
         id: &K,
-        edges: &[Edge<K>],
+        edges: &[GraphEdge<K>],
         node_symbol: &str,
         text: &str,
     ) -> io::Result<()>;
 
-    fn width(&self, id: &K, edges: &[Edge<K>]) -> usize;
+    fn width(&self, id: &K, edges: &[GraphEdge<K>]) -> usize;
 }
 
 pub struct SaplingGraphLog<'writer, R> {
@@ -72,13 +41,11 @@ pub struct SaplingGraphLog<'writer, R> {
     writer: &'writer mut dyn Write,
 }
 
-impl<K: Clone> From<&Edge<K>> for Ancestor<K> {
-    fn from(e: &Edge<K>) -> Self {
-        match e {
-            Edge::Direct(target) => Ancestor::Parent(target.clone()),
-            Edge::Indirect(target) => Ancestor::Ancestor(target.clone()),
-            Edge::Missing => Ancestor::Anonymous,
-        }
+pub fn convert_graph_edge_into_ancestor<K: Clone>(e: &GraphEdge<K>) -> Ancestor<K> {
+    match e.edge_type {
+        GraphEdgeType::Direct => Ancestor::Parent(e.target.clone()),
+        GraphEdgeType::Indirect => Ancestor::Ancestor(e.target.clone()),
+        GraphEdgeType::Missing => Ancestor::Anonymous,
     }
 }
 
@@ -90,13 +57,13 @@ where
     fn add_node(
         &mut self,
         id: &K,
-        edges: &[Edge<K>],
+        edges: &[GraphEdge<K>],
         node_symbol: &str,
         text: &str,
     ) -> io::Result<()> {
         let row = self.renderer.next_row(
             id.clone(),
-            edges.iter().map_into().collect(),
+            edges.iter().map(convert_graph_edge_into_ancestor).collect(),
             node_symbol.into(),
             text.into(),
         );
@@ -104,8 +71,8 @@ where
         write!(self.writer, "{row}")
     }
 
-    fn width(&self, id: &K, edges: &[Edge<K>]) -> usize {
-        let parents = edges.iter().map_into().collect();
+    fn width(&self, id: &K, edges: &[GraphEdge<K>]) -> usize {
+        let parents = edges.iter().map(convert_graph_edge_into_ancestor).collect();
         let w: u64 = self.renderer.width(Some(id), Some(&parents));
         w.try_into().unwrap()
     }
