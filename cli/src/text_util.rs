@@ -231,10 +231,14 @@ pub fn write_truncated_start(
     formatter: &mut dyn Formatter,
     recorded_content: &FormatRecorder,
     max_width: usize,
+    tail: &str,
 ) -> io::Result<usize> {
     let data = recorded_content.data();
     let (start, truncated_width) = truncate_start_pos_bytes(data, max_width);
     let truncated_start = start + count_start_zero_width_chars_bytes(&data[start..]);
+    if truncated_start != 0 {
+        formatter.write_all(tail.as_bytes())?;
+    }
     recorded_content.replay_with(formatter, |formatter, range| {
         let start = cmp::max(range.start, truncated_start);
         if start < range.end {
@@ -253,6 +257,7 @@ pub fn write_truncated_end(
     formatter: &mut dyn Formatter,
     recorded_content: &FormatRecorder,
     max_width: usize,
+    tail: &str,
 ) -> io::Result<usize> {
     let data = recorded_content.data();
     let (truncated_end, truncated_width) = truncate_end_pos_bytes(data, max_width);
@@ -263,6 +268,9 @@ pub fn write_truncated_end(
         }
         Ok(())
     })?;
+    if truncated_end != data.len() {
+        formatter.write_all(tail.as_bytes())?;
+    }
     Ok(truncated_width)
 }
 
@@ -679,48 +687,34 @@ mod tests {
         }
 
         // Truncate start
-        insta::assert_snapshot!(
-            format_colored(|formatter| write_truncated_start(formatter, &recorder, 6).map(|_| ())),
-            @"[38;5;1mfoo[39m[38;5;6mbar[39m"
-        );
-        insta::assert_snapshot!(
-            format_colored(|formatter| write_truncated_start(formatter, &recorder, 5).map(|_| ())),
-            @"[38;5;1moo[39m[38;5;6mbar[39m"
-        );
-        insta::assert_snapshot!(
-            format_colored(|formatter| write_truncated_start(formatter, &recorder, 3).map(|_| ())),
-            @"[38;5;6mbar[39m"
-        );
-        insta::assert_snapshot!(
-            format_colored(|formatter| write_truncated_start(formatter, &recorder, 2).map(|_| ())),
-            @"[38;5;6mar[39m"
-        );
-        insta::assert_snapshot!(
-            format_colored(|formatter| write_truncated_start(formatter, &recorder, 0).map(|_| ())),
-            @""
-        );
+        let render = |max_width, tail| {
+            format_colored(|fmt| write_truncated_start(fmt, &recorder, max_width, tail).map(|_| ()))
+        };
+        insta::assert_snapshot!(render(6, ""   ), @"[38;5;1mfoo[39m[38;5;6mbar[39m");
+        insta::assert_snapshot!(render(6, "..."), @"[38;5;1mfoo[39m[38;5;6mbar[39m");
+        insta::assert_snapshot!(render(5, ""   ), @"[38;5;1moo[39m[38;5;6mbar[39m");
+        insta::assert_snapshot!(render(5, "..."), @"...[38;5;1moo[39m[38;5;6mbar[39m");
+        insta::assert_snapshot!(render(3, ""   ), @"[38;5;6mbar[39m");
+        insta::assert_snapshot!(render(3, "..."), @"...[38;5;6mbar[39m");
+        insta::assert_snapshot!(render(2, ""   ), @"[38;5;6mar[39m");
+        insta::assert_snapshot!(render(2, "..."), @"...[38;5;6mar[39m");
+        insta::assert_snapshot!(render(0, ""   ), @"");
+        insta::assert_snapshot!(render(0, "..."), @"...");
 
         // Truncate end
-        insta::assert_snapshot!(
-            format_colored(|formatter| write_truncated_end(formatter, &recorder, 6).map(|_| ())),
-            @"[38;5;1mfoo[39m[38;5;6mbar[39m"
-        );
-        insta::assert_snapshot!(
-            format_colored(|formatter| write_truncated_end(formatter, &recorder, 5).map(|_| ())),
-            @"[38;5;1mfoo[39m[38;5;6mba[39m"
-        );
-        insta::assert_snapshot!(
-            format_colored(|formatter| write_truncated_end(formatter, &recorder, 3).map(|_| ())),
-            @"[38;5;1mfoo[39m"
-        );
-        insta::assert_snapshot!(
-            format_colored(|formatter| write_truncated_end(formatter, &recorder, 2).map(|_| ())),
-            @"[38;5;1mfo[39m"
-        );
-        insta::assert_snapshot!(
-            format_colored(|formatter| write_truncated_end(formatter, &recorder, 0).map(|_| ())),
-            @""
-        );
+        let render = |max_width, tail| {
+            format_colored(|fmt| write_truncated_end(fmt, &recorder, max_width, tail).map(|_| ()))
+        };
+        insta::assert_snapshot!(render(6, "" ), @"[38;5;1mfoo[39m[38;5;6mbar[39m");
+        insta::assert_snapshot!(render(6, "…"), @"[38;5;1mfoo[39m[38;5;6mbar[39m");
+        insta::assert_snapshot!(render(5, "" ), @"[38;5;1mfoo[39m[38;5;6mba[39m");
+        insta::assert_snapshot!(render(5, "…"), @"[38;5;1mfoo[39m[38;5;6mba[39m…");
+        insta::assert_snapshot!(render(3, "" ), @"[38;5;1mfoo[39m");
+        insta::assert_snapshot!(render(3, "…"), @"[38;5;1mfoo[39m…");
+        insta::assert_snapshot!(render(2, "" ), @"[38;5;1mfo[39m");
+        insta::assert_snapshot!(render(2, "…"), @"[38;5;1mfo[39m…");
+        insta::assert_snapshot!(render(0, "" ), @"");
+        insta::assert_snapshot!(render(0, "…"), @"…");
     }
 
     #[test]
@@ -729,56 +723,38 @@ mod tests {
         write!(recorder, "a\u{300}bc\u{300}一二三").unwrap();
 
         // Truncate start
-        insta::assert_snapshot!(
-            format_colored(|formatter| write_truncated_start(formatter, &recorder, 1).map(|_| ())),
-            @""
-        );
-        insta::assert_snapshot!(
-            format_colored(|formatter| write_truncated_start(formatter, &recorder, 2).map(|_| ())),
-            @"三"
-        );
-        insta::assert_snapshot!(
-            format_colored(|formatter| write_truncated_start(formatter, &recorder, 3).map(|_| ())),
-            @"三"
-        );
-        insta::assert_snapshot!(
-            format_colored(|formatter| write_truncated_start(formatter, &recorder, 6).map(|_| ())),
-            @"一二三"
-        );
-        insta::assert_snapshot!(
-            format_colored(|formatter| write_truncated_start(formatter, &recorder, 7).map(|_| ())),
-            @"c̀一二三"
-        );
-        insta::assert_snapshot!(
-            format_colored(|formatter| write_truncated_start(formatter, &recorder, 9).map(|_| ())),
-            @"àbc̀一二三"
-        );
-        insta::assert_snapshot!(
-            format_colored(|formatter| write_truncated_start(formatter, &recorder, 10).map(|_| ())),
-            @"àbc̀一二三"
-        );
+        let render = |max_width, tail| {
+            format_colored(|fmt| write_truncated_start(fmt, &recorder, max_width, tail).map(|_| ()))
+        };
+        insta::assert_snapshot!(render(1,  ""   ), @"");
+        insta::assert_snapshot!(render(1,  "123"), @"123");
+        insta::assert_snapshot!(render(2,  ""   ), @"三");
+        insta::assert_snapshot!(render(2,  "123"), @"123三");
+        insta::assert_snapshot!(render(3,  ""   ), @"三");
+        insta::assert_snapshot!(render(3,  "123"), @"123三");
+        insta::assert_snapshot!(render(6,  ""   ), @"一二三");
+        insta::assert_snapshot!(render(6,  "123"), @"123一二三");
+        insta::assert_snapshot!(render(7,  ""   ), @"c̀一二三");
+        insta::assert_snapshot!(render(7,  "123"), @"123c̀一二三");
+        insta::assert_snapshot!(render(9,  ""   ), @"àbc̀一二三");
+        insta::assert_snapshot!(render(9,  "123"), @"àbc̀一二三");
+        insta::assert_snapshot!(render(10, ""   ), @"àbc̀一二三");
+        insta::assert_snapshot!(render(10, "123"), @"àbc̀一二三");
 
         // Truncate end
-        insta::assert_snapshot!(
-            format_colored(|formatter| write_truncated_end(formatter, &recorder, 1).map(|_| ())),
-            @"à"
-        );
-        insta::assert_snapshot!(
-            format_colored(|formatter| write_truncated_end(formatter, &recorder, 4).map(|_| ())),
-            @"àbc̀"
-        );
-        insta::assert_snapshot!(
-            format_colored(|formatter| write_truncated_end(formatter, &recorder, 5).map(|_| ())),
-            @"àbc̀一"
-        );
-        insta::assert_snapshot!(
-            format_colored(|formatter| write_truncated_end(formatter, &recorder, 9).map(|_| ())),
-            @"àbc̀一二三"
-        );
-        insta::assert_snapshot!(
-            format_colored(|formatter| write_truncated_end(formatter, &recorder, 10).map(|_| ())),
-            @"àbc̀一二三"
-        );
+        let render = |max_width, tail| {
+            format_colored(|fmt| write_truncated_end(fmt, &recorder, max_width, tail).map(|_| ()))
+        };
+        insta::assert_snapshot!(render(1,  ""  ), @"à");
+        insta::assert_snapshot!(render(1,  "__"), @"à__");
+        insta::assert_snapshot!(render(4,  ""  ), @"àbc̀");
+        insta::assert_snapshot!(render(4,  "__"), @"àbc̀__");
+        insta::assert_snapshot!(render(5,  ""  ), @"àbc̀一");
+        insta::assert_snapshot!(render(5,  "__"), @"àbc̀一__");
+        insta::assert_snapshot!(render(9,  ""  ), @"àbc̀一二三");
+        insta::assert_snapshot!(render(9,  "__"), @"àbc̀一二三");
+        insta::assert_snapshot!(render(10, ""  ), @"àbc̀一二三");
+        insta::assert_snapshot!(render(10, "__"), @"àbc̀一二三");
     }
 
     #[test]
@@ -786,24 +762,22 @@ mod tests {
         let recorder = FormatRecorder::new();
 
         // Truncate start
-        insta::assert_snapshot!(
-            format_colored(|formatter| write_truncated_start(formatter, &recorder, 0).map(|_| ())),
-            @""
-        );
-        insta::assert_snapshot!(
-            format_colored(|formatter| write_truncated_start(formatter, &recorder, 1).map(|_| ())),
-            @""
-        );
+        let render = |max_width, tail| {
+            format_colored(|fmt| write_truncated_start(fmt, &recorder, max_width, tail).map(|_| ()))
+        };
+        insta::assert_snapshot!(render(0, ""  ), @"");
+        insta::assert_snapshot!(render(0, "[]"), @"");
+        insta::assert_snapshot!(render(1, ""  ), @"");
+        insta::assert_snapshot!(render(1, "[]"), @"");
 
         // Truncate end
-        insta::assert_snapshot!(
-            format_colored(|formatter| write_truncated_end(formatter, &recorder, 0).map(|_| ())),
-            @""
-        );
-        insta::assert_snapshot!(
-            format_colored(|formatter| write_truncated_end(formatter, &recorder, 1).map(|_| ())),
-            @""
-        );
+        let render = |max_width, tail| {
+            format_colored(|fmt| write_truncated_end(fmt, &recorder, max_width, tail).map(|_| ()))
+        };
+        insta::assert_snapshot!(render(0, ""  ), @"");
+        insta::assert_snapshot!(render(0, "[]"), @"");
+        insta::assert_snapshot!(render(1, ""  ), @"");
+        insta::assert_snapshot!(render(1, "[]"), @"");
     }
 
     #[test]
