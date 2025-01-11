@@ -48,6 +48,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * In `jj config list` template, `value` is now typed as `ConfigValue`, not as
   `String` serialized in TOML syntax.
 
+* `jj git remote add`/`set-url` now converts relative Git remote path to
+  absolute path.
+
 ### Deprecations
 
 ### New features
