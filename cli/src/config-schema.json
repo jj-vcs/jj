@@ -338,6 +338,11 @@
                     "description": "Whether jj should abandon commits that became unreachable in Git.",
                     "default": true
                 },
+                "init-track-local-bookmarks": {
+                    "type": "boolean",
+                    "description": "Whether jj should track bookmarks that were already tracked when initializing a colocated repository.",
+                    "default": false
+                },
                 "push-bookmark-prefix": {
                     "type": "string",
                     "description": "Prefix used when pushing a bookmark based on a change ID",

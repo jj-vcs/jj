@@ -15,6 +15,7 @@ context = 3
 
 [git]
 push-bookmark-prefix = "push-"
+init-track-local-bookmarks = false
 
 [ui]
 # TODO: delete ui.allow-filesets in jj 0.26+

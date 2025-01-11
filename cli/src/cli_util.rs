@@ -114,7 +114,6 @@ use jj_lib::settings::HumanByteSize;
 use jj_lib::settings::UserSettings;
 use jj_lib::str_util::StringPattern;
 use jj_lib::transaction::Transaction;
-use jj_lib::view::View;
 use jj_lib::working_copy;
 use jj_lib::working_copy::CheckoutOptions;
 use jj_lib::working_copy::CheckoutStats;
@@ -2751,40 +2750,6 @@ pub fn print_unmatched_explicit_paths<'a>(
         ui.warning_default(),
         "No matching entries for paths: {ui_paths}"
     )?;
-    Ok(())
-}
-
-pub fn print_trackable_remote_bookmarks(ui: &Ui, view: &View) -> io::Result<()> {
-    let remote_bookmark_names = view
-        .bookmarks()
-        .filter(|(_, bookmark_target)| bookmark_target.local_target.is_present())
-        .flat_map(|(name, bookmark_target)| {
-            bookmark_target
-                .remote_refs
-                .into_iter()
-                .filter(|&(_, remote_ref)| !remote_ref.is_tracking())
-                .map(move |(remote, _)| format!("{name}@{remote}"))
-        })
-        .collect_vec();
-    if remote_bookmark_names.is_empty() {
-        return Ok(());
-    }
-
-    if let Some(mut formatter) = ui.status_formatter() {
-        writeln!(
-            formatter.labeled("hint").with_heading("Hint: "),
-            "The following remote bookmarks aren't associated with the existing local bookmarks:"
-        )?;
-        for full_name in &remote_bookmark_names {
-            write!(formatter, "  ")?;
-            writeln!(formatter.labeled("bookmark"), "{full_name}")?;
-        }
-        writeln!(
-            formatter.labeled("hint").with_heading("Hint: "),
-            "Run `jj bookmark track {names}` to keep local bookmarks updated on future pulls.",
-            names = remote_bookmark_names.join(" "),
-        )?;
-    }
     Ok(())
 }
 
