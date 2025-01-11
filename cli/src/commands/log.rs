@@ -173,7 +173,7 @@ pub(crate) fn cmd_log(
     }
 
     {
-        ui.request_pager();
+        ui.request_pager("log");
         let mut formatter = ui.stdout_formatter();
         let formatter = formatter.as_mut();
 

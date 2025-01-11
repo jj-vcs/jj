@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::HashMap;
 use std::env;
 use std::error;
 use std::fmt;
@@ -49,6 +50,7 @@ use crate::formatter::LabeledWriter;
 use crate::formatter::PlainTextFormatter;
 
 const BUILTIN_PAGER_NAME: &str = ":builtin";
+const BUILTIN_PAGER_NONE_NAME: &str = ":none";
 
 enum UiOutput {
     Terminal {
@@ -257,11 +259,26 @@ impl Write for UiStderr<'_> {
 
 pub struct Ui {
     quiet: bool,
-    pager_cmd: CommandNameAndArgs,
+    pager_cmd: PagerCmd,
     paginate: PaginationChoice,
     progress_indicator: bool,
     formatter_factory: FormatterFactory,
     output: UiOutput,
+}
+
+enum PagerCmd {
+    Default(CommandNameAndArgs),
+    PerSubcommand(HashMap<String, CommandNameAndArgs>),
+}
+
+impl PagerCmd {
+    fn from_config(config: &StackedConfig) -> Result<Self, ConfigGetError> {
+        const KEY: &str = "ui.pager";
+        config
+            .get(KEY)
+            .map(Self::Default)
+            .or_else(|_| config.get(KEY).map(Self::PerSubcommand))
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, serde::Deserialize)]
@@ -333,7 +350,7 @@ impl Ui {
         Ok(Ui {
             quiet: config.get("ui.quiet")?,
             formatter_factory,
-            pager_cmd: config.get("ui.pager")?,
+            pager_cmd: PagerCmd::from_config(config)?,
             paginate: config.get("ui.paginate")?,
             progress_indicator: config.get("ui.progress-indicator")?,
             output: UiOutput::new_terminal(),
@@ -343,7 +360,7 @@ impl Ui {
     pub fn reset(&mut self, config: &StackedConfig) -> Result<(), CommandError> {
         self.quiet = config.get("ui.quiet")?;
         self.paginate = config.get("ui.paginate")?;
-        self.pager_cmd = config.get("ui.pager")?;
+        self.pager_cmd = PagerCmd::from_config(config)?;
         self.progress_indicator = config.get("ui.progress-indicator")?;
         self.formatter_factory = prepare_formatter_factory(config, &io::stdout())?;
         Ok(())
@@ -351,7 +368,7 @@ impl Ui {
 
     /// Switches the output to use the pager, if allowed.
     #[instrument(skip_all)]
-    pub fn request_pager(&mut self) {
+    pub fn request_pager(&mut self, subcommand: &str) {
         match self.paginate {
             PaginationChoice::Never => return,
             PaginationChoice::Auto => {}
@@ -360,25 +377,37 @@ impl Ui {
             return;
         }
 
-        let use_builtin_pager = matches!(
-            &self.pager_cmd, CommandNameAndArgs::String(name) if name == BUILTIN_PAGER_NAME);
-        let new_output = if use_builtin_pager {
-            Some(UiOutput::new_builtin())
-        } else {
-            UiOutput::new_paged(&self.pager_cmd)
-                .inspect_err(|err| {
-                    // The pager executable couldn't be found or couldn't be run
-                    writeln!(
-                        self.warning_default(),
-                        "Failed to spawn pager '{name}': {err}",
-                        name = self.pager_cmd.split_name(),
-                        err = format_error_with_sources(err),
-                    )
-                    .ok();
-                    writeln!(self.hint_default(), "Consider using the `:builtin` pager.").ok();
-                })
-                .ok()
+        let show_err = |cmd: &CommandNameAndArgs, err: &_| {
+            writeln!(
+                self.warning_default(),
+                "Failed to spawn pager '{name}': {err}",
+                name = cmd.split_name(),
+                err = format_error_with_sources(err)
+            )
+            .ok();
+            writeln!(self.hint_default(), "Consider using the `:builtin` pager.").ok();
         };
+
+        let new_output = match &self.pager_cmd {
+            PagerCmd::Default(CommandNameAndArgs::String(name)) if name == BUILTIN_PAGER_NAME => {
+                Some(UiOutput::new_builtin())
+            }
+            PagerCmd::Default(cmd) => UiOutput::new_paged(cmd)
+                .inspect_err(|err| show_err(cmd, err))
+                .ok(),
+            PagerCmd::PerSubcommand(map) => {
+                match map.get(subcommand).or_else(|| map.get("default")) {
+                    Some(CommandNameAndArgs::String(name)) if name == BUILTIN_PAGER_NONE_NAME => {
+                        None
+                    }
+                    Some(cmd) => UiOutput::new_paged(cmd)
+                        .inspect_err(|err| show_err(cmd, err))
+                        .ok(),
+                    None => None,
+                }
+            }
+        };
+
         if let Some(output) = new_output {
             self.output = output;
         }

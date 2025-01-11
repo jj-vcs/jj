@@ -123,7 +123,7 @@ pub(crate) fn cmd_diff(
     }
 
     let diff_renderer = workspace_command.diff_renderer_for(&args.format)?;
-    ui.request_pager();
+    ui.request_pager("diff");
     diff_renderer.show_diff(
         ui,
         ui.stdout_formatter().as_mut(),

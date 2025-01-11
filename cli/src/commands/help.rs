@@ -52,7 +52,7 @@ pub(crate) fn cmd_help(
 ) -> Result<(), CommandError> {
     if let Some(name) = &args.keyword {
         let keyword = find_keyword(name).expect("clap should check this with `value_parser`");
-        ui.request_pager();
+        ui.request_pager("help");
         write!(ui.stdout(), "{}", keyword.content)?;
 
         return Ok(());

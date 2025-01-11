@@ -51,7 +51,7 @@ pub(crate) fn cmd_file_list(
     let matcher = workspace_command
         .parse_file_patterns(ui, &args.paths)?
         .to_matcher();
-    ui.request_pager();
+    ui.request_pager("file");
     for (name, _value) in tree.entries_matching(matcher.as_ref()) {
         writeln!(
             ui.stdout(),

@@ -83,14 +83,14 @@ pub(crate) fn cmd_file_show(
             return Err(user_error(format!("No such path: {ui_path}")));
         }
         if !value.is_tree() {
-            ui.request_pager();
+            ui.request_pager("file");
             write_tree_entries(ui, &workspace_command, [(path, Ok(value))])?;
             return Ok(());
         }
     }
 
     let matcher = fileset_expression.to_matcher();
-    ui.request_pager();
+    ui.request_pager("file");
     write_tree_entries(
         ui,
         &workspace_command,

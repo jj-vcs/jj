@@ -884,7 +884,7 @@ fn handle_clap_error(ui: &mut Ui, err: &clap::Error, hints: &[ErrorHint]) -> io:
 
     match err.kind() {
         clap::error::ErrorKind::DisplayHelp
-        | clap::error::ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand => ui.request_pager(),
+        | clap::error::ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand => ui.request_pager(""),
         _ => {}
     };
     // Definitions for exit codes and streams come from

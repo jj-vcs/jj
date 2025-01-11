@@ -578,6 +578,22 @@ pager = "delta"
 format = "git"
 ```
 
+### Setting the pager per subcommand
+
+A different pager can be configured for each subcommand by using a table. For
+example:
+
+```toml
+[ui]
+# set to ":none" to disable paging for a command
+pager.status = ":none"
+pager.log = { command = ["less", "-FRX"], env = { LESSCHARSET = "utf-8" } }
+pager.diff = ["delta", "--dark"]
+
+# use pager.default for all subcommands not otherwise mentioned
+pager.default = ":builtin"
+```
+
 ## Aliases
 
 You can define aliases for commands, including their arguments. For example:

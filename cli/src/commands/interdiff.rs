@@ -78,7 +78,7 @@ pub(crate) fn cmd_interdiff(
         .parse_file_patterns(ui, &args.paths)?
         .to_matcher();
     let diff_renderer = workspace_command.diff_renderer_for(&args.format)?;
-    ui.request_pager();
+    ui.request_pager("interdiff");
     diff_renderer.show_inter_diff(
         ui,
         ui.stdout_formatter().as_mut(),

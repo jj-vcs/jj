@@ -97,7 +97,7 @@ fn render_file_annotation(
     template_render: &TemplateRenderer<Commit>,
     annotation: &FileAnnotation,
 ) -> Result<(), CommandError> {
-    ui.request_pager();
+    ui.request_pager("file");
     let mut formatter = ui.stdout_formatter();
     for (line_no, (commit_id, line)) in annotation.lines().enumerate() {
         let commit_id = commit_id.expect("should reached to the empty ancestor");

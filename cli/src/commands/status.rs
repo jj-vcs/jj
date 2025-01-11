@@ -58,7 +58,7 @@ pub(crate) fn cmd_status(
     let matcher = workspace_command
         .parse_file_patterns(ui, &args.paths)?
         .to_matcher();
-    ui.request_pager();
+    ui.request_pager("status");
     let mut formatter = ui.stdout_formatter();
     let formatter = formatter.as_mut();
 

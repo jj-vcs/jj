@@ -90,7 +90,7 @@ pub fn cmd_config_list(
     }
 
     if !annotated_values.is_empty() {
-        ui.request_pager();
+        ui.request_pager("config");
         let mut formatter = ui.stdout_formatter();
         for annotated in &annotated_values {
             template.format(annotated, formatter.as_mut())?;

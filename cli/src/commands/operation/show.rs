@@ -93,7 +93,7 @@ pub fn cmd_op_show(
             .labeled("operation")
     };
 
-    ui.request_pager();
+    ui.request_pager("operation");
     let mut formatter = ui.stdout_formatter();
     template.format(&op, formatter.as_mut())?;
 

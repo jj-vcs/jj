@@ -76,7 +76,7 @@ fn cmd_tag_list(
             .labeled("tag_list")
     };
 
-    ui.request_pager();
+    ui.request_pager("tag");
     let mut formatter = ui.stdout_formatter();
 
     for (name, target) in view.tags() {

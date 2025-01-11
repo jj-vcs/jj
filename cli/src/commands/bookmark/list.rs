@@ -148,7 +148,7 @@ pub fn cmd_bookmark_list(
             .labeled("bookmark_list")
     };
 
-    ui.request_pager();
+    ui.request_pager("bookmark");
     let mut formatter = ui.stdout_formatter();
 
     let mut found_deleted_local_bookmark = false;

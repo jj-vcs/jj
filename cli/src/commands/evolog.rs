@@ -119,7 +119,7 @@ pub(crate) fn cmd_evolog(
             .labeled("node");
     }
 
-    ui.request_pager();
+    ui.request_pager("evolog");
     let mut formatter = ui.stdout_formatter();
     let formatter = formatter.as_mut();
 

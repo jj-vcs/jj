@@ -136,7 +136,7 @@ pub fn cmd_op_diff(
     };
 
     let op_summary_template = workspace_command.operation_summary_template();
-    ui.request_pager();
+    ui.request_pager("operation");
     let mut formatter = ui.stdout_formatter();
     write!(formatter, "From operation: ")?;
     op_summary_template.format(&from_op, &mut *formatter)?;

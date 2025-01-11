@@ -186,7 +186,7 @@ fn do_op_log(
         None
     };
 
-    ui.request_pager();
+    ui.request_pager("operation");
     let mut formatter = ui.stdout_formatter();
     let formatter = formatter.as_mut();
     let limit = args.limit.unwrap_or(usize::MAX);
