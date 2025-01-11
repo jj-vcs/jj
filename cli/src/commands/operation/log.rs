@@ -12,15 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::HashMap;
 use std::slice;
 
+use clap_complete::ArgValueCandidates;
+use indexmap::IndexMap;
 use itertools::Itertools as _;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigGetResultExt as _;
+use jj_lib::op_store::OperationId;
 use jj_lib::op_walk;
 use jj_lib::operation::Operation;
 use jj_lib::repo::RepoLoader;
 use jj_lib::settings::UserSettings;
+use jj_lib::str_util::StringPattern;
+use jj_lib::view::View;
 
 use super::diff::show_op_diff;
 use crate::cli_util::format_template;
@@ -29,6 +35,7 @@ use crate::cli_util::LogContentFormat;
 use crate::cli_util::WorkspaceCommandEnvironment;
 use crate::command_error::CommandError;
 use crate::commit_templater::CommitTemplateLanguage;
+use crate::complete;
 use crate::diff_util::diff_formats_for_log;
 use crate::diff_util::DiffFormatArgs;
 use crate::diff_util::DiffRenderer;
@@ -60,6 +67,14 @@ pub struct OperationLogArgs {
     /// Show changes to the repository at each operation
     #[arg(long)]
     op_diff: bool,
+    /// Display only operations which change the given local bookmark, or local
+    /// bookmarks matching a pattern (can be repeated)
+    #[arg(
+        long, short,
+        value_parser = StringPattern::parse,
+        add = ArgValueCandidates::new(complete::local_bookmarks),
+    )]
+    bookmark: Vec<StringPattern>,
     /// Show patch of modifications to changes (implies --op-diff)
     ///
     /// If the previous version has different parents, it will be temporarily
@@ -102,6 +117,7 @@ fn do_op_log(
 ) -> Result<(), CommandError> {
     let settings = repo_loader.settings();
     let graph_style = GraphStyle::from_settings(settings)?;
+    let use_elided_nodes = settings.get_bool("ui.log-synthetic-elided-nodes")?;
     let with_content_format = LogContentFormat::new(ui, settings)?;
 
     let template;
@@ -130,7 +146,7 @@ fn do_op_log(
                 ui,
                 &language,
                 &get_node_template(graph_style, settings)?,
-                OperationTemplateLanguage::wrap_operation,
+                OperationTemplateLanguage::wrap_operation_opt,
             )?
             .labeled("node");
     }
@@ -190,18 +206,94 @@ fn do_op_log(
     let mut formatter = ui.stdout_formatter();
     let formatter = formatter.as_mut();
     let limit = args.limit.unwrap_or(usize::MAX);
-    let iter = op_walk::walk_ancestors(slice::from_ref(current_op)).take(limit);
+    let iter = op_walk::walk_ancestors(slice::from_ref(current_op));
+    // Map of elided ancestor nodes to their latest non-elided ancestors.
+    let mut elided_node_ancestors: HashMap<OperationId, Vec<OperationId>> = HashMap::new();
+    let iter: Box<dyn Iterator<Item = Result<Operation, CommandError>>> = if !args
+        .bookmark
+        .is_empty()
+    {
+        Box::new(iter.filter_map(|op| {
+            let get_result = || -> Result<Option<Operation>, CommandError> {
+                let op = op?;
+                let view = op.view()?;
+                let parents: Vec<_> = op.parents().try_collect()?;
+                let parent_op = repo_loader.merge_operations(parents, None)?;
+                let parent_view = parent_op.view()?;
+
+                let get_matching_bookmarks = |view: &View| {
+                    let mut bookmarks = IndexMap::new();
+                    for pattern in &args.bookmark {
+                        let matches = view
+                            .local_bookmarks_matching(pattern)
+                            .map(|(name, targets)| (name.to_owned(), targets.to_owned()));
+                        bookmarks.extend(matches);
+                    }
+                    bookmarks
+                };
+
+                let op_bookmarks = get_matching_bookmarks(&view);
+                let parent_bookmarks = get_matching_bookmarks(&parent_view);
+
+                if op_bookmarks != parent_bookmarks {
+                    Ok(Some(op))
+                } else {
+                    // If the current operation is to be elided, update any references to it in the
+                    // `elided_node_ancestors` map to point to its parents.
+                    let mut replaced = false;
+                    for item in elided_node_ancestors.values_mut() {
+                        if item.iter().any(|id| id == op.id()) {
+                            replaced = true;
+                            *item = item
+                                .iter()
+                                .flat_map(|id| {
+                                    if id == op.id() {
+                                        op.parent_ids().to_owned()
+                                    } else {
+                                        vec![id.clone()]
+                                    }
+                                })
+                                .unique()
+                                .collect();
+                        }
+                    }
+                    if !replaced {
+                        elided_node_ancestors.insert(op.id().clone(), op.parent_ids().to_owned());
+                    }
+                    Ok(None)
+                }
+            };
+            get_result().transpose()
+        }))
+    } else {
+        Box::new(iter.map(|op| Ok(op?)))
+    };
+    let iter = iter.take(limit);
     if !args.no_graph {
         let mut raw_output = formatter.raw()?;
         let mut graph = get_graphlog(graph_style, raw_output.as_mut());
+        let iter = iter.collect_vec();
         for op in iter {
             let op = op?;
+            let mut elided_targets = vec![];
             let mut edges = vec![];
             for id in op.parent_ids() {
-                edges.push(Edge::Direct(id.clone()));
+                if let Some(ancestors) = elided_node_ancestors.get(id) {
+                    for parent_id in ancestors {
+                        if use_elided_nodes {
+                            elided_targets.push(parent_id.clone());
+                            edges.push(Edge::Direct((parent_id.clone(), true)));
+                        } else {
+                            edges.push(Edge::Indirect((parent_id.clone(), false)));
+                        }
+                    }
+                } else {
+                    edges.push(Edge::Direct((id.clone(), false)));
+                }
             }
             let mut buffer = vec![];
-            let within_graph = with_content_format.sub_width(graph.width(op.id(), &edges));
+            let key = (op.id().clone(), false);
+            let within_graph = with_content_format.sub_width(graph.width(&key, &edges));
             within_graph.write(ui.new_formatter(&mut buffer).as_mut(), |formatter| {
                 template.format(&op, formatter)
             })?;
@@ -212,13 +304,31 @@ fn do_op_log(
                 let mut formatter = ui.new_formatter(&mut buffer);
                 show(ui, formatter.as_mut(), &op, &within_graph)?;
             }
-            let node_symbol = format_template(ui, &op, &op_node_template);
+            let node_symbol = format_template(ui, &Some(op), &op_node_template);
             graph.add_node(
-                op.id(),
+                &key,
                 &edges,
                 &node_symbol,
                 &String::from_utf8_lossy(&buffer),
             )?;
+
+            for elided_target in elided_targets {
+                let elided_key = (elided_target, true);
+                let real_key = (elided_key.0.clone(), false);
+                let edges = [Edge::Direct(real_key)];
+                let mut buffer = vec![];
+                let within_graph = with_content_format.sub_width(graph.width(&elided_key, &edges));
+                within_graph.write(ui.new_formatter(&mut buffer).as_mut(), |formatter| {
+                    writeln!(formatter.labeled("elided"), "(elided revisions)")
+                })?;
+                let node_symbol = format_template(ui, &None, &op_node_template);
+                graph.add_node(
+                    &elided_key,
+                    &edges,
+                    &node_symbol,
+                    &String::from_utf8_lossy(&buffer),
+                )?;
+            }
         }
     } else {
         for op in iter {
