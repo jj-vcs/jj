@@ -19,6 +19,7 @@ use std::io;
 use std::io::Read;
 use std::io::Write;
 use std::iter;
+use std::mem;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Stdio;
@@ -47,6 +48,7 @@ use unicode_width::UnicodeWidthStr;
 
 use crate::cleanup_guard::CleanupGuard;
 use crate::cli_util::WorkspaceCommandTransaction;
+use crate::command_error::cli_error;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_hint;
 use crate::command_error::CommandError;
@@ -95,6 +97,23 @@ pub fn is_colocated_git_workspace(workspace: &Workspace, repo: &ReadonlyRepo) ->
         return false;
     };
     dunce::canonicalize(git_workdir).ok().as_deref() == dot_git_path.parent()
+}
+
+/// Parses user-specified remote URL or path to absolute form.
+pub fn absolute_git_url(cwd: &Path, source: &str) -> Result<String, CommandError> {
+    // Git appears to turn URL-like source to absolute path if local git directory
+    // exits, and fails because '$PWD/https' is unsupported protocol. Since it would
+    // be tedious to copy the exact git (or libgit2) behavior, we simply let gix
+    // parse the input as URL, rcp-like, or local path.
+    let mut url = gix::url::parse(source.as_ref()).map_err(cli_error)?;
+    url.canonicalize(cwd).map_err(user_error)?;
+    // As of gix 0.68.0, the canonicalized path uses platform-native directory
+    // separator, which isn't compatible with libgit2 on Windows.
+    if url.scheme == gix::url::Scheme::File {
+        url.path = gix::path::to_unix_separators_on_windows(mem::take(&mut url.path)).into_owned();
+    }
+    // It's less likely that cwd isn't utf-8, so just fall back to original source.
+    Ok(String::from_utf8(url.to_bstring().into()).unwrap_or_else(|_| source.to_owned()))
 }
 
 fn terminal_get_username(ui: &Ui, url: &str) -> Option<String> {
@@ -688,9 +707,59 @@ fn warn_if_branches_not_found(
 
 #[cfg(test)]
 mod tests {
+    use std::path::MAIN_SEPARATOR;
+
     use insta::assert_snapshot;
 
     use super::*;
+
+    #[test]
+    fn test_absolute_git_url() {
+        // gix::Url::canonicalize() works even if the path doesn't exist.
+        // However, we need to ensure that no symlinks exist at the test paths.
+        let temp_dir = testutils::new_temp_dir();
+        let cwd = dunce::canonicalize(temp_dir.path()).unwrap();
+        let cwd_slash = cwd.to_str().unwrap().replace(MAIN_SEPARATOR, "/");
+
+        // Local path
+        assert_eq!(
+            absolute_git_url(&cwd, "foo").unwrap(),
+            format!("{cwd_slash}/foo")
+        );
+        assert_eq!(
+            absolute_git_url(&cwd, r"foo\bar").unwrap(),
+            if cfg!(windows) {
+                format!("{cwd_slash}/foo/bar")
+            } else {
+                format!(r"{cwd_slash}/foo\bar")
+            }
+        );
+        assert_eq!(
+            absolute_git_url(&cwd.join("bar"), &format!("{cwd_slash}/foo")).unwrap(),
+            format!("{cwd_slash}/foo")
+        );
+
+        // rcp-like
+        assert_eq!(
+            absolute_git_url(&cwd, "git@example.org:foo/bar.git").unwrap(),
+            "git@example.org:foo/bar.git"
+        );
+        // URL
+        assert_eq!(
+            absolute_git_url(&cwd, "https://example.org/foo.git").unwrap(),
+            "https://example.org/foo.git"
+        );
+        // Custom scheme isn't an error
+        assert_eq!(
+            absolute_git_url(&cwd, "custom://example.org/foo.git").unwrap(),
+            "custom://example.org/foo.git"
+        );
+        // Password shouldn't be redacted (gix::Url::to_string() would do)
+        assert_eq!(
+            absolute_git_url(&cwd, "https://user:pass@example.org/").unwrap(),
+            "https://user:pass@example.org/"
+        );
+    }
 
     #[test]
     fn test_bar() {

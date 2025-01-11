@@ -19,6 +19,7 @@ use jj_lib::repo::Repo;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::complete;
+use crate::git_util::absolute_git_url;
 use crate::git_util::get_git_repo;
 use crate::ui::Ui;
 
@@ -28,7 +29,10 @@ pub struct GitRemoteSetUrlArgs {
     /// The remote's name
     #[arg(add = ArgValueCandidates::new(complete::git_remotes))]
     remote: String,
-    /// The desired url for `remote`
+    /// The desired URL or path for `remote`
+    ///
+    /// Local path will be resolved to absolute form.
+    #[arg(value_hint = clap::ValueHint::DirPath)]
     url: String,
 }
 
@@ -40,6 +44,7 @@ pub fn cmd_git_remote_set_url(
     let workspace_command = command.workspace_helper(ui)?;
     let repo = workspace_command.repo();
     let git_repo = get_git_repo(repo.store())?;
-    git::set_remote_url(&git_repo, &args.remote, &args.url)?;
+    let url = absolute_git_url(command.cwd(), &args.url)?;
+    git::set_remote_url(&git_repo, &args.remote, &url)?;
     Ok(())
 }
