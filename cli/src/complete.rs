@@ -472,6 +472,7 @@ fn all_files_from_rev(rev: String, current: &std::ffi::OsStr) -> Vec<CompletionC
             .arg("--config=ui.allow-filesets=true")
             .arg(current_prefix_to_fileset(current))
             .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::null())
             .spawn()
             .map_err(user_error)?;
         let stdout = child.stdout.take().unwrap();
