@@ -1213,7 +1213,8 @@ sign-on-push = true
 
 ### Manually signing commits
 
-You can use [`jj sign`](./cli-reference.md#jj-sign) to manually sign commits.
+You can use [`jj sign`](./cli-reference.md#jj-sign)/[`jj unsign`](./cli-reference.md#jj-unsign)
+to sign/unsign commits manually.
 
 
 !!! warning

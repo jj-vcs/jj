@@ -91,7 +91,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Commands that used to suggest `--ignore-immutable` now print the number of
   immutable commits that would be rewritten if used and a link to the docs.
 
-* The new `jj sign` command allows signing commits.
+* The new `jj sign` and `jj unsign` commands allow for signing/unsigning commits.
 
 ### Fixed bugs
 

@@ -250,3 +250,149 @@ backend = "none"
     [exit status: 1]
     ");
 }
+
+#[test]
+fn test_unsign() {
+    let test_env = TestEnvironment::default();
+
+    test_env.add_config(
+        r#"
+[ui]
+show-cryptographic-signatures = true
+
+[signing]
+behavior = "keep"
+backend = "test"
+"#,
+    );
+
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
+    let repo_path = test_env.env_root().join("repo");
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "one"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "two"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "three"])
+        .success();
+
+    test_env
+        .run_jj_in(&repo_path, ["sign", "-r", "..@"])
+        .success();
+
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "all()"]);
+    insta::assert_snapshot!(output, @r"
+    @  zsuskuln test.user@example.com 2001-02-03 08:05:11 7aa7dcdf [✓︎]
+    │  (empty) (no description set)
+    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:11 0413d103 [✓︎]
+    │  (empty) three
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:11 c8768375 [✓︎]
+    │  (empty) two
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:11 b90f5370 [✓︎]
+    │  (empty) one
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+
+    let output = test_env.run_jj_in(&repo_path, ["unsign", "-r", "..@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Unsigned 4 commits:
+      qpvuntsm cb05440c (empty) one
+      rlvkpnrz deb0db4b (empty) two
+      kkmpptxz 7c11ee12 (empty) three
+      zsuskuln be9daa4d (empty) (no description set)
+    Working copy now at: zsuskuln be9daa4d (empty) (no description set)
+    Parent commit      : kkmpptxz 7c11ee12 (empty) three
+    [EOF]
+    ");
+
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "all()"]);
+    insta::assert_snapshot!(output, @r"
+    @  zsuskuln test.user@example.com 2001-02-03 08:05:13 be9daa4d
+    │  (empty) (no description set)
+    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:13 7c11ee12
+    │  (empty) three
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:13 deb0db4b
+    │  (empty) two
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:13 cb05440c
+    │  (empty) one
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_warn_about_unsigning_commits_not_authored_by_me() {
+    let test_env = TestEnvironment::default();
+
+    test_env.add_config(
+        r#"
+[ui]
+show-cryptographic-signatures = true
+
+[signing]
+behavior = "keep"
+backend = "test"
+"#,
+    );
+
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
+    let repo_path = test_env.env_root().join("repo");
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "one"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "two"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "three"])
+        .success();
+
+    test_env
+        .run_jj_in(&repo_path, ["sign", "-r", "..@"])
+        .success();
+
+    let run_jj_as_someone_else = |args: &[&str]| {
+        let output = test_env.run_jj_with(|cmd| {
+            cmd.current_dir(&repo_path)
+                .env("JJ_USER", "Someone Else")
+                .env("JJ_EMAIL", "someone@else.com")
+                .args(args)
+        });
+        (output.stdout, output.stderr)
+    };
+
+    let (_, stderr) = run_jj_as_someone_else(&["unsign", "-r", "..@"]);
+    insta::assert_snapshot!(stderr, @r"
+    Unsigned 4 commits:
+      qpvuntsm 757aba72 (empty) one
+      rlvkpnrz 49a6eeeb (empty) two
+      kkmpptxz 8859969b (empty) three
+      zsuskuln 8cea2d75 (empty) (no description set)
+    Warning: 4 of these commits are not authored by you
+    Working copy now at: zsuskuln 8cea2d75 (empty) (no description set)
+    Parent commit      : kkmpptxz 8859969b (empty) three
+    [EOF]
+    ");
+
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "all()"]);
+    insta::assert_snapshot!(output, @r"
+    @  zsuskuln test.user@example.com 2001-02-03 08:05:12 8cea2d75
+    │  (empty) (no description set)
+    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:12 8859969b
+    │  (empty) three
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:12 49a6eeeb
+    │  (empty) two
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:12 757aba72
+    │  (empty) one
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+}
