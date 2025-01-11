@@ -99,6 +99,7 @@ This document contains the help content for the `jj` command-line program.
 * [`jj util install-man-pages`↴](#jj-util-install-man-pages)
 * [`jj util markdown-help`↴](#jj-util-markdown-help)
 * [`jj undo`↴](#jj-undo)
+* [`jj unsign`↴](#jj-unsign)
 * [`jj version`↴](#jj-version)
 * [`jj workspace`↴](#jj-workspace)
 * [`jj workspace add`↴](#jj-workspace-add)
@@ -159,6 +160,7 @@ To get started, see the tutorial at https://jj-vcs.github.io/jj/latest/tutorial/
 * `tag` — Manage tags
 * `util` — Infrequently used commands such as for generating shell completions
 * `undo` — Undo an operation (shortcut for `jj op undo`)
+* `unsign` — Drop a cryptographic signature
 * `version` — Display version information
 * `workspace` — Commands for working with workspaces
 
@@ -2594,6 +2596,18 @@ Undo an operation (shortcut for `jj op undo`)
   - `remote-tracking`:
     The remote-tracking bookmarks. Do not restore these if you'd like to push after the undo
 
+
+
+
+## `jj unsign`
+
+Drop a cryptographic signature
+
+**Usage:** `jj unsign [OPTIONS]`
+
+###### **Options:**
+
+* `-r`, `--revisions <REVSETS>` — What revision(s) to unsign
 
 
 
