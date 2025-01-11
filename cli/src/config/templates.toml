@@ -1,3 +1,6 @@
+[ui.templates]
+should_show_cryptographic_signature = false
+
 [templates]
 bookmark_list = '''
 if(remote,
@@ -78,6 +81,8 @@ if(root,
         if(git_head, label("git_head", "git_head()")),
         format_short_commit_id(commit_id),
         if(conflict, label("conflict", "conflict")),
+        if(config("ui.templates.should_show_cryptographic_signature").as_boolean(),
+          format_short_cryptographic_signature(signature)),
         if(empty, label("empty", "(empty)")),
         if(description,
           description.first_line(),
@@ -134,6 +139,8 @@ concat(
   surround("Tags     : ", "\n", tags),
   "Author   : " ++ format_detailed_signature(author) ++ "\n",
   "Committer: " ++ format_detailed_signature(committer)  ++ "\n",
+  if(config("ui.templates.should_show_cryptographic_signature").as_boolean(),
+    "Signature: " ++ format_detailed_cryptographic_signature(signature) ++ "\n"),
   "\n",
   indent("    ",
     coalesce(description, label(if(empty, "empty"), description_placeholder) ++ "\n")),
@@ -281,7 +288,37 @@ separate(" ",
         if(commit.git_head(), label("git_head", "git_head()")),
         format_short_commit_id(commit.commit_id()),
         if(commit.conflict(), label("conflict", "conflict")),
+        if(config("ui.templates.should_show_cryptographic_signature").as_boolean(),
+          format_short_cryptographic_signature(commit.signature())),
       )
+'''
+
+# signature verification is slow, disable by default
+'format_detailed_cryptographic_signature(signature)' = '''
+if(signature,
+  separate(" ",
+    format_cryptographic_signature_status(signature),
+    label("signature display", signature.display()),
+    label("signature key", signature.key()),
+  ),
+  "(no signature)",
+)
+'''
+'format_short_cryptographic_signature(signature)' = '''
+  format_cryptographic_signature_status(signature)
+'''
+'format_cryptographic_signature_status(signature)' = '''
+if(signature,
+  label("signature status", concat(
+    "[",
+    label(signature.status(), coalesce(
+      if(signature.status() == "good", "✓︎"),
+      if(signature.status() == "unknown", "?"),
+      "x",
+    )),
+    "]",
+  ))
+)
 '''
 
 builtin_log_node = '''

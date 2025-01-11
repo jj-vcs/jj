@@ -68,6 +68,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * New template function `config(name)` to access to configuration variable from
   template.
 
+* Add a config option `ui.templates.should_show_cryptographic_signature`.
+  When set to `"true"`, the builtin templates  will show signataure
+  information if available. The signature display can be customized
+  using `format_detailed_cryptographic_signature(signature)` and
+  `format_short_cryptographic_signature(signature)`.
+
 ### Fixed bugs
 
 * Fixed diff selection by external tools with `jj split`/`commit -i FILESETS`.

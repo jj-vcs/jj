@@ -500,7 +500,30 @@ formatted with `format_timestamp()`.
 'commit_timestamp(commit)' = 'commit.author().timestamp()'
 ```
 
-### Allow "large" revsets by default
+### Signature format
+
+Can be enabled with `should_show_cryptographic_signature()`, and
+customized with `format_short_cryptographic_signature(sig)` and
+`format_detailed_cryptographic_signature(sig)`.
+
+Note that the formatting functions take an `Option<CryptographicSignature>`.
+This allows you to emit a custom message if a signature is not present, but
+will raise an error if you try to access methods on a signature that is not
+available.
+
+```toml
+[template-aliases]
+# default is "false", change to "true" to enable
+'should_show_cryptographic_signature()' = 'true'
+'format_short_cryptographic_signature(sig)' = '''
+  if(sig,
+    sig.status(),
+    "(no sig)",
+  )
+'''
+```
+
+## Allow "large" revsets by default
 
 Certain commands (such as `jj rebase`) can take multiple revset arguments, but
 default to requiring each of those revsets to expand to a *single* revision.

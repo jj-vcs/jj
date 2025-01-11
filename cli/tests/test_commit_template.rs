@@ -1214,22 +1214,81 @@ fn test_log_diff_predefined_formats() {
 fn test_signature_templates() {
     let test_env = TestEnvironment::default();
 
-    test_env.add_config(r#"signing.sign-all = true"#);
-    test_env.add_config(r#"signing.backend = "test""#);
-
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
 
-    let template = r#"if(signature,
-                         signature.status() ++ " " ++ signature.display(),
-                         "no"
-                      ) ++ " signature""#;
+    test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "unsigned"]);
+    test_env.add_config("signing.sign-all = true");
+    test_env.add_config("signing.backend = 'test'");
+    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "signed"]);
 
+    let template = r#"
+    if(signature,
+      signature.status() ++ " " ++ signature.display(),
+      "no",
+    ) ++ " signature""#;
+
+    // show that signatures can render
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-T", template]);
-    insta::assert_snapshot!(stdout, @r"
-        @  good test-display signature
-        ◆  no signature");
-
+    insta::assert_snapshot!(stdout, @r#"
+    @  good test-display signature
+    ○  no signature
+    ◆  no signature
+    "#);
     let stdout = test_env.jj_cmd_success(&repo_path, &["show", "-T", template]);
-    insta::assert_snapshot!(stdout, @"good test-display signature");
+    insta::assert_snapshot!(stdout, @r#"good test-display signature"#);
+
+    // builtin templates
+    test_env.add_config("ui.templates.should_show_cryptographic_signature = true");
+
+    let args: &[_] = &["log", "-r", "..", "-T"];
+
+    let stdout = test_env.jj_cmd_success(&repo_path, &[args, &["builtin_log_oneline"]].concat());
+    insta::assert_snapshot!(stdout, @r#"
+    @  rlvkpnrz test.user 2001-02-03 08:05:09 a0909ee9 [✓︎] (empty) signed
+    ○  qpvuntsm test.user 2001-02-03 08:05:08 879d5d20 (empty) unsigned
+    │
+    ~
+    "#);
+
+    let stdout = test_env.jj_cmd_success(&repo_path, &[args, &["builtin_log_compact"]].concat());
+    insta::assert_snapshot!(stdout, @r#"
+    @  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a0909ee9 [✓︎]
+    │  (empty) signed
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 879d5d20
+    │  (empty) unsigned
+    ~
+    "#);
+
+    let stdout = test_env.jj_cmd_success(&repo_path, &[args, &["builtin_log_detailed"]].concat());
+    insta::assert_snapshot!(stdout, @r#"
+    @  Commit ID: a0909ee96bb5c66311a0c579dc8ebed4456dfc1b
+    │  Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
+    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
+    │  Signature: [✓︎] test-display
+    │
+    │      signed
+    │
+    ○  Commit ID: 879d5d20fea5930f053e0817033ad4aba924a361
+    │  Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    ~  Author   : Test User <test.user@example.com> (2001-02-03 08:05:08)
+       Committer: Test User <test.user@example.com> (2001-02-03 08:05:08)
+       Signature: (no signature)
+
+           unsigned
+    "#);
+
+    // customization point
+    let config_val = r#"template-aliases."format_short_cryptographic_signature(signature)"="'status: ' ++ signature.status()""#;
+    let stdout = test_env.jj_cmd_success(
+        &repo_path,
+        &[args, &["builtin_log_oneline", "--config", config_val]].concat(),
+    );
+    insta::assert_snapshot!(stdout, @r#"
+    @  rlvkpnrz test.user 2001-02-03 08:05:09 a0909ee9 status: good (empty) signed
+    ○  qpvuntsm test.user 2001-02-03 08:05:08 879d5d20 status: <Error: No CryptographicSignature available> (empty) unsigned
+    │
+    ~
+    "#);
 }
