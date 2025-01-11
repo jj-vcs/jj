@@ -28,6 +28,7 @@ use std::time::Instant;
 use crossterm::terminal::Clear;
 use crossterm::terminal::ClearType;
 use itertools::Itertools;
+use jj_lib::config::ConfigGetError;
 use jj_lib::fmt_util::binary_prefix;
 use jj_lib::git;
 use jj_lib::git::FailedRefExport;
@@ -46,6 +47,7 @@ use jj_lib::workspace::Workspace;
 use unicode_width::UnicodeWidthStr;
 
 use crate::cleanup_guard::CleanupGuard;
+use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandTransaction;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_hint;
@@ -263,29 +265,40 @@ type SidebandProgressCallback<'a> = &'a mut dyn FnMut(&[u8]);
 pub fn with_remote_git_callbacks<T>(
     ui: &Ui,
     sideband_progress_callback: Option<SidebandProgressCallback<'_>>,
+    subprocess: bool,
     f: impl FnOnce(git::RemoteCallbacks<'_>) -> T,
 ) -> T {
-    let mut callbacks = git::RemoteCallbacks::default();
-    let mut progress_callback = None;
-    if let Some(mut output) = ui.progress_output() {
-        let mut progress = Progress::new(Instant::now());
-        progress_callback = Some(move |x: &git::Progress| {
-            _ = progress.update(Instant::now(), x, &mut output);
-        });
+    if subprocess {
+        // TODO: with git2, we are able to display progress from the data that is given
+        // With the git processes themselves, this is significantly harder, as it
+        // requires parsing the output directly
+        //
+        // In any case, this would be the place to add that funcionalty
+        f(git::RemoteCallbacks::default())
+    } else {
+        let mut callbacks = git::RemoteCallbacks::default();
+        let mut progress_callback = None;
+        if let Some(mut output) = ui.progress_output() {
+            let mut progress = Progress::new(Instant::now());
+            progress_callback = Some(move |x: &git::Progress| {
+                _ = progress.update(Instant::now(), x, &mut output);
+            });
+        }
+        callbacks.progress = progress_callback
+            .as_mut()
+            .map(|x| x as &mut dyn FnMut(&git::Progress));
+        callbacks.sideband_progress =
+            sideband_progress_callback.map(|x| x as &mut dyn FnMut(&[u8]));
+        let mut get_ssh_keys = get_ssh_keys; // Coerce to unit fn type
+        callbacks.get_ssh_keys = Some(&mut get_ssh_keys);
+        let mut get_pw =
+            |url: &str, _username: &str| pinentry_get_pw(url).or_else(|| terminal_get_pw(ui, url));
+        callbacks.get_password = Some(&mut get_pw);
+        let mut get_user_pw =
+            |url: &str| Some((terminal_get_username(ui, url)?, terminal_get_pw(ui, url)?));
+        callbacks.get_username_password = Some(&mut get_user_pw);
+        f(callbacks)
     }
-    callbacks.progress = progress_callback
-        .as_mut()
-        .map(|x| x as &mut dyn FnMut(&git::Progress));
-    callbacks.sideband_progress = sideband_progress_callback.map(|x| x as &mut dyn FnMut(&[u8]));
-    let mut get_ssh_keys = get_ssh_keys; // Coerce to unit fn type
-    callbacks.get_ssh_keys = Some(&mut get_ssh_keys);
-    let mut get_pw =
-        |url: &str, _username: &str| pinentry_get_pw(url).or_else(|| terminal_get_pw(ui, url));
-    callbacks.get_password = Some(&mut get_pw);
-    let mut get_user_pw =
-        |url: &str| Some((terminal_get_username(ui, url)?, terminal_get_pw(ui, url)?));
-    callbacks.get_username_password = Some(&mut get_user_pw);
-    f(callbacks)
 }
 
 pub fn print_git_import_stats(
@@ -610,16 +623,18 @@ pub fn git_fetch(
     ui: &mut Ui,
     tx: &mut WorkspaceCommandTransaction,
     git_repo: &git2::Repository,
+    git_executable_path: Option<&Path>,
     remotes: &[String],
     branch: &[StringPattern],
 ) -> Result<(), CommandError> {
     let git_settings = tx.settings().git_settings()?;
 
     for remote in remotes {
-        let stats = with_remote_git_callbacks(ui, None, |cb| {
+        let stats = with_remote_git_callbacks(ui, None, git_executable_path.is_some(), |cb| {
             git::fetch(
                 tx.repo_mut(),
                 git_repo,
+                git_executable_path,
                 remote,
                 branch,
                 cb,
@@ -684,6 +699,23 @@ fn warn_if_branches_not_found(
     }
 
     Ok(())
+}
+
+pub(crate) fn get_config_git_subprocess(command: &CommandHelper) -> Result<bool, ConfigGetError> {
+    command.settings().get_bool("git.subprocess")
+}
+
+pub(crate) fn get_config_git_path(
+    command: &CommandHelper,
+) -> Result<Option<PathBuf>, ConfigGetError> {
+    if get_config_git_subprocess(command)? {
+        command
+            .settings()
+            .get::<PathBuf>("git.executable_path")
+            .map(Some)
+    } else {
+        Ok(None)
+    }
 }
 
 #[cfg(test)]

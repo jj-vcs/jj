@@ -23,6 +23,7 @@ use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::commands::git::get_single_remote;
 use crate::complete;
+use crate::git_util::get_config_git_path;
 use crate::git_util::get_git_repo;
 use crate::git_util::git_fetch;
 use crate::ui::Ui;
@@ -69,6 +70,7 @@ pub fn cmd_git_fetch(
     args: &GitFetchArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
+    let git_executable_path = get_config_git_path(command)?;
     let git_repo = get_git_repo(workspace_command.repo().store())?;
     let remotes = if args.all_remotes {
         get_all_remotes(&git_repo)?
@@ -78,7 +80,14 @@ pub fn cmd_git_fetch(
         args.remotes.clone()
     };
     let mut tx = workspace_command.start_transaction();
-    git_fetch(ui, &mut tx, &git_repo, &remotes, &args.branch)?;
+    git_fetch(
+        ui,
+        &mut tx,
+        &git_repo,
+        git_executable_path.as_deref(),
+        &remotes,
+        &args.branch,
+    )?;
     tx.finish(
         ui,
         format!("fetch from git remote(s) {}", remotes.iter().join(",")),
