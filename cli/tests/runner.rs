@@ -72,6 +72,7 @@ mod test_status_command;
 mod test_tag_command;
 mod test_templater;
 mod test_undo;
+mod test_unsign_command;
 mod test_unsquash_command;
 mod test_util_command;
 mod test_working_copy;
