@@ -28,14 +28,7 @@ fn test_op_log() {
     let repo_path = test_env.env_root().join("repo");
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "description 0"]);
 
-    let stdout = test_env.jj_cmd_success(
-        &repo_path,
-        &[
-            "op",
-            "log",
-            "--config=template-aliases.'format_time_range(x)'=x",
-        ],
-    );
+    let stdout = test_env.jj_cmd_success(&repo_path, &["op", "log"]);
     insta::assert_snapshot!(&stdout, @r#"
     @  d009cfc04993 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
     │  describe commit 230dd059e1b059aefc0da06a2e5a7dbf22362f22
@@ -118,7 +111,6 @@ fn test_op_log_with_custom_symbols() {
         &[
             "op",
             "log",
-            "--config=template-aliases.'format_time_range(x)'=x",
             "--config=templates.op_log_node='if(current_operation, \"$\", if(root, \"┴\", \"┝\"))'",
         ],
     );
@@ -197,6 +189,72 @@ fn test_op_log_no_graph() {
     Changed commits:
     + qpvuntsm 230dd059 (empty) (no description set)
     000000000000 root()
+    "#);
+}
+
+#[test]
+fn test_op_log_reversed() {
+    let test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    let repo_path = test_env.env_root().join("repo");
+    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "description 0"]);
+
+    let stdout = test_env.jj_cmd_success(&repo_path, &["op", "log", "--reversed"]);
+    insta::assert_snapshot!(&stdout, @r#"
+    ○  000000000000 root()
+    ○  eac759b9ab75 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
+    │  add workspace 'default'
+    @  d009cfc04993 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+       describe commit 230dd059e1b059aefc0da06a2e5a7dbf22362f22
+       args: jj describe -m 'description 0'
+    "#);
+
+    test_env.jj_cmd_ok(
+        &repo_path,
+        &["describe", "-m", "description 1", "--at-op", "@-"],
+    );
+
+    // Should be able to display log with fork and branch points
+    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["op", "log", "--reversed"]);
+    insta::assert_snapshot!(&stderr, @"Concurrent modification detected, resolving automatically.");
+    insta::assert_snapshot!(&stdout, @r#"
+    ○  000000000000 root()
+    ○    eac759b9ab75 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
+    ├─╮  add workspace 'default'
+    │ ○  8e3e726be123 test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    │ │  describe commit 230dd059e1b059aefc0da06a2e5a7dbf22362f22
+    │ │  args: jj describe -m 'description 1' --at-op @-
+    ○ │  d009cfc04993 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    ├─╯  describe commit 230dd059e1b059aefc0da06a2e5a7dbf22362f22
+    │    args: jj describe -m 'description 0'
+    @  e4538ffdc13d test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+       reconcile divergent operations
+       args: jj op log --reversed
+    "#);
+
+    // Should work correctly with `--no-graph`
+    let stdout = test_env.jj_cmd_success(&repo_path, &["op", "log", "--reversed", "--no-graph"]);
+    insta::assert_snapshot!(&stdout, @r#"
+    000000000000 root()
+    eac759b9ab75 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
+    add workspace 'default'
+    8e3e726be123 test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    describe commit 230dd059e1b059aefc0da06a2e5a7dbf22362f22
+    args: jj describe -m 'description 1' --at-op @-
+    d009cfc04993 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    describe commit 230dd059e1b059aefc0da06a2e5a7dbf22362f22
+    args: jj describe -m 'description 0'
+    e4538ffdc13d test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    reconcile divergent operations
+    args: jj op log --reversed
+    "#);
+
+    // Should work correctly with `--limit`
+    let stdout = test_env.jj_cmd_success(&repo_path, &["op", "log", "--reversed", "--limit=2"]);
+    insta::assert_snapshot!(stdout, @r#"
+    ○  000000000000 root()
+    ○    eac759b9ab75 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
+    ├─╮  add workspace 'default'
     "#);
 }
 

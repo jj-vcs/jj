@@ -52,7 +52,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
-* `jj evolog` now accepts `--reversed`.
+* `jj evolog` and `jj op log` now accept `--reversed`.
 
 * `jj restore` now supports `-i`/`--interactive` selection.
 

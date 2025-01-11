@@ -1544,6 +1544,9 @@ Like other commands, `jj op log` snapshots the current working-copy changes and 
 ###### **Options:**
 
 * `-n`, `--limit <LIMIT>` — Limit number of operations to show
+
+   Applied after operations are reordered.
+* `--reversed` — Show operations in the opposite order (older operations first)
 * `--no-graph` — Don't show the graph, show a flat list of operations
 * `-T`, `--template <TEMPLATE>` — Render each operation using the given template
 
