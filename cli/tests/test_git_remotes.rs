@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::fs;
+use std::path::PathBuf;
 
 use crate::common::TestEnvironment;
 
@@ -142,6 +143,30 @@ fn test_git_remote_set_url() {
     insta::assert_snapshot!(stdout, @r###"
     foo http://example.com/repo/bar
     "###);
+}
+
+#[test]
+fn test_git_remote_relative_path() {
+    let test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    let repo_path = test_env.env_root().join("repo");
+
+    // Relative path using OS-native separator
+    let path = PathBuf::from_iter(["..", "native", "sep"]);
+    test_env.jj_cmd_ok(
+        &repo_path,
+        &["git", "remote", "add", "foo", path.to_str().unwrap()],
+    );
+    let stdout = test_env.jj_cmd_success(&repo_path, &["git", "remote", "list"]);
+    insta::assert_snapshot!(stdout, @"foo $TEST_ENV/native/sep");
+
+    // Relative path using UNIX separator
+    test_env.jj_cmd_ok(
+        test_env.env_root(),
+        &["-Rrepo", "git", "remote", "set-url", "foo", "unix/sep"],
+    );
+    let stdout = test_env.jj_cmd_success(&repo_path, &["git", "remote", "list"]);
+    insta::assert_snapshot!(stdout, @"foo $TEST_ENV/unix/sep");
 }
 
 #[test]

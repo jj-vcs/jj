@@ -46,6 +46,8 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 pub struct GitCloneArgs {
     /// URL or path of the Git repo to clone
+    ///
+    /// Local path will be resolved to absolute form.
     #[arg(value_hint = clap::ValueHint::DirPath)]
     source: String,
     /// Specifies the target directory for the Jujutsu repository clone.

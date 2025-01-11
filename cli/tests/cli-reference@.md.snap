@@ -1051,6 +1051,8 @@ The Git repo will be a bare git repo stored inside the `.jj/` directory.
 ###### **Arguments:**
 
 * `<SOURCE>` — URL or path of the Git repo to clone
+
+   Local path will be resolved to absolute form.
 * `<DESTINATION>` — Specifies the target directory for the Jujutsu repository clone. If not provided, defaults to a directory named after the last component of the source URL. The full directory path will be created if it doesn't exist
 
 ###### **Options:**
@@ -1203,7 +1205,9 @@ Add a Git remote
 ###### **Arguments:**
 
 * `<REMOTE>` — The remote's name
-* `<URL>` — The remote's URL
+* `<URL>` — The remote's URL or path
+
+   Local path will be resolved to absolute form.
 
 
 
@@ -1249,7 +1253,9 @@ Set the URL of a Git remote
 ###### **Arguments:**
 
 * `<REMOTE>` — The remote's name
-* `<URL>` — The desired url for `remote`
+* `<URL>` — The desired URL or path for `remote`
+
+   Local path will be resolved to absolute form.
 
 
 
