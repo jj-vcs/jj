@@ -1360,6 +1360,7 @@ impl Backend for GitBackend {
                     }),
                     percentage: Some(0.5),
                     limit: 1000,
+                    track_empty: false,
                 }));
             })
             .for_each_to_obtain_tree_with_cache(
