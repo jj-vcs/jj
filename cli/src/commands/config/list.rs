@@ -55,7 +55,11 @@ pub struct ConfigListArgs {
     ///
     /// [template expression]:
     ///     https://jj-vcs.github.io/jj/latest/templates/
-    #[arg(long, short = 'T', verbatim_doc_comment)]
+    #[arg(
+        long, short = 'T',
+        verbatim_doc_comment,
+        add = ArgValueCandidates::new(complete::template_aliases)
+    )]
     template: Option<String>,
 }
 

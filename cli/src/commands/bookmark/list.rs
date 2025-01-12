@@ -102,7 +102,7 @@ pub struct BookmarkListArgs {
     ///
     /// [`RefName` type]:
     ///     https://jj-vcs.github.io/jj/latest/templates/#refname-type
-    #[arg(long, short = 'T')]
+    #[arg(long, short = 'T', add = ArgValueCandidates::new(complete::template_aliases))]
     template: Option<String>,
 }
 

@@ -76,7 +76,7 @@ pub(crate) struct EvologArgs {
     ///
     /// [built-in keywords]:
     ///     https://jj-vcs.github.io/jj/latest/templates/#commit-keywords
-    #[arg(long, short = 'T')]
+    #[arg(long, short = 'T', add = ArgValueCandidates::new(complete::template_aliases))]
     template: Option<String>,
     /// Show patch compared to the previous version of this change
     ///

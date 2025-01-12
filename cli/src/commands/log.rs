@@ -109,7 +109,7 @@ pub(crate) struct LogArgs {
     ///     https://jj-vcs.github.io/jj/latest/templates/
     /// [built-in keywords]:
     ///     https://jj-vcs.github.io/jj/latest/templates/#commit-keywords
-    #[arg(long, short = 'T')]
+    #[arg(long, short = 'T', add = ArgValueCandidates::new(complete::template_aliases))]
     template: Option<String>,
     /// Show patch
     #[arg(long, short = 'p')]

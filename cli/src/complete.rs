@@ -25,6 +25,7 @@ use jj_lib::workspace::WorkspaceLoaderFactory as _;
 
 use crate::cli_util::expand_args;
 use crate::cli_util::find_workspace_dir;
+use crate::cli_util::load_template_aliases;
 use crate::cli_util::GlobalArgs;
 use crate::command_error::user_error;
 use crate::command_error::CommandError;
@@ -197,6 +198,19 @@ pub fn git_remotes() -> Vec<CompletionCandidate> {
             .lines()
             .filter_map(|line| line.split_once(' ').map(|(name, _url)| name))
             .map(CompletionCandidate::new)
+            .collect())
+    })
+}
+
+pub fn template_aliases() -> Vec<CompletionCandidate> {
+    with_jj(|_, settings| {
+        let Ok(template_aliases) = load_template_aliases(&Ui::null(), settings.config()) else {
+            return Ok(Vec::new());
+        };
+        Ok(template_aliases
+            .symbol_names()
+            .map(CompletionCandidate::new)
+            .sorted()
             .collect())
     })
 }

@@ -12,12 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use clap_complete::ArgValueCandidates;
 use jj_lib::str_util::StringPattern;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::commit_templater::CommitTemplateLanguage;
 use crate::commit_templater::RefName;
+use crate::complete;
 use crate::ui::Ui;
 
 /// Manage tags.
@@ -49,7 +51,7 @@ pub struct TagListArgs {
     ///
     /// [`RefName` type]:
     ///     https://jj-vcs.github.io/jj/latest/templates/#refname-type
-    #[arg(long, short = 'T')]
+    #[arg(long, short = 'T', add = ArgValueCandidates::new(complete::template_aliases))]
     template: Option<String>,
 }
 

@@ -2846,7 +2846,7 @@ pub fn update_working_copy(
     Ok(stats)
 }
 
-fn load_template_aliases(
+pub fn load_template_aliases(
     ui: &Ui,
     stacked_config: &StackedConfig,
 ) -> Result<TemplateAliasesMap, CommandError> {

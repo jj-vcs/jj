@@ -14,6 +14,7 @@
 
 use std::slice;
 
+use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigGetResultExt as _;
@@ -32,6 +33,7 @@ use crate::cli_util::LogContentFormat;
 use crate::cli_util::WorkspaceCommandEnvironment;
 use crate::command_error::CommandError;
 use crate::commit_templater::CommitTemplateLanguage;
+use crate::complete;
 use crate::diff_util::diff_formats_for_log;
 use crate::diff_util::DiffFormatArgs;
 use crate::diff_util::DiffRenderer;
@@ -70,7 +72,7 @@ pub struct OperationLogArgs {
     ///
     /// [built-in keywords]:
     ///     https://jj-vcs.github.io/jj/latest/templates/#operation-keywords
-    #[arg(long, short = 'T')]
+    #[arg(long, short = 'T', add = ArgValueCandidates::new(complete::template_aliases))]
     template: Option<String>,
     /// Show changes to the repository at each operation
     #[arg(long)]
