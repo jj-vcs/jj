@@ -40,7 +40,7 @@ chrono = { version = "0.4.39", default-features = false, features = [
 chrono-english = { version = "0.1.7" }
 clru = "0.6.2"
 criterion = "0.5.1"
-crossterm = { version = "0.28", default-features = false }
+crossterm = { version = "0.28", default-features = false, features = ["windows"] }
 digest = "0.10.7"
 dirs = "5.0.1"
 dunce = "1.0.5"
