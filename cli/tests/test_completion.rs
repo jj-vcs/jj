@@ -539,6 +539,28 @@ fn test_config() {
     core.fsmonitor=	Whether to use an external filesystem monitor, useful for large repos
     core.watchman.register_snapshot_trigger=	Whether to use triggers to monitor for changes in the background.
     ");
+
+    let stdout = test_env.jj_cmd_success(
+        dir,
+        &["--", "jj", "log", "--config", "ui.conflict-marker-style="],
+    );
+    insta::assert_snapshot!(stdout, @r"
+    ui.conflict-marker-style=diff
+    ui.conflict-marker-style=snapshot
+    ui.conflict-marker-style=git
+    ");
+    let stdout = test_env.jj_cmd_success(
+        dir,
+        &["--", "jj", "log", "--config", "ui.conflict-marker-style=g"],
+    );
+    insta::assert_snapshot!(stdout, @"ui.conflict-marker-style=git");
+
+    let stdout =
+        test_env.jj_cmd_success(dir, &["--", "jj", "log", "--config", "signing.sign-all="]);
+    insta::assert_snapshot!(stdout, @r"
+    signing.sign-all=false
+    signing.sign-all=true
+    ");
 }
 
 fn create_commit(

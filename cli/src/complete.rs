@@ -423,6 +423,55 @@ fn config_keys_rec(
     }
 }
 
+fn json_keypath<'a>(
+    schema: &'a serde_json::Value,
+    keypath: &str,
+    separator: &str,
+) -> Option<&'a serde_json::Value> {
+    keypath
+        .split(separator)
+        .try_fold(schema, |value, step| value.get(step))
+}
+fn jsonschema_keypath<'a>(
+    schema: &'a serde_json::Value,
+    keypath: &ConfigNamePathBuf,
+) -> Option<&'a serde_json::Value> {
+    keypath.components().try_fold(schema, |value, step| {
+        let value = value.as_object()?;
+        if value.get("type")?.as_str()? != "object" {
+            return None;
+        }
+        let properties = value.get("properties")?.as_object()?;
+        properties.get(step.get())
+    })
+}
+
+fn config_values(path: &ConfigNamePathBuf) -> Option<Vec<String>> {
+    let schema: serde_json::Value = serde_json::from_str(CONFIG_SCHEMA).unwrap();
+
+    let mut config_entry = jsonschema_keypath(&schema, path)?;
+    if let Some(reference) = config_entry.get("$ref") {
+        let reference = reference.as_str()?.strip_prefix("#/")?;
+        config_entry = json_keypath(&schema, reference, "/")?;
+    };
+
+    if let Some(possibile_values) = config_entry.get("enum") {
+        return Some(
+            possibile_values
+                .as_array()?
+                .iter()
+                .filter_map(|val| val.as_str())
+                .map(ToOwned::to_owned)
+                .collect(),
+        );
+    }
+
+    Some(match config_entry.get("type")?.as_str()? {
+        "boolean" => vec!["false".into(), "true".into()],
+        _ => vec![],
+    })
+}
+
 fn config_keys_impl(only_leaves: bool, suffix: &str) -> Vec<CompletionCandidate> {
     let schema: serde_json::Value = serde_json::from_str(CONFIG_SCHEMA).unwrap();
     let schema = schema.as_object().unwrap();
@@ -447,8 +496,28 @@ pub fn leaf_config_keys() -> Vec<CompletionCandidate> {
     config_keys_impl(true, "")
 }
 
-pub fn leaf_config_keys_eq() -> Vec<CompletionCandidate> {
-    config_keys_impl(true, "=")
+pub fn leaf_config_key_value(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
+    let Some(current) = current.to_str() else {
+        return Vec::new();
+    };
+
+    if let Some((key, current_val)) = current.split_once('=') {
+        let Ok(key) = key.parse() else {
+            return Vec::new();
+        };
+        let possible_values = config_values(&key).unwrap_or_default();
+
+        possible_values
+            .into_iter()
+            .filter(|x| x.starts_with(current_val))
+            .map(|x| CompletionCandidate::new(format!("{key}={x}")))
+            .collect()
+    } else {
+        config_keys_impl(true, "=")
+            .into_iter()
+            .filter(|candidate| candidate.get_value().to_str().unwrap().starts_with(current))
+            .collect()
+    }
 }
 
 fn dir_prefix_from<'a>(path: &'a str, current: &str) -> Option<&'a str> {

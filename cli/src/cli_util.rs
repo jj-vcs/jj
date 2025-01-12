@@ -46,6 +46,7 @@ use clap::ArgMatches;
 use clap::Command;
 use clap::FromArgMatches;
 use clap_complete::ArgValueCandidates;
+use clap_complete::ArgValueCompleter;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use indoc::writedoc;
@@ -3122,7 +3123,7 @@ pub struct EarlyArgs {
     /// The name should be specified as TOML dotted keys. The value should be
     /// specified as a TOML expression. If string value doesn't contain any TOML
     /// constructs (such as array notation), quotes can be omitted.
-    #[arg(long, value_name = "NAME=VALUE", global = true, add = ArgValueCandidates::new(complete::leaf_config_keys_eq))]
+    #[arg(long, value_name = "NAME=VALUE", global = true, add = ArgValueCompleter::new(complete::leaf_config_key_value))]
     pub config: Vec<String>,
     /// Additional configuration options (can be repeated) (DEPRECATED)
     // TODO: delete --config-toml in jj 0.31+
