@@ -1312,15 +1312,8 @@ to the current parents may contain changes from multiple commits.
         // empty arguments.
         if values.is_empty() {
             Ok(FilesetExpression::all())
-        } else if self.settings().get_bool("ui.allow-filesets")? {
-            self.parse_union_filesets(ui, values)
         } else {
-            let expressions = values
-                .iter()
-                .map(|v| self.parse_file_path(v))
-                .map_ok(FilesetExpression::prefix_path)
-                .try_collect()?;
-            Ok(FilesetExpression::union_all(expressions))
+            self.parse_union_filesets(ui, values)
         }
     }
 

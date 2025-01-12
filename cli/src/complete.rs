@@ -572,7 +572,6 @@ fn all_files_from_rev(rev: String, current: &std::ffi::OsStr) -> Vec<CompletionC
             .arg("list")
             .arg("--revision")
             .arg(rev)
-            .arg("--config=ui.allow-filesets=true")
             .arg(current_prefix_to_fileset(current))
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::null())
@@ -605,7 +604,6 @@ fn modified_files_from_rev_with_jj_cmd(
     };
     cmd.arg("diff")
         .arg("--summary")
-        .arg("--config=ui.allow-filesets=true")
         .arg(current_prefix_to_fileset(current));
     match rev {
         (rev, None) => cmd.arg("--revision").arg(rev),
@@ -657,7 +655,6 @@ fn conflicted_files_from_rev(rev: &str, current: &std::ffi::OsStr) -> Vec<Comple
             .arg("--list")
             .arg("--revision")
             .arg(rev)
-            .arg("--config=ui.allow-filesets=true")
             .arg(current_prefix_to_fileset(current))
             .output()
             .map_err(user_error)?;

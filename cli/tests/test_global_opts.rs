@@ -286,15 +286,6 @@ fn test_bad_path() {
     3: Invalid component ".." in repo-relative path "../out"
     Hint: Consider using root:"out" to specify repo-relative path
     "###);
-
-    test_env.add_config("ui.allow-filesets = false");
-
-    // If fileset/pattern syntax is disabled, no hint should be generated
-    let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["file", "show", "-Rrepo", "out"]);
-    insta::assert_snapshot!(stderr.replace('\\', "/"), @r###"
-    Error: Path "out" is not in the repo "repo"
-    Caused by: Invalid component ".." in repo-relative path "../out"
-    "###);
 }
 
 #[test]
@@ -313,12 +304,6 @@ fn test_invalid_filesets_looking_like_filepaths() {
       |
       = expected `~` or <primary>
     Hint: See https://jj-vcs.github.io/jj/latest/filesets/ for filesets syntax, or for how to match file paths.
-    "#);
-
-    test_env.add_config(r#"ui.allow-filesets=false"#);
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["file", "show", "abc~"]);
-    insta::assert_snapshot!(stderr, @r#"
-    Error: No such path: abc~
     "#);
 }
 

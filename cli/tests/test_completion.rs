@@ -636,10 +636,6 @@ fn test_files() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
 
-    // Completions for files use filesets internally.
-    // Ensure they still work if the user has them disabled.
-    test_env.add_config("ui.allow-filesets = false");
-
     create_commit(
         &test_env,
         &repo_path,

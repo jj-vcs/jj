@@ -53,11 +53,6 @@
                     "description": "Whether to allow initializing a repo with the native backend",
                     "default": false
                 },
-                "allow-filesets": {
-                    "type": "boolean",
-                    "description": "Whether to parse path arguments as fileset expressions",
-                    "default": true
-                },
                 "always-allow-large-revsets": {
                     "type": "boolean",
                     "description": "Whether to allow large revsets to be used in all commands without the `all:` modifier",

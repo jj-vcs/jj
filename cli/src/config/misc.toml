@@ -20,8 +20,6 @@ push-new-bookmarks = false
 sign-on-push = false
 
 [ui]
-# TODO: delete ui.allow-filesets in jj 0.26+
-allow-filesets = true
 allow-init-native = false
 always-allow-large-revsets = false
 color = "auto"
