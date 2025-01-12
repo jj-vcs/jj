@@ -85,6 +85,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   useful for defining disabled tools in user configuration that can be enabled
   in individual repositories with one config setting.
 
+* The Jujutsu documentation site now publishes a schema for the official
+  configuration file, which can be integrated into your editor for autocomplete,
+  inline errors, and more. Please [see the documentation](/docs/config.md#json-schema-support)
+  for more on this.
+
 ### Fixed bugs
 
 * Fixed diff selection by external tools with `jj split`/`commit -i FILESETS`.

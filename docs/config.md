@@ -23,12 +23,17 @@ These are listed in the order they are loaded; the settings from earlier items
 in the list are overridden by the settings from later items if they disagree.
 Every type of config except for the built-in settings is optional.
 
+You can enable JSON Schema validation in your editor by adding a `$schema`
+reference at the top of your TOML config files. See [JSON Schema
+Support] for details.
+
 See the [TOML site] and the [syntax guide] for a detailed description of the
 syntax. We cover some of the basics below.
 
 [the user config file]: #user-config-file
 [TOML site]: https://toml.io/en/
 [syntax guide]: https://toml.io/en/v1.0.0
+[JSON Schema Support]: #json-schema-support
 
 The first thing to remember is that the value of a setting (the part to the
 right of the `=` sign) should be surrounded in quotes if it's a string.
@@ -1271,6 +1276,41 @@ default locations. For example,
 ```shell
 env JJ_CONFIG=/dev/null jj log       # Ignores any settings specified in the config file.
 ```
+
+### JSON Schema Support
+
+Many popular editors support TOML file syntax highlighting and validation. To
+enable schema validation in your editor, add this line at the top of your TOML
+config files:
+
+```toml
+"$schema" = "https://jj-vcs.github.io/jj/latest/config-schema.json"
+```
+
+This enables features like:
+
+- Autocomplete for config keys
+- Type checking of values
+- Documentation on hover
+- Validation of settings
+
+Here are some popular editors with TOML schema validation support:
+
+- VS Code
+  - Install [Even Better TOML](https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml)
+
+- Neovim/Vim
+  - Use with [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig) and [taplo](https://github.com/tamasfe/taplo)
+
+- JetBrains IDEs (IntelliJ, PyCharm, etc)
+  - Install [TOML](https://plugins.jetbrains.com/plugin/8195-toml) plugin
+
+- Sublime Text
+  - Install [LSP](https://packagecontrol.io/packages/LSP) and [LSP-taplo](https://packagecontrol.io/packages/LSP-taplo)
+
+- Emacs
+  - Install [lsp-mode](https://github.com/emacs-lsp/lsp-mode) and [toml-mode](https://github.com/dryman/toml-mode.el)
+  - Configure [taplo](https://github.com/tamasfe/taplo) as the LSP server
 
 ### Specifying config on the command-line
 
