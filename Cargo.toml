@@ -40,7 +40,7 @@ chrono = { version = "0.4.39", default-features = false, features = [
 chrono-english = { version = "0.1.7" }
 clru = "0.6.2"
 criterion = "0.5.1"
-crossterm = { version = "0.27", default-features = false }
+crossterm = { version = "0.28", default-features = false }
 digest = "0.10.7"
 dirs = "5.0.1"
 dunce = "1.0.5"
@@ -79,7 +79,7 @@ pest = "2.7.15"
 pest_derive = "2.7.15"
 pollster = "0.3.0"
 pretty_assertions = "1.4.1"
-proc-macro2 = "1.0.92"
+proc-macro2 = "1.0.93"
 prost = "0.12.6"
 prost-build = "0.12.6"
 quote = "1.0.38"
@@ -106,7 +106,7 @@ syn = "2.0.96"
 tempfile = "3.15.0"
 test-case = "3.3.1"
 textwrap = "0.16.1"
-thiserror = "2.0.10"
+thiserror = "2.0.11"
 timeago = { version = "0.4.2", default-features = false }
 tokio = { version = "1.43.0" }
 toml_edit = { version = "0.22.22", features = ["serde"] }
@@ -118,7 +118,7 @@ tracing-subscriber = { version = "0.3.19", default-features = false, features = 
     "env-filter",
     "fmt",
 ] }
-unicode-width = "0.1.14"
+unicode-width = "0.2.0"
 version_check = "0.9.5"
 watchman_client = { version = "0.9.0" }
 whoami = "1.5.2"
