@@ -64,6 +64,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   [streampager](https://github.com/markbt/streampager/). It can handle large
   inputs better.
 
+* Conflicts materialized in the working copy before `jj 0.19.0` may no longer
+  be parsed correctly. If you are using version 0.18.0 or earlier, check out a
+  non-conflicted commit before upgrading to prevent issues.
+
 ### Deprecations
 
 ### New features

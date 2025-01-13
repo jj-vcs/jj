@@ -849,7 +849,6 @@ pub async fn update_from_content(
     conflict_marker_len: usize,
 ) -> BackendResult<Merge<Option<FileId>>> {
     let simplified_file_ids = file_ids.clone().simplify();
-    let simplified_file_ids = &simplified_file_ids;
 
     // First check if the new content is unchanged compared to the old content. If
     // it is, we don't need parse the content or write any new objects to the
@@ -857,7 +856,7 @@ pub async fn update_from_content(
     // conflicts (for example) are not converted to regular files in the working
     // copy.
     let mut old_content = Vec::with_capacity(content.len());
-    let merge_hunk = extract_as_single_hunk(simplified_file_ids, store, path).await?;
+    let merge_hunk = extract_as_single_hunk(&simplified_file_ids, store, path).await?;
     materialize_merge_result_with_marker_len(
         &merge_hunk,
         conflict_marker_style,
@@ -870,29 +869,18 @@ pub async fn update_from_content(
     }
 
     // Parse conflicts from the new content using the arity of the simplified
-    // conflicts initially. If unsuccessful, attempt to parse conflicts from with
-    // the arity of the unsimplified conflicts since such a conflict may be
-    // present in the working copy if written by an earlier version of jj.
-    let (used_file_ids, hunks) = 'hunks: {
-        if let Some(hunks) = parse_conflict(
-            content,
-            simplified_file_ids.num_sides(),
-            conflict_marker_len,
-        ) {
-            break 'hunks (simplified_file_ids, hunks);
-        };
-        if simplified_file_ids.num_sides() != file_ids.num_sides() {
-            if let Some(hunks) = parse_conflict(content, file_ids.num_sides(), conflict_marker_len)
-            {
-                break 'hunks (file_ids, hunks);
-            };
-        };
+    // conflicts.
+    let Some(hunks) = parse_conflict(
+        content,
+        simplified_file_ids.num_sides(),
+        conflict_marker_len,
+    ) else {
         // Either there are no markers or they don't have the expected arity
         let file_id = store.write_file(path, &mut &content[..]).await?;
         return Ok(Merge::normal(file_id));
     };
 
-    let mut contents = used_file_ids.map(|_| vec![]);
+    let mut contents = simplified_file_ids.map(|_| vec![]);
     for hunk in hunks {
         if let Some(slice) = hunk.as_resolved() {
             for content in contents.iter_mut() {
@@ -907,7 +895,7 @@ pub async fn update_from_content(
 
     // If the user edited the empty placeholder for an absent side, we consider the
     // conflict resolved.
-    if zip(contents.iter(), used_file_ids.iter())
+    if zip(contents.iter(), simplified_file_ids.iter())
         .any(|(content, file_id)| file_id.is_none() && !content.is_empty())
     {
         let file_id = store.write_file(path, &mut &content[..]).await?;
@@ -917,7 +905,7 @@ pub async fn update_from_content(
     // Now write the new files contents we found by parsing the file with conflict
     // markers.
     // TODO: Write these concurrently
-    let new_file_ids: Vec<Option<FileId>> = zip(contents.iter(), used_file_ids.iter())
+    let new_file_ids: Vec<Option<FileId>> = zip(contents.iter(), simplified_file_ids.iter())
         .map(|(content, file_id)| -> BackendResult<Option<FileId>> {
             match file_id {
                 Some(_) => {
