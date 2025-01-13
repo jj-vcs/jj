@@ -88,7 +88,7 @@ pub(crate) fn cmd_file_chmod(
     let store = tree.store();
     let mut tree_builder = MergedTreeBuilder::new(commit.tree_id().clone());
     for (repo_path, result) in tree.entries_matching(matcher.as_ref()) {
-        let tree_value = result?;
+        let mut tree_value = result?;
         let user_error_with_path = |msg: &str| {
             user_error(format!(
                 "{msg} at '{}'.",
@@ -107,17 +107,12 @@ pub(crate) fn cmd_file_chmod(
             };
             return Err(user_error_with_path(message));
         }
-        let new_tree_value = tree_value.map(|value| match value {
-            Some(TreeValue::File { id, executable: _ }) => Some(TreeValue::File {
-                id: id.clone(),
-                executable: executable_bit,
-            }),
-            Some(TreeValue::Conflict(_)) => {
-                panic!("Conflict sides must not themselves be conflicts")
+        for value in tree_value.iter_mut().flatten() {
+            if let TreeValue::File { id: _, executable } = value {
+                *executable = executable_bit;
             }
-            value => value.clone(),
-        });
-        tree_builder.set_or_remove(repo_path, new_tree_value);
+        }
+        tree_builder.set_or_remove(repo_path, tree_value);
     }
 
     let new_tree_id = tree_builder.write_tree(store)?;
