@@ -343,6 +343,11 @@
                     "description": "Prefix used when pushing a bookmark based on a change ID",
                     "default": "push-"
                 },
+                "push-new-bookmarks": {
+                    "type": "boolean",
+                    "description": "Allow pushing new bookmarks without --allow-new",
+                    "default": false
+                },
                 "fetch": {
                     "description": "The remote(s) from which commits are fetched",
                     "default": "origin",

@@ -446,7 +446,20 @@ fn test_git_push_locally_created_and_rewritten() {
     Hint: Use --allow-new to push new bookmark. Use --remote to specify the remote to push to.
     Nothing changed.
     ");
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["git", "push", "--allow-new"]);
+    // Either --allow-new or git.push-new-bookmarks=true should work
+    let (_stdout, stderr) = test_env.jj_cmd_ok(
+        &workspace_root,
+        &["git", "push", "--allow-new", "--dry-run"],
+    );
+    insta::assert_snapshot!(stderr, @r"
+    Changes to push to origin:
+      Add bookmark my to fcc999921ce9
+    Dry-run requested, not pushing.
+    ");
+    let (_stdout, stderr) = test_env.jj_cmd_ok(
+        &workspace_root,
+        &["git", "push", "--config=git.push-new-bookmarks=true"],
+    );
     insta::assert_snapshot!(stderr, @r#"
     Changes to push to origin:
       Add bookmark my to fcc999921ce9
@@ -460,13 +473,13 @@ fn test_git_push_locally_created_and_rewritten() {
       @origin: xtvrqkyv d13ecdbd (empty) description 1
     bookmark2: rlzusymt 8476341e (empty) description 2
       @origin: rlzusymt 8476341e (empty) description 2
-    my: vruxwmqv eaf7a52c (empty) local 2
+    my: vruxwmqv 423bb660 (empty) local 2
       @origin (ahead by 1 commits, behind by 1 commits): vruxwmqv hidden fcc99992 (empty) local 1
     ");
     let (_stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["git", "push"]);
     insta::assert_snapshot!(stderr, @r"
     Changes to push to origin:
-      Move sideways bookmark my from fcc999921ce9 to eaf7a52c8906
+      Move sideways bookmark my from fcc999921ce9 to 423bb66069e7
     ");
 }
 

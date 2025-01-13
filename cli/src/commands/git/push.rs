@@ -125,6 +125,9 @@ pub struct GitPushArgs {
     /// Allow pushing new bookmarks
     ///
     /// Newly-created remote bookmarks will be tracked automatically.
+    ///
+    /// This can also be turned on by the `git.push-new-bookmarks` setting. If
+    /// it's set to `true`, `--allow-new` is no-op.
     #[arg(long, short = 'N', conflicts_with = "what")]
     allow_new: bool,
     /// Allow pushing commits with empty descriptions
@@ -249,12 +252,13 @@ pub fn cmd_git_push(
             }
         }
 
+        let allow_new = args.allow_new || tx.settings().get("git.push-new-bookmarks")?;
         let bookmarks_by_name = find_bookmarks_to_push(view, &args.bookmark, &remote)?;
         for &(bookmark_name, targets) in &bookmarks_by_name {
             if !seen_bookmarks.insert(bookmark_name) {
                 continue;
             }
-            match classify_bookmark_update(bookmark_name, &remote, targets, args.allow_new) {
+            match classify_bookmark_update(bookmark_name, &remote, targets, allow_new) {
                 Ok(Some(update)) => bookmark_updates.push((bookmark_name.to_owned(), update)),
                 Ok(None) => writeln!(
                     ui.status(),
@@ -277,7 +281,7 @@ pub fn cmd_git_push(
             if !seen_bookmarks.insert(bookmark_name) {
                 continue;
             }
-            match classify_bookmark_update(bookmark_name, &remote, targets, args.allow_new) {
+            match classify_bookmark_update(bookmark_name, &remote, targets, allow_new) {
                 Ok(Some(update)) => bookmark_updates.push((bookmark_name.to_owned(), update)),
                 Ok(None) => {}
                 Err(reason) => reason.print(ui)?,
