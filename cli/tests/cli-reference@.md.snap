@@ -1173,6 +1173,8 @@ Before the command actually moves, creates, or deletes a remote bookmark, it mak
    Newly-created remote bookmarks will be tracked automatically.
 * `--allow-empty-description` — Allow pushing commits with empty descriptions
 * `--allow-private` — Allow pushing commits that are private
+
+   The set of private commits can be configured by the `git.private-commits` setting. The default is `none()`, meaning all commits are eligible to be pushed.
 * `-r`, `--revisions <REVSETS>` — Push bookmarks pointing to these commits (can be repeated)
 * `-c`, `--change <REVSETS>` — Push this commit by creating a bookmark based on its change ID (can be repeated)
 

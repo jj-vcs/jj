@@ -131,6 +131,10 @@ pub struct GitPushArgs {
     #[arg(long)]
     allow_empty_description: bool,
     /// Allow pushing commits that are private
+    ///
+    /// The set of private commits can be configured by the
+    /// `git.private-commits` setting. The default is `none()`, meaning all
+    /// commits are eligible to be pushed.
     #[arg(long)]
     allow_private: bool,
     /// Push bookmarks pointing to these commits (can be repeated)
