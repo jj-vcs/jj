@@ -41,6 +41,10 @@ show-cryptographic-signatures = false
 [ui.movement]
 edit = false
 
+[ui.streampager]
+interface = "quit-if-one-page"
+wrapping = "anywhere"
+
 [snapshot]
 max-new-file-size = "1MiB"
 auto-track = "all()"

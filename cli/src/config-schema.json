@@ -107,6 +107,30 @@
                     "description": "Pager to use for displaying command output",
                     "default": "less -FRX"
                 },
+                "streampager": {
+                    "type": "object",
+                    "description": "':builtin' (streampager-based) pager configuration",
+                    "properties": {
+                        "interface": {
+                            "description": "Whether to quit automatically, whether to clear screen on startup/exit",
+                            "enum": [
+                                "quit-if-one-page",
+                                "full-screen-clear-output",
+                                "quit-quickly-or-clear-output"
+                            ],
+                            "default": "never"
+                        },
+                        "wrapping": {
+                            "description": "Whether to wrap long lines",
+                            "enum": [
+                                "anywhere",
+                                "word",
+                                "none"
+                            ],
+                            "default": "anywhere"
+                        }
+                    }
+                },
                 "diff": {
                     "type": "object",
                     "description": "Options for how diffs are displayed",

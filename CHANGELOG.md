@@ -67,7 +67,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * The builtin pager is switched to
   [streampager](https://github.com/markbt/streampager/). It can handle large
-  inputs better.
+  inputs better and can be configured.
 
 * Conflicts materialized in the working copy before `jj 0.19.0` may no longer
   be parsed correctly. If you are using version 0.18.0 or earlier, check out a

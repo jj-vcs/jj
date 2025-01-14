@@ -79,10 +79,19 @@ impl UiOutput {
         Ok(UiOutput::Paged { child, child_stdin })
     }
 
-    fn new_builtin_paged() -> streampager::Result<UiOutput> {
+    fn new_builtin_paged(config: &StreampagerConfig) -> streampager::Result<UiOutput> {
+        // This uselessly reads ~/.config/streampager/streampager.toml, even
+        // though we then override the important options.
+        // TODO(ilyagr): Fix this once a version of streampager with
+        // https://github.com/facebook/sapling/pull/1011 is released.
         let mut pager = streampager::Pager::new_using_stdio()?;
-        // TODO: should we set the interface mode to be "less -FRX" like?
-        // It will override the user-configured values.
+        pager.set_wrapping_mode(config.wrapping);
+        pager.set_interface_mode(config.streampager_interface_mode());
+        // We could make scroll-past-eof configurable, but I'm guessing people
+        // will not miss it. If we do make it configurable, we should mention
+        // that it's a bad idea to turn this on if `interface=quit-if-one-page`,
+        // as it can leave a lot of empty lines on the screen after exiting.
+        pager.set_scroll_past_eof(false);
 
         // Use native pipe, which can be attached to child process. The stdout
         // stream could be an in-process channel, but the cost of extra syscalls
@@ -257,9 +266,59 @@ pub enum PaginationChoice {
     Auto,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize)]
+#[serde(rename_all(deserialize = "kebab-case"))]
+pub enum StreampagerAlternateScreenMode {
+    QuitIfOnePage,
+    FullScreenClearOutput,
+    QuitQuicklyOrClearOutput,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize)]
+#[serde(rename_all(deserialize = "kebab-case"))]
+enum StreampagerWrappingMode {
+    None,
+    Word,
+    Anywhere,
+}
+
+impl From<StreampagerWrappingMode> for streampager::config::WrappingMode {
+    fn from(val: StreampagerWrappingMode) -> Self {
+        use streampager::config::WrappingMode;
+        match val {
+            StreampagerWrappingMode::None => WrappingMode::Unwrapped,
+            StreampagerWrappingMode::Word => WrappingMode::WordBoundary,
+            StreampagerWrappingMode::Anywhere => WrappingMode::GraphemeBoundary,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize)]
+#[serde(rename_all(deserialize = "kebab-case"))]
+struct StreampagerConfig {
+    interface: StreampagerAlternateScreenMode,
+    wrapping: StreampagerWrappingMode,
+    // TODO: Add an `quit-quickly-delay-seconds` floating point option or a
+    // `quit-quickly-delay` option that takes a 's' or 'ms' suffix. Note that as
+    // of this writing, floating point numbers do not work with `--config`
+}
+
+impl StreampagerConfig {
+    fn streampager_interface_mode(&self) -> streampager::config::InterfaceMode {
+        use streampager::config::InterfaceMode;
+        use StreampagerAlternateScreenMode::*;
+        match self.interface {
+            // InterfaceMode::Direct not implemented
+            FullScreenClearOutput => InterfaceMode::FullScreen,
+            QuitIfOnePage => InterfaceMode::Hybrid,
+            QuitQuicklyOrClearOutput => InterfaceMode::Delayed(std::time::Duration::from_secs(2)),
+        }
+    }
+}
+
 enum PagerConfig {
     Disabled,
-    Builtin,
+    Builtin(StreampagerConfig),
     External(CommandNameAndArgs),
 }
 
@@ -270,7 +329,7 @@ impl PagerConfig {
         };
         match config.get("ui.pager")? {
             CommandNameAndArgs::String(name) if name == BUILTIN_PAGER_NAME => {
-                Ok(PagerConfig::Builtin)
+                Ok(PagerConfig::Builtin(config.get("ui.streampager")?))
             }
             _ => Ok(PagerConfig::External(config.get("ui.pager")?)),
         }
@@ -318,16 +377,18 @@ impl Ui {
             PagerConfig::Disabled => {
                 return;
             }
-            PagerConfig::Builtin => UiOutput::new_builtin_paged()
-                .inspect_err(|err| {
-                    writeln!(
-                        self.warning_default(),
-                        "Failed to set up builtin pager: {err}",
-                        err = format_error_with_sources(err),
-                    )
-                    .ok();
-                })
-                .ok(),
+            PagerConfig::Builtin(streampager_config) => {
+                UiOutput::new_builtin_paged(streampager_config)
+                    .inspect_err(|err| {
+                        writeln!(
+                            self.warning_default(),
+                            "Failed to set up builtin pager: {err}",
+                            err = format_error_with_sources(err),
+                        )
+                        .ok();
+                    })
+                    .ok()
+            }
             PagerConfig::External(command_name_and_args) => {
                 UiOutput::new_paged(command_name_and_args)
                     .inspect_err(|err| {
