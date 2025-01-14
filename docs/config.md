@@ -1319,11 +1319,20 @@ to specify additional configuration settings. This overrides settings defined in
 config files or environment variables. For example,
 
 ```shell
-jj --config=ui.color=always --config=ui.diff-editor=kdiff3 split
+# Must not have spaces around the `=`
+jj --config ui.color=always --config ui.diff-editor=kdiff3 split
 ```
 
 Config value should be specified as a TOML expression. If string value doesn't
 contain any TOML constructs (such as array notation), quotes can be omitted.
+Here is an example with more advanced TOML constructs:
+
+```shell
+# Single quotes and the '\' are interpreted by the shell and assume a Unix shell
+# Double quotes are passed to jj and are parsed as TOML syntax
+jj log --config \
+  'template-aliases."format_timestamp(timestamp)"="""timestamp.format("%Y-%m-%d %H:%M %:::z")"""'
+```
 
 To load an entire TOML document, use `--config-file`:
 
