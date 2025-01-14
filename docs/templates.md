@@ -166,10 +166,16 @@ The following methods are defined.
 
 ### Email type
 
+The email field of a signature may or may not look like an email address. It may
+be empty, may not contain the symbol `@`, and could in principle contain
+multiple `@`s.
+
 The following methods are defined.
 
-* `.local() -> String`
-* `.domain() -> String`
+* `.local() -> String`: the part of the email before the first `@`, usually the
+  username.
+* `.domain() -> String`: the part of the email after the first `@` or the empty
+  string.
 
 ### Integer type
 
