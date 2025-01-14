@@ -173,6 +173,11 @@
                 },
                 "conflict-marker-style": {
                     "$ref": "#/properties/ui/definitions/conflict-marker-style"
+                },
+                "show-cryptographic-signatures": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Whether the built-in templates should show cryptographic signature information"
                 }
             }
         },

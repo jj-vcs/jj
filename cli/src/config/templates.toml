@@ -78,6 +78,8 @@ if(root,
         if(git_head, label("git_head", "git_head()")),
         format_short_commit_id(commit_id),
         if(conflict, label("conflict", "conflict")),
+        if(config("ui.show-cryptographic-signatures").as_boolean(),
+          format_short_cryptographic_signature(signature)),
         if(empty, label("empty", "(empty)")),
         if(description,
           description.first_line(),
@@ -134,6 +136,8 @@ concat(
   surround("Tags     : ", "\n", tags),
   "Author   : " ++ format_detailed_signature(author) ++ "\n",
   "Committer: " ++ format_detailed_signature(committer)  ++ "\n",
+  if(config("ui.show-cryptographic-signatures").as_boolean(),
+    "Signature: " ++ format_detailed_cryptographic_signature(signature) ++ "\n"),
   "\n",
   indent("    ",
     coalesce(description, label(if(empty, "empty"), description_placeholder) ++ "\n")),
@@ -281,7 +285,34 @@ separate(" ",
         if(commit.git_head(), label("git_head", "git_head()")),
         format_short_commit_id(commit.commit_id()),
         if(commit.conflict(), label("conflict", "conflict")),
+        if(config("ui.show-cryptographic-signatures").as_boolean(),
+          format_short_cryptographic_signature(commit.signature())),
       )
+'''
+
+'format_detailed_cryptographic_signature(signature)' = '''
+if(signature,
+  separate(" ",
+    label("signature status " ++ signature.status(), signature.status()),
+    "signature by",
+    coalesce(signature.display(), "(unknown)"),
+    signature.key(),
+  ),
+  "(no signature)",
+)
+'''
+'format_short_cryptographic_signature(signature)' = '''
+if(signature,
+  label("signature status", concat(
+    "[",
+    label(signature.status(), coalesce(
+      if(signature.status() == "good", "✓︎"),
+      if(signature.status() == "unknown", "?"),
+      "x",
+    )),
+    "]",
+  ))
+)
 '''
 
 builtin_log_node = '''

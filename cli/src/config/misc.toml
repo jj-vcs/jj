@@ -33,6 +33,8 @@ quiet = false
 log-word-wrap = false
 log-synthetic-elided-nodes = true
 conflict-marker-style = "diff"
+# signature verification is slow, disable by default
+show-cryptographic-signatures = false
 
 [ui.movement]
 edit = false
