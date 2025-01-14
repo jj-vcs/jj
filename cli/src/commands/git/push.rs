@@ -400,14 +400,11 @@ fn validate_commits_ready_to_push(
         .range(&RevsetExpression::commits(new_heads));
 
     let settings = workspace_helper.settings();
-    let is_private = if let Ok(revset) = settings.get_string("git.private-commits") {
-        workspace_helper
-            .parse_revset(ui, &RevisionArg::from(revset))?
-            .evaluate()?
-            .containing_fn()
-    } else {
-        Box::new(|_: &CommitId| Ok(false))
-    };
+    let private_revset_str = RevisionArg::from(settings.get_string("git.private-commits")?);
+    let is_private = workspace_helper
+        .parse_revset(ui, &private_revset_str)?
+        .evaluate()?
+        .containing_fn();
     let sign_settings = sign_behavior.map(|sign_behavior| {
         let mut sign_settings = settings.sign_settings();
         sign_settings.behavior = sign_behavior;
@@ -456,10 +453,7 @@ fn validate_commits_ready_to_push(
             });
             if !args.allow_private && is_private {
                 error.add_hint(format!(
-                    "Configured git.private-commits: '{}'",
-                    settings
-                        .get_string("git.private-commits")
-                        .expect("should have private-commits setting")
+                    "Configured git.private-commits: '{private_revset_str}'",
                 ));
             }
             return Err(error);
