@@ -110,6 +110,7 @@ pub async fn split_hunks_to_trees(
         let (left_value, right_value) = entry.values?;
         let (left_text, executable) = match to_file_value(left_value) {
             Ok(Some(mut value)) => (value.read(left_path)?, value.executable),
+            // New file should have no destinations
             Ok(None) => continue,
             Err(reason) => {
                 selected_trees
@@ -120,7 +121,15 @@ pub async fn split_hunks_to_trees(
         };
         let right_text = match to_file_value(right_value) {
             Ok(Some(mut value)) => value.read(right_path)?,
-            Ok(None) => continue,
+            // Deleted file could be absorbed, but that would require special
+            // handling to propagate deletion of the tree entry
+            Ok(None) => {
+                let reason = "Deleted file".to_owned();
+                selected_trees
+                    .skipped_paths
+                    .push((right_path.to_owned(), reason));
+                continue;
+            }
             Err(reason) => {
                 selected_trees
                     .skipped_paths

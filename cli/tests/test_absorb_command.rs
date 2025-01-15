@@ -439,6 +439,25 @@ fn test_absorb_conflict() {
 }
 
 #[test]
+fn test_absorb_deleted_file() {
+    let test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    let repo_path = test_env.env_root().join("repo");
+
+    test_env.jj_cmd_ok(&repo_path, &["describe", "-m1"]);
+    std::fs::write(repo_path.join("file1"), "1a\n").unwrap();
+
+    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    std::fs::remove_file(repo_path.join("file1")).unwrap();
+
+    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["absorb"]);
+    insta::assert_snapshot!(stderr, @r"
+    Warning: Skipping file1: Deleted file
+    Nothing changed.
+    ");
+}
+
+#[test]
 fn test_absorb_file_mode() {
     let test_env = TestEnvironment::default();
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
