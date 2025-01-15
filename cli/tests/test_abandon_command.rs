@@ -52,7 +52,7 @@ fn test_basics() {
     ◆  [zzz]
     "###);
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["abandon", "d"]);
+    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["abandon", "--retain-bookmarks", "d"]);
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @r###"
     Abandoned commit vruxwmqv b7c62f28 d | d
@@ -74,7 +74,10 @@ fn test_basics() {
     "###);
 
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["abandon"] /* abandons `e` */);
+    let (stdout, stderr) = test_env.jj_cmd_ok(
+        &repo_path,
+        &["abandon", "--retain-bookmarks"], /* abandons `e` */
+    );
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @r###"
     Abandoned commit znkkpsqq 5557ece3 e | e
@@ -98,66 +101,69 @@ fn test_basics() {
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["abandon", "descendants(d)"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Abandoned the following commits:
       znkkpsqq 5557ece3 e | e
       vruxwmqv b7c62f28 d | d
+    Deleted bookmarks: d, e
     Working copy now at: xtnwkqum fa4ee8e6 (empty) (no description set)
-    Parent commit      : rlvkpnrz 2443ea76 a e?? | a
-    Parent commit      : royxmykx fe2e8e8b c d e?? | c
+    Parent commit      : rlvkpnrz 2443ea76 a | a
+    Parent commit      : royxmykx fe2e8e8b c | c
     Added 0 files, modified 0 files, removed 2 files
-    "###);
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r###"
+    ");
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @    [xtn]
     ├─╮
-    │ ○  [roy] c d e??
+    │ ○  [roy] c
     │ │ ○  [zsu] b
     ├───╯
-    ○ │  [rlv] a e??
+    ○ │  [rlv] a
     ├─╯
     ◆  [zzz]
-    "###);
+    ");
 
     // Test abandoning the same commit twice directly
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["abandon", "-rb", "b"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Abandoned commit zsuskuln 1394f625 b | b
-    "###);
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r###"
+    Deleted bookmarks: b
+    ");
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @    [znk] e
     ├─╮
     │ ○  [vru] d
     │ ○  [roy] c
-    ○ │  [rlv] a b
+    ○ │  [rlv] a
     ├─╯
     ◆  [zzz]
-    "###);
+    ");
 
     // Test abandoning the same commit twice indirectly
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["abandon", "d::", "e"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Abandoned the following commits:
       znkkpsqq 5557ece3 e | e
       vruxwmqv b7c62f28 d | d
+    Deleted bookmarks: d, e
     Working copy now at: xlzxqlsl 14991aec (empty) (no description set)
-    Parent commit      : rlvkpnrz 2443ea76 a e?? | a
-    Parent commit      : royxmykx fe2e8e8b c d e?? | c
+    Parent commit      : rlvkpnrz 2443ea76 a | a
+    Parent commit      : royxmykx fe2e8e8b c | c
     Added 0 files, modified 0 files, removed 2 files
-    "###);
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r###"
+    ");
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @    [xlz]
     ├─╮
-    │ ○  [roy] c d e??
+    │ ○  [roy] c
     │ │ ○  [zsu] b
     ├───╯
-    ○ │  [rlv] a e??
+    ○ │  [rlv] a
     ├─╯
     ◆  [zzz]
-    "###);
+    ");
 
     let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["abandon", "none()"]);
     insta::assert_snapshot!(stderr, @r###"
@@ -198,67 +204,70 @@ fn test_bug_2600() {
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["abandon", "base"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Abandoned commit zsuskuln 73c929fc base | base
+    Deleted bookmarks: base
     Rebased 3 descendant commits onto parents of abandoned commits
     Working copy now at: znkkpsqq 86e31bec c | c
     Parent commit      : vruxwmqv fd6eb121 b | b
     Added 0 files, modified 0 files, removed 1 files
-    "###);
+    ");
     // Commits "a" and "b" should both have "nottherootcommit" as parent, and "b"
     // should keep "a" as second parent.
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r###"
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  [znk] c
     ○    [vru] b
     ├─╮
     │ ○  [roy] a
     ├─╯
-    ○  [rlv] base nottherootcommit
+    ○  [rlv] nottherootcommit
     ◆  [zzz]
-    "###);
+    ");
 
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["abandon", "a"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Abandoned commit royxmykx 98f3b9ba a | a
+    Deleted bookmarks: a
     Rebased 2 descendant commits onto parents of abandoned commits
     Working copy now at: znkkpsqq 683b9435 c | c
     Parent commit      : vruxwmqv c10cb7b4 b | b
     Added 0 files, modified 0 files, removed 1 files
-    "###);
+    ");
     // Commit "b" should have "base" as parent. It should not have two parent
     // pointers to that commit even though it was a merge commit before we abandoned
     // "a".
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r###"
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  [znk] c
     ○  [vru] b
-    ○  [zsu] a base
+    ○  [zsu] base
     ○  [rlv] nottherootcommit
     ◆  [zzz]
-    "###);
+    ");
 
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["abandon", "b"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Abandoned commit vruxwmqv 8c0dced0 b | b
+    Deleted bookmarks: b
     Rebased 1 descendant commits onto parents of abandoned commits
     Working copy now at: znkkpsqq 33a94991 c | c
-    Parent commit      : zsuskuln 73c929fc b?? base | base
-    Parent commit      : royxmykx 98f3b9ba a b?? | a
+    Parent commit      : zsuskuln 73c929fc base | base
+    Parent commit      : royxmykx 98f3b9ba a | a
     Added 0 files, modified 0 files, removed 1 files
-    "###);
+    ");
     // Commit "c" should inherit the parents from the abndoned commit "b".
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r###"
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @    [znk] c
     ├─╮
-    │ ○  [roy] a b??
+    │ ○  [roy] a
     ├─╯
-    ○  [zsu] b?? base
+    ○  [zsu] base
     ○  [rlv] nottherootcommit
     ◆  [zzz]
-    "###);
+    ");
 
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
     // ========= Reminder of the setup ===========
@@ -272,7 +281,8 @@ fn test_bug_2600() {
     ○  [rlv] nottherootcommit
     ◆  [zzz]
     "###);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["abandon", "a", "b"]);
+    let (stdout, stderr) =
+        test_env.jj_cmd_ok(&repo_path, &["abandon", "--retain-bookmarks", "a", "b"]);
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @r###"
     Abandoned the following commits:
@@ -350,12 +360,13 @@ fn test_double_abandon() {
 
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["abandon", &commit_id]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Abandoned commit rlvkpnrz 2443ea76 a | a
+    Deleted bookmarks: a
     Working copy now at: royxmykx f37b4afd (empty) (no description set)
-    Parent commit      : zzzzzzzz 00000000 a | (empty) (no description set)
+    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 0 files, removed 1 files
-    "###);
+    ");
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["abandon", &commit_id]);
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @r###"

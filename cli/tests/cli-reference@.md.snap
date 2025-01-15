@@ -218,6 +218,9 @@ If a working-copy commit gets abandoned, it will be given a new, empty commit. T
 ###### **Options:**
 
 * `-s`, `--summary` — Do not print every abandoned commit on a separate line
+* `--retain-bookmarks` — Do not delete bookmarks pointing to the revisions to abandon
+
+   Bookmarks will be moved to the parent revisions instead.
 * `--restore-descendants` — Do not modify the content of the children of the abandoned commits
 
 
@@ -309,6 +312,8 @@ Create a new bookmark
 ## `jj bookmark delete`
 
 Delete an existing bookmark and propagate the deletion to remotes on the next push
+
+Revisions referred to by the deleted bookmarks are not abandoned. To delete revisions as well as bookmarks, use `jj abandon`. For example, `jj abandon main..<bookmark>` will abandon revisions belonging to the `<bookmark>` branch (relative to the `main` branch.)
 
 **Usage:** `jj bookmark delete <NAMES>...`
 

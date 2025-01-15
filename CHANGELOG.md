@@ -12,6 +12,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+* `jj abandon` now deletes bookmarks pointing to the revisions to be abandoned.
+  Use `--retain-bookmarks` to move bookmarks backwards. If deleted bookmarks
+  were tracking remote bookmarks, the associated bookmarks (or branches) will be
+  deleted from the remote on `jj git push --all`.
+  [https://github.com/jj-vcs/jj/issues/3505](#3505)
+
 * `jj init --git` and `jj init --git-repo` have been removed. They were
   deprecated in early 2024. Use `jj git init` instead.
 

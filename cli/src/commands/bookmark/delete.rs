@@ -25,6 +25,11 @@ use crate::ui::Ui;
 
 /// Delete an existing bookmark and propagate the deletion to remotes on the
 /// next push
+///
+/// Revisions referred to by the deleted bookmarks are not abandoned. To delete
+/// revisions as well as bookmarks, use `jj abandon`. For example, `jj abandon
+/// main..<bookmark>` will abandon revisions belonging to the `<bookmark>`
+/// branch (relative to the `main` branch.)
 #[derive(clap::Args, Clone, Debug)]
 pub struct BookmarkDeleteArgs {
     /// The bookmarks to delete

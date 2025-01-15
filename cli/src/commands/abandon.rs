@@ -20,6 +20,9 @@ use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::CommitIteratorExt;
 use jj_lib::object_id::ObjectId;
+use jj_lib::refs::diff_named_ref_targets;
+use jj_lib::repo::Repo as _;
+use jj_lib::rewrite::RewriteRefsOptions;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -49,6 +52,11 @@ pub(crate) struct AbandonArgs {
     /// Do not print every abandoned commit on a separate line
     #[arg(long, short)]
     summary: bool,
+    /// Do not delete bookmarks pointing to the revisions to abandon
+    ///
+    /// Bookmarks will be moved to the parent revisions instead.
+    #[arg(long)]
+    retain_bookmarks: bool,
     /// Do not modify the content of the children of the abandoned commits
     #[arg(long)]
     restore_descendants: bool,
@@ -77,9 +85,13 @@ pub(crate) fn cmd_abandon(
     workspace_command.check_rewritable(to_abandon_set.iter().copied())?;
 
     let mut tx = workspace_command.start_transaction();
+    let options = RewriteRefsOptions {
+        delete_abandoned_bookmarks: !args.retain_bookmarks,
+    };
     let mut num_rebased = 0;
-    tx.repo_mut().transform_descendants(
+    tx.repo_mut().transform_descendants_with_options(
         to_abandon_set.iter().copied().cloned().collect(),
+        &options,
         |rewriter| {
             if to_abandon_set.contains(rewriter.old_commit().id()) {
                 rewriter.abandon();
@@ -110,6 +122,20 @@ pub(crate) fn cmd_abandon(
             }
         } else {
             writeln!(formatter, "Abandoned {} commits.", to_abandon.len())?;
+        }
+        let deleted_bookmarks = diff_named_ref_targets(
+            tx.base_repo().view().local_bookmarks(),
+            tx.repo().view().local_bookmarks(),
+        )
+        .filter(|(_, (_old, new))| new.is_absent())
+        .map(|(name, _)| name)
+        .collect_vec();
+        if !deleted_bookmarks.is_empty() {
+            writeln!(
+                formatter,
+                "Deleted bookmarks: {}",
+                deleted_bookmarks.iter().join(", ")
+            )?;
         }
         if num_rebased > 0 {
             if args.restore_descendants {
