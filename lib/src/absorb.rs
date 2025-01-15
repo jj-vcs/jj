@@ -268,15 +268,26 @@ fn combine_texts(text1: &[u8], text2: &[u8], selected_ranges: &[SelectedRange]) 
     .collect()
 }
 
+/// Describes changes made by [`absorb_hunks()`].
+#[derive(Clone, Debug)]
+pub struct AbsorbStats {
+    /// Rewritten commits which the source hunks were absorbed into, in forward
+    /// topological order.
+    pub rewritten_destinations: Vec<Commit>,
+    /// Number of descendant commits which were rebased. The number of rewritten
+    /// destination commits are not included.
+    pub num_rebased: usize,
+}
+
 /// Merges selected trees into the specified commits. Abandons the source commit
 /// if it becomes discardable.
 pub fn absorb_hunks(
     repo: &mut MutableRepo,
     source: &AbsorbSource,
     mut selected_trees: HashMap<CommitId, MergedTreeBuilder>,
-) -> BackendResult<(Vec<Commit>, usize)> {
+) -> BackendResult<AbsorbStats> {
     let store = repo.store().clone();
-    let mut rewritten_commits = Vec::new();
+    let mut rewritten_destinations = Vec::new();
     let mut num_rebased = 0;
     // Rewrite commits in topological order so that descendant commits wouldn't
     // be rewritten multiple times.
@@ -309,10 +320,13 @@ pub fn absorb_hunks(
             .set_tree_id(new_tree.id())
             .set_predecessors(predecessors)
             .write()?;
-        rewritten_commits.push(new_commit);
+        rewritten_destinations.push(new_commit);
         Ok(())
     })?;
-    Ok((rewritten_commits, num_rebased))
+    Ok(AbsorbStats {
+        rewritten_destinations,
+        num_rebased,
+    })
 }
 
 struct FileValue {

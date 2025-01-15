@@ -91,27 +91,33 @@ pub(crate) fn cmd_absorb(
     workspace_command.check_rewritable(selected_trees.target_commits.keys())?;
 
     let mut tx = workspace_command.start_transaction();
-    let (rewritten_commits, num_rebased) =
-        absorb_hunks(tx.repo_mut(), &source, selected_trees.target_commits)?;
+    let stats = absorb_hunks(tx.repo_mut(), &source, selected_trees.target_commits)?;
 
     if let Some(mut formatter) = ui.status_formatter() {
-        if !rewritten_commits.is_empty() {
+        if !stats.rewritten_destinations.is_empty() {
             writeln!(formatter, "Absorbed changes into these revisions:")?;
             let template = tx.commit_summary_template();
-            for commit in rewritten_commits.iter().rev() {
+            for commit in stats.rewritten_destinations.iter().rev() {
                 write!(formatter, "  ")?;
                 template.format(commit, formatter.as_mut())?;
                 writeln!(formatter)?;
             }
         }
-        if num_rebased > 0 {
-            writeln!(formatter, "Rebased {num_rebased} descendant commits.")?;
+        if stats.num_rebased > 0 {
+            writeln!(
+                formatter,
+                "Rebased {} descendant commits.",
+                stats.num_rebased
+            )?;
         }
     }
 
     tx.finish(
         ui,
-        format!("absorb changes into {} commits", rewritten_commits.len()),
+        format!(
+            "absorb changes into {} commits",
+            stats.rewritten_destinations.len()
+        ),
     )?;
     Ok(())
 }
