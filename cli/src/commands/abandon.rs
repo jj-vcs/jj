@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::HashSet;
 use std::io::Write;
 
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
+use jj_lib::backend::CommitId;
 use jj_lib::commit::CommitIteratorExt;
 use jj_lib::object_id::ObjectId;
 use tracing::instrument;
@@ -71,20 +73,26 @@ pub(crate) fn cmd_abandon(
         writeln!(ui.status(), "No revisions to abandon.")?;
         return Ok(());
     }
-    workspace_command.check_rewritable(to_abandon.iter().ids())?;
+    let to_abandon_set: HashSet<&CommitId> = to_abandon.iter().ids().collect();
+    workspace_command.check_rewritable(to_abandon_set.iter().copied())?;
 
     let mut tx = workspace_command.start_transaction();
-    for commit in &to_abandon {
-        tx.repo_mut().record_abandoned_commit(commit);
-    }
-    let (num_rebased, extra_msg) = if args.restore_descendants {
-        (
-            tx.repo_mut().reparent_descendants()?,
-            " (while preserving their content)",
-        )
-    } else {
-        (tx.repo_mut().rebase_descendants()?, "")
-    };
+    let mut num_rebased = 0;
+    tx.repo_mut().transform_descendants(
+        to_abandon_set.iter().copied().cloned().collect(),
+        |rewriter| {
+            if to_abandon_set.contains(rewriter.old_commit().id()) {
+                rewriter.abandon();
+            } else if args.restore_descendants {
+                rewriter.reparent().write()?;
+                num_rebased += 1;
+            } else {
+                rewriter.rebase()?.write()?;
+                num_rebased += 1;
+            }
+            Ok(())
+        },
+    )?;
 
     if let Some(mut formatter) = ui.status_formatter() {
         if to_abandon.len() == 1 {
@@ -101,14 +109,21 @@ pub(crate) fn cmd_abandon(
                 writeln!(formatter)?;
             }
         } else {
-            writeln!(formatter, "Abandoned {} commits.", &to_abandon.len())?;
+            writeln!(formatter, "Abandoned {} commits.", to_abandon.len())?;
         }
         if num_rebased > 0 {
-            writeln!(
-                formatter,
-                "Rebased {num_rebased} descendant commits{extra_msg} onto parents of abandoned \
-                 commits",
-            )?;
+            if args.restore_descendants {
+                writeln!(
+                    formatter,
+                    "Rebased {num_rebased} descendant commits (while preserving their content) \
+                     onto parents of abandoned commits",
+                )?;
+            } else {
+                writeln!(
+                    formatter,
+                    "Rebased {num_rebased} descendant commits onto parents of abandoned commits",
+                )?;
+            }
         }
     }
     let transaction_description = if to_abandon.len() == 1 {
