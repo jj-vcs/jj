@@ -480,6 +480,8 @@ fn test_absorb_file_mode() {
     Rebased 1 descendant commits.
     Working copy now at: zsuskuln 77de368e (no description set)
     Parent commit      : qpvuntsm 991365da 1
+    Remaining changes:
+    M file1
     ");
 
     insta::assert_snapshot!(get_diffs(&test_env, &repo_path, "mutable()"), @r"
@@ -521,6 +523,8 @@ fn test_absorb_from_into() {
     Rebased 1 descendant commits.
     Working copy now at: zsuskuln d5424357 (no description set)
     Parent commit      : kkmpptxz 91df4543 2
+    Remaining changes:
+    M file1
     ");
 
     insta::assert_snapshot!(get_diffs(&test_env, &repo_path, "@-::"), @r"
@@ -623,6 +627,8 @@ fn test_absorb_paths() {
     Rebased 1 descendant commits.
     Working copy now at: kkmpptxz c6f31836 (no description set)
     Parent commit      : qpvuntsm ae044adb 1
+    Remaining changes:
+    M file2
     ");
 
     insta::assert_snapshot!(get_diffs(&test_env, &repo_path, "mutable()"), @r"
@@ -677,6 +683,8 @@ fn test_absorb_immutable() {
     Rebased 1 descendant commits.
     Working copy now at: mzvwutvl 3021153d (no description set)
     Parent commit      : kkmpptxz d80e3c2a 2
+    Remaining changes:
+    M file1
     ");
 
     // Immutable revisions shouldn't be rewritten

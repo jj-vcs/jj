@@ -271,6 +271,9 @@ fn combine_texts(text1: &[u8], text2: &[u8], selected_ranges: &[SelectedRange]) 
 /// Describes changes made by [`absorb_hunks()`].
 #[derive(Clone, Debug)]
 pub struct AbsorbStats {
+    /// Rewritten source commit which the absorbed hunks were removed, or `None`
+    /// if the source commit was abandoned or no hunks were moved.
+    pub rewritten_source: Option<Commit>,
     /// Rewritten commits which the source hunks were absorbed into, in forward
     /// topological order.
     pub rewritten_destinations: Vec<Commit>,
@@ -287,6 +290,7 @@ pub fn absorb_hunks(
     mut selected_trees: HashMap<CommitId, MergedTreeBuilder>,
 ) -> BackendResult<AbsorbStats> {
     let store = repo.store().clone();
+    let mut rewritten_source = None;
     let mut rewritten_destinations = Vec::new();
     let mut num_rebased = 0;
     // Rewrite commits in topological order so that descendant commits wouldn't
@@ -298,7 +302,7 @@ pub fn absorb_hunks(
             if commit_builder.is_discardable()? {
                 commit_builder.abandon();
             } else {
-                commit_builder.write()?;
+                rewritten_source = Some(commit_builder.write()?);
                 num_rebased += 1;
             }
             return Ok(());
@@ -324,6 +328,7 @@ pub fn absorb_hunks(
         Ok(())
     })?;
     Ok(AbsorbStats {
+        rewritten_source,
         rewritten_destinations,
         num_rebased,
     })
