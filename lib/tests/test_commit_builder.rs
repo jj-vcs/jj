@@ -27,6 +27,7 @@ use jj_lib::merged_tree::MergedTree;
 use jj_lib::repo::Repo;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
+use jj_lib::rewrite::RebaseOptions;
 use jj_lib::settings::UserSettings;
 use pollster::FutureExt as _;
 use test_case::test_case;
@@ -373,7 +374,7 @@ fn test_commit_builder_descendants(backend: TestRepoBackend) {
         .unwrap();
     let rebase_map = tx
         .repo_mut()
-        .rebase_descendants_with_options_return_map(Default::default())
+        .rebase_descendants_with_options_return_map(&RebaseOptions::default())
         .unwrap();
     assert_eq!(rebase_map.len(), 0);
 
@@ -382,7 +383,7 @@ fn test_commit_builder_descendants(backend: TestRepoBackend) {
     let commit4 = tx.repo_mut().rewrite_commit(&commit2).write().unwrap();
     let rebase_map = tx
         .repo_mut()
-        .rebase_descendants_with_options_return_map(Default::default())
+        .rebase_descendants_with_options_return_map(&RebaseOptions::default())
         .unwrap();
     assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit3, &[commit4.id()]);
     assert_eq!(rebase_map.len(), 1);
@@ -396,7 +397,7 @@ fn test_commit_builder_descendants(backend: TestRepoBackend) {
         .unwrap();
     let rebase_map = tx
         .repo_mut()
-        .rebase_descendants_with_options_return_map(Default::default())
+        .rebase_descendants_with_options_return_map(&RebaseOptions::default())
         .unwrap();
     assert!(rebase_map.is_empty());
 }

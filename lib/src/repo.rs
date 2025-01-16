@@ -1262,14 +1262,14 @@ impl MutableRepo {
     /// bookmarks of the abandoned commit.
     pub fn rebase_descendants_with_options_return_map(
         &mut self,
-        options: RebaseOptions,
+        options: &RebaseOptions,
     ) -> BackendResult<HashMap<CommitId, CommitId>> {
         let mut rebased: HashMap<CommitId, CommitId> = HashMap::new();
         let roots = self.parent_mapping.keys().cloned().collect_vec();
         self.transform_descendants(roots, |rewriter| {
             if rewriter.parents_changed() {
                 let old_commit_id = rewriter.old_commit().id().clone();
-                let rebased_commit: RebasedCommit = rebase_commit_with_options(rewriter, &options)?;
+                let rebased_commit: RebasedCommit = rebase_commit_with_options(rewriter, options)?;
                 let new_commit_id = match rebased_commit {
                     RebasedCommit::Rewritten(new_commit) => new_commit.id().clone(),
                     RebasedCommit::Abandoned { parent_id } => parent_id,

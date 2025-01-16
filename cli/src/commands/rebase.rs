@@ -272,7 +272,7 @@ pub(crate) fn cmd_rebase(
             &mut workspace_command,
             &args.branch,
             &args.destination,
-            rebase_options,
+            &rebase_options,
         )?;
     }
     Ok(())
@@ -349,7 +349,7 @@ fn rebase_branch(
     workspace_command: &mut WorkspaceCommandHelper,
     branch: &[RevisionArg],
     rebase_destination: &RebaseDestinationArgs,
-    rebase_options: RebaseOptions,
+    rebase_options: &RebaseOptions,
 ) -> Result<(), CommandError> {
     let branch_commits: Vec<_> = if branch.is_empty() {
         vec![workspace_command.resolve_single_rev(ui, &RevisionArg::AT)?]
@@ -387,7 +387,7 @@ fn rebase_branch(
         &new_parent_ids,
         &new_children,
         root_commits,
-        &rebase_options,
+        rebase_options,
     )
 }
 
