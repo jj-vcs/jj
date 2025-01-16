@@ -75,7 +75,7 @@ pub(crate) fn cmd_abandon(
 
     let mut tx = workspace_command.start_transaction();
     for commit in &to_abandon {
-        tx.repo_mut().record_abandoned_commit(commit.id().clone());
+        tx.repo_mut().record_abandoned_commit(commit);
     }
     let (num_rebased, extra_msg) = if args.restore_descendants {
         (

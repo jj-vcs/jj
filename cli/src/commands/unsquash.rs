@@ -116,7 +116,7 @@ aborted.
     // Abandon the parent if it is now empty (always the case in the non-interactive
     // case).
     if new_parent_tree_id == parent_base_tree.id() {
-        tx.repo_mut().record_abandoned_commit(parent.id().clone());
+        tx.repo_mut().record_abandoned_commit(&parent);
         let description = combine_messages(&text_editor, &[&parent], &commit)?;
         // Commit the new child on top of the parent's parents.
         tx.repo_mut()

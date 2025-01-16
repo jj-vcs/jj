@@ -915,8 +915,12 @@ fn test_import_refs_reimport_with_deleted_abandoned_untracked_remote_ref() {
     // x feature-b@origin (hidden)
     // o feature-a@origin
     let mut tx = repo.start_transaction();
-    tx.repo_mut()
-        .record_abandoned_commit(jj_id(&commit_remote_b));
+    let jj_commit_remote_b = tx
+        .repo()
+        .store()
+        .get_commit(&jj_id(&commit_remote_b))
+        .unwrap();
+    tx.repo_mut().record_abandoned_commit(&jj_commit_remote_b);
     tx.repo_mut().rebase_descendants().unwrap();
     let repo = tx.commit("test").unwrap();
     let view = repo.view();

@@ -935,15 +935,17 @@ impl MutableRepo {
     /// children that need to be rebased, and where to rebase the children (as
     /// well as bookmarks) to.
     ///
-    /// The `rebase_descendants` logic will rebase the descendants of `old_id`
-    /// to become the descendants of parent(s) of `old_id`. Any bookmarks at
-    /// `old_id` would be moved to the parent(s) of `old_id` as well.
-    // TODO: Propagate errors from commit lookup or take a Commit as argument.
-    pub fn record_abandoned_commit(&mut self, old_id: CommitId) {
-        assert_ne!(old_id, *self.store().root_commit_id());
+    /// The `rebase_descendants` logic will rebase the descendants of the old
+    /// commit to become the descendants of parent(s) of the old commit. Any
+    /// bookmarks at the old commit would be moved to the parent(s) of the old
+    /// commit as well.
+    pub fn record_abandoned_commit(&mut self, old_commit: &Commit) {
+        assert_ne!(old_commit.id(), self.store().root_commit_id());
         // Descendants should be rebased onto the commit's parents
-        let old_commit = self.store().get_commit(&old_id).unwrap();
-        self.record_abandoned_commit_with_parents(old_id, old_commit.parent_ids().to_vec());
+        self.record_abandoned_commit_with_parents(
+            old_commit.id().clone(),
+            old_commit.parent_ids().iter().cloned(),
+        );
     }
 
     /// Record a commit as having been abandoned in this transaction.
@@ -1409,7 +1411,7 @@ impl MutableRepo {
                 // Abandon the working-copy commit we're leaving if it's
                 // discardable, not pointed by local bookmark or other working
                 // copies, and a head commit.
-                self.record_abandoned_commit(wc_commit_id);
+                self.record_abandoned_commit(&wc_commit);
             }
         }
 
@@ -1774,8 +1776,9 @@ impl MutableRepo {
 
         for (change_id, removed_commit_ids) in &removed_changes {
             if !rewritten_changes.contains(change_id) {
-                for removed_commit_id in removed_commit_ids {
-                    self.record_abandoned_commit(removed_commit_id.clone());
+                for id in removed_commit_ids {
+                    let commit = self.store().get_commit(id)?;
+                    self.record_abandoned_commit(&commit);
                 }
             }
         }

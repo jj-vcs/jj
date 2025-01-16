@@ -385,16 +385,17 @@ fn abandon_unreachable_commits(
         .range(&RevsetExpression::commits(hidable_git_heads))
         // Don't include already-abandoned commits in GitImportStats
         .intersection(&RevsetExpression::visible_heads().ancestors());
-    let abandoned_commits: Vec<_> = abandoned_expression
+    let abandoned_commit_ids: Vec<_> = abandoned_expression
         .evaluate(mut_repo)
         .map_err(|err| err.expect_backend_error())?
         .iter()
         .try_collect()
         .map_err(|err| err.expect_backend_error())?;
-    for abandoned_commit in &abandoned_commits {
-        mut_repo.record_abandoned_commit(abandoned_commit.clone());
+    for id in &abandoned_commit_ids {
+        let commit = mut_repo.store().get_commit(id)?;
+        mut_repo.record_abandoned_commit(&commit);
     }
-    Ok(abandoned_commits)
+    Ok(abandoned_commit_ids)
 }
 
 /// Calculates diff of git refs to be imported.

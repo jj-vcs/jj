@@ -1083,7 +1083,7 @@ where
     let mut abandoned_commits = vec![];
     for source in &source_commits {
         if source.abandon {
-            repo.record_abandoned_commit(source.commit.commit.id().clone());
+            repo.record_abandoned_commit(&source.commit.commit);
             abandoned_commits.push(source.commit);
         } else {
             let source_tree = source.commit.commit.tree()?;

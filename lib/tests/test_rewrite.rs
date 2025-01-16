@@ -418,8 +418,8 @@ fn test_rebase_descendants_abandon() {
     let commit_e = graph_builder.commit_with_parents(&[&commit_d]);
     let commit_f = graph_builder.commit_with_parents(&[&commit_e]);
 
-    tx.repo_mut().record_abandoned_commit(commit_b.id().clone());
-    tx.repo_mut().record_abandoned_commit(commit_e.id().clone());
+    tx.repo_mut().record_abandoned_commit(&commit_b);
+    tx.repo_mut().record_abandoned_commit(&commit_e);
     let rebase_map = tx
         .repo_mut()
         .rebase_descendants_with_options_return_map(Default::default())
@@ -455,8 +455,8 @@ fn test_rebase_descendants_abandon_no_descendants() {
     let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
     let commit_c = graph_builder.commit_with_parents(&[&commit_b]);
 
-    tx.repo_mut().record_abandoned_commit(commit_b.id().clone());
-    tx.repo_mut().record_abandoned_commit(commit_c.id().clone());
+    tx.repo_mut().record_abandoned_commit(&commit_b);
+    tx.repo_mut().record_abandoned_commit(&commit_c);
     let rebase_map = tx
         .repo_mut()
         .rebase_descendants_with_options_return_map(Default::default())
@@ -494,7 +494,7 @@ fn test_rebase_descendants_abandon_and_replace() {
 
     tx.repo_mut()
         .set_rewritten_commit(commit_b.id().clone(), commit_e.id().clone());
-    tx.repo_mut().record_abandoned_commit(commit_c.id().clone());
+    tx.repo_mut().record_abandoned_commit(&commit_c);
     let rebase_map = tx
         .repo_mut()
         .rebase_descendants_with_options_return_map(Default::default())
@@ -528,7 +528,7 @@ fn test_rebase_descendants_abandon_degenerate_merge_simplify() {
     let commit_c = graph_builder.commit_with_parents(&[&commit_a]);
     let commit_d = graph_builder.commit_with_parents(&[&commit_b, &commit_c]);
 
-    tx.repo_mut().record_abandoned_commit(commit_b.id().clone());
+    tx.repo_mut().record_abandoned_commit(&commit_b);
     let rebase_map = tx
         .repo_mut()
         .rebase_descendants_with_options_return_map(RebaseOptions {
@@ -565,7 +565,7 @@ fn test_rebase_descendants_abandon_degenerate_merge_preserve() {
     let commit_c = graph_builder.commit_with_parents(&[&commit_a]);
     let commit_d = graph_builder.commit_with_parents(&[&commit_b, &commit_c]);
 
-    tx.repo_mut().record_abandoned_commit(commit_b.id().clone());
+    tx.repo_mut().record_abandoned_commit(&commit_b);
     let rebase_map = tx
         .repo_mut()
         .rebase_descendants_with_options_return_map(RebaseOptions {
@@ -611,7 +611,7 @@ fn test_rebase_descendants_abandon_widen_merge() {
     let commit_e = graph_builder.commit_with_parents(&[&commit_b, &commit_c]);
     let commit_f = graph_builder.commit_with_parents(&[&commit_e, &commit_d]);
 
-    tx.repo_mut().record_abandoned_commit(commit_e.id().clone());
+    tx.repo_mut().record_abandoned_commit(&commit_e);
     let rebase_map = tx
         .repo_mut()
         .rebase_descendants_with_options_return_map(Default::default())
@@ -1097,7 +1097,7 @@ fn test_rebase_descendants_update_bookmark_after_abandon() {
     let repo = tx.commit("test").unwrap();
 
     let mut tx = repo.start_transaction();
-    tx.repo_mut().record_abandoned_commit(commit_b.id().clone());
+    tx.repo_mut().record_abandoned_commit(&commit_b);
     tx.repo_mut().rebase_descendants().unwrap();
     assert_eq!(
         tx.repo_mut().get_local_bookmark("main"),
@@ -1350,7 +1350,7 @@ fn test_rebase_descendants_bookmark_delete_modify_abandon() {
     let repo = tx.commit("test").unwrap();
 
     let mut tx = repo.start_transaction();
-    tx.repo_mut().record_abandoned_commit(commit_b.id().clone());
+    tx.repo_mut().record_abandoned_commit(&commit_b);
     tx.repo_mut().rebase_descendants().unwrap();
     assert_eq!(
         tx.repo_mut().get_local_bookmark("main"),
@@ -1442,7 +1442,7 @@ fn test_rebase_descendants_update_checkout_abandoned() {
     let repo = tx.commit("test").unwrap();
 
     let mut tx = repo.start_transaction();
-    tx.repo_mut().record_abandoned_commit(commit_b.id().clone());
+    tx.repo_mut().record_abandoned_commit(&commit_b);
     tx.repo_mut().rebase_descendants().unwrap();
     let repo = tx.commit("test").unwrap();
 
@@ -1494,7 +1494,7 @@ fn test_rebase_descendants_update_checkout_abandoned_merge() {
     let repo = tx.commit("test").unwrap();
 
     let mut tx = repo.start_transaction();
-    tx.repo_mut().record_abandoned_commit(commit_d.id().clone());
+    tx.repo_mut().record_abandoned_commit(&commit_d);
     tx.repo_mut().rebase_descendants().unwrap();
     let repo = tx.commit("test").unwrap();
 

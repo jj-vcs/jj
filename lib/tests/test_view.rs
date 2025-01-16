@@ -582,8 +582,7 @@ fn test_merge_views_child_on_abandoned(child_first: bool) {
         .unwrap();
 
     let mut tx2 = repo.start_transaction();
-    tx2.repo_mut()
-        .record_abandoned_commit(commit_b.id().clone());
+    tx2.repo_mut().record_abandoned_commit(&commit_b);
     tx2.repo_mut().rebase_descendants().unwrap();
 
     let repo = if child_first {

@@ -529,7 +529,7 @@ fn test_rebase_descendants_simple() {
     let mut graph_builder = CommitGraphBuilder::new(mut_repo);
     let commit6 = graph_builder.commit_with_parents(&[&commit1]);
     mut_repo.set_rewritten_commit(commit2.id().clone(), commit6.id().clone());
-    mut_repo.record_abandoned_commit(commit4.id().clone());
+    mut_repo.record_abandoned_commit(&commit4);
     let rebase_map = tx
         .repo_mut()
         .rebase_descendants_with_options_return_map(Default::default())
