@@ -1615,7 +1615,11 @@ impl MutableRepo {
         self.view.mark_dirty();
     }
 
-    pub fn merge(&mut self, base_repo: &ReadonlyRepo, other_repo: &ReadonlyRepo) {
+    pub fn merge(
+        &mut self,
+        base_repo: &ReadonlyRepo,
+        other_repo: &ReadonlyRepo,
+    ) -> BackendResult<()> {
         // First, merge the index, so we can take advantage of a valid index when
         // merging the view. Merging in base_repo's index isn't typically
         // necessary, but it can be if base_repo is ahead of either self or other_repo
@@ -1624,15 +1628,16 @@ impl MutableRepo {
         self.index.merge_in(other_repo.readonly_index());
 
         self.view.ensure_clean(|v| self.enforce_view_invariants(v));
-        self.merge_view(&base_repo.view, &other_repo.view);
+        self.merge_view(&base_repo.view, &other_repo.view)?;
         self.view.mark_dirty();
+        Ok(())
     }
 
     pub fn merge_index(&mut self, other_repo: &ReadonlyRepo) {
         self.index.merge_in(other_repo.readonly_index());
     }
 
-    fn merge_view(&mut self, base: &View, other: &View) {
+    fn merge_view(&mut self, base: &View, other: &View) -> BackendResult<()> {
         // Merge working-copy commits. If there's a conflict, we keep the self side.
         for (workspace_id, base_wc_commit) in base.wc_commit_ids() {
             let self_wc_commit = self.view().get_wc_commit_id(workspace_id);
@@ -1671,8 +1676,8 @@ impl MutableRepo {
         // TODO: Fix this somehow. Maybe a method on `Index` to find rewritten commits
         // given `base_heads`, `own_heads` and `other_heads`?
         if self.index.as_any().is::<DefaultMutableIndex>() {
-            self.record_rewrites(&base_heads, &own_heads);
-            self.record_rewrites(&base_heads, &other_heads);
+            self.record_rewrites(&base_heads, &own_heads)?;
+            self.record_rewrites(&base_heads, &other_heads)?;
             // No need to remove heads removed by `other` because we already
             // marked them abandoned or rewritten.
         } else {
@@ -1713,35 +1718,39 @@ impl MutableRepo {
             other.git_head(),
         );
         self.set_git_head_target(new_git_head_target);
+
+        Ok(())
     }
 
     /// Finds and records commits that were rewritten or abandoned between
     /// `old_heads` and `new_heads`.
-    fn record_rewrites(&mut self, old_heads: &[CommitId], new_heads: &[CommitId]) {
+    fn record_rewrites(
+        &mut self,
+        old_heads: &[CommitId],
+        new_heads: &[CommitId],
+    ) -> BackendResult<()> {
         let mut removed_changes: HashMap<ChangeId, Vec<CommitId>> = HashMap::new();
-        for (commit_id, change_id) in revset::walk_revs(self, old_heads, new_heads)
-            .unwrap()
+        for item in revset::walk_revs(self, old_heads, new_heads)
+            .map_err(|err| err.expect_backend_error())?
             .commit_change_ids()
-            .map(Result::unwrap)
-        // TODO: Return error to caller
         {
+            let (commit_id, change_id) = item.map_err(|err| err.expect_backend_error())?;
             removed_changes
                 .entry(change_id)
                 .or_default()
                 .push(commit_id);
         }
         if removed_changes.is_empty() {
-            return;
+            return Ok(());
         }
 
         let mut rewritten_changes = HashSet::new();
         let mut rewritten_commits: HashMap<CommitId, Vec<CommitId>> = HashMap::new();
-        for (commit_id, change_id) in revset::walk_revs(self, new_heads, old_heads)
-            .unwrap()
+        for item in revset::walk_revs(self, new_heads, old_heads)
+            .map_err(|err| err.expect_backend_error())?
             .commit_change_ids()
-            .map(Result::unwrap)
-        // TODO: Return error to caller
         {
+            let (commit_id, change_id) = item.map_err(|err| err.expect_backend_error())?;
             if let Some(old_commits) = removed_changes.get(&change_id) {
                 for old_commit in old_commits {
                     rewritten_commits
@@ -1770,6 +1779,8 @@ impl MutableRepo {
                 }
             }
         }
+
+        Ok(())
     }
 }
 
