@@ -31,6 +31,7 @@ use tempfile::NamedTempFile;
 use thiserror::Error;
 
 use crate::backend::BackendError;
+use crate::backend::BackendResult;
 use crate::backend::CommitId;
 use crate::backend::TreeValue;
 use crate::commit::Commit;
@@ -347,6 +348,7 @@ pub fn import_some_refs(
 
     let abandoned_commits = if git_settings.abandon_unreachable_commits {
         abandon_unreachable_commits(mut_repo, &changed_remote_refs)
+            .map_err(GitImportError::InternalBackend)?
     } else {
         vec![]
     };
@@ -362,14 +364,14 @@ pub fn import_some_refs(
 fn abandon_unreachable_commits(
     mut_repo: &mut MutableRepo,
     changed_remote_refs: &BTreeMap<RefName, (RemoteRef, RefTarget)>,
-) -> Vec<CommitId> {
+) -> BackendResult<Vec<CommitId>> {
     let hidable_git_heads = changed_remote_refs
         .values()
         .flat_map(|(old_remote_ref, _)| old_remote_ref.target.added_ids())
         .cloned()
         .collect_vec();
     if hidable_git_heads.is_empty() {
-        return vec![];
+        return Ok(vec![]);
     }
     let pinned_expression = RevsetExpression::union_all(&[
         // Local refs are usually visible, no need to filter out hidden
@@ -383,16 +385,16 @@ fn abandon_unreachable_commits(
         .range(&RevsetExpression::commits(hidable_git_heads))
         // Don't include already-abandoned commits in GitImportStats
         .intersection(&RevsetExpression::visible_heads().ancestors());
-    let abandoned_commits = abandoned_expression
+    let abandoned_commits: Vec<_> = abandoned_expression
         .evaluate(mut_repo)
-        .unwrap()
+        .map_err(|err| err.expect_backend_error())?
         .iter()
-        .map(Result::unwrap) // TODO: Return error to caller
-        .collect_vec();
+        .try_collect()
+        .map_err(|err| err.expect_backend_error())?;
     for abandoned_commit in &abandoned_commits {
         mut_repo.record_abandoned_commit(abandoned_commit.clone());
     }
-    abandoned_commits
+    Ok(abandoned_commits)
 }
 
 /// Calculates diff of git refs to be imported.
