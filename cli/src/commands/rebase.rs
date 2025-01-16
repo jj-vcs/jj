@@ -33,6 +33,7 @@ use jj_lib::rewrite::EmptyBehaviour;
 use jj_lib::rewrite::MoveCommitsStats;
 use jj_lib::rewrite::MoveCommitsTarget;
 use jj_lib::rewrite::RebaseOptions;
+use jj_lib::rewrite::RewriteRefsOptions;
 use tracing::instrument;
 
 use crate::cli_util::short_commit_hash;
@@ -246,6 +247,9 @@ pub(crate) fn cmd_rebase(
         empty: match args.skip_emptied {
             true => EmptyBehaviour::AbandonNewlyEmpty,
             false => EmptyBehaviour::Keep,
+        },
+        rewrite_refs: RewriteRefsOptions {
+            delete_abandoned_bookmarks: false,
         },
         simplify_ancestor_merge: false,
     };

@@ -365,12 +365,23 @@ pub enum EmptyBehaviour {
 // change the RebaseOptions construction in the CLI, and changing the
 // rebase_commit function to actually use the flag, and ensure we don't need to
 // plumb it in.
-#[derive(Clone, Default, PartialEq, Eq, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct RebaseOptions {
     pub empty: EmptyBehaviour,
+    pub rewrite_refs: RewriteRefsOptions,
     /// If a merge commit would end up with one parent being an ancestor of the
     /// other, then filter out the ancestor.
     pub simplify_ancestor_merge: bool,
+}
+
+/// Configuration for [`MutableRepo::update_rewritten_references()`].
+#[derive(Clone, Debug, Default)]
+pub struct RewriteRefsOptions {
+    /// Whether or not delete bookmarks pointing to the abandoned commits.
+    ///
+    /// If false, bookmarks will be moved to the parents of the abandoned
+    /// commit.
+    pub delete_abandoned_bookmarks: bool,
 }
 
 #[derive(Default)]
@@ -728,6 +739,7 @@ pub fn move_commits(
     // Always keep empty commits when rebasing descendants.
     let rebase_descendant_options = &RebaseOptions {
         empty: EmptyBehaviour::Keep,
+        rewrite_refs: options.rewrite_refs.clone(),
         simplify_ancestor_merge: options.simplify_ancestor_merge,
     };
 
@@ -759,7 +771,7 @@ pub fn move_commits(
             num_skipped_rebases += 1;
         }
     }
-    mut_repo.update_rewritten_references()?;
+    mut_repo.update_rewritten_references(&options.rewrite_refs)?;
 
     Ok(MoveCommitsStats {
         num_rebased_targets,

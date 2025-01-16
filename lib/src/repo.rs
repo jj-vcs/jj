@@ -86,6 +86,7 @@ use crate::rewrite::rebase_commit_with_options;
 use crate::rewrite::CommitRewriter;
 use crate::rewrite::RebaseOptions;
 use crate::rewrite::RebasedCommit;
+use crate::rewrite::RewriteRefsOptions;
 use crate::settings::UserSettings;
 use crate::signing::SignInitError;
 use crate::signing::Signer;
@@ -932,13 +933,12 @@ impl MutableRepo {
     /// Record a commit as having been abandoned in this transaction.
     ///
     /// This record is used by `rebase_descendants` to know which commits have
-    /// children that need to be rebased, and where to rebase the children (as
-    /// well as bookmarks) to.
+    /// children that need to be rebased, and where to rebase the children to.
     ///
     /// The `rebase_descendants` logic will rebase the descendants of the old
     /// commit to become the descendants of parent(s) of the old commit. Any
-    /// bookmarks at the old commit would be moved to the parent(s) of the old
-    /// commit as well.
+    /// bookmarks at the old commit will be either moved to the parent(s) of the
+    /// old commit or deleted depending on [`RewriteRefsOptions`].
     pub fn record_abandoned_commit(&mut self, old_commit: &Commit) {
         assert_ne!(old_commit.id(), self.store().root_commit_id());
         // Descendants should be rebased onto the commit's parents
@@ -1054,20 +1054,27 @@ impl MutableRepo {
 
     /// Updates bookmarks, working copies, and anonymous heads after rewriting
     /// and/or abandoning commits.
-    pub fn update_rewritten_references(&mut self) -> BackendResult<()> {
-        self.update_all_references()?;
+    pub fn update_rewritten_references(
+        &mut self,
+        options: &RewriteRefsOptions,
+    ) -> BackendResult<()> {
+        self.update_all_references(options)?;
         self.update_heads();
         Ok(())
     }
 
-    fn update_all_references(&mut self) -> BackendResult<()> {
+    fn update_all_references(&mut self, options: &RewriteRefsOptions) -> BackendResult<()> {
         let rewrite_mapping = self.resolve_rewrite_mapping_with(|_| true);
-        self.update_local_bookmarks(&rewrite_mapping);
+        self.update_local_bookmarks(&rewrite_mapping, options);
         self.update_wc_commits(&rewrite_mapping)?;
         Ok(())
     }
 
-    fn update_local_bookmarks(&mut self, rewrite_mapping: &HashMap<CommitId, Vec<CommitId>>) {
+    fn update_local_bookmarks(
+        &mut self,
+        rewrite_mapping: &HashMap<CommitId, Vec<CommitId>>,
+        options: &RewriteRefsOptions,
+    ) {
         let changed_branches = self
             .view()
             .local_bookmarks()
@@ -1079,14 +1086,19 @@ impl MutableRepo {
             })
             .collect_vec();
         for (bookmark_name, (old_commit_id, new_commit_ids)) in changed_branches {
+            let should_delete = options.delete_abandoned_bookmarks
+                && matches!(
+                    self.parent_mapping.get(old_commit_id),
+                    Some(Rewrite::Abandoned(_))
+                );
             let old_target = RefTarget::normal(old_commit_id.clone());
-            let new_target = RefTarget::from_merge(
-                MergeBuilder::from_iter(
-                    itertools::intersperse(new_commit_ids, old_commit_id)
-                        .map(|id| Some(id.clone())),
-                )
-                .build(),
-            );
+            let new_target = if should_delete {
+                RefTarget::absent()
+            } else {
+                let ids = itertools::intersperse(new_commit_ids, old_commit_id)
+                    .map(|id| Some(id.clone()));
+                RefTarget::from_merge(MergeBuilder::from_iter(ids).build())
+            };
 
             self.merge_local_bookmark(&bookmark_name, &old_target, &new_target);
         }
@@ -1221,6 +1233,19 @@ impl MutableRepo {
     pub fn transform_descendants(
         &mut self,
         roots: Vec<CommitId>,
+        callback: impl FnMut(CommitRewriter) -> BackendResult<()>,
+    ) -> BackendResult<()> {
+        let options = RewriteRefsOptions::default();
+        self.transform_descendants_with_options(roots, &options, callback)
+    }
+
+    /// Rewrite descendants of the given roots with options.
+    ///
+    /// See [`Self::transform_descendants()`] for details.
+    pub fn transform_descendants_with_options(
+        &mut self,
+        roots: Vec<CommitId>,
+        options: &RewriteRefsOptions,
         mut callback: impl FnMut(CommitRewriter) -> BackendResult<()>,
     ) -> BackendResult<()> {
         let mut to_visit = self.find_descendants_to_rebase(roots)?;
@@ -1229,7 +1254,7 @@ impl MutableRepo {
             let rewriter = CommitRewriter::new(self, old_commit, new_parent_ids);
             callback(rewriter)?;
         }
-        self.update_rewritten_references()?;
+        self.update_rewritten_references(options)?;
         // Since we didn't necessarily visit all descendants of rewritten commits (e.g.
         // if they were rewritten in the callback), there can still be commits left to
         // rebase, so we don't clear `parent_mapping` here.
@@ -1263,7 +1288,7 @@ impl MutableRepo {
         mut progress: impl FnMut(Commit, RebasedCommit),
     ) -> BackendResult<()> {
         let roots = self.parent_mapping.keys().cloned().collect();
-        self.transform_descendants(roots, |rewriter| {
+        self.transform_descendants_with_options(roots, &options.rewrite_refs, |rewriter| {
             if rewriter.parents_changed() {
                 let old_commit = rewriter.old_commit().clone();
                 let rebased_commit = rebase_commit_with_options(rewriter, options)?;

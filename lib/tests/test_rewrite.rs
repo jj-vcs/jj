@@ -16,6 +16,7 @@ use itertools::Itertools as _;
 use jj_lib::commit::Commit;
 use jj_lib::matchers::EverythingMatcher;
 use jj_lib::matchers::FilesMatcher;
+use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
@@ -28,6 +29,7 @@ use jj_lib::rewrite::restore_tree;
 use jj_lib::rewrite::CommitRewriter;
 use jj_lib::rewrite::EmptyBehaviour;
 use jj_lib::rewrite::RebaseOptions;
+use jj_lib::rewrite::RewriteRefsOptions;
 use maplit::hashmap;
 use maplit::hashset;
 use test_case::test_case;
@@ -1044,8 +1046,9 @@ fn test_rebase_descendants_basic_bookmark_update_with_non_local_bookmark() {
     );
 }
 
-#[test]
-fn test_rebase_descendants_update_bookmark_after_abandon() {
+#[test_case(false; "slide down abandoned")]
+#[test_case(true; "delete abandoned")]
+fn test_rebase_descendants_update_bookmark_after_abandon(delete_abandoned_bookmarks: bool) {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -1056,7 +1059,7 @@ fn test_rebase_descendants_update_bookmark_after_abandon() {
     // |
     // B main main@origin        C2 other
     // |                    =>   |
-    // A                         A main
+    // A                         A main (if delete_abandoned_bookmarks = false)
     let mut tx = repo.start_transaction();
     let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
     let commit_a = graph_builder.initial_commit();
@@ -1076,11 +1079,20 @@ fn test_rebase_descendants_update_bookmark_after_abandon() {
 
     let mut tx = repo.start_transaction();
     tx.repo_mut().record_abandoned_commit(&commit_b);
-    let options = RebaseOptions::default();
+    let options = RebaseOptions {
+        rewrite_refs: RewriteRefsOptions {
+            delete_abandoned_bookmarks,
+        },
+        ..Default::default()
+    };
     let rebase_map = rebase_descendants_with_options_return_map(tx.repo_mut(), &options);
     assert_eq!(
         tx.repo_mut().get_local_bookmark("main"),
-        RefTarget::normal(commit_a.id().clone())
+        if delete_abandoned_bookmarks {
+            RefTarget::absent()
+        } else {
+            RefTarget::normal(commit_a.id().clone())
+        }
     );
     assert_eq!(
         tx.repo_mut().get_remote_bookmark("main", "origin").target,
@@ -1316,16 +1328,22 @@ fn test_rebase_descendants_rewrite_resolves_bookmark_conflict() {
     );
 }
 
-#[test]
-fn test_rebase_descendants_bookmark_delete_modify_abandon() {
+#[test_case(false; "slide down abandoned")]
+#[test_case(true; "delete abandoned")]
+fn test_rebase_descendants_bookmark_delete_modify_abandon(delete_abandoned_bookmarks: bool) {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
     // Bookmark "main" initially points to commit A. One operation rewrites it to
     // point to B (child of A). A concurrent operation deletes the bookmark. That
-    // leaves the bookmark pointing to "-A+B". We now abandon B. That should
-    // result in the bookmark pointing to "-A+A=0", so the bookmark should
-    // be deleted.
+    // leaves the bookmark pointing to "0-A+B". We now abandon B.
+    //
+    // - If delete_abandoned_bookmarks = false, that should result in the bookmark
+    //   pointing to "0-A+A=0".
+    // - If delete_abandoned_bookmarks = true, that should result in the bookmark
+    //   pointing to "0-A+0=0".
+    //
+    // In both cases, the bookmark should be deleted.
     let mut tx = repo.start_transaction();
     let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
     let commit_a = graph_builder.initial_commit();
@@ -1338,10 +1356,124 @@ fn test_rebase_descendants_bookmark_delete_modify_abandon() {
 
     let mut tx = repo.start_transaction();
     tx.repo_mut().record_abandoned_commit(&commit_b);
-    tx.repo_mut().rebase_descendants().unwrap();
+    let options = RebaseOptions {
+        rewrite_refs: RewriteRefsOptions {
+            delete_abandoned_bookmarks,
+        },
+        ..Default::default()
+    };
+    let _rebase_map = rebase_descendants_with_options_return_map(tx.repo_mut(), &options);
     assert_eq!(
         tx.repo_mut().get_local_bookmark("main"),
         RefTarget::absent()
+    );
+}
+
+#[test_case(false; "slide down abandoned")]
+#[test_case(true; "delete abandoned")]
+fn test_rebase_descendants_bookmark_move_forward_abandon(delete_abandoned_bookmarks: bool) {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    // Bookmark "main" initially points to commit A. Two concurrent operations
+    // rewrites it to point to A's children. That leaves the bookmark pointing
+    // to "B-A+C". We now abandon B.
+    //
+    // - If delete_abandoned_bookmarks = false, that should result in the bookmark
+    //   pointing to "A-A+C=C", so the conflict should be resolved.
+    // - If delete_abandoned_bookmarks = true, that should result in the bookmark
+    //   pointing to "0-A+C".
+    let mut tx = repo.start_transaction();
+    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
+    let commit_a = graph_builder.initial_commit();
+    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
+    let commit_c = graph_builder.commit_with_parents(&[&commit_a]);
+    tx.repo_mut().set_local_bookmark_target(
+        "main",
+        RefTarget::from_merge(Merge::from_vec(vec![
+            Some(commit_b.id().clone()),
+            Some(commit_a.id().clone()),
+            Some(commit_c.id().clone()),
+        ])),
+    );
+    let repo = tx.commit("test").unwrap();
+
+    let mut tx = repo.start_transaction();
+    tx.repo_mut().record_abandoned_commit(&commit_b);
+    let options = RebaseOptions {
+        rewrite_refs: RewriteRefsOptions {
+            delete_abandoned_bookmarks,
+        },
+        ..Default::default()
+    };
+    let _rebase_map = rebase_descendants_with_options_return_map(tx.repo_mut(), &options);
+    assert_eq!(
+        tx.repo_mut().get_local_bookmark("main"),
+        if delete_abandoned_bookmarks {
+            RefTarget::from_merge(Merge::from_vec(vec![
+                None,
+                Some(commit_a.id().clone()),
+                Some(commit_c.id().clone()),
+            ]))
+        } else {
+            RefTarget::normal(commit_c.id().clone())
+        }
+    );
+}
+
+#[test_case(false; "slide down abandoned")]
+#[test_case(true; "delete abandoned")]
+fn test_rebase_descendants_bookmark_move_sideways_abandon(delete_abandoned_bookmarks: bool) {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    // Bookmark "main" initially points to commit A. Two concurrent operations
+    // rewrites it to point to A's siblings. That leaves the bookmark pointing
+    // to "B-A+C". We now abandon B.
+    //
+    // - If delete_abandoned_bookmarks = false, that should result in the bookmark
+    //   pointing to "A.parent-A+C".
+    // - If delete_abandoned_bookmarks = true, that should result in the bookmark
+    //   pointing to "0-A+C".
+    let mut tx = repo.start_transaction();
+    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
+    let commit_a = graph_builder.initial_commit();
+    let commit_b = graph_builder.initial_commit();
+    let commit_c = graph_builder.initial_commit();
+    tx.repo_mut().set_local_bookmark_target(
+        "main",
+        RefTarget::from_merge(Merge::from_vec(vec![
+            Some(commit_b.id().clone()),
+            Some(commit_a.id().clone()),
+            Some(commit_c.id().clone()),
+        ])),
+    );
+    let repo = tx.commit("test").unwrap();
+
+    let mut tx = repo.start_transaction();
+    tx.repo_mut().record_abandoned_commit(&commit_b);
+    let options = RebaseOptions {
+        rewrite_refs: RewriteRefsOptions {
+            delete_abandoned_bookmarks,
+        },
+        ..Default::default()
+    };
+    let _rebase_map = rebase_descendants_with_options_return_map(tx.repo_mut(), &options);
+    assert_eq!(
+        tx.repo_mut().get_local_bookmark("main"),
+        if delete_abandoned_bookmarks {
+            RefTarget::from_merge(Merge::from_vec(vec![
+                None,
+                Some(commit_a.id().clone()),
+                Some(commit_c.id().clone()),
+            ]))
+        } else {
+            RefTarget::from_merge(Merge::from_vec(vec![
+                Some(repo.store().root_commit_id().clone()),
+                Some(commit_a.id().clone()),
+                Some(commit_c.id().clone()),
+            ]))
+        }
     );
 }
 
@@ -1557,6 +1689,9 @@ fn test_empty_commit_option(empty_behavior: EmptyBehaviour) {
         tx.repo_mut(),
         &RebaseOptions {
             empty: empty_behavior,
+            rewrite_refs: RewriteRefsOptions {
+                delete_abandoned_bookmarks: false,
+            },
             simplify_ancestor_merge: true,
         },
     );
@@ -1689,6 +1824,9 @@ fn test_rebase_abandoning_empty() {
 
     let rebase_options = RebaseOptions {
         empty: EmptyBehaviour::AbandonAllEmpty,
+        rewrite_refs: RewriteRefsOptions {
+            delete_abandoned_bookmarks: false,
+        },
         simplify_ancestor_merge: true,
     };
     let rewriter = CommitRewriter::new(tx.repo_mut(), commit_b, vec![commit_b2.id().clone()]);
