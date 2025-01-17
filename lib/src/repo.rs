@@ -1242,6 +1242,39 @@ impl MutableRepo {
         Ok(())
     }
 
+    /// Rebase descendants of the rewritten commits with options and callback.
+    ///
+    /// The descendants of the commits registered in `self.parent_mappings` will
+    /// be recursively rebased onto the new version of their parents.
+    ///
+    /// If `options.empty` is the default (`EmptyBehaviour::Keep`), all rebased
+    /// descendant commits will be preserved even if they were emptied following
+    /// the rebase operation. Otherwise, this function may rebase some commits
+    /// and abandon others, based on the given `EmptyBehaviour`. The behavior is
+    /// such that only commits with a single parent will ever be abandoned. The
+    /// parent will inherit the descendants and the bookmarks of the abandoned
+    /// commit.
+    ///
+    /// The `progress` callback will be invoked for each rebase operation with
+    /// `(old_commit, rebased_commit)` as arguments.
+    pub fn rebase_descendants_with_options(
+        &mut self,
+        options: &RebaseOptions,
+        mut progress: impl FnMut(Commit, RebasedCommit),
+    ) -> BackendResult<()> {
+        let roots = self.parent_mapping.keys().cloned().collect();
+        self.transform_descendants(roots, |rewriter| {
+            if rewriter.parents_changed() {
+                let old_commit = rewriter.old_commit().clone();
+                let rebased_commit = rebase_commit_with_options(rewriter, options)?;
+                progress(old_commit, rebased_commit);
+            }
+            Ok(())
+        })?;
+        self.parent_mapping.clear();
+        Ok(())
+    }
+
     /// Rebase descendants of the rewritten commits.
     ///
     /// The descendants of the commits registered in `self.parent_mappings` will
@@ -1265,20 +1298,14 @@ impl MutableRepo {
         options: &RebaseOptions,
     ) -> BackendResult<HashMap<CommitId, CommitId>> {
         let mut rebased: HashMap<CommitId, CommitId> = HashMap::new();
-        let roots = self.parent_mapping.keys().cloned().collect_vec();
-        self.transform_descendants(roots, |rewriter| {
-            if rewriter.parents_changed() {
-                let old_commit_id = rewriter.old_commit().id().clone();
-                let rebased_commit: RebasedCommit = rebase_commit_with_options(rewriter, options)?;
-                let new_commit_id = match rebased_commit {
-                    RebasedCommit::Rewritten(new_commit) => new_commit.id().clone(),
-                    RebasedCommit::Abandoned { parent_id } => parent_id,
-                };
-                rebased.insert(old_commit_id, new_commit_id);
-            }
-            Ok(())
+        self.rebase_descendants_with_options(options, |old_commit, rebased_commit| {
+            let old_commit_id = old_commit.id().clone();
+            let new_commit_id = match rebased_commit {
+                RebasedCommit::Rewritten(new_commit) => new_commit.id().clone(),
+                RebasedCommit::Abandoned { parent_id } => parent_id,
+            };
+            rebased.insert(old_commit_id, new_commit_id);
         })?;
-        self.parent_mapping.clear();
         Ok(rebased)
     }
 
@@ -1290,20 +1317,13 @@ impl MutableRepo {
     ///
     /// All rebased descendant commits will be preserved even if they were
     /// emptied following the rebase operation. To customize the rebase
-    /// behavior, use
-    /// [`MutableRepo::rebase_descendants_with_options_return_map`].
+    /// behavior, use [`MutableRepo::rebase_descendants_with_options`].
     pub fn rebase_descendants(&mut self) -> BackendResult<usize> {
-        let roots = self.parent_mapping.keys().cloned().collect_vec();
+        let options = RebaseOptions::default();
         let mut num_rebased = 0;
-        self.transform_descendants(roots, |rewriter| {
-            if rewriter.parents_changed() {
-                let builder = rewriter.rebase()?;
-                builder.write()?;
-                num_rebased += 1;
-            }
-            Ok(())
+        self.rebase_descendants_with_options(&options, |_old_commit, _rebased_commit| {
+            num_rebased += 1;
         })?;
-        self.parent_mapping.clear();
         Ok(num_rebased)
     }
 
