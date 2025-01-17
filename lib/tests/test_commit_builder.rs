@@ -33,6 +33,7 @@ use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::assert_rebased_onto;
 use testutils::create_tree;
+use testutils::rebase_descendants_with_options_return_map;
 use testutils::CommitGraphBuilder;
 use testutils::TestRepo;
 use testutils::TestRepoBackend;
@@ -372,19 +373,15 @@ fn test_commit_builder_descendants(backend: TestRepoBackend) {
         )
         .write()
         .unwrap();
-    let rebase_map = tx
-        .repo_mut()
-        .rebase_descendants_with_options_return_map(&RebaseOptions::default())
-        .unwrap();
+    let rebase_map =
+        rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
     assert_eq!(rebase_map.len(), 0);
 
     // Test with for_rewrite_from()
     let mut tx = repo.start_transaction();
     let commit4 = tx.repo_mut().rewrite_commit(&commit2).write().unwrap();
-    let rebase_map = tx
-        .repo_mut()
-        .rebase_descendants_with_options_return_map(&RebaseOptions::default())
-        .unwrap();
+    let rebase_map =
+        rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
     assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit3, &[commit4.id()]);
     assert_eq!(rebase_map.len(), 1);
 
@@ -395,9 +392,7 @@ fn test_commit_builder_descendants(backend: TestRepoBackend) {
         .generate_new_change_id()
         .write()
         .unwrap();
-    let rebase_map = tx
-        .repo_mut()
-        .rebase_descendants_with_options_return_map(&RebaseOptions::default())
-        .unwrap();
+    let rebase_map =
+        rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
     assert!(rebase_map.is_empty());
 }

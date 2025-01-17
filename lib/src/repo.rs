@@ -1279,40 +1279,6 @@ impl MutableRepo {
     ///
     /// The descendants of the commits registered in `self.parent_mappings` will
     /// be recursively rebased onto the new version of their parents.
-    ///
-    /// If `options.empty` is the default (`EmptyBehaviour::Keep`), all
-    /// rebased descendant commits will be preserved even if they were
-    /// emptied following the rebase operation. A map of newly rebased
-    /// commit ID to original commit ID will be returned.
-    ///
-    /// Otherwise, this function may rebase some commits and abandon others,
-    /// based on the given `EmptyBehaviour`. The behavior is such that only
-    /// commits with a single parent will ever be abandoned. In the returned
-    /// map, an abandoned commit will look as a key-value pair where the key
-    /// is the abandoned commit and the value is **its parent**. One can
-    /// tell this case apart since the change ids of the key and the value
-    /// will not match. The parent will inherit the descendants and the
-    /// bookmarks of the abandoned commit.
-    pub fn rebase_descendants_with_options_return_map(
-        &mut self,
-        options: &RebaseOptions,
-    ) -> BackendResult<HashMap<CommitId, CommitId>> {
-        let mut rebased: HashMap<CommitId, CommitId> = HashMap::new();
-        self.rebase_descendants_with_options(options, |old_commit, rebased_commit| {
-            let old_commit_id = old_commit.id().clone();
-            let new_commit_id = match rebased_commit {
-                RebasedCommit::Rewritten(new_commit) => new_commit.id().clone(),
-                RebasedCommit::Abandoned { parent_id } => parent_id,
-            };
-            rebased.insert(old_commit_id, new_commit_id);
-        })?;
-        Ok(rebased)
-    }
-
-    /// Rebase descendants of the rewritten commits.
-    ///
-    /// The descendants of the commits registered in `self.parent_mappings` will
-    /// be recursively rebased onto the new version of their parents.
     /// Returns the number of rebased descendants.
     ///
     /// All rebased descendant commits will be preserved even if they were

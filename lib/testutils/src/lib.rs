@@ -51,6 +51,8 @@ use jj_lib::repo::RepoLoader;
 use jj_lib::repo::StoreFactories;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
+use jj_lib::rewrite::RebaseOptions;
+use jj_lib::rewrite::RebasedCommit;
 use jj_lib::secret_backend::SecretBackend;
 use jj_lib::settings::UserSettings;
 use jj_lib::signing::Signer;
@@ -519,6 +521,25 @@ impl<'repo> CommitGraphBuilder<'repo> {
             .write()
             .unwrap()
     }
+}
+
+/// Rebase descendants of the rewritten commits. Returns map of original commit
+/// ID to rebased (or abandoned parent) commit ID.
+pub fn rebase_descendants_with_options_return_map(
+    repo: &mut MutableRepo,
+    options: &RebaseOptions,
+) -> HashMap<CommitId, CommitId> {
+    let mut rebased: HashMap<CommitId, CommitId> = HashMap::new();
+    repo.rebase_descendants_with_options(options, |old_commit, rebased_commit| {
+        let old_commit_id = old_commit.id().clone();
+        let new_commit_id = match rebased_commit {
+            RebasedCommit::Rewritten(new_commit) => new_commit.id().clone(),
+            RebasedCommit::Abandoned { parent_id } => parent_id,
+        };
+        rebased.insert(old_commit_id, new_commit_id);
+    })
+    .unwrap();
+    rebased
 }
 
 fn assert_in_rebased_map(

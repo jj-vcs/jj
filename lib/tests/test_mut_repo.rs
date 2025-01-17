@@ -23,6 +23,7 @@ use maplit::hashset;
 use testutils::assert_rebased_onto;
 use testutils::create_random_commit;
 use testutils::create_random_tree;
+use testutils::rebase_descendants_with_options_return_map;
 use testutils::write_random_commit;
 use testutils::CommitGraphBuilder;
 use testutils::TestRepo;
@@ -531,10 +532,8 @@ fn test_rebase_descendants_simple() {
     let commit6 = graph_builder.commit_with_parents(&[&commit1]);
     mut_repo.set_rewritten_commit(commit2.id().clone(), commit6.id().clone());
     mut_repo.record_abandoned_commit(&commit4);
-    let rebase_map = tx
-        .repo_mut()
-        .rebase_descendants_with_options_return_map(&RebaseOptions::default())
-        .unwrap();
+    let rebase_map =
+        rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
     // Commit 3 got rebased onto commit 2's replacement, i.e. commit 6
     assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit3, &[commit6.id()]);
     // Commit 5 got rebased onto commit 4's parent, i.e. commit 1
@@ -542,10 +541,8 @@ fn test_rebase_descendants_simple() {
     assert_eq!(rebase_map.len(), 2);
 
     // No more descendants to rebase if we try again.
-    let rebase_map = tx
-        .repo_mut()
-        .rebase_descendants_with_options_return_map(&RebaseOptions::default())
-        .unwrap();
+    let rebase_map =
+        rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
     assert_eq!(rebase_map.len(), 0);
 }
 
@@ -575,10 +572,8 @@ fn test_rebase_descendants_divergent_rewrite() {
     );
     // Commit 3 does *not* get rebased because it's unclear if it should go onto
     // commit 4 or commit 5
-    let rebase_map = tx
-        .repo_mut()
-        .rebase_descendants_with_options_return_map(&RebaseOptions::default())
-        .unwrap();
+    let rebase_map =
+        rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
     assert!(rebase_map.is_empty());
 }
 
