@@ -79,7 +79,7 @@ impl Default for GitSettings {
 }
 
 /// Commit signing settings, describes how to and if to sign commits.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct SignSettings {
     /// What to actually do, see [SignBehavior].
     pub behavior: SignBehavior,

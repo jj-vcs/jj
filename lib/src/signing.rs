@@ -141,12 +141,11 @@ pub enum SignInitError {
 }
 
 /// A enum that describes if a created/rewritten commit should be signed or not.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SignBehavior {
     /// Drop existing signatures.
     /// This is what jj did before signing support or does now when a signing
     /// backend is not configured.
-    #[default]
     Drop,
     /// Only sign commits that were authored by self and already signed,
     /// "preserving" the signature across rewrites.

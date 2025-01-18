@@ -206,13 +206,12 @@ pub struct Ui {
     output: UiOutput,
 }
 
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ColorChoice {
     Always,
     Never,
     Debug,
-    #[default]
     Auto,
 }
 
@@ -261,11 +260,10 @@ fn prepare_formatter_factory(
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize)]
 #[serde(rename_all(deserialize = "kebab-case"))]
 pub enum PaginationChoice {
     Never,
-    #[default]
     Auto,
 }
 
