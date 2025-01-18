@@ -35,7 +35,7 @@ fn test_restore() {
     insta::assert_snapshot!(stderr, @r###"
     Error: `jj restore` does not have a `--revision`/`-r` option. If you'd like to modify
     the *current* revision, use `--from`. If you'd like to modify a *different* revision,
-    use `--to` or `--changes-in`.
+    use `--into` or `--changes-in`.
     "###);
 
     // Restores from parent by default
@@ -94,7 +94,7 @@ fn test_restore() {
 
     // Can restore into other revision
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["restore", "--to", "@-"]);
+    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["restore", "--into", "@-"]);
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @r###"
     Created rlvkpnrz ad805965 (no description set)
@@ -111,10 +111,10 @@ fn test_restore() {
     A file3
     "###);
 
-    // Can combine `--from` and `--to`
+    // Can combine `--from` and `--into`
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
     let (stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["restore", "--from", "@", "--to", "@-"]);
+        test_env.jj_cmd_ok(&repo_path, &["restore", "--from", "@", "--into", "@-"]);
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @r###"
     Created rlvkpnrz f256040a (no description set)

@@ -303,7 +303,7 @@ commit you want to restore the contents to. Let's say the current commit (with
 the changes intended for a new commit) are in commit X and the state you wanted
 is in commit Y. Note the commit id (normally in blue at the end of the line in
 the log output) of each of them. Now use `jj new` to create a new working-copy
-commit, then run `jj restore --from Y --to @-` to restore the parent commit
+commit, then run `jj restore --from Y --into @-` to restore the parent commit
 to the old state, and `jj restore --from X` to restore the new working-copy
 commit to the new state.
 

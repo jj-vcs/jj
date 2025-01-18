@@ -98,6 +98,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   can be customized using `format_detailed_cryptographic_signature(signature)` and
   `format_short_cryptographic_signature(signature)`.
 
+* Added `--into` flag to `jj restore`, similarly to `jj squash` and `jj absorb`. It is
+  equivalent to `--to`, but `--into` is the recommended name.
+
 ### Fixed bugs
 
 * Fixed diff selection by external tools with `jj split`/`commit -i FILESETS`.

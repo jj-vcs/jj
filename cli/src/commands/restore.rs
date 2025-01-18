@@ -63,24 +63,24 @@ pub(crate) struct RestoreArgs {
     from: Option<RevisionArg>,
     /// Revision to restore into (destination)
     #[arg(
-        long,
-        short,
+        long, short = 't',
+        visible_alias = "to",
         value_name = "REVSETS",
         add = ArgValueCandidates::new(complete::mutable_revisions)
     )]
-    to: Option<RevisionArg>,
+    into: Option<RevisionArg>,
     /// Undo the changes in a revision as compared to the merge of its parents.
     ///
     /// This undoes the changes that can be seen with `jj diff -r REVSET`. If
     /// `REVSET` only has a single parent, this option is equivalent to `jj
-    ///  restore --to REVSET --from REVSET-`.
+    ///  restore --into REVSET --from REVSET-`.
     ///
     /// The default behavior of `jj restore` is equivalent to `jj restore
     /// --changes-in @`.
     #[arg(
         long, short,
         value_name = "REVSET",
-        conflicts_with_all = ["to", "from"],
+        conflicts_with_all = ["into", "from"],
         add = ArgValueCandidates::new(complete::all_revisions),
     )]
     changes_in: Option<RevisionArg>,
@@ -116,12 +116,12 @@ pub(crate) fn cmd_restore(
         return Err(user_error(
             "`jj restore` does not have a `--revision`/`-r` option. If you'd like to modify\nthe \
              *current* revision, use `--from`. If you'd like to modify a *different* \
-             revision,\nuse `--to` or `--changes-in`.",
+             revision,\nuse `--into` or `--changes-in`.",
         ));
     }
-    if args.from.is_some() || args.to.is_some() {
+    if args.from.is_some() || args.into.is_some() {
         to_commit = workspace_command
-            .resolve_single_rev(ui, args.to.as_ref().unwrap_or(&RevisionArg::AT))?;
+            .resolve_single_rev(ui, args.into.as_ref().unwrap_or(&RevisionArg::AT))?;
         let from_commit = workspace_command
             .resolve_single_rev(ui, args.from.as_ref().unwrap_or(&RevisionArg::AT))?;
         from_tree = from_commit.tree()?;

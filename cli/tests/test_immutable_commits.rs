@@ -303,8 +303,8 @@ fn test_rewrite_immutable_commands() {
     Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
     Hint: Pass `--ignore-immutable` or configure the set of immutable commits via `revset-aliases.immutable_heads()`.
     "###);
-    // restore --to
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["restore", "--to=main"]);
+    // restore --into
+    let stderr = test_env.jj_cmd_failure(&repo_path, &["restore", "--into=main"]);
     insta::assert_snapshot!(stderr, @r###"
     Error: Commit bcab555fc80e is immutable
     Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
