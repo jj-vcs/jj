@@ -511,14 +511,17 @@ fn conflict_to_proto(conflict: &Conflict) -> crate::protos::local_store::Conflic
 }
 
 fn conflict_from_proto(proto: crate::protos::local_store::Conflict) -> Conflict {
-    let mut conflict = Conflict::default();
-    for term in proto.removes {
-        conflict.removes.push(conflict_term_from_proto(term));
-    }
-    for term in proto.adds {
-        conflict.adds.push(conflict_term_from_proto(term));
-    }
-    conflict
+    let removes = proto
+        .removes
+        .into_iter()
+        .map(conflict_term_from_proto)
+        .collect();
+    let adds = proto
+        .adds
+        .into_iter()
+        .map(conflict_term_from_proto)
+        .collect();
+    Conflict { removes, adds }
 }
 
 fn conflict_term_from_proto(proto: crate::protos::local_store::conflict::Term) -> ConflictTerm {

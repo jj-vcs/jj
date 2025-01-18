@@ -156,7 +156,7 @@ pub struct ConflictTerm {
     pub value: TreeValue,
 }
 
-#[derive(ContentHash, Default, Debug, PartialEq, Eq, Clone)]
+#[derive(ContentHash, Debug, PartialEq, Eq, Clone)]
 pub struct Conflict {
     // A conflict is represented by a list of positive and negative states that need to be applied.
     // In a simple 3-way merge of B and C with merge base A, the conflict will be { add: [B, C],
