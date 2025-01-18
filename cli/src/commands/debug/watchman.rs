@@ -50,6 +50,10 @@ pub fn cmd_debug_watchman(
 
     let mut workspace_command = command.workspace_helper(ui)?;
     let repo = workspace_command.repo().clone();
+    let watchman_config = WatchmanConfig {
+        // The value is likely irrelevant here. TODO(ilyagr): confirm
+        register_trigger: false,
+    };
     match subcommand {
         DebugWatchmanCommand::Status => {
             // TODO(ilyagr): It would be nice to add colors here
@@ -76,7 +80,7 @@ pub fn cmd_debug_watchman(
                         ui.stdout(),
                         "Attempting to contact the `watchman` CLI regardless..."
                     )?;
-                    WatchmanConfig::default()
+                    watchman_config
                 }
                 other_fsmonitor => {
                     return Err(user_error(format!(
@@ -102,12 +106,12 @@ pub fn cmd_debug_watchman(
         }
         DebugWatchmanCommand::QueryClock => {
             let wc = check_local_disk_wc(workspace_command.working_copy().as_any())?;
-            let (clock, _changed_files) = wc.query_watchman(&WatchmanConfig::default())?;
+            let (clock, _changed_files) = wc.query_watchman(&watchman_config)?;
             writeln!(ui.stdout(), "Clock: {clock:?}")?;
         }
         DebugWatchmanCommand::QueryChangedFiles => {
             let wc = check_local_disk_wc(workspace_command.working_copy().as_any())?;
-            let (_clock, changed_files) = wc.query_watchman(&WatchmanConfig::default())?;
+            let (_clock, changed_files) = wc.query_watchman(&watchman_config)?;
             writeln!(ui.stdout(), "Changed files: {changed_files:?}")?;
         }
         DebugWatchmanCommand::ResetClock => {

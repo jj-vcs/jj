@@ -28,7 +28,7 @@ use crate::config::ConfigGetError;
 use crate::settings::UserSettings;
 
 /// Config for Watchman filesystem monitor (<https://facebook.github.io/watchman/>).
-#[derive(Default, Eq, PartialEq, Clone, Debug)]
+#[derive(Eq, PartialEq, Clone, Debug)]
 pub struct WatchmanConfig {
     /// Whether to use triggers to monitor for changes in the background.
     pub register_trigger: bool,
