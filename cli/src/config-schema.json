@@ -288,6 +288,9 @@
                             "bold": {
                                 "type": "boolean"
                             },
+                            "italic": {
+                                "type": "boolean"
+                            },
                             "underline": {
                                 "type": "boolean"
                             }

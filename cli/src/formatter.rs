@@ -264,6 +264,7 @@ pub struct Style {
     #[serde(deserialize_with = "deserialize_color_opt")]
     pub bg: Option<Color>,
     pub bold: Option<bool>,
+    pub italic: Option<bool>,
     pub underline: Option<bool>,
 }
 
@@ -272,6 +273,7 @@ impl Style {
         self.fg = other.fg.or(self.fg);
         self.bg = other.bg.or(self.bg);
         self.bold = other.bold.or(self.bold);
+        self.italic = other.italic.or(self.italic);
         self.underline = other.underline.or(self.underline);
     }
 }
@@ -380,6 +382,13 @@ impl<W: Write> ColorFormatter<W> {
                     self.current_style = Style::default();
                 }
             }
+            if new_style.italic != self.current_style.italic {
+                if new_style.italic.unwrap_or_default() {
+                    queue!(self.output, SetAttribute(Attribute::Italic))?;
+                } else {
+                    queue!(self.output, SetAttribute(Attribute::NoItalic))?;
+                }
+            }
             if new_style.underline != self.current_style.underline {
                 if new_style.underline.unwrap_or_default() {
                     queue!(self.output, SetAttribute(Attribute::Underlined))?;
@@ -425,6 +434,7 @@ fn rules_from_config(config: &StackedConfig) -> Result<Rules, ConfigGetError> {
                         fg: Some(deserialize_color(value.into_deserializer())?),
                         bg: None,
                         bold: None,
+                        italic: None,
                         underline: None,
                     })
                 } else if value.is_inline_table() {
@@ -859,8 +869,9 @@ mod tests {
         colors.red_fg = { fg = "red" }
         colors.blue_bg = { bg = "blue" }
         colors.bold_font = { bold = true }
+        colors.italic_text = { italic = true }
         colors.underlined_text = { underline = true }
-        colors.multiple = { fg = "green", bg = "yellow", bold = true, underline = true }
+        colors.multiple = { fg = "green", bg = "yellow", bold = true, italic = true, underline = true }
         "#,
         );
         let mut output: Vec<u8> = vec![];
@@ -875,6 +886,10 @@ mod tests {
         writeln!(formatter).unwrap();
         formatter.push_label("bold_font").unwrap();
         write!(formatter, " bold only ").unwrap();
+        formatter.pop_label().unwrap();
+        writeln!(formatter).unwrap();
+        formatter.push_label("italic_text").unwrap();
+        write!(formatter, " italic only ").unwrap();
         formatter.pop_label().unwrap();
         writeln!(formatter).unwrap();
         formatter.push_label("underlined_text").unwrap();
@@ -896,8 +911,9 @@ mod tests {
         [38;5;1m fg only [39m
         [48;5;4m bg only [49m
         [1m bold only [0m
+        [3m italic only [23m
         [4m underlined only [24m
-        [1m[4m[38;5;2m[48;5;3m single rule [0m
+        [1m[3m[4m[38;5;2m[48;5;3m single rule [0m
         [38;5;1m[48;5;4m two rules [39m[49m
         "###);
     }
@@ -907,7 +923,7 @@ mod tests {
         // Test that we don't lose other attributes when we reset the bold attribute.
         let config = config_from_string(
             r#"
-        colors.not_bold = { fg = "red", bg = "blue", underline = true }
+        colors.not_bold = { fg = "red", bg = "blue", italic = true, underline = true }
         colors.bold_font = { bold = true }
         "#,
         );
@@ -921,7 +937,7 @@ mod tests {
         write!(formatter, " not bold again ").unwrap();
         formatter.pop_label().unwrap();
         drop(formatter);
-        insta::assert_snapshot!(String::from_utf8(output).unwrap(), @"[4m[38;5;1m[48;5;4m not bold [1m bold [0m[4m[38;5;1m[48;5;4m not bold again [24m[39m[49m");
+        insta::assert_snapshot!(String::from_utf8(output).unwrap(), @"[3m[4m[38;5;1m[48;5;4m not bold [1m bold [0m[3m[4m[38;5;1m[48;5;4m not bold again [23m[24m[39m[49m");
     }
 
     #[test]

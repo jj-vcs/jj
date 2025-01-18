@@ -101,6 +101,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Added `--into` flag to `jj restore`, similarly to `jj squash` and `jj absorb`. It is
   equivalent to `--to`, but `--into` is the recommended name.
 
+* Italic text is now supported. You can set e.g. `color.error = { fg = "red", italic = true }`
+  in your config.
+
 ### Fixed bugs
 
 * Fixed diff selection by external tools with `jj split`/`commit -i FILESETS`.
