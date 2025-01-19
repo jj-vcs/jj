@@ -1049,31 +1049,51 @@ fn test_rebase_descendants_update_bookmark_after_abandon() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
-    // Bookmark "main" points to commit B. B is then abandoned. Bookmark main should
-    // be updated to point to A.
+    // Commit B is abandoned. Local bookmarks should be deleted or moved
+    // accordingly, whereas remote bookmarks should not get updated.
     //
-    // B main
-    // |          =>   A main
-    // A
+    // C other
+    // |
+    // B main main@origin        C2 other
+    // |                    =>   |
+    // A                         A main
     let mut tx = repo.start_transaction();
     let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
     let commit_a = graph_builder.initial_commit();
     let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
+    let commit_c = graph_builder.commit_with_parents(&[&commit_b]);
+    let commit_b_remote_ref = RemoteRef {
+        target: RefTarget::normal(commit_b.id().clone()),
+        state: RemoteRefState::Tracking,
+    };
     tx.repo_mut()
         .set_local_bookmark_target("main", RefTarget::normal(commit_b.id().clone()));
+    tx.repo_mut()
+        .set_remote_bookmark("main", "origin", commit_b_remote_ref.clone());
+    tx.repo_mut()
+        .set_local_bookmark_target("other", RefTarget::normal(commit_c.id().clone()));
     let repo = tx.commit("test").unwrap();
 
     let mut tx = repo.start_transaction();
     tx.repo_mut().record_abandoned_commit(&commit_b);
-    tx.repo_mut().rebase_descendants().unwrap();
+    let options = RebaseOptions::default();
+    let rebase_map = rebase_descendants_with_options_return_map(tx.repo_mut(), &options);
     assert_eq!(
         tx.repo_mut().get_local_bookmark("main"),
         RefTarget::normal(commit_a.id().clone())
     );
+    assert_eq!(
+        tx.repo_mut().get_remote_bookmark("main", "origin").target,
+        RefTarget::normal(commit_b.id().clone())
+    );
+    assert_eq!(
+        tx.repo_mut().get_local_bookmark("other"),
+        RefTarget::normal(rebase_map[commit_c.id()].clone())
+    );
 
     assert_eq!(
         *tx.repo_mut().view().heads(),
-        hashset! {commit_a.id().clone()}
+        hashset! { rebase_map[commit_c.id()].clone() }
     );
 }
 
@@ -1319,10 +1339,6 @@ fn test_rebase_descendants_bookmark_delete_modify_abandon() {
     let mut tx = repo.start_transaction();
     tx.repo_mut().record_abandoned_commit(&commit_b);
     tx.repo_mut().rebase_descendants().unwrap();
-    assert_eq!(
-        tx.repo_mut().get_local_bookmark("main"),
-        RefTarget::absent()
-    );
     assert_eq!(
         tx.repo_mut().get_local_bookmark("main"),
         RefTarget::absent()
