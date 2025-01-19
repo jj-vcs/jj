@@ -47,10 +47,16 @@ use crate::ui::Ui;
 
 /// Move revisions to different parent(s)
 ///
+/// This command moves revisions to different parent(s) while preserving the
+/// changes (diff) in the revisions.
+///
 /// There are three different ways of specifying which revisions to rebase:
-/// `-b` to rebase a whole branch, `-s` to rebase a revision and its
-/// descendants, and `-r` to rebase a single commit. If none of them is
-/// specified, it defaults to `-b @`.
+///
+/// * `-b` to rebase a whole branch
+/// * `-s` to rebase a revision and its descendants
+/// * `-r` to rebase the specified revisions without their descendants
+///
+/// If no option is specified, it defaults to `-b @`.
 ///
 /// With `-s`, the command rebases the specified revision and its descendants
 /// onto the destination. For example, `jj rebase -s M -d O` would transform
@@ -71,14 +77,19 @@ use crate::ui::Ui;
 /// J           J
 /// ```
 ///
+/// Each revision passed to `-s` will become a direct child of the destination,
+/// so if you instead run `jj rebase -s M -s N -d O` (or
+/// `jj rebase -s 'all:M|N' -d O`) in the example above, then N' would instead
+/// be a direct child of O.
+///
 /// With `-b`, the command rebases the whole "branch" containing the specified
-/// revision. A "branch" is the set of commits that includes:
+/// revision. A "branch" is the set of revisions that includes:
 ///
 /// * the specified revision and ancestors that are not also ancestors of the
 ///   destination
-/// * all descendants of those commits
+/// * all descendants of those revisions
 ///
-/// In other words, `jj rebase -b X -d Y` rebases commits in the revset
+/// In other words, `jj rebase -b X -d Y` rebases revisions in the revset
 /// `(Y..X)::` (which is equivalent to `jj rebase -s 'roots(Y..X)' -d Y` for a
 /// single root). For example, either `jj rebase -b L -d O` or `jj rebase -b M
 /// -d O` would transform your history like this (because `L` and `M` are on the
@@ -100,7 +111,7 @@ use crate::ui::Ui;
 ///
 /// With `-r`, the command rebases only the specified revisions onto the
 /// destination. Any "hole" left behind will be filled by rebasing descendants
-/// onto the specified revision's parent(s). For example, `jj rebase -r K -d M`
+/// onto the specified revisions' parent(s). For example, `jj rebase -r K -d M`
 /// would transform your history like this:
 ///
 /// ```text
@@ -113,10 +124,34 @@ use crate::ui::Ui;
 /// J          J
 /// ```
 ///
-/// Note that you can create a merge commit by repeating the `-d` argument.
-/// For example, if you realize that commit L actually depends on commit M in
-/// order to work (in addition to its current parent K), you can run `jj rebase
-/// -s L -d K -d M`:
+/// Multiple revisions can be specified, and any dependencies (graph edges)
+/// within the set will be preserved. For example, `jj rebase -r 'K|N' -d O`
+/// would transform your history like this:
+///
+/// ```text
+/// O           N'
+/// |           |
+/// | N         K'
+/// | |         |
+/// | M         O
+/// | |    =>   |
+/// | | L       | M'
+/// | |/        |/
+/// | K         | L'
+/// |/          |/
+/// J           J
+/// ```
+///
+/// `jj rebase -s X` is similar to `jj rebase -r X::` and will behave the same
+/// if X is a single revision. However, if X is a set of multiple revisions,
+/// or if you passed multiple `-s` arguments, then `jj rebase -s` will make each
+/// of the specified revisions an immediate child of the destination, while
+/// `jj rebase -r` will preserve dependencies within the set.
+///
+/// Note that you can create a merge revision by repeating the `-d` argument.
+/// For example, if you realize that revision L actually depends on revision M
+/// in order to work (in addition to its current parent K), you can run `jj
+/// rebase -s L -d K -d M`:
 ///
 /// ```text
 /// M          L'
@@ -128,8 +163,8 @@ use crate::ui::Ui;
 /// J          J
 /// ```
 ///
-/// If a working-copy commit gets abandoned, it will be given a new, empty
-/// commit. This is true in general; it is not specific to this command.
+/// If a working-copy revision gets abandoned, it will be given a new, empty
+/// revision. This is true in general; it is not specific to this command.
 #[derive(clap::Args, Clone, Debug)]
 #[command(verbatim_doc_comment)]
 #[command(group(ArgGroup::new("to_rebase").args(&["branch", "source", "revisions"])))]
