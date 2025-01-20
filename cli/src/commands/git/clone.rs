@@ -115,15 +115,12 @@ pub fn cmd_git_clone(
     // `/some/path/.`
     let canonical_wc_path = dunce::canonicalize(&wc_path)
         .map_err(|err| user_error_with_message(format!("Failed to create {wc_path_str}"), err))?;
-    let clone_result = do_git_clone(
-        ui,
-        command,
-        args.colocate,
-        args.depth,
-        remote_name,
-        &source,
-        &canonical_wc_path,
-    );
+
+    let clone_result = (|| -> Result<_, CommandError> {
+        let mut workspace_command = init_workspace(ui, command, &canonical_wc_path, args.colocate)?;
+        let stats = fetch_new_remote(ui, &mut workspace_command, remote_name, &source, args.depth)?;
+        Ok((workspace_command, stats))
+    })();
     if clone_result.is_err() {
         let clean_up_dirs = || -> io::Result<()> {
             fs::remove_dir_all(canonical_wc_path.join(".jj"))?;
@@ -174,29 +171,36 @@ pub fn cmd_git_clone(
     Ok(())
 }
 
-fn do_git_clone(
-    ui: &mut Ui,
+fn init_workspace(
+    ui: &Ui,
     command: &CommandHelper,
-    colocate: bool,
-    depth: Option<NonZeroU32>,
-    remote_name: &str,
-    source: &str,
     wc_path: &Path,
-) -> Result<(WorkspaceCommandHelper, GitFetchStats), CommandError> {
+    colocate: bool,
+) -> Result<WorkspaceCommandHelper, CommandError> {
     let settings = command.settings_for_new_workspace(wc_path)?;
     let (workspace, repo) = if colocate {
         Workspace::init_colocated_git(&settings, wc_path)?
     } else {
         Workspace::init_internal_git(&settings, wc_path)?
     };
-    let git_repo = get_git_repo(repo.store())?;
+    let workspace_command = command.for_workable_repo(ui, workspace, repo)?;
+    maybe_add_gitignore(&workspace_command)?;
+    Ok(workspace_command)
+}
+
+fn fetch_new_remote(
+    ui: &Ui,
+    workspace_command: &mut WorkspaceCommandHelper,
+    remote_name: &str,
+    source: &str,
+    depth: Option<NonZeroU32>,
+) -> Result<GitFetchStats, CommandError> {
+    let git_repo = get_git_repo(workspace_command.repo().store())?;
     writeln!(
         ui.status(),
         r#"Fetching into new repo in "{}""#,
-        wc_path.display()
+        workspace_command.workspace_root().display()
     )?;
-    let mut workspace_command = command.for_workable_repo(ui, workspace, repo)?;
-    maybe_add_gitignore(&workspace_command)?;
     git_repo.remote(remote_name, source).unwrap();
     let git_settings = workspace_command.settings().git_settings()?;
     let mut fetch_tx = workspace_command.start_transaction();
@@ -224,5 +228,5 @@ fn do_git_clone(
     })?;
     print_git_import_stats(ui, fetch_tx.repo(), &stats.import_stats, true)?;
     fetch_tx.finish(ui, "fetch from git remote into empty repo")?;
-    Ok((workspace_command, stats))
+    Ok(stats)
 }
