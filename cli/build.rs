@@ -61,12 +61,16 @@ fn get_git_hash() -> Option<String> {
             "log",
             "--no-graph",
             "-r=@-",
-            "-T=commit_id",
+            "-T=commit_id ++ '-'",
         ])
         .output()
     {
         if output.status.success() {
-            return Some(String::from_utf8(output.stdout).unwrap());
+            let mut parent_commits = String::from_utf8(output.stdout).unwrap();
+            // TODO(ilyagr): The `test_version` integration test could be fixed
+            // to succeed even if there is more than one parent commit.
+            parent_commits.truncate(parent_commits.trim_end_matches('-').len());
+            return Some(parent_commits);
         }
     }
 
