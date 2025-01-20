@@ -49,7 +49,12 @@ pub(crate) struct DescribeArgs {
         add = ArgValueCandidates::new(complete::mutable_revisions)
     )]
     revisions_pos: Vec<RevisionArg>,
-    #[arg(short = 'r', hide = true, value_name = "REVSETS")]
+    #[arg(
+        short = 'r',
+        hide = true,
+        value_name = "REVSETS",
+        add = ArgValueCandidates::new(complete::mutable_revisions)
+    )]
     revisions_opt: Vec<RevisionArg>,
     /// The change description to use (don't open editor)
     ///

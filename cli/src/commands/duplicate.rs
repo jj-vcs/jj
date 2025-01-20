@@ -57,7 +57,12 @@ pub(crate) struct DuplicateArgs {
         add = ArgValueCandidates::new(complete::all_revisions)
     )]
     revisions_pos: Vec<RevisionArg>,
-    #[arg(short = 'r', hide = true, value_name = "REVSETS")]
+    #[arg(
+        short = 'r',
+        hide = true,
+        value_name = "REVSETS",
+        add = ArgValueCandidates::new(complete::all_revisions)
+    )]
     revisions_opt: Vec<RevisionArg>,
     /// The revision(s) to duplicate onto (can be repeated to create a merge
     /// commit)

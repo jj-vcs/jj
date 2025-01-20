@@ -47,7 +47,12 @@ pub(crate) struct AbandonArgs {
         add = ArgValueCandidates::new(complete::mutable_revisions)
     )]
     revisions_pos: Vec<RevisionArg>,
-    #[arg(short = 'r', hide = true, value_name = "REVSETS")]
+    #[arg(
+        short = 'r',
+        hide = true,
+        value_name = "REVSETS",
+        add = ArgValueCandidates::new(complete::mutable_revisions)
+    )]
     revisions_opt: Vec<RevisionArg>,
     /// Do not print every abandoned commit on a separate line
     #[arg(long, short)]
