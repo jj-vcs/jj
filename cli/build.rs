@@ -61,12 +61,16 @@ fn get_git_hash() -> Option<String> {
             "log",
             "--no-graph",
             "-r=@-",
-            "-T=commit_id",
+            "-T=commit_id ++ '-'",
         ])
         .output()
     {
         if output.status.success() {
-            return Some(String::from_utf8(output.stdout).unwrap());
+            let mut parent_commits = String::from_utf8(output.stdout).unwrap();
+            // If a development version of `jj` is compiled at a merge commit, this will
+            // result in several commit ids separated by `-`s.
+            parent_commits.truncate(parent_commits.trim_end_matches('-').len());
+            return Some(parent_commits);
         }
     }
 
