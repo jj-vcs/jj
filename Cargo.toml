@@ -66,7 +66,7 @@ glob = "0.3.2"
 hashbrown = { version = "0.15.2", default-features = false, features = ["inline-more"] }
 hex = "0.4.3"
 ignore = "0.4.23"
-indexmap = { version = "2.7.0", features = ["serde"] }
+indexmap = { version = "2.7.1", features = ["serde"] }
 indoc = "2.0.4"
 insta = { version = "1.42.0", features = ["filters"] }
 itertools = "0.13.0"
@@ -95,7 +95,7 @@ sapling-renderdag = "0.1.0"
 sapling-streampager = "0.10.3"
 scm-record = "0.5.0"
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0.135"
+serde_json = "1.0.137"
 slab = "0.4.9"
 smallvec = { version = "1.13.2", features = [
     "const_generics",
