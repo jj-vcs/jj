@@ -156,6 +156,8 @@ pub enum RevsetFilterPredicate {
     ParentCount(Range<u32>),
     /// Commits with description matching the pattern.
     Description(StringPattern),
+    /// Commits with first line of the description matching the pattern.
+    Subject(StringPattern),
     /// Commits with author name matching the pattern.
     AuthorName(StringPattern),
     /// Commits with author email matching the pattern.
@@ -833,6 +835,12 @@ static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, RevsetFunction>> = Lazy:
         Ok(RevsetExpression::filter(
             RevsetFilterPredicate::Description(pattern),
         ))
+    });
+    map.insert("subject", |diagnostics, function, _context| {
+        let [arg] = function.expect_exact_arguments()?;
+        let pattern = expect_string_pattern(diagnostics, arg)?;
+        let predicate = RevsetFilterPredicate::Subject(pattern);
+        Ok(RevsetExpression::filter(predicate))
     });
     map.insert("author", |diagnostics, function, _context| {
         let [arg] = function.expect_exact_arguments()?;

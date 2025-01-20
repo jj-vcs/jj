@@ -107,6 +107,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * New `author_name`/`author_email`/`committer_name`/`committer_email(pattern)`
   revset functions to match either name or email field explicitly.
 
+* New `subject(pattern)` revset function that matches first line of commit
+  descriptions.
+
 ### Fixed bugs
 
 * Fixed diff selection by external tools with `jj split`/`commit -i FILESETS`.

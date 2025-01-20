@@ -2654,17 +2654,17 @@ fn test_evaluate_expression_description() {
     let mut_repo = tx.repo_mut();
 
     let commit1 = create_random_commit(mut_repo)
-        .set_description("commit 1")
+        .set_description("commit 1\n")
         .write()
         .unwrap();
     let commit2 = create_random_commit(mut_repo)
         .set_parents(vec![commit1.id().clone()])
-        .set_description("commit 2")
+        .set_description("commit 2\n\nblah blah...\n")
         .write()
         .unwrap();
     let commit3 = create_random_commit(mut_repo)
         .set_parents(vec![commit2.id().clone()])
-        .set_description("commit 3")
+        .set_description("commit 3\n")
         .write()
         .unwrap();
 
@@ -2686,6 +2686,40 @@ fn test_evaluate_expression_description() {
     assert_eq!(
         resolve_commit_ids(mut_repo, "visible_heads() & description(\"commit 2\")"),
         vec![]
+    );
+
+    // Exact match
+    assert_eq!(
+        resolve_commit_ids(mut_repo, r#"description(exact:"commit 1\n")"#),
+        vec![commit1.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, r#"description(exact:"commit 2\n")"#),
+        vec![]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "description(exact:'')"),
+        vec![mut_repo.store().root_commit_id().clone()]
+    );
+
+    // Match subject line
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "subject(glob:'commit ?')"),
+        vec![
+            commit3.id().clone(),
+            commit2.id().clone(),
+            commit1.id().clone(),
+        ]
+    );
+    assert_eq!(resolve_commit_ids(mut_repo, "subject('blah')"), vec![]);
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "subject(exact:'commit 2')"),
+        vec![commit2.id().clone()]
+    );
+    // Empty description should have empty subject line
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "subject(exact:'')"),
+        vec![mut_repo.store().root_commit_id().clone()]
     );
 }
 

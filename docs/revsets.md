@@ -267,6 +267,14 @@ revsets (expressions) as arguments.
 * `description(pattern)`: Commits that have a description matching the given
   [string pattern](#string-patterns).
 
+  A non-empty description is usually terminated with newline character. For
+  example, `description(exact:"")` matches commits without description, and
+  `description(exact:"foo\n")` matches commits with description `"foo\n"`.
+
+* `subject(pattern)`: Commits that have a subject matching the given [string
+  pattern](#string-patterns). A subject is the first line of the description
+  (without newline character.)
+
 * `author(pattern)`: Commits with the author's name or email matching the given
   [string pattern](#string-patterns). Equivalent to `author_name(pattern) |
   author_email(pattern)`.
