@@ -2755,6 +2755,25 @@ fn test_evaluate_expression_author() {
             commit1.id().clone(),
         ]
     );
+
+    // Can match name or email explicitly
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "author_name('name2')"),
+        vec![commit2.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "author_email('name2')"),
+        vec![]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "author_name('email2')"),
+        vec![]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "author_email('email2')"),
+        vec![commit2.id().clone()]
+    );
+
     // Searches only among candidates if specified
     assert_eq!(
         resolve_commit_ids(mut_repo, "visible_heads() & author(\"name2\")"),
@@ -2921,7 +2940,8 @@ fn test_evaluate_expression_mine() {
     };
     let commit1 = create_random_commit(mut_repo)
         .set_author(Signature {
-            name: "name1".to_string(),
+            // Test that the name field doesn't match
+            name: settings.user_email().to_owned(),
             email: "email1".to_string(),
             timestamp,
         })
@@ -3038,6 +3058,25 @@ fn test_evaluate_expression_committer() {
             commit1.id().clone(),
         ]
     );
+
+    // Can match name or email explicitly
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "committer_name('name2')"),
+        vec![commit2.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "committer_email('name2')"),
+        vec![]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "committer_name('email2')"),
+        vec![]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "committer_email('email2')"),
+        vec![commit2.id().clone()]
+    );
+
     // Searches only among candidates if specified
     assert_eq!(
         resolve_commit_ids(mut_repo, "visible_heads() & committer(\"name2\")"),

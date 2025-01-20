@@ -156,12 +156,16 @@ pub enum RevsetFilterPredicate {
     ParentCount(Range<u32>),
     /// Commits with description matching the pattern.
     Description(StringPattern),
-    /// Commits with author name or email matching the pattern.
-    Author(StringPattern),
-    /// Commits with committer name or email matching the pattern.
-    Committer(StringPattern),
+    /// Commits with author name matching the pattern.
+    AuthorName(StringPattern),
+    /// Commits with author email matching the pattern.
+    AuthorEmail(StringPattern),
     /// Commits with author dates matching the given date pattern.
     AuthorDate(DatePattern),
+    /// Commits with committer name matching the pattern.
+    CommitterName(StringPattern),
+    /// Commits with committer email matching the pattern.
+    CommitterEmail(StringPattern),
     /// Commits with committer dates matching the given date pattern.
     CommitterDate(DatePattern),
     /// Commits modifying the paths specified by the fileset.
@@ -833,9 +837,22 @@ static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, RevsetFunction>> = Lazy:
     map.insert("author", |diagnostics, function, _context| {
         let [arg] = function.expect_exact_arguments()?;
         let pattern = expect_string_pattern(diagnostics, arg)?;
-        Ok(RevsetExpression::filter(RevsetFilterPredicate::Author(
-            pattern,
-        )))
+        let name_predicate = RevsetFilterPredicate::AuthorName(pattern.clone());
+        let email_predicate = RevsetFilterPredicate::AuthorEmail(pattern);
+        Ok(RevsetExpression::filter(name_predicate)
+            .union(&RevsetExpression::filter(email_predicate)))
+    });
+    map.insert("author_name", |diagnostics, function, _context| {
+        let [arg] = function.expect_exact_arguments()?;
+        let pattern = expect_string_pattern(diagnostics, arg)?;
+        let predicate = RevsetFilterPredicate::AuthorName(pattern);
+        Ok(RevsetExpression::filter(predicate))
+    });
+    map.insert("author_email", |diagnostics, function, _context| {
+        let [arg] = function.expect_exact_arguments()?;
+        let pattern = expect_string_pattern(diagnostics, arg)?;
+        let predicate = RevsetFilterPredicate::AuthorEmail(pattern);
+        Ok(RevsetExpression::filter(predicate))
     });
     map.insert("author_date", |diagnostics, function, context| {
         let [arg] = function.expect_exact_arguments()?;
@@ -849,16 +866,29 @@ static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, RevsetFunction>> = Lazy:
         // Email address domains are inherently case‐insensitive, and the local‐parts
         // are generally (although not universally) treated as case‐insensitive too, so
         // we use a case‐insensitive match here.
-        Ok(RevsetExpression::filter(RevsetFilterPredicate::Author(
-            StringPattern::exact_i(context.user_email),
-        )))
+        let predicate =
+            RevsetFilterPredicate::AuthorEmail(StringPattern::exact_i(context.user_email));
+        Ok(RevsetExpression::filter(predicate))
     });
     map.insert("committer", |diagnostics, function, _context| {
         let [arg] = function.expect_exact_arguments()?;
         let pattern = expect_string_pattern(diagnostics, arg)?;
-        Ok(RevsetExpression::filter(RevsetFilterPredicate::Committer(
-            pattern,
-        )))
+        let name_predicate = RevsetFilterPredicate::CommitterName(pattern.clone());
+        let email_predicate = RevsetFilterPredicate::CommitterEmail(pattern);
+        Ok(RevsetExpression::filter(name_predicate)
+            .union(&RevsetExpression::filter(email_predicate)))
+    });
+    map.insert("committer_name", |diagnostics, function, _context| {
+        let [arg] = function.expect_exact_arguments()?;
+        let pattern = expect_string_pattern(diagnostics, arg)?;
+        let predicate = RevsetFilterPredicate::CommitterName(pattern);
+        Ok(RevsetExpression::filter(predicate))
+    });
+    map.insert("committer_email", |diagnostics, function, _context| {
+        let [arg] = function.expect_exact_arguments()?;
+        let pattern = expect_string_pattern(diagnostics, arg)?;
+        let predicate = RevsetFilterPredicate::CommitterEmail(pattern);
+        Ok(RevsetExpression::filter(predicate))
     });
     map.insert("committer_date", |diagnostics, function, context| {
         let [arg] = function.expect_exact_arguments()?;
@@ -2968,11 +2998,11 @@ mod tests {
             @r###"CommitRef(WorkingCopy(WorkspaceId("main")))"###);
         // "@" in function argument must be quoted
         insta::assert_debug_snapshot!(
-            parse("author(foo@)").unwrap_err().kind(),
+            parse("author_name(foo@)").unwrap_err().kind(),
             @r###"Expression("Expected expression of string pattern")"###);
         insta::assert_debug_snapshot!(
-            parse(r#"author("foo@")"#).unwrap(),
-            @r###"Filter(Author(Substring("foo@")))"###);
+            parse(r#"author_name("foo@")"#).unwrap(),
+            @r#"Filter(AuthorName(Substring("foo@")))"#);
         // Parse a single symbol
         insta::assert_debug_snapshot!(
             parse("foo").unwrap(),
@@ -3233,9 +3263,6 @@ mod tests {
             @r###"Filter(Description(Substring("(foo)")))"###);
         assert!(parse("mine(foo)").is_err());
         insta::assert_debug_snapshot!(
-            parse("mine()").unwrap(),
-            @r###"Filter(Author(ExactI("test.user@example.com")))"###);
-        insta::assert_debug_snapshot!(
             parse_with_workspace("empty()", &WorkspaceId::default()).unwrap(),
             @"NotIn(Filter(File(All)))");
         assert!(parse_with_workspace("empty(foo)", &WorkspaceId::default()).is_err());
@@ -3279,6 +3306,44 @@ mod tests {
             ),
         )
         "###);
+    }
+
+    #[test]
+    fn test_parse_revset_author_committer_functions() {
+        let settings = insta_settings();
+        let _guard = settings.bind_to_scope();
+
+        insta::assert_debug_snapshot!(
+            parse("author(foo)").unwrap(), @r#"
+        Union(
+            Filter(AuthorName(Substring("foo"))),
+            Filter(AuthorEmail(Substring("foo"))),
+        )
+        "#);
+        insta::assert_debug_snapshot!(
+            parse("author_name(foo)").unwrap(),
+            @r#"Filter(AuthorName(Substring("foo")))"#);
+        insta::assert_debug_snapshot!(
+            parse("author_email(foo)").unwrap(),
+            @r#"Filter(AuthorEmail(Substring("foo")))"#);
+
+        insta::assert_debug_snapshot!(
+            parse("committer(foo)").unwrap(), @r#"
+        Union(
+            Filter(CommitterName(Substring("foo"))),
+            Filter(CommitterEmail(Substring("foo"))),
+        )
+        "#);
+        insta::assert_debug_snapshot!(
+            parse("committer_name(foo)").unwrap(),
+            @r#"Filter(CommitterName(Substring("foo")))"#);
+        insta::assert_debug_snapshot!(
+            parse("committer_email(foo)").unwrap(),
+            @r#"Filter(CommitterEmail(Substring("foo")))"#);
+
+        insta::assert_debug_snapshot!(
+            parse("mine()").unwrap(),
+            @r#"Filter(AuthorEmail(ExactI("test.user@example.com")))"#);
     }
 
     #[test]
@@ -3384,13 +3449,13 @@ mod tests {
 
         // Alias can be substituted to string pattern.
         insta::assert_debug_snapshot!(
-            parse_with_aliases("author(A)", [("A", "a")]).unwrap(),
-            @r###"Filter(Author(Substring("a")))"###);
+            parse_with_aliases("author_name(A)", [("A", "a")]).unwrap(),
+            @r#"Filter(AuthorName(Substring("a")))"#);
         // However, parentheses are required because top-level x:y is parsed as
         // program modifier.
         insta::assert_debug_snapshot!(
-            parse_with_aliases("author(A)", [("A", "(exact:a)")]).unwrap(),
-            @r###"Filter(Author(Exact("a")))"###);
+            parse_with_aliases("author_name(A)", [("A", "(exact:a)")]).unwrap(),
+            @r#"Filter(AuthorName(Exact("a")))"#);
 
         // Sub-expression alias cannot be substituted to modifier expression.
         insta::assert_debug_snapshot!(
@@ -3405,12 +3470,13 @@ mod tests {
 
         // Pass string literal as parameter.
         insta::assert_debug_snapshot!(
-            parse_with_aliases("F(a)", [("F(x)", "author(x)|committer(x)")]).unwrap(), @r###"
+            parse_with_aliases("F(a)", [("F(x)", "author_name(x)|committer_name(x)")]).unwrap(),
+            @r#"
         Union(
-            Filter(Author(Substring("a"))),
-            Filter(Committer(Substring("a"))),
+            Filter(AuthorName(Substring("a"))),
+            Filter(CommitterName(Substring("a"))),
         )
-        "###);
+        "#);
     }
 
     #[test]
@@ -3763,45 +3829,45 @@ mod tests {
 
         // '& baz' can be moved into the filter node, and form a difference node.
         insta::assert_debug_snapshot!(
-            optimize(parse("(author(foo) & ~bar) & baz").unwrap()), @r###"
+            optimize(parse("(author_name(foo) & ~bar) & baz").unwrap()), @r#"
         Intersection(
             Difference(
                 CommitRef(Symbol("baz")),
                 CommitRef(Symbol("bar")),
             ),
-            Filter(Author(Substring("foo"))),
+            Filter(AuthorName(Substring("foo"))),
         )
-        "###);
+        "#);
 
         // '~set & filter()' shouldn't be substituted.
         insta::assert_debug_snapshot!(
-            optimize(parse("~foo & author(bar)").unwrap()), @r###"
+            optimize(parse("~foo & author_name(bar)").unwrap()), @r#"
         Intersection(
             NotIn(CommitRef(Symbol("foo"))),
-            Filter(Author(Substring("bar"))),
+            Filter(AuthorName(Substring("bar"))),
         )
-        "###);
+        "#);
         insta::assert_debug_snapshot!(
-            optimize(parse("~foo & (author(bar) | baz)").unwrap()), @r###"
+            optimize(parse("~foo & (author_name(bar) | baz)").unwrap()), @r#"
         Intersection(
             NotIn(CommitRef(Symbol("foo"))),
             AsFilter(
                 Union(
-                    Filter(Author(Substring("bar"))),
+                    Filter(AuthorName(Substring("bar"))),
                     CommitRef(Symbol("baz")),
                 ),
             ),
         )
-        "###);
+        "#);
 
         // Filter should be moved right of the intersection.
         insta::assert_debug_snapshot!(
-            optimize(parse("author(foo) ~ bar").unwrap()), @r###"
+            optimize(parse("author_name(foo) ~ bar").unwrap()), @r#"
         Intersection(
             NotIn(CommitRef(Symbol("bar"))),
-            Filter(Author(Substring("foo"))),
+            Filter(AuthorName(Substring("foo"))),
         )
-        "###);
+        "#);
     }
 
     #[test]
@@ -3810,7 +3876,8 @@ mod tests {
         let _guard = settings.bind_to_scope();
 
         insta::assert_debug_snapshot!(
-            optimize(parse("author(foo)").unwrap()), @r###"Filter(Author(Substring("foo")))"###);
+            optimize(parse("author_name(foo)").unwrap()),
+            @r#"Filter(AuthorName(Substring("foo")))"#);
 
         insta::assert_debug_snapshot!(optimize(parse("foo & description(bar)").unwrap()), @r###"
         Intersection(
@@ -3818,60 +3885,66 @@ mod tests {
             Filter(Description(Substring("bar"))),
         )
         "###);
-        insta::assert_debug_snapshot!(optimize(parse("author(foo) & bar").unwrap()), @r###"
+        insta::assert_debug_snapshot!(optimize(parse("author_name(foo) & bar").unwrap()), @r#"
         Intersection(
             CommitRef(Symbol("bar")),
-            Filter(Author(Substring("foo"))),
+            Filter(AuthorName(Substring("foo"))),
         )
-        "###);
+        "#);
         insta::assert_debug_snapshot!(
-            optimize(parse("author(foo) & committer(bar)").unwrap()), @r###"
+            optimize(parse("author_name(foo) & committer_name(bar)").unwrap()), @r#"
         Intersection(
-            Filter(Author(Substring("foo"))),
-            Filter(Committer(Substring("bar"))),
+            Filter(AuthorName(Substring("foo"))),
+            Filter(CommitterName(Substring("bar"))),
         )
-        "###);
+        "#);
 
         insta::assert_debug_snapshot!(
-            optimize(parse("foo & description(bar) & author(baz)").unwrap()), @r###"
+            optimize(parse("foo & description(bar) & author_name(baz)").unwrap()), @r#"
         Intersection(
             Intersection(
                 CommitRef(Symbol("foo")),
                 Filter(Description(Substring("bar"))),
             ),
-            Filter(Author(Substring("baz"))),
+            Filter(AuthorName(Substring("baz"))),
         )
-        "###);
+        "#);
         insta::assert_debug_snapshot!(
-            optimize(parse("committer(foo) & bar & author(baz)").unwrap()), @r###"
+            optimize(parse("committer_name(foo) & bar & author_name(baz)").unwrap()), @r#"
         Intersection(
             Intersection(
                 CommitRef(Symbol("bar")),
-                Filter(Committer(Substring("foo"))),
+                Filter(CommitterName(Substring("foo"))),
             ),
-            Filter(Author(Substring("baz"))),
+            Filter(AuthorName(Substring("baz"))),
         )
-        "###);
+        "#);
         insta::assert_debug_snapshot!(
-            optimize(parse_with_workspace("committer(foo) & file(bar) & baz", &WorkspaceId::default()).unwrap()), @r###"
+            optimize(parse_with_workspace(
+                "committer_name(foo) & file(bar) & baz",
+                &WorkspaceId::default()).unwrap(),
+            ), @r#"
         Intersection(
             Intersection(
                 CommitRef(Symbol("baz")),
-                Filter(Committer(Substring("foo"))),
+                Filter(CommitterName(Substring("foo"))),
             ),
             Filter(File(Pattern(PrefixPath("bar")))),
         )
-        "###);
+        "#);
         insta::assert_debug_snapshot!(
-            optimize(parse_with_workspace("committer(foo) & file(bar) & author(baz)", &WorkspaceId::default()).unwrap()), @r###"
+            optimize(parse_with_workspace(
+                "committer_name(foo) & file(bar) & author_name(baz)",
+                &WorkspaceId::default()).unwrap(),
+            ), @r#"
         Intersection(
             Intersection(
-                Filter(Committer(Substring("foo"))),
+                Filter(CommitterName(Substring("foo"))),
                 Filter(File(Pattern(PrefixPath("bar")))),
             ),
-            Filter(Author(Substring("baz"))),
+            Filter(AuthorName(Substring("baz"))),
         )
-        "###);
+        "#);
         insta::assert_debug_snapshot!(optimize(parse_with_workspace("foo & file(bar) & baz", &WorkspaceId::default()).unwrap()), @r###"
         Intersection(
             Intersection(
@@ -3883,7 +3956,7 @@ mod tests {
         "###);
 
         insta::assert_debug_snapshot!(
-            optimize(parse("foo & description(bar) & author(baz) & qux").unwrap()), @r###"
+            optimize(parse("foo & description(bar) & author_name(baz) & qux").unwrap()), @r#"
         Intersection(
             Intersection(
                 Intersection(
@@ -3892,17 +3965,18 @@ mod tests {
                 ),
                 Filter(Description(Substring("bar"))),
             ),
-            Filter(Author(Substring("baz"))),
+            Filter(AuthorName(Substring("baz"))),
         )
-        "###);
+        "#);
         insta::assert_debug_snapshot!(
-            optimize(parse("foo & description(bar) & parents(author(baz)) & qux").unwrap()), @r###"
+            optimize(parse("foo & description(bar) & parents(author_name(baz)) & qux").unwrap()),
+            @r#"
         Intersection(
             Intersection(
                 Intersection(
                     CommitRef(Symbol("foo")),
                     Ancestors {
-                        heads: Filter(Author(Substring("baz"))),
+                        heads: Filter(AuthorName(Substring("baz"))),
                         generation: 1..2,
                     },
                 ),
@@ -3910,27 +3984,29 @@ mod tests {
             ),
             Filter(Description(Substring("bar"))),
         )
-        "###);
+        "#);
         insta::assert_debug_snapshot!(
-            optimize(parse("foo & description(bar) & parents(author(baz) & qux)").unwrap()), @r###"
+            optimize(parse("foo & description(bar) & parents(author_name(baz) & qux)").unwrap()),
+            @r#"
         Intersection(
             Intersection(
                 CommitRef(Symbol("foo")),
                 Ancestors {
                     heads: Intersection(
                         CommitRef(Symbol("qux")),
-                        Filter(Author(Substring("baz"))),
+                        Filter(AuthorName(Substring("baz"))),
                     ),
                     generation: 1..2,
                 },
             ),
             Filter(Description(Substring("bar"))),
         )
-        "###);
+        "#);
 
         // Symbols have to be pushed down to the innermost filter node.
         insta::assert_debug_snapshot!(
-            optimize(parse("(a & author(A)) & (b & author(B)) & (c & author(C))").unwrap()), @r###"
+            optimize(parse("(a & author_name(A)) & (b & author_name(B)) & (c & author_name(C))").unwrap()),
+            @r#"
         Intersection(
             Intersection(
                 Intersection(
@@ -3941,16 +4017,16 @@ mod tests {
                         ),
                         CommitRef(Symbol("c")),
                     ),
-                    Filter(Author(Substring("A"))),
+                    Filter(AuthorName(Substring("A"))),
                 ),
-                Filter(Author(Substring("B"))),
+                Filter(AuthorName(Substring("B"))),
             ),
-            Filter(Author(Substring("C"))),
+            Filter(AuthorName(Substring("C"))),
         )
-        "###);
+        "#);
         insta::assert_debug_snapshot!(
-            optimize(parse("(a & author(A)) & ((b & author(B)) & (c & author(C))) & d").unwrap()),
-            @r###"
+            optimize(parse("(a & author_name(A)) & ((b & author_name(B)) & (c & author_name(C))) & d").unwrap()),
+            @r#"
         Intersection(
             Intersection(
                 Intersection(
@@ -3964,40 +4040,40 @@ mod tests {
                         ),
                         CommitRef(Symbol("d")),
                     ),
-                    Filter(Author(Substring("A"))),
+                    Filter(AuthorName(Substring("A"))),
                 ),
-                Filter(Author(Substring("B"))),
+                Filter(AuthorName(Substring("B"))),
             ),
-            Filter(Author(Substring("C"))),
+            Filter(AuthorName(Substring("C"))),
         )
-        "###);
+        "#);
 
         // 'all()' moves in to 'filter()' first, so 'A & filter()' can be found.
         insta::assert_debug_snapshot!(
-            optimize(parse("foo & (all() & description(bar)) & (author(baz) & all())").unwrap()),
-            @r###"
+            optimize(parse("foo & (all() & description(bar)) & (author_name(baz) & all())").unwrap()),
+            @r#"
         Intersection(
             Intersection(
                 CommitRef(Symbol("foo")),
                 Filter(Description(Substring("bar"))),
             ),
-            Filter(Author(Substring("baz"))),
+            Filter(AuthorName(Substring("baz"))),
         )
-        "###);
+        "#);
 
         // Filter node shouldn't move across at_operation() boundary.
         insta::assert_debug_snapshot!(
-            optimize(parse("author(foo) & bar & at_operation(@-, committer(baz))").unwrap()),
+            optimize(parse("author_name(foo) & bar & at_operation(@-, committer_name(baz))").unwrap()),
             @r#"
         Intersection(
             Intersection(
                 CommitRef(Symbol("bar")),
                 AtOperation {
                     operation: "@-",
-                    candidates: Filter(Committer(Substring("baz"))),
+                    candidates: Filter(CommitterName(Substring("baz"))),
                 },
             ),
-            Filter(Author(Substring("foo"))),
+            Filter(AuthorName(Substring("foo"))),
         )
         "#);
     }
@@ -4008,36 +4084,36 @@ mod tests {
         let _guard = settings.bind_to_scope();
 
         insta::assert_debug_snapshot!(
-            optimize(parse("(author(foo) | bar) & baz").unwrap()), @r###"
+            optimize(parse("(author_name(foo) | bar) & baz").unwrap()), @r#"
         Intersection(
             CommitRef(Symbol("baz")),
             AsFilter(
                 Union(
-                    Filter(Author(Substring("foo"))),
+                    Filter(AuthorName(Substring("foo"))),
                     CommitRef(Symbol("bar")),
                 ),
             ),
         )
-        "###);
+        "#);
 
         insta::assert_debug_snapshot!(
-            optimize(parse("(foo | committer(bar)) & description(baz) & qux").unwrap()), @r###"
+            optimize(parse("(foo | committer_name(bar)) & description(baz) & qux").unwrap()), @r#"
         Intersection(
             Intersection(
                 CommitRef(Symbol("qux")),
                 AsFilter(
                     Union(
                         CommitRef(Symbol("foo")),
-                        Filter(Committer(Substring("bar"))),
+                        Filter(CommitterName(Substring("bar"))),
                     ),
                 ),
             ),
             Filter(Description(Substring("baz"))),
         )
-        "###);
+        "#);
 
         insta::assert_debug_snapshot!(
-            optimize(parse("(~present(author(foo) & bar) | baz) & qux").unwrap()), @r###"
+            optimize(parse("(~present(author_name(foo) & bar) | baz) & qux").unwrap()), @r#"
         Intersection(
             CommitRef(Symbol("qux")),
             AsFilter(
@@ -4048,7 +4124,7 @@ mod tests {
                                 Present(
                                     Intersection(
                                         CommitRef(Symbol("bar")),
-                                        Filter(Author(Substring("foo"))),
+                                        Filter(AuthorName(Substring("foo"))),
                                     ),
                                 ),
                             ),
@@ -4058,13 +4134,13 @@ mod tests {
                 ),
             ),
         )
-        "###);
+        "#);
 
         // Symbols have to be pushed down to the innermost filter node.
         insta::assert_debug_snapshot!(
             optimize(parse(
-                "(a & (author(A) | 0)) & (b & (author(B) | 1)) & (c & (author(C) | 2))").unwrap()),
-            @r###"
+                "(a & (author_name(A) | 0)) & (b & (author_name(B) | 1)) & (c & (author_name(C) | 2))").unwrap()),
+            @r#"
         Intersection(
             Intersection(
                 Intersection(
@@ -4077,26 +4153,26 @@ mod tests {
                     ),
                     AsFilter(
                         Union(
-                            Filter(Author(Substring("A"))),
+                            Filter(AuthorName(Substring("A"))),
                             CommitRef(Symbol("0")),
                         ),
                     ),
                 ),
                 AsFilter(
                     Union(
-                        Filter(Author(Substring("B"))),
+                        Filter(AuthorName(Substring("B"))),
                         CommitRef(Symbol("1")),
                     ),
                 ),
             ),
             AsFilter(
                 Union(
-                    Filter(Author(Substring("C"))),
+                    Filter(AuthorName(Substring("C"))),
                     CommitRef(Symbol("2")),
                 ),
             ),
         )
-        "###);
+        "#);
     }
 
     #[test]

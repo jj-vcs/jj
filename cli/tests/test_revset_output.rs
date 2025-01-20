@@ -378,7 +378,7 @@ fn test_function_name_hint() {
     "###);
 
     // Both builtin function and function alias should be suggested
-    insta::assert_snapshot!(evaluate_err("author_()"), @r###"
+    insta::assert_snapshot!(evaluate_err("author_()"), @r#"
     Error: Failed to parse revset: Function "author_" doesn't exist
     Caused by:  --> 1:1
       |
@@ -386,8 +386,8 @@ fn test_function_name_hint() {
       | ^-----^
       |
       = Function "author_" doesn't exist
-    Hint: Did you mean "author", "author_date", "my_author"?
-    "###);
+    Hint: Did you mean "author", "author_date", "author_email", "author_name", "my_author"?
+    "#);
 
     insta::assert_snapshot!(evaluate_err("my_bookmarks"), @r#"
     Error: Failed to parse revset: In alias "my_bookmarks"

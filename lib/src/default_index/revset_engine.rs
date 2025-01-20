@@ -1161,22 +1161,20 @@ fn build_predicate_fn(
                 Ok(pattern.matches(commit.description()))
             })
         }
-        RevsetFilterPredicate::Author(pattern) => {
+        RevsetFilterPredicate::AuthorName(pattern) => {
             let pattern = pattern.clone();
             box_pure_predicate_fn(move |index, pos| {
                 let entry = index.entry_by_pos(pos);
                 let commit = store.get_commit(&entry.commit_id())?;
-                Ok(pattern.matches(&commit.author().name)
-                    || pattern.matches(&commit.author().email))
+                Ok(pattern.matches(&commit.author().name))
             })
         }
-        RevsetFilterPredicate::Committer(pattern) => {
+        RevsetFilterPredicate::AuthorEmail(pattern) => {
             let pattern = pattern.clone();
             box_pure_predicate_fn(move |index, pos| {
                 let entry = index.entry_by_pos(pos);
                 let commit = store.get_commit(&entry.commit_id())?;
-                Ok(pattern.matches(&commit.committer().name)
-                    || pattern.matches(&commit.committer().email))
+                Ok(pattern.matches(&commit.author().email))
             })
         }
         RevsetFilterPredicate::AuthorDate(expression) => {
@@ -1186,6 +1184,22 @@ fn build_predicate_fn(
                 let commit = store.get_commit(&entry.commit_id())?;
                 let author_date = &commit.author().timestamp;
                 Ok(expression.matches(author_date))
+            })
+        }
+        RevsetFilterPredicate::CommitterName(pattern) => {
+            let pattern = pattern.clone();
+            box_pure_predicate_fn(move |index, pos| {
+                let entry = index.entry_by_pos(pos);
+                let commit = store.get_commit(&entry.commit_id())?;
+                Ok(pattern.matches(&commit.committer().name))
+            })
+        }
+        RevsetFilterPredicate::CommitterEmail(pattern) => {
+            let pattern = pattern.clone();
+            box_pure_predicate_fn(move |index, pos| {
+                let entry = index.entry_by_pos(pos);
+                let commit = store.get_commit(&entry.commit_id())?;
+                Ok(pattern.matches(&commit.committer().email))
             })
         }
         RevsetFilterPredicate::CommitterDate(expression) => {

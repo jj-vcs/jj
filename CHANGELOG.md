@@ -104,6 +104,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Italic text is now supported. You can set e.g. `color.error = { fg = "red", italic = true }`
   in your config.
 
+* New `author_name`/`author_email`/`committer_name`/`committer_email(pattern)`
+  revset functions to match either name or email field explicitly.
+
 ### Fixed bugs
 
 * Fixed diff selection by external tools with `jj split`/`commit -i FILESETS`.

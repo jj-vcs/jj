@@ -268,16 +268,30 @@ revsets (expressions) as arguments.
   [string pattern](#string-patterns).
 
 * `author(pattern)`: Commits with the author's name or email matching the given
+  [string pattern](#string-patterns). Equivalent to `author_name(pattern) |
+  author_email(pattern)`.
+
+* `author_name(pattern)`: Commits with the author's name matching the given
   [string pattern](#string-patterns).
 
-* `mine()`: Commits where the author's email matches the email of the current
-  user.
-
-* `committer(pattern)`: Commits with the committer's  name or email matching the
-given [string pattern](#string-patterns).
+* `author_email(pattern)`: Commits with the author's email matching the given
+  [string pattern](#string-patterns).
 
 * `author_date(pattern)`: Commits with author dates matching the specified [date
   pattern](#date-patterns).
+
+* `mine()`: Commits where the author's email matches the email of the current
+  user. Equivalent to `author_email(exact-i:<user-email>)`
+
+* `committer(pattern)`: Commits with the committer's name or email matching the
+  given [string pattern](#string-patterns). Equivalent to
+  `committer_name(pattern) | committer_email(pattern)`.
+
+* `committer_name(pattern)`: Commits with the committer's name matching the
+  given [string pattern](#string-patterns).
+
+* `committer_email(pattern)`: Commits with the committer's email matching the
+  given [string pattern](#string-patterns).
 
 * `committer_date(pattern)`: Commits with committer dates matching the specified
   [date pattern](#date-patterns).
