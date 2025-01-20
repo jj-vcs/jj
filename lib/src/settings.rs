@@ -94,11 +94,12 @@ impl SignSettings {
     /// Load the signing settings from the config.
     pub fn from_settings(settings: &UserSettings) -> Self {
         let sign_all = settings.get_bool("signing.sign-all").unwrap_or(false);
+        let sign_foreign = settings.get_bool("signing.sign-foreign").unwrap_or(false);
         Self {
-            behavior: if sign_all {
-                SignBehavior::Own
-            } else {
-                SignBehavior::Keep
+            behavior: match (sign_all, sign_foreign) {
+                (true, true) => SignBehavior::Force,
+                (true, false) => SignBehavior::Own,
+                (false, _) => SignBehavior::Keep,
             },
             user_email: settings.user_email().to_owned(),
             key: settings.get_string("signing.key").ok(),

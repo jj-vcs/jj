@@ -565,6 +565,11 @@
                     "description": "Whether to sign all commits by default. Overridden by global `--no-sign` option",
                     "default": false
                 },
+                "sign-foreign": {
+                    "type": "boolean",
+                    "description": "Whether to sign commits of other authors with your own key when rewriting them. Only applicable with `sign-all = true`.",
+                    "default": false
+                },
                 "backends": {
                     "type": "object",
                     "description": "Tables of options to pass to specific signing backends",

@@ -1095,6 +1095,22 @@ key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGj+J6N6SO+4P8dOZqfR1oiay2yxhhHnagH52
 sign-on-push = true
 ```
 
+### Sign foreign commits
+
+The `signing.sign-all` setting by default only applies to commits authored by
+yourself, based on the author email. Signatures by different authors cannot
+be recreated, due to missing their private key material. However, it is
+possible to sign those commits with your own key by setting the additional
+configuration variable `signing.sign-foreign`:
+
+```toml
+[signing]
+sign-all = true
+sign-foreign = true
+```
+
+Note that `sign-foreign` does not have any effect if `sign-all` is set to
+false.
 
 ## Commit Signature Verification
 
