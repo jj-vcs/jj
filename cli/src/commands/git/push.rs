@@ -141,7 +141,15 @@ pub struct GitPushArgs {
     #[arg(long)]
     allow_private: bool,
     /// Push bookmarks pointing to these commits (can be repeated)
-    #[arg(long, short, value_name = "REVSETS")]
+    #[arg(
+        long,
+        short,
+        value_name = "REVSETS",
+        // While `-r` will often be used with mutable revisions, immutable
+        // revisions can be useful as parts of revsets or to push
+        // special-purpose branches.
+        add = ArgValueCandidates::new(complete::all_revisions)
+    )]
     revisions: Vec<RevisionArg>,
     /// Push this commit by creating a bookmark based on its change ID (can be
     /// repeated)
@@ -149,7 +157,16 @@ pub struct GitPushArgs {
     /// The created bookmark will be tracked automatically. Use the
     /// `git.push-bookmark-prefix` setting to change the prefix for generated
     /// names.
-    #[arg(long, short, value_name = "REVSETS")]
+    #[arg(
+        long,
+        short,
+        value_name = "REVSETS",
+        // I'm guessing that `git push -c` is almost exclusively used with
+        // recently created mutable revisions, even though it can in theory
+        // be used with immutable ones as well. We can change it if the guess
+        // turns out to be wrong.
+        add = ArgValueCandidates::new(complete::mutable_revisions)
+    )]
     change: Vec<RevisionArg>,
     /// Only display what will change on the remote
     #[arg(long)]
