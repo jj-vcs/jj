@@ -548,6 +548,19 @@ fn test_git_clone_with_remote_name() {
 }
 
 #[test]
+fn test_git_clone_with_remote_named_git() {
+    let test_env = TestEnvironment::default();
+    let git_repo_path = test_env.env_root().join("source");
+    git2::Repository::init(git_repo_path).unwrap();
+
+    let stderr = test_env.jj_cmd_failure(
+        test_env.env_root(),
+        &["git", "clone", "--remote=git", "source", "dest"],
+    );
+    insta::assert_snapshot!(stderr, @"Error: Git remote named 'git' is reserved for local Git repository");
+}
+
+#[test]
 fn test_git_clone_trunk_deleted() {
     let test_env = TestEnvironment::default();
     let git_repo_path = test_env.env_root().join("source");

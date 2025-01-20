@@ -196,12 +196,12 @@ fn fetch_new_remote(
     depth: Option<NonZeroU32>,
 ) -> Result<GitFetchStats, CommandError> {
     let git_repo = get_git_repo(workspace_command.repo().store())?;
+    git::add_remote(&git_repo, remote_name, source)?;
     writeln!(
         ui.status(),
         r#"Fetching into new repo in "{}""#,
         workspace_command.workspace_root().display()
     )?;
-    git_repo.remote(remote_name, source).unwrap();
     let git_settings = workspace_command.settings().git_settings()?;
     let mut fetch_tx = workspace_command.start_transaction();
 
