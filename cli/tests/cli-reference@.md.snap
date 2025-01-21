@@ -665,6 +665,9 @@ Starts an editor to let you edit the description of changes. The editor will be 
 * `--no-edit` — Don't open an editor
 
    This is mainly useful in combination with e.g. `--reset-author`.
+* `--edit` — Open an editor
+
+   Forces an editor to open when using `--stdin` or `--message` to allow the message to be edited afterwards.
 * `--reset-author` — Reset the author to the configured user
 
    This resets the author name, email, and timestamp.

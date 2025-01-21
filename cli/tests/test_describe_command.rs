@@ -781,6 +781,74 @@ fn test_describe_avoids_unc() {
     assert_eq!(edited_path, dunce::simplified(&edited_path));
 }
 
+#[test]
+fn test_describe_with_edit_and_message_args_opens_editor() {
+    let mut test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    let workspace_path = test_env.env_root().join("repo");
+
+    let edit_script = test_env.set_up_fake_editor();
+    std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
+    let (stdout, stderr) = test_env.jj_cmd_ok(
+        &workspace_path,
+        &["describe", "-m", "message from command line", "--edit"],
+    );
+    insta::assert_snapshot!(stdout, @"");
+    insta::assert_snapshot!(stderr, @r"
+    Working copy now at: qpvuntsm 61ece7a9 (empty) message from command line
+    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    ");
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+    message from command line
+
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "#);
+}
+
+#[test]
+fn test_describe_change_with_existing_message_with_edit_and_message_args_opens_editor() {
+    let mut test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    let workspace_path = test_env.env_root().join("repo");
+
+    test_env.jj_cmd_ok(&workspace_path, &["describe", "-m", "original message"]);
+
+    let edit_script = test_env.set_up_fake_editor();
+    std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
+    let (stdout, stderr) = test_env.jj_cmd_ok(
+        &workspace_path,
+        &["describe", "-m", "new message", "--edit"],
+    );
+    insta::assert_snapshot!(stdout, @"");
+    insta::assert_snapshot!(stderr, @r"
+    Working copy now at: qpvuntsm de694560 (empty) new message
+    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    ");
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+    new message
+
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "#);
+}
+
+#[test]
+fn test_edit_cannot_be_used_with_no_edit() {
+    let test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    let workspace_path = test_env.env_root().join("repo");
+
+    let stderr = test_env.jj_cmd_cli_error(&workspace_path, &["describe", "--no-edit", "--edit"]);
+    insta::assert_snapshot!(stderr, @r"
+    error: the argument '--no-edit' cannot be used with '--edit'
+
+    Usage: jj describe --no-edit [REVSETS]...
+
+    For more information, try '--help'.
+    ");
+}
+
 fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> String {
     let template = r#"commit_id.short() ++ " " ++ description"#;
     test_env.jj_cmd_success(repo_path, &["log", "-T", template])

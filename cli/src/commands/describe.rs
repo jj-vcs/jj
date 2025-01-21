@@ -66,8 +66,14 @@ pub(crate) struct DescribeArgs {
     /// Don't open an editor
     ///
     /// This is mainly useful in combination with e.g. `--reset-author`.
-    #[arg(long)]
+    #[arg(long, conflicts_with = "edit")]
     no_edit: bool,
+    /// Open an editor
+    ///
+    /// Forces an editor to open when using `--stdin` or `--message` to
+    /// allow the message to be edited afterwards.
+    #[arg(long)]
+    edit: bool,
     /// Reset the author to the configured user
     ///
     /// This resets the author name, email, and timestamp.
@@ -133,7 +139,12 @@ pub(crate) fn cmd_describe(
         None
     };
 
-    let commit_descriptions: Vec<(_, _)> = if args.no_edit || shared_description.is_some() {
+    // edit and no_edit are conflicting arguments and therefore it should not
+    // be possible for both to be true at the same time.
+    assert!(!(args.edit && args.no_edit));
+    let use_editor = args.edit || (shared_description.is_none() && !args.no_edit);
+
+    let commit_descriptions: Vec<(_, _)> = if !use_editor {
         commits
             .iter()
             .map(|commit| {
@@ -150,7 +161,9 @@ pub(crate) fn cmd_describe(
             .rev()
             .map(|commit| -> Result<_, CommandError> {
                 let mut commit_builder = tx.repo_mut().rewrite_commit(commit).detach();
-                if commit_builder.description().is_empty() {
+                if let Some(description) = &shared_description {
+                    commit_builder.set_description(description);
+                } else if commit_builder.description().is_empty() {
                     commit_builder
                         .set_description(tx.settings().get_string("ui.default-description")?);
                 }

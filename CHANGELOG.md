@@ -68,6 +68,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj describe` now accepts `--edit`.
+
 * `jj evolog` and `jj op log` now accept `--reversed`.
 
 * `jj restore` now supports `-i`/`--interactive` selection.
