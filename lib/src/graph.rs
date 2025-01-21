@@ -91,7 +91,7 @@ pub fn reverse_graph<N: Clone + Eq + Hash, E>(
 
     let mut items = vec![];
     for node in entries.into_iter().rev() {
-        let edges = reverse_edges.get(&node).cloned().unwrap_or_default();
+        let edges = reverse_edges.remove(&node).unwrap_or_default();
         items.push((node, edges));
     }
     Ok(items)
