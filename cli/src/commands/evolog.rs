@@ -17,6 +17,7 @@ use std::convert::Infallible;
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools;
 use jj_lib::backend::BackendError;
+use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::dag_walk::topo_order_reverse_ok;
 use jj_lib::graph::reverse_graph;
@@ -146,29 +147,29 @@ pub(crate) fn cmd_evolog(
         let mut raw_output = formatter.raw()?;
         let mut graph = get_graphlog(graph_style, raw_output.as_mut());
 
-        let commit_dag: Vec<GraphNode<Commit>> = commits
+        let commit_dag: Vec<GraphNode<Commit, CommitId>> = commits
             .into_iter()
             .map(|c| -> Result<_, BackendError> {
-                let edges = c.predecessors().map_ok(GraphEdge::direct).try_collect()?;
+                let ids = c.predecessor_ids();
+                let edges = ids.iter().cloned().map(GraphEdge::direct).collect();
                 Ok((c, edges))
             })
             .try_collect()?;
 
         let iter_nodes = if args.reversed {
-            reverse_graph(commit_dag.into_iter().map(Result::<_, Infallible>::Ok)).unwrap()
+            reverse_graph(
+                commit_dag.into_iter().map(Result::<_, Infallible>::Ok),
+                Commit::id,
+            )
+            .unwrap()
         } else {
             commit_dag
         };
 
         for node in iter_nodes {
             let (commit, edges) = node;
-            let graphlog_edges = edges
-                .into_iter()
-                .map(|e| e.map(|e| e.id().clone()))
-                .collect_vec();
             let mut buffer = vec![];
-            let within_graph =
-                with_content_format.sub_width(graph.width(commit.id(), &graphlog_edges));
+            let within_graph = with_content_format.sub_width(graph.width(commit.id(), &edges));
             within_graph.write(ui.new_formatter(&mut buffer).as_mut(), |formatter| {
                 template.format(&commit, formatter)
             })?;
@@ -190,7 +191,7 @@ pub(crate) fn cmd_evolog(
             let node_symbol = format_template(ui, &Some(commit.clone()), &node_template);
             graph.add_node(
                 commit.id(),
-                &graphlog_edges,
+                &edges,
                 &node_symbol,
                 &String::from_utf8_lossy(&buffer),
             )?;

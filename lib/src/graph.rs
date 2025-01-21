@@ -19,8 +19,11 @@ use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::hash::Hash;
 
-/// Node and edges pair of type `N`.
-pub type GraphNode<N> = (N, Vec<GraphEdge<N>>);
+/// Node and edges pair of type `N` and `ID` respectively.
+///
+/// `ID` uniquely identifies a node within the graph. It's usually cheap to
+/// clone. There should be a pure `(&N) -> &ID` function.
+pub type GraphNode<N, ID = N> = (N, Vec<GraphEdge<ID>>);
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct GraphEdge<N> {
@@ -73,16 +76,17 @@ fn reachable_targets<N>(edges: &[GraphEdge<N>]) -> impl DoubleEndedIterator<Item
 }
 
 /// Creates new graph in which nodes and edges are reversed.
-pub fn reverse_graph<N: Clone + Eq + Hash, E>(
-    input: impl Iterator<Item = Result<GraphNode<N>, E>>,
-) -> Result<Vec<GraphNode<N>>, E> {
+pub fn reverse_graph<N, ID: Clone + Eq + Hash, E>(
+    input: impl Iterator<Item = Result<GraphNode<N, ID>, E>>,
+    as_id: impl Fn(&N) -> &ID,
+) -> Result<Vec<GraphNode<N, ID>>, E> {
     let mut entries = vec![];
-    let mut reverse_edges: HashMap<N, Vec<GraphEdge<N>>> = HashMap::new();
+    let mut reverse_edges: HashMap<ID, Vec<GraphEdge<ID>>> = HashMap::new();
     for item in input {
         let (node, edges) = item?;
         for GraphEdge { target, edge_type } in edges {
             reverse_edges.entry(target).or_default().push(GraphEdge {
-                target: node.clone(),
+                target: as_id(&node).clone(),
                 edge_type,
             });
         }
@@ -91,7 +95,7 @@ pub fn reverse_graph<N: Clone + Eq + Hash, E>(
 
     let mut items = vec![];
     for node in entries.into_iter().rev() {
-        let edges = reverse_edges.remove(&node).unwrap_or_default();
+        let edges = reverse_edges.remove(as_id(&node)).unwrap_or_default();
         items.push((node, edges));
     }
     Ok(items)

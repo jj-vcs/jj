@@ -204,20 +204,17 @@ fn do_op_log(
         let mut graph = get_graphlog(graph_style, raw_output.as_mut());
         let iter = iter.map(|op| -> Result<_, OpStoreError> {
             let op = op?;
-            let edges = op.parents().map_ok(GraphEdge::direct).try_collect()?;
+            let ids = op.parent_ids();
+            let edges = ids.iter().cloned().map(GraphEdge::direct).collect();
             Ok((op, edges))
         });
         let iter_nodes: Box<dyn Iterator<Item = _>> = if args.reversed {
-            Box::new(reverse_graph(iter)?.into_iter().map(Ok))
+            Box::new(reverse_graph(iter, Operation::id)?.into_iter().map(Ok))
         } else {
             Box::new(iter)
         };
         for node in iter_nodes.take(limit) {
             let (op, edges) = node?;
-            let edges = edges
-                .into_iter()
-                .map(|e| e.map(|e| e.id().clone()))
-                .collect_vec();
             let mut buffer = vec![];
             let within_graph = with_content_format.sub_width(graph.width(op.id(), &edges));
             within_graph.write(ui.new_formatter(&mut buffer).as_mut(), |formatter| {

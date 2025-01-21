@@ -193,7 +193,7 @@ pub(crate) fn cmd_log(
                     }
                 }
                 if args.reversed {
-                    Box::new(reverse_graph(forward_iter)?.into_iter().map(Ok))
+                    Box::new(reverse_graph(forward_iter, |id| id)?.into_iter().map(Ok))
                 } else {
                     Box::new(forward_iter)
                 }

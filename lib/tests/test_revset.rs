@@ -3981,7 +3981,7 @@ fn test_reverse_graph() {
         repo.as_ref(),
         &[&commit_a, &commit_c, &commit_d, &commit_e, &commit_f],
     );
-    let commits = reverse_graph(revset.iter_graph()).unwrap();
+    let commits = reverse_graph(revset.iter_graph(), |id| id).unwrap();
     assert_eq!(commits.len(), 5);
     assert_eq!(commits[0].0, *commit_a.id());
     assert_eq!(commits[1].0, *commit_c.id());
