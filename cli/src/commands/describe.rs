@@ -55,7 +55,12 @@ pub(crate) struct DescribeArgs {
     ///
     /// If multiple revisions are specified, the same description will be used
     /// for all of them.
-    #[arg(long = "message", short, value_name = "MESSAGE")]
+    #[arg(
+        long = "message",
+        short,
+        value_name = "MESSAGE",
+        conflicts_with = "stdin"
+    )]
     message_paragraphs: Vec<String>,
     /// Read the change description from stdin
     ///
