@@ -21,4 +21,4 @@ jobs:
           check_filenames: true
           check_hidden: true
           skip: ./target,./.jj,*.lock
-          ignore_words_list: crate,NotIn,Wirth
+          ignore_words_list: crate,NotIn,Wirth,abd

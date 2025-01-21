@@ -721,7 +721,7 @@ fn test_deduplication() {
     insta::assert_snapshot!(content, @"FOO\n");
 
     // Each new content string only appears once in the log, because all the other
-    // inputs (like file name) were identical, and so the results were re-used. We
+    // inputs (like file name) were identical, and so the results were reused. We
     // sort the log because the order of execution inside `jj fix` is undefined.
     insta::assert_snapshot!(sorted_lines(repo_path.join("file-fixlog")), @"BAR\nFOO\n");
 }
