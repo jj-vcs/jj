@@ -26,6 +26,7 @@ use jj_lib::backend::BackendError;
 use jj_lib::config::ConfigFileSaveError;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigLoadError;
+use jj_lib::config::ConfigMigrateError;
 use jj_lib::dsl_util::Diagnostics;
 use jj_lib::fileset::FilePatternParseError;
 use jj_lib::fileset::FilesetParseError;
@@ -275,6 +276,18 @@ impl From<ConfigLoadError> for CommandError {
                 .as_ref()
                 .map(|path| format!("Check the config file: {}", path.display())),
         };
+        let mut cmd_err = config_error(err);
+        cmd_err.extend_hints(hint);
+        cmd_err
+    }
+}
+
+impl From<ConfigMigrateError> for CommandError {
+    fn from(err: ConfigMigrateError) -> Self {
+        let hint = err
+            .source_path
+            .as_ref()
+            .map(|path| format!("Check the config file: {}", path.display()));
         let mut cmd_err = config_error(err);
         cmd_err.extend_hints(hint);
         cmd_err

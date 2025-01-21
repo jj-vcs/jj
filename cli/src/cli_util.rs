@@ -354,8 +354,7 @@ impl CommandHelper {
         config_env.reload_repo_config(&mut raw_config)?;
         let mut config = config_env.resolve_config(&raw_config)?;
         // No migration messages here, which would usually be emitted before.
-        jj_lib::config::migrate(&mut config, &self.data.config_migrations)
-            .map_err(|err| config_error_with_message("Migration failed", err))?;
+        jj_lib::config::migrate(&mut config, &self.data.config_migrations)?;
         Ok(self.data.settings.with_new_config(config)?)
     }
 
@@ -3659,8 +3658,7 @@ impl CliRunner {
         let mut last_config_migration_descriptions = Vec::new();
         let mut migrate_config = |config: &mut StackedConfig| -> Result<(), CommandError> {
             last_config_migration_descriptions =
-                jj_lib::config::migrate(config, &self.config_migrations)
-                    .map_err(|err| config_error_with_message("Migration failed", err))?;
+                jj_lib::config::migrate(config, &self.config_migrations)?;
             Ok(())
         };
         // Use cwd-relative workspace configs to resolve default command and

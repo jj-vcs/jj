@@ -21,6 +21,7 @@ use std::sync::Arc;
 use itertools::Itertools as _;
 use serde::de::IntoDeserializer as _;
 use serde::Deserialize as _;
+use thiserror::Error;
 use toml_edit::DocumentMut;
 
 use crate::config::ConfigGetError;
@@ -177,6 +178,34 @@ fn pop_scope_tables(layer: &mut ConfigLayer) -> Result<toml_edit::ArrayOfTables,
         })
 }
 
+/// Error that can occur when migrating config variables.
+#[derive(Debug, Error)]
+#[error("Migration failed")]
+pub struct ConfigMigrateError {
+    /// Source error.
+    #[source]
+    pub error: ConfigMigrateLayerError,
+    /// Source file path where the value is defined.
+    pub source_path: Option<PathBuf>,
+}
+
+/// Inner error of [`ConfigMigrateError`].
+#[derive(Debug, Error)]
+pub enum ConfigMigrateLayerError {
+    /// Cannot delete old value or set new value.
+    #[error(transparent)]
+    Update(#[from] ConfigUpdateError),
+}
+
+impl ConfigMigrateLayerError {
+    fn with_source_path(self, source_path: Option<&Path>) -> ConfigMigrateError {
+        ConfigMigrateError {
+            error: self,
+            source_path: source_path.map(|path| path.to_owned()),
+        }
+    }
+}
+
 /// Rule to migrate deprecated config variables.
 pub struct ConfigMigrationRule {
     inner: MigrationRule,
@@ -211,7 +240,7 @@ impl ConfigMigrationRule {
     }
 
     /// Migrates `layer` item. Returns a description of the applied migration.
-    fn apply(&self, layer: &mut ConfigLayer) -> Result<String, ConfigUpdateError> {
+    fn apply(&self, layer: &mut ConfigLayer) -> Result<String, ConfigMigrateLayerError> {
         match &self.inner {
             MigrationRule::RenameValue { old_name, new_name } => {
                 rename_value(layer, old_name, new_name)
@@ -224,7 +253,7 @@ fn rename_value(
     layer: &mut ConfigLayer,
     old_name: &ConfigNamePathBuf,
     new_name: &ConfigNamePathBuf,
-) -> Result<String, ConfigUpdateError> {
+) -> Result<String, ConfigMigrateLayerError> {
     let value = layer.delete_value(old_name)?.expect("tested by matches()");
     if matches!(layer.look_up_item(new_name), Ok(Some(_))) {
         return Ok(format!("{old_name} is deleted (superseded by {new_name})"));
@@ -238,10 +267,11 @@ fn rename_value(
 pub fn migrate(
     config: &mut StackedConfig,
     rules: &[ConfigMigrationRule],
-) -> Result<Vec<String>, ConfigUpdateError> {
+) -> Result<Vec<String>, ConfigMigrateError> {
     let mut descriptions = Vec::new();
     for layer in config.layers_mut() {
-        migrate_layer(layer, rules, &mut descriptions)?;
+        migrate_layer(layer, rules, &mut descriptions)
+            .map_err(|err| err.with_source_path(layer.path.as_deref()))?;
     }
     Ok(descriptions)
 }
@@ -250,7 +280,7 @@ fn migrate_layer(
     layer: &mut Arc<ConfigLayer>,
     rules: &[ConfigMigrationRule],
     descriptions: &mut Vec<String>,
-) -> Result<(), ConfigUpdateError> {
+) -> Result<(), ConfigMigrateLayerError> {
     let rules_to_apply = rules
         .iter()
         .filter(|rule| rule.matches(layer))
@@ -538,6 +568,30 @@ mod tests {
         assert!(descriptions.is_empty());
         assert!(Arc::ptr_eq(&config.layers()[0], &old_layers[0]));
         assert!(Arc::ptr_eq(&config.layers()[1], &old_layers[1]));
+    }
+
+    #[test]
+    fn test_migrate_error() {
+        let mut config = StackedConfig::empty();
+        let mut layer = new_user_layer(indoc! {"
+            foo.bar = 'baz'
+        "});
+        layer.path = Some("source.toml".into());
+        config.add_layer(layer);
+
+        let rules = [ConfigMigrationRule::rename_value("foo", "bar")];
+        insta::assert_debug_snapshot!(migrate(&mut config, &rules).unwrap_err(), @r#"
+        ConfigMigrateError {
+            error: Update(
+                WouldDeleteTable {
+                    name: "foo",
+                },
+            ),
+            source_path: Some(
+                "source.toml",
+            ),
+        }
+        "#);
     }
 
     #[test]

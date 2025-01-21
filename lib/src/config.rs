@@ -36,6 +36,8 @@ use toml_edit::ImDocument;
 
 pub use crate::config_resolver::migrate;
 pub use crate::config_resolver::resolve;
+pub use crate::config_resolver::ConfigMigrateError;
+pub use crate::config_resolver::ConfigMigrateLayerError;
 pub use crate::config_resolver::ConfigMigrationRule;
 pub use crate::config_resolver::ConfigResolutionContext;
 use crate::file_util::IoResultExt as _;
