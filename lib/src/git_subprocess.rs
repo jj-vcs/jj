@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
+use std::collections::HashSet;
 use std::num::NonZeroU32;
 use std::path::Path;
 use std::path::PathBuf;
@@ -154,6 +155,24 @@ impl<'a> GitSubprocessContext<'a> {
         let () = parse_git_branch_prune_output(output)?;
 
         Ok(())
+    }
+
+    // TODO: we should remove this in lieu of using the gix API.
+    // It is not trivial at this point because gix caches the config in memory
+    // (which is where the configured remotes live). This means that the
+    // externally modified remote is not found on clone.
+    /// List the configured remotes
+    ///
+    /// `git remote`
+    ///
+    /// Prints a remote per line
+    pub(crate) fn spawn_remote(&self) -> Result<HashSet<String>, GitSubprocessError> {
+        let mut command = self.create_command();
+        command.stdout(Stdio::piped());
+        command.arg("remote");
+        let output = self.spawn_cmd(command)?;
+
+        parse_git_remote_output(output)
     }
 
     /// How we retrieve the remote's default branch:
@@ -319,6 +338,18 @@ fn parse_git_branch_prune_output(output: Output) -> Result<(), GitSubprocessErro
     }
 
     Err(external_git_error(&output.stderr))
+}
+
+fn parse_git_remote_output(output: Output) -> Result<HashSet<String>, GitSubprocessError> {
+    if !output.status.success() {
+        return Err(external_git_error(&output.stderr));
+    }
+
+    Ok(output
+        .stdout
+        .lines()
+        .map(|line| line.to_str_lossy().into_owned())
+        .collect())
 }
 
 fn parse_git_remote_show_output(output: Output) -> Result<Output, GitSubprocessError> {
