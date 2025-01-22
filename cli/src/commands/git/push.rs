@@ -198,6 +198,7 @@ pub fn cmd_git_push(
     let mut workspace_command = command.workspace_helper(ui)?;
     let git_repo = get_git_repo(workspace_command.repo().store())?;
 
+    // TODO(git2): find remote to push without git2
     let remote = if let Some(name) = &args.remote {
         name.clone()
     } else {

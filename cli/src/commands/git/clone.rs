@@ -201,6 +201,7 @@ fn fetch_new_remote(
     let git_settings = workspace_command.settings().git_settings()?;
     let git_subprocess_ctx =
         get_git_subprocess_ctx(workspace_command.repo().store(), &git_settings)?;
+    // TODO(git2): find a way to add remote with gitoxide or git subprocessing
     git::add_remote(&git_repo, remote_name, source)?;
     writeln!(
         ui.status(),

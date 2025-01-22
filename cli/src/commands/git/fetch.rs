@@ -77,6 +77,7 @@ pub fn cmd_git_fetch(
     args: &GitFetchArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
+    // TODO(git2): find remotes without git2
     let git_repo = get_git_repo(workspace_command.repo().store())?;
     let remotes = if args.all_remotes {
         get_all_remotes(&git_repo)?
