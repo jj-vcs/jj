@@ -89,7 +89,7 @@ rayon = "1.10.0"
 ref-cast = "1.0.23"
 regex = "1.11.1"
 rpassword = "7.3.1"
-rustix = { version = "0.38.43", features = ["fs"] }
+rustix = { version = "0.38.44", features = ["fs"] }
 same-file = "1.0.6"
 sapling-renderdag = "0.1.0"
 sapling-streampager = "0.10.3"
