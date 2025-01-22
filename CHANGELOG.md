@@ -126,6 +126,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Conditional configuration now applies when initializing new repository.
   [#5144](https://github.com/jj-vcs/jj/issues/5144)
 
+* `[diff.<format>]` configuration now applies to `.diff().<format>()` commit
+  template methods.
+
 ## [0.25.0] - 2025-01-01
 
 ### Release highlights

@@ -81,8 +81,6 @@ use crate::merge_tools::ExternalMergeTool;
 use crate::text_util;
 use crate::ui::Ui;
 
-pub const DEFAULT_CONTEXT_LINES: usize = 3;
-
 #[derive(clap::Args, Clone, Debug)]
 #[command(next_help_heading = "Diff Formatting Options")]
 #[command(group(clap::ArgGroup::new("short-format").args(&["summary", "stat", "types", "name_only"])))]

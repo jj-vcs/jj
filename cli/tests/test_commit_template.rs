@@ -1188,6 +1188,96 @@ fn test_log_diff_predefined_formats() {
     R repo/{rename-source => rename-target}
     "###);
 
+    // with non-default config
+    std::fs::write(
+        test_env.env_root().join("config-good.toml"),
+        indoc! {"
+            diff.color-words.context = 0
+            diff.color-words.max-inline-alternation = 0
+            diff.git.context = 1
+        "},
+    )
+    .unwrap();
+    let stdout = test_env.jj_cmd_success(
+        &repo_path,
+        &[
+            "log",
+            "--config-file=../config-good.toml",
+            "--no-graph",
+            "-r@",
+            "-T",
+            template,
+        ],
+    );
+    insta::assert_snapshot!(stdout, @r"
+    === color_words ===
+    Modified regular file file1:
+        ...
+            3: c
+    Modified regular file file2:
+       1     : a
+            1: b
+            2: c
+    Modified regular file rename-target (rename-source => rename-target):
+    === git ===
+    diff --git a/file1 b/file1
+    index 422c2b7ab3..de980441c3 100644
+    --- a/file1
+    +++ b/file1
+    @@ -2,1 +2,2 @@
+     b
+    +c
+    diff --git a/file2 b/file2
+    index 7898192261..9ddeb5c484 100644
+    --- a/file2
+    +++ b/file2
+    @@ -1,1 +1,2 @@
+    -a
+    +b
+    +c
+    diff --git a/rename-source b/rename-target
+    rename from rename-source
+    rename to rename-target
+    === stat ===
+    file1                            | 1 +
+    file2                            | 3 ++-
+    {rename-source => rename-target} | 0
+    3 files changed, 3 insertions(+), 1 deletion(-)
+    === summary ===
+    M file1
+    M file2
+    R {rename-source => rename-target}
+    ");
+
+    // bad config
+    std::fs::write(
+        test_env.env_root().join("config-bad.toml"),
+        "diff.git.context = 'not an integer'\n",
+    )
+    .unwrap();
+    let stderr = test_env.jj_cmd_failure(
+        &repo_path,
+        &[
+            "log",
+            "--config-file=../config-bad.toml",
+            "-Tself.diff().git()",
+        ],
+    );
+    insta::assert_snapshot!(stderr, @r#"
+    Error: Failed to parse template: Failed to load diff settings
+    Caused by:
+    1:  --> 1:13
+      |
+    1 | self.diff().git()
+      |             ^-^
+      |
+      = Failed to load diff settings
+    2: Invalid type or value for diff.git.context
+    3: invalid type: string "not an integer", expected usize
+
+    Hint: Check the config file: ../config-bad.toml
+    "#);
+
     // color_words() with parameters
     let template = "self.diff('file1').color_words(0)";
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "--no-graph", "-r@", "-T", template]);

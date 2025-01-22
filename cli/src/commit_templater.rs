@@ -1715,17 +1715,18 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
                 })
                 .transpose()?;
             let path_converter = language.path_converter;
+            let options = diff_util::ColorWordsDiffOptions::from_settings(language.settings())
+                .map_err(|err| {
+                    let message = "Failed to load diff settings";
+                    TemplateParseError::expression(message, function.name_span).with_source(err)
+                })?;
             let conflict_marker_style = language.conflict_marker_style;
             let template = (self_property, context_property)
                 .map(move |(diff, context)| {
-                    // TODO: load defaults from UserSettings?
-                    let options = diff_util::ColorWordsDiffOptions {
-                        context: context.unwrap_or(diff_util::DEFAULT_CONTEXT_LINES),
-                        line_diff: diff_util::LineDiffOptions {
-                            compare_mode: diff_util::LineCompareMode::Exact,
-                        },
-                        max_inline_alternation: Some(3),
-                    };
+                    let mut options = options.clone();
+                    if let Some(context) = context {
+                        options.context = context;
+                    }
                     diff.into_formatted(move |formatter, store, tree_diff| {
                         diff_util::show_color_words_diff(
                             formatter,
@@ -1755,15 +1756,18 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
                     )
                 })
                 .transpose()?;
+            let options = diff_util::UnifiedDiffOptions::from_settings(language.settings())
+                .map_err(|err| {
+                    let message = "Failed to load diff settings";
+                    TemplateParseError::expression(message, function.name_span).with_source(err)
+                })?;
             let conflict_marker_style = language.conflict_marker_style;
             let template = (self_property, context_property)
                 .map(move |(diff, context)| {
-                    let options = diff_util::UnifiedDiffOptions {
-                        context: context.unwrap_or(diff_util::DEFAULT_CONTEXT_LINES),
-                        line_diff: diff_util::LineDiffOptions {
-                            compare_mode: diff_util::LineCompareMode::Exact,
-                        },
-                    };
+                    let mut options = options.clone();
+                    if let Some(context) = context {
+                        options.context = context;
+                    }
                     diff.into_formatted(move |formatter, store, tree_diff| {
                         diff_util::show_git_diff(
                             formatter,
@@ -1789,10 +1793,12 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
                 width_node,
             )?;
             let path_converter = language.path_converter;
+            // No user configuration exists for diff stat.
+            let options = diff_util::DiffStatOptions::default();
             let conflict_marker_style = language.conflict_marker_style;
             let template = (self_property, width_property)
                 .map(move |(diff, width)| {
-                    let options = diff_util::DiffStatOptions::default();
+                    let options = options.clone();
                     diff.into_formatted(move |formatter, store, tree_diff| {
                         diff_util::show_diff_stat(
                             formatter,
