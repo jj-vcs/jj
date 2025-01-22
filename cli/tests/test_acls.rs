@@ -101,7 +101,7 @@ fn test_diff() {
 }
 
 #[test]
-fn test_cat() {
+fn test_file_list_show() {
     let test_env = TestEnvironment::default();
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
@@ -111,6 +111,15 @@ fn test_cat() {
     std::fs::write(repo_path.join("z-last"), "baz\n").unwrap();
 
     SecretBackend::adopt_git_repo(&repo_path);
+
+    // "file list" should just work since it doesn't access file content
+    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["file", "list"]);
+    insta::assert_snapshot!(stdout, @r"
+    a-first
+    secret
+    z-last
+    ");
+    insta::assert_snapshot!(stderr, @"");
 
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["file", "show", "."]);
     insta::assert_snapshot!(stdout.replace('\\', "/"), @r###"

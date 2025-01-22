@@ -74,6 +74,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Add templater support for rendering commit signatures.
 
+* `jj file list` now supports templating.
+
 * `jj status` now shows untracked files when they reside directly under a tracked directory.
 
 * New `merge-tools.<TOOL>.diff-expected-exit-codes` config option to suppress

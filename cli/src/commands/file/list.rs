@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::io::Write;
-
 use clap_complete::ArgValueCandidates;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::command_error::CommandError;
+use crate::commit_templater::CommitTemplateLanguage;
+use crate::commit_templater::TreeEntry;
 use crate::complete;
 use crate::ui::Ui;
 
@@ -34,6 +34,16 @@ pub(crate) struct FileListArgs {
         add = ArgValueCandidates::new(complete::all_revisions),
     )]
     revision: RevisionArg,
+
+    /// Render each file entry using the given template
+    ///
+    /// All 0-argument methods of the `TreeEntry` type are available as
+    /// keywords.
+    ///
+    /// For the syntax, see https://jj-vcs.github.io/jj/latest/templates/
+    #[arg(long, short = 'T')]
+    template: Option<String>,
+
     /// Only list files matching these prefixes (instead of all files)
     #[arg(value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
     paths: Vec<String>,
@@ -51,13 +61,30 @@ pub(crate) fn cmd_file_list(
     let matcher = workspace_command
         .parse_file_patterns(ui, &args.paths)?
         .to_matcher();
+    let template = {
+        let language = workspace_command.commit_template_language();
+        let text = match &args.template {
+            Some(value) => value.to_owned(),
+            None => workspace_command.settings().get("templates.file_list")?,
+        };
+        workspace_command
+            .parse_template(
+                ui,
+                &language,
+                &text,
+                CommitTemplateLanguage::wrap_tree_entry,
+            )?
+            .labeled("file_list")
+    };
+
     ui.request_pager();
-    for (name, _value) in tree.entries_matching(matcher.as_ref()) {
-        writeln!(
-            ui.stdout(),
-            "{}",
-            &workspace_command.format_file_path(&name)
-        )?;
+    let mut formatter = ui.stdout_formatter();
+    for (path, value) in tree.entries_matching(matcher.as_ref()) {
+        let entry = TreeEntry {
+            path,
+            value: value?,
+        };
+        template.format(&entry, formatter.as_mut())?;
     }
     Ok(())
 }

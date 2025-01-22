@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use indoc::indoc;
 use regex::Regex;
 
 use crate::common::TestEnvironment;
@@ -1208,6 +1209,92 @@ fn test_log_diff_predefined_formats() {
      b
     +c
     "###);
+}
+
+#[test]
+fn test_file_list_entries() {
+    let test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    let repo_path = test_env.env_root().join("repo");
+
+    std::fs::create_dir(repo_path.join("dir")).unwrap();
+    std::fs::write(repo_path.join("dir").join("file"), "content1").unwrap();
+    std::fs::write(repo_path.join("exec-file"), "content1").unwrap();
+    std::fs::write(repo_path.join("conflict-exec-file"), "content1").unwrap();
+    std::fs::write(repo_path.join("conflict-file"), "content1").unwrap();
+    test_env.jj_cmd_ok(
+        &repo_path,
+        &["file", "chmod", "x", "exec-file", "conflict-exec-file"],
+    );
+
+    test_env.jj_cmd_ok(&repo_path, &["new", "root()"]);
+    std::fs::write(repo_path.join("conflict-exec-file"), "content2").unwrap();
+    std::fs::write(repo_path.join("conflict-file"), "content2").unwrap();
+    test_env.jj_cmd_ok(&repo_path, &["file", "chmod", "x", "conflict-exec-file"]);
+
+    test_env.jj_cmd_ok(&repo_path, &["new", "all:visible_heads()"]);
+
+    let template = indoc! {r#"
+        separate(" ",
+          path,
+          "[" ++ file_type ++ "]",
+          "conflict=" ++ conflict,
+          "executable=" ++ executable,
+        ) ++ "\n"
+    "#};
+    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "list", "-T", template]);
+    insta::assert_snapshot!(stdout, @r"
+    conflict-exec-file [conflict] conflict=true executable=true
+    conflict-file [conflict] conflict=true executable=false
+    dir/file [file] conflict=false executable=false
+    exec-file [file] conflict=false executable=true
+    ");
+}
+
+#[cfg(unix)]
+#[test]
+fn test_file_list_symlink() {
+    let test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    let repo_path = test_env.env_root().join("repo");
+
+    std::os::unix::fs::symlink("symlink_target", repo_path.join("symlink")).unwrap();
+
+    let template = r#"separate(" ", path, "[" ++ file_type ++ "]") ++ "\n""#;
+    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "list", "-T", template]);
+    insta::assert_snapshot!(stdout, @"symlink [symlink]");
+}
+
+#[test]
+fn test_repo_path() {
+    let test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    let repo_path = test_env.env_root().join("repo");
+
+    std::fs::create_dir(repo_path.join("dir")).unwrap();
+    std::fs::write(repo_path.join("dir").join("file"), "content1").unwrap();
+    std::fs::write(repo_path.join("file"), "content1").unwrap();
+
+    let template = indoc! {r#"
+        separate(" ",
+          path,
+          "display=" ++ path.display(),
+          "parent=" ++ if(path.parent(), path.parent(), "<none>"),
+          "parent^2=" ++ if(path.parent().parent(), path.parent().parent(), "<none>"),
+        ) ++ "\n"
+    "#};
+    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "list", "-T", template]);
+    insta::assert_snapshot!(stdout.replace('\\', "/"), @r"
+    dir/file display=dir/file parent=dir parent^2=
+    file display=file parent= parent^2=<none>
+    ");
+
+    let template = r#"separate(" ", path, "display=" ++ path.display()) ++ "\n""#;
+    let stdout = test_env.jj_cmd_success(&repo_path.join("dir"), &["file", "list", "-T", template]);
+    insta::assert_snapshot!(stdout.replace('\\', "/"), @r"
+    dir/file display=file
+    file display=../file
+    ");
 }
 
 #[test]

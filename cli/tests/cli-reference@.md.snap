@@ -905,6 +905,11 @@ List files in a revision
 * `-r`, `--revision <REVSET>` — The revision to list files in
 
   Default value: `@`
+* `-T`, `--template <TEMPLATE>` — Render each file entry using the given template
+
+   All 0-argument methods of the `TreeEntry` type are available as keywords.
+
+   For the syntax, see https://jj-vcs.github.io/jj/latest/templates/
 
 
 
