@@ -246,6 +246,15 @@ The following methods are defined.
 * `.tracking_behind_count() -> SizeHint`: Number of commits behind of the
   tracking local ref.
 
+### RepoPath type
+
+A slash-separated path relative to the repository root. The following methods
+are defined.
+
+* `.display() -> String`: Format path for display. The formatted path uses
+  platform-native separator, and is relative to the current working directory.
+* `.parent() -> Option<RepoPath>`: Parent directory path.
+
 ### ShortestIdPrefix type
 
 The following methods are defined.

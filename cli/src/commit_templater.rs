@@ -41,6 +41,7 @@ use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::op_store::WorkspaceId;
 use jj_lib::repo::Repo;
+use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::revset;
 use jj_lib::revset::Revset;
@@ -237,6 +238,24 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                     Self::wrap_ref_name,
                 )
             }
+            CommitTemplatePropertyKind::RepoPath(property) => {
+                let table = &self.build_fn_table.repo_path_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(self, diagnostics, build_ctx, property, function)
+            }
+            CommitTemplatePropertyKind::RepoPathOpt(property) => {
+                let type_name = "RepoPath";
+                let table = &self.build_fn_table.repo_path_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                let inner_property = property.try_unwrap(type_name);
+                build(
+                    self,
+                    diagnostics,
+                    build_ctx,
+                    Box::new(inner_property),
+                    function,
+                )
+            }
             CommitTemplatePropertyKind::CommitOrChangeId(property) => {
                 let table = &self.build_fn_table.commit_or_change_id_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
@@ -324,6 +343,18 @@ impl<'repo> CommitTemplateLanguage<'repo> {
         CommitTemplatePropertyKind::RefNameList(Box::new(property))
     }
 
+    pub fn wrap_repo_path(
+        property: impl TemplateProperty<Output = RepoPathBuf> + 'repo,
+    ) -> CommitTemplatePropertyKind<'repo> {
+        CommitTemplatePropertyKind::RepoPath(Box::new(property))
+    }
+
+    pub fn wrap_repo_path_opt(
+        property: impl TemplateProperty<Output = Option<RepoPathBuf>> + 'repo,
+    ) -> CommitTemplatePropertyKind<'repo> {
+        CommitTemplatePropertyKind::RepoPathOpt(Box::new(property))
+    }
+
     pub fn wrap_commit_or_change_id(
         property: impl TemplateProperty<Output = CommitOrChangeId> + 'repo,
     ) -> CommitTemplatePropertyKind<'repo> {
@@ -357,6 +388,8 @@ pub enum CommitTemplatePropertyKind<'repo> {
     RefName(Box<dyn TemplateProperty<Output = Rc<RefName>> + 'repo>),
     RefNameOpt(Box<dyn TemplateProperty<Output = Option<Rc<RefName>>> + 'repo>),
     RefNameList(Box<dyn TemplateProperty<Output = Vec<Rc<RefName>>> + 'repo>),
+    RepoPath(Box<dyn TemplateProperty<Output = RepoPathBuf> + 'repo>),
+    RepoPathOpt(Box<dyn TemplateProperty<Output = Option<RepoPathBuf>> + 'repo>),
     CommitOrChangeId(Box<dyn TemplateProperty<Output = CommitOrChangeId> + 'repo>),
     ShortestIdPrefix(Box<dyn TemplateProperty<Output = ShortestIdPrefix> + 'repo>),
     TreeDiff(Box<dyn TemplateProperty<Output = TreeDiff> + 'repo>),
@@ -375,6 +408,8 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             CommitTemplatePropertyKind::RefName(_) => "RefName",
             CommitTemplatePropertyKind::RefNameOpt(_) => "Option<RefName>",
             CommitTemplatePropertyKind::RefNameList(_) => "List<RefName>",
+            CommitTemplatePropertyKind::RepoPath(_) => "RepoPath",
+            CommitTemplatePropertyKind::RepoPathOpt(_) => "Option<RepoPath>",
             CommitTemplatePropertyKind::CommitOrChangeId(_) => "CommitOrChangeId",
             CommitTemplatePropertyKind::ShortestIdPrefix(_) => "ShortestIdPrefix",
             CommitTemplatePropertyKind::TreeDiff(_) => "TreeDiff",
@@ -400,6 +435,10 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             }
             CommitTemplatePropertyKind::RefNameList(property) => {
                 Some(Box::new(property.map(|l| !l.is_empty())))
+            }
+            CommitTemplatePropertyKind::RepoPath(_) => None,
+            CommitTemplatePropertyKind::RepoPathOpt(property) => {
+                Some(Box::new(property.map(|opt| opt.is_some())))
             }
             CommitTemplatePropertyKind::CommitOrChangeId(_) => None,
             CommitTemplatePropertyKind::ShortestIdPrefix(_) => None,
@@ -438,6 +477,8 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             CommitTemplatePropertyKind::RefName(property) => Some(property.into_template()),
             CommitTemplatePropertyKind::RefNameOpt(property) => Some(property.into_template()),
             CommitTemplatePropertyKind::RefNameList(property) => Some(property.into_template()),
+            CommitTemplatePropertyKind::RepoPath(property) => Some(property.into_template()),
+            CommitTemplatePropertyKind::RepoPathOpt(property) => Some(property.into_template()),
             CommitTemplatePropertyKind::CommitOrChangeId(property) => {
                 Some(property.into_template())
             }
@@ -461,6 +502,8 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             (CommitTemplatePropertyKind::RefName(_), _) => None,
             (CommitTemplatePropertyKind::RefNameOpt(_), _) => None,
             (CommitTemplatePropertyKind::RefNameList(_), _) => None,
+            (CommitTemplatePropertyKind::RepoPath(_), _) => None,
+            (CommitTemplatePropertyKind::RepoPathOpt(_), _) => None,
             (CommitTemplatePropertyKind::CommitOrChangeId(_), _) => None,
             (CommitTemplatePropertyKind::ShortestIdPrefix(_), _) => None,
             (CommitTemplatePropertyKind::TreeDiff(_), _) => None,
@@ -483,6 +526,8 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             (CommitTemplatePropertyKind::RefName(_), _) => None,
             (CommitTemplatePropertyKind::RefNameOpt(_), _) => None,
             (CommitTemplatePropertyKind::RefNameList(_), _) => None,
+            (CommitTemplatePropertyKind::RepoPath(_), _) => None,
+            (CommitTemplatePropertyKind::RepoPathOpt(_), _) => None,
             (CommitTemplatePropertyKind::CommitOrChangeId(_), _) => None,
             (CommitTemplatePropertyKind::ShortestIdPrefix(_), _) => None,
             (CommitTemplatePropertyKind::TreeDiff(_), _) => None,
@@ -500,6 +545,7 @@ pub struct CommitTemplateBuildFnTable<'repo> {
     pub core: CoreTemplateBuildFnTable<'repo, CommitTemplateLanguage<'repo>>,
     pub commit_methods: CommitTemplateBuildMethodFnMap<'repo, Commit>,
     pub ref_name_methods: CommitTemplateBuildMethodFnMap<'repo, Rc<RefName>>,
+    pub repo_path_methods: CommitTemplateBuildMethodFnMap<'repo, RepoPathBuf>,
     pub commit_or_change_id_methods: CommitTemplateBuildMethodFnMap<'repo, CommitOrChangeId>,
     pub shortest_id_prefix_methods: CommitTemplateBuildMethodFnMap<'repo, ShortestIdPrefix>,
     pub tree_diff_methods: CommitTemplateBuildMethodFnMap<'repo, TreeDiff>,
@@ -514,6 +560,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             core: CoreTemplateBuildFnTable::builtin(),
             commit_methods: builtin_commit_methods(),
             ref_name_methods: builtin_ref_name_methods(),
+            repo_path_methods: builtin_repo_path_methods(),
             commit_or_change_id_methods: builtin_commit_or_change_id_methods(),
             shortest_id_prefix_methods: builtin_shortest_id_prefix_methods(),
             tree_diff_methods: builtin_tree_diff_methods(),
@@ -526,6 +573,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             core: CoreTemplateBuildFnTable::empty(),
             commit_methods: HashMap::new(),
             ref_name_methods: HashMap::new(),
+            repo_path_methods: HashMap::new(),
             commit_or_change_id_methods: HashMap::new(),
             shortest_id_prefix_methods: HashMap::new(),
             tree_diff_methods: HashMap::new(),
@@ -538,6 +586,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             core,
             commit_methods,
             ref_name_methods,
+            repo_path_methods,
             commit_or_change_id_methods,
             shortest_id_prefix_methods,
             tree_diff_methods,
@@ -547,6 +596,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
         self.core.merge(core);
         merge_fn_map(&mut self.commit_methods, commit_methods);
         merge_fn_map(&mut self.ref_name_methods, ref_name_methods);
+        merge_fn_map(&mut self.repo_path_methods, repo_path_methods);
         merge_fn_map(
             &mut self.commit_or_change_id_methods,
             commit_or_change_id_methods,
@@ -1334,6 +1384,37 @@ fn build_ref_names_index<'a>(
         index.insert(target.added_ids(), ref_name);
     }
     index
+}
+
+impl Template for RepoPathBuf {
+    fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
+        write!(formatter, "{}", self.as_internal_file_string())
+    }
+}
+
+fn builtin_repo_path_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, RepoPathBuf> {
+    type L<'repo> = CommitTemplateLanguage<'repo>;
+    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // code completion inside macro is quite restricted.
+    let mut map = CommitTemplateBuildMethodFnMap::<RepoPathBuf>::new();
+    map.insert(
+        "display",
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let path_converter = language.path_converter;
+            let out_property = self_property.map(|path| path_converter.format_file_path(&path));
+            Ok(L::wrap_string(out_property))
+        },
+    );
+    map.insert(
+        "parent",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|path| Some(path.parent()?.to_owned()));
+            Ok(L::wrap_repo_path_opt(out_property))
+        },
+    );
+    map
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
