@@ -187,15 +187,18 @@ fn diff_formats_from_args(
         formats.push(DiffFormat::NameOnly);
     }
     if args.git {
-        let options = UnifiedDiffOptions::from_settings_and_args(settings, args)?;
+        let mut options = UnifiedDiffOptions::from_settings(settings)?;
+        options.merge_args(args);
         formats.push(DiffFormat::Git(Box::new(options)));
     }
     if args.color_words {
-        let options = ColorWordsDiffOptions::from_settings_and_args(settings, args)?;
+        let mut options = ColorWordsDiffOptions::from_settings(settings)?;
+        options.merge_args(args);
         formats.push(DiffFormat::ColorWords(Box::new(options)));
     }
     if args.stat {
-        let options = DiffStatOptions::from_args(args);
+        let mut options = DiffStatOptions::default();
+        options.merge_args(args);
         formats.push(DiffFormat::Stat(Box::new(options)));
     }
     if let Some(name) = &args.tool {
@@ -232,15 +235,18 @@ fn default_diff_format(
         "types" => Ok(DiffFormat::Types),
         "name-only" => Ok(DiffFormat::NameOnly),
         "git" => {
-            let options = UnifiedDiffOptions::from_settings_and_args(settings, args)?;
+            let mut options = UnifiedDiffOptions::from_settings(settings)?;
+            options.merge_args(args);
             Ok(DiffFormat::Git(Box::new(options)))
         }
         "color-words" => {
-            let options = ColorWordsDiffOptions::from_settings_and_args(settings, args)?;
+            let mut options = ColorWordsDiffOptions::from_settings(settings)?;
+            options.merge_args(args);
             Ok(DiffFormat::ColorWords(Box::new(options)))
         }
         "stat" => {
-            let options = DiffStatOptions::from_args(args);
+            let mut options = DiffStatOptions::default();
+            options.merge_args(args);
             Ok(DiffFormat::Stat(Box::new(options)))
         }
         _ => Err(ConfigGetError::Type {
@@ -483,7 +489,7 @@ pub fn get_copy_records<'a>(
     Ok(block_on_stream(stream).filter_ok(|record| matcher.matches(&record.target)))
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct LineDiffOptions {
     /// How equivalence of lines is tested.
     pub compare_mode: LineCompareMode,
@@ -491,21 +497,21 @@ pub struct LineDiffOptions {
 }
 
 impl LineDiffOptions {
-    fn from_args(args: &DiffFormatArgs) -> Self {
-        let compare_mode = if args.ignore_all_space {
+    fn merge_args(&mut self, args: &DiffFormatArgs) {
+        self.compare_mode = if args.ignore_all_space {
             LineCompareMode::IgnoreAllSpace
         } else if args.ignore_space_change {
             LineCompareMode::IgnoreSpaceChange
         } else {
             LineCompareMode::Exact
         };
-        LineDiffOptions { compare_mode }
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum LineCompareMode {
     /// Compares lines literally.
+    #[default]
     Exact,
     /// Compares lines ignoring any whitespace occurrences.
     IgnoreAllSpace,
@@ -545,10 +551,7 @@ pub struct ColorWordsDiffOptions {
 }
 
 impl ColorWordsDiffOptions {
-    fn from_settings_and_args(
-        settings: &UserSettings,
-        args: &DiffFormatArgs,
-    ) -> Result<Self, ConfigGetError> {
+    pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
         let max_inline_alternation = {
             let name = "diff.color-words.max-inline-alternation";
             match settings.get_int(name)? {
@@ -560,14 +563,18 @@ impl ColorWordsDiffOptions {
                 })?),
             }
         };
-        let context = args
-            .context
-            .map_or_else(|| settings.get("diff.color-words.context"), Ok)?;
         Ok(ColorWordsDiffOptions {
-            context,
-            line_diff: LineDiffOptions::from_args(args),
+            context: settings.get("diff.color-words.context")?,
+            line_diff: LineDiffOptions::default(),
             max_inline_alternation,
         })
+    }
+
+    fn merge_args(&mut self, args: &DiffFormatArgs) {
+        if let Some(context) = args.context {
+            self.context = context;
+        }
+        self.line_diff.merge_args(args);
     }
 }
 
@@ -1252,17 +1259,18 @@ pub struct UnifiedDiffOptions {
 }
 
 impl UnifiedDiffOptions {
-    fn from_settings_and_args(
-        settings: &UserSettings,
-        args: &DiffFormatArgs,
-    ) -> Result<Self, ConfigGetError> {
-        let context = args
-            .context
-            .map_or_else(|| settings.get("diff.git.context"), Ok)?;
+    pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
         Ok(UnifiedDiffOptions {
-            context,
-            line_diff: LineDiffOptions::from_args(args),
+            context: settings.get("diff.git.context")?,
+            line_diff: LineDiffOptions::default(),
         })
+    }
+
+    fn merge_args(&mut self, args: &DiffFormatArgs) {
+        if let Some(context) = args.context {
+            self.context = context;
+        }
+        self.line_diff.merge_args(args);
     }
 }
 
@@ -1624,17 +1632,15 @@ pub fn show_diff_summary(
     .block_on()
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct DiffStatOptions {
     /// How lines are tokenized and compared.
     pub line_diff: LineDiffOptions,
 }
 
 impl DiffStatOptions {
-    fn from_args(args: &DiffFormatArgs) -> Self {
-        DiffStatOptions {
-            line_diff: LineDiffOptions::from_args(args),
-        }
+    fn merge_args(&mut self, args: &DiffFormatArgs) {
+        self.line_diff.merge_args(args);
     }
 }
 

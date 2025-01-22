@@ -1792,11 +1792,7 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
             let conflict_marker_style = language.conflict_marker_style;
             let template = (self_property, width_property)
                 .map(move |(diff, width)| {
-                    let options = diff_util::DiffStatOptions {
-                        line_diff: diff_util::LineDiffOptions {
-                            compare_mode: diff_util::LineCompareMode::Exact,
-                        },
-                    };
+                    let options = diff_util::DiffStatOptions::default();
                     diff.into_formatted(move |formatter, store, tree_diff| {
                         diff_util::show_diff_stat(
                             formatter,
