@@ -52,13 +52,9 @@ separate(" ",
   self.id().short(),
   if(root,
     label("root", "root()"),
-    surround(
-       "(",
-       ")",
-       format_timestamp(self.time().end())
-    )
+    surround("(", ")", format_timestamp(self.time().end())),
   ),
-  self.description().first_line()
+  self.description().first_line(),
 )
 '''
 
@@ -212,7 +208,7 @@ separate(" ",
   format_short_change_id(root.change_id()),
   label("root", "root()"),
   format_short_commit_id(root.commit_id()),
-  root.bookmarks()
+  root.bookmarks(),
 ) ++ "\n"
 '''
 
@@ -241,22 +237,22 @@ if(ref.tracking_present(), surround("(", ")", separate(", ",
 '''
 
 'format_operation(op)' = '''
-  concat(
-    separate(" ", op.id().short(), op.user(), format_time_range(op.time())), "\n",
-    op.description().first_line(), "\n",
-    if(op.tags(), op.tags() ++ "\n"),
-  )
+concat(
+  separate(" ", op.id().short(), op.user(), format_time_range(op.time())), "\n",
+  op.description().first_line(), "\n",
+  if(op.tags(), op.tags() ++ "\n"),
+)
 '''
 'format_snapshot_operation(op)' = 'format_operation(op)'
 'format_root_operation(root)' = 'separate(" ", root.id().short(), label("root", "root()")) ++ "\n"'
 
 
 'format_operation_oneline(op)' = '''
-  separate(" ",
-    op.id().short(), op.user(), format_time_range(op.time()),
-    op.description().first_line(), 
-    if(op.tags(), op.tags()),
-  ) ++ "\n"
+separate(" ",
+  op.id().short(), op.user(), format_time_range(op.time()),
+  op.description().first_line(),
+  if(op.tags(), op.tags()),
+) ++ "\n"
 '''
 'format_snapshot_operation_oneline(op)' = 'format_operation_oneline(op)'
 
@@ -276,18 +272,18 @@ if(commit.hidden(),
 
 'format_short_commit_header(commit)' = '''
 separate(" ",
-        format_short_change_id_with_hidden_and_divergent_info(commit),
-        format_short_signature(commit.author()),
-        format_timestamp(commit_timestamp(commit)),
-        commit.bookmarks(),
-        commit.tags(),
-        commit.working_copies(),
-        if(commit.git_head(), label("git_head", "git_head()")),
-        format_short_commit_id(commit.commit_id()),
-        if(commit.conflict(), label("conflict", "conflict")),
-        if(config("ui.show-cryptographic-signatures").as_boolean(),
-          format_short_cryptographic_signature(commit.signature())),
-      )
+  format_short_change_id_with_hidden_and_divergent_info(commit),
+  format_short_signature(commit.author()),
+  format_timestamp(commit_timestamp(commit)),
+  commit.bookmarks(),
+  commit.tags(),
+  commit.working_copies(),
+  if(commit.git_head(), label("git_head", "git_head()")),
+  format_short_commit_id(commit.commit_id()),
+  if(commit.conflict(), label("conflict", "conflict")),
+  if(config("ui.show-cryptographic-signatures").as_boolean(),
+    format_short_cryptographic_signature(commit.signature())),
+)
 '''
 
 'format_detailed_cryptographic_signature(signature)' = '''
