@@ -49,6 +49,7 @@ use jj_lib::git::GitRefUpdate;
 use jj_lib::git::RefName;
 use jj_lib::git::SubmoduleConfig;
 use jj_lib::git_backend::GitBackend;
+use jj_lib::git_subprocess::GitSubprocessContext;
 use jj_lib::object_id::ObjectId;
 use jj_lib::op_store::BookmarkTarget;
 use jj_lib::op_store::RefTarget;
@@ -135,8 +136,9 @@ fn git_fetch(
     remote_name: &str,
     branch_names: &[StringPattern],
     git_settings: &GitSettings,
+    git_subprocess_ctx: &GitSubprocessContext,
 ) -> Result<GitFetchStats, GitFetchError> {
-    let mut git_fetch = GitFetch::new(mut_repo, git_repo, git_settings);
+    let mut git_fetch = GitFetch::new(mut_repo, git_repo, git_settings, git_subprocess_ctx);
     let default_branch = git_fetch.fetch(
         git::RemoteCallbacks::default(),
         None,
@@ -149,6 +151,13 @@ fn git_fetch(
         import_stats,
     };
     Ok(stats)
+}
+
+fn get_git_subprocess_context<'a>(
+    settings: &'a GitSettings,
+    git_path: &'a Path,
+) -> GitSubprocessContext<'a> {
+    GitSubprocessContext::new(git_path, &settings.executable_path)
 }
 
 #[test]
@@ -2570,6 +2579,10 @@ fn test_init() {
 fn test_fetch_empty_repo(subprocess: bool) {
     let test_data = GitRepoData::create();
     let git_settings = get_git_settings(subprocess);
+    let git_subprocess_ctx = get_git_subprocess_context(
+        &git_settings,
+        get_git_backend(&test_data.repo).git_repo_path(),
+    );
 
     let mut tx = test_data.repo.start_transaction();
     let stats = git_fetch(
@@ -2578,6 +2591,7 @@ fn test_fetch_empty_repo(subprocess: bool) {
         "origin",
         &[StringPattern::everything()],
         &git_settings,
+        &git_subprocess_ctx,
     )
     .unwrap();
     // No default bookmark and no refs
@@ -2596,6 +2610,10 @@ fn test_fetch_initial_commit_head_is_not_set(subprocess: bool) {
         ..get_git_settings(subprocess)
     };
     let initial_git_commit = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
+    let git_subprocess_ctx = get_git_subprocess_context(
+        &git_settings,
+        get_git_backend(&test_data.repo).git_repo_path(),
+    );
 
     let mut tx = test_data.repo.start_transaction();
     let stats = git_fetch(
@@ -2604,6 +2622,7 @@ fn test_fetch_initial_commit_head_is_not_set(subprocess: bool) {
         "origin",
         &[StringPattern::everything()],
         &git_settings,
+        &git_subprocess_ctx,
     )
     .unwrap();
     // No default bookmark because the origin repo's HEAD wasn't set
@@ -2656,6 +2675,10 @@ fn test_fetch_initial_commit_head_is_set(subprocess: bool) {
         .origin_repo
         .reference("refs/tags/v1.0", new_git_commit.id(), false, "")
         .unwrap();
+    let git_subprocess_ctx = get_git_subprocess_context(
+        &git_settings,
+        get_git_backend(&test_data.repo).git_repo_path(),
+    );
 
     let mut tx = test_data.repo.start_transaction();
     let stats = git_fetch(
@@ -2664,6 +2687,7 @@ fn test_fetch_initial_commit_head_is_set(subprocess: bool) {
         "origin",
         &[StringPattern::everything()],
         &git_settings,
+        &git_subprocess_ctx,
     )
     .unwrap();
 
@@ -2680,6 +2704,8 @@ fn test_fetch_success(subprocess: bool) {
         ..get_git_settings(subprocess)
     };
     let initial_git_commit = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
+    let git_path = get_git_backend(&test_data.repo).git_repo_path().to_owned();
+    let git_subprocess_ctx = get_git_subprocess_context(&git_settings, &git_path);
 
     let mut tx = test_data.repo.start_transaction();
     git_fetch(
@@ -2688,6 +2714,7 @@ fn test_fetch_success(subprocess: bool) {
         "origin",
         &[StringPattern::everything()],
         &git_settings,
+        &git_subprocess_ctx,
     )
     .unwrap();
     test_data.repo = tx.commit("test").unwrap();
@@ -2710,6 +2737,7 @@ fn test_fetch_success(subprocess: bool) {
         "origin",
         &[StringPattern::everything()],
         &git_settings,
+        &git_subprocess_ctx,
     )
     .unwrap();
     // The default bookmark is "main"
@@ -2759,6 +2787,10 @@ fn test_fetch_prune_deleted_ref(subprocess: bool) {
         ..get_git_settings(subprocess)
     };
     let commit = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
+    let git_subprocess_ctx = get_git_subprocess_context(
+        &git_settings,
+        get_git_backend(&test_data.repo).git_repo_path(),
+    );
 
     let mut tx = test_data.repo.start_transaction();
     git_fetch(
@@ -2767,6 +2799,7 @@ fn test_fetch_prune_deleted_ref(subprocess: bool) {
         "origin",
         &[StringPattern::everything()],
         &git_settings,
+        &git_subprocess_ctx,
     )
     .unwrap();
     // Test the setup
@@ -2789,6 +2822,7 @@ fn test_fetch_prune_deleted_ref(subprocess: bool) {
         "origin",
         &[StringPattern::everything()],
         &git_settings,
+        &git_subprocess_ctx,
     )
     .unwrap();
     assert_eq!(stats.import_stats.abandoned_commits, vec![jj_id(&commit)]);
@@ -2808,6 +2842,10 @@ fn test_fetch_no_default_branch(subprocess: bool) {
         ..get_git_settings(subprocess)
     };
     let initial_git_commit = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
+    let git_subprocess_ctx = get_git_subprocess_context(
+        &git_settings,
+        get_git_backend(&test_data.repo).git_repo_path(),
+    );
 
     let mut tx = test_data.repo.start_transaction();
     git_fetch(
@@ -2816,6 +2854,7 @@ fn test_fetch_no_default_branch(subprocess: bool) {
         "origin",
         &[StringPattern::everything()],
         &git_settings,
+        &git_subprocess_ctx,
     )
     .unwrap();
 
@@ -2838,6 +2877,7 @@ fn test_fetch_no_default_branch(subprocess: bool) {
         "origin",
         &[StringPattern::everything()],
         &git_settings,
+        &git_subprocess_ctx,
     )
     .unwrap();
     // There is no default bookmark
@@ -2850,6 +2890,10 @@ fn test_fetch_empty_refspecs(subprocess: bool) {
     let test_data = GitRepoData::create();
     let git_settings = get_git_settings(subprocess);
     empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
+    let git_subprocess_ctx = get_git_subprocess_context(
+        &git_settings,
+        get_git_backend(&test_data.repo).git_repo_path(),
+    );
 
     // Base refspecs shouldn't be respected
     let mut tx = test_data.repo.start_transaction();
@@ -2859,6 +2903,7 @@ fn test_fetch_empty_refspecs(subprocess: bool) {
         "origin",
         &[],
         &git_settings,
+        &git_subprocess_ctx,
     )
     .unwrap();
     assert!(tx
@@ -2879,12 +2924,17 @@ fn test_fetch_no_such_remote(subprocess: bool) {
     let test_data = GitRepoData::create();
     let git_settings = get_git_settings(subprocess);
     let mut tx = test_data.repo.start_transaction();
+    let git_subprocess_ctx = get_git_subprocess_context(
+        &git_settings,
+        get_git_backend(&test_data.repo).git_repo_path(),
+    );
     let result = git_fetch(
         tx.repo_mut(),
         &test_data.git_repo,
         "invalid-remote",
         &[StringPattern::everything()],
         &git_settings,
+        &git_subprocess_ctx,
     );
     assert!(matches!(result, Err(GitFetchError::NoSuchRemote(_))));
 }
@@ -2897,6 +2947,8 @@ fn test_fetch_multiple_branches() {
         auto_local_bookmark: true,
         ..Default::default()
     };
+    let git_repo_path = get_git_backend(&test_data.repo).git_repo_path().to_owned();
+    let git_subprocess_ctx = get_git_subprocess_context(&git_settings, &git_repo_path);
 
     let mut tx = test_data.repo.start_transaction();
     let fetch_stats = git_fetch(
@@ -2909,9 +2961,9 @@ fn test_fetch_multiple_branches() {
             StringPattern::Exact("noexist2".to_string()),
         ],
         &git_settings,
+        &git_subprocess_ctx,
     )
     .unwrap();
-
     assert_eq!(
         fetch_stats
             .import_stats
@@ -3027,6 +3079,10 @@ fn test_push_bookmarks_success(subprocess: bool) {
     let clone_repo = get_git_repo(&setup.jj_repo);
     let mut tx = setup.jj_repo.start_transaction();
     let git_settings = get_git_settings(subprocess);
+    let git_subprocess_ctx = get_git_subprocess_context(
+        &git_settings,
+        get_git_backend(&setup.jj_repo).git_repo_path(),
+    );
 
     let targets = GitBranchPushTargets {
         branch_updates: vec![(
@@ -3041,6 +3097,7 @@ fn test_push_bookmarks_success(subprocess: bool) {
         tx.repo_mut(),
         &clone_repo,
         &git_settings,
+        &git_subprocess_ctx,
         "origin",
         &targets,
         git::RemoteCallbacks::default(),
@@ -3095,6 +3152,10 @@ fn test_push_bookmarks_deletion(subprocess: bool) {
     let clone_repo = get_git_repo(&setup.jj_repo);
     let mut tx = setup.jj_repo.start_transaction();
     let git_settings = get_git_settings(subprocess);
+    let git_subprocess_ctx = get_git_subprocess_context(
+        &git_settings,
+        get_git_backend(&setup.jj_repo).git_repo_path(),
+    );
 
     let source_repo = git2::Repository::open(&setup.source_repo_dir).unwrap();
     // Test the setup
@@ -3113,6 +3174,7 @@ fn test_push_bookmarks_deletion(subprocess: bool) {
         tx.repo_mut(),
         &get_git_repo(&setup.jj_repo),
         &git_settings,
+        &git_subprocess_ctx,
         "origin",
         &targets,
         git::RemoteCallbacks::default(),
@@ -3150,6 +3212,10 @@ fn test_push_bookmarks_mixed_deletion_and_addition(subprocess: bool) {
     let clone_repo = get_git_repo(&setup.jj_repo);
     let mut tx = setup.jj_repo.start_transaction();
     let git_settings = get_git_settings(subprocess);
+    let git_subprocess_ctx = get_git_subprocess_context(
+        &git_settings,
+        get_git_backend(&setup.jj_repo).git_repo_path(),
+    );
 
     let targets = GitBranchPushTargets {
         branch_updates: vec![
@@ -3173,6 +3239,7 @@ fn test_push_bookmarks_mixed_deletion_and_addition(subprocess: bool) {
         tx.repo_mut(),
         &clone_repo,
         &git_settings,
+        &git_subprocess_ctx,
         "origin",
         &targets,
         git::RemoteCallbacks::default(),
@@ -3221,6 +3288,10 @@ fn test_push_bookmarks_not_fast_forward(subprocess: bool) {
     let setup = set_up_push_repos(&settings, &temp_dir);
     let mut tx = setup.jj_repo.start_transaction();
     let git_settings = get_git_settings(subprocess);
+    let git_subprocess_ctx = get_git_subprocess_context(
+        &git_settings,
+        get_git_backend(&setup.jj_repo).git_repo_path(),
+    );
 
     let targets = GitBranchPushTargets {
         branch_updates: vec![(
@@ -3235,6 +3306,7 @@ fn test_push_bookmarks_not_fast_forward(subprocess: bool) {
         tx.repo_mut(),
         &get_git_repo(&setup.jj_repo),
         &git_settings,
+        &git_subprocess_ctx,
         "origin",
         &targets,
         git::RemoteCallbacks::default(),
@@ -3261,6 +3333,10 @@ fn test_push_updates_unexpectedly_moved_sideways_on_remote(subprocess: bool) {
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
     let git_settings = get_git_settings(subprocess);
+    let git_subprocess_ctx = get_git_subprocess_context(
+        &git_settings,
+        get_git_backend(&setup.jj_repo).git_repo_path(),
+    );
 
     // The main bookmark is actually at `main_commit` on the remote. If we expect
     // it to be at `sideways_commit`, it unexpectedly moved sideways from our
@@ -3283,6 +3359,7 @@ fn test_push_updates_unexpectedly_moved_sideways_on_remote(subprocess: bool) {
             setup.jj_repo.as_ref(),
             &get_git_repo(&setup.jj_repo),
             &git_settings,
+            &git_subprocess_ctx,
             "origin",
             &targets,
             git::RemoteCallbacks::default(),
@@ -3329,6 +3406,10 @@ fn test_push_updates_unexpectedly_moved_forward_on_remote(subprocess: bool) {
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
     let git_settings = get_git_settings(subprocess);
+    let git_subprocess_ctx = get_git_subprocess_context(
+        &git_settings,
+        get_git_backend(&setup.jj_repo).git_repo_path(),
+    );
 
     // The main bookmark is actually at `main_commit` on the remote. If we
     // expected it to be at `parent_of_commit`, it unexpectedly moved forward
@@ -3353,6 +3434,7 @@ fn test_push_updates_unexpectedly_moved_forward_on_remote(subprocess: bool) {
             setup.jj_repo.as_ref(),
             &get_git_repo(&setup.jj_repo),
             &git_settings,
+            &git_subprocess_ctx,
             "origin",
             &targets,
             git::RemoteCallbacks::default(),
@@ -3402,6 +3484,10 @@ fn test_push_updates_unexpectedly_exists_on_remote(subprocess: bool) {
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
     let git_settings = get_git_settings(subprocess);
+    let git_subprocess_ctx = get_git_subprocess_context(
+        &git_settings,
+        get_git_backend(&setup.jj_repo).git_repo_path(),
+    );
 
     // The main bookmark is actually at `main_commit` on the remote. In this test,
     // we expect it to not exist on the remote at all.
@@ -3422,6 +3508,7 @@ fn test_push_updates_unexpectedly_exists_on_remote(subprocess: bool) {
             setup.jj_repo.as_ref(),
             &get_git_repo(&setup.jj_repo),
             &git_settings,
+            &git_subprocess_ctx,
             "origin",
             &targets,
             git::RemoteCallbacks::default(),
@@ -3456,11 +3543,16 @@ fn test_push_updates_success(subprocess: bool) {
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
     let git_settings = get_git_settings(subprocess);
+    let git_subprocess_ctx = get_git_subprocess_context(
+        &git_settings,
+        get_git_backend(&setup.jj_repo).git_repo_path(),
+    );
     let clone_repo = get_git_repo(&setup.jj_repo);
     let result = git::push_updates(
         setup.jj_repo.as_ref(),
         &clone_repo,
         &git_settings,
+        &git_subprocess_ctx,
         "origin",
         &[GitRefUpdate {
             qualified_name: "refs/heads/main".to_string(),
@@ -3497,10 +3589,15 @@ fn test_push_updates_no_such_remote(subprocess: bool) {
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
     let git_settings = get_git_settings(subprocess);
+    let git_subprocess_ctx = get_git_subprocess_context(
+        &git_settings,
+        get_git_backend(&setup.jj_repo).git_repo_path(),
+    );
     let result = git::push_updates(
         setup.jj_repo.as_ref(),
         &get_git_repo(&setup.jj_repo),
         &git_settings,
+        &git_subprocess_ctx,
         "invalid-remote",
         &[GitRefUpdate {
             qualified_name: "refs/heads/main".to_string(),
@@ -3519,10 +3616,15 @@ fn test_push_updates_invalid_remote(subprocess: bool) {
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
     let git_settings = get_git_settings(subprocess);
+    let git_subprocess_ctx = get_git_subprocess_context(
+        &git_settings,
+        get_git_backend(&setup.jj_repo).git_repo_path(),
+    );
     let result = git::push_updates(
         setup.jj_repo.as_ref(),
         &get_git_repo(&setup.jj_repo),
         &git_settings,
+        &git_subprocess_ctx,
         "http://invalid-remote",
         &[GitRefUpdate {
             qualified_name: "refs/heads/main".to_string(),

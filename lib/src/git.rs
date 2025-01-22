@@ -22,7 +22,6 @@ use std::default::Default;
 use std::fmt;
 use std::io::Read;
 use std::num::NonZeroU32;
-use std::path::Path;
 use std::path::PathBuf;
 use std::str;
 
@@ -1493,6 +1492,9 @@ pub struct GitFetch<'a> {
     mut_repo: &'a mut MutableRepo,
     git_repo: &'a git2::Repository,
     git_settings: &'a GitSettings,
+    // for subprocess only
+    git_subprocess_ctx: &'a GitSubprocessContext<'a>,
+
     fetched: Vec<FetchedBranches>,
 }
 
@@ -1501,11 +1503,13 @@ impl<'a> GitFetch<'a> {
         mut_repo: &'a mut MutableRepo,
         git_repo: &'a git2::Repository,
         git_settings: &'a GitSettings,
+        git_subprocess_ctx: &'a GitSubprocessContext,
     ) -> Self {
         GitFetch {
             mut_repo,
             git_repo,
             git_settings,
+            git_subprocess_ctx,
             fetched: vec![],
         }
     }
@@ -1597,10 +1601,7 @@ impl<'a> GitFetch<'a> {
         remote_name: &str,
         branch_names: &[StringPattern],
     ) -> Result<Option<String>, GitFetchError> {
-        let git_ctx =
-            GitSubprocessContext::from_git2(self.git_repo, &self.git_settings.executable_path);
-
-        let remotes = git_ctx.spawn_remote()?;
+        let remotes = self.git_subprocess_ctx.spawn_remote()?;
         if !remotes.contains(remote_name) {
             return Err(GitFetchError::NoSuchRemote(remote_name.to_string()));
         }
@@ -1622,7 +1623,8 @@ impl<'a> GitFetch<'a> {
         // even more unfortunately, git errors out one refspec at a time,
         // meaning that the below cycle runs in O(#failed refspecs)
         while let Some(failing_refspec) =
-            git_ctx.spawn_fetch(remote_name, depth, &remaining_refspecs)?
+            self.git_subprocess_ctx
+                .spawn_fetch(remote_name, depth, &remaining_refspecs)?
         {
             remaining_refspecs.retain(|r| r.source.as_ref() != Some(&failing_refspec));
 
@@ -1633,11 +1635,12 @@ impl<'a> GitFetch<'a> {
 
         // Even if git fetch has --prune, if a branch is not found it will not be
         // pruned on fetch
-        git_ctx.spawn_branch_prune(&branches_to_prune)?;
+        self.git_subprocess_ctx
+            .spawn_branch_prune(&branches_to_prune)?;
 
         // TODO: We could make it optional to get the default branch since we only care
         // about it on clone.
-        let default_branch = git_ctx.spawn_remote_show(remote_name)?;
+        let default_branch = self.git_subprocess_ctx.spawn_remote_show(remote_name)?;
         tracing::debug!(default_branch = default_branch);
 
         Ok(default_branch)
@@ -1758,6 +1761,7 @@ pub fn push_branches(
     mut_repo: &mut MutableRepo,
     git_repo: &git2::Repository,
     git_settings: &GitSettings,
+    git_subprocess_ctx: &GitSubprocessContext,
     remote_name: &str,
     targets: &GitBranchPushTargets,
     callbacks: RemoteCallbacks<'_>,
@@ -1775,6 +1779,7 @@ pub fn push_branches(
         mut_repo,
         git_repo,
         git_settings,
+        git_subprocess_ctx,
         remote_name,
         &ref_updates,
         callbacks,
@@ -1801,6 +1806,7 @@ pub fn push_updates(
     repo: &dyn Repo,
     git_repo: &git2::Repository,
     git_settings: &GitSettings,
+    git_subprocess_ctx: &GitSubprocessContext,
     remote_name: &str,
     updates: &[GitRefUpdate],
     callbacks: RemoteCallbacks<'_>,
@@ -1833,8 +1839,7 @@ pub fn push_updates(
 
     if git_settings.subprocess {
         subprocess_push_refs(
-            git_repo,
-            &git_settings.executable_path,
+            git_subprocess_ctx,
             remote_name,
             &qualified_remote_refs_expected_locations,
             &refspecs,
@@ -1979,15 +1984,13 @@ fn git2_push_refs(
 }
 
 fn subprocess_push_refs(
-    git_repo: &git2::Repository,
-    git_executable_path: &Path,
+    git_subprocess_ctx: &GitSubprocessContext,
     remote_name: &str,
     qualified_remote_refs_expected_locations: &HashMap<&str, Option<&CommitId>>,
     refspecs: &[RefSpec],
 ) -> Result<(), GitPushError> {
-    let git_ctx = GitSubprocessContext::from_git2(git_repo, git_executable_path);
     // check the remote exists
-    let remotes = git_ctx.spawn_remote()?;
+    let remotes = git_subprocess_ctx.spawn_remote()?;
     if !remotes.contains(remote_name) {
         return Err(GitPushError::NoSuchRemote(remote_name.to_string()));
     }
@@ -2002,7 +2005,8 @@ fn subprocess_push_refs(
         .map(|full_refspec| RefToPush::new(full_refspec, qualified_remote_refs_expected_locations))
         .collect();
 
-    let (failed_ref_matches, successful_pushes) = git_ctx.spawn_push(remote_name, &refs_to_push)?;
+    let (failed_ref_matches, successful_pushes) =
+        git_subprocess_ctx.spawn_push(remote_name, &refs_to_push)?;
 
     for remote_ref in successful_pushes {
         remaining_remote_refs.remove(remote_ref.as_str());

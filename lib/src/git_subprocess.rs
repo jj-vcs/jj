@@ -11,7 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
+
+//! Facilities to spawn a Git subprocess and parse their output
+
 use std::collections::HashSet;
 use std::num::NonZeroU32;
 use std::path::Path;
@@ -27,6 +29,7 @@ use crate::git::RefSpec;
 use crate::git::RefToPush;
 
 /// Error originating by a Git subprocess
+#[allow(missing_docs)]
 #[derive(Error, Debug)]
 pub enum GitSubprocessError {
     #[error("Could not find repository at '{0}'")]
@@ -50,21 +53,19 @@ pub enum GitSubprocessError {
 }
 
 /// Context for creating Git subprocesses
-pub(crate) struct GitSubprocessContext<'a> {
+#[derive(Debug)]
+pub struct GitSubprocessContext<'a> {
     git_dir: PathBuf,
     git_executable_path: &'a Path,
 }
 
 impl<'a> GitSubprocessContext<'a> {
-    pub(crate) fn new(git_dir: impl Into<PathBuf>, git_executable_path: &'a Path) -> Self {
+    /// Create a new GitSubprocess context
+    pub fn new(git_dir: impl Into<PathBuf>, git_executable_path: &'a Path) -> Self {
         GitSubprocessContext {
             git_dir: git_dir.into(),
             git_executable_path,
         }
-    }
-
-    pub(crate) fn from_git2(git_repo: &git2::Repository, git_executable_path: &'a Path) -> Self {
-        Self::new(git_repo.path(), git_executable_path)
     }
 
     /// Create the Git command

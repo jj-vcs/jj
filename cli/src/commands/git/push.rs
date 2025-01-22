@@ -55,6 +55,7 @@ use crate::commands::git::get_single_remote;
 use crate::complete;
 use crate::formatter::Formatter;
 use crate::git_util::get_git_repo;
+use crate::git_util::get_git_subprocess_ctx;
 use crate::git_util::map_git_error;
 use crate::git_util::with_remote_git_callbacks;
 use crate::git_util::GitSidebandProgressMessageWriter;
@@ -376,6 +377,7 @@ pub fn cmd_git_push(
     };
 
     let git_settings = tx.settings().git_settings()?;
+    let git_subprocess_ctx = get_git_subprocess_ctx(tx.repo().store(), &git_settings)?;
     with_remote_git_callbacks(
         ui,
         Some(&mut sideband_progress_callback),
@@ -385,6 +387,7 @@ pub fn cmd_git_push(
                 tx.repo_mut(),
                 &git_repo,
                 &git_settings,
+                &git_subprocess_ctx,
                 &remote,
                 &targets,
                 cb,

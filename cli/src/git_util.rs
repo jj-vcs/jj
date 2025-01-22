@@ -36,6 +36,7 @@ use jj_lib::git::FailedRefExportReason;
 use jj_lib::git::GitImportStats;
 use jj_lib::git::RefName;
 use jj_lib::git_backend::GitBackend;
+use jj_lib::git_subprocess::GitSubprocessContext;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::repo::ReadonlyRepo;
@@ -81,6 +82,19 @@ pub fn get_git_backend(store: &Store) -> Result<&GitBackend, CommandError> {
 
 pub fn get_git_repo(store: &Store) -> Result<git2::Repository, CommandError> {
     Ok(get_git_backend(store)?.open_git_repo()?)
+}
+
+pub fn get_git_subprocess_ctx<'a>(
+    store: &Store,
+    git_settings: &'a GitSettings,
+) -> Result<GitSubprocessContext<'a>, CommandError> {
+    store
+        .backend_impl()
+        .downcast_ref::<GitBackend>()
+        .ok_or_else(|| user_error("The repo is not backed by a git repo"))
+        .map(|git_backend| {
+            GitSubprocessContext::new(git_backend.git_repo_path(), &git_settings.executable_path)
+        })
 }
 
 pub fn is_colocated_git_workspace(workspace: &Workspace, repo: &ReadonlyRepo) -> bool {

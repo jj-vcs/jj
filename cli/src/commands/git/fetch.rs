@@ -29,6 +29,7 @@ use crate::command_error::CommandError;
 use crate::commands::git::get_single_remote;
 use crate::complete;
 use crate::git_util::get_git_repo;
+use crate::git_util::get_git_subprocess_ctx;
 use crate::git_util::map_git_error;
 use crate::git_util::print_git_import_stats;
 use crate::git_util::with_remote_git_callbacks;
@@ -135,7 +136,8 @@ fn do_git_fetch(
     branch_names: &[StringPattern],
 ) -> Result<(), CommandError> {
     let git_settings = tx.settings().git_settings()?;
-    let mut git_fetch = GitFetch::new(tx.repo_mut(), git_repo, &git_settings);
+    let git_subprocess_ctx = get_git_subprocess_ctx(tx.repo().store(), &git_settings)?;
+    let mut git_fetch = GitFetch::new(tx.repo_mut(), git_repo, &git_settings, &git_subprocess_ctx);
 
     for remote_name in remotes {
         with_remote_git_callbacks(ui, None, &git_settings, |cb| {

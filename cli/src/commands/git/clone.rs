@@ -35,6 +35,7 @@ use crate::command_error::CommandError;
 use crate::commands::git::maybe_add_gitignore;
 use crate::git_util::absolute_git_url;
 use crate::git_util::get_git_repo;
+use crate::git_util::get_git_subprocess_ctx;
 use crate::git_util::map_git_error;
 use crate::git_util::print_git_import_stats;
 use crate::git_util::with_remote_git_callbacks;
@@ -197,15 +198,22 @@ fn fetch_new_remote(
     depth: Option<NonZeroU32>,
 ) -> Result<Option<String>, CommandError> {
     let git_repo = get_git_repo(workspace_command.repo().store())?;
+    let git_settings = workspace_command.settings().git_settings()?;
+    let git_subprocess_ctx =
+        get_git_subprocess_ctx(workspace_command.repo().store(), &git_settings)?;
     git::add_remote(&git_repo, remote_name, source)?;
     writeln!(
         ui.status(),
         r#"Fetching into new repo in "{}""#,
         workspace_command.workspace_root().display()
     )?;
-    let git_settings = workspace_command.settings().git_settings()?;
     let mut fetch_tx = workspace_command.start_transaction();
-    let mut git_fetch = GitFetch::new(fetch_tx.repo_mut(), &git_repo, &git_settings);
+    let mut git_fetch = GitFetch::new(
+        fetch_tx.repo_mut(),
+        &git_repo,
+        &git_settings,
+        &git_subprocess_ctx,
+    );
     let default_branch = with_remote_git_callbacks(ui, None, &git_settings, |cb| {
         git_fetch
             .fetch(cb, depth, remote_name, &[StringPattern::everything()])
