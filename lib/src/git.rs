@@ -1601,15 +1601,14 @@ impl<'a> GitFetch<'a> {
         branch_names: &[StringPattern],
         remote_name: &str,
     ) -> Result<Option<String>, GitFetchError> {
-        // check the remote exists
-        // TODO: we should ideally find a way to do this without git2
-        let _remote = self.git_repo.find_remote(remote_name).map_err(|err| {
-            if is_remote_not_found_err(&err) {
-                GitFetchError::NoSuchRemote(remote_name.to_string())
-            } else {
-                GitFetchError::InternalGitError(err)
-            }
-        })?;
+        let git_ctx =
+            GitSubprocessContext::from_git2(self.git_repo, &self.git_settings.executable_path);
+
+        let remotes = git_ctx.spawn_remote()?;
+        if !remotes.contains(remote_name) {
+            return Err(GitFetchError::NoSuchRemote(remote_name.to_string()));
+        }
+
         // At this point, we are only updating Git's remote tracking branches, not the
         // local branches.
         let mut remaining_refspecs: Vec<_> = Self::expand_refspecs(remote_name, branch_names)?;
@@ -1617,9 +1616,6 @@ impl<'a> GitFetch<'a> {
             // Don't fall back to the base refspecs.
             return Ok(None);
         }
-
-        let git_ctx =
-            GitSubprocessContext::from_git2(self.git_repo, &self.git_settings.executable_path);
 
         let mut branches_to_prune = Vec::new();
         // git unfortunately errors out if one of the many refspecs is not found
@@ -2019,16 +2015,12 @@ fn subprocess_push_refs(
     qualified_remote_refs_expected_locations: &HashMap<&str, Option<&CommitId>>,
     refspecs: &[RefSpec],
 ) -> Result<(), GitPushError> {
-    // check the remote exists
-    // TODO: we should ideally find a way to do this without git2
-    let _remote = git_repo.find_remote(remote_name).map_err(|err| {
-        if is_remote_not_found_err(&err) {
-            GitPushError::NoSuchRemote(remote_name.to_string())
-        } else {
-            GitPushError::InternalGitError(err)
-        }
-    })?;
     let git_ctx = GitSubprocessContext::from_git2(git_repo, git_executable_path);
+    // check the remote exists
+    let remotes = git_ctx.spawn_remote()?;
+    if !remotes.contains(remote_name) {
+        return Err(GitPushError::NoSuchRemote(remote_name.to_string()));
+    }
 
     let mut remaining_remote_refs: HashSet<_> = qualified_remote_refs_expected_locations
         .keys()
