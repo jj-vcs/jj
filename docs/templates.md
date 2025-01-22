@@ -356,6 +356,16 @@ This type cannot be printed. The following methods are defined.
 * `.stat(width: Integer) -> Template`: Format as a histogram of the changes.
 * `.summary() -> Template`: Format as a list of status code and path pairs.
 
+### TreeEntry type
+
+This type cannot be printed. The following methods are defined.
+
+* `.path() -> RepoPath`: Path to the entry.
+* `.conflict() -> Boolean`: True if the entry is a merge conflict.
+* `.file_type() -> String`: One of `"file"`, `"symlink"`, `"tree"`,
+  `"git-submodule"`, or `"conflict"`.
+* `.executable() -> Boolean`: True if the entry is an executable file.
+
 ## Configuration
 
 The default templates and aliases() are defined in the `[templates]` and

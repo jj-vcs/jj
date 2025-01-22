@@ -24,6 +24,7 @@ use itertools::Itertools as _;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
+use jj_lib::backend::TreeValue;
 use jj_lib::commit::Commit;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::copies::CopiesTreeDiffEntry;
@@ -35,6 +36,7 @@ use jj_lib::fileset::FilesetExpression;
 use jj_lib::id_prefix::IdPrefixContext;
 use jj_lib::id_prefix::IdPrefixIndex;
 use jj_lib::matchers::Matcher;
+use jj_lib::merge::MergedTreeValue;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::RefTarget;
@@ -271,6 +273,11 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(self, diagnostics, build_ctx, property, function)
             }
+            CommitTemplatePropertyKind::TreeEntry(property) => {
+                let table = &self.build_fn_table.tree_entry_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(self, diagnostics, build_ctx, property, function)
+            }
             CommitTemplatePropertyKind::CryptographicSignatureOpt(property) => {
                 let type_name = "CryptographicSignature";
                 let table = &self.build_fn_table.cryptographic_signature_methods;
@@ -373,6 +380,12 @@ impl<'repo> CommitTemplateLanguage<'repo> {
         CommitTemplatePropertyKind::TreeDiff(Box::new(property))
     }
 
+    pub fn wrap_tree_entry(
+        property: impl TemplateProperty<Output = TreeEntry> + 'repo,
+    ) -> CommitTemplatePropertyKind<'repo> {
+        CommitTemplatePropertyKind::TreeEntry(Box::new(property))
+    }
+
     fn wrap_cryptographic_signature_opt(
         property: impl TemplateProperty<Output = Option<CryptographicSignature>> + 'repo,
     ) -> CommitTemplatePropertyKind<'repo> {
@@ -393,6 +406,7 @@ pub enum CommitTemplatePropertyKind<'repo> {
     CommitOrChangeId(Box<dyn TemplateProperty<Output = CommitOrChangeId> + 'repo>),
     ShortestIdPrefix(Box<dyn TemplateProperty<Output = ShortestIdPrefix> + 'repo>),
     TreeDiff(Box<dyn TemplateProperty<Output = TreeDiff> + 'repo>),
+    TreeEntry(Box<dyn TemplateProperty<Output = TreeEntry> + 'repo>),
     CryptographicSignatureOpt(
         Box<dyn TemplateProperty<Output = Option<CryptographicSignature>> + 'repo>,
     ),
@@ -413,6 +427,7 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             CommitTemplatePropertyKind::CommitOrChangeId(_) => "CommitOrChangeId",
             CommitTemplatePropertyKind::ShortestIdPrefix(_) => "ShortestIdPrefix",
             CommitTemplatePropertyKind::TreeDiff(_) => "TreeDiff",
+            CommitTemplatePropertyKind::TreeEntry(_) => "TreeEntry",
             CommitTemplatePropertyKind::CryptographicSignatureOpt(_) => {
                 "Option<CryptographicSignature>"
             }
@@ -445,6 +460,7 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             // TODO: boolean cast could be implemented, but explicit
             // diff.empty() method might be better.
             CommitTemplatePropertyKind::TreeDiff(_) => None,
+            CommitTemplatePropertyKind::TreeEntry(_) => None,
             CommitTemplatePropertyKind::CryptographicSignatureOpt(property) => {
                 Some(Box::new(property.map(|sig| sig.is_some())))
             }
@@ -486,6 +502,7 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
                 Some(property.into_template())
             }
             CommitTemplatePropertyKind::TreeDiff(_) => None,
+            CommitTemplatePropertyKind::TreeEntry(_) => None,
             CommitTemplatePropertyKind::CryptographicSignatureOpt(_) => None,
         }
     }
@@ -507,6 +524,7 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             (CommitTemplatePropertyKind::CommitOrChangeId(_), _) => None,
             (CommitTemplatePropertyKind::ShortestIdPrefix(_), _) => None,
             (CommitTemplatePropertyKind::TreeDiff(_), _) => None,
+            (CommitTemplatePropertyKind::TreeEntry(_), _) => None,
             (CommitTemplatePropertyKind::CryptographicSignatureOpt(_), _) => None,
         }
     }
@@ -531,6 +549,7 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             (CommitTemplatePropertyKind::CommitOrChangeId(_), _) => None,
             (CommitTemplatePropertyKind::ShortestIdPrefix(_), _) => None,
             (CommitTemplatePropertyKind::TreeDiff(_), _) => None,
+            (CommitTemplatePropertyKind::TreeEntry(_), _) => None,
             (CommitTemplatePropertyKind::CryptographicSignatureOpt(_), _) => None,
         }
     }
@@ -549,6 +568,7 @@ pub struct CommitTemplateBuildFnTable<'repo> {
     pub commit_or_change_id_methods: CommitTemplateBuildMethodFnMap<'repo, CommitOrChangeId>,
     pub shortest_id_prefix_methods: CommitTemplateBuildMethodFnMap<'repo, ShortestIdPrefix>,
     pub tree_diff_methods: CommitTemplateBuildMethodFnMap<'repo, TreeDiff>,
+    pub tree_entry_methods: CommitTemplateBuildMethodFnMap<'repo, TreeEntry>,
     pub cryptographic_signature_methods:
         CommitTemplateBuildMethodFnMap<'repo, CryptographicSignature>,
 }
@@ -564,6 +584,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             commit_or_change_id_methods: builtin_commit_or_change_id_methods(),
             shortest_id_prefix_methods: builtin_shortest_id_prefix_methods(),
             tree_diff_methods: builtin_tree_diff_methods(),
+            tree_entry_methods: builtin_tree_entry_methods(),
             cryptographic_signature_methods: builtin_cryptographic_signature_methods(),
         }
     }
@@ -577,6 +598,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             commit_or_change_id_methods: HashMap::new(),
             shortest_id_prefix_methods: HashMap::new(),
             tree_diff_methods: HashMap::new(),
+            tree_entry_methods: HashMap::new(),
             cryptographic_signature_methods: HashMap::new(),
         }
     }
@@ -590,6 +612,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             commit_or_change_id_methods,
             shortest_id_prefix_methods,
             tree_diff_methods,
+            tree_entry_methods,
             cryptographic_signature_methods,
         } = extension;
 
@@ -606,6 +629,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             shortest_id_prefix_methods,
         );
         merge_fn_map(&mut self.tree_diff_methods, tree_diff_methods);
+        merge_fn_map(&mut self.tree_entry_methods, tree_entry_methods);
         merge_fn_map(
             &mut self.cryptographic_signature_methods,
             cryptographic_signature_methods,
@@ -1808,6 +1832,71 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
     // TODO: add support for external tools
     // TODO: add files() or map() to support custom summary-like formatting?
     map
+}
+
+/// [`MergedTree`] entry.
+#[derive(Clone, Debug)]
+pub struct TreeEntry {
+    pub path: RepoPathBuf,
+    pub value: MergedTreeValue,
+}
+
+fn builtin_tree_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, TreeEntry> {
+    type L<'repo> = CommitTemplateLanguage<'repo>;
+    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // code completion inside macro is quite restricted.
+    let mut map = CommitTemplateBuildMethodFnMap::<TreeEntry>::new();
+    map.insert(
+        "path",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|entry| entry.path);
+            Ok(L::wrap_repo_path(out_property))
+        },
+    );
+    map.insert(
+        "conflict",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|entry| !entry.value.is_resolved());
+            Ok(L::wrap_boolean(out_property))
+        },
+    );
+    map.insert(
+        "file_type",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property =
+                self_property.map(|entry| describe_file_type(&entry.value).to_owned());
+            Ok(L::wrap_string(out_property))
+        },
+    );
+    map.insert(
+        "executable",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property =
+                self_property.map(|entry| is_executable_file(&entry.value).unwrap_or_default());
+            Ok(L::wrap_boolean(out_property))
+        },
+    );
+    map
+}
+
+fn describe_file_type(value: &MergedTreeValue) -> &'static str {
+    match value.as_resolved() {
+        Some(Some(TreeValue::File { .. })) => "file",
+        Some(Some(TreeValue::Symlink(_))) => "symlink",
+        Some(Some(TreeValue::Tree(_))) => "tree",
+        Some(Some(TreeValue::GitSubmodule(_))) => "git-submodule",
+        Some(None) => "", // absent
+        None | Some(Some(TreeValue::Conflict(_))) => "conflict",
+    }
+}
+
+fn is_executable_file(value: &MergedTreeValue) -> Option<bool> {
+    let executable = value.to_executable_merge()?;
+    executable.resolve_trivial().copied()
 }
 
 #[derive(Debug)]
