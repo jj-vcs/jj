@@ -124,18 +124,18 @@ fn test_annotate_linear() {
     drop(create_commit);
 
     insta::assert_snapshot!(annotate(tx.repo(), &commit1, file_path), @"");
-    insta::assert_snapshot!(annotate(tx.repo(), &commit2, file_path), @r#"
+    insta::assert_snapshot!(annotate(tx.repo(), &commit2, file_path), @r"
     commit2: 2a
     commit2: 2b
-    "#);
-    insta::assert_snapshot!(annotate(tx.repo(), &commit3, file_path), @r#"
+    ");
+    insta::assert_snapshot!(annotate(tx.repo(), &commit3, file_path), @r"
     commit2: 2b
     commit3: 3
-    "#);
-    insta::assert_snapshot!(annotate(tx.repo(), &commit4, file_path), @r#"
+    ");
+    insta::assert_snapshot!(annotate(tx.repo(), &commit4, file_path), @r"
     commit2: 2b
     commit3: 3
-    "#);
+    ");
 }
 
 #[test]
@@ -169,11 +169,11 @@ fn test_annotate_merge_simple() {
     let commit4 = create_commit("commit4", &[commit2.id(), commit3.id()], tree4.id());
     drop(create_commit);
 
-    insta::assert_snapshot!(annotate(tx.repo(), &commit4, file_path), @r#"
+    insta::assert_snapshot!(annotate(tx.repo(), &commit4, file_path), @r"
     commit2: 2
     commit1: 1
     commit3: 3
-    "#);
+    ");
 
     // Exclude the fork commit and its ancestors.
     let domain = RevsetExpression::commit(commit1.id().clone())
@@ -243,13 +243,13 @@ fn test_annotate_merge_split() {
     let commit4 = create_commit("commit4", &[commit2.id(), commit3.id()], tree4.id());
     drop(create_commit);
 
-    insta::assert_snapshot!(annotate(tx.repo(), &commit4, file_path), @r#"
+    insta::assert_snapshot!(annotate(tx.repo(), &commit4, file_path), @r"
     commit2: 2
     commit1: 1a
     commit1: 1b
     commit3: 3
     commit4: 4
-    "#);
+    ");
 }
 
 #[test]
@@ -293,7 +293,7 @@ fn test_annotate_merge_split_interleaved() {
     let commit6 = create_commit("commit6", &[commit4.id(), commit5.id()], tree6.id());
     drop(create_commit);
 
-    insta::assert_snapshot!(annotate(tx.repo(), &commit6, file_path), @r#"
+    insta::assert_snapshot!(annotate(tx.repo(), &commit6, file_path), @r"
     commit1: 1a
     commit4: 4
     commit1: 1b
@@ -301,7 +301,7 @@ fn test_annotate_merge_split_interleaved() {
     commit2: 2a
     commit5: 5
     commit2: 2b
-    "#);
+    ");
 }
 
 #[test]
@@ -338,13 +338,13 @@ fn test_annotate_merge_dup() {
     // Both "1"s can be propagated to commit1 through commit2 and commit3.
     // Alternatively, it's also good to interpret that one of the "1"s was
     // produced at commit2, commit3, or commit4.
-    insta::assert_snapshot!(annotate(tx.repo(), &commit4, file_path), @r#"
+    insta::assert_snapshot!(annotate(tx.repo(), &commit4, file_path), @r"
     commit2: 2
     commit1: 1
     commit1: 1
     commit3: 3
     commit4: 4
-    "#);
+    ");
 
     // For example, the parent tree of commit4 doesn't contain multiple "1"s.
     // If annotation were computed compared to the parent tree, not trees of the
@@ -373,7 +373,5 @@ fn test_annotate_file_directory_transition() {
     let commit2 = create_commit("commit2", &[commit1.id()], tree2.id());
     drop(create_commit);
 
-    insta::assert_snapshot!(annotate(tx.repo(), &commit2, file_path2), @r#"
-    commit2: 2
-    "#);
+    insta::assert_snapshot!(annotate(tx.repo(), &commit2, file_path2), @"commit2: 2");
 }

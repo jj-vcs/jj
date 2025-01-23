@@ -25,7 +25,7 @@ fn test_templater_parse_error() {
     let repo_path = test_env.env_root().join("repo");
     let render_err = |template| test_env.jj_cmd_failure(&repo_path, &["log", "-T", template]);
 
-    insta::assert_snapshot!(render_err(r#"description ()"#), @r#"
+    insta::assert_snapshot!(render_err(r#"description ()"#), @r"
     Error: Failed to parse template: Syntax error
     Caused by:  --> 1:13
       |
@@ -33,7 +33,7 @@ fn test_templater_parse_error() {
       |             ^---
       |
       = expected <EOI>, `++`, `||`, `&&`, `==`, `!=`, `>=`, `>`, `<=`, or `<`
-    "#);
+    ");
 
     // Typo
     test_env.add_config(
@@ -45,7 +45,7 @@ fn test_templater_parse_error() {
     'format_id(id)' = 'id.sort()'
     "###,
     );
-    insta::assert_snapshot!(render_err(r#"conflicts"#), @r###"
+    insta::assert_snapshot!(render_err(r#"conflicts"#), @r#"
     Error: Failed to parse template: Keyword "conflicts" doesn't exist
     Caused by:  --> 1:1
       |
@@ -54,8 +54,8 @@ fn test_templater_parse_error() {
       |
       = Keyword "conflicts" doesn't exist
     Hint: Did you mean "conflict", "conflicting"?
-    "###);
-    insta::assert_snapshot!(render_err(r#"commit_id.shorter()"#), @r###"
+    "#);
+    insta::assert_snapshot!(render_err(r#"commit_id.shorter()"#), @r#"
     Error: Failed to parse template: Method "shorter" doesn't exist for type "CommitOrChangeId"
     Caused by:  --> 1:11
       |
@@ -64,8 +64,8 @@ fn test_templater_parse_error() {
       |
       = Method "shorter" doesn't exist for type "CommitOrChangeId"
     Hint: Did you mean "short", "shortest"?
-    "###);
-    insta::assert_snapshot!(render_err(r#"oncat()"#), @r###"
+    "#);
+    insta::assert_snapshot!(render_err(r#"oncat()"#), @r#"
     Error: Failed to parse template: Function "oncat" doesn't exist
     Caused by:  --> 1:1
       |
@@ -74,8 +74,8 @@ fn test_templater_parse_error() {
       |
       = Function "oncat" doesn't exist
     Hint: Did you mean "concat", "socat"?
-    "###);
-    insta::assert_snapshot!(render_err(r#""".lines().map(|s| se)"#), @r###"
+    "#);
+    insta::assert_snapshot!(render_err(r#""".lines().map(|s| se)"#), @r#"
     Error: Failed to parse template: Keyword "se" doesn't exist
     Caused by:  --> 1:20
       |
@@ -84,7 +84,7 @@ fn test_templater_parse_error() {
       |
       = Keyword "se" doesn't exist
     Hint: Did you mean "s", "self"?
-    "###);
+    "#);
     insta::assert_snapshot!(render_err(r#"format_id(commit_id)"#), @r#"
     Error: Failed to parse template: In alias "format_id(id)"
     Caused by:
@@ -133,12 +133,12 @@ fn test_template_parse_warning() {
         )
     "#};
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["log", "-r@", "-T", template]);
-    insta::assert_snapshot!(stdout, @r#"
+    insta::assert_snapshot!(stdout, @r"
     @  false test.user
     │
     ~
-    "#);
-    insta::assert_snapshot!(stderr, @r#"
+    ");
+    insta::assert_snapshot!(stderr, @r"
     Warning: In template expression
      --> 2:3
       |
@@ -180,7 +180,7 @@ fn test_template_parse_warning() {
       |          ^------^
       |
       = username() is deprecated; use email().local() instead
-    "#);
+    ");
 }
 
 #[test]
@@ -323,7 +323,7 @@ fn test_templater_alias() {
       = Alias "recurse" expanded recursively
     "#);
 
-    insta::assert_snapshot!(render_err("identity()"), @r###"
+    insta::assert_snapshot!(render_err("identity()"), @r#"
     Error: Failed to parse template: Function "identity": Expected 1 arguments
     Caused by:  --> 1:10
       |
@@ -331,8 +331,8 @@ fn test_templater_alias() {
       |          ^
       |
       = Function "identity": Expected 1 arguments
-    "###);
-    insta::assert_snapshot!(render_err("identity(commit_id, commit_id)"), @r###"
+    "#);
+    insta::assert_snapshot!(render_err("identity(commit_id, commit_id)"), @r#"
     Error: Failed to parse template: Function "identity": Expected 1 arguments
     Caused by:  --> 1:10
       |
@@ -340,7 +340,7 @@ fn test_templater_alias() {
       |          ^------------------^
       |
       = Function "identity": Expected 1 arguments
-    "###);
+    "#);
 
     insta::assert_snapshot!(render_err(r#"coalesce(label("x", "not boolean"), "")"#), @r#"
     Error: Failed to parse template: In alias "coalesce(x, y)"
@@ -383,11 +383,11 @@ fn test_templater_alias() {
     "#);
 
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["log", "-r@", "-Tdeprecated()"]);
-    insta::assert_snapshot!(stdout, @r##"
+    insta::assert_snapshot!(stdout, @r"
     #  false
     │
     ~
-    "##);
+    ");
     insta::assert_snapshot!(stderr, @r#"
     Warning: In template expression
      --> 1:1
@@ -471,14 +471,14 @@ fn test_templater_bad_alias_decl() {
     let (stdout, stderr) =
         test_env.jj_cmd_ok(&repo_path, &["log", "--no-graph", "-r@-", "-Tmy_commit_id"]);
     insta::assert_snapshot!(stdout, @"000000000000");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Warning: Failed to load "template-aliases.badfn(a, a)":  --> 1:7
       |
     1 | badfn(a, a)
       |       ^--^
       |
       = Redefinition of function parameter
-    "###);
+    "#);
 }
 
 #[test]

@@ -24,16 +24,16 @@ fn test_debug_fileset() {
     let workspace_path = test_env.env_root().join("repo");
 
     let stdout = test_env.jj_cmd_success(&workspace_path, &["debug", "fileset", "all()"]);
-    assert_snapshot!(stdout, @r###"
+    assert_snapshot!(stdout, @r"
     -- Parsed:
     All
 
     -- Matcher:
     EverythingMatcher
-    "###);
+    ");
 
     let stderr = test_env.jj_cmd_failure(&workspace_path, &["debug", "fileset", "cwd:.."]);
-    assert_snapshot!(stderr.replace('\\', "/"), @r###"
+    assert_snapshot!(stderr.replace('\\', "/"), @r#"
     Error: Failed to parse fileset: Invalid file pattern
     Caused by:
     1:  --> 1:1
@@ -44,7 +44,7 @@ fn test_debug_fileset() {
       = Invalid file pattern
     2: Path ".." is not in the repo "."
     3: Invalid component ".." in repo-relative path "../"
-    "###);
+    "#);
 }
 
 #[test]
@@ -89,7 +89,7 @@ fn test_debug_index() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let workspace_path = test_env.env_root().join("repo");
     let stdout = test_env.jj_cmd_success(&workspace_path, &["debug", "index"]);
-    assert_snapshot!(filter_index_stats(&stdout), @r###"
+    assert_snapshot!(filter_index_stats(&stdout), @r"
     Number of commits: 2
     Number of merges: 0
     Max generation number: 1
@@ -99,7 +99,7 @@ fn test_debug_index() {
       Level 0:
         Number of commits: 2
         Name: [hash]
-    "###
+    "
     );
 }
 
@@ -111,7 +111,7 @@ fn test_debug_reindex() {
     test_env.jj_cmd_ok(&workspace_path, &["new"]);
     test_env.jj_cmd_ok(&workspace_path, &["new"]);
     let stdout = test_env.jj_cmd_success(&workspace_path, &["debug", "index"]);
-    assert_snapshot!(filter_index_stats(&stdout), @r###"
+    assert_snapshot!(filter_index_stats(&stdout), @r"
     Number of commits: 4
     Number of merges: 0
     Max generation number: 3
@@ -124,15 +124,13 @@ fn test_debug_reindex() {
       Level 1:
         Number of commits: 1
         Name: [hash]
-    "###
+    "
     );
     let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_path, &["debug", "reindex"]);
     assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
-    Finished indexing 4 commits.
-    "###);
+    insta::assert_snapshot!(stderr, @"Finished indexing 4 commits.");
     let stdout = test_env.jj_cmd_success(&workspace_path, &["debug", "index"]);
-    assert_snapshot!(filter_index_stats(&stdout), @r###"
+    assert_snapshot!(filter_index_stats(&stdout), @r"
     Number of commits: 4
     Number of merges: 0
     Max generation number: 3
@@ -142,7 +140,7 @@ fn test_debug_reindex() {
       Level 0:
         Number of commits: 4
         Name: [hash]
-    "###
+    "
     );
 }
 
@@ -159,24 +157,20 @@ fn test_debug_tree() {
 
     // Defaults to showing the tree at the current commit
     let stdout = test_env.jj_cmd_success(&workspace_path, &["debug", "tree"]);
-    assert_snapshot!(stdout.replace('\\',"/"), @r###"
+    assert_snapshot!(stdout.replace('\\',"/"), @r#"
     dir/subdir/file1: Ok(Resolved(Some(File { id: FileId("498e9b01d79cb8d31cdf0df1a663cc1fcefd9de3"), executable: false })))
     dir/subdir/file2: Ok(Resolved(Some(File { id: FileId("b2496eaffe394cd50a9db4de5787f45f09fd9722"), executable: false })))
-    "###
+    "#
     );
 
     // Can show the tree at another commit
     let stdout = test_env.jj_cmd_success(&workspace_path, &["debug", "tree", "-r@-"]);
-    assert_snapshot!(stdout.replace('\\',"/"), @r###"
-    dir/subdir/file1: Ok(Resolved(Some(File { id: FileId("498e9b01d79cb8d31cdf0df1a663cc1fcefd9de3"), executable: false })))
-    "###
+    assert_snapshot!(stdout.replace('\\',"/"), @r#"dir/subdir/file1: Ok(Resolved(Some(File { id: FileId("498e9b01d79cb8d31cdf0df1a663cc1fcefd9de3"), executable: false })))"#
     );
 
     // Can filter by paths
     let stdout = test_env.jj_cmd_success(&workspace_path, &["debug", "tree", "dir/subdir/file2"]);
-    assert_snapshot!(stdout.replace('\\',"/"), @r###"
-    dir/subdir/file2: Ok(Resolved(Some(File { id: FileId("b2496eaffe394cd50a9db4de5787f45f09fd9722"), executable: false })))
-    "###
+    assert_snapshot!(stdout.replace('\\',"/"), @r#"dir/subdir/file2: Ok(Resolved(Some(File { id: FileId("b2496eaffe394cd50a9db4de5787f45f09fd9722"), executable: false })))"#
     );
 
     // Can a show the root tree by id
@@ -188,10 +182,10 @@ fn test_debug_tree() {
             "--id=0958358e3f80e794f032b25ed2be96cf5825da6c",
         ],
     );
-    assert_snapshot!(stdout.replace('\\',"/"), @r###"
+    assert_snapshot!(stdout.replace('\\',"/"), @r#"
     dir/subdir/file1: Ok(Resolved(Some(File { id: FileId("498e9b01d79cb8d31cdf0df1a663cc1fcefd9de3"), executable: false })))
     dir/subdir/file2: Ok(Resolved(Some(File { id: FileId("b2496eaffe394cd50a9db4de5787f45f09fd9722"), executable: false })))
-    "###
+    "#
     );
 
     // Can a show non-root tree by id
@@ -204,10 +198,10 @@ fn test_debug_tree() {
             "--id=6ac232efa713535ae518a1a898b77e76c0478184",
         ],
     );
-    assert_snapshot!(stdout.replace('\\',"/"), @r###"
+    assert_snapshot!(stdout.replace('\\',"/"), @r#"
     dir/subdir/file1: Ok(Resolved(Some(File { id: FileId("498e9b01d79cb8d31cdf0df1a663cc1fcefd9de3"), executable: false })))
     dir/subdir/file2: Ok(Resolved(Some(File { id: FileId("b2496eaffe394cd50a9db4de5787f45f09fd9722"), executable: false })))
-    "###
+    "#
     );
 
     // Can filter by paths when showing non-root tree (matcher applies from root)
@@ -221,9 +215,7 @@ fn test_debug_tree() {
             "dir/subdir/file2",
         ],
     );
-    assert_snapshot!(stdout.replace('\\',"/"), @r###"
-    dir/subdir/file2: Ok(Resolved(Some(File { id: FileId("b2496eaffe394cd50a9db4de5787f45f09fd9722"), executable: false })))
-    "###
+    assert_snapshot!(stdout.replace('\\',"/"), @r#"dir/subdir/file2: Ok(Resolved(Some(File { id: FileId("b2496eaffe394cd50a9db4de5787f45f09fd9722"), executable: false })))"#
     );
 }
 
@@ -234,9 +226,7 @@ fn test_debug_operation_id() {
     let workspace_path = test_env.env_root().join("repo");
     let stdout =
         test_env.jj_cmd_success(&workspace_path, &["debug", "operation", "--display", "id"]);
-    assert_snapshot!(filter_index_stats(&stdout), @r#"
-    eac759b9ab75793fd3da96e60939fb48f2cd2b2a9c1f13ffe723cf620f3005b8d3e7e923634a07ea39513e4f2f360c87b9ad5d331cf90d7a844864b83b72eba1
-    "#
+    assert_snapshot!(filter_index_stats(&stdout), @"eac759b9ab75793fd3da96e60939fb48f2cd2b2a9c1f13ffe723cf620f3005b8d3e7e923634a07ea39513e4f2f360c87b9ad5d331cf90d7a844864b83b72eba1"
     );
 }
 

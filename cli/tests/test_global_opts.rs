@@ -43,9 +43,7 @@ fn test_non_utf8_arg() {
         .assert()
         .code(2);
     let stderr = get_stderr_string(&assert);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Non-utf8 argument
-    "###);
+    insta::assert_snapshot!(stderr, @"Error: Non-utf8 argument");
 }
 
 #[test]
@@ -72,17 +70,15 @@ fn test_no_subcommand() {
 
     // Outside of a repo.
     let stderr = test_env.jj_cmd_failure(test_env.env_root(), &[]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Hint: Use `jj -h` for a list of available commands.
     Run `jj config set --user ui.default-command log` to disable this message.
     Error: There is no jj repo in "."
-    "###);
+    "#);
 
     test_env.add_config(r#"ui.default-command="log""#);
     let stderr = test_env.jj_cmd_failure(test_env.env_root(), &[]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: There is no jj repo in "."
-    "###);
+    insta::assert_snapshot!(stderr, @r#"Error: There is no jj repo in ".""#);
 
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["--help"]);
     insta::assert_snapshot!(stdout.lines().next().unwrap(), @"Jujutsu (An experimental VCS)");
@@ -99,16 +95,16 @@ fn test_no_subcommand() {
     test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "log"]);
     test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "show"]);
     // TODO: test_env.jj_cmd_ok(&repo_path, &["-r", "help"])
-    insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["-r", "log"]), @r###"
+    insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["-r", "log"]), @r"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 help log show 230dd059
     │  (empty) (no description set)
     ~
-    "###);
-    insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["-r", "show"]), @r###"
+    ");
+    insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["-r", "show"]), @r"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 help log show 230dd059
     │  (empty) (no description set)
     ~
-    "###);
+    ");
 
     // Multiple default command strings work.
     test_env.add_config(r#"ui.default-command=["commit", "-m", "foo"]"#);
@@ -116,10 +112,10 @@ fn test_no_subcommand() {
     std::fs::write(repo_path.join("file.txt"), "file").unwrap();
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &[]);
     assert_eq!(stdout, "");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Working copy now at: kxryzmor 89c70edf (empty) (no description set)
     Parent commit      : lylxulpl 51bd3589 foo
-    "###);
+    ");
 }
 
 #[test]
@@ -131,10 +127,10 @@ fn test_ignore_working_copy() {
 
     std::fs::write(repo_path.join("file"), "initial").unwrap();
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-T", "commit_id"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     @  b15ef4cdd277d2c63cce6d67c1916f53a36141f7
     ◆  0000000000000000000000000000000000000000
-    "###);
+    ");
 
     // Modify the file. With --ignore-working-copy, we still get the same commit
     // ID.
@@ -147,28 +143,24 @@ fn test_ignore_working_copy() {
 
     // But without --ignore-working-copy, we get a new commit ID.
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-T", "commit_id"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     @  4d2c49a8f8e2f1ba61f48ba79e5f4a5faa6512cf
     ◆  0000000000000000000000000000000000000000
-    "###);
+    ");
 }
 
 #[test]
 fn test_repo_arg_with_init() {
     let test_env = TestEnvironment::default();
     let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["init", "-R=.", "repo"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: There is no jj repo in "."
-    "###);
+    insta::assert_snapshot!(stderr, @r#"Error: There is no jj repo in ".""#);
 }
 
 #[test]
 fn test_repo_arg_with_git_clone() {
     let test_env = TestEnvironment::default();
     let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["git", "clone", "-R=.", "remote"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: There is no jj repo in "."
-    "###);
+    insta::assert_snapshot!(stderr, @r#"Error: There is no jj repo in ".""#);
 }
 
 #[test]
@@ -181,31 +173,27 @@ fn test_resolve_workspace_directory() {
 
     // Ancestor of cwd
     let stdout = test_env.jj_cmd_success(&subdir, &["status"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     The working copy is clean
     Working copy : qpvuntsm 230dd059 (empty) (no description set)
     Parent commit: zzzzzzzz 00000000 (empty) (no description set)
-    "###);
+    ");
 
     // Explicit subdirectory path
     let stderr = test_env.jj_cmd_failure(&subdir, &["status", "-R", "."]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: There is no jj repo in "."
-    "###);
+    insta::assert_snapshot!(stderr, @r#"Error: There is no jj repo in ".""#);
 
     // Valid explicit path
     let stdout = test_env.jj_cmd_success(&subdir, &["status", "-R", "../.."]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     The working copy is clean
     Working copy : qpvuntsm 230dd059 (empty) (no description set)
     Parent commit: zzzzzzzz 00000000 (empty) (no description set)
-    "###);
+    ");
 
     // "../../..".ancestors() contains "../..", but it should never be looked up.
     let stderr = test_env.jj_cmd_failure(&subdir, &["status", "-R", "../../.."]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: There is no jj repo in "../../.."
-    "###);
+    insta::assert_snapshot!(stderr, @r#"Error: There is no jj repo in "../../..""#);
 }
 
 #[test]
@@ -215,22 +203,18 @@ fn test_no_workspace_directory() {
     std::fs::create_dir(&repo_path).unwrap();
 
     let stderr = test_env.jj_cmd_failure(&repo_path, &["status"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: There is no jj repo in "."
-    "###);
+    insta::assert_snapshot!(stderr, @r#"Error: There is no jj repo in ".""#);
 
     let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["status", "-R", "repo"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: There is no jj repo in "repo"
-    "###);
+    insta::assert_snapshot!(stderr, @r#"Error: There is no jj repo in "repo""#);
 
     std::fs::create_dir(repo_path.join(".git")).unwrap();
     let stderr = test_env.jj_cmd_failure(&repo_path, &["status"]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Error: There is no jj repo in "."
     Hint: It looks like this is a git repo. You can create a jj repo backed by it by running this:
     jj git init --colocate
-    "###);
+    "#);
 }
 
 #[test]
@@ -243,7 +227,7 @@ fn test_bad_path() {
 
     // cwd == workspace_root
     let stderr = test_env.jj_cmd_failure(&repo_path, &["file", "show", "../out"]);
-    insta::assert_snapshot!(stderr.replace('\\', "/"), @r###"
+    insta::assert_snapshot!(stderr.replace('\\', "/"), @r#"
     Error: Failed to parse fileset: Invalid file pattern
     Caused by:
     1:  --> 1:1
@@ -254,11 +238,11 @@ fn test_bad_path() {
       = Invalid file pattern
     2: Path "../out" is not in the repo "."
     3: Invalid component ".." in repo-relative path "../out"
-    "###);
+    "#);
 
     // cwd != workspace_root, can't be parsed as repo-relative path
     let stderr = test_env.jj_cmd_failure(&subdir, &["file", "show", "../.."]);
-    insta::assert_snapshot!(stderr.replace('\\', "/"), @r###"
+    insta::assert_snapshot!(stderr.replace('\\', "/"), @r#"
     Error: Failed to parse fileset: Invalid file pattern
     Caused by:
     1:  --> 1:1
@@ -269,11 +253,11 @@ fn test_bad_path() {
       = Invalid file pattern
     2: Path "../.." is not in the repo "../"
     3: Invalid component ".." in repo-relative path "../"
-    "###);
+    "#);
 
     // cwd != workspace_root, can be parsed as repo-relative path
     let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["file", "show", "-Rrepo", "out"]);
-    insta::assert_snapshot!(stderr.replace('\\', "/"), @r###"
+    insta::assert_snapshot!(stderr.replace('\\', "/"), @r#"
     Error: Failed to parse fileset: Invalid file pattern
     Caused by:
     1:  --> 1:1
@@ -285,16 +269,16 @@ fn test_bad_path() {
     2: Path "out" is not in the repo "repo"
     3: Invalid component ".." in repo-relative path "../out"
     Hint: Consider using root:"out" to specify repo-relative path
-    "###);
+    "#);
 
     test_env.add_config("ui.allow-filesets = false");
 
     // If fileset/pattern syntax is disabled, no hint should be generated
     let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["file", "show", "-Rrepo", "out"]);
-    insta::assert_snapshot!(stderr.replace('\\', "/"), @r###"
+    insta::assert_snapshot!(stderr.replace('\\', "/"), @r#"
     Error: Path "out" is not in the repo "repo"
     Caused by: Invalid component ".." in repo-relative path "../out"
-    "###);
+    "#);
 }
 
 #[test]
@@ -304,7 +288,7 @@ fn test_invalid_filesets_looking_like_filepaths() {
     let repo_path = test_env.env_root().join("repo");
 
     let stderr = test_env.jj_cmd_failure(&repo_path, &["file", "show", "abc~"]);
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(stderr, @r"
     Error: Failed to parse fileset: Syntax error
     Caused by:  --> 1:5
       |
@@ -313,13 +297,11 @@ fn test_invalid_filesets_looking_like_filepaths() {
       |
       = expected `~` or <primary>
     Hint: See https://jj-vcs.github.io/jj/latest/filesets/ for filesets syntax, or for how to match file paths.
-    "#);
+    ");
 
     test_env.add_config(r#"ui.allow-filesets=false"#);
     let stderr = test_env.jj_cmd_failure(&repo_path, &["file", "show", "abc~"]);
-    insta::assert_snapshot!(stderr, @r#"
-    Error: No such path: abc~
-    "#);
+    insta::assert_snapshot!(stderr, @"Error: No such path: abc~");
 }
 
 #[test]
@@ -333,43 +315,43 @@ fn test_broken_repo_structure() {
     // Test the error message when the git repository can't be located.
     std::fs::remove_file(store_path.join("git_target")).unwrap();
     let stderr = test_env.jj_cmd_internal_error(&repo_path, &["log"]);
-    insta::assert_snapshot!(strip_last_line(&stderr), @r###"
+    insta::assert_snapshot!(strip_last_line(&stderr), @r"
     Internal error: The repository appears broken or inaccessible
     Caused by:
     1: Cannot access $TEST_ENV/repo/.jj/repo/store/git_target
-    "###);
+    ");
 
     // Test the error message when the commit backend is of unknown type.
     std::fs::write(&store_type_path, "unknown").unwrap();
     let stderr = test_env.jj_cmd_internal_error(&repo_path, &["log"]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Internal error: This version of the jj binary doesn't support this type of repo
     Caused by: Unsupported commit backend type 'unknown'
-    "###);
+    ");
 
     // Test the error message when the file indicating the commit backend type
     // cannot be read.
     std::fs::remove_file(&store_type_path).unwrap();
     std::fs::create_dir(&store_type_path).unwrap();
     let stderr = test_env.jj_cmd_internal_error(&repo_path, &["log"]);
-    insta::assert_snapshot!(strip_last_line(&stderr), @r###"
+    insta::assert_snapshot!(strip_last_line(&stderr), @r"
     Internal error: The repository appears broken or inaccessible
     Caused by:
     1: Failed to read commit backend type
     2: Cannot access $TEST_ENV/repo/.jj/repo/store/type
-    "###);
+    ");
 
     // Test when the .jj directory is empty. The error message is identical to
     // the previous one, but writing the default type file would also fail.
     std::fs::remove_dir_all(repo_path.join(".jj")).unwrap();
     std::fs::create_dir(repo_path.join(".jj")).unwrap();
     let stderr = test_env.jj_cmd_internal_error(&repo_path, &["log"]);
-    insta::assert_snapshot!(strip_last_line(&stderr), @r###"
+    insta::assert_snapshot!(strip_last_line(&stderr), @r"
     Internal error: The repository appears broken or inaccessible
     Caused by:
     1: Failed to read commit backend type
     2: Cannot access $TEST_ENV/repo/.jj/repo/store/type
-    "###);
+    ");
 }
 
 #[test]
@@ -381,42 +363,42 @@ fn test_color_config() {
 
     // Test that --color=always is respected.
     let stdout = test_env.jj_cmd_success(&repo_path, &["--color=always", "log", "-T", "commit_id"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     [1m[38;5;2m@[0m  [38;5;4m230dd059e1b059aefc0da06a2e5a7dbf22362f22[39m
     [1m[38;5;14m◆[0m  [38;5;4m0000000000000000000000000000000000000000[39m
-    "###);
+    ");
 
     // Test that color is used if it's requested in the config file
     test_env.add_config(r#"ui.color="always""#);
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-T", "commit_id"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     [1m[38;5;2m@[0m  [38;5;4m230dd059e1b059aefc0da06a2e5a7dbf22362f22[39m
     [1m[38;5;14m◆[0m  [38;5;4m0000000000000000000000000000000000000000[39m
-    "###);
+    ");
 
     // Test that --color=never overrides the config.
     let stdout = test_env.jj_cmd_success(&repo_path, &["--color=never", "log", "-T", "commit_id"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     @  230dd059e1b059aefc0da06a2e5a7dbf22362f22
     ◆  0000000000000000000000000000000000000000
-    "###);
+    ");
 
     // Test that --color=auto overrides the config.
     let stdout = test_env.jj_cmd_success(&repo_path, &["--color=auto", "log", "-T", "commit_id"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     @  230dd059e1b059aefc0da06a2e5a7dbf22362f22
     ◆  0000000000000000000000000000000000000000
-    "###);
+    ");
 
     // Test that --config 'ui.color=never' overrides the config.
     let stdout = test_env.jj_cmd_success(
         &repo_path,
         &["--config=ui.color=never", "log", "-T", "commit_id"],
     );
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     @  230dd059e1b059aefc0da06a2e5a7dbf22362f22
     ◆  0000000000000000000000000000000000000000
-    "###);
+    ");
 
     // --color overrides --config 'ui.color=...'.
     let stdout = test_env.jj_cmd_success(
@@ -430,18 +412,18 @@ fn test_color_config() {
             "commit_id",
         ],
     );
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     @  230dd059e1b059aefc0da06a2e5a7dbf22362f22
     ◆  0000000000000000000000000000000000000000
-    "###);
+    ");
 
     // Test that NO_COLOR does NOT override the request for color in the config file
     test_env.add_env_var("NO_COLOR", "1");
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-T", "commit_id"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     [1m[38;5;2m@[0m  [38;5;4m230dd059e1b059aefc0da06a2e5a7dbf22362f22[39m
     [1m[38;5;14m◆[0m  [38;5;4m0000000000000000000000000000000000000000[39m
-    "###);
+    ");
 
     // Test that per-repo config overrides the user config.
     std::fs::write(
@@ -450,10 +432,10 @@ fn test_color_config() {
     )
     .unwrap();
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-T", "commit_id"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     @  230dd059e1b059aefc0da06a2e5a7dbf22362f22
     ◆  0000000000000000000000000000000000000000
-    "###);
+    ");
 
     // Invalid --color
     let stderr = test_env.jj_cmd_cli_error(&repo_path, &["log", "--color=foo"]);
@@ -481,15 +463,15 @@ fn test_color_ui_messages() {
 
     // hint and error
     let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["-R."]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     [1m[38;5;6mHint: [0m[39mUse `jj -h` for a list of available commands.[39m
     [39mRun `jj config set --user ui.default-command log` to disable this message.[39m
     [1m[38;5;1mError: [39mThere is no jj repo in "."[0m
-    "###);
+    "#);
 
     // error source
     let stderr = test_env.jj_cmd_failure(&repo_path, &["log", ".."]);
-    insta::assert_snapshot!(stderr.replace('\\', "/"), @r###"
+    insta::assert_snapshot!(stderr.replace('\\', "/"), @r#"
     [1m[38;5;1mError: [39mFailed to parse fileset: Invalid file pattern[0m
     [1m[39mCaused by:[0m
     [1m[39m1: [0m[39m --> 1:1[39m
@@ -500,13 +482,11 @@ fn test_color_ui_messages() {
     [39m  = Invalid file pattern[39m
     [1m[39m2: [0m[39mPath ".." is not in the repo "."[39m
     [1m[39m3: [0m[39mInvalid component ".." in repo-relative path "../"[39m
-    "###);
+    "#);
 
     // warning
     let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["log", "@"]);
-    insta::assert_snapshot!(stderr, @r###"
-    [1m[38;5;3mWarning: [39mThe argument "@" is being interpreted as a path. To specify a revset, pass -r "@" instead.[0m
-    "###);
+    insta::assert_snapshot!(stderr, @r#"[1m[38;5;3mWarning: [39mThe argument "@" is being interpreted as a path. To specify a revset, pass -r "@" instead.[0m"#);
 
     // error inlined in template output
     test_env.jj_cmd_ok(&repo_path, &["new"]);
@@ -519,29 +499,29 @@ fn test_color_ui_messages() {
             "-Tdescription",
         ],
     );
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     [38;5;4m167f90e7600a50f85c4f909b53eaf546faa82879[39m
     [1m[39m<[38;5;1mError: [39mNo Commit available>[0m  [38;5;8m(elided revisions)[39m
     [38;5;4m0000000000000000000000000000000000000000[39m
-    "###);
+    ");
 
     // formatted hint
     let stderr = test_env.jj_cmd_failure(&repo_path, &["new", ".."]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     [1m[38;5;1mError: [39mRevset ".." resolved to more than one revision[0m
     [1m[38;5;6mHint: [0m[39mThe revset ".." resolved to these revisions:[39m
     [39m  [1m[38;5;5mm[0m[38;5;8mzvwutvl[39m [1m[38;5;4m1[0m[38;5;8m67f90e7[39m [38;5;2m(empty)[39m [38;5;2m(no description set)[39m[39m
     [39m  [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [1m[38;5;4m2[0m[38;5;8m30dd059[39m [38;5;2m(empty)[39m [38;5;2m(no description set)[39m[39m
     [1m[38;5;6mHint: [0m[39mPrefix the expression with 'all:' to allow any number of revisions (i.e. 'all:..').[39m
-    "###);
+    "#);
 
     // debugging colors
     let (stdout, _stderr) = test_env.jj_cmd_ok(&repo_path, &["st", "--color", "debug"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     The working copy is clean
     Working copy : [1m[38;5;13m<<working_copy change_id shortest prefix::m>>[38;5;8m<<working_copy change_id shortest rest::zvwutvl>>[39m<<working_copy:: >>[38;5;12m<<working_copy commit_id shortest prefix::1>>[38;5;8m<<working_copy commit_id shortest rest::67f90e7>>[39m<<working_copy:: >>[38;5;10m<<working_copy empty::(empty)>>[39m<<working_copy:: >>[38;5;10m<<working_copy empty description placeholder::(no description set)>>[0m
     Parent commit: [1m[38;5;5m<<change_id shortest prefix::q>>[0m[38;5;8m<<change_id shortest rest::pvuntsm>>[39m [1m[38;5;4m<<commit_id shortest prefix::2>>[0m[38;5;8m<<commit_id shortest rest::30dd059>>[39m [38;5;2m<<empty::(empty)>>[39m [38;5;2m<<empty description placeholder::(no description set)>>[39m
-    "###);
+    ");
 }
 
 #[test]
@@ -897,36 +877,36 @@ fn test_no_user_configured() {
         .env_remove("JJ_USER")
         .assert()
         .success();
-    insta::assert_snapshot!(get_stderr_string(&assert), @r###"
+    insta::assert_snapshot!(get_stderr_string(&assert), @r#"
     Working copy now at: qpvuntsm 7a7d6016 (empty) without name
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
     Warning: Name not configured. Until configured, your commits will be created with the empty identity, and can't be pushed to remotes. To configure, run:
       jj config set --user user.name "Some One"
-    "###);
+    "#);
     let assert = test_env
         .jj_cmd(&repo_path, &["describe", "-m", "without email"])
         .env_remove("JJ_EMAIL")
         .assert()
         .success();
-    insta::assert_snapshot!(get_stderr_string(&assert), @r###"
+    insta::assert_snapshot!(get_stderr_string(&assert), @r#"
     Working copy now at: qpvuntsm 906f8b89 (empty) without email
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
     Warning: Email not configured. Until configured, your commits will be created with the empty identity, and can't be pushed to remotes. To configure, run:
       jj config set --user user.email "someone@example.com"
-    "###);
+    "#);
     let assert = test_env
         .jj_cmd(&repo_path, &["describe", "-m", "without name and email"])
         .env_remove("JJ_USER")
         .env_remove("JJ_EMAIL")
         .assert()
         .success();
-    insta::assert_snapshot!(get_stderr_string(&assert), @r###"
+    insta::assert_snapshot!(get_stderr_string(&assert), @r#"
     Working copy now at: qpvuntsm 57d3a489 (empty) without name and email
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
     Warning: Name and email not configured. Until configured, your commits will be created with the empty identity, and can't be pushed to remotes. To configure, run:
       jj config set --user user.name "Some One"
       jj config set --user user.email "someone@example.com"
-    "###);
+    "#);
 }
 
 #[test]
@@ -935,7 +915,7 @@ fn test_help() {
     let test_env = TestEnvironment::default();
 
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["diffedit", "-h"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     Touch up the content changes in a revision with a diff editor
 
     Usage: jj diffedit [OPTIONS]
@@ -959,7 +939,7 @@ fn test_help() {
           --no-pager                     Disable the pager
           --config <NAME=VALUE>          Additional configuration options (can be repeated)
           --config-file <PATH>           Additional configuration files (can be repeated)
-    "###);
+    ");
 }
 
 #[test]
