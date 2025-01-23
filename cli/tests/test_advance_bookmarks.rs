@@ -75,32 +75,32 @@ fn test_advance_bookmarks_enabled(make_commit: CommitFn) {
 
     // Check the initial state of the repo.
     insta::allow_duplicates! {
-    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r###"
+    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r"
     @  bookmarks{} desc:
     ◆  bookmarks{test_bookmark} desc:
-    "###);
+    ");
     }
 
     // Run jj commit, which will advance the bookmark pointing to @-.
     make_commit(&test_env, &workspace_path, "first");
     insta::allow_duplicates! {
-    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r###"
+    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r"
     @  bookmarks{} desc:
     ○  bookmarks{test_bookmark} desc: first
     ◆  bookmarks{} desc:
-    "###);
+    ");
     }
 
     // Now disable advance bookmarks and commit again. The bookmark shouldn't move.
     set_advance_bookmarks(&test_env, false);
     make_commit(&test_env, &workspace_path, "second");
     insta::allow_duplicates! {
-    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r###"
+    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r"
     @  bookmarks{} desc:
     ○  bookmarks{} desc: second
     ○  bookmarks{test_bookmark} desc: first
     ◆  bookmarks{} desc:
-    "###);
+    ");
     }
 }
 
@@ -117,19 +117,19 @@ fn test_advance_bookmarks_at_minus(make_commit: CommitFn) {
     test_env.jj_cmd_ok(&workspace_path, &["bookmark", "create", "test_bookmark"]);
 
     insta::allow_duplicates! {
-    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r###"
+    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r"
     @  bookmarks{test_bookmark} desc:
     ◆  bookmarks{} desc:
-    "###);
+    ");
     }
 
     make_commit(&test_env, &workspace_path, "first");
     insta::allow_duplicates! {
-    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r###"
+    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r"
     @  bookmarks{} desc:
     ○  bookmarks{test_bookmark} desc: first
     ◆  bookmarks{} desc:
-    "###);
+    ");
     }
 
     // Create a second bookmark pointing to @. On the next commit, only the first
@@ -137,12 +137,12 @@ fn test_advance_bookmarks_at_minus(make_commit: CommitFn) {
     test_env.jj_cmd_ok(&workspace_path, &["bookmark", "create", "test_bookmark2"]);
     make_commit(&test_env, &workspace_path, "second");
     insta::allow_duplicates! {
-    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r###"
+    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r"
     @  bookmarks{} desc:
     ○  bookmarks{test_bookmark test_bookmark2} desc: second
     ○  bookmarks{} desc: first
     ◆  bookmarks{} desc:
-    "###);
+    ");
     }
 }
 
@@ -163,20 +163,20 @@ fn test_advance_bookmarks_overrides(make_commit: CommitFn) {
 
     // Check the initial state of the repo.
     insta::allow_duplicates! {
-    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r###"
+    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r"
     @  bookmarks{} desc:
     ◆  bookmarks{test_bookmark} desc:
-    "###);
+    ");
     }
 
     // Commit will not advance the bookmark since advance-bookmarks is disabled.
     make_commit(&test_env, &workspace_path, "first");
     insta::allow_duplicates! {
-    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r###"
+    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r"
     @  bookmarks{} desc:
     ○  bookmarks{} desc: first
     ◆  bookmarks{test_bookmark} desc:
-    "###);
+    ");
     }
 
     // Now enable advance bookmarks for "test_bookmark", move the bookmark, and
@@ -191,20 +191,20 @@ fn test_advance_bookmarks_overrides(make_commit: CommitFn) {
         &["bookmark", "set", "test_bookmark", "-r", "@-"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r###"
+    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r"
     @  bookmarks{} desc:
     ○  bookmarks{test_bookmark} desc: first
     ◆  bookmarks{} desc:
-    "###);
+    ");
     }
     make_commit(&test_env, &workspace_path, "second");
     insta::allow_duplicates! {
-    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r###"
+    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r"
     @  bookmarks{} desc:
     ○  bookmarks{} desc: second
     ○  bookmarks{test_bookmark} desc: first
     ◆  bookmarks{} desc:
-    "###);
+    ");
     }
 
     // Now disable advance bookmarks for "test_bookmark" and "second_bookmark",
@@ -217,13 +217,13 @@ fn test_advance_bookmarks_overrides(make_commit: CommitFn) {
     );
     make_commit(&test_env, &workspace_path, "third");
     insta::allow_duplicates! {
-    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r###"
+    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r"
     @  bookmarks{} desc:
     ○  bookmarks{} desc: third
     ○  bookmarks{} desc: second
     ○  bookmarks{test_bookmark} desc: first
     ◆  bookmarks{} desc:
-    "###);
+    ");
     }
 
     // If we create a new bookmark at @- and move test_bookmark there as well. When
@@ -238,24 +238,24 @@ fn test_advance_bookmarks_overrides(make_commit: CommitFn) {
         &["bookmark", "set", "test_bookmark", "-r", "@-"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r###"
+    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r"
     @  bookmarks{} desc:
     ○  bookmarks{second_bookmark test_bookmark} desc: third
     ○  bookmarks{} desc: second
     ○  bookmarks{} desc: first
     ◆  bookmarks{} desc:
-    "###);
+    ");
     }
     make_commit(&test_env, &workspace_path, "fourth");
     insta::allow_duplicates! {
-    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r###"
+    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r"
     @  bookmarks{} desc:
     ○  bookmarks{} desc: fourth
     ○  bookmarks{second_bookmark test_bookmark} desc: third
     ○  bookmarks{} desc: second
     ○  bookmarks{} desc: first
     ◆  bookmarks{} desc:
-    "###);
+    ");
     }
 }
 
@@ -279,20 +279,20 @@ fn test_advance_bookmarks_multiple_bookmarks(make_commit: CommitFn) {
 
     insta::allow_duplicates! {
     // Check the initial state of the repo.
-    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r###"
+    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r"
     @  bookmarks{} desc:
     ◆  bookmarks{first_bookmark second_bookmark} desc:
-    "###);
+    ");
     }
 
     // Both bookmarks are eligible and both will advance.
     make_commit(&test_env, &workspace_path, "first");
     insta::allow_duplicates! {
-    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r###"
+    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r"
     @  bookmarks{} desc:
     ○  bookmarks{first_bookmark second_bookmark} desc: first
     ◆  bookmarks{} desc:
-    "###);
+    ");
     }
 }
 
@@ -307,10 +307,10 @@ fn test_new_advance_bookmarks_interior() {
     set_advance_bookmarks(&test_env, true);
 
     // Check the initial state of the repo.
-    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r###"
+    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r"
     @  bookmarks{} desc:
     ◆  bookmarks{} desc:
-    "###);
+    ");
 
     // Create a gap in the commits for us to insert our new commit with --before.
     test_env.jj_cmd_ok(&workspace_path, &["commit", "-m", "first"]);
@@ -320,23 +320,23 @@ fn test_new_advance_bookmarks_interior() {
         &workspace_path,
         &["bookmark", "create", "-r", "@---", "test_bookmark"],
     );
-    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r###"
+    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r"
     @  bookmarks{} desc:
     ○  bookmarks{} desc: third
     ○  bookmarks{} desc: second
     ○  bookmarks{test_bookmark} desc: first
     ◆  bookmarks{} desc:
-    "###);
+    ");
 
     test_env.jj_cmd_ok(&workspace_path, &["new", "-r", "@--"]);
-    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r###"
+    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r"
     @  bookmarks{} desc:
     │ ○  bookmarks{} desc: third
     ├─╯
     ○  bookmarks{test_bookmark} desc: second
     ○  bookmarks{} desc: first
     ◆  bookmarks{} desc:
-    "###);
+    ");
 }
 
 // If the `--before` flag is passed to `jj new`, bookmarks are not advanced.
@@ -349,10 +349,10 @@ fn test_new_advance_bookmarks_before() {
     set_advance_bookmarks(&test_env, true);
 
     // Check the initial state of the repo.
-    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r###"
+    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r"
     @  bookmarks{} desc:
     ◆  bookmarks{} desc:
-    "###);
+    ");
 
     // Create a gap in the commits for us to insert our new commit with --before.
     test_env.jj_cmd_ok(&workspace_path, &["commit", "-m", "first"]);
@@ -362,22 +362,22 @@ fn test_new_advance_bookmarks_before() {
         &workspace_path,
         &["bookmark", "create", "-r", "@---", "test_bookmark"],
     );
-    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r###"
+    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r"
     @  bookmarks{} desc:
     ○  bookmarks{} desc: third
     ○  bookmarks{} desc: second
     ○  bookmarks{test_bookmark} desc: first
     ◆  bookmarks{} desc:
-    "###);
+    ");
 
     test_env.jj_cmd_ok(&workspace_path, &["new", "--before", "@-"]);
-    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r###"
+    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r"
     ○  bookmarks{} desc: third
     @  bookmarks{} desc:
     ○  bookmarks{} desc: second
     ○  bookmarks{test_bookmark} desc: first
     ◆  bookmarks{} desc:
-    "###);
+    ");
 }
 
 // If the `--after` flag is passed to `jj new`, bookmarks are not advanced.
@@ -394,18 +394,18 @@ fn test_new_advance_bookmarks_after() {
     );
 
     // Check the initial state of the repo.
-    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r###"
+    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r"
     @  bookmarks{} desc:
     ◆  bookmarks{test_bookmark} desc:
-    "###);
+    ");
 
     test_env.jj_cmd_ok(&workspace_path, &["describe", "-m", "first"]);
     test_env.jj_cmd_ok(&workspace_path, &["new", "--after", "@"]);
-    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r###"
+    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r"
     @  bookmarks{} desc:
     ○  bookmarks{} desc: first
     ◆  bookmarks{test_bookmark} desc:
-    "###);
+    ");
 }
 
 #[test]
@@ -430,20 +430,20 @@ fn test_new_advance_bookmarks_merge_children() {
     );
 
     // Check the initial state of the repo.
-    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r###"
+    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r"
     @  bookmarks{} desc: 2
     │ ○  bookmarks{} desc: 1
     ├─╯
     ○  bookmarks{test_bookmark} desc: 0
     ◆  bookmarks{} desc:
-    "###);
+    ");
 
     // The bookmark won't advance because `jj  new` had multiple targets.
     test_env.jj_cmd_ok(
         &workspace_path,
         &["new", "description(1)", "description(2)"],
     );
-    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r###"
+    insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r"
     @    bookmarks{} desc:
     ├─╮
     │ ○  bookmarks{} desc: 2
@@ -451,5 +451,5 @@ fn test_new_advance_bookmarks_merge_children() {
     ├─╯
     ○  bookmarks{test_bookmark} desc: 0
     ◆  bookmarks{} desc:
-    "###);
+    ");
 }

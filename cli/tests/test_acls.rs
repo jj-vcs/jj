@@ -41,7 +41,7 @@ fn test_diff() {
     SecretBackend::adopt_git_repo(&repo_path);
 
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "--color-words"]);
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @r###"
+    insta::assert_snapshot!(stdout.replace('\\', "/"), @r"
     Modified regular file a-first:
        1    1: foobar
     Access denied to added-secret: No access
@@ -50,27 +50,27 @@ fn test_diff() {
     Access denied to modified-secret: No access
     Modified regular file z-last:
        1    1: foobar
-    "###);
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "--summary"]);
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @r###"
+    insta::assert_snapshot!(stdout.replace('\\', "/"), @r"
     M a-first
     C {a-first => added-secret}
     D deleted-secret
     M dir/secret
     M modified-secret
     M z-last
-    "###);
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "--types"]);
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @r###"
+    insta::assert_snapshot!(stdout.replace('\\', "/"), @r"
     FF a-first
     FF {a-first => added-secret}
     F- deleted-secret
     FF dir/secret
     FF modified-secret
     FF z-last
-    "###);
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "--stat"]);
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @r###"
+    insta::assert_snapshot!(stdout.replace('\\', "/"), @r"
     a-first                   | 2 +-
     {a-first => added-secret} | 2 +-
     deleted-secret            | 1 -
@@ -78,12 +78,12 @@ fn test_diff() {
     modified-secret           | 0
     z-last                    | 2 +-
     6 files changed, 3 insertions(+), 4 deletions(-)
-    "###);
+    ");
     let assert = test_env
         .jj_cmd(&repo_path, &["diff", "--git"])
         .assert()
         .failure();
-    insta::assert_snapshot!(get_stdout_string(&assert).replace('\\', "/"), @r###"
+    insta::assert_snapshot!(get_stdout_string(&assert).replace('\\', "/"), @r"
     diff --git a/a-first b/a-first
     index 257cc5642c..5716ca5987 100644
     --- a/a-first
@@ -91,11 +91,11 @@ fn test_diff() {
     @@ -1,1 +1,1 @@
     -foo
     +bar
-    "###);
-    insta::assert_snapshot!(get_stderr_string(&assert), @r#"
+    ");
+    insta::assert_snapshot!(get_stderr_string(&assert), @r"
     Error: Access denied to added-secret
     Caused by: No access
-    "#);
+    ");
 
     // TODO: Test external tool
 }
@@ -122,11 +122,9 @@ fn test_file_list_show() {
     insta::assert_snapshot!(stderr, @"");
 
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["file", "show", "."]);
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @r###"
+    insta::assert_snapshot!(stdout.replace('\\', "/"), @r"
     foo
     baz
-    "###);
-    insta::assert_snapshot!(stderr.replace('\\', "/"), @r###"
-    Warning: Path 'secret' exists but access is denied: No access
-    "###);
+    ");
+    insta::assert_snapshot!(stderr.replace('\\', "/"), @"Warning: Path 'secret' exists but access is denied: No access");
 }
