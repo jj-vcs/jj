@@ -15,6 +15,7 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::io;
+use std::iter;
 
 use itertools::Itertools as _;
 use jj_lib::backend::Signature;
@@ -34,6 +35,7 @@ use crate::template_parser::BinaryOp;
 use crate::template_parser::ExpressionKind;
 use crate::template_parser::ExpressionNode;
 use crate::template_parser::FunctionCallNode;
+use crate::template_parser::LambdaNode;
 use crate::template_parser::TemplateAliasesMap;
 use crate::template_parser::TemplateDiagnostics;
 use crate::template_parser::TemplateParseError;
@@ -1314,26 +1316,15 @@ where
     P::Output: IntoIterator<Item = O>,
     O: Clone + 'a,
 {
-    // Build an item template with placeholder property, then evaluate it
-    // for each item.
     let [lambda_node] = function.expect_exact_arguments()?;
     let item_placeholder = PropertyPlaceholder::new();
     let item_template = template_parser::expect_lambda_with(lambda_node, |lambda, _span| {
-        let item_fn = || wrap_item(item_placeholder.clone());
-        let mut local_variables = build_ctx.local_variables.clone();
-        if let [name] = lambda.params.as_slice() {
-            local_variables.insert(name, &item_fn);
-        } else {
-            return Err(TemplateParseError::expression(
-                "Expected 1 lambda parameters",
-                lambda.params_span,
-            ));
-        }
-        let inner_build_ctx = BuildContext {
-            local_variables,
-            self_variable: build_ctx.self_variable,
-        };
-        expect_template_expression(language, diagnostics, &inner_build_ctx, &lambda.body)
+        build_lambda_expression(
+            build_ctx,
+            lambda,
+            &[&|| wrap_item(item_placeholder.clone())],
+            |build_ctx, body| expect_template_expression(language, diagnostics, build_ctx, body),
+        )
     })?;
     let list_template = ListPropertyTemplate::new(
         self_property,
@@ -1343,6 +1334,29 @@ where
         },
     );
     Ok(L::wrap_list_template(Box::new(list_template)))
+}
+
+/// Builds lambda expression to be evaluated with the provided arguments.
+/// `arg_fns` is usually an array of wrapped [`PropertyPlaceholder`]s.
+fn build_lambda_expression<'a, 'i, P: IntoTemplateProperty<'a>, T>(
+    build_ctx: &BuildContext<'i, P>,
+    lambda: &LambdaNode<'i>,
+    arg_fns: &[&'i dyn Fn() -> P],
+    build_body: impl FnOnce(&BuildContext<'i, P>, &ExpressionNode<'i>) -> TemplateParseResult<T>,
+) -> TemplateParseResult<T> {
+    if lambda.params.len() != arg_fns.len() {
+        return Err(TemplateParseError::expression(
+            format!("Expected {} lambda parameters", arg_fns.len()),
+            lambda.params_span,
+        ));
+    }
+    let mut local_variables = build_ctx.local_variables.clone();
+    local_variables.extend(iter::zip(&lambda.params, arg_fns));
+    let inner_build_ctx = BuildContext {
+        local_variables,
+        self_variable: build_ctx.self_variable,
+    };
+    build_body(&inner_build_ctx, &lambda.body)
 }
 
 fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFunctionFnMap<'a, L> {
