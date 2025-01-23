@@ -137,7 +137,7 @@ fn do_git_fetch(
     branch_names: &[StringPattern],
 ) -> Result<(), CommandError> {
     let git_settings = tx.settings().git_settings()?;
-    let git_subprocess_ctx = get_git_subprocess_ctx(tx.repo().store(), &git_settings)?;
+    let git_subprocess_ctx = get_git_subprocess_ctx(tx.base_workspace_helper(), &git_settings)?;
     let mut git_fetch = if git_settings.subprocess {
         GitFetch::subprocess(&git_subprocess_ctx, tx.repo_mut(), &git_settings)
     } else {

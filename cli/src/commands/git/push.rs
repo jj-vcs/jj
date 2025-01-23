@@ -378,7 +378,7 @@ pub fn cmd_git_push(
     };
 
     let git_settings = tx.settings().git_settings()?;
-    let git_subprocess_ctx = get_git_subprocess_ctx(tx.repo().store(), &git_settings)?;
+    let git_subprocess_ctx = get_git_subprocess_ctx(tx.base_workspace_helper(), &git_settings)?;
     with_remote_git_callbacks(
         ui,
         Some(&mut sideband_progress_callback),

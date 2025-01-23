@@ -55,15 +55,46 @@ pub enum GitSubprocessError {
 /// Context for creating Git subprocesses
 #[derive(Debug)]
 pub struct GitSubprocessContext<'a> {
+    workspace_dir: PathBuf,
     git_dir: PathBuf,
     git_executable_path: &'a Path,
 }
 
+/// Find a relative path from a dir to another
+fn relative_path_from(from: &Path, target: &Path) -> PathBuf {
+    use std::path::Component;
+    let ancestors = from.ancestors().enumerate();
+    for (n_parents, ancestor) in ancestors {
+        // TODO: this is a hack to fix macos
+        // Would great to find a better way to do it
+        if ancestor.parent().is_none() {
+            return target.to_path_buf();
+        }
+
+        if let Ok(relative) = target.strip_prefix(ancestor) {
+            return (0..n_parents)
+                .map(|_| Component::ParentDir)
+                .chain(relative.components())
+                .collect();
+        }
+    }
+
+    target.to_path_buf()
+}
+
 impl<'a> GitSubprocessContext<'a> {
     /// Create a new GitSubprocess context
-    pub fn new(git_dir: impl Into<PathBuf>, git_executable_path: &'a Path) -> Self {
+    pub fn new(
+        workspace_dir: impl Into<PathBuf>,
+        git_dir: impl AsRef<Path>,
+        git_executable_path: &'a Path,
+    ) -> Self {
+        let workspace_dir = dunce::canonicalize(workspace_dir.into()).unwrap();
+        let git_dir = dunce::canonicalize(git_dir.as_ref()).unwrap();
+        let git_dir = relative_path_from(&workspace_dir, &git_dir);
         GitSubprocessContext {
-            git_dir: git_dir.into(),
+            workspace_dir,
+            git_dir,
             git_executable_path,
         }
     }
@@ -71,11 +102,8 @@ impl<'a> GitSubprocessContext<'a> {
     /// Create the Git command
     fn create_command(&self) -> Command {
         let mut git_cmd = Command::new(self.git_executable_path);
-        // TODO: here we are passing the full path to the git_dir, which can lead to UNC
-        // bugs in Windows. The ideal way to do this is to pass the workspace
-        // root to Command::current_dir and then pass a relative path to the git
-        // dir
         git_cmd
+            .current_dir(&self.workspace_dir)
             .arg("--bare")
             .arg("--git-dir")
             .arg(&self.git_dir)

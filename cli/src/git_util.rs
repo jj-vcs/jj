@@ -47,6 +47,7 @@ use jj_lib::workspace::Workspace;
 use unicode_width::UnicodeWidthStr;
 
 use crate::cleanup_guard::CleanupGuard;
+use crate::cli_util::WorkspaceCommandHelper;
 use crate::command_error::cli_error;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_hint;
@@ -85,15 +86,21 @@ pub fn get_git_repo(store: &Store) -> Result<git2::Repository, CommandError> {
 }
 
 pub fn get_git_subprocess_ctx<'a>(
-    store: &Store,
+    workspace_command_helper: &WorkspaceCommandHelper,
     git_settings: &'a GitSettings,
 ) -> Result<GitSubprocessContext<'a>, CommandError> {
-    store
+    workspace_command_helper
+        .repo()
+        .store()
         .backend_impl()
         .downcast_ref::<GitBackend>()
         .ok_or_else(|| user_error("The repo is not backed by a git repo"))
-        .map(|git_backend| {
-            GitSubprocessContext::new(git_backend.git_repo_path(), &git_settings.executable_path)
+        .and_then(|git_backend| {
+            Ok(GitSubprocessContext::new(
+                dunce::canonicalize(workspace_command_helper.workspace_root())?,
+                git_backend.git_repo_path(),
+                &git_settings.executable_path,
+            ))
         })
 }
 
