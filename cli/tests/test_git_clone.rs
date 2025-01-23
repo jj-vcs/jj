@@ -61,10 +61,10 @@ fn test_git_clone() {
     let (stdout, stderr) =
         test_env.jj_cmd_ok(test_env.env_root(), &["git", "clone", "source", "empty"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Fetching into new repo in "$TEST_ENV/empty"
     Nothing changed.
-    "###);
+    "#);
 
     set_up_non_empty_git_repo(&git_repo);
 
@@ -72,23 +72,21 @@ fn test_git_clone() {
     let (stdout, stderr) =
         test_env.jj_cmd_ok(test_env.env_root(), &["git", "clone", "source", "clone"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Fetching into new repo in "$TEST_ENV/clone"
     bookmark: main@origin [new] tracked
     Setting the revset alias "trunk()" to "main@origin"
     Working copy now at: uuqppmxq 1f0b881a (empty) (no description set)
     Parent commit      : mzyxwzks 9f01a0e0 main | message
     Added 1 files, modified 0 files, removed 0 files
-    "###);
+    "#);
     assert!(test_env.env_root().join("clone").join("file").exists());
 
     // Subsequent fetch should just work even if the source path was relative
     let (stdout, stderr) =
         test_env.jj_cmd_ok(&test_env.env_root().join("clone"), &["git", "fetch"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
-    Nothing changed.
-    "###);
+    insta::assert_snapshot!(stderr, @"Nothing changed.");
 
     // Failed clone should clean up the destination directory
     std::fs::create_dir(test_env.env_root().join("bad")).unwrap();
@@ -99,10 +97,10 @@ fn test_git_clone() {
     let stdout = test_env.normalize_output(&get_stdout_string(&assert));
     let stderr = test_env.normalize_output(&get_stderr_string(&assert));
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Fetching into new repo in "$TEST_ENV/failed"
     Error: could not find repository at '$TEST_ENV/bad'; class=Repository (6)
-    "###);
+    "#);
     assert!(!test_env.env_root().join("failed").exists());
 
     // Failed clone shouldn't remove the existing destination directory
@@ -114,39 +112,31 @@ fn test_git_clone() {
     let stdout = test_env.normalize_output(&get_stdout_string(&assert));
     let stderr = test_env.normalize_output(&get_stderr_string(&assert));
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Fetching into new repo in "$TEST_ENV/failed"
     Error: could not find repository at '$TEST_ENV/bad'; class=Repository (6)
-    "###);
+    "#);
     assert!(test_env.env_root().join("failed").exists());
     assert!(!test_env.env_root().join("failed").join(".jj").exists());
 
     // Failed clone (if attempted) shouldn't remove the existing workspace
     let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["git", "clone", "bad", "clone"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Destination path exists and is not an empty directory
-    "###);
+    insta::assert_snapshot!(stderr, @"Error: Destination path exists and is not an empty directory");
     assert!(test_env.env_root().join("clone").join(".jj").exists());
 
     // Try cloning into an existing workspace
     let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["git", "clone", "source", "clone"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Destination path exists and is not an empty directory
-    "###);
+    insta::assert_snapshot!(stderr, @"Error: Destination path exists and is not an empty directory");
 
     // Try cloning into an existing file
     std::fs::write(test_env.env_root().join("file"), "contents").unwrap();
     let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["git", "clone", "source", "file"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Destination path exists and is not an empty directory
-    "###);
+    insta::assert_snapshot!(stderr, @"Error: Destination path exists and is not an empty directory");
 
     // Try cloning into non-empty, non-workspace directory
     std::fs::remove_dir_all(test_env.env_root().join("clone").join(".jj")).unwrap();
     let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["git", "clone", "source", "clone"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Destination path exists and is not an empty directory
-    "###);
+    insta::assert_snapshot!(stderr, @"Error: Destination path exists and is not an empty directory");
 
     // Clone into a nested path
     let (stdout, stderr) = test_env.jj_cmd_ok(
@@ -154,14 +144,14 @@ fn test_git_clone() {
         &["git", "clone", "source", "nested/path/to/repo"],
     );
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Fetching into new repo in "$TEST_ENV/nested/path/to/repo"
     bookmark: main@origin [new] tracked
     Setting the revset alias "trunk()" to "main@origin"
     Working copy now at: uuzqqzqu df8acbac (empty) (no description set)
     Parent commit      : mzyxwzks 9f01a0e0 main | message
     Added 1 files, modified 0 files, removed 0 files
-    "###);
+    "#);
 }
 
 #[test]
@@ -195,10 +185,10 @@ fn test_git_clone_colocate() {
         &["git", "clone", "source", "empty", "--colocate"],
     );
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Fetching into new repo in "$TEST_ENV/empty"
     Nothing changed.
-    "###);
+    "#);
 
     // git_target path should be relative to the store
     let store_path = test_env
@@ -217,14 +207,14 @@ fn test_git_clone_colocate() {
         &["git", "clone", "source", "clone", "--colocate"],
     );
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Fetching into new repo in "$TEST_ENV/clone"
     bookmark: main@origin [new] tracked
     Setting the revset alias "trunk()" to "main@origin"
     Working copy now at: uuqppmxq 1f0b881a (empty) (no description set)
     Parent commit      : mzyxwzks 9f01a0e0 main | message
     Added 1 files, modified 0 files, removed 0 files
-    "###);
+    "#);
     assert!(test_env.env_root().join("clone").join("file").exists());
     assert!(test_env.env_root().join("clone").join(".git").exists());
 
@@ -253,27 +243,25 @@ fn test_git_clone_colocate() {
         .iter()
         .map(|entry| format!("{:?} {}\n", entry.status(), entry.path().unwrap()))
         .collect();
-    insta::assert_snapshot!(git_statuses, @r###"
+    insta::assert_snapshot!(git_statuses, @r"
     Status(IGNORED) .jj/.gitignore
     Status(IGNORED) .jj/repo/
     Status(IGNORED) .jj/working_copy/
-    "###);
+    ");
 
     // The old default bookmark "master" shouldn't exist.
     insta::assert_snapshot!(
-        get_bookmark_output(&test_env, &test_env.env_root().join("clone")), @r###"
+        get_bookmark_output(&test_env, &test_env.env_root().join("clone")), @r"
     main: mzyxwzks 9f01a0e0 message
       @git: mzyxwzks 9f01a0e0 message
       @origin: mzyxwzks 9f01a0e0 message
-    "###);
+    ");
 
     // Subsequent fetch should just work even if the source path was relative
     let (stdout, stderr) =
         test_env.jj_cmd_ok(&test_env.env_root().join("clone"), &["git", "fetch"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
-    Nothing changed.
-    "###);
+    insta::assert_snapshot!(stderr, @"Nothing changed.");
 
     // Failed clone should clean up the destination directory
     std::fs::create_dir(test_env.env_root().join("bad")).unwrap();
@@ -287,10 +275,10 @@ fn test_git_clone_colocate() {
     let stdout = test_env.normalize_output(&get_stdout_string(&assert));
     let stderr = test_env.normalize_output(&get_stderr_string(&assert));
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Fetching into new repo in "$TEST_ENV/failed"
     Error: could not find repository at '$TEST_ENV/bad'; class=Repository (6)
-    "###);
+    "#);
     assert!(!test_env.env_root().join("failed").exists());
 
     // Failed clone shouldn't remove the existing destination directory
@@ -305,10 +293,10 @@ fn test_git_clone_colocate() {
     let stdout = test_env.normalize_output(&get_stdout_string(&assert));
     let stderr = test_env.normalize_output(&get_stderr_string(&assert));
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Fetching into new repo in "$TEST_ENV/failed"
     Error: could not find repository at '$TEST_ENV/bad'; class=Repository (6)
-    "###);
+    "#);
     assert!(test_env.env_root().join("failed").exists());
     assert!(!test_env.env_root().join("failed").join(".git").exists());
     assert!(!test_env.env_root().join("failed").join(".jj").exists());
@@ -318,9 +306,7 @@ fn test_git_clone_colocate() {
         test_env.env_root(),
         &["git", "clone", "--colocate", "bad", "clone"],
     );
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Destination path exists and is not an empty directory
-    "###);
+    insta::assert_snapshot!(stderr, @"Error: Destination path exists and is not an empty directory");
     assert!(test_env.env_root().join("clone").join(".git").exists());
     assert!(test_env.env_root().join("clone").join(".jj").exists());
 
@@ -329,9 +315,7 @@ fn test_git_clone_colocate() {
         test_env.env_root(),
         &["git", "clone", "source", "clone", "--colocate"],
     );
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Destination path exists and is not an empty directory
-    "###);
+    insta::assert_snapshot!(stderr, @"Error: Destination path exists and is not an empty directory");
 
     // Try cloning into an existing file
     std::fs::write(test_env.env_root().join("file"), "contents").unwrap();
@@ -339,9 +323,7 @@ fn test_git_clone_colocate() {
         test_env.env_root(),
         &["git", "clone", "source", "file", "--colocate"],
     );
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Destination path exists and is not an empty directory
-    "###);
+    insta::assert_snapshot!(stderr, @"Error: Destination path exists and is not an empty directory");
 
     // Try cloning into non-empty, non-workspace directory
     std::fs::remove_dir_all(test_env.env_root().join("clone").join(".jj")).unwrap();
@@ -349,9 +331,7 @@ fn test_git_clone_colocate() {
         test_env.env_root(),
         &["git", "clone", "source", "clone", "--colocate"],
     );
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Destination path exists and is not an empty directory
-    "###);
+    insta::assert_snapshot!(stderr, @"Error: Destination path exists and is not an empty directory");
 
     // Clone into a nested path
     let (stdout, stderr) = test_env.jj_cmd_ok(
@@ -365,14 +345,14 @@ fn test_git_clone_colocate() {
         ],
     );
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Fetching into new repo in "$TEST_ENV/nested/path/to/repo"
     bookmark: main@origin [new] tracked
     Setting the revset alias "trunk()" to "main@origin"
     Working copy now at: vzqnnsmr 9407107f (empty) (no description set)
     Parent commit      : mzyxwzks 9f01a0e0 main | message
     Added 1 files, modified 0 files, removed 0 files
-    "###);
+    "#);
 }
 
 #[test]
@@ -395,7 +375,7 @@ fn test_git_clone_remote_default_bookmark() {
     test_env.add_config("git.auto-local-bookmark = true");
     let (_stdout, stderr) =
         test_env.jj_cmd_ok(test_env.env_root(), &["git", "clone", "source", "clone1"]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Fetching into new repo in "$TEST_ENV/clone1"
     bookmark: feature1@origin [new] tracked
     bookmark: main@origin     [new] tracked
@@ -403,29 +383,27 @@ fn test_git_clone_remote_default_bookmark() {
     Working copy now at: sqpuoqvx cad212e1 (empty) (no description set)
     Parent commit      : mzyxwzks 9f01a0e0 feature1 main | message
     Added 1 files, modified 0 files, removed 0 files
-    "###);
+    "#);
     insta::assert_snapshot!(
-        get_bookmark_output(&test_env, &test_env.env_root().join("clone1")), @r###"
+        get_bookmark_output(&test_env, &test_env.env_root().join("clone1")), @r"
     feature1: mzyxwzks 9f01a0e0 message
       @origin: mzyxwzks 9f01a0e0 message
     main: mzyxwzks 9f01a0e0 message
       @origin: mzyxwzks 9f01a0e0 message
-    "###);
+    ");
 
     // "trunk()" alias should be set to default bookmark "main"
     let stdout = test_env.jj_cmd_success(
         &test_env.env_root().join("clone1"),
         &["config", "list", "--repo", "revset-aliases.'trunk()'"],
     );
-    insta::assert_snapshot!(stdout, @r###"
-    revset-aliases.'trunk()' = "main@origin"
-    "###);
+    insta::assert_snapshot!(stdout, @r#"revset-aliases.'trunk()' = "main@origin""#);
 
     // Only the default bookmark will be imported if auto-local-bookmark is off
     test_env.add_config("git.auto-local-bookmark = false");
     let (_stdout, stderr) =
         test_env.jj_cmd_ok(test_env.env_root(), &["git", "clone", "source", "clone2"]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Fetching into new repo in "$TEST_ENV/clone2"
     bookmark: feature1@origin [new] untracked
     bookmark: main@origin     [new] untracked
@@ -433,19 +411,19 @@ fn test_git_clone_remote_default_bookmark() {
     Working copy now at: rzvqmyuk cc8a5041 (empty) (no description set)
     Parent commit      : mzyxwzks 9f01a0e0 feature1@origin main | message
     Added 1 files, modified 0 files, removed 0 files
-    "###);
+    "#);
     insta::assert_snapshot!(
-        get_bookmark_output(&test_env, &test_env.env_root().join("clone2")), @r###"
+        get_bookmark_output(&test_env, &test_env.env_root().join("clone2")), @r"
     feature1@origin: mzyxwzks 9f01a0e0 message
     main: mzyxwzks 9f01a0e0 message
       @origin: mzyxwzks 9f01a0e0 message
-    "###);
+    ");
 
     // Change the default bookmark in remote
     git_repo.set_head("refs/heads/feature1").unwrap();
     let (_stdout, stderr) =
         test_env.jj_cmd_ok(test_env.env_root(), &["git", "clone", "source", "clone3"]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Fetching into new repo in "$TEST_ENV/clone3"
     bookmark: feature1@origin [new] untracked
     bookmark: main@origin     [new] untracked
@@ -453,22 +431,20 @@ fn test_git_clone_remote_default_bookmark() {
     Working copy now at: nppvrztz b8a8a17b (empty) (no description set)
     Parent commit      : mzyxwzks 9f01a0e0 feature1 main@origin | message
     Added 1 files, modified 0 files, removed 0 files
-    "###);
+    "#);
     insta::assert_snapshot!(
-        get_bookmark_output(&test_env, &test_env.env_root().join("clone2")), @r###"
+        get_bookmark_output(&test_env, &test_env.env_root().join("clone2")), @r"
     feature1@origin: mzyxwzks 9f01a0e0 message
     main: mzyxwzks 9f01a0e0 message
       @origin: mzyxwzks 9f01a0e0 message
-    "###);
+    ");
 
     // "trunk()" alias should be set to new default bookmark "feature1"
     let stdout = test_env.jj_cmd_success(
         &test_env.env_root().join("clone3"),
         &["config", "list", "--repo", "revset-aliases.'trunk()'"],
     );
-    insta::assert_snapshot!(stdout, @r###"
-    revset-aliases.'trunk()' = "feature1@origin"
-    "###);
+    insta::assert_snapshot!(stdout, @r#"revset-aliases.'trunk()' = "feature1@origin""#);
 }
 
 #[test]
@@ -483,28 +459,28 @@ fn test_git_clone_ignore_working_copy() {
         test_env.env_root(),
         &["git", "clone", "--ignore-working-copy", "source", "clone"],
     );
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Fetching into new repo in "$TEST_ENV/clone"
     bookmark: main@origin [new] untracked
     Setting the revset alias "trunk()" to "main@origin"
-    "###);
+    "#);
     let clone_path = test_env.env_root().join("clone");
 
     let (stdout, stderr) = test_env.jj_cmd_ok(&clone_path, &["status", "--ignore-working-copy"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     The working copy is clean
     Working copy : sqpuoqvx cad212e1 (empty) (no description set)
     Parent commit: mzyxwzks 9f01a0e0 main | message
-    "###);
+    ");
     insta::assert_snapshot!(stderr, @"");
 
     // TODO: Correct, but might be better to check out the root commit?
     let stderr = test_env.jj_cmd_failure(&clone_path, &["status"]);
-    insta::assert_snapshot!(stderr, @r##"
+    insta::assert_snapshot!(stderr, @r"
     Error: The working copy is stale (not updated since operation eac759b9ab75).
     Hint: Run `jj workspace update-stale` to update it.
     See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy for more information.
-    "##);
+    ");
 }
 
 #[test]
@@ -518,9 +494,7 @@ fn test_git_clone_at_operation() {
         test_env.env_root(),
         &["git", "clone", "--at-op=@-", "source", "clone"],
     );
-    insta::assert_snapshot!(stderr, @r###"
-    Error: --at-op is not respected
-    "###);
+    insta::assert_snapshot!(stderr, @"Error: --at-op is not respected");
 }
 
 #[test]
@@ -589,13 +563,13 @@ fn test_git_clone_trunk_deleted() {
     "#);
 
     let (stdout, stderr) = test_env.jj_cmd_ok(&clone_path, &["log"]);
-    insta::assert_snapshot!(stdout, @r#"
+    insta::assert_snapshot!(stdout, @r"
     @  sqpuoqvx test.user@example.com 2001-02-03 08:05:07 cad212e1
     │  (empty) (no description set)
     ○  mzyxwzks some.one@example.com 1970-01-01 11:00:00 9f01a0e0
     │  message
     ◆  zzzzzzzz root() 00000000
-    "#);
+    ");
     insta::assert_snapshot!(stderr, @r#"
     Warning: Failed to resolve `revset-aliases.trunk()`: Revision "main@origin" doesn't exist
     Hint: Use `jj config edit --repo` to adjust the `trunk()` alias.
@@ -750,28 +724,28 @@ fn test_git_clone_malformed() {
 
     // The cloned workspace isn't usable.
     let stderr = test_env.jj_cmd_failure(&clone_path, &["status"]);
-    insta::assert_snapshot!(stderr, @r##"
+    insta::assert_snapshot!(stderr, @r"
     Error: The working copy is stale (not updated since operation 4a8ddda0ff63).
     Hint: Run `jj workspace update-stale` to update it.
     See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy for more information.
-    "##);
+    ");
 
     // The error can be somehow recovered.
     // TODO: add an update-stale flag to reset the working-copy?
     let stderr = test_env.jj_cmd_internal_error(&clone_path, &["workspace", "update-stale"]);
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(stderr, @r"
     Internal error: Failed to check out commit 039a1eae03465fd3be0fbad87c9ca97303742677
     Caused by: Reserved path component .jj in $TEST_ENV/clone/.jj
-    "#);
+    ");
     let (_stdout, stderr) =
         test_env.jj_cmd_ok(&clone_path, &["new", "root()", "--ignore-working-copy"]);
     insta::assert_snapshot!(stderr, @"");
     let stdout = test_env.jj_cmd_success(&clone_path, &["status"]);
-    insta::assert_snapshot!(stdout, @r#"
+    insta::assert_snapshot!(stdout, @r"
     The working copy is clean
     Working copy : zsuskuln f652c321 (empty) (no description set)
     Parent commit: zzzzzzzz 00000000 (empty) (no description set)
-    "#);
+    ");
 }
 
 fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> String {

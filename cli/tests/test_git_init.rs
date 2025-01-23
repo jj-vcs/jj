@@ -89,9 +89,7 @@ fn test_git_init_internal() {
     let test_env = TestEnvironment::default();
     let (stdout, stderr) = test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
-    Initialized repo in "repo"
-    "###);
+    insta::assert_snapshot!(stderr, @r#"Initialized repo in "repo""#);
 
     let workspace_root = test_env.env_root().join("repo");
     let jj_path = workspace_root.join(".jj");
@@ -115,9 +113,7 @@ fn test_git_init_internal_ignore_working_copy() {
 
     let stderr =
         test_env.jj_cmd_cli_error(&workspace_root, &["git", "init", "--ignore-working-copy"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: --ignore-working-copy is not respected
-    "###);
+    insta::assert_snapshot!(stderr, @"Error: --ignore-working-copy is not respected");
 }
 
 #[test]
@@ -127,9 +123,7 @@ fn test_git_init_internal_at_operation() {
     std::fs::create_dir(&workspace_root).unwrap();
 
     let stderr = test_env.jj_cmd_cli_error(&workspace_root, &["git", "init", "--at-op=@-"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: --at-op is not respected
-    "###);
+    insta::assert_snapshot!(stderr, @"Error: --at-op is not respected");
 }
 
 #[test_case(false; "full")]
@@ -151,13 +145,19 @@ fn test_git_init_external(bare: bool) {
     );
     insta::allow_duplicates! {
         insta::assert_snapshot!(stdout, @"");
-        insta::assert_snapshot!(stderr, @r###"
+        insta::assert_snapshot!(stderr, @r#"
         Done importing changes from the underlying Git repo.
         Working copy now at: sqpuoqvx f6950fc1 (empty) (no description set)
         Parent commit      : mwrttmos 8d698d4a my-bookmark | My commit message
         Added 1 files, modified 0 files, removed 0 files
         Initialized repo in "repo"
-        "###);
+        "#);r#"
+        Done importing changes from the underlying Git repo.
+        Working copy now at: sqpuoqvx f6950fc1 (empty) (no description set)
+        Parent commit      : mwrttmos 8d698d4a my-bookmark | My commit message
+        Added 1 files, modified 0 files, removed 0 files
+        Initialized repo in "repo"
+        "#
     }
 
     let workspace_root = test_env.env_root().join("repo");
@@ -178,11 +178,11 @@ fn test_git_init_external(bare: bool) {
 
     // Check that the Git repo's HEAD got checked out
     insta::allow_duplicates! {
-        insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r#"
+        insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
         @  f6950fc115ae
         ○  8d698d4a8ee1 my-bookmark git_head() My commit message
         ◆  000000000000
-        "#);
+        ");
     }
 }
 
@@ -225,14 +225,14 @@ fn test_git_init_external_import_trunk(bare: bool) {
         insta::assert_snapshot!(stdout, @"");
     }
     insta::allow_duplicates! {
-        insta::assert_snapshot!(stderr, @r###"
+        insta::assert_snapshot!(stderr, @r#"
         Done importing changes from the underlying Git repo.
         Setting the revset alias "trunk()" to "trunk@origin"
         Working copy now at: sqpuoqvx f6950fc1 (empty) (no description set)
         Parent commit      : mwrttmos 8d698d4a my-bookmark trunk@origin | My commit message
         Added 1 files, modified 0 files, removed 0 files
         Initialized repo in "repo"
-        "###);
+        "#);
     }
 
     // "trunk()" alias should be set to remote "origin"'s default bookmark "trunk"
@@ -241,9 +241,7 @@ fn test_git_init_external_import_trunk(bare: bool) {
         &["config", "list", "--repo", "revset-aliases.\"trunk()\""],
     );
     insta::allow_duplicates! {
-        insta::assert_snapshot!(stdout, @r###"
-        revset-aliases."trunk()" = "trunk@origin"
-        "###);
+        insta::assert_snapshot!(stdout, @r#"revset-aliases."trunk()" = "trunk@origin""#);
     }
 }
 
@@ -267,9 +265,7 @@ fn test_git_init_external_ignore_working_copy() {
             git_repo_path.to_str().unwrap(),
         ],
     );
-    insta::assert_snapshot!(stderr, @r###"
-    Error: --ignore-working-copy is not respected
-    "###);
+    insta::assert_snapshot!(stderr, @"Error: --ignore-working-copy is not respected");
 }
 
 #[test]
@@ -290,9 +286,7 @@ fn test_git_init_external_at_operation() {
             git_repo_path.to_str().unwrap(),
         ],
     );
-    insta::assert_snapshot!(stderr, @r###"
-    Error: --at-op is not respected
-    "###);
+    insta::assert_snapshot!(stderr, @"Error: --at-op is not respected");
 }
 
 #[test]
@@ -302,11 +296,11 @@ fn test_git_init_external_non_existent_directory() {
         test_env.env_root(),
         &["git", "init", "repo", "--git-repo", "non-existent"],
     );
-    insta::assert_snapshot!(strip_last_line(&stderr), @r###"
+    insta::assert_snapshot!(strip_last_line(&stderr), @r"
     Error: Failed to access the repository
     Caused by:
     1: Cannot access $TEST_ENV/non-existent
-    "###);
+    ");
 }
 
 #[test]
@@ -318,13 +312,13 @@ fn test_git_init_external_non_existent_git_directory() {
         &["git", "init", "repo", "--git-repo", "repo"],
     );
 
-    insta::assert_snapshot!(&stderr, @r###"
+    insta::assert_snapshot!(&stderr, @r#"
     Error: Failed to access the repository
     Caused by:
     1: Failed to open git repository
     2: "$TEST_ENV/repo" does not appear to be a git repository
     3: Missing HEAD at '.git/HEAD'
-    "###);
+    "#);
     let jj_path = workspace_root.join(".jj");
     assert!(!jj_path.exists());
 }
@@ -336,10 +330,10 @@ fn test_git_init_colocated_via_git_repo_path() {
     init_git_repo(&workspace_root, false);
     let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["git", "init", "--git-repo", "."]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Done importing changes from the underlying Git repo.
     Initialized repo in "."
-    "###);
+    "#);
 
     let jj_path = workspace_root.join(".jj");
     let repo_path = jj_path.join("repo");
@@ -354,20 +348,20 @@ fn test_git_init_colocated_via_git_repo_path() {
         .ends_with("../../../.git"));
 
     // Check that the Git repo's HEAD got checked out
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r#"
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  f61b77cd4bb5
     ○  8d698d4a8ee1 my-bookmark git_head() My commit message
     ◆  000000000000
-    "#);
+    ");
 
     // Check that the Git repo's HEAD moves
     test_env.jj_cmd_ok(&workspace_root, &["new"]);
-    insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r#"
+    insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r"
     @  f1c7aa7c62d8
     ○  f61b77cd4bb5 git_head()
     ○  8d698d4a8ee1 my-bookmark My commit message
     ◆  000000000000
-    "#);
+    ");
 }
 
 #[test]
@@ -383,27 +377,27 @@ fn test_git_init_colocated_via_git_repo_path_gitlink() {
     assert!(workspace_root.join(".git").is_file());
     let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["git", "init", "--git-repo", "."]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Done importing changes from the underlying Git repo.
     Initialized repo in "."
-    "###);
+    "#);
     insta::assert_snapshot!(read_git_target(&workspace_root), @"../../../.git");
 
     // Check that the Git repo's HEAD got checked out
-    insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r#"
+    insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r"
     @  f61b77cd4bb5
     ○  8d698d4a8ee1 my-bookmark git_head() My commit message
     ◆  000000000000
-    "#);
+    ");
 
     // Check that the Git repo's HEAD moves
     test_env.jj_cmd_ok(&workspace_root, &["new"]);
-    insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r#"
+    insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r"
     @  f1c7aa7c62d8
     ○  f61b77cd4bb5 git_head()
     ○  8d698d4a8ee1 my-bookmark My commit message
     ◆  000000000000
-    "#);
+    ");
 }
 
 #[cfg(unix)]
@@ -418,27 +412,27 @@ fn test_git_init_colocated_via_git_repo_path_symlink_directory() {
     std::os::unix::fs::symlink(git_repo_path.join(".git"), workspace_root.join(".git")).unwrap();
     let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["git", "init", "--git-repo", "."]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Done importing changes from the underlying Git repo.
     Initialized repo in "."
-    "###);
+    "#);
     insta::assert_snapshot!(read_git_target(&workspace_root), @"../../../.git");
 
     // Check that the Git repo's HEAD got checked out
-    insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r#"
+    insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r"
     @  f61b77cd4bb5
     ○  8d698d4a8ee1 my-bookmark git_head() My commit message
     ◆  000000000000
-    "#);
+    ");
 
     // Check that the Git repo's HEAD moves
     test_env.jj_cmd_ok(&workspace_root, &["new"]);
-    insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r#"
+    insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r"
     @  f1c7aa7c62d8
     ○  f61b77cd4bb5 git_head()
     ○  8d698d4a8ee1 my-bookmark My commit message
     ◆  000000000000
-    "#);
+    ");
 }
 
 #[cfg(unix)]
@@ -456,27 +450,27 @@ fn test_git_init_colocated_via_git_repo_path_symlink_directory_without_bare_conf
     std::os::unix::fs::symlink(&git_repo_path, workspace_root.join(".git")).unwrap();
     let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["git", "init", "--git-repo", "."]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Done importing changes from the underlying Git repo.
     Initialized repo in "."
-    "###);
+    "#);
     insta::assert_snapshot!(read_git_target(&workspace_root), @"../../../.git");
 
     // Check that the Git repo's HEAD got checked out
-    insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r#"
+    insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r"
     @  f61b77cd4bb5
     ○  8d698d4a8ee1 my-bookmark git_head() My commit message
     ◆  000000000000
-    "#);
+    ");
 
     // Check that the Git repo's HEAD moves
     test_env.jj_cmd_ok(&workspace_root, &["new"]);
-    insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r#"
+    insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r"
     @  f1c7aa7c62d8
     ○  f61b77cd4bb5 git_head()
     ○  8d698d4a8ee1 my-bookmark My commit message
     ◆  000000000000
-    "#);
+    ");
 }
 
 #[cfg(unix)]
@@ -496,27 +490,27 @@ fn test_git_init_colocated_via_git_repo_path_symlink_gitlink() {
     std::os::unix::fs::symlink(git_workdir_path.join(".git"), workspace_root.join(".git")).unwrap();
     let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["git", "init", "--git-repo", "."]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Done importing changes from the underlying Git repo.
     Initialized repo in "."
-    "###);
+    "#);
     insta::assert_snapshot!(read_git_target(&workspace_root), @"../../../.git");
 
     // Check that the Git repo's HEAD got checked out
-    insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r#"
+    insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r"
     @  f61b77cd4bb5
     ○  8d698d4a8ee1 my-bookmark git_head() My commit message
     ◆  000000000000
-    "#);
+    ");
 
     // Check that the Git repo's HEAD moves
     test_env.jj_cmd_ok(&workspace_root, &["new"]);
-    insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r#"
+    insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r"
     @  f1c7aa7c62d8
     ○  f61b77cd4bb5 git_head()
     ○  8d698d4a8ee1 my-bookmark My commit message
     ◆  000000000000
-    "#);
+    ");
 }
 
 #[test]
@@ -555,37 +549,37 @@ fn test_git_init_colocated_via_git_repo_path_imported_refs() {
     let local_path = test_env.env_root().join("local1");
     set_up_local_repo(&local_path);
     let (_stdout, stderr) = test_env.jj_cmd_ok(&local_path, &["git", "init", "--git-repo=."]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Done importing changes from the underlying Git repo.
     Initialized repo in "."
-    "###);
-    insta::assert_snapshot!(get_bookmark_output(&test_env, &local_path), @r###"
+    "#);
+    insta::assert_snapshot!(get_bookmark_output(&test_env, &local_path), @r"
     local-remote: vvkvtnvv 230dd059 (empty) (no description set)
       @git: vvkvtnvv 230dd059 (empty) (no description set)
       @origin: vvkvtnvv 230dd059 (empty) (no description set)
     remote-only: vvkvtnvv 230dd059 (empty) (no description set)
       @git: vvkvtnvv 230dd059 (empty) (no description set)
       @origin: vvkvtnvv 230dd059 (empty) (no description set)
-    "###);
+    ");
 
     // With git.auto-local-bookmark = false
     test_env.add_config("git.auto-local-bookmark = false");
     let local_path = test_env.env_root().join("local2");
     set_up_local_repo(&local_path);
     let (_stdout, stderr) = test_env.jj_cmd_ok(&local_path, &["git", "init", "--git-repo=."]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Done importing changes from the underlying Git repo.
     Hint: The following remote bookmarks aren't associated with the existing local bookmarks:
       local-remote@origin
     Hint: Run `jj bookmark track local-remote@origin` to keep local bookmarks updated on future pulls.
     Initialized repo in "."
-    "###);
-    insta::assert_snapshot!(get_bookmark_output(&test_env, &local_path), @r###"
+    "#);
+    insta::assert_snapshot!(get_bookmark_output(&test_env, &local_path), @r"
     local-remote: vvkvtnvv 230dd059 (empty) (no description set)
       @git: vvkvtnvv 230dd059 (empty) (no description set)
     local-remote@origin: vvkvtnvv 230dd059 (empty) (no description set)
     remote-only@origin: vvkvtnvv 230dd059 (empty) (no description set)
-    "###);
+    ");
 }
 
 #[test]
@@ -611,22 +605,22 @@ fn test_git_init_colocated_dirty_working_copy() {
     add_file_to_index("some-file", "new content");
     add_file_to_index("new-staged-file", "new content");
     std::fs::write(workspace_root.join("unstaged-file"), "new content").unwrap();
-    insta::assert_snapshot!(get_git_statuses(), @r###"
+    insta::assert_snapshot!(get_git_statuses(), @r"
     Status(INDEX_NEW) new-staged-file
     Status(INDEX_MODIFIED) some-file
     Status(WT_NEW) unstaged-file
-    "###);
+    ");
 
     let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["git", "init", "--git-repo", "."]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Done importing changes from the underlying Git repo.
     Initialized repo in "."
-    "###);
+    "#);
 
     // Working-copy changes should have been snapshotted.
     let stdout = test_env.jj_cmd_success(&workspace_root, &["log", "-s", "--ignore-working-copy"]);
-    insta::assert_snapshot!(stdout, @r#"
+    insta::assert_snapshot!(stdout, @r"
     @  sqpuoqvx test.user@example.com 2001-02-03 08:05:07 cd1e144d
     │  (no description set)
     │  C {some-file => new-staged-file}
@@ -636,20 +630,20 @@ fn test_git_init_colocated_dirty_working_copy() {
     │  My commit message
     │  A some-file
     ◆  zzzzzzzz root() 00000000
-    "#);
+    ");
 
     // Git index should be consistent with the working copy parent. With the
     // current implementation, the index is unchanged. Since jj created new
     // working copy commit, it's also okay to update the index reflecting the
     // working copy commit or the working copy parent.
-    insta::assert_snapshot!(get_git_statuses(), @r###"
+    insta::assert_snapshot!(get_git_statuses(), @r"
     Status(IGNORED) .jj/.gitignore
     Status(IGNORED) .jj/repo/
     Status(IGNORED) .jj/working_copy/
     Status(INDEX_NEW) new-staged-file
     Status(INDEX_MODIFIED) some-file
     Status(WT_NEW) unstaged-file
-    "###);
+    ");
 }
 
 #[test]
@@ -663,9 +657,7 @@ fn test_git_init_colocated_ignore_working_copy() {
         &workspace_root,
         &["git", "init", "--ignore-working-copy", "--colocate"],
     );
-    insta::assert_snapshot!(stderr, @r###"
-    Error: --ignore-working-copy is not respected
-    "###);
+    insta::assert_snapshot!(stderr, @"Error: --ignore-working-copy is not respected");
 }
 
 #[test]
@@ -678,9 +670,7 @@ fn test_git_init_colocated_at_operation() {
         &workspace_root,
         &["git", "init", "--at-op=@-", "--colocate"],
     );
-    insta::assert_snapshot!(stderr, @r###"
-    Error: --at-op is not respected
-    "###);
+    insta::assert_snapshot!(stderr, @"Error: --at-op is not respected");
 }
 
 #[test]
@@ -695,23 +685,21 @@ fn test_git_init_external_but_git_dir_exists() {
         &["git", "init", "--git-repo", git_repo_path.to_str().unwrap()],
     );
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
-    Initialized repo in "."
-    "###);
+    insta::assert_snapshot!(stderr, @r#"Initialized repo in ".""#);
 
     // The local ".git" repository is unrelated, so no commits should be imported
-    insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r###"
+    insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r"
     @  230dd059e1b0
     ◆  000000000000
-    "###);
+    ");
 
     // Check that Git HEAD is not set because this isn't a colocated repo
     test_env.jj_cmd_ok(&workspace_root, &["new"]);
-    insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r###"
+    insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r"
     @  4db490c88528
     ○  230dd059e1b0
     ◆  000000000000
-    "###);
+    ");
 }
 
 #[test]
@@ -723,26 +711,26 @@ fn test_git_init_colocated_via_flag_git_dir_exists() {
     let (stdout, stderr) =
         test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "--colocate", "repo"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Done importing changes from the underlying Git repo.
     Initialized repo in "repo"
-    "###);
+    "#);
 
     // Check that the Git repo's HEAD got checked out
-    insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r#"
+    insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r"
     @  f61b77cd4bb5
     ○  8d698d4a8ee1 my-bookmark git_head() My commit message
     ◆  000000000000
-    "#);
+    ");
 
     // Check that the Git repo's HEAD moves
     test_env.jj_cmd_ok(&workspace_root, &["new"]);
-    insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r#"
+    insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r"
     @  f1c7aa7c62d8
     ○  f61b77cd4bb5 git_head()
     ○  8d698d4a8ee1 my-bookmark My commit message
     ◆  000000000000
-    "#);
+    ");
 }
 
 #[test]
@@ -752,24 +740,22 @@ fn test_git_init_colocated_via_flag_git_dir_not_exists() {
     let (stdout, stderr) =
         test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "--colocate", "repo"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
-    Initialized repo in "repo"
-    "###);
+    insta::assert_snapshot!(stderr, @r#"Initialized repo in "repo""#);
     // No HEAD ref is available yet
-    insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r###"
+    insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r"
     @  230dd059e1b0
     ◆  000000000000
-    "###);
+    ");
 
     // Create the default bookmark (create both in case we change the default)
     test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "main", "master"]);
 
     // If .git/HEAD pointed to the default bookmark, new working-copy commit would
     // be created on top.
-    insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r###"
+    insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r"
     @  230dd059e1b0 main master
     ◆  000000000000
-    "###);
+    ");
 }
 
 #[test]

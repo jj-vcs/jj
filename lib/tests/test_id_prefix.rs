@@ -66,7 +66,7 @@ fn test_id_prefix() {
         .map(|(i, commit)| format!("{} {}", &commit.id().hex()[..3], i))
         .sorted()
         .join("\n");
-    insta::assert_snapshot!(commit_prefixes, @r###"
+    insta::assert_snapshot!(commit_prefixes, @r"
     11a 5
     214 24
     2a6 2
@@ -93,14 +93,14 @@ fn test_id_prefix() {
     eec 15
     efe 7
     fa3 11
-    "###);
+    ");
     let change_prefixes = commits
         .iter()
         .enumerate()
         .map(|(i, commit)| format!("{} {}", &commit.change_id().hex()[..3], i))
         .sorted()
         .join("\n");
-    insta::assert_snapshot!(change_prefixes, @r###"
+    insta::assert_snapshot!(change_prefixes, @r"
     026 9
     030 13
     1b5 6
@@ -127,7 +127,7 @@ fn test_id_prefix() {
     c24 15
     d64 12
     fee 25
-    "###);
+    ");
 
     let prefix = |x| HexPrefix::new(x).unwrap();
 
@@ -300,21 +300,21 @@ fn test_id_prefix_divergent() {
         .enumerate()
         .map(|(i, commit)| format!("{} {}", &commit.change_id().hex()[..4], i))
         .join("\n");
-    insta::assert_snapshot!(change_prefixes, @r###"
+    insta::assert_snapshot!(change_prefixes, @r"
     a533 0
     a500 1
     a500 2
-    "###);
+    ");
     let commit_prefixes = commits
         .iter()
         .enumerate()
         .map(|(i, commit)| format!("{} {}", &commit.id().hex()[..4], i))
         .join("\n");
-    insta::assert_snapshot!(commit_prefixes, @r###"
+    insta::assert_snapshot!(commit_prefixes, @r"
     eafa 0
     d48d 1
     2fbb 2
-    "###);
+    ");
 
     let prefix = |x| HexPrefix::new(x).unwrap();
 
@@ -423,7 +423,7 @@ fn test_id_prefix_hidden() {
         .map(|(i, commit)| format!("{} {}", &commit.id().hex()[..3], i))
         .sorted()
         .join("\n");
-    insta::assert_snapshot!(commit_prefixes, @r#"
+    insta::assert_snapshot!(commit_prefixes, @r"
     15e 9
     397 6
     53c 7
@@ -434,14 +434,14 @@ fn test_id_prefix_hidden() {
     c0a 5
     ce9 0
     f10 1
-    "#);
+    ");
     let change_prefixes = commits
         .iter()
         .enumerate()
         .map(|(i, commit)| format!("{} {}", &commit.change_id().hex()[..3], i))
         .sorted()
         .join("\n");
-    insta::assert_snapshot!(change_prefixes, @r#"
+    insta::assert_snapshot!(change_prefixes, @r"
     026 9
     1b5 6
     26b 3
@@ -452,7 +452,7 @@ fn test_id_prefix_hidden() {
     896 5
     a2c 1
     b93 4
-    "#);
+    ");
 
     let hidden_commit = &commits[8];
     tx.repo_mut().record_abandoned_commit(hidden_commit);
