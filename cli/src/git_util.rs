@@ -33,6 +33,7 @@ use jj_lib::fmt_util::binary_prefix;
 use jj_lib::git;
 use jj_lib::git::FailedRefExport;
 use jj_lib::git::FailedRefExportReason;
+use jj_lib::git::GitFetch;
 use jj_lib::git::GitFetchError;
 use jj_lib::git::GitImportStats;
 use jj_lib::git::RefName;
@@ -641,51 +642,47 @@ export or their "parent" bookmarks."#,
     Ok(())
 }
 
+// TODO: move to cli/src/commands/git/fetch
+// No other aprt of the code is using this
 pub fn git_fetch(
     ui: &mut Ui,
     tx: &mut WorkspaceCommandTransaction,
     git_repo: &git2::Repository,
     remotes: &[String],
-    branch: &[StringPattern],
+    branch_names: &[StringPattern],
 ) -> Result<(), CommandError> {
     let git_settings = tx.settings().git_settings()?;
+    let mut git_fetch = GitFetch::new(tx.repo_mut(), git_repo, &git_settings);
 
-    for remote in remotes {
-        let stats = with_remote_git_callbacks(ui, None, &git_settings, |cb| {
-            git::fetch(
-                tx.repo_mut(),
-                git_repo,
-                remote,
-                branch,
-                cb,
-                &git_settings,
-                None,
-            )
-        })
-        .map_err(|err| match err {
-            GitFetchError::InvalidBranchPattern => {
-                if branch
-                    .iter()
-                    .any(|pattern| pattern.as_exact().is_some_and(|s| s.contains('*')))
-                {
-                    user_error_with_hint(
-                        "Branch names may not include `*`.",
-                        "Prefix the pattern with `glob:` to expand `*` as a glob",
-                    )
-                } else {
-                    user_error(err)
-                }
-            }
-            GitFetchError::GitImportError(err) => err.into(),
-            GitFetchError::InternalGitError(err) => map_git_error(err),
-            _ => user_error(err),
+    for remote_name in remotes {
+        with_remote_git_callbacks(ui, None, &git_settings, |cb| {
+            git_fetch
+                .fetch(remote_name, branch_names, cb, None)
+                .map_err(|err| match err {
+                    GitFetchError::InvalidBranchPattern => {
+                        if branch_names
+                            .iter()
+                            .any(|pattern| pattern.as_exact().is_some_and(|s| s.contains('*')))
+                        {
+                            user_error_with_hint(
+                                "Branch names may not include `*`.",
+                                "Prefix the pattern with `glob:` to expand `*` as a glob",
+                            )
+                        } else {
+                            user_error(err)
+                        }
+                    }
+                    GitFetchError::InternalGitError(err) => map_git_error(err),
+                    _ => user_error(err),
+                })
         })?;
-        print_git_import_stats(ui, tx.repo(), &stats.import_stats, true)?;
     }
+    let import_stats = git_fetch.import_refs()?;
+    print_git_import_stats(ui, tx.repo(), &import_stats, true)?;
     warn_if_branches_not_found(
         ui,
         tx,
-        branch,
+        branch_names,
         &remotes.iter().map(StringPattern::exact).collect_vec(),
     )
 }

@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use std::path::Path;
+use std::path::PathBuf;
 
 use test_case::test_case;
 
@@ -49,6 +50,33 @@ fn add_git_remote(test_env: &TestEnvironment, repo_path: &Path, remote: &str) {
         repo_path,
         &["git", "remote", "add", remote, &format!("../{remote}")],
     );
+}
+
+/// Clone a git repo from a source, add a commit on top
+fn clone_git_add_commit(test_env: &TestEnvironment, src_remote: &str, remote: &str) {
+    let src_repo_path = test_env.env_root().join(src_remote);
+    let git_repo_path = test_env.env_root().join(remote);
+    let git_repo = git2::Repository::clone(src_repo_path.to_str().unwrap(), git_repo_path).unwrap();
+    let signature =
+        git2::Signature::new("Some One", "some.one@example.com", &git2::Time::new(0, 0)).unwrap();
+    let mut tree_builder = git_repo.treebuilder(None).unwrap();
+    let file_oid = git_repo.blob(remote.as_bytes()).unwrap();
+    tree_builder
+        .insert("file", file_oid, git2::FileMode::Blob.into())
+        .unwrap();
+    let tree_oid = tree_builder.write().unwrap();
+    let tree = git_repo.find_tree(tree_oid).unwrap();
+    // our branch name is the same as the source branch name
+    git_repo
+        .commit(
+            Some(&format!("refs/heads/{src_remote}")),
+            &signature,
+            &signature,
+            "message",
+            &tree,
+            &[],
+        )
+        .unwrap();
 }
 
 fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> String {
@@ -300,10 +328,7 @@ fn test_git_fetch_nonexistent_remote(subprocess: bool) {
         &["git", "fetch", "--remote", "rem1", "--remote", "rem2"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r###"
-    bookmark: rem1@rem1 [new] untracked
-    Error: No git remote named 'rem2'
-    "###);
+    insta::assert_snapshot!(stderr, @"Error: No git remote named 'rem2'");
     }
     insta::allow_duplicates! {
     // No remote should have been fetched as part of the failing transaction
@@ -325,11 +350,10 @@ fn test_git_fetch_nonexistent_remote_from_config(subprocess: bool) {
 
     let stderr = &test_env.jj_cmd_failure(&repo_path, &["git", "fetch"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r###"
-    bookmark: rem1@rem1 [new] untracked
-    Error: No git remote named 'rem2'
-    "###);
+    insta::assert_snapshot!(stderr, @"Error: No git remote named 'rem2'");
+    }
     // No remote should have been fetched as part of the failing transaction
+    insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @"");
     }
 }
@@ -1753,5 +1777,49 @@ fn test_git_fetch_remote_only_bookmark(subprocess: bool) {
       @origin: mzyxwzks 9f01a0e0 message
     feature2@origin: mzyxwzks 9f01a0e0 message
     "###);
+    }
+}
+
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_git_fetch_multiple_remotes_same_commit(subprocess: bool) {
+    fn setup_env(subprocess: bool) -> (TestEnvironment, PathBuf) {
+        let test_env = TestEnvironment::default();
+        if subprocess {
+            test_env.set_up_git_subprocessing();
+        }
+        test_env.add_config("git.auto-local-bookmark = true");
+        test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+        let repo_path = test_env.env_root().join("repo");
+        add_git_remote(&test_env, &repo_path, "rem1");
+        clone_git_add_commit(&test_env, "rem1", "rem2");
+        test_env.jj_cmd_ok(&repo_path, &["git", "remote", "add", "rem2", "../rem2"]);
+
+        (test_env, repo_path.clone())
+    }
+
+    // fetch with different orderings
+    let (test_env1, repo_path1) = setup_env(subprocess);
+    test_env1.jj_cmd_ok(
+        &repo_path1,
+        &["git", "fetch", "--remote", "rem1", "--remote", "rem2"],
+    );
+    let (test_env2, repo_path2) = setup_env(subprocess);
+    test_env2.jj_cmd_ok(
+        &repo_path2,
+        &["git", "fetch", "--remote", "rem2", "--remote", "rem1"],
+    );
+
+    let bookmark_output1 = get_bookmark_output(&test_env1, &repo_path1);
+    let bookmark_output2 = get_bookmark_output(&test_env2, &repo_path2);
+    assert_eq!(bookmark_output1, bookmark_output2);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(bookmark_output1, @r"
+    rem1 (conflicted):
+      + qxosxrvv 6a211027 message
+      + yszkquru 2497a8a0 message
+      @rem1 (behind by 1 commits): qxosxrvv 6a211027 message
+      @rem2 (behind by 1 commits): yszkquru 2497a8a0 message
+    ");
     }
 }
