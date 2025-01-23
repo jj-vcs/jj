@@ -377,21 +377,16 @@ pub fn cmd_git_push(
     };
 
     let git_settings = tx.settings().git_settings()?;
-    with_remote_git_callbacks(
-        ui,
-        Some(&mut sideband_progress_callback),
-        &git_settings,
-        |cb| {
-            git::push_branches(
-                tx.repo_mut(),
-                &git_repo,
-                &git_settings,
-                &remote,
-                &targets,
-                cb,
-            )
-        },
-    )
+    with_remote_git_callbacks(ui, Some(&mut sideband_progress_callback), |cb| {
+        git::push_branches(
+            tx.repo_mut(),
+            &git_repo,
+            &git_settings,
+            &remote,
+            &targets,
+            cb,
+        )
+    })
     .map_err(|err| match err {
         GitPushError::InternalGitError(err) => map_git_error(err),
         GitPushError::RefInUnexpectedLocation(refs) => user_error_with_hint(

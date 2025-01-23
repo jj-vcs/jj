@@ -1536,10 +1536,10 @@ impl<'a> GitFetch<'a> {
 
     fn git2_fetch(
         &mut self,
-        callbacks: RemoteCallbacks<'_>,
-        depth: Option<NonZeroU32>,
         remote_name: &str,
         branch_names: &[StringPattern],
+        callbacks: RemoteCallbacks<'_>,
+        depth: Option<NonZeroU32>,
     ) -> Result<Option<String>, GitFetchError> {
         let mut remote = self.git_repo.find_remote(remote_name).map_err(|err| {
             if is_remote_not_found_err(&err) {
@@ -1592,9 +1592,10 @@ impl<'a> GitFetch<'a> {
 
     fn subprocess_fetch(
         &mut self,
-        depth: Option<NonZeroU32>,
         remote_name: &str,
         branch_names: &[StringPattern],
+        mut callbacks: RemoteCallbacks<'_>,
+        depth: Option<NonZeroU32>,
     ) -> Result<Option<String>, GitFetchError> {
         // check the remote exists
         // TODO: we should ideally find a way to do this without git2
@@ -1625,7 +1626,7 @@ impl<'a> GitFetch<'a> {
         // even more unfortunately, git errors out one refspec at a time,
         // meaning that the below cycle runs in O(#failed refspecs)
         while let Some(failing_refspec) =
-            git_ctx.spawn_fetch(remote_name, depth, &remaining_refspecs)?
+            git_ctx.spawn_fetch(remote_name, &remaining_refspecs, &mut callbacks, depth)?
         {
             remaining_refspecs.retain(|r| r.source.as_ref() != Some(&failing_refspec));
 
@@ -1660,9 +1661,9 @@ impl<'a> GitFetch<'a> {
         depth: Option<NonZeroU32>,
     ) -> Result<Option<String>, GitFetchError> {
         let default_branch = if self.git_settings.subprocess {
-            self.subprocess_fetch(depth, remote_name, branch_names)
+            self.subprocess_fetch(remote_name, branch_names, callbacks, depth)
         } else {
-            self.git2_fetch(callbacks, depth, remote_name, branch_names)
+            self.git2_fetch(remote_name, branch_names, callbacks, depth)
         };
 
         self.fetched.push(FetchedBranches {
@@ -1832,6 +1833,7 @@ pub fn push_updates(
             remote_name,
             &qualified_remote_refs_expected_locations,
             &refspecs,
+            callbacks,
         )
     } else {
         let refspecs: Vec<String> = refspecs.iter().map(RefSpec::to_git_format).collect();
@@ -1978,6 +1980,7 @@ fn subprocess_push_refs(
     remote_name: &str,
     qualified_remote_refs_expected_locations: &HashMap<&str, Option<&CommitId>>,
     refspecs: &[RefSpec],
+    callbacks: RemoteCallbacks<'_>,
 ) -> Result<(), GitPushError> {
     // check the remote exists
     // TODO: we should ideally find a way to do this without git2
@@ -2000,7 +2003,8 @@ fn subprocess_push_refs(
         .map(|full_refspec| RefToPush::new(full_refspec, qualified_remote_refs_expected_locations))
         .collect();
 
-    let (failed_ref_matches, successful_pushes) = git_ctx.spawn_push(remote_name, &refs_to_push)?;
+    let (failed_ref_matches, successful_pushes) =
+        git_ctx.spawn_push(remote_name, &refs_to_push, callbacks)?;
 
     for remote_ref in successful_pushes {
         remaining_remote_refs.remove(remote_ref.as_str());

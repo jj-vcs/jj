@@ -15,6 +15,7 @@
 use std::num::NonZeroU32;
 use std::path::Path;
 use std::path::PathBuf;
+use std::process::Child;
 use std::process::Command;
 use std::process::Output;
 use std::process::Stdio;
@@ -24,6 +25,7 @@ use thiserror::Error;
 
 use crate::git::RefSpec;
 use crate::git::RefToPush;
+use crate::git::RemoteCallbacks;
 
 /// Error originating by a Git subprocess
 #[derive(Error, Debug)]
@@ -53,6 +55,8 @@ pub(crate) struct GitSubprocessContext<'a> {
     git_dir: PathBuf,
     git_executable_path: &'a Path,
 }
+
+pub(crate) type SidebandProgressCallback<'a> = &'a mut dyn FnMut(&[u8]);
 
 impl<'a> GitSubprocessContext<'a> {
     pub(crate) fn new(git_dir: impl Into<PathBuf>, git_executable_path: &'a Path) -> Self {
@@ -84,9 +88,9 @@ impl<'a> GitSubprocessContext<'a> {
     }
 
     /// Spawn the git command
-    fn spawn_cmd(&self, mut git_cmd: Command) -> Result<Output, GitSubprocessError> {
+    fn spawn_cmd(&self, mut git_cmd: Command) -> Result<Child, GitSubprocessError> {
         tracing::debug!(cmd = ?git_cmd, "spawning a git subprocess");
-        let child_git = git_cmd.spawn().map_err(|error| {
+        git_cmd.spawn().map_err(|error| {
             if self.git_executable_path.is_absolute() {
                 GitSubprocessError::Spawn {
                     path: self.git_executable_path.to_path_buf(),
@@ -98,11 +102,7 @@ impl<'a> GitSubprocessContext<'a> {
                     error,
                 }
             }
-        })?;
-
-        child_git
-            .wait_with_output()
-            .map_err(GitSubprocessError::Wait)
+        })
     }
 
     /// Perform a git fetch
@@ -112,8 +112,9 @@ impl<'a> GitSubprocessContext<'a> {
     pub(crate) fn spawn_fetch(
         &self,
         remote_name: &str,
-        depth: Option<NonZeroU32>,
         refspecs: &[RefSpec],
+        callbacks: &mut RemoteCallbacks<'_>,
+        depth: Option<NonZeroU32>,
     ) -> Result<Option<String>, GitSubprocessError> {
         if refspecs.is_empty() {
             return Ok(None);
@@ -130,9 +131,9 @@ impl<'a> GitSubprocessContext<'a> {
         command.arg("--").arg(remote_name);
         command.args(refspecs.iter().map(|x| x.to_git_format()));
 
-        let output = self.spawn_cmd(command)?;
+        let output = wait_with_output(self.spawn_cmd(command)?)?;
 
-        parse_git_fetch_output(output)
+        parse_git_fetch_output(output, &mut callbacks.sideband_progress)
     }
 
     /// Prune particular branches
@@ -148,7 +149,7 @@ impl<'a> GitSubprocessContext<'a> {
         command.args(["branch", "--remotes", "--delete", "--"]);
         command.args(branches_to_prune);
 
-        let output = self.spawn_cmd(command)?;
+        let output = wait_with_output(self.spawn_cmd(command)?)?;
 
         // we name the type to make sure that it is not meant to be used
         let () = parse_git_branch_prune_output(output)?;
@@ -169,7 +170,7 @@ impl<'a> GitSubprocessContext<'a> {
         let mut command = self.create_command();
         command.stdout(Stdio::piped());
         command.args(["remote", "show", "--", remote_name]);
-        let output = self.spawn_cmd(command)?;
+        let output = wait_with_output(self.spawn_cmd(command)?)?;
 
         let output = parse_git_remote_show_output(output)?;
 
@@ -189,6 +190,7 @@ impl<'a> GitSubprocessContext<'a> {
         &self,
         remote_name: &str,
         references: &[RefToPush],
+        mut callbacks: RemoteCallbacks<'_>,
     ) -> Result<(Vec<String>, Vec<String>), GitSubprocessError> {
         let mut command = self.create_command();
         command.stdout(Stdio::piped());
@@ -207,9 +209,9 @@ impl<'a> GitSubprocessContext<'a> {
                 .map(|r| r.refspec.to_git_format_not_forced()),
         );
 
-        let output = self.spawn_cmd(command)?;
+        let output = wait_with_output(self.spawn_cmd(command)?)?;
 
-        parse_git_push_output(output)
+        parse_git_push_output(output, &mut callbacks.sideband_progress)
     }
 }
 
@@ -287,8 +289,12 @@ fn parse_no_remote_tracking_branch(stderr: &[u8]) -> Option<String> {
 // return the fully qualified ref that failed to fetch
 //
 // note that git fetch only returns one error at a time
-fn parse_git_fetch_output(output: Output) -> Result<Option<String>, GitSubprocessError> {
+fn parse_git_fetch_output(
+    output: Output,
+    sideband_progress: &mut Option<SidebandProgressCallback<'_>>,
+) -> Result<Option<String>, GitSubprocessError> {
     if output.status.success() {
+        report_remote_messages(&output.stderr, sideband_progress);
         return Ok(None);
     }
 
@@ -452,15 +458,13 @@ fn parse_ref_pushes(stdout: &[u8]) -> Result<(Vec<String>, Vec<String>), GitSubp
 // on Ok, return a tuple with
 //  1. list of failed references from test and set
 //  2. list of successful references pushed
-fn parse_git_push_output(output: Output) -> Result<(Vec<String>, Vec<String>), GitSubprocessError> {
+fn parse_git_push_output(
+    output: Output,
+    sideband_progress: &mut Option<SidebandProgressCallback<'_>>,
+) -> Result<(Vec<String>, Vec<String>), GitSubprocessError> {
     if output.status.success() {
-        // TODO: figure out how to report `remote: ` logging nicely
-        // In sum, git apparently supports the remote repo sending a message to the
-        // local, which we should probably forward nicely
-        //
-        // If we support this, we can be a bit more strict, and say that messages other
-        // than these constitute an error
         let ref_pushes = parse_ref_pushes(&output.stdout)?;
+        report_remote_messages(&output.stderr, sideband_progress);
         return Ok(ref_pushes);
     }
 
@@ -476,6 +480,40 @@ fn parse_git_push_output(output: Output) -> Result<(Vec<String>, Vec<String>), G
     } else {
         Err(external_git_error(&output.stderr))
     }
+}
+
+/// Report Git remote messages on sideband progress
+///
+/// Git remotes can send custom messages on fetch and push, which the `git`
+/// command prepends with `remote: `.
+///
+/// For instance, these messages can provide URLs to create Pull Requests
+/// e.g.:
+/// ```ignore
+/// $ jj git push -c @
+/// [...]
+/// remote:
+/// remote: Create a pull request for 'branch' on GitHub by visiting:
+/// remote:      https://github.com/user/repo/pull/new/branch
+/// remote:
+/// ```
+fn report_remote_messages(
+    stderr: &[u8],
+    sideband_progress: &mut Option<SidebandProgressCallback<'_>>,
+) {
+    if let Some(progress) = sideband_progress {
+        stderr
+            .lines()
+            .filter_map(|line| line.strip_prefix(b"remote: "))
+            .for_each(|line| {
+                progress(line);
+                progress(b"\n");
+            });
+    }
+}
+
+fn wait_with_output(child: Child) -> Result<Output, GitSubprocessError> {
+    child.wait_with_output().map_err(GitSubprocessError::Wait)
 }
 
 #[cfg(test)]
