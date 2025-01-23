@@ -33,8 +33,6 @@ use jj_lib::fmt_util::binary_prefix;
 use jj_lib::git;
 use jj_lib::git::FailedRefExport;
 use jj_lib::git::FailedRefExportReason;
-use jj_lib::git::GitFetch;
-use jj_lib::git::GitFetchError;
 use jj_lib::git::GitImportStats;
 use jj_lib::git::RefName;
 use jj_lib::git_backend::GitBackend;
@@ -44,12 +42,10 @@ use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::settings::GitSettings;
 use jj_lib::store::Store;
-use jj_lib::str_util::StringPattern;
 use jj_lib::workspace::Workspace;
 use unicode_width::UnicodeWidthStr;
 
 use crate::cleanup_guard::CleanupGuard;
-use crate::cli_util::WorkspaceCommandTransaction;
 use crate::command_error::cli_error;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_hint;
@@ -639,82 +635,6 @@ export or their "parent" bookmarks."#,
             )?;
         }
     }
-    Ok(())
-}
-
-// TODO: move to cli/src/commands/git/fetch
-// No other aprt of the code is using this
-pub fn git_fetch(
-    ui: &mut Ui,
-    tx: &mut WorkspaceCommandTransaction,
-    git_repo: &git2::Repository,
-    remotes: &[String],
-    branch_names: &[StringPattern],
-) -> Result<(), CommandError> {
-    let git_settings = tx.settings().git_settings()?;
-    let mut git_fetch = GitFetch::new(tx.repo_mut(), git_repo, &git_settings);
-
-    for remote_name in remotes {
-        with_remote_git_callbacks(ui, None, &git_settings, |cb| {
-            git_fetch
-                .fetch(remote_name, branch_names, cb, None)
-                .map_err(|err| match err {
-                    GitFetchError::InvalidBranchPattern => {
-                        if branch_names
-                            .iter()
-                            .any(|pattern| pattern.as_exact().is_some_and(|s| s.contains('*')))
-                        {
-                            user_error_with_hint(
-                                "Branch names may not include `*`.",
-                                "Prefix the pattern with `glob:` to expand `*` as a glob",
-                            )
-                        } else {
-                            user_error(err)
-                        }
-                    }
-                    GitFetchError::InternalGitError(err) => map_git_error(err),
-                    _ => user_error(err),
-                })
-        })?;
-    }
-    let import_stats = git_fetch.import_refs()?;
-    print_git_import_stats(ui, tx.repo(), &import_stats, true)?;
-    warn_if_branches_not_found(
-        ui,
-        tx,
-        branch_names,
-        &remotes.iter().map(StringPattern::exact).collect_vec(),
-    )
-}
-
-fn warn_if_branches_not_found(
-    ui: &mut Ui,
-    tx: &WorkspaceCommandTransaction,
-    branches: &[StringPattern],
-    remotes: &[StringPattern],
-) -> Result<(), CommandError> {
-    for branch in branches {
-        let matches = remotes.iter().any(|remote| {
-            tx.repo()
-                .view()
-                .remote_bookmarks_matching(branch, remote)
-                .next()
-                .is_some()
-                || tx
-                    .base_repo()
-                    .view()
-                    .remote_bookmarks_matching(branch, remote)
-                    .next()
-                    .is_some()
-        });
-        if !matches {
-            writeln!(
-                ui.warning_default(),
-                "No branch matching `{branch}` found on any specified/configured remote",
-            )?;
-        }
-    }
-
     Ok(())
 }
 
