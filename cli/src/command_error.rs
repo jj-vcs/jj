@@ -256,12 +256,7 @@ impl From<ConfigFileSaveError> for CommandError {
 
 impl From<ConfigGetError> for CommandError {
     fn from(err: ConfigGetError) -> Self {
-        let hint = match &err {
-            ConfigGetError::NotFound { .. } => None,
-            ConfigGetError::Type { source_path, .. } => source_path
-                .as_ref()
-                .map(|path| format!("Check the config file: {}", path.display())),
-        };
+        let hint = config_get_error_hint(&err);
         let mut cmd_err = config_error(err);
         cmd_err.extend_hints(hint);
         cmd_err
@@ -653,6 +648,8 @@ impl From<AbsorbError> for CommandError {
 fn find_source_parse_error_hint(err: &dyn error::Error) -> Option<String> {
     let source = err.source()?;
     if let Some(source) = source.downcast_ref() {
+        config_get_error_hint(source)
+    } else if let Some(source) = source.downcast_ref() {
         file_pattern_parse_error_hint(source)
     } else if let Some(source) = source.downcast_ref() {
         fileset_parse_error_hint(source)
@@ -668,6 +665,15 @@ fn find_source_parse_error_hint(err: &dyn error::Error) -> Option<String> {
         template_parse_error_hint(source)
     } else {
         None
+    }
+}
+
+fn config_get_error_hint(err: &ConfigGetError) -> Option<String> {
+    match &err {
+        ConfigGetError::NotFound { .. } => None,
+        ConfigGetError::Type { source_path, .. } => source_path
+            .as_ref()
+            .map(|path| format!("Check the config file: {}", path.display())),
     }
 }
 
