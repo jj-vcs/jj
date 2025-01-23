@@ -3456,6 +3456,18 @@ fn parse_args(
     Ok((matches, args))
 }
 
+fn command_name(mut matches: &ArgMatches) -> String {
+    let mut command = String::new();
+    while let Some((subcommand, new_matches)) = matches.subcommand() {
+        if !command.is_empty() {
+            command.push(' ');
+        }
+        command.push_str(subcommand);
+        matches = new_matches;
+    }
+    command
+}
+
 pub fn format_template<C: Clone>(ui: &Ui, arg: &C, template: &TemplateRenderer<C>) -> String {
     let mut output = vec![];
     template
@@ -3700,6 +3712,7 @@ impl CliRunner {
         for process_global_args_fn in self.process_global_args_fns {
             process_global_args_fn(ui, &matches)?;
         }
+        config_env.set_command_name(command_name(&matches));
 
         let maybe_workspace_loader = if let Some(path) = &args.global_args.repository {
             // TODO: maybe path should be canonicalized by WorkspaceLoader?
@@ -3712,15 +3725,16 @@ impl CliRunner {
                 .map_err(|err| map_workspace_load_error(err, Some(path)))?;
             config_env.reset_repo_path(loader.repo_path());
             config_env.reload_repo_config(&mut raw_config)?;
-            config = config_env.resolve_config(&raw_config)?;
-            migrate_config(&mut config)?;
             Ok(loader)
         } else {
             maybe_cwd_workspace_loader
         };
 
-        // Apply workspace configs and --config arguments.
+        // Apply workspace configs, --config arguments, and --when.commands.
+        config = config_env.resolve_config(&raw_config)?;
+        migrate_config(&mut config)?;
         ui.reset(&config)?;
+
         // Print only the last migration messages to omit duplicates.
         for desc in &last_config_migration_descriptions {
             writeln!(ui.warning_default(), "Deprecated config: {desc}")?;

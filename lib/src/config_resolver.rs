@@ -44,6 +44,9 @@ pub struct ConfigResolutionContext<'a> {
     pub home_dir: Option<&'a Path>,
     /// Repository path, which is usually `<workspace_root>/.jj/repo`.
     pub repo_path: Option<&'a Path>,
+    /// Space-separated subcommand. `jj file show ...` should result in `"file
+    /// show"`.
+    pub command: Option<&'a str>,
 }
 
 /// Conditions to enable the parent table.
@@ -58,6 +61,11 @@ pub struct ConfigResolutionContext<'a> {
 struct ScopeCondition {
     /// Paths to match the repository path prefix.
     pub repositories: Option<Vec<PathBuf>>,
+    /// Commands to match. Subcommands are matched space-separated.
+    /// - `--when.commands = ["foo"]` -> matches "foo", "foo bar", "foo bar baz"
+    /// - `--when.commands = ["foo bar"]` -> matches "foo bar", "foo bar baz",
+    ///   NOT "foo"
+    pub commands: Option<Vec<String>>,
     // TODO: maybe add "workspaces"?
 }
 
@@ -85,6 +93,7 @@ impl ScopeCondition {
 
     fn matches(&self, context: &ConfigResolutionContext) -> bool {
         matches_path_prefix(self.repositories.as_deref(), context.repo_path)
+            && matches_command(self.commands.as_deref(), context.command)
     }
 }
 
@@ -103,6 +112,18 @@ fn matches_path_prefix(candidates: Option<&[PathBuf]>, actual: Option<&Path>) ->
         (Some(candidates), Some(actual)) => candidates.iter().any(|base| actual.starts_with(base)),
         (Some(_), None) => false, // actual path not known (e.g. not in workspace)
         (None, _) => true,        // no constraints
+    }
+}
+
+fn matches_command(candidates: Option<&[String]>, actual: Option<&str>) -> bool {
+    match (candidates, actual) {
+        (Some(candidates), Some(actual)) => candidates.iter().any(|candidate| {
+            actual
+                .strip_prefix(candidate)
+                .is_some_and(|trailing| trailing.starts_with(' ') || trailing.is_empty())
+        }),
+        (Some(_), None) => false,
+        (None, _) => true,
     }
 }
 
@@ -406,11 +427,13 @@ mod tests {
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: None,
+            command: None,
         };
         assert!(condition.matches(&context));
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: Some(Path::new("/foo")),
+            command: None,
         };
         assert!(condition.matches(&context));
     }
@@ -419,31 +442,37 @@ mod tests {
     fn test_condition_repo_path() {
         let condition = ScopeCondition {
             repositories: Some(["/foo", "/bar"].map(PathBuf::from).into()),
+            commands: None,
         };
 
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: None,
+            command: None,
         };
         assert!(!condition.matches(&context));
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: Some(Path::new("/foo")),
+            command: None,
         };
         assert!(condition.matches(&context));
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: Some(Path::new("/fooo")),
+            command: None,
         };
         assert!(!condition.matches(&context));
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: Some(Path::new("/foo/baz")),
+            command: None,
         };
         assert!(condition.matches(&context));
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: Some(Path::new("/bar")),
+            command: None,
         };
         assert!(condition.matches(&context));
     }
@@ -452,26 +481,31 @@ mod tests {
     fn test_condition_repo_path_windows() {
         let condition = ScopeCondition {
             repositories: Some(["c:/foo", r"d:\bar/baz"].map(PathBuf::from).into()),
+            commands: None,
         };
 
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: Some(Path::new(r"c:\foo")),
+            command: None,
         };
         assert_eq!(condition.matches(&context), cfg!(windows));
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: Some(Path::new(r"c:\foo\baz")),
+            command: None,
         };
         assert_eq!(condition.matches(&context), cfg!(windows));
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: Some(Path::new(r"d:\foo")),
+            command: None,
         };
         assert!(!condition.matches(&context));
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: Some(Path::new(r"d:/bar\baz")),
+            command: None,
         };
         assert_eq!(condition.matches(&context), cfg!(windows));
     }
@@ -489,6 +523,7 @@ mod tests {
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: None,
+            command: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 2);
@@ -525,6 +560,7 @@ mod tests {
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: None,
+            command: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 7);
@@ -563,6 +599,7 @@ mod tests {
         let context = ConfigResolutionContext {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: None,
+            command: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 1);
@@ -571,6 +608,7 @@ mod tests {
         let context = ConfigResolutionContext {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: Some(Path::new("/foo/.jj/repo")),
+            command: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 3);
@@ -581,6 +619,7 @@ mod tests {
         let context = ConfigResolutionContext {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: Some(Path::new("/bar/.jj/repo")),
+            command: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 2);
@@ -590,11 +629,136 @@ mod tests {
         let context = ConfigResolutionContext {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: Some(Path::new("/home/dir/baz/.jj/repo")),
+            command: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 2);
         insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
         insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #1 baz'");
+    }
+
+    #[test]
+    fn test_resolve_command() {
+        let mut source_config = StackedConfig::empty();
+        source_config.add_layer(new_user_layer(indoc! {"
+            a = 'a #0'
+            [[--scope]]
+            --when.commands = ['foo']
+            a = 'a #0.1 foo'
+            [[--scope]]
+            --when.commands = ['foo', 'bar']
+            a = 'a #0.2 foo|bar'
+            [[--scope]]
+            --when.commands = ['foo baz']
+            a = 'a #0.3 foo baz'
+            [[--scope]]
+            --when.commands = []
+            a = 'a #0.4 none'
+        "}));
+
+        let context = ConfigResolutionContext {
+            home_dir: None,
+            repo_path: None,
+            command: None,
+        };
+        let resolved_config = resolve(&source_config, &context).unwrap();
+        assert_eq!(resolved_config.layers().len(), 1);
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @r"a = 'a #0'");
+
+        let context = ConfigResolutionContext {
+            home_dir: None,
+            repo_path: None,
+            command: Some("foo"),
+        };
+        let resolved_config = resolve(&source_config, &context).unwrap();
+        assert_eq!(resolved_config.layers().len(), 3);
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @r"a = 'a #0'");
+        insta::assert_snapshot!(resolved_config.layers()[1].data, @r"a = 'a #0.1 foo'");
+        insta::assert_snapshot!(resolved_config.layers()[2].data, @r"a = 'a #0.2 foo|bar'");
+
+        let context = ConfigResolutionContext {
+            home_dir: None,
+            repo_path: None,
+            command: Some("bar"),
+        };
+        let resolved_config = resolve(&source_config, &context).unwrap();
+        assert_eq!(resolved_config.layers().len(), 2);
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @r"a = 'a #0'");
+        insta::assert_snapshot!(resolved_config.layers()[1].data, @r"a = 'a #0.2 foo|bar'");
+
+        let context = ConfigResolutionContext {
+            home_dir: None,
+            repo_path: None,
+            command: Some("foo baz"),
+        };
+        let resolved_config = resolve(&source_config, &context).unwrap();
+        assert_eq!(resolved_config.layers().len(), 4);
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @r"a = 'a #0'");
+        insta::assert_snapshot!(resolved_config.layers()[1].data, @r"a = 'a #0.1 foo'");
+        insta::assert_snapshot!(resolved_config.layers()[2].data, @r"a = 'a #0.2 foo|bar'");
+        insta::assert_snapshot!(resolved_config.layers()[3].data, @r"a = 'a #0.3 foo baz'");
+
+        // "fooqux" shares "foo" prefix, but should *not* match
+        let context = ConfigResolutionContext {
+            home_dir: None,
+            repo_path: None,
+            command: Some("fooqux"),
+        };
+        let resolved_config = resolve(&source_config, &context).unwrap();
+        assert_eq!(resolved_config.layers().len(), 1);
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @r"a = 'a #0'");
+    }
+
+    #[test]
+    fn test_resolve_repo_path_and_command() {
+        let mut source_config = StackedConfig::empty();
+        source_config.add_layer(new_user_layer(indoc! {"
+            a = 'a #0'
+            [[--scope]]
+            --when.repositories = ['/foo', '/bar']
+            --when.commands = ['ABC', 'DEF']
+            a = 'a #0.1'
+        "}));
+
+        let context = ConfigResolutionContext {
+            home_dir: Some(Path::new("/home/dir")),
+            repo_path: None,
+            command: None,
+        };
+        let resolved_config = resolve(&source_config, &context).unwrap();
+        assert_eq!(resolved_config.layers().len(), 1);
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @r"a = 'a #0'");
+
+        // only repo matches
+        let context = ConfigResolutionContext {
+            home_dir: Some(Path::new("/home/dir")),
+            repo_path: Some(Path::new("/foo")),
+            command: Some("other"),
+        };
+        let resolved_config = resolve(&source_config, &context).unwrap();
+        assert_eq!(resolved_config.layers().len(), 1);
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @r"a = 'a #0'");
+
+        // only command matches
+        let context = ConfigResolutionContext {
+            home_dir: Some(Path::new("/home/dir")),
+            repo_path: Some(Path::new("/qux")),
+            command: Some("ABC"),
+        };
+        let resolved_config = resolve(&source_config, &context).unwrap();
+        assert_eq!(resolved_config.layers().len(), 1);
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @r"a = 'a #0'");
+
+        // both match
+        let context = ConfigResolutionContext {
+            home_dir: Some(Path::new("/home/dir")),
+            repo_path: Some(Path::new("/bar")),
+            command: Some("DEF"),
+        };
+        let resolved_config = resolve(&source_config, &context).unwrap();
+        assert_eq!(resolved_config.layers().len(), 2);
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @r"a = 'a #0'");
+        insta::assert_snapshot!(resolved_config.layers()[1].data, @r"a = 'a #0.1'");
     }
 
     #[test]
@@ -607,6 +771,7 @@ mod tests {
         let context = ConfigResolutionContext {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: Some(Path::new("/foo/.jj/repo")),
+            command: None,
         };
         assert_matches!(
             resolve(&new_config("--when.repositories = 0"), &context),
@@ -624,6 +789,7 @@ mod tests {
         let context = ConfigResolutionContext {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: Some(Path::new("/foo/.jj/repo")),
+            command: None,
         };
         assert_matches!(
             resolve(&new_config("[--scope]"), &context),

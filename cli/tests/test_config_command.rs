@@ -1078,12 +1078,25 @@ fn test_config_conditional() {
         &user_config_path,
         indoc! {"
             foo = 'global'
+            baz = 'global'
+            qux = 'global'
+
             [[--scope]]
             --when.repositories = ['~/repo1']
             foo = 'repo1'
             [[--scope]]
             --when.repositories = ['~/repo2']
             foo = 'repo2'
+
+            [[--scope]]
+            --when.commands = ['config']
+            baz = 'config'
+            [[--scope]]
+            --when.commands = ['config get']
+            qux = 'get'
+            [[--scope]]
+            --when.commands = ['config list']
+            qux = 'list'
         "},
     )
     .unwrap();
@@ -1093,16 +1106,38 @@ fn test_config_conditional() {
     insta::assert_snapshot!(stdout, @"global");
     let stdout = test_env.jj_cmd_success(&repo1_path, &["config", "get", "foo"]);
     insta::assert_snapshot!(stdout, @"repo1");
+    // baz should be the same for `jj config get` and `jj config list`
+    // qux should be different
+    let stdout = test_env.jj_cmd_success(&repo1_path, &["config", "get", "baz"]);
+    insta::assert_snapshot!(stdout, @"config");
+    let stdout = test_env.jj_cmd_success(&repo1_path, &["config", "get", "qux"]);
+    insta::assert_snapshot!(stdout, @"get");
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["config", "list", "--user"]);
-    insta::assert_snapshot!(stdout, @"foo = 'global'");
+    insta::assert_snapshot!(stdout, @r#"
+    foo = 'global'
+    baz = 'config'
+    qux = 'list'
+    "#);
     let stdout = test_env.jj_cmd_success(&repo1_path, &["config", "list", "--user"]);
-    insta::assert_snapshot!(stdout, @"foo = 'repo1'");
+    insta::assert_snapshot!(stdout, @r#"
+    foo = 'repo1'
+    baz = 'config'
+    qux = 'list'
+    "#);
     let stdout = test_env.jj_cmd_success(&repo2_path, &["config", "list", "--user"]);
-    insta::assert_snapshot!(stdout, @"foo = 'repo2'");
+    insta::assert_snapshot!(stdout, @r#"
+    foo = 'repo2'
+    baz = 'config'
+    qux = 'list'
+    "#);
 
     // relative workspace path
     let stdout = test_env.jj_cmd_success(&repo2_path, &["config", "list", "--user", "-R../repo1"]);
-    insta::assert_snapshot!(stdout, @"foo = 'repo1'");
+    insta::assert_snapshot!(stdout, @r#"
+    foo = 'repo1'
+    baz = 'config'
+    qux = 'list'
+    "#);
 
     // set and unset should refer to the source config
     // (there's no option to update scoped table right now.)
@@ -1113,24 +1148,50 @@ fn test_config_conditional() {
     insta::assert_snapshot!(stderr, @"");
     insta::assert_snapshot!(std::fs::read_to_string(&user_config_path).unwrap(), @r#"
     foo = 'global'
+    baz = 'global'
+    qux = 'global'
     bar = "new value"
+
     [[--scope]]
     --when.repositories = ['~/repo1']
     foo = 'repo1'
     [[--scope]]
     --when.repositories = ['~/repo2']
     foo = 'repo2'
+
+    [[--scope]]
+    --when.commands = ['config']
+    baz = 'config'
+    [[--scope]]
+    --when.commands = ['config get']
+    qux = 'get'
+    [[--scope]]
+    --when.commands = ['config list']
+    qux = 'list'
     "#);
     let (_stdout, stderr) = test_env.jj_cmd_ok(&repo1_path, &["config", "unset", "--user", "foo"]);
     insta::assert_snapshot!(stderr, @"");
     insta::assert_snapshot!(std::fs::read_to_string(&user_config_path).unwrap(), @r#"
+    baz = 'global'
+    qux = 'global'
     bar = "new value"
+
     [[--scope]]
     --when.repositories = ['~/repo1']
     foo = 'repo1'
     [[--scope]]
     --when.repositories = ['~/repo2']
     foo = 'repo2'
+
+    [[--scope]]
+    --when.commands = ['config']
+    baz = 'config'
+    [[--scope]]
+    --when.commands = ['config get']
+    qux = 'get'
+    [[--scope]]
+    --when.commands = ['config list']
+    qux = 'list'
     "#);
 }
 

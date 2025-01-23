@@ -1371,6 +1371,9 @@ You can conditionally enable config variables by using `--when` and
 `[[--scope]]` tables. Variables defined in `[[--scope]]` tables are expanded to
 the root table. `--when` specifies the condition to enable the scope table.
 
+If no conditions are specified, table is always enabled. If multiple conditions
+are specified, the intersection is used.
+
 ```toml
 [user]
 name = "YOUR NAME"
@@ -1381,19 +1384,38 @@ email = "YOUR_DEFAULT_EMAIL@example.com"
 --when.repositories = ["~/oss"]
 [--scope.user]
 email = "YOUR_OSS_EMAIL@example.org"
+
+# disable pagination for `jj status`, use `delta` for `jj diff` and `jj show`
+[[--scope]]
+--when.commands = ["status"]
+[--scope.ui]
+paginate = "never"
+[[--scope]]
+--when.commands = ["diff", "show"]
+[--scope.ui]
+pager = "delta"
 ```
 
 Condition keys:
 
 * `--when.repositories`: List of paths to match the repository path prefix.
 
-Paths should be absolute. Each path component (directory or file name, drive
-letter, etc.) is compared case-sensitively on all platforms. A path starting
-with `~` is expanded to the home directory. On Windows, directory separator may
-be either `\` or `/`. (Beware that `\` needs escape in double-quoted strings.)
+  Paths should be absolute. Each path component (directory or file name, drive
+  letter, etc.) is compared case-sensitively on all platforms. A path starting
+  with `~` is expanded to the home directory. On Windows, directory separator may
+  be either `\` or `/`. (Beware that `\` needs escape in double-quoted strings.)
 
-Use `jj root` to see the workspace root directory. Note that the repository path
-is in the main workspace if you're using multiple workspaces with `jj
-workspace`.
+  Use `jj root` to see the workspace root directory. Note that the repository path
+  is in the main workspace if you're using multiple workspaces with `jj
+  workspace`.
 
-If no conditions are specified, table is always enabled.
+
+* `--when.command`: List of subcommands to match.
+
+  Subcommands are space-separated and matched by prefix.
+
+  ```toml
+  --when.command = ["file"]        # matches `jj file show`, `jj file list`, etc
+  --when.command = ["file show"]   # matches `jj file show` but *NOT* `jj file list`
+  --when.command = ["file", "log"] # matches `jj file` *OR* `jj log` (or subcommand of either)
+  ```

@@ -263,6 +263,7 @@ pub struct ConfigEnv {
     repo_path: Option<PathBuf>,
     user_config_path: ConfigPath,
     repo_config_path: ConfigPath,
+    command: Option<String>,
 }
 
 impl ConfigEnv {
@@ -281,7 +282,12 @@ impl ConfigEnv {
             repo_path: None,
             user_config_path: env.resolve()?,
             repo_config_path: ConfigPath::Unavailable,
+            command: None,
         })
+    }
+
+    pub fn set_command_name(&mut self, command: String) {
+        self.command = Some(command);
     }
 
     /// Returns a path to the user-specific config file or directory.
@@ -398,6 +404,7 @@ impl ConfigEnv {
         let context = ConfigResolutionContext {
             home_dir: self.home_dir.as_deref(),
             repo_path: self.repo_path.as_deref(),
+            command: self.command.as_deref(),
         };
         jj_lib::config::resolve(config.as_ref(), &context)
     }
@@ -1369,6 +1376,7 @@ mod tests {
                 repo_path: None,
                 user_config_path: env.resolve()?,
                 repo_config_path: ConfigPath::Unavailable,
+                command: None,
             })
         }
 
