@@ -86,6 +86,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * New template function `config(name)` to access to configuration variable from
   template.
 
+* Templater now supports `list.filter(|x| ..)` method.
+
 * New `git.sign-on-push` config option to automatically sign commits which are being
   pushed to a Git remote.
 

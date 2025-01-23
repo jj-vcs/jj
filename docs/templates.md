@@ -189,6 +189,8 @@ defined.
 * `.len() -> Integer`: Number of elements in the list.
 * `.join(separator: Template) -> Template`: Concatenate elements with
   the given `separator`.
+* `.filter(|item| expression) -> List`: Filter list elements by predicate
+  `expression`. Example: `description.lines().filter(|s| s.contains("#"))`
 * `.map(|item| expression) -> ListTemplate`: Apply template `expression`
   to each element. Example: `parents.map(|c| c.commit_id().short())`
 

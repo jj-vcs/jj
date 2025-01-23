@@ -209,6 +209,7 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                     property,
                     function,
                     Self::wrap_commit,
+                    Self::wrap_commit_list,
                 )
             }
             CommitTemplatePropertyKind::RefName(property) => {
@@ -238,6 +239,7 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                     property,
                     function,
                     Self::wrap_ref_name,
+                    Self::wrap_ref_name_list,
                 )
             }
             CommitTemplatePropertyKind::RepoPath(property) => {

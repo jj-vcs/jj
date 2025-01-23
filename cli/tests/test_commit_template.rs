@@ -41,6 +41,19 @@ fn test_log_parents() {
        P: 0
     "###);
 
+    // List<Commit> can be filtered
+    let template =
+        r#""P: " ++ parents.filter(|c| !c.root()).map(|c| c.commit_id().short()) ++ "\n""#;
+    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-T", template]);
+    insta::assert_snapshot!(stdout, @r"
+    @    P: 4db490c88528 230dd059e1b0
+    ├─╮
+    ○ │  P: 230dd059e1b0
+    ├─╯
+    ○  P:
+    ◆  P:
+    ");
+
     let template = r#"parents.map(|c| c.commit_id().shortest(4))"#;
     let stdout = test_env.jj_cmd_success(
         &repo_path,

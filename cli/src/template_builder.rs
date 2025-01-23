@@ -512,6 +512,7 @@ impl<'a, L: TemplateLanguage<'a> + ?Sized> CoreTemplateBuildFnTable<'a, L> {
                     property,
                     function,
                     L::wrap_string,
+                    L::wrap_string_list,
                 )
             }
             CoreTemplatePropertyKind::Boolean(property) => {
@@ -1230,8 +1231,10 @@ pub fn build_formattable_list_method<'a, L, O>(
     self_property: impl TemplateProperty<Output = Vec<O>> + 'a,
     function: &FunctionCallNode,
     // TODO: Generic L: WrapProperty<O> trait might be needed to support more
-    // list operations such as first()/slice(). For .map(), a simple callback works.
+    // list operations such as first()/slice(). For .map(), a simple callback
+    // works. For .filter(), redundant boxing is needed.
     wrap_item: impl Fn(PropertyPlaceholder<O>) -> L::Property,
+    wrap_list: impl Fn(Box<dyn TemplateProperty<Output = Vec<O>> + 'a>) -> L::Property,
 ) -> TemplateParseResult<L::Property>
 where
     L: TemplateLanguage<'a> + ?Sized,
@@ -1253,6 +1256,15 @@ where
                 });
             L::wrap_template(Box::new(template))
         }
+        "filter" => build_filter_operation(
+            language,
+            diagnostics,
+            build_ctx,
+            self_property,
+            function,
+            wrap_item,
+            wrap_list,
+        )?,
         "map" => build_map_operation(
             language,
             diagnostics,
@@ -1273,6 +1285,7 @@ pub fn build_unformattable_list_method<'a, L, O>(
     self_property: impl TemplateProperty<Output = Vec<O>> + 'a,
     function: &FunctionCallNode,
     wrap_item: impl Fn(PropertyPlaceholder<O>) -> L::Property,
+    wrap_list: impl Fn(Box<dyn TemplateProperty<Output = Vec<O>> + 'a>) -> L::Property,
 ) -> TemplateParseResult<L::Property>
 where
     L: TemplateLanguage<'a> + ?Sized,
@@ -1285,6 +1298,15 @@ where
             L::wrap_integer(out_property)
         }
         // No "join"
+        "filter" => build_filter_operation(
+            language,
+            diagnostics,
+            build_ctx,
+            self_property,
+            function,
+            wrap_item,
+            wrap_list,
+        )?,
         "map" => build_map_operation(
             language,
             diagnostics,
@@ -1296,6 +1318,51 @@ where
         _ => return Err(TemplateParseError::no_such_method("List", function)),
     };
     Ok(property)
+}
+
+/// Builds expression that extracts iterable property and filters its items.
+///
+/// `wrap_item()` is the function to wrap a list item of type `O` as a property.
+/// `wrap_list()` is the function to wrap filtered list.
+fn build_filter_operation<'a, L, O, P, B>(
+    language: &L,
+    diagnostics: &mut TemplateDiagnostics,
+    build_ctx: &BuildContext<L::Property>,
+    self_property: P,
+    function: &FunctionCallNode,
+    wrap_item: impl Fn(PropertyPlaceholder<O>) -> L::Property,
+    wrap_list: impl Fn(Box<dyn TemplateProperty<Output = B> + 'a>) -> L::Property,
+) -> TemplateParseResult<L::Property>
+where
+    L: TemplateLanguage<'a> + ?Sized,
+    P: TemplateProperty + 'a,
+    P::Output: IntoIterator<Item = O>,
+    O: Clone + 'a,
+    B: FromIterator<O>,
+{
+    let [lambda_node] = function.expect_exact_arguments()?;
+    let item_placeholder = PropertyPlaceholder::new();
+    let item_predicate = template_parser::expect_lambda_with(lambda_node, |lambda, _span| {
+        build_lambda_expression(
+            build_ctx,
+            lambda,
+            &[&|| wrap_item(item_placeholder.clone())],
+            |build_ctx, body| expect_boolean_expression(language, diagnostics, build_ctx, body),
+        )
+    })?;
+    let out_property = self_property.and_then(move |items| {
+        items
+            .into_iter()
+            .filter_map(|item| {
+                // Evaluate predicate with the current item
+                item_placeholder.set(item);
+                let result = item_predicate.extract();
+                let item = item_placeholder.take().unwrap();
+                result.map(|pred| pred.then_some(item)).transpose()
+            })
+            .collect()
+    });
+    Ok(wrap_list(Box::new(out_property)))
 }
 
 /// Builds expression that extracts iterable property and applies template to
@@ -2375,6 +2442,10 @@ mod tests {
             @"aSEPbSEPc");
 
         insta::assert_snapshot!(
+            env.render_ok(r#""a\nbb\nc".lines().filter(|s| s.len() == 1)"#),
+            @"a c");
+
+        insta::assert_snapshot!(
             env.render_ok(r#""a\nb\nc".lines().map(|s| s ++ s)"#),
             @"aa bb cc");
         // Global keyword in item template
@@ -2432,6 +2503,15 @@ mod tests {
           |
           = Expected 1 lambda parameters
         "###);
+        // Bad lambda output
+        insta::assert_snapshot!(env.parse_err(r#""a".lines().filter(|s| s ++ "\n")"#), @r#"
+         --> 1:24
+          |
+        1 | "a".lines().filter(|s| s ++ "\n")
+          |                        ^-------^
+          |
+          = Expected expression of type "Boolean", but actual type is "Template"
+        "#);
         // Error in lambda expression
         insta::assert_snapshot!(env.parse_err(r#""a".lines().map(|s| s.unknown())"#), @r###"
          --> 1:23
