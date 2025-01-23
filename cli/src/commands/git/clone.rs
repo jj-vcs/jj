@@ -19,8 +19,8 @@ use std::num::NonZeroU32;
 use std::path::Path;
 
 use jj_lib::git;
+use jj_lib::git::GitFetch;
 use jj_lib::git::GitFetchError;
-use jj_lib::git::GitFetchStats;
 use jj_lib::repo::Repo;
 use jj_lib::str_util::StringPattern;
 use jj_lib::workspace::Workspace;
@@ -118,8 +118,9 @@ pub fn cmd_git_clone(
 
     let clone_result = (|| -> Result<_, CommandError> {
         let mut workspace_command = init_workspace(ui, command, &canonical_wc_path, args.colocate)?;
-        let stats = fetch_new_remote(ui, &mut workspace_command, remote_name, &source, args.depth)?;
-        Ok((workspace_command, stats))
+        let default_branch =
+            fetch_new_remote(ui, &mut workspace_command, remote_name, &source, args.depth)?;
+        Ok((workspace_command, default_branch))
     })();
     if clone_result.is_err() {
         let clean_up_dirs = || -> io::Result<()> {
@@ -143,8 +144,8 @@ pub fn cmd_git_clone(
         }
     }
 
-    let (mut workspace_command, stats) = clone_result?;
-    if let Some(default_branch) = &stats.default_branch {
+    let (mut workspace_command, default_branch) = clone_result?;
+    if let Some(default_branch) = &default_branch {
         write_repository_level_trunk_alias(
             ui,
             workspace_command.repo_path(),
@@ -194,7 +195,7 @@ fn fetch_new_remote(
     remote_name: &str,
     source: &str,
     depth: Option<NonZeroU32>,
-) -> Result<GitFetchStats, CommandError> {
+) -> Result<Option<String>, CommandError> {
     let git_repo = get_git_repo(workspace_command.repo().store())?;
     git::add_remote(&git_repo, remote_name, source)?;
     writeln!(
@@ -204,29 +205,24 @@ fn fetch_new_remote(
     )?;
     let git_settings = workspace_command.settings().git_settings()?;
     let mut fetch_tx = workspace_command.start_transaction();
-    let stats = with_remote_git_callbacks(ui, None, &git_settings, |cb| {
-        git::fetch(
-            fetch_tx.repo_mut(),
-            &git_repo,
-            remote_name,
-            &[StringPattern::everything()],
-            cb,
-            &git_settings,
-            depth,
-        )
-    })
-    .map_err(|err| match err {
-        GitFetchError::NoSuchRemote(_) => {
-            panic!("shouldn't happen as we just created the git remote")
-        }
-        GitFetchError::GitImportError(err) => CommandError::from(err),
-        GitFetchError::InternalGitError(err) => map_git_error(err),
-        GitFetchError::Subprocess(err) => user_error(err),
-        GitFetchError::InvalidBranchPattern => {
-            unreachable!("we didn't provide any globs")
-        }
+    let mut git_fetch = GitFetch::new(fetch_tx.repo_mut(), &git_repo, &git_settings);
+    let default_branch = with_remote_git_callbacks(ui, None, &git_settings, |cb| {
+        git_fetch
+            .fetch(cb, depth, remote_name, &[StringPattern::everything()])
+            .map_err(|err| match err {
+                GitFetchError::NoSuchRemote(_) => {
+                    panic!("shouldn't happen as we just created the git remote")
+                }
+                GitFetchError::GitImportError(err) => CommandError::from(err),
+                GitFetchError::InternalGitError(err) => map_git_error(err),
+                GitFetchError::Subprocess(err) => user_error(err),
+                GitFetchError::InvalidBranchPattern => {
+                    unreachable!("we didn't provide any globs")
+                }
+            })
     })?;
-    print_git_import_stats(ui, fetch_tx.repo(), &stats.import_stats, true)?;
+    let import_stats = git_fetch.import_refs()?;
+    print_git_import_stats(ui, fetch_tx.repo(), &import_stats, true)?;
     fetch_tx.finish(ui, "fetch from git remote into empty repo")?;
-    Ok(stats)
+    Ok(default_branch)
 }
