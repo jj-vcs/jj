@@ -1487,29 +1487,47 @@ struct FetchedBranches {
     branches: Vec<StringPattern>,
 }
 
+enum GitFetchExecutor<'a> {
+    Git2(&'a git2::Repository),
+    Subprocess(&'a GitSubprocessContext<'a>),
+}
+
 /// Helper struct to execute multiple `git fetch` operations
 pub struct GitFetch<'a> {
+    executor: GitFetchExecutor<'a>,
     mut_repo: &'a mut MutableRepo,
-    git_repo: &'a git2::Repository,
     git_settings: &'a GitSettings,
-    // for subprocess only
-    git_subprocess_ctx: &'a GitSubprocessContext<'a>,
-
     fetched: Vec<FetchedBranches>,
 }
 
 impl<'a> GitFetch<'a> {
-    pub fn new(
-        mut_repo: &'a mut MutableRepo,
+    pub fn git2(
         git_repo: &'a git2::Repository,
+        mut_repo: &'a mut MutableRepo,
         git_settings: &'a GitSettings,
-        git_subprocess_ctx: &'a GitSubprocessContext,
+    ) -> Self {
+        let executor = GitFetchExecutor::Git2(git_repo);
+        Self::with_executor(executor, mut_repo, git_settings)
+    }
+
+    pub fn subprocess(
+        git_subprocess_ctx: &'a GitSubprocessContext<'a>,
+        mut_repo: &'a mut MutableRepo,
+        git_settings: &'a GitSettings,
+    ) -> Self {
+        let executor = GitFetchExecutor::Subprocess(git_subprocess_ctx);
+        Self::with_executor(executor, mut_repo, git_settings)
+    }
+
+    fn with_executor(
+        executor: GitFetchExecutor<'a>,
+        mut_repo: &'a mut MutableRepo,
+        git_settings: &'a GitSettings,
     ) -> Self {
         GitFetch {
+            executor,
             mut_repo,
-            git_repo,
             git_settings,
-            git_subprocess_ctx,
             fetched: vec![],
         }
     }
@@ -1540,13 +1558,13 @@ impl<'a> GitFetch<'a> {
     }
 
     fn git2_fetch(
-        &mut self,
+        git_repo: &git2::Repository,
         callbacks: RemoteCallbacks<'_>,
         depth: Option<NonZeroU32>,
         remote_name: &str,
         branch_names: &[StringPattern],
     ) -> Result<Option<String>, GitFetchError> {
-        let mut remote = self.git_repo.find_remote(remote_name).map_err(|err| {
+        let mut remote = git_repo.find_remote(remote_name).map_err(|err| {
             if is_remote_not_found_err(&err) {
                 GitFetchError::NoSuchRemote(remote_name.to_string())
             } else {
@@ -1596,12 +1614,12 @@ impl<'a> GitFetch<'a> {
     }
 
     fn subprocess_fetch(
-        &mut self,
+        git_subprocess_ctx: &GitSubprocessContext<'a>,
         depth: Option<NonZeroU32>,
         remote_name: &str,
         branch_names: &[StringPattern],
     ) -> Result<Option<String>, GitFetchError> {
-        let remotes = self.git_subprocess_ctx.spawn_remote()?;
+        let remotes = git_subprocess_ctx.spawn_remote()?;
         if !remotes.contains(remote_name) {
             return Err(GitFetchError::NoSuchRemote(remote_name.to_string()));
         }
@@ -1623,8 +1641,7 @@ impl<'a> GitFetch<'a> {
         // even more unfortunately, git errors out one refspec at a time,
         // meaning that the below cycle runs in O(#failed refspecs)
         while let Some(failing_refspec) =
-            self.git_subprocess_ctx
-                .spawn_fetch(remote_name, depth, &remaining_refspecs)?
+            git_subprocess_ctx.spawn_fetch(remote_name, depth, &remaining_refspecs)?
         {
             remaining_refspecs.retain(|r| r.source.as_ref() != Some(&failing_refspec));
 
@@ -1635,12 +1652,11 @@ impl<'a> GitFetch<'a> {
 
         // Even if git fetch has --prune, if a branch is not found it will not be
         // pruned on fetch
-        self.git_subprocess_ctx
-            .spawn_branch_prune(&branches_to_prune)?;
+        git_subprocess_ctx.spawn_branch_prune(&branches_to_prune)?;
 
         // TODO: We could make it optional to get the default branch since we only care
         // about it on clone.
-        let default_branch = self.git_subprocess_ctx.spawn_remote_show(remote_name)?;
+        let default_branch = git_subprocess_ctx.spawn_remote_show(remote_name)?;
         tracing::debug!(default_branch = default_branch);
 
         Ok(default_branch)
@@ -1659,10 +1675,13 @@ impl<'a> GitFetch<'a> {
         remote_name: &str,
         branch_names: &[StringPattern],
     ) -> Result<Option<String>, GitFetchError> {
-        let default_branch = if self.git_settings.subprocess {
-            self.subprocess_fetch(depth, remote_name, branch_names)
-        } else {
-            self.git2_fetch(callbacks, depth, remote_name, branch_names)
+        let default_branch = match &mut self.executor {
+            GitFetchExecutor::Subprocess(git_subprocess_ctx) => {
+                Self::subprocess_fetch(git_subprocess_ctx, depth, remote_name, branch_names)
+            }
+            GitFetchExecutor::Git2(git_repo) => {
+                Self::git2_fetch(git_repo, callbacks, depth, remote_name, branch_names)
+            }
         };
 
         self.fetched.push(FetchedBranches {

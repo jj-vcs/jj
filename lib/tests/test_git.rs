@@ -130,6 +130,13 @@ fn get_git_settings(subprocess: bool) -> GitSettings {
     }
 }
 
+fn get_git_subprocess_context<'a>(
+    settings: &'a GitSettings,
+    git_path: &'a Path,
+) -> GitSubprocessContext<'a> {
+    GitSubprocessContext::new(git_path, &settings.executable_path)
+}
+
 fn git_fetch(
     mut_repo: &mut MutableRepo,
     git_repo: &git2::Repository,
@@ -138,7 +145,11 @@ fn git_fetch(
     git_settings: &GitSettings,
     git_subprocess_ctx: &GitSubprocessContext,
 ) -> Result<GitFetchStats, GitFetchError> {
-    let mut git_fetch = GitFetch::new(mut_repo, git_repo, git_settings, git_subprocess_ctx);
+    let mut git_fetch = if git_settings.subprocess {
+        GitFetch::subprocess(git_subprocess_ctx, mut_repo, git_settings)
+    } else {
+        GitFetch::git2(git_repo, mut_repo, git_settings)
+    };
     let default_branch = git_fetch.fetch(
         git::RemoteCallbacks::default(),
         None,
@@ -151,13 +162,6 @@ fn git_fetch(
         import_stats,
     };
     Ok(stats)
-}
-
-fn get_git_subprocess_context<'a>(
-    settings: &'a GitSettings,
-    git_path: &'a Path,
-) -> GitSubprocessContext<'a> {
-    GitSubprocessContext::new(git_path, &settings.executable_path)
 }
 
 #[test]

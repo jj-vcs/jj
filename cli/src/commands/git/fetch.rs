@@ -137,7 +137,11 @@ fn do_git_fetch(
 ) -> Result<(), CommandError> {
     let git_settings = tx.settings().git_settings()?;
     let git_subprocess_ctx = get_git_subprocess_ctx(tx.repo().store(), &git_settings)?;
-    let mut git_fetch = GitFetch::new(tx.repo_mut(), git_repo, &git_settings, &git_subprocess_ctx);
+    let mut git_fetch = if git_settings.subprocess {
+        GitFetch::subprocess(&git_subprocess_ctx, tx.repo_mut(), &git_settings)
+    } else {
+        GitFetch::git2(git_repo, tx.repo_mut(), &git_settings)
+    };
 
     for remote_name in remotes {
         with_remote_git_callbacks(ui, None, &git_settings, |cb| {

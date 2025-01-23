@@ -208,12 +208,11 @@ fn fetch_new_remote(
         workspace_command.workspace_root().display()
     )?;
     let mut fetch_tx = workspace_command.start_transaction();
-    let mut git_fetch = GitFetch::new(
-        fetch_tx.repo_mut(),
-        &git_repo,
-        &git_settings,
-        &git_subprocess_ctx,
-    );
+    let mut git_fetch = if git_settings.subprocess {
+        GitFetch::subprocess(&git_subprocess_ctx, fetch_tx.repo_mut(), &git_settings)
+    } else {
+        GitFetch::git2(&git_repo, fetch_tx.repo_mut(), &git_settings)
+    };
     let default_branch = with_remote_git_callbacks(ui, None, &git_settings, |cb| {
         git_fetch
             .fetch(cb, depth, remote_name, &[StringPattern::everything()])
