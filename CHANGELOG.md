@@ -145,6 +145,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* `jj git fetch` with multiple remotes will now fetch from all remotes before
+  importing refs into the jj repo. This fixes a race condition where the
+  treatment of a commit that is found in multiple fetch remotes depended on the
+  order the remotes were specified.
+
 * Fixed diff selection by external tools with `jj split`/`commit -i FILESETS`.
   [#5252](https://github.com/jj-vcs/jj/issues/5252)
 

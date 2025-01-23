@@ -85,6 +85,34 @@ fn get_log_output(test_env: &TestEnvironment, workspace_root: &Path) -> String {
     test_env.jj_cmd_success(workspace_root, &["log", "-T", template, "-r", "all()"])
 }
 
+fn clone_git_remote_into(
+    test_env: &TestEnvironment,
+    upstream: &str,
+    fork: &str,
+) -> git2::Repository {
+    let upstream_path = test_env.env_root().join(upstream);
+    let fork_path = test_env.env_root().join(fork);
+    let fork_repo = git2::Repository::init(fork_path).unwrap();
+    {
+        let mut upstream_remote = fork_repo
+            .remote(upstream, upstream_path.to_str().unwrap())
+            .unwrap();
+        upstream_remote.fetch(&[upstream], None, None).unwrap();
+
+        // create local branch mirroring the upstream
+        let upstream_head = fork_repo
+            .find_branch("upstream/upstream", git2::BranchType::Remote)
+            .unwrap()
+            .into_reference()
+            .peel_to_commit()
+            .unwrap();
+
+        fork_repo.branch("upstream", &upstream_head, false).unwrap();
+    }
+
+    fork_repo
+}
+
 #[test_case(false; "use git2 for remote calls")]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_with_default_config(subprocess: bool) {
@@ -311,10 +339,7 @@ fn test_git_fetch_nonexistent_remote(subprocess: bool) {
         &["git", "fetch", "--remote", "rem1", "--remote", "rem2"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r###"
-    bookmark: rem1@rem1 [new] untracked
-    Error: No git remote named 'rem2'
-    "###);
+    insta::assert_snapshot!(stderr, @"Error: No git remote named 'rem2'");
     }
     insta::allow_duplicates! {
     // No remote should have been fetched as part of the failing transaction
@@ -336,11 +361,10 @@ fn test_git_fetch_nonexistent_remote_from_config(subprocess: bool) {
 
     let stderr = &test_env.jj_cmd_failure(&repo_path, &["git", "fetch"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r###"
-    bookmark: rem1@rem1 [new] untracked
-    Error: No git remote named 'rem2'
-    "###);
+    insta::assert_snapshot!(stderr, @"Error: No git remote named 'rem2'");
+    }
     // No remote should have been fetched as part of the failing transaction
+    insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @"");
     }
 }
@@ -1762,5 +1786,113 @@ fn test_git_fetch_remote_only_bookmark(subprocess: bool) {
       @origin: mzyxwzks 9f01a0e0 message
     feature2@origin: mzyxwzks 9f01a0e0 message
     "###);
+    }
+}
+
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_git_fetch_preserve_commits_across_repos(subprocess: bool) {
+    let test_env = TestEnvironment::default();
+    if subprocess {
+        test_env.add_config("git.subprocess = true");
+    }
+    test_env.add_config("git.auto-local-bookmark = true");
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    let repo_path = test_env.env_root().join("repo");
+
+    let upstream_repo = add_git_remote(&test_env, &repo_path, "upstream");
+
+    let fork_path = test_env.env_root().join("fork");
+    let fork_repo = clone_git_remote_into(&test_env, "upstream", "fork");
+    test_env.jj_cmd_ok(&repo_path, &["git", "remote", "add", "fork", "../fork"]);
+
+    // add commit to fork remote in another branch
+    add_commit_to_branch(&fork_repo, "feature");
+
+    // fetch remote bookmarks
+    test_env.jj_cmd_ok(
+        &repo_path,
+        &["git", "fetch", "--remote=fork", "--remote=upstream"],
+    );
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    @  230dd059e1b0
+    │ ○  e386ce0e4690 message feature
+    ├─╯
+    │ ○  05ae9cbbe5c7 message upstream
+    ├─╯
+    ◆  000000000000
+    ");
+    }
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
+    feature: nwtolyry e386ce0e message
+      @fork: nwtolyry e386ce0e message
+    upstream: tzqqlonq 05ae9cbb message
+      @fork: tzqqlonq 05ae9cbb message
+      @upstream: tzqqlonq 05ae9cbb message
+    ");
+    }
+
+    // merge fork/feature into the upstream/upstream
+    let mut fork_remote = upstream_repo
+        .remote("fork", fork_path.to_str().unwrap())
+        .unwrap();
+    fork_remote.fetch(&["feature"], None, None).unwrap();
+    let merge_base = upstream_repo
+        .find_branch("upstream", git2::BranchType::Local)
+        .unwrap()
+        .into_reference()
+        .peel_to_commit()
+        .unwrap();
+    let merge_target = upstream_repo
+        .find_branch("fork/feature", git2::BranchType::Remote)
+        .unwrap()
+        .into_reference()
+        .peel_to_commit()
+        .unwrap();
+    let merge_oid = upstream_repo.index().unwrap().write_tree().unwrap();
+    let merge_tree = upstream_repo.find_tree(merge_oid).unwrap();
+    let signature = git2_signature();
+    upstream_repo
+        .commit(
+            Some("refs/heads/upstream"),
+            &signature,
+            &signature,
+            "merge",
+            &merge_tree,
+            &[&merge_base, &merge_target],
+        )
+        .unwrap();
+
+    // remove branch on the fork
+    let mut branch = fork_repo
+        .find_branch("feature", git2::BranchType::Local)
+        .unwrap();
+    branch.delete().unwrap();
+
+    // fetch again on the jj repo, first looking at fork and then at upstream
+    test_env.jj_cmd_ok(
+        &repo_path,
+        &["git", "fetch", "--remote=fork", "--remote=upstream"],
+    );
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    @  230dd059e1b0
+    │ ○    407a9966fc22 merge upstream*
+    │ ├─╮
+    │ │ ○  e386ce0e4690 message
+    ├───╯
+    │ ○  05ae9cbbe5c7 message upstream@fork
+    ├─╯
+    ◆  000000000000
+    ");
+    }
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
+    upstream: qzsuxvvx 407a9966 merge
+      @fork (behind by 2 commits): tzqqlonq 05ae9cbb message
+      @upstream: qzsuxvvx 407a9966 merge
+    ");
     }
 }

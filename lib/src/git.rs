@@ -1457,8 +1457,6 @@ pub enum GitFetchError {
         chars = INVALID_REFSPEC_CHARS.iter().join("`, `")
     )]
     InvalidBranchPattern,
-    #[error("Failed to import Git refs")]
-    GitImportError(#[from] GitImportError),
     // TODO: I'm sure there are other errors possible, such as transport-level errors.
     #[error("Unexpected git error when fetching")]
     InternalGitError(#[from] git2::Error),
@@ -1484,36 +1482,29 @@ fn git2_fetch_options(
 }
 
 struct FetchedBranches {
-    branches: Vec<StringPattern>,
     remote: String,
+    branches: Vec<StringPattern>,
 }
 
-struct GitFetch<'a> {
+/// Helper struct to execute multiple `git fetch` operations
+pub struct GitFetch<'a> {
     mut_repo: &'a mut MutableRepo,
     git_repo: &'a git2::Repository,
     git_settings: &'a GitSettings,
-    // for git2 only
-    fetch_options: git2::FetchOptions<'a>,
     fetched: Vec<FetchedBranches>,
-    // for subprocess only
-    depth: Option<NonZeroU32>,
 }
 
 impl<'a> GitFetch<'a> {
-    fn new(
+    pub fn new(
         mut_repo: &'a mut MutableRepo,
         git_repo: &'a git2::Repository,
         git_settings: &'a GitSettings,
-        fetch_options: git2::FetchOptions<'a>,
-        depth: Option<NonZeroU32>,
     ) -> Self {
         GitFetch {
             mut_repo,
             git_repo,
             git_settings,
-            fetch_options,
             fetched: vec![],
-            depth,
         }
     }
 
@@ -1544,8 +1535,10 @@ impl<'a> GitFetch<'a> {
 
     fn git2_fetch(
         &mut self,
-        branch_names: &[StringPattern],
+        callbacks: RemoteCallbacks<'_>,
+        depth: Option<NonZeroU32>,
         remote_name: &str,
+        branch_names: &[StringPattern],
     ) -> Result<Option<String>, GitFetchError> {
         let mut remote = self.git_repo.find_remote(remote_name).map_err(|err| {
             if is_remote_not_found_err(&err) {
@@ -1567,7 +1560,7 @@ impl<'a> GitFetch<'a> {
         }
 
         tracing::debug!("remote.download");
-        remote.download(&refspecs, Some(&mut self.fetch_options))?;
+        remote.download(&refspecs, Some(&mut git2_fetch_options(callbacks, depth)))?;
         tracing::debug!("remote.prune");
         remote.prune(None)?;
         tracing::debug!("remote.update_tips");
@@ -1598,8 +1591,9 @@ impl<'a> GitFetch<'a> {
 
     fn subprocess_fetch(
         &mut self,
-        branch_names: &[StringPattern],
+        depth: Option<NonZeroU32>,
         remote_name: &str,
+        branch_names: &[StringPattern],
     ) -> Result<Option<String>, GitFetchError> {
         // check the remote exists
         // TODO: we should ideally find a way to do this without git2
@@ -1630,7 +1624,7 @@ impl<'a> GitFetch<'a> {
         // even more unfortunately, git errors out one refspec at a time,
         // meaning that the below cycle runs in O(#failed refspecs)
         while let Some(failing_refspec) =
-            git_ctx.spawn_fetch(remote_name, self.depth, &remaining_refspecs)?
+            git_ctx.spawn_fetch(remote_name, depth, &remaining_refspecs)?
         {
             remaining_refspecs.retain(|r| r.source.as_ref() != Some(&failing_refspec));
 
@@ -1656,20 +1650,23 @@ impl<'a> GitFetch<'a> {
     ///
     /// Keeps track of the {branch_names, remote_name} pair the refs can be
     /// subsequently imported into the `jj` repo by calling `import_refs()`.
-    fn fetch(
+    #[tracing::instrument(skip(self, callbacks))]
+    pub fn fetch(
         &mut self,
-        branch_names: &[StringPattern],
         remote_name: &str,
+        branch_names: &[StringPattern],
+        callbacks: RemoteCallbacks<'_>,
+        depth: Option<NonZeroU32>,
     ) -> Result<Option<String>, GitFetchError> {
         let default_branch = if self.git_settings.subprocess {
-            self.subprocess_fetch(branch_names, remote_name)
+            self.subprocess_fetch(depth, remote_name, branch_names)
         } else {
-            self.git2_fetch(branch_names, remote_name)
+            self.git2_fetch(callbacks, depth, remote_name, branch_names)
         };
 
         self.fetched.push(FetchedBranches {
-            branches: branch_names.to_vec(),
             remote: remote_name.to_string(),
+            branches: branch_names.to_vec(),
         });
 
         default_branch
@@ -1682,6 +1679,7 @@ impl<'a> GitFetch<'a> {
     /// Clears all yet-to-be-imported {branch_names, remote_name} pairs after
     /// the import. If `fetch()` has not been called since the last time
     /// `import_refs()` was called then this will be a no-op.
+    #[tracing::instrument(skip(self))]
     pub fn import_refs(&mut self) -> Result<GitImportStats, GitImportError> {
         tracing::debug!("import_refs");
         let import_stats =
@@ -1710,45 +1708,6 @@ impl<'a> GitFetch<'a> {
 
         Ok(import_stats)
     }
-}
-
-/// Describes successful `fetch()` result.
-#[derive(Clone, Debug, Eq, PartialEq, Default)]
-pub struct GitFetchStats {
-    /// Remote's default branch.
-    pub default_branch: Option<String>,
-    /// Changes made by the import.
-    pub import_stats: GitImportStats,
-}
-
-#[tracing::instrument(skip(mut_repo, git_repo, callbacks))]
-pub fn fetch(
-    mut_repo: &mut MutableRepo,
-    git_repo: &git2::Repository,
-    remote_name: &str,
-    branch_names: &[StringPattern],
-    callbacks: RemoteCallbacks<'_>,
-    git_settings: &GitSettings,
-    depth: Option<NonZeroU32>,
-) -> Result<GitFetchStats, GitFetchError> {
-    let mut git_fetch = GitFetch::new(
-        mut_repo,
-        git_repo,
-        git_settings,
-        if git_settings.subprocess {
-            git2::FetchOptions::default()
-        } else {
-            git2_fetch_options(callbacks, depth)
-        },
-        depth,
-    );
-    let default_branch = git_fetch.fetch(branch_names, remote_name)?;
-    let import_stats = git_fetch.import_refs()?;
-    let stats = GitFetchStats {
-        default_branch,
-        import_stats,
-    };
-    Ok(stats)
 }
 
 #[derive(Error, Debug)]
