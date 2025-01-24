@@ -390,6 +390,11 @@
                     "type": "string",
                     "description": "Path to the git executable",
                     "default": "git"
+                },
+                "ssh-key-file": {
+                    "type": "string",
+                    "description": "Path to SSH key file to use; by default, uses the following files in ~/.ssh: id_ed25519_sk, id_ed25519, id_rsa",
+                    "default": ""
                 }
             }
         },

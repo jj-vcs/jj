@@ -61,6 +61,7 @@ pub struct GitSettings {
     pub abandon_unreachable_commits: bool,
     pub subprocess: bool,
     pub executable_path: PathBuf,
+    pub ssh_key_file: Option<PathBuf>,
 }
 
 impl GitSettings {
@@ -70,6 +71,17 @@ impl GitSettings {
             abandon_unreachable_commits: settings.get_bool("git.abandon-unreachable-commits")?,
             subprocess: settings.get_bool("git.subprocess")?,
             executable_path: settings.get("git.executable-path")?,
+            ssh_key_file: match settings.get_string("git.ssh-key-file") {
+                Ok(ssh_key_file) => {
+                    let trimmed_ssh_key_file = ssh_key_file.trim();
+                    if trimmed_ssh_key_file.is_empty() {
+                        None
+                    } else {
+                        Some(crate::file_util::expand_home_path(trimmed_ssh_key_file))
+                    }
+                }
+                Err(_) => None,
+            },
         })
     }
 }
@@ -81,6 +93,7 @@ impl Default for GitSettings {
             abandon_unreachable_commits: true,
             subprocess: false,
             executable_path: PathBuf::from("git"),
+            ssh_key_file: None,
         }
     }
 }

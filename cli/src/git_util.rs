@@ -311,8 +311,13 @@ pub fn with_remote_git_callbacks<T>(
             .map(|x| x as &mut dyn FnMut(&git::Progress));
         callbacks.sideband_progress =
             sideband_progress_callback.map(|x| x as &mut dyn FnMut(&[u8]));
-        let mut get_ssh_keys = get_ssh_keys; // Coerce to unit fn type
-        callbacks.get_ssh_keys = Some(&mut get_ssh_keys);
+        let get_ssh_keys: &mut dyn FnMut(&_) -> _ = &mut |username| {
+            git_settings
+                .ssh_key_file
+                .as_ref()
+                .map_or_else(|| get_ssh_keys(username), |key_file| vec![key_file.clone()])
+        };
+        callbacks.get_ssh_keys = Some(get_ssh_keys);
         let mut get_pw =
             |url: &str, _username: &str| pinentry_get_pw(url).or_else(|| terminal_get_pw(ui, url));
         callbacks.get_password = Some(&mut get_pw);
