@@ -65,6 +65,7 @@ use once_cell::unsync::OnceCell;
 use pollster::FutureExt as _;
 
 use crate::diff_util;
+use crate::diff_util::DiffStats;
 use crate::formatter::Formatter;
 use crate::revset_util;
 use crate::template_builder;
@@ -301,6 +302,14 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(self, diagnostics, build_ctx, property, function)
             }
+            CommitTemplatePropertyKind::DiffStats(property) => {
+                let table = &self.build_fn_table.diff_stats_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                // Strip off formatting parameters which are needed only for the
+                // default template output.
+                let property = Box::new(property.map(|formatted| formatted.stats));
+                build(self, diagnostics, build_ctx, property, function)
+            }
             CommitTemplatePropertyKind::CryptographicSignatureOpt(property) => {
                 let type_name = "CryptographicSignature";
                 let table = &self.build_fn_table.cryptographic_signature_methods;
@@ -421,6 +430,12 @@ impl<'repo> CommitTemplateLanguage<'repo> {
         CommitTemplatePropertyKind::TreeEntry(Box::new(property))
     }
 
+    pub fn wrap_diff_stats(
+        property: impl TemplateProperty<Output = DiffStatsFormatted<'repo>> + 'repo,
+    ) -> CommitTemplatePropertyKind<'repo> {
+        CommitTemplatePropertyKind::DiffStats(Box::new(property))
+    }
+
     fn wrap_cryptographic_signature_opt(
         property: impl TemplateProperty<Output = Option<CryptographicSignature>> + 'repo,
     ) -> CommitTemplatePropertyKind<'repo> {
@@ -444,6 +459,7 @@ pub enum CommitTemplatePropertyKind<'repo> {
     TreeDiffEntry(Box<dyn TemplateProperty<Output = TreeDiffEntry> + 'repo>),
     TreeDiffEntryList(Box<dyn TemplateProperty<Output = Vec<TreeDiffEntry>> + 'repo>),
     TreeEntry(Box<dyn TemplateProperty<Output = TreeEntry> + 'repo>),
+    DiffStats(Box<dyn TemplateProperty<Output = DiffStatsFormatted<'repo>> + 'repo>),
     CryptographicSignatureOpt(
         Box<dyn TemplateProperty<Output = Option<CryptographicSignature>> + 'repo>,
     ),
@@ -467,6 +483,7 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             CommitTemplatePropertyKind::TreeDiffEntry(_) => "TreeDiffEntry",
             CommitTemplatePropertyKind::TreeDiffEntryList(_) => "List<TreeDiffEntry>",
             CommitTemplatePropertyKind::TreeEntry(_) => "TreeEntry",
+            CommitTemplatePropertyKind::DiffStats(_) => "DiffStats",
             CommitTemplatePropertyKind::CryptographicSignatureOpt(_) => {
                 "Option<CryptographicSignature>"
             }
@@ -504,6 +521,7 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
                 Some(Box::new(property.map(|l| !l.is_empty())))
             }
             CommitTemplatePropertyKind::TreeEntry(_) => None,
+            CommitTemplatePropertyKind::DiffStats(_) => None,
             CommitTemplatePropertyKind::CryptographicSignatureOpt(property) => {
                 Some(Box::new(property.map(|sig| sig.is_some())))
             }
@@ -548,6 +566,7 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             CommitTemplatePropertyKind::TreeDiffEntry(_) => None,
             CommitTemplatePropertyKind::TreeDiffEntryList(_) => None,
             CommitTemplatePropertyKind::TreeEntry(_) => None,
+            CommitTemplatePropertyKind::DiffStats(property) => Some(property.into_template()),
             CommitTemplatePropertyKind::CryptographicSignatureOpt(_) => None,
         }
     }
@@ -572,6 +591,7 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             (CommitTemplatePropertyKind::TreeDiffEntry(_), _) => None,
             (CommitTemplatePropertyKind::TreeDiffEntryList(_), _) => None,
             (CommitTemplatePropertyKind::TreeEntry(_), _) => None,
+            (CommitTemplatePropertyKind::DiffStats(_), _) => None,
             (CommitTemplatePropertyKind::CryptographicSignatureOpt(_), _) => None,
         }
     }
@@ -599,6 +619,7 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             (CommitTemplatePropertyKind::TreeDiffEntry(_), _) => None,
             (CommitTemplatePropertyKind::TreeDiffEntryList(_), _) => None,
             (CommitTemplatePropertyKind::TreeEntry(_), _) => None,
+            (CommitTemplatePropertyKind::DiffStats(_), _) => None,
             (CommitTemplatePropertyKind::CryptographicSignatureOpt(_), _) => None,
         }
     }
@@ -619,6 +640,7 @@ pub struct CommitTemplateBuildFnTable<'repo> {
     pub tree_diff_methods: CommitTemplateBuildMethodFnMap<'repo, TreeDiff>,
     pub tree_diff_entry_methods: CommitTemplateBuildMethodFnMap<'repo, TreeDiffEntry>,
     pub tree_entry_methods: CommitTemplateBuildMethodFnMap<'repo, TreeEntry>,
+    pub diff_stats_methods: CommitTemplateBuildMethodFnMap<'repo, DiffStats>,
     pub cryptographic_signature_methods:
         CommitTemplateBuildMethodFnMap<'repo, CryptographicSignature>,
 }
@@ -636,6 +658,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             tree_diff_methods: builtin_tree_diff_methods(),
             tree_diff_entry_methods: builtin_tree_diff_entry_methods(),
             tree_entry_methods: builtin_tree_entry_methods(),
+            diff_stats_methods: builtin_diff_stats_methods(),
             cryptographic_signature_methods: builtin_cryptographic_signature_methods(),
         }
     }
@@ -651,6 +674,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             tree_diff_methods: HashMap::new(),
             tree_diff_entry_methods: HashMap::new(),
             tree_entry_methods: HashMap::new(),
+            diff_stats_methods: HashMap::new(),
             cryptographic_signature_methods: HashMap::new(),
         }
     }
@@ -666,6 +690,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             tree_diff_methods,
             tree_diff_entry_methods,
             tree_entry_methods,
+            diff_stats_methods,
             cryptographic_signature_methods,
         } = extension;
 
@@ -684,6 +709,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
         merge_fn_map(&mut self.tree_diff_methods, tree_diff_methods);
         merge_fn_map(&mut self.tree_diff_entry_methods, tree_diff_entry_methods);
         merge_fn_map(&mut self.tree_entry_methods, tree_entry_methods);
+        merge_fn_map(&mut self.diff_stats_methods, diff_stats_methods);
         merge_fn_map(
             &mut self.cryptographic_signature_methods,
             cryptographic_signature_methods,
@@ -1856,36 +1882,35 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
     map.insert(
         "stat",
         |language, diagnostics, build_ctx, self_property, function| {
-            let [width_node] = function.expect_exact_arguments()?;
-            let width_property = template_builder::expect_usize_expression(
-                language,
-                diagnostics,
-                build_ctx,
-                width_node,
-            )?;
+            let ([], [width_node]) = function.expect_arguments()?;
+            let width_property = width_node
+                .map(|node| {
+                    template_builder::expect_usize_expression(
+                        language,
+                        diagnostics,
+                        build_ctx,
+                        node,
+                    )
+                })
+                .transpose()?;
             let path_converter = language.path_converter;
             // No user configuration exists for diff stat.
             let options = diff_util::DiffStatOptions::default();
             let conflict_marker_style = language.conflict_marker_style;
-            let template = (self_property, width_property)
-                .map(move |(diff, width)| {
-                    let options = options.clone();
-                    diff.into_formatted(
-                        move |formatter, store, tree_diff| -> Result<_, TemplatePropertyError> {
-                            let stats = diff_util::DiffStats::calculate(
-                                store,
-                                tree_diff,
-                                &options,
-                                conflict_marker_style,
-                            )
-                            .block_on()?;
-                            diff_util::show_diff_stats(formatter, &stats, path_converter, width)?;
-                            Ok(())
-                        },
-                    )
+            // TODO: cache and reuse stats within the current evaluation?
+            let out_property = (self_property, width_property).and_then(move |(diff, width)| {
+                let store = diff.from_tree.store();
+                let tree_diff = diff.diff_stream();
+                let stats = DiffStats::calculate(store, tree_diff, &options, conflict_marker_style)
+                    .block_on()?;
+                Ok(DiffStatsFormatted {
+                    stats,
+                    path_converter,
+                    // TODO: fall back to current available width
+                    width: width.unwrap_or(80),
                 })
-                .into_template();
-            Ok(L::wrap_template(template))
+            });
+            Ok(L::wrap_diff_stats(out_property))
         },
     );
     map.insert(
@@ -2054,6 +2079,52 @@ fn describe_file_type(value: &MergedTreeValue) -> &'static str {
 fn is_executable_file(value: &MergedTreeValue) -> Option<bool> {
     let executable = value.to_executable_merge()?;
     executable.resolve_trivial().copied()
+}
+
+/// [`DiffStats`] with rendering parameters.
+#[derive(Clone, Debug)]
+pub struct DiffStatsFormatted<'a> {
+    stats: DiffStats,
+    path_converter: &'a RepoPathUiConverter,
+    width: usize,
+}
+
+impl Template for DiffStatsFormatted<'_> {
+    fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
+        diff_util::show_diff_stats(
+            formatter.as_mut(),
+            &self.stats,
+            self.path_converter,
+            self.width,
+        )
+    }
+}
+
+fn builtin_diff_stats_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, DiffStats> {
+    type L<'repo> = CommitTemplateLanguage<'repo>;
+    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // code completion inside macro is quite restricted.
+    let mut map = CommitTemplateBuildMethodFnMap::<DiffStats>::new();
+    // TODO: add files() -> List<DiffStatEntry> ?
+    map.insert(
+        "total_added",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property =
+                self_property.and_then(|stats| Ok(stats.count_total_added().try_into()?));
+            Ok(L::wrap_integer(out_property))
+        },
+    );
+    map.insert(
+        "total_removed",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property =
+                self_property.and_then(|stats| Ok(stats.count_total_removed().try_into()?));
+            Ok(L::wrap_integer(out_property))
+        },
+    );
+    map
 }
 
 #[derive(Debug)]

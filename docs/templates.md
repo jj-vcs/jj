@@ -164,6 +164,14 @@ The following methods are defined.
     if(commit.signature(), "commit has a signature", "commit is unsigned")
     ```
 
+### DiffStats type
+
+This type can be printed as a histogram of the changes. The following methods
+are defined.
+
+* `.total_added() -> Integer`: Total number of insertions.
+* `.total_removed() -> Integer`: Total number of deletions.
+
 ### Email type
 
 The email field of a signature may or may not look like an email address. It may
@@ -356,7 +364,7 @@ This type cannot be printed. The following methods are defined.
 * `.color_words([context: Integer]) -> Template`: Format as a word-level diff
   with changes indicated only by color.
 * `.git([context: Integer]) -> Template`: Format as a Git diff.
-* `.stat(width: Integer) -> Template`: Format as a histogram of the changes.
+* `.stat([width: Integer]) -> DiffStats`: Calculate stats of changed lines.
 * `.summary() -> Template`: Format as a list of status code and path pairs.
 
 ### TreeDiffEntry type

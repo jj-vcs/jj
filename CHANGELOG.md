@@ -108,6 +108,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `diff.files()`. For example, `diff.files().map(|e| e.path().display())` prints
   changed file paths.
 
+* The `diff.stat()` template method now provides methods to get summary values.
+
 * New `git.sign-on-push` config option to automatically sign commits which are being
   pushed to a Git remote.
 

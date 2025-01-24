@@ -1344,6 +1344,26 @@ fn test_log_diff_predefined_formats() {
     === 000000000000 ===
     * empty len=0
     ");
+
+    // custom diff stat template
+    let template = indoc! {r#"
+        concat(
+          "=== " ++ commit_id.short() ++ " ===\n",
+          "* " ++ separate(" ",
+            "total_added=" ++ diff.stat().total_added(),
+            "total_removed=" ++ diff.stat().total_removed(),
+          ) ++ "\n",
+        )
+    "#};
+    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "--no-graph", "-T", template]);
+    insta::assert_snapshot!(stdout, @r"
+    === fbad2dd53d06 ===
+    * total_added=3 total_removed=1
+    === 3c9b3178609b ===
+    * total_added=4 total_removed=0
+    === 000000000000 ===
+    * total_added=0 total_removed=0
+    ");
 }
 
 #[test]
