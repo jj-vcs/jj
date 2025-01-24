@@ -833,7 +833,7 @@ obtained as follows:
 
 - **Windows:** Meld can be downloaded from <https://meldmerge.org/>.
 
-- **Mac OS:** Install Homebrew and run `brew install --cask deheselle-meld`.
+- **Mac OS:** Install Homebrew and run `brew install --cask dehesselle-meld`.
   This will install both an app in `/Applications/Meld.app` and the command-line
   `meld` command that `jj` uses. You can read about [more details and other
   options](https://gist.github.com/ilyagr/1b40f6061d8ad320cee4c12843df1a23) but,
