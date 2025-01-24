@@ -142,6 +142,23 @@ jobs:
           components: rustfmt
       - run: cargo +nightly fmt --all -- --check
 
+  codespell:
+    name: Codespell
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
+        with:
+          python-version: 3.11
+      - name: Install uv
+        uses: astral-sh/setup-uv@b5f58b2abc5763ade55e4e9d0fe52cd1ff7979ca
+        with:
+          # If you bump the version, also update docs/contributing.md
+          # and all other workflows that install uv
+          version: "0.5.1"
+      - name: Run Codespell
+        run: uv run -- codespell && echo Codespell exited successfully
+
   check-doctests:
     name: Run doctests
     runs-on: ubuntu-24.04

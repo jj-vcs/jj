@@ -24,4 +24,16 @@ dev-dependencies = [
     "mkdocs-redirects<2.0.0,>=1.2.1",
     # Used for the CLI reference
     "mkdocs-include-markdown-plugin<7.0.0,>=6.0.4",
+    "codespell[toml]>=2.4.0",
 ]
+
+[tool.codespell]
+check-filenames=true
+check-hidden=true
+# Codespell does not respect .gitignore. It may be necessary to add to
+# this list by running e.g. `uv run codespell --skip=./rendered-docs`
+# if you have less common ignored files or globally ignored files present.
+# Alternatively, try `uv run codespell $(jj file list)`.
+skip="./target,./.jj,*.lock,./.git,./.venv,./.direnv"
+ignore-words-list="crate,NotIn,Wirth,abd"
+
