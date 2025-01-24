@@ -28,6 +28,7 @@ use jj_lib::backend::TreeValue;
 use jj_lib::commit::Commit;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::copies::CopiesTreeDiffEntry;
+use jj_lib::copies::CopiesTreeDiffEntryPath;
 use jj_lib::copies::CopyRecords;
 use jj_lib::extensions_map::ExtensionsMap;
 use jj_lib::fileset;
@@ -275,6 +276,23 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(self, diagnostics, build_ctx, property, function)
             }
+            CommitTemplatePropertyKind::TreeDiffEntry(property) => {
+                let table = &self.build_fn_table.tree_diff_entry_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(self, diagnostics, build_ctx, property, function)
+            }
+            CommitTemplatePropertyKind::TreeDiffEntryList(property) => {
+                // TODO: migrate to table?
+                template_builder::build_unformattable_list_method(
+                    self,
+                    diagnostics,
+                    build_ctx,
+                    property,
+                    function,
+                    Self::wrap_tree_diff_entry,
+                    Self::wrap_tree_diff_entry_list,
+                )
+            }
             CommitTemplatePropertyKind::TreeEntry(property) => {
                 let table = &self.build_fn_table.tree_entry_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
@@ -382,6 +400,18 @@ impl<'repo> CommitTemplateLanguage<'repo> {
         CommitTemplatePropertyKind::TreeDiff(Box::new(property))
     }
 
+    pub fn wrap_tree_diff_entry(
+        property: impl TemplateProperty<Output = TreeDiffEntry> + 'repo,
+    ) -> CommitTemplatePropertyKind<'repo> {
+        CommitTemplatePropertyKind::TreeDiffEntry(Box::new(property))
+    }
+
+    pub fn wrap_tree_diff_entry_list(
+        property: impl TemplateProperty<Output = Vec<TreeDiffEntry>> + 'repo,
+    ) -> CommitTemplatePropertyKind<'repo> {
+        CommitTemplatePropertyKind::TreeDiffEntryList(Box::new(property))
+    }
+
     pub fn wrap_tree_entry(
         property: impl TemplateProperty<Output = TreeEntry> + 'repo,
     ) -> CommitTemplatePropertyKind<'repo> {
@@ -408,6 +438,8 @@ pub enum CommitTemplatePropertyKind<'repo> {
     CommitOrChangeId(Box<dyn TemplateProperty<Output = CommitOrChangeId> + 'repo>),
     ShortestIdPrefix(Box<dyn TemplateProperty<Output = ShortestIdPrefix> + 'repo>),
     TreeDiff(Box<dyn TemplateProperty<Output = TreeDiff> + 'repo>),
+    TreeDiffEntry(Box<dyn TemplateProperty<Output = TreeDiffEntry> + 'repo>),
+    TreeDiffEntryList(Box<dyn TemplateProperty<Output = Vec<TreeDiffEntry>> + 'repo>),
     TreeEntry(Box<dyn TemplateProperty<Output = TreeEntry> + 'repo>),
     CryptographicSignatureOpt(
         Box<dyn TemplateProperty<Output = Option<CryptographicSignature>> + 'repo>,
@@ -429,6 +461,8 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             CommitTemplatePropertyKind::CommitOrChangeId(_) => "CommitOrChangeId",
             CommitTemplatePropertyKind::ShortestIdPrefix(_) => "ShortestIdPrefix",
             CommitTemplatePropertyKind::TreeDiff(_) => "TreeDiff",
+            CommitTemplatePropertyKind::TreeDiffEntry(_) => "TreeDiffEntry",
+            CommitTemplatePropertyKind::TreeDiffEntryList(_) => "List<TreeDiffEntry>",
             CommitTemplatePropertyKind::TreeEntry(_) => "TreeEntry",
             CommitTemplatePropertyKind::CryptographicSignatureOpt(_) => {
                 "Option<CryptographicSignature>"
@@ -462,6 +496,10 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             // TODO: boolean cast could be implemented, but explicit
             // diff.empty() method might be better.
             CommitTemplatePropertyKind::TreeDiff(_) => None,
+            CommitTemplatePropertyKind::TreeDiffEntry(_) => None,
+            CommitTemplatePropertyKind::TreeDiffEntryList(property) => {
+                Some(Box::new(property.map(|l| !l.is_empty())))
+            }
             CommitTemplatePropertyKind::TreeEntry(_) => None,
             CommitTemplatePropertyKind::CryptographicSignatureOpt(property) => {
                 Some(Box::new(property.map(|sig| sig.is_some())))
@@ -504,6 +542,8 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
                 Some(property.into_template())
             }
             CommitTemplatePropertyKind::TreeDiff(_) => None,
+            CommitTemplatePropertyKind::TreeDiffEntry(_) => None,
+            CommitTemplatePropertyKind::TreeDiffEntryList(_) => None,
             CommitTemplatePropertyKind::TreeEntry(_) => None,
             CommitTemplatePropertyKind::CryptographicSignatureOpt(_) => None,
         }
@@ -526,6 +566,8 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             (CommitTemplatePropertyKind::CommitOrChangeId(_), _) => None,
             (CommitTemplatePropertyKind::ShortestIdPrefix(_), _) => None,
             (CommitTemplatePropertyKind::TreeDiff(_), _) => None,
+            (CommitTemplatePropertyKind::TreeDiffEntry(_), _) => None,
+            (CommitTemplatePropertyKind::TreeDiffEntryList(_), _) => None,
             (CommitTemplatePropertyKind::TreeEntry(_), _) => None,
             (CommitTemplatePropertyKind::CryptographicSignatureOpt(_), _) => None,
         }
@@ -551,6 +593,8 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             (CommitTemplatePropertyKind::CommitOrChangeId(_), _) => None,
             (CommitTemplatePropertyKind::ShortestIdPrefix(_), _) => None,
             (CommitTemplatePropertyKind::TreeDiff(_), _) => None,
+            (CommitTemplatePropertyKind::TreeDiffEntry(_), _) => None,
+            (CommitTemplatePropertyKind::TreeDiffEntryList(_), _) => None,
             (CommitTemplatePropertyKind::TreeEntry(_), _) => None,
             (CommitTemplatePropertyKind::CryptographicSignatureOpt(_), _) => None,
         }
@@ -570,6 +614,7 @@ pub struct CommitTemplateBuildFnTable<'repo> {
     pub commit_or_change_id_methods: CommitTemplateBuildMethodFnMap<'repo, CommitOrChangeId>,
     pub shortest_id_prefix_methods: CommitTemplateBuildMethodFnMap<'repo, ShortestIdPrefix>,
     pub tree_diff_methods: CommitTemplateBuildMethodFnMap<'repo, TreeDiff>,
+    pub tree_diff_entry_methods: CommitTemplateBuildMethodFnMap<'repo, TreeDiffEntry>,
     pub tree_entry_methods: CommitTemplateBuildMethodFnMap<'repo, TreeEntry>,
     pub cryptographic_signature_methods:
         CommitTemplateBuildMethodFnMap<'repo, CryptographicSignature>,
@@ -586,6 +631,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             commit_or_change_id_methods: builtin_commit_or_change_id_methods(),
             shortest_id_prefix_methods: builtin_shortest_id_prefix_methods(),
             tree_diff_methods: builtin_tree_diff_methods(),
+            tree_diff_entry_methods: builtin_tree_diff_entry_methods(),
             tree_entry_methods: builtin_tree_entry_methods(),
             cryptographic_signature_methods: builtin_cryptographic_signature_methods(),
         }
@@ -600,6 +646,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             commit_or_change_id_methods: HashMap::new(),
             shortest_id_prefix_methods: HashMap::new(),
             tree_diff_methods: HashMap::new(),
+            tree_diff_entry_methods: HashMap::new(),
             tree_entry_methods: HashMap::new(),
             cryptographic_signature_methods: HashMap::new(),
         }
@@ -614,6 +661,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             commit_or_change_id_methods,
             shortest_id_prefix_methods,
             tree_diff_methods,
+            tree_diff_entry_methods,
             tree_entry_methods,
             cryptographic_signature_methods,
         } = extension;
@@ -631,6 +679,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             shortest_id_prefix_methods,
         );
         merge_fn_map(&mut self.tree_diff_methods, tree_diff_methods);
+        merge_fn_map(&mut self.tree_diff_entry_methods, tree_diff_entry_methods);
         merge_fn_map(&mut self.tree_entry_methods, tree_entry_methods);
         merge_fn_map(
             &mut self.cryptographic_signature_methods,
@@ -1835,6 +1884,81 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
     // TODO: add types() and name_only()? or let users write their own template?
     // TODO: add support for external tools
     // TODO: add files() or map() to support custom summary-like formatting?
+    map
+}
+
+/// [`MergedTree`] diff entry.
+#[derive(Clone, Debug)]
+pub struct TreeDiffEntry {
+    pub path: CopiesTreeDiffEntryPath,
+    pub source_value: MergedTreeValue,
+    pub target_value: MergedTreeValue,
+}
+
+impl TreeDiffEntry {
+    fn status_label(&self) -> &'static str {
+        let (label, _sigil) = diff_util::diff_status_label_and_char(
+            &self.path,
+            &self.source_value,
+            &self.target_value,
+        );
+        label
+    }
+
+    fn into_source_entry(self) -> TreeEntry {
+        TreeEntry {
+            path: self.path.source.map_or(self.path.target, |(path, _)| path),
+            value: self.source_value,
+        }
+    }
+
+    fn into_target_entry(self) -> TreeEntry {
+        TreeEntry {
+            path: self.path.target,
+            value: self.target_value,
+        }
+    }
+}
+
+fn builtin_tree_diff_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, TreeDiffEntry>
+{
+    type L<'repo> = CommitTemplateLanguage<'repo>;
+    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // code completion inside macro is quite restricted.
+    let mut map = CommitTemplateBuildMethodFnMap::<TreeDiffEntry>::new();
+    map.insert(
+        "path",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|entry| entry.path.target);
+            Ok(L::wrap_repo_path(out_property))
+        },
+    );
+    map.insert(
+        "status",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|entry| entry.status_label().to_owned());
+            Ok(L::wrap_string(out_property))
+        },
+    );
+    // TODO: add status_code() or status_char()?
+    map.insert(
+        "source",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(TreeDiffEntry::into_source_entry);
+            Ok(L::wrap_tree_entry(out_property))
+        },
+    );
+    map.insert(
+        "target",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(TreeDiffEntry::into_target_entry);
+            Ok(L::wrap_tree_entry(out_property))
+        },
+    );
     map
 }
 

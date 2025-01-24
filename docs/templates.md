@@ -358,6 +358,17 @@ This type cannot be printed. The following methods are defined.
 * `.stat(width: Integer) -> Template`: Format as a histogram of the changes.
 * `.summary() -> Template`: Format as a list of status code and path pairs.
 
+### TreeDiffEntry type
+
+This type cannot be printed. The following methods are defined.
+
+* `.path() -> RepoPath`: Path to the entry. If the entry is a copy/rename, this
+  points to the target (or right) entry.
+* `.status() -> String`: One of `"modified"`, `"added"`, `"removed"`,
+  `"copied"`, or `"renamed"`.
+* `.source() -> TreeEntry`: The source (or left) entry.
+* `.target() -> TreeEntry`: The target (or right) entry.
+
 ### TreeEntry type
 
 This type cannot be printed. The following methods are defined.

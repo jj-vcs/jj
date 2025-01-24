@@ -1620,7 +1620,7 @@ pub fn show_diff_summary(
     .block_on()
 }
 
-fn diff_status_label_and_char(
+pub fn diff_status_label_and_char(
     path: &CopiesTreeDiffEntryPath,
     before: &MergedTreeValue,
     after: &MergedTreeValue,
