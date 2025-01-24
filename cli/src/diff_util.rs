@@ -15,6 +15,7 @@
 use std::borrow::Borrow;
 use std::cmp::max;
 use std::io;
+use std::iter;
 use std::mem;
 use std::ops::Range;
 use std::path::Path;
@@ -1652,13 +1653,13 @@ impl DiffStatOptions {
 }
 
 struct DiffStat {
-    path: String,
+    path: CopiesTreeDiffEntryPath,
     added: usize,
     removed: usize,
 }
 
 fn get_diff_stat(
-    path: String,
+    path: CopiesTreeDiffEntryPath,
     left_content: &FileContent,
     right_content: &FileContent,
     options: &DiffStatOptions,
@@ -1699,24 +1700,14 @@ pub fn show_diff_stat(
     conflict_marker_style: ConflictMarkerStyle,
 ) -> Result<(), DiffRenderError> {
     let mut stats: Vec<DiffStat> = vec![];
-    let mut max_path_width = 0;
     let mut max_diffs = 0;
 
     let mut diff_stream = materialized_diff_stream(store, tree_diff);
     async {
         while let Some(MaterializedTreeDiffEntry { path, values }) = diff_stream.next().await {
             let (left, right) = values?;
-            let left_path = path.source();
-            let right_path = path.target();
-            let left_content = diff_content(left_path, left, conflict_marker_style)?;
-            let right_content = diff_content(right_path, right, conflict_marker_style)?;
-
-            let path = if left_path == right_path {
-                path_converter.format_file_path(left_path)
-            } else {
-                path_converter.format_copied_path(left_path, right_path)
-            };
-            max_path_width = max(max_path_width, path.width());
+            let left_content = diff_content(path.source(), left, conflict_marker_style)?;
+            let right_content = diff_content(path.target(), right, conflict_marker_style)?;
             let stat = get_diff_stat(path, &left_content, &right_content, options);
             max_diffs = max(max_diffs, stat.added + stat.removed);
             stats.push(stat);
@@ -1724,6 +1715,18 @@ pub fn show_diff_stat(
         Ok::<(), DiffRenderError>(())
     }
     .block_on()?;
+
+    let ui_paths = stats
+        .iter()
+        .map(|stat| {
+            if stat.path.copy_operation().is_some() {
+                path_converter.format_copied_path(stat.path.source(), stat.path.target())
+            } else {
+                path_converter.format_file_path(stat.path.target())
+            }
+        })
+        .collect_vec();
+    let max_path_width = ui_paths.iter().map(|s| s.width()).max().unwrap_or(0);
 
     let number_padding = max_diffs.to_string().len();
     // 4 characters padding for the graph
@@ -1741,13 +1744,13 @@ pub fn show_diff_stat(
     let mut total_added = 0;
     let mut total_removed = 0;
     let total_files = stats.len();
-    for stat in &stats {
+    for (stat, ui_path) in iter::zip(&stats, &ui_paths) {
         total_added += stat.added;
         total_removed += stat.removed;
         let bar_added = (stat.added as f64 * factor).ceil() as usize;
         let bar_removed = (stat.removed as f64 * factor).ceil() as usize;
         // replace start of path with ellipsis if the path is too long
-        let (path, path_width) = text_util::elide_start(&stat.path, "...", max_path_width);
+        let (path, path_width) = text_util::elide_start(ui_path, "...", max_path_width);
         let path_pad_width = max_path_width - path_width;
         write!(
             formatter,
