@@ -886,14 +886,19 @@ fn diff_content(
     path: &RepoPath,
     value: MaterializedTreeValue,
     conflict_marker_style: ConflictMarkerStyle,
-) -> io::Result<FileContent> {
+) -> BackendResult<FileContent> {
     match value {
         MaterializedTreeValue::Absent => Ok(FileContent::empty()),
         MaterializedTreeValue::AccessDenied(err) => Ok(FileContent {
             is_binary: false,
             contents: format!("Access denied: {err}").into_bytes(),
         }),
-        MaterializedTreeValue::File { mut reader, .. } => file_content_for_diff(&mut reader),
+        MaterializedTreeValue::File { id, mut reader, .. } => file_content_for_diff(&mut reader)
+            .map_err(|err| BackendError::ReadFile {
+                path: path.to_owned(),
+                id,
+                source: err.into(),
+            }),
         MaterializedTreeValue::Symlink { id: _, target } => Ok(FileContent {
             // Unix file paths can't contain null bytes.
             is_binary: false,
