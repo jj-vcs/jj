@@ -14,7 +14,6 @@
 
 use std::borrow::Borrow;
 use std::cmp::max;
-use std::collections::HashSet;
 use std::io;
 use std::mem;
 use std::ops::Range;
@@ -1656,7 +1655,6 @@ struct DiffStat {
     path: String,
     added: usize,
     removed: usize,
-    is_deletion: bool,
 }
 
 fn get_diff_stat(
@@ -1688,7 +1686,6 @@ fn get_diff_stat(
         path,
         added,
         removed,
-        is_deletion: right_content.contents.is_empty(),
     }
 }
 
@@ -1702,7 +1699,6 @@ pub fn show_diff_stat(
     conflict_marker_style: ConflictMarkerStyle,
 ) -> Result<(), DiffRenderError> {
     let mut stats: Vec<DiffStat> = vec![];
-    let mut unresolved_renames = HashSet::new();
     let mut max_path_width = 0;
     let mut max_diffs = 0;
 
@@ -1715,11 +1711,9 @@ pub fn show_diff_stat(
             let left_content = diff_content(left_path, left, conflict_marker_style)?;
             let right_content = diff_content(right_path, right, conflict_marker_style)?;
 
-            let left_ui_path = path_converter.format_file_path(left_path);
             let path = if left_path == right_path {
-                left_ui_path
+                path_converter.format_file_path(left_path)
             } else {
-                unresolved_renames.insert(left_ui_path);
                 path_converter.format_copied_path(left_path, right_path)
             };
             max_path_width = max(max_path_width, path.width());
@@ -1746,15 +1740,10 @@ pub fn show_diff_stat(
 
     let mut total_added = 0;
     let mut total_removed = 0;
-    let mut total_files = 0;
+    let total_files = stats.len();
     for stat in &stats {
-        if stat.is_deletion && unresolved_renames.contains(&stat.path) {
-            continue;
-        }
-
         total_added += stat.added;
         total_removed += stat.removed;
-        total_files += 1;
         let bar_added = (stat.added as f64 * factor).ceil() as usize;
         let bar_removed = (stat.removed as f64 * factor).ceil() as usize;
         // replace start of path with ellipsis if the path is too long
