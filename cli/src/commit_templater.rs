@@ -1870,17 +1870,19 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
             let template = (self_property, width_property)
                 .map(move |(diff, width)| {
                     let options = options.clone();
-                    diff.into_formatted(move |formatter, store, tree_diff| {
-                        diff_util::show_diff_stat(
-                            formatter,
-                            store,
-                            tree_diff,
-                            path_converter,
-                            &options,
-                            width,
-                            conflict_marker_style,
-                        )
-                    })
+                    diff.into_formatted(
+                        move |formatter, store, tree_diff| -> Result<_, TemplatePropertyError> {
+                            let stats = diff_util::DiffStats::calculate(
+                                store,
+                                tree_diff,
+                                &options,
+                                conflict_marker_style,
+                            )
+                            .block_on()?;
+                            diff_util::show_diff_stats(formatter, &stats, path_converter, width)?;
+                            Ok(())
+                        },
+                    )
                 })
                 .into_template();
             Ok(L::wrap_template(template))

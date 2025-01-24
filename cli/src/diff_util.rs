@@ -24,7 +24,8 @@ use std::path::PathBuf;
 use bstr::BStr;
 use futures::executor::block_on_stream;
 use futures::stream::BoxStream;
-use futures::StreamExt;
+use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use itertools::Itertools;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::BackendResult;
@@ -344,15 +345,10 @@ impl<'a> DiffRenderer<'a> {
                 DiffFormat::Stat(options) => {
                     let tree_diff =
                         from_tree.diff_stream_with_copies(to_tree, matcher, copy_records);
-                    show_diff_stat(
-                        formatter,
-                        store,
-                        tree_diff,
-                        path_converter,
-                        options,
-                        width,
-                        self.conflict_marker_style,
-                    )?;
+                    let stats =
+                        DiffStats::calculate(store, tree_diff, options, self.conflict_marker_style)
+                            .block_on()?;
+                    show_diff_stats(formatter, &stats, path_converter, width)?;
                 }
                 DiffFormat::Types => {
                     let tree_diff =
@@ -1658,6 +1654,48 @@ impl DiffStatOptions {
 }
 
 #[derive(Clone, Debug)]
+pub struct DiffStats {
+    entries: Vec<DiffStatEntry>,
+}
+
+impl DiffStats {
+    /// Calculates stats of changed lines per file.
+    pub async fn calculate(
+        store: &Store,
+        tree_diff: BoxStream<'_, CopiesTreeDiffEntry>,
+        options: &DiffStatOptions,
+        conflict_marker_style: ConflictMarkerStyle,
+    ) -> BackendResult<Self> {
+        let entries = materialized_diff_stream(store, tree_diff)
+            .map(|MaterializedTreeDiffEntry { path, values }| {
+                let (left, right) = values?;
+                let left_content = diff_content(path.source(), left, conflict_marker_style)?;
+                let right_content = diff_content(path.target(), right, conflict_marker_style)?;
+                let stat = get_diff_stat_entry(path, &left_content, &right_content, options);
+                BackendResult::Ok(stat)
+            })
+            .try_collect()
+            .await?;
+        Ok(DiffStats { entries })
+    }
+
+    /// List of stats per file.
+    pub fn entries(&self) -> &[DiffStatEntry] {
+        &self.entries
+    }
+
+    /// Total number of insertions.
+    pub fn count_total_added(&self) -> usize {
+        self.entries.iter().map(|stat| stat.added).sum()
+    }
+
+    /// Total number of deletions.
+    pub fn count_total_removed(&self) -> usize {
+        self.entries.iter().map(|stat| stat.removed).sum()
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct DiffStatEntry {
     pub path: CopiesTreeDiffEntryPath,
     pub added: usize,
@@ -1696,31 +1734,14 @@ fn get_diff_stat_entry(
     }
 }
 
-pub fn show_diff_stat(
+pub fn show_diff_stats(
     formatter: &mut dyn Formatter,
-    store: &Store,
-    tree_diff: BoxStream<CopiesTreeDiffEntry>,
+    stats: &DiffStats,
     path_converter: &RepoPathUiConverter,
-    options: &DiffStatOptions,
     display_width: usize,
-    conflict_marker_style: ConflictMarkerStyle,
-) -> Result<(), DiffRenderError> {
-    let mut stats: Vec<DiffStatEntry> = vec![];
-
-    let mut diff_stream = materialized_diff_stream(store, tree_diff);
-    async {
-        while let Some(MaterializedTreeDiffEntry { path, values }) = diff_stream.next().await {
-            let (left, right) = values?;
-            let left_content = diff_content(path.source(), left, conflict_marker_style)?;
-            let right_content = diff_content(path.target(), right, conflict_marker_style)?;
-            let stat = get_diff_stat_entry(path, &left_content, &right_content, options);
-            stats.push(stat);
-        }
-        Ok::<(), DiffRenderError>(())
-    }
-    .block_on()?;
-
+) -> io::Result<()> {
     let ui_paths = stats
+        .entries()
         .iter()
         .map(|stat| {
             if stat.path.copy_operation().is_some() {
@@ -1732,6 +1753,7 @@ pub fn show_diff_stat(
         .collect_vec();
     let max_path_width = ui_paths.iter().map(|s| s.width()).max().unwrap_or(0);
     let max_diffs = stats
+        .entries()
         .iter()
         .map(|stat| stat.added + stat.removed)
         .max()
@@ -1750,7 +1772,7 @@ pub fn show_diff_stat(
         max_bar_length as f64 / max_diffs as f64
     };
 
-    for (stat, ui_path) in iter::zip(&stats, &ui_paths) {
+    for (stat, ui_path) in iter::zip(stats.entries(), &ui_paths) {
         let bar_added = (stat.added as f64 * factor).ceil() as usize;
         let bar_removed = (stat.removed as f64 * factor).ceil() as usize;
         // replace start of path with ellipsis if the path is too long
@@ -1767,9 +1789,9 @@ pub fn show_diff_stat(
         writeln!(formatter.labeled("removed"), "{}", "-".repeat(bar_removed))?;
     }
 
-    let total_added: usize = stats.iter().map(|stat| stat.added).sum();
-    let total_removed: usize = stats.iter().map(|stat| stat.removed).sum();
-    let total_files = stats.len();
+    let total_added = stats.count_total_added();
+    let total_removed = stats.count_total_removed();
+    let total_files = stats.entries().len();
     writeln!(
         formatter.labeled("stat-summary"),
         "{} file{} changed, {} insertion{}(+), {} deletion{}(-)",
