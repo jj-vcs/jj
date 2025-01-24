@@ -1700,7 +1700,6 @@ pub fn show_diff_stat(
     conflict_marker_style: ConflictMarkerStyle,
 ) -> Result<(), DiffRenderError> {
     let mut stats: Vec<DiffStat> = vec![];
-    let mut max_diffs = 0;
 
     let mut diff_stream = materialized_diff_stream(store, tree_diff);
     async {
@@ -1709,7 +1708,6 @@ pub fn show_diff_stat(
             let left_content = diff_content(path.source(), left, conflict_marker_style)?;
             let right_content = diff_content(path.target(), right, conflict_marker_style)?;
             let stat = get_diff_stat(path, &left_content, &right_content, options);
-            max_diffs = max(max_diffs, stat.added + stat.removed);
             stats.push(stat);
         }
         Ok::<(), DiffRenderError>(())
@@ -1727,6 +1725,11 @@ pub fn show_diff_stat(
         })
         .collect_vec();
     let max_path_width = ui_paths.iter().map(|s| s.width()).max().unwrap_or(0);
+    let max_diffs = stats
+        .iter()
+        .map(|stat| stat.added + stat.removed)
+        .max()
+        .unwrap_or(0);
 
     let number_padding = max_diffs.to_string().len();
     // 4 characters padding for the graph
@@ -1741,12 +1744,7 @@ pub fn show_diff_stat(
         max_bar_length as f64 / max_diffs as f64
     };
 
-    let mut total_added = 0;
-    let mut total_removed = 0;
-    let total_files = stats.len();
     for (stat, ui_path) in iter::zip(&stats, &ui_paths) {
-        total_added += stat.added;
-        total_removed += stat.removed;
         let bar_added = (stat.added as f64 * factor).ceil() as usize;
         let bar_removed = (stat.removed as f64 * factor).ceil() as usize;
         // replace start of path with ellipsis if the path is too long
@@ -1762,6 +1760,10 @@ pub fn show_diff_stat(
         write!(formatter.labeled("added"), "{}", "+".repeat(bar_added))?;
         writeln!(formatter.labeled("removed"), "{}", "-".repeat(bar_removed))?;
     }
+
+    let total_added: usize = stats.iter().map(|stat| stat.added).sum();
+    let total_removed: usize = stats.iter().map(|stat| stat.removed).sum();
+    let total_files = stats.len();
     writeln!(
         formatter.labeled("stat-summary"),
         "{} file{} changed, {} insertion{}(+), {} deletion{}(-)",
