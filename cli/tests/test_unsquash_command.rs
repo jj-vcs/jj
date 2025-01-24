@@ -23,13 +23,13 @@ fn test_unsquash() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "a"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "a"]);
     std::fs::write(repo_path.join("file1"), "a\n").unwrap();
     test_env.jj_cmd_ok(&repo_path, &["new"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "b"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "b"]);
     std::fs::write(repo_path.join("file1"), "b\n").unwrap();
     test_env.jj_cmd_ok(&repo_path, &["new"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "c"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "c"]);
     std::fs::write(repo_path.join("file1"), "c\n").unwrap();
     // Test the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r###"
@@ -88,10 +88,10 @@ fn test_unsquash() {
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
     test_env.jj_cmd_ok(&repo_path, &["edit", "b"]);
     test_env.jj_cmd_ok(&repo_path, &["new"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "d"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "d"]);
     std::fs::write(repo_path.join("file2"), "d\n").unwrap();
     test_env.jj_cmd_ok(&repo_path, &["new", "-m", "merge", "c", "d"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "e"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "e"]);
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r###"
     @    b780e7469252 e
     ├─╮
@@ -143,15 +143,15 @@ fn test_unsquash_partial() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "a"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "a"]);
     std::fs::write(repo_path.join("file1"), "a\n").unwrap();
     std::fs::write(repo_path.join("file2"), "a\n").unwrap();
     test_env.jj_cmd_ok(&repo_path, &["new"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "b"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "b"]);
     std::fs::write(repo_path.join("file1"), "b\n").unwrap();
     std::fs::write(repo_path.join("file2"), "b\n").unwrap();
     test_env.jj_cmd_ok(&repo_path, &["new"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "c"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "c"]);
     std::fs::write(repo_path.join("file1"), "c\n").unwrap();
     std::fs::write(repo_path.join("file2"), "c\n").unwrap();
     // Test the setup

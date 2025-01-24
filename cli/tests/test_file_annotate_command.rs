@@ -55,15 +55,15 @@ fn test_annotate_merge() {
 
     std::fs::write(repo_path.join("file.txt"), "line1\n").unwrap();
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m=initial"]);
-    test_env.jj_cmd_ok(&repo_path, &["branch", "create", "initial"]);
+    test_env.jj_cmd_ok(&repo_path, &["branch", "create", "-r@", "initial"]);
 
     test_env.jj_cmd_ok(&repo_path, &["new", "-m=commit1"]);
     append_to_file(&repo_path.join("file.txt"), "new text from new commit 1");
-    test_env.jj_cmd_ok(&repo_path, &["branch", "create", "commit1"]);
+    test_env.jj_cmd_ok(&repo_path, &["branch", "create", "-r@", "commit1"]);
 
     test_env.jj_cmd_ok(&repo_path, &["new", "-m=commit2", "initial"]);
     append_to_file(&repo_path.join("file.txt"), "new text from new commit 2");
-    test_env.jj_cmd_ok(&repo_path, &["branch", "create", "commit2"]);
+    test_env.jj_cmd_ok(&repo_path, &["branch", "create", "-r@", "commit2"]);
 
     // create a (conflicted) merge
     test_env.jj_cmd_ok(&repo_path, &["new", "-m=merged", "commit1", "commit2"]);
@@ -90,15 +90,15 @@ fn test_annotate_conflicted() {
 
     std::fs::write(repo_path.join("file.txt"), "line1\n").unwrap();
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m=initial"]);
-    test_env.jj_cmd_ok(&repo_path, &["branch", "create", "initial"]);
+    test_env.jj_cmd_ok(&repo_path, &["branch", "create", "-r@", "initial"]);
 
     test_env.jj_cmd_ok(&repo_path, &["new", "-m=commit1"]);
     append_to_file(&repo_path.join("file.txt"), "new text from new commit 1");
-    test_env.jj_cmd_ok(&repo_path, &["branch", "create", "commit1"]);
+    test_env.jj_cmd_ok(&repo_path, &["branch", "create", "-r@", "commit1"]);
 
     test_env.jj_cmd_ok(&repo_path, &["new", "-m=commit2", "initial"]);
     append_to_file(&repo_path.join("file.txt"), "new text from new commit 2");
-    test_env.jj_cmd_ok(&repo_path, &["branch", "create", "commit2"]);
+    test_env.jj_cmd_ok(&repo_path, &["branch", "create", "-r@", "commit2"]);
 
     // create a (conflicted) merge
     test_env.jj_cmd_ok(&repo_path, &["new", "-m=merged", "commit1", "commit2"]);
@@ -124,15 +124,15 @@ fn test_annotate_merge_one_sided_conflict_resolution() {
 
     std::fs::write(repo_path.join("file.txt"), "line1\n").unwrap();
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m=initial"]);
-    test_env.jj_cmd_ok(&repo_path, &["branch", "create", "initial"]);
+    test_env.jj_cmd_ok(&repo_path, &["branch", "create", "-r@", "initial"]);
 
     test_env.jj_cmd_ok(&repo_path, &["new", "-m=commit1"]);
     append_to_file(&repo_path.join("file.txt"), "new text from new commit 1");
-    test_env.jj_cmd_ok(&repo_path, &["branch", "create", "commit1"]);
+    test_env.jj_cmd_ok(&repo_path, &["branch", "create", "-r@", "commit1"]);
 
     test_env.jj_cmd_ok(&repo_path, &["new", "-m=commit2", "initial"]);
     append_to_file(&repo_path.join("file.txt"), "new text from new commit 2");
-    test_env.jj_cmd_ok(&repo_path, &["branch", "create", "commit2"]);
+    test_env.jj_cmd_ok(&repo_path, &["branch", "create", "-r@", "commit2"]);
 
     // create a (conflicted) merge
     test_env.jj_cmd_ok(&repo_path, &["new", "-m=merged", "commit1", "commit2"]);

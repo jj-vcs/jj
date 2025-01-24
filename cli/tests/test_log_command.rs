@@ -353,7 +353,7 @@ fn test_log_shortest_accessors() {
 
     std::fs::write(repo_path.join("file"), "original file\n").unwrap();
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "initial"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "c", "original"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "c", "-r@", "original"]);
     insta::assert_snapshot!(
         render("original", r#"format_id(change_id) ++ " " ++ format_id(commit_id)"#),
         @"q[pvuntsmwlqt] e[0e22b9fae75]");
@@ -516,7 +516,7 @@ fn test_log_prefix_highlight_styled() {
 
     std::fs::write(repo_path.join("file"), "original file\n").unwrap();
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "initial"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "c", "original"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "c", "-r@", "original"]);
     insta::assert_snapshot!(
         test_env.jj_cmd_success(&repo_path, &["log", "-r", "original", "-T", &prefix_format(Some(12))]),
         @r###"
@@ -650,7 +650,7 @@ fn test_log_prefix_highlight_counts_hidden_commits() {
 
     std::fs::write(repo_path.join("file"), "original file\n").unwrap();
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "initial"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "c", "original"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "c", "-r@", "original"]);
     insta::assert_snapshot!(
         test_env.jj_cmd_success(&repo_path, &["log", "-r", "all()", "-T", prefix_format]),
         @r###"
@@ -1108,7 +1108,7 @@ fn test_multiple_revsets() {
     let repo_path = test_env.env_root().join("repo");
     for name in ["foo", "bar", "baz"] {
         test_env.jj_cmd_ok(&repo_path, &["new", "-m", name]);
-        test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", name]);
+        test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", name]);
     }
 
     // Default revset should be overridden if one or more -r options are specified.

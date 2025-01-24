@@ -217,7 +217,7 @@ fn test_git_remote_named_git() {
         .remote("git", "http://example.com/repo/repo")
         .unwrap();
     test_env.jj_cmd_ok(&repo_path, &["git", "init", "--git-repo=."]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "main"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "main"]);
 
     // The remote can be renamed.
     let (stdout, stderr) =

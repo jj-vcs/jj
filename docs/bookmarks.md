@@ -231,8 +231,8 @@ The use of bookmarks is frequent in some workflows, for example, when
 interacting with Git repositories containing branches. To this end,
 one-letter shortcuts have been implemented, both for the `jj bookmark`
 command itself through an alias (as `jj b`), and for its subcommands.
-For example, `jj bookmark create BOOKMARK-NAME` can be abbreviated as
-`jj b c BOOKMARK-NAME`.
+For example, `jj bookmark create BOOKMARK-NAME -r@` can be abbreviated as
+`jj b c BOOKMARK-NAME -r@`.
 
 [colocated-repos]: git-compatibility.md#co-located-jujutsugit-repos
 [design]: design/tracking-branches.md

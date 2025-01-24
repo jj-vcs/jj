@@ -432,9 +432,9 @@ fn test_prev_on_merge_commit() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
     test_env.jj_cmd_ok(&repo_path, &["desc", "-m", "first"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "c", "left"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "c", "-r@", "left"]);
     test_env.jj_cmd_ok(&repo_path, &["new", "root()", "-m", "second"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "c", "right"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "c", "-r@", "right"]);
     test_env.jj_cmd_ok(&repo_path, &["new", "left", "right"]);
 
     // Check that the graph looks the way we expect.

@@ -78,7 +78,7 @@ fn create_commit(test_env: &TestEnvironment, repo_path: &Path, name: &str, paren
         test_env.jj_cmd_ok(repo_path, &args);
     }
     std::fs::write(repo_path.join(name), format!("{name}\n")).unwrap();
-    test_env.jj_cmd_ok(repo_path, &["bookmark", "create", name]);
+    test_env.jj_cmd_ok(repo_path, &["bookmark", "create", "-r@", name]);
 }
 
 fn get_log_output(test_env: &TestEnvironment, workspace_root: &Path) -> String {
@@ -484,7 +484,7 @@ fn test_git_fetch_conflicting_bookmarks(subprocess: bool) {
 
     // Create a rem1 bookmark locally
     test_env.jj_cmd_ok(&repo_path, &["new", "root()"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "rem1"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "rem1"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r###"
     rem1: kkmpptxz fcdbbd73 (empty) (no description set)
@@ -525,7 +525,7 @@ fn test_git_fetch_conflicting_bookmarks_colocated(subprocess: bool) {
 
     // Create a rem1 bookmark locally
     test_env.jj_cmd_ok(&repo_path, &["new", "root()"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "rem1"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "rem1"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r###"
     rem1: zsuskuln f652c321 (empty) (no description set)
@@ -1372,7 +1372,7 @@ fn test_fetch_undo_what(subprocess: bool) {
 
     // Now, let's demo restoring just the remote-tracking bookmark. First, let's
     // change our local repo state...
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "c", "newbookmark"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "c", "-r@", "newbookmark"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r###"
     b (deleted)
@@ -1419,7 +1419,7 @@ fn test_git_fetch_remove_fetch(subprocess: bool) {
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "origin");
 
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "origin"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "origin"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r###"
     origin: qpvuntsm 230dd059 (empty) (no description set)
@@ -1479,7 +1479,7 @@ fn test_git_fetch_rename_fetch(subprocess: bool) {
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "origin");
 
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "origin"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "origin"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r###"
     origin: qpvuntsm 230dd059 (empty) (no description set)

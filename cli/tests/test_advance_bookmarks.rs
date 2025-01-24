@@ -114,7 +114,10 @@ fn test_advance_bookmarks_at_minus(make_commit: CommitFn) {
     let workspace_path = test_env.env_root().join("repo");
 
     set_advance_bookmarks(&test_env, true);
-    test_env.jj_cmd_ok(&workspace_path, &["bookmark", "create", "test_bookmark"]);
+    test_env.jj_cmd_ok(
+        &workspace_path,
+        &["bookmark", "create", "test_bookmark", "-r", "@"],
+    );
 
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r###"
@@ -134,7 +137,10 @@ fn test_advance_bookmarks_at_minus(make_commit: CommitFn) {
 
     // Create a second bookmark pointing to @. On the next commit, only the first
     // bookmark, which points to @-, will advance.
-    test_env.jj_cmd_ok(&workspace_path, &["bookmark", "create", "test_bookmark2"]);
+    test_env.jj_cmd_ok(
+        &workspace_path,
+        &["bookmark", "create", "test_bookmark2", "-r", "@"],
+    );
     make_commit(&test_env, &workspace_path, "second");
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_log_output_with_bookmarks(&test_env, &workspace_path), @r###"

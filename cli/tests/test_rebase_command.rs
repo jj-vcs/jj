@@ -25,7 +25,7 @@ fn create_commit(test_env: &TestEnvironment, repo_path: &Path, name: &str, paren
         test_env.jj_cmd_ok(repo_path, &args);
     }
     std::fs::write(repo_path.join(name), format!("{name}\n")).unwrap();
-    test_env.jj_cmd_ok(repo_path, &["bookmark", "create", name]);
+    test_env.jj_cmd_ok(repo_path, &["bookmark", "create", "-r@", name]);
 }
 
 #[test]
@@ -648,13 +648,13 @@ fn test_rebase_revision_onto_descendant() {
     // Now, let's rebase onto the descendant merge
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r#"
-    Restored to operation: cc1a7e3419ad (2001-02-03 08:05:15) create bookmark merge pointing to commit b05964d109522cd06e48f1a2661e1a0f58be0984
+    insta::assert_snapshot!(stderr, @r"
+    Restored to operation: 8370ca29327a (2001-02-03 08:05:15) create bookmark merge pointing to commit b05964d109522cd06e48f1a2661e1a0f58be0984
     Working copy now at: vruxwmqv b05964d1 merge | merge
     Parent commit      : royxmykx cea87a87 b | b
     Parent commit      : zsuskuln 2c5b7858 a | a
     Added 1 files, modified 0 files, removed 0 files
-    "#);
+    ");
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "base", "-d", "merge"]);
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @r###"
@@ -906,7 +906,7 @@ fn test_rebase_error_revision_does_not_exist() {
     let repo_path = test_env.env_root().join("repo");
 
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "one"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "b-one"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "b-one"]);
     test_env.jj_cmd_ok(&repo_path, &["new", "-r", "@-", "-m", "two"]);
 
     let stderr = test_env.jj_cmd_failure(&repo_path, &["rebase", "-b", "b-one", "-d", "this"]);
@@ -2645,7 +2645,7 @@ fn test_rebase_skip_emptied_descendants() {
     create_commit(&test_env, &repo_path, "b", &["a"]);
     test_env.jj_cmd_ok(&repo_path, &["new", "a", "-m", "c (will become empty)"]);
     test_env.jj_cmd_ok(&repo_path, &["restore", "--from=b"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "c"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "c"]);
     test_env.jj_cmd_ok(&repo_path, &["new", "-m", "already empty"]);
     test_env.jj_cmd_ok(&repo_path, &["new", "-m", "also already empty"]);
 

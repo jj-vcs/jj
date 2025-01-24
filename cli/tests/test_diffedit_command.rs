@@ -544,7 +544,7 @@ fn test_diffedit_merge() {
     std::fs::write(repo_path.join("file1"), "a\n").unwrap();
     std::fs::write(repo_path.join("file2"), "a\n").unwrap();
     test_env.jj_cmd_ok(&repo_path, &["new"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "b"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "b"]);
     std::fs::write(repo_path.join("file1"), "b\n").unwrap();
     std::fs::write(repo_path.join("file2"), "b\n").unwrap();
     test_env.jj_cmd_ok(&repo_path, &["new", "@-"]);
