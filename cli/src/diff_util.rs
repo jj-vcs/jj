@@ -1652,18 +1652,19 @@ impl DiffStatOptions {
     }
 }
 
-struct DiffStat {
-    path: CopiesTreeDiffEntryPath,
-    added: usize,
-    removed: usize,
+#[derive(Clone, Debug)]
+pub struct DiffStatEntry {
+    pub path: CopiesTreeDiffEntryPath,
+    pub added: usize,
+    pub removed: usize,
 }
 
-fn get_diff_stat(
+fn get_diff_stat_entry(
     path: CopiesTreeDiffEntryPath,
     left_content: &FileContent,
     right_content: &FileContent,
     options: &DiffStatOptions,
-) -> DiffStat {
+) -> DiffStatEntry {
     // TODO: this matches git's behavior, which is to count the number of newlines
     // in the file. but that behavior seems unhelpful; no one really cares how
     // many `0x0a` characters are in an image.
@@ -1683,7 +1684,7 @@ fn get_diff_stat(
             }
         }
     }
-    DiffStat {
+    DiffStatEntry {
         path,
         added,
         removed,
@@ -1699,7 +1700,7 @@ pub fn show_diff_stat(
     display_width: usize,
     conflict_marker_style: ConflictMarkerStyle,
 ) -> Result<(), DiffRenderError> {
-    let mut stats: Vec<DiffStat> = vec![];
+    let mut stats: Vec<DiffStatEntry> = vec![];
 
     let mut diff_stream = materialized_diff_stream(store, tree_diff);
     async {
@@ -1707,7 +1708,7 @@ pub fn show_diff_stat(
             let (left, right) = values?;
             let left_content = diff_content(path.source(), left, conflict_marker_style)?;
             let right_content = diff_content(path.target(), right, conflict_marker_style)?;
-            let stat = get_diff_stat(path, &left_content, &right_content, options);
+            let stat = get_diff_stat_entry(path, &left_content, &right_content, options);
             stats.push(stat);
         }
         Ok::<(), DiffRenderError>(())
