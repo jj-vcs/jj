@@ -95,6 +95,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Templater now supports `list.filter(|x| ..)` method.
 
+* The `diff` commit template keyword now supports custom formatting via
+  `diff.files()`. For example, `diff.files().map(|e| e.path().display())` prints
+  changed file paths.
+
 * New `git.sign-on-push` config option to automatically sign commits which are being
   pushed to a Git remote.
 

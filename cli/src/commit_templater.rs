@@ -20,6 +20,8 @@ use std::io;
 use std::rc::Rc;
 
 use futures::stream::BoxStream;
+use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::ChangeId;
@@ -60,6 +62,7 @@ use jj_lib::signing::SignResult;
 use jj_lib::signing::Verification;
 use jj_lib::store::Store;
 use once_cell::unsync::OnceCell;
+use pollster::FutureExt as _;
 
 use crate::diff_util;
 use crate::formatter::Formatter;
@@ -1718,6 +1721,13 @@ impl TreeDiff {
             .diff_stream_with_copies(&self.to_tree, &*self.matcher, &self.copy_records)
     }
 
+    async fn collect_entries(&self) -> BackendResult<Vec<TreeDiffEntry>> {
+        self.diff_stream()
+            .map(TreeDiffEntry::from_backend_entry_with_copies)
+            .try_collect()
+            .await
+    }
+
     fn into_formatted<F, E>(self, show: F) -> TreeDiffFormatted<F>
     where
         F: Fn(&mut dyn Formatter, &Store, BoxStream<CopiesTreeDiffEntry>) -> Result<(), E>,
@@ -1751,6 +1761,16 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = CommitTemplateBuildMethodFnMap::<TreeDiff>::new();
+    map.insert(
+        "files",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            // TODO: cache and reuse diff entries within the current evaluation?
+            let out_property =
+                self_property.and_then(|diff| Ok(diff.collect_entries().block_on()?));
+            Ok(L::wrap_tree_diff_entry_list(out_property))
+        },
+    );
     map.insert(
         "color_words",
         |language, diagnostics, build_ctx, self_property, function| {
@@ -1881,9 +1901,7 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
             Ok(L::wrap_template(template))
         },
     );
-    // TODO: add types() and name_only()? or let users write their own template?
     // TODO: add support for external tools
-    // TODO: add files() or map() to support custom summary-like formatting?
     map
 }
 
@@ -1896,6 +1914,15 @@ pub struct TreeDiffEntry {
 }
 
 impl TreeDiffEntry {
+    fn from_backend_entry_with_copies(entry: CopiesTreeDiffEntry) -> BackendResult<Self> {
+        let (source_value, target_value) = entry.values?;
+        Ok(TreeDiffEntry {
+            path: entry.path,
+            source_value,
+            target_value,
+        })
+    }
+
     fn status_label(&self) -> &'static str {
         let (label, _sigil) = diff_util::diff_status_label_and_char(
             &self.path,

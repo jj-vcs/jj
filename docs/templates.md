@@ -352,6 +352,7 @@ The following methods are defined.
 
 This type cannot be printed. The following methods are defined.
 
+* `.files() -> List<TreeDiffEntry>`: Changed files.
 * `.color_words([context: Integer]) -> Template`: Format as a word-level diff
   with changes indicated only by color.
 * `.git([context: Integer]) -> Template`: Format as a Git diff.

@@ -1312,6 +1312,38 @@ fn test_log_diff_predefined_formats() {
      b
     +c
     "###);
+
+    // custom template with files()
+    let template = indoc! {r#"
+        concat(
+          "=== " ++ commit_id.short() ++ " ===\n",
+          diff.files().map(|e| separate(" ",
+            e.path(),
+            "[" ++ e.status() ++ "]",
+            "source=" ++ e.source().path() ++ " [" ++ e.source().file_type() ++ "]",
+            "target=" ++ e.target().path() ++ " [" ++ e.target().file_type() ++ "]",
+          ) ++ "\n").join(""),
+          "* " ++ separate(" ",
+            if(diff.files(), "non-empty", "empty"),
+            "len=" ++ diff.files().len(),
+          ) ++ "\n",
+        )
+    "#};
+    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "--no-graph", "-T", template]);
+    insta::assert_snapshot!(stdout, @r"
+    === fbad2dd53d06 ===
+    file1 [modified] source=file1 [file] target=file1 [file]
+    file2 [modified] source=file2 [file] target=file2 [file]
+    rename-target [renamed] source=rename-source [file] target=rename-target [file]
+    * non-empty len=3
+    === 3c9b3178609b ===
+    file1 [added] source=file1 [] target=file1 [file]
+    file2 [added] source=file2 [] target=file2 [file]
+    rename-source [added] source=rename-source [] target=rename-source [file]
+    * non-empty len=3
+    === 000000000000 ===
+    * empty len=0
+    ");
 }
 
 #[test]
