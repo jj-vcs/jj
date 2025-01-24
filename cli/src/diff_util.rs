@@ -40,6 +40,7 @@ use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::conflicts::MaterializedTreeDiffEntry;
 use jj_lib::conflicts::MaterializedTreeValue;
 use jj_lib::copies::CopiesTreeDiffEntry;
+use jj_lib::copies::CopiesTreeDiffEntryPath;
 use jj_lib::copies::CopyOperation;
 use jj_lib::copies::CopyRecords;
 use jj_lib::diff::find_line_ranges;
@@ -1606,28 +1607,37 @@ pub fn show_diff_summary(
     async {
         while let Some(CopiesTreeDiffEntry { path, values }) = tree_diff.next().await {
             let (before, after) = values?;
-            let before_path = path.source();
-            let after_path = path.target();
-            if let Some(op) = path.copy_operation() {
-                let (label, sigil) = match op {
-                    CopyOperation::Copy => ("copied", "C"),
-                    CopyOperation::Rename => ("renamed", "R"),
-                };
-                let path = path_converter.format_copied_path(before_path, after_path);
-                writeln!(formatter.labeled(label), "{sigil} {path}")?;
+            let (label, sigil) = diff_status_label_and_char(&path, &before, &after);
+            let path = if path.copy_operation().is_some() {
+                path_converter.format_copied_path(path.source(), path.target())
             } else {
-                let path = path_converter.format_file_path(after_path);
-                match (before.is_present(), after.is_present()) {
-                    (true, true) => writeln!(formatter.labeled("modified"), "M {path}")?,
-                    (false, true) => writeln!(formatter.labeled("added"), "A {path}")?,
-                    (true, false) => writeln!(formatter.labeled("removed"), "D {path}")?,
-                    (false, false) => unreachable!(),
-                }
-            }
+                path_converter.format_file_path(path.target())
+            };
+            writeln!(formatter.labeled(label), "{sigil} {path}")?;
         }
         Ok(())
     }
     .block_on()
+}
+
+fn diff_status_label_and_char(
+    path: &CopiesTreeDiffEntryPath,
+    before: &MergedTreeValue,
+    after: &MergedTreeValue,
+) -> (&'static str, char) {
+    if let Some(op) = path.copy_operation() {
+        match op {
+            CopyOperation::Copy => ("copied", 'C'),
+            CopyOperation::Rename => ("renamed", 'R'),
+        }
+    } else {
+        match (before.is_present(), after.is_present()) {
+            (true, true) => ("modified", 'M'),
+            (false, true) => ("added", 'A'),
+            (true, false) => ("removed", 'D'),
+            (false, false) => panic!("values pair must differ"),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
