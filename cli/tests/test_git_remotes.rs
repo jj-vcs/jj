@@ -85,7 +85,6 @@ fn test_git_remotes() {
     	repositoryformatversion = 0
     	bare = true
     	logallrefupdates = false
-    [remote "foo"]
     [remote "bar"]
     	url = http://example.com/repo/bar
     	fetch = +refs/heads/*:refs/remotes/bar/*
@@ -294,7 +293,6 @@ fn test_git_remote_rename() {
     	repositoryformatversion = 0
     	bare = true
     	logallrefupdates = false
-    [remote "foo"]
     [remote "baz"]
     	url = http://example.com/repo/baz
     	fetch = +refs/heads/*:refs/remotes/baz/*
@@ -332,7 +330,6 @@ fn test_git_remote_named_git() {
     	repositoryformatversion = 0
     	bare = false
     	logallrefupdates = true
-    [remote "git"]
     [remote "bar"]
     	url = http://example.com/repo/repo
     	fetch = +refs/heads/*:refs/remotes/bar/*
@@ -367,7 +364,6 @@ fn test_git_remote_named_git() {
     	bare = false
     	logallrefupdates = true
     [remote "git"]
-    [remote "git"]
     	url = http://example.com/repo/repo
     	fetch = +refs/heads/*:refs/remotes/git/*
     "#);
@@ -382,8 +378,6 @@ fn test_git_remote_named_git() {
     	repositoryformatversion = 0
     	bare = false
     	logallrefupdates = true
-    [remote "git"]
-    [remote "git"]
     "#);
     // @git bookmark shouldn't be removed.
     let output = test_env.run_jj_in(&repo_path, ["log", "-rmain@git", "-Tbookmarks"]);
@@ -512,7 +506,6 @@ fn test_git_remote_with_branch_config() {
     	repositoryformatversion = 0
     	bare = true
     	logallrefupdates = false
-    [remote "foo"]
     [branch "test"]
     	remote = bar
     	merge = refs/heads/test
