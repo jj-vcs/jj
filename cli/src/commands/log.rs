@@ -78,14 +78,15 @@ pub(crate) struct LogArgs {
         add = ArgValueCompleter::new(complete::log_files),
     )]
     paths: Vec<String>,
+    /// Limit number of revisions to show
+    ///
+    /// Applied after revisions are filtered and reordered topologically, but
+    /// before being reversed.
+    #[arg(long, short = 'n')]
+    limit: Option<usize>,
     /// Show revisions in the opposite order (older revisions first)
     #[arg(long)]
     reversed: bool,
-    /// Limit number of revisions to show
-    ///
-    /// Applied after revisions are filtered and reordered.
-    #[arg(long, short = 'n')]
-    limit: Option<usize>,
     /// Don't show the graph, show a flat list of revisions
     #[arg(long)]
     no_graph: bool,
@@ -178,8 +179,6 @@ pub(crate) fn cmd_log(
         let mut formatter = ui.stdout_formatter();
         let formatter = formatter.as_mut();
 
-        let limit = args.limit.unwrap_or(usize::MAX);
-
         if !args.no_graph {
             let mut raw_output = formatter.raw()?;
             let mut graph = get_graphlog(graph_style, raw_output.as_mut());
@@ -193,13 +192,16 @@ pub(crate) fn cmd_log(
                         forward_iter.prioritize_branch(id.clone());
                     }
                 }
+                // The input to TopoGroupedGraphIterator shouldn't be truncated
+                // because the prioritized commit must exist in the input set.
+                let forward_iter = forward_iter.take(args.limit.unwrap_or(usize::MAX));
                 if args.reversed {
                     Box::new(reverse_graph(forward_iter, |id| id)?.into_iter().map(Ok))
                 } else {
                     Box::new(forward_iter)
                 }
             };
-            for node in iter.take(limit) {
+            for node in iter {
                 let (commit_id, edges) = node?;
 
                 // The graph is keyed by (CommitId, is_synthetic)
@@ -280,7 +282,7 @@ pub(crate) fn cmd_log(
             }
         } else {
             let iter: Box<dyn Iterator<Item = Result<CommitId, RevsetEvaluationError>>> = {
-                let forward_iter = revset.iter();
+                let forward_iter = revset.iter().take(args.limit.unwrap_or(usize::MAX));
                 if args.reversed {
                     let entries: Vec<_> = forward_iter.try_collect()?;
                     Box::new(entries.into_iter().rev().map(Ok))
@@ -288,7 +290,7 @@ pub(crate) fn cmd_log(
                     Box::new(forward_iter)
                 }
             };
-            for commit_or_error in iter.commits(store).take(limit) {
+            for commit_or_error in iter.commits(store) {
                 let commit = commit_or_error?;
                 with_content_format
                     .write(formatter, |formatter| template.format(&commit, formatter))?;

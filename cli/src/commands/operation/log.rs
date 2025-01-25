@@ -50,7 +50,8 @@ use crate::ui::Ui;
 pub struct OperationLogArgs {
     /// Limit number of operations to show
     ///
-    /// Applied after operations are reordered.
+    /// Applied after operations are reordered topologically, but before being
+    /// reversed.
     #[arg(long, short = 'n')]
     limit: Option<usize>,
     /// Show operations in the opposite order (older operations first)
@@ -196,8 +197,8 @@ fn do_op_log(
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();
     let formatter = formatter.as_mut();
-    let limit = args.limit.unwrap_or(usize::MAX);
-    let iter = op_walk::walk_ancestors(slice::from_ref(current_op));
+    let iter =
+        op_walk::walk_ancestors(slice::from_ref(current_op)).take(args.limit.unwrap_or(usize::MAX));
 
     if !args.no_graph {
         let mut raw_output = formatter.raw()?;
@@ -213,7 +214,7 @@ fn do_op_log(
         } else {
             Box::new(iter)
         };
-        for node in iter_nodes.take(limit) {
+        for node in iter_nodes {
             let (op, edges) = node?;
             let mut buffer = vec![];
             let within_graph = with_content_format.sub_width(graph.width(op.id(), &edges));
@@ -241,7 +242,7 @@ fn do_op_log(
         } else {
             Box::new(iter)
         };
-        for op in iter.take(limit) {
+        for op in iter {
             let op = op?;
             with_content_format.write(formatter, |formatter| template.format(&op, formatter))?;
             if let Some(show) = &maybe_show_op_diff {

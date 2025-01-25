@@ -250,12 +250,32 @@ fn test_op_log_reversed() {
     "#);
 
     // Should work correctly with `--limit`
-    let stdout = test_env.jj_cmd_success(&repo_path, &["op", "log", "--reversed", "--limit=2"]);
-    insta::assert_snapshot!(stdout, @r#"
-    ○  000000000000 root()
-    ○    eac759b9ab75 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
-    ├─╮  add workspace 'default'
-    "#);
+    let stdout = test_env.jj_cmd_success(&repo_path, &["op", "log", "--reversed", "--limit=3"]);
+    insta::assert_snapshot!(stdout, @r"
+    ○  8e3e726be123 test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    │  describe commit 230dd059e1b059aefc0da06a2e5a7dbf22362f22
+    │  args: jj describe -m 'description 1' --at-op @-
+    │ ○  d009cfc04993 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    ├─╯  describe commit 230dd059e1b059aefc0da06a2e5a7dbf22362f22
+    │    args: jj describe -m 'description 0'
+    @  e4538ffdc13d test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+       reconcile divergent operations
+       args: jj op log --reversed
+    ");
+
+    // Should work correctly with `--limit` and `--no-graph`
+    let stdout = test_env.jj_cmd_success(
+        &repo_path,
+        &["op", "log", "--reversed", "--limit=2", "--no-graph"],
+    );
+    insta::assert_snapshot!(stdout, @r"
+    d009cfc04993 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    describe commit 230dd059e1b059aefc0da06a2e5a7dbf22362f22
+    args: jj describe -m 'description 0'
+    e4538ffdc13d test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    reconcile divergent operations
+    args: jj op log --reversed
+    ");
 }
 
 #[test]

@@ -370,6 +370,17 @@ fn test_evolog_reversed_no_graph() {
     qpvuntsm test.user@example.com 2001-02-03 08:05:10 5cb22a87
     (empty) c
     ");
+
+    let stdout = test_env.jj_cmd_success(
+        &repo_path,
+        &["evolog", "--limit=2", "--reversed", "--no-graph"],
+    );
+    insta::assert_snapshot!(stdout, @r"
+    qpvuntsm hidden test.user@example.com 2001-02-03 08:05:09 b4584f54
+    (empty) b
+    qpvuntsm test.user@example.com 2001-02-03 08:05:10 5cb22a87
+    (empty) c
+    ");
 }
 
 #[test]
@@ -410,6 +421,19 @@ fn test_evolog_reverse_with_graph() {
     │  (empty) c
     │ ○  mzvwutvl hidden test.user@example.com 2001-02-03 08:05:11 280cbb6e
     ├─╯  (empty) d
+    │ ○  royxmykx hidden test.user@example.com 2001-02-03 08:05:12 031df638
+    ├─╯  (empty) e
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:13 a177c2f2
+       (empty) c+d+e
+    ");
+
+    let stdout = test_env.jj_cmd_success(
+        &repo_path,
+        &["evolog", "-rdescription(c+d+e)", "--limit=3", "--reversed"],
+    );
+    insta::assert_snapshot!(stdout, @r"
+    ○  mzvwutvl hidden test.user@example.com 2001-02-03 08:05:11 280cbb6e
+    │  (empty) d
     │ ○  royxmykx hidden test.user@example.com 2001-02-03 08:05:12 031df638
     ├─╯  (empty) e
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:13 a177c2f2

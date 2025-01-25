@@ -53,6 +53,9 @@ pub(crate) struct EvologArgs {
     )]
     revision: RevisionArg,
     /// Limit number of revisions to show
+    ///
+    /// Applied after revisions are reordered topologically, but before being
+    /// reversed.
     #[arg(long, short = 'n')]
     limit: Option<usize>,
     /// Show revisions in the opposite order (older revisions first)

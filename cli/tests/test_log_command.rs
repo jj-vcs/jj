@@ -968,17 +968,18 @@ fn test_log_limit() {
     c
     "###);
 
-    // Applied on reversed DAG
+    // Applied on reversed DAG: Because the node "a" is omitted, "b" and "c" are
+    // rendered as roots.
     let stdout = test_env.jj_cmd_success(
         &repo_path,
         &["log", "-T", "description", "--limit=3", "--reversed"],
     );
-    insta::assert_snapshot!(stdout, @r###"
-    ◆
-    ○    a
-    ├─╮
-    │ ○  c
-    "###);
+    insta::assert_snapshot!(stdout, @r"
+    ○  c
+    │ ○  b
+    ├─╯
+    @  d
+    ");
     let stdout = test_env.jj_cmd_success(
         &repo_path,
         &[
@@ -990,10 +991,11 @@ fn test_log_limit() {
             "--no-graph",
         ],
     );
-    insta::assert_snapshot!(stdout, @r###"
-    a
+    insta::assert_snapshot!(stdout, @r"
     b
-    "###);
+    c
+    d
+    ");
 
     // Applied on filtered commits
     let stdout = test_env.jj_cmd_success(

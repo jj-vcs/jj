@@ -57,6 +57,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj git remote add`/`set-url` now converts relative Git remote path to
   absolute path.
 
+* `jj log`/`op log` now applies `-n`/`--limit` *before* the items are reversed.
+  Rationale: It's more useful to see the N most recent commits/operations, and
+  is more performant. The old behavior can be achieved by `jj log .. | head`.
+  [#5403](https://github.com/jj-vcs/jj/issues/5403)
+
 * Upgraded `scm-record` from v0.4.0 to v0.5.0. See release notes at
   <https://github.com/arxanas/scm-record/releases/tag/v0.5.0>.
 
