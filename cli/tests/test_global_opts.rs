@@ -458,7 +458,8 @@ fn test_color_config() {
     // Invalid --color
     let stderr = test_env.jj_cmd_cli_error(&repo_path, &["log", "--color=foo"]);
     insta::assert_snapshot!(stderr, @r"
-    error: invalid value 'foo' for '--color <WHEN>': unknown variant `foo`, expected one of `always`, `never`, `debug`, `auto`
+    error: invalid value 'foo' for '--color <WHEN>'
+      [possible values: always, never, debug, auto]
 
     For more information, try '--help'.
     ");
@@ -935,7 +936,7 @@ fn test_help() {
     let test_env = TestEnvironment::default();
 
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["diffedit", "-h"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     Touch up the content changes in a revision with a diff editor
 
     Usage: jj diffedit [OPTIONS]
@@ -954,12 +955,13 @@ fn test_help() {
           --ignore-immutable             Allow rewriting immutable commits
           --at-operation <AT_OPERATION>  Operation to load the repo at [aliases: at-op]
           --debug                        Enable debug logging
-          --color <WHEN>                 When to colorize output (always, never, debug, auto)
+          --color <WHEN>                 When to colorize output [possible values: always, never, debug,
+                                         auto]
           --quiet                        Silence non-primary command output
           --no-pager                     Disable the pager
           --config <NAME=VALUE>          Additional configuration options (can be repeated)
           --config-file <PATH>           Additional configuration files (can be repeated)
-    "###);
+    ");
 }
 
 #[test]

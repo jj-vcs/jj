@@ -79,7 +79,7 @@ fn test_bookmark_names() {
     --ignore-immutable	Allow rewriting immutable commits
     --at-operation	Operation to load the repo at
     --debug	Enable debug logging
-    --color	When to colorize output (always, never, debug, auto)
+    --color	When to colorize output
     --quiet	Silence non-primary command output
     --no-pager	Disable the pager
     --config	Additional configuration options (can be repeated)

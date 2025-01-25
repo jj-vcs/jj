@@ -27,7 +27,6 @@ use std::mem;
 use std::process::Child;
 use std::process::ChildStdin;
 use std::process::Stdio;
-use std::str::FromStr;
 use std::thread;
 use std::thread::JoinHandle;
 
@@ -35,8 +34,6 @@ use itertools::Itertools as _;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::StackedConfig;
 use os_pipe::PipeWriter;
-use serde::de::Deserialize as _;
-use serde::de::IntoDeserializer as _;
 use tracing::instrument;
 
 use crate::command_error::CommandError;
@@ -206,24 +203,13 @@ pub struct Ui {
     output: UiOutput,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize, clap::ValueEnum)]
 #[serde(rename_all = "kebab-case")]
 pub enum ColorChoice {
     Always,
     Never,
     Debug,
     Auto,
-}
-
-impl FromStr for ColorChoice {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        // serde::de::value::Error is Box<str> wrapper. Map it to String to hide
-        // the implementation detail.
-        Self::deserialize(s.into_deserializer())
-            .map_err(|err: serde::de::value::Error| err.to_string())
-    }
 }
 
 impl fmt::Display for ColorChoice {
