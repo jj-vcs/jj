@@ -76,7 +76,6 @@ fn test_git_remotes() {
     [exit status: 1]
     ");
     insta::assert_snapshot!(read_git_remote_config(&repo_path), @r#"
-    [remote "foo"]
     [remote "bar"]
     	url = http://example.com/repo/bar
     	fetch = +refs/heads/*:refs/remotes/bar/*
@@ -268,7 +267,6 @@ fn test_git_remote_rename() {
     [EOF]
     ");
     insta::assert_snapshot!(read_git_remote_config(&repo_path), @r#"
-    [remote "foo"]
     [remote "baz"]
     	url = http://example.com/repo/baz
     	fetch = +refs/heads/*:refs/remotes/baz/*
@@ -302,7 +300,6 @@ fn test_git_remote_named_git() {
     [EOF]
     ");
     insta::assert_snapshot!(read_git_remote_config(&repo_path), @r#"
-    [remote "git"]
     [remote "bar"]
     	url = http://example.com/repo/repo
     	fetch = +refs/heads/*:refs/remotes/bar/*
@@ -330,11 +327,10 @@ fn test_git_remote_named_git() {
     git_repo.remote_rename("bar", "git").unwrap();
     test_env.jj_cmd_ok(&repo_path, &["git", "init", "--git-repo=."]);
     insta::assert_snapshot!(read_git_remote_config(&repo_path), @r#"
-    [remote "git"]
-    	fetch = +refs/heads/*:refs/remotes/git/*
     [remote "bar"]
     [remote "git"]
     	url = http://example.com/repo/repo
+    	fetch = +refs/heads/*:refs/remotes/git/*
     "#);
 
     // The remote can also be removed.
@@ -344,11 +340,7 @@ fn test_git_remote_named_git() {
     let stdout = test_env.jj_cmd_success(&repo_path, &["git", "remote", "list"]);
     insta::assert_snapshot!(stdout, @r###"
     "###);
-    insta::assert_snapshot!(read_git_remote_config(&repo_path), @r#"
-    [remote "git"]
-    [remote "bar"]
-    [remote "git"]
-    "#);
+    insta::assert_snapshot!(read_git_remote_config(&repo_path), @r#"[remote "bar"]"#);
     // @git bookmark shouldn't be removed.
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-rmain@git", "-Tbookmarks"]);
     insta::assert_snapshot!(stdout, @r"
