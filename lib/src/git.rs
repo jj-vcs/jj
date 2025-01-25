@@ -1302,6 +1302,8 @@ pub enum GitRemoteManagementError {
     RemoteReservedForLocalGitRepo,
     #[error(transparent)]
     InternalGitError(git2::Error),
+    #[error(transparent)]
+    UnexpectedBackend(#[from] UnexpectedGitBackendError),
 }
 
 fn is_remote_not_found_err(err: &git2::Error) -> bool {
@@ -1345,10 +1347,13 @@ pub fn get_all_remote_names(store: &Store) -> Result<Vec<String>, UnexpectedGitB
 
 // TODO(git2): migrate to gitoxide
 pub fn add_remote(
-    git_repo: &git2::Repository,
+    store: &Store,
     remote_name: &str,
     url: &str,
 ) -> Result<(), GitRemoteManagementError> {
+    let git_repo = get_git_backend(store)?
+        .open_git_repo()
+        .map_err(GitRemoteManagementError::InternalGitError)?;
     if remote_name == REMOTE_NAME_FOR_LOCAL_GIT_REPO {
         return Err(GitRemoteManagementError::RemoteReservedForLocalGitRepo);
     } else if remote_name.contains("/") {
@@ -1368,9 +1373,11 @@ pub fn add_remote(
 
 pub fn remove_remote(
     mut_repo: &mut MutableRepo,
-    git_repo: &git2::Repository,
     remote_name: &str,
 ) -> Result<(), GitRemoteManagementError> {
+    let git_repo = get_git_backend(mut_repo.store())?
+        .open_git_repo()
+        .map_err(GitRemoteManagementError::InternalGitError)?;
     git_repo.remote_delete(remote_name).map_err(|err| {
         if is_remote_not_found_err(&err) {
             GitRemoteManagementError::NoSuchRemote(remote_name.to_owned())
@@ -1401,10 +1408,12 @@ fn remove_remote_refs(mut_repo: &mut MutableRepo, remote_name: &str) {
 
 pub fn rename_remote(
     mut_repo: &mut MutableRepo,
-    git_repo: &git2::Repository,
     old_remote_name: &str,
     new_remote_name: &str,
 ) -> Result<(), GitRemoteManagementError> {
+    let git_repo = get_git_backend(mut_repo.store())?
+        .open_git_repo()
+        .map_err(GitRemoteManagementError::InternalGitError)?;
     if new_remote_name == REMOTE_NAME_FOR_LOCAL_GIT_REPO {
         return Err(GitRemoteManagementError::RemoteReservedForLocalGitRepo);
     } else if new_remote_name.contains("/") {
@@ -1430,10 +1439,14 @@ pub fn rename_remote(
 }
 
 pub fn set_remote_url(
-    git_repo: &git2::Repository,
+    store: &Store,
     remote_name: &str,
     new_remote_url: &str,
 ) -> Result<(), GitRemoteManagementError> {
+    let git_repo = get_git_backend(store)?
+        .open_git_repo()
+        .map_err(GitRemoteManagementError::InternalGitError)?;
+
     if remote_name == REMOTE_NAME_FOR_LOCAL_GIT_REPO {
         return Err(GitRemoteManagementError::RemoteReservedForLocalGitRepo);
     } else if remote_name.contains("/") {
