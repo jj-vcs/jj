@@ -14,6 +14,7 @@
 
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
+use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigGetResultExt as _;
@@ -278,12 +279,15 @@ pub(crate) fn cmd_log(
                 }
             }
         } else {
-            let iter: Box<dyn Iterator<Item = Result<CommitId, RevsetEvaluationError>>> =
+            let iter: Box<dyn Iterator<Item = Result<CommitId, RevsetEvaluationError>>> = {
+                let forward_iter = revset.iter();
                 if args.reversed {
-                    Box::new(revset.iter().reversed()?)
+                    let entries: Vec<_> = forward_iter.try_collect()?;
+                    Box::new(entries.into_iter().rev().map(Ok))
                 } else {
-                    Box::new(revset.iter())
-                };
+                    Box::new(forward_iter)
+                }
+            };
             for commit_or_error in iter.commits(store).take(limit) {
                 let commit = commit_or_error?;
                 with_content_format

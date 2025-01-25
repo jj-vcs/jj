@@ -2566,7 +2566,6 @@ pub type RevsetContainingFn<'a> = dyn Fn(&CommitId) -> Result<bool, RevsetEvalua
 
 pub trait RevsetIteratorExt<'index, I> {
     fn commits(self, store: &Arc<Store>) -> RevsetCommitIterator<I>;
-    fn reversed(self) -> Result<ReverseRevsetIterator, RevsetEvaluationError>;
 }
 
 impl<I: Iterator<Item = Result<CommitId, RevsetEvaluationError>>> RevsetIteratorExt<'_, I> for I {
@@ -2575,11 +2574,6 @@ impl<I: Iterator<Item = Result<CommitId, RevsetEvaluationError>>> RevsetIterator
             iter: self,
             store: store.clone(),
         }
-    }
-
-    fn reversed(self) -> Result<ReverseRevsetIterator, RevsetEvaluationError> {
-        let entries: Vec<_> = self.into_iter().try_collect()?;
-        Ok(ReverseRevsetIterator { entries })
     }
 }
 
@@ -2600,18 +2594,6 @@ impl<I: Iterator<Item = Result<CommitId, RevsetEvaluationError>>> Iterator
                 .get_commit(&commit_id)
                 .map_err(RevsetEvaluationError::StoreError)
         })
-    }
-}
-
-pub struct ReverseRevsetIterator {
-    entries: Vec<CommitId>,
-}
-
-impl Iterator for ReverseRevsetIterator {
-    type Item = Result<CommitId, RevsetEvaluationError>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.entries.pop().map(Ok)
     }
 }
 
