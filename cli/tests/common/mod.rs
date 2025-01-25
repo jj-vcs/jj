@@ -18,7 +18,6 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use indoc::formatdoc;
-use itertools::Itertools as _;
 use regex::Captures;
 use regex::Regex;
 use tempfile::TempDir;
@@ -96,6 +95,9 @@ impl TestEnvironment {
             cmd.env(key, value);
         }
         cmd.env("RUST_BACKTRACE", "1");
+        // We want to keep the "PATH" environment variable to allow accessing
+        // executables like `git` from the PATH.
+        cmd.env("PATH", std::env::var_os("PATH").unwrap_or_default());
         cmd.env("HOME", self.home_dir.to_str().unwrap());
         cmd.env("JJ_CONFIG", self.config_path.to_str().unwrap());
         cmd.env("JJ_USER", "Test User");
@@ -125,23 +127,6 @@ impl TestEnvironment {
             // tests.
             if let Ok(tmp_var) = std::env::var("TEMP") {
                 cmd.env("TEMP", tmp_var);
-            }
-
-            if cfg!(target_env = "gnu") {
-                // MinGW executables cannot run without `mingw\bin` in the PATH (which we're
-                // clearing above), so we add it again here.
-                if let Ok(path_var) = std::env::var("PATH").or_else(|_| std::env::var("Path")) {
-                    // There can be slight variations of this path (e.g. `mingw64\bin`) so we're
-                    // intentionally being lenient here.
-                    let mingw_directories = path_var
-                        .split(';')
-                        .filter(|dir| dir.contains("mingw"))
-                        .join(";");
-
-                    if !mingw_directories.is_empty() {
-                        cmd.env("PATH", mingw_directories);
-                    }
-                }
             }
         }
 
@@ -279,18 +264,6 @@ impl TestEnvironment {
 
     pub fn add_env_var(&mut self, key: impl Into<String>, val: impl Into<String>) {
         self.env_vars.insert(key.into(), val.into());
-    }
-
-    pub fn set_up_git_subprocessing(&self) {
-        self.add_config("git.subprocess = true");
-
-        // add a git path from env: this is only used if git.subprocess = true
-        if let Ok(git_executable_path) = std::env::var("TEST_GIT_EXECUTABLE_PATH") {
-            self.add_config(format!(
-                "git.executable-path = {}",
-                to_toml_value(git_executable_path)
-            ));
-        }
     }
 
     pub fn current_operation_id(&self, repo_path: &Path) -> String {

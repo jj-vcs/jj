@@ -139,7 +139,7 @@ fn test_util_exec_fail() {
     let test_env = TestEnvironment::default();
     let err = test_env.jj_cmd_failure(
         test_env.env_root(),
-        &["util", "exec", "--", "missing-program"],
+        &["util", "exec", "--", "jj-test-missing-program"],
     );
-    insta::assert_snapshot!(strip_last_line(&err), @"Error: Failed to execute external command 'missing-program'");
+    insta::assert_snapshot!(strip_last_line(&err), @"Error: Failed to execute external command 'jj-test-missing-program'");
 }

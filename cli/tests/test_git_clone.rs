@@ -58,7 +58,7 @@ fn test_git_clone(subprocess: bool) {
     let test_env = TestEnvironment::default();
     test_env.add_config("git.auto-local-bookmark = true");
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
     let git_repo_path = test_env.env_root().join("source");
     let git_repo = git2::Repository::init(git_repo_path).unwrap();
@@ -217,7 +217,7 @@ fn test_git_clone(subprocess: bool) {
 fn test_git_clone_bad_source(subprocess: bool) {
     let test_env = TestEnvironment::default();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
 
     let stderr = test_env.jj_cmd_cli_error(test_env.env_root(), &["git", "clone", "", "dest"]);
@@ -244,7 +244,7 @@ fn test_git_clone_colocate(subprocess: bool) {
     let test_env = TestEnvironment::default();
     test_env.add_config("git.auto-local-bookmark = true");
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
     let git_repo_path = test_env.env_root().join("source");
     let git_repo = git2::Repository::init(git_repo_path).unwrap();
@@ -490,7 +490,7 @@ fn test_git_clone_colocate(subprocess: bool) {
 fn test_git_clone_remote_default_bookmark(subprocess: bool) {
     let test_env = TestEnvironment::default();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
     let git_repo_path = test_env.env_root().join("source");
     let git_repo = git2::Repository::init(git_repo_path).unwrap();
@@ -606,7 +606,7 @@ fn test_git_clone_remote_default_bookmark(subprocess: bool) {
 fn test_git_clone_ignore_working_copy(subprocess: bool) {
     let test_env = TestEnvironment::default();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
     let git_repo_path = test_env.env_root().join("source");
     let git_repo = git2::Repository::init(git_repo_path).unwrap();
@@ -654,7 +654,7 @@ fn test_git_clone_ignore_working_copy(subprocess: bool) {
 fn test_git_clone_at_operation(subprocess: bool) {
     let test_env = TestEnvironment::default();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
     let git_repo_path = test_env.env_root().join("source");
     let git_repo = git2::Repository::init(git_repo_path).unwrap();
@@ -677,7 +677,7 @@ fn test_git_clone_with_remote_name(subprocess: bool) {
     let test_env = TestEnvironment::default();
     test_env.add_config("git.auto-local-bookmark = true");
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
     let git_repo_path = test_env.env_root().join("source");
     let git_repo = git2::Repository::init(git_repo_path).unwrap();
@@ -708,7 +708,7 @@ fn test_git_clone_with_remote_name(subprocess: bool) {
 fn test_git_clone_with_remote_named_git(subprocess: bool) {
     let test_env = TestEnvironment::default();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
     let git_repo_path = test_env.env_root().join("source");
     git2::Repository::init(git_repo_path).unwrap();
@@ -727,7 +727,7 @@ fn test_git_clone_with_remote_named_git(subprocess: bool) {
 fn test_git_clone_trunk_deleted(subprocess: bool) {
     let test_env = TestEnvironment::default();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
     let git_repo_path = test_env.env_root().join("source");
     let git_repo = git2::Repository::init(git_repo_path).unwrap();
@@ -888,7 +888,7 @@ fn test_git_clone_with_depth_git2() {
 fn test_git_clone_with_depth_subprocess() {
     let test_env = TestEnvironment::default();
     test_env.add_config("git.auto-local-bookmark = true");
-    test_env.set_up_git_subprocessing();
+    test_env.add_config("git.subprocess = true");
     let clone_path = test_env.env_root().join("clone");
     let git_repo_path = test_env.env_root().join("source");
     let git_repo = git2::Repository::init(git_repo_path).unwrap();
@@ -926,7 +926,7 @@ fn test_git_clone_with_depth_subprocess() {
 fn test_git_clone_invalid_immutable_heads(subprocess: bool) {
     let test_env = TestEnvironment::default();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
     let git_repo_path = test_env.env_root().join("source");
     let git_repo = git2::Repository::init(git_repo_path).unwrap();
@@ -955,7 +955,7 @@ fn test_git_clone_invalid_immutable_heads(subprocess: bool) {
 fn test_git_clone_malformed(subprocess: bool) {
     let test_env = TestEnvironment::default();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
     let git_repo_path = test_env.env_root().join("source");
     let git_repo = git2::Repository::init(git_repo_path).unwrap();
@@ -1013,9 +1013,9 @@ fn test_git_clone_malformed(subprocess: bool) {
 
 #[test]
 fn test_git_clone_no_git_executable() {
-    let mut test_env = TestEnvironment::default();
+    let test_env = TestEnvironment::default();
     test_env.add_config("git.subprocess = true");
-    test_env.add_env_var("PATH", "");
+    test_env.add_config("git.executable-path = 'jj-test-missing-program'");
     let git_repo_path = test_env.env_root().join("source");
     let git_repo = git2::Repository::init(git_repo_path).unwrap();
     set_up_non_empty_git_repo(&git_repo);
@@ -1023,20 +1023,19 @@ fn test_git_clone_no_git_executable() {
     let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["git", "clone", "source", "clone"]);
     insta::assert_snapshot!(strip_last_line(&stderr), @r#"
     Fetching into new repo in "$TEST_ENV/clone"
-    Error: Could not execute the git process, found in the OS path 'git'
+    Error: Could not execute the git process, found in the OS path 'jj-test-missing-program'
     "#);
 }
 
 #[test]
 fn test_git_clone_no_git_executable_with_path() {
-    let mut test_env = TestEnvironment::default();
+    let test_env = TestEnvironment::default();
     let invalid_git_executable_path = test_env.env_root().join("invalid").join("path");
     test_env.add_config("git.subprocess = true");
     test_env.add_config(format!(
         "git.executable-path = {}",
         to_toml_value(invalid_git_executable_path.to_str().unwrap())
     ));
-    test_env.add_env_var("PATH", "");
     let git_repo_path = test_env.env_root().join("source");
     let git_repo = git2::Repository::init(git_repo_path).unwrap();
     set_up_non_empty_git_repo(&git_repo);

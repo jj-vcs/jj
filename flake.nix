@@ -114,7 +114,6 @@
               RUSTFLAGS = pkgs.lib.optionalString pkgs.stdenv.isLinux "-C link-arg=-fuse-ld=mold";
               NIX_JJ_GIT_HASH = self.rev or "";
               CARGO_INCREMENTAL = "0";
-              TEST_GIT_EXECUTABLE_PATH = pkgs.lib.getExe pkgs.git;
             };
 
           postInstall = ''

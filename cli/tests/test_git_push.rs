@@ -54,7 +54,7 @@ fn set_up() -> (TestEnvironment, PathBuf) {
 fn test_git_push_nothing(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
     // Show the setup. `insta` has trouble if this is done inside `set_up()`
     insta::allow_duplicates! {
@@ -82,7 +82,7 @@ fn test_git_push_nothing(subprocess: bool) {
 fn test_git_push_current_bookmark(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
     // Update some bookmarks. `bookmark1` is not a current bookmark, but
@@ -182,7 +182,7 @@ fn test_git_push_current_bookmark(subprocess: bool) {
 fn test_git_push_parent_bookmark(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
     test_env.jj_cmd_ok(&workspace_root, &["edit", "bookmark1"]);
@@ -209,7 +209,7 @@ fn test_git_push_parent_bookmark(subprocess: bool) {
 fn test_git_push_no_matching_bookmark(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
     test_env.jj_cmd_ok(&workspace_root, &["new"]);
     let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["git", "push"]);
@@ -229,7 +229,7 @@ fn test_git_push_no_matching_bookmark(subprocess: bool) {
 fn test_git_push_matching_bookmark_unchanged(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
     test_env.jj_cmd_ok(&workspace_root, &["new", "bookmark1"]);
     let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["git", "push"]);
@@ -252,7 +252,7 @@ fn test_git_push_matching_bookmark_unchanged(subprocess: bool) {
 fn test_git_push_other_remote_has_bookmark(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
     // Create another remote (but actually the same)
@@ -325,7 +325,7 @@ fn test_git_push_other_remote_has_bookmark(subprocess: bool) {
 fn test_git_push_forward_unexpectedly_moved(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
 
     // Move bookmark1 forward on the remote
@@ -357,7 +357,7 @@ fn test_git_push_forward_unexpectedly_moved(subprocess: bool) {
 fn test_git_push_sideways_unexpectedly_moved(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
 
     // Move bookmark1 forward on the remote
@@ -409,7 +409,7 @@ fn test_git_push_sideways_unexpectedly_moved(subprocess: bool) {
 fn test_git_push_deletion_unexpectedly_moved(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
 
     // Move bookmark1 forward on the remote
@@ -455,7 +455,7 @@ fn test_git_push_deletion_unexpectedly_moved(subprocess: bool) {
 fn test_git_push_unexpectedly_deleted(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
 
     // Delete bookmark1 forward on the remote
@@ -535,7 +535,7 @@ fn test_git_push_unexpectedly_deleted(subprocess: bool) {
 fn test_git_push_creation_unexpectedly_already_exists(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
 
     // Forget bookmark1 locally
@@ -569,7 +569,7 @@ fn test_git_push_creation_unexpectedly_already_exists(subprocess: bool) {
 fn test_git_push_locally_created_and_rewritten(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
     // Ensure that remote bookmarks aren't tracked automatically
     test_env.add_config("git.auto-local-bookmark = false");
@@ -635,7 +635,7 @@ fn test_git_push_locally_created_and_rewritten(subprocess: bool) {
 fn test_git_push_multiple(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
     test_env.jj_cmd_ok(&workspace_root, &["bookmark", "delete", "bookmark1"]);
     test_env.jj_cmd_ok(
@@ -788,7 +788,7 @@ fn test_git_push_multiple(subprocess: bool) {
 fn test_git_push_changes(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
     test_env.jj_cmd_ok(&workspace_root, &["describe", "-m", "foo"]);
     std::fs::write(workspace_root.join("file"), "contents").unwrap();
@@ -953,7 +953,7 @@ fn test_git_push_changes(subprocess: bool) {
 fn test_git_push_revisions(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
     test_env.jj_cmd_ok(&workspace_root, &["describe", "-m", "foo"]);
     std::fs::write(workspace_root.join("file"), "contents").unwrap();
@@ -1057,7 +1057,7 @@ fn test_git_push_revisions(subprocess: bool) {
 fn test_git_push_mixed(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
     test_env.jj_cmd_ok(&workspace_root, &["describe", "-m", "foo"]);
     std::fs::write(workspace_root.join("file"), "contents").unwrap();
@@ -1119,7 +1119,7 @@ fn test_git_push_mixed(subprocess: bool) {
 fn test_git_push_existing_long_bookmark(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
     test_env.jj_cmd_ok(&workspace_root, &["describe", "-m", "foo"]);
     std::fs::write(workspace_root.join("file"), "contents").unwrap();
@@ -1149,7 +1149,7 @@ fn test_git_push_existing_long_bookmark(subprocess: bool) {
 fn test_git_push_unsnapshotted_change(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
     test_env.jj_cmd_ok(&workspace_root, &["describe", "-m", "foo"]);
     std::fs::write(workspace_root.join("file"), "contents").unwrap();
@@ -1163,7 +1163,7 @@ fn test_git_push_unsnapshotted_change(subprocess: bool) {
 fn test_git_push_conflict(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
     std::fs::write(workspace_root.join("file"), "first").unwrap();
     test_env.jj_cmd_ok(&workspace_root, &["commit", "-m", "first"]);
@@ -1187,7 +1187,7 @@ fn test_git_push_conflict(subprocess: bool) {
 fn test_git_push_no_description(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
     test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "my-bookmark"]);
     test_env.jj_cmd_ok(&workspace_root, &["describe", "-m="]);
@@ -1219,7 +1219,7 @@ fn test_git_push_no_description(subprocess: bool) {
 fn test_git_push_no_description_in_immutable(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
     test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "imm"]);
     test_env.jj_cmd_ok(&workspace_root, &["describe", "-m="]);
@@ -1272,7 +1272,7 @@ fn test_git_push_no_description_in_immutable(subprocess: bool) {
 fn test_git_push_missing_author(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
     let run_without_var = |var: &str, args: &[&str]| {
         test_env
@@ -1312,7 +1312,7 @@ fn test_git_push_missing_author(subprocess: bool) {
 fn test_git_push_missing_author_in_immutable(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
     let run_without_var = |var: &str, args: &[&str]| {
         test_env
@@ -1373,7 +1373,7 @@ fn test_git_push_missing_author_in_immutable(subprocess: bool) {
 fn test_git_push_missing_committer(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
     let run_without_var = |var: &str, args: &[&str]| {
         test_env
@@ -1428,7 +1428,7 @@ fn test_git_push_missing_committer(subprocess: bool) {
 fn test_git_push_missing_committer_in_immutable(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
     let run_without_var = |var: &str, args: &[&str]| {
         test_env
@@ -1490,7 +1490,7 @@ fn test_git_push_missing_committer_in_immutable(subprocess: bool) {
 fn test_git_push_deleted(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
 
     test_env.jj_cmd_ok(&workspace_root, &["bookmark", "delete", "bookmark1"]);
@@ -1532,7 +1532,7 @@ fn test_git_push_deleted(subprocess: bool) {
 fn test_git_push_conflicting_bookmarks(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
     test_env.add_config("git.auto-local-bookmark = true");
     let git_repo = {
@@ -1629,7 +1629,7 @@ fn test_git_push_conflicting_bookmarks(subprocess: bool) {
 fn test_git_push_deleted_untracked(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
 
     // Absent local bookmark shouldn't be considered "deleted" compared to
@@ -1658,7 +1658,7 @@ fn test_git_push_deleted_untracked(subprocess: bool) {
 fn test_git_push_tracked_vs_all(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
     test_env.jj_cmd_ok(&workspace_root, &["new", "bookmark1", "-mmoved bookmark1"]);
     test_env.jj_cmd_ok(&workspace_root, &["bookmark", "set", "bookmark1"]);
@@ -1745,7 +1745,7 @@ fn test_git_push_tracked_vs_all(subprocess: bool) {
 fn test_git_push_moved_forward_untracked(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
 
     test_env.jj_cmd_ok(&workspace_root, &["new", "bookmark1", "-mmoved bookmark1"]);
@@ -1769,7 +1769,7 @@ fn test_git_push_moved_forward_untracked(subprocess: bool) {
 fn test_git_push_moved_sideways_untracked(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
 
     test_env.jj_cmd_ok(&workspace_root, &["new", "root()", "-mmoved bookmark1"]);
@@ -1796,7 +1796,7 @@ fn test_git_push_moved_sideways_untracked(subprocess: bool) {
 fn test_git_push_to_remote_named_git(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
     if subprocess {
-        test_env.set_up_git_subprocessing();
+        test_env.add_config("git.subprocess = true");
     }
     let git_repo = {
         let mut git_repo_path = workspace_root.clone();

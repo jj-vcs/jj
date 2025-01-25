@@ -115,14 +115,8 @@ fn get_git_repo(repo: &Arc<ReadonlyRepo>) -> git2::Repository {
 }
 
 fn get_git_settings(subprocess: bool) -> GitSettings {
-    let executable_path = std::env::var("TEST_GIT_EXECUTABLE_PATH")
-        .as_ref()
-        .map(Path::new)
-        .unwrap_or(Path::new("git"))
-        .to_owned();
     GitSettings {
         subprocess,
-        executable_path,
         ..Default::default()
     }
 }
