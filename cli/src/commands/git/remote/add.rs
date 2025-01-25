@@ -18,7 +18,6 @@ use jj_lib::repo::Repo;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::git_util::absolute_git_url;
-use crate::git_util::get_git_repo;
 use crate::ui::Ui;
 
 /// Add a Git remote
@@ -39,9 +38,7 @@ pub fn cmd_git_remote_add(
     args: &GitRemoteAddArgs,
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui)?;
-    let repo = workspace_command.repo();
-    let git_repo = get_git_repo(repo.store())?;
     let url = absolute_git_url(command.cwd(), &args.url)?;
-    git::add_remote(&git_repo, &args.remote, &url)?;
+    git::add_remote(workspace_command.repo().store(), &args.remote, &url)?;
     Ok(())
 }

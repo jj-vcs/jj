@@ -34,7 +34,6 @@ use crate::command_error::user_error_with_message;
 use crate::command_error::CommandError;
 use crate::commands::git::maybe_add_gitignore;
 use crate::git_util::absolute_git_url;
-use crate::git_util::get_git_repo;
 use crate::git_util::print_git_import_stats;
 use crate::git_util::with_remote_git_callbacks;
 use crate::ui::Ui;
@@ -193,8 +192,7 @@ fn configure_remote(
     remote_name: &str,
     source: &str,
 ) -> Result<WorkspaceCommandHelper, CommandError> {
-    let git_repo = get_git_repo(workspace_command.repo().store())?;
-    git::add_remote(&git_repo, remote_name, source)?;
+    git::add_remote(workspace_command.repo().store(), remote_name, source)?;
     // Reload workspace to apply new remote configuration to
     // gix::ThreadSafeRepository behind the store.
     let workspace = command.load_workspace_at(
