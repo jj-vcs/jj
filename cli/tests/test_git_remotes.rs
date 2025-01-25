@@ -60,7 +60,6 @@ fn test_git_remotes() {
 ");
     let git_config = fs::read_to_string(repo_path.join(".jj/repo/store/git/config")).unwrap();
     insta::assert_snapshot!(git_config[git_config.find("[remote ").unwrap()..], @r#"
-    [remote "foo"]
     [remote "bar"]
     	url = http://example.com/repo/bar
     	fetch = +refs/heads/*:refs/remotes/bar/*
@@ -228,7 +227,6 @@ fn test_git_remote_rename() {
     "###);
     let git_config = fs::read_to_string(repo_path.join(".jj/repo/store/git/config")).unwrap();
     insta::assert_snapshot!(git_config[git_config.find("[remote ").unwrap()..], @r#"
-    [remote "foo"]
     [remote "baz"]
     	url = http://example.com/repo/baz
     	fetch = +refs/heads/*:refs/remotes/baz/*
@@ -262,7 +260,6 @@ fn test_git_remote_named_git() {
     "###);
     let git_config = fs::read_to_string(repo_path.join(".git/config")).unwrap();
     insta::assert_snapshot!(git_config[git_config.find("[remote ").unwrap()..], @r#"
-    [remote "git"]
     [remote "bar"]
     	url = http://example.com/repo/repo
     	fetch = +refs/heads/*:refs/remotes/bar/*
@@ -287,11 +284,10 @@ fn test_git_remote_named_git() {
     test_env.jj_cmd_ok(&repo_path, &["git", "init", "--git-repo=."]);
     let git_config = fs::read_to_string(repo_path.join(".git/config")).unwrap();
     insta::assert_snapshot!(git_config[git_config.find("[remote ").unwrap()..], @r#"
-    [remote "git"]
-    	fetch = +refs/heads/*:refs/remotes/git/*
     [remote "bar"]
     [remote "git"]
     	url = http://example.com/repo/repo
+    	fetch = +refs/heads/*:refs/remotes/git/*
     "#);
 
     // The remote can also be removed.
