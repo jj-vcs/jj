@@ -13,11 +13,33 @@
 // limitations under the License.
 
 use std::fs;
+use std::io::Write;
+use std::path::Path;
 use std::path::PathBuf;
 
 use testutils::git;
 
 use crate::common::TestEnvironment;
+
+fn read_git_config(repo_path: &Path) -> String {
+    let git_config = fs::read_to_string(repo_path.join(".jj/repo/store/git/config"))
+        .or_else(|_| fs::read_to_string(repo_path.join(".git/config")))
+        .unwrap();
+    git_config
+        .split_inclusive('\n')
+        .filter(|line| {
+            // Filter out non‐portable values.
+            [
+                "\tfilemode =",
+                "\tsymlinks =",
+                "\tignorecase =",
+                "\tprecomposeunicode =",
+            ]
+            .iter()
+            .all(|prefix| !line.to_ascii_lowercase().starts_with(prefix))
+        })
+        .collect()
+}
 
 #[test]
 fn test_git_remotes() {
@@ -58,6 +80,16 @@ fn test_git_remotes() {
     [EOF]
     [exit status: 1]
     ");
+    insta::assert_snapshot!(read_git_config(&repo_path), @r#"
+    [core]
+    	repositoryformatversion = 0
+    	bare = true
+    	logallrefupdates = false
+    [remote "foo"]
+    [remote "bar"]
+    	url = http://example.com/repo/bar
+    	fetch = +refs/heads/*:refs/remotes/bar/*
+    "#);
 }
 
 #[test]
@@ -165,6 +197,15 @@ fn test_git_remote_set_url() {
     foo http://example.com/repo/bar
     [EOF]
     ");
+    insta::assert_snapshot!(read_git_config(&repo_path), @r#"
+    [core]
+    	repositoryformatversion = 0
+    	bare = true
+    	logallrefupdates = false
+    [remote "foo"]
+    	url = http://example.com/repo/bar
+    	fetch = +refs/heads/*:refs/remotes/foo/*
+    "#);
 }
 
 #[test]
@@ -248,6 +289,19 @@ fn test_git_remote_rename() {
     baz http://example.com/repo/baz
     [EOF]
     ");
+    insta::assert_snapshot!(read_git_config(&repo_path), @r#"
+    [core]
+    	repositoryformatversion = 0
+    	bare = true
+    	logallrefupdates = false
+    [remote "foo"]
+    [remote "baz"]
+    	url = http://example.com/repo/baz
+    	fetch = +refs/heads/*:refs/remotes/baz/*
+    [remote "bar"]
+    	url = http://example.com/repo/foo
+    	fetch = +refs/heads/*:refs/remotes/bar/*
+    "#);
 }
 
 #[test]
@@ -273,6 +327,16 @@ fn test_git_remote_named_git() {
     bar http://example.com/repo/repo
     [EOF]
     ");
+    insta::assert_snapshot!(read_git_config(&repo_path), @r#"
+    [core]
+    	repositoryformatversion = 0
+    	bare = false
+    	logallrefupdates = true
+    [remote "git"]
+    [remote "bar"]
+    	url = http://example.com/repo/repo
+    	fetch = +refs/heads/*:refs/remotes/bar/*
+    "#);
     // @git bookmark shouldn't be renamed.
     let output = test_env.run_jj_in(&repo_path, ["log", "-rmain@git", "-Tbookmarks"]);
     insta::assert_snapshot!(output, @r"
@@ -297,12 +361,30 @@ fn test_git_remote_named_git() {
     test_env
         .run_jj_in(&repo_path, ["git", "init", "--git-repo=."])
         .success();
+    insta::assert_snapshot!(read_git_config(&repo_path), @r#"
+    [core]
+    	repositoryformatversion = 0
+    	bare = false
+    	logallrefupdates = true
+    [remote "git"]
+    [remote "git"]
+    	url = http://example.com/repo/repo
+    	fetch = +refs/heads/*:refs/remotes/git/*
+    "#);
 
     // The remote can also be removed.
     let output = test_env.run_jj_in(&repo_path, ["git", "remote", "remove", "git"]);
     insta::assert_snapshot!(output, @"");
     let output = test_env.run_jj_in(&repo_path, ["git", "remote", "list"]);
     insta::assert_snapshot!(output, @"");
+    insta::assert_snapshot!(read_git_config(&repo_path), @r#"
+    [core]
+    	repositoryformatversion = 0
+    	bare = false
+    	logallrefupdates = true
+    [remote "git"]
+    [remote "git"]
+    "#);
     // @git bookmark shouldn't be removed.
     let output = test_env.run_jj_in(&repo_path, ["log", "-rmain@git", "-Tbookmarks"]);
     insta::assert_snapshot!(output, @r"
@@ -395,4 +477,47 @@ fn test_git_remote_with_slashes() {
     ~
     [EOF]
     ");
+}
+
+#[test]
+fn test_git_remote_with_branch_config() {
+    let test_env = TestEnvironment::default();
+
+    test_env
+        .run_jj_in(test_env.env_root(), &["git", "init", "repo"])
+        .success();
+    let repo_path = test_env.env_root().join("repo");
+
+    let output = test_env.run_jj_in(
+        &repo_path,
+        &["git", "remote", "add", "foo", "http://example.com/repo"],
+    );
+    insta::assert_snapshot!(output, @"");
+
+    let mut config_file = fs::OpenOptions::new()
+        .append(true)
+        .open(repo_path.join(".jj/repo/store/git/config"))
+        .unwrap();
+    // `git clone` adds branch configuration like this.
+    writeln!(config_file, "[branch \"test\"]").unwrap();
+    writeln!(config_file, "\tremote = foo").unwrap();
+    writeln!(config_file, "\tmerge = refs/heads/test").unwrap();
+    drop(config_file);
+
+    let output = test_env.run_jj_in(&repo_path, &["git", "remote", "rename", "foo", "bar"]);
+    insta::assert_snapshot!(output, @"");
+
+    insta::assert_snapshot!(read_git_config(&repo_path), @r#"
+    [core]
+    	repositoryformatversion = 0
+    	bare = true
+    	logallrefupdates = false
+    [remote "foo"]
+    [branch "test"]
+    	remote = bar
+    	merge = refs/heads/test
+    [remote "bar"]
+    	url = http://example.com/repo
+    	fetch = +refs/heads/*:refs/remotes/bar/*
+    "#);
 }
