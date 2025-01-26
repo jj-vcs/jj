@@ -28,6 +28,7 @@ use jj_lib::config::ConfigFile;
 use jj_lib::config::ConfigSource;
 use jj_lib::git;
 use jj_lib::git::UnexpectedGitBackendError;
+use jj_lib::revset;
 use jj_lib::store::Store;
 
 use self::clone::cmd_git_clone;
@@ -123,6 +124,8 @@ fn write_repository_level_trunk_alias(
     branch: &str,
 ) -> Result<(), CommandError> {
     let mut file = ConfigFile::load_or_empty(ConfigSource::Repo, repo_path.join("config.toml"))?;
+    let branch = revset::format_symbol(branch);
+    let remote = revset::format_symbol(remote);
     file.set_value(["revset-aliases", "trunk()"], format!("{branch}@{remote}"))
         .expect("initial repo config shouldn't have invalid values");
     file.save()?;

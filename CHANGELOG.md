@@ -163,6 +163,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   now materialized in a way that can be parsed correctly.
   [#3968](https://github.com/jj-vcs/jj/issues/3968)
 
+* Bookmark and remote names written by `jj git clone` to
+  `revset-aliases.'trunk()'` are now escaped if necessary.
+  [#5359](https://github.com/jj-vcs/jj/issues/5359)
+
 ## [0.25.0] - 2025-01-01
 
 ### Release highlights

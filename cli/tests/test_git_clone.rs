@@ -601,6 +601,49 @@ fn test_git_clone_remote_default_bookmark(subprocess: bool) {
     }
 }
 
+// A branch with a strange name should get quoted in the config. Windows doesn't
+// like the strange name, so we don't run the test there.
+#[cfg(unix)]
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_git_clone_remote_default_bookmark_with_escape(subprocess: bool) {
+    let test_env = TestEnvironment::default();
+    if subprocess {
+        test_env.add_config("git.subprocess = true");
+    }
+    let git_repo_path = test_env.env_root().join("source");
+    let git_repo = git2::Repository::init(git_repo_path).unwrap();
+    set_up_non_empty_git_repo(&git_repo);
+    // Rename the main branch to something that needs to be escaped
+    git_repo
+        .find_reference("refs/heads/main")
+        .unwrap()
+        .rename("refs/heads/\"", false, "")
+        .unwrap();
+
+    let (_stdout, stderr) =
+        test_env.jj_cmd_ok(test_env.env_root(), &["git", "clone", "source", "clone"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(stderr, @r#"
+    Fetching into new repo in "$TEST_ENV/clone"
+    bookmark: "@origin [new] untracked
+    Setting the revset alias "trunk()" to ""\""@origin"
+    Working copy now at: sqpuoqvx cad212e1 (empty) (no description set)
+    Parent commit      : mzyxwzks 9f01a0e0 " | message
+    Added 1 files, modified 0 files, removed 0 files
+    "#);
+    }
+
+    // "trunk()" alias should be escaped and quoted
+    let stdout = test_env.jj_cmd_success(
+        &test_env.env_root().join("clone"),
+        &["config", "list", "--repo", "revset-aliases.'trunk()'"],
+    );
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(stdout, @r#"revset-aliases.'trunk()' = '"\""@origin'"#);
+    }
+}
+
 #[test_case(false; "use git2 for remote calls")]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_clone_ignore_working_copy(subprocess: bool) {
