@@ -93,7 +93,7 @@ rustix = { version = "0.38.44", features = ["fs"] }
 same-file = "1.0.6"
 sapling-renderdag = "0.1.0"
 sapling-streampager = "0.10.3"
-scm-record = "0.5.0"
+scm-record = { git = "https://github.com/jgilchrist/scm-record", branch = "push-usoxskonxnkx" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.137"
 slab = "0.4.9"
