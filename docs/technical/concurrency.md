@@ -110,7 +110,7 @@ Because we allow bookmarks (etc.) to be in a conflicted state rather than just
 erroring out when there are multiple heads, the user can continue to use the
 repo, including performing further operations on the repo. Of course, some
 commands will fail when using a conflicted bookmark. For example,
-`jj checkout main` when `main` is in a conflicted state will result in an error
+`jj new main` when `main` is in a conflicted state will result in an error
 telling you that `main` resolved to multiple revisions.
 
 ### Storage
