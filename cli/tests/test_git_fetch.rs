@@ -17,14 +17,10 @@ use test_case::test_case;
 
 use crate::common::TestEnvironment;
 
-/// Creates a remote Git repo containing a bookmark with the same name
-fn init_git_remote(test_env: &TestEnvironment, remote: &str) {
-    let git_repo_path = test_env.env_root().join(remote);
-    let git_repo = git2::Repository::init(git_repo_path).unwrap();
-    let signature =
-        git2::Signature::new("Some One", "some.one@example.com", &git2::Time::new(0, 0)).unwrap();
+fn add_commit_to_branch(git_repo: &git2::Repository, branch: &str) -> git2::Oid {
+    let signature = git2_signature();
     let mut tree_builder = git_repo.treebuilder(None).unwrap();
-    let file_oid = git_repo.blob(remote.as_bytes()).unwrap();
+    let file_oid = git_repo.blob(branch.as_bytes()).unwrap();
     tree_builder
         .insert("file", file_oid, git2::FileMode::Blob.into())
         .unwrap();
@@ -32,23 +28,38 @@ fn init_git_remote(test_env: &TestEnvironment, remote: &str) {
     let tree = git_repo.find_tree(tree_oid).unwrap();
     git_repo
         .commit(
-            Some(&format!("refs/heads/{remote}")),
+            Some(&format!("refs/heads/{branch}")),
             &signature,
             &signature,
             "message",
             &tree,
             &[],
         )
-        .unwrap();
+        .unwrap()
+}
+
+fn git2_signature() -> git2::Signature<'static> {
+    git2::Signature::new("Some One", "some.one@example.com", &git2::Time::new(0, 0)).unwrap()
+}
+
+/// Creates a remote Git repo containing a bookmark with the same name
+fn init_git_remote(test_env: &TestEnvironment, remote: &str) -> git2::Repository {
+    let git_repo_path = test_env.env_root().join(remote);
+    let git_repo = git2::Repository::init(git_repo_path).unwrap();
+    add_commit_to_branch(&git_repo, remote);
+
+    git_repo
 }
 
 /// Add a remote containing a bookmark with the same name
-fn add_git_remote(test_env: &TestEnvironment, repo_path: &Path, remote: &str) {
-    init_git_remote(test_env, remote);
+fn add_git_remote(test_env: &TestEnvironment, repo_path: &Path, remote: &str) -> git2::Repository {
+    let repo = init_git_remote(test_env, remote);
     test_env.jj_cmd_ok(
         repo_path,
         &["git", "remote", "add", remote, &format!("../{remote}")],
     );
+
+    repo
 }
 
 fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> String {
@@ -405,7 +416,7 @@ fn test_git_fetch_prune_before_updating_tips(subprocess: bool) {
     test_env.add_config("git.auto-local-bookmark = true");
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
-    add_git_remote(&test_env, &repo_path, "origin");
+    let git_repo = add_git_remote(&test_env, &repo_path, "origin");
     test_env.jj_cmd_ok(&repo_path, &["git", "fetch"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r###"
@@ -415,7 +426,6 @@ fn test_git_fetch_prune_before_updating_tips(subprocess: bool) {
     }
 
     // Remove origin bookmark in git repo and create origin/subname
-    let git_repo = git2::Repository::open(test_env.env_root().join("origin")).unwrap();
     git_repo
         .find_branch("origin", git2::BranchType::Local)
         .unwrap()
@@ -1690,8 +1700,7 @@ fn test_git_fetch_remote_only_bookmark(subprocess: bool) {
     // Create non-empty git repo to add as a remote
     let git_repo_path = test_env.env_root().join("git-repo");
     let git_repo = git2::Repository::init(git_repo_path).unwrap();
-    let signature =
-        git2::Signature::new("Some One", "some.one@example.com", &git2::Time::new(0, 0)).unwrap();
+    let signature = git2_signature();
     let mut tree_builder = git_repo.treebuilder(None).unwrap();
     let file_oid = git_repo.blob(b"content").unwrap();
     tree_builder
