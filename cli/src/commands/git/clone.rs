@@ -117,8 +117,10 @@ pub fn cmd_git_clone(
         .map_err(|err| user_error_with_message(format!("Failed to create {wc_path_str}"), err))?;
 
     let clone_result = (|| -> Result<_, CommandError> {
-        let mut workspace_command = init_workspace(ui, command, &canonical_wc_path, args.colocate)?;
-        let stats = fetch_new_remote(ui, &mut workspace_command, remote_name, &source, args.depth)?;
+        let workspace_command = init_workspace(ui, command, &canonical_wc_path, args.colocate)?;
+        let mut workspace_command =
+            configure_remote(ui, command, workspace_command, remote_name, &source)?;
+        let stats = fetch_new_remote(ui, &mut workspace_command, remote_name, args.depth)?;
         Ok((workspace_command, stats))
     })();
     if clone_result.is_err() {
@@ -188,15 +190,35 @@ fn init_workspace(
     Ok(workspace_command)
 }
 
+fn configure_remote(
+    ui: &Ui,
+    command: &CommandHelper,
+    workspace_command: WorkspaceCommandHelper,
+    remote_name: &str,
+    source: &str,
+) -> Result<WorkspaceCommandHelper, CommandError> {
+    let git_repo = get_git_repo(workspace_command.repo().store())?;
+    git::add_remote(&git_repo, remote_name, source)?;
+    // Reload workspace to apply new remote configuration to
+    // gix::ThreadSafeRepository behind the store.
+    let workspace = command.load_workspace_at(
+        workspace_command.workspace_root(),
+        workspace_command.settings(),
+    )?;
+    let op = workspace
+        .repo_loader()
+        .load_operation(workspace_command.repo().op_id())?;
+    let repo = workspace.repo_loader().load_at(&op)?;
+    command.for_workable_repo(ui, workspace, repo)
+}
+
 fn fetch_new_remote(
     ui: &Ui,
     workspace_command: &mut WorkspaceCommandHelper,
     remote_name: &str,
-    source: &str,
     depth: Option<NonZeroU32>,
 ) -> Result<GitFetchStats, CommandError> {
     let git_repo = get_git_repo(workspace_command.repo().store())?;
-    git::add_remote(&git_repo, remote_name, source)?;
     writeln!(
         ui.status(),
         r#"Fetching into new repo in "{}""#,
