@@ -440,7 +440,6 @@ pub fn make_diff_files(
             old_path: None,
             // Path for displaying purposes, not for file access.
             path: Cow::Owned(changed_path.to_fs_path_unchecked(Path::new(""))),
-            file_mode: Some(left_info.file_mode),
             sections,
         });
     }
@@ -464,57 +463,42 @@ pub fn apply_diff_builtin(
     for (path, file) in changed_files.into_iter().zip(files) {
         let (selected, _unselected) = file.get_selected_contents();
         match selected {
-            scm_record::SelectedContents::Absent => {
-                // TODO(https://github.com/arxanas/scm-record/issues/26): This
-                // is probably an upstream bug in scm-record. If the file exists
-                // but is empty, `get_selected_contents` should probably return
-                // `Unchanged` or `Present`. When this is fixed upstream we can
-                // simplify this logic.
+            scm_record::FileState::Absent => {
+                tree_builder.set_or_remove(path, Merge::absent());
+            }
+            scm_record::FileState::Present { contents, mode } => {
+                match contents {
+                    scm_record::SelectedContents::Unchanged => {
+                        // Do nothing.
+                    }
+                    scm_record::SelectedContents::Binary {
+                        old_description: _,
+                        new_description: _,
+                    } => {
+                        let value = right_tree.path_value(&path)?;
+                        tree_builder.set_or_remove(path, value);
+                    }
+                    scm_record::SelectedContents::Text { contents } => {
+                        let file_id = store
+                            .write_file(&path, &mut contents.as_bytes())
+                            .block_on()?;
 
-                // Currently, `Absent` means the file is either empty or
-                // deleted. We need to disambiguate three cases:
-                // 1. The file is new and empty.
-                // 2. The file existed before, is empty, and nothing changed.
-                // 3. The file does not exist (it's been deleted).
-                let old_mode = file.file_mode;
-                let new_mode = file.get_file_mode();
-                let file_existed_previously =
-                    old_mode.is_some() && old_mode != Some(scm_record::FileMode::absent());
-                let file_exists_now =
-                    new_mode.is_some() && new_mode != Some(scm_record::FileMode::absent());
-                let new_empty_file = !file_existed_previously && file_exists_now;
-                let file_deleted = file_existed_previously && !file_exists_now;
+                        let executable = match mode {
+                            None => {
+                                match right_tree.path_value(&path)?.as_resolved() {
+                                    Some(Some(TreeValue::File { executable, .. })) => *executable,
+                                    _ => false,
+                                }
+                            }
+                            Some(transition) => transition.after == scm_record::FileMode(mode::EXECUTABLE),
+                        };
 
-                if new_empty_file {
-                    let value = right_tree.path_value(&path)?;
-                    tree_builder.set_or_remove(path, value);
-                } else if file_deleted {
-                    tree_builder.set_or_remove(path, Merge::absent());
+                        tree_builder.set_or_remove(path, Merge::normal(TreeValue::File {
+                            id: file_id,
+                            executable,
+                        }));
+                    }
                 }
-                // Else: the file is empty and nothing changed.
-            }
-            scm_record::SelectedContents::Unchanged => {
-                // Do nothing.
-            }
-            scm_record::SelectedContents::Binary {
-                old_description: _,
-                new_description: _,
-            } => {
-                let value = right_tree.path_value(&path)?;
-                tree_builder.set_or_remove(path, value);
-            }
-            scm_record::SelectedContents::Present { contents } => {
-                let file_id = store
-                    .write_file(&path, &mut contents.as_bytes())
-                    .block_on()?;
-                tree_builder.set_or_remove(
-                    path,
-                    Merge::normal(TreeValue::File {
-                        id: file_id,
-                        executable: file.get_file_mode()
-                            == Some(scm_record::FileMode(mode::EXECUTABLE)),
-                    }),
-                );
             }
         }
     }
@@ -651,7 +635,6 @@ fn make_merge_file(
                 .repo_path
                 .to_fs_path_unchecked(Path::new("")),
         ),
-        file_mode: None,
         sections,
     })
 }
