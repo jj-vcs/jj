@@ -582,11 +582,11 @@ fn test_git_clone_remote_default_bookmark(subprocess: bool) {
     }
     insta::allow_duplicates! {
     insta::assert_snapshot!(
-        get_bookmark_output(&test_env, &test_env.env_root().join("clone2")), @r###"
-    feature1@origin: mzyxwzks 9f01a0e0 message
-    main: mzyxwzks 9f01a0e0 message
+        get_bookmark_output(&test_env, &test_env.env_root().join("clone3")), @r"
+    feature1: mzyxwzks 9f01a0e0 message
       @origin: mzyxwzks 9f01a0e0 message
-    "###);
+    main@origin: mzyxwzks 9f01a0e0 message
+    ");
     }
 
     // "trunk()" alias should be set to new default bookmark "feature1"
