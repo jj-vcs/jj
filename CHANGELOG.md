@@ -145,6 +145,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `[diff.<format>]` configuration now applies to `.diff().<format>()` commit
   template methods.
 
+* Add support for just ignoring Git LFS files by parsing `.gitattribute` files and automatically 
+  adding the relevant files to the internal ignore list
+
 ## [0.25.0] - 2025-01-01
 
 ### Release highlights
