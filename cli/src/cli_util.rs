@@ -294,6 +294,7 @@ struct CommandHelperData {
     maybe_workspace_loader: Result<Box<dyn WorkspaceLoader>, CommandError>,
     store_factories: StoreFactories,
     working_copy_factories: WorkingCopyFactories,
+    workspace_loader_factory: Box<dyn WorkspaceLoaderFactory>,
 }
 
 impl CommandHelper {
@@ -399,6 +400,16 @@ impl CommandHelper {
             .map_err(Clone::clone)
     }
 
+    fn new_workspace_loader_at(
+        &self,
+        workspace_root: &Path,
+    ) -> Result<Box<dyn WorkspaceLoader>, CommandError> {
+        self.data
+            .workspace_loader_factory
+            .create(workspace_root)
+            .map_err(|err| map_workspace_load_error(err, None))
+    }
+
     /// Loads workspace and repo, then snapshots the working copy if allowed.
     #[instrument(skip(self, ui))]
     pub fn workspace_helper(&self, ui: &Ui) -> Result<WorkspaceCommandHelper, CommandError> {
@@ -462,6 +473,7 @@ impl CommandHelper {
         Ok(factory)
     }
 
+    /// Loads workspace for the current command.
     #[instrument(skip_all)]
     pub fn load_workspace(&self) -> Result<Workspace, CommandError> {
         let loader = self.workspace_loader()?;
@@ -474,6 +486,23 @@ impl CommandHelper {
             .map_err(|err| {
                 map_workspace_load_error(err, self.data.global_args.repository.as_deref())
             })
+    }
+
+    /// Loads workspace located at the specified path.
+    #[instrument(skip(self, settings))]
+    pub fn load_workspace_at(
+        &self,
+        workspace_root: &Path,
+        settings: &UserSettings,
+    ) -> Result<Workspace, CommandError> {
+        let loader = self.new_workspace_loader_at(workspace_root)?;
+        loader
+            .load(
+                settings,
+                &self.data.store_factories,
+                &self.data.working_copy_factories,
+            )
+            .map_err(|err| map_workspace_load_error(err, None))
     }
 
     pub fn recover_stale_working_copy(
@@ -2443,12 +2472,12 @@ pub fn find_workspace_dir(cwd: &Path) -> &Path {
         .unwrap_or(cwd)
 }
 
-fn map_workspace_load_error(err: WorkspaceLoadError, workspace_path: Option<&str>) -> CommandError {
+fn map_workspace_load_error(err: WorkspaceLoadError, user_wc_path: Option<&str>) -> CommandError {
     match err {
         WorkspaceLoadError::NoWorkspaceHere(wc_path) => {
-            // Prefer user-specified workspace_path_str instead of absolute wc_path.
-            let workspace_path_str = workspace_path.unwrap_or(".");
-            let message = format!(r#"There is no jj repo in "{workspace_path_str}""#);
+            // Prefer user-specified path instead of absolute wc_path if any.
+            let short_wc_path = user_wc_path.map_or(wc_path.as_ref(), Path::new);
+            let message = format!(r#"There is no jj repo in "{}""#, short_wc_path.display());
             let git_dir = wc_path.join(".git");
             if git_dir.is_dir() {
                 user_error_with_hint(
@@ -3679,7 +3708,7 @@ impl CliRunner {
         let maybe_cwd_workspace_loader = self
             .workspace_loader_factory
             .create(find_workspace_dir(&cwd))
-            .map_err(|err| map_workspace_load_error(err, None));
+            .map_err(|err| map_workspace_load_error(err, Some(".")));
         config_env.reload_user_config(&mut raw_config)?;
         if let Ok(loader) = &maybe_cwd_workspace_loader {
             config_env.reset_repo_path(loader.repo_path());
@@ -3769,6 +3798,7 @@ impl CliRunner {
             maybe_workspace_loader,
             store_factories: self.store_factories,
             working_copy_factories: self.working_copy_factories,
+            workspace_loader_factory: self.workspace_loader_factory,
         };
         let command_helper = CommandHelper {
             data: Rc::new(command_helper_data),
