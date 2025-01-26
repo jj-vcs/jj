@@ -64,7 +64,6 @@
                     "default": false
                 },
                 "default-command": {
-                    "type": "string",
                     "description": "Default command to run when no explicit command is given",
                     "default": "log",
                     "oneOf": [
