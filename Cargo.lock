@@ -3445,6 +3445,7 @@ checksum = "088c5d71572124929ea7549a8ce98e1a6fd33d0a38367b09027b382e67c033db"
 [[package]]
 name = "scm-record"
 version = "0.5.0"
+source = "git+https://github.com/arxanas/scm-record?branch=main#c726054b9d3dcbb9c32a4c45dfa9db898511cf67"
 dependencies = [
  "cassowary",
  "crossterm",
