@@ -80,27 +80,6 @@ pub struct FileInfo {
     contents: FileContents,
 }
 
-impl FileInfo {
-    // Returns `Some(true)` if the file exists and is empty.
-    // Returns `None` if the file is absent and does not exist.
-    fn is_empty(&self) -> Option<bool> {
-        match self.contents {
-            FileContents::Absent => {
-                // If the contents are `Absent` the mode should be `Absent` as
-                // well since the file doesn't exist.
-                debug_assert!(self.file_mode == scm_record::FileMode::absent());
-                None
-            }
-            FileContents::Text {
-                contents: _,
-                hash: _,
-                num_bytes,
-            }
-            | FileContents::Binary { hash: _, num_bytes } => Some(num_bytes == 0),
-        }
-    }
-}
-
 /// File modes according to the Git file mode conventions. used for display
 /// purposes and equality comparison.
 ///
@@ -296,17 +275,6 @@ fn make_diff_sections(
     Ok(sections)
 }
 
-fn should_render_mode_section(left: &FileInfo, right: &FileInfo) -> bool {
-    match (left.is_empty(), right.is_empty()) {
-        // The file only exists on one side, but it's not empty on the other
-        // side. We'll render a section for the change in content, so the mode
-        // change is implied and mandatory if the user selects the change in
-        // content.
-        (Some(false), None) | (None, Some(false)) => false,
-        _ => left.file_mode != right.file_mode,
-    }
-}
-
 pub fn make_diff_files(
     store: &Arc<Store>,
     left_tree: &MergedTree,
@@ -321,11 +289,13 @@ pub fn make_diff_files(
             read_file_contents(store, right_tree, changed_path, conflict_marker_style)?;
         let mut sections = Vec::new();
 
-        if should_render_mode_section(&left_info, &right_info) {
+        if left_info.file_mode != right_info.file_mode {
             sections.push(scm_record::Section::FileMode {
                 is_checked: false,
-                before: left_info.file_mode,
-                after: right_info.file_mode,
+                mode_transition: scm_record::FileModeTransition {
+                    before: left_info.file_mode,
+                    after: right_info.file_mode,
+                },
             });
         }
 
@@ -440,7 +410,6 @@ pub fn make_diff_files(
             old_path: None,
             // Path for displaying purposes, not for file access.
             path: Cow::Owned(changed_path.to_fs_path_unchecked(Path::new(""))),
-            file_mode: Some(left_info.file_mode),
             sections,
         });
     }
@@ -462,37 +431,29 @@ pub fn apply_diff_builtin(
     );
     // TODO: Write files concurrently
     for (path, file) in changed_files.into_iter().zip(files) {
-        let (selected, _unselected) = file.get_selected_contents();
-        match selected {
-            scm_record::SelectedContents::Absent => {
-                // TODO(https://github.com/arxanas/scm-record/issues/26): This
-                // is probably an upstream bug in scm-record. If the file exists
-                // but is empty, `get_selected_contents` should probably return
-                // `Unchanged` or `Present`. When this is fixed upstream we can
-                // simplify this logic.
+        let (selected, _unselected) = file.get_selected_changes();
 
-                // Currently, `Absent` means the file is either empty or
-                // deleted. We need to disambiguate three cases:
-                // 1. The file is new and empty.
-                // 2. The file existed before, is empty, and nothing changed.
-                // 3. The file does not exist (it's been deleted).
-                let old_mode = file.file_mode;
-                let new_mode = file.get_file_mode();
-                let file_existed_previously =
-                    old_mode.is_some() && old_mode != Some(scm_record::FileMode::absent());
-                let file_exists_now =
-                    new_mode.is_some() && new_mode != Some(scm_record::FileMode::absent());
-                let new_empty_file = !file_existed_previously && file_exists_now;
-                let file_deleted = file_existed_previously && !file_exists_now;
+        // If the user didn't select any changes for this file, we can skip it entirely.
+        let Some(scm_record::SelectedChanges {
+            contents,
+            mode_transition,
+        }) = selected
+        else {
+            continue;
+        };
 
-                if new_empty_file {
-                    let value = right_tree.path_value(&path)?;
-                    tree_builder.set_or_remove(path, value);
-                } else if file_deleted {
-                    tree_builder.set_or_remove(path, Merge::absent());
-                }
-                // Else: the file is empty and nothing changed.
+        if let Some(ref mode_transition) = mode_transition {
+            // If a file was deleted, remove it.
+            if mode_transition.is_deletion() {
+                tree_builder.set_or_remove(path, Merge::absent());
+                continue;
             }
+
+            // If a file was added, it will have contents - even empty files
+            // have contents = "", so no special handling is required.
+        }
+
+        match contents {
             scm_record::SelectedContents::Unchanged => {
                 // Do nothing.
             }
@@ -503,16 +464,29 @@ pub fn apply_diff_builtin(
                 let value = right_tree.path_value(&path)?;
                 tree_builder.set_or_remove(path, value);
             }
-            scm_record::SelectedContents::Present { contents } => {
+            scm_record::SelectedContents::Text { contents } => {
                 let file_id = store
                     .write_file(&path, &mut contents.as_bytes())
                     .block_on()?;
+
+                let executable = match mode_transition {
+                    // If a mode transition was explicitly selected, and the file ended up as
+                    // executable, make it executable
+                    Some(transition) => transition.after == scm_record::FileMode(mode::EXECUTABLE),
+
+                    // If no mode transition was selected, but the file was already executable,
+                    // ensure it remains executable
+                    None => match right_tree.path_value(&path)?.as_resolved() {
+                        Some(Some(TreeValue::File { executable, .. })) => *executable,
+                        _ => false,
+                    },
+                };
+
                 tree_builder.set_or_remove(
                     path,
                     Merge::normal(TreeValue::File {
                         id: file_id,
-                        executable: file.get_file_mode()
-                            == Some(scm_record::FileMode(mode::EXECUTABLE)),
+                        executable,
                     }),
                 );
             }
@@ -651,7 +625,6 @@ fn make_merge_file(
                 .repo_path
                 .to_fs_path_unchecked(Path::new("")),
         ),
-        file_mode: None,
         sections,
     })
 }
@@ -738,11 +711,6 @@ mod tests {
             File {
                 old_path: None,
                 path: "unchanged",
-                file_mode: Some(
-                    FileMode(
-                        33188,
-                    ),
-                ),
                 sections: [
                     Unchanged {
                         lines: [
@@ -754,11 +722,6 @@ mod tests {
             File {
                 old_path: None,
                 path: "changed",
-                file_mode: Some(
-                    FileMode(
-                        33188,
-                    ),
-                ),
                 sections: [
                     Unchanged {
                         lines: [
@@ -803,12 +766,18 @@ mod tests {
             File {
                 old_path: None,
                 path: "added",
-                file_mode: Some(
-                    FileMode(
-                        0,
-                    ),
-                ),
                 sections: [
+                    FileMode {
+                        is_checked: false,
+                        mode_transition: FileModeTransition {
+                            before: FileMode(
+                                0,
+                            ),
+                            after: FileMode(
+                                33188,
+                            ),
+                        },
+                    },
                     Changed {
                         lines: [
                             SectionChangedLine {
@@ -875,20 +844,181 @@ mod tests {
             File {
                 old_path: None,
                 path: "empty_file",
-                file_mode: Some(
-                    FileMode(
-                        0,
-                    ),
-                ),
                 sections: [
                     FileMode {
                         is_checked: false,
-                        before: FileMode(
-                            0,
-                        ),
-                        after: FileMode(
-                            33188,
-                        ),
+                        mode_transition: FileModeTransition {
+                            before: FileMode(
+                                0,
+                            ),
+                            after: FileMode(
+                                33188,
+                            ),
+                        },
+                    },
+                ],
+            },
+        ]
+        "###);
+        let no_changes_tree_id = apply_diff_builtin(
+            store,
+            &left_tree,
+            &right_tree,
+            changed_files.clone(),
+            &files,
+        )
+        .unwrap();
+        let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
+        assert_eq!(
+            no_changes_tree.id(),
+            left_tree.id(),
+            "no-changes tree was different",
+        );
+
+        let mut files = files;
+        for file in &mut files {
+            file.toggle_all();
+        }
+        let all_changes_tree_id =
+            apply_diff_builtin(store, &left_tree, &right_tree, changed_files, &files).unwrap();
+        let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
+        assert_eq!(
+            all_changes_tree.id(),
+            right_tree.id(),
+            "all-changes tree was different",
+        );
+    }
+
+    #[test]
+    fn test_edit_diff_builtin_add_executable_file() {
+        let test_repo = TestRepo::init();
+        let store = test_repo.repo.store();
+
+        let added_executable_file_path = RepoPath::from_internal_string("executable_file");
+        let left_tree = testutils::create_tree(&test_repo.repo, &[]);
+        let right_tree = {
+            let store = test_repo.repo.store();
+            let mut tree_builder = store.tree_builder(store.empty_tree_id().clone());
+            testutils::write_executable_file(
+                &mut tree_builder,
+                added_executable_file_path,
+                "executable",
+            );
+            let id = tree_builder.write_tree().unwrap();
+            MergedTree::resolved(store.get_tree(RepoPathBuf::root(), &id).unwrap())
+        };
+
+        let changed_files = vec![added_executable_file_path.to_owned()];
+        let files = make_diff_files(
+            store,
+            &left_tree,
+            &right_tree,
+            &changed_files,
+            ConflictMarkerStyle::Diff,
+        )
+        .unwrap();
+        insta::assert_debug_snapshot!(files, @r###"
+        [
+            File {
+                old_path: None,
+                path: "executable_file",
+                sections: [
+                    FileMode {
+                        is_checked: false,
+                        mode_transition: FileModeTransition {
+                            before: FileMode(
+                                0,
+                            ),
+                            after: FileMode(
+                                33261,
+                            ),
+                        },
+                    },
+                    Changed {
+                        lines: [
+                            SectionChangedLine {
+                                is_checked: false,
+                                change_type: Added,
+                                line: "executable",
+                            },
+                        ],
+                    },
+                ],
+            },
+        ]
+        "###);
+        let no_changes_tree_id = apply_diff_builtin(
+            store,
+            &left_tree,
+            &right_tree,
+            changed_files.clone(),
+            &files,
+        )
+        .unwrap();
+        let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
+        assert_eq!(
+            no_changes_tree.id(),
+            left_tree.id(),
+            "no-changes tree was different",
+        );
+
+        let mut files = files;
+        for file in &mut files {
+            file.toggle_all();
+        }
+        let all_changes_tree_id =
+            apply_diff_builtin(store, &left_tree, &right_tree, changed_files, &files).unwrap();
+        let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
+        assert_eq!(
+            all_changes_tree.id(),
+            right_tree.id(),
+            "all-changes tree was different",
+        );
+    }
+
+    #[test]
+    fn test_edit_diff_builtin_delete_file() {
+        let test_repo = TestRepo::init();
+        let store = test_repo.repo.store();
+
+        let file_path = RepoPath::from_internal_string("file_with_content");
+        let left_tree = testutils::create_tree(&test_repo.repo, &[(file_path, "content\n")]);
+        let right_tree = testutils::create_tree(&test_repo.repo, &[]);
+
+        let changed_files = vec![file_path.to_owned()];
+        let files = make_diff_files(
+            store,
+            &left_tree,
+            &right_tree,
+            &changed_files,
+            ConflictMarkerStyle::Diff,
+        )
+        .unwrap();
+        insta::assert_debug_snapshot!(files, @r###"
+        [
+            File {
+                old_path: None,
+                path: "file_with_content",
+                sections: [
+                    FileMode {
+                        is_checked: false,
+                        mode_transition: FileModeTransition {
+                            before: FileMode(
+                                33188,
+                            ),
+                            after: FileMode(
+                                0,
+                            ),
+                        },
+                    },
+                    Changed {
+                        lines: [
+                            SectionChangedLine {
+                                is_checked: false,
+                                change_type: Removed,
+                                line: "content\n",
+                            },
+                        ],
                     },
                 ],
             },
@@ -946,20 +1076,17 @@ mod tests {
             File {
                 old_path: None,
                 path: "empty_file",
-                file_mode: Some(
-                    FileMode(
-                        33188,
-                    ),
-                ),
                 sections: [
                     FileMode {
                         is_checked: false,
-                        before: FileMode(
-                            33188,
-                        ),
-                        after: FileMode(
-                            0,
-                        ),
+                        mode_transition: FileModeTransition {
+                            before: FileMode(
+                                33188,
+                            ),
+                            after: FileMode(
+                                0,
+                            ),
+                        },
                     },
                 ],
             },
@@ -1018,11 +1145,6 @@ mod tests {
             File {
                 old_path: None,
                 path: "empty_file",
-                file_mode: Some(
-                    FileMode(
-                        33188,
-                    ),
-                ),
                 sections: [
                     Changed {
                         lines: [
@@ -1030,6 +1152,72 @@ mod tests {
                                 is_checked: false,
                                 change_type: Added,
                                 line: "modified\n",
+                            },
+                        ],
+                    },
+                ],
+            },
+        ]
+        "###);
+        let no_changes_tree_id = apply_diff_builtin(
+            store,
+            &left_tree,
+            &right_tree,
+            changed_files.clone(),
+            &files,
+        )
+        .unwrap();
+        let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
+        assert_eq!(
+            no_changes_tree.id(),
+            left_tree.id(),
+            "no-changes tree was different",
+        );
+
+        let mut files = files;
+        for file in &mut files {
+            file.toggle_all();
+        }
+        let all_changes_tree_id =
+            apply_diff_builtin(store, &left_tree, &right_tree, changed_files, &files).unwrap();
+        let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
+        assert_eq!(
+            all_changes_tree.id(),
+            right_tree.id(),
+            "all-changes tree was different",
+        );
+    }
+
+    #[test]
+    fn test_edit_diff_builtin_make_file_empty() {
+        let test_repo = TestRepo::init();
+        let store = test_repo.repo.store();
+
+        let file_path = RepoPath::from_internal_string("file_with_content");
+        let left_tree = testutils::create_tree(&test_repo.repo, &[(file_path, "content\n")]);
+        let right_tree = testutils::create_tree(&test_repo.repo, &[(file_path, "")]);
+
+        let changed_files = vec![file_path.to_owned()];
+        let files = make_diff_files(
+            store,
+            &left_tree,
+            &right_tree,
+            &changed_files,
+            ConflictMarkerStyle::Diff,
+        )
+        .unwrap();
+        insta::assert_debug_snapshot!(files, @r###"
+        [
+            File {
+                old_path: None,
+                path: "file_with_content",
+                sections: [
+                    Changed {
+                        lines: [
+                            SectionChangedLine {
+                                is_checked: false,
+                                change_type: Removed,
+                                line: "content\n",
                             },
                         ],
                     },
