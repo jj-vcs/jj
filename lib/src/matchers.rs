@@ -580,7 +580,10 @@ fn parse_gitattributes(
         if pattern.ends_with("/") {
             continue;
         }
-        builder.add_line(None, pattern)?;
+        // hack to workaround https://github.com/BurntSushi/ripgrep/issues/2962
+        let pattern = pattern.replace("[[:space:]]", " ");
+
+        builder.add_line(None, &pattern)?;
     }
 
     Ok(())

@@ -968,6 +968,7 @@ impl TreeState {
             start_tracking_matcher,
             max_new_file_size,
             conflict_marker_style,
+            skip_git_lfs_files,
         } = options;
 
         let sparse_matcher = self.sparse_matcher();
@@ -984,8 +985,13 @@ impl TreeState {
             Some(fsmonitor_matcher) => fsmonitor_matcher.as_ref(),
         };
 
-        let matcher = IntersectionMatcher::new(sparse_matcher.as_ref(), fsmonitor_matcher);
-        let matcher = DifferenceMatcher::new(matcher, git_attributes_matcher);
+        let mut matcher = Box::new(IntersectionMatcher::new(
+            sparse_matcher.as_ref(),
+            fsmonitor_matcher,
+        )) as Box<dyn Matcher>;
+        if skip_git_lfs_files {
+            matcher = Box::new(DifferenceMatcher::new(matcher, git_attributes_matcher));
+        }
         if matcher.visit(RepoPath::root()).is_nothing() {
             // No need to load the current tree, set up channels, etc.
             self.watchman_clock = watchman_clock;
