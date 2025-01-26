@@ -681,6 +681,14 @@ fn parse_as_string_literal(pair: Pair<Rule>) -> String {
     }
 }
 
+/// Checks if the text is a valid identifier
+pub fn is_identifier(text: &str) -> bool {
+    match RevsetParser::parse(Rule::identifier, text) {
+        Ok(mut pairs) => pairs.next().unwrap().as_span().end() == text.len(),
+        Err(_) => false,
+    }
+}
+
 pub type RevsetAliasesMap = AliasesMap<RevsetAliasParser, String>;
 
 #[derive(Clone, Debug, Default)]

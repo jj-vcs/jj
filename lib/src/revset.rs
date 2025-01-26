@@ -2686,6 +2686,15 @@ pub struct RevsetWorkspaceContext<'a> {
     pub workspace_id: &'a WorkspaceId,
 }
 
+/// Formats a string as symbol by quoting and escaping it if necessary
+pub fn format_symbol(literal: &str) -> String {
+    if revset_parser::is_identifier(literal) {
+        literal.to_string()
+    } else {
+        format!(r#""{}""#, dsl_util::escape_string(literal))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
@@ -4326,5 +4335,32 @@ mod tests {
             heads: CommitRef(Symbol("bar")),
         }
         "###);
+    }
+
+    #[test]
+    fn test_escape_string_literal() {
+        // Valid identifiers don't need quoting
+        assert_eq!(format_symbol("foo"), "foo");
+        assert_eq!(format_symbol("foo.bar"), "foo.bar");
+
+        // Invalid identifiers need quoting
+        assert_eq!(format_symbol("foo@bar"), r#""foo@bar""#);
+        assert_eq!(format_symbol("foo bar"), r#""foo bar""#);
+        assert_eq!(format_symbol(" foo "), r#"" foo ""#);
+        assert_eq!(format_symbol("(foo)"), r#""(foo)""#);
+        assert_eq!(format_symbol("all:foo"), r#""all:foo""#);
+
+        // Some characters also need escaping
+        assert_eq!(format_symbol("foo\"bar"), r#""foo\"bar""#);
+        assert_eq!(format_symbol("foo\\bar"), r#""foo\\bar""#);
+        assert_eq!(format_symbol("foo\\\"bar"), r#""foo\\\"bar""#);
+        assert_eq!(format_symbol("foo\nbar"), r#""foo\nbar""#);
+
+        // Some characters don't technically need escaping, but we escape them for
+        // clarity
+        assert_eq!(format_symbol("foo\"bar"), r#""foo\"bar""#);
+        assert_eq!(format_symbol("foo\\bar"), r#""foo\\bar""#);
+        assert_eq!(format_symbol("foo\\\"bar"), r#""foo\\\"bar""#);
+        assert_eq!(format_symbol("foo \x01 bar"), r#""foo \x01 bar""#);
     }
 }
