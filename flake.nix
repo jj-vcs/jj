@@ -100,7 +100,6 @@
       };
     in {
       formatter = pkgs.alejandra;
-      checks.jujutsu = self.packages.${system}.jujutsu;
 
       packages = {
         jujutsu = rustMinimalPlatform.buildRustPackage {
@@ -149,6 +148,21 @@
         };
         default = self.packages.${system}.jujutsu;
       };
+
+      checks.jujutsu = self.packages.${system}.jujutsu.overrideAttrs ({...}: {
+        # The default Rust infrastructure runs all builds in the release
+        # profile, which is significantly slower. Run this under the `test`
+        # profile instead, which matches all our other CI systems, Cargo, etc.
+        cargoBuildType = "test";
+        cargoCheckType = "test";
+
+        # By default, `flake check` will want to run the install phase, but
+        # because we override the cargoBuildType, it fails to find the proper
+        # binary. But we don't even care about the binary or even the buildPhase
+        # in this case; just remove them both.
+        buildPhase = "true";
+        installPhase = "touch $out";
+      });
 
       devShells.default = let
         packages = with pkgs; [
