@@ -18,6 +18,7 @@ use itertools::Itertools as _;
 use jj_lib::copies::CopyRecords;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::merge_commit_trees;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::print_unmatched_explicit_paths;
@@ -28,6 +29,7 @@ use crate::command_error::user_error_with_hint;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::diff_util::get_copy_records;
+use crate::diff_util::show_templated;
 use crate::diff_util::DiffFormatArgs;
 use crate::ui::Ui;
 
@@ -98,6 +100,24 @@ pub(crate) struct DiffArgs {
         add = ArgValueCompleter::new(complete::modified_revision_or_range_files),
     )]
     paths: Vec<String>,
+    /// Render each file diff entry using the given template
+    ///
+    /// All 0-argument methods of the [`TreeDiffEntry` type] are available as
+    /// keywords in the template expression. See [`jj help -k templates`] for
+    /// more information.
+    ///
+    /// [`TreeDiffEntry` type]:
+    ///     https://jj-vcs.github.io/jj/latest/templates/#treediffentry-type
+    ///
+    /// [`jj help -k templates`]:
+    ///     https://jj-vcs.github.io/jj/latest/templates/
+    #[arg(
+        long,
+        short = 'T',
+        conflicts_with_all = ["short-format", "long-format", "tool"],
+        help_heading = "Diff Formatting Options",
+    )]
+    template: Option<String>,
     #[command(flatten)]
     format: DiffFormatArgs,
 }
@@ -169,8 +189,28 @@ pub(crate) fn cmd_diff(
         }
     }
 
-    let diff_renderer = workspace_command.diff_renderer_for(&args.format)?;
+    // -T disables both short/long rendering formats, but it might be okay to
+    // enable long format if explicitly specified (assuming -T is for short or
+    // summary output.)
+    let maybe_template;
+    let diff_renderer;
+    if let Some(text) = &args.template {
+        let language = workspace_command.commit_template_language();
+        let template = workspace_command
+            .parse_template(ui, &language, text)?
+            .labeled(["diff"]);
+        maybe_template = Some(template);
+        diff_renderer = workspace_command.diff_renderer(vec![]);
+    } else {
+        maybe_template = None;
+        diff_renderer = workspace_command.diff_renderer_for(&args.format)?;
+    }
+
     ui.request_pager();
+    if let Some(template) = &maybe_template {
+        let tree_diff = from_tree.diff_stream_with_copies(&to_tree, &matcher, &copy_records);
+        show_templated(ui.stdout_formatter().as_mut(), tree_diff, template).block_on()?;
+    }
     diff_renderer.show_diff(
         ui,
         ui.stdout_formatter().as_mut(),

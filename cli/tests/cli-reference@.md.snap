@@ -781,6 +781,13 @@ If no option is specified, it defaults to `-r @`.
 * `-t`, `--to <REVSET>` — Show changes to this revision
 
    If none of `-r`, `-f`, or `-t` is provided, then the default is `-r @`.
+* `-T`, `--template <TEMPLATE>` — Render each file diff entry using the given template
+
+   All 0-argument methods of the [`TreeDiffEntry` type] are available as keywords in the template expression. See [`jj help -k templates`] for more information.
+
+   [`TreeDiffEntry` type]: https://jj-vcs.github.io/jj/latest/templates/#treediffentry-type
+
+   [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
 * `-s`, `--summary` — For each path, show only whether it was modified, added, or deleted
 * `--stat` — Show a histogram of the changes
 * `--types` — For each path, show only its type before and after

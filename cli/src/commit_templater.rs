@@ -1993,7 +1993,7 @@ pub struct TreeDiffEntry {
 }
 
 impl TreeDiffEntry {
-    fn from_backend_entry_with_copies(entry: CopiesTreeDiffEntry) -> BackendResult<Self> {
+    pub fn from_backend_entry_with_copies(entry: CopiesTreeDiffEntry) -> BackendResult<Self> {
         let (source_value, target_value) = entry.values?;
         Ok(TreeDiffEntry {
             path: entry.path,

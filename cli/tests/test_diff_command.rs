@@ -96,6 +96,15 @@ fn test_diff_basic() {
     [EOF]
     ");
 
+    let template = r#"source.path() ++ ' => ' ++ target.path() ++ ' (' ++ status ++ ")\n""#;
+    let output = work_dir.run_jj(["diff", "-T", template]);
+    insta::assert_snapshot!(output, @r"
+    file2 => file2 (modified)
+    file1 => file3 (renamed)
+    file2 => file4 (copied)
+    [EOF]
+    ");
+
     let output = work_dir.run_jj(["diff", "--git", "file1"]);
     insta::assert_snapshot!(output, @r"
     diff --git a/file1 b/file1
@@ -304,6 +313,45 @@ fn test_diff_basic() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: --tool=external cannot be used with --git
+    [EOF]
+    [exit status: 2]
+    ");
+    let output = work_dir.run_jj(["diff", "-T''", "--summary"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    error: the argument '--template <TEMPLATE>' cannot be used with:
+      --summary
+      --stat
+      --types
+      --name-only
+
+    Usage: jj diff --template <TEMPLATE> --summary [FILESETS]...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+    let output = work_dir.run_jj(["diff", "-T''", "--git"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    error: the argument '--template <TEMPLATE>' cannot be used with:
+      --git
+      --color-words
+
+    Usage: jj diff --template <TEMPLATE> --git [FILESETS]...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+    let output = work_dir.run_jj(["diff", "-T''", "--tool=:git"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    error: the argument '--template <TEMPLATE>' cannot be used with '--tool <TOOL>'
+
+    Usage: jj diff --template <TEMPLATE> [FILESETS]...
+
+    For more information, try '--help'.
     [EOF]
     [exit status: 2]
     ");

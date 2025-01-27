@@ -76,6 +76,7 @@ use unicode_width::UnicodeWidthStr as _;
 
 use crate::command_error::cli_error;
 use crate::command_error::CommandError;
+use crate::commit_templater;
 use crate::config::CommandNameAndArgs;
 use crate::formatter::Formatter;
 use crate::merge_tools;
@@ -85,6 +86,7 @@ use crate::merge_tools::new_utf8_temp_dir;
 use crate::merge_tools::DiffGenerateError;
 use crate::merge_tools::DiffToolMode;
 use crate::merge_tools::ExternalMergeTool;
+use crate::templater::TemplateRenderer;
 use crate::text_util;
 use crate::ui::Ui;
 
@@ -2119,6 +2121,18 @@ pub async fn show_names(
             "{}",
             path_converter.format_file_path(path.target())
         )?;
+    }
+    Ok(())
+}
+
+pub async fn show_templated(
+    formatter: &mut dyn Formatter,
+    mut tree_diff: BoxStream<'_, CopiesTreeDiffEntry>,
+    template: &TemplateRenderer<'_, commit_templater::TreeDiffEntry>,
+) -> Result<(), DiffRenderError> {
+    while let Some(entry) = tree_diff.next().await {
+        let entry = commit_templater::TreeDiffEntry::from_backend_entry_with_copies(entry)?;
+        template.format(&entry, formatter)?;
     }
     Ok(())
 }

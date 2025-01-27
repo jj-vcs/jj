@@ -16,6 +16,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj diff` now accepts `-T`/`--template` option to customize summary output.
+
 * `jj evolog` can now follow changes from multiple revisions such as divergent
   revisions.
 
