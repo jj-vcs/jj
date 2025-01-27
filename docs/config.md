@@ -1458,12 +1458,12 @@ Condition keys:
   workspace`.
 
 
-* `--when.command`: List of subcommands to match.
+* `--when.commands`: List of subcommands to match.
 
   Subcommands are space-separated and matched by prefix.
 
   ```toml
-  --when.command = ["file"]        # matches `jj file show`, `jj file list`, etc
-  --when.command = ["file show"]   # matches `jj file show` but *NOT* `jj file list`
-  --when.command = ["file", "log"] # matches `jj file` *OR* `jj log` (or subcommand of either)
+  --when.commands = ["file"]        # matches `jj file show`, `jj file list`, etc
+  --when.commands = ["file show"]   # matches `jj file show` but *NOT* `jj file list`
+  --when.commands = ["file", "log"] # matches `jj file` *OR* `jj log` (or subcommand of either)
   ```

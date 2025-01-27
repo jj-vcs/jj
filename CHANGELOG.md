@@ -136,7 +136,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * New `subject(pattern)` revset function that matches first line of commit
   descriptions.
 
-* Conditional configuration now supports `--when.command` to change configuration
+* Conditional configuration now supports `--when.commands` to change configuration
   based on subcommand.
 
 ### Fixed bugs
