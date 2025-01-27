@@ -1367,11 +1367,11 @@ This excludes changes from other commits by temporarily rebasing `--from` onto `
 
 Show revision history
 
-Renders a graphical view of the project's history, ordered with children before parents. By default, the output only includes mutable revisions, along with some additional revisions for context. Use `jj log -r ::` to see all revisions. See `jj help -k revsets` (or https://jj-vcs.github.io/jj/latest/revsets/) for information about the syntax.
+Renders a graphical view of the project's history, ordered with children before parents. By default, the output only includes mutable revisions, along with some additional revisions for context. Use `jj log -r ::` to see all revisions. See `jj help -k revsets` (or <https://jj-vcs.github.io/jj/latest/revsets/>) for information about the syntax.
 
 Spans of revisions that are not included in the graph per `--revisions` are rendered as a synthetic node labeled "(elided revisions)".
 
-The working-copy commit is indicated by a `@` symbol in the graph. Immutable revisions (https://jj-vcs.github.io/jj/latest/config/#set-of-immutable-commits) have a `◆` symbol. Other commits have a `○` symbol. To customize these symbols, see https://jj-vcs.github.io/jj/latest/config/#node-style.
+The working-copy commit is indicated by a `@` symbol in the graph. Immutable revisions (<https://jj-vcs.github.io/jj/latest/config/#set-of-immutable-commits>) have a `◆` symbol. Other commits have a `○` symbol. To customize these symbols, see <https://jj-vcs.github.io/jj/latest/config/#node-style>.
 
 **Usage:** `jj log [OPTIONS] [FILESETS]...`
 
@@ -1393,7 +1393,7 @@ The working-copy commit is indicated by a `@` symbol in the graph. Immutable rev
 
    Run `jj log -T` to list the built-in templates.
 
-   You can also specify arbitrary template expressions. For the syntax, see https://jj-vcs.github.io/jj/latest/templates/.
+   You can also specify arbitrary template expressions. For the syntax, see <https://jj-vcs.github.io/jj/latest/templates/>.
 
    If not specified, this defaults to the `templates.log` setting.
 * `-p`, `--patch` — Show patch
@@ -1578,7 +1578,7 @@ Like other commands, `jj op log` snapshots the current working-copy changes and 
 * `--no-graph` — Don't show the graph, show a flat list of operations
 * `-T`, `--template <TEMPLATE>` — Render each operation using the given template
 
-   For the syntax, see https://jj-vcs.github.io/jj/latest/templates/
+   For the syntax, see <https://jj-vcs.github.io/jj/latest/templates/>
 * `--op-diff` — Show changes to the repository at each operation
 * `-p`, `--patch` — Show patch of modifications to changes (implies --op-diff)
 
