@@ -126,7 +126,7 @@ fn terminal_get_username(ui: &Ui, url: &str) -> Option<String> {
 }
 
 fn terminal_get_pw(ui: &Ui, url: &str) -> Option<String> {
-    ui.prompt_password(&format!("Passphrase for {url}: ")).ok()
+    ui.prompt_password(&format!("Passphrase for {url}")).ok()
 }
 
 fn pinentry_get_pw(url: &str) -> Option<String> {
