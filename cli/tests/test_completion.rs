@@ -519,6 +519,36 @@ fn test_revisions() {
     siblings	@-+ ~@
     [EOF]
     ");
+
+    // Begin testing `jj git push --named`
+
+    // The name of a bookmark does not get completed, since we want to create a new
+    // bookmark
+    let output = work_dir.run_jj(["--", "jj", "git", "push", "--named", ""]);
+    insta::assert_snapshot!(output, @"");
+    let output = work_dir.run_jj(["--", "jj", "git", "push", "--named", "a"]);
+    insta::assert_snapshot!(output, @"");
+
+    let output = work_dir.run_jj(["--", "jj", "git", "push", "--named", "a="]);
+    insta::assert_snapshot!(output, @r"
+    a=immutable_bookmark	immutable
+    a=mutable_bookmark	mutable
+    a=k	working_copy
+    a=y	mutable
+    a=q	immutable
+    a=zq	remote_commit
+    a=zz	(no description set)
+    a=remote_bookmark@origin	remote_commit
+    a=alias_with_newline	    roots(
+    a=siblings	@-+ ~@
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["--", "jj", "git", "push", "--named", "a=a"]);
+    insta::assert_snapshot!(output, @r"
+    a=alias_with_newline	    roots(
+    [EOF]
+    ");
 }
 
 #[test]

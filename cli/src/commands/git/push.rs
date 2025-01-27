@@ -20,6 +20,7 @@ use std::io::Write as _;
 
 use clap::ArgGroup;
 use clap_complete::ArgValueCandidates;
+use clap_complete::ArgValueCompleter;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
@@ -181,8 +182,11 @@ pub struct GitPushArgs {
     /// '--named myfeature=@'
     ///
     /// Does not require --allow-new.
-    // TODO: Add arg completer
-    #[arg(long, value_name = "NAME=REVISION")]
+    #[arg(
+        long,
+        value_name = "NAME=REVISION",
+        add = ArgValueCompleter::new(complete::branch_name_equals_any_revision)
+    )]
     named: Vec<String>,
     /// Only display what will change on the remote
     #[arg(long)]

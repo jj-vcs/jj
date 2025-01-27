@@ -548,6 +548,26 @@ pub fn leaf_config_key_value(current: &std::ffi::OsStr) -> Vec<CompletionCandida
     }
 }
 
+pub fn branch_name_equals_any_revision(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
+    let Some(current) = current.to_str() else {
+        return Vec::new();
+    };
+
+    let Some((branch_name, revision)) = current.split_once('=') else {
+        // Don't complete branch names since we want to create a new branch
+        return Vec::new();
+    };
+    all_revisions()
+        .into_iter()
+        .filter(|rev| {
+            rev.get_value()
+                .to_str()
+                .is_some_and(|s| s.starts_with(revision))
+        })
+        .map(|rev| rev.add_prefix(format!("{branch_name}=")))
+        .collect()
+}
+
 fn dir_prefix_from<'a>(path: &'a str, current: &str) -> Option<&'a str> {
     path[current.len()..]
         .split_once(std::path::MAIN_SEPARATOR)
