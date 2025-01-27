@@ -51,6 +51,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   useful for making machine-readable templates by escaping problematic
   characters like `\n`.
 
+* `jj git push` now accepts a `--named NAME=REVISION` argument to create a named
+  bookmark and immediately push it.
+
 ### Fixed bugs
 
 * `jj status` now shows untracked files under untracked directories.

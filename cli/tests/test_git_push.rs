@@ -956,6 +956,165 @@ fn test_git_push_changes(subprocess: bool) {
 
 #[test_case(false; "use git2 for remote calls")]
 #[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_git_push_changes_with_name(subprocess: bool) {
+    let (test_env, workspace_root) = set_up();
+    if subprocess {
+        test_env.add_config("git.subprocess = true");
+    }
+    test_env.jj_cmd_ok(&workspace_root, &["describe", "-m", "foo"]);
+    std::fs::write(workspace_root.join("file"), "contents").unwrap();
+    test_env.jj_cmd_ok(&workspace_root, &["new", "-m", "bar"]);
+    std::fs::write(workspace_root.join("file"), "modified").unwrap();
+
+    // Normal behavior. Spaces around the = sign are OK.
+    let (stdout, stderr) =
+        test_env.jj_cmd_ok(&workspace_root, &["git", "push", "--named", "b1 = @"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(stdout, @"");
+    }
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(stderr, @r"
+    Changes to push to origin:
+      Add bookmark b1 to cf1a53a8800a
+    ");
+    }
+    // test pushing a change with an empty name
+    let stderr = test_env.jj_cmd_failure(&workspace_root, &["git", "push", "--named", "=@"]);
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(stderr, @r"
+    Error: Argument '=@' must have the form NAME=REVISION, with both NAME and REVISION non-empty.
+    Hint: For example, `--named myfeature=@` is valid syntax
+    ");    
+    }
+    // test pushing a change with an empty revision
+    let stderr = test_env.jj_cmd_failure(&workspace_root, &["git", "push", "--named", "b2="]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(stderr, @r"
+    Error: Argument 'b2=' must have the form NAME=REVISION, with both NAME and REVISION non-empty.
+    Hint: For example, `--named myfeature=@` is valid syntax
+    ");
+    }
+    // test pushing a change with no equals sign
+    let stderr = test_env.jj_cmd_failure(&workspace_root, &["git", "push", "--named", "b2"]);
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(stderr, @r"
+    Error: Argument 'b2' must include '=' and have the form NAME=REVISION
+    Hint: For example, `--named myfeature=@` is valid syntax
+    ");
+    }
+
+    // test pushing the same change with the same name again
+    let stderr = test_env.jj_cmd_failure(&workspace_root, &["git", "push", "--named", "b1=@"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(stderr, @r"
+    Error: Bookmark already exists: 'b1'
+    Hint: Use 'jj bookmark move' to move it, and 'jj git push -b b1 [--allow-new]' to push it.
+    ");
+    }
+    // test pushing two changes at once
+    std::fs::write(workspace_root.join("file"), "modified2").unwrap();
+    let stderr =
+        test_env.jj_cmd_failure(&workspace_root, &["git", "push", "--named=b2=all:(@|@-)"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(stderr, @r"
+    Error: Revset `all:(@|@-)` resolved to more than one revision
+    Hint: The revset `all:(@|@-)` resolved to these revisions:
+      yostqsxw e5fc831c b1* | bar
+      yqosqzyt a050abf4 foo
+    ");
+    }
+
+    // specifying the same bookmark with --named/--bookmark
+    std::fs::write(workspace_root.join("file"), "modified4").unwrap();
+    let stderr =
+        test_env.jj_cmd_failure(&workspace_root, &["git", "push", "--named=b2=@", "-b=b2"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(stderr, @r"
+    Error: Refusing to create new remote bookmark b2@origin
+    Hint: Use --allow-new to push new bookmark. Use --remote to specify the remote to push to.
+    ");
+    }
+}
+
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_git_push_changes_with_name_untracked_or_forgotten(subprocess: bool) {
+    let (test_env, workspace_root) = set_up();
+    if subprocess {
+        test_env.add_config("git.subprocess = true");
+    }
+    test_env.jj_cmd_ok(&workspace_root, &["describe", "-m", "foo"]);
+    std::fs::write(workspace_root.join("file"), "contents").unwrap();
+    test_env.jj_cmd_ok(&workspace_root, &["new", "-m", "bar"]);
+    std::fs::write(workspace_root.join("file"), "modified").unwrap();
+    // Unset immutable_heads so that untracking branches does not move the working
+    // copy
+    test_env.jj_cmd_ok(
+        &workspace_root,
+        &[
+            "config",
+            "set",
+            "--repo",
+            r#"revset-aliases."immutable_heads()""#,
+            r#""none()""#,
+        ],
+    );
+
+    // Push a branch to a remote, but forget the local branch
+    test_env.jj_cmd_ok(&workspace_root, &["git", "push", "--named", "b1=@"]);
+    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "untrack", "b1@origin"]);
+    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "delete", "b1"]);
+
+    let (stdout, stderr) =
+        test_env.jj_cmd_ok(&workspace_root, &["bookmark", "list", "--all", "b1"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(stdout, @"b1@origin: yostqsxw 5f432a85 bar");
+    }
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(stderr, @"");
+    }
+
+    let stderr = test_env.jj_cmd_failure(&workspace_root, &["git", "push", "--named", "b1=@"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(stderr, @r"
+    Error: Remote bookmark already exists: 'b1@origin'
+    Hint: Use 'jj bookmark track' to track it.
+    ");
+    }
+
+    // Now, the bookmarked is pushed to the remote. Let's entirely forget it locally
+    // and try pushing it again to the same location it was.
+    // TODO: This seems pretty safe, but perhaps it should still show an error or
+    // some sort of warning?
+    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "forget", "b1"]);
+    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["git", "push", "--named", "b1=@"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(stdout, @"");
+    }
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(stderr, @r"
+    Changes to push to origin:
+      Add bookmark b1 to 5f432a855e59
+    ");
+    }
+
+    // Forget the bookmark once more
+    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "forget", "b1"]);
+    // Now, we'll push a new commit
+    test_env.jj_cmd_ok(&workspace_root, &["new", "-m=new commit"]);
+    let stderr = test_env.jj_cmd_failure(&workspace_root, &["git", "push", "--named", "b1=@"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(stderr, @r"
+    Changes to push to origin:
+      Add bookmark b1 to 97505688dff3
+    Error: Refusing to push a bookmark that unexpectedly moved on the remote. Affected refs: refs/heads/b1
+    Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
+    ");
+    }
+}
+
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_revisions(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
     if !subprocess {
