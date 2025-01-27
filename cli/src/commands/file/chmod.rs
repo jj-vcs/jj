@@ -81,7 +81,7 @@ pub(crate) fn cmd_file_chmod(
     // TODO: No need to add special case for empty paths when switching to
     // parse_union_filesets(). paths = [] should be "none()" if supported.
     let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
-    let matcher = fileset_expression.to_matcher();
+    let matcher = workspace_command.file_matcher(ui, &args.paths)?;
     print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&tree])?;
 
     let mut tx = workspace_command.start_transaction();

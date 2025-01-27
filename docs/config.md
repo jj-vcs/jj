@@ -1258,6 +1258,17 @@ particular binary, you can:
 executable-path = "/path/to/git"
 ```
 
+### Ignore Git LFS Files
+
+By default Git LFS files are **not** handled by `jj`. This will result in `jj` showing
+changes in these files, even if they are unchanged. You can configure `jj` to ignore these
+files by instructing it to parse the relevant `.gitattributes` files
+
+```tom
+[git]
+ignore-lfs-files = -rue
+```
+
 ## Filesystem monitor
 
 In large repositories, it may be beneficial to use a "filesystem monitor" to
