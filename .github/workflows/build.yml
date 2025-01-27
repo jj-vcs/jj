@@ -88,7 +88,7 @@ jobs:
       run: cargo build --workspace --all-targets --verbose ${{ matrix.cargo_flags }}
     - name: Test
       run: |
-        cargo nextest run --workspace --all-targets --verbose ${{ matrix.cargo_flags }}
+        cargo nextest run --workspace --profile ci --all-targets --verbose ${{ matrix.cargo_flags }}
       env:
         RUST_BACKTRACE: 1
         CARGO_TERM_COLOR: always

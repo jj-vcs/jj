@@ -97,6 +97,7 @@
           buildFeatures = ["packaging"];
           cargoBuildFlags = ["--bin" "jj"]; # don't build and install the fake editors
           useNextest = true;
+          cargoTestFlags = ["--profile" "ci"];
           src = filterSrc ./. [
             ".*\\.nix$"
             "^.jj/"
