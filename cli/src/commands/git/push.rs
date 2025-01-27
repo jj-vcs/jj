@@ -46,18 +46,23 @@ use jj_lib::signing::SignBehavior;
 use jj_lib::str_util::StringPattern;
 use jj_lib::view::View;
 
+use crate::cli_util::has_tracked_remote_bookmarks;
 use crate::cli_util::short_change_hash;
 use crate::cli_util::short_commit_hash;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::WorkspaceCommandHelper;
 use crate::cli_util::WorkspaceCommandTransaction;
+use crate::command_error::cli_error;
+use crate::command_error::cli_error_with_message;
 use crate::command_error::user_error;
+use crate::command_error::user_error_with_hint;
 use crate::command_error::CommandError;
 use crate::commands::git::get_single_remote;
 use crate::complete;
 use crate::formatter::Formatter;
 use crate::git_util::with_remote_git_callbacks;
+use crate::revset_util::parse_bookmark_name;
 use crate::ui::Ui;
 
 /// Push to a Git remote
@@ -83,7 +88,7 @@ use crate::ui::Ui;
 ///     https://jj-vcs.github.io/jj/latest/bookmarks/#conflicts
 
 #[derive(clap::Args, Clone, Debug)]
-#[command(group(ArgGroup::new("specific").args(&["bookmark", "change", "revisions"]).multiple(true)))]
+#[command(group(ArgGroup::new("specific").args(&["bookmark", "change", "revisions", "named"]).multiple(true)))]
 #[command(group(ArgGroup::new("what").args(&["all", "deleted", "tracked"]).conflicts_with("specific")))]
 pub struct GitPushArgs {
     /// The remote to push to (only named remotes are supported)
@@ -172,6 +177,13 @@ pub struct GitPushArgs {
         add = ArgValueCandidates::new(complete::mutable_revisions)
     )]
     change: Vec<RevisionArg>,
+    /// Specify a new bookmark name and a revision to push under that name, e.g.
+    /// '--named myfeature=@'
+    ///
+    /// Does not require --allow-new.
+    // TODO: Add arg completer
+    #[arg(long, value_name = "NAME=REVISION")]
+    named: Vec<String>,
     /// Only display what will change on the remote
     #[arg(long)]
     dry_run: bool,
@@ -264,16 +276,23 @@ pub fn cmd_git_push(
         let bookmark_prefix = tx.settings().get_string("git.push-bookmark-prefix")?;
         let change_bookmark_names =
             update_change_bookmarks(ui, &mut tx, &args.change, &bookmark_prefix)?;
-        let change_bookmarks = change_bookmark_names.iter().map(|name| {
-            let remote_symbol = name.to_remote_symbol(remote);
-            let targets = LocalAndRemoteRef {
-                local_target: tx.repo().view().get_local_bookmark(name),
-                remote_ref: tx.repo().view().get_remote_bookmark(remote_symbol),
-            };
-            (remote_symbol, targets)
-        });
-        let view = tx.repo().view();
-        for (remote_symbol, targets) in change_bookmarks {
+        let created_bookmark_names: Vec<RefNameBuf> = args
+            .named
+            .iter()
+            .map(|name_revision| create_explicitly_named_bookmarks(ui, &mut tx, name_revision))
+            .try_collect()?;
+        let created_bookmarks = change_bookmark_names
+            .iter()
+            .chain(created_bookmark_names.iter())
+            .map(|name| {
+                let remote_symbol = name.to_remote_symbol(remote);
+                let targets = LocalAndRemoteRef {
+                    local_target: tx.repo().view().get_local_bookmark(name),
+                    remote_ref: tx.repo().view().get_remote_bookmark(remote_symbol),
+                };
+                (remote_symbol, targets)
+            });
+        for (remote_symbol, targets) in created_bookmarks {
             let name = remote_symbol.name;
             if !seen_bookmarks.insert(name) {
                 continue;
@@ -290,6 +309,7 @@ pub fn cmd_git_push(
             }
         }
 
+        let view = tx.repo().view();
         let allow_new = args.allow_new || tx.settings().get("git.push-new-bookmarks")?;
         let bookmarks_by_name = find_bookmarks_to_push(view, &args.bookmark, remote)?;
         for &(name, targets) in &bookmarks_by_name {
@@ -308,8 +328,10 @@ pub fn cmd_git_push(
             }
         }
 
-        let use_default_revset =
-            args.bookmark.is_empty() && args.change.is_empty() && args.revisions.is_empty();
+        let use_default_revset = args.bookmark.is_empty()
+            && args.change.is_empty()
+            && args.revisions.is_empty()
+            && args.named.is_empty();
         let bookmarks_targeted = find_bookmarks_targeted_by_revisions(
             ui,
             tx.base_workspace_helper(),
@@ -744,6 +766,63 @@ fn classify_bookmark_update(
         }
         BookmarkPushAction::Update(update) => Ok(Some(update)),
     }
+}
+
+/// Creates a bookmark for a single `--named` argument and returns its name
+///
+/// The logic is not identical to that of `jj bookmark create` since we need to
+/// make sure the new bookmark is safe to push.
+fn create_explicitly_named_bookmarks(
+    ui: &Ui,
+    tx: &mut WorkspaceCommandTransaction<'_>,
+    name_revision: &String,
+) -> Result<RefNameBuf, CommandError> {
+    let hint = "For example, `--named myfeature=@` is valid syntax";
+    let Some((name_str, revision_str)) = name_revision.split_once('=') else {
+        return Err(cli_error(format!(
+            "Argument '{name_revision}' must include '=' and have the form NAME=REVISION"
+        ))
+        .hinted(hint));
+    };
+    if name_str.is_empty() || revision_str.is_empty() {
+        return Err(cli_error(format!(
+            "Argument '{name_revision}' must have the form NAME=REVISION, with both NAME and \
+             REVISION non-empty"
+        ))
+        .hinted(hint));
+    }
+    let name = parse_bookmark_name(name_str).map_err(|err| {
+        cli_error_with_message(
+            format!("Could not parse '{name_str}' as a bookmark name"),
+            err,
+        )
+        .hinted(hint)
+    })?;
+    let symbol = name.as_symbol();
+    if tx.repo().view().get_local_bookmark(&name).is_present() {
+        return Err(user_error_with_hint(
+            format!("Bookmark already exists: {symbol}"),
+            format!(
+                "Use 'jj bookmark move' to move it, and 'jj git push -b {symbol} [--allow-new]' \
+                 to push it"
+            ),
+        ));
+    }
+    if has_tracked_remote_bookmarks(tx.repo().view(), &name) {
+        return Err(user_error_with_hint(
+            format!("Tracked remote bookmarks exist for deleted bookmark: {symbol}"),
+            format!(
+                "Use `jj bookmark set` to recreate the local bookmark. Run `jj bookmark untrack \
+                 'glob:{symbol}@*'` to disassociate them."
+            ),
+        ));
+    }
+    let revision = tx
+        .base_workspace_helper()
+        .resolve_single_rev(ui, &revision_str.to_string().into())?;
+    tx.repo_mut()
+        .set_local_bookmark_target(&name, RefTarget::normal(revision.id().clone()));
+    Ok(name)
 }
 
 /// Creates or moves bookmarks based on the change IDs.

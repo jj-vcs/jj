@@ -19,15 +19,19 @@ use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
 
-fn set_up(test_env: &TestEnvironment) {
-    test_env.run_jj_in(".", ["git", "init", "origin"]).success();
-    let origin_dir = test_env.work_dir("origin");
-    let origin_git_repo_path = origin_dir
+fn git_repo_dir_for_jj_repo(work_dir: &TestWorkDir<'_>) -> std::path::PathBuf {
+    work_dir
         .root()
         .join(".jj")
         .join("repo")
         .join("store")
-        .join("git");
+        .join("git")
+}
+
+fn set_up(test_env: &TestEnvironment) {
+    test_env.run_jj_in(".", ["git", "init", "origin"]).success();
+    let origin_dir = test_env.work_dir("origin");
+    let origin_git_repo_path = git_repo_dir_for_jj_repo(&origin_dir);
 
     origin_dir
         .run_jj(["describe", "-m=description 1"])
@@ -1059,6 +1063,384 @@ fn test_git_push_changes(subprocess: bool) {
     Creating bookmark test-yostqsxwqrlt for revision yostqsxwqrlt
     Changes to push to origin:
       Add bookmark test-yostqsxwqrlt to 38cb417ce3a6
+    [EOF]
+    ");
+    }
+}
+
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
+#[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_git_push_changes_with_name(subprocess: bool) {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let work_dir = test_env.work_dir("local");
+    if subprocess {
+        test_env.add_config("git.subprocess = true");
+    }
+    work_dir.run_jj(["describe", "-m", "foo"]).success();
+    work_dir.write_file("file", "contents");
+    work_dir.run_jj(["new", "-m", "pushed"]).success();
+    work_dir.write_file("file", "modified");
+
+    // Normal behavior.
+    let output = work_dir.run_jj(["git", "push", "--named", "b1=@"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Changes to push to origin:
+      Add bookmark b1 to 3e677c129c1d
+    [EOF]
+    ");
+    }
+    // Spaces before the = sign are treated like part of the bookmark name and such
+    // bookmarks cannot be pushed.
+    let output = work_dir.run_jj(["git", "push", "--named", "b1 = @"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Could not parse 'b1 ' as a bookmark name
+    Caused by:
+    1: Failed to parse bookmark name: Syntax error
+    2:  --> 1:3
+      |
+    1 | b1 
+      |   ^---
+      |
+      = expected <EOI>
+    Hint: For example, `--named myfeature=@` is valid syntax
+    [EOF]
+    [exit status: 2]
+    ");
+    }
+    // test pushing a change with an empty name
+    let output = work_dir.run_jj(["git", "push", "--named", "=@"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Argument '=@' must have the form NAME=REVISION, with both NAME and REVISION non-empty
+    Hint: For example, `--named myfeature=@` is valid syntax
+    [EOF]
+    [exit status: 2]
+    ");
+    }
+    // Unparsable name
+    let output = work_dir.run_jj(["git", "push", "--named", ":!:=@"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Could not parse ':!:' as a bookmark name
+    Caused by:
+    1: Failed to parse bookmark name: Syntax error
+    2:  --> 1:1
+      |
+    1 | :!:
+      | ^---
+      |
+      = expected <identifier>, <string_literal>, or <raw_string_literal>
+    Hint: For example, `--named myfeature=@` is valid syntax
+    [EOF]
+    [exit status: 2]
+    ");
+    }
+    // test pushing a change with an empty revision
+    let output = work_dir.run_jj(["git", "push", "--named", "b2="]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Argument 'b2=' must have the form NAME=REVISION, with both NAME and REVISION non-empty
+    Hint: For example, `--named myfeature=@` is valid syntax
+    [EOF]
+    [exit status: 2]
+    ");
+    }
+    // test pushing a change with no equals sign
+    let output = work_dir.run_jj(["git", "push", "--named", "b2"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Argument 'b2' must include '=' and have the form NAME=REVISION
+    Hint: For example, `--named myfeature=@` is valid syntax
+    [EOF]
+    [exit status: 2]
+    ");
+    }
+
+    // test pushing the same change with the same name again
+    let output = work_dir.run_jj(["git", "push", "--named", "b1=@"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Bookmark already exists: b1
+    Hint: Use 'jj bookmark move' to move it, and 'jj git push -b b1 [--allow-new]' to push it
+    [EOF]
+    [exit status: 1]
+    ");
+    }
+    // test pushing two changes at once
+    work_dir.write_file("file", "modified2");
+    let output = work_dir.run_jj(["git", "push", "--named=b2=all:(@|@-)"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Revset `all:(@|@-)` resolved to more than one revision
+    Hint: The revset `all:(@|@-)` resolved to these revisions:
+      yostqsxw 101e6730 b1* | pushed
+      yqosqzyt a050abf4 foo
+    [EOF]
+    [exit status: 1]
+    ");
+    }
+
+    // specifying the same bookmark with --named/--bookmark
+    work_dir.write_file("file", "modified4");
+    let output = work_dir.run_jj(["git", "push", "--named=b2=@", "-b=b2"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Changes to push to origin:
+      Add bookmark b2 to 477da21559d5
+    [EOF]
+    ");
+    }
+}
+
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
+#[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_git_push_changes_with_name_deleted_tracked(subprocess: bool) {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    // Unset immutable_heads so that untracking branches does not move the working
+    // copy
+    test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
+    let work_dir = test_env.work_dir("local");
+    if subprocess {
+        test_env.add_config("git.subprocess = true");
+    }
+    // Create a second empty remote `another_remote`
+    test_env
+        .run_jj_in(".", ["git", "init", "another_remote"])
+        .success();
+    let another_remote_git_repo_path =
+        git_repo_dir_for_jj_repo(&test_env.work_dir("another_remote"));
+    work_dir
+        .run_jj([
+            "git",
+            "remote",
+            "add",
+            "another_remote",
+            another_remote_git_repo_path.to_str().unwrap(),
+        ])
+        .success();
+    work_dir.run_jj(["describe", "-m", "foo"]).success();
+    work_dir.write_file("file", "contents");
+    work_dir.run_jj(["new", "-m", "pushed"]).success();
+    work_dir.write_file("file", "modified");
+    // Normal push as part of the test setup
+    let output = work_dir.run_jj(["git", "push", "--named", "b1=@"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Changes to push to origin:
+      Add bookmark b1 to fd39fc9ddae4
+    [EOF]
+    ");
+    }
+    work_dir.run_jj(["bookmark", "delete", "b1"]).success();
+
+    // Test the setup
+    let output = work_dir
+        .run_jj(["bookmark", "list", "--all", "b1"])
+        .success();
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r"
+    b1 (deleted)
+      @origin: kpqxywon fd39fc9d pushed
+    [EOF]
+    ------- stderr -------
+    Hint: Bookmarks marked as deleted will be *deleted permanently* on the remote on the next `jj git push`. Use `jj bookmark forget` to prevent this.
+    [EOF]
+    ");
+    }
+
+    // Can't push `b1` with --named to the same or another remote if it's deleted
+    // locally and still tracked on `origin`
+    let output = work_dir.run_jj(["git", "push", "--named", "b1=@", "--remote=another_remote"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Tracked remote bookmarks exist for deleted bookmark: b1
+    Hint: Use `jj bookmark set` to recreate the local bookmark. Run `jj bookmark untrack 'glob:b1@*'` to disassociate them.
+    [EOF]
+    [exit status: 1]
+    ");
+    }
+    let output = work_dir.run_jj(["git", "push", "--named", "b1=@", "--remote=origin"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Tracked remote bookmarks exist for deleted bookmark: b1
+    Hint: Use `jj bookmark set` to recreate the local bookmark. Run `jj bookmark untrack 'glob:b1@*'` to disassociate them.
+    [EOF]
+    [exit status: 1]
+    ");
+    }
+
+    // OK to push to a different remote once the bookmark is no longer tracked on
+    // `origin`
+    work_dir
+        .run_jj(["bookmark", "untrack", "b1@origin"])
+        .success();
+    let output = work_dir
+        .run_jj(["bookmark", "list", "--all", "b1"])
+        .success();
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r"
+    b1@origin: kpqxywon fd39fc9d pushed
+    [EOF]
+    ");
+    }
+    let output = work_dir.run_jj(["git", "push", "--named", "b1=@", "--remote=another_remote"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Changes to push to another_remote:
+      Add bookmark b1 to fd39fc9ddae4
+    [EOF]
+    ");
+    }
+    let output = work_dir
+        .run_jj(["bookmark", "list", "--all", "b1"])
+        .success();
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r"
+    b1: kpqxywon fd39fc9d pushed
+      @another_remote: kpqxywon fd39fc9d pushed
+    b1@origin: kpqxywon fd39fc9d pushed
+    [EOF]
+    ");
+    }
+}
+
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
+#[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_git_push_changes_with_name_untracked_or_forgotten(subprocess: bool) {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let work_dir = test_env.work_dir("local");
+    if subprocess {
+        test_env.add_config("git.subprocess = true");
+    }
+    // Unset immutable_heads so that untracking branches does not move the working
+    // copy
+    test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
+    work_dir
+        .run_jj(["describe", "-m", "pushed_to_remote"])
+        .success();
+    work_dir.write_file("file", "contents");
+    work_dir
+        .run_jj(["new", "-m", "child", "--no-edit"])
+        .success();
+    work_dir.write_file("file", "modified");
+
+    // Push a branch to a remote, but forget the local branch
+    work_dir
+        .run_jj(["git", "push", "--named", "b1=@"])
+        .success();
+    work_dir
+        .run_jj(["bookmark", "untrack", "b1@origin"])
+        .success();
+    work_dir.run_jj(["bookmark", "delete", "b1"]).success();
+
+    let output = work_dir
+        .run_jj(&[
+            "log",
+            "-r=::@+",
+            r#"-T=separate(" ", commit_id.shortest(3), bookmarks, description)"#,
+        ])
+        .success();
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r"
+    ○  c9c child
+    @  10b b1@origin pushed_to_remote
+    ◆  000
+    [EOF]
+    ");
+    }
+    let output = work_dir
+        .run_jj(["bookmark", "list", "--all", "b1"])
+        .success();
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r"
+    b1@origin: yqosqzyt 10b6b209 pushed_to_remote
+    [EOF]
+    ");
+    }
+
+    let output = work_dir.run_jj(["git", "push", "--named", "b1=@"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Non-tracking remote bookmark b1@origin exists
+    Hint: Run `jj bookmark track b1@origin` to import the remote bookmark.
+    [EOF]
+    [exit status: 1]
+    ");
+    }
+
+    let output = work_dir.run_jj(["git", "push", "--named", "b1=@+"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Non-tracking remote bookmark b1@origin exists
+    Hint: Run `jj bookmark track b1@origin` to import the remote bookmark.
+    [EOF]
+    [exit status: 1]
+    ");
+    }
+
+    // The bookmarked is still pushed to the remote, but let's entirely forget
+    // it. In other words, let's forget the remote-tracking bookmarks.
+    work_dir
+        .run_jj(&["bookmark", "forget", "b1", "--include-remotes"])
+        .success();
+    let output = work_dir
+        .run_jj(["bookmark", "list", "--all", "b1"])
+        .success();
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @"");
+    }
+
+    // Make sure push still errors if we try to push a bookmark with the same name
+    // to a different location.
+    let output = work_dir.run_jj(["git", "push", "--named", "b1=@+"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Changes to push to origin:
+      Add bookmark b1 to c9c824c88955
+    Error: Failed to push some bookmarks
+    Hint: The following references unexpectedly moved on the remote:
+      refs/heads/b1 (reason: stale info)
+    Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
+    [EOF]
+    [exit status: 1]
+    ");
+    }
+
+    // The bookmark is still forgotten
+    let output = work_dir.run_jj(["bookmark", "list", "--all", "b1"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @"");
+    }
+    // In this case, pushing the bookmark to the same location where it already is
+    // succeeds. TODO: This seems pretty safe, but perhaps it should still show
+    // an error or some sort of warning?
+    let output = work_dir.run_jj(["git", "push", "--named", "b1=@"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Changes to push to origin:
+      Add bookmark b1 to 10b6b209c4a3
     [EOF]
     ");
     }

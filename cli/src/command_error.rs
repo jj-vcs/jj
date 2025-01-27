@@ -205,6 +205,13 @@ pub fn cli_error(err: impl Into<Box<dyn error::Error + Send + Sync>>) -> Command
     CommandError::new(CommandErrorKind::Cli, err)
 }
 
+pub fn cli_error_with_message(
+    message: impl Into<String>,
+    source: impl Into<Box<dyn error::Error + Send + Sync>>,
+) -> CommandError {
+    CommandError::with_message(CommandErrorKind::Cli, message, source)
+}
+
 pub fn internal_error(err: impl Into<Box<dyn error::Error + Send + Sync>>) -> CommandError {
     CommandError::new(CommandErrorKind::Internal, err)
 }
