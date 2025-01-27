@@ -1,4 +1,4 @@
-# Revsets
+# Revset language
 
 Jujutsu supports a functional language for selecting a set of revisions.
 Expressions in this language are called "revsets" (the idea comes from
@@ -489,7 +489,7 @@ for a comprehensive list.
 * `immutable_heads()`: Resolves to
   `present(trunk()) | tags() | untracked_remote_bookmarks()` by default. It is
   actually defined as `builtin_immutable_heads()`, and can be overridden as
-  required. See [here](config.md#set-of-immutable-commits) for details.
+  required. See [here](revset-config.md#immutable_heads) for details.
 
 * `immutable()`: The set of commits that `jj` treats as immutable. This is
   equivalent to `::(immutable_heads() | root())`. It is not recommended to redefine

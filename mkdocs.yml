@@ -111,15 +111,19 @@ nav:
 
 - 'Configuration':
       - 'Settings': 'config.md'
-      - 'Fileset language': 'filesets.md'
-      - 'Revset language': 'revsets.md'
-      - 'Templating language': 'templates.md'
+      - 'Revset configuration': 'revset-config.md'
+      - 'Template configuration': 'template-config.md'
 
 - 'Comparisons':
       - 'Git comparison': 'git-comparison.md'
       - 'Git compatibility': 'git-compatibility.md'
       - 'Sapling': 'sapling-comparison.md'
       - 'Other related work': 'related-work.md'
+
+- 'Reference':
+      - 'Fileset language': 'filesets.md'
+      - 'Revset language': 'revsets.md'
+      - 'Templating language': 'templates.md'
 
 - 'Technical details':
       - 'Architecture': 'technical/architecture.md'
