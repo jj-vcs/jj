@@ -1320,6 +1320,7 @@ pub fn is_special_git_remote(remote: &str) -> bool {
     remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO
 }
 
+// TODO(git2): migrate to gitoxide
 pub fn add_remote(
     git_repo: &git2::Repository,
     remote_name: &str,

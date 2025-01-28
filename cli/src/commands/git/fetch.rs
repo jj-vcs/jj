@@ -77,6 +77,7 @@ pub fn cmd_git_fetch(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
     let git_repo = get_git_repo(workspace_command.repo().store())?;
+    // TODO(git2): migrate to gitoxide
     let remotes = if args.all_remotes {
         get_all_remotes(&git_repo)?
     } else if args.remotes.is_empty() {

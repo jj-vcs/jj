@@ -200,6 +200,7 @@ pub fn cmd_git_push(
     let remote = if let Some(name) = &args.remote {
         name.clone()
     } else {
+        // TODO(git2): migrate to gitoxide
         get_default_push_remote(ui, workspace_command.settings(), &git_repo)?
     };
 
