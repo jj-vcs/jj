@@ -12,17 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
+
+use std::io::BufReader;
 use std::num::NonZeroU32;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Child;
 use std::process::Command;
+use std::process::ExitStatus;
 use std::process::Output;
 use std::process::Stdio;
 
 use bstr::ByteSlice;
 use thiserror::Error;
 
+use crate::git::Progress;
 use crate::git::RefSpec;
 use crate::git::RefToPush;
 use crate::git::RemoteCallbacks;
@@ -57,6 +61,7 @@ pub(crate) struct GitSubprocessContext<'a> {
 }
 
 pub(crate) type SidebandProgressCallback<'a> = &'a mut dyn FnMut(&[u8]);
+pub(crate) type ProgressCallback<'a> = &'a mut dyn FnMut(&Progress);
 
 impl<'a> GitSubprocessContext<'a> {
     pub(crate) fn new(git_dir: impl Into<PathBuf>, git_executable_path: &'a Path) -> Self {
@@ -121,19 +126,21 @@ impl<'a> GitSubprocessContext<'a> {
         }
         let mut command = self.create_command();
         command.stdout(Stdio::piped());
-        command
-            .arg("fetch")
-            // attempt to prune stale refs
-            .arg("--prune");
+        command.args(["fetch", "--prune", "--progress"]);
         if let Some(d) = depth {
             command.arg(format!("--depth={d}"));
         }
         command.arg("--").arg(remote_name);
         command.args(refspecs.iter().map(|x| x.to_git_format()));
 
-        let output = wait_with_output(self.spawn_cmd(command)?)?;
+        let child = self.spawn_cmd(command)?;
+        let (status, _stdout, stderr) = parse_git_progress(
+            child,
+            &mut callbacks.sideband_progress,
+            &mut callbacks.progress,
+        )?;
 
-        parse_git_fetch_output(output, &mut callbacks.sideband_progress)
+        parse_git_fetch_output(status, &stderr)
     }
 
     /// Prune particular branches
@@ -209,9 +216,14 @@ impl<'a> GitSubprocessContext<'a> {
                 .map(|r| r.refspec.to_git_format_not_forced()),
         );
 
-        let output = wait_with_output(self.spawn_cmd(command)?)?;
+        let child = self.spawn_cmd(command)?;
+        let (status, stdout, stderr) = parse_git_progress(
+            child,
+            &mut callbacks.sideband_progress,
+            &mut callbacks.progress,
+        )?;
 
-        parse_git_push_output(output, &mut callbacks.sideband_progress)
+        parse_git_push_output(status, &stdout, &stderr)
     }
 }
 
@@ -290,28 +302,27 @@ fn parse_no_remote_tracking_branch(stderr: &[u8]) -> Option<String> {
 //
 // note that git fetch only returns one error at a time
 fn parse_git_fetch_output(
-    output: Output,
-    sideband_progress: &mut Option<SidebandProgressCallback<'_>>,
+    status: ExitStatus,
+    stderr: &[u8],
 ) -> Result<Option<String>, GitSubprocessError> {
-    if output.status.success() {
-        report_remote_messages(&output.stderr, sideband_progress);
+    if status.success() {
         return Ok(None);
     }
 
     // There are some git errors we want to parse out
-    if let Some(remote) = parse_no_such_remote(&output.stderr) {
+    if let Some(remote) = parse_no_such_remote(stderr) {
         return Err(GitSubprocessError::NoSuchRepository(remote));
     }
 
-    if let Some(refspec) = parse_no_remote_ref(&output.stderr) {
+    if let Some(refspec) = parse_no_remote_ref(stderr) {
         return Ok(Some(refspec));
     }
 
-    if parse_no_remote_tracking_branch(&output.stderr).is_some() {
+    if parse_no_remote_tracking_branch(stderr).is_some() {
         return Ok(None);
     }
 
-    Err(external_git_error(&output.stderr))
+    Err(external_git_error(stderr))
 }
 
 fn parse_git_branch_prune_output(output: Output) -> Result<(), GitSubprocessError> {
@@ -459,57 +470,140 @@ fn parse_ref_pushes(stdout: &[u8]) -> Result<(Vec<String>, Vec<String>), GitSubp
 //  1. list of failed references from test and set
 //  2. list of successful references pushed
 fn parse_git_push_output(
-    output: Output,
-    sideband_progress: &mut Option<SidebandProgressCallback<'_>>,
+    status: ExitStatus,
+    stdout: &[u8],
+    stderr: &[u8],
 ) -> Result<(Vec<String>, Vec<String>), GitSubprocessError> {
-    if output.status.success() {
-        let ref_pushes = parse_ref_pushes(&output.stdout)?;
-        report_remote_messages(&output.stderr, sideband_progress);
+    if status.success() {
+        let ref_pushes = parse_ref_pushes(stdout)?;
         return Ok(ref_pushes);
     }
 
-    if let Some(remote) = parse_no_such_remote(&output.stderr) {
+    if let Some(remote) = parse_no_such_remote(stderr) {
         return Err(GitSubprocessError::NoSuchRepository(remote));
     }
 
-    if output
-        .stderr
-        .starts_with_str("error: failed to push some refs to ")
-    {
-        parse_ref_pushes(&output.stdout)
+    if stderr.starts_with_str("error: failed to push some refs to ") {
+        parse_ref_pushes(stdout)
     } else {
-        Err(external_git_error(&output.stderr))
+        Err(external_git_error(stderr))
     }
 }
 
-/// Report Git remote messages on sideband progress
-///
-/// Git remotes can send custom messages on fetch and push, which the `git`
-/// command prepends with `remote: `.
-///
-/// For instance, these messages can provide URLs to create Pull Requests
-/// e.g.:
-/// ```ignore
-/// $ jj git push -c @
-/// [...]
-/// remote:
-/// remote: Create a pull request for 'branch' on GitHub by visiting:
-/// remote:      https://github.com/user/repo/pull/new/branch
-/// remote:
-/// ```
-fn report_remote_messages(
-    stderr: &[u8],
-    sideband_progress: &mut Option<SidebandProgressCallback<'_>>,
-) {
-    if let Some(progress) = sideband_progress {
-        stderr
-            .lines()
-            .filter_map(|line| line.strip_prefix(b"remote: "))
-            .for_each(|line| {
-                progress(line);
-                progress(b"\n");
-            });
+#[derive(Default)]
+struct GitProgress {
+    total_objects: u64,
+    total_deltas: u64,
+    indexed_objects: u64,
+    indexed_deltas: u64,
+}
+
+impl GitProgress {
+    fn to_progress(&self) -> Progress {
+        Progress {
+            bytes_downloaded: None,
+            overall: (self.indexed_objects + self.indexed_deltas) as f32
+                / (self.total_objects + self.total_deltas) as f32,
+        }
     }
+}
+
+/// Parse Git stderr for push/fetch
+///
+/// When pushing or fetching, there are two things we want to look out for.
+/// 1. Messages sent by the remote.
+///    These are configurable hooks the remote can have.
+///    A pressing example is git forges like GitHub which send a message with a URL
+///    to open a PR on push:
+///    ```ignore
+///    $ jj git push -c @
+///    [...]
+///    remote:
+///    remote: Create a pull request for 'branch' on GitHub by visiting:
+///    remote:      https://github.com/user/repo/pull/new/branch
+///    remote:
+///    ```
+///
+/// 2. Progress reports On fetch, git tracks how many objects or deltas have
+///    been received/resolved. To track this, `jj` offers a progress callback,
+///    which we call by pulling the stderr stream out of `git`.
+fn parse_git_progress(
+    mut cmd: Child,
+    sideband_progress_callback: &mut Option<SidebandProgressCallback<'_>>,
+    progress_callback: &mut Option<ProgressCallback>,
+) -> Result<(ExitStatus, Vec<u8>, Vec<u8>), GitSubprocessError> {
+    use std::io::BufRead;
+    let mut stderr = BufReader::new(
+        cmd.stderr
+            .take()
+            .expect("We only take stderr once, it should exist"),
+    );
+
+    let mut stderr_buffer = Vec::new();
+    let mut git_progress = GitProgress::default();
+
+    loop {
+        let stderr_pos = stderr_buffer.len();
+
+        if stderr
+            .read_until(b'\r', &mut stderr_buffer)
+            .map_err(GitSubprocessError::Wait)?
+            == 0
+        {
+            break;
+        }
+
+        process_git_progress_lines(
+            &stderr_buffer[stderr_pos..],
+            &mut git_progress,
+            sideband_progress_callback,
+            progress_callback,
+        );
+    }
+
+    let output = cmd.wait_with_output().map_err(GitSubprocessError::Wait)?;
+    Ok((output.status, output.stdout, stderr_buffer))
+}
+
+fn process_git_progress_lines(
+    buffer: &[u8],
+    git_progress: &mut GitProgress,
+    sideband_progress_callback: &mut Option<SidebandProgressCallback<'_>>,
+    progress_callback: &mut Option<ProgressCallback>,
+) {
+    for line in buffer.lines() {
+        if let Some(sideband) = sideband_progress_callback {
+            if let Some(remote_line) = line.strip_prefix(b"remote: ") {
+                sideband(remote_line);
+                sideband(b"\n");
+                continue;
+            }
+        }
+
+        if let Some(progress) = progress_callback {
+            if line.starts_with_str("Receiving objects:") {
+                if let Some((frac, total)) = parse_progress_update(line) {
+                    git_progress.indexed_objects = frac;
+                    git_progress.total_objects = total;
+                }
+            } else if line.starts_with_str("Resolving deltas:") {
+                if let Some((frac, total)) = parse_progress_update(line) {
+                    git_progress.indexed_deltas = frac;
+                    git_progress.total_deltas = total;
+                }
+            }
+            progress(&git_progress.to_progress());
+        }
+    }
+}
+
+fn parse_progress_update(line: &[u8]) -> Option<(u64, u64)> {
+    let (_prefix, suffix) = line.split_once_str("(")?;
+    let (update, _suffix) = suffix.split_once_str(")")?;
+    let (frac_str, total_str) = update.split_once_str("/")?;
+    let frac = frac_str.to_str_lossy().parse().ok()?;
+    let total = total_str.to_str_lossy().parse().ok()?;
+    Some((frac, total))
 }
 
 fn wait_with_output(child: Child) -> Result<Output, GitSubprocessError> {
