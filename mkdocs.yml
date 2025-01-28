@@ -6,6 +6,7 @@ site_url: !ENV [SITE_URL_FOR_MKDOCS, 'https://jj-vcs.github.io/jj/']
 theme:
   name: 'material'
   language: 'en'
+  favicon: images/favicon-96x96.png
   features:
     # - navigation.top
 
