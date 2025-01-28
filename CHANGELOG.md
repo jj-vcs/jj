@@ -91,6 +91,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj git fetch` now supports [string pattern syntax](docs/revsets.md#string-patterns)
   on `--remote` option and `git.fetch` configuration.
 
+* Added `revsets.log-graph-prioritize`, which can be used to configure
+  which branch in the `jj log` graph is displayed on the left instead of `@`
+  (e.g. `coalesce(description("megamerge\n"), trunk())`)
+
 ### Fixed bugs
 
 * `jj status` now shows untracked files under untracked directories.
