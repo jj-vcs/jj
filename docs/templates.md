@@ -392,7 +392,7 @@ New keywords and functions can be defined as aliases, by using any
 combination of the predefined keywords/functions and other aliases.
 
 Alias functions can be overloaded by the number of parameters. However, builtin
-function will be shadowed by name, and can't co-exist with aliases.
+functions will be shadowed by name, and can't co-exist with aliases.
 
 For example:
 
@@ -401,7 +401,7 @@ For example:
 'commit_change_ids' = '''
 concat(
   format_field("Commit ID", commit_id),
-  format_field("Change ID", commit_id),
+  format_field("Change ID", change_id),
 )
 '''
 'format_field(key, value)' = 'key ++ ": " ++ value ++ "\n"'
