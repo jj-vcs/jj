@@ -26,10 +26,11 @@ use crate::ui::Ui;
 
 /// Sets the specified revision as the working-copy revision
 ///
-/// Note: it is generally recommended to instead use `jj new` and `jj
+/// Note: it is [generally recommended] to instead use `jj new` and `jj
 /// squash`.
 ///
-/// For more information, see https://jj-vcs.github.io/jj/latest/FAQ#how-do-i-resume-working-on-an-existing-change
+/// [generally recommended]:
+///     https://jj-vcs.github.io/jj/latest/FAQ#how-do-i-resume-working-on-an-existing-change
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct EditArgs {
     /// The commit to edit

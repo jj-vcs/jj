@@ -66,7 +66,16 @@ pub(crate) struct EvologArgs {
     no_graph: bool,
     /// Render each revision using the given template
     ///
-    /// For the syntax, see https://jj-vcs.github.io/jj/latest/templates/
+    /// Run `jj log -T` to list the built-in templates.
+    ///
+    /// You can also specify arbitrary [template expressions] using the
+    /// [built-in keywords].
+    ///
+    /// [template expression]:
+    ///     https://jj-vcs.github.io/jj/latest/templates/
+    ///
+    /// [built-in keywords]:
+    ///     https://jj-vcs.github.io/jj/latest/templates/#commit-keywords
     #[arg(long, short = 'T')]
     template: Option<String>,
     /// Show patch compared to the previous version of this change

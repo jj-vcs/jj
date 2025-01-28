@@ -36,8 +36,10 @@ pub struct BookmarkForgetArgs {
     /// The bookmarks to forget
     ///
     /// By default, the specified name matches exactly. Use `glob:` prefix to
-    /// select bookmarks by wildcard pattern. For details, see
-    /// https://jj-vcs.github.io/jj/latest/revsets/#string-patterns.    
+    /// select bookmarks by [wildcard pattern].
+    ///
+    /// [wildcard pattern]:
+    ///     https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
     #[arg(
         required = true,
         value_parser = StringPattern::parse,

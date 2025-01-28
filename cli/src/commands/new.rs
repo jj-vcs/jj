@@ -40,15 +40,15 @@ use crate::ui::Ui;
 
 /// Create a new, empty change and (by default) edit it in the working copy
 ///
-/// By default, `jj` will edit the new change, making the working copy represent
-/// the new commit. This can be avoided with `--no-edit`.
+/// By default, `jj` will edit the new change, making the [working copy]
+/// represent the new commit. This can be avoided with `--no-edit`.
 ///
 /// Note that you can create a merge commit by specifying multiple revisions as
 /// argument. For example, `jj new @ main` will create a new commit with the
 /// working copy and the `main` bookmark as parents.
 ///
-/// For more information, see
-/// https://jj-vcs.github.io/jj/latest/working-copy/.
+/// [working copy]:
+///     https://jj-vcs.github.io/jj/latest/working-copy/
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct NewArgs {
     /// Parent(s) of the new change

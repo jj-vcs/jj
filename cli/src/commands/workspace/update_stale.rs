@@ -20,8 +20,10 @@ use crate::ui::Ui;
 
 /// Update a workspace that has become stale
 ///
-/// For information about stale working copies, see
-/// https://jj-vcs.github.io/jj/latest/working-copy/.
+/// See the [stale working copy documentation] for more information.
+///
+/// [stale working copy documentation]:
+///     https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy
 #[derive(clap::Args, Clone, Debug)]
 pub struct WorkspaceUpdateStaleArgs {}
 

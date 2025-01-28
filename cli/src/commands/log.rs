@@ -47,18 +47,23 @@ use crate::ui::Ui;
 /// Renders a graphical view of the project's history, ordered with children
 /// before parents. By default, the output only includes mutable revisions,
 /// along with some additional revisions for context. Use `jj log -r ::` to see
-/// all revisions. See `jj help -k revsets` (or
-/// <https://jj-vcs.github.io/jj/latest/revsets/>) for information about the
-/// syntax.
+/// all revisions. See [`jj help -k revsets`] for information about the syntax.
+///
+/// [`jj help -k revsets`]:
+///     https://jj-vcs.github.io/jj/latest/revsets/
 ///
 /// Spans of revisions that are not included in the graph per `--revisions` are
 /// rendered as a synthetic node labeled "(elided revisions)".
 ///
-/// The working-copy commit is indicated by a `@` symbol in the graph. Immutable
-/// revisions
-/// (<https://jj-vcs.github.io/jj/latest/config/#set-of-immutable-commits>) have
-/// a `◆` symbol. Other commits have a `○` symbol. To customize these symbols,
-/// see <https://jj-vcs.github.io/jj/latest/config/#node-style>.
+/// The working-copy commit is indicated by a `@` symbol in the graph.
+/// [Immutable revisions] have a `◆` symbol. Other commits have a `○` symbol.
+/// All of these symbols can be [customized].
+///
+/// [Immutable revisions]:
+///     https://jj-vcs.github.io/jj/latest/config/#set-of-immutable-commits
+///
+/// [customized]:
+///     https://jj-vcs.github.io/jj/latest/config/#node-style
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct LogArgs {
     /// Which revisions to show
@@ -95,10 +100,15 @@ pub(crate) struct LogArgs {
     ///
     /// Run `jj log -T` to list the built-in templates.
     ///
-    /// You can also specify arbitrary template expressions. For the syntax,
-    /// see <https://jj-vcs.github.io/jj/latest/templates/>.
+    /// You can also specify arbitrary [template expressions] using the
+    /// [built-in keywords].
     ///
     /// If not specified, this defaults to the `templates.log` setting.
+    ///
+    /// [template expression]:
+    ///     https://jj-vcs.github.io/jj/latest/templates/
+    /// [built-in keywords]:
+    ///     https://jj-vcs.github.io/jj/latest/templates/#commit-keywords
     #[arg(long, short = 'T')]
     template: Option<String>,
     /// Show patch

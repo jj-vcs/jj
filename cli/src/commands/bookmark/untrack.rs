@@ -31,10 +31,12 @@ pub struct BookmarkUntrackArgs {
     /// Remote bookmarks to untrack
     ///
     /// By default, the specified name matches exactly. Use `glob:` prefix to
-    /// select bookmarks by wildcard pattern. For details, see     
-    /// https://jj-vcs.github.io/jj/latest/revsets/#string-patterns.
+    /// select bookmarks by [wildcard pattern].
     ///
     /// Examples: bookmark@remote, glob:main@*, glob:jjfan-*@upstream
+    ///
+    /// [wildcard pattern]:
+    ///     https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
     #[arg(
         required = true,
         value_name = "BOOKMARK@REMOTE",

@@ -51,8 +51,13 @@ use crate::ui::Ui;
 
 /// Commands for working with Git remotes and the underlying Git repo
 ///
-/// For a comparison with Git, including a table of commands, see
-/// https://jj-vcs.github.io/jj/latest/git-comparison/.
+/// See this [comparison], including a [table of commands].
+///
+/// [comparison]:
+///     https://jj-vcs.github.io/jj/latest/git-comparison/.
+///
+/// [table of commands]:
+///     https://jj-vcs.github.io/jj/latest/git-comparison/#command-equivalence-table
 #[derive(Subcommand, Clone, Debug)]
 pub enum GitCommand {
     Clone(GitCloneArgs),

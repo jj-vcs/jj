@@ -275,7 +275,9 @@ Apply the reverse of a revision on top of another revision
 
 Manage bookmarks [default alias: b]
 
-For information about bookmarks, see https://jj-vcs.github.io/jj/latest/bookmarks.
+See the [bookmark documentation] for more information.
+
+[bookmark documentation]: https://jj-vcs.github.io/jj/latest/bookmarks
 
 **Usage:** `jj bookmark <COMMAND>`
 
@@ -321,7 +323,9 @@ Revisions referred to by the deleted bookmarks are not abandoned. To delete revi
 
 * `<NAMES>` — The bookmarks to delete
 
-   By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by wildcard pattern. For details, see https://jj-vcs.github.io/jj/latest/revsets/#string-patterns.
+   By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by [wildcard pattern].
+
+   [wildcard pattern]: https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
 
 
 
@@ -337,7 +341,9 @@ A forgotten bookmark will not impact remotes on future pushes. It will be recrea
 
 * `<NAMES>` — The bookmarks to forget
 
-   By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by wildcard pattern. For details, see https://jj-vcs.github.io/jj/latest/revsets/#string-patterns.
+   By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by [wildcard pattern].
+
+   [wildcard pattern]: https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
 
 
 
@@ -347,7 +353,9 @@ List bookmarks and their targets
 
 By default, a tracking remote bookmark will be included only if its target is different from the local target. A non-tracking remote bookmark won't be listed. For a conflicted bookmark (both local and remote), old target revisions are preceded by a "-" and new target revisions are preceded by a "+".
 
-For information about bookmarks, see https://jj-vcs.github.io/jj/latest/bookmarks/.
+See the [bookmark documentation] for more information.
+
+[bookmark documentation]: https://jj-vcs.github.io/jj/latest/bookmarks
 
 **Usage:** `jj bookmark list [OPTIONS] [NAMES]...`
 
@@ -355,7 +363,9 @@ For information about bookmarks, see https://jj-vcs.github.io/jj/latest/bookmark
 
 * `<NAMES>` — Show bookmarks whose local name matches
 
-   By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by wildcard pattern. For details, see https://jj-vcs.github.io/jj/latest/revsets/#string-patterns.
+   By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by [wildcard pattern].
+
+   [wildcard pattern]: https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
 
 ###### **Options:**
 
@@ -364,7 +374,9 @@ For information about bookmarks, see https://jj-vcs.github.io/jj/latest/bookmark
 
    Can be combined with `--tracked` or `--conflicted` to filter the bookmarks shown (can be repeated.)
 
-   By default, the specified remote name matches exactly. Use `glob:` prefix to select remotes by wildcard pattern. For details, see https://jj-vcs.github.io/jj/latest/revsets/#string-patterns.
+   By default, the specified remote name matches exactly. Use `glob:` prefix to select remotes by [wildcard pattern].
+
+   [wildcard pattern]: https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
 * `-t`, `--tracked` — Show remote tracked bookmarks only. Omits local Git-tracking bookmarks by default
 * `-c`, `--conflicted` — Show conflicted bookmarks only
 * `-r`, `--revisions <REVSETS>` — Show bookmarks whose local targets are in the given revisions
@@ -372,9 +384,11 @@ For information about bookmarks, see https://jj-vcs.github.io/jj/latest/bookmark
    Note that `-r deleted_bookmark` will not work since `deleted_bookmark` wouldn't have a local target.
 * `-T`, `--template <TEMPLATE>` — Render each bookmark using the given template
 
-   All 0-argument methods of the `RefName` type are available as keywords.
+   All 0-argument methods of the [`RefName` type] are available as keywords in the [template expression].
 
-   For the syntax, see https://jj-vcs.github.io/jj/latest/templates/
+   [template expression]: https://jj-vcs.github.io/jj/latest/templates/
+
+   [`RefName` type]: https://jj-vcs.github.io/jj/latest/templates/#refname-type
 
 
 
@@ -396,7 +410,9 @@ $ jj bookmark move --from 'heads(::@- & bookmarks())' --to @-
 
 * `<NAMES>` — Move bookmarks matching the given name patterns
 
-   By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by wildcard pattern. For details, see https://jj-vcs.github.io/jj/latest/revsets/#string-patterns.
+   By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by [wildcard pattern].
+
+   [wildcard pattern]: https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
 
 ###### **Options:**
 
@@ -452,9 +468,11 @@ A tracking remote bookmark will be imported as a local bookmark of the same name
 
 * `<BOOKMARK@REMOTE>` — Remote bookmarks to track
 
-   By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by wildcard pattern. For details, see https://jj-vcs.github.io/jj/latest/revsets/#string-patterns.
+   By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by [wildcard pattern].
 
    Examples: bookmark@remote, glob:main@*, glob:jjfan-*@upstream
+
+   [wildcard pattern]: https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
 
 
 
@@ -470,9 +488,11 @@ A non-tracking remote bookmark is just a pointer to the last-fetched remote book
 
 * `<BOOKMARK@REMOTE>` — Remote bookmarks to untrack
 
-   By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by wildcard pattern. For details, see https://jj-vcs.github.io/jj/latest/revsets/#string-patterns.
+   By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by [wildcard pattern].
 
    Examples: bookmark@remote, glob:main@*, glob:jjfan-*@upstream
+
+   [wildcard pattern]: https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
 
 
 
@@ -510,7 +530,9 @@ Manage config options
 
 Operates on jj configuration, which comes from the config file and environment variables.
 
-For file locations, supported config options, and other details about jj config, see https://jj-vcs.github.io/jj/latest/config/.
+See the [config documentation] for file locations, supported config options, and other details about `jj config`.
+
+[config documentation]: https://jj-vcs.github.io/jj/latest/config/
 
 **Usage:** `jj config <COMMAND>`
 
@@ -578,13 +600,14 @@ List variables set in config file, along with their values
 * `--repo` — Target the repo-level config
 * `-T`, `--template <TEMPLATE>` — Render each variable using the given template
 
-   The following keywords are defined:
+   The following keywords are available in the [template expression]:
 
    * `name: String`: Config name.
    * `value: ConfigValue`: Value to be formatted in TOML syntax.
    * `overridden: Boolean`: True if the value is shadowed by other.
 
-   For the syntax, see https://jj-vcs.github.io/jj/latest/templates/
+   [template expression]:
+       https://jj-vcs.github.io/jj/latest/templates/
 
 
 
@@ -779,9 +802,9 @@ When any of the `--destination`, `--insert-after`, or `--insert-before` argument
 
 Sets the specified revision as the working-copy revision
 
-Note: it is generally recommended to instead use `jj new` and `jj squash`.
+Note: it is [generally recommended] to instead use `jj new` and `jj squash`.
 
-For more information, see https://jj-vcs.github.io/jj/latest/FAQ#how-do-i-resume-working-on-an-existing-change
+[generally recommended]: https://jj-vcs.github.io/jj/latest/FAQ#how-do-i-resume-working-on-an-existing-change
 
 **Usage:** `jj edit <REVSET>`
 
@@ -811,7 +834,13 @@ Lists the previous commits which a change has pointed to. The current commit of 
 * `--no-graph` — Don't show the graph, show a flat list of revisions
 * `-T`, `--template <TEMPLATE>` — Render each revision using the given template
 
-   For the syntax, see https://jj-vcs.github.io/jj/latest/templates/
+   Run `jj log -T` to list the built-in templates.
+
+   You can also specify arbitrary [template expressions] using the [built-in keywords].
+
+   [template expression]: https://jj-vcs.github.io/jj/latest/templates/
+
+   [built-in keywords]: https://jj-vcs.github.io/jj/latest/templates/#commit-keywords
 * `-p`, `--patch` — Show patch compared to the previous version of this change
 
    If the previous version has different parents, it will be temporarily rebased to the parents of the new version, so the diff is not contaminated by unrelated changes.
@@ -912,9 +941,11 @@ List files in a revision
   Default value: `@`
 * `-T`, `--template <TEMPLATE>` — Render each file entry using the given template
 
-   All 0-argument methods of the `TreeEntry` type are available as keywords.
+   All 0-argument methods of the [`TreeEntry` type] are available as keywords in the [template expression].
 
-   For the syntax, see https://jj-vcs.github.io/jj/latest/templates/
+   [template expression]: https://jj-vcs.github.io/jj/latest/templates/
+
+   [`TreeEntry` type]: https://jj-vcs.github.io/jj/latest/templates/#treeentry-type
 
 
 
@@ -1042,7 +1073,11 @@ output of the first tool.
 
 Commands for working with Git remotes and the underlying Git repo
 
-For a comparison with Git, including a table of commands, see https://jj-vcs.github.io/jj/latest/git-comparison/.
+See this [comparison], including a [table of commands].
+
+[comparison]: https://jj-vcs.github.io/jj/latest/git-comparison/.
+
+[table of commands]: https://jj-vcs.github.io/jj/latest/git-comparison/#command-equivalence-table
 
 **Usage:** `jj git <COMMAND>`
 
@@ -1162,9 +1197,7 @@ Unlike in Git, the remote to push to is not derived from the tracked remote book
 
 Before the command actually moves, creates, or deletes a remote bookmark, it makes several [safety checks]. If there is a problem, you may need to run `jj git fetch --remote <remote name>` and/or resolve some [bookmark conflicts].
 
-[safety checks]: https://jj-vcs.github.io/jj/latest/bookmarks/#pushing-bookmarks-safety-checks
-
-[bookmark conflicts]: https://jj-vcs.github.io/jj/latest/bookmarks/#conflicts
+[safety checks]: https://jj-vcs.github.io/jj/latest/bookmarks/#pushing-bookmarks-safety-checks [bookmark conflicts]: https://jj-vcs.github.io/jj/latest/bookmarks/#conflicts
 
 **Usage:** `jj git push [OPTIONS]`
 
@@ -1175,11 +1208,15 @@ Before the command actually moves, creates, or deletes a remote bookmark, it mak
    This defaults to the `git.push` setting. If that is not configured, and if there are multiple remotes, the remote named "origin" will be used.
 * `-b`, `--bookmark <BOOKMARK>` — Push only this bookmark, or bookmarks matching a pattern (can be repeated)
 
-   By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by wildcard pattern. For details, see https://jj-vcs.github.io/jj/latest/revsets#string-patterns.
+   By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by [wildcard pattern].
+
+   [wildcard pattern]: https://jj-vcs.github.io/jj/latest/revsets#string-patterns
 * `--all` — Push all bookmarks (including new and deleted bookmarks)
 * `--tracked` — Push all tracked bookmarks (including deleted bookmarks)
 
-   This usually means that the bookmark was already pushed to or fetched from the relevant remote. For details, see https://jj-vcs.github.io/jj/latest/bookmarks#remotes-and-tracked-bookmarks
+   This usually means that the bookmark was already pushed to or fetched from the [relevant remote].
+
+   [relevant remote]: https://jj-vcs.github.io/jj/latest/bookmarks#remotes-and-tracked-bookmarks
 * `--deleted` — Push all deleted bookmarks
 
    Only tracked bookmarks can be successfully deleted on the remote. A warning will be printed if any untracked bookmarks on the remote correspond to missing local bookmarks.
@@ -1367,11 +1404,17 @@ This excludes changes from other commits by temporarily rebasing `--from` onto `
 
 Show revision history
 
-Renders a graphical view of the project's history, ordered with children before parents. By default, the output only includes mutable revisions, along with some additional revisions for context. Use `jj log -r ::` to see all revisions. See `jj help -k revsets` (or <https://jj-vcs.github.io/jj/latest/revsets/>) for information about the syntax.
+Renders a graphical view of the project's history, ordered with children before parents. By default, the output only includes mutable revisions, along with some additional revisions for context. Use `jj log -r ::` to see all revisions. See [`jj help -k revsets`] for information about the syntax.
+
+[`jj help -k revsets`]: https://jj-vcs.github.io/jj/latest/revsets/
 
 Spans of revisions that are not included in the graph per `--revisions` are rendered as a synthetic node labeled "(elided revisions)".
 
-The working-copy commit is indicated by a `@` symbol in the graph. Immutable revisions (<https://jj-vcs.github.io/jj/latest/config/#set-of-immutable-commits>) have a `◆` symbol. Other commits have a `○` symbol. To customize these symbols, see <https://jj-vcs.github.io/jj/latest/config/#node-style>.
+The working-copy commit is indicated by a `@` symbol in the graph. [Immutable revisions] have a `◆` symbol. Other commits have a `○` symbol. All of these symbols can be [customized].
+
+[Immutable revisions]: https://jj-vcs.github.io/jj/latest/config/#set-of-immutable-commits
+
+[customized]: https://jj-vcs.github.io/jj/latest/config/#node-style
 
 **Usage:** `jj log [OPTIONS] [FILESETS]...`
 
@@ -1393,9 +1436,11 @@ The working-copy commit is indicated by a `@` symbol in the graph. Immutable rev
 
    Run `jj log -T` to list the built-in templates.
 
-   You can also specify arbitrary template expressions. For the syntax, see <https://jj-vcs.github.io/jj/latest/templates/>.
+   You can also specify arbitrary [template expressions] using the [built-in keywords].
 
    If not specified, this defaults to the `templates.log` setting.
+
+   [template expression]: https://jj-vcs.github.io/jj/latest/templates/ [built-in keywords]: https://jj-vcs.github.io/jj/latest/templates/#commit-keywords
 * `-p`, `--patch` — Show patch
 * `-s`, `--summary` — For each path, show only whether it was modified, added, or deleted
 * `--stat` — Show a histogram of the changes
@@ -1418,11 +1463,11 @@ The working-copy commit is indicated by a `@` symbol in the graph. Immutable rev
 
 Create a new, empty change and (by default) edit it in the working copy
 
-By default, `jj` will edit the new change, making the working copy represent the new commit. This can be avoided with `--no-edit`.
+By default, `jj` will edit the new change, making the [working copy] represent the new commit. This can be avoided with `--no-edit`.
 
 Note that you can create a merge commit by specifying multiple revisions as argument. For example, `jj new @ main` will create a new commit with the working copy and the `main` bookmark as parents.
 
-For more information, see https://jj-vcs.github.io/jj/latest/working-copy/.
+[working copy]: https://jj-vcs.github.io/jj/latest/working-copy/
 
 **Usage:** `jj new [OPTIONS] [REVSETS]...`
 
@@ -1496,7 +1541,9 @@ B   =>   @
 
 Commands for working with the operation log
 
-For information about the operation log, see https://jj-vcs.github.io/jj/latest/operation-log/.
+See the [operation log documentation] for more information.
+
+[operation log documentation]: https://jj-vcs.github.io/jj/latest/operation-log/
 
 **Usage:** `jj operation <COMMAND>`
 
@@ -1578,7 +1625,11 @@ Like other commands, `jj op log` snapshots the current working-copy changes and 
 * `--no-graph` — Don't show the graph, show a flat list of operations
 * `-T`, `--template <TEMPLATE>` — Render each operation using the given template
 
-   For the syntax, see <https://jj-vcs.github.io/jj/latest/templates/>
+   You can specify arbitrary [template expressions] using the [built-in keywords].
+
+   [template expression]: https://jj-vcs.github.io/jj/latest/templates/
+
+   [built-in keywords]: https://jj-vcs.github.io/jj/latest/templates/#operation-keywords
 * `--op-diff` — Show changes to the repository at each operation
 * `-p`, `--patch` — Show patch of modifications to changes (implies --op-diff)
 
@@ -2016,7 +2067,11 @@ Show commit description and changes in a revision
 
 * `-T`, `--template <TEMPLATE>` — Render a revision using the given template
 
-   For the syntax, see https://jj-vcs.github.io/jj/latest/templates/
+   You can specify arbitrary [template expressions] using the [built-in keywords].
+
+   [template expression]: https://jj-vcs.github.io/jj/latest/templates/
+
+   [built-in keywords]: https://jj-vcs.github.io/jj/latest/templates/#commit-keywords
 * `-s`, `--summary` — For each path, show only whether it was modified, added, or deleted
 * `--stat` — Show a histogram of the changes
 * `--types` — For each path, show only its type before and after
@@ -2180,7 +2235,9 @@ Show high-level repo status
 
 This includes:
 
-* The working copy commit and its (first) parent, and a summary of the changes between them * Conflicted bookmarks (see https://jj-vcs.github.io/jj/latest/bookmarks/)
+* The working copy commit and its (first) parent, and a summary of the changes between them * [Conflicted bookmarks]
+
+[Conflicted bookmarks]: https://jj-vcs.github.io/jj/latest/bookmarks/#conflicts
 
 **Usage:** `jj status [FILESETS]...`
 
@@ -2212,15 +2269,19 @@ List tags
 
 * `<NAMES>` — Show tags whose local name matches
 
-   By default, the specified name matches exactly. Use `glob:` prefix to select tags by wildcard pattern. For details, see https://jj-vcs.github.io/jj/latest/revsets/#string-patterns.
+   By default, the specified name matches exactly. Use `glob:` prefix to select tags by [wildcard pattern].
+
+   [wildcard pattern]: https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
 
 ###### **Options:**
 
 * `-T`, `--template <TEMPLATE>` — Render each tag using the given template
 
-   All 0-argument methods of the `RefName` type are available as keywords.
+   All 0-argument methods of the [`RefName` type] are available as keywords in the [template expression].
 
-   For the syntax, see https://jj-vcs.github.io/jj/latest/templates/
+   [template expression]: https://jj-vcs.github.io/jj/latest/templates/
+
+   [`RefName` type]: https://jj-vcs.github.io/jj/latest/templates/#refname-type
 
 
 
@@ -2518,7 +2579,9 @@ Show the current workspace root directory
 
 Update a workspace that has become stale
 
-For information about stale working copies, see https://jj-vcs.github.io/jj/latest/working-copy/.
+See the [stale working copy documentation] for more information.
+
+[stale working copy documentation]: https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy
 
 **Usage:** `jj workspace update-stale`
 

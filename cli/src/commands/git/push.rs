@@ -78,7 +78,6 @@ use crate::ui::Ui;
 ///
 /// [safety checks]:
 ///     https://jj-vcs.github.io/jj/latest/bookmarks/#pushing-bookmarks-safety-checks
-///
 /// [bookmark conflicts]:
 ///     https://jj-vcs.github.io/jj/latest/bookmarks/#conflicts
 
@@ -96,8 +95,10 @@ pub struct GitPushArgs {
     /// repeated)
     ///
     /// By default, the specified name matches exactly. Use `glob:` prefix to
-    /// select bookmarks by wildcard pattern. For details, see
-    /// https://jj-vcs.github.io/jj/latest/revsets#string-patterns.
+    /// select bookmarks by [wildcard pattern].
+    ///
+    /// [wildcard pattern]:
+    ///     https://jj-vcs.github.io/jj/latest/revsets#string-patterns
     #[arg(
         long, short,
         alias = "branch",
@@ -111,8 +112,10 @@ pub struct GitPushArgs {
     /// Push all tracked bookmarks (including deleted bookmarks)
     ///
     /// This usually means that the bookmark was already pushed to or fetched
-    /// from the relevant remote. For details, see
-    /// https://jj-vcs.github.io/jj/latest/bookmarks#remotes-and-tracked-bookmarks
+    /// from the [relevant remote].
+    ///
+    /// [relevant remote]:
+    ///     https://jj-vcs.github.io/jj/latest/bookmarks#remotes-and-tracked-bookmarks
     #[arg(long)]
     tracked: bool,
     /// Push all deleted bookmarks

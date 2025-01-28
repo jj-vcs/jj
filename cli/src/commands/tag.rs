@@ -33,15 +33,22 @@ pub struct TagListArgs {
     /// Show tags whose local name matches
     ///
     /// By default, the specified name matches exactly. Use `glob:` prefix to
-    /// select tags by wildcard pattern. For details, see
-    /// https://jj-vcs.github.io/jj/latest/revsets/#string-patterns.
+    /// select tags by [wildcard pattern].
+    ///
+    /// [wildcard pattern]:
+    ///     https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
     #[arg(value_parser = StringPattern::parse)]
     pub names: Vec<StringPattern>,
     /// Render each tag using the given template
     ///
-    /// All 0-argument methods of the `RefName` type are available as keywords.
+    /// All 0-argument methods of the [`RefName` type] are available as
+    /// keywords in the [template expression].
     ///
-    /// For the syntax, see https://jj-vcs.github.io/jj/latest/templates/
+    /// [template expression]:
+    ///     https://jj-vcs.github.io/jj/latest/templates/
+    ///
+    /// [`RefName` type]:
+    ///     https://jj-vcs.github.io/jj/latest/templates/#refname-type
     #[arg(long, short = 'T')]
     template: Option<String>,
 }

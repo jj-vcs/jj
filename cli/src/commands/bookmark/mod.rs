@@ -60,8 +60,10 @@ use crate::ui::Ui;
 
 /// Manage bookmarks [default alias: b]
 ///
-/// For information about bookmarks, see
-/// https://jj-vcs.github.io/jj/latest/bookmarks.
+/// See the [bookmark documentation] for more information.
+///
+/// [bookmark documentation]:
+///     https://jj-vcs.github.io/jj/latest/bookmarks
 #[derive(clap::Subcommand, Clone, Debug)]
 pub enum BookmarkCommand {
     #[command(visible_alias("c"))]

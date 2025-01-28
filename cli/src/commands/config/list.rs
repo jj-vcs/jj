@@ -47,13 +47,14 @@ pub struct ConfigListArgs {
     // TODO(#1047): Support --show-origin using StackedConfig.
     /// Render each variable using the given template
     ///
-    /// The following keywords are defined:
+    /// The following keywords are available in the [template expression]:
     ///
     /// * `name: String`: Config name.
     /// * `value: ConfigValue`: Value to be formatted in TOML syntax.
     /// * `overridden: Boolean`: True if the value is shadowed by other.
     ///
-    /// For the syntax, see https://jj-vcs.github.io/jj/latest/templates/
+    /// [template expression]:
+    ///     https://jj-vcs.github.io/jj/latest/templates/
     #[arg(long, short = 'T', verbatim_doc_comment)]
     template: Option<String>,
 }

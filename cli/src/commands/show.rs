@@ -38,7 +38,14 @@ pub(crate) struct ShowArgs {
     unused_revision: bool,
     /// Render a revision using the given template
     ///
-    /// For the syntax, see https://jj-vcs.github.io/jj/latest/templates/
+    /// You can specify arbitrary [template expressions] using the
+    /// [built-in keywords].
+    ///
+    /// [template expression]:
+    ///     https://jj-vcs.github.io/jj/latest/templates/
+    ///
+    /// [built-in keywords]:
+    ///     https://jj-vcs.github.io/jj/latest/templates/#commit-keywords
     #[arg(long, short = 'T')]
     template: Option<String>,
     #[command(flatten)]

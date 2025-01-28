@@ -35,8 +35,10 @@ use crate::ui::Ui;
 /// revisions are preceded by a "-" and new target revisions are preceded by a
 /// "+".
 ///
-/// For information about bookmarks, see
-/// https://jj-vcs.github.io/jj/latest/bookmarks/.
+/// See the [bookmark documentation] for more information.
+///
+/// [bookmark documentation]:
+///     https://jj-vcs.github.io/jj/latest/bookmarks
 #[derive(clap::Args, Clone, Debug)]
 pub struct BookmarkListArgs {
     /// Show all tracking and non-tracking remote bookmarks including the ones
@@ -51,8 +53,10 @@ pub struct BookmarkListArgs {
     /// bookmarks shown (can be repeated.)
     ///
     /// By default, the specified remote name matches exactly. Use `glob:`
-    /// prefix to select remotes by wildcard pattern. For details, see
-    /// https://jj-vcs.github.io/jj/latest/revsets/#string-patterns.
+    /// prefix to select remotes by [wildcard pattern].
+    ///
+    /// [wildcard pattern]:
+    ///     https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
     #[arg(
         long = "remote",
         value_name = "REMOTE",
@@ -74,8 +78,10 @@ pub struct BookmarkListArgs {
     /// Show bookmarks whose local name matches
     ///
     /// By default, the specified name matches exactly. Use `glob:` prefix to
-    /// select bookmarks by wildcard pattern. For details, see
-    /// https://jj-vcs.github.io/jj/latest/revsets/#string-patterns.
+    /// select bookmarks by [wildcard pattern].
+    ///
+    /// [wildcard pattern]:
+    ///     https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
     #[arg(value_parser = StringPattern::parse, add = ArgValueCandidates::new(complete::bookmarks))]
     names: Option<Vec<StringPattern>>,
 
@@ -88,9 +94,14 @@ pub struct BookmarkListArgs {
 
     /// Render each bookmark using the given template
     ///
-    /// All 0-argument methods of the `RefName` type are available as keywords.
+    /// All 0-argument methods of the [`RefName` type] are available as
+    /// keywords in the [template expression].
     ///
-    /// For the syntax, see https://jj-vcs.github.io/jj/latest/templates/
+    /// [template expression]:
+    ///     https://jj-vcs.github.io/jj/latest/templates/
+    ///
+    /// [`RefName` type]:
+    ///     https://jj-vcs.github.io/jj/latest/templates/#refname-type
     #[arg(long, short = 'T')]
     template: Option<String>,
 }
