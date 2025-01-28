@@ -149,6 +149,8 @@ pub(crate) fn cmd_log(
         }
         expression
     };
+    let prio_revset = settings.get_string("revsets.log-graph-prioritize")?;
+    let prio_revset = workspace_command.parse_revset(ui, &RevisionArg::from(prio_revset))?;
 
     let repo = workspace_command.repo();
     let matcher = fileset_expression.to_matcher();
@@ -197,14 +199,16 @@ pub(crate) fn cmd_log(
             let mut graph = get_graphlog(graph_style, raw_output.as_mut());
             let iter: Box<dyn Iterator<Item = _>> = {
                 let mut forward_iter = TopoGroupedGraphIterator::new(revset.iter_graph());
-                // Emit the working-copy branch first, which is usually most
-                // interesting. This also helps stabilize output order.
-                if let Some(id) = workspace_command.get_wc_commit_id() {
-                    let has_commit = revset.containing_fn();
-                    if has_commit(id)? {
-                        forward_iter.prioritize_branch(id.clone());
+
+                let has_commit = revset.containing_fn();
+
+                for prio in prio_revset.evaluate_to_commit_ids()? {
+                    let prio = prio?;
+                    if has_commit(&prio)? {
+                        forward_iter.prioritize_branch(prio);
                     }
                 }
+
                 // The input to TopoGroupedGraphIterator shouldn't be truncated
                 // because the prioritized commit must exist in the input set.
                 let forward_iter = forward_iter.take(args.limit.unwrap_or(usize::MAX));
