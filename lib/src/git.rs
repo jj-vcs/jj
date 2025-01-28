@@ -1980,7 +1980,7 @@ fn subprocess_push_refs(
     remote_name: &str,
     qualified_remote_refs_expected_locations: &HashMap<&str, Option<&CommitId>>,
     refspecs: &[RefSpec],
-    callbacks: RemoteCallbacks<'_>,
+    mut callbacks: RemoteCallbacks<'_>,
 ) -> Result<(), GitPushError> {
     // check the remote exists
     // TODO: we should ideally find a way to do this without git2
@@ -2004,7 +2004,7 @@ fn subprocess_push_refs(
         .collect();
 
     let (failed_ref_matches, successful_pushes) =
-        git_ctx.spawn_push(remote_name, &refs_to_push, callbacks)?;
+        git_ctx.spawn_push(remote_name, &refs_to_push, &mut callbacks)?;
 
     for remote_ref in successful_pushes {
         remaining_remote_refs.remove(remote_ref.as_str());

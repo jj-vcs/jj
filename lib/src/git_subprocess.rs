@@ -11,7 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
+
+use std::io;
+use std::io::BufReader;
+use std::io::Read;
 use std::num::NonZeroU32;
 use std::path::Path;
 use std::path::PathBuf;
@@ -19,6 +22,7 @@ use std::process::Child;
 use std::process::Command;
 use std::process::Output;
 use std::process::Stdio;
+use std::thread;
 
 use bstr::ByteSlice;
 use thiserror::Error;
@@ -55,8 +59,6 @@ pub(crate) struct GitSubprocessContext<'a> {
     git_dir: PathBuf,
     git_executable_path: &'a Path,
 }
-
-pub(crate) type SidebandProgressCallback<'a> = &'a mut dyn FnMut(&[u8]);
 
 impl<'a> GitSubprocessContext<'a> {
     pub(crate) fn new(git_dir: impl Into<PathBuf>, git_executable_path: &'a Path) -> Self {
@@ -131,9 +133,9 @@ impl<'a> GitSubprocessContext<'a> {
         command.arg("--").arg(remote_name);
         command.args(refspecs.iter().map(|x| x.to_git_format()));
 
-        let output = wait_with_output(self.spawn_cmd(command)?)?;
+        let output = wait_with_progress(self.spawn_cmd(command)?, callbacks)?;
 
-        parse_git_fetch_output(output, &mut callbacks.sideband_progress)
+        parse_git_fetch_output(output)
     }
 
     /// Prune particular branches
@@ -190,7 +192,7 @@ impl<'a> GitSubprocessContext<'a> {
         &self,
         remote_name: &str,
         references: &[RefToPush],
-        mut callbacks: RemoteCallbacks<'_>,
+        callbacks: &mut RemoteCallbacks<'_>,
     ) -> Result<(Vec<String>, Vec<String>), GitSubprocessError> {
         let mut command = self.create_command();
         command.stdout(Stdio::piped());
@@ -209,9 +211,9 @@ impl<'a> GitSubprocessContext<'a> {
                 .map(|r| r.refspec.to_git_format_not_forced()),
         );
 
-        let output = wait_with_output(self.spawn_cmd(command)?)?;
+        let output = wait_with_progress(self.spawn_cmd(command)?, callbacks)?;
 
-        parse_git_push_output(output, &mut callbacks.sideband_progress)
+        parse_git_push_output(output)
     }
 }
 
@@ -289,12 +291,8 @@ fn parse_no_remote_tracking_branch(stderr: &[u8]) -> Option<String> {
 // return the fully qualified ref that failed to fetch
 //
 // note that git fetch only returns one error at a time
-fn parse_git_fetch_output(
-    output: Output,
-    sideband_progress: &mut Option<SidebandProgressCallback<'_>>,
-) -> Result<Option<String>, GitSubprocessError> {
+fn parse_git_fetch_output(output: Output) -> Result<Option<String>, GitSubprocessError> {
     if output.status.success() {
-        report_remote_messages(&output.stderr, sideband_progress);
         return Ok(None);
     }
 
@@ -458,13 +456,9 @@ fn parse_ref_pushes(stdout: &[u8]) -> Result<(Vec<String>, Vec<String>), GitSubp
 // on Ok, return a tuple with
 //  1. list of failed references from test and set
 //  2. list of successful references pushed
-fn parse_git_push_output(
-    output: Output,
-    sideband_progress: &mut Option<SidebandProgressCallback<'_>>,
-) -> Result<(Vec<String>, Vec<String>), GitSubprocessError> {
+fn parse_git_push_output(output: Output) -> Result<(Vec<String>, Vec<String>), GitSubprocessError> {
     if output.status.success() {
         let ref_pushes = parse_ref_pushes(&output.stdout)?;
-        report_remote_messages(&output.stderr, sideband_progress);
         return Ok(ref_pushes);
     }
 
@@ -482,7 +476,11 @@ fn parse_git_push_output(
     }
 }
 
-/// Report Git remote messages on sideband progress
+fn wait_with_output(child: Child) -> Result<Output, GitSubprocessError> {
+    child.wait_with_output().map_err(GitSubprocessError::Wait)
+}
+
+/// Like `wait_with_output()`, but also emits sideband data through callback.
 ///
 /// Git remotes can send custom messages on fetch and push, which the `git`
 /// command prepends with `remote: `.
@@ -497,27 +495,84 @@ fn parse_git_push_output(
 /// remote:      https://github.com/user/repo/pull/new/branch
 /// remote:
 /// ```
-fn report_remote_messages(
-    stderr: &[u8],
-    sideband_progress: &mut Option<SidebandProgressCallback<'_>>,
-) {
-    if let Some(progress) = sideband_progress {
-        stderr
-            .lines()
-            .filter_map(|line| line.strip_prefix(b"remote: "))
-            .for_each(|line| {
-                progress(line);
-                progress(b"\n");
-            });
-    }
+///
+/// The returned `stderr` content does not include sideband messages.
+fn wait_with_progress(
+    mut child: Child,
+    callbacks: &mut RemoteCallbacks<'_>,
+) -> Result<Output, GitSubprocessError> {
+    let (stdout, stderr) = thread::scope(|s| -> io::Result<_> {
+        drop(child.stdin.take());
+        let mut child_stdout = child.stdout.take().expect("stdout should be piped");
+        let mut child_stderr = child.stderr.take().expect("stderr should be piped");
+        let thread = s.spawn(move || -> io::Result<_> {
+            let mut buf = Vec::new();
+            child_stdout.read_to_end(&mut buf)?;
+            Ok(buf)
+        });
+        let stderr = read_to_end_with_progress(&mut child_stderr, callbacks)?;
+        let stdout = thread.join().expect("reader thread wouldn't panic")?;
+        Ok((stdout, stderr))
+    })
+    .map_err(GitSubprocessError::Wait)?;
+    let status = child.wait().map_err(GitSubprocessError::Wait)?;
+    Ok(Output {
+        status,
+        stdout,
+        stderr,
+    })
 }
 
-fn wait_with_output(child: Child) -> Result<Output, GitSubprocessError> {
-    child.wait_with_output().map_err(GitSubprocessError::Wait)
+fn read_to_end_with_progress<R: Read>(
+    src: R,
+    callbacks: &mut RemoteCallbacks<'_>,
+) -> io::Result<Vec<u8>> {
+    let mut reader = BufReader::new(src);
+    let mut data = Vec::new();
+    loop {
+        // progress sent through sideband channel may be terminated by \r
+        let start = data.len();
+        read_until_cr_or_lf(&mut reader, &mut data)?;
+        let line = &data[start..];
+        if line.is_empty() {
+            break;
+        }
+        if let Some(message) = line.strip_prefix(b"remote: ") {
+            if let Some(cb) = callbacks.sideband_progress.as_mut() {
+                cb(message);
+            }
+            data.truncate(start);
+        }
+    }
+    Ok(data)
+}
+
+fn read_until_cr_or_lf<R: io::BufRead + ?Sized>(
+    reader: &mut R,
+    dest_buf: &mut Vec<u8>,
+) -> io::Result<()> {
+    loop {
+        let data = match reader.fill_buf() {
+            Ok(data) => data,
+            Err(err) if err.kind() == io::ErrorKind::Interrupted => continue,
+            Err(err) => return Err(err),
+        };
+        let (n, found) = match data.iter().position(|&b| matches!(b, b'\r' | b'\n')) {
+            Some(i) => (i + 1, true),
+            None => (data.len(), false),
+        };
+        dest_buf.extend_from_slice(&data[..n]);
+        reader.consume(n);
+        if found || n == 0 {
+            return Ok(());
+        }
+    }
 }
 
 #[cfg(test)]
 mod test {
+    use indoc::indoc;
+
     use super::*;
 
     const SAMPLE_NO_SUCH_REPOSITORY_ERROR: &[u8] =
@@ -627,5 +682,39 @@ Done";
             ]
         );
         assert!(parse_ref_pushes(SAMPLE_OK_STDERR).is_err());
+    }
+
+    #[test]
+    fn test_read_to_end_with_progress() {
+        let read = |sample: &[u8]| {
+            let mut sideband = Vec::new();
+            let mut callbacks = RemoteCallbacks::default();
+            let mut sideband_progress = |s: &[u8]| sideband.push(s.to_owned());
+            callbacks.sideband_progress = Some(&mut sideband_progress);
+            let output = read_to_end_with_progress(&mut &sample[..], &mut callbacks).unwrap();
+            (output, sideband)
+        };
+        let sample = indoc! {b"
+            remote: line1
+            blah blah
+            remote: line2.0\rremote: line2.1
+            remote: line3
+            some error message
+        "};
+
+        let (output, sideband) = read(sample);
+        assert_eq!(
+            sideband,
+            ["line1\n", "line2.0\r", "line2.1\n", "line3\n"].map(|s| s.as_bytes().to_owned())
+        );
+        assert_eq!(output, b"blah blah\nsome error message\n");
+
+        // without last newline
+        let (output, sideband) = read(sample.trim_end());
+        assert_eq!(
+            sideband,
+            ["line1\n", "line2.0\r", "line2.1\n", "line3\n"].map(|s| s.as_bytes().to_owned())
+        );
+        assert_eq!(output, b"blah blah\nsome error message");
     }
 }
