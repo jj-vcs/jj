@@ -535,6 +535,11 @@
                     "type": "string",
                     "description": "Default set of revisions to sign when no explicit revset is given for jj sign",
                     "default": "reachable(@, mutable())"
+                },
+                "log-graph-prioritize": {
+                    "type": "string",
+                    "description": "Set of revisions to prioritize when rendering the graph for jj log",
+                    "default": "present(@)"
                 }
             },
             "additionalProperties": {
