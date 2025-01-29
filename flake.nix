@@ -40,12 +40,25 @@
             pkgs.lib.all (re: builtins.match re relPath == null) regexes;
         };
 
-      ourRustVersion = pkgs.rust-bin.selectLatestNightlyWith (toolchain: toolchain.default);
-
-      ourRustPlatform = pkgs.makeRustPlatform {
-        rustc = ourRustVersion;
-        cargo = ourRustVersion;
+      # When we're running in the shell, we want to use rustc with a bunch
+      # of extra junk to ensure that rust-analyzer works, clippy etc are all
+      # installed.
+      rustShellToolchain = (pkgs.rust-bin.selectLatestNightlyWith (t: t.default)).override {
+        # NOTE (aseipp): explicitly add rust-src to the rustc compiler only in
+        # devShell. this in turn causes a dependency on the rust compiler src,
+        # which bloats the closure size by several GiB. but doing this here and
+        # not by default avoids the default flake install from including that
+        # dependency, so it's worth it
+        #
+        # relevant PR: https://github.com/rust-lang/rust/pull/129687
+        extensions = ["rust-src" "rust-analyzer"];
       };
+
+      # But, whenever we are running CI builds or checks, we want to use a
+      # smaller closure. This reduces the CI impact on fresh clones/VMs, etc.
+      rustMinimalPlatform =
+        let platform = pkgs.rust-bin.selectLatestNightlyWith (t: t.minimal);
+        in pkgs.makeRustPlatform { rustc = platform; cargo = platform; };
 
       nativeBuildInputs = with pkgs;
         [
@@ -90,7 +103,7 @@
       checks.jujutsu = self.packages.${system}.jujutsu;
 
       packages = {
-        jujutsu = ourRustPlatform.buildRustPackage {
+        jujutsu = rustMinimalPlatform.buildRustPackage {
           pname = "jujutsu";
           version = "unstable-${self.shortRev or "dirty"}";
 
@@ -139,16 +152,7 @@
 
       devShells.default = let
         packages = with pkgs; [
-          # NOTE (aseipp): explicitly add rust-src to the rustc compiler only in
-          # devShell. this in turn causes a dependency on the rust compiler src,
-          # which bloats the closure size by several GiB. but doing this here
-          # and not by default avoids the default flake install from including
-          # that dependency, so it's worth it
-          #
-          # relevant PR: https://github.com/rust-lang/rust/pull/129687
-          (ourRustVersion.override {
-            extensions = ["rust-src" "rust-analyzer"];
-          })
+          rustShellToolchain
 
           # Additional tools recommended by contributing.md
           bacon
