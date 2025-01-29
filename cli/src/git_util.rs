@@ -271,14 +271,9 @@ impl GitSidebandProgressMessageWriter {
     }
 }
 
-type SidebandProgressCallback<'a> = &'a mut dyn FnMut(&[u8]);
-
-pub fn with_remote_git_callbacks<T>(
-    ui: &Ui,
-    sideband_progress_callback: Option<SidebandProgressCallback<'_>>,
-    f: impl FnOnce(git::RemoteCallbacks<'_>) -> T,
-) -> T {
+pub fn with_remote_git_callbacks<T>(ui: &Ui, f: impl FnOnce(git::RemoteCallbacks<'_>) -> T) -> T {
     let mut callbacks = git::RemoteCallbacks::default();
+
     let mut progress_callback;
     if let Some(mut output) = ui.progress_output() {
         let mut progress = Progress::new(Instant::now());
@@ -287,7 +282,13 @@ pub fn with_remote_git_callbacks<T>(
         };
         callbacks.progress = Some(&mut progress_callback);
     }
-    callbacks.sideband_progress = sideband_progress_callback.map(|x| x as &mut dyn FnMut(&[u8]));
+
+    let mut sideband_progress_writer = GitSidebandProgressMessageWriter::new(ui);
+    let mut sideband_progress_callback = |progress_message: &[u8]| {
+        _ = sideband_progress_writer.write(ui, progress_message);
+    };
+    callbacks.sideband_progress = Some(&mut sideband_progress_callback);
+
     let mut get_ssh_keys = get_ssh_keys; // Coerce to unit fn type
     callbacks.get_ssh_keys = Some(&mut get_ssh_keys);
     let mut get_pw =
@@ -296,7 +297,10 @@ pub fn with_remote_git_callbacks<T>(
     let mut get_user_pw =
         |url: &str| Some((terminal_get_username(ui, url)?, terminal_get_pw(ui, url)?));
     callbacks.get_username_password = Some(&mut get_user_pw);
-    f(callbacks)
+
+    let result = f(callbacks);
+    _ = sideband_progress_writer.flush(ui);
+    result
 }
 
 pub fn print_git_import_stats(

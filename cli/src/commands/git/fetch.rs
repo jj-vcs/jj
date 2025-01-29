@@ -131,7 +131,7 @@ fn do_git_fetch(
     let mut git_fetch = GitFetch::new(tx.repo_mut(), git_repo, &git_settings);
 
     for remote_name in remotes {
-        with_remote_git_callbacks(ui, None, |callbacks| {
+        with_remote_git_callbacks(ui, |callbacks| {
             git_fetch
                 .fetch(remote_name, branch_names, callbacks, None)
                 .map_err(|err| match err {

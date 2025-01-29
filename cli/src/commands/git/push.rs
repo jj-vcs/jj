@@ -57,7 +57,6 @@ use crate::formatter::Formatter;
 use crate::git_util::get_git_repo;
 use crate::git_util::map_git_error;
 use crate::git_util::with_remote_git_callbacks;
-use crate::git_util::GitSidebandProgressMessageWriter;
 use crate::ui::Ui;
 
 /// Push to a Git remote
@@ -372,14 +371,9 @@ pub fn cmd_git_push(
     let targets = GitBranchPushTargets {
         branch_updates: bookmark_updates,
     };
-    let mut writer = GitSidebandProgressMessageWriter::new(ui);
-    let mut sideband_progress_callback = |progress_message: &[u8]| {
-        _ = writer.write(ui, progress_message);
-    };
-
     let git_repo = get_git_repo(tx.repo().store())?;
     let git_settings = tx.settings().git_settings()?;
-    with_remote_git_callbacks(ui, Some(&mut sideband_progress_callback), |cb| {
+    with_remote_git_callbacks(ui, |cb| {
         git::push_branches(
             tx.repo_mut(),
             &git_repo,
@@ -402,7 +396,6 @@ pub fn cmd_git_push(
         ),
         _ => user_error(err),
     })?;
-    writer.flush(ui)?;
     tx.finish(ui, tx_description)?;
     Ok(())
 }

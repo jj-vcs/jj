@@ -1488,7 +1488,7 @@ pub enum GitFetchError {
 }
 
 fn git2_fetch_options(
-    callbacks: RemoteCallbacks<'_>,
+    mut callbacks: RemoteCallbacks<'_>,
     depth: Option<NonZeroU32>,
 ) -> git2::FetchOptions<'_> {
     let mut proxy_options = git2::ProxyOptions::new();
@@ -1496,6 +1496,12 @@ fn git2_fetch_options(
 
     let mut fetch_options = git2::FetchOptions::new();
     fetch_options.proxy_options(proxy_options);
+    // git2 doesn't provide API to set "no-progress" protocol option. If
+    // sideband callback were enabled, remote progress messages would be written
+    // no matter if the process was attached to a tty or not.
+    if callbacks.progress.is_none() {
+        callbacks.sideband_progress = None;
+    }
     fetch_options.remote_callbacks(callbacks.into_git());
     if let Some(depth) = depth {
         fetch_options.depth(depth.get().try_into().unwrap_or(i32::MAX));
