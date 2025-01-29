@@ -469,7 +469,7 @@ fn materialize_git_style_conflict(
         output,
         ConflictMarkerLineChar::ConflictStart,
         conflict_marker_len,
-        &format!("Side #1{} ({conflict_info})", maybe_no_eol_comment(left)),
+        &format!("Side #1 ({conflict_info})"),
     )?;
     write_and_ensure_newline(output, left)?;
 
@@ -477,7 +477,7 @@ fn materialize_git_style_conflict(
         output,
         ConflictMarkerLineChar::GitAncestor,
         conflict_marker_len,
-        &format!("Base{}", maybe_no_eol_comment(base)),
+        "Base",
     )?;
     write_and_ensure_newline(output, base)?;
 
@@ -494,10 +494,7 @@ fn materialize_git_style_conflict(
         output,
         ConflictMarkerLineChar::ConflictEnd,
         conflict_marker_len,
-        &format!(
-            "Side #2{} ({conflict_info} ends)",
-            maybe_no_eol_comment(right)
-        ),
+        &format!("Side #2 ({conflict_info} ends)"),
     )?;
 
     Ok(())

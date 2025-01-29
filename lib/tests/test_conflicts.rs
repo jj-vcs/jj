@@ -2134,11 +2134,11 @@ fn test_update_conflict_from_content_no_eol() {
     <<<<<<< Side #1 (Conflict 2 of 2)
     base
     left
-    ||||||| Base [noeol]
+    ||||||| Base
     base
     =======
     right
-    >>>>>>> Side #2 [noeol] (Conflict 2 of 2 ends)
+    >>>>>>> Side #2 (Conflict 2 of 2 ends)
     "##
     );
     // Parse with "diff" markers to ensure the file is actually parsed
