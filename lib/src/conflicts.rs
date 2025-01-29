@@ -59,13 +59,13 @@ pub const MIN_CONFLICT_MARKER_LEN: usize = 7;
 const CONFLICT_MARKER_LEN_INCREMENT: usize = 4;
 
 /// Comment for missing terminating newline in a term of a conflict.
-const NO_EOL_COMMENT: &str = " [noeol]";
+const NO_EOL_COMMENT: &str = " (no terminating newline)";
 
 /// Comment for missing terminating newline in the "add" side of a diff.
-const ADD_NO_EOL_COMMENT: &str = " [+noeol]";
+const ADD_NO_EOL_COMMENT: &str = " (removes terminating newline)";
 
 /// Comment for missing terminating newline in the "remove" side of a diff.
-const REMOVE_NO_EOL_COMMENT: &str = " [-noeol]";
+const REMOVE_NO_EOL_COMMENT: &str = " (adds terminating newline)";
 
 fn write_diff_hunks(hunks: &[DiffHunk], file: &mut dyn Write) -> io::Result<()> {
     for hunk in hunks {

@@ -185,19 +185,18 @@ New Heading
 >>>>>>>>>>>>>>> Conflict 1 of 1 ends
 ```
 
-## Conflicts with missing terminating newline (`[noeol]`)
+## Conflicts with missing terminating newline
 
 When materializing conflicts, `jj` outputs them in a line-based format. This
 format is easiest to interpret for text files that consist of a series of lines,
 with each line terminated by a newline character (`\n`). This means that a text
 file should either be empty, or it should end with a newline character.
 
-While most text files follow this convention, some do not. To handle this case,
-when `jj` encounters a missing terminating newline character in a conflict, it
-will add a `[noeol]` comment to the conflict markers to indicate that the
-"end-of-line" (EOL) character was missing. If you don't care about whether your
-file ends with a terminating newline character, you can generally ignore this
-comment and resolve the conflict normally.
+While most text files follow this convention, some do not. When `jj` encounters
+a missing terminating newline character in a conflict, it will add a comment to
+the conflict markers to make the conflict easier to interpret. If you don't care
+about whether your file ends with a terminating newline character, you can
+generally ignore this comment and resolve the conflict normally.
 
 For instance, if a file originally contained `grape` with no terminating newline
 character, and one person changed `grape` to `grapefruit`, while another person
@@ -206,14 +205,13 @@ would look like this:
 
 ```
 <<<<<<< Conflict 1 of 1
-+++++++ Contents of side #1 [noeol]
++++++++ Contents of side #1 (no terminating newline)
 grapefruit
-%%%%%%% Changes from base to side #2 [-noeol]
+%%%%%%% Changes from base to side #2 (adds terminating newline)
 -grape
 +grape
 >>>>>>> Conflict 1 of 1 ends
 ```
 
-The `[-noeol]` comment for the diff section indicates that the base (`-`) was
-missing a terminating newline character. A resolution of this conflict could be
-`grapefruit\n`, with the terminating newline character added.
+Therefore, a resolution of this conflict could be `grapefruit\n`, with the
+terminating newline character added.

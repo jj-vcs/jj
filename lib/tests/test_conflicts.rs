@@ -627,14 +627,14 @@ fn test_materialize_conflict_no_newlines_at_eof() {
     let materialized =
         &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Diff);
     insta::assert_snapshot!(materialized,
-        @r###"
+        @r##"
     <<<<<<< Conflict 1 of 1
-    %%%%%%% Changes from base to side #1 [-noeol]
+    %%%%%%% Changes from base to side #1 (adds terminating newline)
     -base
-    +++++++ Contents of side #2 [noeol]
+    +++++++ Contents of side #2 (no terminating newline)
     right
     >>>>>>> Conflict 1 of 1 ends
-    "###
+    "##
     );
     // The conflict markers are parsed with the trailing newline, but it is removed
     // by `update_from_content`
@@ -2057,7 +2057,7 @@ fn test_update_conflict_from_content_no_eol() {
     +++++++ Contents of side #1
     base
     left
-    %%%%%%% Changes from base to side #2 [noeol]
+    %%%%%%% Changes from base to side #2 (no terminating newline)
     -base
     +right
     >>>>>>> Conflict 2 of 2 ends
@@ -2096,9 +2096,9 @@ fn test_update_conflict_from_content_no_eol() {
     +++++++ Contents of side #1
     base
     left
-    ------- Contents of base [noeol]
+    ------- Contents of base (no terminating newline)
     base
-    +++++++ Contents of side #2 [noeol]
+    +++++++ Contents of side #2 (no terminating newline)
     right
     >>>>>>> Conflict 2 of 2 ends
     "##
@@ -2197,15 +2197,15 @@ fn test_update_conflict_from_content_no_eol_in_diff_hunk() {
     <<<<<<< Conflict 1 of 1
     +++++++ Contents of side #1
     side
-    %%%%%%% Changes from base #1 to side #2 [-noeol]
+    %%%%%%% Changes from base #1 to side #2 (adds terminating newline)
      add newline
     -line
     +line
-    %%%%%%% Changes from base #2 to side #3 [+noeol]
+    %%%%%%% Changes from base #2 to side #3 (removes terminating newline)
      remove newline
     -line
     +line
-    %%%%%%% Changes from base #3 to side #4 [noeol]
+    %%%%%%% Changes from base #3 to side #4 (no terminating newline)
      no newline
     -line 1
     +line 2
@@ -2253,7 +2253,7 @@ fn test_update_conflict_from_content_only_no_eol_change() {
         @r##"
     line 1
     <<<<<<< Conflict 1 of 1
-    %%%%%%% Changes from base to side #1 [+noeol]
+    %%%%%%% Changes from base to side #1 (removes terminating newline)
     +line 2
     +++++++ Contents of side #2
     line 2
