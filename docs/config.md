@@ -604,7 +604,23 @@ Our builtin pager is based on
 [`streampager`](https://github.com/markbt/streampager/) but is configured within
 `jj`'s config. It is configured via the `ui.streampager` table.
 
-#### Wrapping
+#### Key bindings
+
+The built-in pager supports both navigation via arrows and Vim-style navigation.
+Beyond that, here are some useful keybindings for the pager:
+
+| Key             | Action                |
+| :-------------- | :-------------------- |
+| `Ctrl-c` or `q` | Quit                  |
+| `h` or `F1`     | Show all key bindings |
+| `Esc`           | Close help or prompt  |
+| `\`             | Toggle line wrapping  |
+| `#`             | Toggle line numbers   |
+| `Ctrl-r`        | Toggle the ruler      |
+
+The built-in pager does not support mouse input.
+
+#### Wrapping config
 
 Wrapping performed by the pager happens *in addition to* any
 wrapping that `jj` itself does.
