@@ -73,7 +73,7 @@ To install a **prerelease** version, you can use the flake for this repository.
 For example, if you want to run `jj` loaded from the flake, use:
 
 ```shell
-nix run 'github:martinvonz/jj'
+nix run 'github:jj-vcs/jj'
 ```
 
 You can also add this flake url to your system input flakes. Or you can
@@ -81,7 +81,7 @@ install the flake to your user profile:
 
 ```shell
 # Installs the prerelease version from the main branch
-nix profile install 'github:martinvonz/jj'
+nix profile install 'github:jj-vcs/jj'
 ```
 
 #### Homebrew
