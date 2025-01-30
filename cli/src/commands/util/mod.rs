@@ -35,6 +35,7 @@ use self::install_man_pages::UtilInstallManPagesArgs;
 use self::markdown_help::cmd_util_markdown_help;
 use self::markdown_help::UtilMarkdownHelp;
 use crate::cli_util::CommandHelper;
+use crate::command_error::user_error;
 use crate::command_error::CommandError;
 use crate::ui::Ui;
 
@@ -45,6 +46,9 @@ pub(crate) enum UtilCommand {
     ConfigSchema(UtilConfigSchemaArgs),
     Exec(UtilExecArgs),
     Gc(UtilGcArgs),
+    /// No longer supported; use `jj util install-man-pages` instead. This stub
+    /// will be removed in a future version.
+    Mangen,
     InstallManPages(UtilInstallManPagesArgs),
     MarkdownHelp(UtilMarkdownHelp),
 }
@@ -60,6 +64,7 @@ pub(crate) fn cmd_util(
         UtilCommand::ConfigSchema(args) => cmd_util_config_schema(ui, command, args),
         UtilCommand::Exec(args) => cmd_util_exec(ui, command, args),
         UtilCommand::Gc(args) => cmd_util_gc(ui, command, args),
+        UtilCommand::Mangen => Err(user_error("`jj util mangen` has been replaced by `jj util install-man-pages`; see https://github.com/jj-vcs/jj/issues/5525")),
         UtilCommand::InstallManPages(args) => cmd_util_install_man_pages(ui, command, args),
         UtilCommand::MarkdownHelp(args) => cmd_util_markdown_help(ui, command, args),
     }
