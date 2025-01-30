@@ -81,7 +81,7 @@ jobs:
       uses: dtolnay/rust-toolchain@a54c7afa936fefeb4456b2dd8068152669aa8203
       with:
         toolchain: 1.76
-    - uses: taiki-e/install-action@afbe5c171504ec183ad2e090b35cac157c65592e
+    - uses: taiki-e/install-action@76a1fec160a6ce3d9efbecc54b2e6304f1887695
       with:
         tool: nextest
     - name: Build
@@ -141,7 +141,7 @@ jobs:
         with:
           python-version: 3.11
       - name: Install uv
-        uses: astral-sh/setup-uv@b5f58b2abc5763ade55e4e9d0fe52cd1ff7979ca
+        uses: astral-sh/setup-uv@4db96194c378173c656ce18a155ffc14a9fc4355
         with:
           # If you bump the version, also update docs/contributing.md
           # and all other workflows that install uv
@@ -178,7 +178,7 @@ jobs:
         with:
           python-version: 3.11
       - name: Install uv
-        uses: astral-sh/setup-uv@b5f58b2abc5763ade55e4e9d0fe52cd1ff7979ca
+        uses: astral-sh/setup-uv@4db96194c378173c656ce18a155ffc14a9fc4355
         with:
           # If you bump the version, also update docs/contributing.md
           # and all other workflows that install uv
@@ -193,7 +193,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - name: Install uv
-        uses: astral-sh/setup-uv@b5f58b2abc5763ade55e4e9d0fe52cd1ff7979ca
+        uses: astral-sh/setup-uv@4db96194c378173c656ce18a155ffc14a9fc4355
       # 'only-managed' means that uv will always download Python, even
       # if the runner happens to provide a compatible version
       - name: Check that `mkdocs` can build the docs
