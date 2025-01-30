@@ -279,16 +279,14 @@ pub fn with_remote_git_callbacks<T>(
     f: impl FnOnce(git::RemoteCallbacks<'_>) -> T,
 ) -> T {
     let mut callbacks = git::RemoteCallbacks::default();
-    let mut progress_callback = None;
+    let mut progress_callback;
     if let Some(mut output) = ui.progress_output() {
         let mut progress = Progress::new(Instant::now());
-        progress_callback = Some(move |x: &git::Progress| {
+        progress_callback = move |x: &git::Progress| {
             _ = progress.update(Instant::now(), x, &mut output);
-        });
+        };
+        callbacks.progress = Some(&mut progress_callback);
     }
-    callbacks.progress = progress_callback
-        .as_mut()
-        .map(|x| x as &mut dyn FnMut(&git::Progress));
     callbacks.sideband_progress = sideband_progress_callback.map(|x| x as &mut dyn FnMut(&[u8]));
     let mut get_ssh_keys = get_ssh_keys; // Coerce to unit fn type
     callbacks.get_ssh_keys = Some(&mut get_ssh_keys);
