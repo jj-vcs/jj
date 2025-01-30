@@ -198,13 +198,11 @@ pub fn cmd_git_push(
     args: &GitPushArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
-    let git_repo = get_git_repo(workspace_command.repo().store())?;
 
     let remote = if let Some(name) = &args.remote {
         name.clone()
     } else {
-        // TODO(git2): migrate to gitoxide
-        get_default_push_remote(ui, workspace_command.settings(), &git_repo)?
+        get_default_push_remote(ui, &workspace_command)?
     };
 
     let mut tx = workspace_command.start_transaction();
@@ -379,6 +377,7 @@ pub fn cmd_git_push(
         _ = writer.write(ui, progress_message);
     };
 
+    let git_repo = get_git_repo(tx.repo().store())?;
     let git_settings = tx.settings().git_settings()?;
     with_remote_git_callbacks(ui, Some(&mut sideband_progress_callback), |cb| {
         git::push_branches(
@@ -617,12 +616,12 @@ fn print_commits_ready_to_push(
 
 fn get_default_push_remote(
     ui: &Ui,
-    settings: &UserSettings,
-    git_repo: &git2::Repository,
+    workspace_command: &WorkspaceCommandHelper,
 ) -> Result<String, CommandError> {
+    let settings = workspace_command.settings();
     if let Some(remote) = settings.get_string("git.push").optional()? {
         Ok(remote)
-    } else if let Some(remote) = get_single_remote(git_repo)? {
+    } else if let Some(remote) = get_single_remote(workspace_command.repo().store())? {
         // similar to get_default_fetch_remotes
         if remote != DEFAULT_REMOTE {
             writeln!(

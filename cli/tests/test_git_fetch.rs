@@ -287,6 +287,10 @@ fn test_git_fetch_all_remotes(subprocess: bool) {
     add_git_remote(&test_env, &repo_path, "rem1");
     add_git_remote(&test_env, &repo_path, "rem2");
 
+    // add empty [remote "rem3"] section to .git/config, which should be ignored
+    test_env.jj_cmd_ok(&repo_path, &["git", "remote", "add", "rem3", "../unknown"]);
+    test_env.jj_cmd_ok(&repo_path, &["git", "remote", "remove", "rem3"]);
+
     test_env.jj_cmd_ok(&repo_path, &["git", "fetch", "--all-remotes"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r###"

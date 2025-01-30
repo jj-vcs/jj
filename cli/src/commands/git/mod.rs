@@ -26,6 +26,9 @@ use std::path::Path;
 use clap::Subcommand;
 use jj_lib::config::ConfigFile;
 use jj_lib::config::ConfigSource;
+use jj_lib::git;
+use jj_lib::git::UnexpectedGitBackendError;
+use jj_lib::store::Store;
 
 use self::clone::cmd_git_clone;
 use self::clone::GitCloneArgs;
@@ -104,10 +107,10 @@ pub fn maybe_add_gitignore(workspace_command: &WorkspaceCommandHelper) -> Result
     }
 }
 
-fn get_single_remote(git_repo: &git2::Repository) -> Result<Option<String>, CommandError> {
-    let git_remotes = git_repo.remotes()?;
-    Ok(match git_remotes.len() {
-        1 => git_remotes.get(0).map(ToOwned::to_owned),
+fn get_single_remote(store: &Store) -> Result<Option<String>, UnexpectedGitBackendError> {
+    let mut names = git::get_all_remote_names(store)?;
+    Ok(match names.len() {
+        1 => names.pop(),
         _ => None,
     })
 }

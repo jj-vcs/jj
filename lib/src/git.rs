@@ -1328,6 +1328,20 @@ pub fn is_special_git_remote(remote: &str) -> bool {
     remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO
 }
 
+/// Returns a sorted list of configured remote names.
+pub fn get_all_remote_names(store: &Store) -> Result<Vec<String>, UnexpectedGitBackendError> {
+    let git_repo = get_git_repo(store)?;
+    let names = git_repo
+        .remote_names()
+        .into_iter()
+        // exclude empty [remote "<name>"] section
+        .filter(|name| git_repo.try_find_remote(name.as_ref()).is_some())
+        // ignore non-UTF-8 remote names which we don't support
+        .filter_map(|name| String::from_utf8(name.into_owned().into()).ok())
+        .collect();
+    Ok(names)
+}
+
 // TODO(git2): migrate to gitoxide
 pub fn add_remote(
     git_repo: &git2::Repository,

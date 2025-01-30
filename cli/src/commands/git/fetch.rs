@@ -15,13 +15,14 @@
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools;
 use jj_lib::config::ConfigGetResultExt as _;
+use jj_lib::git;
 use jj_lib::git::GitFetch;
 use jj_lib::git::GitFetchError;
 use jj_lib::repo::Repo;
-use jj_lib::settings::UserSettings;
 use jj_lib::str_util::StringPattern;
 
 use crate::cli_util::CommandHelper;
+use crate::cli_util::WorkspaceCommandHelper;
 use crate::cli_util::WorkspaceCommandTransaction;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_hint;
@@ -76,16 +77,15 @@ pub fn cmd_git_fetch(
     args: &GitFetchArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
-    let git_repo = get_git_repo(workspace_command.repo().store())?;
-    // TODO(git2): migrate to gitoxide
     let remotes = if args.all_remotes {
-        get_all_remotes(&git_repo)?
+        git::get_all_remote_names(workspace_command.repo().store())?
     } else if args.remotes.is_empty() {
-        get_default_fetch_remotes(ui, workspace_command.settings(), &git_repo)?
+        get_default_fetch_remotes(ui, &workspace_command)?
     } else {
         args.remotes.clone()
     };
     let mut tx = workspace_command.start_transaction();
+    let git_repo = get_git_repo(tx.repo().store())?;
     do_git_fetch(ui, &mut tx, &git_repo, &remotes, &args.branch)?;
     tx.finish(
         ui,
@@ -98,15 +98,15 @@ const DEFAULT_REMOTE: &str = "origin";
 
 fn get_default_fetch_remotes(
     ui: &Ui,
-    settings: &UserSettings,
-    git_repo: &git2::Repository,
+    workspace_command: &WorkspaceCommandHelper,
 ) -> Result<Vec<String>, CommandError> {
     const KEY: &str = "git.fetch";
+    let settings = workspace_command.settings();
     if let Ok(remotes) = settings.get(KEY) {
         Ok(remotes)
     } else if let Some(remote) = settings.get_string(KEY).optional()? {
         Ok(vec![remote])
-    } else if let Some(remote) = get_single_remote(git_repo)? {
+    } else if let Some(remote) = get_single_remote(workspace_command.repo().store())? {
         // if nothing was explicitly configured, try to guess
         if remote != DEFAULT_REMOTE {
             writeln!(
@@ -118,14 +118,6 @@ fn get_default_fetch_remotes(
     } else {
         Ok(vec![DEFAULT_REMOTE.to_owned()])
     }
-}
-
-fn get_all_remotes(git_repo: &git2::Repository) -> Result<Vec<String>, CommandError> {
-    let git_remotes = git_repo.remotes()?;
-    Ok(git_remotes
-        .iter()
-        .filter_map(|x| x.map(ToOwned::to_owned))
-        .collect())
 }
 
 fn do_git_fetch(
