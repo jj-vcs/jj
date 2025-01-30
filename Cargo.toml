@@ -29,7 +29,7 @@ clap = { version = "4.5.27", features = [
     "wrap_help",
     "string",
 ] }
-clap_complete = { version = "4.5.43", features = ["unstable-dynamic"] }
+clap_complete = { version = "4.5.44", features = ["unstable-dynamic"] }
 clap_complete_nushell = "4.5.5"
 clap-markdown = "0.1.4"
 clap_mangen = "0.2.25"
