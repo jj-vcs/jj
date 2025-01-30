@@ -694,8 +694,8 @@ fn file_pattern_parse_error_hint(err: &FilePatternParseError) -> Option<String> 
 fn fileset_parse_error_hint(err: &FilesetParseError) -> Option<String> {
     match err.kind() {
         FilesetParseErrorKind::SyntaxError => Some(String::from(
-            "See https://jj-vcs.github.io/jj/latest/filesets/ for filesets syntax, or for how to \
-             match file paths.",
+            "See https://jj-vcs.github.io/jj/latest/filesets/ for filesets syntax. Names with \
+             special symbols must be quoted.",
         )),
         FilesetParseErrorKind::NoSuchFunction {
             name: _,

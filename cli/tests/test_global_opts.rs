@@ -304,7 +304,7 @@ fn test_invalid_filesets_looking_like_filepaths() {
     let repo_path = test_env.env_root().join("repo");
 
     let stderr = test_env.jj_cmd_failure(&repo_path, &["file", "show", "abc~"]);
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(stderr, @r"
     Error: Failed to parse fileset: Syntax error
     Caused by:  --> 1:5
       |
@@ -312,8 +312,8 @@ fn test_invalid_filesets_looking_like_filepaths() {
       |     ^---
       |
       = expected `~` or <primary>
-    Hint: See https://jj-vcs.github.io/jj/latest/filesets/ for filesets syntax, or for how to match file paths.
-    "#);
+    Hint: See https://jj-vcs.github.io/jj/latest/filesets/ for filesets syntax. Names with special symbols must be quoted.
+    ");
 
     test_env.add_config(r#"ui.allow-filesets=false"#);
     let stderr = test_env.jj_cmd_failure(&repo_path, &["file", "show", "abc~"]);
