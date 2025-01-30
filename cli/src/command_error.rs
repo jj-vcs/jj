@@ -484,6 +484,7 @@ mod git {
     use jj_lib::git::GitExportError;
     use jj_lib::git::GitImportError;
     use jj_lib::git::GitRemoteManagementError;
+    use jj_lib::git::UnexpectedGitBackendError;
 
     use super::*;
 
@@ -509,7 +510,7 @@ jj currently does not support partial clones. To use jj with this repository, tr
                 }
                 GitImportError::InternalBackend(_) => None,
                 GitImportError::InternalGitError(_) => None,
-                GitImportError::UnexpectedBackend => None,
+                GitImportError::UnexpectedBackend(_) => None,
             };
             let mut cmd_err =
                 user_error_with_message("Failed to import refs from underlying Git repo", err);
@@ -533,6 +534,12 @@ jj currently does not support partial clones. To use jj with this repository, tr
     impl From<GitConfigParseError> for CommandError {
         fn from(err: GitConfigParseError) -> Self {
             internal_error_with_message("Failed to parse Git config", err)
+        }
+    }
+
+    impl From<UnexpectedGitBackendError> for CommandError {
+        fn from(err: UnexpectedGitBackendError) -> Self {
+            user_error(err)
         }
     }
 }

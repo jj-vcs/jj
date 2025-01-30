@@ -14,12 +14,12 @@
 
 use std::io::Write;
 
+use jj_lib::git;
 use jj_lib::repo::Repo as _;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::user_error_with_message;
 use crate::command_error::CommandError;
-use crate::git_util::get_git_backend;
 use crate::ui::Ui;
 
 /// List Git remotes
@@ -32,8 +32,7 @@ pub fn cmd_git_remote_list(
     _args: &GitRemoteListArgs,
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui)?;
-    let git_backend = get_git_backend(workspace_command.repo().store())?;
-    let git_repo = git_backend.git_repo();
+    let git_repo = git::get_git_repo(workspace_command.repo().store())?;
     for remote_name in git_repo.remote_names() {
         let remote = match git_repo.try_find_remote(&*remote_name) {
             Some(Ok(remote)) => remote,

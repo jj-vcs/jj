@@ -35,7 +35,6 @@ use jj_lib::git::FailedRefExport;
 use jj_lib::git::FailedRefExportReason;
 use jj_lib::git::GitImportStats;
 use jj_lib::git::RefName;
-use jj_lib::git_backend::GitBackend;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::repo::ReadonlyRepo;
@@ -71,19 +70,13 @@ pub fn map_git_error(err: git2::Error) -> CommandError {
     }
 }
 
-pub fn get_git_backend(store: &Store) -> Result<&GitBackend, CommandError> {
-    store
-        .backend_impl()
-        .downcast_ref()
-        .ok_or_else(|| user_error("The repo is not backed by a git repo"))
-}
-
-pub fn get_git_repo(store: &Store) -> Result<git2::Repository, CommandError> {
-    Ok(get_git_backend(store)?.open_git_repo()?)
+// TODO: migrate to gitoxide or subprocess, and remove this function
+pub(crate) fn get_git_repo(store: &Store) -> Result<git2::Repository, CommandError> {
+    Ok(git::get_git_backend(store)?.open_git_repo()?)
 }
 
 pub fn is_colocated_git_workspace(workspace: &Workspace, repo: &ReadonlyRepo) -> bool {
-    let Some(git_backend) = repo.store().backend_impl().downcast_ref::<GitBackend>() else {
+    let Ok(git_backend) = git::get_git_backend(repo.store()) else {
         return false;
     };
     let Some(git_workdir) = git_backend.git_workdir() else {

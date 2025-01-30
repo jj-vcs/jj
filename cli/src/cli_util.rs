@@ -1191,11 +1191,6 @@ impl WorkspaceCommandHelper {
         Ok(())
     }
 
-    #[cfg(feature = "git")]
-    fn git_backend(&self) -> Option<&jj_lib::git_backend::GitBackend> {
-        self.user_repo.repo.store().backend_impl().downcast_ref()
-    }
-
     pub fn repo(&self) -> &Arc<ReadonlyRepo> {
         &self.user_repo.repo
     }
@@ -1419,7 +1414,7 @@ to the current parents may contain changes from multiple commits.
         }
 
         let mut git_ignores = GitIgnoreFile::empty();
-        if let Some(git_backend) = self.git_backend() {
+        if let Ok(git_backend) = jj_lib::git::get_git_backend(self.repo().store()) {
             let git_repo = git_backend.git_repo();
             if let Some(excludes_file_path) = get_excludes_file_path(&git_repo.config_snapshot()) {
                 git_ignores = git_ignores.chain_with_file("", excludes_file_path)?;

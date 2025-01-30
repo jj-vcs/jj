@@ -213,11 +213,20 @@ pub fn is_reserved_git_remote_ref(parsed_ref: &RefName) -> bool {
     to_remote_branch(parsed_ref, REMOTE_NAME_FOR_LOCAL_GIT_REPO).is_some()
 }
 
-fn get_git_backend(store: &Store) -> Option<&GitBackend> {
-    store.backend_impl().downcast_ref()
+#[derive(Debug, Error)]
+#[error("The repo is not backed by a Git repo")]
+pub struct UnexpectedGitBackendError;
+
+/// Returns the underlying `GitBackend` implementation.
+pub fn get_git_backend(store: &Store) -> Result<&GitBackend, UnexpectedGitBackendError> {
+    store
+        .backend_impl()
+        .downcast_ref()
+        .ok_or(UnexpectedGitBackendError)
 }
 
-fn get_git_repo(store: &Store) -> Option<gix::Repository> {
+/// Returns new thread-local instance to access to the underlying Git repo.
+pub fn get_git_repo(store: &Store) -> Result<gix::Repository, UnexpectedGitBackendError> {
     get_git_backend(store).map(|backend| backend.git_repo())
 }
 
@@ -295,8 +304,8 @@ pub enum GitImportError {
     InternalBackend(#[source] BackendError),
     #[error("Unexpected git error when importing refs")]
     InternalGitError(#[source] Box<dyn std::error::Error + Send + Sync>),
-    #[error("The repo is not backed by a Git repo")]
-    UnexpectedBackend,
+    #[error(transparent)]
+    UnexpectedBackend(#[from] UnexpectedGitBackendError),
 }
 
 impl GitImportError {
@@ -345,7 +354,7 @@ pub fn import_some_refs(
     git_ref_filter: impl Fn(&RefName) -> bool,
 ) -> Result<GitImportStats, GitImportError> {
     let store = mut_repo.store();
-    let git_backend = get_git_backend(store).ok_or(GitImportError::UnexpectedBackend)?;
+    let git_backend = get_git_backend(store)?;
     let git_repo = git_backend.git_repo();
 
     let RefsToImport {
@@ -646,7 +655,7 @@ fn remotely_pinned_commit_ids(view: &View) -> Vec<CommitId> {
 /// the child of the new HEAD revision.
 pub fn import_head(mut_repo: &mut MutableRepo) -> Result<(), GitImportError> {
     let store = mut_repo.store();
-    let git_backend = get_git_backend(store).ok_or(GitImportError::UnexpectedBackend)?;
+    let git_backend = get_git_backend(store)?;
     let git_repo = git_backend.git_repo();
 
     let old_git_head = mut_repo.view().git_head();
@@ -686,8 +695,8 @@ pub fn import_head(mut_repo: &mut MutableRepo) -> Result<(), GitImportError> {
 pub enum GitExportError {
     #[error("Git error")]
     InternalGitError(#[source] Box<dyn std::error::Error + Send + Sync>),
-    #[error("The repo is not backed by a Git repo")]
-    UnexpectedBackend,
+    #[error(transparent)]
+    UnexpectedBackend(#[from] UnexpectedGitBackendError),
     #[error(transparent)]
     Backend(#[from] BackendError),
 }
@@ -761,7 +770,7 @@ pub fn export_some_refs(
     mut_repo: &mut MutableRepo,
     git_ref_filter: impl Fn(&RefName) -> bool,
 ) -> Result<Vec<FailedRefExport>, GitExportError> {
-    let git_repo = get_git_repo(mut_repo.store()).ok_or(GitExportError::UnexpectedBackend)?;
+    let git_repo = get_git_repo(mut_repo.store())?;
 
     let RefsToExport {
         branches_to_update,
@@ -1086,7 +1095,7 @@ fn update_git_head(
 /// Sets Git HEAD to the parent of the given working-copy commit and resets
 /// the Git index.
 pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), GitExportError> {
-    let git_repo = get_git_repo(mut_repo.store()).ok_or(GitExportError::UnexpectedBackend)?;
+    let git_repo = get_git_repo(mut_repo.store())?;
 
     let first_parent_id = &wc_commit.parent_ids()[0];
     let first_parent = if first_parent_id != mut_repo.store().root_commit_id() {
@@ -1112,8 +1121,7 @@ pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), 
     // If there is an ongoing operation (merge, rebase, etc.), we need to clean it
     // up. This function isn't implemented in `gix`, so we need to use `git2`.
     if git_repo.state().is_some() {
-        get_git_backend(mut_repo.store())
-            .ok_or(GitExportError::UnexpectedBackend)?
+        get_git_backend(mut_repo.store())?
             .open_git_repo()
             .map_err(GitExportError::from_git)?
             .cleanup_state()
