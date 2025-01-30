@@ -27,6 +27,7 @@ use std::thread;
 use bstr::ByteSlice;
 use thiserror::Error;
 
+use crate::git::Progress;
 use crate::git::RefSpec;
 use crate::git::RefToPush;
 use crate::git::RemoteCallbacks;
@@ -123,10 +124,11 @@ impl<'a> GitSubprocessContext<'a> {
         }
         let mut command = self.create_command();
         command.stdout(Stdio::piped());
-        command
-            .arg("fetch")
-            // attempt to prune stale refs
-            .arg("--prune");
+        // attempt to prune stale refs with --prune
+        command.args(["fetch", "--prune"]);
+        if callbacks.progress.is_some() {
+            command.arg("--progress");
+        }
         if let Some(d) = depth {
             command.arg(format!("--depth={d}"));
         }
@@ -523,12 +525,40 @@ fn wait_with_progress(
     })
 }
 
+#[derive(Default)]
+struct GitProgress {
+    // (frac, total)
+    deltas: (u64, u64),
+    objects: (u64, u64),
+    counted_objects: (u64, u64),
+    compressed_objects: (u64, u64),
+}
+
+impl GitProgress {
+    fn to_progress(&self) -> Progress {
+        Progress {
+            bytes_downloaded: None,
+            overall: self.fraction() as f32 / self.total() as f32,
+        }
+    }
+
+    fn fraction(&self) -> u64 {
+        self.objects.0 + self.deltas.0 + self.counted_objects.0 + self.compressed_objects.0
+    }
+
+    fn total(&self) -> u64 {
+        self.objects.1 + self.deltas.1 + self.counted_objects.1 + self.compressed_objects.1
+    }
+}
+
 fn read_to_end_with_progress<R: Read>(
     src: R,
     callbacks: &mut RemoteCallbacks<'_>,
 ) -> io::Result<Vec<u8>> {
     let mut reader = BufReader::new(src);
     let mut data = Vec::new();
+    let mut git_progress = GitProgress::default();
+
     loop {
         // progress sent through sideband channel may be terminated by \r
         let start = data.len();
@@ -537,7 +567,25 @@ fn read_to_end_with_progress<R: Read>(
         if line.is_empty() {
             break;
         }
-        if let Some(message) = line.strip_prefix(b"remote: ") {
+
+        if update_progress(line, &mut git_progress.objects, b"Receiving objects:")
+            || update_progress(line, &mut git_progress.deltas, b"Resolving deltas:")
+            || update_progress(
+                line,
+                &mut git_progress.counted_objects,
+                b"remote: Counting objects:",
+            )
+            || update_progress(
+                line,
+                &mut git_progress.compressed_objects,
+                b"remote: Compressing objects:",
+            )
+        {
+            if let Some(cb) = callbacks.progress.as_mut() {
+                cb(&git_progress.to_progress());
+            }
+            data.truncate(start);
+        } else if let Some(message) = line.strip_prefix(b"remote: ") {
             if let Some(cb) = callbacks.sideband_progress.as_mut() {
                 cb(message);
             }
@@ -545,6 +593,18 @@ fn read_to_end_with_progress<R: Read>(
         }
     }
     Ok(data)
+}
+
+fn update_progress(line: &[u8], progress: &mut (u64, u64), prefix: &[u8]) -> bool {
+    if let Some(line) = line.strip_prefix(prefix) {
+        if let Some((frac, total)) = read_progress_line(line) {
+            *progress = (frac, total);
+        }
+
+        true
+    } else {
+        false
+    }
 }
 
 fn read_until_cr_or_lf<R: io::BufRead + ?Sized>(
@@ -561,12 +621,30 @@ fn read_until_cr_or_lf<R: io::BufRead + ?Sized>(
             Some(i) => (i + 1, true),
             None => (data.len(), false),
         };
+
         dest_buf.extend_from_slice(&data[..n]);
         reader.consume(n);
+
         if found || n == 0 {
             return Ok(());
         }
     }
+}
+
+/// Read progress lines of the form: `<text> (<frac>/<total>)`
+/// Ensures that frac < total
+fn read_progress_line(line: &[u8]) -> Option<(u64, u64)> {
+    // isolate the part between parenthesis
+    let (_prefix, suffix) = line.split_once_str("(")?;
+    let (fraction, _suffix) = suffix.split_once_str(")")?;
+
+    // split over the '/'
+    let (frac_str, total_str) = fraction.split_once_str("/")?;
+
+    // parse to integers
+    let frac = frac_str.to_str().ok()?.parse().ok()?;
+    let total = total_str.to_str().ok()?.parse().ok()?;
+    (frac <= total).then_some((frac, total))
 }
 
 #[cfg(test)]
@@ -699,6 +777,7 @@ Done";
             blah blah
             remote: line2.0\rremote: line2.1
             remote: line3
+            Resolving deltas: (12/42)
             some error message
         "};
 
@@ -716,5 +795,23 @@ Done";
             ["line1\n", "line2.0\r", "line2.1\n", "line3\n"].map(|s| s.as_bytes().to_owned())
         );
         assert_eq!(output, b"blah blah\nsome error message");
+    }
+
+    #[test]
+    fn test_read_progress_line() {
+        assert_eq!(
+            read_progress_line(b"Receiving objects: (42/100)\r"),
+            Some((42, 100))
+        );
+        assert_eq!(
+            read_progress_line(b"Resolving deltas: (0/1000)\r"),
+            Some((0, 1000))
+        );
+        assert_eq!(read_progress_line(b"Receiving objects: (420/100)\r"), None);
+        assert_eq!(
+            read_progress_line(b"remote: this is something else\n"),
+            None
+        );
+        assert_eq!(read_progress_line(b"fatal: this is a git error\n"), None);
     }
 }
