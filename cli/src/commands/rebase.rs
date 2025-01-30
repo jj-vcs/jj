@@ -53,16 +53,35 @@ use crate::ui::Ui;
 ///
 /// There are three different ways of specifying which revisions to rebase:
 ///
-/// * `-b` to rebase a whole branch
-/// * `-s` to rebase a revision and its descendants
-/// * `-r` to rebase the specified revisions without their descendants
+/// * `--source/-s` to rebase a revision and its descendants
+/// * `--branch/-b` to rebase a whole branch, relative to the destination
+/// * `--revisions/-r` to rebase the specified revisions without their
+///   descendants
 ///
 /// If no option is specified, it defaults to `-b @`.
 ///
-/// With `-s`, the command rebases the specified revision and its descendants
-/// onto the destination. For example, `jj rebase -s M -d O` would transform
-/// your history like this (letters followed by an apostrophe are post-rebase
-/// versions):
+/// There are three different way of specifying where the revisions should be
+/// rebased to:
+///
+/// * `--destination/-d` to rebase the revisions onto of the specified targets
+/// * `--insert-after/-A` to rebase the revisions onto of the specified targets
+///   and to rebase the targets' descendants onto of the rebased revisions
+/// * `--insert-before/-B` to rebase the revisions onto of the specified
+///   targets' parents and to rebase the targets and their descendants onto of
+///   the rebased revisions
+///
+/// See the sections below for details about the different ways of specifying
+/// which revisions to rebase where.
+///
+/// If a working-copy revision gets abandoned, it will be given a new, empty
+/// revision. This is true in general; it is not specific to this command.
+///
+/// ### Specifying which revisions to rebase
+///
+/// With `--source/-s`, the command rebases the specified revision and its
+/// descendants onto the destination. For example, `jj rebase -s M -d O` would
+/// transform your history like this (letters followed by an apostrophe are
+/// post-rebase versions):
 ///
 /// ```text
 /// O           N'
@@ -83,8 +102,8 @@ use crate::ui::Ui;
 /// `jj rebase -s 'all:M|N' -d O`) in the example above, then N' would instead
 /// be a direct child of O.
 ///
-/// With `-b`, the command rebases the whole "branch" containing the specified
-/// revision. A "branch" is the set of revisions that includes:
+/// With `--branch/-b`, the command rebases the whole "branch" containing the
+/// specified revision. A "branch" is the set of revisions that includes:
 ///
 /// * the specified revision and ancestors that are not also ancestors of the
 ///   destination
@@ -110,10 +129,10 @@ use crate::ui::Ui;
 /// J           J
 /// ```
 ///
-/// With `-r`, the command rebases only the specified revisions onto the
-/// destination. Any "hole" left behind will be filled by rebasing descendants
-/// onto the specified revisions' parent(s). For example, `jj rebase -r K -d M`
-/// would transform your history like this:
+/// With `--revisions/-r`, the command rebases only the specified revisions onto
+/// the destination. Any "hole" left behind will be filled by rebasing
+/// descendants onto the specified revisions' parent(s). For example,
+/// `jj rebase -r K -d M` would transform your history like this:
 ///
 /// ```text
 /// M          K'
@@ -164,8 +183,87 @@ use crate::ui::Ui;
 /// J          J
 /// ```
 ///
-/// If a working-copy revision gets abandoned, it will be given a new, empty
-/// revision. This is true in general; it is not specific to this command.
+/// ### Specifying where to rebase the revisions
+///
+/// With `--destination/-d`, the command rebases the selected revisions onto
+/// the targets. Existing descendants of the targets will not be affected. See
+/// the section above for examples.
+///
+/// With `--insert-after/-A`, the selected revisions will be inserted after the
+/// targets. This is similar to `-d`, but if the targets have any existing
+/// descendants, then those will be rebased onto the rebased selected revisions.
+///
+/// For example, `jj rebase -r K -A L` will rewrite history like this:
+/// ```text
+/// N           N'
+/// |           |
+/// | M         | M'
+/// |/          |/
+/// L      =>   K'
+/// |           |
+/// | K         L
+/// |/          |
+/// J           J
+/// ```
+///
+/// The `-A` (and `-B`) argument can also be used for reordering revisions. For
+/// example, `jj rebase -r M -A J` will rewrite history like this:
+/// ```text
+/// M          L'
+/// |          |
+/// L          K'
+/// |     =>   |
+/// K          M'
+/// |          |
+/// J          J
+/// ```
+///
+/// With `--insert-before/-B`, the selected revisions will be inserted before
+/// the targets. This is achieved by rebasing the selected revisions onto the
+/// target revisions' parents, and then rebasing the target revisions and their
+/// descendants onto the rebased revisions.
+///
+/// For example, `jj rebase -r K -B L` will rewrite history like this:
+/// ```text
+/// N           N'
+/// |           |
+/// | M         | M'
+/// |/          |/
+/// L     =>    L'
+/// |           |
+/// | K         K'
+/// |/          |
+/// J           J
+/// ```
+///
+/// The `-A` and `-B` arguments can also be combined, which can be useful around
+/// merges. For example, you can use `jj rebase -r K -A J -B M` to create a new
+/// merge (but `jj rebase -r M -d L -d K` might be simpler in this particular
+/// case):
+/// ```text
+/// M           M'
+/// |           |\
+/// L           L |
+/// |     =>    | |
+/// | K         | K'
+/// |/          |/
+/// J           J
+/// ```
+///
+/// To insert a commit inside an existing merge with `jj rebase -r O -A K -B M`:
+/// ```text
+/// O           N'
+/// |           |\
+/// N           | M'
+/// |\          | |\
+/// | M         | O'|
+/// | |    =>   |/ /
+/// | L         | L
+/// | |         | |
+/// K |         K |
+/// |/          |/
+/// J           J
+/// ```
 #[derive(clap::Args, Clone, Debug)]
 #[command(verbatim_doc_comment)]
 #[command(group(ArgGroup::new("to_rebase").args(&["branch", "source", "revisions"])))]
