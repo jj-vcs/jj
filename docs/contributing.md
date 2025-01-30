@@ -186,6 +186,15 @@ These are listed roughly in order of decreasing importance.
    On Linux, you may be able to speed up `nextest` even further by using
    the `mold` linker, as explained below.
 
+
+### Configuring `jj fix` to run `rustfmt`
+
+Run this in the jj repo:
+
+```shell
+jj config set --repo fix.tools.rustfmt '{ command = ["rustfmt", "+nightly"], patterns = ["glob:**/*.rs"] }'
+```
+
 ### Using `mold` for faster tests on Linux
 
 On a machine with a multi-core CPU, one way to speed up
