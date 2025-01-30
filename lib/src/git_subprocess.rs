@@ -203,6 +203,9 @@ impl<'a> GitSubprocessContext<'a> {
         let mut command = self.create_command();
         command.stdout(Stdio::piped());
         command.args(["push", "--porcelain"]);
+        if callbacks.progress.is_some() {
+            command.arg("--progress");
+        }
         command.args(
             references
                 .iter()
@@ -474,7 +477,8 @@ fn parse_git_push_output(output: Output) -> Result<(Vec<String>, Vec<String>), G
 
     if output
         .stderr
-        .starts_with_str("error: failed to push some refs to ")
+        .lines()
+        .any(|line| line.starts_with(b"error: failed to push some refs to "))
     {
         parse_ref_pushes(&output.stdout)
     } else {
