@@ -55,6 +55,10 @@ The following functions are defined.
 * `pad_end(width: Integer, content: Template[, fill_char: Template])`: Pad (or
   left-justify) content by adding trailing fill characters. The `content`
   shouldn't have newline character.
+* `pad_centered(width: Integer, content: Template[, fill_char: Template])`: Pad
+  content by adding both leading and trailing fill characters. If an odd number
+  of fill characters are needed, the trailing fill will be one longer than the
+  leading fill. The `content` shouldn't have newline characters.
 * `truncate_start(width: Integer, content: Template)`: Truncate `content` by
   removing leading characters. The `content` shouldn't have newline character.
 * `truncate_end(width: Integer, content: Template)`: Truncate `content` by

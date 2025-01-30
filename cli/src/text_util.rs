@@ -302,6 +302,28 @@ pub fn write_padded_end(
     Ok(())
 }
 
+/// Writes text padded to `min_width` by adding leading and trailing fill
+/// characters.
+///
+/// The input `recorded_content` should be a single-line text. The
+/// `recorded_fill_char` should be bytes of a 1-width character.
+pub fn write_padded_centered(
+    formatter: &mut dyn Formatter,
+    recorded_content: &FormatRecorder,
+    recorded_fill_char: &FormatRecorder,
+    min_width: usize,
+) -> io::Result<()> {
+    // We don't care about the width of non-UTF-8 bytes, but should not panic.
+    let width = String::from_utf8_lossy(recorded_content.data()).width();
+    let fill_width = min_width.saturating_sub(width);
+    let fill_left = fill_width / 2;
+    let fill_right = fill_width - fill_left;
+    write_padding(formatter, recorded_fill_char, fill_left)?;
+    recorded_content.replay(formatter)?;
+    write_padding(formatter, recorded_fill_char, fill_right)?;
+    Ok(())
+}
+
 fn write_padding(
     formatter: &mut dyn Formatter,
     recorded_fill_char: &FormatRecorder,
@@ -843,6 +865,24 @@ mod tests {
             format_colored(|formatter| write_padded_end(formatter, &recorder, &fill, 8)),
             @"[38;5;1mfoo[39m[38;5;6mbar[39m=="
         );
+
+        // Pad centered
+        insta::assert_snapshot!(
+            format_colored(|formatter| write_padded_centered(formatter, &recorder, &fill, 6)),
+            @"[38;5;1mfoo[39m[38;5;6mbar[39m"
+        );
+        insta::assert_snapshot!(
+            format_colored(|formatter| write_padded_centered(formatter, &recorder, &fill, 7)),
+            @"[38;5;1mfoo[39m[38;5;6mbar[39m="
+        );
+        insta::assert_snapshot!(
+            format_colored(|formatter| write_padded_centered(formatter, &recorder, &fill, 8)),
+            @"=[38;5;1mfoo[39m[38;5;6mbar[39m="
+        );
+        insta::assert_snapshot!(
+            format_colored(|formatter| write_padded_centered(formatter, &recorder, &fill, 13)),
+            @"===[38;5;1mfoo[39m[38;5;6mbar[39m===="
+        );
     }
 
     #[test]
@@ -863,6 +903,12 @@ mod tests {
         insta::assert_snapshot!(
             format_colored(|formatter| write_padded_end(formatter, &recorder, &fill, 6)),
             @"foo[38;5;1m===[39m"
+        );
+
+        // Pad centered
+        insta::assert_snapshot!(
+            format_colored(|formatter| write_padded_centered(formatter, &recorder, &fill, 6)),
+            @"[38;5;1m=[39mfoo[38;5;1m==[39m"
         );
     }
 
@@ -890,6 +936,20 @@ mod tests {
             format_colored(|formatter| write_padded_end(formatter, &recorder, &fill, 10)),
             @"àbc̀一二三="
         );
+
+        // Pad centered
+        insta::assert_snapshot!(
+            format_colored(|formatter| write_padded_centered(formatter, &recorder, &fill, 9)),
+            @"àbc̀一二三"
+        );
+        insta::assert_snapshot!(
+            format_colored(|formatter| write_padded_centered(formatter, &recorder, &fill, 10)),
+            @"àbc̀一二三="
+        );
+        insta::assert_snapshot!(
+            format_colored(|formatter| write_padded_centered(formatter, &recorder, &fill, 13)),
+            @"==àbc̀一二三=="
+        );
     }
 
     #[test]
@@ -914,6 +974,16 @@ mod tests {
         );
         insta::assert_snapshot!(
             format_colored(|formatter| write_padded_end(formatter, &recorder, &fill, 1)),
+            @"="
+        );
+
+        // Pad centered
+        insta::assert_snapshot!(
+            format_colored(|formatter| write_padded_centered(formatter, &recorder, &fill, 0)),
+            @""
+        );
+        insta::assert_snapshot!(
+            format_colored(|formatter| write_padded_centered(formatter, &recorder, &fill, 1)),
             @"="
         );
     }

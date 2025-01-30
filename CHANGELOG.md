@@ -102,6 +102,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * New template function `config(name)` to access to configuration variable from
   template.
 
+* New template function `pad_centered()` to center content within a minimum width.
+
 * Templater now supports `list.filter(|x| ..)` method.
 
 * The `diff` commit template keyword now supports custom formatting via

@@ -1476,6 +1476,22 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
         Ok(L::wrap_template(template))
     });
     map.insert(
+        "pad_centered",
+        |language, diagnostics, build_ctx, function| {
+            let ([width_node, content_node], [fill_char_node]) =
+                function.expect_named_arguments(&["", "", "fill_char"])?;
+            let width = expect_usize_expression(language, diagnostics, build_ctx, width_node)?;
+            let content =
+                expect_template_expression(language, diagnostics, build_ctx, content_node)?;
+            let fill_char = fill_char_node
+                .map(|node| expect_template_expression(language, diagnostics, build_ctx, node))
+                .transpose()?;
+            let template =
+                new_pad_template(content, fill_char, width, text_util::write_padded_centered);
+            Ok(L::wrap_template(template))
+        },
+    );
+    map.insert(
         "truncate_start",
         |language, diagnostics, build_ctx, function| {
             let [width_node, content_node] = function.expect_exact_arguments()?;
@@ -2980,6 +2996,9 @@ mod tests {
         insta::assert_snapshot!(
             env.render_ok(r"'{' ++ pad_end(5, label('red', 'foo')) ++ '}'"),
             @"{[38;5;9mfoo[39m  }");
+        insta::assert_snapshot!(
+            env.render_ok(r"'{' ++ pad_centered(5, label('red', 'foo')) ++ '}'"),
+            @"{ [38;5;9mfoo[39m }");
 
         // Labeled fill char
         insta::assert_snapshot!(
@@ -2988,6 +3007,9 @@ mod tests {
         insta::assert_snapshot!(
             env.render_ok(r"pad_end(5, label('red', 'foo'), fill_char=label('cyan', '='))"),
             @"[38;5;9mfoo[39m[38;5;6m==[39m");
+        insta::assert_snapshot!(
+            env.render_ok(r"pad_centered(5, label('red', 'foo'), fill_char=label('cyan', '='))"),
+            @"[38;5;6m=[39m[38;5;9mfoo[39m[38;5;6m=[39m");
 
         // Error in fill char: the output looks odd (because the error message
         // isn't 1-width character), but is still readable.
@@ -2997,6 +3019,9 @@ mod tests {
         insta::assert_snapshot!(
             env.render_ok(r"pad_end(5, 'foo', fill_char=bad_string)"),
             @"foo<<Error: Error: Bad>Bad>");
+        insta::assert_snapshot!(
+            env.render_ok(r"pad_centered(5, 'foo', fill_char=bad_string)"),
+            @"<Error: Bad>foo<Error: Bad>");
     }
 
     #[test]
