@@ -143,6 +143,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Conditional configuration now supports `--when.commands` to change configuration
   based on subcommand.
 
+* New `oldest` revset function to get the oldest commit in a set.
+
 ### Fixed bugs
 
 * `jj git fetch` with multiple remotes will now fetch from all remotes before
