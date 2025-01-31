@@ -143,6 +143,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Conditional configuration now supports `--when.commands` to change configuration
   based on subcommand.
 
+* New `JJ_NO_DEFAULT_COLORS` environment variable disables setting build-in default colors.
+
 ### Fixed bugs
 
 * `jj git fetch` with multiple remotes will now fetch from all remotes before
