@@ -758,7 +758,7 @@ fn get_jj_command() -> Result<(JjBuilder, UserSettings), CommandError> {
     // required.
     let app = crate::commands::default_app();
     let mut raw_config = config_from_environment(default_config_layers());
-    let ui = Ui::with_config(raw_config.as_ref()).expect("default config should be valid");
+    let ui = Ui::null();
     let cwd = std::env::current_dir()
         .and_then(dunce::canonicalize)
         .map_err(user_error)?;

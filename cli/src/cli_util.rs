@@ -3714,7 +3714,7 @@ impl CliRunner {
         ui.reset(&config)?;
 
         if env::var_os("COMPLETE").is_some() {
-            return handle_shell_completion(ui, &self.app, &config, &cwd);
+            return handle_shell_completion(&Ui::null(), &self.app, &config, &cwd);
         }
 
         let string_args = expand_args(ui, &self.app, env::args_os(), &config)?;
