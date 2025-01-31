@@ -407,13 +407,13 @@ fn test_import_refs_reimport_head_removed() {
     tx.repo_mut().rebase_descendants().unwrap();
     let commit_id = jj_id(&commit);
     // Test the setup
-    assert!(tx.repo_mut().view().heads().contains(&commit_id));
+    assert!(tx.repo().view().heads().contains(&commit_id));
 
     // Remove the head and re-import
     tx.repo_mut().remove_head(&commit_id);
     git::import_refs(tx.repo_mut(), &git_settings).unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
-    assert!(!tx.repo_mut().view().heads().contains(&commit_id));
+    assert!(!tx.repo().view().heads().contains(&commit_id));
 }
 
 #[test]
@@ -443,7 +443,7 @@ fn test_import_refs_reimport_git_head_does_not_count() {
     git::import_head(tx.repo_mut()).unwrap();
     git::import_refs(tx.repo_mut(), &git_settings).unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
-    assert!(!tx.repo_mut().view().heads().contains(&jj_id(&commit)));
+    assert!(!tx.repo().view().heads().contains(&jj_id(&commit)));
 }
 
 #[test]
@@ -464,8 +464,8 @@ fn test_import_refs_reimport_git_head_without_ref() {
     git::import_head(tx.repo_mut()).unwrap();
     git::import_refs(tx.repo_mut(), &git_settings).unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
-    assert!(tx.repo_mut().view().heads().contains(commit1.id()));
-    assert!(tx.repo_mut().view().heads().contains(commit2.id()));
+    assert!(tx.repo().view().heads().contains(commit1.id()));
+    assert!(tx.repo().view().heads().contains(commit2.id()));
 
     // Move HEAD to commit2 (by e.g. `git checkout` command)
     git_repo.set_head_detached(git_id(&commit2)).unwrap();
@@ -477,8 +477,8 @@ fn test_import_refs_reimport_git_head_without_ref() {
     git::import_head(tx.repo_mut()).unwrap();
     git::import_refs(tx.repo_mut(), &git_settings).unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
-    assert!(tx.repo_mut().view().heads().contains(commit1.id()));
-    assert!(tx.repo_mut().view().heads().contains(commit2.id()));
+    assert!(tx.repo().view().heads().contains(commit1.id()));
+    assert!(tx.repo().view().heads().contains(commit2.id()));
 }
 
 #[test]
@@ -502,8 +502,8 @@ fn test_import_refs_reimport_git_head_with_moved_ref() {
     git::import_head(tx.repo_mut()).unwrap();
     git::import_refs(tx.repo_mut(), &git_settings).unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
-    assert!(tx.repo_mut().view().heads().contains(commit1.id()));
-    assert!(tx.repo_mut().view().heads().contains(commit2.id()));
+    assert!(tx.repo().view().heads().contains(commit1.id()));
+    assert!(tx.repo().view().heads().contains(commit2.id()));
 
     // Move both HEAD and main to commit2 (by e.g. `git commit --amend` command)
     git_repo
@@ -515,14 +515,14 @@ fn test_import_refs_reimport_git_head_with_moved_ref() {
     git::import_head(tx.repo_mut()).unwrap();
     git::import_refs(tx.repo_mut(), &git_settings).unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
-    assert!(!tx.repo_mut().view().heads().contains(commit1.id()));
-    assert!(tx.repo_mut().view().heads().contains(commit2.id()));
+    assert!(!tx.repo().view().heads().contains(commit1.id()));
+    assert!(tx.repo().view().heads().contains(commit2.id()));
     // Reimport HEAD and main, which abandons the old main bookmark.
     git::import_head(tx.repo_mut()).unwrap();
     git::import_refs(tx.repo_mut(), &git_settings).unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
-    assert!(!tx.repo_mut().view().heads().contains(commit1.id()));
-    assert!(tx.repo_mut().view().heads().contains(commit2.id()));
+    assert!(!tx.repo().view().heads().contains(commit1.id()));
+    assert!(tx.repo().view().heads().contains(commit2.id()));
 }
 
 #[test]
@@ -1014,8 +1014,8 @@ fn test_import_refs_reimport_git_head_with_fixed_ref() {
     git::import_head(tx.repo_mut()).unwrap();
     git::import_refs(tx.repo_mut(), &git_settings).unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
-    assert!(tx.repo_mut().view().heads().contains(commit1.id()));
-    assert!(tx.repo_mut().view().heads().contains(commit2.id()));
+    assert!(tx.repo().view().heads().contains(commit1.id()));
+    assert!(tx.repo().view().heads().contains(commit2.id()));
 
     // Move only HEAD to commit2 (by e.g. `git checkout` command)
     git_repo.set_head_detached(git_id(&commit2)).unwrap();
@@ -1024,8 +1024,8 @@ fn test_import_refs_reimport_git_head_with_fixed_ref() {
     git::import_head(tx.repo_mut()).unwrap();
     git::import_refs(tx.repo_mut(), &git_settings).unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
-    assert!(tx.repo_mut().view().heads().contains(commit1.id()));
-    assert!(tx.repo_mut().view().heads().contains(commit2.id()));
+    assert!(tx.repo().view().heads().contains(commit1.id()));
+    assert!(tx.repo().view().heads().contains(commit2.id()));
 }
 
 #[test]
@@ -1042,7 +1042,7 @@ fn test_import_refs_reimport_all_from_root_removed() {
     git::import_refs(tx.repo_mut(), &git_settings).unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
     // Test the setup
-    assert!(tx.repo_mut().view().heads().contains(&jj_id(&commit)));
+    assert!(tx.repo().view().heads().contains(&jj_id(&commit)));
 
     // Remove all git refs and re-import
     git_repo
@@ -1052,7 +1052,7 @@ fn test_import_refs_reimport_all_from_root_removed() {
         .unwrap();
     git::import_refs(tx.repo_mut(), &git_settings).unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
-    assert!(!tx.repo_mut().view().heads().contains(&jj_id(&commit)));
+    assert!(!tx.repo().view().heads().contains(&jj_id(&commit)));
 }
 
 #[test]
@@ -1072,7 +1072,7 @@ fn test_import_refs_reimport_abandoning_disabled() {
     git::import_refs(tx.repo_mut(), &git_settings).unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
     // Test the setup
-    assert!(tx.repo_mut().view().heads().contains(&jj_id(&commit2)));
+    assert!(tx.repo().view().heads().contains(&jj_id(&commit2)));
 
     // Remove the `delete-me` bookmark and re-import
     git_repo
@@ -1082,7 +1082,7 @@ fn test_import_refs_reimport_abandoning_disabled() {
         .unwrap();
     git::import_refs(tx.repo_mut(), &git_settings).unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
-    assert!(tx.repo_mut().view().heads().contains(&jj_id(&commit2)));
+    assert!(tx.repo().view().heads().contains(&jj_id(&commit2)));
 }
 
 #[test]
@@ -2176,14 +2176,14 @@ fn test_reset_head_to_root() {
     git::reset_head(tx.repo_mut(), &commit2).unwrap();
     assert!(git_repo.head().is_ok());
     assert_eq!(
-        tx.repo_mut().git_head(),
+        tx.repo().git_head(),
         RefTarget::normal(commit1.id().clone())
     );
 
     // Set Git HEAD back to root
     git::reset_head(tx.repo_mut(), &commit1).unwrap();
     assert!(git_repo.head().is_err());
-    assert!(tx.repo_mut().git_head().is_absent());
+    assert!(tx.repo().git_head().is_absent());
 
     // Move placeholder ref as if new commit were created by git
     git_repo
@@ -2192,7 +2192,7 @@ fn test_reset_head_to_root() {
     git::reset_head(tx.repo_mut(), &commit2).unwrap();
     assert!(git_repo.head().is_ok());
     assert_eq!(
-        tx.repo_mut().git_head(),
+        tx.repo().git_head(),
         RefTarget::normal(commit1.id().clone())
     );
     assert!(git_repo.find_reference("refs/jj/root").is_ok());
@@ -2200,7 +2200,7 @@ fn test_reset_head_to_root() {
     // Set Git HEAD back to root
     git::reset_head(tx.repo_mut(), &commit1).unwrap();
     assert!(git_repo.head().is_err());
-    assert!(tx.repo_mut().git_head().is_absent());
+    assert!(tx.repo().git_head().is_absent());
     // The placeholder ref should be deleted
     assert!(git_repo.find_reference("refs/jj/root").is_err());
 }
@@ -2586,8 +2586,8 @@ fn test_fetch_empty_repo(subprocess: bool) {
     // No default bookmark and no refs
     assert_eq!(stats.default_branch, None);
     assert!(stats.import_stats.abandoned_commits.is_empty());
-    assert_eq!(*tx.repo_mut().view().git_refs(), btreemap! {});
-    assert_eq!(tx.repo_mut().view().bookmarks().count(), 0);
+    assert_eq!(*tx.repo().view().git_refs(), btreemap! {});
+    assert_eq!(tx.repo().view().bookmarks().count(), 0);
 }
 
 #[test_case(false; "use git2 for remote calls")]
@@ -2773,11 +2773,8 @@ fn test_fetch_prune_deleted_ref(subprocess: bool) {
     )
     .unwrap();
     // Test the setup
-    assert!(tx.repo_mut().get_local_bookmark("main").is_present());
-    assert!(tx
-        .repo_mut()
-        .get_remote_bookmark("main", "origin")
-        .is_present());
+    assert!(tx.repo().get_local_bookmark("main").is_present());
+    assert!(tx.repo().get_remote_bookmark("main", "origin").is_present());
 
     test_data
         .origin_repo
@@ -2795,7 +2792,7 @@ fn test_fetch_prune_deleted_ref(subprocess: bool) {
     )
     .unwrap();
     assert_eq!(stats.import_stats.abandoned_commits, vec![jj_id(&commit)]);
-    assert!(tx.repo_mut().get_local_bookmark("main").is_absent());
+    assert!(tx.repo().get_local_bookmark("main").is_absent());
     assert!(tx
         .repo_mut()
         .get_remote_bookmark("main", "origin")
@@ -3069,7 +3066,7 @@ fn test_push_bookmarks_success(subprocess: bool) {
     assert_eq!(new_target, Some(new_oid));
 
     // Check that the repo view got updated
-    let view = tx.repo_mut().view();
+    let view = tx.repo().view();
     assert_eq!(
         *view.get_git_ref("refs/remotes/origin/main"),
         RefTarget::normal(setup.child_of_main_commit.id().clone()),
@@ -3086,7 +3083,7 @@ fn test_push_bookmarks_success(subprocess: bool) {
     setup.jj_repo = tx.commit("test").unwrap();
     let mut tx = setup.jj_repo.start_transaction();
     git::import_refs(tx.repo_mut(), &GitSettings::default()).unwrap();
-    assert!(!tx.repo_mut().has_changes());
+    assert!(!tx.repo().has_changes());
 }
 
 #[test_case(false; "use git2 for remote calls")]
@@ -3133,7 +3130,7 @@ fn test_push_bookmarks_deletion(subprocess: bool) {
         .is_err());
 
     // Check that the repo view got updated
-    let view = tx.repo_mut().view();
+    let view = tx.repo().view();
     assert!(view.get_git_ref("refs/remotes/origin/main").is_absent());
     assert!(view.get_remote_bookmark("main", "origin").is_absent());
 
@@ -3141,7 +3138,7 @@ fn test_push_bookmarks_deletion(subprocess: bool) {
     setup.jj_repo = tx.commit("test").unwrap();
     let mut tx = setup.jj_repo.start_transaction();
     git::import_refs(tx.repo_mut(), &GitSettings::default()).unwrap();
-    assert!(!tx.repo_mut().has_changes());
+    assert!(!tx.repo().has_changes());
 }
 
 #[test_case(false; "use git2 for remote calls")]
@@ -3194,7 +3191,7 @@ fn test_push_bookmarks_mixed_deletion_and_addition(subprocess: bool) {
     assert!(source_repo.find_reference("refs/heads/main").is_err());
 
     // Check that the repo view got updated
-    let view = tx.repo_mut().view();
+    let view = tx.repo().view();
     assert!(view.get_git_ref("refs/remotes/origin/main").is_absent());
     assert!(view.get_remote_bookmark("main", "origin").is_absent());
     assert_eq!(
@@ -3213,7 +3210,7 @@ fn test_push_bookmarks_mixed_deletion_and_addition(subprocess: bool) {
     setup.jj_repo = tx.commit("test").unwrap();
     let mut tx = setup.jj_repo.start_transaction();
     git::import_refs(tx.repo_mut(), &GitSettings::default()).unwrap();
-    assert!(!tx.repo_mut().has_changes());
+    assert!(!tx.repo().has_changes());
 }
 
 #[test_case(false; "use git2 for remote calls")]
@@ -3788,7 +3785,7 @@ fn test_concurrent_read_write_commit() {
                             }
                         })
                         .collect_vec();
-                    if tx.repo_mut().has_changes() {
+                    if tx.repo().has_changes() {
                         tx.commit(format!("reader {i}")).unwrap();
                     }
                     thread::yield_now();

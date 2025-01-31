@@ -66,7 +66,7 @@ fn test_transform_descendants_sync() {
     let new_commit_f = rebased.get(commit_f.id()).unwrap();
 
     assert_eq!(
-        *tx.repo_mut().view().heads(),
+        *tx.repo().view().heads(),
         hashset! {
             new_commit_e.id().clone(),
             new_commit_f.id().clone(),
@@ -112,7 +112,7 @@ fn test_transform_descendants_sync_linearize_merge() {
     let new_commit_c = rebased.get(commit_c.id()).unwrap();
 
     assert_eq!(
-        *tx.repo_mut().view().heads(),
+        *tx.repo().view().heads(),
         hashset! {
             new_commit_c.id().clone(),
         }

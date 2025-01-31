@@ -110,7 +110,7 @@ fn test_rebase_descendants_sideways() {
     let new_commit_e = assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_e, &[commit_f.id()]);
 
     assert_eq!(
-        *tx.repo_mut().view().heads(),
+        *tx.repo().view().heads(),
         hashset! {
             new_commit_d.id().clone(),
             new_commit_e.id().clone()
@@ -167,7 +167,7 @@ fn test_rebase_descendants_forward() {
     assert_eq!(rebase_map.len(), 5);
 
     assert_eq!(
-        *tx.repo_mut().view().heads(),
+        *tx.repo().view().heads(),
         hashset! {
             new_commit_c.id().clone(),
             new_commit_e.id().clone(),
@@ -216,7 +216,7 @@ fn test_rebase_descendants_reorder() {
     assert_eq!(rebase_map.len(), 1);
 
     assert_eq!(
-        *tx.repo_mut().view().heads(),
+        *tx.repo().view().heads(),
         hashset! {
             new_commit_i.id().clone(),
         }
@@ -249,7 +249,7 @@ fn test_rebase_descendants_backward() {
     assert_eq!(rebase_map.len(), 1);
 
     assert_eq!(
-        *tx.repo_mut().view().heads(),
+        *tx.repo().view().heads(),
         hashset! {new_commit_d.id().clone()}
     );
 }
@@ -290,7 +290,7 @@ fn test_rebase_descendants_chain_becomes_branchy() {
     assert_eq!(rebase_map.len(), 2);
 
     assert_eq!(
-        *tx.repo_mut().view().heads(),
+        *tx.repo().view().heads(),
         hashset! {
             new_commit_d.id().clone(),
         }
@@ -336,7 +336,7 @@ fn test_rebase_descendants_internal_merge() {
     assert_eq!(rebase_map.len(), 3);
 
     assert_eq!(
-        *tx.repo_mut().view().heads(),
+        *tx.repo().view().heads(),
         hashset! { new_commit_e.id().clone() }
     );
 }
@@ -379,7 +379,7 @@ fn test_rebase_descendants_external_merge() {
     assert_eq!(rebase_map.len(), 1);
 
     assert_eq!(
-        *tx.repo_mut().view().heads(),
+        *tx.repo().view().heads(),
         hashset! {new_commit_e.id().clone()}
     );
 }
@@ -418,7 +418,7 @@ fn test_rebase_descendants_abandon() {
     assert_eq!(rebase_map.len(), 3);
 
     assert_eq!(
-        *tx.repo_mut().view().heads(),
+        *tx.repo().view().heads(),
         hashset! {
             new_commit_c.id().clone(),
             new_commit_f.id().clone()
@@ -449,7 +449,7 @@ fn test_rebase_descendants_abandon_no_descendants() {
     assert_eq!(rebase_map.len(), 0);
 
     assert_eq!(
-        *tx.repo_mut().view().heads(),
+        *tx.repo().view().heads(),
         hashset! {
             commit_a.id().clone(),
         }
@@ -486,7 +486,7 @@ fn test_rebase_descendants_abandon_and_replace() {
     assert_eq!(rebase_map.len(), 1);
 
     assert_eq!(
-        *tx.repo_mut().view().heads(),
+        *tx.repo().view().heads(),
         hashset! { new_commit_d.id().clone()}
     );
 }
@@ -523,7 +523,7 @@ fn test_rebase_descendants_abandon_degenerate_merge_simplify() {
     assert_eq!(rebase_map.len(), 1);
 
     assert_eq!(
-        *tx.repo_mut().view().heads(),
+        *tx.repo().view().heads(),
         hashset! {new_commit_d.id().clone()}
     );
 }
@@ -565,7 +565,7 @@ fn test_rebase_descendants_abandon_degenerate_merge_preserve() {
     assert_eq!(rebase_map.len(), 1);
 
     assert_eq!(
-        *tx.repo_mut().view().heads(),
+        *tx.repo().view().heads(),
         hashset! {new_commit_d.id().clone()}
     );
 }
@@ -606,7 +606,7 @@ fn test_rebase_descendants_abandon_widen_merge() {
     assert_eq!(rebase_map.len(), 1);
 
     assert_eq!(
-        *tx.repo_mut().view().heads(),
+        *tx.repo().view().heads(),
         hashset! { new_commit_f.id().clone()}
     );
 }
@@ -644,7 +644,7 @@ fn test_rebase_descendants_multiple_sideways() {
     assert_eq!(rebase_map.len(), 2);
 
     assert_eq!(
-        *tx.repo_mut().view().heads(),
+        *tx.repo().view().heads(),
         hashset! {
             new_commit_c.id().clone(),
             new_commit_e.id().clone()
@@ -761,7 +761,7 @@ fn test_rebase_descendants_divergent_rewrite() {
     assert_eq!(rebase_map.len(), 2); // Commit E is not rebased
 
     assert_eq!(
-        *tx.repo_mut().view().heads(),
+        *tx.repo().view().heads(),
         hashset! {
             new_commit_c.id().clone(),
             commit_d2.id().clone(),
@@ -806,7 +806,7 @@ fn test_rebase_descendants_repeated() {
     assert_eq!(rebase_map.len(), 1);
 
     assert_eq!(
-        *tx.repo_mut().view().heads(),
+        *tx.repo().view().heads(),
         hashset! {
             commit_c2.id().clone(),
         }
@@ -830,7 +830,7 @@ fn test_rebase_descendants_repeated() {
     assert_eq!(rebase_map.len(), 1);
 
     assert_eq!(
-        *tx.repo_mut().view().heads(),
+        *tx.repo().view().heads(),
         hashset! {
             // commit_b.id().clone(),
             commit_c3.id().clone(),
@@ -932,14 +932,11 @@ fn test_rebase_descendants_basic_bookmark_update() {
     let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).write().unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
     assert_eq!(
-        tx.repo_mut().get_local_bookmark("main"),
+        tx.repo().get_local_bookmark("main"),
         RefTarget::normal(commit_b2.id().clone())
     );
 
-    assert_eq!(
-        *tx.repo_mut().view().heads(),
-        hashset! {commit_b2.id().clone()}
-    );
+    assert_eq!(*tx.repo().view().heads(), hashset! {commit_b2.id().clone()});
 }
 
 #[test]
@@ -980,14 +977,14 @@ fn test_rebase_descendants_bookmark_move_two_steps() {
         .write()
         .unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
-    let heads = tx.repo_mut().view().heads();
+    let heads = tx.repo().view().heads();
     assert_eq!(heads.len(), 1);
     let c3_id = heads.iter().next().unwrap().clone();
     let commit_c3 = repo.store().get_commit(&c3_id).unwrap();
     assert_ne!(commit_c3.id(), commit_c2.id());
     assert_eq!(commit_c3.parent_ids(), vec![commit_b2.id().clone()]);
     assert_eq!(
-        tx.repo_mut().get_local_bookmark("main"),
+        tx.repo().get_local_bookmark("main"),
         RefTarget::normal(commit_c3.id().clone())
     );
 }
@@ -1025,25 +1022,22 @@ fn test_rebase_descendants_basic_bookmark_update_with_non_local_bookmark() {
     let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).write().unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
     assert_eq!(
-        tx.repo_mut().get_local_bookmark("main"),
+        tx.repo().get_local_bookmark("main"),
         RefTarget::normal(commit_b2.id().clone())
     );
     // The remote bookmark and tag should not get updated
     assert_eq!(
-        tx.repo_mut().get_remote_bookmark("main", "origin"),
-        commit_b_remote_ref,
+        tx.repo().get_remote_bookmark("main", "origin"),
+        commit_b_remote_ref
     );
     assert_eq!(
-        tx.repo_mut().get_tag("v1"),
+        tx.repo().get_tag("v1"),
         RefTarget::normal(commit_b.id().clone())
     );
 
     // Commit B is no longer visible even though the remote bookmark points to it.
     // (The user can still see it using e.g. the `remote_bookmarks()` revset.)
-    assert_eq!(
-        *tx.repo_mut().view().heads(),
-        hashset! {commit_b2.id().clone()}
-    );
+    assert_eq!(*tx.repo().view().heads(), hashset! {commit_b2.id().clone()});
 }
 
 #[test_case(false; "slide down abandoned")]
@@ -1087,7 +1081,7 @@ fn test_rebase_descendants_update_bookmark_after_abandon(delete_abandoned_bookma
     };
     let rebase_map = rebase_descendants_with_options_return_map(tx.repo_mut(), &options);
     assert_eq!(
-        tx.repo_mut().get_local_bookmark("main"),
+        tx.repo().get_local_bookmark("main"),
         if delete_abandoned_bookmarks {
             RefTarget::absent()
         } else {
@@ -1095,16 +1089,16 @@ fn test_rebase_descendants_update_bookmark_after_abandon(delete_abandoned_bookma
         }
     );
     assert_eq!(
-        tx.repo_mut().get_remote_bookmark("main", "origin").target,
+        tx.repo().get_remote_bookmark("main", "origin").target,
         RefTarget::normal(commit_b.id().clone())
     );
     assert_eq!(
-        tx.repo_mut().get_local_bookmark("other"),
+        tx.repo().get_local_bookmark("other"),
         RefTarget::normal(rebase_map[commit_c.id()].clone())
     );
 
     assert_eq!(
-        *tx.repo_mut().view().heads(),
+        *tx.repo().view().heads(),
         hashset! { rebase_map[commit_c.id()].clone() }
     );
 }
@@ -1173,7 +1167,7 @@ fn test_rebase_descendants_update_bookmarks_after_divergent_rewrite() {
     );
     tx.repo_mut().rebase_descendants().unwrap();
 
-    let main_target = tx.repo_mut().get_local_bookmark("main");
+    let main_target = tx.repo().get_local_bookmark("main");
     assert!(main_target.has_conflict());
     // If the bookmark were moved at each rewrite point, there would be separate
     // negative terms: { commit_b => 2, commit_b4 => 1 }. Since we flatten
@@ -1192,11 +1186,11 @@ fn test_rebase_descendants_update_bookmarks_after_divergent_rewrite() {
         },
     );
 
-    let other_target = tx.repo_mut().get_local_bookmark("other");
+    let other_target = tx.repo().get_local_bookmark("other");
     assert_eq!(other_target.as_normal(), Some(commit_c.id()));
 
     assert_eq!(
-        *tx.repo_mut().view().heads(),
+        *tx.repo().view().heads(),
         hashset! {
             commit_b2.id().clone(),
             commit_b3.id().clone(),
@@ -1256,7 +1250,7 @@ fn test_rebase_descendants_rewrite_updates_bookmark_conflict() {
     );
     tx.repo_mut().rebase_descendants().unwrap();
 
-    let target = tx.repo_mut().get_local_bookmark("main");
+    let target = tx.repo().get_local_bookmark("main");
     assert!(target.has_conflict());
     assert_eq!(
         target.removed_ids().counts(),
@@ -1272,7 +1266,7 @@ fn test_rebase_descendants_rewrite_updates_bookmark_conflict() {
     );
 
     assert_eq!(
-        *tx.repo_mut().view().heads(),
+        *tx.repo().view().heads(),
         hashset! {
             commit_a2.id().clone(),
             commit_a3.id().clone(),
@@ -1318,12 +1312,12 @@ fn test_rebase_descendants_rewrite_resolves_bookmark_conflict() {
         .unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
     assert_eq!(
-        tx.repo_mut().get_local_bookmark("main"),
+        tx.repo().get_local_bookmark("main"),
         RefTarget::normal(commit_b2.id().clone())
     );
 
     assert_eq!(
-        *tx.repo_mut().view().heads(),
+        *tx.repo().view().heads(),
         hashset! { commit_b2.id().clone()}
     );
 }
@@ -1363,10 +1357,7 @@ fn test_rebase_descendants_bookmark_delete_modify_abandon(delete_abandoned_bookm
         ..Default::default()
     };
     let _rebase_map = rebase_descendants_with_options_return_map(tx.repo_mut(), &options);
-    assert_eq!(
-        tx.repo_mut().get_local_bookmark("main"),
-        RefTarget::absent()
-    );
+    assert_eq!(tx.repo().get_local_bookmark("main"), RefTarget::absent());
 }
 
 #[test_case(false; "slide down abandoned")]
@@ -1408,7 +1399,7 @@ fn test_rebase_descendants_bookmark_move_forward_abandon(delete_abandoned_bookma
     };
     let _rebase_map = rebase_descendants_with_options_return_map(tx.repo_mut(), &options);
     assert_eq!(
-        tx.repo_mut().get_local_bookmark("main"),
+        tx.repo().get_local_bookmark("main"),
         if delete_abandoned_bookmarks {
             RefTarget::from_merge(Merge::from_vec(vec![
                 None,
@@ -1460,7 +1451,7 @@ fn test_rebase_descendants_bookmark_move_sideways_abandon(delete_abandoned_bookm
     };
     let _rebase_map = rebase_descendants_with_options_return_map(tx.repo_mut(), &options);
     assert_eq!(
-        tx.repo_mut().get_local_bookmark("main"),
+        tx.repo().get_local_bookmark("main"),
         if delete_abandoned_bookmarks {
             RefTarget::from_merge(Merge::from_vec(vec![
                 None,
@@ -1755,7 +1746,7 @@ fn test_empty_commit_option(empty_behavior: EmptyBehaviour) {
     assert_eq!(rebase_map.len(), 6);
 
     assert_eq!(
-        *tx.repo_mut().view().heads(),
+        *tx.repo().view().heads(),
         hashset! {
             new_head.id().clone(),
         }
@@ -1833,25 +1824,23 @@ fn test_rebase_abandoning_empty() {
     rebase_commit_with_options(rewriter, &rebase_options).unwrap();
     let rebase_map = rebase_descendants_with_options_return_map(tx.repo_mut(), &rebase_options);
     assert_eq!(rebase_map.len(), 5);
-    let new_commit_c =
-        assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_c, &[commit_b2.id()]);
-    assert_abandoned_with_parent(tx.repo_mut(), &rebase_map, &commit_d, new_commit_c.id());
-    assert_abandoned_with_parent(tx.repo_mut(), &rebase_map, &commit_e, new_commit_c.id());
-    let new_commit_f =
-        assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_f, &[new_commit_c.id()]);
-    assert_abandoned_with_parent(tx.repo_mut(), &rebase_map, &commit_g, new_commit_c.id());
+    let new_commit_c = assert_rebased_onto(tx.repo(), &rebase_map, &commit_c, &[commit_b2.id()]);
+    assert_abandoned_with_parent(tx.repo(), &rebase_map, &commit_d, new_commit_c.id());
+    assert_abandoned_with_parent(tx.repo(), &rebase_map, &commit_e, new_commit_c.id());
+    let new_commit_f = assert_rebased_onto(tx.repo(), &rebase_map, &commit_f, &[new_commit_c.id()]);
+    assert_abandoned_with_parent(tx.repo(), &rebase_map, &commit_g, new_commit_c.id());
 
     let new_wc_commit_id = tx
-        .repo_mut()
+        .repo()
         .view()
         .get_wc_commit_id(&workspace)
         .unwrap()
         .clone();
-    let new_wc_commit = tx.repo_mut().store().get_commit(&new_wc_commit_id).unwrap();
+    let new_wc_commit = tx.repo().store().get_commit(&new_wc_commit_id).unwrap();
     assert_eq!(new_wc_commit.parent_ids(), &[new_commit_c.id().clone()]);
 
     assert_eq!(
-        *tx.repo_mut().view().heads(),
+        *tx.repo().view().heads(),
         hashset! {new_commit_f.id().clone(), new_wc_commit_id.clone()}
     );
 }
