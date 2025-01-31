@@ -823,6 +823,19 @@ fn test_bookmark_forget_fetched_bookmark() {
     feature1: ooosovrs 38aefb17 (empty) another message
       @origin: ooosovrs 38aefb17 (empty) another message
     "###);
+
+    // TEST 4: If `--untrack` is used, the remote bookmark only be untracked
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "forget", "--untrack", "feature1"]);
+    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r###"
+    feature1@origin: ooosovrs 38aefb17 (empty) another message
+    "###);
+    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "fetch", "--remote=origin"]);
+    insta::assert_snapshot!(stdout, @"");
+    // There should be no output here since the remote bookmark wasn't forgotten
+    insta::assert_snapshot!(stderr, @"Nothing changed.");
+    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r###"
+    feature1@origin: ooosovrs 38aefb17 (empty) another message
+    "###);
 }
 
 #[test]
