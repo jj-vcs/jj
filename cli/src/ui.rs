@@ -60,6 +60,7 @@ enum UiOutput {
         err_wr: PipeWriter,
         pager_thread: JoinHandle<streampager::Result<()>>,
     },
+    Null,
 }
 
 impl UiOutput {
@@ -140,6 +141,7 @@ impl UiOutput {
                     }
                 }
             }
+            UiOutput::Null => {}
         }
     }
 }
@@ -148,12 +150,14 @@ pub enum UiStdout<'a> {
     Terminal(StdoutLock<'static>),
     Paged(&'a ChildStdin),
     Builtin(&'a PipeWriter),
+    Null(io::Sink),
 }
 
 pub enum UiStderr<'a> {
     Terminal(StderrLock<'static>),
     Paged(&'a ChildStdin),
     Builtin(&'a PipeWriter),
+    Null(io::Sink),
 }
 
 macro_rules! for_outputs {
@@ -162,6 +166,7 @@ macro_rules! for_outputs {
             $ty::Terminal($pat) => $expr,
             $ty::Paged($pat) => $expr,
             $ty::Builtin($pat) => $expr,
+            $ty::Null($pat) => $expr,
         }
     };
 }
@@ -254,6 +259,17 @@ pub enum PaginationChoice {
 }
 
 impl Ui {
+    pub fn null() -> Ui {
+        Ui {
+            quiet: true,
+            pager_cmd: CommandNameAndArgs::String(String::new()),
+            paginate: PaginationChoice::Never,
+            progress_indicator: false,
+            formatter_factory: FormatterFactory::plain_text(),
+            output: UiOutput::Null,
+        }
+    }
+
     pub fn with_config(config: &StackedConfig) -> Result<Ui, CommandError> {
         let formatter_factory = prepare_formatter_factory(config, &io::stdout())?;
         Ok(Ui {
@@ -336,6 +352,7 @@ impl Ui {
             UiOutput::Terminal { stdout, .. } => UiStdout::Terminal(stdout.lock()),
             UiOutput::Paged { child_stdin, .. } => UiStdout::Paged(child_stdin),
             UiOutput::BuiltinPaged { out_wr, .. } => UiStdout::Builtin(out_wr),
+            UiOutput::Null => UiStdout::Null(io::sink()),
         }
     }
 
@@ -353,6 +370,7 @@ impl Ui {
             UiOutput::Terminal { stderr, .. } => UiStderr::Terminal(stderr.lock()),
             UiOutput::Paged { child_stdin, .. } => UiStderr::Paged(child_stdin),
             UiOutput::BuiltinPaged { err_wr, .. } => UiStderr::Builtin(err_wr),
+            UiOutput::Null => UiStderr::Null(io::sink()),
         }
     }
 
@@ -367,6 +385,7 @@ impl Ui {
             UiOutput::Terminal { .. } => Ok(Stdio::inherit()),
             UiOutput::Paged { child_stdin, .. } => Ok(duplicate_child_stdin(child_stdin)?.into()),
             UiOutput::BuiltinPaged { err_wr, .. } => Ok(err_wr.try_clone()?.into()),
+            UiOutput::Null => Ok(Stdio::null()),
         }
     }
 
@@ -377,6 +396,7 @@ impl Ui {
             UiOutput::Terminal { stderr, .. } => self.progress_indicator && stderr.is_terminal(),
             UiOutput::Paged { .. } => false,
             UiOutput::BuiltinPaged { .. } => false,
+            UiOutput::Null => false,
         }
     }
 
