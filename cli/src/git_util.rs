@@ -395,7 +395,8 @@ impl Progress {
         }
 
         self.buffer.clear();
-        write!(self.buffer, "\r").unwrap();
+        // Overwrite the current local or sideband progress line if any.
+        self.buffer.push('\r');
         let control_chars = self.buffer.len();
         write!(self.buffer, "{: >3.0}% ", 100.0 * progress.overall).unwrap();
         if let Some(total) = progress.bytes_downloaded {
@@ -417,6 +418,9 @@ impl Progress {
         self.buffer.push(']');
 
         write!(self.buffer, "{}", Clear(ClearType::UntilNewLine)).unwrap();
+        // Move cursor back to the first column so the next sideband message
+        // will overwrite the current progress.
+        self.buffer.push('\r');
         write!(output, "{}", self.buffer)?;
         output.flush()?;
         Ok(())
