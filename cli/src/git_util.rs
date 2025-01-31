@@ -250,7 +250,7 @@ impl GitSidebandProgressMessageWriter {
         }
 
         // Add leftover message to "scratch" buffer to be printed in next call.
-        if index < progress_message.len() && progress_message[index] != 0 {
+        if index < progress_message.len() {
             if self.scratch.is_empty() {
                 self.scratch.extend_from_slice(self.display_prefix);
             }
