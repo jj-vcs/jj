@@ -343,6 +343,22 @@ To prevent rewriting commits authored by other users:
 Ancestors of the configured set are also immutable. The root commit is always
 immutable even if the set is empty.
 
+### Behavior of prev and next commands
+
+If you prefer using an "edit-based" workflow, rather than squashing
+modifications into parent changes, you may find yourself using the `prev` and
+`next` commands with their `--edit` flag often to move between your changes. You
+can avoid having to type the `--edit` flag every time you need it by actually
+making it the default:
+
+```toml
+[ui.movement]
+edit = true
+```
+
+You can pass the `--no-edit` flag to `prev` and `next` if you find yourself
+needing the original behavior.
+
 ## Log
 
 ### Default revisions

@@ -177,6 +177,16 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Whether the built-in templates should show cryptographic signature information"
+                },
+                "movement": {
+                    "type": "object",
+                    "properties": {
+                        "edit": {
+                            "type": "boolean",
+                            "description": "Whether the next and prev commands should behave as if the --edit flag was passed",
+                            "default": false
+                        }
+                    }
                 }
             }
         },
