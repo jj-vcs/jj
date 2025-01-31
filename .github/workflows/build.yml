@@ -81,7 +81,7 @@ jobs:
       uses: dtolnay/rust-toolchain@a54c7afa936fefeb4456b2dd8068152669aa8203
       with:
         toolchain: 1.76
-    - uses: taiki-e/install-action@76a1fec160a6ce3d9efbecc54b2e6304f1887695
+    - uses: taiki-e/install-action@65835784ace7c5a78745b6dbeb9bf85346430497
       with:
         tool: nextest
     - name: Build
