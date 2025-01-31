@@ -33,6 +33,7 @@ use crate::config::default_config_layers;
 use crate::config::ConfigArgKind;
 use crate::config::ConfigEnv;
 use crate::config::CONFIG_SCHEMA;
+use crate::revset_util::load_revset_aliases;
 use crate::ui::Ui;
 
 const BOOKMARK_HELP_TEMPLATE: &str = r#"template-aliases.'bookmark_help()'='''
@@ -224,6 +225,7 @@ fn revisions(revisions: Option<&str>) -> Vec<CompletionCandidate> {
         const CHANGE_ID: usize = 3;
         const REMOTE_BOOKMARK_MINE: usize = 4;
         const REMOTE_BOOKMARK: usize = 5;
+        const REVSET_ALIAS: usize = 6;
 
         let mut candidates = Vec::new();
 
@@ -318,6 +320,18 @@ fn revisions(revisions: Option<&str>) -> Vec<CompletionCandidate> {
             CompletionCandidate::new(id)
                 .help(desc)
                 .display_order(Some(CHANGE_ID))
+        }));
+
+        // revset aliases
+
+        let revset_aliases = load_revset_aliases(&Ui::null(), settings.config())?;
+        let mut symbol_names: Vec<_> = revset_aliases.symbol_names().collect();
+        symbol_names.sort();
+        candidates.extend(symbol_names.into_iter().map(|symbol| {
+            let (_, defn) = revset_aliases.get_symbol(symbol).unwrap();
+            CompletionCandidate::new(symbol)
+                .help(Some(defn.into()))
+                .display_order(Some(REVSET_ALIAS))
         }));
 
         Ok(candidates)

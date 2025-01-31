@@ -381,6 +381,14 @@ fn test_revisions() {
     test_env.jj_cmd_ok(&repo_path, &["b", "c", "immutable_bookmark"]);
     test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "immutable"]);
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "immutable_bookmark""#);
+    test_env.add_config(r#"revset-aliases."siblings" = "@-+ ~@""#);
+    test_env.add_config(
+        r#"revset-aliases."alias_with_newline" = '''
+    roots(
+        conflicts()
+    )
+    '''"#,
+    );
 
     test_env.jj_cmd_ok(&repo_path, &["b", "c", "mutable_bookmark"]);
     test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "mutable"]);
@@ -406,6 +414,8 @@ fn test_revisions() {
     zq	remote_commit
     zz	(no description set)
     remote_bookmark@origin	remote_commit
+    alias_with_newline	    roots(
+    siblings	@-+ ~@
     ");
 
     // complete only mutable revisions
@@ -415,6 +425,8 @@ fn test_revisions() {
     k	working_copy
     y	mutable
     zq	remote_commit
+    alias_with_newline	    roots(
+    siblings	@-+ ~@
     ");
 
     // complete args of the default command
@@ -429,6 +441,8 @@ fn test_revisions() {
     zq	remote_commit
     zz	(no description set)
     remote_bookmark@origin	remote_commit
+    alias_with_newline	    roots(
+    siblings	@-+ ~@
     ");
 }
 
