@@ -110,7 +110,7 @@ textwrap = "0.16.1"
 thiserror = "2.0.11"
 timeago = { version = "0.4.2", default-features = false }
 tokio = { version = "1.43.0" }
-toml_edit = { version = "0.22.22", features = ["serde"] }
+toml_edit = { version = "0.22.23", features = ["serde"] }
 tracing = "0.1.41"
 tracing-chrome = "0.7.2"
 tracing-subscriber = { version = "0.3.19", default-features = false, features = [
