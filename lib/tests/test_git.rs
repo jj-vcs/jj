@@ -138,12 +138,14 @@ fn git_fetch(
     git_settings: &GitSettings,
 ) -> Result<GitFetchStats, GitFetchError> {
     let mut git_fetch = GitFetch::new(mut_repo, git_settings).unwrap();
-    let default_branch = git_fetch.fetch(
+    git_fetch.fetch(
         remote_name,
         branch_names,
         git::RemoteCallbacks::default(),
         None,
     )?;
+    let default_branch =
+        git_fetch.get_default_branch(remote_name, git::RemoteCallbacks::default())?;
 
     let import_stats = git_fetch.import_refs().unwrap();
     let stats = GitFetchStats {

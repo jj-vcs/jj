@@ -1558,15 +1558,24 @@ impl<'a> GitFetch<'a> {
         branch_names: &[StringPattern],
         callbacks: RemoteCallbacks<'_>,
         depth: Option<NonZeroU32>,
-    ) -> Result<Option<String>, GitFetchError> {
-        let default_branch = self
-            .fetch_impl
+    ) -> Result<(), GitFetchError> {
+        self.fetch_impl
             .fetch(remote_name, branch_names, callbacks, depth)?;
         self.fetched.push(FetchedBranches {
             remote: remote_name.to_string(),
             branches: branch_names.to_vec(),
         });
-        Ok(default_branch)
+        Ok(())
+    }
+
+    /// Queries remote for the default branch name.
+    #[tracing::instrument(skip(self, callbacks))]
+    pub fn get_default_branch(
+        &self,
+        remote_name: &str,
+        callbacks: RemoteCallbacks<'_>,
+    ) -> Result<Option<String>, GitFetchError> {
+        self.fetch_impl.get_default_branch(remote_name, callbacks)
     }
 
     /// Import the previously fetched remote-tracking branches into the jj repo
@@ -1662,7 +1671,7 @@ impl<'a> GitFetchImpl<'a> {
         branch_names: &[StringPattern],
         callbacks: RemoteCallbacks<'_>,
         depth: Option<NonZeroU32>,
-    ) -> Result<Option<String>, GitFetchError> {
+    ) -> Result<(), GitFetchError> {
         match self {
             GitFetchImpl::Git2 { git_repo } => {
                 git2_fetch(git_repo, remote_name, branch_names, callbacks, depth)
@@ -1677,6 +1686,21 @@ impl<'a> GitFetchImpl<'a> {
             ),
         }
     }
+
+    fn get_default_branch(
+        &self,
+        remote_name: &str,
+        callbacks: RemoteCallbacks<'_>,
+    ) -> Result<Option<String>, GitFetchError> {
+        match self {
+            GitFetchImpl::Git2 { git_repo } => {
+                git2_get_default_branch(git_repo, remote_name, callbacks)
+            }
+            GitFetchImpl::Subprocess { git_repo, git_ctx } => {
+                subprocess_get_default_branch(git_repo, git_ctx, remote_name, callbacks)
+            }
+        }
+    }
 }
 
 fn git2_fetch(
@@ -1685,7 +1709,7 @@ fn git2_fetch(
     branch_names: &[StringPattern],
     callbacks: RemoteCallbacks<'_>,
     depth: Option<NonZeroU32>,
-) -> Result<Option<String>, GitFetchError> {
+) -> Result<(), GitFetchError> {
     let mut remote = git_repo.find_remote(remote_name).map_err(|err| {
         if is_remote_not_found_err(&err) {
             GitFetchError::NoSuchRemote(remote_name.to_string())
@@ -1702,7 +1726,7 @@ fn git2_fetch(
 
     if refspecs.is_empty() {
         // Don't fall back to the base refspecs.
-        return Ok(None);
+        return Ok(());
     }
 
     tracing::debug!("remote.download");
@@ -1716,11 +1740,37 @@ fn git2_fetch(
         git2::AutotagOption::Unspecified,
         None,
     )?;
+    tracing::debug!("remote.disconnect");
+    remote.disconnect()?;
+    Ok(())
+}
 
-    // TODO: We could make it optional to get the default branch since we only care
-    // about it on clone.
+fn git2_get_default_branch(
+    git_repo: &git2::Repository,
+    remote_name: &str,
+    callbacks: RemoteCallbacks<'_>,
+) -> Result<Option<String>, GitFetchError> {
+    let mut remote = git_repo.find_remote(remote_name).map_err(|err| {
+        if is_remote_not_found_err(&err) {
+            GitFetchError::NoSuchRemote(remote_name.to_string())
+        } else {
+            GitFetchError::InternalGitError(err)
+        }
+    })?;
+    // Unlike .download(), connect_auth() returns RAII object.
+    tracing::debug!("remote.connect");
+    let connection = {
+        let mut proxy_options = git2::ProxyOptions::new();
+        proxy_options.auto();
+        remote.connect_auth(
+            git2::Direction::Fetch,
+            Some(callbacks.into_git()),
+            Some(proxy_options),
+        )?
+    };
     let mut default_branch = None;
-    if let Ok(default_ref_buf) = remote.default_branch() {
+    tracing::debug!("remote.default_branch");
+    if let Ok(default_ref_buf) = connection.default_branch() {
         if let Some(default_ref) = default_ref_buf.as_str() {
             // LocalBranch here is the local branch on the remote, so it's really the remote
             // branch
@@ -1730,8 +1780,6 @@ fn git2_fetch(
             }
         }
     }
-    tracing::debug!("remote.disconnect");
-    remote.disconnect()?;
     Ok(default_branch)
 }
 
@@ -1742,7 +1790,7 @@ fn subprocess_fetch(
     branch_names: &[StringPattern],
     mut callbacks: RemoteCallbacks<'_>,
     depth: Option<NonZeroU32>,
-) -> Result<Option<String>, GitFetchError> {
+) -> Result<(), GitFetchError> {
     // check the remote exists
     if git_repo.try_find_remote(remote_name).is_none() {
         return Err(GitFetchError::NoSuchRemote(remote_name.to_owned()));
@@ -1752,7 +1800,7 @@ fn subprocess_fetch(
     let mut remaining_refspecs: Vec<_> = expand_fetch_refspecs(remote_name, branch_names)?;
     if remaining_refspecs.is_empty() {
         // Don't fall back to the base refspecs.
-        return Ok(None);
+        return Ok(());
     }
 
     let mut branches_to_prune = Vec::new();
@@ -1776,12 +1824,20 @@ fn subprocess_fetch(
     // Even if git fetch has --prune, if a branch is not found it will not be
     // pruned on fetch
     git_ctx.spawn_branch_prune(&branches_to_prune)?;
+    Ok(())
+}
 
-    // TODO: We could make it optional to get the default branch since we only care
-    // about it on clone.
+fn subprocess_get_default_branch(
+    git_repo: &gix::Repository,
+    git_ctx: &GitSubprocessContext,
+    remote_name: &str,
+    _callbacks: RemoteCallbacks<'_>,
+) -> Result<Option<String>, GitFetchError> {
+    if git_repo.try_find_remote(remote_name).is_none() {
+        return Err(GitFetchError::NoSuchRemote(remote_name.to_owned()));
+    }
     let default_branch = git_ctx.spawn_remote_show(remote_name)?;
     tracing::debug!(default_branch = default_branch);
-
     Ok(default_branch)
 }
 

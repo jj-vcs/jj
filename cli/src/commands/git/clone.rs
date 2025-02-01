@@ -224,9 +224,11 @@ fn fetch_new_remote(
     let git_settings = workspace_command.settings().git_settings()?;
     let mut fetch_tx = workspace_command.start_transaction();
     let mut git_fetch = GitFetch::new(fetch_tx.repo_mut(), &git_settings)?;
-    let default_branch = with_remote_git_callbacks(ui, |cb| {
+    with_remote_git_callbacks(ui, |cb| {
         git_fetch.fetch(remote_name, &[StringPattern::everything()], cb, depth)
     })?;
+    let default_branch =
+        with_remote_git_callbacks(ui, |cb| git_fetch.get_default_branch(remote_name, cb))?;
     let import_stats = git_fetch.import_refs()?;
     print_git_import_stats(ui, fetch_tx.repo(), &import_stats, true)?;
     fetch_tx.finish(ui, "fetch from git remote into empty repo")?;
