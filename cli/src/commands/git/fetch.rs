@@ -135,11 +135,8 @@ fn do_git_fetch(
             git_fetch
                 .fetch(remote_name, branch_names, callbacks, None)
                 .map_err(|err| match err {
-                    GitFetchError::InvalidBranchPattern => {
-                        if branch_names
-                            .iter()
-                            .any(|pattern| pattern.as_exact().is_some_and(|s| s.contains('*')))
-                        {
+                    GitFetchError::InvalidBranchPattern(ref pattern) => {
+                        if pattern.as_exact().is_some_and(|s| s.contains('*')) {
                             user_error_with_hint(
                                 "Branch names may not include `*`.",
                                 "Prefix the pattern with `glob:` to expand `*` as a glob",

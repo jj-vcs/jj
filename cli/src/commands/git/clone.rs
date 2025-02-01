@@ -236,7 +236,7 @@ fn fetch_new_remote(
                 }
                 GitFetchError::InternalGitError(err) => map_git_error(err),
                 GitFetchError::Subprocess(err) => user_error(err),
-                GitFetchError::InvalidBranchPattern => {
+                GitFetchError::InvalidBranchPattern(_) => {
                     unreachable!("we didn't provide any globs")
                 }
             })

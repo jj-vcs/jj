@@ -1479,7 +1479,7 @@ pub enum GitFetchError {
         "Invalid branch pattern provided. When fetching, branch names and globs may not contain the characters `{chars}`",
         chars = INVALID_REFSPEC_CHARS.iter().join("`, `")
     )]
-    InvalidBranchPattern,
+    InvalidBranchPattern(StringPattern),
     // TODO: I'm sure there are other errors possible, such as transport-level errors.
     #[error("Unexpected git error when fetching")]
     InternalGitError(#[from] git2::Error),
@@ -1557,7 +1557,7 @@ impl<'a> GitFetch<'a> {
                             format!("refs/remotes/{remote_name}/{glob}"),
                         )
                     })
-                    .ok_or(GitFetchError::InvalidBranchPattern)
+                    .ok_or_else(|| GitFetchError::InvalidBranchPattern(pattern.clone()))
             })
             .collect()
     }
