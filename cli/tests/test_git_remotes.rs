@@ -15,6 +15,8 @@
 use std::fs;
 use std::path::PathBuf;
 
+use testutils::git;
+
 use crate::common::TestEnvironment;
 
 #[test]
@@ -254,10 +256,8 @@ fn test_git_remote_named_git() {
 
     // Existing remote named 'git' shouldn't block the repo initialization.
     let repo_path = test_env.env_root().join("repo");
-    let git_repo = git2::Repository::init(&repo_path).unwrap();
-    git_repo
-        .remote("git", "http://example.com/repo/repo")
-        .unwrap();
+    git::init(&repo_path);
+    git::add_remote(&repo_path, "git", "http://example.com/repo/repo");
     test_env
         .run_jj_in(&repo_path, ["git", "init", "--git-repo=."])
         .success();
@@ -293,7 +293,7 @@ fn test_git_remote_named_git() {
 
     // Reinitialize the repo with remote named 'git'.
     fs::remove_dir_all(repo_path.join(".jj")).unwrap();
-    git_repo.remote_rename("bar", "git").unwrap();
+    git::rename_remote(&repo_path, "bar", "git");
     test_env
         .run_jj_in(&repo_path, ["git", "init", "--git-repo=."])
         .success();
@@ -320,10 +320,8 @@ fn test_git_remote_with_slashes() {
 
     // Existing remote with slashes shouldn't block the repo initialization.
     let repo_path = test_env.env_root().join("repo");
-    let git_repo = git2::Repository::init(&repo_path).unwrap();
-    git_repo
-        .remote("slash/origin", "http://example.com/repo/repo")
-        .unwrap();
+    git::init(&repo_path);
+    git::add_remote(&repo_path, "slash/origin", "http://example.com/repo/repo");
     test_env
         .run_jj_in(&repo_path, ["git", "init", "--git-repo=."])
         .success();
@@ -380,7 +378,7 @@ fn test_git_remote_with_slashes() {
 
     // Reinitialize the repo with remote with slashes
     fs::remove_dir_all(repo_path.join(".jj")).unwrap();
-    git_repo.remote_rename("origin", "slash/origin").unwrap();
+    git::rename_remote(&repo_path, "origin", "slash/origin");
     test_env
         .run_jj_in(&repo_path, ["git", "init", "--git-repo=."])
         .success();
