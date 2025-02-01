@@ -124,14 +124,13 @@ fn write_repository_level_trunk_alias(
     branch: &str,
 ) -> Result<(), CommandError> {
     let mut file = ConfigFile::load_or_empty(ConfigSource::Repo, repo_path.join("config.toml"))?;
-    let branch = revset::format_symbol(branch);
-    let remote = revset::format_symbol(remote);
-    file.set_value(["revset-aliases", "trunk()"], format!("{branch}@{remote}"))
+    let expr = revset::format_remote_symbol(branch, remote);
+    file.set_value(["revset-aliases", "trunk()"], &expr)
         .expect("initial repo config shouldn't have invalid values");
     file.save()?;
     writeln!(
         ui.status(),
-        "Setting the revset alias `trunk()` to `{branch}@{remote}`",
+        "Setting the revset alias `trunk()` to `{expr}`",
     )?;
     Ok(())
 }

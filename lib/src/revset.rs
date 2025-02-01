@@ -2686,13 +2686,29 @@ pub struct RevsetWorkspaceContext<'a> {
     pub workspace_id: &'a WorkspaceId,
 }
 
-/// Formats a string as symbol by quoting and escaping it if necessary
+/// Formats a string as symbol by quoting and escaping it if necessary.
+///
+/// Note that symbols may be substituted to user aliases. Use
+/// [`format_string()`] to ensure that the provided string is resolved as a
+/// tag/bookmark name, commit/change ID prefix, etc.
 pub fn format_symbol(literal: &str) -> String {
     if revset_parser::is_identifier(literal) {
         literal.to_string()
     } else {
-        format!(r#""{}""#, dsl_util::escape_string(literal))
+        format_string(literal)
     }
+}
+
+/// Formats a string by quoting and escaping it.
+pub fn format_string(literal: &str) -> String {
+    format!(r#""{}""#, dsl_util::escape_string(literal))
+}
+
+/// Formats a `name@remote` symbol, applies quoting and escaping if necessary.
+pub fn format_remote_symbol(name: &str, remote: &str) -> String {
+    let name = format_symbol(name);
+    let remote = format_symbol(remote);
+    format!("{name}@{remote}")
 }
 
 #[cfg(test)]
@@ -4362,5 +4378,14 @@ mod tests {
         assert_eq!(format_symbol("foo\\bar"), r#""foo\\bar""#);
         assert_eq!(format_symbol("foo\\\"bar"), r#""foo\\\"bar""#);
         assert_eq!(format_symbol("foo \x01 bar"), r#""foo \x01 bar""#);
+    }
+
+    #[test]
+    fn test_escape_remote_symbol() {
+        assert_eq!(format_remote_symbol("foo", "bar"), "foo@bar");
+        assert_eq!(
+            format_remote_symbol(" foo ", "bar:baz"),
+            r#"" foo "@"bar:baz""#
+        );
     }
 }
