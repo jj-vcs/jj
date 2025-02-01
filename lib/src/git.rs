@@ -1637,7 +1637,7 @@ enum GitFetchImpl<'a> {
         git_repo: git2::Repository,
     },
     Subprocess {
-        git_repo: git2::Repository,
+        git_repo: gix::Repository,
         git_ctx: GitSubprocessContext<'a>,
     },
 }
@@ -1645,12 +1645,13 @@ enum GitFetchImpl<'a> {
 impl<'a> GitFetchImpl<'a> {
     fn new(store: &Store, git_settings: &'a GitSettings) -> Result<Self, GitFetchPrepareError> {
         let git_backend = get_git_backend(store)?;
-        let git_repo = git_backend.open_git_repo()?;
         if git_settings.subprocess {
+            let git_repo = git_backend.git_repo();
             let git_ctx =
                 GitSubprocessContext::from_git_backend(git_backend, &git_settings.executable_path);
             Ok(GitFetchImpl::Subprocess { git_repo, git_ctx })
         } else {
+            let git_repo = git_backend.open_git_repo()?;
             Ok(GitFetchImpl::Git2 { git_repo })
         }
     }
@@ -1735,7 +1736,7 @@ fn git2_fetch(
 }
 
 fn subprocess_fetch(
-    git_repo: &git2::Repository,
+    git_repo: &gix::Repository,
     git_ctx: &GitSubprocessContext,
     remote_name: &str,
     branch_names: &[StringPattern],
@@ -1743,14 +1744,9 @@ fn subprocess_fetch(
     depth: Option<NonZeroU32>,
 ) -> Result<Option<String>, GitFetchError> {
     // check the remote exists
-    // TODO: we should ideally find a way to do this without git2
-    let _remote = git_repo.find_remote(remote_name).map_err(|err| {
-        if is_remote_not_found_err(&err) {
-            GitFetchError::NoSuchRemote(remote_name.to_string())
-        } else {
-            GitFetchError::InternalGitError(err)
-        }
-    })?;
+    if git_repo.try_find_remote(remote_name).is_none() {
+        return Err(GitFetchError::NoSuchRemote(remote_name.to_owned()));
+    }
     // At this point, we are only updating Git's remote tracking branches, not the
     // local branches.
     let mut remaining_refspecs: Vec<_> = expand_fetch_refspecs(remote_name, branch_names)?;
@@ -1897,8 +1893,8 @@ pub fn push_updates(
     // requires adjusting some tests.
 
     let git_backend = get_git_backend(repo.store())?;
-    let git_repo = git_backend.open_git_repo()?;
     if git_settings.subprocess {
+        let git_repo = git_backend.git_repo();
         let git_ctx =
             GitSubprocessContext::from_git_backend(git_backend, &git_settings.executable_path);
         subprocess_push_refs(
@@ -1910,6 +1906,7 @@ pub fn push_updates(
             callbacks,
         )
     } else {
+        let git_repo = git_backend.open_git_repo()?;
         let refspecs: Vec<String> = refspecs.iter().map(RefSpec::to_git_format).collect();
         git2_push_refs(
             repo,
@@ -2049,7 +2046,7 @@ fn git2_push_refs(
 }
 
 fn subprocess_push_refs(
-    git_repo: &git2::Repository,
+    git_repo: &gix::Repository,
     git_ctx: &GitSubprocessContext,
     remote_name: &str,
     qualified_remote_refs_expected_locations: &HashMap<&str, Option<&CommitId>>,
@@ -2057,14 +2054,9 @@ fn subprocess_push_refs(
     mut callbacks: RemoteCallbacks<'_>,
 ) -> Result<(), GitPushError> {
     // check the remote exists
-    // TODO: we should ideally find a way to do this without git2
-    let _remote = git_repo.find_remote(remote_name).map_err(|err| {
-        if is_remote_not_found_err(&err) {
-            GitPushError::NoSuchRemote(remote_name.to_string())
-        } else {
-            GitPushError::InternalGitError(err)
-        }
-    })?;
+    if git_repo.try_find_remote(remote_name).is_none() {
+        return Err(GitPushError::NoSuchRemote(remote_name.to_owned()));
+    }
 
     let mut remaining_remote_refs: HashSet<_> = qualified_remote_refs_expected_locations
         .keys()
