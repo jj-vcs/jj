@@ -15,6 +15,7 @@
 use indoc::indoc;
 use regex::Regex;
 
+use crate::common::git;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -666,7 +667,7 @@ fn test_log_bookmarks() {
 fn test_log_git_head() {
     let test_env = TestEnvironment::default();
     let repo_path = test_env.env_root().join("repo");
-    git2::Repository::init(&repo_path).unwrap();
+    git::init(&repo_path);
     test_env.jj_cmd_ok(&repo_path, &["git", "init", "--git-repo=."]);
 
     test_env.jj_cmd_ok(&repo_path, &["new", "-m=initial"]);
