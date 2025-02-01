@@ -17,20 +17,16 @@ use itertools::Itertools;
 use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::git;
 use jj_lib::git::GitFetch;
-use jj_lib::git::GitFetchError;
 use jj_lib::repo::Repo;
 use jj_lib::str_util::StringPattern;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
 use crate::cli_util::WorkspaceCommandTransaction;
-use crate::command_error::user_error;
-use crate::command_error::user_error_with_hint;
 use crate::command_error::CommandError;
 use crate::commands::git::get_single_remote;
 use crate::complete;
 use crate::git_util::get_git_repo;
-use crate::git_util::map_git_error;
 use crate::git_util::print_git_import_stats;
 use crate::git_util::with_remote_git_callbacks;
 use crate::ui::Ui;
@@ -132,22 +128,7 @@ fn do_git_fetch(
 
     for remote_name in remotes {
         with_remote_git_callbacks(ui, |callbacks| {
-            git_fetch
-                .fetch(remote_name, branch_names, callbacks, None)
-                .map_err(|err| match err {
-                    GitFetchError::InvalidBranchPattern(ref pattern) => {
-                        if pattern.as_exact().is_some_and(|s| s.contains('*')) {
-                            user_error_with_hint(
-                                "Branch names may not include `*`.",
-                                "Prefix the pattern with `glob:` to expand `*` as a glob",
-                            )
-                        } else {
-                            user_error(err)
-                        }
-                    }
-                    GitFetchError::InternalGitError(err) => map_git_error(err),
-                    _ => user_error(err),
-                })
+            git_fetch.fetch(remote_name, branch_names, callbacks, None)
         })?;
     }
     let import_stats = git_fetch.import_refs()?;

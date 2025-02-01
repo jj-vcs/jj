@@ -28,7 +28,6 @@ use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::git;
 use jj_lib::git::GitBranchPushTargets;
-use jj_lib::git::GitPushError;
 use jj_lib::object_id::ObjectId;
 use jj_lib::op_store::RefTarget;
 use jj_lib::refs::classify_bookmark_push_action;
@@ -49,13 +48,11 @@ use crate::cli_util::RevisionArg;
 use crate::cli_util::WorkspaceCommandHelper;
 use crate::cli_util::WorkspaceCommandTransaction;
 use crate::command_error::user_error;
-use crate::command_error::user_error_with_hint;
 use crate::command_error::CommandError;
 use crate::commands::git::get_single_remote;
 use crate::complete;
 use crate::formatter::Formatter;
 use crate::git_util::get_git_repo;
-use crate::git_util::map_git_error;
 use crate::git_util::with_remote_git_callbacks;
 use crate::ui::Ui;
 
@@ -382,19 +379,6 @@ pub fn cmd_git_push(
             &targets,
             cb,
         )
-    })
-    .map_err(|err| match err {
-        GitPushError::InternalGitError(err) => map_git_error(err),
-        GitPushError::RefInUnexpectedLocation(refs) => user_error_with_hint(
-            format!(
-                "Refusing to push a bookmark that unexpectedly moved on the remote. Affected \
-                 refs: {}",
-                refs.join(", ")
-            ),
-            "Try fetching from the remote, then make the bookmark point to where you want it to \
-             be, and push again.",
-        ),
-        _ => user_error(err),
     })?;
     tx.finish(ui, tx_description)?;
     Ok(())

@@ -482,7 +482,9 @@ impl From<TempTextEditError> for CommandError {
 mod git {
     use jj_lib::git::GitConfigParseError;
     use jj_lib::git::GitExportError;
+    use jj_lib::git::GitFetchError;
     use jj_lib::git::GitImportError;
+    use jj_lib::git::GitPushError;
     use jj_lib::git::GitRemoteManagementError;
     use jj_lib::git::UnexpectedGitBackendError;
 
@@ -525,6 +527,46 @@ jj currently does not support partial clones. To use jj with this repository, tr
         }
     }
 
+    impl From<GitFetchError> for CommandError {
+        fn from(err: GitFetchError) -> Self {
+            if let GitFetchError::InvalidBranchPattern(pattern) = &err {
+                if pattern.as_exact().is_some_and(|s| s.contains('*')) {
+                    return user_error_with_hint(
+                        "Branch names may not include `*`.",
+                        "Prefix the pattern with `glob:` to expand `*` as a glob",
+                    );
+                }
+            }
+            match err {
+                GitFetchError::NoSuchRemote(_) => user_error(err),
+                GitFetchError::InvalidBranchPattern(_) => user_error(err),
+                GitFetchError::InternalGitError(err) => map_git2_error(err),
+                GitFetchError::Subprocess(_) => user_error(err),
+            }
+        }
+    }
+
+    impl From<GitPushError> for CommandError {
+        fn from(err: GitPushError) -> Self {
+            match err {
+                GitPushError::NoSuchRemote(_) => user_error(err),
+                GitPushError::RemoteReservedForLocalGitRepo => user_error(err),
+                GitPushError::RefInUnexpectedLocation(refs) => user_error_with_hint(
+                    format!(
+                        "Refusing to push a bookmark that unexpectedly moved on the remote. \
+                         Affected refs: {}",
+                        refs.join(", ")
+                    ),
+                    "Try fetching from the remote, then make the bookmark point to where you want \
+                     it to be, and push again.",
+                ),
+                GitPushError::RefUpdateRejected(_) => user_error(err),
+                GitPushError::InternalGitError(err) => map_git2_error(err),
+                GitPushError::Subprocess(_) => user_error(err),
+            }
+        }
+    }
+
     impl From<GitRemoteManagementError> for CommandError {
         fn from(err: GitRemoteManagementError) -> Self {
             user_error(err)
@@ -539,6 +581,25 @@ jj currently does not support partial clones. To use jj with this repository, tr
 
     impl From<UnexpectedGitBackendError> for CommandError {
         fn from(err: UnexpectedGitBackendError) -> Self {
+            user_error(err)
+        }
+    }
+
+    fn map_git2_error(err: git2::Error) -> CommandError {
+        if err.class() == git2::ErrorClass::Ssh {
+            let hint = if err.code() == git2::ErrorCode::Certificate
+                && std::env::var_os("HOME").is_none()
+            {
+                "The HOME environment variable is not set, and might be required for Git to \
+                 successfully load certificates. Try setting it to the path of a directory that \
+                 contains a `.ssh` directory."
+            } else {
+                "Jujutsu uses libssh2, which doesn't respect ~/.ssh/config. Does `ssh -F \
+                 /dev/null` to the host work?"
+            };
+
+            user_error_with_hint(err, hint)
+        } else {
             user_error(err)
         }
     }

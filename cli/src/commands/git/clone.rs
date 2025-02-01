@@ -20,7 +20,6 @@ use std::path::Path;
 
 use jj_lib::git;
 use jj_lib::git::GitFetch;
-use jj_lib::git::GitFetchError;
 use jj_lib::repo::Repo;
 use jj_lib::str_util::StringPattern;
 use jj_lib::workspace::Workspace;
@@ -35,7 +34,6 @@ use crate::command_error::CommandError;
 use crate::commands::git::maybe_add_gitignore;
 use crate::git_util::absolute_git_url;
 use crate::git_util::get_git_repo;
-use crate::git_util::map_git_error;
 use crate::git_util::print_git_import_stats;
 use crate::git_util::with_remote_git_callbacks;
 use crate::ui::Ui;
@@ -228,18 +226,7 @@ fn fetch_new_remote(
     let mut fetch_tx = workspace_command.start_transaction();
     let mut git_fetch = GitFetch::new(fetch_tx.repo_mut(), &git_repo, &git_settings);
     let default_branch = with_remote_git_callbacks(ui, |cb| {
-        git_fetch
-            .fetch(remote_name, &[StringPattern::everything()], cb, depth)
-            .map_err(|err| match err {
-                GitFetchError::NoSuchRemote(_) => {
-                    panic!("shouldn't happen as we just created the git remote")
-                }
-                GitFetchError::InternalGitError(err) => map_git_error(err),
-                GitFetchError::Subprocess(err) => user_error(err),
-                GitFetchError::InvalidBranchPattern(_) => {
-                    unreachable!("we didn't provide any globs")
-                }
-            })
+        git_fetch.fetch(remote_name, &[StringPattern::everything()], cb, depth)
     })?;
     let import_stats = git_fetch.import_refs()?;
     print_git_import_stats(ui, fetch_tx.repo(), &import_stats, true)?;

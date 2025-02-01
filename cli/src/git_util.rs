@@ -46,29 +46,10 @@ use unicode_width::UnicodeWidthStr;
 use crate::cleanup_guard::CleanupGuard;
 use crate::command_error::cli_error;
 use crate::command_error::user_error;
-use crate::command_error::user_error_with_hint;
 use crate::command_error::CommandError;
 use crate::formatter::Formatter;
 use crate::ui::ProgressOutput;
 use crate::ui::Ui;
-
-pub fn map_git_error(err: git2::Error) -> CommandError {
-    if err.class() == git2::ErrorClass::Ssh {
-        let hint =
-            if err.code() == git2::ErrorCode::Certificate && std::env::var_os("HOME").is_none() {
-                "The HOME environment variable is not set, and might be required for Git to \
-                 successfully load certificates. Try setting it to the path of a directory that \
-                 contains a `.ssh` directory."
-            } else {
-                "Jujutsu uses libssh2, which doesn't respect ~/.ssh/config. Does `ssh -F \
-                 /dev/null` to the host work?"
-            };
-
-        user_error_with_hint(err, hint)
-    } else {
-        user_error(err)
-    }
-}
 
 // TODO: migrate to gitoxide or subprocess, and remove this function
 pub(crate) fn get_git_repo(store: &Store) -> Result<git2::Repository, CommandError> {
