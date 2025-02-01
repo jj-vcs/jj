@@ -22,7 +22,6 @@ use std::default::Default;
 use std::fmt;
 use std::io::Read;
 use std::num::NonZeroU32;
-use std::path::Path;
 use std::path::PathBuf;
 use std::str;
 
@@ -1897,9 +1896,10 @@ pub fn push_updates(
 
     let git_repo = get_git_backend(repo.store())?.open_git_repo()?;
     if git_settings.subprocess {
+        let git_ctx = GitSubprocessContext::from_git2(&git_repo, &git_settings.executable_path);
         subprocess_push_refs(
             &git_repo,
-            &git_settings.executable_path,
+            &git_ctx,
             remote_name,
             &qualified_remote_refs_expected_locations,
             &refspecs,
@@ -2046,7 +2046,7 @@ fn git2_push_refs(
 
 fn subprocess_push_refs(
     git_repo: &git2::Repository,
-    git_executable_path: &Path,
+    git_ctx: &GitSubprocessContext,
     remote_name: &str,
     qualified_remote_refs_expected_locations: &HashMap<&str, Option<&CommitId>>,
     refspecs: &[RefSpec],
@@ -2061,7 +2061,6 @@ fn subprocess_push_refs(
             GitPushError::InternalGitError(err)
         }
     })?;
-    let git_ctx = GitSubprocessContext::from_git2(git_repo, git_executable_path);
 
     let mut remaining_remote_refs: HashSet<_> = qualified_remote_refs_expected_locations
         .keys()
