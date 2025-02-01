@@ -133,12 +133,11 @@ fn get_git_settings(subprocess: bool) -> GitSettings {
 
 fn git_fetch(
     mut_repo: &mut MutableRepo,
-    git_repo: &git2::Repository,
     remote_name: &str,
     branch_names: &[StringPattern],
     git_settings: &GitSettings,
 ) -> Result<GitFetchStats, GitFetchError> {
-    let mut git_fetch = GitFetch::new(mut_repo, git_repo, git_settings);
+    let mut git_fetch = GitFetch::new(mut_repo, git_settings).unwrap();
     let default_branch = git_fetch.fetch(
         remote_name,
         branch_names,
@@ -2577,7 +2576,6 @@ fn test_fetch_empty_repo(subprocess: bool) {
     let mut tx = test_data.repo.start_transaction();
     let stats = git_fetch(
         tx.repo_mut(),
-        &test_data.git_repo,
         "origin",
         &[StringPattern::everything()],
         &git_settings,
@@ -2603,7 +2601,6 @@ fn test_fetch_initial_commit_head_is_not_set(subprocess: bool) {
     let mut tx = test_data.repo.start_transaction();
     let stats = git_fetch(
         tx.repo_mut(),
-        &test_data.git_repo,
         "origin",
         &[StringPattern::everything()],
         &git_settings,
@@ -2663,7 +2660,6 @@ fn test_fetch_initial_commit_head_is_set(subprocess: bool) {
     let mut tx = test_data.repo.start_transaction();
     let stats = git_fetch(
         tx.repo_mut(),
-        &test_data.git_repo,
         "origin",
         &[StringPattern::everything()],
         &git_settings,
@@ -2687,7 +2683,6 @@ fn test_fetch_success(subprocess: bool) {
     let mut tx = test_data.repo.start_transaction();
     git_fetch(
         tx.repo_mut(),
-        &test_data.git_repo,
         "origin",
         &[StringPattern::everything()],
         &git_settings,
@@ -2709,7 +2704,6 @@ fn test_fetch_success(subprocess: bool) {
     let mut tx = test_data.repo.start_transaction();
     let stats = git_fetch(
         tx.repo_mut(),
-        &test_data.git_repo,
         "origin",
         &[StringPattern::everything()],
         &git_settings,
@@ -2766,7 +2760,6 @@ fn test_fetch_prune_deleted_ref(subprocess: bool) {
     let mut tx = test_data.repo.start_transaction();
     git_fetch(
         tx.repo_mut(),
-        &test_data.git_repo,
         "origin",
         &[StringPattern::everything()],
         &git_settings,
@@ -2785,7 +2778,6 @@ fn test_fetch_prune_deleted_ref(subprocess: bool) {
     // After re-fetching, the bookmark should be deleted
     let stats = git_fetch(
         tx.repo_mut(),
-        &test_data.git_repo,
         "origin",
         &[StringPattern::everything()],
         &git_settings,
@@ -2812,7 +2804,6 @@ fn test_fetch_no_default_branch(subprocess: bool) {
     let mut tx = test_data.repo.start_transaction();
     git_fetch(
         tx.repo_mut(),
-        &test_data.git_repo,
         "origin",
         &[StringPattern::everything()],
         &git_settings,
@@ -2834,7 +2825,6 @@ fn test_fetch_no_default_branch(subprocess: bool) {
 
     let stats = git_fetch(
         tx.repo_mut(),
-        &test_data.git_repo,
         "origin",
         &[StringPattern::everything()],
         &git_settings,
@@ -2853,14 +2843,7 @@ fn test_fetch_empty_refspecs(subprocess: bool) {
 
     // Base refspecs shouldn't be respected
     let mut tx = test_data.repo.start_transaction();
-    git_fetch(
-        tx.repo_mut(),
-        &test_data.git_repo,
-        "origin",
-        &[],
-        &git_settings,
-    )
-    .unwrap();
+    git_fetch(tx.repo_mut(), "origin", &[], &git_settings).unwrap();
     assert!(tx
         .repo_mut()
         .get_remote_bookmark("main", "origin")
@@ -2881,7 +2864,6 @@ fn test_fetch_no_such_remote(subprocess: bool) {
     let mut tx = test_data.repo.start_transaction();
     let result = git_fetch(
         tx.repo_mut(),
-        &test_data.git_repo,
         "invalid-remote",
         &[StringPattern::everything()],
         &git_settings,
@@ -2901,7 +2883,6 @@ fn test_fetch_multiple_branches() {
     let mut tx = test_data.repo.start_transaction();
     let fetch_stats = git_fetch(
         tx.repo_mut(),
-        &test_data.git_repo,
         "origin",
         &[
             StringPattern::Exact("main".to_string()),

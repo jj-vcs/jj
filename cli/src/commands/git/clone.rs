@@ -216,7 +216,6 @@ fn fetch_new_remote(
     remote_name: &str,
     depth: Option<NonZeroU32>,
 ) -> Result<Option<String>, CommandError> {
-    let git_repo = get_git_repo(workspace_command.repo().store())?;
     writeln!(
         ui.status(),
         r#"Fetching into new repo in "{}""#,
@@ -224,7 +223,7 @@ fn fetch_new_remote(
     )?;
     let git_settings = workspace_command.settings().git_settings()?;
     let mut fetch_tx = workspace_command.start_transaction();
-    let mut git_fetch = GitFetch::new(fetch_tx.repo_mut(), &git_repo, &git_settings);
+    let mut git_fetch = GitFetch::new(fetch_tx.repo_mut(), &git_settings)?;
     let default_branch = with_remote_git_callbacks(ui, |cb| {
         git_fetch.fetch(remote_name, &[StringPattern::everything()], cb, depth)
     })?;

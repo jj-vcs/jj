@@ -1487,6 +1487,16 @@ pub enum GitFetchError {
     Subprocess(#[from] GitSubprocessError),
 }
 
+// TODO: If Git2 implementation is removed, this can be replaced with
+// UnexpectedGitBackendError.
+#[derive(Debug, Error)]
+pub enum GitFetchPrepareError {
+    #[error(transparent)]
+    Git2(#[from] git2::Error),
+    #[error(transparent)]
+    UnexpectedBackend(#[from] UnexpectedGitBackendError),
+}
+
 fn git2_fetch_options(
     mut callbacks: RemoteCallbacks<'_>,
     depth: Option<NonZeroU32>,
@@ -1518,7 +1528,7 @@ struct FetchedBranches {
 /// Helper struct to execute multiple `git fetch` operations
 pub struct GitFetch<'a> {
     mut_repo: &'a mut MutableRepo,
-    git_repo: &'a git2::Repository,
+    git_repo: git2::Repository,
     git_settings: &'a GitSettings,
     fetched: Vec<FetchedBranches>,
 }
@@ -1526,15 +1536,15 @@ pub struct GitFetch<'a> {
 impl<'a> GitFetch<'a> {
     pub fn new(
         mut_repo: &'a mut MutableRepo,
-        git_repo: &'a git2::Repository,
         git_settings: &'a GitSettings,
-    ) -> Self {
-        GitFetch {
+    ) -> Result<Self, GitFetchPrepareError> {
+        let git_repo = get_git_backend(mut_repo.store())?.open_git_repo()?;
+        Ok(GitFetch {
             mut_repo,
             git_repo,
             git_settings,
             fetched: vec![],
-        }
+        })
     }
 
     fn expand_refspecs(
@@ -1643,7 +1653,7 @@ impl<'a> GitFetch<'a> {
         }
 
         let git_ctx =
-            GitSubprocessContext::from_git2(self.git_repo, &self.git_settings.executable_path);
+            GitSubprocessContext::from_git2(&self.git_repo, &self.git_settings.executable_path);
 
         let mut branches_to_prune = Vec::new();
         // git unfortunately errors out if one of the many refspecs is not found

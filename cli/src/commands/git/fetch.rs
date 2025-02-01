@@ -26,7 +26,6 @@ use crate::cli_util::WorkspaceCommandTransaction;
 use crate::command_error::CommandError;
 use crate::commands::git::get_single_remote;
 use crate::complete;
-use crate::git_util::get_git_repo;
 use crate::git_util::print_git_import_stats;
 use crate::git_util::with_remote_git_callbacks;
 use crate::ui::Ui;
@@ -81,8 +80,7 @@ pub fn cmd_git_fetch(
         args.remotes.clone()
     };
     let mut tx = workspace_command.start_transaction();
-    let git_repo = get_git_repo(tx.repo().store())?;
-    do_git_fetch(ui, &mut tx, &git_repo, &remotes, &args.branch)?;
+    do_git_fetch(ui, &mut tx, &remotes, &args.branch)?;
     tx.finish(
         ui,
         format!("fetch from git remote(s) {}", remotes.iter().join(",")),
@@ -119,12 +117,11 @@ fn get_default_fetch_remotes(
 fn do_git_fetch(
     ui: &mut Ui,
     tx: &mut WorkspaceCommandTransaction,
-    git_repo: &git2::Repository,
     remotes: &[String],
     branch_names: &[StringPattern],
 ) -> Result<(), CommandError> {
     let git_settings = tx.settings().git_settings()?;
-    let mut git_fetch = GitFetch::new(tx.repo_mut(), git_repo, &git_settings);
+    let mut git_fetch = GitFetch::new(tx.repo_mut(), &git_settings)?;
 
     for remote_name in remotes {
         with_remote_git_callbacks(ui, |callbacks| {
