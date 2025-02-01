@@ -491,12 +491,6 @@ mod git {
 
     use super::*;
 
-    impl From<git2::Error> for CommandError {
-        fn from(err: git2::Error) -> Self {
-            user_error_with_message("Git operation failed", err)
-        }
-    }
-
     impl From<GitImportError> for CommandError {
         fn from(err: GitImportError) -> Self {
             let hint = match &err {
