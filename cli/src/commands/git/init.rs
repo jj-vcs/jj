@@ -15,8 +15,10 @@
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
+use std::str;
 use std::sync::Arc;
 
+use gix::refs::TargetRef;
 use jj_lib::file_util;
 use jj_lib::git;
 use jj_lib::git::parse_git_ref;
@@ -35,7 +37,6 @@ use crate::command_error::user_error_with_hint;
 use crate::command_error::user_error_with_message;
 use crate::command_error::CommandError;
 use crate::commands::git::maybe_add_gitignore;
-use crate::git_util::get_git_repo;
 use crate::git_util::is_colocated_git_workspace;
 use crate::git_util::print_failed_git_export;
 use crate::git_util::print_git_import_stats;
@@ -236,10 +237,14 @@ pub fn maybe_set_repository_level_trunk_alias(
     ui: &Ui,
     workspace_command: &WorkspaceCommandHelper,
 ) -> Result<(), CommandError> {
-    let git_repo = get_git_repo(workspace_command.repo().store())?;
+    let git_repo = git::get_git_repo(workspace_command.repo().store())?;
     if let Ok(reference) = git_repo.find_reference("refs/remotes/origin/HEAD") {
-        if let Some(reference_name) = reference.symbolic_target() {
-            if let Some(RefName::RemoteBranch { branch, .. }) = parse_git_ref(reference_name) {
+        if let TargetRef::Symbolic(reference_name) = reference.target() {
+            if let Some(RefName::RemoteBranch { branch, .. }) =
+                str::from_utf8(reference_name.as_bstr())
+                    .ok()
+                    .and_then(parse_git_ref)
+            {
                 write_repository_level_trunk_alias(
                     ui,
                     workspace_command.repo_path(),
