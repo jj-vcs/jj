@@ -594,10 +594,11 @@ fn test_resolve_symbol_bookmarks() {
         vec![commit1.id().clone()],
     );
     insta::assert_debug_snapshot!(
-        resolve_symbol(mut_repo, "local@origin").unwrap_err(), @r###"
+        resolve_symbol(mut_repo, "local@origin").unwrap_err(), @r#"
     NoSuchRevision {
         name: "local@origin",
         candidates: [
+            "\"local-remote@origin\"",
             "local",
             "local-remote@git",
             "local-remote@mirror",
@@ -605,7 +606,7 @@ fn test_resolve_symbol_bookmarks() {
             "remote@origin",
         ],
     }
-    "###);
+    "#);
 
     // Remote only (or locally deleted)
     insta::assert_debug_snapshot!(
@@ -661,10 +662,11 @@ fn test_resolve_symbol_bookmarks() {
     // "local-remote@untracked" is suggested because non-tracking bookmark is
     // unrelated to the local bookmark of the same name.
     insta::assert_debug_snapshot!(
-        resolve_symbol(mut_repo, "local-emote").unwrap_err(), @r###"
+        resolve_symbol(mut_repo, "local-emote").unwrap_err(), @r#"
     NoSuchRevision {
         name: "local-emote",
         candidates: [
+            "\"local-remote@origin\"",
             "local",
             "local-conflicted",
             "local-remote",
@@ -672,12 +674,13 @@ fn test_resolve_symbol_bookmarks() {
             "local-remote@untracked",
         ],
     }
-    "###);
+    "#);
     insta::assert_debug_snapshot!(
-        resolve_symbol(mut_repo, "local-emote@origin").unwrap_err(), @r###"
+        resolve_symbol(mut_repo, "local-emote@origin").unwrap_err(), @r#"
     NoSuchRevision {
         name: "local-emote@origin",
         candidates: [
+            "\"local-remote@origin\"",
             "local",
             "local-remote",
             "local-remote@git",
@@ -688,12 +691,13 @@ fn test_resolve_symbol_bookmarks() {
             "remote@origin",
         ],
     }
-    "###);
+    "#);
     insta::assert_debug_snapshot!(
-        resolve_symbol(mut_repo, "local-remote@origine").unwrap_err(), @r###"
+        resolve_symbol(mut_repo, "local-remote@origine").unwrap_err(), @r#"
     NoSuchRevision {
         name: "local-remote@origine",
         candidates: [
+            "\"local-remote@origin\"",
             "local",
             "local-remote",
             "local-remote@git",
@@ -704,7 +708,7 @@ fn test_resolve_symbol_bookmarks() {
             "remote@origin",
         ],
     }
-    "###);
+    "#);
     // "local-remote@mirror" shouldn't be omitted just because it points to the same
     // target as "local-remote".
     insta::assert_debug_snapshot!(
@@ -730,26 +734,28 @@ fn test_resolve_symbol_bookmarks() {
     }
     "###);
     insta::assert_debug_snapshot!(
-        resolve_symbol(mut_repo, "emote@origin").unwrap_err(), @r###"
+        resolve_symbol(mut_repo, "emote@origin").unwrap_err(), @r#"
     NoSuchRevision {
         name: "emote@origin",
         candidates: [
+            "\"local-remote@origin\"",
             "local-remote@origin",
             "remote@origin",
         ],
     }
-    "###);
+    "#);
     insta::assert_debug_snapshot!(
-        resolve_symbol(mut_repo, "remote@origine").unwrap_err(), @r###"
+        resolve_symbol(mut_repo, "remote@origine").unwrap_err(), @r#"
     NoSuchRevision {
         name: "remote@origine",
         candidates: [
+            "\"local-remote@origin\"",
             "local-remote@origin",
             "remote-conflicted@origin",
             "remote@origin",
         ],
     }
-    "###);
+    "#);
 }
 
 #[test]

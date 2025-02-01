@@ -1885,15 +1885,14 @@ fn resolve_remote_bookmark(repo: &dyn Repo, name: &str, remote: &str) -> Option<
         .then(|| target.added_ids().cloned().collect())
 }
 
-fn all_bookmark_symbols(
+fn all_formatted_bookmark_symbols(
     repo: &dyn Repo,
     include_synced_remotes: bool,
 ) -> impl Iterator<Item = String> + '_ {
     let view = repo.view();
     view.bookmarks().flat_map(move |(name, bookmark_target)| {
-        // Remote bookmark "x"@"y" may conflict with local "x@y" in unquoted form.
         let local_target = bookmark_target.local_target;
-        let local_symbol = local_target.is_present().then(|| name.to_owned());
+        let local_symbol = local_target.is_present().then(|| format_symbol(name));
         let remote_symbols = bookmark_target
             .remote_refs
             .into_iter()
@@ -1902,15 +1901,14 @@ fn all_bookmark_symbols(
                     || !remote_ref.is_tracking()
                     || remote_ref.target != *local_target
             })
-            .map(move |(remote_name, _)| format!("{name}@{remote_name}"));
+            .map(move |(remote_name, _)| format_remote_symbol(name, remote_name));
         local_symbol.into_iter().chain(remote_symbols)
     })
 }
 
-fn make_no_such_symbol_error(repo: &dyn Repo, name: impl Into<String>) -> RevsetResolutionError {
-    let name = name.into();
+fn make_no_such_symbol_error(repo: &dyn Repo, name: String) -> RevsetResolutionError {
     // TODO: include tags?
-    let bookmark_names = all_bookmark_symbols(repo, name.contains('@'));
+    let bookmark_names = all_formatted_bookmark_symbols(repo, name.contains('@'));
     let candidates = collect_similar(&name, bookmark_names);
     RevsetResolutionError::NoSuchRevision { name, candidates }
 }
@@ -2150,7 +2148,7 @@ impl SymbolResolver for DefaultSymbolResolver<'_> {
             }
         }
 
-        Err(make_no_such_symbol_error(repo, symbol))
+        Err(make_no_such_symbol_error(repo, format_symbol(symbol)))
     }
 }
 
@@ -2163,7 +2161,7 @@ fn resolve_commit_ref(
         RevsetCommitRef::Symbol(symbol) => symbol_resolver.resolve_symbol(repo, symbol),
         RevsetCommitRef::RemoteSymbol { name, remote } => {
             resolve_remote_bookmark(repo, name, remote)
-                .ok_or_else(|| make_no_such_symbol_error(repo, format!("{name}@{remote}")))
+                .ok_or_else(|| make_no_such_symbol_error(repo, format_remote_symbol(name, remote)))
         }
         RevsetCommitRef::WorkingCopy(workspace_id) => {
             if let Some(commit_id) = repo.view().get_wc_commit_id(workspace_id) {

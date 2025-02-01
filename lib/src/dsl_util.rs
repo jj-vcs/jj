@@ -840,7 +840,6 @@ where
         })
         .map(|s| s.as_ref().to_owned())
         .sorted_unstable()
-        .dedup()
         .collect()
 }
 
