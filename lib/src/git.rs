@@ -1528,7 +1528,7 @@ struct FetchedBranches {
 /// Helper struct to execute multiple `git fetch` operations
 pub struct GitFetch<'a> {
     mut_repo: &'a mut MutableRepo,
-    git_repo: git2::Repository,
+    fetch_impl: GitFetchImpl<'a>,
     git_settings: &'a GitSettings,
     fetched: Vec<FetchedBranches>,
 }
@@ -1538,10 +1538,10 @@ impl<'a> GitFetch<'a> {
         mut_repo: &'a mut MutableRepo,
         git_settings: &'a GitSettings,
     ) -> Result<Self, GitFetchPrepareError> {
-        let git_repo = get_git_backend(mut_repo.store())?.open_git_repo()?;
+        let fetch_impl = GitFetchImpl::new(mut_repo.store(), git_settings)?;
         Ok(GitFetch {
             mut_repo,
-            git_repo,
+            fetch_impl,
             git_settings,
             fetched: vec![],
         })
@@ -1560,25 +1560,14 @@ impl<'a> GitFetch<'a> {
         callbacks: RemoteCallbacks<'_>,
         depth: Option<NonZeroU32>,
     ) -> Result<Option<String>, GitFetchError> {
-        let default_branch = if self.git_settings.subprocess {
-            subprocess_fetch(
-                &self.git_repo,
-                remote_name,
-                branch_names,
-                callbacks,
-                depth,
-                &self.git_settings.executable_path,
-            )
-        } else {
-            git2_fetch(&self.git_repo, remote_name, branch_names, callbacks, depth)
-        };
-
+        let default_branch = self
+            .fetch_impl
+            .fetch(remote_name, branch_names, callbacks, depth)?;
         self.fetched.push(FetchedBranches {
             remote: remote_name.to_string(),
             branches: branch_names.to_vec(),
         });
-
-        default_branch
+        Ok(default_branch)
     }
 
     /// Import the previously fetched remote-tracking branches into the jj repo
@@ -1644,6 +1633,50 @@ fn expand_fetch_refspecs(
         .collect()
 }
 
+enum GitFetchImpl<'a> {
+    Git2 {
+        git_repo: git2::Repository,
+    },
+    Subprocess {
+        git_repo: git2::Repository,
+        git_ctx: GitSubprocessContext<'a>,
+    },
+}
+
+impl<'a> GitFetchImpl<'a> {
+    fn new(store: &Store, git_settings: &'a GitSettings) -> Result<Self, GitFetchPrepareError> {
+        let git_repo = get_git_backend(store)?.open_git_repo()?;
+        if git_settings.subprocess {
+            let git_ctx = GitSubprocessContext::from_git2(&git_repo, &git_settings.executable_path);
+            Ok(GitFetchImpl::Subprocess { git_repo, git_ctx })
+        } else {
+            Ok(GitFetchImpl::Git2 { git_repo })
+        }
+    }
+
+    fn fetch(
+        &self,
+        remote_name: &str,
+        branch_names: &[StringPattern],
+        callbacks: RemoteCallbacks<'_>,
+        depth: Option<NonZeroU32>,
+    ) -> Result<Option<String>, GitFetchError> {
+        match self {
+            GitFetchImpl::Git2 { git_repo } => {
+                git2_fetch(git_repo, remote_name, branch_names, callbacks, depth)
+            }
+            GitFetchImpl::Subprocess { git_repo, git_ctx } => subprocess_fetch(
+                git_repo,
+                git_ctx,
+                remote_name,
+                branch_names,
+                callbacks,
+                depth,
+            ),
+        }
+    }
+}
+
 fn git2_fetch(
     git_repo: &git2::Repository,
     remote_name: &str,
@@ -1702,11 +1735,11 @@ fn git2_fetch(
 
 fn subprocess_fetch(
     git_repo: &git2::Repository,
+    git_ctx: &GitSubprocessContext,
     remote_name: &str,
     branch_names: &[StringPattern],
     mut callbacks: RemoteCallbacks<'_>,
     depth: Option<NonZeroU32>,
-    git_executable_path: &Path,
 ) -> Result<Option<String>, GitFetchError> {
     // check the remote exists
     // TODO: we should ideally find a way to do this without git2
@@ -1724,8 +1757,6 @@ fn subprocess_fetch(
         // Don't fall back to the base refspecs.
         return Ok(None);
     }
-
-    let git_ctx = GitSubprocessContext::from_git2(git_repo, git_executable_path);
 
     let mut branches_to_prune = Vec::new();
     // git unfortunately errors out if one of the many refspecs is not found
