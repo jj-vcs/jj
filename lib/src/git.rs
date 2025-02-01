@@ -1547,144 +1547,6 @@ impl<'a> GitFetch<'a> {
         })
     }
 
-    fn expand_refspecs(
-        remote_name: &str,
-        branch_names: &[StringPattern],
-    ) -> Result<Vec<RefSpec>, GitFetchError> {
-        branch_names
-            .iter()
-            .map(|pattern| {
-                pattern
-                    .to_glob()
-                    .filter(
-                        /* This triggered by non-glob `*`s in addition to INVALID_REFSPEC_CHARS
-                         * because `to_glob()` escapes such `*`s as `[*]`. */
-                        |glob| !glob.contains(INVALID_REFSPEC_CHARS),
-                    )
-                    .map(|glob| {
-                        RefSpec::forced(
-                            format!("refs/heads/{glob}"),
-                            format!("refs/remotes/{remote_name}/{glob}"),
-                        )
-                    })
-                    .ok_or_else(|| GitFetchError::InvalidBranchPattern(pattern.clone()))
-            })
-            .collect()
-    }
-
-    fn git2_fetch(
-        &mut self,
-        remote_name: &str,
-        branch_names: &[StringPattern],
-        callbacks: RemoteCallbacks<'_>,
-        depth: Option<NonZeroU32>,
-    ) -> Result<Option<String>, GitFetchError> {
-        let mut remote = self.git_repo.find_remote(remote_name).map_err(|err| {
-            if is_remote_not_found_err(&err) {
-                GitFetchError::NoSuchRemote(remote_name.to_string())
-            } else {
-                GitFetchError::InternalGitError(err)
-            }
-        })?;
-        // At this point, we are only updating Git's remote tracking branches, not the
-        // local branches.
-        let refspecs: Vec<String> = Self::expand_refspecs(remote_name, branch_names)?
-            .iter()
-            .map(|refspec| refspec.to_git_format())
-            .collect();
-
-        if refspecs.is_empty() {
-            // Don't fall back to the base refspecs.
-            return Ok(None);
-        }
-
-        tracing::debug!("remote.download");
-        remote.download(&refspecs, Some(&mut git2_fetch_options(callbacks, depth)))?;
-        tracing::debug!("remote.prune");
-        remote.prune(None)?;
-        tracing::debug!("remote.update_tips");
-        remote.update_tips(
-            None,
-            git2::RemoteUpdateFlags::empty(),
-            git2::AutotagOption::Unspecified,
-            None,
-        )?;
-
-        // TODO: We could make it optional to get the default branch since we only care
-        // about it on clone.
-        let mut default_branch = None;
-        if let Ok(default_ref_buf) = remote.default_branch() {
-            if let Some(default_ref) = default_ref_buf.as_str() {
-                // LocalBranch here is the local branch on the remote, so it's really the remote
-                // branch
-                if let Some(RefName::LocalBranch(branch_name)) = parse_git_ref(default_ref) {
-                    tracing::debug!(default_branch = branch_name);
-                    default_branch = Some(branch_name);
-                }
-            }
-        }
-        tracing::debug!("remote.disconnect");
-        remote.disconnect()?;
-        Ok(default_branch)
-    }
-
-    fn subprocess_fetch(
-        &mut self,
-        remote_name: &str,
-        branch_names: &[StringPattern],
-        mut callbacks: RemoteCallbacks<'_>,
-        depth: Option<NonZeroU32>,
-    ) -> Result<Option<String>, GitFetchError> {
-        // check the remote exists
-        // TODO: we should ideally find a way to do this without git2
-        let _remote = self.git_repo.find_remote(remote_name).map_err(|err| {
-            if is_remote_not_found_err(&err) {
-                GitFetchError::NoSuchRemote(remote_name.to_string())
-            } else {
-                GitFetchError::InternalGitError(err)
-            }
-        })?;
-        // At this point, we are only updating Git's remote tracking branches, not the
-        // local branches.
-        let mut remaining_refspecs: Vec<_> = Self::expand_refspecs(remote_name, branch_names)?;
-        if remaining_refspecs.is_empty() {
-            // Don't fall back to the base refspecs.
-            return Ok(None);
-        }
-
-        let git_ctx =
-            GitSubprocessContext::from_git2(&self.git_repo, &self.git_settings.executable_path);
-
-        let mut branches_to_prune = Vec::new();
-        // git unfortunately errors out if one of the many refspecs is not found
-        //
-        // our approach is to filter out failures and retry,
-        // until either all have failed or an attempt has succeeded
-        //
-        // even more unfortunately, git errors out one refspec at a time,
-        // meaning that the below cycle runs in O(#failed refspecs)
-        while let Some(failing_refspec) =
-            git_ctx.spawn_fetch(remote_name, &remaining_refspecs, &mut callbacks, depth)?
-        {
-            remaining_refspecs.retain(|r| r.source.as_ref() != Some(&failing_refspec));
-
-            if let Some(branch_name) = failing_refspec.strip_prefix("refs/heads/") {
-                branches_to_prune.push(format!("{remote_name}/{branch_name}"));
-            }
-        }
-
-        // Even if git fetch has --prune, if a branch is not found it will not be
-        // pruned on fetch
-        git_ctx.spawn_branch_prune(&branches_to_prune)?;
-
-        // TODO: We could make it optional to get the default branch since we only care
-        // about it on clone.
-        let default_branch = git_ctx.spawn_remote_show(remote_name)?;
-        tracing::debug!(default_branch = default_branch);
-
-        Ok(default_branch)
-    }
-
     /// Perform a `git fetch` on the local git repo, updating the
     /// remote-tracking branches in the git repo.
     ///
@@ -1699,9 +1561,16 @@ impl<'a> GitFetch<'a> {
         depth: Option<NonZeroU32>,
     ) -> Result<Option<String>, GitFetchError> {
         let default_branch = if self.git_settings.subprocess {
-            self.subprocess_fetch(remote_name, branch_names, callbacks, depth)
+            subprocess_fetch(
+                &self.git_repo,
+                remote_name,
+                branch_names,
+                callbacks,
+                depth,
+                &self.git_settings.executable_path,
+            )
         } else {
-            self.git2_fetch(remote_name, branch_names, callbacks, depth)
+            git2_fetch(&self.git_repo, remote_name, branch_names, callbacks, depth)
         };
 
         self.fetched.push(FetchedBranches {
@@ -1748,6 +1617,144 @@ impl<'a> GitFetch<'a> {
 
         Ok(import_stats)
     }
+}
+
+fn expand_fetch_refspecs(
+    remote_name: &str,
+    branch_names: &[StringPattern],
+) -> Result<Vec<RefSpec>, GitFetchError> {
+    branch_names
+        .iter()
+        .map(|pattern| {
+            pattern
+                .to_glob()
+                .filter(
+                    /* This triggered by non-glob `*`s in addition to INVALID_REFSPEC_CHARS
+                     * because `to_glob()` escapes such `*`s as `[*]`. */
+                    |glob| !glob.contains(INVALID_REFSPEC_CHARS),
+                )
+                .map(|glob| {
+                    RefSpec::forced(
+                        format!("refs/heads/{glob}"),
+                        format!("refs/remotes/{remote_name}/{glob}"),
+                    )
+                })
+                .ok_or_else(|| GitFetchError::InvalidBranchPattern(pattern.clone()))
+        })
+        .collect()
+}
+
+fn git2_fetch(
+    git_repo: &git2::Repository,
+    remote_name: &str,
+    branch_names: &[StringPattern],
+    callbacks: RemoteCallbacks<'_>,
+    depth: Option<NonZeroU32>,
+) -> Result<Option<String>, GitFetchError> {
+    let mut remote = git_repo.find_remote(remote_name).map_err(|err| {
+        if is_remote_not_found_err(&err) {
+            GitFetchError::NoSuchRemote(remote_name.to_string())
+        } else {
+            GitFetchError::InternalGitError(err)
+        }
+    })?;
+    // At this point, we are only updating Git's remote tracking branches, not the
+    // local branches.
+    let refspecs: Vec<String> = expand_fetch_refspecs(remote_name, branch_names)?
+        .iter()
+        .map(|refspec| refspec.to_git_format())
+        .collect();
+
+    if refspecs.is_empty() {
+        // Don't fall back to the base refspecs.
+        return Ok(None);
+    }
+
+    tracing::debug!("remote.download");
+    remote.download(&refspecs, Some(&mut git2_fetch_options(callbacks, depth)))?;
+    tracing::debug!("remote.prune");
+    remote.prune(None)?;
+    tracing::debug!("remote.update_tips");
+    remote.update_tips(
+        None,
+        git2::RemoteUpdateFlags::empty(),
+        git2::AutotagOption::Unspecified,
+        None,
+    )?;
+
+    // TODO: We could make it optional to get the default branch since we only care
+    // about it on clone.
+    let mut default_branch = None;
+    if let Ok(default_ref_buf) = remote.default_branch() {
+        if let Some(default_ref) = default_ref_buf.as_str() {
+            // LocalBranch here is the local branch on the remote, so it's really the remote
+            // branch
+            if let Some(RefName::LocalBranch(branch_name)) = parse_git_ref(default_ref) {
+                tracing::debug!(default_branch = branch_name);
+                default_branch = Some(branch_name);
+            }
+        }
+    }
+    tracing::debug!("remote.disconnect");
+    remote.disconnect()?;
+    Ok(default_branch)
+}
+
+fn subprocess_fetch(
+    git_repo: &git2::Repository,
+    remote_name: &str,
+    branch_names: &[StringPattern],
+    mut callbacks: RemoteCallbacks<'_>,
+    depth: Option<NonZeroU32>,
+    git_executable_path: &Path,
+) -> Result<Option<String>, GitFetchError> {
+    // check the remote exists
+    // TODO: we should ideally find a way to do this without git2
+    let _remote = git_repo.find_remote(remote_name).map_err(|err| {
+        if is_remote_not_found_err(&err) {
+            GitFetchError::NoSuchRemote(remote_name.to_string())
+        } else {
+            GitFetchError::InternalGitError(err)
+        }
+    })?;
+    // At this point, we are only updating Git's remote tracking branches, not the
+    // local branches.
+    let mut remaining_refspecs: Vec<_> = expand_fetch_refspecs(remote_name, branch_names)?;
+    if remaining_refspecs.is_empty() {
+        // Don't fall back to the base refspecs.
+        return Ok(None);
+    }
+
+    let git_ctx = GitSubprocessContext::from_git2(git_repo, git_executable_path);
+
+    let mut branches_to_prune = Vec::new();
+    // git unfortunately errors out if one of the many refspecs is not found
+    //
+    // our approach is to filter out failures and retry,
+    // until either all have failed or an attempt has succeeded
+    //
+    // even more unfortunately, git errors out one refspec at a time,
+    // meaning that the below cycle runs in O(#failed refspecs)
+    while let Some(failing_refspec) =
+        git_ctx.spawn_fetch(remote_name, &remaining_refspecs, &mut callbacks, depth)?
+    {
+        remaining_refspecs.retain(|r| r.source.as_ref() != Some(&failing_refspec));
+
+        if let Some(branch_name) = failing_refspec.strip_prefix("refs/heads/") {
+            branches_to_prune.push(format!("{remote_name}/{branch_name}"));
+        }
+    }
+
+    // Even if git fetch has --prune, if a branch is not found it will not be
+    // pruned on fetch
+    git_ctx.spawn_branch_prune(&branches_to_prune)?;
+
+    // TODO: We could make it optional to get the default branch since we only care
+    // about it on clone.
+    let default_branch = git_ctx.spawn_remote_show(remote_name)?;
+    tracing::debug!(default_branch = default_branch);
+
+    Ok(default_branch)
 }
 
 #[derive(Error, Debug)]
