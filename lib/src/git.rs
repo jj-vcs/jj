@@ -2226,6 +2226,7 @@ impl<'a> RemoteCallbacks<'a> {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct Progress {
     /// `Some` iff data transfer is currently in progress
     pub bytes_downloaded: Option<u64>,

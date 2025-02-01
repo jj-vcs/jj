@@ -765,31 +765,42 @@ Done";
     #[test]
     fn test_read_to_end_with_progress() {
         let read = |sample: &[u8]| {
+            let mut progress = Vec::new();
             let mut sideband = Vec::new();
             let mut callbacks = RemoteCallbacks::default();
-            let mut sideband_progress = |s: &[u8]| sideband.push(s.to_owned());
-            callbacks.sideband_progress = Some(&mut sideband_progress);
+            let mut progress_cb = |p: &Progress| progress.push(p.clone());
+            callbacks.progress = Some(&mut progress_cb);
+            let mut sideband_cb = |s: &[u8]| sideband.push(s.to_owned());
+            callbacks.sideband_progress = Some(&mut sideband_cb);
             let output = read_to_end_with_progress(&mut &sample[..], &mut callbacks).unwrap();
-            (output, sideband)
+            (output, sideband, progress)
         };
         let sample = indoc! {b"
             remote: line1
             blah blah
             remote: line2.0\rremote: line2.1
             remote: line3
-            Resolving deltas: (12/42)
+            Resolving deltas: (12/24)
             some error message
         "};
 
-        let (output, sideband) = read(sample);
+        let (output, sideband, progress) = read(sample);
         assert_eq!(
             sideband,
             ["line1\n", "line2.0\r", "line2.1\n", "line3\n"].map(|s| s.as_bytes().to_owned())
         );
         assert_eq!(output, b"blah blah\nsome error message\n");
+        insta::assert_debug_snapshot!(progress, @r"
+        [
+            Progress {
+                bytes_downloaded: None,
+                overall: 0.5,
+            },
+        ]
+        ");
 
         // without last newline
-        let (output, sideband) = read(sample.trim_end());
+        let (output, sideband, _progress) = read(sample.trim_end());
         assert_eq!(
             sideband,
             ["line1\n", "line2.0\r", "line2.1\n", "line3\n"].map(|s| s.as_bytes().to_owned())
