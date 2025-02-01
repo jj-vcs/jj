@@ -2362,33 +2362,19 @@ pub fn expand_fetch_refspecs(
 
     let refspecs = positive_bookmarks
         .iter()
-        .map(|&pattern| {
-            pattern
-                .to_glob()
-                .filter(
-                    /* This triggered by non-glob `*`s in addition to INVALID_REFSPEC_CHARS
-                     * because `to_glob()` escapes such `*`s as `[*]`. */
-                    |glob| !glob.contains(INVALID_REFSPEC_CHARS),
-                )
-                .map(|glob| {
-                    RefSpec::forced(
-                        format!("refs/heads/{glob}"),
-                        format!("refs/remotes/{remote}/{glob}", remote = remote.as_str()),
-                    )
-                })
-                .ok_or_else(|| GitRefExpansionError::InvalidBranchPattern(pattern.clone()))
+        .map(|&pattern| pattern_to_refspec_glob(pattern))
+        .map_ok(|glob| {
+            RefSpec::forced(
+                format!("refs/heads/{glob}"),
+                format!("refs/remotes/{remote}/{glob}", remote = remote.as_str()),
+            )
         })
         .try_collect()?;
 
     let negative_refspecs = negative_bookmarks
         .iter()
-        .map(|&pattern| {
-            pattern
-                .to_glob()
-                .filter(|glob| !glob.contains(INVALID_REFSPEC_CHARS))
-                .map(|glob| NegativeRefSpec::new(format!("refs/heads/{glob}")))
-                .ok_or_else(|| GitRefExpansionError::InvalidBranchPattern(pattern.clone()))
-        })
+        .map(|&pattern| pattern_to_refspec_glob(pattern))
+        .map_ok(|glob| NegativeRefSpec::new(format!("refs/heads/{glob}")))
         .try_collect()?;
 
     Ok(ExpandedFetchRefSpecs {
@@ -2396,6 +2382,15 @@ pub fn expand_fetch_refspecs(
         refspecs,
         negative_refspecs,
     })
+}
+
+fn pattern_to_refspec_glob(pattern: &StringPattern) -> Result<Cow<'_, str>, GitRefExpansionError> {
+    pattern
+        .to_glob()
+        // This triggered by non-glob `*`s in addition to INVALID_REFSPEC_CHARS
+        // because `to_glob()` escapes such `*`s as `[*]`.
+        .filter(|glob| !glob.contains(INVALID_REFSPEC_CHARS))
+        .ok_or_else(|| GitRefExpansionError::InvalidBranchPattern(pattern.clone()))
 }
 
 #[derive(Debug, Error)]
