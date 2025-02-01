@@ -1759,6 +1759,8 @@ pub enum GitPushError {
     InternalGitError(#[from] git2::Error),
     #[error(transparent)]
     Subprocess(#[from] GitSubprocessError),
+    #[error(transparent)]
+    UnexpectedBackend(#[from] UnexpectedGitBackendError),
 }
 
 #[derive(Clone, Debug)]
@@ -1779,7 +1781,6 @@ pub struct GitRefUpdate {
 /// Pushes the specified branches and updates the repo view accordingly.
 pub fn push_branches(
     mut_repo: &mut MutableRepo,
-    git_repo: &git2::Repository,
     git_settings: &GitSettings,
     remote_name: &str,
     targets: &GitBranchPushTargets,
@@ -1794,14 +1795,7 @@ pub fn push_branches(
             new_target: update.new_target.clone(),
         })
         .collect_vec();
-    push_updates(
-        mut_repo,
-        git_repo,
-        git_settings,
-        remote_name,
-        &ref_updates,
-        callbacks,
-    )?;
+    push_updates(mut_repo, git_settings, remote_name, &ref_updates, callbacks)?;
 
     // TODO: add support for partially pushed refs? we could update the view
     // excluding rejected refs, but the transaction would be aborted anyway
@@ -1822,7 +1816,6 @@ pub fn push_branches(
 /// Pushes the specified Git refs without updating the repo view.
 pub fn push_updates(
     repo: &dyn Repo,
-    git_repo: &git2::Repository,
     git_settings: &GitSettings,
     remote_name: &str,
     updates: &[GitRefUpdate],
@@ -1854,9 +1847,10 @@ pub fn push_updates(
     // TODO(ilyagr): `push_refs`, or parts of it, should probably be inlined. This
     // requires adjusting some tests.
 
+    let git_repo = get_git_backend(repo.store())?.open_git_repo()?;
     if git_settings.subprocess {
         subprocess_push_refs(
-            git_repo,
+            &git_repo,
             &git_settings.executable_path,
             remote_name,
             &qualified_remote_refs_expected_locations,
@@ -1867,7 +1861,7 @@ pub fn push_updates(
         let refspecs: Vec<String> = refspecs.iter().map(RefSpec::to_git_format).collect();
         git2_push_refs(
             repo,
-            git_repo,
+            &git_repo,
             remote_name,
             &qualified_remote_refs_expected_locations,
             &refspecs,

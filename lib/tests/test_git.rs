@@ -3039,7 +3039,6 @@ fn test_push_bookmarks_success(subprocess: bool) {
     };
     let result = git::push_branches(
         tx.repo_mut(),
-        &clone_repo,
         &git_settings,
         "origin",
         &targets,
@@ -3111,7 +3110,6 @@ fn test_push_bookmarks_deletion(subprocess: bool) {
     };
     let result = git::push_branches(
         tx.repo_mut(),
-        &get_git_repo(&setup.jj_repo),
         &git_settings,
         "origin",
         &targets,
@@ -3147,7 +3145,6 @@ fn test_push_bookmarks_mixed_deletion_and_addition(subprocess: bool) {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let mut setup = set_up_push_repos(&settings, &temp_dir);
-    let clone_repo = get_git_repo(&setup.jj_repo);
     let mut tx = setup.jj_repo.start_transaction();
     let git_settings = get_git_settings(subprocess);
 
@@ -3171,7 +3168,6 @@ fn test_push_bookmarks_mixed_deletion_and_addition(subprocess: bool) {
     };
     let result = git::push_branches(
         tx.repo_mut(),
-        &clone_repo,
         &git_settings,
         "origin",
         &targets,
@@ -3233,7 +3229,6 @@ fn test_push_bookmarks_not_fast_forward(subprocess: bool) {
     };
     let result = git::push_branches(
         tx.repo_mut(),
-        &get_git_repo(&setup.jj_repo),
         &git_settings,
         "origin",
         &targets,
@@ -3281,7 +3276,6 @@ fn test_push_updates_unexpectedly_moved_sideways_on_remote(subprocess: bool) {
         }];
         git::push_updates(
             setup.jj_repo.as_ref(),
-            &get_git_repo(&setup.jj_repo),
             &git_settings,
             "origin",
             &targets,
@@ -3351,7 +3345,6 @@ fn test_push_updates_unexpectedly_moved_forward_on_remote(subprocess: bool) {
         }];
         git::push_updates(
             setup.jj_repo.as_ref(),
-            &get_git_repo(&setup.jj_repo),
             &git_settings,
             "origin",
             &targets,
@@ -3420,7 +3413,6 @@ fn test_push_updates_unexpectedly_exists_on_remote(subprocess: bool) {
         }];
         git::push_updates(
             setup.jj_repo.as_ref(),
-            &get_git_repo(&setup.jj_repo),
             &git_settings,
             "origin",
             &targets,
@@ -3459,7 +3451,6 @@ fn test_push_updates_success(subprocess: bool) {
     let clone_repo = get_git_repo(&setup.jj_repo);
     let result = git::push_updates(
         setup.jj_repo.as_ref(),
-        &clone_repo,
         &git_settings,
         "origin",
         &[GitRefUpdate {
@@ -3499,7 +3490,6 @@ fn test_push_updates_no_such_remote(subprocess: bool) {
     let git_settings = get_git_settings(subprocess);
     let result = git::push_updates(
         setup.jj_repo.as_ref(),
-        &get_git_repo(&setup.jj_repo),
         &git_settings,
         "invalid-remote",
         &[GitRefUpdate {
@@ -3521,7 +3511,6 @@ fn test_push_updates_invalid_remote(subprocess: bool) {
     let git_settings = get_git_settings(subprocess);
     let result = git::push_updates(
         setup.jj_repo.as_ref(),
-        &get_git_repo(&setup.jj_repo),
         &git_settings,
         "http://invalid-remote",
         &[GitRefUpdate {

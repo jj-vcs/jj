@@ -52,7 +52,6 @@ use crate::command_error::CommandError;
 use crate::commands::git::get_single_remote;
 use crate::complete;
 use crate::formatter::Formatter;
-use crate::git_util::get_git_repo;
 use crate::git_util::with_remote_git_callbacks;
 use crate::ui::Ui;
 
@@ -368,17 +367,9 @@ pub fn cmd_git_push(
     let targets = GitBranchPushTargets {
         branch_updates: bookmark_updates,
     };
-    let git_repo = get_git_repo(tx.repo().store())?;
     let git_settings = tx.settings().git_settings()?;
     with_remote_git_callbacks(ui, |cb| {
-        git::push_branches(
-            tx.repo_mut(),
-            &git_repo,
-            &git_settings,
-            &remote,
-            &targets,
-            cb,
-        )
+        git::push_branches(tx.repo_mut(), &git_settings, &remote, &targets, cb)
     })?;
     tx.finish(ui, tx_description)?;
     Ok(())
