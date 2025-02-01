@@ -39,7 +39,6 @@ use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
-use jj_lib::store::Store;
 use jj_lib::workspace::Workspace;
 use unicode_width::UnicodeWidthStr;
 
@@ -50,11 +49,6 @@ use crate::command_error::CommandError;
 use crate::formatter::Formatter;
 use crate::ui::ProgressOutput;
 use crate::ui::Ui;
-
-// TODO: migrate to gitoxide or subprocess, and remove this function
-pub(crate) fn get_git_repo(store: &Store) -> Result<git2::Repository, CommandError> {
-    Ok(git::get_git_backend(store)?.open_git_repo()?)
-}
 
 pub fn is_colocated_git_workspace(workspace: &Workspace, repo: &ReadonlyRepo) -> bool {
     let Ok(git_backend) = git::get_git_backend(repo.store()) else {
