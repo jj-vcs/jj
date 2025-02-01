@@ -31,6 +31,7 @@ use crate::git::Progress;
 use crate::git::RefSpec;
 use crate::git::RefToPush;
 use crate::git::RemoteCallbacks;
+use crate::git_backend::GitBackend;
 
 /// Error originating by a Git subprocess
 #[derive(Error, Debug)]
@@ -69,8 +70,11 @@ impl<'a> GitSubprocessContext<'a> {
         }
     }
 
-    pub(crate) fn from_git2(git_repo: &git2::Repository, git_executable_path: &'a Path) -> Self {
-        Self::new(git_repo.path(), git_executable_path)
+    pub(crate) fn from_git_backend(
+        git_backend: &GitBackend,
+        git_executable_path: &'a Path,
+    ) -> Self {
+        Self::new(git_backend.git_repo_path(), git_executable_path)
     }
 
     /// Create the Git command

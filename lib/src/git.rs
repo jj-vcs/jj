@@ -1644,9 +1644,11 @@ enum GitFetchImpl<'a> {
 
 impl<'a> GitFetchImpl<'a> {
     fn new(store: &Store, git_settings: &'a GitSettings) -> Result<Self, GitFetchPrepareError> {
-        let git_repo = get_git_backend(store)?.open_git_repo()?;
+        let git_backend = get_git_backend(store)?;
+        let git_repo = git_backend.open_git_repo()?;
         if git_settings.subprocess {
-            let git_ctx = GitSubprocessContext::from_git2(&git_repo, &git_settings.executable_path);
+            let git_ctx =
+                GitSubprocessContext::from_git_backend(git_backend, &git_settings.executable_path);
             Ok(GitFetchImpl::Subprocess { git_repo, git_ctx })
         } else {
             Ok(GitFetchImpl::Git2 { git_repo })
@@ -1894,9 +1896,11 @@ pub fn push_updates(
     // TODO(ilyagr): `push_refs`, or parts of it, should probably be inlined. This
     // requires adjusting some tests.
 
-    let git_repo = get_git_backend(repo.store())?.open_git_repo()?;
+    let git_backend = get_git_backend(repo.store())?;
+    let git_repo = git_backend.open_git_repo()?;
     if git_settings.subprocess {
-        let git_ctx = GitSubprocessContext::from_git2(&git_repo, &git_settings.executable_path);
+        let git_ctx =
+            GitSubprocessContext::from_git_backend(git_backend, &git_settings.executable_path);
         subprocess_push_refs(
             &git_repo,
             &git_ctx,
