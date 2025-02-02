@@ -844,7 +844,7 @@ fn test_materialize_snapshot_conflicted_files() {
     assert_eq!(file2_value.num_sides(), 3);
     insta::assert_snapshot!(
         std::fs::read_to_string(file1_path.to_fs_path_unchecked(&workspace_root)).ok().unwrap(),
-        @r###"
+        @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
     -b
@@ -852,10 +852,10 @@ fn test_materialize_snapshot_conflicted_files() {
     +++++++ Contents of side #2
     c
     >>>>>>> Conflict 1 of 1 ends
-    "###);
+    ");
     insta::assert_snapshot!(
         std::fs::read_to_string(file2_path.to_fs_path_unchecked(&workspace_root)).ok().unwrap(),
-        @r###"
+        @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
     -2
@@ -863,7 +863,7 @@ fn test_materialize_snapshot_conflicted_files() {
     +++++++ Contents of side #2
     4
     >>>>>>> Conflict 1 of 1 ends
-    "###);
+    ");
 
     // Editing a conflicted file should correctly propagate updates to each of
     // the conflicting trees.
@@ -2056,10 +2056,10 @@ fn test_fsmonitor() {
     {
         let mut locked_ws = ws.start_working_copy_mutation().unwrap();
         let tree_id = snapshot(&mut locked_ws, &[foo_path]);
-        insta::assert_snapshot!(testutils::dump_tree(repo.store(), &tree_id), @r###"
+        insta::assert_snapshot!(testutils::dump_tree(repo.store(), &tree_id), @r#"
         tree d5e38c0a1b0ee5de47c5
           file "foo" (e99c2057c15160add351): "foo\n"
-        "###);
+        "#);
     }
 
     {
@@ -2068,12 +2068,12 @@ fn test_fsmonitor() {
             &mut locked_ws,
             &[foo_path, bar_path, nested_path, ignored_path],
         );
-        insta::assert_snapshot!(testutils::dump_tree(repo.store(), &tree_id), @r###"
+        insta::assert_snapshot!(testutils::dump_tree(repo.store(), &tree_id), @r#"
         tree f408c8d080414f8e90e1
           file "bar" (94cc973e7e1aefb7eff6): "bar\n"
           file "foo" (e99c2057c15160add351): "foo\n"
           file "path/to/nested" (6209060941cd770c8d46): "nested\n"
-        "###);
+        "#);
         locked_ws.finish(repo.op_id().clone()).unwrap();
     }
 
@@ -2082,23 +2082,23 @@ fn test_fsmonitor() {
         testutils::write_working_copy_file(&workspace_root, bar_path, "updated bar\n");
         let mut locked_ws = ws.start_working_copy_mutation().unwrap();
         let tree_id = snapshot(&mut locked_ws, &[foo_path]);
-        insta::assert_snapshot!(testutils::dump_tree(repo.store(), &tree_id), @r###"
+        insta::assert_snapshot!(testutils::dump_tree(repo.store(), &tree_id), @r#"
         tree e994a93c46f41dc91704
           file "bar" (94cc973e7e1aefb7eff6): "bar\n"
           file "foo" (e0fbd106147cc04ccd05): "updated foo\n"
           file "path/to/nested" (6209060941cd770c8d46): "nested\n"
-        "###);
+        "#);
     }
 
     {
         std::fs::remove_file(foo_path.to_fs_path_unchecked(&workspace_root)).unwrap();
         let mut locked_ws = ws.start_working_copy_mutation().unwrap();
         let tree_id = snapshot(&mut locked_ws, &[foo_path]);
-        insta::assert_snapshot!(testutils::dump_tree(repo.store(), &tree_id), @r###"
+        insta::assert_snapshot!(testutils::dump_tree(repo.store(), &tree_id), @r#"
         tree 1df764981d4d74a4ecfa
           file "bar" (94cc973e7e1aefb7eff6): "bar\n"
           file "path/to/nested" (6209060941cd770c8d46): "nested\n"
-        "###);
+        "#);
         locked_ws.finish(repo.op_id().clone()).unwrap();
     }
 }

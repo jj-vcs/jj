@@ -263,37 +263,37 @@ fn test_remote_names() {
         test_env.env_root(),
         &["--", "jj", "git", "remote", "remove", "o"],
     );
-    insta::assert_snapshot!(stdout, @r"origin");
+    insta::assert_snapshot!(stdout, @"origin");
 
     let stdout = test_env.jj_cmd_success(
         test_env.env_root(),
         &["--", "jj", "git", "remote", "rename", "o"],
     );
-    insta::assert_snapshot!(stdout, @r"origin");
+    insta::assert_snapshot!(stdout, @"origin");
 
     let stdout = test_env.jj_cmd_success(
         test_env.env_root(),
         &["--", "jj", "git", "remote", "set-url", "o"],
     );
-    insta::assert_snapshot!(stdout, @r"origin");
+    insta::assert_snapshot!(stdout, @"origin");
 
     let stdout = test_env.jj_cmd_success(
         test_env.env_root(),
         &["--", "jj", "git", "push", "--remote", "o"],
     );
-    insta::assert_snapshot!(stdout, @r"origin");
+    insta::assert_snapshot!(stdout, @"origin");
 
     let stdout = test_env.jj_cmd_success(
         test_env.env_root(),
         &["--", "jj", "git", "fetch", "--remote", "o"],
     );
-    insta::assert_snapshot!(stdout, @r"origin");
+    insta::assert_snapshot!(stdout, @"origin");
 
     let stdout = test_env.jj_cmd_success(
         test_env.env_root(),
         &["--", "jj", "bookmark", "list", "--remote", "o"],
     );
-    insta::assert_snapshot!(stdout, @r"origin");
+    insta::assert_snapshot!(stdout, @"origin");
 }
 
 #[test]
@@ -721,7 +721,7 @@ fn test_files() {
     );
 
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-r", "all()", "--summary"]);
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @r###"
+    insta::assert_snapshot!(stdout.replace('\\', "/"), @r"
     @  wqnwkozp test.user@example.com 2001-02-03 08:05:20 working_copy 45c3a621
     │  working_copy
     │  A f_added_2
@@ -757,7 +757,7 @@ fn test_files() {
     │    A f_interdiff_only_from
     │    A f_interdiff_same
     ◆  zzzzzzzz root() 00000000
-    "###);
+    ");
 
     let mut test_env = test_env;
     test_env.add_env_var("COMPLETE", "fish");
@@ -891,5 +891,5 @@ fn test_files() {
 
     let outside_repo = test_env.env_root();
     let stdout = test_env.jj_cmd_success(outside_repo, &["--", "jj", "log", "f_"]);
-    insta::assert_snapshot!(stdout, @r"");
+    insta::assert_snapshot!(stdout, @"");
 }
