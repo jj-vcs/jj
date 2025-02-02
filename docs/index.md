@@ -1,5 +1,9 @@
 # Jujutsu—a version control system
 
+<figure>
+<img title="jj logo" src="images/jj-logo.png" width=40%>
+</figure>
+
 ## Welcome to `jj`'s documentation website!
 
 <!-- This only applies to the website, not to the GitHub interface -->

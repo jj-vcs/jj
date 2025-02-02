@@ -2,6 +2,8 @@
 
 # Jujutsu—a version control system
 
+<p><img title="jj logo" src="docs/images/jj-logo.png" width=40%></p>
+
 [![Release](https://img.shields.io/github/v/release/martinvonz/jj)](https://github.com/jj-vcs/jj/releases)
 [![Release date](https://img.shields.io/github/release-date/martinvonz/jj)](https://github.com/jj-vcs/jj/releases)
 <br/>
@@ -352,4 +354,7 @@ That said, **this is not a Google product**.
 ## License
 
 Jujutsu is available as Open Source Software, under the Apache 2.0 license. See
-[LICENSE](./LICENSE) for details about copyright and redistribution.
+[`LICENSE`](./LICENSE) for details about copyright and redistribution.
+
+The `jj` logo was contributed by J. Jennings and is licensed under a Creative
+Commons License, see [`docs/images/LICENSE`](docs/images/LICENSE).
