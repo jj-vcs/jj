@@ -79,6 +79,9 @@ use crate::ui::Ui;
 enum Command {
     Abandon(abandon::AbandonArgs),
     Absorb(absorb::AbsorbArgs),
+    // with apologies to Émile Zola: https://en.wikipedia.org/wiki/J%27Accuse...!
+    #[command(hide = true)]
+    Accuse(file::annotate::FileAnnotateArgs),
     Backout(backout::BackoutArgs),
     #[cfg(feature = "bench")]
     #[command(subcommand)]
@@ -170,6 +173,7 @@ pub fn run_command(ui: &mut Ui, command_helper: &CommandHelper) -> Result<(), Co
     match &subcommand {
         Command::Abandon(args) => abandon::cmd_abandon(ui, command_helper, args),
         Command::Absorb(args) => absorb::cmd_absorb(ui, command_helper, args),
+        Command::Accuse(args) => file::annotate::cmd_file_annotate(ui, command_helper, args),
         Command::Backout(args) => backout::cmd_backout(ui, command_helper, args),
         #[cfg(feature = "bench")]
         Command::Bench(args) => bench::cmd_bench(ui, command_helper, args),
