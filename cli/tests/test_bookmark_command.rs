@@ -14,7 +14,31 @@
 
 use std::path::Path;
 
+use crate::common::git;
 use crate::common::TestEnvironment;
+
+fn create_commit_with_refs(
+    repo: &gix::Repository,
+    message: &str,
+    content: &[u8],
+    ref_names: &[&str],
+) {
+    let git::CommitResult {
+        tree_id: _,
+        commit_id,
+    } = git::add_commit(repo, "refs/heads/dummy", "file", content, message, &[]);
+    repo.find_reference("dummy").unwrap().delete().unwrap();
+
+    for name in ref_names {
+        repo.reference(
+            *name,
+            commit_id,
+            gix::refs::transaction::PreviousValue::Any,
+            "log message",
+        )
+        .unwrap();
+    }
+}
 
 #[test]
 fn test_bookmark_multiple_names() {
@@ -132,7 +156,7 @@ fn test_bookmark_move() {
 
     // Set up remote
     let git_repo_path = test_env.env_root().join("git-repo");
-    git2::Repository::init_bare(git_repo_path).unwrap();
+    git::init_bare(git_repo_path);
     test_env.jj_cmd_ok(
         &repo_path,
         &["git", "remote", "add", "origin", "../git-repo"],
@@ -413,7 +437,7 @@ fn test_bookmark_rename() {
 
     // Set up remote
     let git_repo_path = test_env.env_root().join("git-repo");
-    git2::Repository::init_bare(git_repo_path).unwrap();
+    git::init_bare(git_repo_path);
     test_env.jj_cmd_ok(
         &repo_path,
         &["git", "remote", "add", "origin", "../git-repo"],
@@ -544,12 +568,15 @@ fn test_bookmark_delete_glob() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
     let git_repo_path = test_env.env_root().join("git-repo");
-    let git_repo = git2::Repository::init_bare(git_repo_path).unwrap();
-    let mut tree_builder = git_repo.treebuilder(None).unwrap();
-    let file_oid = git_repo.blob(b"content").unwrap();
-    tree_builder
-        .insert("file", file_oid, git2::FileMode::Blob.into())
+    let git_repo = git::init_bare(git_repo_path);
+    let blob_oid = git_repo.write_blob(b"content").unwrap();
+    let mut tree_editor = git_repo
+        .edit_tree(gix::ObjectId::empty_tree(gix::hash::Kind::default()))
         .unwrap();
+    tree_editor
+        .upsert("file", gix::object::tree::EntryKind::Blob, blob_oid)
+        .unwrap();
+    let _tree_id = tree_editor.write().unwrap();
     test_env.jj_cmd_ok(
         &repo_path,
         &["git", "remote", "add", "origin", "../git-repo"],
@@ -711,38 +738,30 @@ fn test_bookmark_forget_fetched_bookmark() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
     let git_repo_path = test_env.env_root().join("git-repo");
-    let git_repo = git2::Repository::init_bare(git_repo_path).unwrap();
-    let signature =
-        git2::Signature::new("Some One", "some.one@example.com", &git2::Time::new(0, 0)).unwrap();
-    let mut tree_builder = git_repo.treebuilder(None).unwrap();
-    let file_oid = git_repo.blob(b"content").unwrap();
-    tree_builder
-        .insert("file", file_oid, git2::FileMode::Blob.into())
-        .unwrap();
-    let tree_oid = tree_builder.write().unwrap();
-    let tree = git_repo.find_tree(tree_oid).unwrap();
+    let git_repo = git::init_bare(git_repo_path);
     test_env.jj_cmd_ok(
         &repo_path,
         &["git", "remote", "add", "origin", "../git-repo"],
     );
     // Create a commit and a bookmark in the git repo
-    let first_git_repo_commit = git_repo
-        .commit(
-            Some("refs/heads/feature1"),
-            &signature,
-            &signature,
-            "message",
-            &tree,
-            &[],
-        )
-        .unwrap();
+    let git::CommitResult {
+        tree_id,
+        commit_id: first_git_repo_commit,
+    } = git::add_commit(
+        &git_repo,
+        "refs/heads/feature1",
+        "file",
+        b"content",
+        "message",
+        &[],
+    );
 
     // Fetch normally
     test_env.jj_cmd_ok(&repo_path, &["git", "fetch", "--remote=origin"]);
-    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r###"
-    feature1: mzyxwzks 9f01a0e0 message
-      @origin: mzyxwzks 9f01a0e0 message
-    "###);
+    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
+    feature1: qomsplrm ebeb70d8 message
+      @origin: qomsplrm ebeb70d8 message
+    ");
 
     // TEST 1: with export-import
     // Forget the bookmark
@@ -773,10 +792,10 @@ fn test_bookmark_forget_fetched_bookmark() {
     insta::assert_snapshot!(stderr, @r###"
     bookmark: feature1@origin [new] tracked
     "###);
-    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r###"
-    feature1: mzyxwzks 9f01a0e0 message
-      @origin: mzyxwzks 9f01a0e0 message
-    "###);
+    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
+    feature1: qomsplrm ebeb70d8 message
+      @origin: qomsplrm ebeb70d8 message
+    ");
 
     // TEST 2: No export/import (otherwise the same as test 1)
     test_env.jj_cmd_ok(&repo_path, &["bookmark", "forget", "feature1"]);
@@ -787,24 +806,21 @@ fn test_bookmark_forget_fetched_bookmark() {
     insta::assert_snapshot!(stderr, @r###"
     bookmark: feature1@origin [new] tracked
     "###);
-    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r###"
-    feature1: mzyxwzks 9f01a0e0 message
-      @origin: mzyxwzks 9f01a0e0 message
-    "###);
+    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
+    feature1: qomsplrm ebeb70d8 message
+      @origin: qomsplrm ebeb70d8 message
+    ");
 
     // TEST 3: fetch bookmark that was moved & forgotten
 
     // Move the bookmark in the git repo.
-    git_repo
-        .commit(
-            Some("refs/heads/feature1"),
-            &signature,
-            &signature,
-            "another message",
-            &tree,
-            &[&git_repo.find_commit(first_git_repo_commit).unwrap()],
-        )
-        .unwrap();
+    git::write_commit(
+        &git_repo,
+        "refs/heads/feature1",
+        tree_id,
+        "another message",
+        &[first_git_repo_commit],
+    );
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["bookmark", "forget", "feature1"]);
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @r###"
@@ -817,10 +833,10 @@ fn test_bookmark_forget_fetched_bookmark() {
     insta::assert_snapshot!(stderr, @r###"
     bookmark: feature1@origin [new] tracked
     "###);
-    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r###"
-    feature1: ooosovrs 38aefb17 (empty) another message
-      @origin: ooosovrs 38aefb17 (empty) another message
-    "###);
+    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
+    feature1: tyvxnvqr 9175cb32 (empty) another message
+      @origin: tyvxnvqr 9175cb32 (empty) another message
+    ");
 }
 
 #[test]
@@ -835,39 +851,28 @@ fn test_bookmark_forget_deleted_or_nonexistent_bookmark() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
     let git_repo_path = test_env.env_root().join("git-repo");
-    let git_repo = git2::Repository::init_bare(git_repo_path).unwrap();
-    let signature =
-        git2::Signature::new("Some One", "some.one@example.com", &git2::Time::new(0, 0)).unwrap();
-    let mut tree_builder = git_repo.treebuilder(None).unwrap();
-    let file_oid = git_repo.blob(b"content").unwrap();
-    tree_builder
-        .insert("file", file_oid, git2::FileMode::Blob.into())
-        .unwrap();
-    let tree_oid = tree_builder.write().unwrap();
-    let tree = git_repo.find_tree(tree_oid).unwrap();
+    let git_repo = git::init_bare(git_repo_path);
+    // Create a commit and a bookmark in the git repo
+    git::add_commit(
+        &git_repo,
+        "refs/heads/feature1",
+        "file",
+        b"content",
+        "message",
+        &[],
+    );
     test_env.jj_cmd_ok(
         &repo_path,
         &["git", "remote", "add", "origin", "../git-repo"],
     );
-    // Create a commit and a bookmark in the git repo
-    git_repo
-        .commit(
-            Some("refs/heads/feature1"),
-            &signature,
-            &signature,
-            "message",
-            &tree,
-            &[],
-        )
-        .unwrap();
 
     // Fetch and then delete the bookmark
     test_env.jj_cmd_ok(&repo_path, &["git", "fetch", "--remote=origin"]);
     test_env.jj_cmd_ok(&repo_path, &["bookmark", "delete", "feature1"]);
-    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r###"
+    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
     feature1 (deleted)
-      @origin: mzyxwzks 9f01a0e0 message
-    "###);
+      @origin: qomsplrm ebeb70d8 message
+    ");
 
     // ============ End of test setup ============
 
@@ -890,34 +895,16 @@ fn test_bookmark_track_untrack() {
 
     // Set up remote
     let git_repo_path = test_env.env_root().join("git-repo");
-    let git_repo = git2::Repository::init(git_repo_path).unwrap();
+    let git_repo = git::init(git_repo_path);
     test_env.jj_cmd_ok(
         &repo_path,
         &["git", "remote", "add", "origin", "../git-repo"],
     );
-    let create_remote_commit = |message: &str, data: &[u8], ref_names: &[&str]| {
-        let signature =
-            git2::Signature::new("Some One", "some.one@example.com", &git2::Time::new(0, 0))
-                .unwrap();
-        let mut tree_builder = git_repo.treebuilder(None).unwrap();
-        let file_oid = git_repo.blob(data).unwrap();
-        tree_builder
-            .insert("file", file_oid, git2::FileMode::Blob.into())
-            .unwrap();
-        let tree_oid = tree_builder.write().unwrap();
-        let tree = git_repo.find_tree(tree_oid).unwrap();
-        // Create commit and bookmarks in the remote
-        let git_commit_oid = git_repo
-            .commit(None, &signature, &signature, message, &tree, &[])
-            .unwrap();
-        for name in ref_names {
-            git_repo.reference(name, git_commit_oid, true, "").unwrap();
-        }
-    };
 
     // Fetch new commit without auto tracking. No local bookmarks should be
     // created.
-    create_remote_commit(
+    create_commit_with_refs(
+        &git_repo,
         "commit 1",
         b"content 1",
         &[
@@ -933,44 +920,44 @@ fn test_bookmark_track_untrack() {
     bookmark: feature2@origin [new] untracked
     bookmark: main@origin     [new] untracked
     "###);
-    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r###"
-    feature1@origin: sptzoqmo 7b33f629 commit 1
-    feature2@origin: sptzoqmo 7b33f629 commit 1
-    main@origin: sptzoqmo 7b33f629 commit 1
-    "###);
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r#"
+    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
+    feature1@origin: qxxqrkql bd843888 commit 1
+    feature2@origin: qxxqrkql bd843888 commit 1
+    main@origin: qxxqrkql bd843888 commit 1
+    ");
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @   230dd059e1b0
-    │ ◆  feature1@origin feature2@origin main@origin 7b33f6295eda
+    │ ◆  feature1@origin feature2@origin main@origin bd843888ee66
     ├─╯
     ◆   000000000000
-    "#);
+    ");
 
     // Track new bookmark. Local bookmark should be created.
     test_env.jj_cmd_ok(
         &repo_path,
         &["bookmark", "track", "feature1@origin", "main@origin"],
     );
-    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r###"
-    feature1: sptzoqmo 7b33f629 commit 1
-      @origin: sptzoqmo 7b33f629 commit 1
-    feature2@origin: sptzoqmo 7b33f629 commit 1
-    main: sptzoqmo 7b33f629 commit 1
-      @origin: sptzoqmo 7b33f629 commit 1
-    "###);
+    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
+    feature1: qxxqrkql bd843888 commit 1
+      @origin: qxxqrkql bd843888 commit 1
+    feature2@origin: qxxqrkql bd843888 commit 1
+    main: qxxqrkql bd843888 commit 1
+      @origin: qxxqrkql bd843888 commit 1
+    ");
 
     // Track existing bookmark. Local bookmark should result in conflict.
     test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "feature2"]);
     test_env.jj_cmd_ok(&repo_path, &["bookmark", "track", "feature2@origin"]);
-    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r###"
-    feature1: sptzoqmo 7b33f629 commit 1
-      @origin: sptzoqmo 7b33f629 commit 1
+    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
+    feature1: qxxqrkql bd843888 commit 1
+      @origin: qxxqrkql bd843888 commit 1
     feature2 (conflicted):
       + qpvuntsm 230dd059 (empty) (no description set)
-      + sptzoqmo 7b33f629 commit 1
-      @origin (behind by 1 commits): sptzoqmo 7b33f629 commit 1
-    main: sptzoqmo 7b33f629 commit 1
-      @origin: sptzoqmo 7b33f629 commit 1
-    "###);
+      + qxxqrkql bd843888 commit 1
+      @origin (behind by 1 commits): qxxqrkql bd843888 commit 1
+    main: qxxqrkql bd843888 commit 1
+      @origin: qxxqrkql bd843888 commit 1
+    ");
 
     // Untrack existing and locally-deleted bookmarks. Bookmark targets should be
     // unchanged
@@ -979,22 +966,23 @@ fn test_bookmark_track_untrack() {
         &repo_path,
         &["bookmark", "untrack", "feature1@origin", "feature2@origin"],
     );
-    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r###"
-    feature1: sptzoqmo 7b33f629 commit 1
-    feature1@origin: sptzoqmo 7b33f629 commit 1
-    feature2@origin: sptzoqmo 7b33f629 commit 1
-    main: sptzoqmo 7b33f629 commit 1
-      @origin: sptzoqmo 7b33f629 commit 1
-    "###);
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r#"
+    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
+    feature1: qxxqrkql bd843888 commit 1
+    feature1@origin: qxxqrkql bd843888 commit 1
+    feature2@origin: qxxqrkql bd843888 commit 1
+    main: qxxqrkql bd843888 commit 1
+      @origin: qxxqrkql bd843888 commit 1
+    ");
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @   230dd059e1b0
-    │ ◆  feature1 feature1@origin feature2@origin main 7b33f6295eda
+    │ ◆  feature1 feature1@origin feature2@origin main bd843888ee66
     ├─╯
     ◆   000000000000
-    "#);
+    ");
 
     // Fetch new commit. Only tracking bookmark "main" should be merged.
-    create_remote_commit(
+    create_commit_with_refs(
+        &git_repo,
         "commit 2",
         b"content 2",
         &[
@@ -1009,25 +997,26 @@ fn test_bookmark_track_untrack() {
     bookmark: feature2@origin [updated] untracked
     bookmark: main@origin     [updated] tracked
     "###);
-    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r###"
-    feature1: sptzoqmo 7b33f629 commit 1
-    feature1@origin: mmqqkyyt 40dabdaf commit 2
-    feature2@origin: mmqqkyyt 40dabdaf commit 2
-    main: mmqqkyyt 40dabdaf commit 2
-      @origin: mmqqkyyt 40dabdaf commit 2
-    "###);
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r#"
+    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
+    feature1: qxxqrkql bd843888 commit 1
+    feature1@origin: psynomvr 48ec79a4 commit 2
+    feature2@origin: psynomvr 48ec79a4 commit 2
+    main: psynomvr 48ec79a4 commit 2
+      @origin: psynomvr 48ec79a4 commit 2
+    ");
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @   230dd059e1b0
-    │ ◆  feature1@origin feature2@origin main 40dabdaf4abe
+    │ ◆  feature1@origin feature2@origin main 48ec79a430e9
     ├─╯
-    │ ○  feature1 7b33f6295eda
+    │ ○  feature1 bd843888ee66
     ├─╯
     ◆   000000000000
-    "#);
+    ");
 
     // Fetch new commit with auto tracking. Tracking bookmark "main" and new
     // bookmark "feature3" should be merged.
-    create_remote_commit(
+    create_commit_with_refs(
+        &git_repo,
         "commit 3",
         b"content 3",
         &[
@@ -1046,23 +1035,23 @@ fn test_bookmark_track_untrack() {
     bookmark: main@origin     [updated] tracked
     Abandoned 1 commits that are no longer reachable.
     "###);
-    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r###"
-    feature1: sptzoqmo 7b33f629 commit 1
-    feature1@origin: wwnpyzpo 3f0f86fa commit 3
-    feature2@origin: wwnpyzpo 3f0f86fa commit 3
-    feature3: wwnpyzpo 3f0f86fa commit 3
-      @origin: wwnpyzpo 3f0f86fa commit 3
-    main: wwnpyzpo 3f0f86fa commit 3
-      @origin: wwnpyzpo 3f0f86fa commit 3
-    "###);
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r#"
+    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
+    feature1: qxxqrkql bd843888 commit 1
+    feature1@origin: yumopmsr d8cd3e02 commit 3
+    feature2@origin: yumopmsr d8cd3e02 commit 3
+    feature3: yumopmsr d8cd3e02 commit 3
+      @origin: yumopmsr d8cd3e02 commit 3
+    main: yumopmsr d8cd3e02 commit 3
+      @origin: yumopmsr d8cd3e02 commit 3
+    ");
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @   230dd059e1b0
-    │ ◆  feature1@origin feature2@origin feature3 main 3f0f86fa0e57
+    │ ◆  feature1@origin feature2@origin feature3 main d8cd3e020382
     ├─╯
-    │ ○  feature1 7b33f6295eda
+    │ ○  feature1 bd843888ee66
     ├─╯
     ◆   000000000000
-    "#);
+    ");
 }
 
 #[test]
@@ -1072,7 +1061,7 @@ fn test_bookmark_track_conflict() {
     let repo_path = test_env.env_root().join("repo");
 
     let git_repo_path = test_env.env_root().join("git-repo");
-    git2::Repository::init_bare(git_repo_path).unwrap();
+    git::init_bare(git_repo_path);
     test_env.jj_cmd_ok(
         &repo_path,
         &["git", "remote", "add", "origin", "../git-repo"],
@@ -1103,29 +1092,19 @@ fn test_bookmark_track_untrack_patterns() {
 
     // Set up remote
     let git_repo_path = test_env.env_root().join("git-repo");
-    let git_repo = git2::Repository::init(git_repo_path).unwrap();
+    let git_repo = git::init(git_repo_path);
     test_env.jj_cmd_ok(
         &repo_path,
         &["git", "remote", "add", "origin", "../git-repo"],
     );
 
     // Create remote commit
-    let signature =
-        git2::Signature::new("Some One", "some.one@example.com", &git2::Time::new(0, 0)).unwrap();
-    let mut tree_builder = git_repo.treebuilder(None).unwrap();
-    let file_oid = git_repo.blob(b"content").unwrap();
-    tree_builder
-        .insert("file", file_oid, git2::FileMode::Blob.into())
-        .unwrap();
-    let tree_oid = tree_builder.write().unwrap();
-    let tree = git_repo.find_tree(tree_oid).unwrap();
-    // Create commit and bookmarks in the remote
-    let git_commit_oid = git_repo
-        .commit(None, &signature, &signature, "commit", &tree, &[])
-        .unwrap();
-    for name in ["refs/heads/feature1", "refs/heads/feature2"] {
-        git_repo.reference(name, git_commit_oid, true, "").unwrap();
-    }
+    create_commit_with_refs(
+        &git_repo,
+        "commit",
+        b"content",
+        &["refs/heads/feature1", "refs/heads/feature2"],
+    );
 
     // Fetch new commit without auto tracking
     test_env.add_config("git.auto-local-bookmark = false");
@@ -1187,14 +1166,14 @@ fn test_bookmark_track_untrack_patterns() {
     Warning: Git-tracking bookmark cannot be untracked: main@git
     Nothing changed.
     "###);
-    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r###"
-    feature1: omvolwpu 1336caed commit
-      @git: omvolwpu 1336caed commit
-      @origin: omvolwpu 1336caed commit
-    feature2@origin: omvolwpu 1336caed commit
+    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
+    feature1: yrnqsqlx 41e7a49d commit
+      @git: yrnqsqlx 41e7a49d commit
+      @origin: yrnqsqlx 41e7a49d commit
+    feature2@origin: yrnqsqlx 41e7a49d commit
     main: qpvuntsm 230dd059 (empty) (no description set)
       @git: qpvuntsm 230dd059 (empty) (no description set)
-    "###);
+    ");
 
     // Untrack by pattern
     let (_, stderr) = test_env.jj_cmd_ok(&repo_path, &["bookmark", "untrack", "glob:*@*"]);
@@ -1204,14 +1183,14 @@ fn test_bookmark_track_untrack_patterns() {
     Warning: Git-tracking bookmark cannot be untracked: main@git
     Stopped tracking 1 remote bookmarks.
     "###);
-    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r###"
-    feature1: omvolwpu 1336caed commit
-      @git: omvolwpu 1336caed commit
-    feature1@origin: omvolwpu 1336caed commit
-    feature2@origin: omvolwpu 1336caed commit
+    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
+    feature1: yrnqsqlx 41e7a49d commit
+      @git: yrnqsqlx 41e7a49d commit
+    feature1@origin: yrnqsqlx 41e7a49d commit
+    feature2@origin: yrnqsqlx 41e7a49d commit
     main: qpvuntsm 230dd059 (empty) (no description set)
       @git: qpvuntsm 230dd059 (empty) (no description set)
-    "###);
+    ");
 
     // Track by pattern
     let (_, stderr) =
@@ -1219,15 +1198,15 @@ fn test_bookmark_track_untrack_patterns() {
     insta::assert_snapshot!(stderr, @r###"
     Started tracking 2 remote bookmarks.
     "###);
-    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r###"
-    feature1: omvolwpu 1336caed commit
-      @git: omvolwpu 1336caed commit
-      @origin: omvolwpu 1336caed commit
-    feature2: omvolwpu 1336caed commit
-      @origin: omvolwpu 1336caed commit
+    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
+    feature1: yrnqsqlx 41e7a49d commit
+      @git: yrnqsqlx 41e7a49d commit
+      @origin: yrnqsqlx 41e7a49d commit
+    feature2: yrnqsqlx 41e7a49d commit
+      @origin: yrnqsqlx 41e7a49d commit
     main: qpvuntsm 230dd059 (empty) (no description set)
       @git: qpvuntsm 230dd059 (empty) (no description set)
-    "###);
+    ");
 }
 
 #[test]
