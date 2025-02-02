@@ -1856,15 +1856,15 @@ There are three different ways of specifying which revisions to rebase:
 
 If no option is specified, it defaults to `-b @`.
 
-There are three different way of specifying where the revisions should be
+There are three different ways of specifying where the revisions should be
 rebased to:
 
-* `--destination/-d` to rebase the revisions onto of the specified targets
-* `--insert-after/-A` to rebase the revisions onto of the specified targets
-  and to rebase the targets' descendants onto of the rebased revisions
-* `--insert-before/-B` to rebase the revisions onto of the specified
-  targets' parents and to rebase the targets and their descendants onto of
-  the rebased revisions
+* `--destination/-d` to rebase the revisions onto the specified targets
+* `--insert-after/-A` to rebase the revisions onto the specified targets and
+  to rebase the targets' descendants onto the rebased revisions
+* `--insert-before/-B` to rebase the revisions onto the specified targets'
+  parents and to rebase the targets and their descendants onto the rebased
+  revisions
 
 See the sections below for details about the different ways of specifying
 which revisions to rebase where.
