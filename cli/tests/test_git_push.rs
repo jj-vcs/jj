@@ -810,13 +810,13 @@ fn test_git_push_changes(subprocess: bool) {
     std::fs::write(workspace_root.join("file"), "modified2").unwrap();
     let stderr = test_env.jj_cmd_failure(&workspace_root, &["git", "push", "-c=(@|@-)"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Revset "(@|@-)" resolved to more than one revision
-    Hint: The revset "(@|@-)" resolved to these revisions:
+    insta::assert_snapshot!(stderr, @r"
+    Error: Revset `(@|@-)` resolved to more than one revision
+    Hint: The revset `(@|@-)` resolved to these revisions:
       yostqsxw 16c16966 push-yostqsxwqrlt* | bar
       yqosqzyt a050abf4 foo
-    Hint: Prefix the expression with 'all:' to allow any number of revisions (i.e. 'all:(@|@-)').
-    "###);
+    Hint: Prefix the expression with `all:` to allow any number of revisions (i.e. `all:(@|@-)`).
+    ");
     }
     // test pushing two changes at once, part 2
     let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["git", "push", "-c=all:(@|@-)"]);

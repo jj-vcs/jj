@@ -118,33 +118,33 @@ pub struct TemplateParseError {
 pub enum TemplateParseErrorKind {
     #[error("Syntax error")]
     SyntaxError,
-    #[error(r#"Keyword "{name}" doesn't exist"#)]
+    #[error("Keyword `{name}` doesn't exist")]
     NoSuchKeyword {
         name: String,
         candidates: Vec<String>,
     },
-    #[error(r#"Function "{name}" doesn't exist"#)]
+    #[error("Function `{name}` doesn't exist")]
     NoSuchFunction {
         name: String,
         candidates: Vec<String>,
     },
-    #[error(r#"Method "{name}" doesn't exist for type "{type_name}""#)]
+    #[error("Method `{name}` doesn't exist for type `{type_name}`")]
     NoSuchMethod {
         type_name: String,
         name: String,
         candidates: Vec<String>,
     },
-    #[error(r#"Function "{name}": {message}"#)]
+    #[error("Function `{name}`: {message}")]
     InvalidArguments { name: String, message: String },
     #[error("Redefinition of function parameter")]
     RedefinedFunctionParameter,
     #[error("{0}")]
     Expression(String),
-    #[error(r#"In alias "{0}""#)]
+    #[error("In alias `{0}`")]
     InAliasExpansion(String),
-    #[error(r#"In function parameter "{0}""#)]
+    #[error("In function parameter `{0}`")]
     InParameterExpansion(String),
-    #[error(r#"Alias "{0}" expanded recursively"#)]
+    #[error("Alias `{0}` expanded recursively")]
     RecursiveAlias(String),
 }
 
@@ -184,7 +184,7 @@ impl TemplateParseError {
 
     pub fn expected_type(expected: &str, actual: &str, span: pest::Span<'_>) -> Self {
         let message =
-            format!(r#"Expected expression of type "{expected}", but actual type is "{actual}""#);
+            format!("Expected expression of type `{expected}`, but actual type is `{actual}`");
         TemplateParseError::expression(message, span)
     }
 

@@ -738,7 +738,7 @@ fn build_binary_operation<'a, L: TemplateLanguage<'a> + ?Sized>(
             let lty = lhs.type_name();
             let rty = rhs.type_name();
             let out = lhs.try_into_eq(rhs).ok_or_else(|| {
-                let message = format!(r#"Cannot compare expressions of type "{lty}" and "{rty}""#);
+                let message = format!("Cannot compare expressions of type `{lty}` and `{rty}`");
                 TemplateParseError::expression(message, span)
             })?;
             match op {
@@ -753,7 +753,7 @@ fn build_binary_operation<'a, L: TemplateLanguage<'a> + ?Sized>(
             let lty = lhs.type_name();
             let rty = rhs.type_name();
             let out = lhs.try_into_cmp(rhs).ok_or_else(|| {
-                let message = format!(r#"Cannot compare expressions of type "{lty}" and "{rty}""#);
+                let message = format!("Cannot compare expressions of type `{lty}` and `{rty}`");
                 TemplateParseError::expression(message, span)
             })?;
             match op {
@@ -2041,23 +2041,23 @@ mod tests {
           = expected <EOI>, `++`, `||`, `&&`, `==`, `!=`, `>=`, `>`, `<=`, or `<`
         "#);
 
-        insta::assert_snapshot!(env.parse_err(r#"foo"#), @r###"
+        insta::assert_snapshot!(env.parse_err(r#"foo"#), @r"
          --> 1:1
           |
         1 | foo
           | ^-^
           |
-          = Keyword "foo" doesn't exist
-        "###);
+          = Keyword `foo` doesn't exist
+        ");
 
-        insta::assert_snapshot!(env.parse_err(r#"foo()"#), @r###"
+        insta::assert_snapshot!(env.parse_err(r#"foo()"#), @r"
          --> 1:1
           |
         1 | foo()
           | ^-^
           |
-          = Function "foo" doesn't exist
-        "###);
+          = Function `foo` doesn't exist
+        ");
         insta::assert_snapshot!(env.parse_err(r#"false()"#), @r###"
          --> 1:1
           |
@@ -2067,95 +2067,95 @@ mod tests {
           = Expected identifier
         "###);
 
-        insta::assert_snapshot!(env.parse_err(r#"!foo"#), @r###"
+        insta::assert_snapshot!(env.parse_err(r#"!foo"#), @r"
          --> 1:2
           |
         1 | !foo
           |  ^-^
           |
-          = Keyword "foo" doesn't exist
-        "###);
-        insta::assert_snapshot!(env.parse_err(r#"true && 123"#), @r###"
+          = Keyword `foo` doesn't exist
+        ");
+        insta::assert_snapshot!(env.parse_err(r#"true && 123"#), @r"
          --> 1:9
           |
         1 | true && 123
           |         ^-^
           |
-          = Expected expression of type "Boolean", but actual type is "Integer"
-        "###);
-        insta::assert_snapshot!(env.parse_err(r#"true == 1"#), @r#"
+          = Expected expression of type `Boolean`, but actual type is `Integer`
+        ");
+        insta::assert_snapshot!(env.parse_err(r#"true == 1"#), @r"
          --> 1:1
           |
         1 | true == 1
           | ^-------^
           |
-          = Cannot compare expressions of type "Boolean" and "Integer"
-        "#);
-        insta::assert_snapshot!(env.parse_err(r#"true != 'a'"#), @r#"
+          = Cannot compare expressions of type `Boolean` and `Integer`
+        ");
+        insta::assert_snapshot!(env.parse_err(r#"true != 'a'"#), @r"
          --> 1:1
           |
         1 | true != 'a'
           | ^---------^
           |
-          = Cannot compare expressions of type "Boolean" and "String"
-        "#);
-        insta::assert_snapshot!(env.parse_err(r#"1 == true"#), @r#"
+          = Cannot compare expressions of type `Boolean` and `String`
+        ");
+        insta::assert_snapshot!(env.parse_err(r#"1 == true"#), @r"
          --> 1:1
           |
         1 | 1 == true
           | ^-------^
           |
-          = Cannot compare expressions of type "Integer" and "Boolean"
-        "#);
-        insta::assert_snapshot!(env.parse_err(r#"1 != 'a'"#), @r#"
+          = Cannot compare expressions of type `Integer` and `Boolean`
+        ");
+        insta::assert_snapshot!(env.parse_err(r#"1 != 'a'"#), @r"
          --> 1:1
           |
         1 | 1 != 'a'
           | ^------^
           |
-          = Cannot compare expressions of type "Integer" and "String"
-        "#);
-        insta::assert_snapshot!(env.parse_err(r#"'a' == true"#), @r#"
+          = Cannot compare expressions of type `Integer` and `String`
+        ");
+        insta::assert_snapshot!(env.parse_err(r#"'a' == true"#), @r"
          --> 1:1
           |
         1 | 'a' == true
           | ^---------^
           |
-          = Cannot compare expressions of type "String" and "Boolean"
-        "#);
-        insta::assert_snapshot!(env.parse_err(r#"'a' != 1"#), @r#"
+          = Cannot compare expressions of type `String` and `Boolean`
+        ");
+        insta::assert_snapshot!(env.parse_err(r#"'a' != 1"#), @r"
          --> 1:1
           |
         1 | 'a' != 1
           | ^------^
           |
-          = Cannot compare expressions of type "String" and "Integer"
-        "#);
+          = Cannot compare expressions of type `String` and `Integer`
+        ");
         insta::assert_snapshot!(env.parse_err(r#"'a' == label("", "")"#), @r#"
          --> 1:1
           |
         1 | 'a' == label("", "")
           | ^------------------^
           |
-          = Cannot compare expressions of type "String" and "Template"
+          = Cannot compare expressions of type `String` and `Template`
         "#);
-        insta::assert_snapshot!(env.parse_err(r#"'a' > 1"#), @r#"
+        insta::assert_snapshot!(env.parse_err(r#"'a' > 1"#), @r"
          --> 1:1
           |
         1 | 'a' > 1
           | ^-----^
           |
-          = Cannot compare expressions of type "String" and "Integer"
-        "#);
+          = Cannot compare expressions of type `String` and `Integer`
+        ");
 
-        insta::assert_snapshot!(env.parse_err(r#"description.first_line().foo()"#), @r###"
+        insta::assert_snapshot!(env.parse_err(r#"description.first_line().foo()"#), @r"
          --> 1:26
           |
         1 | description.first_line().foo()
           |                          ^-^
           |
-          = Method "foo" doesn't exist for type "String"
-        "###);
+          = Method `foo` doesn't exist for type `String`
+        ");
 
         insta::assert_snapshot!(env.parse_err(r#"10000000000000000000"#), @r###"
          --> 1:1
@@ -2165,83 +2165,83 @@ mod tests {
           |
           = Invalid integer literal
         "###);
-        insta::assert_snapshot!(env.parse_err(r#"42.foo()"#), @r###"
+        insta::assert_snapshot!(env.parse_err(r#"42.foo()"#), @r"
          --> 1:4
           |
         1 | 42.foo()
           |    ^-^
           |
-          = Method "foo" doesn't exist for type "Integer"
-        "###);
-        insta::assert_snapshot!(env.parse_err(r#"(-empty)"#), @r###"
+          = Method `foo` doesn't exist for type `Integer`
+        ");
+        insta::assert_snapshot!(env.parse_err(r#"(-empty)"#), @r"
          --> 1:3
           |
         1 | (-empty)
           |   ^---^
           |
-          = Expected expression of type "Integer", but actual type is "Boolean"
-        "###);
+          = Expected expression of type `Integer`, but actual type is `Boolean`
+        ");
 
-        insta::assert_snapshot!(env.parse_err(r#"("foo" ++ "bar").baz()"#), @r###"
+        insta::assert_snapshot!(env.parse_err(r#"("foo" ++ "bar").baz()"#), @r#"
          --> 1:18
           |
         1 | ("foo" ++ "bar").baz()
           |                  ^-^
           |
-          = Method "baz" doesn't exist for type "Template"
-        "###);
+          = Method `baz` doesn't exist for type `Template`
+        "#);
 
-        insta::assert_snapshot!(env.parse_err(r#"description.contains()"#), @r###"
+        insta::assert_snapshot!(env.parse_err(r#"description.contains()"#), @r"
          --> 1:22
           |
         1 | description.contains()
           |                      ^
           |
-          = Function "contains": Expected 1 arguments
-        "###);
+          = Function `contains`: Expected 1 arguments
+        ");
 
-        insta::assert_snapshot!(env.parse_err(r#"description.first_line("foo")"#), @r###"
+        insta::assert_snapshot!(env.parse_err(r#"description.first_line("foo")"#), @r#"
          --> 1:24
           |
         1 | description.first_line("foo")
           |                        ^---^
           |
-          = Function "first_line": Expected 0 arguments
-        "###);
+          = Function `first_line`: Expected 0 arguments
+        "#);
 
-        insta::assert_snapshot!(env.parse_err(r#"label()"#), @r###"
+        insta::assert_snapshot!(env.parse_err(r#"label()"#), @r"
          --> 1:7
           |
         1 | label()
           |       ^
           |
-          = Function "label": Expected 2 arguments
-        "###);
-        insta::assert_snapshot!(env.parse_err(r#"label("foo", "bar", "baz")"#), @r###"
+          = Function `label`: Expected 2 arguments
+        ");
+        insta::assert_snapshot!(env.parse_err(r#"label("foo", "bar", "baz")"#), @r#"
          --> 1:7
           |
         1 | label("foo", "bar", "baz")
           |       ^-----------------^
           |
-          = Function "label": Expected 2 arguments
-        "###);
+          = Function `label`: Expected 2 arguments
+        "#);
 
-        insta::assert_snapshot!(env.parse_err(r#"if()"#), @r###"
+        insta::assert_snapshot!(env.parse_err(r#"if()"#), @r"
          --> 1:4
           |
         1 | if()
           |    ^
           |
-          = Function "if": Expected 2 to 3 arguments
-        "###);
-        insta::assert_snapshot!(env.parse_err(r#"if("foo", "bar", "baz", "quux")"#), @r###"
+          = Function `if`: Expected 2 to 3 arguments
+        ");
+        insta::assert_snapshot!(env.parse_err(r#"if("foo", "bar", "baz", "quux")"#), @r#"
          --> 1:4
           |
         1 | if("foo", "bar", "baz", "quux")
           |    ^-------------------------^
           |
-          = Function "if": Expected 2 to 3 arguments
-        "###);
+          = Function `if`: Expected 2 to 3 arguments
+        "#);
 
         insta::assert_snapshot!(env.parse_err(r#"pad_start("foo", fill_char = "bar", "baz")"#), @r#"
          --> 1:37
@@ -2249,17 +2249,17 @@ mod tests {
         1 | pad_start("foo", fill_char = "bar", "baz")
           |                                     ^---^
           |
-          = Function "pad_start": Positional argument follows keyword argument
+          = Function `pad_start`: Positional argument follows keyword argument
         "#);
 
-        insta::assert_snapshot!(env.parse_err(r#"if(label("foo", "bar"), "baz")"#), @r###"
+        insta::assert_snapshot!(env.parse_err(r#"if(label("foo", "bar"), "baz")"#), @r#"
          --> 1:4
           |
         1 | if(label("foo", "bar"), "baz")
           |    ^-----------------^
           |
-          = Expected expression of type "Boolean", but actual type is "Template"
-        "###);
+          = Expected expression of type `Boolean`, but actual type is `Template`
+        "#);
 
         insta::assert_snapshot!(env.parse_err(r#"|x| description"#), @r###"
          --> 1:1
@@ -2277,14 +2277,14 @@ mod tests {
         env.add_keyword("say_hello", || L::wrap_string(Literal("Hello".to_owned())));
 
         insta::assert_snapshot!(env.render_ok(r#"self.say_hello()"#), @"Hello");
-        insta::assert_snapshot!(env.parse_err(r#"self"#), @r###"
+        insta::assert_snapshot!(env.parse_err(r#"self"#), @r"
          --> 1:1
           |
         1 | self
           | ^--^
           |
-          = Expected expression of type "Template", but actual type is "Self"
-        "###);
+          = Expected expression of type `Template`, but actual type is `Self`
+        ");
     }
 
     #[test]
@@ -2302,14 +2302,14 @@ mod tests {
         insta::assert_snapshot!(env.render_ok(r#"if(sl1, true, false)"#), @"true");
 
         // No implicit cast of integer
-        insta::assert_snapshot!(env.parse_err(r#"if(0, true, false)"#), @r###"
+        insta::assert_snapshot!(env.parse_err(r#"if(0, true, false)"#), @r"
          --> 1:4
           |
         1 | if(0, true, false)
           |    ^
           |
-          = Expected expression of type "Boolean", but actual type is "Integer"
-        "###);
+          = Expected expression of type `Boolean`, but actual type is `Integer`
+        ");
 
         // Optional integer can be converted to boolean, and Some(0) is truthy.
         env.add_keyword("none_i64", || L::wrap_integer_opt(Literal(None)));
@@ -2317,22 +2317,22 @@ mod tests {
         insta::assert_snapshot!(env.render_ok(r#"if(none_i64, true, false)"#), @"false");
         insta::assert_snapshot!(env.render_ok(r#"if(some_i64, true, false)"#), @"true");
 
-        insta::assert_snapshot!(env.parse_err(r#"if(label("", ""), true, false)"#), @r###"
+        insta::assert_snapshot!(env.parse_err(r#"if(label("", ""), true, false)"#), @r#"
          --> 1:4
           |
         1 | if(label("", ""), true, false)
           |    ^-----------^
           |
-          = Expected expression of type "Boolean", but actual type is "Template"
-        "###);
-        insta::assert_snapshot!(env.parse_err(r#"if(sl0.map(|x| x), true, false)"#), @r###"
+          = Expected expression of type `Boolean`, but actual type is `Template`
+        "#);
+        insta::assert_snapshot!(env.parse_err(r#"if(sl0.map(|x| x), true, false)"#), @r"
          --> 1:4
           |
         1 | if(sl0.map(|x| x), true, false)
           |    ^------------^
           |
-          = Expected expression of type "Boolean", but actual type is "ListTemplate"
-        "###);
+          = Expected expression of type `Boolean`, but actual type is `ListTemplate`
+        ");
 
         env.add_keyword("empty_email", || {
             L::wrap_email(Literal(Email("".to_owned())))
@@ -2510,17 +2510,17 @@ mod tests {
         1 | "a".lines().filter(|s| s ++ "\n")
           |                        ^-------^
           |
-          = Expected expression of type "Boolean", but actual type is "Template"
+          = Expected expression of type `Boolean`, but actual type is `Template`
         "#);
         // Error in lambda expression
-        insta::assert_snapshot!(env.parse_err(r#""a".lines().map(|s| s.unknown())"#), @r###"
+        insta::assert_snapshot!(env.parse_err(r#""a".lines().map(|s| s.unknown())"#), @r#"
          --> 1:23
           |
         1 | "a".lines().map(|s| s.unknown())
           |                       ^-----^
           |
-          = Method "unknown" doesn't exist for type "String"
-        "###);
+          = Method `unknown` doesn't exist for type `String`
+        "#);
         // Error in lambda alias
         env.add_alias("too_many_params", "|x, y| x");
         insta::assert_snapshot!(env.parse_err(r#""a".lines().map(too_many_params)"#), @r#"
@@ -2529,7 +2529,7 @@ mod tests {
         1 | "a".lines().map(too_many_params)
           |                 ^-------------^
           |
-          = In alias "too_many_params"
+          = In alias `too_many_params`
          --> 1:2
           |
         1 | |x, y| x
@@ -2819,7 +2819,7 @@ mod tests {
         1 | t0.format(bad_time_format)
           |           ^-------------^
           |
-          = In alias "bad_time_format"
+          = In alias `bad_time_format`
          --> 1:1
           |
         1 | "%_"

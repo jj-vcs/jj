@@ -26,7 +26,7 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum StringPatternParseError {
     /// Unknown pattern kind is specified.
-    #[error(r#"Invalid string pattern kind "{0}:""#)]
+    #[error("Invalid string pattern kind `{0}:`")]
     InvalidKind(String),
     /// Failed to parse glob pattern.
     #[error(transparent)]

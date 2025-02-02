@@ -630,12 +630,12 @@ fn test_bookmark_delete_glob() {
     // Unknown pattern kind
     let stderr =
         test_env.jj_cmd_cli_error(&repo_path, &["bookmark", "forget", "whatever:bookmark"]);
-    insta::assert_snapshot!(stderr, @r###"
-    error: invalid value 'whatever:bookmark' for '<NAMES>...': Invalid string pattern kind "whatever:"
+    insta::assert_snapshot!(stderr, @r"
+    error: invalid value 'whatever:bookmark' for '<NAMES>...': Invalid string pattern kind `whatever:`
 
     For more information, try '--help'.
     Hint: Try prefixing with one of `exact:`, `glob:`, `regex:`, or `substring:`
-    "###);
+    ");
 }
 
 #[test]
@@ -688,9 +688,7 @@ fn test_bookmark_forget_export() {
     // the corresponding git-tracking bookmark.
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @"");
     let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r=foo", "--no-graph"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Revision "foo" doesn't exist
-    "###);
+    insta::assert_snapshot!(stderr, @"Error: Revision `foo` doesn't exist");
 
     // `jj git export` will delete the bookmark from git. In a colocated repo,
     // this will happen automatically immediately after a `jj bookmark forget`.
@@ -1585,10 +1583,10 @@ fn test_bookmark_list_filtered() {
     let (stdout, stderr) = query(&["-rbookmarks(remote-delete)"]);
     insta::assert_snapshot!(stdout, @r###"
     "###);
-    insta::assert_snapshot!(query_error(&["-rremote-delete"]), @r###"
-    Error: Revision "remote-delete" doesn't exist
-    Hint: Did you mean "remote-delete@origin", "remote-keep", "remote-rewrite", "remote-rewrite@origin"?
-    "###);
+    insta::assert_snapshot!(query_error(&["-rremote-delete"]), @r"
+    Error: Revision `remote-delete` doesn't exist
+    Hint: Did you mean `remote-delete@origin`, `remote-keep`, `remote-rewrite`, `remote-rewrite@origin`?
+    ");
     insta::assert_snapshot!(stderr, @"");
 
     // Name patterns are OR-ed.

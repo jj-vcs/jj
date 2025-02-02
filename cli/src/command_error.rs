@@ -217,10 +217,7 @@ fn format_similarity_hint<S: AsRef<str>>(candidates: &[S]) -> Option<String> {
     match candidates {
         [] => None,
         names => {
-            let quoted_names = names
-                .iter()
-                .map(|s| format!(r#""{}""#, s.as_ref()))
-                .join(", ");
+            let quoted_names = names.iter().map(|s| format!("`{}`", s.as_ref())).join(", ");
             Some(format!("Did you mean {quoted_names}?"))
         }
     }
@@ -820,7 +817,7 @@ fn revset_parse_error_hint(err: &RevsetParseError) -> Option<String> {
             op: _,
             similar_op,
             description,
-        } => Some(format!("Did you mean '{similar_op}' for {description}?")),
+        } => Some(format!("Did you mean `{similar_op}` for {description}?")),
         RevsetParseErrorKind::NoSuchFunction {
             name: _,
             candidates,

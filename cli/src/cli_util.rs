@@ -728,7 +728,7 @@ impl AdvanceBookmarksSettings {
                     .into_iter()
                     .map(|s| {
                         StringPattern::parse(&s).map_err(|e| {
-                            config_error_with_message(format!("Error parsing '{s}' for {name}"), e)
+                            config_error_with_message(format!("Error parsing `{s}` for {name}"), e)
                         })
                     })
                     .collect(),
@@ -2875,7 +2875,7 @@ pub fn load_template_aliases(
             if let Err(s) = r {
                 writeln!(
                     ui.warning_default(),
-                    r#"Failed to load "{table_name}.{decl}": {s}"#
+                    "Failed to load `{table_name}.{decl}`: {s}"
                 )?;
             }
         }
@@ -3330,7 +3330,7 @@ fn resolve_aliases(
                     .collect_vec();
                 if resolved_aliases.contains(&*alias_name) {
                     return Err(user_error(format!(
-                        r#"Recursive alias definition involving "{alias_name}""#
+                        "Recursive alias definition involving `{alias_name}`"
                     )));
                 }
                 if let Some(&alias_name) = defined_aliases.get(&*alias_name) {

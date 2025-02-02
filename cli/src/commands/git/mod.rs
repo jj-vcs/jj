@@ -131,7 +131,7 @@ fn write_repository_level_trunk_alias(
     file.save()?;
     writeln!(
         ui.status(),
-        r#"Setting the revset alias "trunk()" to "{branch}@{remote}""#,
+        "Setting the revset alias `trunk()` to `{branch}@{remote}`",
     )?;
     Ok(())
 }

@@ -97,12 +97,12 @@ pub struct FilesetParseError {
 pub enum FilesetParseErrorKind {
     #[error("Syntax error")]
     SyntaxError,
-    #[error(r#"Function "{name}" doesn't exist"#)]
+    #[error("Function `{name}` doesn't exist")]
     NoSuchFunction {
         name: String,
         candidates: Vec<String>,
     },
-    #[error(r#"Function "{name}": {message}"#)]
+    #[error("Function `{name}`: {message}")]
     InvalidArguments { name: String, message: String },
     #[error("{0}")]
     Expression(String),

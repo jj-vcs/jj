@@ -152,46 +152,46 @@ pub struct RevsetParseError {
 pub enum RevsetParseErrorKind {
     #[error("Syntax error")]
     SyntaxError,
-    #[error("'{op}' is not a prefix operator")]
+    #[error("`{op}` is not a prefix operator")]
     NotPrefixOperator {
         op: String,
         similar_op: String,
         description: String,
     },
-    #[error("'{op}' is not a postfix operator")]
+    #[error("`{op}` is not a postfix operator")]
     NotPostfixOperator {
         op: String,
         similar_op: String,
         description: String,
     },
-    #[error("'{op}' is not an infix operator")]
+    #[error("`{op}` is not an infix operator")]
     NotInfixOperator {
         op: String,
         similar_op: String,
         description: String,
     },
-    #[error(r#"Modifier "{0}" doesn't exist"#)]
+    #[error("Modifier `{0}` doesn't exist")]
     NoSuchModifier(String),
-    #[error(r#"Function "{name}" doesn't exist"#)]
+    #[error("Function `{name}` doesn't exist")]
     NoSuchFunction {
         name: String,
         candidates: Vec<String>,
     },
-    #[error(r#"Function "{name}": {message}"#)]
+    #[error("Function `{name}`: {message}")]
     InvalidFunctionArguments { name: String, message: String },
     #[error("Cannot resolve file pattern without workspace")]
     FsPathWithoutWorkspace,
-    #[error(r#"Cannot resolve "@" without workspace"#)]
+    #[error("Cannot resolve `@` without workspace")]
     WorkingCopyWithoutWorkspace,
     #[error("Redefinition of function parameter")]
     RedefinedFunctionParameter,
     #[error("{0}")]
     Expression(String),
-    #[error(r#"In alias "{0}""#)]
+    #[error("In alias `{0}`")]
     InAliasExpansion(String),
-    #[error(r#"In function parameter "{0}""#)]
+    #[error("In function parameter `{0}`")]
     InParameterExpansion(String),
-    #[error(r#"Alias "{0}" expanded recursively"#)]
+    #[error("Alias `{0}` expanded recursively")]
     RecursiveAlias(String),
 }
 

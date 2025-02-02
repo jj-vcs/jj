@@ -53,7 +53,7 @@ use crate::repo_path::UiPathParseError;
 #[derive(Debug, Error)]
 pub enum FilePatternParseError {
     /// Unknown pattern kind is specified.
-    #[error(r#"Invalid file pattern kind "{0}:""#)]
+    #[error("Invalid file pattern kind `{0}:`")]
     InvalidKind(String),
     /// Failed to parse input UI path.
     #[error(transparent)]

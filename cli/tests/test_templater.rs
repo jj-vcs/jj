@@ -45,76 +45,76 @@ fn test_templater_parse_error() {
     'format_id(id)' = 'id.sort()'
     "###,
     );
-    insta::assert_snapshot!(render_err(r#"conflicts"#), @r###"
-    Error: Failed to parse template: Keyword "conflicts" doesn't exist
+    insta::assert_snapshot!(render_err(r#"conflicts"#), @r"
+    Error: Failed to parse template: Keyword `conflicts` doesn't exist
     Caused by:  --> 1:1
       |
     1 | conflicts
       | ^-------^
       |
-      = Keyword "conflicts" doesn't exist
-    Hint: Did you mean "conflict", "conflicting"?
-    "###);
-    insta::assert_snapshot!(render_err(r#"commit_id.shorter()"#), @r###"
-    Error: Failed to parse template: Method "shorter" doesn't exist for type "CommitOrChangeId"
+      = Keyword `conflicts` doesn't exist
+    Hint: Did you mean `conflict`, `conflicting`?
+    ");
+    insta::assert_snapshot!(render_err(r#"commit_id.shorter()"#), @r"
+    Error: Failed to parse template: Method `shorter` doesn't exist for type `CommitOrChangeId`
     Caused by:  --> 1:11
       |
     1 | commit_id.shorter()
       |           ^-----^
       |
-      = Method "shorter" doesn't exist for type "CommitOrChangeId"
-    Hint: Did you mean "short", "shortest"?
-    "###);
-    insta::assert_snapshot!(render_err(r#"oncat()"#), @r###"
-    Error: Failed to parse template: Function "oncat" doesn't exist
+      = Method `shorter` doesn't exist for type `CommitOrChangeId`
+    Hint: Did you mean `short`, `shortest`?
+    ");
+    insta::assert_snapshot!(render_err(r#"oncat()"#), @r"
+    Error: Failed to parse template: Function `oncat` doesn't exist
     Caused by:  --> 1:1
       |
     1 | oncat()
       | ^---^
       |
-      = Function "oncat" doesn't exist
-    Hint: Did you mean "concat", "socat"?
-    "###);
-    insta::assert_snapshot!(render_err(r#""".lines().map(|s| se)"#), @r###"
-    Error: Failed to parse template: Keyword "se" doesn't exist
+      = Function `oncat` doesn't exist
+    Hint: Did you mean `concat`, `socat`?
+    ");
+    insta::assert_snapshot!(render_err(r#""".lines().map(|s| se)"#), @r#"
+    Error: Failed to parse template: Keyword `se` doesn't exist
     Caused by:  --> 1:20
       |
     1 | "".lines().map(|s| se)
       |                    ^^
       |
-      = Keyword "se" doesn't exist
-    Hint: Did you mean "s", "self"?
-    "###);
-    insta::assert_snapshot!(render_err(r#"format_id(commit_id)"#), @r#"
-    Error: Failed to parse template: In alias "format_id(id)"
+      = Keyword `se` doesn't exist
+    Hint: Did you mean `s`, `self`?
+    "#);
+    insta::assert_snapshot!(render_err(r#"format_id(commit_id)"#), @r"
+    Error: Failed to parse template: In alias `format_id(id)`
     Caused by:
     1:  --> 1:1
       |
     1 | format_id(commit_id)
       | ^------------------^
       |
-      = In alias "format_id(id)"
+      = In alias `format_id(id)`
     2:  --> 1:4
       |
     1 | id.sort()
       |    ^--^
       |
-      = Method "sort" doesn't exist for type "CommitOrChangeId"
-    Hint: Did you mean "short", "shortest"?
-    "#);
+      = Method `sort` doesn't exist for type `CommitOrChangeId`
+    Hint: Did you mean `short`, `shortest`?
+    ");
 
     // -Tbuiltin shows the predefined builtin_* aliases. This isn't 100%
     // guaranteed, but is nice.
-    insta::assert_snapshot!(render_err(r#"builtin"#), @r#"
-    Error: Failed to parse template: Keyword "builtin" doesn't exist
+    insta::assert_snapshot!(render_err(r#"builtin"#), @r"
+    Error: Failed to parse template: Keyword `builtin` doesn't exist
     Caused by:  --> 1:1
       |
     1 | builtin
       | ^-----^
       |
-      = Keyword "builtin" doesn't exist
-    Hint: Did you mean "builtin_log_comfortable", "builtin_log_compact", "builtin_log_compact_full_description", "builtin_log_detailed", "builtin_log_node", "builtin_log_node_ascii", "builtin_log_oneline", "builtin_op_log_comfortable", "builtin_op_log_compact", "builtin_op_log_node", "builtin_op_log_node_ascii", "builtin_op_log_oneline"?
-    "#);
+      = Keyword `builtin` doesn't exist
+    Hint: Did you mean `builtin_log_comfortable`, `builtin_log_compact`, `builtin_log_compact_full_description`, `builtin_log_detailed`, `builtin_log_node`, `builtin_log_node_ascii`, `builtin_log_oneline`, `builtin_op_log_comfortable`, `builtin_op_log_compact`, `builtin_op_log_node`, `builtin_op_log_node_ascii`, `builtin_op_log_oneline`?
+    ");
 }
 
 #[test]
@@ -225,162 +225,162 @@ fn test_templater_alias() {
     insta::assert_snapshot!(render("my_commit_id"), @"000000000000");
     insta::assert_snapshot!(render("identity(my_commit_id)"), @"000000000000");
 
-    insta::assert_snapshot!(render_err("commit_id ++ syntax_error"), @r#"
-    Error: Failed to parse template: In alias "syntax_error"
+    insta::assert_snapshot!(render_err("commit_id ++ syntax_error"), @r"
+    Error: Failed to parse template: In alias `syntax_error`
     Caused by:
     1:  --> 1:14
       |
     1 | commit_id ++ syntax_error
       |              ^----------^
       |
-      = In alias "syntax_error"
+      = In alias `syntax_error`
     2:  --> 1:5
       |
     1 | foo.
       |     ^---
       |
       = expected <identifier>
-    "#);
+    ");
 
-    insta::assert_snapshot!(render_err("commit_id ++ name_error"), @r#"
-    Error: Failed to parse template: In alias "name_error"
+    insta::assert_snapshot!(render_err("commit_id ++ name_error"), @r"
+    Error: Failed to parse template: In alias `name_error`
     Caused by:
     1:  --> 1:14
       |
     1 | commit_id ++ name_error
       |              ^--------^
       |
-      = In alias "name_error"
+      = In alias `name_error`
     2:  --> 1:1
       |
     1 | unknown_id
       | ^--------^
       |
-      = Keyword "unknown_id" doesn't exist
-    "#);
+      = Keyword `unknown_id` doesn't exist
+    ");
 
     insta::assert_snapshot!(render_err(r#"identity(identity(commit_id.short("")))"#), @r#"
-    Error: Failed to parse template: In alias "identity(x)"
+    Error: Failed to parse template: In alias `identity(x)`
     Caused by:
     1:  --> 1:1
       |
     1 | identity(identity(commit_id.short("")))
       | ^-------------------------------------^
       |
-      = In alias "identity(x)"
+      = In alias `identity(x)`
     2:  --> 1:1
       |
     1 | x
       | ^
       |
-      = In function parameter "x"
+      = In function parameter `x`
     3:  --> 1:10
       |
     1 | identity(identity(commit_id.short("")))
       |          ^---------------------------^
       |
-      = In alias "identity(x)"
+      = In alias `identity(x)`
     4:  --> 1:1
       |
     1 | x
       | ^
       |
-      = In function parameter "x"
+      = In function parameter `x`
     5:  --> 1:35
       |
     1 | identity(identity(commit_id.short("")))
       |                                   ^^
       |
-      = Expected expression of type "Integer", but actual type is "String"
+      = Expected expression of type `Integer`, but actual type is `String`
     "#);
 
-    insta::assert_snapshot!(render_err("commit_id ++ recurse"), @r#"
-    Error: Failed to parse template: In alias "recurse"
+    insta::assert_snapshot!(render_err("commit_id ++ recurse"), @r"
+    Error: Failed to parse template: In alias `recurse`
     Caused by:
     1:  --> 1:14
       |
     1 | commit_id ++ recurse
       |              ^-----^
       |
-      = In alias "recurse"
+      = In alias `recurse`
     2:  --> 1:1
       |
     1 | recurse1
       | ^------^
       |
-      = In alias "recurse1"
+      = In alias `recurse1`
     3:  --> 1:1
       |
     1 | recurse2()
       | ^--------^
       |
-      = In alias "recurse2()"
+      = In alias `recurse2()`
     4:  --> 1:1
       |
     1 | recurse
       | ^-----^
       |
-      = Alias "recurse" expanded recursively
-    "#);
+      = Alias `recurse` expanded recursively
+    ");
 
-    insta::assert_snapshot!(render_err("identity()"), @r###"
-    Error: Failed to parse template: Function "identity": Expected 1 arguments
+    insta::assert_snapshot!(render_err("identity()"), @r"
+    Error: Failed to parse template: Function `identity`: Expected 1 arguments
     Caused by:  --> 1:10
       |
     1 | identity()
       |          ^
       |
-      = Function "identity": Expected 1 arguments
-    "###);
-    insta::assert_snapshot!(render_err("identity(commit_id, commit_id)"), @r###"
-    Error: Failed to parse template: Function "identity": Expected 1 arguments
+      = Function `identity`: Expected 1 arguments
+    ");
+    insta::assert_snapshot!(render_err("identity(commit_id, commit_id)"), @r"
+    Error: Failed to parse template: Function `identity`: Expected 1 arguments
     Caused by:  --> 1:10
       |
     1 | identity(commit_id, commit_id)
       |          ^------------------^
       |
-      = Function "identity": Expected 1 arguments
-    "###);
+      = Function `identity`: Expected 1 arguments
+    ");
 
     insta::assert_snapshot!(render_err(r#"coalesce(label("x", "not boolean"), "")"#), @r#"
-    Error: Failed to parse template: In alias "coalesce(x, y)"
+    Error: Failed to parse template: In alias `coalesce(x, y)`
     Caused by:
     1:  --> 1:1
       |
     1 | coalesce(label("x", "not boolean"), "")
       | ^-------------------------------------^
       |
-      = In alias "coalesce(x, y)"
+      = In alias `coalesce(x, y)`
     2:  --> 1:4
       |
     1 | if(x, x, y)
       |    ^
       |
-      = In function parameter "x"
+      = In function parameter `x`
     3:  --> 1:10
       |
     1 | coalesce(label("x", "not boolean"), "")
       |          ^-----------------------^
       |
-      = Expected expression of type "Boolean", but actual type is "Template"
+      = Expected expression of type `Boolean`, but actual type is `Template`
     "#);
 
-    insta::assert_snapshot!(render_err("(-my_commit_id)"), @r#"
-    Error: Failed to parse template: In alias "my_commit_id"
+    insta::assert_snapshot!(render_err("(-my_commit_id)"), @r"
+    Error: Failed to parse template: In alias `my_commit_id`
     Caused by:
     1:  --> 1:3
       |
     1 | (-my_commit_id)
       |   ^----------^
       |
-      = In alias "my_commit_id"
+      = In alias `my_commit_id`
     2:  --> 1:1
       |
     1 | commit_id.short()
       | ^---------------^
       |
-      = Expected expression of type "Integer", but actual type is "String"
-    "#);
+      = Expected expression of type `Integer`, but actual type is `String`
+    ");
 
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["log", "-r@", "-Tdeprecated()"]);
     insta::assert_snapshot!(stdout, @r##"
@@ -395,7 +395,7 @@ fn test_templater_alias() {
     1 | deprecated()
       | ^----------^
       |
-      = In alias "deprecated()"
+      = In alias `deprecated()`
      --> 1:1
       |
     1 | branches ++ self.contained_in("branches()")
@@ -408,7 +408,7 @@ fn test_templater_alias() {
     1 | deprecated()
       | ^----------^
       |
-      = In alias "deprecated()"
+      = In alias `deprecated()`
      --> 1:31
       |
     1 | branches ++ self.contained_in("branches()")
@@ -471,14 +471,14 @@ fn test_templater_bad_alias_decl() {
     let (stdout, stderr) =
         test_env.jj_cmd_ok(&repo_path, &["log", "--no-graph", "-r@-", "-Tmy_commit_id"]);
     insta::assert_snapshot!(stdout, @"000000000000");
-    insta::assert_snapshot!(stderr, @r###"
-    Warning: Failed to load "template-aliases.badfn(a, a)":  --> 1:7
+    insta::assert_snapshot!(stderr, @r"
+    Warning: Failed to load `template-aliases.badfn(a, a)`:  --> 1:7
       |
     1 | badfn(a, a)
       |       ^--^
       |
       = Redefinition of function parameter
-    "###);
+    ");
 }
 
 #[test]

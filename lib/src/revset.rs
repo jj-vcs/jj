@@ -69,18 +69,18 @@ use crate::time_util::DatePatternContext;
 /// Error occurred during symbol resolution.
 #[derive(Debug, Error)]
 pub enum RevsetResolutionError {
-    #[error("Revision \"{name}\" doesn't exist")]
+    #[error("Revision `{name}` doesn't exist")]
     NoSuchRevision {
         name: String,
         candidates: Vec<String>,
     },
-    #[error("Workspace \"{name}\" doesn't have a working-copy commit")]
+    #[error("Workspace `{name}` doesn't have a working-copy commit")]
     WorkspaceMissingWorkingCopy { name: String },
     #[error("An empty string is not a valid revision")]
     EmptyString,
-    #[error("Commit ID prefix \"{0}\" is ambiguous")]
+    #[error("Commit ID prefix `{0}` is ambiguous")]
     AmbiguousCommitIdPrefix(String),
-    #[error("Change ID prefix \"{0}\" is ambiguous")]
+    #[error("Change ID prefix `{0}` is ambiguous")]
     AmbiguousChangeIdPrefix(String),
     #[error("Unexpected error from store")]
     StoreError(#[source] BackendError),
@@ -1173,7 +1173,7 @@ pub fn lower_expression(
         ExpressionKind::Modifier(modifier) => {
             let name = modifier.name;
             Err(RevsetParseError::expression(
-                format!(r#"Modifier "{name}:" is not allowed in sub expression"#),
+                format!("Modifier `{name}:` is not allowed in sub expression"),
                 modifier.name_span,
             ))
         }

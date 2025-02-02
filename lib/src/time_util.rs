@@ -65,7 +65,7 @@ impl From<DateTime<FixedOffset>> for DatePatternContext {
 #[derive(Debug, Error)]
 pub enum DatePatternParseError {
     /// Unknown pattern kind is specified.
-    #[error(r#"Invalid date pattern kind "{0}:""#)]
+    #[error("Invalid date pattern kind `{0}:`")]
     InvalidKind(String),
     /// Failed to parse timestamp.
     #[error(transparent)]

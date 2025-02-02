@@ -225,14 +225,14 @@ fn test_git_init_external_import_trunk(bare: bool) {
         insta::assert_snapshot!(stdout, @"");
     }
     insta::allow_duplicates! {
-        insta::assert_snapshot!(stderr, @r###"
+        insta::assert_snapshot!(stderr, @r#"
         Done importing changes from the underlying Git repo.
-        Setting the revset alias "trunk()" to "trunk@origin"
+        Setting the revset alias `trunk()` to `trunk@origin`
         Working copy now at: sqpuoqvx f6950fc1 (empty) (no description set)
         Parent commit      : mwrttmos 8d698d4a my-bookmark trunk@origin | My commit message
         Added 1 files, modified 0 files, removed 0 files
         Initialized repo in "repo"
-        "###);
+        "#);
     }
 
     // "trunk()" alias should be set to remote "origin"'s default bookmark "trunk"

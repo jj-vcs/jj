@@ -120,9 +120,7 @@ fn test_new_merge() {
 
     // merge with non-unique revisions
     let stderr = test_env.jj_cmd_failure(&repo_path, &["new", "@", "3a44e"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Revision "3a44e" doesn't exist
-    "###);
+    insta::assert_snapshot!(stderr, @"Error: Revision `3a44e` doesn't exist");
     // if prefixed with all:, duplicates are allowed
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["new", "@", "all:visible_heads()"]);
     insta::assert_snapshot!(stdout, @"");
@@ -627,14 +625,14 @@ fn test_new_conflicting_bookmarks() {
     test_env.jj_cmd_ok(&repo_path, &["st"]);
 
     let stderr = test_env.jj_cmd_failure(&repo_path, &["new", "foo"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Revset "foo" resolved to more than one revision
+    insta::assert_snapshot!(stderr, @r"
+    Error: Revset `foo` resolved to more than one revision
     Hint: Bookmark foo resolved to multiple revisions because it's conflicted.
     It resolved to these revisions:
       kkmpptxz 66c6502d foo?? | (empty) two
       qpvuntsm 876f4b7e foo?? | (empty) one
     Hint: Set which revision the bookmark points to with `jj bookmark set foo -r <REVISION>`.
-    "###);
+    ");
 }
 
 #[test]
@@ -650,13 +648,13 @@ fn test_new_conflicting_change_ids() {
     test_env.jj_cmd_ok(&repo_path, &["st"]);
 
     let stderr = test_env.jj_cmd_failure(&repo_path, &["new", "qpvuntsm"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Revset "qpvuntsm" resolved to more than one revision
-    Hint: The revset "qpvuntsm" resolved to these revisions:
+    insta::assert_snapshot!(stderr, @r"
+    Error: Revset `qpvuntsm` resolved to more than one revision
+    Hint: The revset `qpvuntsm` resolved to these revisions:
       qpvuntsm?? 66c6502d (empty) two
       qpvuntsm?? 876f4b7e (empty) one
     Hint: Some of these commits have the same change id. Abandon one of them with `jj abandon -r <REVISION>`.
-    "###);
+    ");
 }
 
 #[test]
@@ -669,9 +667,7 @@ fn test_new_error_revision_does_not_exist() {
     test_env.jj_cmd_ok(&repo_path, &["new", "-m", "two"]);
 
     let stderr = test_env.jj_cmd_failure(&repo_path, &["new", "this"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Revision "this" doesn't exist
-    "###);
+    insta::assert_snapshot!(stderr, @"Error: Revision `this` doesn't exist");
 }
 
 fn setup_before_insertion(test_env: &TestEnvironment, repo_path: &Path) {

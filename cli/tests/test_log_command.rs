@@ -472,7 +472,7 @@ fn test_log_bad_short_prefixes() {
     @  2
     ◆  0
     "#);
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(stderr, @r"
     Warning: In template expression
      --> 1:11
       |
@@ -481,16 +481,16 @@ fn test_log_bad_short_prefixes() {
       |
       = Failed to load short-prefixes index
     Failed to resolve short-prefixes disambiguation revset
-    Revision "missing" doesn't exist
-    "#);
+    Revision `missing` doesn't exist
+    ");
 
     // Error on resolution of short prefixes
     test_env.add_config("revsets.short-prefixes = 'missing'");
     let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r0"]);
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(stderr, @r"
     Error: Failed to resolve short-prefixes disambiguation revset
-    Caused by: Revision "missing" doesn't exist
-    "#);
+    Caused by: Revision `missing` doesn't exist
+    ");
 }
 
 #[test]
@@ -678,9 +678,7 @@ fn test_log_prefix_highlight_counts_hidden_commits() {
     );
     insta::assert_snapshot!(
         test_env.jj_cmd_failure(&repo_path, &["log", "-r", "4", "-T", prefix_format]),
-        @r###"
-    Error: Commit ID prefix "4" is ambiguous
-    "###
+        @"Error: Commit ID prefix `4` is ambiguous"
     );
     insta::assert_snapshot!(
         test_env.jj_cmd_success(&repo_path, &["log", "-r", "44", "-T", prefix_format]),

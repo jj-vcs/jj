@@ -162,14 +162,10 @@ fn test_alias_recursive() {
     );
     // Alias should not cause infinite recursion or hang
     let stderr = test_env.jj_cmd_failure(&repo_path, &["foo"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Recursive alias definition involving "foo"
-    "###);
+    insta::assert_snapshot!(stderr, @"Error: Recursive alias definition involving `foo`");
     // Also test with mutual recursion
     let stderr = test_env.jj_cmd_failure(&repo_path, &["bar"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Recursive alias definition involving "bar"
-    "###);
+    insta::assert_snapshot!(stderr, @"Error: Recursive alias definition involving `bar`");
 }
 
 #[test]

@@ -83,14 +83,14 @@ fn test_git_clone(subprocess: bool) {
     insta::assert_snapshot!(stdout, @"");
     }
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Fetching into new repo in "$TEST_ENV/clone"
     bookmark: main@origin [new] tracked
-    Setting the revset alias "trunk()" to "main@origin"
+    Setting the revset alias `trunk()` to `main@origin`
     Working copy now at: uuqppmxq 1f0b881a (empty) (no description set)
     Parent commit      : mzyxwzks 9f01a0e0 main | message
     Added 1 files, modified 0 files, removed 0 files
-    "###);
+    "#);
     }
     assert!(test_env.env_root().join("clone").join("file").exists());
 
@@ -201,14 +201,14 @@ fn test_git_clone(subprocess: bool) {
     insta::assert_snapshot!(stdout, @"");
     }
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Fetching into new repo in "$TEST_ENV/nested/path/to/repo"
     bookmark: main@origin [new] tracked
-    Setting the revset alias "trunk()" to "main@origin"
+    Setting the revset alias `trunk()` to `main@origin`
     Working copy now at: uuzqqzqu df8acbac (empty) (no description set)
     Parent commit      : mzyxwzks 9f01a0e0 main | message
     Added 1 files, modified 0 files, removed 0 files
-    "###);
+    "#);
     }
 }
 
@@ -286,14 +286,14 @@ fn test_git_clone_colocate(subprocess: bool) {
     insta::assert_snapshot!(stdout, @"");
     }
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Fetching into new repo in "$TEST_ENV/clone"
     bookmark: main@origin [new] tracked
-    Setting the revset alias "trunk()" to "main@origin"
+    Setting the revset alias `trunk()` to `main@origin`
     Working copy now at: uuqppmxq 1f0b881a (empty) (no description set)
     Parent commit      : mzyxwzks 9f01a0e0 main | message
     Added 1 files, modified 0 files, removed 0 files
-    "###);
+    "#);
     }
     assert!(test_env.env_root().join("clone").join("file").exists());
     assert!(test_env.env_root().join("clone").join(".git").exists());
@@ -474,14 +474,14 @@ fn test_git_clone_colocate(subprocess: bool) {
     insta::assert_snapshot!(stdout, @"");
     }
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Fetching into new repo in "$TEST_ENV/nested/path/to/repo"
     bookmark: main@origin [new] tracked
-    Setting the revset alias "trunk()" to "main@origin"
+    Setting the revset alias `trunk()` to `main@origin`
     Working copy now at: vzqnnsmr 9407107f (empty) (no description set)
     Parent commit      : mzyxwzks 9f01a0e0 main | message
     Added 1 files, modified 0 files, removed 0 files
-    "###);
+    "#);
     }
 }
 
@@ -510,15 +510,15 @@ fn test_git_clone_remote_default_bookmark(subprocess: bool) {
     let (_stdout, stderr) =
         test_env.jj_cmd_ok(test_env.env_root(), &["git", "clone", "source", "clone1"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Fetching into new repo in "$TEST_ENV/clone1"
     bookmark: feature1@origin [new] tracked
     bookmark: main@origin     [new] tracked
-    Setting the revset alias "trunk()" to "main@origin"
+    Setting the revset alias `trunk()` to `main@origin`
     Working copy now at: sqpuoqvx cad212e1 (empty) (no description set)
     Parent commit      : mzyxwzks 9f01a0e0 feature1 main | message
     Added 1 files, modified 0 files, removed 0 files
-    "###);
+    "#);
     }
     insta::allow_duplicates! {
     insta::assert_snapshot!(
@@ -546,15 +546,15 @@ fn test_git_clone_remote_default_bookmark(subprocess: bool) {
     let (_stdout, stderr) =
         test_env.jj_cmd_ok(test_env.env_root(), &["git", "clone", "source", "clone2"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Fetching into new repo in "$TEST_ENV/clone2"
     bookmark: feature1@origin [new] untracked
     bookmark: main@origin     [new] untracked
-    Setting the revset alias "trunk()" to "main@origin"
+    Setting the revset alias `trunk()` to `main@origin`
     Working copy now at: rzvqmyuk cc8a5041 (empty) (no description set)
     Parent commit      : mzyxwzks 9f01a0e0 feature1@origin main | message
     Added 1 files, modified 0 files, removed 0 files
-    "###);
+    "#);
     }
     insta::allow_duplicates! {
     insta::assert_snapshot!(
@@ -570,15 +570,15 @@ fn test_git_clone_remote_default_bookmark(subprocess: bool) {
     let (_stdout, stderr) =
         test_env.jj_cmd_ok(test_env.env_root(), &["git", "clone", "source", "clone3"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Fetching into new repo in "$TEST_ENV/clone3"
     bookmark: feature1@origin [new] untracked
     bookmark: main@origin     [new] untracked
-    Setting the revset alias "trunk()" to "feature1@origin"
+    Setting the revset alias `trunk()` to `feature1@origin`
     Working copy now at: nppvrztz b8a8a17b (empty) (no description set)
     Parent commit      : mzyxwzks 9f01a0e0 feature1 main@origin | message
     Added 1 files, modified 0 files, removed 0 files
-    "###);
+    "#);
     }
     insta::allow_duplicates! {
     insta::assert_snapshot!(
@@ -627,7 +627,7 @@ fn test_git_clone_remote_default_bookmark_with_escape(subprocess: bool) {
     insta::assert_snapshot!(stderr, @r#"
     Fetching into new repo in "$TEST_ENV/clone"
     bookmark: "@origin [new] untracked
-    Setting the revset alias "trunk()" to ""\""@origin"
+    Setting the revset alias `trunk()` to `"\""@origin`
     Working copy now at: sqpuoqvx cad212e1 (empty) (no description set)
     Parent commit      : mzyxwzks 9f01a0e0 " | message
     Added 1 files, modified 0 files, removed 0 files
@@ -661,11 +661,11 @@ fn test_git_clone_ignore_working_copy(subprocess: bool) {
         &["git", "clone", "--ignore-working-copy", "source", "clone"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Fetching into new repo in "$TEST_ENV/clone"
     bookmark: main@origin [new] untracked
-    Setting the revset alias "trunk()" to "main@origin"
-    "###);
+    Setting the revset alias `trunk()` to `main@origin`
+    "#);
     }
     let clone_path = test_env.env_root().join("clone");
 
@@ -738,7 +738,7 @@ fn test_git_clone_with_remote_name(subprocess: bool) {
     insta::assert_snapshot!(stderr, @r#"
     Fetching into new repo in "$TEST_ENV/clone"
     bookmark: main@upstream [new] tracked
-    Setting the revset alias "trunk()" to "main@upstream"
+    Setting the revset alias `trunk()` to `main@upstream`
     Working copy now at: sqpuoqvx cad212e1 (empty) (no description set)
     Parent commit      : mzyxwzks 9f01a0e0 main | message
     Added 1 files, modified 0 files, removed 0 files
@@ -786,7 +786,7 @@ fn test_git_clone_trunk_deleted(subprocess: bool) {
     insta::assert_snapshot!(stderr, @r#"
     Fetching into new repo in "$TEST_ENV/clone"
     bookmark: main@origin [new] untracked
-    Setting the revset alias "trunk()" to "main@origin"
+    Setting the revset alias `trunk()` to `main@origin`
     Working copy now at: sqpuoqvx cad212e1 (empty) (no description set)
     Parent commit      : mzyxwzks 9f01a0e0 main | message
     Added 1 files, modified 0 files, removed 0 files
@@ -798,11 +798,11 @@ fn test_git_clone_trunk_deleted(subprocess: bool) {
     insta::assert_snapshot!(stdout, @"");
     }
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(stderr, @r"
     Forgot 1 bookmarks.
-    Warning: Failed to resolve `revset-aliases.trunk()`: Revision "main@origin" doesn't exist
+    Warning: Failed to resolve `revset-aliases.trunk()`: Revision `main@origin` doesn't exist
     Hint: Use `jj config edit --repo` to adjust the `trunk()` alias.
-    "#);
+    ");
     }
 
     let (stdout, stderr) = test_env.jj_cmd_ok(&clone_path, &["log"]);
@@ -816,10 +816,10 @@ fn test_git_clone_trunk_deleted(subprocess: bool) {
     "#);
     }
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r#"
-    Warning: Failed to resolve `revset-aliases.trunk()`: Revision "main@origin" doesn't exist
+    insta::assert_snapshot!(stderr, @r"
+    Warning: Failed to resolve `revset-aliases.trunk()`: Revision `main@origin` doesn't exist
     Hint: Use `jj config edit --repo` to adjust the `trunk()` alias.
-    "#);
+    ");
     }
 }
 
@@ -881,7 +881,7 @@ fn test_git_clone_conditional_config() {
     insta::assert_snapshot!(stderr, @r#"
     Fetching into new repo in "$TEST_ENV/new"
     bookmark: main@origin [new] untracked
-    Setting the revset alias "trunk()" to "main@origin"
+    Setting the revset alias `trunk()` to `main@origin`
     Working copy now at: zxsnswpr 5695b5e5 (empty) (no description set)
     Parent commit      : mzyxwzks 9f01a0e0 main | message
     Added 1 files, modified 0 files, removed 0 files
@@ -947,7 +947,7 @@ fn test_git_clone_with_depth_subprocess() {
     insta::assert_snapshot!(stderr, @r#"
     Fetching into new repo in "$TEST_ENV/clone"
     bookmark: main@origin [new] tracked
-    Setting the revset alias "trunk()" to "main@origin"
+    Setting the revset alias `trunk()` to `main@origin`
     Working copy now at: sqpuoqvx cad212e1 (empty) (no description set)
     Parent commit      : mzyxwzks 9f01a0e0 main | message
     Added 1 files, modified 0 files, removed 0 files
@@ -987,7 +987,7 @@ fn test_git_clone_invalid_immutable_heads(subprocess: bool) {
     Fetching into new repo in "$TEST_ENV/clone"
     bookmark: main@origin [new] untracked
     Config error: Invalid `revset-aliases.immutable_heads()`
-    Caused by: Revision "unknown" doesn't exist
+    Caused by: Revision `unknown` doesn't exist
     For help, see https://jj-vcs.github.io/jj/latest/config/.
     "#);
     }
@@ -1014,7 +1014,7 @@ fn test_git_clone_malformed(subprocess: bool) {
     insta::assert_snapshot!(stderr, @r#"
     Fetching into new repo in "$TEST_ENV/clone"
     bookmark: main@origin [new] untracked
-    Setting the revset alias "trunk()" to "main@origin"
+    Setting the revset alias `trunk()` to `main@origin`
     Internal error: Failed to check out commit 039a1eae03465fd3be0fbad87c9ca97303742677
     Caused by: Reserved path component .jj in $TEST_ENV/clone/.jj
     "#);

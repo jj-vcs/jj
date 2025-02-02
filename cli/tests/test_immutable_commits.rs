@@ -65,11 +65,11 @@ fn test_rewrite_immutable_generic() {
     // Suppress warning in the commit summary template
     test_env.add_config("template-aliases.'format_short_id(id)' = 'id.short(8)'");
     let stderr = test_env.jj_cmd_failure(&repo_path, &["new", "main"]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Config error: Invalid `revset-aliases.immutable_heads()`
-    Caused by: Revision "bookmark_that_does_not_exist" doesn't exist
+    Caused by: Revision `bookmark_that_does_not_exist` doesn't exist
     For help, see https://jj-vcs.github.io/jj/latest/config/.
-    "###);
+    ");
 
     // Can use --ignore-immutable to override
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "main""#);

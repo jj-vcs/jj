@@ -194,7 +194,7 @@ pub fn load_revset_aliases(
             if let Err(s) = r {
                 writeln!(
                     ui.warning_default(),
-                    r#"Failed to load "{table_name}.{decl}": {s}"#
+                    "Failed to load `{table_name}.{decl}`: {s}"
                 )?;
             }
         }
@@ -267,7 +267,7 @@ pub(super) fn evaluate_revset_to_single_commit<'a>(
     match (iter.next(), iter.next()) {
         (Some(commit), None) => Ok(commit?),
         (None, _) => Err(user_error(format!(
-            r#"Revset "{revision_str}" didn't resolve to any revisions"#
+            "Revset `{revision_str}` didn't resolve to any revisions"
         ))),
         (Some(commit0), Some(commit1)) => {
             let mut iter = [commit0, commit1].into_iter().chain(iter);
@@ -295,7 +295,7 @@ fn format_multiple_revisions_error(
 ) -> CommandError {
     assert!(commits.len() >= 2);
     let mut cmd_err = user_error(format!(
-        r#"Revset "{revision_str}" resolved to more than one revision"#
+        "Revset `{revision_str}` resolved to more than one revision"
     ));
     let write_commits_summary = |formatter: &mut dyn Formatter| {
         for commit in commits {
@@ -313,7 +313,7 @@ fn format_multiple_revisions_error(
         cmd_err.add_formatted_hint_with(|formatter| {
             writeln!(
                 formatter,
-                r#"The revset "{revision_str}" resolved to these revisions:"#
+                "The revset `{revision_str}` resolved to these revisions:"
             )?;
             write_commits_summary(formatter)
         });
@@ -339,14 +339,14 @@ fn format_multiple_revisions_error(
         cmd_err.add_formatted_hint_with(|formatter| {
             writeln!(
                 formatter,
-                r#"The revset "{revision_str}" resolved to these revisions:"#
+                "The revset `{revision_str}` resolved to these revisions:"
             )?;
             write_commits_summary(formatter)
         });
         if should_hint_about_all_prefix {
             cmd_err.add_hint(format!(
-                "Prefix the expression with 'all:' to allow any number of revisions (i.e. \
-                 'all:{revision_str}')."
+                "Prefix the expression with `all:` to allow any number of revisions (i.e. \
+                 `all:{revision_str}`)."
             ));
         }
     };

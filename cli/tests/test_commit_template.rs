@@ -67,28 +67,28 @@ fn test_log_parents() {
 
     // Commit object isn't printable
     let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-T", "parents"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Failed to parse template: Expected expression of type "Template", but actual type is "List<Commit>"
+    insta::assert_snapshot!(stderr, @r"
+    Error: Failed to parse template: Expected expression of type `Template`, but actual type is `List<Commit>`
     Caused by:  --> 1:1
       |
     1 | parents
       | ^-----^
       |
-      = Expected expression of type "Template", but actual type is "List<Commit>"
-    "###);
+      = Expected expression of type `Template`, but actual type is `List<Commit>`
+    ");
 
     // Redundant argument passed to keyword method
     let template = r#"parents.map(|c| c.commit_id(""))"#;
     let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-T", template]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Failed to parse template: Function "commit_id": Expected 0 arguments
+    insta::assert_snapshot!(stderr, @r#"
+    Error: Failed to parse template: Function `commit_id`: Expected 0 arguments
     Caused by:  --> 1:29
       |
     1 | parents.map(|c| c.commit_id(""))
       |                             ^^
       |
-      = Function "commit_id": Expected 0 arguments
-    "###);
+      = Function `commit_id`: Expected 0 arguments
+    "#);
 }
 
 #[test]
@@ -813,20 +813,20 @@ fn test_log_immutable() {
 
     test_env.add_config("revset-aliases.'immutable_heads()' = 'unknown_fn()'");
     let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r::", "-T", template]);
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(stderr, @r"
     Config error: Invalid `revset-aliases.immutable_heads()`
     Caused by:  --> 1:1
       |
     1 | unknown_fn()
       | ^--------^
       |
-      = Function "unknown_fn" doesn't exist
+      = Function `unknown_fn` doesn't exist
     For help, see https://jj-vcs.github.io/jj/latest/config/.
-    "#);
+    ");
 
     test_env.add_config("revset-aliases.'immutable_heads()' = 'unknown_symbol'");
     let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r::", "-T", template]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Error: Failed to parse template: Failed to evaluate revset
     Caused by:
     1:  --> 5:10
@@ -835,8 +835,8 @@ fn test_log_immutable() {
       |          ^-------^
       |
       = Failed to evaluate revset
-    2: Revision "unknown_symbol" doesn't exist
-    "###);
+    2: Revision `unknown_symbol` doesn't exist
+    "#);
 }
 
 #[test]
@@ -917,7 +917,7 @@ fn test_log_contained_in() {
     1 | unknown_fn()
       | ^--------^
       |
-      = Function "unknown_fn" doesn't exist
+      = Function `unknown_fn` doesn't exist
     "#);
 
     let stderr = test_env.jj_cmd_failure(
@@ -939,7 +939,7 @@ fn test_log_contained_in() {
       |        ^---^
       |
       = Invalid string pattern
-    3: Invalid string pattern kind "x:"
+    3: Invalid string pattern kind `x:`
     Hint: Try prefixing with one of `exact:`, `glob:`, `regex:`, or `substring:`
     "#);
 
@@ -947,7 +947,7 @@ fn test_log_contained_in() {
         &repo_path,
         &["log", "-r::", "-T", &template_for_revset("maine")],
     );
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Error: Failed to parse template: Failed to evaluate revset
     Caused by:
     1:  --> 5:28
@@ -956,9 +956,9 @@ fn test_log_contained_in() {
       |                            ^-----^
       |
       = Failed to evaluate revset
-    2: Revision "maine" doesn't exist
-    Hint: Did you mean "main"?
-    "###);
+    2: Revision `maine` doesn't exist
+    Hint: Did you mean `main`?
+    "#);
 }
 
 #[test]

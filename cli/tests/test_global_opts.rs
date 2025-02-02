@@ -528,13 +528,13 @@ fn test_color_ui_messages() {
 
     // formatted hint
     let stderr = test_env.jj_cmd_failure(&repo_path, &["new", ".."]);
-    insta::assert_snapshot!(stderr, @r###"
-    [1m[38;5;1mError: [39mRevset ".." resolved to more than one revision[0m
-    [1m[38;5;6mHint: [0m[39mThe revset ".." resolved to these revisions:[39m
+    insta::assert_snapshot!(stderr, @r"
+    [1m[38;5;1mError: [39mRevset `..` resolved to more than one revision[0m
+    [1m[38;5;6mHint: [0m[39mThe revset `..` resolved to these revisions:[39m
     [39m  [1m[38;5;5mm[0m[38;5;8mzvwutvl[39m [1m[38;5;4m1[0m[38;5;8m67f90e7[39m [38;5;2m(empty)[39m [38;5;2m(no description set)[39m[39m
     [39m  [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [1m[38;5;4m2[0m[38;5;8m30dd059[39m [38;5;2m(empty)[39m [38;5;2m(no description set)[39m[39m
-    [1m[38;5;6mHint: [0m[39mPrefix the expression with 'all:' to allow any number of revisions (i.e. 'all:..').[39m
-    "###);
+    [1m[38;5;6mHint: [0m[39mPrefix the expression with `all:` to allow any number of revisions (i.e. `all:..`).[39m
+    ");
 
     // debugging colors
     let (stdout, _stderr) = test_env.jj_cmd_ok(&repo_path, &["st", "--color", "debug"]);
