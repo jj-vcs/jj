@@ -1,4 +1,4 @@
-site_name: Jujutsu docs
+site_name: !ENV [MKDOCS_SITE_NAME, 'Jujutsu docs']
 site_dir:  'rendered-docs'
 # Not having this (or viewing the site locally, or from any place other than the
 # site_url) leads to version switching failing to preserve the current path.
@@ -20,11 +20,13 @@ theme:
         name: Switch to system preference
     - media: "(prefers-color-scheme: light)"
       scheme: default
+      primary: !ENV [MKDOCS_PRIMARY_COLOR, 'indigo']
       toggle:
         icon: material/brightness-7
         name: Switch to light mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
+      primary: !ENV [MKDOCS_PRIMARY_COLOR, 'indigo']
       toggle:
         icon: material/brightness-4
         name: Switch to dark mode

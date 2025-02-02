@@ -30,6 +30,8 @@ jobs:
         run: |
           git config user.name 'jj-docs[bot]'
           git config user.email 'jj-docs[bot]@users.noreply.github.io'
+          export MKDOCS_SITE_NAME="Jujutsu docs (prerelease)"
+          export MKDOCS_PRIMARY_COLOR="blue grey"
           .github/scripts/docs-build-deploy prerelease --push
       - name: "Show `git diff --stat`"
         run: git diff --stat gh-pages^ gh-pages || echo "(No diffs)"
