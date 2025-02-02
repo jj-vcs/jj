@@ -16,6 +16,7 @@ use std::path::Path;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 
+use crate::common::git;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -81,7 +82,7 @@ fn test_git_export_undo() {
     let test_env = TestEnvironment::default();
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
-    let git_repo = git2::Repository::open(repo_path.join(".jj/repo/store/git")).unwrap();
+    let git_repo = git::open(repo_path.join(".jj/repo/store/git"));
 
     test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "a"]);
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r###"
@@ -134,15 +135,20 @@ fn test_git_import_undo() {
     let test_env = TestEnvironment::default();
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
-    let git_repo = git2::Repository::open(repo_path.join(".jj/repo/store/git")).unwrap();
+    let git_repo = git::open(repo_path.join(".jj/repo/store/git"));
 
     // Create bookmark "a" in git repo
     let commit_id =
         test_env.jj_cmd_success(&repo_path, &["log", "-Tcommit_id", "--no-graph", "-r@"]);
-    let commit = git_repo
-        .find_commit(git2::Oid::from_str(&commit_id).unwrap())
+    let commit_id = gix::ObjectId::from_hex(commit_id.as_bytes()).unwrap();
+    git_repo
+        .reference(
+            "refs/heads/a",
+            commit_id,
+            gix::refs::transaction::PreviousValue::Any,
+            "",
+        )
         .unwrap();
-    git_repo.branch("a", &commit, true).unwrap();
 
     // Initial state we will return to after `undo`. There are no bookmarks.
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @"");
@@ -182,15 +188,20 @@ fn test_git_import_move_export_with_default_undo() {
     let test_env = TestEnvironment::default();
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
-    let git_repo = git2::Repository::open(repo_path.join(".jj/repo/store/git")).unwrap();
+    let git_repo = git::open(repo_path.join(".jj/repo/store/git"));
 
     // Create bookmark "a" in git repo
     let commit_id =
         test_env.jj_cmd_success(&repo_path, &["log", "-Tcommit_id", "--no-graph", "-r@"]);
-    let commit = git_repo
-        .find_commit(git2::Oid::from_str(&commit_id).unwrap())
+    let commit_id = gix::ObjectId::from_hex(commit_id.as_bytes()).unwrap();
+    git_repo
+        .reference(
+            "refs/heads/a",
+            commit_id,
+            gix::refs::transaction::PreviousValue::Any,
+            "",
+        )
         .unwrap();
-    git_repo.branch("a", &commit, true).unwrap();
 
     // Initial state we will try to return to after `op restore`. There are no
     // bookmarks.
@@ -261,13 +272,26 @@ fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> String {
     test_env.jj_cmd_success(repo_path, &["bookmark", "list", "--all-remotes"])
 }
 
-fn get_git_repo_refs(git_repo: &git2::Repository) -> Vec<(String, CommitId)> {
+fn get_git_repo_refs(git_repo: &gix::Repository) -> Vec<(String, CommitId)> {
     let mut refs: Vec<_> = git_repo
         .references()
         .unwrap()
-        .filter_ok(|git_ref| git_ref.is_tag() || git_ref.is_branch() || git_ref.is_remote())
-        .filter_map_ok(|git_ref| {
-            let full_name = git_ref.name()?.to_owned();
+        .all()
+        .unwrap()
+        .filter_ok(|git_ref| {
+            let path = git_ref.name().to_path();
+            let suffix = path.strip_prefix("refs").unwrap();
+            let base = suffix
+                .components()
+                .next()
+                .unwrap()
+                .as_os_str()
+                .to_str()
+                .unwrap();
+            base == "tags" || base == "heads" || base == "remote"
+        })
+        .filter_map_ok(|mut git_ref| {
+            let full_name = git_ref.name().as_bstr().to_string();
             let git_commit = git_ref.peel_to_commit().ok()?;
             let commit_id = CommitId::from_bytes(git_commit.id().as_bytes());
             Some((full_name, commit_id))
