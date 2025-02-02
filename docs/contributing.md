@@ -388,8 +388,7 @@ documentation](#previewing-the-html-documentation), and run the same `sh` script
 that is used in GitHub CI (details below):
 
     ```shell
-    .github/scripts/docs-build-deploy 'https://jjfan.github.io/jj/'\
-        prerelease main --push
+    .github/scripts/docs-build-deploy prerelease main --push
     ```
 
     This should build the version of the docs from the current commit,
@@ -406,8 +405,7 @@ back and forth, you can also rebuild the docs for the latest release as follows.
 
     ```shell
     jj new v1.33.1  # Let's say `jj 1.33.1` is the currently the latest release
-    .github/scripts/docs-build-deploy 'https://jjfan.github.io/jj/'\
-        v1.33.1 latest --push
+    .github/scripts/docs-build-deploy v1.33.1 latest --push
     ```
 
 7. (Optional) When you are done, you may want to reset the `gh-pages` bookmark to the
@@ -426,20 +424,22 @@ this can be done with:
 
 ### Explanation of the `docs-build-deploy` script
 
-The script sets up the `site_url` mkdocs config to
-`'https://jjfan.github.io/jj/'`. If this config does not match the URL
-where you loaded the website, some minor website features (like the
-version switching widget) will have reduced functionality.
-
-Then, the script passes the rest of its arguments to `uv run mike
-deploy`, which does the rest of the job. Run `uv run mike help deploy` to
-find out what the arguments do.
+The script sets up a few environment variables and invokes `uv run mike deploy`
+with some default arguments and whatever arguments were passed to
+`docs-build-deploy`. Run `uv run mike help deploy` to find out what the
+arguments do.
 
 If you need to do something more complicated, you can use `uv run mike
 ...` commands. You can also edit the `gh-pages` bookmark directly, but take care
 to avoid files that will be overwritten by future invocations of `mike`. Then,
 you can submit a PR based on the `gh-pages` bookmark of
-<https://martinvonz.github.com/jj> (instead of the usual `main` bookmark).
+<https://jj-vcs.github.com/jj> (instead of the usual `main` bookmark).
+
+Previously, the version switcher would not work unless the value of the
+`site_url` config in `mkdocs.yml` matched the actual URL the site is being
+served from. This bug should now be fixed, but if you are not serving the site
+from https://jj-vcs.github.com/jj and something does not work weirdly, you might
+want to adjust the `site_url` to something like `https://jjfan.github.io/jj`.
 
 
 ## Modifying protobuffers (this is not common)
