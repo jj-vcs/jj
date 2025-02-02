@@ -1410,12 +1410,12 @@ mod tests {
         recorder.pop_label().unwrap();
         insta::assert_snapshot!(
             format_colored(|formatter| write_wrapped(formatter, &recorder, 7)),
-            @r###"
+            @r"
         [38;5;1mfoo bar[39m
         [38;5;1mbaz[39m
         [38;5;1mqux[39m
         [38;5;1mquux[39m
-        "###
+        "
         );
 
         // Multiple label chunks in a line
@@ -1427,12 +1427,12 @@ mod tests {
         }
         insta::assert_snapshot!(
             format_colored(|formatter| write_wrapped(formatter, &recorder, 7)),
-            @r###"
+            @r"
         [38;5;1mfoo [39m[38;5;6mbar[39m
         [38;5;1mbaz[39m
         [38;5;6mqux[39m
         [38;5;1mquux[39m
-        "###
+        "
         );
 
         // Empty lines should not cause panic
@@ -1444,13 +1444,13 @@ mod tests {
         }
         insta::assert_snapshot!(
             format_colored(|formatter| write_wrapped(formatter, &recorder, 10)),
-            @r###"
+            @r"
         [38;5;1m[39m
         [38;5;6mfoo[39m
         [38;5;1m[39m
         [38;5;6mbar baz[39m
         [38;5;1m[39m
-        "###
+        "
         );
 
         // Split at label boundary
@@ -1464,10 +1464,10 @@ mod tests {
         recorder.pop_label().unwrap();
         insta::assert_snapshot!(
             format_colored(|formatter| write_wrapped(formatter, &recorder, 10)),
-            @r###"
+            @r"
         [38;5;1mfoo bar[39m
         [38;5;6mbaz[39m
-        "###
+        "
         );
 
         // Do not split at label boundary "ba|z" (since it's a single word)
@@ -1480,10 +1480,10 @@ mod tests {
         recorder.pop_label().unwrap();
         insta::assert_snapshot!(
             format_colored(|formatter| write_wrapped(formatter, &recorder, 10)),
-            @r###"
+            @r"
         [38;5;1mfoo bar[39m
         [38;5;1mba[39m[38;5;6mz[39m
-        "###
+        "
         );
     }
 

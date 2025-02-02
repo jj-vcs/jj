@@ -57,11 +57,11 @@ fn test_gitignores() {
     std::fs::write(workspace_root.join("file3"), "contents").unwrap();
 
     let stdout = test_env.jj_cmd_success(&workspace_root, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     A .gitignore
     A file0
     A file3
-    "###);
+    ");
 }
 
 #[test]
@@ -86,13 +86,9 @@ fn test_gitignores_relative_excludes_file_path() {
     // to the cwd.
     std::fs::create_dir(workspace_root.join("sub")).unwrap();
     let stdout = test_env.jj_cmd_success(&workspace_root.join("sub"), &["diff", "-s"]);
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @r###"
-    A ../not-ignored
-    "###);
+    insta::assert_snapshot!(stdout.replace('\\', "/"), @"A ../not-ignored");
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["-Rrepo", "diff", "-s"]);
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @r###"
-    A repo/not-ignored
-    "###);
+    insta::assert_snapshot!(stdout.replace('\\', "/"), @"A repo/not-ignored");
 }
 
 #[test]
@@ -118,19 +114,19 @@ fn test_gitignores_ignored_file_in_target_commit() {
     // Update to the commit with the "ignored" file
     let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["edit", "with-file"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Working copy now at: qpvuntsm 5ada929e with-file | (no description set)
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
     Added 1 files, modified 0 files, removed 0 files
     Warning: 1 of those updates were skipped because there were conflicting changes in the working copy.
     Hint: Inspect the changes compared to the intended target with `jj diff --from 5ada929e5d2e`.
     Discard the conflicting changes with `jj restore --from 5ada929e5d2e`.
-    "###);
+    ");
     let stdout = test_env.jj_cmd_success(
         &workspace_root,
         &["diff", "--git", "--from", &target_commit_id],
     );
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     diff --git a/ignored b/ignored
     index 8a69467466..4d9be5127b 100644
     --- a/ignored
@@ -138,5 +134,5 @@ fn test_gitignores_ignored_file_in_target_commit() {
     @@ -1,1 +1,1 @@
     -committed contents
     +contents in working copy
-    "###);
+    ");
 }

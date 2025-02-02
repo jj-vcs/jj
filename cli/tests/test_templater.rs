@@ -25,7 +25,7 @@ fn test_templater_parse_error() {
     let repo_path = test_env.env_root().join("repo");
     let render_err = |template| test_env.jj_cmd_failure(&repo_path, &["log", "-T", template]);
 
-    insta::assert_snapshot!(render_err(r#"description ()"#), @r#"
+    insta::assert_snapshot!(render_err(r#"description ()"#), @r"
     Error: Failed to parse template: Syntax error
     Caused by:  --> 1:13
       |
@@ -33,7 +33,7 @@ fn test_templater_parse_error() {
       |             ^---
       |
       = expected <EOI>, `++`, `||`, `&&`, `==`, `!=`, `>=`, `>`, `<=`, or `<`
-    "#);
+    ");
 
     // Typo
     test_env.add_config(
@@ -133,12 +133,12 @@ fn test_template_parse_warning() {
         )
     "#};
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["log", "-r@", "-T", template]);
-    insta::assert_snapshot!(stdout, @r#"
+    insta::assert_snapshot!(stdout, @r"
     @  false test.user
     │
     ~
-    "#);
-    insta::assert_snapshot!(stderr, @r#"
+    ");
+    insta::assert_snapshot!(stderr, @r"
     Warning: In template expression
      --> 2:3
       |
@@ -180,7 +180,7 @@ fn test_template_parse_warning() {
       |          ^------^
       |
       = username() is deprecated; use email().local() instead
-    "#);
+    ");
 }
 
 #[test]
@@ -383,11 +383,11 @@ fn test_templater_alias() {
     ");
 
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["log", "-r@", "-Tdeprecated()"]);
-    insta::assert_snapshot!(stdout, @r##"
+    insta::assert_snapshot!(stdout, @r"
     #  false
     │
     ~
-    "##);
+    ");
     insta::assert_snapshot!(stderr, @r#"
     Warning: In template expression
      --> 1:1

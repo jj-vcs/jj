@@ -702,7 +702,7 @@ mod tests {
         };
         // First output is after the initial delay
         assert_snapshot!(update(crate::progress::INITIAL_DELAY - Duration::from_millis(1), 0.1), @"");
-        assert_snapshot!(update(Duration::from_millis(1), 0.10), @"[?25l\r 10% [█▊                ][K");
+        assert_snapshot!(update(Duration::from_millis(1), 0.10), @"\u{1b}[?25l\r 10% [█▊                ]\u{1b}[K");
         // No updates for the next 30 milliseconds
         assert_snapshot!(update(Duration::from_millis(10), 0.11), @"");
         assert_snapshot!(update(Duration::from_millis(10), 0.12), @"");

@@ -610,7 +610,7 @@ fn test_resolve_symbol_bookmarks() {
 
     // Remote only (or locally deleted)
     insta::assert_debug_snapshot!(
-        resolve_symbol(mut_repo, "remote").unwrap_err(), @r###"
+        resolve_symbol(mut_repo, "remote").unwrap_err(), @r#"
     NoSuchRevision {
         name: "remote",
         candidates: [
@@ -618,7 +618,7 @@ fn test_resolve_symbol_bookmarks() {
             "remote@origin",
         ],
     }
-    "###);
+    "#);
     assert_eq!(
         resolve_symbol(mut_repo, "remote@origin").unwrap(),
         vec![commit2.id().clone()],
@@ -712,7 +712,7 @@ fn test_resolve_symbol_bookmarks() {
     // "local-remote@mirror" shouldn't be omitted just because it points to the same
     // target as "local-remote".
     insta::assert_debug_snapshot!(
-        resolve_symbol(mut_repo, "remote@mirror").unwrap_err(), @r###"
+        resolve_symbol(mut_repo, "remote@mirror").unwrap_err(), @r#"
     NoSuchRevision {
         name: "remote@mirror",
         candidates: [
@@ -720,11 +720,11 @@ fn test_resolve_symbol_bookmarks() {
             "remote@origin",
         ],
     }
-    "###);
+    "#);
 
     // Typo of remote-only bookmark name
     insta::assert_debug_snapshot!(
-        resolve_symbol(mut_repo, "emote").unwrap_err(), @r###"
+        resolve_symbol(mut_repo, "emote").unwrap_err(), @r#"
     NoSuchRevision {
         name: "emote",
         candidates: [
@@ -732,7 +732,7 @@ fn test_resolve_symbol_bookmarks() {
             "remote@origin",
         ],
     }
-    "###);
+    "#);
     insta::assert_debug_snapshot!(
         resolve_symbol(mut_repo, "emote@origin").unwrap_err(), @r#"
     NoSuchRevision {
@@ -868,12 +868,12 @@ fn test_resolve_symbol_git_refs() {
     );
     // bookmark alone is not recognized
     insta::assert_debug_snapshot!(
-        resolve_symbol(mut_repo, "bookmark").unwrap_err(), @r###"
+        resolve_symbol(mut_repo, "bookmark").unwrap_err(), @r#"
     NoSuchRevision {
         name: "bookmark",
         candidates: [],
     }
-    "###);
+    "#);
     // heads/bookmark does get resolved to the git ref refs/heads/bookmark
     assert_eq!(
         resolve_symbol(mut_repo, "heads/bookmark").unwrap(),

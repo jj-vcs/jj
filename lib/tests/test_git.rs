@@ -2325,12 +2325,12 @@ fn test_reset_head_with_index_no_conflict() {
 
     // Git index should contain all files from the tree.
     // `Mode(DIR | SYMLINK)` actually means `MODE(COMMIT)`, as in a git submodule.
-    insta::assert_snapshot!(get_index_state(&workspace_root), @r#"
+    insta::assert_snapshot!(get_index_state(&workspace_root), @r"
     Unconflicted some/dir/commit Mode(DIR | SYMLINK)
     Unconflicted some/dir/executable-file Mode(FILE | FILE_EXECUTABLE)
     Unconflicted some/dir/normal-file Mode(FILE)
     Unconflicted some/dir/symlink Mode(SYMLINK)
-    "#);
+    ");
 }
 
 #[test]
@@ -2455,7 +2455,7 @@ fn test_reset_head_with_index_merge_conflict() {
 
     // Index should contain conflicted files from merge of parent commits.
     // `Mode(DIR | SYMLINK)` actually means `MODE(COMMIT)`, as in a git submodule.
-    insta::assert_snapshot!(get_index_state(&workspace_root), @r#"
+    insta::assert_snapshot!(get_index_state(&workspace_root), @r"
     Base some/dir/commit Mode(DIR | SYMLINK)
     Ours some/dir/commit Mode(DIR | SYMLINK)
     Theirs some/dir/commit Mode(DIR | SYMLINK)
@@ -2468,7 +2468,7 @@ fn test_reset_head_with_index_merge_conflict() {
     Base some/dir/symlink Mode(SYMLINK)
     Ours some/dir/symlink Mode(SYMLINK)
     Theirs some/dir/symlink Mode(SYMLINK)
-    "#);
+    ");
 }
 
 #[test]

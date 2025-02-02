@@ -33,11 +33,11 @@ fn test_interdiff_basic() {
 
     // implicit --to
     let stdout = test_env.jj_cmd_success(&repo_path, &["interdiff", "--from", "left"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     Modified regular file file2:
        1    1: foo
             2: bar
-    "###);
+    ");
 
     // explicit --to
     test_env.jj_cmd_ok(&repo_path, &["new", "@-"]);
@@ -45,11 +45,11 @@ fn test_interdiff_basic() {
         &repo_path,
         &["interdiff", "--from", "left", "--to", "right"],
     );
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     Modified regular file file2:
        1    1: foo
             2: bar
-    "###);
+    ");
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
 
     // formats specifiers
@@ -57,15 +57,13 @@ fn test_interdiff_basic() {
         &repo_path,
         &["interdiff", "--from", "left", "--to", "right", "-s"],
     );
-    insta::assert_snapshot!(stdout, @r###"
-    M file2
-    "###);
+    insta::assert_snapshot!(stdout, @"M file2");
 
     let stdout = test_env.jj_cmd_success(
         &repo_path,
         &["interdiff", "--from", "left", "--to", "right", "--git"],
     );
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     diff --git a/file2 b/file2
     index 257cc5642c..3bd1f0e297 100644
     --- a/file2
@@ -73,7 +71,7 @@ fn test_interdiff_basic() {
     @@ -1,1 +1,2 @@
      foo
     +bar
-    "###);
+    ");
 }
 
 #[test]
@@ -101,10 +99,10 @@ fn test_interdiff_paths() {
         &repo_path,
         &["interdiff", "--from", "left", "--to", "right", "file1"],
     );
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     Modified regular file file1:
        1    1: barbaz
-    "###);
+    ");
 
     let stdout = test_env.jj_cmd_success(
         &repo_path,
@@ -118,12 +116,12 @@ fn test_interdiff_paths() {
             "file2",
         ],
     );
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     Modified regular file file1:
        1    1: barbaz
     Modified regular file file2:
        1    1: barbaz
-    "###);
+    ");
 }
 
 #[test]
@@ -147,7 +145,7 @@ fn test_interdiff_conflicting() {
         &repo_path,
         &["interdiff", "--from", "left", "--to", "right", "--git"],
     );
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     diff --git a/file b/file
     index 0000000000..24c5735c3e 100644
     --- a/file
@@ -161,5 +159,5 @@ fn test_interdiff_conflicting() {
     -bar
     ->>>>>>> Conflict 1 of 1 ends
     +def
-    "###);
+    ");
 }

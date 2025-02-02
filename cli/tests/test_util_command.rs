@@ -23,7 +23,7 @@ fn test_util_config_schema() {
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["util", "config-schema"]);
     // Validate partial snapshot, redacting any lines nested 2+ indent levels.
     insta::with_settings!({filters => vec![(r"(?m)(^        .*$\r?\n)+", "        [...]\n")]}, {
-        assert_snapshot!(stdout, @r###"
+        assert_snapshot!(stdout, @r#"
         {
             "$schema": "http://json-schema.org/draft-07/schema",
             "title": "Jujutsu config",
@@ -35,7 +35,7 @@ fn test_util_config_schema() {
                 [...]
             }
         }
-        "###);
+        "#);
     });
 }
 
@@ -53,14 +53,10 @@ fn test_gc_args() {
     insta::assert_snapshot!(stderr, @"");
 
     let stderr = test_env.jj_cmd_failure(&repo_path, &["util", "gc", "--at-op=@-"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Cannot garbage collect from a non-head operation
-    "###);
+    insta::assert_snapshot!(stderr, @"Error: Cannot garbage collect from a non-head operation");
 
     let stderr = test_env.jj_cmd_failure(&repo_path, &["util", "gc", "--expire=foobar"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: --expire only accepts 'now'
-    "###);
+    insta::assert_snapshot!(stderr, @"Error: --expire only accepts 'now'");
 }
 
 #[test]
@@ -91,9 +87,7 @@ fn test_gc_operation_log() {
 
     // Now this doesn't work.
     let stderr = test_env.jj_cmd_failure(&repo_path, &["debug", "operation", &op_to_remove]);
-    insta::assert_snapshot!(stderr, @r#"
-    Error: No operation ID matching "8382f401329617b0c91a63354b86ca48fc28dee8d7a916fdad5310030f9a1260e969c43ed2b13d1d48eaf38f6f45541ecf593bcb6105495d514d21b3b6a98846"
-    "#);
+    insta::assert_snapshot!(stderr, @r#"Error: No operation ID matching "8382f401329617b0c91a63354b86ca48fc28dee8d7a916fdad5310030f9a1260e969c43ed2b13d1d48eaf38f6f45541ecf593bcb6105495d514d21b3b6a98846""#);
 }
 
 #[test]

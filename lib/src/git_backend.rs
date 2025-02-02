@@ -2168,7 +2168,7 @@ mod tests {
         let obj = git_repo
             .find_object(gix::ObjectId::try_from(id.as_bytes()).unwrap())
             .unwrap();
-        insta::assert_snapshot!(std::str::from_utf8(&obj.data).unwrap(), @r###"
+        insta::assert_snapshot!(std::str::from_utf8(&obj.data).unwrap(), @r"
         tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904
         author Someone <someone@example.com> 0 +0000
         committer Someone <someone@example.com> 0 +0000
@@ -2178,7 +2178,7 @@ mod tests {
          hash=9ad9526c3b2103c41a229f2f3c82d107a0ecd902f476a855f0e1dd5f7bef1430663de12749b73e293a877113895a8a2a0f29da4bbc5a5f9a19c3523fb0e53518
 
         initial
-        "###);
+        ");
 
         let returned_sig = commit.secure_sig.expect("failed to return the signature");
 
@@ -2187,19 +2187,19 @@ mod tests {
         let sig = commit.secure_sig.expect("failed to read the signature");
         assert_eq!(&sig, &returned_sig);
 
-        insta::assert_snapshot!(std::str::from_utf8(&sig.sig).unwrap(), @r###"
+        insta::assert_snapshot!(std::str::from_utf8(&sig.sig).unwrap(), @r"
         test sig
 
 
         hash=9ad9526c3b2103c41a229f2f3c82d107a0ecd902f476a855f0e1dd5f7bef1430663de12749b73e293a877113895a8a2a0f29da4bbc5a5f9a19c3523fb0e53518
-        "###);
-        insta::assert_snapshot!(std::str::from_utf8(&sig.data).unwrap(), @r###"
+        ");
+        insta::assert_snapshot!(std::str::from_utf8(&sig.data).unwrap(), @r"
         tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904
         author Someone <someone@example.com> 0 +0000
         committer Someone <someone@example.com> 0 +0000
 
         initial
-        "###);
+        ");
     }
 
     fn git_id(commit_id: &CommitId) -> Oid {
