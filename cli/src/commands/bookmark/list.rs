@@ -16,6 +16,7 @@ use std::collections::HashSet;
 
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools;
+use jj_lib::repo::Repo;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::str_util::StringPattern;
 
@@ -221,20 +222,23 @@ pub fn cmd_bookmark_list(
 
     drop(formatter);
 
-    // Print only one of these hints. It's not important to mention unexported
-    // bookmarks, but user might wonder why deleted bookmarks are still listed.
-    if found_deleted_tracking_local_bookmark {
-        writeln!(
-            ui.hint_default(),
-            "Bookmarks marked as deleted will be *deleted permanently* on the remote on the next \
-             `jj git push`. Use `jj bookmark forget` to prevent this."
-        )?;
-    } else if found_deleted_local_bookmark {
-        writeln!(
-            ui.hint_default(),
-            "Bookmarks marked as deleted will be deleted from the underlying Git repo on the next \
-             `jj git export`."
-        )?;
+    #[cfg(feature = "git")]
+    if jj_lib::git::get_git_backend(repo.store()).is_ok() {
+        // Print only one of these hints. It's not important to mention unexported
+        // bookmarks, but user might wonder why deleted bookmarks are still listed.
+        if found_deleted_tracking_local_bookmark {
+            writeln!(
+                ui.hint_default(),
+                "Bookmarks marked as deleted will be *deleted permanently* on the remote on the \
+                 next `jj git push`. Use `jj bookmark forget` to prevent this."
+            )?;
+        } else if found_deleted_local_bookmark {
+            writeln!(
+                ui.hint_default(),
+                "Bookmarks marked as deleted will be deleted from the underlying Git repo on the \
+                 next `jj git export`."
+            )?;
+        }
     }
 
     Ok(())
