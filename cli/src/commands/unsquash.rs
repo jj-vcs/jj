@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::slice;
+
 use jj_lib::matchers::EverythingMatcher;
 use jj_lib::object_id::ObjectId;
 use tracing::instrument;
@@ -117,7 +119,7 @@ aborted.
     // case).
     if new_parent_tree_id == parent_base_tree.id() {
         tx.repo_mut().record_abandoned_commit(&parent);
-        let description = combine_messages(&text_editor, &[&parent], &commit)?;
+        let description = combine_messages(&text_editor, slice::from_ref(&parent), &commit)?;
         // Commit the new child on top of the parent's parents.
         tx.repo_mut()
             .rewrite_commit(&commit)

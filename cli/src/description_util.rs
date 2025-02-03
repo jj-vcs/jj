@@ -288,12 +288,12 @@ where
 /// user to edit the result in their editor.
 pub fn combine_messages(
     editor: &TextEditor,
-    sources: &[&Commit],
+    sources: &[Commit],
     destination: &Commit,
 ) -> Result<String, CommandError> {
     let non_empty = sources
         .iter()
-        .chain(std::iter::once(&destination))
+        .chain(std::iter::once(destination))
         .filter(|c| !c.description().is_empty())
         .take(2)
         .collect_vec();

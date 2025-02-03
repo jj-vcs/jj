@@ -165,43 +165,41 @@ pub(crate) fn cmd_squash(
     let mut tx = workspace_command.start_transaction();
     let tx_description = format!("squash commits into {}", destination.id().hex());
     let source_commits = select_diff(&tx, &sources, &destination, &matcher, &diff_selector)?;
-    match rewrite::squash_commits(
+    if let Some(squashed) = rewrite::squash_commits(
         tx.repo_mut(),
         &source_commits,
         &destination,
         args.keep_emptied,
-        |abandoned_commits| match description {
-            SquashedDescription::Exact(description) => Ok(description),
-            SquashedDescription::UseDestination => Ok(destination.description().to_owned()),
-            SquashedDescription::Combine => {
-                let abandoned_commits = abandoned_commits.iter().map(|c| &c.commit).collect_vec();
-                combine_messages(&text_editor, &abandoned_commits, &destination)
-            }
-        },
     )? {
-        rewrite::SquashResult::NoChanges => {
-            if diff_selector.is_interactive() {
-                return Err(user_error("No changes selected"));
+        let commit_builder = squashed.commit_builder;
+        let new_description = match description {
+            SquashedDescription::Exact(description) => description,
+            SquashedDescription::UseDestination => destination.description().to_owned(),
+            SquashedDescription::Combine => {
+                combine_messages(&text_editor, &squashed.abandoned_commits, &destination)?
             }
+        };
+        commit_builder.set_description(new_description).write()?;
+    } else {
+        if diff_selector.is_interactive() {
+            return Err(user_error("No changes selected"));
+        }
 
-            if let [only_path] = &*args.paths {
-                let no_rev_arg =
-                    args.revision.is_none() && args.from.is_empty() && args.into.is_none();
-                if no_rev_arg
-                    && tx
-                        .base_workspace_helper()
-                        .parse_revset(ui, &RevisionArg::from(only_path.to_owned()))
-                        .is_ok()
-                {
-                    writeln!(
-                        ui.warning_default(),
-                        "The argument {only_path:?} is being interpreted as a path. To specify a \
-                         revset, pass -r {only_path:?} instead."
-                    )?;
-                }
+        if let [only_path] = &*args.paths {
+            let no_rev_arg = args.revision.is_none() && args.from.is_empty() && args.into.is_none();
+            if no_rev_arg
+                && tx
+                    .base_workspace_helper()
+                    .parse_revset(ui, &RevisionArg::from(only_path.to_owned()))
+                    .is_ok()
+            {
+                writeln!(
+                    ui.warning_default(),
+                    "The argument {only_path:?} is being interpreted as a path. To specify a \
+                     revset, pass -r {only_path:?} instead."
+                )?;
             }
         }
-        rewrite::SquashResult::NewCommit(_) => {}
     }
     tx.finish(ui, tx_description)?;
     Ok(())

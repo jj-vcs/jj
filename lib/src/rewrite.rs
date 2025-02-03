@@ -1045,27 +1045,24 @@ impl CommitToSquash {
     }
 }
 
-#[derive(Clone, Debug)]
-pub enum SquashResult {
-    /// No inputs contained actual changes.
-    NoChanges,
-    /// Destination was rewritten.
-    NewCommit(Commit),
+/// Resulting commit builder and stats to be returned by [`squash_commits()`].
+#[must_use]
+pub struct SquashedCommit<'repo> {
+    /// New destination commit will be created by this builder.
+    pub commit_builder: CommitBuilder<'repo>,
+    /// List of abandoned source commits.
+    pub abandoned_commits: Vec<Commit>,
 }
 
-/// Squash `sources` into `destination` and return a CommitBuilder for the
+/// Squash `sources` into `destination` and return a [`SquashedCommit`] for the
 /// resulting commit. Caller is responsible for setting the description and
 /// finishing the commit.
-pub fn squash_commits<E>(
-    repo: &mut MutableRepo,
+pub fn squash_commits<'repo>(
+    repo: &'repo mut MutableRepo,
     sources: &[CommitToSquash],
     destination: &Commit,
     keep_emptied: bool,
-    description_fn: impl FnOnce(&[&CommitToSquash]) -> Result<String, E>,
-) -> Result<SquashResult, E>
-where
-    E: From<BackendError>,
-{
+) -> BackendResult<Option<SquashedCommit<'repo>>> {
     struct SourceCommit<'a> {
         commit: &'a CommitToSquash,
         abandon: bool,
@@ -1089,14 +1086,14 @@ where
     }
 
     if source_commits.is_empty() {
-        return Ok(SquashResult::NoChanges);
+        return Ok(None);
     }
 
     let mut abandoned_commits = vec![];
     for source in &source_commits {
         if source.abandon {
             repo.record_abandoned_commit(&source.commit.commit);
-            abandoned_commits.push(source.commit);
+            abandoned_commits.push(source.commit.commit.clone());
         } else {
             let source_tree = source.commit.commit.tree()?;
             // Apply the reverse of the selected changes onto the source
@@ -1141,12 +1138,12 @@ where
             .map(|source| source.commit.commit.id().clone()),
     );
 
-    let destination = repo
+    let commit_builder = repo
         .rewrite_commit(&rewritten_destination)
         .set_tree_id(destination_tree.id().clone())
-        .set_predecessors(predecessors)
-        .set_description(description_fn(&abandoned_commits)?)
-        .write()?;
-
-    Ok(SquashResult::NewCommit(destination))
+        .set_predecessors(predecessors);
+    Ok(Some(SquashedCommit {
+        commit_builder,
+        abandoned_commits,
+    }))
 }
