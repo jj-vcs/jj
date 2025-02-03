@@ -1066,7 +1066,7 @@ fn test_squash_description() {
     source
     "###);
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r###"
+        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r#"
     JJ: Enter a description for the combined commit.
     JJ: Description from the destination commit:
     destination
@@ -1074,8 +1074,12 @@ fn test_squash_description() {
     JJ: Description from source commit:
     source
 
+    JJ: This commit contains the following changes:
+    JJ:     A file1
+    JJ:     A file2
+
     JJ: Lines starting with "JJ:" (like this one) will be removed.
-    "###);
+    "#);
 
     // An explicit description on the command-line overrides prevents launching an
     // editor

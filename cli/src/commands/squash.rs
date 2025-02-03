@@ -33,8 +33,11 @@ use crate::command_error::user_error;
 use crate::command_error::user_error_with_hint;
 use crate::command_error::CommandError;
 use crate::complete;
-use crate::description_util::combine_messages;
+use crate::description_util::combine_messages_for_editing;
+use crate::description_util::description_template;
+use crate::description_util::edit_description;
 use crate::description_util::join_message_paragraphs;
+use crate::description_util::try_combine_messages;
 use crate::ui::Ui;
 
 /// Move changes from a revision into another revision
@@ -171,15 +174,27 @@ pub(crate) fn cmd_squash(
         &destination,
         args.keep_emptied,
     )? {
-        let commit_builder = squashed.commit_builder;
+        let mut commit_builder = squashed.commit_builder.detach();
         let new_description = match description {
             SquashedDescription::Exact(description) => description,
             SquashedDescription::UseDestination => destination.description().to_owned(),
             SquashedDescription::Combine => {
-                combine_messages(&text_editor, &squashed.abandoned_commits, &destination)?
+                let abandoned_commits = &squashed.abandoned_commits;
+                if let Some(description) = try_combine_messages(abandoned_commits, &destination) {
+                    description
+                } else {
+                    let intro = "Enter a description for the combined commit.";
+                    let combined = combine_messages_for_editing(abandoned_commits, &destination);
+                    // It's weird that commit.description() contains "JJ: " lines, but works.
+                    commit_builder.set_description(combined);
+                    let temp_commit = commit_builder.write_hidden()?;
+                    let template = description_template(ui, &tx, intro, &temp_commit)?;
+                    edit_description(&text_editor, &template)?
+                }
             }
         };
-        commit_builder.set_description(new_description).write()?;
+        commit_builder.set_description(new_description);
+        commit_builder.write(tx.repo_mut())?;
     } else {
         if diff_selector.is_interactive() {
             return Err(user_error("No changes selected"));
