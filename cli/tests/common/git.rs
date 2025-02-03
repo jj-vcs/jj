@@ -75,6 +75,31 @@ pub fn clone(dest_path: &Path, url: &str) -> gix::Repository {
     repo
 }
 
+// write out gitlink entry
+pub fn create_gitlink(src_repo: impl AsRef<Path>, target_repo: impl AsRef<Path>) {
+    let src_repo = src_repo.as_ref();
+    let git_link_path = src_repo.join(".git");
+    std::fs::create_dir_all(src_repo).unwrap();
+    std::fs::write(
+        git_link_path,
+        format!("gitdir: {}\n", target_repo.as_ref().display()),
+    )
+    .unwrap();
+}
+
+pub fn remove_config_value(mut repo: gix::Repository, section: &str, key: &str) {
+    let mut config = repo.config_snapshot_mut();
+    let Ok(mut section) = config.section_mut(section, None) else {
+        return;
+    };
+    section.remove(key);
+
+    let mut file = std::fs::File::create(config.meta().path.as_ref().unwrap()).unwrap();
+    config
+        .write_to_filter(&mut file, |section| section.meta() == config.meta())
+        .unwrap();
+}
+
 pub struct CommitResult {
     pub tree_id: gix::ObjectId,
     pub commit_id: gix::ObjectId,
@@ -145,10 +170,173 @@ pub fn set_head_to_id(repo: &gix::Repository, target: gix::ObjectId) {
     .unwrap();
 }
 
+pub fn set_symbolic_reference(repo: &gix::Repository, reference: &str, target: &str) {
+    use gix::refs::transaction;
+    let change = transaction::Change::Update {
+        log: transaction::LogChange {
+            mode: transaction::RefLog::AndReference,
+            force_create_reflog: true,
+            message: "create symbolic reference".into(),
+        },
+        expected: transaction::PreviousValue::Any,
+        new: gix::refs::Target::Symbolic(target.try_into().unwrap()),
+    };
+
+    let ref_edit = transaction::RefEdit {
+        change,
+        name: reference.try_into().unwrap(),
+        deref: false,
+    };
+    repo.edit_reference(ref_edit).unwrap();
+}
+
 fn signature() -> gix::actor::Signature {
     gix::actor::Signature {
         name: bstr::BString::from(GIT_USER),
         email: bstr::BString::from(GIT_EMAIL),
         time: gix::date::Time::new(0, 0),
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum GitStatusInfo {
+    Index(IndexStatus),
+    Worktree(WorktreeStatus),
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum IndexStatus {
+    Addition,
+    Deletion,
+    Rename,
+    Modification,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum WorktreeStatus {
+    Removed,
+    Added,
+    Modified,
+    TypeChange,
+    Renamed,
+    Copied,
+    IntentToAdd,
+    Conflict,
+    Ignored,
+}
+
+impl<'lhs, 'rhs> From<gix::diff::index::ChangeRef<'lhs, 'rhs>> for IndexStatus {
+    fn from(value: gix::diff::index::ChangeRef<'lhs, 'rhs>) -> Self {
+        match value {
+            gix::diff::index::ChangeRef::Addition { .. } => IndexStatus::Addition,
+            gix::diff::index::ChangeRef::Deletion { .. } => IndexStatus::Deletion,
+            gix::diff::index::ChangeRef::Rewrite { .. } => IndexStatus::Rename,
+            gix::diff::index::ChangeRef::Modification { .. } => IndexStatus::Modification,
+        }
+    }
+}
+
+impl From<Option<gix::status::index_worktree::iter::Summary>> for WorktreeStatus {
+    fn from(value: Option<gix::status::index_worktree::iter::Summary>) -> Self {
+        match value {
+            Some(gix::status::index_worktree::iter::Summary::Removed) => WorktreeStatus::Removed,
+            Some(gix::status::index_worktree::iter::Summary::Added) => WorktreeStatus::Added,
+            Some(gix::status::index_worktree::iter::Summary::Modified) => WorktreeStatus::Modified,
+            Some(gix::status::index_worktree::iter::Summary::TypeChange) => {
+                WorktreeStatus::TypeChange
+            }
+            Some(gix::status::index_worktree::iter::Summary::Renamed) => WorktreeStatus::Renamed,
+            Some(gix::status::index_worktree::iter::Summary::Copied) => WorktreeStatus::Copied,
+            Some(gix::status::index_worktree::iter::Summary::IntentToAdd) => {
+                WorktreeStatus::IntentToAdd
+            }
+            Some(gix::status::index_worktree::iter::Summary::Conflict) => WorktreeStatus::Conflict,
+            None => WorktreeStatus::Ignored,
+        }
+    }
+}
+
+impl From<gix::status::Item> for GitStatusInfo {
+    fn from(value: gix::status::Item) -> Self {
+        match value {
+            gix::status::Item::TreeIndex(change) => GitStatusInfo::Index(change.into()),
+            gix::status::Item::IndexWorktree(item) => {
+                GitStatusInfo::Worktree(item.summary().into())
+            }
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct GitStatus {
+    path: String,
+    status: GitStatusInfo,
+}
+
+impl From<gix::status::Item> for GitStatus {
+    fn from(value: gix::status::Item) -> Self {
+        let path = value.location().to_string();
+        let status = value.into();
+        GitStatus { path, status }
+    }
+}
+
+pub fn status(repo: &gix::Repository) -> Vec<GitStatus> {
+    let mut status: Vec<GitStatus> = repo
+        .status(gix::progress::Discard)
+        .unwrap()
+        .untracked_files(gix::status::UntrackedFiles::Files)
+        .dirwalk_options(|options| {
+            options.emit_ignored(Some(gix::dir::walk::EmissionMode::Matching))
+        })
+        .into_iter(None)
+        .unwrap()
+        .map(Result::unwrap)
+        .map(|x| x.into())
+        .collect();
+
+    status.sort_by(|a, b| a.path.cmp(&b.path));
+    status
+}
+
+pub struct IndexManager<'a> {
+    index: gix::index::File,
+    repo: &'a gix::Repository,
+    added_entries: Vec<(gix::ObjectId, &'a str)>,
+}
+
+impl<'a> IndexManager<'a> {
+    pub fn new(repo: &'a gix::Repository) -> IndexManager<'a> {
+        let index = gix::index::File::from_state(
+            gix::index::State::new(repo.object_hash()),
+            repo.index_path(),
+        );
+        IndexManager {
+            index,
+            repo,
+            added_entries: Vec::new(),
+        }
+    }
+
+    pub fn add_file(&mut self, name: &'a str, data: &[u8]) {
+        std::fs::write(self.repo.work_dir().unwrap().join(name), data).unwrap();
+        let blob_oid = self.repo.write_blob(data).unwrap().detach();
+
+        self.added_entries.push((blob_oid, name));
+        self.index.dangerously_push_entry(
+            gix::index::entry::Stat::default(),
+            blob_oid,
+            gix::index::entry::Flags::from_stage(gix::index::entry::Stage::Unconflicted),
+            gix::index::entry::Mode::FILE,
+            name.as_bytes().into(),
+        );
+    }
+
+    pub fn sync_index(&mut self) {
+        self.index.sort_entries();
+        self.index.verify_entries().unwrap();
+        self.index
+            .write(gix::index::write::Options::default())
+            .unwrap();
     }
 }
