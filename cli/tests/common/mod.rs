@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+pub mod git;
 mod test_environment;
 pub use self::test_environment::TestEnvironment;
 
