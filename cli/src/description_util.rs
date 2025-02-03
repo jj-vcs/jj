@@ -291,6 +291,17 @@ pub fn combine_messages(
     sources: &[Commit],
     destination: &Commit,
 ) -> Result<String, CommandError> {
+    if let Some(description) = try_combine_messages(sources, destination) {
+        return Ok(description);
+    }
+    let mut combined = "JJ: Enter a description for the combined commit.\n".to_string();
+    combined.push_str(&combine_messages_for_editing(sources, destination));
+    edit_description(editor, &combined)
+}
+
+/// Combines the descriptions from the input commits. If only one is non-empty,
+/// then that one is used.
+pub fn try_combine_messages(sources: &[Commit], destination: &Commit) -> Option<String> {
     let non_empty = sources
         .iter()
         .chain(std::iter::once(destination))
@@ -298,25 +309,25 @@ pub fn combine_messages(
         .take(2)
         .collect_vec();
     match *non_empty.as_slice() {
-        [] => {
-            return Ok(String::new());
-        }
-        [commit] => {
-            return Ok(commit.description().to_owned());
-        }
-        _ => {}
+        [] => Some(String::new()),
+        [commit] => Some(commit.description().to_owned()),
+        [_, _, ..] => None,
     }
-    // Produce a combined description with instructions for the user to edit.
-    // Include empty descriptins too, so the user doesn't have to wonder why they
-    // only see 2 descriptions when they combined 3 commits.
-    let mut combined = "JJ: Enter a description for the combined commit.".to_string();
-    combined.push_str("\nJJ: Description from the destination commit:\n");
+}
+
+/// Produces a combined description with "JJ: " comment lines.
+///
+/// This includes empty descriptins too, so the user doesn't have to wonder why
+/// they only see 2 descriptions when they combined 3 commits.
+pub fn combine_messages_for_editing(sources: &[Commit], destination: &Commit) -> String {
+    let mut combined = String::new();
+    combined.push_str("JJ: Description from the destination commit:\n");
     combined.push_str(destination.description());
     for commit in sources {
         combined.push_str("\nJJ: Description from source commit:\n");
         combined.push_str(commit.description());
     }
-    edit_description(editor, &combined)
+    combined
 }
 
 /// Create a description from a list of paragraphs.
