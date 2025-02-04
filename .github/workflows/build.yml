@@ -121,6 +121,22 @@ jobs:
     - name: Build
       run: cargo build -p jj-cli --no-default-features --verbose
 
+  build-nix:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-14]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+
+    name: nix flake
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+      - uses: DeterminateSystems/nix-installer-action@e50d5f73bfe71c2dd0aa4218de8f4afa59f8f81d
+      - run: nix flake check -L --show-trace
+
   check-protos:
     name: check (protos)
     runs-on: ubuntu-24.04
