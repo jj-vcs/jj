@@ -67,31 +67,8 @@ jobs:
     steps:
     - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
-    # The default version of gpg installed on the runners is a version baked in with git
-    # which only contains the components needed by git and doesn't work for our test cases.
-    #
-    # This installs the latest gpg4win version, which is a variation of GnuPG built for
-    # Windows.
-    #
-    # There is some issue with windows PATH max length which is what all the PATH wrangling
-    # below is for. Please see the below link for where this fix was derived from:
-    # https://github.com/orgs/community/discussions/24933
-    - name: Set up GnuPG [windows]
-      if: startsWith(matrix.os, 'windows')
-      run: |
-        $env:PATH = "C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\ProgramData\chocolatey\bin"
-        [Environment]::SetEnvironmentVariable("Path", $env:PATH, "Machine")
-        choco install --yes gpg4win
-        echo "C:\Program Files (x86)\Gpg4win\..\GnuPG\bin" >> $env:GITHUB_PATH
-
-    # The default version of openssh on windows server is quite old (8.1) and doesn't have
-    # all the necessary signing/verification commands available (such as -Y find-principals)
-    - name: Set up ssh-agent [windows]
-      if: startsWith(matrix.os, 'windows')
-      run: |
-        Remove-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
-        Remove-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0
-        choco install openssh --pre
+    - name: Set up Windows Builders
+      uses: ./.github/actions/setup-windows
 
     - name: Install Rust
       uses: dtolnay/rust-toolchain@a54c7afa936fefeb4456b2dd8068152669aa8203
