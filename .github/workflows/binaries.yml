@@ -56,7 +56,7 @@ jobs:
         shell: bash
         run: cargo build --target ${{ matrix.target }} --verbose --release --features packaging,vendored-openssl
 
-      - name: Setup artifact directory
+      - name: Set up artifact directory
         shell: bash
         run: |
           outdir="target/${{ matrix.target }}/release"
