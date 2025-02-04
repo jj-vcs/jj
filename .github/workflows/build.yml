@@ -28,7 +28,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        build: [linux-x86_64-gnu, linux-aarch64-gnu, macos-x86_64, macos-aarch64, win-msvc]
+        build: [linux-x86_64-gnu, linux-aarch64-gnu, macos-x86_64, macos-aarch64, windows-x86_64]
         include:
         - build: linux-x86_64-gnu
           os: ubuntu-24.04
@@ -46,7 +46,7 @@ jobs:
           os: macos-14
           target: aarch64-apple-darwin
           cargo_flags: ""
-        - build: win-msvc
+        - build: windows-x86_64
           os: windows-2022
           target: x86_64-pc-windows-msvc
           cargo_flags: ""
@@ -109,13 +109,11 @@ jobs:
         RUST_BACKTRACE: 1
         CARGO_TERM_COLOR: always
 
-  build-no-git:
-    name: Build without Git support
+  no-git:
+    name: build (no git)
     runs-on: ubuntu-24.04
-
     steps:
     - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-
     - name: Install Rust
       uses: dtolnay/rust-toolchain@a54c7afa936fefeb4456b2dd8068152669aa8203
       with:
@@ -124,7 +122,7 @@ jobs:
       run: cargo build -p jj-cli --no-default-features --verbose
 
   check-protos:
-    name: Check protos
+    name: check (protos)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -137,8 +135,8 @@ jobs:
       - name: Check for uncommitted changes
         run: git diff --exit-code
 
-  rustfmt:
-    name: Check formatting
+  check-rustfmt:
+    name: check (rustfmt)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -148,8 +146,41 @@ jobs:
           components: rustfmt
       - run: cargo +nightly fmt --all -- --check
 
-  codespell:
-    name: Codespell
+  check-clippy:
+    name: check (clippy)
+    permissions:
+      checks: write
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: dtolnay/rust-toolchain@a54c7afa936fefeb4456b2dd8068152669aa8203
+        with:
+          toolchain: stable
+          components: clippy
+      - run: cargo +stable clippy --all-features --workspace --all-targets -- -D warnings
+
+  check-cargo-deny:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        checks:
+          - advisories
+          - bans
+          - licenses
+          - sources
+
+    # Prevent sudden announcement of a new advisory from failing ci:
+    continue-on-error: ${{ matrix.checks == 'advisories' }}
+
+    name: check (cargo-deny, ${{ matrix.checks }})
+    steps:
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+    - uses: EmbarkStudios/cargo-deny-action@e2f4ede4a4e60ea15ff31bc0647485d80c66cfba
+      with:
+        command: check ${{ matrix.checks }}
+
+  check-codespell:
+    name: check (codespell)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -166,7 +197,7 @@ jobs:
         run: uv run -- codespell && echo Codespell exited successfully
 
   check-doctests:
-    name: Run doctests
+    name: check (doctests)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -185,8 +216,8 @@ jobs:
           RUSTDOCFLAGS: "--deny warnings"
         run: cargo doc --workspace --no-deps
 
-  mkdocs:
-    name: Check that MkDocs can build the docs
+  check-mkdocs:
+    name: check (mkdocs)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -203,8 +234,8 @@ jobs:
         run: uv run -- mkdocs build --strict
 
   # An optional job to alert us when uv updates break the build
-  mkdocs-latest:
-    name: Check that MkDocs can build the docs with latest Python and uv
+  check-mkdocs-latest:
+    name: check (mkdocs latest)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -214,33 +245,3 @@ jobs:
       # if the runner happens to provide a compatible version
       - name: Check that `mkdocs` can build the docs
         run: uv run --python-preference=only-managed -- mkdocs build --strict
-
-  cargo-deny:
-    runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        checks:
-          - advisories
-          - bans licenses sources
-
-    # Prevent sudden announcement of a new advisory from failing ci:
-    continue-on-error: ${{ matrix.checks == 'advisories' }}
-
-    steps:
-    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-    - uses: EmbarkStudios/cargo-deny-action@e2f4ede4a4e60ea15ff31bc0647485d80c66cfba
-      with:
-        command: check ${{ matrix.checks }}
-
-  clippy-check:
-    name: Clippy check
-    permissions:
-      checks: write
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - uses: dtolnay/rust-toolchain@a54c7afa936fefeb4456b2dd8068152669aa8203
-        with:
-          toolchain: stable
-          components: clippy
-      - run: cargo +stable clippy --all-features --workspace --all-targets -- -D warnings
