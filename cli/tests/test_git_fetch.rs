@@ -1590,7 +1590,10 @@ fn test_git_fetch_removed_bookmark(subprocess: bool) {
     }
 
     // Remove a2 bookmark in origin
-    test_env.jj_cmd_ok(&source_git_repo_path, &["bookmark", "forget", "a2"]);
+    test_env.jj_cmd_ok(
+        &source_git_repo_path,
+        &["bookmark", "forget", "--include-remotes", "a2"],
+    );
 
     // Fetch bookmark a1 from origin and check that a2 is still there
     let (stdout, stderr) =
@@ -1708,7 +1711,10 @@ fn test_git_fetch_removed_parent_bookmark(subprocess: bool) {
     }
 
     // Remove all bookmarks in origin.
-    test_env.jj_cmd_ok(&source_git_repo_path, &["bookmark", "forget", "glob:*"]);
+    test_env.jj_cmd_ok(
+        &source_git_repo_path,
+        &["bookmark", "forget", "--include-remotes", "glob:*"],
+    );
 
     // Fetch bookmarks master, trunk1 and a1 from origin and check that only those
     // bookmarks have been removed and that others were not rebased because of
