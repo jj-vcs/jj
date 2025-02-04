@@ -340,6 +340,10 @@ Forget a bookmark without marking it as a deletion to be pushed
 
 If a local bookmark is forgotten, any corresponding remote bookmarks will become untracked. A forgotten bookmark will not impact remotes on future pushes.
 
+Remote bookmarks can also be forgotten using the normal `bookmark@remote` syntax. If a remote bookmark is forgotten, it will be recreated on future fetches if it still exists in the remote.
+
+Git-tracking bookmarks (e.g. `bookmark@git`) can also be forgotten. If a Git-tracking bookmark is forgotten, it will be deleted from the underlying Git repo on the next `jj git export`. Otherwise, the bookmark will be recreated on the next `jj git import` if it still exists in the underlying Git repo. In colocated repos, `jj git export` is run automatically after every command, so forgetting a Git-tracking bookmark has no effect in a colocated repo.
+
 **Usage:** `jj bookmark forget [OPTIONS] <NAMES>...`
 
 ###### **Arguments:**

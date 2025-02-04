@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use clap_complete::ArgValueCandidates;
+use itertools::Either;
 use itertools::Itertools as _;
 use jj_lib::op_store::BookmarkTarget;
 use jj_lib::op_store::RefTarget;
@@ -21,7 +22,9 @@ use jj_lib::str_util::StringPattern;
 use jj_lib::view::View;
 
 use super::find_bookmarks_with;
+use super::find_remote_bookmarks;
 use crate::cli_util::CommandHelper;
+use crate::cli_util::LocalOrRemoteBookmarkNamePattern;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::ui::Ui;
@@ -31,6 +34,18 @@ use crate::ui::Ui;
 /// If a local bookmark is forgotten, any corresponding remote bookmarks will
 /// become untracked. A forgotten bookmark will not impact remotes on future
 /// pushes.
+///
+/// Remote bookmarks can also be forgotten using the normal `bookmark@remote`
+/// syntax. If a remote bookmark is forgotten, it will be recreated on future
+/// fetches if it still exists in the remote.
+///
+/// Git-tracking bookmarks (e.g. `bookmark@git`) can also be forgotten. If a
+/// Git-tracking bookmark is forgotten, it will be deleted from the underlying
+/// Git repo on the next `jj git export`. Otherwise, the bookmark will be
+/// recreated on the next `jj git import` if it still exists in the underlying
+/// Git repo. In colocated repos, `jj git export` is run automatically after
+/// every command, so forgetting a Git-tracking bookmark has no effect in a
+/// colocated repo.
 #[derive(clap::Args, Clone, Debug)]
 pub struct BookmarkForgetArgs {
     /// When forgetting a local bookmark, also forget any corresponding remote
@@ -49,10 +64,9 @@ pub struct BookmarkForgetArgs {
     ///     https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
     #[arg(
         required = true,
-        value_parser = StringPattern::parse,
-        add = ArgValueCandidates::new(complete::bookmark_names),
+        add = ArgValueCandidates::new(complete::local_and_remote_bookmarks),
     )]
-    names: Vec<StringPattern>,
+    names: Vec<LocalOrRemoteBookmarkNamePattern>,
 }
 
 pub fn cmd_bookmark_forget(
@@ -62,10 +76,21 @@ pub fn cmd_bookmark_forget(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
     let repo = workspace_command.repo().clone();
-    let matched_bookmarks = find_forgettable_bookmarks(repo.view(), &args.names)?;
+    let (local_bookmarks, remote_bookmarks): (Vec<_>, Vec<_>) =
+        args.names.iter().cloned().partition_map(|name| match name {
+            LocalOrRemoteBookmarkNamePattern::Local(local) => Either::Left(local),
+            LocalOrRemoteBookmarkNamePattern::Remote(remote) => Either::Right(remote),
+        });
+    let matched_bookmarks = find_forgettable_bookmarks(repo.view(), &local_bookmarks)?;
+    let matched_remote_bookmarks = find_remote_bookmarks(repo.view(), &remote_bookmarks)?;
     let mut tx = workspace_command.start_transaction();
     let mut forgotten: usize = 0;
     let mut untracked: usize = 0;
+    for (name, _) in &matched_remote_bookmarks {
+        tx.repo_mut()
+            .set_remote_bookmark(&name.bookmark, &name.remote, RemoteRef::absent());
+        forgotten += 1;
+    }
     for (name, bookmark_target) in &matched_bookmarks {
         if bookmark_target.local_target.is_present() {
             tx.repo_mut()
@@ -73,6 +98,10 @@ pub fn cmd_bookmark_forget(
             forgotten += 1;
         }
         for (remote_name, remote_target) in &bookmark_target.remote_refs {
+            // If the remote bookmark was already deleted explicitly, skip it
+            if tx.repo().get_remote_bookmark(name, remote_name).is_absent() {
+                continue;
+            }
             // If `--include-remotes` is specified, we forget the corresponding remote
             // bookmarks instead of untracking them
             if args.include_remotes {
@@ -102,6 +131,11 @@ pub fn cmd_bookmark_forget(
     let forgotten_bookmarks = matched_bookmarks
         .iter()
         .map(|(name, _)| name.to_string())
+        .chain(
+            matched_remote_bookmarks
+                .iter()
+                .map(|(name, _)| name.to_string()),
+        )
         .join(", ");
     tx.finish(ui, format!("forget bookmark {forgotten_bookmarks}"))?;
     Ok(())
