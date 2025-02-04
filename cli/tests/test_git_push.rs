@@ -542,7 +542,10 @@ fn test_git_push_creation_unexpectedly_already_exists(subprocess: bool) {
     }
 
     // Forget bookmark1 locally
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "forget", "bookmark1"]);
+    test_env.jj_cmd_ok(
+        &workspace_root,
+        &["bookmark", "forget", "--include-remotes", "bookmark1"],
+    );
 
     // Create a new branh1
     test_env.jj_cmd_ok(&workspace_root, &["new", "root()", "-m=new bookmark1"]);

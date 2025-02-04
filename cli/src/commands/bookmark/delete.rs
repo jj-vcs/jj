@@ -30,6 +30,9 @@ use crate::ui::Ui;
 /// revisions as well as bookmarks, use `jj abandon`. For example, `jj abandon
 /// main..<bookmark>` will abandon revisions belonging to the `<bookmark>`
 /// branch (relative to the `main` branch.)
+///
+/// If you don't want the deletion of the local bookmark to propagate to any
+/// tracked remote bookmarks, use `jj bookmark forget` instead.
 #[derive(clap::Args, Clone, Debug)]
 pub struct BookmarkDeleteArgs {
     /// The bookmarks to delete

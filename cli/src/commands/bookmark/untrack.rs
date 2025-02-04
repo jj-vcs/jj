@@ -26,6 +26,9 @@ use crate::ui::Ui;
 ///
 /// A non-tracking remote bookmark is just a pointer to the last-fetched remote
 /// bookmark. It won't be imported as a local bookmark on future pulls.
+///
+/// If you want to forget a local bookmark while also untracking the
+/// corresponding remote bookmarks, use `jj bookmark forget` instead.
 #[derive(clap::Args, Clone, Debug)]
 pub struct BookmarkUntrackArgs {
     /// Remote bookmarks to untrack

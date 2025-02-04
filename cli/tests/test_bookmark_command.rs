@@ -512,16 +512,12 @@ fn test_bookmark_forget_glob() {
     let (stdout, stderr) =
         test_env.jj_cmd_ok(&repo_path, &["bookmark", "forget", "glob:foo-[1-3]"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
-    Forgot 2 bookmarks.
-    "###);
+    insta::assert_snapshot!(stderr, @"Forgot 2 local bookmarks.");
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
     let (stdout, stderr) =
         test_env.jj_cmd_ok(&repo_path, &["bookmark", "forget", "glob:foo-[1-3]"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
-    Forgot 2 bookmarks.
-    "###);
+    insta::assert_snapshot!(stderr, @"Forgot 2 local bookmarks.");
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r###"
     @  bar-2 foo-4 230dd059e1b0
     ◆   000000000000
@@ -534,9 +530,7 @@ fn test_bookmark_forget_glob() {
         &["bookmark", "forget", "foo-4", "glob:foo-*", "glob:foo-*"],
     );
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
-    Forgot 1 bookmarks.
-    "###);
+    insta::assert_snapshot!(stderr, @"Forgot 1 local bookmarks.");
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r###"
     @  bar-2 230dd059e1b0
     ◆   000000000000
@@ -705,13 +699,17 @@ fn test_bookmark_forget_export() {
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "export"]);
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @"");
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["bookmark", "forget", "foo"]);
+    let (stdout, stderr) = test_env.jj_cmd_ok(
+        &repo_path,
+        &["bookmark", "forget", "--include-remotes", "foo"],
+    );
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
-    Forgot 1 bookmarks.
-    "###);
-    // Forgetting a bookmark deletes local and remote-tracking bookmarks including
-    // the corresponding git-tracking bookmark.
+    insta::assert_snapshot!(stderr, @r#"
+    Forgot 1 local bookmarks.
+    Forgot 1 remote bookmarks.
+    "#);
+    // Forgetting a bookmark with --include-remotes deletes local and
+    // remote-tracking bookmarks including the corresponding git-tracking bookmark.
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @"");
     let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r=foo", "--no-graph"]);
     insta::assert_snapshot!(stderr, @"Error: Revision `foo` doesn't exist");
@@ -763,8 +761,11 @@ fn test_bookmark_forget_fetched_bookmark() {
     ");
 
     // TEST 1: with export-import
-    // Forget the bookmark
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "forget", "feature1"]);
+    // Forget the bookmark with --include-remotes
+    test_env.jj_cmd_ok(
+        &repo_path,
+        &["bookmark", "forget", "--include-remotes", "feature1"],
+    );
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @"");
 
     // At this point `jj git export && jj git import` does *not* recreate the
@@ -797,7 +798,10 @@ fn test_bookmark_forget_fetched_bookmark() {
     ");
 
     // TEST 2: No export/import (otherwise the same as test 1)
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "forget", "feature1"]);
+    test_env.jj_cmd_ok(
+        &repo_path,
+        &["bookmark", "forget", "--include-remotes", "feature1"],
+    );
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @"");
     // Fetch works even without the export-import
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "fetch", "--remote=origin"]);
@@ -810,7 +814,7 @@ fn test_bookmark_forget_fetched_bookmark() {
       @origin: qomsplrm ebeb70d8 message
     ");
 
-    // TEST 3: fetch bookmark that was moved & forgotten
+    // TEST 3: fetch bookmark that was moved & forgotten with --include-remotes
 
     // Move the bookmark in the git repo.
     git::write_commit(
@@ -820,11 +824,15 @@ fn test_bookmark_forget_fetched_bookmark() {
         "another message",
         &[first_git_repo_commit],
     );
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["bookmark", "forget", "feature1"]);
+    let (stdout, stderr) = test_env.jj_cmd_ok(
+        &repo_path,
+        &["bookmark", "forget", "--include-remotes", "feature1"],
+    );
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
-    Forgot 1 bookmarks.
-    "###);
+    insta::assert_snapshot!(stderr, @r#"
+    Forgot 1 local bookmarks.
+    Forgot 1 remote bookmarks.
+    "#);
 
     // Fetching a moved bookmark does not create a conflict
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "fetch", "--remote=origin"]);
@@ -836,6 +844,15 @@ fn test_bookmark_forget_fetched_bookmark() {
     feature1: tyvxnvqr 9175cb32 (empty) another message
       @origin: tyvxnvqr 9175cb32 (empty) another message
     ");
+
+    // TEST 4: If `--include-remotes` isn't used, remote bookmarks are untracked
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "forget", "feature1"]);
+    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @"feature1@origin: tyvxnvqr 9175cb32 (empty) another message");
+    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "fetch", "--remote=origin"]);
+    insta::assert_snapshot!(stdout, @"");
+    // There should be no output here since the remote bookmark wasn't forgotten
+    insta::assert_snapshot!(stderr, @"Nothing changed.");
+    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @"feature1@origin: tyvxnvqr 9175cb32 (empty) another message");
 }
 
 #[test]
@@ -876,7 +893,10 @@ fn test_bookmark_forget_deleted_or_nonexistent_bookmark() {
     // ============ End of test setup ============
 
     // We can forget a deleted bookmark
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "forget", "feature1"]);
+    test_env.jj_cmd_ok(
+        &repo_path,
+        &["bookmark", "forget", "--include-remotes", "feature1"],
+    );
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @"");
 
     // Can't forget a non-existent bookmark
