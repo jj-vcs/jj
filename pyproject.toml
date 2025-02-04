@@ -1,4 +1,4 @@
-# The `dev-dependencies` section sets up tools for building `jj`
+# The `dev` dependency group sets up tools for building `jj`
 # documentation. `uv` will install these in a virtual environment.
 
 [project]
@@ -8,10 +8,9 @@ requires-python = ">=3.9"
 version = "0.1.0"
 dependencies = []
 
-[tool.uv]
-package = false
+[dependency-groups]
 # These can be updated with `uv add --dev`.
-dev-dependencies = [
+dev = [
     "mkdocs<1.7,>=1.6",
     # Pin mkdocs-material to the exact version b/c it sometimes breaks thing
     "mkdocs-material==9.5.39",
@@ -24,8 +23,13 @@ dev-dependencies = [
     "mkdocs-redirects<2.0.0,>=1.2.1",
     # Used for the CLI reference
     "mkdocs-include-markdown-plugin<7.0.0,>=6.0.4",
+
+    # Unrelated to docs
     "codespell[toml]>=2.4.0",
 ]
+
+[tool.uv]
+package = false
 
 [tool.codespell]
 check-filenames=true
