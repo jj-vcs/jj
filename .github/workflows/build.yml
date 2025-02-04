@@ -28,12 +28,28 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macos-13 is x86; macos-14 is ARM
-        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-13, macos-14, windows-latest]
-        cargo_flags: [""]
+        build: [linux-x86_64-gnu, linux-aarch64-gnu, macos-x86_64, macos-aarch64, win-msvc]
         include:
-        - os: ubuntu-24.04
+        - build: linux-x86_64-gnu
+          os: ubuntu-24.04
+          target: x86_64-unknown-linux-gnu
           cargo_flags: "--all-features"
+        - build: linux-aarch64-gnu
+          os: ubuntu-24.04-arm
+          target: aarch64-unknown-linux-gnu
+          cargo_flags: "--all-features"
+        - build: macos-x86_64
+          os: macos-13
+          target: x86_64-apple-darwin
+          cargo_flags: ""
+        - build: macos-aarch64
+          os: macos-14
+          target: aarch64-apple-darwin
+          cargo_flags: ""
+        - build: win-msvc
+          os: windows-2022
+          target: x86_64-pc-windows-msvc
+          cargo_flags: ""
     runs-on: ${{ matrix.os }}
 
     # TODO FIXME (aseipp): keep the timeout limit to ~15 minutes. this is long
@@ -61,7 +77,7 @@ jobs:
     # below is for. Please see the below link for where this fix was derived from:
     # https://github.com/orgs/community/discussions/24933
     - name: Set up GnuPG [windows]
-      if: ${{ matrix.os == 'windows-latest' }}
+      if: startsWith(matrix.os, 'windows')
       run: |
         $env:PATH = "C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\ProgramData\chocolatey\bin"
         [Environment]::SetEnvironmentVariable("Path", $env:PATH, "Machine")
@@ -71,7 +87,7 @@ jobs:
     # The default version of openssh on windows server is quite old (8.1) and doesn't have
     # all the necessary signing/verification commands available (such as -Y find-principals)
     - name: Set up ssh-agent [windows]
-      if: ${{ matrix.os == 'windows-latest' }}
+      if: startsWith(matrix.os, 'windows')
       run: |
         Remove-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
         Remove-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0
@@ -81,14 +97,14 @@ jobs:
       uses: dtolnay/rust-toolchain@a54c7afa936fefeb4456b2dd8068152669aa8203
       with:
         toolchain: 1.76
+        target: ${{ matrix.target }}
     - uses: taiki-e/install-action@5bc300ae6202155e070ca83afb334e8aac18c49c
       with:
         tool: nextest
     - name: Build
-      run: cargo build --workspace --all-targets --verbose ${{ matrix.cargo_flags }}
+      run: cargo build --target ${{ matrix.target }} --workspace --all-targets --verbose ${{ matrix.cargo_flags }}
     - name: Test
-      run: |
-        cargo nextest run --workspace --profile ci --all-targets --verbose ${{ matrix.cargo_flags }}
+      run: cargo nextest run --target ${{ matrix.target }} --workspace --profile ci --all-targets --verbose ${{ matrix.cargo_flags }}
       env:
         RUST_BACKTRACE: 1
         CARGO_TERM_COLOR: always
