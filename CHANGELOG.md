@@ -12,6 +12,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+* `jj bookmark forget` now untracks any corresponding remote bookmarks instead
+  of forgetting them, since forgetting a remote bookmark can be unintuitive.
+  The old behavior is still available with the new `--include-remotes` flag.
+
 ### Deprecations
 
 ### New features

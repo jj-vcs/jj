@@ -679,13 +679,16 @@ fn test_bookmark_forget_export() {
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "export"]);
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @"");
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["bookmark", "forget", "foo"]);
+    let (stdout, stderr) = test_env.jj_cmd_ok(
+        &repo_path,
+        &["bookmark", "forget", "--include-remotes", "foo"],
+    );
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @r###"
-    Forgot 1 bookmarks.
+    Forgot 2 bookmarks.
     "###);
-    // Forgetting a bookmark deletes local and remote-tracking bookmarks including
-    // the corresponding git-tracking bookmark.
+    // Forgetting a bookmark with --include-remotes deletes local and
+    // remote-tracking bookmarks including the corresponding git-tracking bookmark.
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @"");
     let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r=foo", "--no-graph"]);
     insta::assert_snapshot!(stderr, @"Error: Revision `foo` doesn't exist");
@@ -745,8 +748,11 @@ fn test_bookmark_forget_fetched_bookmark() {
     "###);
 
     // TEST 1: with export-import
-    // Forget the bookmark
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "forget", "feature1"]);
+    // Forget the bookmark with --include-remotes
+    test_env.jj_cmd_ok(
+        &repo_path,
+        &["bookmark", "forget", "--include-remotes", "feature1"],
+    );
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @"");
 
     // At this point `jj git export && jj git import` does *not* recreate the
@@ -779,7 +785,10 @@ fn test_bookmark_forget_fetched_bookmark() {
     "###);
 
     // TEST 2: No export/import (otherwise the same as test 1)
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "forget", "feature1"]);
+    test_env.jj_cmd_ok(
+        &repo_path,
+        &["bookmark", "forget", "--include-remotes", "feature1"],
+    );
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @"");
     // Fetch works even without the export-import
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "fetch", "--remote=origin"]);
@@ -792,7 +801,7 @@ fn test_bookmark_forget_fetched_bookmark() {
       @origin: mzyxwzks 9f01a0e0 message
     "###);
 
-    // TEST 3: fetch bookmark that was moved & forgotten
+    // TEST 3: fetch bookmark that was moved & forgotten with --include-remotes
 
     // Move the bookmark in the git repo.
     git_repo
@@ -805,10 +814,13 @@ fn test_bookmark_forget_fetched_bookmark() {
             &[&git_repo.find_commit(first_git_repo_commit).unwrap()],
         )
         .unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["bookmark", "forget", "feature1"]);
+    let (stdout, stderr) = test_env.jj_cmd_ok(
+        &repo_path,
+        &["bookmark", "forget", "--include-remotes", "feature1"],
+    );
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @r###"
-    Forgot 1 bookmarks.
+    Forgot 2 bookmarks.
     "###);
 
     // Fetching a moved bookmark does not create a conflict
@@ -872,7 +884,10 @@ fn test_bookmark_forget_deleted_or_nonexistent_bookmark() {
     // ============ End of test setup ============
 
     // We can forget a deleted bookmark
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "forget", "feature1"]);
+    test_env.jj_cmd_ok(
+        &repo_path,
+        &["bookmark", "forget", "--include-remotes", "feature1"],
+    );
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @"");
 
     // Can't forget a non-existent bookmark
