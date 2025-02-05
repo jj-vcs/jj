@@ -28,15 +28,11 @@ fn test_show() {
 
     // Can print the contents of a file in a commit
     let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1", "-r", "@-"]);
-    insta::assert_snapshot!(stdout, @r###"
-    a
-    "###);
+    insta::assert_snapshot!(stdout, @"a");
 
     // Defaults to printing the working-copy version
     let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1"]);
-    insta::assert_snapshot!(stdout, @r###"
-    b
-    "###);
+    insta::assert_snapshot!(stdout, @"b");
 
     // Can print a file in a subdirectory
     let subdir_file = if cfg!(unix) {
@@ -45,45 +41,35 @@ fn test_show() {
         "dir\\file2"
     };
     let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", subdir_file]);
-    insta::assert_snapshot!(stdout, @r###"
-    c
-    "###);
+    insta::assert_snapshot!(stdout, @"c");
 
     // Error if the path doesn't exist
     let stderr = test_env.jj_cmd_failure(&repo_path, &["file", "show", "nonexistent"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: No such path: nonexistent
-    "###);
+    insta::assert_snapshot!(stderr, @"Error: No such path: nonexistent");
 
     // Can print files under the specified directory
     let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "dir"]);
-    insta::assert_snapshot!(stdout, @r###"
-    c
-    "###);
+    insta::assert_snapshot!(stdout, @"c");
 
     // Can print multiple files
     let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "."]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     c
     b
-    "###);
+    ");
 
     // Unmatched paths should generate warnings
     let (stdout, stderr) =
         test_env.jj_cmd_ok(&repo_path, &["file", "show", "file1", "non-existent"]);
-    insta::assert_snapshot!(stdout, @r###"
-    b
-    "###);
-    insta::assert_snapshot!(stderr, @r###"
-    Warning: No matching entries for paths: non-existent
-    "###);
+    insta::assert_snapshot!(stdout, @"b");
+    insta::assert_snapshot!(stderr, @"Warning: No matching entries for paths: non-existent");
 
     // Can print a conflict
     test_env.jj_cmd_ok(&repo_path, &["new"]);
     std::fs::write(repo_path.join("file1"), "c\n").unwrap();
     test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "@", "-d", "@--"]);
     let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
     -b
@@ -91,7 +77,7 @@ fn test_show() {
     +++++++ Contents of side #2
     c
     >>>>>>> Conflict 1 of 1 ends
-    "###);
+    ");
 }
 
 #[cfg(unix)]
@@ -108,11 +94,9 @@ fn test_show_symlink() {
 
     // Can print multiple files
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["file", "show", "."]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     c
     a
-    "###);
-    insta::assert_snapshot!(stderr, @r###"
-    Warning: Path 'symlink1' exists but is not a file
-    "###);
+    ");
+    insta::assert_snapshot!(stderr, @"Warning: Path 'symlink1' exists but is not a file");
 }

@@ -30,7 +30,7 @@ fn test_log_parents() {
     let template =
         r#"commit_id ++ "\nP: " ++ parents.len() ++ " " ++ parents.map(|c| c.commit_id()) ++ "\n""#;
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-T", template]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     @    c067170d4ca1bc6162b64f7550617ec809647f84
     ├─╮  P: 2 4db490c88528133d579540b6900b8098f0c17701 230dd059e1b059aefc0da06a2e5a7dbf22362f22
     ○ │  4db490c88528133d579540b6900b8098f0c17701
@@ -39,7 +39,7 @@ fn test_log_parents() {
     │  P: 1 0000000000000000000000000000000000000000
     ◆  0000000000000000000000000000000000000000
        P: 0
-    "###);
+    ");
 
     // List<Commit> can be filtered
     let template =
@@ -59,11 +59,11 @@ fn test_log_parents() {
         &repo_path,
         &["log", "-T", template, "-r@", "--color=always"],
     );
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     [1m[38;5;2m@[0m  [1m[38;5;4m4[0m[38;5;8mdb4[39m [1m[38;5;4m2[0m[38;5;8m30d[39m
     │
     ~
-    "###);
+    ");
 
     // Commit object isn't printable
     let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-T", "parents"]);
@@ -101,11 +101,11 @@ fn test_log_author_timestamp() {
     test_env.jj_cmd_ok(&repo_path, &["new", "-m", "second"]);
 
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-T", "author.timestamp()"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     @  2001-02-03 04:05:09.000 +07:00
     ○  2001-02-03 04:05:08.000 +07:00
     ◆  1970-01-01 00:00:00.000 +00:00
-    "###);
+    ");
 }
 
 #[test]
@@ -133,10 +133,10 @@ fn test_log_author_timestamp_utc() {
     let repo_path = test_env.env_root().join("repo");
 
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-T", "author.timestamp().utc()"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     @  2001-02-02 21:05:07.000 +00:00
     ◆  1970-01-01 00:00:00.000 +00:00
-    "###);
+    ");
 }
 
 #[cfg(unix)]
@@ -148,16 +148,16 @@ fn test_log_author_timestamp_local() {
 
     test_env.add_env_var("TZ", "UTC-05:30");
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-T", "author.timestamp().local()"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     @  2001-02-03 08:05:07.000 +11:00
     ◆  1970-01-01 11:00:00.000 +11:00
-    "###);
+    ");
     test_env.add_env_var("TZ", "UTC+10:00");
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-T", "author.timestamp().local()"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     @  2001-02-03 08:05:07.000 +11:00
     ◆  1970-01-01 11:00:00.000 +11:00
-    "###);
+    ");
 }
 
 #[test]
@@ -177,10 +177,10 @@ fn test_log_author_timestamp_after_before() {
       if(author.timestamp().before("now"), "(before now)", "(after now)")
     ) ++ "\n""#;
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "--no-graph", "-T", template]);
-    insta::assert_snapshot!(stdout, @r#"
+    insta::assert_snapshot!(stdout, @r"
     2001-02-03 04:05:08.000 +07:00 : (after 1969) (after 1975) (before now)
     1970-01-01 00:00:00.000 +00:00 : (after 1969) (before 1975) (before now)
-    "#);
+    ");
 
     // Should display error with invalid date.
     let template = r#"author.timestamp().after("invalid date")"#;
@@ -220,11 +220,11 @@ fn test_mine_is_true_when_author_is_user() {
             r#"coalesce(if(mine, "mine"), author.email(), email_placeholder)"#,
         ],
     );
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     @  johndoe@example.com
     ○  mine
     ◆  (no email set)
-    "###);
+    ");
 }
 
 #[test]
@@ -240,33 +240,33 @@ fn test_log_default() {
 
     // Test default log output format
     let stdout = test_env.jj_cmd_success(&repo_path, &["log"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     @  kkmpptxz test.user@example.com 2001-02-03 08:05:09 my-bookmark bac9ff9e
     │  (empty) description 1
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 aa2015d7
     │  add a file
     ◆  zzzzzzzz root() 00000000
-    "###);
+    ");
 
     // Color
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "--color=always"]);
-    insta::assert_snapshot!(stdout, @r#"
+    insta::assert_snapshot!(stdout, @r"
     [1m[38;5;2m@[0m  [1m[38;5;13mk[38;5;8mkmpptxz[39m [38;5;3mtest.user@example.com[39m [38;5;14m2001-02-03 08:05:09[39m [38;5;13mmy-bookmark[39m [38;5;12mb[38;5;8mac9ff9e[39m[0m
     │  [1m[38;5;10m(empty)[39m description 1[0m
     ○  [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:08[39m [1m[38;5;4ma[0m[38;5;8ma2015d7[39m
     │  add a file
     [1m[38;5;14m◆[0m  [1m[38;5;5mz[0m[38;5;8mzzzzzzz[39m [38;5;2mroot()[39m [1m[38;5;4m0[0m[38;5;8m0000000[39m
-    "#);
+    ");
 
     // Color without graph
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "--color=always", "--no-graph"]);
-    insta::assert_snapshot!(stdout, @r#"
+    insta::assert_snapshot!(stdout, @r"
     [1m[38;5;13mk[38;5;8mkmpptxz[39m [38;5;3mtest.user@example.com[39m [38;5;14m2001-02-03 08:05:09[39m [38;5;13mmy-bookmark[39m [38;5;12mb[38;5;8mac9ff9e[39m[0m
     [1m[38;5;10m(empty)[39m description 1[0m
     [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:08[39m [1m[38;5;4ma[0m[38;5;8ma2015d7[39m
     add a file
     [1m[38;5;5mz[0m[38;5;8mzzzzzzz[39m [38;5;2mroot()[39m [1m[38;5;4m0[0m[38;5;8m0000000[39m
-    "#);
+    ");
 }
 
 #[test]
@@ -277,9 +277,7 @@ fn test_log_default_without_working_copy() {
 
     test_env.jj_cmd_ok(&repo_path, &["workspace", "forget"]);
     let stdout = test_env.jj_cmd_success(&repo_path, &["log"]);
-    insta::assert_snapshot!(stdout, @r#"
-    ◆  zzzzzzzz root() 00000000
-    "#);
+    insta::assert_snapshot!(stdout, @"◆  zzzzzzzz root() 00000000");
 }
 
 #[test]
@@ -298,23 +296,23 @@ fn test_log_builtin_templates() {
     );
     test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "my-bookmark"]);
 
-    insta::assert_snapshot!(render(r#"builtin_log_oneline"#), @r###"
+    insta::assert_snapshot!(render(r#"builtin_log_oneline"#), @r"
     rlvkpnrz (no email set) 2001-02-03 08:05:08 my-bookmark dc315397 (empty) (no description set)
     qpvuntsm test.user 2001-02-03 08:05:07 230dd059 (empty) (no description set)
     zzzzzzzz root() 00000000
     [EOF]
-    "###);
+    ");
 
-    insta::assert_snapshot!(render(r#"builtin_log_compact"#), @r###"
+    insta::assert_snapshot!(render(r#"builtin_log_compact"#), @r"
     rlvkpnrz (no email set) 2001-02-03 08:05:08 my-bookmark dc315397
     (empty) (no description set)
     qpvuntsm test.user@example.com 2001-02-03 08:05:07 230dd059
     (empty) (no description set)
     zzzzzzzz root() 00000000
     [EOF]
-    "###);
+    ");
 
-    insta::assert_snapshot!(render(r#"builtin_log_comfortable"#), @r###"
+    insta::assert_snapshot!(render(r#"builtin_log_comfortable"#), @r"
     rlvkpnrz (no email set) 2001-02-03 08:05:08 my-bookmark dc315397
     (empty) (no description set)
 
@@ -324,9 +322,9 @@ fn test_log_builtin_templates() {
     zzzzzzzz root() 00000000
 
     [EOF]
-    "###);
+    ");
 
-    insta::assert_snapshot!(render(r#"builtin_log_detailed"#), @r#"
+    insta::assert_snapshot!(render(r#"builtin_log_detailed"#), @r"
     Commit ID: dc31539712c7294d1d712cec63cef4504b94ca74
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Bookmarks: my-bookmark
@@ -350,7 +348,7 @@ fn test_log_builtin_templates() {
         (no description set)
 
     [EOF]
-    "#);
+    ");
 }
 
 #[test]
@@ -367,21 +365,21 @@ fn test_log_builtin_templates_colored() {
     );
     test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "my-bookmark"]);
 
-    insta::assert_snapshot!(render(r#"builtin_log_oneline"#), @r#"
+    insta::assert_snapshot!(render(r#"builtin_log_oneline"#), @r"
     [1m[38;5;2m@[0m  [1m[38;5;13mr[38;5;8mlvkpnrz[39m [38;5;9m(no email set)[39m [38;5;14m2001-02-03 08:05:08[39m [38;5;13mmy-bookmark[39m [38;5;12md[38;5;8mc315397[39m [38;5;10m(empty)[39m [38;5;10m(no description set)[39m[0m
     ○  [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [38;5;3mtest.user[39m [38;5;6m2001-02-03 08:05:07[39m [1m[38;5;4m2[0m[38;5;8m30dd059[39m [38;5;2m(empty)[39m [38;5;2m(no description set)[39m
     [1m[38;5;14m◆[0m  [1m[38;5;5mz[0m[38;5;8mzzzzzzz[39m [38;5;2mroot()[39m [1m[38;5;4m0[0m[38;5;8m0000000[39m
-    "#);
+    ");
 
-    insta::assert_snapshot!(render(r#"builtin_log_compact"#), @r#"
+    insta::assert_snapshot!(render(r#"builtin_log_compact"#), @r"
     [1m[38;5;2m@[0m  [1m[38;5;13mr[38;5;8mlvkpnrz[39m [38;5;9m(no email set)[39m [38;5;14m2001-02-03 08:05:08[39m [38;5;13mmy-bookmark[39m [38;5;12md[38;5;8mc315397[39m[0m
     │  [1m[38;5;10m(empty)[39m [38;5;10m(no description set)[39m[0m
     ○  [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:07[39m [1m[38;5;4m2[0m[38;5;8m30dd059[39m
     │  [38;5;2m(empty)[39m [38;5;2m(no description set)[39m
     [1m[38;5;14m◆[0m  [1m[38;5;5mz[0m[38;5;8mzzzzzzz[39m [38;5;2mroot()[39m [1m[38;5;4m0[0m[38;5;8m0000000[39m
-    "#);
+    ");
 
-    insta::assert_snapshot!(render(r#"builtin_log_comfortable"#), @r#"
+    insta::assert_snapshot!(render(r#"builtin_log_comfortable"#), @r"
     [1m[38;5;2m@[0m  [1m[38;5;13mr[38;5;8mlvkpnrz[39m [38;5;9m(no email set)[39m [38;5;14m2001-02-03 08:05:08[39m [38;5;13mmy-bookmark[39m [38;5;12md[38;5;8mc315397[39m[0m
     │  [1m[38;5;10m(empty)[39m [38;5;10m(no description set)[39m[0m
     │
@@ -389,10 +387,9 @@ fn test_log_builtin_templates_colored() {
     │  [38;5;2m(empty)[39m [38;5;2m(no description set)[39m
     │
     [1m[38;5;14m◆[0m  [1m[38;5;5mz[0m[38;5;8mzzzzzzz[39m [38;5;2mroot()[39m [1m[38;5;4m0[0m[38;5;8m0000000[39m
+    ");
 
-    "#);
-
-    insta::assert_snapshot!(render(r#"builtin_log_detailed"#), @r#"
+    insta::assert_snapshot!(render(r#"builtin_log_detailed"#), @r"
     [1m[38;5;2m@[0m  Commit ID: [38;5;4mdc31539712c7294d1d712cec63cef4504b94ca74[39m
     │  Change ID: [38;5;5mrlvkpnrzqnoowoytxnquwvuryrwnrmlp[39m
     │  Bookmarks: [38;5;5mmy-bookmark[39m
@@ -414,7 +411,7 @@ fn test_log_builtin_templates_colored() {
        Committer: [38;5;1m(no name set)[39m <[38;5;1m(no email set)[39m> ([38;5;6m1970-01-01 11:00:00[39m)
 
        [38;5;2m    (no description set)[39m
-    "#);
+    ");
 }
 
 #[test]
@@ -431,21 +428,21 @@ fn test_log_builtin_templates_colored_debug() {
     );
     test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "my-bookmark"]);
 
-    insta::assert_snapshot!(render(r#"builtin_log_oneline"#), @r#"
+    insta::assert_snapshot!(render(r#"builtin_log_oneline"#), @r"
     [1m[38;5;2m<<node working_copy::@>>[0m  [1m[38;5;13m<<log working_copy change_id shortest prefix::r>>[38;5;8m<<log working_copy change_id shortest rest::lvkpnrz>>[39m<<log working_copy:: >>[38;5;9m<<log working_copy email placeholder::(no email set)>>[39m<<log working_copy:: >>[38;5;14m<<log working_copy committer timestamp local format::2001-02-03 08:05:08>>[39m<<log working_copy:: >>[38;5;13m<<log working_copy bookmarks name::my-bookmark>>[39m<<log working_copy:: >>[38;5;12m<<log working_copy commit_id shortest prefix::d>>[38;5;8m<<log working_copy commit_id shortest rest::c315397>>[39m<<log working_copy:: >>[38;5;10m<<log working_copy empty::(empty)>>[39m<<log working_copy:: >>[38;5;10m<<log working_copy empty description placeholder::(no description set)>>[39m<<log working_copy::>>[0m
     <<node::○>>  [1m[38;5;5m<<log change_id shortest prefix::q>>[0m[38;5;8m<<log change_id shortest rest::pvuntsm>>[39m<<log:: >>[38;5;3m<<log author email local::test.user>>[39m<<log:: >>[38;5;6m<<log committer timestamp local format::2001-02-03 08:05:07>>[39m<<log:: >>[1m[38;5;4m<<log commit_id shortest prefix::2>>[0m[38;5;8m<<log commit_id shortest rest::30dd059>>[39m<<log:: >>[38;5;2m<<log empty::(empty)>>[39m<<log:: >>[38;5;2m<<log empty description placeholder::(no description set)>>[39m<<log::>>
     [1m[38;5;14m<<node immutable::◆>>[0m  [1m[38;5;5m<<log change_id shortest prefix::z>>[0m[38;5;8m<<log change_id shortest rest::zzzzzzz>>[39m<<log:: >>[38;5;2m<<log root::root()>>[39m<<log:: >>[1m[38;5;4m<<log commit_id shortest prefix::0>>[0m[38;5;8m<<log commit_id shortest rest::0000000>>[39m<<log::>>
-    "#);
+    ");
 
-    insta::assert_snapshot!(render(r#"builtin_log_compact"#), @r#"
+    insta::assert_snapshot!(render(r#"builtin_log_compact"#), @r"
     [1m[38;5;2m<<node working_copy::@>>[0m  [1m[38;5;13m<<log working_copy change_id shortest prefix::r>>[38;5;8m<<log working_copy change_id shortest rest::lvkpnrz>>[39m<<log working_copy:: >>[38;5;9m<<log working_copy email placeholder::(no email set)>>[39m<<log working_copy:: >>[38;5;14m<<log working_copy committer timestamp local format::2001-02-03 08:05:08>>[39m<<log working_copy:: >>[38;5;13m<<log working_copy bookmarks name::my-bookmark>>[39m<<log working_copy:: >>[38;5;12m<<log working_copy commit_id shortest prefix::d>>[38;5;8m<<log working_copy commit_id shortest rest::c315397>>[39m<<log working_copy::>>[0m
     │  [1m[38;5;10m<<log working_copy empty::(empty)>>[39m<<log working_copy:: >>[38;5;10m<<log working_copy empty description placeholder::(no description set)>>[39m<<log working_copy::>>[0m
     <<node::○>>  [1m[38;5;5m<<log change_id shortest prefix::q>>[0m[38;5;8m<<log change_id shortest rest::pvuntsm>>[39m<<log:: >>[38;5;3m<<log author email local::test.user>><<log author email::@>><<log author email domain::example.com>>[39m<<log:: >>[38;5;6m<<log committer timestamp local format::2001-02-03 08:05:07>>[39m<<log:: >>[1m[38;5;4m<<log commit_id shortest prefix::2>>[0m[38;5;8m<<log commit_id shortest rest::30dd059>>[39m<<log::>>
     │  [38;5;2m<<log empty::(empty)>>[39m<<log:: >>[38;5;2m<<log empty description placeholder::(no description set)>>[39m<<log::>>
     [1m[38;5;14m<<node immutable::◆>>[0m  [1m[38;5;5m<<log change_id shortest prefix::z>>[0m[38;5;8m<<log change_id shortest rest::zzzzzzz>>[39m<<log:: >>[38;5;2m<<log root::root()>>[39m<<log:: >>[1m[38;5;4m<<log commit_id shortest prefix::0>>[0m[38;5;8m<<log commit_id shortest rest::0000000>>[39m<<log::>>
-    "#);
+    ");
 
-    insta::assert_snapshot!(render(r#"builtin_log_comfortable"#), @r#"
+    insta::assert_snapshot!(render(r#"builtin_log_comfortable"#), @r"
     [1m[38;5;2m<<node working_copy::@>>[0m  [1m[38;5;13m<<log working_copy change_id shortest prefix::r>>[38;5;8m<<log working_copy change_id shortest rest::lvkpnrz>>[39m<<log working_copy:: >>[38;5;9m<<log working_copy email placeholder::(no email set)>>[39m<<log working_copy:: >>[38;5;14m<<log working_copy committer timestamp local format::2001-02-03 08:05:08>>[39m<<log working_copy:: >>[38;5;13m<<log working_copy bookmarks name::my-bookmark>>[39m<<log working_copy:: >>[38;5;12m<<log working_copy commit_id shortest prefix::d>>[38;5;8m<<log working_copy commit_id shortest rest::c315397>>[39m<<log working_copy::>>[0m
     │  [1m[38;5;10m<<log working_copy empty::(empty)>>[39m<<log working_copy:: >>[38;5;10m<<log working_copy empty description placeholder::(no description set)>>[39m<<log working_copy::>>[0m
     │  <<log::>>
@@ -454,9 +451,9 @@ fn test_log_builtin_templates_colored_debug() {
     │  <<log::>>
     [1m[38;5;14m<<node immutable::◆>>[0m  [1m[38;5;5m<<log change_id shortest prefix::z>>[0m[38;5;8m<<log change_id shortest rest::zzzzzzz>>[39m<<log:: >>[38;5;2m<<log root::root()>>[39m<<log:: >>[1m[38;5;4m<<log commit_id shortest prefix::0>>[0m[38;5;8m<<log commit_id shortest rest::0000000>>[39m<<log::>>
        <<log::>>
-    "#);
+    ");
 
-    insta::assert_snapshot!(render(r#"builtin_log_detailed"#), @r#"
+    insta::assert_snapshot!(render(r#"builtin_log_detailed"#), @r"
     [1m[38;5;2m<<node working_copy::@>>[0m  <<log::Commit ID: >>[38;5;4m<<log commit_id::dc31539712c7294d1d712cec63cef4504b94ca74>>[39m<<log::>>
     │  <<log::Change ID: >>[38;5;5m<<log change_id::rlvkpnrzqnoowoytxnquwvuryrwnrmlp>>[39m<<log::>>
     │  <<log::Bookmarks: >>[38;5;5m<<log local_bookmarks name::my-bookmark>>[39m<<log::>>
@@ -479,7 +476,7 @@ fn test_log_builtin_templates_colored_debug() {
        <<log::>>
        [38;5;2m<<log empty description placeholder::    (no description set)>>[39m<<log::>>
        <<log::>>
-    "#);
+    ");
 }
 
 #[test]
@@ -492,11 +489,11 @@ fn test_log_evolog_divergence() {
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "description 1"]);
     let stdout = test_env.jj_cmd_success(&repo_path, &["log"]);
     // No divergence
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:08 ff309c29
     │  description 1
     ◆  zzzzzzzz root() 00000000
-    "###);
+    ");
 
     // Create divergence
     test_env.jj_cmd_ok(
@@ -504,48 +501,46 @@ fn test_log_evolog_divergence() {
         &["describe", "-m", "description 2", "--at-operation", "@-"],
     );
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["log"]);
-    insta::assert_snapshot!(stdout, @r#"
+    insta::assert_snapshot!(stdout, @r"
     @  qpvuntsm?? test.user@example.com 2001-02-03 08:05:08 ff309c29
     │  description 1
     │ ○  qpvuntsm?? test.user@example.com 2001-02-03 08:05:10 6ba70e00
     ├─╯  description 2
     ◆  zzzzzzzz root() 00000000
-    "#);
-    insta::assert_snapshot!(stderr, @r###"
-    Concurrent modification detected, resolving automatically.
-    "###);
+    ");
+    insta::assert_snapshot!(stderr, @"Concurrent modification detected, resolving automatically.");
 
     // Color
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "--color=always"]);
-    insta::assert_snapshot!(stdout, @r#"
+    insta::assert_snapshot!(stdout, @r"
     [1m[38;5;2m@[0m  [1m[4m[38;5;1mq[24mpvuntsm[38;5;9m??[39m [38;5;3mtest.user@example.com[39m [38;5;14m2001-02-03 08:05:08[39m [38;5;12mf[38;5;8mf309c29[39m[0m
     │  [1mdescription 1[0m
     │ ○  [1m[4m[38;5;1mq[0m[38;5;1mpvuntsm??[39m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:10[39m [1m[38;5;4m6[0m[38;5;8mba70e00[39m
     ├─╯  description 2
     [1m[38;5;14m◆[0m  [1m[38;5;5mz[0m[38;5;8mzzzzzzz[39m [38;5;2mroot()[39m [1m[38;5;4m0[0m[38;5;8m0000000[39m
-    "#);
+    ");
 
     // Evolog and hidden divergent
     let stdout = test_env.jj_cmd_success(&repo_path, &["evolog"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     @  qpvuntsm?? test.user@example.com 2001-02-03 08:05:08 ff309c29
     │  description 1
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 485d52a9
     │  (no description set)
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 230dd059
        (empty) (no description set)
-    "###);
+    ");
 
     // Colored evolog
     let stdout = test_env.jj_cmd_success(&repo_path, &["evolog", "--color=always"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     [1m[38;5;2m@[0m  [1m[4m[38;5;1mq[24mpvuntsm[38;5;9m??[39m [38;5;3mtest.user@example.com[39m [38;5;14m2001-02-03 08:05:08[39m [38;5;12mf[38;5;8mf309c29[39m[0m
     │  [1mdescription 1[0m
     ○  [1m[39mq[0m[38;5;8mpvuntsm[39m hidden [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:08[39m [1m[38;5;4m4[0m[38;5;8m85d52a9[39m
     │  [38;5;3m(no description set)[39m
     ○  [1m[39mq[0m[38;5;8mpvuntsm[39m hidden [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:07[39m [1m[38;5;4m2[0m[38;5;8m30dd059[39m
        [38;5;2m(empty)[39m [38;5;2m(no description set)[39m
-    "###);
+    ");
 }
 
 #[test]
@@ -600,7 +595,7 @@ fn test_log_bookmarks() {
 
     let template = r#"commit_id.short() ++ " " ++ if(bookmarks, bookmarks, "(no bookmarks)")"#;
     let output = test_env.jj_cmd_success(&workspace_root, &["log", "-T", template]);
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output, @r"
     @  a5b4d15489cc bookmark2* new-bookmark
     ○  8476341eb395 bookmark2@origin unchanged
     │ ○  fed794e2ba44 bookmark3?? bookmark3@origin
@@ -610,11 +605,11 @@ fn test_log_bookmarks() {
     │ ○  4a7e4246fc4d bookmark1*
     ├─╯
     ◆  000000000000 (no bookmarks)
-    "#);
+    ");
 
     let template = r#"bookmarks.map(|b| separate("/", b.remote(), b.name())).join(", ")"#;
     let output = test_env.jj_cmd_success(&workspace_root, &["log", "-T", template]);
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output, @r"
     @  bookmark2, new-bookmark
     ○  origin/bookmark2, unchanged
     │ ○  bookmark3, origin/bookmark3
@@ -624,11 +619,11 @@ fn test_log_bookmarks() {
     │ ○  bookmark1
     ├─╯
     ◆
-    "#);
+    ");
 
     let template = r#"separate(" ", "L:", local_bookmarks, "R:", remote_bookmarks)"#;
     let output = test_env.jj_cmd_success(&workspace_root, &["log", "-T", template]);
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output, @r"
     @  L: bookmark2* new-bookmark R:
     ○  L: unchanged R: bookmark2@origin unchanged@origin
     │ ○  L: bookmark3?? R: bookmark3@origin
@@ -638,7 +633,7 @@ fn test_log_bookmarks() {
     │ ○  L: bookmark1* R:
     ├─╯
     ◆  L: R:
-    "#);
+    ");
 
     let template = r#"
     remote_bookmarks.map(|ref| concat(
@@ -652,14 +647,14 @@ fn test_log_bookmarks() {
         &workspace_root,
         &["log", "-r::remote_bookmarks()", "-T", template],
     );
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ○  bookmark3@origin(+0/-1)
     │ ○  bookmark2@origin(+0/-1) unchanged@origin(+0/-0)
     ├─╯
     │ ○  bookmark1@origin(+1/-1)
     ├─╯
     ◆
-    "###);
+    ");
 }
 
 #[test]
@@ -673,20 +668,20 @@ fn test_log_git_head() {
     std::fs::write(repo_path.join("file"), "foo\n").unwrap();
 
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-T", "git_head"]);
-    insta::assert_snapshot!(stdout, @r#"
+    insta::assert_snapshot!(stdout, @r"
     @  false
     ○  true
     ◆  false
-    "#);
+    ");
 
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "--color=always"]);
-    insta::assert_snapshot!(stdout, @r#"
+    insta::assert_snapshot!(stdout, @r"
     [1m[38;5;2m@[0m  [1m[38;5;13mr[38;5;8mlvkpnrz[39m [38;5;3mtest.user@example.com[39m [38;5;14m2001-02-03 08:05:09[39m [38;5;12m5[38;5;8m0aaf475[39m[0m
     │  [1minitial[0m
     ○  [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:07[39m [38;5;2mgit_head()[39m [1m[38;5;4m2[0m[38;5;8m30dd059[39m
     │  [38;5;2m(empty)[39m [38;5;2m(no description set)[39m
     [1m[38;5;14m◆[0m  [1m[38;5;5mz[0m[38;5;8mzzzzzzz[39m [38;5;2mroot()[39m [1m[38;5;4m0[0m[38;5;8m0000000[39m
-    "#);
+    ");
 }
 
 #[test]
@@ -706,12 +701,12 @@ fn test_log_commit_id_normal_hex() {
             r#"commit_id ++ ": " ++ commit_id.normal_hex()"#,
         ],
     );
-    insta::assert_snapshot!(stdout, @r#"
+    insta::assert_snapshot!(stdout, @r"
     @  6572f22267c6f0f2bf7b8a37969ee5a7d54b8aae: 6572f22267c6f0f2bf7b8a37969ee5a7d54b8aae
     ○  222fa9f0b41347630a1371203b8aad3897d34e5f: 222fa9f0b41347630a1371203b8aad3897d34e5f
     ○  230dd059e1b059aefc0da06a2e5a7dbf22362f22: 230dd059e1b059aefc0da06a2e5a7dbf22362f22
     ◆  0000000000000000000000000000000000000000: 0000000000000000000000000000000000000000
-    "#);
+    ");
 }
 
 #[test]
@@ -731,12 +726,12 @@ fn test_log_change_id_normal_hex() {
             r#"change_id ++ ": " ++ change_id.normal_hex()"#,
         ],
     );
-    insta::assert_snapshot!(stdout, @r#"
+    insta::assert_snapshot!(stdout, @r"
     @  kkmpptxzrspxrzommnulwmwkkqwworpl: ffdaa62087a280bddc5e3d3ff933b8ae
     ○  rlvkpnrzqnoowoytxnquwvuryrwnrmlp: 8e4fac809cbb3b162c953458183c8dea
     ○  qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu: 9a45c67d3e96a7e5007c110ede34dec5
     ◆  zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz: 00000000000000000000000000000000
-    "#);
+    ");
 }
 
 #[test]
@@ -757,11 +752,11 @@ fn test_log_customize_short_id() {
             &format!(r#"{decl}='id.shortest(5).prefix().upper() ++ "_" ++ id.shortest(5).rest()'"#),
         ],
     );
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     @  Q_pvun test.user@example.com 2001-02-03 08:05:08 F_a156
     │  (empty) first
     ◆  Z_zzzz root() 0_0000
-    "###);
+    ");
 
     // Customize only the change id
     let stdout = test_env.jj_cmd_success(
@@ -771,11 +766,11 @@ fn test_log_customize_short_id() {
             "--config=template-aliases.'format_short_change_id(id)'='format_short_id(id).upper()'",
         ],
     );
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     @  QPVUNTSM test.user@example.com 2001-02-03 08:05:08 fa15625b
     │  (empty) first
     ◆  ZZZZZZZZ root() 00000000
-    "###);
+    ");
 }
 
 #[test]
@@ -799,14 +794,14 @@ fn test_log_immutable() {
 
     test_env.add_config("revset-aliases.'immutable_heads()' = 'main'");
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-r::", "-T", template]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     @  D
     │ ○  C
     │ ◆  B main [immutable]
     │ ◆  A [immutable]
     ├─╯
     ◆  [immutable]
-    "###);
+    ");
 
     // Suppress error that could be detected earlier
     test_env.add_config("revsets.short-prefixes = ''");
@@ -871,14 +866,14 @@ fn test_log_contained_in() {
             &template_for_revset(r#"description(A)::"#),
         ],
     );
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     @  D
     │ ○  C [contained_in]
     │ ○  B main [contained_in]
     │ ○  A [contained_in]
     ├─╯
     ◆
-    "###);
+    ");
 
     let stdout = test_env.jj_cmd_success(
         &repo_path,
@@ -889,14 +884,14 @@ fn test_log_contained_in() {
             &template_for_revset(r#"visible_heads()"#),
         ],
     );
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     @  D [contained_in]
     │ ○  C [contained_in]
     │ ○  B main
     │ ○  A
     ├─╯
     ◆
-    "###);
+    ");
 
     // Suppress error that could be detected earlier
     let stderr = test_env.jj_cmd_failure(
@@ -1000,13 +995,11 @@ fn test_short_prefix_in_transaction() {
     let (stdout, stderr) =
         test_env.jj_cmd_ok(&repo_path, &["new", parent_id, "--no-edit", "-m", "test"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
-    Created new commit km[kuslswpqwq] 7[4ac55dd119b] test
-    "###);
+    insta::assert_snapshot!(stderr, @"Created new commit km[kuslswpqwq] 7[4ac55dd119b] test");
 
     // Should match log's short prefixes
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "--no-graph"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     km[kuslswpqwq] 7[4ac55dd119b] test
     y[qosqzytrlsw] 5[8731db5875e] commit4
     r[oyxmykxtrkr] 9[95cc897bca7] commit3
@@ -1015,12 +1008,12 @@ fn test_short_prefix_in_transaction() {
     kk[mpptxzrspx] 05[2755155952] commit0
     q[pvuntsmwlqt] e[0e22b9fae75] initial
     zz[zzzzzzzzzz] 00[0000000000]
-    "###);
+    ");
 
     test_env.add_config(r#"revsets.short-prefixes = """#);
 
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "--no-graph"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     kmk[uslswpqwq] 74ac[55dd119b] test
     yq[osqzytrlsw] 587[31db5875e] commit4
     ro[yxmykxtrkr] 99[5cc897bca7] commit3
@@ -1029,7 +1022,7 @@ fn test_short_prefix_in_transaction() {
     kk[mpptxzrspx] 052[755155952] commit0
     qp[vuntsmwlqt] e0[e22b9fae75] initial
     zz[zzzzzzzzzz] 00[0000000000]
-    "###);
+    ");
 }
 
 #[test]
@@ -1068,7 +1061,7 @@ fn test_log_diff_predefined_formats() {
         &repo_path,
         &["log", "--no-graph", "--color=always", "-r@", "-T", template],
     );
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     === color_words ===
     [38;5;3mModified regular file file1:[39m
     [38;5;1m   1[39m [38;5;2m   1[39m: a
@@ -1107,14 +1100,14 @@ fn test_log_diff_predefined_formats() {
     [38;5;6mM file1[39m
     [38;5;6mM file2[39m
     [38;5;6mR {rename-source => rename-target}[39m
-    "###);
+    ");
 
     // color labels
     let stdout = test_env.jj_cmd_success(
         &repo_path,
         &["log", "--no-graph", "--color=debug", "-r@", "-T", template],
     );
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     <<log::=== color_words ===>>
     [38;5;3m<<log diff color_words header::Modified regular file file1:>>[39m
     [38;5;1m<<log diff color_words removed line_number::   1>>[39m<<log diff color_words:: >>[38;5;2m<<log diff color_words added line_number::   1>>[39m<<log diff color_words::: a>>
@@ -1153,14 +1146,14 @@ fn test_log_diff_predefined_formats() {
     [38;5;6m<<log diff summary modified::M file1>>[39m
     [38;5;6m<<log diff summary modified::M file2>>[39m
     [38;5;6m<<log diff summary renamed::R {rename-source => rename-target}>>[39m
-    "###);
+    ");
 
     // cwd != workspace root
     let stdout = test_env.jj_cmd_success(
         test_env.env_root(),
         &["log", "-Rrepo", "--no-graph", "-r@", "-T", template],
     );
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @r###"
+    insta::assert_snapshot!(stdout.replace('\\', "/"), @r"
     === color_words ===
     Modified regular file repo/file1:
        1    1: a
@@ -1199,7 +1192,7 @@ fn test_log_diff_predefined_formats() {
     M repo/file1
     M repo/file2
     R repo/{rename-source => rename-target}
-    "###);
+    ");
 
     // with non-default config
     std::fs::write(
@@ -1294,16 +1287,16 @@ fn test_log_diff_predefined_formats() {
     // color_words() with parameters
     let template = "self.diff('file1').color_words(0)";
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "--no-graph", "-r@", "-T", template]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     Modified regular file file1:
         ...
             3: c
-    "###);
+    ");
 
     // git() with parameters
     let template = "self.diff('file1').git(1)";
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "--no-graph", "-r@", "-T", template]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     diff --git a/file1 b/file1
     index 422c2b7ab3..de980441c3 100644
     --- a/file1
@@ -1311,7 +1304,7 @@ fn test_log_diff_predefined_formats() {
     @@ -2,1 +2,2 @@
      b
     +c
-    "###);
+    ");
 
     // custom template with files()
     let template = indoc! {r#"
@@ -1472,13 +1465,13 @@ fn test_signature_templates() {
 
     // show that signatures can render
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-T", template]);
-    insta::assert_snapshot!(stdout, @r#"
+    insta::assert_snapshot!(stdout, @r"
     @  good test-display signature
     ○  no signature
     ◆  no signature
-    "#);
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["show", "-T", template]);
-    insta::assert_snapshot!(stdout, @r#"good test-display signature"#);
+    insta::assert_snapshot!(stdout, @"good test-display signature");
 
     // builtin templates
     test_env.add_config("ui.show-cryptographic-signatures = true");
@@ -1486,24 +1479,24 @@ fn test_signature_templates() {
     let args: &[_] = &["log", "-r", "..", "-T"];
 
     let stdout = test_env.jj_cmd_success(&repo_path, &[args, &["builtin_log_oneline"]].concat());
-    insta::assert_snapshot!(stdout, @r#"
+    insta::assert_snapshot!(stdout, @r"
     @  rlvkpnrz test.user 2001-02-03 08:05:09 a0909ee9 [✓︎] (empty) signed
     ○  qpvuntsm test.user 2001-02-03 08:05:08 879d5d20 (empty) unsigned
     │
     ~
-    "#);
+    ");
 
     let stdout = test_env.jj_cmd_success(&repo_path, &[args, &["builtin_log_compact"]].concat());
-    insta::assert_snapshot!(stdout, @r#"
+    insta::assert_snapshot!(stdout, @r"
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a0909ee9 [✓︎]
     │  (empty) signed
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 879d5d20
     │  (empty) unsigned
     ~
-    "#);
+    ");
 
     let stdout = test_env.jj_cmd_success(&repo_path, &[args, &["builtin_log_detailed"]].concat());
-    insta::assert_snapshot!(stdout, @r#"
+    insta::assert_snapshot!(stdout, @r"
     @  Commit ID: a0909ee96bb5c66311a0c579dc8ebed4456dfc1b
     │  Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -1519,7 +1512,7 @@ fn test_signature_templates() {
        Signature: (no signature)
 
            unsigned
-    "#);
+    ");
 
     // customization point
     let config_val = r#"template-aliases."format_short_cryptographic_signature(signature)"="'status: ' ++ signature.status()""#;
@@ -1527,10 +1520,10 @@ fn test_signature_templates() {
         &repo_path,
         &[args, &["builtin_log_oneline", "--config", config_val]].concat(),
     );
-    insta::assert_snapshot!(stdout, @r#"
+    insta::assert_snapshot!(stdout, @r"
     @  rlvkpnrz test.user 2001-02-03 08:05:09 a0909ee9 status: good (empty) signed
     ○  qpvuntsm test.user 2001-02-03 08:05:08 879d5d20 status: <Error: No CryptographicSignature available> (empty) unsigned
     │
     ~
-    "#);
+    ");
 }

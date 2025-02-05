@@ -751,20 +751,20 @@ mod tests {
 
         insta::assert_debug_snapshot!(parse("all()").unwrap(), @"All");
         insta::assert_debug_snapshot!(parse("none()").unwrap(), @"None");
-        insta::assert_debug_snapshot!(parse("all(x)").unwrap_err().kind(), @r###"
+        insta::assert_debug_snapshot!(parse("all(x)").unwrap_err().kind(), @r#"
         InvalidArguments {
             name: "all",
             message: "Expected 0 arguments",
         }
-        "###);
-        insta::assert_debug_snapshot!(parse("ale()").unwrap_err().kind(), @r###"
+        "#);
+        insta::assert_debug_snapshot!(parse("ale()").unwrap_err().kind(), @r#"
         NoSuchFunction {
             name: "ale",
             candidates: [
                 "all",
             ],
         }
-        "###);
+        "#);
     }
 
     #[test]
@@ -777,13 +777,13 @@ mod tests {
         };
         let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &path_converter);
 
-        insta::assert_debug_snapshot!(parse("~x").unwrap(), @r###"
+        insta::assert_debug_snapshot!(parse("~x").unwrap(), @r#"
         Difference(
             All,
             Pattern(PrefixPath("cur/x")),
         )
-        "###);
-        insta::assert_debug_snapshot!(parse("x|y|root:z").unwrap(), @r###"
+        "#);
+        insta::assert_debug_snapshot!(parse("x|y|root:z").unwrap(), @r#"
         UnionAll(
             [
                 Pattern(PrefixPath("cur/x")),
@@ -791,8 +791,8 @@ mod tests {
                 Pattern(PrefixPath("z")),
             ],
         )
-        "###);
-        insta::assert_debug_snapshot!(parse("x|y&z").unwrap(), @r###"
+        "#);
+        insta::assert_debug_snapshot!(parse("x|y&z").unwrap(), @r#"
         UnionAll(
             [
                 Pattern(PrefixPath("cur/x")),
@@ -802,7 +802,7 @@ mod tests {
                 ),
             ],
         )
-        "###);
+        "#);
     }
 
     #[test]
@@ -847,22 +847,22 @@ mod tests {
         insta::assert_debug_snapshot!(FilesetExpression::all().to_matcher(), @"EverythingMatcher");
         insta::assert_debug_snapshot!(
             FilesetExpression::file_path(repo_path_buf("foo")).to_matcher(),
-            @r###"
+            @r#"
         FilesMatcher {
             tree: Dir {
                 "foo": File {},
             },
         }
-        "###);
+        "#);
         insta::assert_debug_snapshot!(
             FilesetExpression::prefix_path(repo_path_buf("foo")).to_matcher(),
-            @r###"
+            @r#"
         PrefixMatcher {
             tree: Dir {
                 "foo": Prefix {},
             },
         }
-        "###);
+        "#);
     }
 
     #[test]
@@ -922,7 +922,7 @@ mod tests {
             FilesetExpression::file_path(repo_path_buf("foo")),
             FilesetExpression::file_path(repo_path_buf("foo/bar")),
         ]);
-        insta::assert_debug_snapshot!(expr.to_matcher(), @r###"
+        insta::assert_debug_snapshot!(expr.to_matcher(), @r#"
         FilesMatcher {
             tree: Dir {
                 "foo": File {
@@ -930,13 +930,13 @@ mod tests {
                 },
             },
         }
-        "###);
+        "#);
 
         let expr = FilesetExpression::union_all(vec![
             FilesetExpression::prefix_path(repo_path_buf("bar")),
             FilesetExpression::prefix_path(repo_path_buf("bar/baz")),
         ]);
-        insta::assert_debug_snapshot!(expr.to_matcher(), @r###"
+        insta::assert_debug_snapshot!(expr.to_matcher(), @r#"
         PrefixMatcher {
             tree: Dir {
                 "bar": Prefix {
@@ -944,7 +944,7 @@ mod tests {
                 },
             },
         }
-        "###);
+        "#);
     }
 
     #[test]
@@ -956,7 +956,7 @@ mod tests {
             FilesetExpression::file_path(repo_path_buf("foo")),
             FilesetExpression::prefix_path(repo_path_buf("bar")),
         ]);
-        insta::assert_debug_snapshot!(expr.to_matcher(), @r###"
+        insta::assert_debug_snapshot!(expr.to_matcher(), @r#"
         UnionMatcher {
             input1: FilesMatcher {
                 tree: Dir {
@@ -969,7 +969,7 @@ mod tests {
                 },
             },
         }
-        "###);
+        "#);
     }
 
     #[test]
@@ -982,12 +982,12 @@ mod tests {
 
         let expr =
             FilesetExpression::UnionAll(vec![FilesetExpression::None, FilesetExpression::All]);
-        insta::assert_debug_snapshot!(expr.to_matcher(), @r###"
+        insta::assert_debug_snapshot!(expr.to_matcher(), @r"
         UnionMatcher {
             input1: NothingMatcher,
             input2: EverythingMatcher,
         }
-        "###);
+        ");
     }
 
     #[test]
@@ -1001,7 +1001,7 @@ mod tests {
             FilesetExpression::file_path(repo_path_buf("foo")),
             FilesetExpression::prefix_path(repo_path_buf("bar")),
         ]);
-        insta::assert_debug_snapshot!(expr.to_matcher(), @r###"
+        insta::assert_debug_snapshot!(expr.to_matcher(), @r#"
         UnionMatcher {
             input1: UnionMatcher {
                 input1: IntersectionMatcher {
@@ -1026,6 +1026,6 @@ mod tests {
                 },
             },
         }
-        "###);
+        "#);
     }
 }

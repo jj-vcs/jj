@@ -36,17 +36,13 @@ fn test_config_list_single() {
         test_env.env_root(),
         &["config", "list", "test-table.somekey"],
     );
-    insta::assert_snapshot!(stdout, @r###"
-    test-table.somekey = "some value"
-    "###);
+    insta::assert_snapshot!(stdout, @r#"test-table.somekey = "some value""#);
 
     let stdout = test_env.jj_cmd_success(
         test_env.env_root(),
         &["config", "list", r#"-Tname ++ "\n""#, "test-table.somekey"],
     );
-    insta::assert_snapshot!(stdout, @r###"
-    test-table.somekey
-    "###);
+    insta::assert_snapshot!(stdout, @"test-table.somekey");
 }
 
 #[test]
@@ -57,9 +53,7 @@ fn test_config_list_nonexistent() {
         &["config", "list", "nonexistent-test-key"],
     );
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
-    Warning: No matching config key for nonexistent-test-key
-    "###);
+    insta::assert_snapshot!(stderr, @"Warning: No matching config key for nonexistent-test-key");
 }
 
 #[test]
@@ -77,12 +71,12 @@ fn test_config_list_table() {
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["config", "list", "test-table"]);
     insta::assert_snapshot!(
         stdout,
-        @r###"
+        @r#"
     test-table.x = true
     test-table.y.foo = "abc"
     test-table.y.bar = 123
     test-table.z."with space"."function()" = 5
-    "###);
+    "#);
 }
 
 #[test]
@@ -113,9 +107,7 @@ fn test_config_list_array() {
     "#,
     );
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["config", "list", "test-array"]);
-    insta::assert_snapshot!(stdout, @r###"
-    test-array = [1, "b", 3.4]
-    "###);
+    insta::assert_snapshot!(stdout, @r#"test-array = [1, "b", 3.4]"#);
 }
 
 #[test]
@@ -132,9 +124,7 @@ fn test_config_list_array_of_tables() {
     );
     // Array is a value, so is array of tables
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["config", "list", "test-table"]);
-    insta::assert_snapshot!(stdout, @r###"
-    test-table = [{ x = 1 }, { y = ["z"], z = { "key=with whitespace" = [] } }]
-    "###);
+    insta::assert_snapshot!(stdout, @r#"test-table = [{ x = 1 }, { y = ["z"], z = { "key=with whitespace" = [] } }]"#);
 }
 
 #[test]
@@ -153,12 +143,12 @@ fn test_config_list_all() {
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["config", "list"]);
     insta::assert_snapshot!(
         find_stdout_lines(r"(test-val|test-table\b[^=]*)", &stdout),
-        @r###"
+        @r#"
     test-val = [1, 2, 3]
     test-table.x = true
     test-table.y.foo = "abc"
     test-table.y.bar = 123
-    "###);
+    "#);
 }
 
 #[test]
@@ -227,10 +217,10 @@ fn test_config_list_layer() {
     );
 
     let stdout = test_env.jj_cmd_success(&repo_path, &["config", "list", "--user"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r#"
     test-key = "test-val"
     test-layered-key = "test-original-val"
-    "###);
+    "#);
 
     // Repo
     test_env.jj_cmd_ok(
@@ -245,14 +235,10 @@ fn test_config_list_layer() {
     );
 
     let stdout = test_env.jj_cmd_success(&repo_path, &["config", "list", "--user"]);
-    insta::assert_snapshot!(stdout, @r###"
-    test-key = "test-val"
-    "###);
+    insta::assert_snapshot!(stdout, @r#"test-key = "test-val""#);
 
     let stdout = test_env.jj_cmd_success(&repo_path, &["config", "list", "--repo"]);
-    insta::assert_snapshot!(stdout, @r###"
-    test-layered-key = "test-layered-val"
-    "###);
+    insta::assert_snapshot!(stdout, @r#"test-layered-key = "test-layered-val""#);
 }
 
 #[test]
@@ -267,9 +253,7 @@ fn test_config_layer_override_default() {
         &repo_path,
         &["config", "list", config_key, "--include-defaults"],
     );
-    insta::assert_snapshot!(stdout, @r###"
-    merge-tools.vimdiff.program = "vim"
-    "###);
+    insta::assert_snapshot!(stdout, @r#"merge-tools.vimdiff.program = "vim""#);
 
     // User
     test_env.add_config(format!(
@@ -277,9 +261,7 @@ fn test_config_layer_override_default() {
         value = to_toml_value("user")
     ));
     let stdout = test_env.jj_cmd_success(&repo_path, &["config", "list", config_key]);
-    insta::assert_snapshot!(stdout, @r###"
-    merge-tools.vimdiff.program = "user"
-    "###);
+    insta::assert_snapshot!(stdout, @r#"merge-tools.vimdiff.program = "user""#);
 
     // Repo
     std::fs::write(
@@ -288,9 +270,7 @@ fn test_config_layer_override_default() {
     )
     .unwrap();
     let stdout = test_env.jj_cmd_success(&repo_path, &["config", "list", config_key]);
-    insta::assert_snapshot!(stdout, @r###"
-    merge-tools.vimdiff.program = "repo"
-    "###);
+    insta::assert_snapshot!(stdout, @r#"merge-tools.vimdiff.program = "repo""#);
 
     // Command argument
     let stdout = test_env.jj_cmd_success(
@@ -303,9 +283,7 @@ fn test_config_layer_override_default() {
             &format!("{config_key}={value}", value = to_toml_value("command-arg")),
         ],
     );
-    insta::assert_snapshot!(stdout, @r###"
-    merge-tools.vimdiff.program = "command-arg"
-    "###);
+    insta::assert_snapshot!(stdout, @r#"merge-tools.vimdiff.program = "command-arg""#);
 
     // Allow printing overridden values
     let stdout = test_env.jj_cmd_success(
@@ -319,11 +297,11 @@ fn test_config_layer_override_default() {
             &format!("{config_key}={value}", value = to_toml_value("command-arg")),
         ],
     );
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r##"
     # merge-tools.vimdiff.program = "user"
     # merge-tools.vimdiff.program = "repo"
     merge-tools.vimdiff.program = "command-arg"
-    "###);
+    "##);
 
     let stdout = test_env.jj_cmd_success(
         &repo_path,
@@ -335,10 +313,10 @@ fn test_config_layer_override_default() {
             "--include-overridden",
         ],
     );
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r#"
     [38;5;8m# merge-tools.vimdiff.program = "user"[39m
     [38;5;2mmerge-tools.vimdiff.program[39m = [38;5;3m"repo"[39m
-    "###);
+    "#);
 }
 
 #[test]
@@ -351,9 +329,7 @@ fn test_config_layer_override_env() {
     // Environment base
     test_env.add_env_var("EDITOR", "env-base");
     let stdout = test_env.jj_cmd_success(&repo_path, &["config", "list", config_key]);
-    insta::assert_snapshot!(stdout, @r###"
-    ui.editor = "env-base"
-    "###);
+    insta::assert_snapshot!(stdout, @r#"ui.editor = "env-base""#);
 
     // User
     test_env.add_config(format!(
@@ -361,9 +337,7 @@ fn test_config_layer_override_env() {
         value = to_toml_value("user")
     ));
     let stdout = test_env.jj_cmd_success(&repo_path, &["config", "list", config_key]);
-    insta::assert_snapshot!(stdout, @r###"
-    ui.editor = "user"
-    "###);
+    insta::assert_snapshot!(stdout, @r#"ui.editor = "user""#);
 
     // Repo
     std::fs::write(
@@ -372,16 +346,12 @@ fn test_config_layer_override_env() {
     )
     .unwrap();
     let stdout = test_env.jj_cmd_success(&repo_path, &["config", "list", config_key]);
-    insta::assert_snapshot!(stdout, @r###"
-    ui.editor = "repo"
-    "###);
+    insta::assert_snapshot!(stdout, @r#"ui.editor = "repo""#);
 
     // Environment override
     test_env.add_env_var("JJ_EDITOR", "env-override");
     let stdout = test_env.jj_cmd_success(&repo_path, &["config", "list", config_key]);
-    insta::assert_snapshot!(stdout, @r###"
-    ui.editor = "env-override"
-    "###);
+    insta::assert_snapshot!(stdout, @r#"ui.editor = "env-override""#);
 
     // Command argument
     let stdout = test_env.jj_cmd_success(
@@ -394,9 +364,7 @@ fn test_config_layer_override_env() {
             &format!("{config_key}={value}", value = to_toml_value("command-arg")),
         ],
     );
-    insta::assert_snapshot!(stdout, @r###"
-    ui.editor = "command-arg"
-    "###);
+    insta::assert_snapshot!(stdout, @r#"ui.editor = "command-arg""#);
 
     // Allow printing overridden values
     let stdout = test_env.jj_cmd_success(
@@ -410,13 +378,13 @@ fn test_config_layer_override_env() {
             &format!("{config_key}={value}", value = to_toml_value("command-arg")),
         ],
     );
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r##"
     # ui.editor = "env-base"
     # ui.editor = "user"
     # ui.editor = "repo"
     # ui.editor = "env-override"
     ui.editor = "command-arg"
-    "###);
+    "##);
 }
 
 #[test]
@@ -444,20 +412,16 @@ fn test_config_layer_workspace() {
     )
     .unwrap();
     let stdout = test_env.jj_cmd_success(&main_path, &["config", "list", config_key]);
-    insta::assert_snapshot!(stdout, @r###"
-    ui.editor = "main-repo"
-    "###);
+    insta::assert_snapshot!(stdout, @r#"ui.editor = "main-repo""#);
     let stdout = test_env.jj_cmd_success(&secondary_path, &["config", "list", config_key]);
-    insta::assert_snapshot!(stdout, @r###"
-    ui.editor = "main-repo"
-    "###);
+    insta::assert_snapshot!(stdout, @r#"ui.editor = "main-repo""#);
 }
 
 #[test]
 fn test_config_set_bad_opts() {
     let test_env = TestEnvironment::default();
     let stderr = test_env.jj_cmd_cli_error(test_env.env_root(), &["config", "set"]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     error: the following required arguments were not provided:
       <--user|--repo>
       <NAME>
@@ -466,11 +430,11 @@ fn test_config_set_bad_opts() {
     Usage: jj config set <--user|--repo> <NAME> <VALUE>
 
     For more information, try '--help'.
-    "###);
+    ");
 
     let stderr =
         test_env.jj_cmd_cli_error(test_env.env_root(), &["config", "set", "--user", "", "x"]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     error: invalid value '' for '<NAME>': TOML parse error at line 1, column 1
       |
     1 | 
@@ -479,7 +443,7 @@ fn test_config_set_bad_opts() {
 
 
     For more information, try '--help'.
-    "###);
+    ");
 
     let stderr = test_env.jj_cmd_cli_error(
         test_env.env_root(),
@@ -584,12 +548,12 @@ fn test_config_set_for_repo() {
                 expected_repo_config_path.display()
             )
         });
-    insta::assert_snapshot!(repo_config_toml, @r###"
+    insta::assert_snapshot!(repo_config_toml, @r#"
     test-key = "test-val"
 
     [test-table]
     foo = true
-    "###);
+    "#);
 }
 
 #[test]
@@ -610,7 +574,7 @@ fn test_config_set_toml_types() {
     set_value("test-table.boolean", "true");
     set_value("test-table.string", r#""foo""#);
     set_value("test-table.invalid", r"a + b");
-    insta::assert_snapshot!(std::fs::read_to_string(&user_config_path).unwrap(), @r###"
+    insta::assert_snapshot!(std::fs::read_to_string(&user_config_path).unwrap(), @r#"
     [test-table]
     integer = 42
     float = 3.14
@@ -618,7 +582,7 @@ fn test_config_set_toml_types() {
     boolean = true
     string = "foo"
     invalid = "a + b"
-    "###);
+    "#);
 }
 
 #[test]
@@ -774,9 +738,7 @@ fn test_config_unset_for_user() {
     test_env.jj_cmd_ok(&repo_path, &["config", "unset", "--user", "table.inline"]);
 
     let user_config_toml = std::fs::read_to_string(&user_config_path).unwrap();
-    insta::assert_snapshot!(user_config_toml, @r#"
-        [table]
-        "#);
+    insta::assert_snapshot!(user_config_toml, @"[table]");
 }
 
 #[test]
@@ -800,14 +762,14 @@ fn test_config_unset_for_repo() {
 fn test_config_edit_missing_opt() {
     let test_env = TestEnvironment::default();
     let stderr = test_env.jj_cmd_cli_error(test_env.env_root(), &["config", "edit"]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     error: the following required arguments were not provided:
       <--user|--repo>
 
     Usage: jj config edit <--user|--repo>
 
     For more information, try '--help'.
-    "###);
+    ");
 }
 
 #[test]
@@ -928,14 +890,10 @@ fn test_config_get() {
     ");
 
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["config", "get", "table.string"]);
-    insta::assert_snapshot!(stdout, @r###"
-    some value 1
-    "###);
+    insta::assert_snapshot!(stdout, @"some value 1");
 
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["config", "get", "table.int"]);
-    insta::assert_snapshot!(stdout, @r###"
-    123
-    "###);
+    insta::assert_snapshot!(stdout, @"123");
 
     let stdout = test_env.jj_cmd_failure(test_env.env_root(), &["config", "get", "table.list"]);
     insta::assert_snapshot!(stdout, @r"
@@ -973,34 +931,24 @@ fn test_config_path_syntax() {
     );
 
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["config", "list", "a.'b()'"]);
-    insta::assert_snapshot!(stdout, @r###"
-    a.'b()' = 0
-    "###);
+    insta::assert_snapshot!(stdout, @"a.'b()' = 0");
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["config", "list", "'b c'"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r#"
     'b c'.d = 1
     'b c'.e."f[]" = 2
-    "###);
+    "#);
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["config", "list", "'b c'.d"]);
-    insta::assert_snapshot!(stdout, @r###"
-    'b c'.d = 1
-    "###);
+    insta::assert_snapshot!(stdout, @"'b c'.d = 1");
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["config", "list", "'b c'.e.'f[]'"]);
-    insta::assert_snapshot!(stdout, @r###"
-    'b c'.e.'f[]' = 2
-    "###);
+    insta::assert_snapshot!(stdout, @"'b c'.e.'f[]' = 2");
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["config", "get", "'b c'.e.'f[]'"]);
-    insta::assert_snapshot!(stdout, @r###"
-    2
-    "###);
+    insta::assert_snapshot!(stdout, @"2");
 
     // Not a table
     let (stdout, stderr) =
         test_env.jj_cmd_ok(test_env.env_root(), &["config", "list", "a.'b()'.x"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
-    Warning: No matching config key for a.'b()'.x
-    "###);
+    insta::assert_snapshot!(stderr, @"Warning: No matching config key for a.'b()'.x");
     let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["config", "get", "a.'b()'.x"]);
     insta::assert_snapshot!(stderr, @r"
     Config error: Value not found for a.'b()'.x
@@ -1009,25 +957,17 @@ fn test_config_path_syntax() {
 
     // "-" and "_" are valid TOML keys
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["config", "list", "-"]);
-    insta::assert_snapshot!(stdout, @r###"
-    - = 3
-    "###);
+    insta::assert_snapshot!(stdout, @"- = 3");
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["config", "list", "_"]);
-    insta::assert_snapshot!(stdout, @r###"
-    _ = 4
-    "###);
+    insta::assert_snapshot!(stdout, @"_ = 4");
 
     // "." requires quoting
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["config", "list", "'.'"]);
-    insta::assert_snapshot!(stdout, @r###"
-    '.' = 5
-    "###);
+    insta::assert_snapshot!(stdout, @"'.' = 5");
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["config", "get", "'.'"]);
-    insta::assert_snapshot!(stdout, @r###"
-    5
-    "###);
+    insta::assert_snapshot!(stdout, @"5");
     let stderr = test_env.jj_cmd_cli_error(test_env.env_root(), &["config", "get", "."]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     error: invalid value '.' for '<NAME>': TOML parse error at line 1, column 1
       |
     1 | .
@@ -1036,11 +976,11 @@ fn test_config_path_syntax() {
 
 
     For more information, try '--help'.
-    "###);
+    ");
 
     // Invalid TOML keys
     let stderr = test_env.jj_cmd_cli_error(test_env.env_root(), &["config", "list", "b c"]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     error: invalid value 'b c' for '[NAME]': TOML parse error at line 1, column 3
       |
     1 | b c
@@ -1049,9 +989,9 @@ fn test_config_path_syntax() {
 
 
     For more information, try '--help'.
-    "###);
+    ");
     let stderr = test_env.jj_cmd_cli_error(test_env.env_root(), &["config", "list", ""]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     error: invalid value '' for '[NAME]': TOML parse error at line 1, column 1
       |
     1 | 
@@ -1060,7 +1000,7 @@ fn test_config_path_syntax() {
 
 
     For more information, try '--help'.
-    "###);
+    ");
 }
 
 #[test]
@@ -1113,31 +1053,31 @@ fn test_config_conditional() {
     let stdout = test_env.jj_cmd_success(&repo1_path, &["config", "get", "qux"]);
     insta::assert_snapshot!(stdout, @"get");
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["config", "list", "--user"]);
-    insta::assert_snapshot!(stdout, @r#"
+    insta::assert_snapshot!(stdout, @r"
     foo = 'global'
     baz = 'config'
     qux = 'list'
-    "#);
+    ");
     let stdout = test_env.jj_cmd_success(&repo1_path, &["config", "list", "--user"]);
-    insta::assert_snapshot!(stdout, @r#"
+    insta::assert_snapshot!(stdout, @r"
     foo = 'repo1'
     baz = 'config'
     qux = 'list'
-    "#);
+    ");
     let stdout = test_env.jj_cmd_success(&repo2_path, &["config", "list", "--user"]);
-    insta::assert_snapshot!(stdout, @r#"
+    insta::assert_snapshot!(stdout, @r"
     foo = 'repo2'
     baz = 'config'
     qux = 'list'
-    "#);
+    ");
 
     // relative workspace path
     let stdout = test_env.jj_cmd_success(&repo2_path, &["config", "list", "--user", "-R../repo1"]);
-    insta::assert_snapshot!(stdout, @r#"
+    insta::assert_snapshot!(stdout, @r"
     foo = 'repo1'
     baz = 'config'
     qux = 'list'
-    "#);
+    ");
 
     // set and unset should refer to the source config
     // (there's no option to update scoped table right now.)
@@ -1256,11 +1196,11 @@ fn test_config_author_change_warning() {
         &["config", "set", "--repo", "user.email", "'Foo'"],
     );
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Warning: This setting will only impact future commits.
     The author of the working copy will stay "Test User <test.user@example.com>".
     To change the working copy author, use "jj describe --reset-author --no-edit"
-    "###);
+    "#);
 
     // test_env.jj_cmd resets state for every invocation
     // for this test, the state (user.email) is needed
