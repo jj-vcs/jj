@@ -260,6 +260,12 @@ parent.
         first)</td>
     </tr>
     <tr>
+      <td>Merge branch A into the current change</td>
+      <td><code>jj new @ A</code>
+      </td>
+      <td><code>git merge A</code></td>
+    </tr>
+    <tr>
       <td>Move bookmark/branch A onto bookmark/branch B</td>
       <td><code>jj rebase -b A -d B</code></td>
       <td><code>git rebase B A</code>
