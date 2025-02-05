@@ -17,7 +17,6 @@
 
 use std::cmp;
 use std::collections::HashMap;
-use std::io::Read;
 use std::ops::Range;
 use std::rc::Rc;
 
@@ -30,10 +29,10 @@ use crate::annotate::get_annotation_with_file_content;
 use crate::backend::BackendError;
 use crate::backend::BackendResult;
 use crate::backend::CommitId;
-use crate::backend::FileId;
 use crate::backend::TreeValue;
 use crate::commit::Commit;
 use crate::conflicts::materialized_diff_stream;
+use crate::conflicts::MaterializedFileValue;
 use crate::conflicts::MaterializedTreeValue;
 use crate::copies::CopyRecords;
 use crate::diff::Diff;
@@ -44,7 +43,6 @@ use crate::merged_tree::MergedTree;
 use crate::merged_tree::MergedTreeBuilder;
 use crate::repo::MutableRepo;
 use crate::repo::Repo;
-use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::revset::ResolvedRevsetExpression;
 use crate::revset::RevsetEvaluationError;
@@ -109,7 +107,7 @@ pub async fn split_hunks_to_trees(
         let right_path = entry.path.target();
         let (left_value, right_value) = entry.values?;
         let (left_text, executable) = match to_file_value(left_value) {
-            Ok(Some(mut value)) => (value.read(left_path)?, value.executable),
+            Ok(Some(mut value)) => (value.read_all(left_path)?, value.executable),
             // New file should have no destinations
             Ok(None) => continue,
             Err(reason) => {
@@ -120,7 +118,7 @@ pub async fn split_hunks_to_trees(
             }
         };
         let right_text = match to_file_value(right_value) {
-            Ok(Some(mut value)) => value.read(right_path)?,
+            Ok(Some(mut value)) => value.read_all(right_path)?,
             // Deleted file could be absorbed, but that would require special
             // handling to propagate deletion of the tree entry
             Ok(None) => {
@@ -334,27 +332,7 @@ pub fn absorb_hunks(
     })
 }
 
-struct FileValue {
-    id: FileId,
-    executable: bool,
-    reader: Box<dyn Read>,
-}
-
-impl FileValue {
-    fn read(&mut self, path: &RepoPath) -> BackendResult<BString> {
-        let mut buf = Vec::new();
-        self.reader
-            .read_to_end(&mut buf)
-            .map_err(|err| BackendError::ReadFile {
-                path: path.to_owned(),
-                id: self.id.clone(),
-                source: err.into(),
-            })?;
-        Ok(buf.into())
-    }
-}
-
-fn to_file_value(value: MaterializedTreeValue) -> Result<Option<FileValue>, String> {
+fn to_file_value(value: MaterializedTreeValue) -> Result<Option<MaterializedFileValue>, String> {
     match value {
         MaterializedTreeValue::Absent => Ok(None), // New or deleted file
         MaterializedTreeValue::AccessDenied(err) => Err(format!("Access is denied: {err}")),
@@ -362,7 +340,7 @@ fn to_file_value(value: MaterializedTreeValue) -> Result<Option<FileValue>, Stri
             id,
             executable,
             reader,
-        } => Ok(Some(FileValue {
+        } => Ok(Some(MaterializedFileValue {
             id,
             executable,
             reader,

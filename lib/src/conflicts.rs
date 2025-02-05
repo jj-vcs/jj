@@ -167,6 +167,29 @@ impl MaterializedTreeValue {
     }
 }
 
+/// [`TreeValue::File`] with file content `reader`.
+pub struct MaterializedFileValue {
+    pub id: FileId,
+    pub executable: bool,
+    pub reader: Box<dyn Read>,
+}
+
+impl MaterializedFileValue {
+    /// Reads file content until EOF. The provided `path` is used only for error
+    /// reporting purpose.
+    pub fn read_all(&mut self, path: &RepoPath) -> BackendResult<Vec<u8>> {
+        let mut buf = Vec::new();
+        self.reader
+            .read_to_end(&mut buf)
+            .map_err(|err| BackendError::ReadFile {
+                path: path.to_owned(),
+                id: self.id.clone(),
+                source: err.into(),
+            })?;
+        Ok(buf)
+    }
+}
+
 /// Reads the data associated with a `MergedTreeValue` so it can be written to
 /// e.g. the working copy or diff.
 pub async fn materialize_tree_value(
