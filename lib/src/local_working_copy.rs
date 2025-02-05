@@ -1830,11 +1830,9 @@ impl TreeState {
                     deleted_files.insert(path);
                     continue;
                 }
-                MaterializedTreeValue::File {
-                    executable,
-                    mut reader,
-                    ..
-                } => self.write_file(&disk_path, &mut reader, executable)?,
+                MaterializedTreeValue::File(mut file) => {
+                    self.write_file(&disk_path, &mut file.reader, file.executable)?
+                }
                 MaterializedTreeValue::Symlink { id: _, target } => {
                     if self.symlink_support {
                         self.write_symlink(&disk_path, target)?

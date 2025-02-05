@@ -38,6 +38,7 @@ use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::conflicts::materialize_merge_result_to_bytes;
 use jj_lib::conflicts::materialized_diff_stream;
 use jj_lib::conflicts::ConflictMarkerStyle;
+use jj_lib::conflicts::MaterializedFileValue;
 use jj_lib::conflicts::MaterializedTreeDiffEntry;
 use jj_lib::conflicts::MaterializedTreeValue;
 use jj_lib::copies::CopiesTreeDiffEntry;
@@ -869,7 +870,10 @@ impl FileContent {
     }
 }
 
-fn file_content_for_diff(reader: &mut dyn io::Read) -> io::Result<FileContent> {
+fn file_content_for_diff(
+    path: &RepoPath,
+    file: &mut MaterializedFileValue,
+) -> BackendResult<FileContent> {
     // If this is a binary file, don't show the full contents.
     // Determine whether it's binary by whether the first 8k bytes contain a null
     // character; this is the same heuristic used by git as of writing: https://github.com/git/git/blob/eea0e59ffbed6e33d171ace5be13cde9faa41639/xdiff-interface.c#L192-L198
@@ -877,9 +881,7 @@ fn file_content_for_diff(reader: &mut dyn io::Read) -> io::Result<FileContent> {
     // TODO: currently we look at the whole file, even though for binary files we
     // only need to know the file size. To change that we'd have to extend all
     // the data backends to support getting the length.
-    let mut contents = vec![];
-    reader.read_to_end(&mut contents)?;
-
+    let contents = file.read_all(path)?;
     let start = &contents[..PEEK_SIZE.min(contents.len())];
     Ok(FileContent {
         is_binary: start.contains(&b'\0'),
@@ -898,12 +900,7 @@ fn diff_content(
             is_binary: false,
             contents: format!("Access denied: {err}").into_bytes(),
         }),
-        MaterializedTreeValue::File { id, mut reader, .. } => file_content_for_diff(&mut reader)
-            .map_err(|err| BackendError::ReadFile {
-                path: path.to_owned(),
-                id,
-                source: err.into(),
-            }),
+        MaterializedTreeValue::File(mut file) => file_content_for_diff(path, &mut file),
         MaterializedTreeValue::Symlink { id: _, target } => Ok(FileContent {
             // Unix file paths can't contain null bytes.
             is_binary: false,
@@ -938,8 +935,8 @@ fn basic_diff_file_type(value: &MaterializedTreeValue) -> &'static str {
             panic!("absent path in diff");
         }
         MaterializedTreeValue::AccessDenied(_) => "access denied",
-        MaterializedTreeValue::File { executable, .. } => {
-            if *executable {
+        MaterializedTreeValue::File(file) => {
+            if file.executable {
                 "executable file"
             } else {
                 "regular file"
@@ -1005,21 +1002,12 @@ pub fn show_color_words_diff(
                 }
             } else if right_value.is_present() {
                 let description = match (&left_value, &right_value) {
-                    (
-                        MaterializedTreeValue::File {
-                            executable: left_executable,
-                            ..
-                        },
-                        MaterializedTreeValue::File {
-                            executable: right_executable,
-                            ..
-                        },
-                    ) => {
-                        if *left_executable && *right_executable {
+                    (MaterializedTreeValue::File(left), MaterializedTreeValue::File(right)) => {
+                        if left.executable && right.executable {
                             "Modified executable file".to_string()
-                        } else if *left_executable {
+                        } else if left.executable {
                             "Executable file became non-executable at".to_string()
-                        } else if *right_executable {
+                        } else if right.executable {
                             "Non-executable file became executable at".to_string()
                         } else {
                             "Modified regular file".to_string()
@@ -1202,14 +1190,10 @@ fn git_diff_part(
                 source: err,
             });
         }
-        MaterializedTreeValue::File {
-            id,
-            executable,
-            mut reader,
-        } => {
-            mode = if executable { "100755" } else { "100644" };
-            hash = id.hex();
-            content = file_content_for_diff(&mut reader)?;
+        MaterializedTreeValue::File(mut file) => {
+            mode = if file.executable { "100755" } else { "100644" };
+            hash = file.id.hex();
+            content = file_content_for_diff(path, &mut file)?;
         }
         MaterializedTreeValue::Symlink { id, target } => {
             mode = "120000";

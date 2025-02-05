@@ -134,11 +134,7 @@ pub async fn extract_as_single_hunk(
 pub enum MaterializedTreeValue {
     Absent,
     AccessDenied(Box<dyn std::error::Error + Send + Sync>),
-    File {
-        id: FileId,
-        executable: bool,
-        reader: Box<dyn Read>,
-    },
+    File(MaterializedFileValue),
     Symlink {
         id: SymlinkId,
         target: String,
@@ -214,11 +210,11 @@ async fn materialize_tree_value_no_access_denied(
         Ok(None) => Ok(MaterializedTreeValue::Absent),
         Ok(Some(TreeValue::File { id, executable })) => {
             let reader = store.read_file_async(path, &id).await?;
-            Ok(MaterializedTreeValue::File {
+            Ok(MaterializedTreeValue::File(MaterializedFileValue {
                 id,
                 executable,
                 reader,
-            })
+            }))
         }
         Ok(Some(TreeValue::Symlink(id))) => {
             let target = store.read_symlink_async(path, &id).await?;

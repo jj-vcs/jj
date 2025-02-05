@@ -336,15 +336,7 @@ fn to_file_value(value: MaterializedTreeValue) -> Result<Option<MaterializedFile
     match value {
         MaterializedTreeValue::Absent => Ok(None), // New or deleted file
         MaterializedTreeValue::AccessDenied(err) => Err(format!("Access is denied: {err}")),
-        MaterializedTreeValue::File {
-            id,
-            executable,
-            reader,
-        } => Ok(Some(MaterializedFileValue {
-            id,
-            executable,
-            reader,
-        })),
+        MaterializedTreeValue::File(file) => Ok(Some(file)),
         MaterializedTreeValue::Symlink { .. } => Err("Is a symlink".into()),
         MaterializedTreeValue::FileConflict { .. }
         | MaterializedTreeValue::OtherConflict { .. } => Err("Is a conflict".into()),

@@ -7,7 +7,6 @@ use futures::TryFutureExt as _;
 use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend::BackendResult;
-use jj_lib::backend::FileId;
 use jj_lib::backend::MergedTreeId;
 use jj_lib::backend::TreeValue;
 use jj_lib::conflicts::materialize_merge_result_to_bytes;
@@ -36,12 +35,6 @@ use super::MergeToolFile;
 pub enum BuiltinToolError {
     #[error("Failed to record changes")]
     Record(#[from] scm_record::RecordError),
-    #[error("Failed to read file {path:?} with ID {id}")]
-    ReadFileIo {
-        path: RepoPathBuf,
-        id: FileId,
-        source: std::io::Error,
-    },
     #[error("Failed to decode UTF-8 text for item {item} (this should not happen)")]
     DecodeUtf8 {
         source: std::str::Utf8Error,
@@ -138,26 +131,14 @@ fn read_file_contents(
             },
         }),
 
-        MaterializedTreeValue::File {
-            id,
-            executable,
-            mut reader,
-        } => {
-            let mut buf = Vec::new();
-            reader
-                .read_to_end(&mut buf)
-                .map_err(|err| BuiltinToolError::ReadFileIo {
-                    path: path.to_owned(),
-                    id: id.clone(),
-                    source: err,
-                })?;
-
-            let file_mode = if executable {
+        MaterializedTreeValue::File(mut file) => {
+            let buf = file.read_all(path)?;
+            let file_mode = if file.executable {
                 mode::EXECUTABLE
             } else {
                 mode::NORMAL
             };
-            let contents = buf_to_file_contents(Some(id.hex()), buf);
+            let contents = buf_to_file_contents(Some(file.id.hex()), buf);
             Ok(FileInfo {
                 file_mode,
                 contents,
@@ -634,6 +615,7 @@ pub fn edit_merge_builtin(
 
 #[cfg(test)]
 mod tests {
+    use jj_lib::backend::FileId;
     use jj_lib::conflicts::extract_as_single_hunk;
     use jj_lib::merge::MergedTreeValue;
     use jj_lib::repo::Repo as _;
