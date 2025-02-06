@@ -381,3 +381,18 @@ pub fn rename_remote(repo_dir: impl AsRef<Path>, original: &str, new: &str) {
         bstr::BString::from(output.stderr),
     );
 }
+
+pub fn fetch(repo_dir: impl AsRef<Path>, remote: &str) {
+    let output = std::process::Command::new("git")
+        .current_dir(repo_dir)
+        .args(["fetch", remote])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "git fetch {remote} failed with {}:\n{}\n----- stderr -----\n{}",
+        output.status,
+        bstr::BString::from(output.stdout),
+        bstr::BString::from(output.stderr),
+    );
+}
