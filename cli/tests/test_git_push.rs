@@ -16,6 +16,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use test_case::test_case;
+use testutils::git;
 
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
@@ -1800,7 +1801,7 @@ fn test_git_push_conflicting_bookmarks(subprocess: bool) {
     let git_repo = {
         let mut git_repo_path = workspace_root.clone();
         git_repo_path.extend([".jj", "repo", "store", "git"]);
-        git2::Repository::open(&git_repo_path).unwrap()
+        git::open(&git_repo_path)
     };
 
     // Forget remote ref, move local ref, then fetch to create conflict.
@@ -2103,12 +2104,12 @@ fn test_git_push_to_remote_named_git(subprocess: bool) {
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
-    let git_repo = {
+    let git_repo_path = {
         let mut git_repo_path = workspace_root.clone();
         git_repo_path.extend([".jj", "repo", "store", "git"]);
-        git2::Repository::open(&git_repo_path).unwrap()
+        git_repo_path
     };
-    git_repo.remote_rename("origin", "git").unwrap();
+    git::rename_remote(&git_repo_path, "origin", "git");
 
     let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--all", "--remote=git"]);
     insta::allow_duplicates! {
@@ -2131,12 +2132,12 @@ fn test_git_push_to_remote_with_slashes(subprocess: bool) {
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
-    let git_repo = {
+    let git_repo_path = {
         let mut git_repo_path = workspace_root.clone();
         git_repo_path.extend([".jj", "repo", "store", "git"]);
-        git2::Repository::open(&git_repo_path).unwrap()
+        git_repo_path
     };
-    git_repo.remote_rename("origin", "slash/origin").unwrap();
+    git::rename_remote(&git_repo_path, "origin", "slash/origin");
 
     let output = test_env.run_jj_in(
         &workspace_root,
