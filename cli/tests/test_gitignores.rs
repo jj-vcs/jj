@@ -14,13 +14,14 @@
 
 use std::io::Write;
 
+use crate::common::git;
 use crate::common::TestEnvironment;
 
 #[test]
 fn test_gitignores() {
     let test_env = TestEnvironment::default();
     let workspace_root = test_env.env_root().join("repo");
-    git2::Repository::init(&workspace_root).unwrap();
+    git::init(&workspace_root);
     test_env.jj_cmd_ok(&workspace_root, &["git", "init", "--git-repo", "."]);
 
     // Say in core.excludesFiles that we don't want file1, file2, or file3
@@ -99,7 +100,7 @@ fn test_gitignores_relative_excludes_file_path() {
 fn test_gitignores_ignored_file_in_target_commit() {
     let test_env = TestEnvironment::default();
     let workspace_root = test_env.env_root().join("repo");
-    git2::Repository::init(&workspace_root).unwrap();
+    git::init(&workspace_root);
     test_env.jj_cmd_ok(&workspace_root, &["git", "init", "--git-repo", "."]);
 
     // Create a commit with file "ignored" in it
