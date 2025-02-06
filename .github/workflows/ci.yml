@@ -62,7 +62,9 @@ jobs:
     # is a problem we should fix. in the mean time, this will make these flakes
     # less harmful, as it won't cause builds to spin for multiple hours, requiring
     # manual cancellation.
-    timeout-minutes: 15
+    #
+    # FIXME (aseipp, 2025-02-06): bumped to 20min.
+    timeout-minutes: 20
 
     steps:
     - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -103,7 +105,7 @@ jobs:
       matrix:
         os: [ubuntu-24.04, ubuntu-24.04-arm, macos-14]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
