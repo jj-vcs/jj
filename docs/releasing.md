@@ -13,7 +13,18 @@ Producing the list of contributors is a bit annoying. The current suggestion is
 to run something like this:
 
 ```shell
-jj log --no-graph -r 'heads(tags())..main' -T 'author ++ "\n"' | sort | uniq -c
+root=v0.25.0
+for i in $(seq 5); do
+    gh api "/repos/jj-vcs/jj/compare/$root...main?per_page=100;page=$i"
+done | jq -r '.commits[] | "* " + .commit.author.name + " (@" + .author.login + ")"' | sort -fu
+```
+
+https://docs.github.com/en/rest/commits/commits?apiVersion=2022-11-28#compare-two-commits
+
+Alternatively, the list can be produced locally:
+
+```shell
+jj log --no-graph -r 'heads(tags())..main' -T '"* " ++ author ++ "\n"' | sort -fu
 ```
 
 Then try to find the right GitHub username for each person and copy their name
