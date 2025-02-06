@@ -1,4 +1,4 @@
-name: build
+name: ci
 
 on:
   push:
@@ -24,7 +24,7 @@ env:
   CARGO_PROFILE_DEV_DEBUG: 0
 
 jobs:
-  build:
+  test:
     strategy:
       fail-fast: false
       matrix:
@@ -66,16 +66,14 @@ jobs:
 
     steps:
     - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-
     - name: Set up Windows Builders
       uses: ./.github/actions/setup-windows
-
     - name: Install Rust
       uses: dtolnay/rust-toolchain@a54c7afa936fefeb4456b2dd8068152669aa8203
       with:
         toolchain: 1.76
         target: ${{ matrix.target }}
-    - uses: taiki-e/install-action@5bc300ae6202155e070ca83afb334e8aac18c49c
+    - uses: taiki-e/install-action@510b3ecd7915856b6909305605afa7a8a57c1b04
       with:
         tool: nextest
     - name: Build
@@ -99,6 +97,7 @@ jobs:
       run: cargo build -p jj-cli --no-default-features --verbose
 
   build-nix:
+    name: nix flake
     strategy:
       fail-fast: false
       matrix:
@@ -106,7 +105,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
 
-    name: nix flake
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
