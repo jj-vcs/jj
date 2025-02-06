@@ -37,6 +37,7 @@ log-synthetic-elided-nodes = true
 conflict-marker-style = "diff"
 # signature verification is slow, disable by default
 show-cryptographic-signatures = false
+signed-off-by = false
 
 [ui.movement]
 edit = false

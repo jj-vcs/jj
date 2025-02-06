@@ -32,6 +32,10 @@ if(overridden,
 draft_commit_description = '''
 concat(
   description,
+  if(
+    config("ui.signed-off-by").as_boolean() && !description.contains("Signed-off-by: " ++ author.name()),
+    "\nSigned-off-by: " ++ author,
+  ),
   surround(
     "\nJJ: This commit contains the following changes:\n", "",
     indent("JJ:     ", diff.summary()),

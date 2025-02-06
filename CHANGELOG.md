@@ -16,6 +16,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* A `Signed-off-by:` footer can automatically be added to new draft
+  commit messages by enabling the setting `ui.signed-off-by=true`.
+  Note that overriding `draft_commit_message` on your own might undo
+  this; it is configured purely in the template language (for now).
+  [#5290](https://github.com/jj-vcs/jj/pull/5290)
+
 ### Fixed bugs
 
 * `jj status` now shows untracked files under untracked directories.

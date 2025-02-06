@@ -581,6 +581,37 @@ fn test_describe_default_description() {
 }
 
 #[test]
+fn test_describe_signed_off() {
+    let mut test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env.add_config(r#"ui.default-description = "\n\nTESTED=TODO""#);
+    test_env.add_config(r#"ui.signed-off-by = true"#);
+    let workspace_path = test_env.env_root().join("repo");
+
+    std::fs::write(workspace_path.join("file1"), "foo\n").unwrap();
+    std::fs::write(workspace_path.join("file2"), "bar\n").unwrap();
+    let edit_script = test_env.set_up_fake_editor();
+    std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
+    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_path, &["describe"]);
+    insta::assert_snapshot!(stdout, @"");
+    insta::assert_snapshot!(stderr, @r#"
+    Working copy now at: qpvuntsm 9b7a94ea TESTED=TODO
+    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    "#);
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+    TESTED=TODO
+
+    Signed-off-by: Test User <test.user@example.com>
+    JJ: This commit contains the following changes:
+    JJ:     A file1
+    JJ:     A file2
+
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "#);
+}
+
+#[test]
 fn test_describe_author() {
     let mut test_env = TestEnvironment::default();
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
