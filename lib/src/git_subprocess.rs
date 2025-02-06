@@ -205,7 +205,12 @@ impl<'a> GitSubprocessContext<'a> {
     ) -> Result<(Vec<String>, Vec<String>), GitSubprocessError> {
         let mut command = self.create_command();
         command.stdout(Stdio::piped());
-        command.args(["push", "--porcelain"]);
+        // Currently jj does not support commit hooks, so we prevent git from running
+        // them
+        //
+        // https://github.com/jj-vcs/jj/issues/3577 and https://github.com/jj-vcs/jj/issues/405
+        // offer more context
+        command.args(["push", "--porcelain", "--no-verify"]);
         if callbacks.progress.is_some() {
             command.arg("--progress");
         }
