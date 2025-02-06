@@ -16,6 +16,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* A minimal version of `jj run` was implemented.
+  Follow [#1869](https://github.com/jj-vcs/issues/1869) for further
+  improvements.
+
 ### Fixed bugs
 
 * `jj status` now shows untracked files under untracked directories.
