@@ -15,6 +15,7 @@ use std::io::Write;
 
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
+use jj_lib::config::ConfigGetResultExt;
 use jj_lib::object_id::ObjectId;
 use jj_lib::repo::Repo;
 use tracing::instrument;
@@ -196,26 +197,37 @@ The remainder will be in the second commit.
         commit_builder.write(tx.repo_mut())?
     };
 
-    // Mark the commit being split as rewritten to the second commit. As a
-    // result, if @ points to the commit being split, it will point to the
-    // second commit after the command finishes. This also means that any
-    // bookmarks pointing to the commit being split are moved to the second
-    // commit.
-    tx.repo_mut()
-        .set_rewritten_commit(commit.id().clone(), second_commit.id().clone());
+    let legacy_bookmark_behavior = read_legacy_bookmark_behavior_setting(tx.settings(), ui)?;
+    if legacy_bookmark_behavior {
+        // Mark the commit being split as rewritten to the second commit. This
+        // moves any bookmarks pointing to the target commit to the second
+        // commit.
+        tx.repo_mut()
+            .set_rewritten_commit(commit.id().clone(), second_commit.id().clone());
+    }
     let mut num_rebased = 0;
     tx.repo_mut()
         .transform_descendants(vec![commit.id().clone()], |mut rewriter| {
             num_rebased += 1;
-            if args.parallel {
+            if args.parallel && legacy_bookmark_behavior {
+                // The old_parent is the second commit due to the rewrite above.
                 rewriter
                     .replace_parent(second_commit.id(), [first_commit.id(), second_commit.id()]);
+            } else if args.parallel {
+                rewriter.replace_parent(first_commit.id(), [first_commit.id(), second_commit.id()]);
+            } else {
+                rewriter.replace_parent(first_commit.id(), [second_commit.id()]);
             }
-            // We don't need to do anything special for the non-parallel case
-            // since we already marked the original commit as rewritten.
             rewriter.rebase()?.write()?;
             Ok(())
         })?;
+    // Move the working copy commit (@) to the second commit for any workspaces
+    // where the target commit is the working copy commit.
+    for (workspace_id, working_copy_commit) in tx.base_repo().clone().view().wc_commit_ids() {
+        if working_copy_commit == commit.id() {
+            tx.repo_mut().edit(workspace_id.clone(), &second_commit)?;
+        }
+    }
 
     if let Some(mut formatter) = ui.status_formatter() {
         if num_rebased > 0 {
@@ -229,4 +241,37 @@ The remainder will be in the second commit.
     }
     tx.finish(ui, format!("split commit {}", commit.id().hex()))?;
     Ok(())
+}
+
+/// Reads 'split.legacy-bookmark-behavior' from settings and prints a warning if
+/// the value is unset to alert the user to the behavior change.
+fn read_legacy_bookmark_behavior_setting(
+    settings: &jj_lib::settings::UserSettings,
+    ui: &Ui,
+) -> Result<bool, CommandError> {
+    match settings
+        .get_bool("split.legacy-bookmark-behavior")
+        .optional()?
+    {
+        // Use the new behavior.
+        Some(false) => Ok(false),
+        // Use the legacy behavior.
+        Some(true) | None => {
+            writeln!(
+                ui.warning_default(),
+                "`jj split` will leave bookmarks on the first commit in the next release."
+            )?;
+            writeln!(
+                ui.warning_default(),
+                "Run `jj config set --repo split.legacy-bookmark-behavior false` to silence this \
+                 message and use the new behavior."
+            )?;
+            writeln!(
+                ui.warning_default(),
+                "See https://github.com/jj-vcs/jj/issues/3419"
+            )?;
+            // TODO: https://github.com/jj-vcs/jj/issues/3419 - Return false by default in v0.28.
+            Ok(true)
+        }
+    }
 }
