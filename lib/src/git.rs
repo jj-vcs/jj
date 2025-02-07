@@ -20,12 +20,17 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::default::Default;
 use std::fmt;
+use std::fs::File;
 use std::io::Read;
 use std::num::NonZeroU32;
+use std::ops::Deref;
+use std::ops::DerefMut;
 use std::path::PathBuf;
 use std::str;
+use std::sync::Arc;
 
 use bstr::BStr;
+use bstr::BString;
 use itertools::Itertools;
 use tempfile::NamedTempFile;
 use thiserror::Error;
@@ -48,6 +53,7 @@ use crate::op_store::RemoteRefState;
 use crate::refs;
 use crate::refs::BookmarkPushUpdate;
 use crate::repo::MutableRepo;
+use crate::repo::ReadonlyRepo;
 use crate::repo::Repo;
 use crate::repo_path::RepoPath;
 use crate::revset::RevsetExpression;
@@ -1287,6 +1293,62 @@ fn build_index_from_merged_tree(
     Ok(index)
 }
 
+/// Convenience wrapper to edit Git configuration files.
+///
+/// Note that the resulting configuration changes are *not* persisted to the
+/// originating [`gix::Repository`]! The repository must be reloaded with the
+/// new configuration if necessary.
+pub struct GitConfigEditor(gix::config::File<'static>);
+
+impl GitConfigEditor {
+    pub fn new(git_repo: &gix::Repository) -> Self {
+        Self(git_repo.config_snapshot().clone())
+    }
+
+    pub fn remove_remote_sections(&mut self, remote_name: &str) {
+        let Some(iter) = self.sections_and_ids_by_name("remote") else {
+            return;
+        };
+        // Note: This removes entire sections rather than just the basic Git options, so
+        // this can clobber user data. Ideally `gix` would expose the more complex logic
+        // it uses for changing existing remotes.
+        let section_ids_to_remove: Vec<_> = iter
+            .filter(|(section, _)| {
+                section.header().subsection_name() == Some(BStr::new(remote_name))
+            })
+            .map(|(_, id)| id)
+            .collect();
+        for id in section_ids_to_remove {
+            self.remove_section_by_id(id)
+                .expect("removed section to exist");
+        }
+    }
+
+    pub fn save(self) -> std::io::Result<()> {
+        let mut config_file = File::create(
+            self.meta()
+                .path
+                .as_ref()
+                .expect("Git repository to have a config file"),
+        )?;
+        self.write_to_filter(&mut config_file, |section| section.meta() == self.meta())
+    }
+}
+
+impl Deref for GitConfigEditor {
+    type Target = gix::config::File<'static>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for GitConfigEditor {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 #[derive(Debug, Error)]
 pub enum GitRemoteManagementError {
     #[error("No git remote named '{0}'")]
@@ -1298,8 +1360,20 @@ pub enum GitRemoteManagementError {
         name = REMOTE_NAME_FOR_LOCAL_GIT_REPO
     )]
     RemoteReservedForLocalGitRepo,
+    #[error("Unexpected error when importing changed Git refs")]
+    InternalGitImportError(#[from] GitImportError),
+    #[error("Error saving Git configuration")]
+    GitConfigSaveError(#[source] std::io::Error),
+    #[error("Unexpected Git error when managing remotes")]
+    InternalGitError(#[source] Box<dyn std::error::Error + Send + Sync>),
     #[error(transparent)]
-    InternalGitError(git2::Error),
+    UnexpectedBackend(#[from] UnexpectedGitBackendError),
+}
+
+impl GitRemoteManagementError {
+    fn from_git(source: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
+        GitRemoteManagementError::InternalGitError(source.into())
+    }
 }
 
 fn is_remote_not_found_err(err: &git2::Error) -> bool {
@@ -1312,19 +1386,44 @@ fn is_remote_not_found_err(err: &git2::Error) -> bool {
     )
 }
 
-fn is_remote_exists_err(err: &git2::Error) -> bool {
-    matches!(
-        (err.class(), err.code()),
-        (git2::ErrorClass::Config, git2::ErrorCode::Exists)
-    )
-}
-
 /// Determine, by its name, if a remote refers to the special local-only "git"
 /// remote that is used in the Git backend.
 ///
 /// This function always returns false if the "git" feature is not enabled.
 pub fn is_special_git_remote(remote: &str) -> bool {
     remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO
+}
+
+fn edit_prefixed_refs<Edits>(
+    git_repo: &mut gix::Repository,
+    prefix: impl AsRef<std::path::Path>,
+    mut editor: impl FnMut(gix::Reference) -> Edits,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
+where
+    Edits: IntoIterator<Item = gix::refs::transaction::RefEdit>,
+{
+    git_repo.edit_references(
+        git_repo
+            .references()?
+            .prefixed(prefix)?
+            .map(|result| result.map(&mut editor))
+            .flatten_ok()
+            .collect::<Result<Vec<_>, _>>()?,
+    )?;
+    Ok(())
+}
+
+fn delete_ref(reference: gix::Reference) -> gix::refs::transaction::RefEdit {
+    gix::refs::transaction::RefEdit {
+        change: gix::refs::transaction::Change::Delete {
+            expected: gix::refs::transaction::PreviousValue::MustExistAndMatch(
+                reference.target().into_owned(),
+            ),
+            log: gix::refs::transaction::RefLog::AndReference,
+        },
+        name: reference.name().to_owned(),
+        deref: false,
+    }
 }
 
 /// Returns a sorted list of configured remote names.
@@ -1341,40 +1440,72 @@ pub fn get_all_remote_names(store: &Store) -> Result<Vec<String>, UnexpectedGitB
     Ok(names)
 }
 
-// TODO(git2): migrate to gitoxide
 pub fn add_remote(
-    git_repo: &git2::Repository,
+    repo: &Arc<ReadonlyRepo>,
     remote_name: &str,
     url: &str,
 ) -> Result<(), GitRemoteManagementError> {
+    let git_repo = get_git_repo(repo.store())?;
+
     if remote_name == REMOTE_NAME_FOR_LOCAL_GIT_REPO {
         return Err(GitRemoteManagementError::RemoteReservedForLocalGitRepo);
     }
-    git_repo.remote(remote_name, url).map_err(|err| {
-        if is_remote_exists_err(&err) {
-            GitRemoteManagementError::RemoteAlreadyExists(remote_name.to_owned())
-        } else {
-            GitRemoteManagementError::InternalGitError(err)
-        }
-    })?;
+
+    if git_repo.try_find_remote(remote_name).is_some() {
+        return Err(GitRemoteManagementError::RemoteAlreadyExists(
+            remote_name.to_owned(),
+        ));
+    }
+
+    let mut remote = git_repo
+        .remote_at(url)
+        .map_err(GitRemoteManagementError::from_git)?
+        .with_refspecs(
+            [format!("+refs/heads/*:refs/remotes/{remote_name}/*").as_bytes()],
+            gix::remote::Direction::Fetch,
+        )
+        .expect("default refspec to be valid");
+
+    let mut config_editor = GitConfigEditor::new(&git_repo);
+    remote
+        .save_as_to(remote_name, &mut config_editor)
+        .map_err(GitRemoteManagementError::from_git)?;
+    config_editor
+        .save()
+        .map_err(GitRemoteManagementError::GitConfigSaveError)?;
+
     Ok(())
 }
 
 pub fn remove_remote(
     mut_repo: &mut MutableRepo,
-    git_repo: &git2::Repository,
     remote_name: &str,
 ) -> Result<(), GitRemoteManagementError> {
-    git_repo.remote_delete(remote_name).map_err(|err| {
-        if is_remote_not_found_err(&err) {
-            GitRemoteManagementError::NoSuchRemote(remote_name.to_owned())
-        } else {
-            GitRemoteManagementError::InternalGitError(err)
-        }
-    })?;
+    let mut git_repo = get_git_repo(mut_repo.store())?;
+
+    if git_repo.try_find_remote(remote_name).is_none() {
+        return Err(GitRemoteManagementError::NoSuchRemote(
+            remote_name.to_owned(),
+        ));
+    };
+
+    let mut config_editor = GitConfigEditor::new(&git_repo);
+    config_editor.remove_remote_sections(remote_name);
+    config_editor
+        .save()
+        .map_err(GitRemoteManagementError::GitConfigSaveError)?;
+
+    edit_prefixed_refs(
+        &mut git_repo,
+        format!("refs/remotes/{remote_name}/"),
+        |reference| [delete_ref(reference)],
+    )
+    .map_err(GitRemoteManagementError::from_git)?;
+
     if remote_name != REMOTE_NAME_FOR_LOCAL_GIT_REPO {
         remove_remote_refs(mut_repo, remote_name);
     }
+
     Ok(())
 }
 
@@ -1395,53 +1526,127 @@ fn remove_remote_refs(mut_repo: &mut MutableRepo, remote_name: &str) {
 
 pub fn rename_remote(
     mut_repo: &mut MutableRepo,
-    git_repo: &git2::Repository,
     old_remote_name: &str,
     new_remote_name: &str,
 ) -> Result<(), GitRemoteManagementError> {
+    let mut git_repo = get_git_repo(mut_repo.store())?;
+
     if new_remote_name == REMOTE_NAME_FOR_LOCAL_GIT_REPO {
         return Err(GitRemoteManagementError::RemoteReservedForLocalGitRepo);
     }
-    git_repo
-        .remote_rename(old_remote_name, new_remote_name)
-        .map_err(|err| {
-            if is_remote_not_found_err(&err) {
-                GitRemoteManagementError::NoSuchRemote(old_remote_name.to_owned())
-            } else if is_remote_exists_err(&err) {
-                GitRemoteManagementError::RemoteAlreadyExists(new_remote_name.to_owned())
-            } else {
-                GitRemoteManagementError::InternalGitError(err)
-            }
-        })?;
+
+    let Some(result) = git_repo.try_find_remote(old_remote_name) else {
+        return Err(GitRemoteManagementError::NoSuchRemote(
+            old_remote_name.to_owned(),
+        ));
+    };
+    let mut remote = result.map_err(GitRemoteManagementError::from_git)?;
+
+    if git_repo.try_find_remote(new_remote_name).is_some() {
+        return Err(GitRemoteManagementError::RemoteAlreadyExists(
+            new_remote_name.to_owned(),
+        ));
+    }
+
+    remote
+        .replace_refspecs(
+            [format!("+refs/heads/*:refs/remotes/{new_remote_name}/*").as_bytes()],
+            gix::remote::Direction::Fetch,
+        )
+        .expect("default refspec to be valid");
+    remote
+        .replace_refspecs::<&BStr>([], gix::remote::Direction::Push)
+        .expect("empty refspecs to be valid");
+
+    let mut config_editor = GitConfigEditor::new(&git_repo);
+    remote
+        .save_as_to(new_remote_name, &mut config_editor)
+        .map_err(GitRemoteManagementError::from_git)?;
+    config_editor.remove_remote_sections(old_remote_name);
+    config_editor
+        .save()
+        .map_err(GitRemoteManagementError::GitConfigSaveError)?;
+
+    let old_prefix = format!("refs/remotes/{old_remote_name}/");
+    let new_prefix = format!("refs/remotes/{new_remote_name}/");
+    edit_prefixed_refs(&mut git_repo, &old_prefix, |old_ref| {
+        let mut new_name = BString::from(new_prefix.as_bytes());
+        new_name.extend_from_slice(
+            old_ref
+                .name()
+                .as_bstr()
+                .strip_prefix(old_prefix.as_bytes())
+                .expect("old ref name to have old prefix"),
+        );
+        [
+            gix::refs::transaction::RefEdit {
+                change: gix::refs::transaction::Change::Update {
+                    log: gix::refs::transaction::LogChange {
+                        mode: gix::refs::transaction::RefLog::AndReference,
+                        force_create_reflog: false,
+                        message: format!("renamed remote {old_remote_name} to {new_remote_name}")
+                            .into(),
+                    },
+                    expected: gix::refs::transaction::PreviousValue::MustNotExist,
+                    new: old_ref.target().into_owned(),
+                },
+                name: new_name.try_into().expect("new ref name to be valid"),
+                deref: false,
+            },
+            delete_ref(old_ref),
+        ]
+    })
+    .map_err(GitRemoteManagementError::from_git)?;
+
     if old_remote_name != REMOTE_NAME_FOR_LOCAL_GIT_REPO {
         rename_remote_refs(mut_repo, old_remote_name, new_remote_name);
     }
+
     Ok(())
 }
 
 pub fn set_remote_url(
-    git_repo: &git2::Repository,
+    repo: &Arc<ReadonlyRepo>,
     remote_name: &str,
     new_remote_url: &str,
 ) -> Result<(), GitRemoteManagementError> {
+    let git_repo = get_git_repo(repo.store())?;
+
     if remote_name == REMOTE_NAME_FOR_LOCAL_GIT_REPO {
         return Err(GitRemoteManagementError::RemoteReservedForLocalGitRepo);
     }
 
-    // Repository::remote_set_url() doesn't ensure the remote exists, it just
-    // creates it if it's missing.
-    // Therefore ensure it exists first
-    git_repo.find_remote(remote_name).map_err(|err| {
-        if is_remote_not_found_err(&err) {
-            GitRemoteManagementError::NoSuchRemote(remote_name.to_owned())
-        } else {
-            GitRemoteManagementError::InternalGitError(err)
-        }
-    })?;
+    let Some(result) = git_repo.try_find_remote(remote_name) else {
+        return Err(GitRemoteManagementError::NoSuchRemote(
+            remote_name.to_owned(),
+        ));
+    };
+    let remote = result.map_err(GitRemoteManagementError::from_git)?;
 
-    git_repo
-        .remote_set_url(remote_name, new_remote_url)
-        .map_err(GitRemoteManagementError::InternalGitError)?;
+    let mut new_remote = git_repo
+        .remote_at(new_remote_url)
+        .map_err(GitRemoteManagementError::from_git)?
+        .with_fetch_tags(remote.fetch_tags());
+    for direction in [gix::remote::Direction::Fetch, gix::remote::Direction::Push] {
+        new_remote = new_remote
+            .with_refspecs(
+                remote
+                    .refspecs(direction)
+                    .iter()
+                    .map(|refspec| refspec.to_ref().to_bstring()),
+                direction,
+            )
+            .expect("existing refspecs to be valid");
+    }
+
+    let mut config_editor = GitConfigEditor::new(&git_repo);
+    new_remote
+        .save_as_to(remote_name, &mut config_editor)
+        .map_err(GitRemoteManagementError::from_git)?;
+    config_editor
+        .save()
+        .map_err(GitRemoteManagementError::GitConfigSaveError)?;
+
     Ok(())
 }
 
