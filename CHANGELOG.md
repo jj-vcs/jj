@@ -184,6 +184,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Please [see the documentation](/docs/config.md#json-schema-support) for more
   on this.
 
+* `jj bookmark forget` now accepts a `--untrack` flag to untrack remote
+  bookmarks instead of forgetting them.
+
 ### Fixed bugs
 
 * `jj git fetch` with multiple remotes will now fetch from all remotes before

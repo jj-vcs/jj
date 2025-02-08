@@ -338,7 +338,7 @@ Forget everything about a bookmark, including its local and remote targets
 
 A forgotten bookmark will not impact remotes on future pushes. It will be recreated on future pulls if it still exists in the remote.
 
-**Usage:** `jj bookmark forget <NAMES>...`
+**Usage:** `jj bookmark forget [OPTIONS] <NAMES>...`
 
 ###### **Arguments:**
 
@@ -347,6 +347,10 @@ A forgotten bookmark will not impact remotes on future pushes. It will be recrea
    By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by [wildcard pattern].
 
    [wildcard pattern]: https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
+
+###### **Options:**
+
+* `-u`, `--untrack` — Untrack remote bookmarks instead of forgetting them
 
 
 
@@ -484,6 +488,8 @@ A tracking remote bookmark will be imported as a local bookmark of the same name
 Stop tracking given remote bookmarks
 
 A non-tracking remote bookmark is just a pointer to the last-fetched remote bookmark. It won't be imported as a local bookmark on future pulls.
+
+If you want to forget a local bookmark while also untracking the corresponding remote bookmarks, use `jj bookmark forget --untrack` instead.
 
 **Usage:** `jj bookmark untrack <BOOKMARK@REMOTE>...`
 

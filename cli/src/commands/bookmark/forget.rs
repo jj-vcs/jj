@@ -33,6 +33,10 @@ use crate::ui::Ui;
 /// recreated on future pulls if it still exists in the remote.
 #[derive(clap::Args, Clone, Debug)]
 pub struct BookmarkForgetArgs {
+    /// Untrack remote bookmarks instead of forgetting them
+    #[arg(long, short)]
+    untrack: bool,
+
     /// The bookmarks to forget
     ///
     /// By default, the specified name matches exactly. Use `glob:` prefix to
@@ -61,8 +65,12 @@ pub fn cmd_bookmark_forget(
         tx.repo_mut()
             .set_local_bookmark_target(name, RefTarget::absent());
         for (remote_name, _) in &bookmark_target.remote_refs {
-            tx.repo_mut()
-                .set_remote_bookmark(name, remote_name, RemoteRef::absent());
+            if args.untrack {
+                tx.repo_mut().untrack_remote_bookmark(name, remote_name);
+            } else {
+                tx.repo_mut()
+                    .set_remote_bookmark(name, remote_name, RemoteRef::absent());
+            }
         }
     }
     writeln!(ui.status(), "Forgot {} bookmarks.", matched_bookmarks.len())?;
