@@ -55,6 +55,9 @@ pub fn cmd_bookmark_create(
         .resolve_single_rev(ui, args.revision.as_ref().unwrap_or(&RevisionArg::AT))?;
     let view = workspace_command.repo().view();
     let bookmark_names = &args.names;
+
+    super::validate_bookmark_names(command, ui, bookmark_names, "create")?;
+
     for name in bookmark_names {
         if view.get_local_bookmark(name).is_present() {
             return Err(user_error_with_hint(

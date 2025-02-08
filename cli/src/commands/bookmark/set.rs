@@ -61,6 +61,9 @@ pub fn cmd_bookmark_set(
         .resolve_single_rev(ui, args.revision.as_ref().unwrap_or(&RevisionArg::AT))?;
     let repo = workspace_command.repo().as_ref();
     let bookmark_names = &args.names;
+
+    super::validate_bookmark_names(command, ui, bookmark_names, "set")?;
+
     let mut new_bookmark_count = 0;
     let mut moved_bookmark_count = 0;
     for name in bookmark_names {

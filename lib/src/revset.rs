@@ -1194,8 +1194,7 @@ pub fn parse(
     revset_str: &str,
     context: &RevsetParseContext,
 ) -> Result<Rc<UserRevsetExpression>, RevsetParseError> {
-    let node = revset_parser::parse_program(revset_str)?;
-    let node = dsl_util::expand_aliases(node, context.aliases_map)?;
+    let node = parse_expr_with_expansion(revset_str, context)?;
     lower_expression(diagnostics, &node, context)
         .map_err(|err| err.extend_function_candidates(context.aliases_map.function_names()))
 }
@@ -1205,8 +1204,7 @@ pub fn parse_with_modifier(
     revset_str: &str,
     context: &RevsetParseContext,
 ) -> Result<(Rc<UserRevsetExpression>, Option<RevsetModifier>), RevsetParseError> {
-    let node = revset_parser::parse_program(revset_str)?;
-    let node = dsl_util::expand_aliases(node, context.aliases_map)?;
+    let node = parse_expr_with_expansion(revset_str, context)?;
     revset_parser::expect_program_with(
         diagnostics,
         &node,
@@ -1220,6 +1218,18 @@ pub fn parse_with_modifier(
         },
     )
     .map_err(|err| err.extend_function_candidates(context.aliases_map.function_names()))
+}
+
+pub fn parse_expr_with_expansion<'a, 'b>(
+    revset_str: &'a str,
+    context: &RevsetParseContext<'b>,
+) -> Result<ExpressionNode<'a>, RevsetParseError>
+where
+    'b: 'a,
+{
+    let node = revset_parser::parse_program(revset_str)?;
+    let node = dsl_util::expand_aliases(node, context.aliases_map)?;
+    Ok(node)
 }
 
 /// `Some` for rewritten expression, or `None` to reuse the original expression.

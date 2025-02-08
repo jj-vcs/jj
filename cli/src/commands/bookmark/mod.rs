@@ -27,6 +27,7 @@ use jj_lib::backend::CommitId;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::repo::Repo;
+use jj_lib::revset::ExpressionKind;
 use jj_lib::str_util::StringPattern;
 use jj_lib::view::View;
 
@@ -51,6 +52,7 @@ use self::untrack::BookmarkUntrackArgs;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RemoteBookmarkName;
 use crate::cli_util::RemoteBookmarkNamePattern;
+use crate::cli_util::WorkspaceCommandHelper;
 use crate::command_error::user_error;
 use crate::command_error::CommandError;
 use crate::ui::Ui;
@@ -201,5 +203,122 @@ fn is_fast_forward(repo: &dyn Repo, old_target: &RefTarget, new_target_id: &Comm
             .any(|old| repo.index().is_ancestor(old, new_target_id))
     } else {
         true
+    }
+}
+
+fn validate_bookmark_names(
+    command: &CommandHelper,
+    ui: &mut Ui,
+    bookmark_names: &mut Vec<String>,
+    command_name: &str,
+) -> Result<(), CommandError> {
+    let helper = command.workspace_helper_no_snapshot(ui)?;
+
+    let mut remote_like = Vec::new();
+    let mut revset_like = Vec::new();
+    let mut quoted = Vec::new();
+
+    let mut resulting_bookmark_names = Vec::new();
+
+    for name in bookmark_names.iter() {
+        match BookMarkKind::parse(name, &helper)? {
+            BookMarkKind::RemoteLike => remote_like.push(name.as_str()),
+            BookMarkKind::RevsetLike => revset_like.push(name.as_str()),
+            BookMarkKind::Quoted => quoted.push(name.as_str()),
+            BookMarkKind::Normal => {
+                resulting_bookmark_names.push(name.clone());
+            }
+        }
+    }
+
+    let hint = |s| {
+        writeln!(
+            ui.hint_default(),
+            "If you anyway want to use this bookmark name wrap it in the double quotes: \"{s}\"",
+        )?;
+        Ok::<_, CommandError>(())
+    };
+
+    if !remote_like.is_empty() {
+        let mut writer = ui.warning_with_heading("Bookmarks containing '@':");
+        for name in &remote_like {
+            writeln!(writer, "  {name}")?;
+        }
+        drop(writer);
+
+        writeln!(
+            ui.hint_default(),
+            "To track remote bookmarks, use: jj bookmark --track {}",
+            remote_like.join(" ")
+        )?;
+        hint(remote_like.first().expect("checked above"))?;
+
+        return Err(user_error("bookmark name looking like remote was provided"));
+    }
+
+    if !revset_like.is_empty() {
+        let mut writer = ui.warning_with_heading("Bookmarks resembling revsets:");
+        for name in &revset_like {
+            writeln!(writer, "  {name}")?;
+        }
+        drop(writer);
+
+        writeln!(
+            ui.warning_default(),
+            "These names look like revset expressions and might cause confusion: {}",
+            revset_like.join(" ")
+        )?;
+
+        if revset_like.len() == 1 {
+            writeln!(
+                ui.hint_default(),
+                "Maybe you meant to use `jj bookmark {command_name} -r {name}` instead?",
+                name = revset_like[0],
+            )?;
+        }
+        hint(revset_like.first().expect("checked above"))?;
+        return Err(user_error("bookmark resembling revset was provided"));
+    }
+
+    if !quoted.is_empty() {
+        let mut writer = ui.warning_with_heading("These bookmarks would be used without quotes:");
+        for name in &quoted {
+            let name = name.trim_matches('"');
+            writeln!(writer, "  {name}")?;
+            resulting_bookmark_names.push(name.to_string());
+        }
+    }
+
+    *bookmark_names = resulting_bookmark_names;
+
+    Ok(())
+}
+
+enum BookMarkKind {
+    RevsetLike,
+    RemoteLike,
+    Normal,
+    Quoted,
+}
+
+impl BookMarkKind {
+    fn parse(name: &str, helper: &WorkspaceCommandHelper) -> Result<Self, CommandError> {
+        let node = helper.parse_revset_expression(name)?;
+        Ok(match node.kind {
+            ExpressionKind::RemoteSymbol { .. } => Self::RemoteLike,
+            ExpressionKind::StringPattern { .. }
+            | ExpressionKind::AtWorkspace(_)
+            | ExpressionKind::AtCurrentWorkspace
+            | ExpressionKind::DagRangeAll
+            | ExpressionKind::RangeAll
+            | ExpressionKind::Unary(..)
+            | ExpressionKind::Binary(..)
+            | ExpressionKind::UnionAll(..)
+            | ExpressionKind::FunctionCall(..)
+            | ExpressionKind::Modifier(..)
+            | ExpressionKind::AliasExpanded(..) => Self::RevsetLike,
+            ExpressionKind::String(_) => Self::Quoted,
+            ExpressionKind::Identifier(_) => Self::Normal,
+        })
     }
 }

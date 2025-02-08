@@ -1896,6 +1896,68 @@ fn test_bookmark_list_conflicted() {
     "###);
 }
 
+#[test]
+fn test_bookmark_warns_multiple() {
+    let test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    let repo_path = test_env.env_root().join("repo");
+
+    // Test multiple invalid bookmarks at once
+    let error = test_env.jj_cmd_failure(
+        &repo_path,
+        &["bookmark", "set", "main@origin", "dev@remote", "@-"],
+    );
+    insta::assert_snapshot!(error, @r#"
+    Bookmarks containing '@':  main@origin
+      dev@remote
+    Hint: To track remote bookmarks, use: jj bookmark --track main@origin dev@remote
+    Hint: If you anyway want to use this bookmark name wrap it in the double quotes: "main@origin"
+    Error: bookmark name looking like remote was provided
+    "#);
+}
+
+#[test]
+fn test_bookmark_warns_single() {
+    let test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    let repo_path = test_env.env_root().join("repo");
+
+    // Test single invalid bookmark
+    let error = test_env.jj_cmd_failure(&repo_path, &["bookmark", "set", "feature@remote"]);
+    insta::assert_snapshot!(error, @r#"
+    Bookmarks containing '@':  feature@remote
+    Hint: To track remote bookmarks, use: jj bookmark --track feature@remote
+    Hint: If you anyway want to use this bookmark name wrap it in the double quotes: "feature@remote"
+    Error: bookmark name looking like remote was provided
+    "#);
+
+    let error = test_env.jj_cmd_failure(&repo_path, &["bookmark", "create", "a..b"]);
+    insta::assert_snapshot!(error, @r#"
+    Bookmarks resembling revsets:  a..b
+    Warning: These names look like revset expressions and might cause confusion: a..b
+    Hint: Maybe you meant to use `jj bookmark create -r a..b` instead?
+    Hint: If you anyway want to use this bookmark name wrap it in the double quotes: "a..b"
+    Error: bookmark resembling revset was provided
+    "#);
+}
+
+#[test]
+fn test_bookmark_escape_works() {
+    let test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    let repo_path = test_env.env_root().join("repo");
+
+    // Test single invalid bookmark
+    let (stdout, stderr) =
+        test_env.jj_cmd_ok(&repo_path, &["bookmark", "set", r#""feature@remote""#]);
+    insta::assert_snapshot!(stdout, "@");
+    insta::assert_snapshot!(stderr, "@");
+
+    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", r#""a..b""#]);
+    insta::assert_snapshot!(stdout, "@");
+    insta::assert_snapshot!(stderr, "@");
+}
+
 fn get_log_output(test_env: &TestEnvironment, cwd: &Path) -> String {
     let template = r#"bookmarks ++ " " ++ commit_id.short()"#;
     test_env.jj_cmd_success(cwd, &["log", "-T", template])
