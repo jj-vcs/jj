@@ -730,25 +730,23 @@ async fn import_refs_inner(
 }
 
 /// Import a single commit in the underlying Git repo into the Jujutsu repo.
-pub fn import_commit(
+pub async fn import_commit(
     mut_repo: &mut MutableRepo,
     commit_id: CommitId,
 ) -> Result<(bool, Commit), GitImportError> {
     let store = mut_repo.store();
     let git_backend = get_git_backend(store)?;
     let index = mut_repo.index();
-    let already_imported = index.has_id(&commit_id);
+    let already_imported = index.has_id(&commit_id)?;
     if !already_imported {
         git_backend
             .import_head_commits([&commit_id])
-            .map_err(GitImportError::InternalBackend)?;
+            .map_err(GitImportError::from_git)?;
     }
     let commit = store
         .get_commit(&commit_id)
-        .map_err(GitImportError::InternalBackend)?;
-    mut_repo
-        .add_heads(&[commit.clone()])
-        .map_err(GitImportError::InternalBackend)?;
+        .map_err(GitImportError::Backend)?;
+    mut_repo.add_heads(&[commit.clone()]).await?;
     Ok((already_imported, commit))
 }
 
