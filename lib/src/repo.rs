@@ -1385,8 +1385,7 @@ impl MutableRepo {
     ) -> Result<(), EditCommitError> {
         self.maybe_abandon_wc_commit(&workspace_id)?;
         self.add_head(commit)?;
-        self.set_wc_commit(workspace_id, commit.id().clone())
-            .map_err(|_: RewriteRootCommit| EditCommitError::RewriteRootCommit)
+        Ok(self.set_wc_commit(workspace_id, commit.id().clone())?)
     }
 
     fn maybe_abandon_wc_commit(
@@ -1853,6 +1852,15 @@ pub enum EditCommitError {
     RewriteRootCommit,
     #[error(transparent)]
     BackendError(#[from] BackendError),
+}
+
+impl From<RewriteRootCommit> for EditCommitError {
+    fn from(_: RewriteRootCommit) -> Self {
+        // This let binding guarantees that RewriteRootCommit is a unit struct.
+        // If members are added, update this function to propagate them.
+        let _ = RewriteRootCommit;
+        EditCommitError::RewriteRootCommit
+    }
 }
 
 /// Error from attempts to check out a commit
