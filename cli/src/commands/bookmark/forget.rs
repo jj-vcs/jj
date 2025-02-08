@@ -50,7 +50,7 @@ pub struct BookmarkForgetArgs {
     #[arg(
         required = true,
         value_parser = StringPattern::parse,
-        add = ArgValueCandidates::new(complete::bookmarks),
+        add = ArgValueCandidates::new(complete::bookmark_names),
     )]
     names: Vec<StringPattern>,
 }

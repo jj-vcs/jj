@@ -138,7 +138,7 @@ pub fn untracked_bookmarks() -> Vec<CompletionCandidate> {
     })
 }
 
-pub fn bookmarks() -> Vec<CompletionCandidate> {
+pub fn bookmark_names() -> Vec<CompletionCandidate> {
     with_jj(|jj, settings| {
         let output = jj
             .build()
