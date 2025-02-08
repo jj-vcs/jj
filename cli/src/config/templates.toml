@@ -355,6 +355,7 @@ coalesce(
 
 builtin_op_log_node = '''
 coalesce(
+  if(!self, label("elided", "~")),
   if(current_operation, label("current_operation", "@")),
   "○",
 )
@@ -362,6 +363,7 @@ coalesce(
 
 builtin_op_log_node_ascii = '''
 coalesce(
+  if(!self, label("elided", "~")),
   if(current_operation, label("current_operation", "@")),
   "o",
 )
