@@ -191,7 +191,7 @@ pub fn untracked_bookmarks() -> Vec<CompletionCandidate> {
     })
 }
 
-pub fn bookmarks() -> Vec<CompletionCandidate> {
+fn bookmark_completions(hide_remote_part: bool) -> Vec<CompletionCandidate> {
     with_jj(|jj, _settings| {
         let output = jj
             .build()
@@ -209,10 +209,18 @@ pub fn bookmarks() -> Vec<CompletionCandidate> {
             .map_err(user_error)?;
         let stdout = String::from_utf8_lossy(&output.stdout);
 
-        Ok((&stdout
+        Ok(stdout
             .lines()
             .map(split_help_text)
-            .chunk_by(|(name, _)| name.split_once('@').map(|t| t.0).unwrap_or(name)))
+            .chunk_by(|&(bookmark, _)| {
+                if hide_remote_part {
+                    bookmark
+                        .split_once('@')
+                        .map_or(bookmark, |(name, _remote)| name)
+                } else {
+                    bookmark
+                }
+            })
             .into_iter()
             .map(|(bookmark, mut refs)| {
                 let help = refs.find_map(|(_, help)| help);
@@ -248,6 +256,14 @@ pub fn local_tags() -> Vec<CompletionCandidate> {
             .map(|(name, help)| CompletionCandidate::new(name).help(help))
             .collect())
     })
+}
+
+pub fn local_and_remote_bookmarks() -> Vec<CompletionCandidate> {
+    bookmark_completions(false)
+}
+
+pub fn bookmark_names() -> Vec<CompletionCandidate> {
+    bookmark_completions(true)
 }
 
 pub fn git_remotes() -> Vec<CompletionCandidate> {

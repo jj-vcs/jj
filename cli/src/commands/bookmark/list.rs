@@ -85,7 +85,7 @@ pub struct BookmarkListArgs {
     ///
     /// [string pattern syntax]:
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
-    #[arg(add = ArgValueCandidates::new(complete::bookmarks))]
+    #[arg(add = ArgValueCandidates::new(complete::bookmark_names))]
     names: Option<Vec<String>>,
 
     /// Show bookmarks whose local targets are in the given revisions
