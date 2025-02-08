@@ -1014,7 +1014,7 @@ fn test_revisions() {
     let output = work_dir.complete_fish(["diff", "--from", ""]);
     insta::assert_snapshot!(output, @"
     conflicted_bookmark	conflicted
-    deleted_bookmark	(conflicted bookmark)
+    deleted_bookmark	(deleted bookmark)
     immutable_bookmark	immutable
     mutable_bookmark	mutable 1
     wv	working_copy
@@ -1037,7 +1037,7 @@ fn test_revisions() {
     let output = work_dir.complete_fish(["log", "-r", ".."]);
     insta::assert_snapshot!(output, @"
     ..conflicted_bookmark	conflicted
-    ..deleted_bookmark	(conflicted bookmark)
+    ..deleted_bookmark	(deleted bookmark)
     ..immutable_bookmark	immutable
     ..mutable_bookmark	mutable 1
     ..wv	working_copy
@@ -1112,7 +1112,7 @@ fn test_revisions() {
     let output = work_dir.complete_fish(["-r", ""]);
     insta::assert_snapshot!(output, @"
     conflicted_bookmark	conflicted
-    deleted_bookmark	(conflicted bookmark)
+    deleted_bookmark	(deleted bookmark)
     immutable_bookmark	immutable
     mutable_bookmark	mutable 1
     wv	working_copy
@@ -1143,7 +1143,7 @@ fn test_revisions() {
     let output = work_dir.complete_fish(["git", "push", "--named", "a="]);
     insta::assert_snapshot!(output, @"
     a=conflicted_bookmark	conflicted
-    a=deleted_bookmark	(conflicted bookmark)
+    a=deleted_bookmark	(deleted bookmark)
     a=immutable_bookmark	immutable
     a=mutable_bookmark	mutable 1
     a=wv	working_copy

@@ -47,22 +47,20 @@ use crate::ui::Ui;
 
 const BOOKMARK_HELP_TEMPLATE: &str = r#"template-aliases.'bookmark_help()'='''
 " " ++
-if(normal_target,
-    if(normal_target.description(),
-        normal_target.description().first_line(),
-        "(no description set)",
-    ),
-    "(conflicted bookmark)",
+coalesce(
+    if(!present, "(deleted bookmark)"),
+    if(!normal_target, "(conflicted bookmark)"),
+    if(!normal_target.description(), "(no description set)"),
+    normal_target.description().first_line(),
 )
 '''"#;
 const TAG_HELP_TEMPLATE: &str = r#"template-aliases.'tag_help()'='''
 " " ++
-if(normal_target,
-    if(normal_target.description(),
-        normal_target.description().first_line(),
-        "(no description set)",
-    ),
-    "(conflicted tag)",
+coalesce(
+    if(!present, "(deleted tag)"),
+    if(!normal_target, "(conflicted tag)"),
+    if(!normal_target.description(), "(no description set)"),
+    normal_target.description().first_line(),
 )
 '''"#;
 
