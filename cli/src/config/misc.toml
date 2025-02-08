@@ -18,6 +18,7 @@ private-commits = "none()"
 push-bookmark-prefix = "push-"
 push-new-bookmarks = false
 sign-on-push = false
+init-track-local-bookmarks = false
 
 [ui]
 # TODO: delete ui.allow-filesets in jj 0.26+

@@ -746,6 +746,136 @@ fn test_git_init_colocated_via_flag_git_dir_exists() {
 }
 
 #[test]
+fn test_git_init_colocated_import_branches() {
+    let test_env = TestEnvironment::default();
+
+    let origin_root = test_env.env_root().join("origin");
+    init_git_repo(&origin_root, true);
+
+    let workspace_root = test_env.env_root().join("repo_track");
+    git2::Repository::clone(origin_root.to_str().unwrap(), &workspace_root).unwrap();
+
+    let (stdout, stderr) = test_env.jj_cmd_ok(
+        test_env.env_root(),
+        &[
+            "git",
+            "init",
+            "--colocate",
+            "repo_track",
+            "--config",
+            "git.init-track-local-bookmarks=true",
+        ],
+    );
+    insta::assert_snapshot!(stdout, @"");
+    insta::assert_snapshot!(stderr, @r#"
+    Done importing changes from the underlying Git repo.
+    Setting the revset alias "trunk()" to "my-bookmark@origin"
+    Tracking the following remote bookmarks:
+      my-bookmark@origin
+    Initialized repo in "repo_track"
+    "#);
+
+    // Check that the bookmark is tracked
+    let stdout = test_env.jj_cmd_success(&workspace_root, &["bookmark", "list", "--all"]);
+    insta::assert_snapshot!(stdout, @r#"
+    my-bookmark: mwrttmos 8d698d4a My commit message
+      @git: mwrttmos 8d698d4a My commit message
+      @origin: mwrttmos 8d698d4a My commit message
+    "#);
+
+    let workspace_root = test_env.env_root().join("repo_no_track");
+    git2::Repository::clone(origin_root.to_str().unwrap(), &workspace_root).unwrap();
+
+    let (stdout, stderr) = test_env.jj_cmd_ok(
+        test_env.env_root(),
+        &[
+            "git",
+            "init",
+            "--colocate",
+            "repo_no_track",
+            "--config",
+            "git.init-track-local-bookmarks=false",
+        ],
+    );
+    insta::assert_snapshot!(stdout, @"");
+    insta::assert_snapshot!(stderr, @r#"
+    Done importing changes from the underlying Git repo.
+    Setting the revset alias "trunk()" to "my-bookmark@origin"
+    Hint: The following remote bookmarks aren't associated with the existing local bookmarks:
+      my-bookmark@origin
+    Hint: Run `jj bookmark track my-bookmark@origin` to keep local bookmarks updated on future pulls.
+    Initialized repo in "repo_no_track"
+    "#);
+
+    // Check that the bookmark is *not* tracked
+    let stdout = test_env.jj_cmd_success(&workspace_root, &["bookmark", "list", "--all"]);
+    insta::assert_snapshot!(stdout, @r#"
+    my-bookmark: mwrttmos 8d698d4a My commit message
+      @git: mwrttmos 8d698d4a My commit message
+    my-bookmark@origin: mwrttmos 8d698d4a My commit message
+    "#);
+
+    let workspace_root = test_env.env_root().join("repo_track_local_ahead");
+    clone_and_append_git_commit(&origin_root, &workspace_root);
+    let (stdout, stderr) = test_env.jj_cmd_ok(
+        test_env.env_root(),
+        &[
+            "git",
+            "init",
+            "--colocate",
+            "repo_track_local_ahead",
+            "--config",
+            "git.init-track-local-bookmarks=true",
+        ],
+    );
+    insta::assert_snapshot!(stdout, @"");
+    insta::assert_snapshot!(stderr, @r#"
+    Done importing changes from the underlying Git repo.
+    Setting the revset alias "trunk()" to "my-bookmark@origin"
+    Tracking the following remote bookmarks:
+      my-bookmark@origin
+    Initialized repo in "repo_track_local_ahead"
+    "#);
+
+    // Check that the bookmark is tracked, and local is ahead
+    let stdout = test_env.jj_cmd_success(&workspace_root, &["bookmark", "list", "--all"]);
+    insta::assert_snapshot!(stdout, @r#"
+    my-bookmark: sktoyuxv 7dfa7468 My new commit message
+      @git: sktoyuxv 7dfa7468 My new commit message
+      @origin (behind by 1 commits): mwrttmos 8d698d4a My commit message
+    "#);
+}
+
+fn clone_and_append_git_commit(origin_root: &Path, workspace_root: &Path) {
+    let git_repo = git2::Repository::clone(origin_root.to_str().unwrap(), workspace_root).unwrap();
+    let git_blob_oid = git_repo.blob(b"some different content").unwrap();
+    let mut git_tree_builder = git_repo.treebuilder(None).unwrap();
+    git_tree_builder
+        .insert("some-file", git_blob_oid, 0o100644)
+        .unwrap();
+    let git_tree_id = git_tree_builder.write().unwrap();
+    drop(git_tree_builder);
+    let git_tree = git_repo.find_tree(git_tree_id).unwrap();
+    let git_signature = git2::Signature::new(
+        "Git User",
+        "git.user@example.com",
+        &git2::Time::new(124, 60),
+    )
+    .unwrap();
+    let head = git_repo.head().unwrap().peel_to_commit().unwrap();
+    git_repo
+        .commit(
+            Some("refs/heads/my-bookmark"),
+            &git_signature,
+            &git_signature,
+            "My new commit message",
+            &git_tree,
+            &[&head],
+        )
+        .unwrap();
+}
+
+#[test]
 fn test_git_init_colocated_via_flag_git_dir_not_exists() {
     let test_env = TestEnvironment::default();
     let workspace_root = test_env.env_root().join("repo");
