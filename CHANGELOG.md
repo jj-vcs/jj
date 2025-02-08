@@ -12,6 +12,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+* `jj bookmark forget` now untracks any corresponding remote bookmarks instead
+  of forgetting them, since forgetting a remote bookmark can be unintuitive.
+  The old behavior is still available with the new `--include-remotes` flag.
+
 ### Deprecations
 
 ### New features
@@ -22,6 +26,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Template functions `truncate_start()` and `truncate_end()` gained an optional
   `ellipsis` parameter; passing this prepends or appends the ellipsis to the
   content if it is truncated to fit the maximum width.
+
+* `jj bookmark forget` can now also accept remote bookmarks as arguments. For
+  instance, `jj bookmark forget bookmark@remote` will forget the target of
+  `bookmark@remote` until the next `jj git fetch` from the remote.
 
 ### Fixed bugs
 
