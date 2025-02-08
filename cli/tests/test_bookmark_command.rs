@@ -1150,7 +1150,7 @@ fn test_bookmark_forget_glob() {
     let output = work_dir.run_jj(["bookmark", "forget", "glob:'foo-[1-3'"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: Failed to parse name pattern: Invalid string pattern
+    Error: Failed to parse name pattern or remote symbol: Invalid string pattern
     Caused by:
     1:  --> 1:1
       |
@@ -1283,7 +1283,7 @@ fn test_bookmark_delete_glob() -> TestResult {
     let output = work_dir.run_jj(["bookmark", "forget", "whatever:bookmark"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: Failed to parse name pattern: Invalid string pattern
+    Error: Failed to parse name pattern or remote symbol: Invalid string pattern
     Caused by:
     1:  --> 1:1
       |
@@ -1511,6 +1511,33 @@ fn test_bookmark_forget_fetched_bookmark() {
     feature1@origin: tyvxnvqr 9175cb32 (empty) another message
     [EOF]
     ");
+
+    // TEST 5: Explicitly naming the remote bookmarks has the same behavior as
+    // --include-remotes (same as test 1)
+    work_dir
+        .run_jj(["bookmark", "forget", "feature1", "feature1@origin"])
+        .success();
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"");
+    let output = work_dir.run_jj(["git", "export"]);
+    insta::assert_snapshot!(output, @"");
+    let output = work_dir.run_jj(["git", "import"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    "#);
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"");
+    let output = work_dir.run_jj(["git", "fetch", "--remote=origin"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    bookmark: feature1@origin [new] tracked
+    [EOF]
+    "#);
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r#"
+    feature1: tyvxnvqr 9175cb32 (empty) another message
+      @origin: tyvxnvqr 9175cb32 (empty) another message
+    [EOF]
+    "#);
 }
 
 #[test]

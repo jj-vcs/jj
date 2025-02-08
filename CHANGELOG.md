@@ -75,6 +75,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   disable them. This can be used to disable built-in aliases or disable aliases
   in later layers (such as repo config files).
 
+* `jj bookmark forget` can now also accept remote bookmarks as arguments. For
+  instance, `jj bookmark forget bookmark@remote` will forget the target of
+  `bookmark@remote` until the next `jj git fetch` from the remote.
+
 ### Fixed bugs
 
 * On Windows, `jj` no longer hangs when a subprocess needs to prompt the user,

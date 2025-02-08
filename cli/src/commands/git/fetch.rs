@@ -80,14 +80,8 @@ pub struct GitFetchArgs {
     ///
     /// [logical operators]:
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
-    #[arg(
-        long = "branch",
-        short,
-        alias = "bookmark",
-        group = "specific",
-        value_name = "BRANCH"
-    )]
-    #[arg(add = ArgValueCandidates::new(complete::bookmarks))]
+    #[arg(long = "branch", short, alias = "bookmark", value_name = "BRANCH")]
+    #[arg(add = ArgValueCandidates::new(complete::bookmark_names))]
     branches: Option<Vec<String>>,
 
     /// Fetch only some of the tags (can be repeated)
