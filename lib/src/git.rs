@@ -2620,6 +2620,16 @@ const INVALID_REFSPEC_CHARS: [char; 5] = [':', '^', '?', '[', ']'];
 pub enum GitFetchError {
     #[error("No git remote named '{}'", .0.as_symbol())]
     NoSuchRemote(RemoteNameBuf),
+    #[error("No ref named '{ref_name}' on git remote '{}'", remote.as_symbol())]
+    NoSuchRef {
+        remote: RemoteNameBuf,
+        ref_name: String,
+    },
+    #[error("Git ref '{ref_name}' on remote '{}' does not point to a commit", remote.as_symbol())]
+    RefNotCommit {
+        remote: RemoteNameBuf,
+        ref_name: String,
+    },
     #[error(transparent)]
     RemoteName(#[from] GitRemoteNameError),
     #[error("Failed to update refs: {}", .0.iter().map(|n| n.as_symbol()).join(", "))]
@@ -3075,6 +3085,75 @@ impl<'a> GitFetch<'a> {
             tag_matcher: expr.tag.to_matcher(),
         });
         Ok(())
+    }
+
+    /// Fetches a single ref and imports its commit.
+    #[tracing::instrument(skip(self, callback))]
+    pub fn fetch_and_resolve_ref(
+        &mut self,
+        remote_name: &RemoteName,
+        ref_name: &str,
+        callback: &mut dyn GitSubprocessCallback,
+        depth: Option<NonZeroU32>,
+    ) -> Result<CommitId, GitFetchError> {
+        if self
+            .git_repo
+            .try_find_remote(remote_name.as_str())
+            .is_none()
+        {
+            return Err(GitFetchError::NoSuchRemote(remote_name.to_owned()));
+        }
+
+        let destination_ref_name = format!(
+            "refs/jj/fetch/{remote_name}/{ref_name}",
+            remote_name = remote_name.as_str()
+        );
+        let refspec = RefSpec::forced(ref_name, destination_ref_name.clone());
+        let no_negative_refspecs = [];
+        let fetch_tags = Some(FetchTagsOverride::NoTags);
+        match self.git_ctx.spawn_fetch(
+            remote_name,
+            &[refspec],
+            &no_negative_refspecs,
+            callback,
+            depth,
+            fetch_tags,
+        )? {
+            GitFetchStatus::Updates(updates) => {
+                if !updates.rejected.is_empty() {
+                    let names = updates.rejected.into_iter().map(|(name, _)| name).collect();
+                    return Err(GitFetchError::RejectedUpdates(names));
+                }
+            }
+            GitFetchStatus::NoRemoteRef(_) => {
+                return Err(GitFetchError::NoSuchRef {
+                    remote: remote_name.to_owned(),
+                    ref_name: ref_name.to_owned(),
+                });
+            }
+        }
+
+        let mut reference = self
+            .git_repo
+            .find_reference(&destination_ref_name)
+            .map_err(|_| GitFetchError::NoSuchRef {
+                remote: remote_name.to_owned(),
+                ref_name: ref_name.to_owned(),
+            })?;
+        let commit_id = reference
+            .peel_to_commit()
+            .map_err(|_| GitFetchError::RefNotCommit {
+                remote: remote_name.to_owned(),
+                ref_name: ref_name.to_owned(),
+            })?
+            .id()
+            .detach();
+        reference.delete().map_err(|err| {
+            GitSubprocessError::External(format!(
+                "failed to delete temporary fetch ref {destination_ref_name}: {err}"
+            ))
+        })?;
+        Ok(CommitId::from_bytes(commit_id.as_bytes()))
     }
 
     /// Queries remote for the default branch name.
