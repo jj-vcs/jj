@@ -23,6 +23,7 @@ use crate::cli_util::RevisionArg;
 use crate::command_error::user_error;
 use crate::command_error::CommandError;
 use crate::description_util::combine_messages;
+use crate::merge_tools::InitialSelection;
 use crate::ui::Ui;
 
 /// Move changes from a revision's parent into the revision
@@ -108,6 +109,7 @@ aborted.
             &parent_tree,
             &EverythingMatcher,
             format_instructions,
+            InitialSelection::None,
         )?;
         if new_parent_tree_id == parent_base_tree.id() {
             return Err(user_error("No changes selected"));
