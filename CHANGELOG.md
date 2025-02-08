@@ -171,6 +171,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * New `subject(pattern)` revset function that matches first line of commit
   descriptions.
+* Warn user if they try to use `jj boookmark set branch@remote`
 
 * Conditional configuration now supports `--when.commands` to change
   configuration based on subcommand.

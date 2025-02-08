@@ -97,6 +97,7 @@ use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::repo_path::UiPathParseError;
 use jj_lib::revset;
+use jj_lib::revset::ExpressionNode;
 use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::RevsetAliasesMap;
 use jj_lib::revset::RevsetDiagnostics;
@@ -1624,6 +1625,19 @@ to the current parents may contain changes from multiple commits.
             revset::parse_with_modifier(&mut diagnostics, revision_arg.as_ref(), &context)?;
         print_parse_diagnostics(ui, "In revset expression", &diagnostics)?;
         Ok((self.attach_revset_evaluator(expression), modifier))
+    }
+
+    pub fn parse_revset_expression<'a, 'b>(
+        &'b self,
+        revision_arg: &'a str,
+    ) -> Result<ExpressionNode<'a>, CommandError>
+    where
+        'b: 'a,
+    {
+        let context = self.revset_parse_context();
+        let expression = revset::parse_expr_with_expansion(revision_arg, &context)?;
+
+        Ok(expression)
     }
 
     /// Parses the given revset expressions and concatenates them all.
