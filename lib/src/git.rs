@@ -729,6 +729,29 @@ async fn import_refs_inner(
     Ok(stats)
 }
 
+/// Import a single commit in the underlying Git repo into the Jujutsu repo.
+pub fn import_commit(
+    mut_repo: &mut MutableRepo,
+    commit_id: CommitId,
+) -> Result<(bool, Commit), GitImportError> {
+    let store = mut_repo.store();
+    let git_backend = get_git_backend(store)?;
+    let index = mut_repo.index();
+    let already_imported = index.has_id(&commit_id);
+    if !already_imported {
+        git_backend
+            .import_head_commits([&commit_id])
+            .map_err(GitImportError::InternalBackend)?;
+    }
+    let commit = store
+        .get_commit(&commit_id)
+        .map_err(GitImportError::InternalBackend)?;
+    mut_repo
+        .add_heads(&[commit.clone()])
+        .map_err(GitImportError::InternalBackend)?;
+    Ok((already_imported, commit))
+}
+
 /// Finds commits that used to be reachable in git that no longer are reachable.
 /// Those commits will be recorded as abandoned in the `MutableRepo`.
 async fn abandon_unreachable_commits(
