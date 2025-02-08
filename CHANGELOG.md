@@ -12,6 +12,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+* `jj split` no longer moves bookmarks to the second revision created by the
+  split. Local bookmarks associated with the target revision will point to the
+  first revision (which inherits the target revision's change id) created by the
+  split. [#3419](https://github.com/jj-vcs/jj/issues/3419)
+
 ### Deprecations
 
 ### New features

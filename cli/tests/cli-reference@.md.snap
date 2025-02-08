@@ -2280,6 +2280,8 @@ Starts a [diff editor] on the changes in the revision. Edit the right side of th
 
 If the change you split had a description, you will be asked to enter a change description for each commit. If the change did not have a description, the second part will not get a description, and you will be asked for a description only for the first part.
 
+The first revision created by the split inherits the change id of the target revision and any local bookmarks associated with it.
+
 Splitting an empty commit is not supported because the same effect can be achieved with `jj new`.
 
 **Usage:** `jj split [OPTIONS] [FILESETS]...`

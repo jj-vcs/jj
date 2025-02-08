@@ -43,6 +43,9 @@ use crate::ui::Ui;
 /// description, the second part will not get a description, and you will be
 /// asked for a description only for the first part.
 ///
+/// The first revision created by the split inherits the change id of the target
+/// revision and any local bookmarks associated with it.
+///
 /// Splitting an empty commit is not supported because the same effect can be
 /// achieved with `jj new`.
 #[derive(clap::Args, Clone, Debug)]
@@ -83,6 +86,7 @@ pub(crate) fn cmd_split(
     args: &SplitArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
+    let at = workspace_command.resolve_single_rev(ui, &RevisionArg::AT)?;
     let commit = workspace_command.resolve_single_rev(ui, &args.revision)?;
     if commit.is_empty(workspace_command.repo().as_ref())? {
         return Err(user_error_with_hint(
@@ -196,23 +200,21 @@ The remainder will be in the second commit.
         commit_builder.write(tx.repo_mut())?
     };
 
-    // Mark the commit being split as rewritten to the second commit. As a
-    // result, if @ points to the commit being split, it will point to the
-    // second commit after the command finishes. This also means that any
-    // bookmarks pointing to the commit being split are moved to the second
-    // commit.
+    // Mark the first commit as the rewrite of the target commit. Since the
+    // first commit inherits the change id of the target commit, this ensures
+    // bookmarks continue pointing to the same change id before and after the
+    // split.
     tx.repo_mut()
-        .set_rewritten_commit(commit.id().clone(), second_commit.id().clone());
+        .set_rewritten_commit(commit.id().clone(), first_commit.id().clone());
     let mut num_rebased = 0;
     tx.repo_mut()
         .transform_descendants(vec![commit.id().clone()], |mut rewriter| {
             num_rebased += 1;
             if args.parallel {
-                rewriter
-                    .replace_parent(second_commit.id(), [first_commit.id(), second_commit.id()]);
+                rewriter.replace_parent(first_commit.id(), [first_commit.id(), second_commit.id()]);
+            } else {
+                rewriter.replace_parent(first_commit.id(), [second_commit.id()]);
             }
-            // We don't need to do anything special for the non-parallel case
-            // since we already marked the original commit as rewritten.
             rewriter.rebase()?.write()?;
             Ok(())
         })?;
@@ -226,6 +228,11 @@ The remainder will be in the second commit.
         write!(formatter, "\nSecond part: ")?;
         tx.write_commit_summary(formatter.as_mut(), &second_commit)?;
         writeln!(formatter)?;
+    }
+    // If the working copy commit (@) refers to the target commit, move it to
+    // the second commit.
+    if at.id() == commit.id() {
+        tx.edit(&second_commit)?;
     }
     tx.finish(ui, format!("split commit {}", commit.id().hex()))?;
     Ok(())
