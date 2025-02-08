@@ -21,6 +21,7 @@ use thiserror::Error;
 
 use crate::cli_util::short_commit_hash;
 use crate::cli_util::WorkspaceCommandTransaction;
+use crate::command_error::user_error;
 use crate::command_error::CommandError;
 use crate::config::CommandNameAndArgs;
 use crate::formatter::PlainTextFormatter;
@@ -169,11 +170,11 @@ JJ: Lines starting with "JJ:" (like this one) will be removed.
 }
 
 /// Edits the descriptions of the given commits in a single editor session.
-pub fn edit_multiple_descriptions(
+pub fn edit_multiple_descriptions<'a>(
     ui: &Ui,
     editor: &TextEditor,
     tx: &WorkspaceCommandTransaction,
-    commits: &[(&CommitId, Commit)],
+    commits: impl IntoIterator<Item = (&'a CommitId, &'a Commit, &'a str)>,
 ) -> Result<ParsedBulkEditMessage<CommitId>, CommandError> {
     let mut commits_map = IndexMap::new();
     let mut bulk_message = String::new();
@@ -185,13 +186,13 @@ pub fn edit_multiple_descriptions(
         JJ: - The syntax of the separator lines may change in the future.
 
     "#});
-    for (commit_id, temp_commit) in commits {
+    for (commit_id, temp_commit, intro) in commits {
         let commit_hash = short_commit_hash(commit_id);
         bulk_message.push_str("JJ: describe ");
         bulk_message.push_str(&commit_hash);
         bulk_message.push_str(" -------\n");
-        commits_map.insert(commit_hash, *commit_id);
-        let template = description_template(ui, tx, "", temp_commit)?;
+        commits_map.insert(commit_hash, commit_id);
+        let template = description_template(ui, tx, intro, temp_commit)?;
         bulk_message.push_str(&template);
         bulk_message.push('\n');
     }
@@ -217,6 +218,32 @@ pub struct ParsedBulkEditMessage<T> {
     /// Commit IDs that were found while parsing the edited messages, but which
     /// were not originally being edited.
     pub unexpected: Vec<String>,
+}
+
+impl<T> ParsedBulkEditMessage<T> {
+    pub fn assert_complete(self) -> Result<HashMap<T, String>, CommandError> {
+        if !self.missing.is_empty() {
+            return Err(user_error(format!(
+                "The description for the following commits were not found in the edited message: \
+                 {}",
+                self.missing.join(", ")
+            )));
+        }
+        if !self.duplicates.is_empty() {
+            return Err(user_error(format!(
+                "The following commits were found in the edited message multiple times: {}",
+                self.duplicates.join(", ")
+            )));
+        }
+        if !self.unexpected.is_empty() {
+            return Err(user_error(format!(
+                "The following commits were not being edited, but were found in the edited \
+                 message: {}",
+                self.unexpected.join(", ")
+            )));
+        }
+        Ok(self.descriptions)
+    }
 }
 
 #[derive(Debug, Error, PartialEq)]

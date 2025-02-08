@@ -25,14 +25,12 @@ use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
-use crate::command_error::user_error;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::description_util::description_template;
 use crate::description_util::edit_description;
 use crate::description_util::edit_multiple_descriptions;
 use crate::description_util::join_message_paragraphs;
-use crate::description_util::ParsedBulkEditMessage;
 use crate::text_util::parse_author;
 use crate::ui::Ui;
 
@@ -199,32 +197,13 @@ pub(crate) fn cmd_describe(
             let description = edit_description(&text_editor, &template)?;
             vec![(&commits[0], description)]
         } else {
-            let ParsedBulkEditMessage {
-                descriptions,
-                missing,
-                duplicates,
-                unexpected,
-            } = edit_multiple_descriptions(ui, &text_editor, &tx, &temp_commits)?;
-            if !missing.is_empty() {
-                return Err(user_error(format!(
-                    "The description for the following commits were not found in the edited \
-                     message: {}",
-                    missing.join(", ")
-                )));
-            }
-            if !duplicates.is_empty() {
-                return Err(user_error(format!(
-                    "The following commits were found in the edited message multiple times: {}",
-                    duplicates.join(", ")
-                )));
-            }
-            if !unexpected.is_empty() {
-                return Err(user_error(format!(
-                    "The following commits were not being edited, but were found in the edited \
-                     message: {}",
-                    unexpected.join(", ")
-                )));
-            }
+            let descriptions = edit_multiple_descriptions(
+                ui,
+                &text_editor,
+                &tx,
+                temp_commits.iter().map(|(id, commit)| (*id, commit, "")),
+            )?
+            .assert_complete()?;
 
             let commit_descriptions = commits
                 .iter()
