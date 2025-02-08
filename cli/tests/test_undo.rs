@@ -13,6 +13,7 @@
 // limitations under the License.
 use std::path::Path;
 
+use crate::common::git;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -51,7 +52,7 @@ fn test_git_push_undo() {
     let test_env = TestEnvironment::default();
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
     let git_repo_path = test_env.env_root().join("git-repo");
-    git2::Repository::init_bare(git_repo_path).unwrap();
+    git::init_bare(git_repo_path);
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "clone", "git-repo", "repo"]);
     let repo_path = test_env.env_root().join("repo");
 
@@ -124,7 +125,7 @@ fn test_git_push_undo_with_import() {
     let test_env = TestEnvironment::default();
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
     let git_repo_path = test_env.env_root().join("git-repo");
-    git2::Repository::init_bare(git_repo_path).unwrap();
+    git::init_bare(git_repo_path);
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "clone", "git-repo", "repo"]);
     let repo_path = test_env.env_root().join("repo");
 
@@ -203,9 +204,10 @@ fn test_git_push_undo_colocated() {
     let test_env = TestEnvironment::default();
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
     let git_repo_path = test_env.env_root().join("git-repo");
-    git2::Repository::init_bare(git_repo_path.clone()).unwrap();
+    git::init_bare(git_repo_path.clone());
     let repo_path = test_env.env_root().join("clone");
-    git2::Repository::clone(git_repo_path.to_str().unwrap(), &repo_path).unwrap();
+    let _repo = git::clone(&repo_path, git_repo_path.to_str().unwrap());
+
     test_env.jj_cmd_ok(&repo_path, &["git", "init", "--git-repo=."]);
 
     test_env.advance_test_rng_seed_to_multiple_of(100_000);
@@ -284,7 +286,7 @@ fn test_git_push_undo_repo_only() {
     let test_env = TestEnvironment::default();
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
     let git_repo_path = test_env.env_root().join("git-repo");
-    git2::Repository::init_bare(git_repo_path).unwrap();
+    git::init_bare(git_repo_path);
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "clone", "git-repo", "repo"]);
     let repo_path = test_env.env_root().join("repo");
 
@@ -329,7 +331,7 @@ fn test_bookmark_track_untrack_undo() {
     let test_env = TestEnvironment::default();
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
     let git_repo_path = test_env.env_root().join("git-repo");
-    git2::Repository::init_bare(git_repo_path).unwrap();
+    git::init_bare(git_repo_path);
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "clone", "git-repo", "repo"]);
     let repo_path = test_env.env_root().join("repo");
 

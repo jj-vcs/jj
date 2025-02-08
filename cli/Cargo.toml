@@ -106,6 +106,12 @@ async-trait = { workspace = true }
 insta = { workspace = true }
 test-case = { workspace = true }
 testutils = { workspace = true }
+gix = { workspace = true, features = [
+    "blocking-network-client",
+    "status",
+    "tree-editor",
+    "worktree-mutation",
+] }
 # https://github.com/rust-lang/cargo/issues/2911#issuecomment-1483256987
 jj-cli = { path = ".", features = ["test-fakes"], default-features = false }
 

@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::common::git;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -22,13 +23,18 @@ fn test_tag_list() {
     let git_repo = {
         let mut git_repo_path = repo_path.clone();
         git_repo_path.extend([".jj", "repo", "store", "git"]);
-        git2::Repository::open(git_repo_path).unwrap()
+        git::open(git_repo_path)
     };
 
-    let copy_ref = |src_name: &str, dest_name: &str| {
+    let copy_ref = |src_name: &str, tag_name: &str| {
         let src = git_repo.find_reference(src_name).unwrap();
-        let oid = src.target().unwrap();
-        git_repo.reference(dest_name, oid, true, "").unwrap();
+        git_repo
+            .tag_reference(
+                tag_name,
+                src.target().id(),
+                gix::refs::transaction::PreviousValue::Any,
+            )
+            .unwrap();
     };
 
     test_env.jj_cmd_ok(&repo_path, &["new", "root()", "-mcommit1"]);
@@ -39,13 +45,13 @@ fn test_tag_list() {
     test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "bookmark3"]);
     test_env.jj_cmd_ok(&repo_path, &["git", "export"]);
 
-    copy_ref("refs/heads/bookmark1", "refs/tags/test_tag");
-    copy_ref("refs/heads/bookmark2", "refs/tags/test_tag2");
-    copy_ref("refs/heads/bookmark1", "refs/tags/conflicted_tag");
+    copy_ref("refs/heads/bookmark1", "test_tag");
+    copy_ref("refs/heads/bookmark2", "test_tag2");
+    copy_ref("refs/heads/bookmark1", "conflicted_tag");
     test_env.jj_cmd_ok(&repo_path, &["git", "import"]);
-    copy_ref("refs/heads/bookmark2", "refs/tags/conflicted_tag");
+    copy_ref("refs/heads/bookmark2", "conflicted_tag");
     test_env.jj_cmd_ok(&repo_path, &["git", "import"]);
-    copy_ref("refs/heads/bookmark3", "refs/tags/conflicted_tag");
+    copy_ref("refs/heads/bookmark3", "conflicted_tag");
     test_env.jj_cmd_ok(&repo_path, &["git", "import", "--at-op=@-"]);
     test_env.jj_cmd_ok(&repo_path, &["status"]); // resolve concurrent ops
 

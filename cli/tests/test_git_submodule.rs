@@ -12,13 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::common::git;
 use crate::common::TestEnvironment;
 
 #[test]
 fn test_gitsubmodule_print_gitmodules() {
     let test_env = TestEnvironment::default();
     let workspace_root = test_env.env_root().join("repo");
-    git2::Repository::init(&workspace_root).unwrap();
+    git::init(&workspace_root);
     test_env.jj_cmd_ok(&workspace_root, &["git", "init", "--git-repo", "."]);
 
     std::fs::write(
