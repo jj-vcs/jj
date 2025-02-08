@@ -1386,7 +1386,7 @@ impl MutableRepo {
         self.maybe_abandon_wc_commit(&workspace_id)?;
         self.add_head(commit)?;
         self.set_wc_commit(workspace_id, commit.id().clone())
-            .map_err(|RewriteRootCommit| EditCommitError::RewriteRootCommit)
+            .map_err(|_: RewriteRootCommit| EditCommitError::RewriteRootCommit)
     }
 
     fn maybe_abandon_wc_commit(
