@@ -1385,8 +1385,7 @@ impl MutableRepo {
     ) -> Result<(), EditCommitError> {
         self.maybe_abandon_wc_commit(&workspace_id)?;
         self.add_head(commit)?;
-        self.set_wc_commit(workspace_id, commit.id().clone())
-            .map_err(|_: RewriteRootCommit| EditCommitError::RewriteRootCommit)
+        Ok(self.set_wc_commit(workspace_id, commit.id().clone())?)
     }
 
     fn maybe_abandon_wc_commit(
@@ -1849,8 +1848,8 @@ pub struct RewriteRootCommit;
 pub enum EditCommitError {
     #[error("Current working-copy commit not found")]
     WorkingCopyCommitNotFound(#[source] BackendError),
-    #[error("Cannot rewrite the root commit")]
-    RewriteRootCommit,
+    #[error(transparent)]
+    RewriteRootCommit(#[from] RewriteRootCommit),
     #[error(transparent)]
     BackendError(#[from] BackendError),
 }
