@@ -210,8 +210,12 @@ fn test_completions_are_generated() {
     // cannot use assert_snapshot!, output contains path to binary that depends
     // on environment
     assert!(stdout.starts_with("complete --keep-order --exclusive --command jj --arguments"));
-    let stdout = test_env.jj_cmd_success(test_env.env_root(), &["--"]);
-    assert!(stdout.starts_with("complete --keep-order --exclusive --command jj --arguments"));
+    let stdout_dashdash = test_env.jj_cmd_success(test_env.env_root(), &["--"]);
+    assert_eq!(stdout, stdout_dashdash);
+    // Used in https://github.com/fish-shell/fish-shell/pull/11046 to check
+    // whether `jj` is new enough to support dynamic completions
+    let stdout_unknowncommand = test_env.jj_cmd_success(test_env.env_root(), &["random-command"]);
+    assert_eq!(stdout, stdout_unknowncommand);
 }
 
 #[test]
