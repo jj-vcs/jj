@@ -30,9 +30,9 @@ fn set_up() -> (TestEnvironment, PathBuf) {
         .join("git");
 
     test_env.jj_cmd_ok(&origin_path, &["describe", "-m=description 1"]);
-    test_env.jj_cmd_ok(&origin_path, &["bookmark", "create", "bookmark1"]);
+    test_env.jj_cmd_ok(&origin_path, &["bookmark", "create", "-r@", "bookmark1"]);
     test_env.jj_cmd_ok(&origin_path, &["new", "root()", "-m=description 2"]);
-    test_env.jj_cmd_ok(&origin_path, &["bookmark", "create", "bookmark2"]);
+    test_env.jj_cmd_ok(&origin_path, &["bookmark", "create", "-r@", "bookmark2"]);
     test_env.jj_cmd_ok(&origin_path, &["git", "export"]);
 
     test_env.jj_cmd_ok(
@@ -92,8 +92,11 @@ fn test_git_push_current_bookmark(subprocess: bool) {
         &["describe", "bookmark1", "-m", "modified bookmark1 commit"],
     );
     test_env.jj_cmd_ok(&workspace_root, &["new", "bookmark2"]);
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "set", "bookmark2"]);
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "my-bookmark"]);
+    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "set", "bookmark2", "-r@"]);
+    test_env.jj_cmd_ok(
+        &workspace_root,
+        &["bookmark", "create", "-r@", "my-bookmark"],
+    );
     test_env.jj_cmd_ok(&workspace_root, &["describe", "-m", "foo"]);
     // Check the setup
     insta::allow_duplicates! {
@@ -332,13 +335,13 @@ fn test_git_push_forward_unexpectedly_moved(subprocess: bool) {
     let origin_path = test_env.env_root().join("origin");
     test_env.jj_cmd_ok(&origin_path, &["new", "bookmark1", "-m=remote"]);
     std::fs::write(origin_path.join("remote"), "remote").unwrap();
-    test_env.jj_cmd_ok(&origin_path, &["bookmark", "set", "bookmark1"]);
+    test_env.jj_cmd_ok(&origin_path, &["bookmark", "set", "bookmark1", "-r@"]);
     test_env.jj_cmd_ok(&origin_path, &["git", "export"]);
 
     // Move bookmark1 forward to another commit locally
     test_env.jj_cmd_ok(&workspace_root, &["new", "bookmark1", "-m=local"]);
     std::fs::write(workspace_root.join("local"), "local").unwrap();
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "set", "bookmark1"]);
+    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "set", "bookmark1", "-r@"]);
 
     // Pushing should fail
     let stderr = test_env.jj_cmd_failure(&workspace_root, &["git", "push"]);
@@ -364,7 +367,7 @@ fn test_git_push_sideways_unexpectedly_moved(subprocess: bool) {
     let origin_path = test_env.env_root().join("origin");
     test_env.jj_cmd_ok(&origin_path, &["new", "bookmark1", "-m=remote"]);
     std::fs::write(origin_path.join("remote"), "remote").unwrap();
-    test_env.jj_cmd_ok(&origin_path, &["bookmark", "set", "bookmark1"]);
+    test_env.jj_cmd_ok(&origin_path, &["bookmark", "set", "bookmark1", "-r@"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &origin_path), @r###"
     bookmark1: vruxwmqv 80284bec remote
@@ -380,7 +383,7 @@ fn test_git_push_sideways_unexpectedly_moved(subprocess: bool) {
     std::fs::write(workspace_root.join("local"), "local").unwrap();
     test_env.jj_cmd_ok(
         &workspace_root,
-        &["bookmark", "set", "bookmark1", "--allow-backwards"],
+        &["bookmark", "set", "bookmark1", "--allow-backwards", "-r@"],
     );
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &workspace_root), @r###"
@@ -416,7 +419,7 @@ fn test_git_push_deletion_unexpectedly_moved(subprocess: bool) {
     let origin_path = test_env.env_root().join("origin");
     test_env.jj_cmd_ok(&origin_path, &["new", "bookmark1", "-m=remote"]);
     std::fs::write(origin_path.join("remote"), "remote").unwrap();
-    test_env.jj_cmd_ok(&origin_path, &["bookmark", "set", "bookmark1"]);
+    test_env.jj_cmd_ok(&origin_path, &["bookmark", "set", "bookmark1", "-r@"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &origin_path), @r###"
     bookmark1: vruxwmqv 80284bec remote
@@ -476,7 +479,7 @@ fn test_git_push_unexpectedly_deleted(subprocess: bool) {
     std::fs::write(workspace_root.join("local"), "local").unwrap();
     test_env.jj_cmd_ok(
         &workspace_root,
-        &["bookmark", "set", "bookmark1", "--allow-backwards"],
+        &["bookmark", "set", "bookmark1", "--allow-backwards", "-r@"],
     );
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &workspace_root), @r###"
@@ -544,7 +547,7 @@ fn test_git_push_creation_unexpectedly_already_exists(subprocess: bool) {
     // Create a new branh1
     test_env.jj_cmd_ok(&workspace_root, &["new", "root()", "-m=new bookmark1"]);
     std::fs::write(workspace_root.join("local"), "local").unwrap();
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "bookmark1"]);
+    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "-r@", "bookmark1"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &workspace_root), @r###"
     bookmark1: yostqsxw cb17dcdc new bookmark1
@@ -576,7 +579,7 @@ fn test_git_push_locally_created_and_rewritten(subprocess: bool) {
 
     // Push locally-created bookmark
     test_env.jj_cmd_ok(&workspace_root, &["new", "root()", "-mlocal 1"]);
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "my"]);
+    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "-r@", "my"]);
     let (_stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["git", "push"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(stderr, @r"
@@ -640,9 +643,12 @@ fn test_git_push_multiple(subprocess: bool) {
     test_env.jj_cmd_ok(&workspace_root, &["bookmark", "delete", "bookmark1"]);
     test_env.jj_cmd_ok(
         &workspace_root,
-        &["bookmark", "set", "--allow-backwards", "bookmark2"],
+        &["bookmark", "set", "--allow-backwards", "bookmark2", "-r@"],
     );
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "my-bookmark"]);
+    test_env.jj_cmd_ok(
+        &workspace_root,
+        &["bookmark", "create", "-r@", "my-bookmark"],
+    );
     test_env.jj_cmd_ok(&workspace_root, &["describe", "-m", "foo"]);
     // Check the setup
     insta::allow_duplicates! {
@@ -958,11 +964,20 @@ fn test_git_push_revisions(subprocess: bool) {
     test_env.jj_cmd_ok(&workspace_root, &["describe", "-m", "foo"]);
     std::fs::write(workspace_root.join("file"), "contents").unwrap();
     test_env.jj_cmd_ok(&workspace_root, &["new", "-m", "bar"]);
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "bookmark-1"]);
+    test_env.jj_cmd_ok(
+        &workspace_root,
+        &["bookmark", "create", "-r@", "bookmark-1"],
+    );
     std::fs::write(workspace_root.join("file"), "modified").unwrap();
     test_env.jj_cmd_ok(&workspace_root, &["new", "-m", "baz"]);
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "bookmark-2a"]);
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "bookmark-2b"]);
+    test_env.jj_cmd_ok(
+        &workspace_root,
+        &["bookmark", "create", "-r@", "bookmark-2a"],
+    );
+    test_env.jj_cmd_ok(
+        &workspace_root,
+        &["bookmark", "create", "-r@", "bookmark-2b"],
+    );
     std::fs::write(workspace_root.join("file"), "modified again").unwrap();
 
     // Push an empty set
@@ -1062,11 +1077,20 @@ fn test_git_push_mixed(subprocess: bool) {
     test_env.jj_cmd_ok(&workspace_root, &["describe", "-m", "foo"]);
     std::fs::write(workspace_root.join("file"), "contents").unwrap();
     test_env.jj_cmd_ok(&workspace_root, &["new", "-m", "bar"]);
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "bookmark-1"]);
+    test_env.jj_cmd_ok(
+        &workspace_root,
+        &["bookmark", "create", "-r@", "bookmark-1"],
+    );
     std::fs::write(workspace_root.join("file"), "modified").unwrap();
     test_env.jj_cmd_ok(&workspace_root, &["new", "-m", "baz"]);
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "bookmark-2a"]);
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "bookmark-2b"]);
+    test_env.jj_cmd_ok(
+        &workspace_root,
+        &["bookmark", "create", "-r@", "bookmark-2a"],
+    );
+    test_env.jj_cmd_ok(
+        &workspace_root,
+        &["bookmark", "create", "-r@", "bookmark-2b"],
+    );
     std::fs::write(workspace_root.join("file"), "modified again").unwrap();
 
     // --allow-new is not implied for --bookmark=.. and -r=..
@@ -1128,6 +1152,7 @@ fn test_git_push_existing_long_bookmark(subprocess: bool) {
         &[
             "bookmark",
             "create",
+            "-r@",
             "push-19b790168e73f7a73a98deae21e807c0",
         ],
     );
@@ -1171,7 +1196,10 @@ fn test_git_push_conflict(subprocess: bool) {
     test_env.jj_cmd_ok(&workspace_root, &["commit", "-m", "second"]);
     std::fs::write(workspace_root.join("file"), "third").unwrap();
     test_env.jj_cmd_ok(&workspace_root, &["rebase", "-r", "@", "-d", "@--"]);
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "my-bookmark"]);
+    test_env.jj_cmd_ok(
+        &workspace_root,
+        &["bookmark", "create", "-r@", "my-bookmark"],
+    );
     test_env.jj_cmd_ok(&workspace_root, &["describe", "-m", "third"]);
     let stderr = test_env.jj_cmd_failure(&workspace_root, &["git", "push", "--all"]);
     insta::allow_duplicates! {
@@ -1189,7 +1217,10 @@ fn test_git_push_no_description(subprocess: bool) {
     if subprocess {
         test_env.add_config("git.subprocess = true");
     }
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "my-bookmark"]);
+    test_env.jj_cmd_ok(
+        &workspace_root,
+        &["bookmark", "create", "-r@", "my-bookmark"],
+    );
     test_env.jj_cmd_ok(&workspace_root, &["describe", "-m="]);
     let stderr = test_env.jj_cmd_failure(
         &workspace_root,
@@ -1221,11 +1252,14 @@ fn test_git_push_no_description_in_immutable(subprocess: bool) {
     if subprocess {
         test_env.add_config("git.subprocess = true");
     }
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "imm"]);
+    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "-r@", "imm"]);
     test_env.jj_cmd_ok(&workspace_root, &["describe", "-m="]);
     test_env.jj_cmd_ok(&workspace_root, &["new", "-m", "foo"]);
     std::fs::write(workspace_root.join("file"), "contents").unwrap();
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "my-bookmark"]);
+    test_env.jj_cmd_ok(
+        &workspace_root,
+        &["bookmark", "create", "-r@", "my-bookmark"],
+    );
 
     let stderr = test_env.jj_cmd_failure(
         &workspace_root,
@@ -1282,7 +1316,7 @@ fn test_git_push_missing_author(subprocess: bool) {
             .success();
     };
     run_without_var("JJ_USER", &["new", "root()", "-m=initial"]);
-    run_without_var("JJ_USER", &["bookmark", "create", "missing-name"]);
+    run_without_var("JJ_USER", &["bookmark", "create", "-r@", "missing-name"]);
     let stderr = test_env.jj_cmd_failure(
         &workspace_root,
         &["git", "push", "--allow-new", "--bookmark", "missing-name"],
@@ -1294,7 +1328,7 @@ fn test_git_push_missing_author(subprocess: bool) {
     ");
     }
     run_without_var("JJ_EMAIL", &["new", "root()", "-m=initial"]);
-    run_without_var("JJ_EMAIL", &["bookmark", "create", "missing-email"]);
+    run_without_var("JJ_EMAIL", &["bookmark", "create", "-r@", "missing-email"]);
     let stderr = test_env.jj_cmd_failure(
         &workspace_root,
         &["git", "push", "--allow-new", "--bookmark=missing-email"],
@@ -1323,10 +1357,13 @@ fn test_git_push_missing_author_in_immutable(subprocess: bool) {
     };
     run_without_var("JJ_USER", &["new", "root()", "-m=no author name"]);
     run_without_var("JJ_EMAIL", &["new", "-m=no author email"]);
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "imm"]);
+    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "-r@", "imm"]);
     test_env.jj_cmd_ok(&workspace_root, &["new", "-m", "foo"]);
     std::fs::write(workspace_root.join("file"), "contents").unwrap();
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "my-bookmark"]);
+    test_env.jj_cmd_ok(
+        &workspace_root,
+        &["bookmark", "create", "-r@", "my-bookmark"],
+    );
 
     let stderr = test_env.jj_cmd_failure(
         &workspace_root,
@@ -1382,7 +1419,10 @@ fn test_git_push_missing_committer(subprocess: bool) {
             .assert()
             .success();
     };
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "missing-name"]);
+    test_env.jj_cmd_ok(
+        &workspace_root,
+        &["bookmark", "create", "-r@", "missing-name"],
+    );
     run_without_var("JJ_USER", &["describe", "-m=no committer name"]);
     let stderr = test_env.jj_cmd_failure(
         &workspace_root,
@@ -1395,7 +1435,10 @@ fn test_git_push_missing_committer(subprocess: bool) {
     ");
     }
     test_env.jj_cmd_ok(&workspace_root, &["new", "root()"]);
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "missing-email"]);
+    test_env.jj_cmd_ok(
+        &workspace_root,
+        &["bookmark", "create", "-r@", "missing-email"],
+    );
     run_without_var("JJ_EMAIL", &["describe", "-m=no committer email"]);
     let stderr = test_env.jj_cmd_failure(
         &workspace_root,
@@ -1440,10 +1483,13 @@ fn test_git_push_missing_committer_in_immutable(subprocess: bool) {
     run_without_var("JJ_USER", &["describe", "-m=no committer name"]);
     test_env.jj_cmd_ok(&workspace_root, &["new"]);
     run_without_var("JJ_EMAIL", &["describe", "-m=no committer email"]);
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "imm"]);
+    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "-r@", "imm"]);
     test_env.jj_cmd_ok(&workspace_root, &["new", "-m", "foo"]);
     std::fs::write(workspace_root.join("file"), "contents").unwrap();
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "my-bookmark"]);
+    test_env.jj_cmd_ok(
+        &workspace_root,
+        &["bookmark", "create", "-r@", "my-bookmark"],
+    );
 
     let stderr = test_env.jj_cmd_failure(
         &workspace_root,
@@ -1549,7 +1595,7 @@ fn test_git_push_conflicting_bookmarks(subprocess: bool) {
         .unwrap();
     test_env.jj_cmd_ok(&workspace_root, &["git", "import"]);
     test_env.jj_cmd_ok(&workspace_root, &["new", "root()", "-m=description 3"]);
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "bookmark2"]);
+    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "-r@", "bookmark2"]);
     test_env.jj_cmd_ok(&workspace_root, &["git", "fetch"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &workspace_root), @r###"
@@ -1564,7 +1610,7 @@ fn test_git_push_conflicting_bookmarks(subprocess: bool) {
 
     let bump_bookmark1 = || {
         test_env.jj_cmd_ok(&workspace_root, &["new", "bookmark1", "-m=bump"]);
-        test_env.jj_cmd_ok(&workspace_root, &["bookmark", "set", "bookmark1"]);
+        test_env.jj_cmd_ok(&workspace_root, &["bookmark", "set", "bookmark1", "-r@"]);
     };
 
     // Conflicting bookmark at @
@@ -1661,14 +1707,14 @@ fn test_git_push_tracked_vs_all(subprocess: bool) {
         test_env.add_config("git.subprocess = true");
     }
     test_env.jj_cmd_ok(&workspace_root, &["new", "bookmark1", "-mmoved bookmark1"]);
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "set", "bookmark1"]);
+    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "set", "bookmark1", "-r@"]);
     test_env.jj_cmd_ok(&workspace_root, &["new", "bookmark2", "-mmoved bookmark2"]);
     test_env.jj_cmd_ok(&workspace_root, &["bookmark", "delete", "bookmark2"]);
     test_env.jj_cmd_ok(
         &workspace_root,
         &["bookmark", "untrack", "bookmark1@origin"],
     );
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "bookmark3"]);
+    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "-r@", "bookmark3"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &workspace_root), @r###"
     bookmark1: vruxwmqv db059e3f (empty) moved bookmark1
@@ -1749,7 +1795,7 @@ fn test_git_push_moved_forward_untracked(subprocess: bool) {
     }
 
     test_env.jj_cmd_ok(&workspace_root, &["new", "bookmark1", "-mmoved bookmark1"]);
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "set", "bookmark1"]);
+    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "set", "bookmark1", "-r@"]);
     test_env.jj_cmd_ok(
         &workspace_root,
         &["bookmark", "untrack", "bookmark1@origin"],
@@ -1775,7 +1821,7 @@ fn test_git_push_moved_sideways_untracked(subprocess: bool) {
     test_env.jj_cmd_ok(&workspace_root, &["new", "root()", "-mmoved bookmark1"]);
     test_env.jj_cmd_ok(
         &workspace_root,
-        &["bookmark", "set", "--allow-backwards", "bookmark1"],
+        &["bookmark", "set", "--allow-backwards", "bookmark1", "-r@"],
     );
     test_env.jj_cmd_ok(
         &workspace_root,
@@ -1837,7 +1883,7 @@ fn test_git_push_sign_on_push() {
         &["new", "bookmark2", "-m", "commit to be signed 1"],
     );
     test_env.jj_cmd_ok(&workspace_root, &["new", "-m", "commit to be signed 2"]);
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "set", "bookmark2"]);
+    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "set", "bookmark2", "-r@"]);
     test_env.jj_cmd_ok(
         &workspace_root,
         &["new", "-m", "commit which should not be signed 1"],

@@ -32,11 +32,11 @@ fn test_tag_list() {
     };
 
     test_env.jj_cmd_ok(&repo_path, &["new", "root()", "-mcommit1"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "bookmark1"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "bookmark1"]);
     test_env.jj_cmd_ok(&repo_path, &["new", "root()", "-mcommit2"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "bookmark2"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "bookmark2"]);
     test_env.jj_cmd_ok(&repo_path, &["new", "root()", "-mcommit3"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "bookmark3"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "bookmark3"]);
     test_env.jj_cmd_ok(&repo_path, &["git", "export"]);
 
     copy_ref("refs/heads/bookmark1", "refs/tags/test_tag");

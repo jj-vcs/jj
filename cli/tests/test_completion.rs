@@ -31,8 +31,8 @@ fn test_bookmark_names() {
         .join("store")
         .join("git");
 
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "aaa-local"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "bbb-local"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "aaa-local"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "bbb-local"]);
 
     // add various remote branches
     test_env.jj_cmd_ok(
@@ -45,18 +45,24 @@ fn test_bookmark_names() {
             origin_git_repo_path.to_str().unwrap(),
         ],
     );
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "aaa-tracked"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "aaa-tracked"]);
     test_env.jj_cmd_ok(&repo_path, &["desc", "-r", "aaa-tracked", "-m", "x"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "bbb-tracked"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "bbb-tracked"]);
     test_env.jj_cmd_ok(&repo_path, &["desc", "-r", "bbb-tracked", "-m", "x"]);
     test_env.jj_cmd_ok(
         &repo_path,
         &["git", "push", "--allow-new", "--bookmark", "glob:*-tracked"],
     );
 
-    test_env.jj_cmd_ok(&origin_path, &["bookmark", "create", "aaa-untracked"]);
+    test_env.jj_cmd_ok(
+        &origin_path,
+        &["bookmark", "create", "-r@", "aaa-untracked"],
+    );
     test_env.jj_cmd_ok(&origin_path, &["desc", "-r", "aaa-untracked", "-m", "x"]);
-    test_env.jj_cmd_ok(&origin_path, &["bookmark", "create", "bbb-untracked"]);
+    test_env.jj_cmd_ok(
+        &origin_path,
+        &["bookmark", "create", "-r@", "bbb-untracked"],
+    );
     test_env.jj_cmd_ok(&origin_path, &["desc", "-r", "bbb-untracked", "-m", "x"]);
     test_env.jj_cmd_ok(&origin_path, &["git", "export"]);
     test_env.jj_cmd_ok(&repo_path, &["git", "fetch"]);
@@ -154,7 +160,7 @@ fn test_global_arg_repository_is_respected() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "aaa"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "aaa"]);
 
     let mut test_env = test_env;
     test_env.add_env_var("COMPLETE", "fish");
@@ -181,7 +187,7 @@ fn test_aliases_are_resolved() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "aaa"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "aaa"]);
 
     // user config alias
     test_env.add_config(r#"aliases.b = ["bookmark"]"#);
@@ -373,12 +379,12 @@ fn test_revisions() {
             origin_git_repo_path.to_str().unwrap(),
         ],
     );
-    test_env.jj_cmd_ok(&origin_path, &["b", "c", "remote_bookmark"]);
+    test_env.jj_cmd_ok(&origin_path, &["b", "c", "-r@", "remote_bookmark"]);
     test_env.jj_cmd_ok(&origin_path, &["commit", "-m", "remote_commit"]);
     test_env.jj_cmd_ok(&origin_path, &["git", "export"]);
     test_env.jj_cmd_ok(&repo_path, &["git", "fetch"]);
 
-    test_env.jj_cmd_ok(&repo_path, &["b", "c", "immutable_bookmark"]);
+    test_env.jj_cmd_ok(&repo_path, &["b", "c", "-r@", "immutable_bookmark"]);
     test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "immutable"]);
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "immutable_bookmark""#);
     test_env.add_config(r#"revset-aliases."siblings" = "@-+ ~@""#);
@@ -390,7 +396,7 @@ fn test_revisions() {
     '''"#,
     );
 
-    test_env.jj_cmd_ok(&repo_path, &["b", "c", "mutable_bookmark"]);
+    test_env.jj_cmd_ok(&repo_path, &["b", "c", "-r@", "mutable_bookmark"]);
     test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "mutable"]);
 
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "working_copy"]);
@@ -627,7 +633,7 @@ fn create_commit(
             None => std::fs::remove_file(repo_path.join(name)).unwrap(),
         }
     }
-    test_env.jj_cmd_ok(repo_path, &["bookmark", "create", name]);
+    test_env.jj_cmd_ok(repo_path, &["bookmark", "create", "-r@", name]);
 }
 
 #[test]

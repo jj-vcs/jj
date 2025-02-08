@@ -529,7 +529,7 @@ fn test_git_init_colocated_via_git_repo_path_imported_refs() {
     let remote_path = test_env.env_root().join("remote");
     test_env.jj_cmd_ok(
         &remote_path,
-        &["bookmark", "create", "local-remote", "remote-only"],
+        &["bookmark", "create", "-r@", "local-remote", "remote-only"],
     );
     test_env.jj_cmd_ok(&remote_path, &["new"]);
     test_env.jj_cmd_ok(&remote_path, &["git", "export"]);
@@ -762,7 +762,10 @@ fn test_git_init_colocated_via_flag_git_dir_not_exists() {
     "###);
 
     // Create the default bookmark (create both in case we change the default)
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "main", "master"]);
+    test_env.jj_cmd_ok(
+        &workspace_root,
+        &["bookmark", "create", "-r@", "main", "master"],
+    );
 
     // If .git/HEAD pointed to the default bookmark, new working-copy commit would
     // be created on top.

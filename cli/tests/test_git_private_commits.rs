@@ -29,7 +29,7 @@ fn set_up() -> (TestEnvironment, PathBuf) {
 
     test_env.jj_cmd_ok(&origin_path, &["describe", "-m=public 1"]);
     test_env.jj_cmd_ok(&origin_path, &["new", "-m=public 2"]);
-    test_env.jj_cmd_ok(&origin_path, &["bookmark", "create", "main"]);
+    test_env.jj_cmd_ok(&origin_path, &["bookmark", "create", "-r@", "main"]);
     test_env.jj_cmd_ok(&origin_path, &["git", "export"]);
 
     test_env.jj_cmd_ok(
@@ -83,7 +83,7 @@ fn test_git_private_commits_block_pushing() {
     let (test_env, workspace_root) = set_up();
 
     test_env.jj_cmd_ok(&workspace_root, &["new", "main", "-m=private 1"]);
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "set", "main"]);
+    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "set", "main", "-r@"]);
 
     // Will not push when a pushed commit is contained in git.private-commits
     test_env.add_config(r#"git.private-commits = "description(glob:'private*')""#);
@@ -111,7 +111,7 @@ fn test_git_private_commits_can_be_overridden() {
     let (test_env, workspace_root) = set_up();
 
     test_env.jj_cmd_ok(&workspace_root, &["new", "main", "-m=private 1"]);
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "set", "main"]);
+    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "set", "main", "-r@"]);
 
     // Will not push when a pushed commit is contained in git.private-commits
     test_env.add_config(r#"git.private-commits = "description(glob:'private*')""#);
@@ -141,7 +141,7 @@ fn test_git_private_commits_are_not_checked_if_immutable() {
     let (test_env, workspace_root) = set_up();
 
     test_env.jj_cmd_ok(&workspace_root, &["new", "main", "-m=private 1"]);
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "set", "main"]);
+    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "set", "main", "-r@"]);
 
     test_env.add_config(r#"git.private-commits = "description(glob:'private*')""#);
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "all()""#);
@@ -163,7 +163,7 @@ fn test_git_private_commits_not_directly_in_line_block_pushing() {
     test_env.jj_cmd_ok(&workspace_root, &["new", "root()", "-m=private 1"]);
 
     test_env.jj_cmd_ok(&workspace_root, &["new", "main", "@", "-m=public 3"]);
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "bookmark1"]);
+    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "-r@", "bookmark1"]);
 
     test_env.add_config(r#"git.private-commits = "description(glob:'private*')""#);
     let stderr = test_env.jj_cmd_failure(
@@ -182,7 +182,7 @@ fn test_git_private_commits_descending_from_commits_pushed_do_not_block_pushing(
     let (test_env, workspace_root) = set_up();
 
     test_env.jj_cmd_ok(&workspace_root, &["new", "main", "-m=public 3"]);
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "move", "main"]);
+    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "move", "main", "--to=@"]);
     test_env.jj_cmd_ok(&workspace_root, &["new", "-m=private 1"]);
 
     test_env.add_config(r#"git.private-commits = "description(glob:'private*')""#);
@@ -207,7 +207,7 @@ fn test_git_private_commits_already_on_the_remote_do_not_block_push() {
     // the remote
     test_env.jj_cmd_ok(&workspace_root, &["new", "main", "-m=private 1"]);
     test_env.jj_cmd_ok(&workspace_root, &["new", "-m=public 3"]);
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "set", "main"]);
+    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "set", "main", "-r@"]);
     let (_, stderr) = test_env.jj_cmd_ok(
         &workspace_root,
         &["git", "push", "--allow-new", "-b=main", "-b=bookmark1"],
@@ -240,7 +240,7 @@ fn test_git_private_commits_already_on_the_remote_do_not_block_push() {
         &workspace_root,
         &["new", "description('private 1')", "-m=public 4"],
     );
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "bookmark2"]);
+    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "-r@", "bookmark2"]);
     let (_, stderr) = test_env.jj_cmd_ok(
         &workspace_root,
         &["git", "push", "--allow-new", "-b=bookmark2"],
@@ -261,7 +261,7 @@ fn test_git_private_commits_are_evaluated_separately_for_each_remote() {
     // the remote
     test_env.jj_cmd_ok(&workspace_root, &["new", "main", "-m=private 1"]);
     test_env.jj_cmd_ok(&workspace_root, &["new", "-m=public 3"]);
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "set", "main"]);
+    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "set", "main", "-r@"]);
     let (_, stderr) = test_env.jj_cmd_ok(&workspace_root, &["git", "push", "-b=main"]);
     insta::assert_snapshot!(stderr, @r#"
     Changes to push to origin:

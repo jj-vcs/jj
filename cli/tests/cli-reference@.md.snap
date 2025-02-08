@@ -302,7 +302,7 @@ See the [bookmark documentation] for more information.
 
 Create a new bookmark
 
-**Usage:** `jj bookmark create [OPTIONS] <NAMES>...`
+**Usage:** `jj bookmark create --revision <REVSET> <NAMES>...`
 
 ###### **Arguments:**
 
@@ -407,7 +407,7 @@ Example: pull up the nearest bookmarks to the working-copy parent
 
 $ jj bookmark move --from 'heads(::@- & bookmarks())' --to @-
 
-**Usage:** `jj bookmark move [OPTIONS] <--from <REVSETS>|NAMES>`
+**Usage:** `jj bookmark move [OPTIONS] --to <REVSET> <--from <REVSETS>|NAMES>`
 
 ###### **Arguments:**
 
@@ -421,8 +421,6 @@ $ jj bookmark move --from 'heads(::@- & bookmarks())' --to @-
 
 * `--from <REVSETS>` — Move bookmarks from the given revisions
 * `--to <REVSET>` — Move bookmarks to this revision
-
-  Default value: `@`
 * `-B`, `--allow-backwards` — Allow moving bookmarks backwards or sideways
 
 

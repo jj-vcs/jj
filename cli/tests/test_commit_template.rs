@@ -236,7 +236,7 @@ fn test_log_default() {
     std::fs::write(repo_path.join("file1"), "foo\n").unwrap();
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "add a file"]);
     test_env.jj_cmd_ok(&repo_path, &["new", "-m", "description 1"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "my-bookmark"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "my-bookmark"]);
 
     // Test default log output format
     let stdout = test_env.jj_cmd_success(&repo_path, &["log"]);
@@ -296,7 +296,7 @@ fn test_log_builtin_templates() {
         &repo_path,
         &["--config=user.email=''", "--config=user.name=''", "new"],
     );
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "my-bookmark"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "my-bookmark"]);
 
     insta::assert_snapshot!(render(r#"builtin_log_oneline"#), @r###"
     rlvkpnrz (no email set) 2001-02-03 08:05:08 my-bookmark dc315397 (empty) (no description set)
@@ -365,7 +365,7 @@ fn test_log_builtin_templates_colored() {
         &repo_path,
         &["--config=user.email=''", "--config=user.name=''", "new"],
     );
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "my-bookmark"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "my-bookmark"]);
 
     insta::assert_snapshot!(render(r#"builtin_log_oneline"#), @r#"
     [1m[38;5;2m@[0m  [1m[38;5;13mr[38;5;8mlvkpnrz[39m [38;5;9m(no email set)[39m [38;5;14m2001-02-03 08:05:08[39m [38;5;13mmy-bookmark[39m [38;5;12md[38;5;8mc315397[39m [38;5;10m(empty)[39m [38;5;10m(no description set)[39m[0m
@@ -429,7 +429,7 @@ fn test_log_builtin_templates_colored_debug() {
         &repo_path,
         &["--config=user.email=''", "--config=user.name=''", "new"],
     );
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "my-bookmark"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "my-bookmark"]);
 
     insta::assert_snapshot!(render(r#"builtin_log_oneline"#), @r#"
     [1m[38;5;2m<<node working_copy::@>>[0m  [1m[38;5;13m<<log working_copy change_id shortest prefix::r>>[38;5;8m<<log working_copy change_id shortest rest::lvkpnrz>>[39m<<log working_copy:: >>[38;5;9m<<log working_copy email placeholder::(no email set)>>[39m<<log working_copy:: >>[38;5;14m<<log working_copy committer timestamp local format::2001-02-03 08:05:08>>[39m<<log working_copy:: >>[38;5;13m<<log working_copy bookmarks name::my-bookmark>>[39m<<log working_copy:: >>[38;5;12m<<log working_copy commit_id shortest prefix::d>>[38;5;8m<<log working_copy commit_id shortest rest::c315397>>[39m<<log working_copy:: >>[38;5;10m<<log working_copy empty::(empty)>>[39m<<log working_copy:: >>[38;5;10m<<log working_copy empty description placeholder::(no description set)>>[39m<<log working_copy::>>[0m
@@ -564,14 +564,14 @@ fn test_log_bookmarks() {
 
     // Created some bookmarks on the remote
     test_env.jj_cmd_ok(&origin_path, &["describe", "-m=description 1"]);
-    test_env.jj_cmd_ok(&origin_path, &["bookmark", "create", "bookmark1"]);
+    test_env.jj_cmd_ok(&origin_path, &["bookmark", "create", "-r@", "bookmark1"]);
     test_env.jj_cmd_ok(&origin_path, &["new", "root()", "-m=description 2"]);
     test_env.jj_cmd_ok(
         &origin_path,
-        &["bookmark", "create", "bookmark2", "unchanged"],
+        &["bookmark", "create", "-r@", "bookmark2", "unchanged"],
     );
     test_env.jj_cmd_ok(&origin_path, &["new", "root()", "-m=description 3"]);
-    test_env.jj_cmd_ok(&origin_path, &["bookmark", "create", "bookmark3"]);
+    test_env.jj_cmd_ok(&origin_path, &["bookmark", "create", "-r@", "bookmark3"]);
     test_env.jj_cmd_ok(&origin_path, &["git", "export"]);
     test_env.jj_cmd_ok(
         test_env.env_root(),
@@ -591,8 +591,11 @@ fn test_log_bookmarks() {
         &["describe", "bookmark1", "-m", "modified bookmark1 commit"],
     );
     test_env.jj_cmd_ok(&workspace_root, &["new", "bookmark2"]);
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "set", "bookmark2"]);
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "new-bookmark"]);
+    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "set", "bookmark2", "--to=@"]);
+    test_env.jj_cmd_ok(
+        &workspace_root,
+        &["bookmark", "create", "-r@", "new-bookmark"],
+    );
     test_env.jj_cmd_ok(&workspace_root, &["describe", "bookmark3", "-m=local"]);
     test_env.jj_cmd_ok(&origin_path, &["describe", "bookmark3", "-m=origin"]);
     test_env.jj_cmd_ok(&origin_path, &["git", "export"]);
@@ -785,7 +788,7 @@ fn test_log_immutable() {
     let repo_path = test_env.env_root().join("repo");
     test_env.jj_cmd_ok(&repo_path, &["new", "-mA", "root()"]);
     test_env.jj_cmd_ok(&repo_path, &["new", "-mB"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "main"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "main"]);
     test_env.jj_cmd_ok(&repo_path, &["new", "-mC"]);
     test_env.jj_cmd_ok(&repo_path, &["new", "-mD", "root()"]);
 
@@ -846,7 +849,7 @@ fn test_log_contained_in() {
     let repo_path = test_env.env_root().join("repo");
     test_env.jj_cmd_ok(&repo_path, &["new", "-mA", "root()"]);
     test_env.jj_cmd_ok(&repo_path, &["new", "-mB"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "main"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "main"]);
     test_env.jj_cmd_ok(&repo_path, &["new", "-mC"]);
     test_env.jj_cmd_ok(&repo_path, &["new", "-mD", "root()"]);
 

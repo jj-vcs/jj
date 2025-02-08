@@ -25,7 +25,10 @@ fn test_alias_basic() {
     let repo_path = test_env.env_root().join("repo");
 
     test_env.add_config(r#"aliases.bk = ["log", "-r", "@", "-T", "bookmarks"]"#);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "my-bookmark"]);
+    test_env.jj_cmd_ok(
+        &repo_path,
+        &["bookmark", "create", "my-bookmark", "-r", "@"],
+    );
     let stdout = test_env.jj_cmd_success(&repo_path, &["bk"]);
     insta::assert_snapshot!(stdout, @r###"
     @  my-bookmark

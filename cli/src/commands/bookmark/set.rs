@@ -57,8 +57,16 @@ pub fn cmd_bookmark_set(
     args: &BookmarkSetArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
-    let target_commit = workspace_command
-        .resolve_single_rev(ui, args.revision.as_ref().unwrap_or(&RevisionArg::AT))?;
+
+    if args.revision.is_none() {
+        return Err(user_error_with_hint(
+            "Target revision not specified.",
+            "Use -r to specify the target revision.",
+        ));
+    }
+
+    let target_commit =
+        workspace_command.resolve_single_rev(ui, args.revision.as_ref().unwrap())?;
     let repo = workspace_command.repo().as_ref();
     let bookmark_names = &args.names;
     let mut new_bookmark_count = 0;

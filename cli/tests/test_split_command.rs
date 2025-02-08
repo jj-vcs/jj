@@ -223,7 +223,10 @@ fn test_split_with_default_description() {
 
     // Create a bookmark pointing to the commit. It will be moved to the second
     // commit after the split.
-    test_env.jj_cmd_ok(&workspace_path, &["bookmark", "create", "test_bookmark"]);
+    test_env.jj_cmd_ok(
+        &workspace_path,
+        &["bookmark", "create", "-r@", "test_bookmark"],
+    );
 
     let edit_script = test_env.set_up_fake_editor();
     std::fs::write(
@@ -331,7 +334,10 @@ fn test_split_siblings_no_descendants() {
 
     // Create a bookmark pointing to the commit. It will be moved to the second
     // commit after the split.
-    test_env.jj_cmd_ok(&workspace_path, &["bookmark", "create", "test_bookmark"]);
+    test_env.jj_cmd_ok(
+        &workspace_path,
+        &["bookmark", "create", "-r@", "test_bookmark"],
+    );
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r###"
     @  qpvuntsmwlqt false test_bookmark
     ◆  zzzzzzzzzzzz true

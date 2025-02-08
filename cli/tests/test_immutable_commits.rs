@@ -23,7 +23,7 @@ fn test_rewrite_immutable_generic() {
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m=a"]);
     test_env.jj_cmd_ok(&repo_path, &["new", "-m=b"]);
     std::fs::write(repo_path.join("file"), "b").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "main"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "main"]);
     test_env.jj_cmd_ok(&repo_path, &["new", "main-", "-m=c"]);
     std::fs::write(repo_path.join("file"), "c").unwrap();
     let stdout = test_env.jj_cmd_success(&repo_path, &["log"]);
@@ -111,10 +111,10 @@ fn test_rewrite_immutable_generic() {
 fn test_new_wc_commit_when_wc_immutable() {
     let test_env = TestEnvironment::default();
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init"]);
-    test_env.jj_cmd_ok(test_env.env_root(), &["bookmark", "create", "main"]);
+    test_env.jj_cmd_ok(test_env.env_root(), &["bookmark", "create", "-r@", "main"]);
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "main""#);
     test_env.jj_cmd_ok(test_env.env_root(), &["new", "-m=a"]);
-    let (_, stderr) = test_env.jj_cmd_ok(test_env.env_root(), &["bookmark", "set", "main"]);
+    let (_, stderr) = test_env.jj_cmd_ok(test_env.env_root(), &["bookmark", "set", "main", "-r@"]);
     insta::assert_snapshot!(stderr, @r###"
     Moved 1 bookmarks to kkmpptxz a164195b main | (empty) a
     Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
@@ -127,7 +127,7 @@ fn test_new_wc_commit_when_wc_immutable() {
 fn test_immutable_heads_set_to_working_copy() {
     let test_env = TestEnvironment::default();
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init"]);
-    test_env.jj_cmd_ok(test_env.env_root(), &["bookmark", "create", "main"]);
+    test_env.jj_cmd_ok(test_env.env_root(), &["bookmark", "create", "-r@", "main"]);
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "@""#);
     let (_, stderr) = test_env.jj_cmd_ok(test_env.env_root(), &["new", "-m=a"]);
     insta::assert_snapshot!(stderr, @r###"
@@ -142,13 +142,13 @@ fn test_new_wc_commit_when_wc_immutable_multi_workspace() {
     let test_env = TestEnvironment::default();
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "main"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "main"]);
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "main""#);
     test_env.jj_cmd_ok(&repo_path, &["new", "-m=a"]);
     test_env.jj_cmd_ok(&repo_path, &["workspace", "add", "../workspace1"]);
     let workspace1_envroot = test_env.env_root().join("workspace1");
     test_env.jj_cmd_ok(&workspace1_envroot, &["edit", "default@"]);
-    let (_, stderr) = test_env.jj_cmd_ok(&repo_path, &["bookmark", "set", "main"]);
+    let (_, stderr) = test_env.jj_cmd_ok(&repo_path, &["bookmark", "set", "main", "-r@"]);
     insta::assert_snapshot!(stderr, @r###"
     Moved 1 bookmarks to kkmpptxz 7796c4df main | (empty) a
     Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
@@ -184,7 +184,7 @@ fn test_rewrite_immutable_commands() {
     // Create another file to make sure the merge commit isn't empty (to satisfy `jj
     // split`) and still has a conflict (to satisfy `jj resolve`).
     std::fs::write(repo_path.join("file2"), "merged").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "main"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "main"]);
     test_env.jj_cmd_ok(&repo_path, &["new", "description(b)"]);
     std::fs::write(repo_path.join("file"), "w").unwrap();
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "main""#);

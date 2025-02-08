@@ -56,7 +56,7 @@ fn test_git_push_undo() {
     let repo_path = test_env.env_root().join("repo");
 
     test_env.advance_test_rng_seed_to_multiple_of(100_000);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "main"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "main"]);
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "AA"]);
     test_env.jj_cmd_ok(&repo_path, &["git", "push", "--allow-new"]);
     test_env.advance_test_rng_seed_to_multiple_of(100_000);
@@ -129,7 +129,7 @@ fn test_git_push_undo_with_import() {
     let repo_path = test_env.env_root().join("repo");
 
     test_env.advance_test_rng_seed_to_multiple_of(100_000);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "main"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "main"]);
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "AA"]);
     test_env.jj_cmd_ok(&repo_path, &["git", "push", "--allow-new"]);
     test_env.advance_test_rng_seed_to_multiple_of(100_000);
@@ -209,7 +209,7 @@ fn test_git_push_undo_colocated() {
     test_env.jj_cmd_ok(&repo_path, &["git", "init", "--git-repo=."]);
 
     test_env.advance_test_rng_seed_to_multiple_of(100_000);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "main"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "main"]);
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "AA"]);
     test_env.jj_cmd_ok(&repo_path, &["git", "push", "--allow-new"]);
     test_env.advance_test_rng_seed_to_multiple_of(100_000);
@@ -289,7 +289,7 @@ fn test_git_push_undo_repo_only() {
     let repo_path = test_env.env_root().join("repo");
 
     test_env.advance_test_rng_seed_to_multiple_of(100_000);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "main"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "main"]);
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "AA"]);
     test_env.jj_cmd_ok(&repo_path, &["git", "push", "--allow-new"]);
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r###"
@@ -334,7 +334,10 @@ fn test_bookmark_track_untrack_undo() {
     let repo_path = test_env.env_root().join("repo");
 
     test_env.jj_cmd_ok(&repo_path, &["describe", "-mcommit"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "feature1", "feature2"]);
+    test_env.jj_cmd_ok(
+        &repo_path,
+        &["bookmark", "create", "-r@", "feature1", "feature2"],
+    );
     test_env.jj_cmd_ok(&repo_path, &["git", "push", "--allow-new"]);
     test_env.jj_cmd_ok(&repo_path, &["bookmark", "delete", "feature2"]);
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r###"

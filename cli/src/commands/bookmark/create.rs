@@ -38,7 +38,7 @@ pub struct BookmarkCreateArgs {
         value_name = "REVSET",
         add = ArgValueCandidates::new(complete::all_revisions),
     )]
-    revision: Option<RevisionArg>,
+    revision: RevisionArg,
 
     /// The bookmarks to create
     #[arg(required = true, value_parser = NonEmptyStringValueParser::new())]
@@ -51,8 +51,7 @@ pub fn cmd_bookmark_create(
     args: &BookmarkCreateArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
-    let target_commit = workspace_command
-        .resolve_single_rev(ui, args.revision.as_ref().unwrap_or(&RevisionArg::AT))?;
+    let target_commit = workspace_command.resolve_single_rev(ui, &args.revision)?;
     let view = workspace_command.repo().view();
     let bookmark_names = &args.names;
     for name in bookmark_names {
@@ -89,9 +88,6 @@ pub fn cmd_bookmark_create(
         )?;
         tx.write_commit_summary(formatter.as_mut(), &target_commit)?;
         writeln!(formatter)?;
-    }
-    if bookmark_names.len() > 1 && args.revision.is_none() {
-        writeln!(ui.hint_default(), "Use -r to specify the target revision.")?;
     }
 
     tx.finish(

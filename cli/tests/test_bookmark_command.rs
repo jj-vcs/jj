@@ -22,24 +22,20 @@ fn test_bookmark_multiple_names() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "foo", "bar"]);
+    let (stdout, stderr) =
+        test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "foo", "bar"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
-    Created 2 bookmarks pointing to qpvuntsm 230dd059 bar foo | (empty) (no description set)
-    Hint: Use -r to specify the target revision.
-    "###);
+    insta::assert_snapshot!(stderr, @"Created 2 bookmarks pointing to qpvuntsm 230dd059 bar foo | (empty) (no description set)");
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r###"
     @  bar foo 230dd059e1b0
     ◆   000000000000
     "###);
 
     test_env.jj_cmd_ok(&repo_path, &["new"]);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["bookmark", "set", "foo", "bar"]);
+    let (stdout, stderr) =
+        test_env.jj_cmd_ok(&repo_path, &["bookmark", "set", "foo", "bar", "--to=@"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
-    Moved 2 bookmarks to zsuskuln 8bb159bc bar foo | (empty) (no description set)
-    Hint: Use -r to specify the target revision.
-    "###);
+    insta::assert_snapshot!(stderr, @"Moved 2 bookmarks to zsuskuln 8bb159bc bar foo | (empty) (no description set)");
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r###"
     @  bar foo 8bb159bc30a9
     ○   230dd059e1b0
@@ -109,7 +105,7 @@ fn test_bookmark_empty_name() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
 
-    let stderr = test_env.jj_cmd_cli_error(&repo_path, &["bookmark", "create", ""]);
+    let stderr = test_env.jj_cmd_cli_error(&repo_path, &["bookmark", "create", "-r@", ""]);
     insta::assert_snapshot!(stderr, @r###"
     error: a value is required for '<NAMES>...' but none was supplied
 
@@ -138,25 +134,26 @@ fn test_bookmark_move() {
         &["git", "remote", "add", "origin", "../git-repo"],
     );
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["bookmark", "move", "foo"]);
+    let stderr = test_env.jj_cmd_failure(&repo_path, &["bookmark", "move", "foo", "--to=@"]);
     insta::assert_snapshot!(stderr, @r###"
     Error: No such bookmark: foo
     "###);
 
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["bookmark", "set", "foo"]);
+    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["bookmark", "set", "foo", "--to=@"]);
     insta::assert_snapshot!(stderr, @r###"
     Created 1 bookmarks pointing to qpvuntsm 230dd059 foo | (empty) (no description set)
     Hint: Consider using `jj bookmark move` if your intention was to move existing bookmarks.
     "###);
 
     test_env.jj_cmd_ok(&repo_path, &["new"]);
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["bookmark", "create", "foo"]);
+    let stderr = test_env.jj_cmd_failure(&repo_path, &["bookmark", "create", "-r@", "foo"]);
     insta::assert_snapshot!(stderr, @r###"
     Error: Bookmark already exists: foo
     Hint: Use `jj bookmark set` to update it.
     "###);
 
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["bookmark", "set", "foo"]);
+    let (_stdout, stderr) =
+        test_env.jj_cmd_ok(&repo_path, &["bookmark", "set", "foo", "--revision", "@"]);
     insta::assert_snapshot!(stderr, @r###"
     Moved 1 bookmarks to mzvwutvl 167f90e7 foo | (empty) (no description set)
     "###);
@@ -175,7 +172,7 @@ fn test_bookmark_move() {
     Moved 1 bookmarks to qpvuntsm 230dd059 foo | (empty) (no description set)
     "###);
 
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["bookmark", "move", "foo"]);
+    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["bookmark", "move", "foo", "--to=@"]);
     insta::assert_snapshot!(stderr, @r###"
     Moved 1 bookmarks to mzvwutvl 167f90e7 foo | (empty) (no description set)
     "###);
@@ -204,14 +201,14 @@ fn test_bookmark_move() {
     "###);
 
     // Deleted tracking bookmark name should still be allocated
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["bookmark", "create", "foo"]);
+    let stderr = test_env.jj_cmd_failure(&repo_path, &["bookmark", "create", "-r@", "foo"]);
     insta::assert_snapshot!(stderr, @r###"
     Error: Tracked remote bookmarks exist for deleted bookmark: foo
     Hint: Use `jj bookmark set` to recreate the local bookmark. Run `jj bookmark untrack 'glob:foo@*'` to disassociate them.
     "###);
 
     // Restoring local target shouldn't invalidate tracking state
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["bookmark", "set", "foo"]);
+    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["bookmark", "set", "foo", "--to=@"]);
     insta::assert_snapshot!(stderr, @r###"
     Moved 1 bookmarks to mzvwutvl 66d48752 foo* | (empty) (no description set)
     "###);
@@ -223,7 +220,7 @@ fn test_bookmark_move() {
     // Untracked remote bookmark shouldn't block creation of local bookmark
     test_env.jj_cmd_ok(&repo_path, &["bookmark", "untrack", "foo@origin"]);
     test_env.jj_cmd_ok(&repo_path, &["bookmark", "delete", "foo"]);
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "foo"]);
+    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "foo"]);
     insta::assert_snapshot!(stderr, @r###"
     Created 1 bookmarks pointing to mzvwutvl 66d48752 foo | (empty) (no description set)
     "###);
@@ -239,12 +236,12 @@ fn test_bookmark_move_matching() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "a1", "a2"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "a1", "a2"]);
     test_env.jj_cmd_ok(&repo_path, &["new", "-mhead1"]);
     test_env.jj_cmd_ok(&repo_path, &["new", "root()"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "b1"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "b1"]);
     test_env.jj_cmd_ok(&repo_path, &["new"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "c1"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "c1"]);
     test_env.jj_cmd_ok(&repo_path, &["new", "-mhead2"]);
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r###"
     @   a2781dd9ee37
@@ -257,25 +254,28 @@ fn test_bookmark_move_matching() {
     "###);
 
     // The default could be considered "--from=all() glob:*", but is disabled
-    let stderr = test_env.jj_cmd_cli_error(&repo_path, &["bookmark", "move"]);
-    insta::assert_snapshot!(stderr, @r###"
+    let stderr = test_env.jj_cmd_cli_error(&repo_path, &["bookmark", "move", "--to=@"]);
+    insta::assert_snapshot!(stderr, @r"
     error: the following required arguments were not provided:
       <--from <REVSETS>|NAMES>
 
-    Usage: jj bookmark move <--from <REVSETS>|NAMES>
+    Usage: jj bookmark move --to <REVSET> <--from <REVSETS>|NAMES>
 
     For more information, try '--help'.
-    "###);
+    ");
 
     // No bookmarks pointing to the source revisions
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["bookmark", "move", "--from=none()"]);
+    let (_stdout, stderr) =
+        test_env.jj_cmd_ok(&repo_path, &["bookmark", "move", "--from=none()", "--to=@"]);
     insta::assert_snapshot!(stderr, @r###"
     No bookmarks to update.
     "###);
 
     // No matching bookmarks within the source revisions
-    let stderr =
-        test_env.jj_cmd_failure(&repo_path, &["bookmark", "move", "--from=::@", "glob:a?"]);
+    let stderr = test_env.jj_cmd_failure(
+        &repo_path,
+        &["bookmark", "move", "--from=::@", "glob:a?", "--to=@"],
+    );
     insta::assert_snapshot!(stderr, @r###"
     Error: No matching bookmarks for patterns: a?
     "###);
@@ -287,7 +287,8 @@ fn test_bookmark_move_matching() {
     "###);
 
     // Move from multiple revisions
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["bookmark", "move", "--from=::@"]);
+    let (_stdout, stderr) =
+        test_env.jj_cmd_ok(&repo_path, &["bookmark", "move", "--from=::@", "--to=@"]);
     insta::assert_snapshot!(stderr, @r###"
     Moved 2 bookmarks to vruxwmqv a2781dd9 b1 c1 | (empty) head2
     Hint: Specify bookmark by name to update just one of the bookmarks.
@@ -304,7 +305,7 @@ fn test_bookmark_move_matching() {
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
 
     // Try to move multiple bookmarks, but one of them isn't fast-forward
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["bookmark", "move", "glob:?1"]);
+    let stderr = test_env.jj_cmd_failure(&repo_path, &["bookmark", "move", "glob:?1", "--to=@"]);
     insta::assert_snapshot!(stderr, @r###"
     Error: Refusing to move bookmark backwards or sideways: a1
     Hint: Use --allow-backwards to allow it.
@@ -425,14 +426,14 @@ fn test_bookmark_rename() {
     "###);
 
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m=commit-0"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "blocal"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "blocal"]);
     let (_stdout, stderr) =
         test_env.jj_cmd_ok(&repo_path, &["bookmark", "rename", "blocal", "blocal1"]);
     insta::assert_snapshot!(stderr, @"");
 
     test_env.jj_cmd_ok(&repo_path, &["new"]);
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m=commit-1"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "bexist"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "bexist"]);
     let stderr = test_env.jj_cmd_failure(&repo_path, &["bookmark", "rename", "blocal1", "bexist"]);
     insta::assert_snapshot!(stderr, @r###"
     Error: Bookmark already exists: bexist
@@ -440,7 +441,7 @@ fn test_bookmark_rename() {
 
     test_env.jj_cmd_ok(&repo_path, &["new"]);
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m=commit-2"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "bremote"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "bremote"]);
     test_env.jj_cmd_ok(&repo_path, &["git", "push", "--allow-new", "-b=bremote"]);
     let (_stdout, stderr) =
         test_env.jj_cmd_ok(&repo_path, &["bookmark", "rename", "bremote", "bremote2"]);
@@ -463,7 +464,7 @@ fn test_bookmark_rename_colocated() {
     let repo_path = test_env.env_root().join("repo");
 
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m=commit-0"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "blocal"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "blocal"]);
 
     // Make sure that git tracking bookmarks don't cause a warning
     let (_stdout, stderr) =
@@ -477,10 +478,10 @@ fn test_bookmark_forget_glob() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "foo-1"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "bar-2"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "foo-3"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "foo-4"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "foo-1"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "bar-2"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "foo-3"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "foo-4"]);
 
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r###"
     @  bar-2 foo-1 foo-3 foo-4 230dd059e1b0
@@ -556,10 +557,10 @@ fn test_bookmark_delete_glob() {
     );
 
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m=commit"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "foo-1"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "bar-2"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "foo-3"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "foo-4"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "foo-1"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "bar-2"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "foo-3"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "foo-4"]);
     // Push to create remote-tracking bookmarks
     test_env.jj_cmd_ok(&repo_path, &["git", "push", "--all"]);
 
@@ -645,7 +646,7 @@ fn test_bookmark_delete_export() {
     let repo_path = test_env.env_root().join("repo");
 
     test_env.jj_cmd_ok(&repo_path, &["new"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "foo"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "foo"]);
     test_env.jj_cmd_ok(&repo_path, &["git", "export"]);
 
     test_env.jj_cmd_ok(&repo_path, &["bookmark", "delete", "foo"]);
@@ -670,7 +671,7 @@ fn test_bookmark_forget_export() {
     let repo_path = test_env.env_root().join("repo");
 
     test_env.jj_cmd_ok(&repo_path, &["new"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "foo"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "foo"]);
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r###"
     foo: rlvkpnrz 65b6b74e (empty) (no description set)
     "###);
@@ -959,7 +960,7 @@ fn test_bookmark_track_untrack() {
     "###);
 
     // Track existing bookmark. Local bookmark should result in conflict.
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "feature2"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "feature2"]);
     test_env.jj_cmd_ok(&repo_path, &["bookmark", "track", "feature2@origin"]);
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r###"
     feature1: sptzoqmo 7b33f629 commit 1
@@ -1077,7 +1078,7 @@ fn test_bookmark_track_conflict() {
         &repo_path,
         &["git", "remote", "add", "origin", "../git-repo"],
     );
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "main"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "main"]);
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "a"]);
     test_env.jj_cmd_ok(&repo_path, &["git", "push", "--allow-new", "-b", "main"]);
     test_env.jj_cmd_ok(&repo_path, &["bookmark", "untrack", "main@origin"]);
@@ -1136,7 +1137,7 @@ fn test_bookmark_track_untrack_patterns() {
     "###);
 
     // Track local bookmark
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "main"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "main"]);
     insta::assert_snapshot!(
         test_env.jj_cmd_cli_error(&repo_path, &["bookmark", "track", "main"]), @r###"
     error: invalid value 'main' for '<BOOKMARK@REMOTE>...': remote bookmark must be specified in bookmark@remote form
@@ -1245,7 +1246,7 @@ fn test_bookmark_list() {
         "remote-delete",
     ] {
         test_env.jj_cmd_ok(&remote_path, &["new", "root()", "-m", bookmark]);
-        test_env.jj_cmd_ok(&remote_path, &["bookmark", "create", bookmark]);
+        test_env.jj_cmd_ok(&remote_path, &["bookmark", "create", "-r@", bookmark]);
     }
     test_env.jj_cmd_ok(&remote_path, &["new"]);
     test_env.jj_cmd_ok(&remote_path, &["git", "export"]);
@@ -1259,7 +1260,7 @@ fn test_bookmark_list() {
     );
     let local_path = test_env.env_root().join("local");
     test_env.jj_cmd_ok(&local_path, &["new", "root()", "-m", "local-only"]);
-    test_env.jj_cmd_ok(&local_path, &["bookmark", "create", "local-only"]);
+    test_env.jj_cmd_ok(&local_path, &["bookmark", "create", "-r@", "local-only"]);
 
     // Mutate refs in local repository
     test_env.jj_cmd_ok(&local_path, &["bookmark", "delete", "remote-delete"]);
@@ -1270,7 +1271,13 @@ fn test_bookmark_list() {
     );
     test_env.jj_cmd_ok(
         &local_path,
-        &["bookmark", "set", "--allow-backwards", "remote-unsync"],
+        &[
+            "bookmark",
+            "set",
+            "--allow-backwards",
+            "--to=@",
+            "remote-unsync",
+        ],
     );
 
     // Synchronized tracking remotes and non-tracking remotes aren't listed by
@@ -1419,7 +1426,7 @@ fn test_bookmark_list_filtered() {
     let remote_path = test_env.env_root().join("remote");
     for bookmark in ["remote-keep", "remote-delete", "remote-rewrite"] {
         test_env.jj_cmd_ok(&remote_path, &["new", "root()", "-m", bookmark]);
-        test_env.jj_cmd_ok(&remote_path, &["bookmark", "create", bookmark]);
+        test_env.jj_cmd_ok(&remote_path, &["bookmark", "create", "-r@", bookmark]);
     }
     test_env.jj_cmd_ok(&remote_path, &["new"]);
     test_env.jj_cmd_ok(&remote_path, &["git", "export"]);
@@ -1433,7 +1440,7 @@ fn test_bookmark_list_filtered() {
     );
     let local_path = test_env.env_root().join("local");
     test_env.jj_cmd_ok(&local_path, &["new", "root()", "-m", "local-keep"]);
-    test_env.jj_cmd_ok(&local_path, &["bookmark", "create", "local-keep"]);
+    test_env.jj_cmd_ok(&local_path, &["bookmark", "create", "-r@", "local-keep"]);
 
     // Mutate refs in local repository
     test_env.jj_cmd_ok(&local_path, &["bookmark", "delete", "remote-delete"]);
@@ -1645,7 +1652,10 @@ fn test_bookmark_list_much_remote_divergence() {
     for _ in 0..15 {
         test_env.jj_cmd_ok(&remote_path, &["new", "-m", "remote-unsync"]);
     }
-    test_env.jj_cmd_ok(&remote_path, &["bookmark", "create", "remote-unsync"]);
+    test_env.jj_cmd_ok(
+        &remote_path,
+        &["bookmark", "create", "-r@", "remote-unsync"],
+    );
     test_env.jj_cmd_ok(&remote_path, &["new"]);
     test_env.jj_cmd_ok(&remote_path, &["git", "export"]);
 
@@ -1661,12 +1671,18 @@ fn test_bookmark_list_much_remote_divergence() {
     for _ in 0..15 {
         test_env.jj_cmd_ok(&local_path, &["new", "-m", "local-only"]);
     }
-    test_env.jj_cmd_ok(&local_path, &["bookmark", "create", "local-only"]);
+    test_env.jj_cmd_ok(&local_path, &["bookmark", "create", "-r@", "local-only"]);
 
     // Mutate refs in local repository
     test_env.jj_cmd_ok(
         &local_path,
-        &["bookmark", "set", "--allow-backwards", "remote-unsync"],
+        &[
+            "bookmark",
+            "set",
+            "--allow-backwards",
+            "--to=@",
+            "remote-unsync",
+        ],
     );
 
     let (stdout, stderr) = test_env.jj_cmd_ok(&local_path, &["bookmark", "list"]);
@@ -1693,7 +1709,7 @@ fn test_bookmark_list_tracked() {
         "remote-delete",
     ] {
         test_env.jj_cmd_ok(&remote_path, &["new", "root()", "-m", bookmark]);
-        test_env.jj_cmd_ok(&remote_path, &["bookmark", "create", bookmark]);
+        test_env.jj_cmd_ok(&remote_path, &["bookmark", "create", "-r@", bookmark]);
     }
     test_env.jj_cmd_ok(&remote_path, &["new"]);
     test_env.jj_cmd_ok(&remote_path, &["git", "export"]);
@@ -1720,7 +1736,10 @@ fn test_bookmark_list_tracked() {
         &upstream_git_path,
         &["new", "root()", "-m", "upstream-sync"],
     );
-    test_env.jj_cmd_ok(&upstream_git_path, &["bookmark", "create", "upstream-sync"]);
+    test_env.jj_cmd_ok(
+        &upstream_git_path,
+        &["bookmark", "create", "-r@", "upstream-sync"],
+    );
     test_env.jj_cmd_ok(&upstream_git_path, &["new"]);
     test_env.jj_cmd_ok(&upstream_git_path, &["git", "export"]);
 
@@ -1741,7 +1760,7 @@ fn test_bookmark_list_tracked() {
     test_env.jj_cmd_ok(&local_path, &["git", "fetch", "--all-remotes"]);
 
     test_env.jj_cmd_ok(&local_path, &["new", "root()", "-m", "local-only"]);
-    test_env.jj_cmd_ok(&local_path, &["bookmark", "create", "local-only"]);
+    test_env.jj_cmd_ok(&local_path, &["bookmark", "create", "-r@", "local-only"]);
 
     // Mutate refs in local repository
     test_env.jj_cmd_ok(&local_path, &["bookmark", "delete", "remote-delete"]);
@@ -1764,7 +1783,13 @@ fn test_bookmark_list_tracked() {
     );
     test_env.jj_cmd_ok(
         &local_path,
-        &["bookmark", "set", "--allow-backwards", "remote-unsync"],
+        &[
+            "bookmark",
+            "set",
+            "--to=@",
+            "--allow-backwards",
+            "remote-unsync",
+        ],
     );
 
     let (stdout, stderr) = test_env.jj_cmd_ok(&local_path, &["bookmark", "list", "--all-remotes"]);
@@ -1866,7 +1891,7 @@ fn test_bookmark_list_conflicted() {
     // Track existing bookmark. Local bookmark should result in conflict.
     test_env.jj_cmd_ok(&repo_path, &["new", "root()", "-m", "a"]);
     test_env.jj_cmd_ok(&repo_path, &["new", "root()", "-m", "b"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "bar"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "bar"]);
     test_env.jj_cmd_ok(
         &repo_path,
         &["bookmark", "create", "foo", "-r", "description(a)"],

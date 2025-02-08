@@ -27,9 +27,12 @@ fn set_up(trunk_name: &str) -> (TestEnvironment, PathBuf) {
         .join("git");
 
     test_env.jj_cmd_ok(&origin_path, &["describe", "-m=description 1"]);
-    test_env.jj_cmd_ok(&origin_path, &["bookmark", "create", trunk_name]);
+    test_env.jj_cmd_ok(&origin_path, &["bookmark", "create", "-r@", trunk_name]);
     test_env.jj_cmd_ok(&origin_path, &["new", "root()", "-m=description 2"]);
-    test_env.jj_cmd_ok(&origin_path, &["bookmark", "create", "unrelated_bookmark"]);
+    test_env.jj_cmd_ok(
+        &origin_path,
+        &["bookmark", "create", "-r@", "unrelated_bookmark"],
+    );
     test_env.jj_cmd_ok(&origin_path, &["git", "export"]);
 
     test_env.jj_cmd_ok(
@@ -87,7 +90,7 @@ fn test_builtin_alias_trunk_matches_exactly_one_commit() {
     let (test_env, workspace_root) = set_up("main");
     let origin_path = test_env.env_root().join("origin");
     test_env.jj_cmd_ok(&origin_path, &["new", "root()", "-m=description 3"]);
-    test_env.jj_cmd_ok(&origin_path, &["bookmark", "create", "master"]);
+    test_env.jj_cmd_ok(&origin_path, &["bookmark", "create", "-r@", "master"]);
 
     let stdout = test_env.jj_cmd_success(&workspace_root, &["log", "-r", "trunk()"]);
     insta::assert_snapshot!(stdout, @r###"

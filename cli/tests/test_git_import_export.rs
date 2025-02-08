@@ -23,7 +23,7 @@ fn test_resolution_of_git_tracking_bookmarks() {
     let test_env = TestEnvironment::default();
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "main"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "main"]);
     test_env.jj_cmd_ok(&repo_path, &["describe", "-r", "main", "-m", "old_message"]);
 
     // Create local-git tracking bookmark
@@ -61,8 +61,8 @@ fn test_git_export_conflicting_git_refs() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "main"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "main/sub"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "main"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "main/sub"]);
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "export"]);
     insta::assert_snapshot!(stdout, @"");
     insta::with_settings!({filters => vec![("Failed to set: .*", "Failed to set: ...")]}, {
@@ -83,7 +83,7 @@ fn test_git_export_undo() {
     let repo_path = test_env.env_root().join("repo");
     let git_repo = git2::Repository::open(repo_path.join(".jj/repo/store/git")).unwrap();
 
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "a"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "a"]);
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r###"
     a: qpvuntsm 230dd059 (empty) (no description set)
     "###);
@@ -100,9 +100,7 @@ fn test_git_export_undo() {
     // bookmark is. This is the same as remote-tracking bookmarks.
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["op", "undo"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r#"
-    Undid operation: b27a68390bea (2001-02-03 08:05:10) export git refs
-    "#);
+    insta::assert_snapshot!(stderr, @"Undid operation: edb40232c741 (2001-02-03 08:05:10) export git refs");
     insta::assert_debug_snapshot!(get_git_repo_refs(&git_repo), @r###"
     [
         (
@@ -209,7 +207,7 @@ fn test_git_import_move_export_with_default_undo() {
 
     // Move bookmark "a" and export to git repo
     test_env.jj_cmd_ok(&repo_path, &["new"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "set", "a"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "set", "a", "--to=@"]);
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r###"
     a: yqosqzyt 096dc80d (empty) (no description set)
       @git (behind by 1 commits): qpvuntsm 230dd059 (empty) (no description set)

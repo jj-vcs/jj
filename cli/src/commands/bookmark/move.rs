@@ -59,7 +59,6 @@ pub struct BookmarkMoveArgs {
     // support `-f` for `--from`.
     #[arg(
         long,
-        default_value = "@",
         value_name = "REVSET",
         add = ArgValueCandidates::new(complete::all_revisions),
     )]

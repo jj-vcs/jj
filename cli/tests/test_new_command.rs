@@ -69,7 +69,7 @@ fn test_new_merge() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "main"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "main"]);
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "add file1"]);
     std::fs::write(repo_path.join("file1"), "a").unwrap();
     test_env.jj_cmd_ok(&repo_path, &["new", "root()", "-m", "add file2"]);
@@ -608,7 +608,7 @@ fn test_new_conflicting_bookmarks() {
 
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "one"]);
     test_env.jj_cmd_ok(&repo_path, &["new", "-m", "two", "@-"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "foo"]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "foo"]);
     test_env.jj_cmd_ok(
         &repo_path,
         &[
@@ -671,19 +671,19 @@ fn test_new_error_revision_does_not_exist() {
 }
 
 fn setup_before_insertion(test_env: &TestEnvironment, repo_path: &Path) {
-    test_env.jj_cmd_ok(repo_path, &["bookmark", "create", "A"]);
+    test_env.jj_cmd_ok(repo_path, &["bookmark", "create", "-r@", "A"]);
     test_env.jj_cmd_ok(repo_path, &["commit", "-m", "A"]);
-    test_env.jj_cmd_ok(repo_path, &["bookmark", "create", "B"]);
+    test_env.jj_cmd_ok(repo_path, &["bookmark", "create", "-r@", "B"]);
     test_env.jj_cmd_ok(repo_path, &["commit", "-m", "B"]);
-    test_env.jj_cmd_ok(repo_path, &["bookmark", "create", "C"]);
+    test_env.jj_cmd_ok(repo_path, &["bookmark", "create", "-r@", "C"]);
     test_env.jj_cmd_ok(repo_path, &["describe", "-m", "C"]);
     test_env.jj_cmd_ok(repo_path, &["new", "-m", "D", "root()"]);
-    test_env.jj_cmd_ok(repo_path, &["bookmark", "create", "D"]);
+    test_env.jj_cmd_ok(repo_path, &["bookmark", "create", "-r@", "D"]);
     test_env.jj_cmd_ok(repo_path, &["new", "-m", "E", "root()"]);
-    test_env.jj_cmd_ok(repo_path, &["bookmark", "create", "E"]);
+    test_env.jj_cmd_ok(repo_path, &["bookmark", "create", "-r@", "E"]);
     // Any number of -r's is ignored
     test_env.jj_cmd_ok(repo_path, &["new", "-m", "F", "-r", "D", "-r", "E"]);
-    test_env.jj_cmd_ok(repo_path, &["bookmark", "create", "F"]);
+    test_env.jj_cmd_ok(repo_path, &["bookmark", "create", "-r@", "F"]);
 }
 
 fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> String {
