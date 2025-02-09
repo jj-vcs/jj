@@ -149,3 +149,57 @@ fn test_annotate_merge_one_sided_conflict_resolution() {
     zsuskuln test.use 2001-02-03 08:05:11    2: new text from new commit 1
     ");
 }
+
+#[test]
+fn test_annotate_with_template() {
+    let test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    let repo_path = test_env.env_root().join("repo");
+
+    std::fs::write(repo_path.join("file.txt"), "line1\n").unwrap();
+    test_env.jj_cmd_ok(&repo_path, &["commit", "-m=initial"]);
+
+    append_to_file(
+        &repo_path.join("file.txt"),
+        "new text from new commit 1\nthat splits into multiple lines",
+    );
+    test_env.jj_cmd_ok(&repo_path, &["commit", "-m=commit1"]);
+
+    append_to_file(
+        &repo_path.join("file.txt"),
+        "new text from new commit 2\nalso continuing on a second line\nand a third!",
+    );
+    test_env.jj_cmd_ok(&repo_path, &["describe", "-m=commit2"]);
+
+    let template = indoc::indoc! {r#"
+    if(first_line_in_hunk, "\n" ++ separate("\n",
+        commit.change_id().shortest(8)
+            ++ " "
+            ++ commit.description().first_line(),
+        commit_timestamp(commit).local().format('%Y-%m-%d %H:%M:%S')
+            ++ " "
+            ++ commit.author(),
+    ) ++ "\n") ++ pad_start(4, line_number) ++ ": "
+    "#};
+
+    let stdout = test_env.jj_cmd_success(
+        &repo_path,
+        &["file", "annotate", "file.txt", "-T", template],
+    );
+    insta::assert_snapshot!(stdout, @r#"
+    qpvuntsm initial
+    2001-02-03 08:05:08 Test User <test.user@example.com>
+       1: line1
+
+    rlvkpnrz commit1
+    2001-02-03 08:05:09 Test User <test.user@example.com>
+       2: new text from new commit 1
+       3: that splits into multiple lines
+
+    kkmpptxz commit2
+    2001-02-03 08:05:10 Test User <test.user@example.com>
+       4: new text from new commit 2
+       5: also continuing on a second line
+       6: and a third!
+    "#);
+}

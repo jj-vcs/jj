@@ -885,7 +885,7 @@ File operations
 
 Show the source change for each line of the target file.
 
-Annotates a revision line by line. Each line includes the source change that introduced the associated line. A path to the desired file must be provided. The per-line prefix for each line can be customized via template with the `templates.annotate_commit_summary` config variable.
+Annotates a revision line by line. Each line includes the source change that introduced the associated line. A path to the desired file must be provided.
 
 **Usage:** `jj file annotate [OPTIONS] <PATH>`
 
@@ -896,6 +896,15 @@ Annotates a revision line by line. Each line includes the source change that int
 ###### **Options:**
 
 * `-r`, `--revision <REVSET>` — an optional revision to start at
+* `-T`, `--template <TEMPLATE>` — Render a prefix for each line using the given template
+
+   All 0-argument methods of the [`AnnotationLine` type] are available as keywords in the [template expression].
+
+   If not specified, this defaults to the `templates.file_annotate` setting.
+
+   [template expression]: https://jj-vcs.github.io/jj/latest/templates/
+
+   [`AnnotationLine` type]: https://jj-vcs.github.io/jj/latest/templates/#annotationline-type
 
 
 

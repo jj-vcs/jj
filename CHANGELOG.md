@@ -20,6 +20,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The `ui.allow-filesets` configuration option has been removed.
   [The "fileset" language](docs/filesets.md) has been enabled by default since v0.20.
 
+* `templates.annotate_commit_summary` is renamed to `templates.file_annotate`,
+  and now has an implicit `self` parameter of type `AnnotationLine`, instead of
+  `Commit`. All methods on `Commit` can be accessed with `commit.method()`, or
+  `self.commit().method()`.
+
 ### Deprecations
 
 * This release takes the first steps to make target revision required in
@@ -39,6 +44,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Templates now support additional string method `.escape_json(x)` which serializes
   the string in JSON format. It is useful for making machine-readable templates
   by escaping problematic characters like `\n`.
+
+* New `AnnotationLine` templater type. Used in `templates.file_annotate`.
+  Provides `self.commit()`, `self.line_number()`, and `self.first_line_in_hunk()`.
 
 ### Fixed bugs
 

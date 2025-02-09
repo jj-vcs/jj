@@ -323,6 +323,12 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                     function,
                 )
             }
+            CommitTemplatePropertyKind::AnnotationLine(property) => {
+                let type_name = "AnnotationLine";
+                let table = &self.build_fn_table.annotation_line_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(self, diagnostics, build_ctx, property, function)
+            }
         }
     }
 }
@@ -441,6 +447,12 @@ impl<'repo> CommitTemplateLanguage<'repo> {
     ) -> CommitTemplatePropertyKind<'repo> {
         CommitTemplatePropertyKind::CryptographicSignatureOpt(Box::new(property))
     }
+
+    pub fn wrap_annotation_line(
+        property: impl TemplateProperty<Output = AnnotationLine> + 'repo,
+    ) -> CommitTemplatePropertyKind<'repo> {
+        CommitTemplatePropertyKind::AnnotationLine(Box::new(property))
+    }
 }
 
 pub enum CommitTemplatePropertyKind<'repo> {
@@ -463,6 +475,7 @@ pub enum CommitTemplatePropertyKind<'repo> {
     CryptographicSignatureOpt(
         Box<dyn TemplateProperty<Output = Option<CryptographicSignature>> + 'repo>,
     ),
+    AnnotationLine(Box<dyn TemplateProperty<Output = AnnotationLine> + 'repo>),
 }
 
 impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
@@ -487,6 +500,7 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             CommitTemplatePropertyKind::CryptographicSignatureOpt(_) => {
                 "Option<CryptographicSignature>"
             }
+            CommitTemplatePropertyKind::AnnotationLine(_) => "AnnotationLine",
         }
     }
 
@@ -525,6 +539,7 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             CommitTemplatePropertyKind::CryptographicSignatureOpt(property) => {
                 Some(Box::new(property.map(|sig| sig.is_some())))
             }
+            CommitTemplatePropertyKind::AnnotationLine(_) => None,
         }
     }
 
@@ -568,6 +583,7 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             CommitTemplatePropertyKind::TreeEntry(_) => None,
             CommitTemplatePropertyKind::DiffStats(property) => Some(property.into_template()),
             CommitTemplatePropertyKind::CryptographicSignatureOpt(_) => None,
+            CommitTemplatePropertyKind::AnnotationLine(_) => None,
         }
     }
 
@@ -593,6 +609,7 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             (CommitTemplatePropertyKind::TreeEntry(_), _) => None,
             (CommitTemplatePropertyKind::DiffStats(_), _) => None,
             (CommitTemplatePropertyKind::CryptographicSignatureOpt(_), _) => None,
+            (CommitTemplatePropertyKind::AnnotationLine(_), _) => None,
         }
     }
 
@@ -621,6 +638,7 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             (CommitTemplatePropertyKind::TreeEntry(_), _) => None,
             (CommitTemplatePropertyKind::DiffStats(_), _) => None,
             (CommitTemplatePropertyKind::CryptographicSignatureOpt(_), _) => None,
+            (CommitTemplatePropertyKind::AnnotationLine(_), _) => None,
         }
     }
 }
@@ -643,6 +661,7 @@ pub struct CommitTemplateBuildFnTable<'repo> {
     pub diff_stats_methods: CommitTemplateBuildMethodFnMap<'repo, DiffStats>,
     pub cryptographic_signature_methods:
         CommitTemplateBuildMethodFnMap<'repo, CryptographicSignature>,
+    pub annotation_line_methods: CommitTemplateBuildMethodFnMap<'repo, AnnotationLine>,
 }
 
 impl<'repo> CommitTemplateBuildFnTable<'repo> {
@@ -660,6 +679,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             tree_entry_methods: builtin_tree_entry_methods(),
             diff_stats_methods: builtin_diff_stats_methods(),
             cryptographic_signature_methods: builtin_cryptographic_signature_methods(),
+            annotation_line_methods: builtin_annotation_line_methods(),
         }
     }
 
@@ -676,6 +696,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             tree_entry_methods: HashMap::new(),
             diff_stats_methods: HashMap::new(),
             cryptographic_signature_methods: HashMap::new(),
+            annotation_line_methods: HashMap::new(),
         }
     }
 
@@ -692,6 +713,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             tree_entry_methods,
             diff_stats_methods,
             cryptographic_signature_methods,
+            annotation_line_methods,
         } = extension;
 
         self.core.merge(core);
@@ -714,6 +736,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             &mut self.cryptographic_signature_methods,
             cryptographic_signature_methods,
         );
+        merge_fn_map(&mut self.annotation_line_methods, annotation_line_methods);
     }
 }
 
@@ -2193,6 +2216,45 @@ pub fn builtin_cryptographic_signature_methods<'repo>(
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|sig| Ok(sig.display()?));
             Ok(L::wrap_string(out_property))
+        },
+    );
+    map
+}
+
+// TODO: add `line: BString` field when available in template language
+#[derive(Debug, Clone)]
+pub struct AnnotationLine {
+    pub commit: Commit,
+    pub line_number: usize,
+    pub first_line_in_hunk: bool,
+}
+
+pub fn builtin_annotation_line_methods<'repo>(
+) -> CommitTemplateBuildMethodFnMap<'repo, AnnotationLine> {
+    type L<'repo> = CommitTemplateLanguage<'repo>;
+    let mut map = CommitTemplateBuildMethodFnMap::<AnnotationLine>::new();
+    map.insert(
+        "commit",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.and_then(|data| Ok(data.commit));
+            Ok(L::wrap_commit(out_property))
+        },
+    );
+    map.insert(
+        "line_number",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.and_then(|data| Ok(data.line_number.try_into()?));
+            Ok(L::wrap_integer(out_property))
+        },
+    );
+    map.insert(
+        "first_line_in_hunk",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.and_then(|data| Ok(data.first_line_in_hunk));
+            Ok(L::wrap_boolean(out_property))
         },
     );
     map

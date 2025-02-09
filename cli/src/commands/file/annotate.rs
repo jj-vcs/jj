@@ -16,7 +16,6 @@ use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use jj_lib::annotate::get_annotation_for_file;
 use jj_lib::annotate::FileAnnotation;
-use jj_lib::commit::Commit;
 use jj_lib::repo::Repo;
 use jj_lib::revset::RevsetExpression;
 use tracing::instrument;
@@ -25,6 +24,8 @@ use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::command_error::user_error;
 use crate::command_error::CommandError;
+use crate::commit_templater::AnnotationLine;
+use crate::commit_templater::CommitTemplateLanguage;
 use crate::complete;
 use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
@@ -33,8 +34,6 @@ use crate::ui::Ui;
 ///
 /// Annotates a revision line by line. Each line includes the source change that
 /// introduced the associated line. A path to the desired file must be provided.
-/// The per-line prefix for each line can be customized via
-/// template with the `templates.annotate_commit_summary` config variable.
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct FileAnnotateArgs {
     /// the file to annotate
@@ -51,6 +50,21 @@ pub(crate) struct FileAnnotateArgs {
         add = ArgValueCandidates::new(complete::all_revisions)
     )]
     revision: Option<RevisionArg>,
+    /// Render a prefix for each line using the given template
+    ///
+    /// All 0-argument methods of the [`AnnotationLine` type] are available as
+    /// keywords in the [template expression].
+    ///
+    /// If not specified, this defaults to the
+    /// `templates.file_annotate` setting.
+    ///
+    /// [template expression]:
+    ///     https://jj-vcs.github.io/jj/latest/templates/
+    ///
+    /// [`AnnotationLine` type]:
+    ///     https://jj-vcs.github.io/jj/latest/templates/#annotationline-type
+    #[arg(long, short = 'T', add = ArgValueCandidates::new(complete::template_aliases))]
+    template: Option<String>,
 }
 
 #[instrument(skip_all)]
@@ -75,10 +89,19 @@ pub(crate) fn cmd_file_annotate(
         )));
     }
 
-    let annotate_commit_summary_text = workspace_command
-        .settings()
-        .get_string("templates.annotate_commit_summary")?;
-    let template = workspace_command.parse_commit_template(ui, &annotate_commit_summary_text)?;
+    let template_text = match &args.template {
+        Some(value) => value.clone(),
+        None => workspace_command
+            .settings()
+            .get_string("templates.file_annotate")?,
+    };
+    let language = workspace_command.commit_template_language();
+    let template = workspace_command.parse_template(
+        ui,
+        &language,
+        &template_text,
+        CommitTemplateLanguage::wrap_annotation_line,
+    )?;
 
     // TODO: Should we add an option to limit the domain to e.g. recent commits?
     // Note that this is probably different from "--skip REVS", which won't
@@ -94,17 +117,24 @@ pub(crate) fn cmd_file_annotate(
 fn render_file_annotation(
     repo: &dyn Repo,
     ui: &mut Ui,
-    template_render: &TemplateRenderer<Commit>,
+    template_render: &TemplateRenderer<AnnotationLine>,
     annotation: &FileAnnotation,
 ) -> Result<(), CommandError> {
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();
-    for (line_no, (commit_id, line)) in annotation.lines().enumerate() {
+    let mut last_id = None;
+    for (line_number, (commit_id, line)) in annotation.lines().enumerate() {
         let commit_id = commit_id.expect("should reached to the empty ancestor");
         let commit = repo.store().get_commit(commit_id)?;
-        template_render.format(&commit, formatter.as_mut())?;
-        write!(formatter, " {:>4}: ", line_no + 1)?;
+        let first_line_in_hunk = last_id != Some(commit_id);
+        let annotation_line = AnnotationLine {
+            commit,
+            line_number: line_number + 1,
+            first_line_in_hunk,
+        };
+        template_render.format(&annotation_line, formatter.as_mut())?;
         formatter.write_all(line)?;
+        last_id = Some(commit_id);
     }
 
     Ok(())

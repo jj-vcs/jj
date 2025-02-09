@@ -88,6 +88,15 @@ The following functions are defined.
 
 ## Types
 
+### AnnotationLine type
+
+The following methods are defined.
+
+* `.commit() -> Commit`: Commit responsible for changing the relevant line.
+* `.line_number() -> Integer`: 1-based line number.
+* `.first_line_in_hunk() -> Boolean`: False when the directly preceding line
+  references the same commit.
+
 ### Boolean type
 
 No methods are defined. Can be constructed with `false` or `true` literal.
