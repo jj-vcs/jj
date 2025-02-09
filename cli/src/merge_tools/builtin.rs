@@ -6,7 +6,6 @@ use futures::StreamExt;
 use futures::TryFutureExt;
 use futures::TryStreamExt;
 use itertools::Itertools;
-use jj_lib::backend::BackendError;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::FileId;
 use jj_lib::backend::MergedTreeId;
@@ -37,16 +36,12 @@ use super::MergeToolFile;
 pub enum BuiltinToolError {
     #[error("Failed to record changes")]
     Record(#[from] scm_record::RecordError),
-    #[error(transparent)]
-    ReadFileBackend(BackendError),
     #[error("Failed to read file {path:?} with ID {id}")]
     ReadFileIo {
         path: RepoPathBuf,
         id: FileId,
         source: std::io::Error,
     },
-    #[error(transparent)]
-    ReadSymlink(BackendError),
     #[error("Failed to decode UTF-8 text for item {item} (this should not happen)")]
     DecodeUtf8 {
         source: std::str::Utf8Error,
