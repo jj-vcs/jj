@@ -22,6 +22,11 @@ fn get_log_output(test_env: &TestEnvironment, cwd: &Path) -> String {
     test_env.jj_cmd_success(cwd, &["log", "-T", template])
 }
 
+fn get_workspace_log_output(test_env: &TestEnvironment, cwd: &Path) -> String {
+    let template = r#"separate(" ", change_id.short(), working_copies, description)"#;
+    test_env.jj_cmd_success(cwd, &["log", "-T", template, "-r", "all()"])
+}
+
 fn get_recorded_dates(test_env: &TestEnvironment, cwd: &Path, revset: &str) -> String {
     let template = r#"separate("\n", "Author date:  " ++ author.timestamp(), "Committer date: " ++ committer.timestamp())"#;
     test_env.jj_cmd_success(cwd, &["log", "--no-graph", "-T", template, "-r", revset])
@@ -674,4 +679,127 @@ fn test_split_interactive_with_paths() {
     │  A file3
     ◆  zzzzzzzz root() 00000000
     ");
+}
+
+// When a commit is split, the second commit produced by the split becomes the
+// working copy commit for all workspaces whose working copy commit was the
+// target of the split. This test does a split where the target commit is the
+// working copy commit for two different workspaces.
+#[test]
+fn test_split_with_multiple_workspaces_same_working_copy() {
+    let mut test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "main"]);
+    let main_path = test_env.env_root().join("main");
+    let secondary_path = test_env.env_root().join("secondary");
+
+    test_env.jj_cmd_ok(&main_path, &["desc", "-m", "first-commit"]);
+    std::fs::write(main_path.join("file1"), "foo").unwrap();
+    std::fs::write(main_path.join("file2"), "foo").unwrap();
+
+    // Create the second workspace and change its working copy commit to match
+    // the default workspace.
+    test_env.jj_cmd_ok(
+        &main_path,
+        &["workspace", "add", "--name", "second", "../secondary"],
+    );
+    // Change the working copy in the second workspace.
+    test_env.jj_cmd_ok(
+        &secondary_path,
+        &["edit", "-r", "description(first-commit)"],
+    );
+    // Check the working-copy commit in each workspace in the log output. The "@"
+    // node in the graph indicates the current workspace's working-copy commit.
+    insta::assert_snapshot!(get_workspace_log_output(&test_env, &main_path), @r###"
+    @  qpvuntsmwlqt default@ second@ first-commit
+    ◆  zzzzzzzzzzzz
+    "###);
+
+    // Do the split in the default workspace.
+    std::fs::write(
+        test_env.set_up_fake_editor(),
+        ["", "next invocation\n", "write\nsecond-commit"].join("\0"),
+    )
+    .unwrap();
+    test_env.jj_cmd_ok(&main_path, &["split", "file2"]);
+    // The working copy for both workspaces will be the second split commit.
+    insta::assert_snapshot!(get_workspace_log_output(&test_env, &main_path), @r###"
+    @  royxmykxtrkr default@ second@ second-commit
+    ○  qpvuntsmwlqt first-commit
+    ◆  zzzzzzzzzzzz
+    "###);
+
+    // Test again with a --parallel split.
+    test_env.jj_cmd_ok(&main_path, &["undo"]);
+    std::fs::write(
+        test_env.set_up_fake_editor(),
+        ["", "next invocation\n", "write\nsecond-commit"].join("\0"),
+    )
+    .unwrap();
+    test_env.jj_cmd_ok(&main_path, &["split", "file2", "--parallel"]);
+    insta::assert_snapshot!(get_workspace_log_output(&test_env, &main_path), @r###"
+    @  yostqsxwqrlt default@ second@ second-commit
+    │ ○  qpvuntsmwlqt first-commit
+    ├─╯
+    ◆  zzzzzzzzzzzz
+    "###);
+}
+
+// A workspace should only have its working copy commit updated if the target
+// commit is the working copy commit.
+#[test]
+fn test_split_with_multiple_workspaces_different_working_copy() {
+    let mut test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "main"]);
+    let main_path = test_env.env_root().join("main");
+
+    test_env.jj_cmd_ok(&main_path, &["desc", "-m", "first-commit"]);
+    std::fs::write(main_path.join("file1"), "foo").unwrap();
+    std::fs::write(main_path.join("file2"), "foo").unwrap();
+
+    // Create the second workspace with a different working copy commit.
+    test_env.jj_cmd_ok(
+        &main_path,
+        &["workspace", "add", "--name", "second", "../secondary"],
+    );
+    // Check the working-copy commit in each workspace in the log output. The "@"
+    // node in the graph indicates the current workspace's working-copy commit.
+    insta::assert_snapshot!(get_workspace_log_output(&test_env, &main_path), @r###"
+    @  qpvuntsmwlqt default@ first-commit
+    │ ○  pmmvwywvzvvn second@
+    ├─╯
+    ◆  zzzzzzzzzzzz
+    "###);
+
+    // Do the split in the default workspace.
+    std::fs::write(
+        test_env.set_up_fake_editor(),
+        ["", "next invocation\n", "write\nsecond-commit"].join("\0"),
+    )
+    .unwrap();
+    test_env.jj_cmd_ok(&main_path, &["split", "file2"]);
+    // Only the working copy commit for the default workspace changes.
+    insta::assert_snapshot!(get_workspace_log_output(&test_env, &main_path), @r###"
+    @  mzvwutvlkqwt default@ second-commit
+    ○  qpvuntsmwlqt first-commit
+    │ ○  pmmvwywvzvvn second@
+    ├─╯
+    ◆  zzzzzzzzzzzz
+    "###);
+
+    // Test again with a --parallel split.
+    test_env.jj_cmd_ok(&main_path, &["undo"]);
+    std::fs::write(
+        test_env.set_up_fake_editor(),
+        ["", "next invocation\n", "write\nsecond-commit"].join("\0"),
+    )
+    .unwrap();
+    test_env.jj_cmd_ok(&main_path, &["split", "file2", "--parallel"]);
+    insta::assert_snapshot!(get_workspace_log_output(&test_env, &main_path), @r###"
+    @  vruxwmqvtpmx default@ second-commit
+    │ ○  qpvuntsmwlqt first-commit
+    ├─╯
+    │ ○  pmmvwywvzvvn second@
+    ├─╯
+    ◆  zzzzzzzzzzzz
+    "###);
 }
