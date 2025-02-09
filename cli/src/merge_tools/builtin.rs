@@ -130,11 +130,11 @@ fn read_file_contents(
         .block_on()?;
     match materialized_value {
         MaterializedTreeValue::Absent => Ok(FileInfo {
-            file_mode: scm_record::FileMode::absent(),
+            file_mode: scm_record::FileMode::Absent,
             contents: FileContents::Absent,
         }),
         MaterializedTreeValue::AccessDenied(err) => Ok(FileInfo {
-            file_mode: scm_record::FileMode(mode::NORMAL),
+            file_mode: scm_record::FileMode::Rwx(mode::NORMAL),
             contents: FileContents::Text {
                 contents: format!("Access denied: {err}"),
                 hash: None,
@@ -157,9 +157,9 @@ fn read_file_contents(
                 })?;
 
             let file_mode = if executable {
-                scm_record::FileMode(mode::EXECUTABLE)
+                scm_record::FileMode::Rwx(mode::EXECUTABLE)
             } else {
-                scm_record::FileMode(mode::NORMAL)
+                scm_record::FileMode::Rwx(mode::NORMAL)
             };
             let contents = buf_to_file_contents(Some(id.hex()), buf);
             Ok(FileInfo {
@@ -169,7 +169,7 @@ fn read_file_contents(
         }
 
         MaterializedTreeValue::Symlink { id, target } => {
-            let file_mode = scm_record::FileMode(mode::SYMLINK);
+            let file_mode = scm_record::FileMode::Rwx(mode::SYMLINK);
             let num_bytes = target.len().try_into().unwrap();
             Ok(FileInfo {
                 file_mode,
@@ -197,7 +197,7 @@ fn read_file_contents(
             // TODO: Render the ID somehow?
             let contents = buf_to_file_contents(None, buf);
             Ok(FileInfo {
-                file_mode: scm_record::FileMode(mode::NORMAL),
+                file_mode: scm_record::FileMode::Rwx(mode::NORMAL),
                 contents,
             })
         }
@@ -205,7 +205,7 @@ fn read_file_contents(
             // TODO: Render the ID somehow?
             let contents = buf_to_file_contents(None, id.describe().into_bytes());
             Ok(FileInfo {
-                file_mode: scm_record::FileMode(mode::NORMAL),
+                file_mode: scm_record::FileMode::Rwx(mode::NORMAL),
                 contents,
             })
         }
@@ -292,10 +292,7 @@ pub fn make_diff_files(
         if left_info.file_mode != right_info.file_mode {
             sections.push(scm_record::Section::FileMode {
                 is_checked: false,
-                mode_transition: scm_record::FileModeTransition {
-                    before: left_info.file_mode,
-                    after: right_info.file_mode,
-                },
+                mode: right_info.file_mode,
             });
         }
 
@@ -410,6 +407,7 @@ pub fn make_diff_files(
             old_path: None,
             // Path for displaying purposes, not for file access.
             path: Cow::Owned(changed_path.to_fs_path_unchecked(Path::new(""))),
+            file_mode: left_info.file_mode,
             sections,
         });
     }
@@ -431,26 +429,18 @@ pub fn apply_diff_builtin(
     );
     // TODO: Write files concurrently
     for (path, file) in changed_files.into_iter().zip(files) {
-        let (selected, _unselected) = file.get_selected_changes();
+        let (
+            scm_record::SelectedChanges {
+                contents,
+                file_mode,
+            },
+            _unselected,
+        ) = file.get_selected_contents();
 
-        // If the user didn't select any changes for this file, we can skip it entirely.
-        let Some(scm_record::SelectedChanges {
-            contents,
-            mode_transition,
-        }) = selected
-        else {
+        // If a file was deleted, remove it.
+        if file_mode == scm_record::FileMode::Absent {
+            tree_builder.set_or_remove(path, Merge::absent());
             continue;
-        };
-
-        if let Some(ref mode_transition) = mode_transition {
-            // If a file was deleted, remove it.
-            if mode_transition.is_deletion() {
-                tree_builder.set_or_remove(path, Merge::absent());
-                continue;
-            }
-
-            // If a file was added, it will have contents - even empty files
-            // have contents = "", so no special handling is required.
         }
 
         match contents {
@@ -469,24 +459,11 @@ pub fn apply_diff_builtin(
                     .write_file(&path, &mut contents.as_bytes())
                     .block_on()?;
 
-                let executable = match mode_transition {
-                    // If a mode transition was explicitly selected, and the file ended up as
-                    // executable, make it executable
-                    Some(transition) => transition.after == scm_record::FileMode(mode::EXECUTABLE),
-
-                    // If no mode transition was selected, but the file was already executable,
-                    // ensure it remains executable
-                    None => match right_tree.path_value(&path)?.as_resolved() {
-                        Some(Some(TreeValue::File { executable, .. })) => *executable,
-                        _ => false,
-                    },
-                };
-
                 tree_builder.set_or_remove(
                     path,
                     Merge::normal(TreeValue::File {
                         id: file_id,
-                        executable,
+                        executable: file_mode == scm_record::FileMode::Rwx(mode::EXECUTABLE),
                     }),
                 );
             }
@@ -625,6 +602,7 @@ fn make_merge_file(
                 .repo_path
                 .to_fs_path_unchecked(Path::new("")),
         ),
+        file_mode: scm_record::FileMode::Rwx(mode::NORMAL),
         sections,
     })
 }
@@ -711,6 +689,9 @@ mod tests {
             File {
                 old_path: None,
                 path: "unchanged",
+                file_mode: Rwx(
+                    33188,
+                ),
                 sections: [
                     Unchanged {
                         lines: [
@@ -722,6 +703,9 @@ mod tests {
             File {
                 old_path: None,
                 path: "changed",
+                file_mode: Rwx(
+                    33188,
+                ),
                 sections: [
                     Unchanged {
                         lines: [
@@ -766,17 +750,13 @@ mod tests {
             File {
                 old_path: None,
                 path: "added",
+                file_mode: Absent,
                 sections: [
                     FileMode {
                         is_checked: false,
-                        mode_transition: FileModeTransition {
-                            before: FileMode(
-                                0,
-                            ),
-                            after: FileMode(
-                                33188,
-                            ),
-                        },
+                        mode: Rwx(
+                            33188,
+                        ),
                     },
                     Changed {
                         lines: [
@@ -844,17 +824,13 @@ mod tests {
             File {
                 old_path: None,
                 path: "empty_file",
+                file_mode: Absent,
                 sections: [
                     FileMode {
                         is_checked: false,
-                        mode_transition: FileModeTransition {
-                            before: FileMode(
-                                0,
-                            ),
-                            after: FileMode(
-                                33188,
-                            ),
-                        },
+                        mode: Rwx(
+                            33188,
+                        ),
                     },
                 ],
             },
@@ -922,17 +898,13 @@ mod tests {
             File {
                 old_path: None,
                 path: "executable_file",
+                file_mode: Absent,
                 sections: [
                     FileMode {
                         is_checked: false,
-                        mode_transition: FileModeTransition {
-                            before: FileMode(
-                                0,
-                            ),
-                            after: FileMode(
-                                33261,
-                            ),
-                        },
+                        mode: Rwx(
+                            33261,
+                        ),
                     },
                     Changed {
                         lines: [
@@ -999,17 +971,13 @@ mod tests {
             File {
                 old_path: None,
                 path: "file_with_content",
+                file_mode: Rwx(
+                    33188,
+                ),
                 sections: [
                     FileMode {
                         is_checked: false,
-                        mode_transition: FileModeTransition {
-                            before: FileMode(
-                                33188,
-                            ),
-                            after: FileMode(
-                                0,
-                            ),
-                        },
+                        mode: Absent,
                     },
                     Changed {
                         lines: [
@@ -1076,17 +1044,13 @@ mod tests {
             File {
                 old_path: None,
                 path: "empty_file",
+                file_mode: Rwx(
+                    33188,
+                ),
                 sections: [
                     FileMode {
                         is_checked: false,
-                        mode_transition: FileModeTransition {
-                            before: FileMode(
-                                33188,
-                            ),
-                            after: FileMode(
-                                0,
-                            ),
-                        },
+                        mode: Absent,
                     },
                 ],
             },
@@ -1145,6 +1109,9 @@ mod tests {
             File {
                 old_path: None,
                 path: "empty_file",
+                file_mode: Rwx(
+                    33188,
+                ),
                 sections: [
                     Changed {
                         lines: [
@@ -1211,6 +1178,9 @@ mod tests {
             File {
                 old_path: None,
                 path: "file_with_content",
+                file_mode: Rwx(
+                    33188,
+                ),
                 sections: [
                     Changed {
                         lines: [
