@@ -23,10 +23,11 @@ fn test_deprecated_flags() {
         test_env.jj_cmd_ok(test_env.env_root(), &["util", "completion", "--bash"]);
     assert_snapshot!(
         stderr,
-        @r###"
+        @r"
     Warning: `jj util completion --bash` will be removed in a future version, and this will be a hard error
     Hint: Use `jj util completion bash` instead
-    "###
+    [EOF]
+    "
     );
     assert!(stdout.raw().contains("COMPREPLY"));
 }

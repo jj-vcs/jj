@@ -22,7 +22,7 @@ fn test_util_config_schema() {
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["util", "config-schema"]);
     // Validate partial snapshot, redacting any lines nested 2+ indent levels.
     insta::with_settings!({filters => vec![(r"(?m)(^        .*$\r?\n)+", "        [...]\n")]}, {
-        assert_snapshot!(stdout, @r###"
+        assert_snapshot!(stdout, @r#"
         {
             "$schema": "http://json-schema.org/draft-04/schema",
             "$comment": "`taplo` and the corresponding VS Code plugins only support draft-04 verstion of JSON Schema, see <https://taplo.tamasfe.dev/configuration/developing-schemas.html>. draft-07 is mostly compatible with it, newer versions may not be.",
@@ -33,7 +33,8 @@ fn test_util_config_schema() {
                 [...]
             }
         }
-        "###);
+        [EOF]
+        "#);
     });
 }
 
@@ -51,14 +52,16 @@ fn test_gc_args() {
     insta::assert_snapshot!(stderr, @"");
 
     let stderr = test_env.jj_cmd_failure(&repo_path, &["util", "gc", "--at-op=@-"]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Error: Cannot garbage collect from a non-head operation
-    "###);
+    [EOF]
+    ");
 
     let stderr = test_env.jj_cmd_failure(&repo_path, &["util", "gc", "--expire=foobar"]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Error: --expire only accepts 'now'
-    "###);
+    [EOF]
+    ");
 }
 
 #[test]
@@ -91,6 +94,7 @@ fn test_gc_operation_log() {
     let stderr = test_env.jj_cmd_failure(&repo_path, &["debug", "operation", &op_to_remove]);
     insta::assert_snapshot!(stderr, @r#"
     Error: No operation ID matching "8382f401329617b0c91a63354b86ca48fc28dee8d7a916fdad5310030f9a1260e969c43ed2b13d1d48eaf38f6f45541ecf593bcb6105495d514d21b3b6a98846"
+    [EOF]
     "#);
 }
 
@@ -127,7 +131,7 @@ fn test_util_exec() {
             "hello",
         ],
     );
-    insta::assert_snapshot!(out, @"hello");
+    insta::assert_snapshot!(out, @"hello[EOF]");
     // Ensures only stdout contains text
     assert!(err.is_empty());
 }
@@ -139,5 +143,8 @@ fn test_util_exec_fail() {
         test_env.env_root(),
         &["util", "exec", "--", "jj-test-missing-program"],
     );
-    insta::assert_snapshot!(err.strip_last_line(), @"Error: Failed to execute external command 'jj-test-missing-program'");
+    insta::assert_snapshot!(err.strip_last_line(), @r"
+    Error: Failed to execute external command 'jj-test-missing-program'
+    [EOF]
+    ");
 }
