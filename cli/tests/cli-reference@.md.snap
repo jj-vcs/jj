@@ -1513,7 +1513,60 @@ Note that you can create a merge commit by specifying multiple revisions as argu
 * `-m`, `--message <MESSAGE>` — The change description to use
 * `--no-edit` — Do not edit the newly created change
 * `-A`, `--insert-after <REVSETS>` — Insert the new change after the given commit(s)
+
+   Example: `jj new --after A` creates a new change between `A` and its
+   children:
+
+   ```text
+                   B   C
+                    \ /
+       B   C   =>    @
+        \ /          |
+         A           A
+   ```
+
+   Specifying `--after` multiple times will relocate all children of the
+   given commits.
+
+   Example: `jj new --after A --after X` creates a change with `A` and `X`
+   as parents, and rebases all children on top of the new change:
+
+   ```text
+                   B   Y
+                    \ /
+       B  Y    =>    @
+       |  |         / \
+       A  X        A   X
+   ```
 * `-B`, `--insert-before <REVSETS>` — Insert the new change before the given commit(s)
+
+   Example: `jj new --before C` creates a new change between `C` and its
+   parents:
+
+   ```text
+                      C
+                      |
+         C     =>     @
+        / \          / \
+       A   B        A   B
+   ```
+
+   `--after` and `--before` can be combined.
+
+   Example: `jj new --after A --before D`:
+
+   ```text
+
+       D            D
+       |           / \
+       C          |   C
+       |    =>    @   |
+       B          |   B
+       |           \ /
+       A            A
+   ```
+
+   Similar to `--after`, you can specify `--before` multiple times.
 
 
 
