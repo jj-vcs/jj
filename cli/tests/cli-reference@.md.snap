@@ -2298,6 +2298,10 @@ Splitting an empty commit is not supported because the same effect can be achiev
 
   Default value: `@`
 * `-p`, `--parallel` — Split the revision into two parallel revisions instead of a parent and child
+* `--no-edit` — Don't open an editor
+
+   This keeps the description from the source commit as the description for both new commits.
+* `--only-first` — Only describe the first commit
 
 
 
