@@ -28,5 +28,5 @@ fn test_deprecated_flags() {
     Hint: Use `jj util completion bash` instead
     "###
     );
-    assert!(stdout.contains("COMPREPLY"));
+    assert!(stdout.raw().contains("COMPREPLY"));
 }

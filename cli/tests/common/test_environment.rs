@@ -14,6 +14,8 @@
 
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::fmt;
+use std::fmt::Display;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -26,6 +28,7 @@ use super::fake_diff_editor_path;
 use super::fake_editor_path;
 use super::get_stderr_string;
 use super::get_stdout_string;
+use super::strip_last_line;
 use super::to_toml_value;
 
 pub struct TestEnvironment {
@@ -156,16 +159,20 @@ impl TestEnvironment {
         cmd
     }
 
-    fn get_ok(&self, mut cmd: assert_cmd::Command) -> (String, String) {
+    fn get_ok(&self, mut cmd: assert_cmd::Command) -> (CommandOutputString, CommandOutputString) {
         let assert = cmd.assert().success();
-        let stdout = self.normalize_output(&get_stdout_string(&assert));
-        let stderr = self.normalize_output(&get_stderr_string(&assert));
+        let stdout = self.normalize_output(get_stdout_string(&assert));
+        let stderr = self.normalize_output(get_stderr_string(&assert));
         (stdout, stderr)
     }
 
     /// Run a `jj` command, check that it was successful, and return its
     /// `(stdout, stderr)`.
-    pub fn jj_cmd_ok(&self, current_dir: &Path, args: &[&str]) -> (String, String) {
+    pub fn jj_cmd_ok(
+        &self,
+        current_dir: &Path,
+        args: &[&str],
+    ) -> (CommandOutputString, CommandOutputString) {
         self.get_ok(self.jj_cmd(current_dir, args))
     }
 
@@ -174,13 +181,13 @@ impl TestEnvironment {
         current_dir: &Path,
         args: &[&str],
         stdin: &str,
-    ) -> (String, String) {
+    ) -> (CommandOutputString, CommandOutputString) {
         self.get_ok(self.jj_cmd_stdin(current_dir, args, stdin))
     }
 
     /// Run a `jj` command, check that it was successful, and return its stdout
     #[track_caller]
-    pub fn jj_cmd_success(&self, current_dir: &Path, args: &[&str]) -> String {
+    pub fn jj_cmd_success(&self, current_dir: &Path, args: &[&str]) -> CommandOutputString {
         if self.debug_allow_stderr {
             let (stdout, stderr) = self.jj_cmd_ok(current_dir, args);
             if !stderr.is_empty() {
@@ -192,41 +199,41 @@ impl TestEnvironment {
             stdout
         } else {
             let assert = self.jj_cmd(current_dir, args).assert().success().stderr("");
-            self.normalize_output(&get_stdout_string(&assert))
+            self.normalize_output(get_stdout_string(&assert))
         }
     }
 
     /// Run a `jj` command, check that it failed with code 1, and return its
     /// stderr
     #[must_use]
-    pub fn jj_cmd_failure(&self, current_dir: &Path, args: &[&str]) -> String {
+    pub fn jj_cmd_failure(&self, current_dir: &Path, args: &[&str]) -> CommandOutputString {
         let assert = self.jj_cmd(current_dir, args).assert().code(1).stdout("");
-        self.normalize_output(&get_stderr_string(&assert))
+        self.normalize_output(get_stderr_string(&assert))
     }
 
     /// Run a `jj` command and check that it failed with code 2 (for invalid
     /// usage)
     #[must_use]
-    pub fn jj_cmd_cli_error(&self, current_dir: &Path, args: &[&str]) -> String {
+    pub fn jj_cmd_cli_error(&self, current_dir: &Path, args: &[&str]) -> CommandOutputString {
         let assert = self.jj_cmd(current_dir, args).assert().code(2).stdout("");
-        self.normalize_output(&get_stderr_string(&assert))
+        self.normalize_output(get_stderr_string(&assert))
     }
 
     /// Run a `jj` command, check that it failed with code 255, and return its
     /// stderr
     #[must_use]
-    pub fn jj_cmd_internal_error(&self, current_dir: &Path, args: &[&str]) -> String {
+    pub fn jj_cmd_internal_error(&self, current_dir: &Path, args: &[&str]) -> CommandOutputString {
         let assert = self.jj_cmd(current_dir, args).assert().code(255).stdout("");
-        self.normalize_output(&get_stderr_string(&assert))
+        self.normalize_output(get_stderr_string(&assert))
     }
 
     /// Run a `jj` command, check that it failed with code 101, and return its
     /// stderr
     #[must_use]
     #[allow(dead_code)]
-    pub fn jj_cmd_panic(&self, current_dir: &Path, args: &[&str]) -> String {
+    pub fn jj_cmd_panic(&self, current_dir: &Path, args: &[&str]) -> CommandOutputString {
         let assert = self.jj_cmd(current_dir, args).assert().code(101).stdout("");
-        self.normalize_output(&get_stderr_string(&assert))
+        self.normalize_output(get_stderr_string(&assert))
     }
 
     pub fn env_root(&self) -> &Path {
@@ -275,7 +282,7 @@ impl TestEnvironment {
     pub fn current_operation_id(&self, repo_path: &Path) -> String {
         let id_and_newline =
             self.jj_cmd_success(repo_path, &["debug", "operation", "--display=id"]);
-        id_and_newline.trim_end().to_owned()
+        id_and_newline.raw().trim_end().to_owned()
     }
 
     /// Sets up the fake editor to read an edit script from the returned path
@@ -311,8 +318,9 @@ impl TestEnvironment {
         edit_script
     }
 
-    pub fn normalize_output(&self, text: &str) -> String {
-        normalize_output(text, &self.env_root)
+    pub fn normalize_output(&self, raw: String) -> CommandOutputString {
+        let normalized = normalize_output(&raw, &self.env_root);
+        CommandOutputString { raw, normalized }
     }
 
     /// Used before mutating operations to create more predictable commit ids
@@ -325,6 +333,68 @@ impl TestEnvironment {
         assert!(step > 0, "step must be >0, got {step}");
         let mut command_number = self.command_number.borrow_mut();
         *command_number = step * (*command_number / step) + step;
+    }
+}
+
+/// Command output data to be displayed in normalized form.
+// TODO: Maybe we can add wrapper that stores both stdout/stderr and print them.
+#[derive(Clone)]
+pub struct CommandOutputString {
+    // TODO: use BString?
+    raw: String,
+    normalized: String,
+}
+
+impl CommandOutputString {
+    /// Normalizes Windows directory separator to slash.
+    pub fn normalize_backslash(self) -> Self {
+        self.normalize_with(|s| s.replace('\\', "/"))
+    }
+
+    /// Normalizes [`std::process::ExitStatus`] message.
+    ///
+    /// On Windows, it prints "exit code" instead of "exit status".
+    pub fn normalize_exit_status(self) -> Self {
+        self.normalize_with(|s| s.replace("exit code:", "exit status:"))
+    }
+
+    /// Removes the last line (such as platform-specific error message) from the
+    /// normalized text.
+    pub fn strip_last_line(self) -> Self {
+        self.normalize_with(|mut s| {
+            s.truncate(strip_last_line(&s).len());
+            s
+        })
+    }
+
+    pub fn normalize_with(mut self, f: impl FnOnce(String) -> String) -> Self {
+        self.normalized = f(self.normalized);
+        self
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.raw.is_empty()
+    }
+
+    /// Raw output data.
+    pub fn raw(&self) -> &str {
+        &self.raw
+    }
+
+    /// Normalized text for snapshot testing.
+    pub fn normalized(&self) -> &str {
+        &self.normalized
+    }
+
+    /// Extracts raw output data.
+    pub fn into_raw(self) -> String {
+        self.raw
+    }
+}
+
+impl Display for CommandOutputString {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.normalized)
     }
 }
 

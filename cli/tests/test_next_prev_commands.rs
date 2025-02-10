@@ -17,6 +17,7 @@ use std::path::Path;
 
 use crate::common::get_stderr_string;
 use crate::common::get_stdout_string;
+use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -354,7 +355,7 @@ fn test_next_fails_on_bookmarking_children_no_stdin() {
 
     // Try to advance the working copy commit.
     let assert = test_env.jj_cmd(&repo_path, &["next"]).assert().code(1);
-    let stderr = test_env.normalize_output(&get_stderr_string(&assert));
+    let stderr = test_env.normalize_output(get_stderr_string(&assert));
     insta::assert_snapshot!(stderr,@r###"
     Error: Cannot prompt for input since the output is not connected to a terminal
     "###);
@@ -386,8 +387,8 @@ fn test_next_fails_on_bookmarking_children_quit_prompt() {
         .jj_cmd_stdin(&repo_path, &["next"], "q\n")
         .assert()
         .code(1);
-    let stdout = test_env.normalize_output(&get_stdout_string(&assert));
-    let stderr = test_env.normalize_output(&get_stderr_string(&assert));
+    let stdout = test_env.normalize_output(get_stdout_string(&assert));
+    let stderr = test_env.normalize_output(get_stderr_string(&assert));
     insta::assert_snapshot!(stdout,@r###"
     ambiguous next commit, choose one to target:
     1: zsuskuln 5f24490d (empty) third
@@ -1181,7 +1182,7 @@ fn test_next_offset_when_wc_has_descendants() {
     "###);
 }
 
-fn get_log_output(test_env: &TestEnvironment, cwd: &Path) -> String {
+fn get_log_output(test_env: &TestEnvironment, cwd: &Path) -> CommandOutputString {
     let template = r#"separate(" ", change_id.short(), local_bookmarks, if(conflict, "conflict"), description)"#;
     test_env.jj_cmd_success(cwd, &["log", "-T", template])
 }

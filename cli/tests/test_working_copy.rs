@@ -15,6 +15,7 @@
 use indoc::indoc;
 use regex::Regex;
 
+use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -358,8 +359,9 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     // or `false`, so we want to remove it from the output as well
     let executable_regex = Regex::new("executable: [^ ]+").unwrap();
 
-    let redact_output = |output: &str| {
-        let output = timestamp_regex.replace_all(output, "<timestamp>");
+    let redact_output = |output: &CommandOutputString| {
+        let output = output.to_string();
+        let output = timestamp_regex.replace_all(&output, "<timestamp>");
         let output = executable_regex.replace_all(&output, "<executable>");
         output.into_owned()
     };

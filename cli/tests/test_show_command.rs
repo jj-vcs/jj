@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use itertools::Itertools;
 use regex::Regex;
 
 use crate::common::TestEnvironment;
@@ -24,7 +23,7 @@ fn test_show() {
     let repo_path = test_env.env_root().join("repo");
 
     let stdout = test_env.jj_cmd_success(&repo_path, &["show"]);
-    let stdout = stdout.lines().skip(2).join("\n");
+    let stdout = stdout.normalize_with(|s| s.split_inclusive('\n').skip(2).collect());
 
     insta::assert_snapshot!(stdout, @r#"
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:07)
@@ -289,11 +288,12 @@ fn test_show_relative_timestamps() {
 
     let stdout = test_env.jj_cmd_success(&repo_path, &["show"]);
     let timestamp_re = Regex::new(r"\([0-9]+ years ago\)").unwrap();
-    let stdout = stdout
-        .lines()
-        .skip(2)
-        .map(|x| timestamp_re.replace_all(x, "(...timestamp...)"))
-        .join("\n");
+    let stdout = stdout.normalize_with(|s| {
+        s.split_inclusive('\n')
+            .skip(2)
+            .map(|x| timestamp_re.replace_all(x, "(...timestamp...)"))
+            .collect()
+    });
 
     insta::assert_snapshot!(stdout, @r#"
     Author   : Test User <test.user@example.com> (...timestamp...)

@@ -15,6 +15,7 @@
 use std::path::Path;
 
 use crate::common::git;
+use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;
 
 fn create_commit_with_refs(
@@ -1973,12 +1974,12 @@ fn test_bookmark_move_with_default_target_revision() {
     ");
 }
 
-fn get_log_output(test_env: &TestEnvironment, cwd: &Path) -> String {
+fn get_log_output(test_env: &TestEnvironment, cwd: &Path) -> CommandOutputString {
     let template = r#"bookmarks ++ " " ++ commit_id.short()"#;
     test_env.jj_cmd_success(cwd, &["log", "-T", template])
 }
 
-fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> String {
+fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutputString {
     // --quiet to suppress deleted bookmarks hint
     test_env.jj_cmd_success(repo_path, &["bookmark", "list", "--all-remotes", "--quiet"])
 }

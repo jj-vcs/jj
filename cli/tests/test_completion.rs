@@ -215,9 +215,13 @@ fn test_completions_are_generated() {
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &[]);
     // cannot use assert_snapshot!, output contains path to binary that depends
     // on environment
-    assert!(stdout.starts_with("complete --keep-order --exclusive --command jj --arguments"));
+    assert!(stdout
+        .raw()
+        .starts_with("complete --keep-order --exclusive --command jj --arguments"));
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["--"]);
-    assert!(stdout.starts_with("complete --keep-order --exclusive --command jj --arguments"));
+    assert!(stdout
+        .raw()
+        .starts_with("complete --keep-order --exclusive --command jj --arguments"));
 }
 
 #[test]
@@ -472,7 +476,14 @@ fn test_operations() {
     let test_env = test_env;
 
     let stdout = test_env.jj_cmd_success(&repo_path, &["--", "jj", "op", "show", ""]);
-    let add_workspace_id = stdout.lines().nth(5).unwrap().split('\t').next().unwrap();
+    let add_workspace_id = stdout
+        .raw()
+        .lines()
+        .nth(5)
+        .unwrap()
+        .split('\t')
+        .next()
+        .unwrap();
     insta::assert_snapshot!(add_workspace_id, @"eac759b9ab75");
 
     let stdout = test_env.jj_cmd_success(&repo_path, &["--", "jj", "op", "show", "5"]);
@@ -731,7 +742,7 @@ fn test_files() {
     );
 
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-r", "all()", "--summary"]);
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @r###"
+    insta::assert_snapshot!(stdout.normalize_backslash(), @r###"
     @  wqnwkozp test.user@example.com 2001-02-03 08:05:20 working_copy 45c3a621
     │  working_copy
     │  A f_added_2
@@ -774,7 +785,7 @@ fn test_files() {
     let test_env = test_env;
 
     let stdout = test_env.jj_cmd_success(&repo_path, &["--", "jj", "file", "show", "f_"]);
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @r"
+    insta::assert_snapshot!(stdout.normalize_backslash(), @r"
     f_added
     f_added_2
     f_dir/
@@ -786,7 +797,7 @@ fn test_files() {
 
     let stdout =
         test_env.jj_cmd_success(&repo_path, &["--", "jj", "file", "annotate", "-r@-", "f_"]);
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @r"
+    insta::assert_snapshot!(stdout.normalize_backslash(), @r"
     f_added
     f_dir/
     f_modified
@@ -795,7 +806,7 @@ fn test_files() {
     f_unchanged
     ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["--", "jj", "diff", "-r", "@-", "f_"]);
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @r"
+    insta::assert_snapshot!(stdout.normalize_backslash(), @r"
     f_added	Added
     f_deleted	Deleted
     f_dir/
@@ -814,7 +825,7 @@ fn test_files() {
             &format!("f_dir{}", std::path::MAIN_SEPARATOR),
         ],
     );
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @r"
+    insta::assert_snapshot!(stdout.normalize_backslash(), @r"
     f_dir/dir_file_1	Added
     f_dir/dir_file_2	Added
     f_dir/dir_file_3	Added
@@ -824,7 +835,7 @@ fn test_files() {
         &repo_path,
         &["--", "jj", "diff", "--from", "root()", "--to", "@-", "f_"],
     );
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @r"
+    insta::assert_snapshot!(stdout.normalize_backslash(), @r"
     f_added	Added
     f_dir/
     f_modified	Added
@@ -845,7 +856,7 @@ fn test_files() {
             "f_",
         ],
     );
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @r"
+    insta::assert_snapshot!(stdout.normalize_backslash(), @r"
     f_interdiff_only_from	Added
     f_interdiff_same	Added
     f_interdiff_only_to	Added
@@ -854,7 +865,7 @@ fn test_files() {
 
     // squash has a different behavior with --from and --to flags
     let stdout = test_env.jj_cmd_success(&repo_path, &["--", "jj", "squash", "-f=first", "f_"]);
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @r"
+    insta::assert_snapshot!(stdout.normalize_backslash(), @r"
     f_deleted	Added
     f_modified	Added
     f_not_yet_renamed	Added
@@ -863,13 +874,13 @@ fn test_files() {
 
     let stdout =
         test_env.jj_cmd_success(&repo_path, &["--", "jj", "resolve", "-r=conflicted", "f_"]);
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @r"
+    insta::assert_snapshot!(stdout.normalize_backslash(), @r"
     f_dir/
     f_modified
     ");
 
     let stdout = test_env.jj_cmd_success(&repo_path, &["--", "jj", "log", "f_"]);
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @r"
+    insta::assert_snapshot!(stdout.normalize_backslash(), @r"
     f_added
     f_added_2
     f_dir/
@@ -890,7 +901,7 @@ fn test_files() {
             "f_",
         ],
     );
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @r"
+    insta::assert_snapshot!(stdout.normalize_backslash(), @r"
     f_added_2
     f_deleted
     f_dir/

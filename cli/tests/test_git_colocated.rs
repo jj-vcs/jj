@@ -17,6 +17,7 @@ use std::path::Path;
 
 use git2::Oid;
 
+use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -338,10 +339,12 @@ fn test_git_colocated_bookmarks() {
     );
 
     // Update the bookmark in Git
-    let target_id = test_env.jj_cmd_success(
-        &workspace_root,
-        &["log", "--no-graph", "-T=commit_id", "-r=description(foo)"],
-    );
+    let target_id = test_env
+        .jj_cmd_success(
+            &workspace_root,
+            &["log", "--no-graph", "-T=commit_id", "-r=description(foo)"],
+        )
+        .into_raw();
     git_repo
         .reference(
             "refs/heads/master",
@@ -1127,7 +1130,7 @@ fn test_git_colocated_update_index_3_sided_conflict() {
     "#);
 }
 
-fn get_log_output_divergence(test_env: &TestEnvironment, repo_path: &Path) -> String {
+fn get_log_output_divergence(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutputString {
     let template = r#"
     separate(" ",
       change_id.short(),
@@ -1141,7 +1144,7 @@ fn get_log_output_divergence(test_env: &TestEnvironment, repo_path: &Path) -> St
     test_env.jj_cmd_success(repo_path, &["log", "-T", template])
 }
 
-fn get_log_output(test_env: &TestEnvironment, workspace_root: &Path) -> String {
+fn get_log_output(test_env: &TestEnvironment, workspace_root: &Path) -> CommandOutputString {
     let template = r#"
     separate(" ",
       commit_id,
@@ -1156,7 +1159,7 @@ fn get_log_output(test_env: &TestEnvironment, workspace_root: &Path) -> String {
 fn get_log_output_with_stderr(
     test_env: &TestEnvironment,
     workspace_root: &Path,
-) -> (String, String) {
+) -> (CommandOutputString, CommandOutputString) {
     let template = r#"
     separate(" ",
       commit_id,
@@ -1277,7 +1280,7 @@ fn test_git_colocated_unreachable_commits() {
     insta::assert_snapshot!(stderr, @"Error: Revision `8e713ff77b54928dd4a82aaabeca44b1ae91722c` doesn't exist");
 }
 
-fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> String {
+fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutputString {
     // --quiet to suppress deleted bookmarks hint
     test_env.jj_cmd_success(repo_path, &["bookmark", "list", "--all-remotes", "--quiet"])
 }

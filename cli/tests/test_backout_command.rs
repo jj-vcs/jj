@@ -14,6 +14,7 @@
 
 use std::path::Path;
 
+use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;
 
 fn create_commit(
@@ -228,7 +229,7 @@ fn test_backout_description_template() {
     "#);
 }
 
-fn get_log_output(test_env: &TestEnvironment, cwd: &Path) -> String {
+fn get_log_output(test_env: &TestEnvironment, cwd: &Path) -> CommandOutputString {
     let template = r#"commit_id.short() ++ " " ++ description"#;
     test_env.jj_cmd_success(cwd, &["log", "-T", template])
 }
