@@ -312,21 +312,7 @@ impl TestEnvironment {
     }
 
     pub fn normalize_output(&self, text: &str) -> String {
-        let text = text.replace("jj.exe", "jj");
-        let env_root = self.env_root.display().to_string();
-        // Platform-native $TEST_ENV
-        let regex = Regex::new(&format!(r"{}(\S+)", regex::escape(&env_root))).unwrap();
-        let text = regex.replace_all(&text, |caps: &Captures| {
-            format!("$TEST_ENV{}", caps[1].replace('\\', "/"))
-        });
-        // Slash-separated $TEST_ENV
-        let text = if cfg!(windows) {
-            let regex = Regex::new(&regex::escape(&env_root.replace('\\', "/"))).unwrap();
-            regex.replace_all(&text, regex::NoExpand("$TEST_ENV"))
-        } else {
-            text
-        };
-        text.into_owned()
+        normalize_output(text, &self.env_root)
     }
 
     /// Used before mutating operations to create more predictable commit ids
@@ -340,4 +326,22 @@ impl TestEnvironment {
         let mut command_number = self.command_number.borrow_mut();
         *command_number = step * (*command_number / step) + step;
     }
+}
+
+fn normalize_output(text: &str, env_root: &Path) -> String {
+    let text = text.replace("jj.exe", "jj");
+    let env_root = env_root.display().to_string();
+    // Platform-native $TEST_ENV
+    let regex = Regex::new(&format!(r"{}(\S+)", regex::escape(&env_root))).unwrap();
+    let text = regex.replace_all(&text, |caps: &Captures| {
+        format!("$TEST_ENV{}", caps[1].replace('\\', "/"))
+    });
+    // Slash-separated $TEST_ENV
+    let text = if cfg!(windows) {
+        let regex = Regex::new(&regex::escape(&env_root.replace('\\', "/"))).unwrap();
+        regex.replace_all(&text, regex::NoExpand("$TEST_ENV"))
+    } else {
+        text
+    };
+    text.into_owned()
 }
