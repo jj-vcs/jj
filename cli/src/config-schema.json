@@ -45,6 +45,20 @@
                         "git"
                     ],
                     "default": "diff"
+                },
+                "command-env": {
+                    "type": "object",
+                    "properties": {
+                        "command": {
+                            "type": ["array", "string"],
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "env": {
+                            "type": "object"
+                        }
+                    }
                 }
             },
             "properties": {
@@ -98,7 +112,20 @@
                     "default": "auto"
                 },
                 "pager": {
-                    "type": "string",
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        {
+                            "$ref": "#/properties/ui/definitions/command-env"
+                        }
+                    ],
                     "description": "Pager to use for displaying command output",
                     "default": "less -FRX"
                 },
@@ -140,7 +167,10 @@
                             "default": "color-words"
                         },
                         "tool": {
-                            "type": "string",
+                            "type": ["array", "string"],
+                            "items": {
+                                "type": "string"
+                            },
                             "description": "External tool for generating diffs"
                         }
                     }
@@ -177,7 +207,10 @@
                     "default": true
                 },
                 "editor": {
-                    "type": "string",
+                    "type": ["array", "string"],
+                    "items": {
+                        "type": "string"
+                    },
                     "description": "Editor to use for commands that involve editing text"
                 },
                 "diff-editor": {

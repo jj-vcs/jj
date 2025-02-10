@@ -35,6 +35,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   expand `~/` to `$HOME/`.
   [#5626](https://github.com/jj-vcs/jj/pull/5626)
 
+* `config-schema.json` now allows arrays of strings for the settings `ui.editor`
+  and `ui.diff.tool`.
+
+* `config-schema.json` now allows an array of strings or nested table for the
+  `ui.pager` setting.
+
 ## [0.26.0] - 2025-02-05
 
 ### Release highlights
