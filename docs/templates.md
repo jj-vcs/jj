@@ -28,16 +28,16 @@ type](#operation-type) are available as keywords. For example,
 
 The following operators are supported.
 
-* `x.f()`: Method call.
-* `-x`: Negate integer value.
-* `!x`: Logical not.
-* `x >= y`, `x > y`, `x <= y`, `x < y`: Greater than or equal/greater than/
+- `x.f()`: Method call.
+- `-x`: Negate integer value.
+- `!x`: Logical not.
+- `x >= y`, `x > y`, `x <= y`, `x < y`: Greater than or equal/greater than/
   lesser than or equal/lesser than. Operands must be `Integer`s.
-* `x == y`, `x != y`: Equal/not equal. Operands must be either `Boolean`,
+- `x == y`, `x != y`: Equal/not equal. Operands must be either `Boolean`,
   `Integer`, or `String`.
-* `x && y`: Logical and, short-circuiting.
-* `x || y`: Logical or, short-circuiting.
-* `x ++ y`: Concatenate `x` and `y` templates.
+- `x && y`: Logical and, short-circuiting.
+- `x || y`: Logical or, short-circuiting.
+- `x ++ y`: Concatenate `x` and `y` templates.
 
 (listed in order of binding strengths)
 
@@ -45,46 +45,46 @@ The following operators are supported.
 
 The following functions are defined.
 
-* `fill(width: Integer, content: Template) -> Template`: Fill lines at
+- `fill(width: Integer, content: Template) -> Template`: Fill lines at
   the given `width`.
-* `indent(prefix: Template, content: Template) -> Template`: Indent
+- `indent(prefix: Template, content: Template) -> Template`: Indent
   non-empty lines by the given `prefix`.
-* `pad_start(width: Integer, content: Template[, fill_char: Template])`: Pad (or
+- `pad_start(width: Integer, content: Template[, fill_char: Template])`: Pad (or
   right-justify) content by adding leading fill characters. The `content`
   shouldn't have newline character.
-* `pad_end(width: Integer, content: Template[, fill_char: Template])`: Pad (or
+- `pad_end(width: Integer, content: Template[, fill_char: Template])`: Pad (or
   left-justify) content by adding trailing fill characters. The `content`
   shouldn't have newline character.
-* `pad_centered(width: Integer, content: Template[, fill_char: Template])`: Pad
+- `pad_centered(width: Integer, content: Template[, fill_char: Template])`: Pad
   content by adding both leading and trailing fill characters. If an odd number
   of fill characters are needed, the trailing fill will be one longer than the
   leading fill. The `content` shouldn't have newline characters.
-* `truncate_start(width: Integer, content: Template[, ellipsis: Template])`:
+- `truncate_start(width: Integer, content: Template[, ellipsis: Template])`:
   Truncate `content` by removing leading characters. The `content` shouldn't
   have newline character. If `ellipsis` is provided and `content` was truncated,
   prepend the `ellipsis` to the result.
-* `truncate_end(width: Integer, content: Template[, ellipsis: Template])`:
+- `truncate_end(width: Integer, content: Template[, ellipsis: Template])`:
   Truncate `content` by removing trailing characters. The `content` shouldn't
   have newline character. If `ellipsis` is provided and `content` was truncated,
   append the `ellipsis` to the result.
-* `label(label: Template, content: Template) -> Template`: Apply label to
+- `label(label: Template, content: Template) -> Template`: Apply label to
   the content. The `label` is evaluated as a space-separated string.
-* `raw_escape_sequence(content: Template) -> Template`: Preserves any escape
+- `raw_escape_sequence(content: Template) -> Template`: Preserves any escape
   sequences in `content` (i.e., bypasses sanitization) and strips labels.
   Note: This function is intended for escape sequences and as such, its output
   is expected to be invisible / of no display width. Outputting content with
   nonzero display width may break wrapping, indentation etc.
-* `if(condition: Boolean, then: Template[, else: Template]) -> Template`:
+- `if(condition: Boolean, then: Template[, else: Template]) -> Template`:
   Conditionally evaluate `then`/`else` template content.
-* `coalesce(content: Template...) -> Template`: Returns the first **non-empty**
+- `coalesce(content: Template...) -> Template`: Returns the first **non-empty**
   content.
-* `concat(content: Template...) -> Template`:
+- `concat(content: Template...) -> Template`:
   Same as `content_1 ++ ... ++ content_n`.
-* `separate(separator: Template, content: Template...) -> Template`:
+- `separate(separator: Template, content: Template...) -> Template`:
   Insert separator between **non-empty** contents.
-* `surround(prefix: Template, suffix: Template, content: Template) -> Template`:
+- `surround(prefix: Template, suffix: Template, content: Template) -> Template`:
   Surround **non-empty** content with texts such as parentheses.
-* `config(name: String) -> ConfigValue`: Look up configuration value by `name`.
+- `config(name: String) -> ConfigValue`: Look up configuration value by `name`.
 
 ## Types
 
@@ -96,66 +96,66 @@ No methods are defined. Can be constructed with `false` or `true` literal.
 
 This type cannot be printed. The following methods are defined.
 
-* `description() -> String`
-* `change_id() -> ChangeId`
-* `commit_id() -> CommitId`
-* `parents() -> List<Commit>`
-* `author() -> Signature`
-* `committer() -> Signature`
-* `signature() -> Option<CryptographicSignature>`
-* `mine() -> Boolean`: Commits where the author's email matches the email of the current
+- `description() -> String`
+- `change_id() -> ChangeId`
+- `commit_id() -> CommitId`
+- `parents() -> List<Commit>`
+- `author() -> Signature`
+- `committer() -> Signature`
+- `signature() -> Option<CryptographicSignature>`
+- `mine() -> Boolean`: Commits where the author's email matches the email of the current
   user.
-* `working_copies() -> String`: For multi-workspace repository, indicate
+- `working_copies() -> String`: For multi-workspace repository, indicate
   working-copy commit as `<workspace name>@`.
-* `current_working_copy() -> Boolean`: True for the working-copy commit of the
+- `current_working_copy() -> Boolean`: True for the working-copy commit of the
   current workspace.
-* `bookmarks() -> List<RefName>`: Local and remote bookmarks pointing to the
+- `bookmarks() -> List<RefName>`: Local and remote bookmarks pointing to the
   commit. A tracking remote bookmark will be included only if its target is
   different from the local one.
-* `local_bookmarks() -> List<RefName>`: All local bookmarks pointing to the commit.
-* `remote_bookmarks() -> List<RefName>`: All remote bookmarks pointing to the commit.
-* `tags() -> List<RefName>`
-* `git_refs() -> List<RefName>`
-* `git_head() -> Boolean`: True for the Git `HEAD` commit.
-* `divergent() -> Boolean`: True if the commit's change id corresponds to multiple
+- `local_bookmarks() -> List<RefName>`: All local bookmarks pointing to the commit.
+- `remote_bookmarks() -> List<RefName>`: All remote bookmarks pointing to the commit.
+- `tags() -> List<RefName>`
+- `git_refs() -> List<RefName>`
+- `git_head() -> Boolean`: True for the Git `HEAD` commit.
+- `divergent() -> Boolean`: True if the commit's change id corresponds to multiple
   visible commits.
-* `hidden() -> Boolean`: True if the commit is not visible (a.k.a. abandoned).
-* `immutable() -> Boolean`: True if the commit is included in [the set of
+- `hidden() -> Boolean`: True if the commit is not visible (a.k.a. abandoned).
+- `immutable() -> Boolean`: True if the commit is included in [the set of
   immutable commits](config.md#set-of-immutable-commits).
-* `contained_in(revset: String) -> Boolean`: True if the commit is included in [the provided revset](revsets.md).
-* `conflict() -> Boolean`: True if the commit contains merge conflicts.
-* `empty() -> Boolean`: True if the commit modifies no files.
-* `diff([files: String]) -> TreeDiff`: Changes from the parents within [the
+- `contained_in(revset: String) -> Boolean`: True if the commit is included in [the provided revset](revsets.md).
+- `conflict() -> Boolean`: True if the commit contains merge conflicts.
+- `empty() -> Boolean`: True if the commit modifies no files.
+- `diff([files: String]) -> TreeDiff`: Changes from the parents within [the
   `files` expression](filesets.md). All files are compared by default, but it is
   likely to change in future version to respect the command line path arguments.
-* `root() -> Boolean`: True if the commit is the root commit.
+- `root() -> Boolean`: True if the commit is the root commit.
 
 ### CommitId / ChangeId type
 
 The following methods are defined.
 
-* `.normal_hex() -> String`: Normal hex representation (0-9a-f), useful for
+- `.normal_hex() -> String`: Normal hex representation (0-9a-f), useful for
   ChangeId, whose canonical hex representation is "reversed" (z-k).
-* `.short([len: Integer]) -> String`
-* `.shortest([min_len: Integer]) -> ShortestIdPrefix`: Shortest unique prefix.
+- `.short([len: Integer]) -> String`
+- `.shortest([min_len: Integer]) -> ShortestIdPrefix`: Shortest unique prefix.
 
 ### ConfigValue type
 
 This type can be printed in TOML syntax. The following methods are defined.
 
-* `.as_boolean() -> Boolean`: Extract boolean.
-* `.as_integer() -> Integer`: Extract integer.
-* `.as_string() -> String`: Extract string. This does not convert non-string
+- `.as_boolean() -> Boolean`: Extract boolean.
+- `.as_integer() -> Integer`: Extract integer.
+- `.as_string() -> String`: Extract string. This does not convert non-string
   value (e.g. integer) to string.
-* `.as_string_list() -> List<String>`: Extract list of strings.
+- `.as_string_list() -> List<String>`: Extract list of strings.
 
 ### CryptographicSignature type
 
 The following methods are defined.
 
-* `.status() -> String`: The signature's status (`"good"`, `"bad"`, `"unknown"`, `"invalid"`).
-* `.key() -> String`: The signature's key id representation (for GPG, this is the key fingerprint).
-* `.display() -> String`: The signature's display string (for GPG this is the formatted primary user ID).
+- `.status() -> String`: The signature's status (`"good"`, `"bad"`, `"unknown"`, `"invalid"`).
+- `.key() -> String`: The signature's key id representation (for GPG, this is the key fingerprint).
+- `.display() -> String`: The signature's display string (for GPG this is the formatted primary user ID).
 
 !!! warning
 
@@ -177,8 +177,8 @@ The following methods are defined.
 This type can be printed as a histogram of the changes. The following methods
 are defined.
 
-* `.total_added() -> Integer`: Total number of insertions.
-* `.total_removed() -> Integer`: Total number of deletions.
+- `.total_added() -> Integer`: Total number of insertions.
+- `.total_removed() -> Integer`: Total number of deletions.
 
 ### Email type
 
@@ -188,9 +188,9 @@ multiple `@`s.
 
 The following methods are defined.
 
-* `.local() -> String`: the part of the email before the first `@`, usually the
+- `.local() -> String`: the part of the email before the first `@`, usually the
   username.
-* `.domain() -> String`: the part of the email after the first `@` or the empty
+- `.domain() -> String`: the part of the email after the first `@` or the empty
   string.
 
 ### Integer type
@@ -202,38 +202,38 @@ No methods are defined.
 A list can be implicitly converted to `Boolean`. The following methods are
 defined.
 
-* `.len() -> Integer`: Number of elements in the list.
-* `.join(separator: Template) -> Template`: Concatenate elements with
+- `.len() -> Integer`: Number of elements in the list.
+- `.join(separator: Template) -> Template`: Concatenate elements with
   the given `separator`.
-* `.filter(|item| expression) -> List`: Filter list elements by predicate
+- `.filter(|item| expression) -> List`: Filter list elements by predicate
   `expression`. Example: `description.lines().filter(|s| s.contains("#"))`
-* `.map(|item| expression) -> ListTemplate`: Apply template `expression`
+- `.map(|item| expression) -> ListTemplate`: Apply template `expression`
   to each element. Example: `parents.map(|c| c.commit_id().short())`
 
 ### ListTemplate type
 
 The following methods are defined. See also the `List` type.
 
-* `.join(separator: Template) -> Template`
+- `.join(separator: Template) -> Template`
 
 ### Operation type
 
 This type cannot be printed. The following methods are defined.
 
-* `current_operation() -> Boolean`
-* `description() -> String`
-* `id() -> OperationId`
-* `tags() -> String`
-* `time() -> TimestampRange`
-* `user() -> String`
-* `snapshot() -> Boolean`: True if the operation is a snapshot operation.
-* `root() -> Boolean`: True if the operation is the root operation.
+- `current_operation() -> Boolean`
+- `description() -> String`
+- `id() -> OperationId`
+- `tags() -> String`
+- `time() -> TimestampRange`
+- `user() -> String`
+- `snapshot() -> Boolean`: True if the operation is a snapshot operation.
+- `root() -> Boolean`: True if the operation is the root operation.
 
 ### OperationId type
 
 The following methods are defined.
 
-* `.short([len: Integer]) -> String`
+- `.short([len: Integer]) -> String`
 
 ### Option type
 
@@ -245,23 +245,23 @@ invoked. If not set, an error will be reported inline on method call.
 
 The following methods are defined.
 
-* `.name() -> String`: Local bookmark or tag name.
-* `.remote() -> String`: Remote name or empty if this is a local ref.
-* `.present() -> Boolean`: True if the ref points to any commit.
-* `.conflict() -> Boolean`: True if [the bookmark or tag is
+- `.name() -> String`: Local bookmark or tag name.
+- `.remote() -> String`: Remote name or empty if this is a local ref.
+- `.present() -> Boolean`: True if the ref points to any commit.
+- `.conflict() -> Boolean`: True if [the bookmark or tag is
   conflicted](bookmarks.md#conflicts).
-* `.normal_target() -> Option<Commit>`: Target commit if the ref is not
+- `.normal_target() -> Option<Commit>`: Target commit if the ref is not
   conflicted and points to a commit.
-* `.removed_targets() -> List<Commit>`: Old target commits if conflicted.
-* `.added_targets() -> List<Commit>`: New target commits. The list usually
+- `.removed_targets() -> List<Commit>`: Old target commits if conflicted.
+- `.added_targets() -> List<Commit>`: New target commits. The list usually
   contains one "normal" target.
-* `.tracked() -> Boolean`: True if the ref is tracked by a local ref. The local
+- `.tracked() -> Boolean`: True if the ref is tracked by a local ref. The local
   ref might have been deleted (but not pushed yet.)
-* `.tracking_present() -> Boolean`: True if the ref is tracked by a local ref,
-    and if the local ref points to any commit.
-* `.tracking_ahead_count() -> SizeHint`: Number of commits ahead of the tracking
+- `.tracking_present() -> Boolean`: True if the ref is tracked by a local ref,
+  and if the local ref points to any commit.
+- `.tracking_ahead_count() -> SizeHint`: Number of commits ahead of the tracking
   local ref.
-* `.tracking_behind_count() -> SizeHint`: Number of commits behind of the
+- `.tracking_behind_count() -> SizeHint`: Number of commits behind of the
   tracking local ref.
 
 ### RepoPath type
@@ -269,53 +269,53 @@ The following methods are defined.
 A slash-separated path relative to the repository root. The following methods
 are defined.
 
-* `.display() -> String`: Format path for display. The formatted path uses
+- `.display() -> String`: Format path for display. The formatted path uses
   platform-native separator, and is relative to the current working directory.
-* `.parent() -> Option<RepoPath>`: Parent directory path.
+- `.parent() -> Option<RepoPath>`: Parent directory path.
 
 ### ShortestIdPrefix type
 
 The following methods are defined.
 
-* `.prefix() -> String`
-* `.rest() -> String`
-* `.upper() -> ShortestIdPrefix`
-* `.lower() -> ShortestIdPrefix`
+- `.prefix() -> String`
+- `.rest() -> String`
+- `.upper() -> ShortestIdPrefix`
+- `.lower() -> ShortestIdPrefix`
 
 ### Signature type
 
 The following methods are defined.
 
-* `.name() -> String`
-* `.email() -> Email`
-* `.timestamp() -> Timestamp`
+- `.name() -> String`
+- `.email() -> Email`
+- `.timestamp() -> Timestamp`
 
 ### SizeHint type
 
 This type cannot be printed. The following methods are defined.
 
-* `.lower() -> Integer`: Lower bound.
-* `.upper() -> Option<Integer>`: Upper bound if known.
-* `.exact() -> Option<Integer>`: Exact value if upper bound is known and it
+- `.lower() -> Integer`: Lower bound.
+- `.upper() -> Option<Integer>`: Upper bound if known.
+- `.exact() -> Option<Integer>`: Exact value if upper bound is known and it
   equals to the lower bound.
-* `.zero() -> Boolean`: True if upper bound is known and is `0`.
+- `.zero() -> Boolean`: True if upper bound is known and is `0`.
 
 ### String type
 
 A string can be implicitly converted to `Boolean`. The following methods are
 defined.
 
-* `.len() -> Integer`: Length in UTF-8 bytes.
-* `.contains(needle: Template) -> Boolean`
-* `.first_line() -> String`
-* `.lines() -> List<String>`: Split into lines excluding newline characters.
-* `.upper() -> String`
-* `.lower() -> String`
-* `.starts_with(needle: Template) -> Boolean`
-* `.ends_with(needle: Template) -> Boolean`
-* `.remove_prefix(needle: Template) -> String`: Removes the passed prefix, if present
-* `.remove_suffix(needle: Template) -> String`: Removes the passed suffix, if present
-* `.substr(start: Integer, end: Integer) -> String`: Extract substring. The
+- `.len() -> Integer`: Length in UTF-8 bytes.
+- `.contains(needle: Template) -> Boolean`
+- `.first_line() -> String`
+- `.lines() -> List<String>`: Split into lines excluding newline characters.
+- `.upper() -> String`
+- `.lower() -> String`
+- `.starts_with(needle: Template) -> Boolean`
+- `.ends_with(needle: Template) -> Boolean`
+- `.remove_prefix(needle: Template) -> String`: Removes the passed prefix, if present
+- `.remove_suffix(needle: Template) -> String`: Removes the passed suffix, if present
+- `.substr(start: Integer, end: Integer) -> String`: Extract substring. The
   `start`/`end` indices should be specified in UTF-8 bytes. Negative values
   count from the end of the string.
 
@@ -324,14 +324,14 @@ defined.
 String literals must be surrounded by single or double quotes (`'` or `"`).
 A double-quoted string literal supports the following escape sequences:
 
-* `\"`: double quote
-* `\\`: backslash
-* `\t`: horizontal tab
-* `\r`: carriage return
-* `\n`: new line
-* `\0`: null
-* `\e`: escape (i.e., `\x1b`)
-* `\xHH`: byte with hex value `HH`
+- `\"`: double quote
+- `\\`: backslash
+- `\t`: horizontal tab
+- `\r`: carriage return
+- `\n`: new line
+- `\0`: null
+- `\e`: escape (i.e., `\x1b`)
+- `\xHH`: byte with hex value `HH`
 
 Other escape sequences are not supported. Any UTF-8 characters are allowed
 inside a string literal, with two exceptions: unescaped `"`-s and uses of `\`
@@ -348,59 +348,62 @@ Most types can be implicitly converted to `Template`. No methods are defined.
 
 The following methods are defined.
 
-* `.ago() -> String`: Format as relative timestamp.
-* `.format(format: String) -> String`: Format with [the specified strftime-like
+- `.ago() -> String`: Format as relative timestamp.
+- `.format(format: String) -> String`: Format with [the specified strftime-like
   format string](https://docs.rs/chrono/latest/chrono/format/strftime/).
-* `.utc() -> Timestamp`: Convert timestamp into UTC timezone.
-* `.local() -> Timestamp`: Convert timestamp into local timezone.
-* `.after(date: String) -> Boolean`: True if the timestamp is exactly at or after the given date.
-* `.before(date: String) -> Boolean`: True if the timestamp is before, but not including, the given date.
+- `.utc() -> Timestamp`: Convert timestamp into UTC timezone.
+- `.local() -> Timestamp`: Convert timestamp into local timezone.
+- `.after(date: String) -> Boolean`: True if the timestamp is exactly at or after the given date.
+- `.before(date: String) -> Boolean`: True if the timestamp is before, but not including, the given date.
 
 ### TimestampRange type
 
 The following methods are defined.
 
-* `.start() -> Timestamp`
-* `.end() -> Timestamp`
-* `.duration() -> String`
+- `.start() -> Timestamp`
+- `.end() -> Timestamp`
+- `.duration() -> String`
 
 ### TreeDiff type
 
 This type cannot be printed. The following methods are defined.
 
-* `.files() -> List<TreeDiffEntry>`: Changed files.
-* `.color_words([context: Integer]) -> Template`: Format as a word-level diff
+- `.files() -> List<TreeDiffEntry>`: Changed files.
+- `.color_words([context: Integer]) -> Template`: Format as a word-level diff
   with changes indicated only by color.
-* `.git([context: Integer]) -> Template`: Format as a Git diff.
-* `.stat([width: Integer]) -> DiffStats`: Calculate stats of changed lines.
-* `.summary() -> Template`: Format as a list of status code and path pairs.
+- `.git([context: Integer]) -> Template`: Format as a Git diff.
+- `.stat([width: Integer]) -> DiffStats`: Calculate stats of changed lines.
+- `.summary() -> Template`: Format as a list of status code and path pairs.
 
 ### TreeDiffEntry type
 
 This type cannot be printed. The following methods are defined.
 
-* `.path() -> RepoPath`: Path to the entry. If the entry is a copy/rename, this
+- `.path() -> RepoPath`: Path to the entry. If the entry is a copy/rename, this
   points to the target (or right) entry.
-* `.status() -> String`: One of `"modified"`, `"added"`, `"removed"`,
+- `.status() -> String`: One of `"modified"`, `"added"`, `"removed"`,
   `"copied"`, or `"renamed"`.
-* `.source() -> TreeEntry`: The source (or left) entry.
-* `.target() -> TreeEntry`: The target (or right) entry.
+- `.source() -> TreeEntry`: The source (or left) entry.
+- `.target() -> TreeEntry`: The target (or right) entry.
 
 ### TreeEntry type
 
 This type cannot be printed. The following methods are defined.
 
-* `.path() -> RepoPath`: Path to the entry.
-* `.conflict() -> Boolean`: True if the entry is a merge conflict.
-* `.file_type() -> String`: One of `"file"`, `"symlink"`, `"tree"`,
+- `.path() -> RepoPath`: Path to the entry.
+- `.conflict() -> Boolean`: True if the entry is a merge conflict.
+- `.file_type() -> String`: One of `"file"`, `"symlink"`, `"tree"`,
   `"git-submodule"`, or `"conflict"`.
-* `.executable() -> Boolean`: True if the entry is an executable file.
+- `.executable() -> Boolean`: True if the entry is an executable file.
 
 ## Configuration
 
 The default templates and aliases() are defined in the `[templates]` and
 `[template-aliases]` sections of the config respectively. The exact definitions
-can be seen in the `cli/src/config/templates.toml` file in jj's source tree.
+can be seen in the [`cli/src/config/templates.toml`][1] file in jj's source
+tree.
+
+[1]: https://github.com/jj-vcs/jj/blob/main/cli/src/config/templates.toml
 
 <!--- TODO: Find a way to embed the default config files in the docs -->
 
