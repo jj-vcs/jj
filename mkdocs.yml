@@ -120,6 +120,7 @@ nav:
 
 - 'Comparisons':
       - 'Git comparison': 'git-comparison.md'
+      - 'Git command table': 'git-command-table.md'
       - 'Git compatibility': 'git-compatibility.md'
       - 'Sapling': 'sapling-comparison.md'
       - 'Other related work': 'related-work.md'

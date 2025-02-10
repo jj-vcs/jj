@@ -1082,7 +1082,7 @@ See this [comparison], including a [table of commands].
 
 [comparison]: https://jj-vcs.github.io/jj/latest/git-comparison/.
 
-[table of commands]: https://jj-vcs.github.io/jj/latest/git-comparison/#command-equivalence-table
+[table of commands]: https://jj-vcs.github.io/jj/latest/git-command-table
 
 **Usage:** `jj git <COMMAND>`
 
