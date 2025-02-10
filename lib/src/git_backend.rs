@@ -35,6 +35,7 @@ use std::time::SystemTime;
 
 use async_trait::async_trait;
 use futures::stream::BoxStream;
+use gix::actor::SignatureRef;
 use gix::bstr::BString;
 use gix::objs::CommitRef;
 use gix::objs::CommitRefIter;
@@ -93,6 +94,9 @@ const NO_GC_REF_NAMESPACE: &str = "refs/jj/keep/";
 const CONFLICT_SUFFIX: &str = ".jjconflict";
 
 const JJ_TREES_COMMIT_HEADER: &[u8] = b"jj:trees";
+const JJ_TREES_COMMIT_HEADER_V2: &[u8] = b"jj:trees-v2";
+
+const JJ_CONFLICT_README: &str = "JJ-CONFLICT-README";
 
 #[derive(Debug, Error)]
 pub enum GitBackendInitError {
@@ -494,10 +498,13 @@ fn gix_open_opts_from_settings(settings: &UserSettings) -> gix::open::Options {
         .open_path_as_is(true)
 }
 
-/// Reads the `jj:trees` header from the commit.
-fn root_tree_from_header(git_commit: &CommitRef) -> Result<Option<MergedTreeId>, ()> {
+/// Reads the `jj:trees` header from the commit. Also returns boolean indicating
+/// if the header is a "v2" header, in which case the last parent must be
+/// ignored.
+fn root_tree_from_header(git_commit: &CommitRef) -> Result<Option<(MergedTreeId, bool)>, ()> {
     for (key, value) in &git_commit.extra_headers {
-        if *key == JJ_TREES_COMMIT_HEADER {
+        let is_v2_header = *key == JJ_TREES_COMMIT_HEADER_V2;
+        if is_v2_header || *key == JJ_TREES_COMMIT_HEADER {
             let mut tree_ids = SmallVec::new();
             for hex in str::from_utf8(value.as_ref()).or(Err(()))?.split(' ') {
                 let tree_id = TreeId::try_from_hex(hex).or(Err(()))?;
@@ -509,7 +516,10 @@ fn root_tree_from_header(git_commit: &CommitRef) -> Result<Option<MergedTreeId>,
             if tree_ids.len() % 2 == 0 {
                 return Err(());
             }
-            return Ok(Some(MergedTreeId::Merge(Merge::from_vec(tree_ids))));
+            return Ok(Some((
+                MergedTreeId::Merge(Merge::from_vec(tree_ids)),
+                is_v2_header,
+            )));
         }
     }
     Ok(None)
@@ -541,7 +551,7 @@ fn commit_from_git_without_root_parent(
     // shallow commits don't have parents their parents actually fetched, so we
     // discard them here
     // TODO: This causes issues when a shallow repository is deepened/unshallowed
-    let parents = if is_shallow {
+    let mut parents = if is_shallow {
         vec![]
     } else {
         commit
@@ -552,15 +562,21 @@ fn commit_from_git_without_root_parent(
     let tree_id = TreeId::from_bytes(commit.tree().as_bytes());
     // If this commit is a conflict, we'll update the root tree later, when we read
     // the extra metadata.
-    let root_tree = root_tree_from_header(&commit)
-        .map_err(|()| to_read_object_err("Invalid jj:trees header", id))?;
-    let root_tree = root_tree.unwrap_or_else(|| {
-        if uses_tree_conflict_format {
-            MergedTreeId::resolved(tree_id)
-        } else {
-            MergedTreeId::Legacy(tree_id)
-        }
-    });
+    let (root_tree, is_v2_header) = root_tree_from_header(&commit)
+        .map_err(|()| to_read_object_err("Invalid jj:trees header", id))?
+        .unwrap_or_else(|| {
+            if uses_tree_conflict_format {
+                (MergedTreeId::resolved(tree_id), false)
+            } else {
+                (MergedTreeId::Legacy(tree_id), false)
+            }
+        });
+    // If using the "v2" tree conflict format, we need to ignore the last parent
+    if is_v2_header {
+        parents
+            .pop()
+            .ok_or_else(|| to_read_object_err("Invalid jj:trees header", id))?;
+    }
     // Use lossy conversion as commit message with "mojibake" is still better than
     // nothing.
     // TODO: what should we do with commit.encoding?
@@ -1234,9 +1250,17 @@ impl Backend for GitBackend {
             if !tree_ids.is_resolved() {
                 let value = tree_ids.iter().map(|id| id.hex()).join(" ").into_bytes();
                 extra_headers.push((
-                    BString::new(JJ_TREES_COMMIT_HEADER.to_vec()),
+                    BString::new(JJ_TREES_COMMIT_HEADER_V2.to_vec()),
                     BString::new(value),
                 ));
+                // Add an extra parent commit containing conflict trees to prevent GC
+                parents.push(write_conflict_metadata_commit(
+                    &locked_repo,
+                    author,
+                    committer,
+                    &mut sign_with,
+                    tree_ids,
+                )?);
             }
         }
         let extras = serialize_extras(&contents);
@@ -1259,20 +1283,7 @@ impl Backend for GitBackend {
                 extra_headers: extra_headers.clone(),
             };
 
-            if let Some(sign) = &mut sign_with {
-                // we don't use gix pool, but at least use their heuristic
-                let mut data = Vec::with_capacity(512);
-                commit.write_to(&mut data).unwrap();
-
-                let sig = sign(&data).map_err(|err| BackendError::WriteObject {
-                    object_type: "commit",
-                    source: Box::new(err),
-                })?;
-                commit
-                    .extra_headers
-                    .push(("gpgsig".into(), sig.clone().into()));
-                contents.secure_sig = Some(SecureSig { data, sig });
-            }
+            contents.secure_sig = sign_commit(&mut commit, &mut sign_with)?;
 
             let git_id =
                 locked_repo
@@ -1400,14 +1411,17 @@ impl Backend for GitBackend {
     }
 }
 
-/// Write a tree conflict as a special tree with `.jjconflict-base-N` and
-/// `.jjconflict-base-N` subtrees. This ensure that the parts are not GC'd.
-fn write_tree_conflict(
+/// Write conflict metadata as a special commit with a tree containing
+/// `.jjconflict-base-N` and `.jjconflict-base-N` subtrees. This ensures that
+/// the conflict terms are not GC'd.
+fn write_conflict_metadata_commit(
     repo: &gix::Repository,
+    author: SignatureRef,
+    committer: SignatureRef,
+    sign_with: &mut Option<&mut SigningFn>,
     conflict: &Merge<TreeId>,
 ) -> BackendResult<gix::ObjectId> {
-    // Tree entries to be written must be sorted by Entry::filename().
-    let mut entries = itertools::chain(
+    let entries = itertools::chain(
         conflict
             .removes()
             .enumerate()
@@ -1422,30 +1436,78 @@ fn write_tree_conflict(
         filename: name.into(),
         oid: tree_id.as_bytes().try_into().unwrap(),
     })
+    .sorted_unstable()
     .collect_vec();
-    let readme_id = repo
-        .write_blob(
-            r#"This commit was made by jj, https://github.com/jj-vcs/jj.
-The commit contains file conflicts, and therefore looks wrong when used with plain
-Git or other tools that are unfamiliar with jj.
+    let tree_id = repo
+        .write_object(gix::objs::Tree { entries })
+        .map_err(|err| BackendError::WriteObject {
+            object_type: "tree",
+            source: Box::new(err),
+        })?;
 
-The .jjconflict-* directories represent the different inputs to the conflict.
-For details, see
-https://jj-vcs.github.io/jj/prerelease/git-compatibility/#format-mapping-details
+    let mut commit = gix::objs::Commit {
+        message: r#"jj: conflict metadata
 
-If you see this file in your working copy, it probably means that you used a
-regular `git` command to check out a conflicted commit. Use `jj abandon` to
-recover.
-"#,
-        )
-        .map_err(|err| {
-            BackendError::Other(format!("Failed to write README for conflict tree: {err}").into())
-        })?
-        .detach();
+This commit was made by `jj` (https://github.com/jj-vcs/jj), and it
+contains metadata about a conflict.
+"#
+        .into(),
+        tree: tree_id.detach(),
+        author: author.into(),
+        committer: committer.into(),
+        encoding: None,
+        parents: SmallVec::new(),
+        extra_headers: Vec::new(),
+    };
+
+    sign_commit(&mut commit, sign_with)?;
+
+    let git_id = repo
+        .write_object(&commit)
+        .map_err(|err| BackendError::WriteObject {
+            object_type: "commit",
+            source: Box::new(err),
+        })?;
+
+    Ok(git_id.detach())
+}
+
+/// When writing a conflicted commit, we use the first side of the conflict as
+/// the tree, but we add a "JJ-CONFLICT-README" file explaining that the commit
+/// has a conflict.
+fn write_tree_conflict(
+    repo: &gix::Repository,
+    conflict: &Merge<TreeId>,
+) -> BackendResult<gix::ObjectId> {
+    let first_tree_id = validate_git_object_id(conflict.first())?;
+    let first_tree = repo
+        .find_tree(first_tree_id)
+        .map_err(|err| BackendError::ReadObject {
+            object_type: "tree".into(),
+            hash: first_tree_id.to_hex().to_string(),
+            source: Box::new(err),
+        })?;
+    let first_tree_ref = first_tree
+        .decode()
+        .map_err(|err| BackendError::ReadObject {
+            object_type: "tree".into(),
+            hash: first_tree_id.to_hex().to_string(),
+            source: Box::new(err),
+        })?;
+    let mut entries = first_tree_ref
+        .entries
+        .iter()
+        .filter(|&entry_ref| entry_ref.filename != JJ_CONFLICT_README)
+        .map(|&entry_ref| gix::objs::tree::Entry {
+            mode: entry_ref.mode,
+            filename: entry_ref.filename.to_owned(),
+            oid: entry_ref.oid.to_owned(),
+        })
+        .collect_vec();
     entries.push(gix::objs::tree::Entry {
         mode: gix::object::tree::EntryKind::Blob.into(),
-        filename: "README".into(),
-        oid: readme_id,
+        filename: JJ_CONFLICT_README.into(),
+        oid: write_conflict_readme(repo)?,
     });
     entries.sort_unstable();
     let id = repo
@@ -1455,6 +1517,48 @@ recover.
             source: Box::new(err),
         })?;
     Ok(id.detach())
+}
+
+/// Writes a blob for "JJ-CONFLICT-README" that explains conflicts.
+fn write_conflict_readme(repo: &gix::Repository) -> BackendResult<gix::ObjectId> {
+    let readme_id = repo
+        .write_blob(
+            r#"This commit was made by jj (https://github.com/jj-vcs/jj). The commit contains
+conflicts, but these conflicts can only be resolved in jj. If you check out this
+commit in git, it will only show one of the sides of the conflict.
+
+If you've checked out the commit properly using `jj`, you should see this
+JJ-CONFLICT-README file staged as "deleted" in `git status`. Otherwise, if you
+see this file in your working copy, it probably means that you used a regular
+`git` command to check out a conflicted commit. Use `jj abandon` to recover.
+"#,
+        )
+        .map_err(|err| {
+            BackendError::Other(format!("Failed to write README for conflict tree: {err}").into())
+        })?;
+    Ok(readme_id.detach())
+}
+
+fn sign_commit(
+    commit: &mut gix::objs::Commit,
+    sign_with: &mut Option<&mut SigningFn>,
+) -> BackendResult<Option<SecureSig>> {
+    if let Some(sign) = sign_with {
+        // We don't use gix pool, but at least use their heuristic
+        let mut data = Vec::with_capacity(512);
+        commit.write_to(&mut data).unwrap();
+
+        let sig = sign(&data).map_err(|err| BackendError::WriteObject {
+            object_type: "commit",
+            source: Box::new(err),
+        })?;
+        commit
+            .extra_headers
+            .push(("gpgsig".into(), sig.clone().into()));
+        Ok(Some(SecureSig { data, sig }))
+    } else {
+        Ok(None)
+    }
 }
 
 fn conflict_term_list_to_json(parts: &[ConflictTerm]) -> serde_json::Value {
@@ -1533,6 +1637,7 @@ mod tests {
     use assert_matches::assert_matches;
     use git2::Oid;
     use hex::ToHex;
+    use insta::assert_debug_snapshot;
     use pollster::FutureExt;
     use test_case::test_case;
 
@@ -1927,6 +2032,28 @@ mod tests {
             vec![create_tree(0), create_tree(1)],
             vec![create_tree(2), create_tree(3), create_tree(4)],
         );
+        assert_debug_snapshot!(root_tree, @r#"
+        Conflicted(
+            [
+                TreeId(
+                    "92307e7bb0b63ccc553351b69eeed0bfdf3b02a4",
+                ),
+                TreeId(
+                    "b4e2087833337e1f92b163d46d4060541c35dfa9",
+                ),
+                TreeId(
+                    "a52c62c9f0f8113d5e95e2b864b4e2f727ac2139",
+                ),
+                TreeId(
+                    "6bfc43795311e658d036ce86e9bf2c1a73cd8f08",
+                ),
+                TreeId(
+                    "387bb4930b994497b71a4a40bb0909b3121f10d2",
+                ),
+            ],
+        )
+        "#);
+
         let mut commit = Commit {
             parents: vec![backend.root_commit_id().clone()],
             predecessors: vec![],
@@ -1942,8 +2069,21 @@ mod tests {
             backend.write_commit(commit, None).block_on()
         };
 
+        let format_tree = |tree: &git2::Tree| -> String {
+            tree.iter()
+                .map(|entry| {
+                    format!(
+                        "{:06o} {} {}",
+                        entry.filemode(),
+                        entry.id(),
+                        entry.name().unwrap()
+                    )
+                })
+                .join("\n")
+        };
+
         // When writing a tree-level conflict, the root tree on the git side has the
-        // individual trees as subtrees.
+        // same tree as side 0
         let read_commit_id = write_commit(commit.clone()).unwrap().0;
         let read_commit = backend.read_commit(&read_commit_id).block_on().unwrap();
         assert_eq!(read_commit, commit);
@@ -1951,48 +2091,25 @@ mod tests {
             .find_commit(Oid::from_bytes(read_commit_id.as_bytes()).unwrap())
             .unwrap();
         let git_tree = git_repo.find_tree(git_commit.tree_id()).unwrap();
-        assert!(git_tree
-            .iter()
-            .filter(|entry| entry.name() != Some("README"))
-            .all(|entry| entry.filemode() == 0o040000));
-        let mut iter = git_tree.iter();
-        let entry = iter.next().unwrap();
-        assert_eq!(entry.name(), Some(".jjconflict-base-0"));
-        assert_eq!(
-            entry.id().as_bytes(),
-            root_tree.get_remove(0).unwrap().as_bytes()
-        );
-        let entry = iter.next().unwrap();
-        assert_eq!(entry.name(), Some(".jjconflict-base-1"));
-        assert_eq!(
-            entry.id().as_bytes(),
-            root_tree.get_remove(1).unwrap().as_bytes()
-        );
-        let entry = iter.next().unwrap();
-        assert_eq!(entry.name(), Some(".jjconflict-side-0"));
-        assert_eq!(
-            entry.id().as_bytes(),
-            root_tree.get_add(0).unwrap().as_bytes()
-        );
-        let entry = iter.next().unwrap();
-        assert_eq!(entry.name(), Some(".jjconflict-side-1"));
-        assert_eq!(
-            entry.id().as_bytes(),
-            root_tree.get_add(1).unwrap().as_bytes()
-        );
-        let entry = iter.next().unwrap();
-        assert_eq!(entry.name(), Some(".jjconflict-side-2"));
-        assert_eq!(
-            entry.id().as_bytes(),
-            root_tree.get_add(2).unwrap().as_bytes()
-        );
-        let entry = iter.next().unwrap();
-        assert_eq!(entry.name(), Some("README"));
-        assert_eq!(entry.filemode(), 0o100644);
-        assert!(iter.next().is_none());
+        insta::assert_snapshot!(format_tree(&git_tree), @r#"
+        100644 5b58e055e942b49e1ba0c799bb7eca7f10e7791a JJ-CONFLICT-README
+        100644 920e939f255ebe015d7f74c8288594d1e0baa73d file2
+        "#);
 
-        // When writing a single tree using the new format, it's represented by a
-        // regular git tree.
+        // The last parent is a special metadata commit that contains references to all
+        // of the conflict trees
+        let last_parent_id = git_commit.parent_ids().next_back().unwrap();
+        let last_parent_commit = git_repo.find_commit(last_parent_id).unwrap();
+        let last_parent_tree = git_repo.find_tree(last_parent_commit.tree_id()).unwrap();
+        insta::assert_snapshot!(format_tree(&last_parent_tree), @r#"
+        040000 b4e2087833337e1f92b163d46d4060541c35dfa9 .jjconflict-base-0
+        040000 6bfc43795311e658d036ce86e9bf2c1a73cd8f08 .jjconflict-base-1
+        040000 92307e7bb0b63ccc553351b69eeed0bfdf3b02a4 .jjconflict-side-0
+        040000 a52c62c9f0f8113d5e95e2b864b4e2f727ac2139 .jjconflict-side-1
+        040000 387bb4930b994497b71a4a40bb0909b3121f10d2 .jjconflict-side-2
+        "#);
+
+        // When writing a single tree, it's represented by a regular git tree.
         commit.root_tree = MergedTreeId::resolved(create_tree(5));
         let read_commit_id = write_commit(commit.clone()).unwrap().0;
         let read_commit = backend.read_commit(&read_commit_id).block_on().unwrap();

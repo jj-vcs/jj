@@ -526,27 +526,27 @@ fn test_workspaces_conflicting_edits() {
     Updated working copy to fresh commit e82cd4ee8faa
     "###);
     insta::assert_snapshot!(get_log_output(&test_env, &secondary_path),
-    @r###"
+    @r#"
     @  e82cd4ee8faa secondary@ (divergent)
-    │ ×  30816012e0da (divergent)
+    │ ×  e2fbb56598cf (divergent)
     ├─╯
     │ ○  a58c9a9b19ce default@
     ├─╯
     ○  d41244767d45
     ◆  000000000000
-    "###);
+    "#);
     // The stale working copy should have been resolved by the previous command
     let stdout = get_log_output(&test_env, &secondary_path);
     assert!(!stdout.starts_with("The working copy is stale"));
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r#"
     @  e82cd4ee8faa secondary@ (divergent)
-    │ ×  30816012e0da (divergent)
+    │ ×  e2fbb56598cf (divergent)
     ├─╯
     │ ○  a58c9a9b19ce default@
     ├─╯
     ○  d41244767d45
     ◆  000000000000
-    "###);
+    "#);
 }
 
 /// Test a clean working copy that gets rewritten from another workspace

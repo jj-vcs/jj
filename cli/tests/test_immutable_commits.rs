@@ -192,10 +192,10 @@ fn test_rewrite_immutable_commands() {
 
     // Log shows mutable commits, their parents, and trunk() by default
     let (stdout, _stderr) = test_env.jj_cmd_ok(&repo_path, &["log"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r#"
     @  yqosqzyt test.user@example.com 2001-02-03 08:05:14 55641cc5
     │  (no description set)
-    │ ◆  mzvwutvl test.user@example.com 2001-02-03 08:05:12 main bcab555f conflict
+    │ ◆  mzvwutvl test.user@example.com 2001-02-03 08:05:12 main c52d6e91 conflict
     ╭─┤  merge
     │ │
     │ ~
@@ -203,15 +203,15 @@ fn test_rewrite_immutable_commands() {
     ◆  kkmpptxz test.user@example.com 2001-02-03 08:05:10 72e1b68c
     │  b
     ~
-    "###);
+    "#);
 
     // abandon
     let stderr = test_env.jj_cmd_failure(&repo_path, &["abandon", "main"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Commit bcab555fc80e is immutable
-    Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
+    insta::assert_snapshot!(stderr, @r#"
+    Error: Commit c52d6e918364 is immutable
+    Hint: Could not modify commit: mzvwutvl c52d6e91 main | (conflict) merge
     Hint: Pass `--ignore-immutable` or configure the set of immutable commits via `revset-aliases.immutable_heads()`.
-    "###);
+    "#);
     // absorb
     let stderr = test_env.jj_cmd_failure(&repo_path, &["absorb", "--into=::@-"]);
     insta::assert_snapshot!(stderr, @r"
@@ -221,60 +221,60 @@ fn test_rewrite_immutable_commands() {
     ");
     // chmod
     let stderr = test_env.jj_cmd_failure(&repo_path, &["file", "chmod", "-r=main", "x", "file"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Commit bcab555fc80e is immutable
-    Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
+    insta::assert_snapshot!(stderr, @r#"
+    Error: Commit c52d6e918364 is immutable
+    Hint: Could not modify commit: mzvwutvl c52d6e91 main | (conflict) merge
     Hint: Pass `--ignore-immutable` or configure the set of immutable commits via `revset-aliases.immutable_heads()`.
-    "###);
+    "#);
     // describe
     let stderr = test_env.jj_cmd_failure(&repo_path, &["describe", "main"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Commit bcab555fc80e is immutable
-    Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
+    insta::assert_snapshot!(stderr, @r#"
+    Error: Commit c52d6e918364 is immutable
+    Hint: Could not modify commit: mzvwutvl c52d6e91 main | (conflict) merge
     Hint: Pass `--ignore-immutable` or configure the set of immutable commits via `revset-aliases.immutable_heads()`.
-    "###);
+    "#);
     // diffedit
     let stderr = test_env.jj_cmd_failure(&repo_path, &["diffedit", "-r=main"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Commit bcab555fc80e is immutable
-    Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
+    insta::assert_snapshot!(stderr, @r#"
+    Error: Commit c52d6e918364 is immutable
+    Hint: Could not modify commit: mzvwutvl c52d6e91 main | (conflict) merge
     Hint: Pass `--ignore-immutable` or configure the set of immutable commits via `revset-aliases.immutable_heads()`.
-    "###);
+    "#);
     // edit
     let stderr = test_env.jj_cmd_failure(&repo_path, &["edit", "main"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Commit bcab555fc80e is immutable
-    Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
+    insta::assert_snapshot!(stderr, @r#"
+    Error: Commit c52d6e918364 is immutable
+    Hint: Could not modify commit: mzvwutvl c52d6e91 main | (conflict) merge
     Hint: Pass `--ignore-immutable` or configure the set of immutable commits via `revset-aliases.immutable_heads()`.
-    "###);
+    "#);
     // new --insert-before
     let stderr = test_env.jj_cmd_failure(&repo_path, &["new", "--insert-before", "main"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Commit bcab555fc80e is immutable
-    Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
+    insta::assert_snapshot!(stderr, @r#"
+    Error: Commit c52d6e918364 is immutable
+    Hint: Could not modify commit: mzvwutvl c52d6e91 main | (conflict) merge
     Hint: Pass `--ignore-immutable` or configure the set of immutable commits via `revset-aliases.immutable_heads()`.
-    "###);
+    "#);
     // new --insert-after parent_of_main
     let stderr = test_env.jj_cmd_failure(&repo_path, &["new", "--insert-after", "description(b)"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Commit bcab555fc80e is immutable
-    Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
+    insta::assert_snapshot!(stderr, @r#"
+    Error: Commit c52d6e918364 is immutable
+    Hint: Could not modify commit: mzvwutvl c52d6e91 main | (conflict) merge
     Hint: Pass `--ignore-immutable` or configure the set of immutable commits via `revset-aliases.immutable_heads()`.
-    "###);
+    "#);
     // parallelize
     let stderr = test_env.jj_cmd_failure(&repo_path, &["parallelize", "description(b)", "main"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Commit bcab555fc80e is immutable
-    Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
+    insta::assert_snapshot!(stderr, @r#"
+    Error: Commit c52d6e918364 is immutable
+    Hint: Could not modify commit: mzvwutvl c52d6e91 main | (conflict) merge
     Hint: Pass `--ignore-immutable` or configure the set of immutable commits via `revset-aliases.immutable_heads()`.
-    "###);
+    "#);
     // rebase -s
     let stderr = test_env.jj_cmd_failure(&repo_path, &["rebase", "-s=main", "-d=@"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Commit bcab555fc80e is immutable
-    Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
+    insta::assert_snapshot!(stderr, @r#"
+    Error: Commit c52d6e918364 is immutable
+    Hint: Could not modify commit: mzvwutvl c52d6e91 main | (conflict) merge
     Hint: Pass `--ignore-immutable` or configure the set of immutable commits via `revset-aliases.immutable_heads()`.
-    "###);
+    "#);
     // rebase -b
     let stderr = test_env.jj_cmd_failure(&repo_path, &["rebase", "-b=main", "-d=@"]);
     insta::assert_snapshot!(stderr, @r#"
@@ -284,39 +284,39 @@ fn test_rewrite_immutable_commands() {
     "#);
     // rebase -r
     let stderr = test_env.jj_cmd_failure(&repo_path, &["rebase", "-r=main", "-d=@"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Commit bcab555fc80e is immutable
-    Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
+    insta::assert_snapshot!(stderr, @r#"
+    Error: Commit c52d6e918364 is immutable
+    Hint: Could not modify commit: mzvwutvl c52d6e91 main | (conflict) merge
     Hint: Pass `--ignore-immutable` or configure the set of immutable commits via `revset-aliases.immutable_heads()`.
-    "###);
+    "#);
     // resolve
     let stderr = test_env.jj_cmd_failure(&repo_path, &["resolve", "-r=description(merge)", "file"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Commit bcab555fc80e is immutable
-    Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
+    insta::assert_snapshot!(stderr, @r#"
+    Error: Commit c52d6e918364 is immutable
+    Hint: Could not modify commit: mzvwutvl c52d6e91 main | (conflict) merge
     Hint: Pass `--ignore-immutable` or configure the set of immutable commits via `revset-aliases.immutable_heads()`.
-    "###);
+    "#);
     // restore -c
     let stderr = test_env.jj_cmd_failure(&repo_path, &["restore", "-c=main"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Commit bcab555fc80e is immutable
-    Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
+    insta::assert_snapshot!(stderr, @r#"
+    Error: Commit c52d6e918364 is immutable
+    Hint: Could not modify commit: mzvwutvl c52d6e91 main | (conflict) merge
     Hint: Pass `--ignore-immutable` or configure the set of immutable commits via `revset-aliases.immutable_heads()`.
-    "###);
+    "#);
     // restore --into
     let stderr = test_env.jj_cmd_failure(&repo_path, &["restore", "--into=main"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Commit bcab555fc80e is immutable
-    Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
+    insta::assert_snapshot!(stderr, @r#"
+    Error: Commit c52d6e918364 is immutable
+    Hint: Could not modify commit: mzvwutvl c52d6e91 main | (conflict) merge
     Hint: Pass `--ignore-immutable` or configure the set of immutable commits via `revset-aliases.immutable_heads()`.
-    "###);
+    "#);
     // split
     let stderr = test_env.jj_cmd_failure(&repo_path, &["split", "-r=main"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Commit bcab555fc80e is immutable
-    Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
+    insta::assert_snapshot!(stderr, @r#"
+    Error: Commit c52d6e918364 is immutable
+    Hint: Could not modify commit: mzvwutvl c52d6e91 main | (conflict) merge
     Hint: Pass `--ignore-immutable` or configure the set of immutable commits via `revset-aliases.immutable_heads()`.
-    "###);
+    "#);
     // squash -r
     let stderr = test_env.jj_cmd_failure(&repo_path, &["squash", "-r=description(b)"]);
     insta::assert_snapshot!(stderr, @r#"
@@ -326,25 +326,25 @@ fn test_rewrite_immutable_commands() {
     "#);
     // squash --from
     let stderr = test_env.jj_cmd_failure(&repo_path, &["squash", "--from=main"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Commit bcab555fc80e is immutable
-    Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
+    insta::assert_snapshot!(stderr, @r#"
+    Error: Commit c52d6e918364 is immutable
+    Hint: Could not modify commit: mzvwutvl c52d6e91 main | (conflict) merge
     Hint: Pass `--ignore-immutable` or configure the set of immutable commits via `revset-aliases.immutable_heads()`.
-    "###);
+    "#);
     // squash --into
     let stderr = test_env.jj_cmd_failure(&repo_path, &["squash", "--into=main"]);
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Commit bcab555fc80e is immutable
-    Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
+    insta::assert_snapshot!(stderr, @r#"
+    Error: Commit c52d6e918364 is immutable
+    Hint: Could not modify commit: mzvwutvl c52d6e91 main | (conflict) merge
     Hint: Pass `--ignore-immutable` or configure the set of immutable commits via `revset-aliases.immutable_heads()`.
-    "###);
+    "#);
     // unsquash
     let stderr = test_env.jj_cmd_failure(&repo_path, &["unsquash", "-r=main"]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Warning: `jj unsquash` is deprecated; use `jj diffedit --restore-descendants` or `jj squash` instead
     Warning: `jj unsquash` will be removed in a future version, and this will be a hard error
-    Error: Commit bcab555fc80e is immutable
-    Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
+    Error: Commit c52d6e918364 is immutable
+    Hint: Could not modify commit: mzvwutvl c52d6e91 main | (conflict) merge
     Hint: Pass `--ignore-immutable` or configure the set of immutable commits via `revset-aliases.immutable_heads()`.
-    "###);
+    "#);
 }

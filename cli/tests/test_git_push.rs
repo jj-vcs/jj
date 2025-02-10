@@ -1175,10 +1175,10 @@ fn test_git_push_conflict(subprocess: bool) {
     test_env.jj_cmd_ok(&workspace_root, &["describe", "-m", "third"]);
     let stderr = test_env.jj_cmd_failure(&workspace_root, &["git", "push", "--all"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r###"
-    Error: Won't push commit e2221a796300 since it has conflicts
-    Hint: Rejected commit: yostqsxw e2221a79 my-bookmark | (conflict) third
-    "###);
+    insta::assert_snapshot!(stderr, @r#"
+    Error: Won't push commit 77ce29b94fe0 since it has conflicts
+    Hint: Rejected commit: yostqsxw 77ce29b9 my-bookmark | (conflict) third
+    "#);
     }
 }
 

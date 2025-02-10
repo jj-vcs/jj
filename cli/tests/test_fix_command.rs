@@ -949,15 +949,15 @@ fn test_fix_both_sides_of_conflict() {
     // fixed if we didn't fix the parents also.
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["fix", "-s", "a", "-s", "b"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(stderr, @r#"
     Fixed 3 commits of 3 checked.
-    Working copy now at: mzvwutvl a55c6ec2 (conflict) (empty) (no description set)
+    Working copy now at: mzvwutvl 7895b133 (conflict) (empty) (no description set)
     Parent commit      : qpvuntsm 8e8aad69 a | (no description set)
     Parent commit      : kkmpptxz 91f9b284 b | (no description set)
     Added 0 files, modified 1 files, removed 0 files
     There are unresolved conflicts at these paths:
     file    2-sided conflict
-    ");
+    "#);
     let content = test_env.jj_cmd_success(&repo_path, &["file", "show", "file", "-r", "a"]);
     insta::assert_snapshot!(content, @r###"
     CONTENT A

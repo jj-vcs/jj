@@ -868,10 +868,10 @@ fn test_next_conflict_head() {
     "###);
 
     let stderr = test_env.jj_cmd_failure(&repo_path, &["next", "--conflict", "--edit"]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Error: The working copy has no descendants with conflicts
-    Hint: Working copy: rlvkpnrz 0273eeab (conflict) (no description set)
-    "###);
+    Hint: Working copy: rlvkpnrz 8d9ce165 (conflict) (no description set)
+    "#);
 }
 
 #[test]
