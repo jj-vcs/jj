@@ -130,6 +130,7 @@ impl<'a> GitSubprocessContext<'a> {
             return Ok(None);
         }
         let mut command = self.create_command();
+        command.stdin(Stdio::piped());
         command.stdout(Stdio::piped());
         // attempt to prune stale refs with --prune
         command.args(["fetch", "--prune"]);
@@ -204,6 +205,7 @@ impl<'a> GitSubprocessContext<'a> {
         callbacks: &mut RemoteCallbacks<'_>,
     ) -> Result<(Vec<String>, Vec<String>), GitSubprocessError> {
         let mut command = self.create_command();
+        command.stdin(Stdio::piped());
         command.stdout(Stdio::piped());
         // Currently jj does not support commit hooks, so we prevent git from running
         // them
