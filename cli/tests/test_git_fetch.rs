@@ -16,6 +16,7 @@ use std::path::Path;
 use test_case::test_case;
 
 use crate::common::get_stderr_string;
+use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;
 
 fn add_commit_to_branch(git_repo: &git2::Repository, branch: &str) -> git2::Oid {
@@ -63,7 +64,7 @@ fn add_git_remote(test_env: &TestEnvironment, repo_path: &Path, remote: &str) ->
     repo
 }
 
-fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> String {
+fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutputString {
     // --quiet to suppress deleted bookmarks hint
     test_env.jj_cmd_success(repo_path, &["bookmark", "list", "--all-remotes", "--quiet"])
 }
@@ -81,7 +82,7 @@ fn create_commit(test_env: &TestEnvironment, repo_path: &Path, name: &str, paren
     test_env.jj_cmd_ok(repo_path, &["bookmark", "create", "-r@", name]);
 }
 
-fn get_log_output(test_env: &TestEnvironment, workspace_root: &Path) -> String {
+fn get_log_output(test_env: &TestEnvironment, workspace_root: &Path) -> CommandOutputString {
     let template = r#"commit_id.short() ++ " " ++ description.first_line() ++ " " ++ bookmarks"#;
     test_env.jj_cmd_success(workspace_root, &["log", "-T", template, "-r", "all()"])
 }
@@ -1195,7 +1196,7 @@ fn test_git_fetch_bookmarks_missing_with_subprocess_localized_message() {
         .env("LANGUAGE", "zh_TW")
         .assert()
         .success();
-    let stderr = test_env.normalize_output(&get_stderr_string(&assert));
+    let stderr = test_env.normalize_output(get_stderr_string(&assert));
     insta::assert_snapshot!(stderr, @r"
     Warning: No branch matching `unknown` found on any specified/configured remote
     Nothing changed.

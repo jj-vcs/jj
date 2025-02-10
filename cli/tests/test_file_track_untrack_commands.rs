@@ -35,7 +35,9 @@ fn test_track_untrack() {
     // patterns
     test_env.jj_cmd_ok(&repo_path, &["st"]);
     std::fs::write(repo_path.join(".gitignore"), "*.bak\n").unwrap();
-    let files_before = test_env.jj_cmd_success(&repo_path, &["file", "list"]);
+    let files_before = test_env
+        .jj_cmd_success(&repo_path, &["file", "list"])
+        .into_raw();
 
     // Errors out when not run at the head operation
     let stderr =
@@ -61,7 +63,9 @@ fn test_track_untrack() {
     Hint: Files that are not ignored will be added back by the next command.
     Make sure they're ignored, then try again.
     "###);
-    let files_after = test_env.jj_cmd_success(&repo_path, &["file", "list"]);
+    let files_after = test_env
+        .jj_cmd_success(&repo_path, &["file", "list"])
+        .into_raw();
     // There should be no changes to the state when there was an error
     assert_eq!(files_after, files_before);
 
@@ -73,7 +77,9 @@ fn test_track_untrack() {
     Warning: `jj untrack` is deprecated; use `jj file untrack` instead, which is equivalent
     Warning: `jj untrack` will be removed in a future version, and this will be a hard error
     "###);
-    let files_after = test_env.jj_cmd_success(&repo_path, &["file", "list"]);
+    let files_after = test_env
+        .jj_cmd_success(&repo_path, &["file", "list"])
+        .into_raw();
     // The file is no longer tracked
     assert!(!files_after.contains("file1.bak"));
     // Other files that match the ignore pattern are not untracked
@@ -85,7 +91,7 @@ fn test_track_untrack() {
     // Errors out when multiple specified files are not ignored
     let stderr = test_env.jj_cmd_failure(&repo_path, &["file", "untrack", "target"]);
     assert_eq!(
-        stderr,
+        stderr.raw(),
         format!(
             "Error: '{}' and 1 other files are not ignored.\nHint: Files that are not ignored \
              will be added back by the next command.\nMake sure they're ignored, then try again.\n",
@@ -98,7 +104,9 @@ fn test_track_untrack() {
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["file", "untrack", "target"]);
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @"");
-    let files_after = test_env.jj_cmd_success(&repo_path, &["file", "list"]);
+    let files_after = test_env
+        .jj_cmd_success(&repo_path, &["file", "list"])
+        .into_raw();
     assert!(!files_after.contains("target"));
 }
 
@@ -178,7 +186,7 @@ fn test_auto_track() {
     std::fs::create_dir(&subdir).unwrap();
     std::fs::write(subdir.join("file1.rs"), "initial").unwrap();
     let stdout = test_env.jj_cmd_success(&subdir, &["file", "list"]);
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @r###"
+    insta::assert_snapshot!(stdout.normalize_backslash(), @r###"
     ../file1.rs
     "###);
 
@@ -186,7 +194,7 @@ fn test_auto_track() {
     let stdout = test_env.jj_cmd_success(&subdir, &["file", "track", "file1.rs"]);
     insta::assert_snapshot!(stdout, @"");
     let stdout = test_env.jj_cmd_success(&subdir, &["file", "list"]);
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @r###"
+    insta::assert_snapshot!(stdout.normalize_backslash(), @r###"
     ../file1.rs
     file1.rs
     "###);

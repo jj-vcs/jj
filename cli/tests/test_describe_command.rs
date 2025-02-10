@@ -18,6 +18,7 @@ use std::path::PathBuf;
 use indoc::indoc;
 
 use crate::common::get_stderr_string;
+use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -849,7 +850,7 @@ fn test_edit_cannot_be_used_with_no_edit() {
     ");
 }
 
-fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> String {
+fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutputString {
     let template = r#"commit_id.short() ++ " " ++ description"#;
     test_env.jj_cmd_success(repo_path, &["log", "-T", template])
 }

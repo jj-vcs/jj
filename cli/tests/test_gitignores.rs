@@ -87,11 +87,11 @@ fn test_gitignores_relative_excludes_file_path() {
     // to the cwd.
     std::fs::create_dir(workspace_root.join("sub")).unwrap();
     let stdout = test_env.jj_cmd_success(&workspace_root.join("sub"), &["diff", "-s"]);
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @r###"
+    insta::assert_snapshot!(stdout.normalize_backslash(), @r###"
     A ../not-ignored
     "###);
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["-Rrepo", "diff", "-s"]);
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @r###"
+    insta::assert_snapshot!(stdout.normalize_backslash(), @r###"
     A repo/not-ignored
     "###);
 }
@@ -106,10 +106,12 @@ fn test_gitignores_ignored_file_in_target_commit() {
     // Create a commit with file "ignored" in it
     std::fs::write(workspace_root.join("ignored"), "committed contents\n").unwrap();
     test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "-r@", "with-file"]);
-    let target_commit_id = test_env.jj_cmd_success(
-        &workspace_root,
-        &["log", "--no-graph", "-T=commit_id", "-r=@"],
-    );
+    let target_commit_id = test_env
+        .jj_cmd_success(
+            &workspace_root,
+            &["log", "--no-graph", "-T=commit_id", "-r=@"],
+        )
+        .into_raw();
 
     // Create another commit where we ignore that path
     test_env.jj_cmd_ok(&workspace_root, &["new", "root()"]);

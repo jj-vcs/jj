@@ -27,7 +27,7 @@ fn test_simple_rename() {
     std::fs::remove_file(repo_path.join("original")).unwrap();
     std::fs::write(repo_path.join("modified"), "original").unwrap();
     std::fs::write(repo_path.join("something"), "changed").unwrap();
-    insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["debug", "copy-detection"]).replace('\\', "/"),
+    insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["debug", "copy-detection"]).normalize_backslash(),
     @r###"
     original -> modified
     "###);

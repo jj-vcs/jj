@@ -384,7 +384,7 @@ fn test_status_untracked_files() {
     std::fs::write(repo_path.join("sub").join("initially-untracked"), "...").unwrap();
 
     let stdout = test_env.jj_cmd_success(&repo_path, &["status"]);
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @r"
+    insta::assert_snapshot!(stdout.normalize_backslash(), @r"
     Untracked paths:
     ? always-untracked-file
     ? initially-untracked-file
@@ -405,7 +405,7 @@ fn test_status_untracked_files() {
     );
 
     let stdout = test_env.jj_cmd_success(&repo_path, &["status"]);
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @r"
+    insta::assert_snapshot!(stdout.normalize_backslash(), @r"
     Working copy changes:
     A initially-untracked-file
     A sub/initially-untracked
@@ -419,7 +419,7 @@ fn test_status_untracked_files() {
     test_env.jj_cmd_ok(&repo_path, &["new"]);
 
     let stdout = test_env.jj_cmd_success(&repo_path, &["status"]);
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @r"
+    insta::assert_snapshot!(stdout.normalize_backslash(), @r"
     Untracked paths:
     ? always-untracked-file
     ? sub/always-untracked
@@ -437,7 +437,7 @@ fn test_status_untracked_files() {
         ],
     );
     let stdout = test_env.jj_cmd_success(&repo_path, &["status"]);
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @r"
+    insta::assert_snapshot!(stdout.normalize_backslash(), @r"
     Working copy changes:
     D initially-untracked-file
     D sub/initially-untracked
@@ -453,7 +453,7 @@ fn test_status_untracked_files() {
     test_env.jj_cmd_ok(&repo_path, &["new"]);
 
     let stdout = test_env.jj_cmd_success(&repo_path, &["status"]);
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @r"
+    insta::assert_snapshot!(stdout.normalize_backslash(), @r"
     Untracked paths:
     ? always-untracked-file
     ? initially-untracked-file

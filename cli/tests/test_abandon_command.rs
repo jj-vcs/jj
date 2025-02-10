@@ -14,6 +14,7 @@
 
 use std::path::Path;
 
+use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;
 
 fn create_commit(test_env: &TestEnvironment, repo_path: &Path, name: &str, parents: &[&str]) {
@@ -353,10 +354,12 @@ fn test_double_abandon() {
     a
     "###);
 
-    let commit_id = test_env.jj_cmd_success(
-        &repo_path,
-        &["log", "--no-graph", "--color=never", "-T=commit_id", "-r=a"],
-    );
+    let commit_id = test_env
+        .jj_cmd_success(
+            &repo_path,
+            &["log", "--no-graph", "--color=never", "-T=commit_id", "-r=a"],
+        )
+        .into_raw();
 
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["abandon", &commit_id]);
     insta::assert_snapshot!(stdout, @"");
@@ -409,7 +412,7 @@ fn test_abandon_restore_descendants() {
     "#);
 }
 
-fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> String {
+fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutputString {
     test_env.jj_cmd_success(
         repo_path,
         &[

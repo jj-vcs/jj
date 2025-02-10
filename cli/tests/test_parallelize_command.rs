@@ -14,6 +14,7 @@
 
 use std::path::Path;
 
+use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -631,7 +632,7 @@ fn test_parallelize_complex_nonlinear_target() {
     "###);
 }
 
-fn get_log_output(test_env: &TestEnvironment, cwd: &Path) -> String {
+fn get_log_output(test_env: &TestEnvironment, cwd: &Path) -> CommandOutputString {
     let template = r#"
     separate(" ",
         commit_id.short(),

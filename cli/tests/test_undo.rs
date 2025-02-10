@@ -14,6 +14,7 @@
 use std::path::Path;
 
 use crate::common::git;
+use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -27,7 +28,7 @@ fn test_undo_rewrite_with_child() {
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "initial"]);
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "modified"]);
     let stdout = test_env.jj_cmd_success(&repo_path, &["op", "log"]);
-    let op_id_hex = stdout[3..15].to_string();
+    let op_id_hex = stdout.raw()[3..15].to_string();
     test_env.jj_cmd_ok(&repo_path, &["new", "-m", "child"]);
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-T", "description"]);
     insta::assert_snapshot!(stdout, @r###"
@@ -432,7 +433,7 @@ fn test_shows_no_warning_when_undoing_a_specific_undo_change() {
     test_env.jj_cmd_ok(&repo_path, &["new"]);
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
     let stdout = test_env.jj_cmd_success(&repo_path, &["op", "log"]);
-    let op_id_hex = stdout[3..15].to_string();
+    let op_id_hex = stdout.raw()[3..15].to_string();
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["undo", &op_id_hex]);
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @r"
@@ -442,7 +443,7 @@ fn test_shows_no_warning_when_undoing_a_specific_undo_change() {
     ");
 }
 
-fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> String {
+fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutputString {
     // --quiet to suppress deleted bookmarks hint
     test_env.jj_cmd_success(repo_path, &["bookmark", "list", "--all-remotes", "--quiet"])
 }

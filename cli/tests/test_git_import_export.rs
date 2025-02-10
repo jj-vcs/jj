@@ -17,6 +17,7 @@ use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 
 use crate::common::git;
+use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -136,8 +137,9 @@ fn test_git_import_undo() {
     let git_repo = git::open(repo_path.join(".jj/repo/store/git"));
 
     // Create bookmark "a" in git repo
-    let commit_id =
-        test_env.jj_cmd_success(&repo_path, &["log", "-Tcommit_id", "--no-graph", "-r@"]);
+    let commit_id = test_env
+        .jj_cmd_success(&repo_path, &["log", "-Tcommit_id", "--no-graph", "-r@"])
+        .into_raw();
     let commit_id = gix::ObjectId::from_hex(commit_id.as_bytes()).unwrap();
     git_repo
         .reference(
@@ -189,8 +191,9 @@ fn test_git_import_move_export_with_default_undo() {
     let git_repo = git::open(repo_path.join(".jj/repo/store/git"));
 
     // Create bookmark "a" in git repo
-    let commit_id =
-        test_env.jj_cmd_success(&repo_path, &["log", "-Tcommit_id", "--no-graph", "-r@"]);
+    let commit_id = test_env
+        .jj_cmd_success(&repo_path, &["log", "-Tcommit_id", "--no-graph", "-r@"])
+        .into_raw();
     let commit_id = gix::ObjectId::from_hex(commit_id.as_bytes()).unwrap();
     git_repo
         .reference(
@@ -266,7 +269,7 @@ fn test_git_import_move_export_with_default_undo() {
     "###);
 }
 
-fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> String {
+fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutputString {
     test_env.jj_cmd_success(repo_path, &["bookmark", "list", "--all-remotes"])
 }
 

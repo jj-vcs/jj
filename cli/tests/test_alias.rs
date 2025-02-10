@@ -66,17 +66,17 @@ fn test_alias_calls_empty_command() {
     "#,
     );
     let stderr = test_env.jj_cmd_cli_error(&repo_path, &["empty"]);
-    insta::assert_snapshot!(stderr.lines().take(3).join("\n"), @r###"
+    insta::assert_snapshot!(stderr.normalized().lines().take(3).join("\n"), @r###"
     Jujutsu (An experimental VCS)
 
     Usage: jj [OPTIONS] <COMMAND>
     "###);
     let stderr = test_env.jj_cmd_cli_error(&repo_path, &["empty", "--no-pager"]);
-    insta::assert_snapshot!(stderr.lines().next().unwrap_or_default(), @r###"
+    insta::assert_snapshot!(stderr.normalized().lines().next().unwrap_or_default(), @r###"
     error: 'jj' requires a subcommand but one was not provided
     "###);
     let stderr = test_env.jj_cmd_cli_error(&repo_path, &["empty_command_with_opts"]);
-    insta::assert_snapshot!(stderr.lines().next().unwrap_or_default(), @r###"
+    insta::assert_snapshot!(stderr.normalized().lines().next().unwrap_or_default(), @r###"
     error: 'jj' requires a subcommand but one was not provided
     "###);
 }
@@ -126,7 +126,7 @@ fn test_alias_calls_help() {
     let repo_path = test_env.env_root().join("repo");
     test_env.add_config(r#"aliases.h = ["--help"]"#);
     let stdout = test_env.jj_cmd_success(&repo_path, &["h"]);
-    insta::assert_snapshot!(stdout.lines().take(5).join("\n"), @r###"
+    insta::assert_snapshot!(stdout.normalized().lines().take(5).join("\n"), @r###"
     Jujutsu (An experimental VCS)
 
     To get started, see the tutorial at https://jj-vcs.github.io/jj/latest/tutorial/.
@@ -233,7 +233,7 @@ fn test_alias_invalid_definition() {
     "#,
     );
     let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["non-list"]);
-    insta::assert_snapshot!(stderr.replace('\\', "/"), @r"
+    insta::assert_snapshot!(stderr.normalize_backslash(), @r"
     Config error: Invalid type or value for aliases.non-list
     Caused by: invalid type: integer `5`, expected a sequence
 

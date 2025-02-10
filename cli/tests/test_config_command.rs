@@ -152,7 +152,7 @@ fn test_config_list_all() {
 
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["config", "list"]);
     insta::assert_snapshot!(
-        find_stdout_lines(r"(test-val|test-table\b[^=]*)", &stdout),
+        find_stdout_lines(r"(test-val|test-table\b[^=]*)", stdout.raw()),
         @r###"
     test-val = [1, 2, 3]
     test-table.x = true
@@ -1269,7 +1269,7 @@ fn test_config_author_change_warning() {
     log_cmd.assert().success();
 
     let (stdout, _) = test_env.jj_cmd_ok(&repo_path, &["log"]);
-    assert!(stdout.contains("Foo"));
+    assert!(stdout.raw().contains("Foo"));
 }
 
 #[test]

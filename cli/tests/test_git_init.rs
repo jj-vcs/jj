@@ -21,8 +21,8 @@ use test_case::test_case;
 use crate::common::get_stderr_string;
 use crate::common::get_stdout_string;
 use crate::common::git;
-use crate::common::strip_last_line;
 use crate::common::to_toml_value;
+use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;
 
 fn init_git_repo(git_repo_path: &Path, bare: bool) -> gix::Repository {
@@ -44,11 +44,11 @@ fn init_git_repo(git_repo_path: &Path, bare: bool) -> gix::Repository {
     git_repo
 }
 
-fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> String {
+fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutputString {
     test_env.jj_cmd_success(repo_path, &["bookmark", "list", "--all-remotes"])
 }
 
-fn get_log_output(test_env: &TestEnvironment, workspace_root: &Path) -> String {
+fn get_log_output(test_env: &TestEnvironment, workspace_root: &Path) -> CommandOutputString {
     let template = r#"
     separate(" ",
       commit_id.short(),
@@ -286,7 +286,7 @@ fn test_git_init_external_non_existent_directory() {
         test_env.env_root(),
         &["git", "init", "repo", "--git-repo", "non-existent"],
     );
-    insta::assert_snapshot!(strip_last_line(&stderr), @r###"
+    insta::assert_snapshot!(stderr.strip_last_line(), @r###"
     Error: Failed to access the repository
     Caused by:
     1: Cannot access $TEST_ENV/non-existent
@@ -809,8 +809,8 @@ fn test_git_init_conditional_config() {
         cmd.env_remove("JJ_OP_HOSTNAME");
         cmd.env_remove("JJ_OP_USERNAME");
         let assert = cmd.assert().success();
-        let stdout = test_env.normalize_output(&get_stdout_string(&assert));
-        let stderr = test_env.normalize_output(&get_stderr_string(&assert));
+        let stdout = test_env.normalize_output(get_stdout_string(&assert));
+        let stderr = test_env.normalize_output(get_stderr_string(&assert));
         (stdout, stderr)
     };
     let log_template = r#"separate(' ', author.email(), description.first_line()) ++ "\n""#;
@@ -846,7 +846,7 @@ fn test_git_init_conditional_config() {
 
     // Create new repo at the old workspace directory.
     let (_stdout, stderr) = jj_cmd_ok(&old_workspace_root, &["git", "init", "../new"]);
-    insta::assert_snapshot!(stderr.replace('\\', "/"), @r#"Initialized repo in "../new""#);
+    insta::assert_snapshot!(stderr.normalize_backslash(), @r#"Initialized repo in "../new""#);
     jj_cmd_ok(&new_workspace_root, &["new"]);
     let (stdout, _stderr) = jj_cmd_ok(&new_workspace_root, &["log", "-T", log_template]);
     insta::assert_snapshot!(stdout, @r"
@@ -867,5 +867,5 @@ fn test_git_init_bad_wc_path() {
     let test_env = TestEnvironment::default();
     std::fs::write(test_env.env_root().join("existing-file"), b"").unwrap();
     let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["git", "init", "existing-file"]);
-    assert!(stderr.contains("Failed to create workspace"));
+    assert!(stderr.raw().contains("Failed to create workspace"));
 }

@@ -179,7 +179,7 @@ fn test_bad_function_call() {
     "#);
 
     let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r", r#"files(a, "../out")"#]);
-    insta::assert_snapshot!(stderr.replace('\\', "/"), @r###"
+    insta::assert_snapshot!(stderr.normalize_backslash(), @r###"
     Error: Failed to parse revset: In fileset expression
     Caused by:
     1:  --> 1:10
@@ -763,38 +763,37 @@ fn test_revset_committer_date_with_time_zone() {
         ],
     );
 
-    let mut log_commits_before_and_after =
-        |committer_date: &str, now: &str, tz: &str| -> (String, String) {
-            test_env.add_env_var("TZ", tz);
-            let config = format!("debug.commit-timestamp={now}");
-            let before_log = test_env.jj_cmd_success(
-                &repo_path,
-                &[
-                    "--config",
-                    config.as_str(),
-                    "log",
-                    "--no-graph",
-                    "-T",
-                    "description.first_line() ++ ' ' ++ committer.timestamp() ++ '\n'",
-                    "-r",
-                    format!("committer_date(before:'{committer_date}') ~ root()").as_str(),
-                ],
-            );
-            let after_log = test_env.jj_cmd_success(
-                &repo_path,
-                &[
-                    "--config",
-                    config.as_str(),
-                    "log",
-                    "--no-graph",
-                    "-T",
-                    "description.first_line() ++ ' ' ++ committer.timestamp() ++ '\n'",
-                    "-r",
-                    format!("committer_date(after:'{committer_date}')").as_str(),
-                ],
-            );
-            (before_log, after_log)
-        };
+    let mut log_commits_before_and_after = |committer_date: &str, now: &str, tz: &str| {
+        test_env.add_env_var("TZ", tz);
+        let config = format!("debug.commit-timestamp={now}");
+        let before_log = test_env.jj_cmd_success(
+            &repo_path,
+            &[
+                "--config",
+                config.as_str(),
+                "log",
+                "--no-graph",
+                "-T",
+                "description.first_line() ++ ' ' ++ committer.timestamp() ++ '\n'",
+                "-r",
+                format!("committer_date(before:'{committer_date}') ~ root()").as_str(),
+            ],
+        );
+        let after_log = test_env.jj_cmd_success(
+            &repo_path,
+            &[
+                "--config",
+                config.as_str(),
+                "log",
+                "--no-graph",
+                "-T",
+                "description.first_line() ++ ' ' ++ committer.timestamp() ++ '\n'",
+                "-r",
+                format!("committer_date(after:'{committer_date}')").as_str(),
+            ],
+        );
+        (before_log, after_log)
+    };
 
     let (before_log, after_log) =
         log_commits_before_and_after("2023-01-25 12:00", "2023-02-01T00:00:00-05:00", NEW_YORK);

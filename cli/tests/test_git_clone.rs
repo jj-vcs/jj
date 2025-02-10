@@ -21,8 +21,8 @@ use test_case::test_case;
 
 use crate::common::get_stderr_string;
 use crate::common::get_stdout_string;
-use crate::common::strip_last_line;
 use crate::common::to_toml_value;
+use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;
 
 fn set_up_non_empty_git_repo(git_repo: &git2::Repository) {
@@ -112,8 +112,8 @@ fn test_git_clone(subprocess: bool) {
         .jj_cmd(test_env.env_root(), &["git", "clone", "bad", "failed"])
         .assert()
         .code(1);
-    let stdout = test_env.normalize_output(&get_stdout_string(&assert));
-    let stderr = test_env.normalize_output(&get_stderr_string(&assert));
+    let stdout = test_env.normalize_output(get_stdout_string(&assert));
+    let stderr = test_env.normalize_output(get_stderr_string(&assert));
     insta::allow_duplicates! {
     insta::assert_snapshot!(stdout, @"");
     }
@@ -137,8 +137,8 @@ fn test_git_clone(subprocess: bool) {
         .jj_cmd(test_env.env_root(), &["git", "clone", "bad", "failed"])
         .assert()
         .code(1);
-    let stdout = test_env.normalize_output(&get_stdout_string(&assert));
-    let stderr = test_env.normalize_output(&get_stderr_string(&assert));
+    let stdout = test_env.normalize_output(get_stdout_string(&assert));
+    let stderr = test_env.normalize_output(get_stderr_string(&assert));
     insta::allow_duplicates! {
     insta::assert_snapshot!(stdout, @"");
     }
@@ -362,8 +362,8 @@ fn test_git_clone_colocate(subprocess: bool) {
         )
         .assert()
         .code(1);
-    let stdout = test_env.normalize_output(&get_stdout_string(&assert));
-    let stderr = test_env.normalize_output(&get_stderr_string(&assert));
+    let stdout = test_env.normalize_output(get_stdout_string(&assert));
+    let stderr = test_env.normalize_output(get_stderr_string(&assert));
     insta::allow_duplicates! {
     insta::assert_snapshot!(stdout, @"");
     }
@@ -390,8 +390,8 @@ fn test_git_clone_colocate(subprocess: bool) {
         )
         .assert()
         .code(1);
-    let stdout = test_env.normalize_output(&get_stdout_string(&assert));
-    let stderr = test_env.normalize_output(&get_stderr_string(&assert));
+    let stdout = test_env.normalize_output(get_stdout_string(&assert));
+    let stderr = test_env.normalize_output(get_stderr_string(&assert));
     insta::allow_duplicates! {
     insta::assert_snapshot!(stdout, @"");
     }
@@ -867,8 +867,8 @@ fn test_git_clone_conditional_config() {
         cmd.env_remove("JJ_OP_HOSTNAME");
         cmd.env_remove("JJ_OP_USERNAME");
         let assert = cmd.assert().success();
-        let stdout = test_env.normalize_output(&get_stdout_string(&assert));
-        let stderr = test_env.normalize_output(&get_stderr_string(&assert));
+        let stdout = test_env.normalize_output(get_stdout_string(&assert));
+        let stderr = test_env.normalize_output(get_stderr_string(&assert));
         (stdout, stderr)
     };
     let log_template = r#"separate(' ', author.email(), description.first_line()) ++ "\n""#;
@@ -1092,7 +1092,7 @@ fn test_git_clone_no_git_executable() {
     set_up_non_empty_git_repo(&git_repo);
 
     let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["git", "clone", "source", "clone"]);
-    insta::assert_snapshot!(strip_last_line(&stderr), @r#"
+    insta::assert_snapshot!(stderr.strip_last_line(), @r#"
     Fetching into new repo in "$TEST_ENV/clone"
     Error: Could not execute the git process, found in the OS path 'jj-test-missing-program'
     "#);
@@ -1111,12 +1111,12 @@ fn test_git_clone_no_git_executable_with_path() {
     set_up_non_empty_git_repo(&git_repo);
 
     let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["git", "clone", "source", "clone"]);
-    insta::assert_snapshot!(strip_last_line(&stderr), @r#"
+    insta::assert_snapshot!(stderr.strip_last_line(), @r#"
     Fetching into new repo in "$TEST_ENV/clone"
     Error: Could not execute git process at specified path '$TEST_ENV/invalid/path'
     "#);
 }
 
-fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> String {
+fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutputString {
     test_env.jj_cmd_success(repo_path, &["bookmark", "list", "--all-remotes"])
 }

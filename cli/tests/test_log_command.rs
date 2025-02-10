@@ -328,7 +328,7 @@ fn test_log_null_terminate_multiline_descriptions() {
         ],
     );
     insta::assert_debug_snapshot!(
-        stdout,
+        stdout.normalized(),
         @r###""commit 3 line 1\n\ncommit 3 line 2\n\0commit 2 line 1\n\ncommit 2 line 2\n\0commit 1 line 1\n\ncommit 1 line 2\n\0""###
     );
 }
@@ -880,7 +880,7 @@ fn test_log_filtered_by_path() {
             "root:file1",
         ],
     );
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @r###"
+    insta::assert_snapshot!(stdout.normalize_backslash(), @r###"
     @  second
     │  M repo/file1
     ○  first
@@ -1060,6 +1060,7 @@ fn test_default_revset() {
         1,
         test_env
             .jj_cmd_success(&repo_path, &["log", "-T", "commit_id"])
+            .raw()
             .lines()
             .count()
     );
@@ -1096,6 +1097,7 @@ fn test_default_revset_per_repo() {
         1,
         test_env
             .jj_cmd_success(&repo_path, &["log", "-T", "commit_id"])
+            .raw()
             .lines()
             .count()
     );
@@ -1474,7 +1476,7 @@ fn test_elided() {
         ],
     );
 
-    let get_log = |revs: &str| -> String {
+    let get_log = |revs: &str| {
         test_env.jj_cmd_success(
             &repo_path,
             &["log", "-T", r#"description ++ "\n""#, "-r", revs],
@@ -1579,7 +1581,7 @@ fn test_log_with_custom_symbols() {
         ],
     );
 
-    let get_log = |revs: &str| -> String {
+    let get_log = |revs: &str| {
         test_env.jj_cmd_success(
             &repo_path,
             &["log", "-T", r#"description ++ "\n""#, "-r", revs],

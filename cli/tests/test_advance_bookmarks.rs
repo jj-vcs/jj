@@ -16,9 +16,10 @@ use std::path::Path;
 
 use test_case::test_case;
 
+use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;
 
-fn get_log_output_with_bookmarks(test_env: &TestEnvironment, cwd: &Path) -> String {
+fn get_log_output_with_bookmarks(test_env: &TestEnvironment, cwd: &Path) -> CommandOutputString {
     // Don't include commit IDs since they will be different depending on
     // whether the test runs with `jj commit` or `jj describe` + `jj new`.
     let template = r#""bookmarks{" ++ local_bookmarks ++ "} desc: " ++ description"#;

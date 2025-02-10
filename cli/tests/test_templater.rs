@@ -16,6 +16,7 @@ use std::path::Path;
 
 use indoc::indoc;
 
+use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -527,7 +528,7 @@ fn get_template_output(
     repo_path: &Path,
     rev: &str,
     template: &str,
-) -> String {
+) -> CommandOutputString {
     test_env.jj_cmd_success(repo_path, &["log", "--no-graph", "-r", rev, "-T", template])
 }
 
@@ -536,7 +537,7 @@ fn get_colored_template_output(
     repo_path: &Path,
     rev: &str,
     template: &str,
-) -> String {
+) -> CommandOutputString {
     test_env.jj_cmd_success(
         repo_path,
         &[

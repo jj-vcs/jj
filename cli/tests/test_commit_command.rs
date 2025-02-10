@@ -15,6 +15,7 @@
 use std::path::Path;
 use std::path::PathBuf;
 
+use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -440,7 +441,7 @@ fn test_commit_reset_author() {
     "###);
 }
 
-fn get_log_output(test_env: &TestEnvironment, cwd: &Path) -> String {
+fn get_log_output(test_env: &TestEnvironment, cwd: &Path) -> CommandOutputString {
     let template = r#"commit_id.short() ++ " " ++ description"#;
     test_env.jj_cmd_success(cwd, &["log", "-T", template])
 }

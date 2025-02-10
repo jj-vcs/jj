@@ -15,6 +15,7 @@
 use std::path::Path;
 use std::path::PathBuf;
 
+use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -269,7 +270,7 @@ fn test_unsquash_partial() {
     "###);
 }
 
-fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> String {
+fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutputString {
     let template = r#"commit_id.short() ++ " " ++ bookmarks"#;
     test_env.jj_cmd_success(repo_path, &["log", "-T", template])
 }
@@ -369,7 +370,7 @@ fn test_unsquash_description_editor_avoids_unc() {
     assert_eq!(edited_path, dunce::simplified(&edited_path));
 }
 
-fn get_description(test_env: &TestEnvironment, repo_path: &Path, rev: &str) -> String {
+fn get_description(test_env: &TestEnvironment, repo_path: &Path, rev: &str) -> CommandOutputString {
     test_env.jj_cmd_success(
         repo_path,
         &["log", "--no-graph", "-T", "description", "-r", rev],

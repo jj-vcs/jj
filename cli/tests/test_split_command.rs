@@ -17,19 +17,20 @@ use std::path::PathBuf;
 
 use test_case::test_case;
 
+use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;
 
-fn get_log_output(test_env: &TestEnvironment, cwd: &Path) -> String {
+fn get_log_output(test_env: &TestEnvironment, cwd: &Path) -> CommandOutputString {
     let template = r#"separate(" ", change_id.short(), empty, local_bookmarks, description)"#;
     test_env.jj_cmd_success(cwd, &["log", "-T", template])
 }
 
-fn get_workspace_log_output(test_env: &TestEnvironment, cwd: &Path) -> String {
+fn get_workspace_log_output(test_env: &TestEnvironment, cwd: &Path) -> CommandOutputString {
     let template = r#"separate(" ", change_id.short(), working_copies, description)"#;
     test_env.jj_cmd_success(cwd, &["log", "-T", template, "-r", "all()"])
 }
 
-fn get_recorded_dates(test_env: &TestEnvironment, cwd: &Path, revset: &str) -> String {
+fn get_recorded_dates(test_env: &TestEnvironment, cwd: &Path, revset: &str) -> CommandOutputString {
     let template = r#"separate("\n", "Author date:  " ++ author.timestamp(), "Committer date: " ++ committer.timestamp())"#;
     test_env.jj_cmd_success(cwd, &["log", "--no-graph", "-T", template, "-r", revset])
 }

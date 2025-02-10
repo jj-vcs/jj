@@ -16,6 +16,7 @@ use std::path::Path;
 
 use test_case::test_case;
 
+use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;
 
 /// Test adding a second workspace
@@ -38,8 +39,8 @@ fn test_workspaces_add_second_workspace() {
         &main_path,
         &["workspace", "add", "--name", "second", "../secondary"],
     );
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @"");
-    insta::assert_snapshot!(stderr.replace('\\', "/"), @r###"
+    insta::assert_snapshot!(stdout.normalize_backslash(), @"");
+    insta::assert_snapshot!(stderr.normalize_backslash(), @r###"
     Created workspace in "../secondary"
     Working copy now at: rzvqmyuk 5ed2222c (empty) (no description set)
     Parent commit      : qpvuntsm 751b12b7 initial
@@ -169,7 +170,7 @@ fn test_workspaces_add_ignore_working_copy() {
         &main_path,
         &["workspace", "add", "--ignore-working-copy", "../secondary"],
     );
-    insta::assert_snapshot!(stderr.replace('\\', "/"), @r###"
+    insta::assert_snapshot!(stderr.normalize_backslash(), @r###"
     Created workspace in "../secondary"
     Error: This command must be able to update the working copy.
     Hint: Don't use --ignore-working-copy.
@@ -204,7 +205,7 @@ fn test_workspaces_add_at_operation() {
         &main_path,
         &["workspace", "add", "--at-op=@-", "../secondary"],
     );
-    insta::assert_snapshot!(stderr.replace('\\', "/"), @r###"
+    insta::assert_snapshot!(stderr.normalize_backslash(), @r###"
     Created workspace in "../secondary"
     Working copy now at: rzvqmyuk a4d1cbc9 (empty) (no description set)
     Parent commit      : qpvuntsm 3364a7ed 1
@@ -273,7 +274,7 @@ fn test_workspaces_add_workspace_at_revision() {
             "@--",
         ],
     );
-    insta::assert_snapshot!(stderr.replace('\\', "/"), @r###"
+    insta::assert_snapshot!(stderr.normalize_backslash(), @r###"
     Created workspace in "../secondary"
     Working copy now at: zxsnswpr e374e74a (empty) (no description set)
     Parent commit      : qpvuntsm f6097c2f first
@@ -343,7 +344,7 @@ fn test_workspaces_add_workspace_multiple_revisions() {
             "-r=description(first)",
         ],
     );
-    insta::assert_snapshot!(stderr.replace('\\', "/"), @r###"
+    insta::assert_snapshot!(stderr.normalize_backslash(), @r###"
     Created workspace in "../merged"
     Working copy now at: wmwvqwsz f4fa64f4 (empty) (no description set)
     Parent commit      : mzvwutvl 6c843d62 third
@@ -386,8 +387,8 @@ fn test_workspaces_add_workspace_from_subdir() {
     // Create workspace while in sub-directory of current workspace
     let (stdout, stderr) =
         test_env.jj_cmd_ok(&subdir_path, &["workspace", "add", "../../secondary"]);
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @"");
-    insta::assert_snapshot!(stderr.replace('\\', "/"), @r###"
+    insta::assert_snapshot!(stdout.normalize_backslash(), @"");
+    insta::assert_snapshot!(stderr.normalize_backslash(), @r###"
     Created workspace in "../../secondary"
     Working copy now at: rzvqmyuk 7ad84461 (empty) (no description set)
     Parent commit      : qpvuntsm a3a43d9e initial
@@ -413,8 +414,8 @@ fn test_workspaces_add_workspace_in_current_workspace() {
 
     // Try to create workspace using name instead of path
     let (stdout, stderr) = test_env.jj_cmd_ok(&main_path, &["workspace", "add", "secondary"]);
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @"");
-    insta::assert_snapshot!(stderr.replace('\\', "/"), @r###"
+    insta::assert_snapshot!(stdout.normalize_backslash(), @"");
+    insta::assert_snapshot!(stderr.normalize_backslash(), @r###"
     Created workspace in "secondary"
     Warning: Workspace created inside current directory. If this was unintentional, delete the "secondary" directory and run `jj workspace forget secondary` to remove it.
     Working copy now at: pmmvwywv 0a77a39d (empty) (no description set)
@@ -431,8 +432,8 @@ fn test_workspaces_add_workspace_in_current_workspace() {
 
     // Use explicit path instead (no warning)
     let (stdout, stderr) = test_env.jj_cmd_ok(&main_path, &["workspace", "add", "./third"]);
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @"");
-    insta::assert_snapshot!(stderr.replace('\\', "/"), @r###"
+    insta::assert_snapshot!(stdout.normalize_backslash(), @"");
+    insta::assert_snapshot!(stderr.normalize_backslash(), @r###"
     Created workspace in "third"
     Working copy now at: zxsnswpr 64746d4b (empty) (no description set)
     Parent commit      : qpvuntsm 751b12b7 initial
@@ -450,7 +451,7 @@ fn test_workspaces_add_workspace_in_current_workspace() {
     // Can see files from the other workspaces in main workspace, since they are
     // child directories and will therefore be snapshotted
     let stdout = test_env.jj_cmd_success(&main_path, &["file", "list"]);
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @r###"
+    insta::assert_snapshot!(stdout.normalize_backslash(), @r###"
     file
     secondary/file
     third/file
@@ -537,7 +538,7 @@ fn test_workspaces_conflicting_edits() {
     "###);
     // The stale working copy should have been resolved by the previous command
     let stdout = get_log_output(&test_env, &secondary_path);
-    assert!(!stdout.starts_with("The working copy is stale"));
+    assert!(!stdout.raw().starts_with("The working copy is stale"));
     insta::assert_snapshot!(stdout, @r###"
     @  e82cd4ee8faa secondary@ (divergent)
     │ ×  30816012e0da (divergent)
@@ -1265,7 +1266,7 @@ fn test_workspaces_rename_workspace() {
     "###);
 }
 
-fn get_log_output(test_env: &TestEnvironment, cwd: &Path) -> String {
+fn get_log_output(test_env: &TestEnvironment, cwd: &Path) -> CommandOutputString {
     let template = r#"
     separate(" ",
       commit_id.short(),

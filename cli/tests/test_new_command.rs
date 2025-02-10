@@ -14,6 +14,7 @@
 
 use std::path::Path;
 
+use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -686,12 +687,12 @@ fn setup_before_insertion(test_env: &TestEnvironment, repo_path: &Path) {
     test_env.jj_cmd_ok(repo_path, &["bookmark", "create", "-r@", "F"]);
 }
 
-fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> String {
+fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutputString {
     let template = r#"commit_id ++ " " ++ description"#;
     test_env.jj_cmd_success(repo_path, &["log", "-T", template])
 }
 
-fn get_short_log_output(test_env: &TestEnvironment, repo_path: &Path) -> String {
+fn get_short_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutputString {
     let template = r#"if(description, description, "root")"#;
     test_env.jj_cmd_success(repo_path, &["log", "-T", template])
 }

@@ -15,6 +15,7 @@
 use std::path::Path;
 use std::path::PathBuf;
 
+use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -1001,7 +1002,7 @@ fn test_squash_from_multiple_partial_no_op() {
     "###);
 }
 
-fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> String {
+fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutputString {
     let template = r#"separate(
         " ",
         commit_id.short(),
@@ -1225,14 +1226,17 @@ fn test_squash_use_destination_message_and_message_mutual_exclusion() {
     "###);
 }
 
-fn get_description(test_env: &TestEnvironment, repo_path: &Path, rev: &str) -> String {
+fn get_description(test_env: &TestEnvironment, repo_path: &Path, rev: &str) -> CommandOutputString {
     test_env.jj_cmd_success(
         repo_path,
         &["log", "--no-graph", "-T", "description", "-r", rev],
     )
 }
 
-fn get_log_output_with_description(test_env: &TestEnvironment, repo_path: &Path) -> String {
+fn get_log_output_with_description(
+    test_env: &TestEnvironment,
+    repo_path: &Path,
+) -> CommandOutputString {
     let template = r#"separate(" ", commit_id.short(), description)"#;
     test_env.jj_cmd_success(repo_path, &["log", "-T", template])
 }
