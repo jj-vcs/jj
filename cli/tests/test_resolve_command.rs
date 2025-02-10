@@ -16,6 +16,7 @@ use std::path::Path;
 
 use indoc::indoc;
 
+use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;
 
 fn create_commit(
@@ -38,7 +39,7 @@ fn create_commit(
     test_env.jj_cmd_ok(repo_path, &["bookmark", "create", "-r@", name]);
 }
 
-fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> String {
+fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutputString {
     test_env.jj_cmd_success(repo_path, &["log", "-T", "bookmarks"])
 }
 
@@ -527,8 +528,7 @@ fn test_resolution() {
             "--config=merge-tools.fake-editor.merge-conflict-exit-codes=[1]",
         ],
     );
-    // On Windows, the ExitStatus struct prints "exit code" instead of "exit status"
-    insta::assert_snapshot!(stderr.replace("exit code", "exit status"), @r#"
+    insta::assert_snapshot!(stderr.normalize_exit_status(), @r#"
     Resolving conflicts in: file
     Error: Failed to resolve conflicts
     Caused by: Tool exited with exit status: 1, but did not produce valid conflict markers (run with --debug to see the exact invocation)
@@ -555,10 +555,12 @@ fn check_resolve_produces_input_file(
     // https://github.com/mitsuhiko/insta/commit/745b45b. Hopefully, this will again become possible
     // in the future. See also https://github.com/mitsuhiko/insta/issues/313.
     assert_eq!(
-        test_env.jj_cmd_failure(
-            repo_path,
-            &["resolve", "--config", &merge_arg_config, filename]
-        ),
+        test_env
+            .jj_cmd_failure(
+                repo_path,
+                &["resolve", "--config", &merge_arg_config, filename]
+            )
+            .raw(),
         format!(
             "Resolving conflicts in: {filename}\nError: Failed to resolve conflicts\nCaused by: \
              The output file is either unchanged or empty after the editor quit (run with --debug \
@@ -1620,7 +1622,7 @@ fn test_multiple_conflicts_with_error() {
     )
     .unwrap();
     let stderr = test_env.jj_cmd_failure(&repo_path, &["resolve"]);
-    insta::assert_snapshot!(stderr.replace("exit code", "exit status"), @r#"
+    insta::assert_snapshot!(stderr.normalize_exit_status(), @r#"
     Resolving conflicts in: file1
     Resolving conflicts in: file2
     Working copy now at: vruxwmqv d2f3f858 conflict | (conflict) conflict
@@ -1668,7 +1670,7 @@ fn test_multiple_conflicts_with_error() {
     )
     .unwrap();
     let stderr = test_env.jj_cmd_failure(&repo_path, &["resolve"]);
-    insta::assert_snapshot!(stderr.replace("exit code", "exit status"), @r#"
+    insta::assert_snapshot!(stderr.normalize_exit_status(), @r#"
     Resolving conflicts in: file1
     Resolving conflicts in: file2
     Working copy now at: vruxwmqv 0a54e8ed conflict | (conflict) conflict
@@ -1712,7 +1714,7 @@ fn test_multiple_conflicts_with_error() {
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
     std::fs::write(&editor_script, "fail").unwrap();
     let stderr = test_env.jj_cmd_failure(&repo_path, &["resolve"]);
-    insta::assert_snapshot!(stderr.replace("exit code", "exit status"), @r#"
+    insta::assert_snapshot!(stderr.normalize_exit_status(), @r#"
     Resolving conflicts in: file1
     Error: Failed to resolve conflicts
     Caused by: Tool exited with exit status: 1 (run with --debug to see the exact invocation)

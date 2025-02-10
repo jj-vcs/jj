@@ -14,6 +14,7 @@
 
 use std::path::Path;
 
+use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;
 
 fn create_commit(
@@ -36,7 +37,7 @@ fn create_commit(
     test_env.jj_cmd_ok(repo_path, &["bookmark", "create", "-r@", name]);
 }
 
-fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> String {
+fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutputString {
     test_env.jj_cmd_success(repo_path, &["log", "-T", "bookmarks"])
 }
 

@@ -16,6 +16,7 @@ use std::path::Path;
 
 use itertools::Itertools as _;
 
+use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -81,7 +82,7 @@ fn test_concurrent_operations_auto_rebase() {
     │  add workspace 'default'
     ○  000000000000 root()
     "#);
-    let op_id_hex = stdout[3..15].to_string();
+    let op_id_hex = stdout.raw()[3..15].to_string();
 
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "rewritten"]);
     test_env.jj_cmd_ok(
@@ -111,7 +112,7 @@ fn test_concurrent_operations_wc_modified() {
     std::fs::write(repo_path.join("file"), "contents\n").unwrap();
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "initial"]);
     let stdout = test_env.jj_cmd_success(&repo_path, &["op", "log"]);
-    let op_id_hex = stdout[3..15].to_string();
+    let op_id_hex = stdout.raw()[3..15].to_string();
 
     test_env.jj_cmd_ok(
         &repo_path,
@@ -200,7 +201,7 @@ fn test_concurrent_snapshot_wc_reloadable() {
     ○  00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 
     "#);
-    let op_log_lines = op_log_stdout.lines().collect_vec();
+    let op_log_lines = op_log_stdout.raw().lines().collect_vec();
     let current_op_id = op_log_lines[0].split_once("  ").unwrap().1;
     let previous_op_id = op_log_lines[6].split_once("  ").unwrap().1;
 
@@ -234,7 +235,10 @@ fn test_concurrent_snapshot_wc_reloadable() {
     "###);
 }
 
-fn get_log_output_with_stderr(test_env: &TestEnvironment, cwd: &Path) -> (String, String) {
+fn get_log_output_with_stderr(
+    test_env: &TestEnvironment,
+    cwd: &Path,
+) -> (CommandOutputString, CommandOutputString) {
     let template = r#"commit_id ++ " " ++ description"#;
     test_env.jj_cmd_ok(cwd, &["log", "-T", template])
 }

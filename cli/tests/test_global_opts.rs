@@ -21,7 +21,6 @@ use regex::Regex;
 
 use crate::common::get_stderr_string;
 use crate::common::get_stdout_string;
-use crate::common::strip_last_line;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -52,7 +51,9 @@ fn test_non_utf8_arg() {
 fn test_version() {
     let test_env = TestEnvironment::default();
 
-    let stdout = test_env.jj_cmd_success(test_env.env_root(), &["--version"]);
+    let stdout = test_env
+        .jj_cmd_success(test_env.env_root(), &["--version"])
+        .into_raw();
     let sanitized = stdout.replace(|c: char| c.is_ascii_hexdigit(), "?");
     let expected = [
         "jj ?.??.?\n",
@@ -85,14 +86,22 @@ fn test_no_subcommand() {
     "###);
 
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["--help"]);
-    insta::assert_snapshot!(stdout.lines().next().unwrap(), @"Jujutsu (An experimental VCS)");
+    insta::assert_snapshot!(
+        stdout.normalized().lines().next().unwrap(),
+        @"Jujutsu (An experimental VCS)");
 
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["-R", "repo"]);
-    assert_eq!(stdout, test_env.jj_cmd_success(&repo_path, &["log"]));
+    assert_eq!(
+        stdout.raw(),
+        test_env.jj_cmd_success(&repo_path, &["log"]).raw()
+    );
 
     // Inside of a repo.
     let stdout = test_env.jj_cmd_success(&repo_path, &[]);
-    assert_eq!(stdout, test_env.jj_cmd_success(&repo_path, &["log"]));
+    assert_eq!(
+        stdout.raw(),
+        test_env.jj_cmd_success(&repo_path, &["log"]).raw()
+    );
 
     // Command argument that looks like a command name.
     test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "help"]);
@@ -115,7 +124,7 @@ fn test_no_subcommand() {
     test_env.jj_cmd_ok(&repo_path, &["new"]);
     std::fs::write(repo_path.join("file.txt"), "file").unwrap();
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &[]);
-    assert_eq!(stdout, "");
+    assert_eq!(stdout.raw(), "");
     insta::assert_snapshot!(stderr, @r###"
     Working copy now at: kxryzmor 89c70edf (empty) (no description set)
     Parent commit      : lylxulpl 51bd3589 foo
@@ -143,7 +152,7 @@ fn test_ignore_working_copy() {
         &repo_path,
         &["log", "-T", "commit_id", "--ignore-working-copy"],
     );
-    assert_eq!(stdout_again, stdout);
+    assert_eq!(stdout_again.raw(), stdout.raw());
 
     // But without --ignore-working-copy, we get a new commit ID.
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-T", "commit_id"]);
@@ -243,7 +252,7 @@ fn test_bad_path() {
 
     // cwd == workspace_root
     let stderr = test_env.jj_cmd_failure(&repo_path, &["file", "show", "../out"]);
-    insta::assert_snapshot!(stderr.replace('\\', "/"), @r###"
+    insta::assert_snapshot!(stderr.normalize_backslash(), @r###"
     Error: Failed to parse fileset: Invalid file pattern
     Caused by:
     1:  --> 1:1
@@ -258,7 +267,7 @@ fn test_bad_path() {
 
     // cwd != workspace_root, can't be parsed as repo-relative path
     let stderr = test_env.jj_cmd_failure(&subdir, &["file", "show", "../.."]);
-    insta::assert_snapshot!(stderr.replace('\\', "/"), @r###"
+    insta::assert_snapshot!(stderr.normalize_backslash(), @r###"
     Error: Failed to parse fileset: Invalid file pattern
     Caused by:
     1:  --> 1:1
@@ -273,7 +282,7 @@ fn test_bad_path() {
 
     // cwd != workspace_root, can be parsed as repo-relative path
     let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["file", "show", "-Rrepo", "out"]);
-    insta::assert_snapshot!(stderr.replace('\\', "/"), @r###"
+    insta::assert_snapshot!(stderr.normalize_backslash(), @r###"
     Error: Failed to parse fileset: Invalid file pattern
     Caused by:
     1:  --> 1:1
@@ -318,7 +327,7 @@ fn test_broken_repo_structure() {
     // Test the error message when the git repository can't be located.
     std::fs::remove_file(store_path.join("git_target")).unwrap();
     let stderr = test_env.jj_cmd_internal_error(&repo_path, &["log"]);
-    insta::assert_snapshot!(strip_last_line(&stderr), @r###"
+    insta::assert_snapshot!(stderr.strip_last_line(), @r###"
     Internal error: The repository appears broken or inaccessible
     Caused by:
     1: Cannot access $TEST_ENV/repo/.jj/repo/store/git_target
@@ -337,7 +346,7 @@ fn test_broken_repo_structure() {
     std::fs::remove_file(&store_type_path).unwrap();
     std::fs::create_dir(&store_type_path).unwrap();
     let stderr = test_env.jj_cmd_internal_error(&repo_path, &["log"]);
-    insta::assert_snapshot!(strip_last_line(&stderr), @r###"
+    insta::assert_snapshot!(stderr.strip_last_line(), @r###"
     Internal error: The repository appears broken or inaccessible
     Caused by:
     1: Failed to read commit backend type
@@ -349,7 +358,7 @@ fn test_broken_repo_structure() {
     std::fs::remove_dir_all(repo_path.join(".jj")).unwrap();
     std::fs::create_dir(repo_path.join(".jj")).unwrap();
     let stderr = test_env.jj_cmd_internal_error(&repo_path, &["log"]);
-    insta::assert_snapshot!(strip_last_line(&stderr), @r###"
+    insta::assert_snapshot!(stderr.strip_last_line(), @r###"
     Internal error: The repository appears broken or inaccessible
     Caused by:
     1: Failed to read commit backend type
@@ -475,7 +484,7 @@ fn test_color_ui_messages() {
 
     // error source
     let stderr = test_env.jj_cmd_failure(&repo_path, &["log", ".."]);
-    insta::assert_snapshot!(stderr.replace('\\', "/"), @r###"
+    insta::assert_snapshot!(stderr.normalize_backslash(), @r###"
     [1m[38;5;1mError: [39mFailed to parse fileset: Invalid file pattern[0m
     [1m[39mCaused by:[0m
     [1m[39m1: [0m[39m --> 1:1[39m
@@ -550,24 +559,30 @@ fn test_early_args() {
 
     // The default is no color.
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["help"]);
-    insta::assert_snapshot!(stdout.lines().find(|l| l.contains("Commands:")).unwrap(), @"Commands:");
+    insta::assert_snapshot!(
+        stdout.normalized().lines().find(|l| l.contains("Commands:")).unwrap(),
+        @"Commands:");
 
     // Check that output is colorized.
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["--color=always", "help"]);
-    insta::assert_snapshot!(stdout.lines().find(|l| l.contains("Commands:")).unwrap(), @"[1m[4mCommands:[0m");
+    insta::assert_snapshot!(
+        stdout.normalized().lines().find(|l| l.contains("Commands:")).unwrap(),
+        @"[1m[4mCommands:[0m");
 
     // Check that early args are accepted after the help command
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["help", "--color=always"]);
-    insta::assert_snapshot!(stdout.lines().find(|l| l.contains("Commands:")).unwrap(), @"[1m[4mCommands:[0m");
+    insta::assert_snapshot!(
+        stdout.normalized().lines().find(|l| l.contains("Commands:")).unwrap(),
+        @"[1m[4mCommands:[0m");
 
     // Check that early args are accepted after -h/--help
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["-h", "--color=always"]);
     insta::assert_snapshot!(
-        stdout.lines().find(|l| l.contains("Usage:")).unwrap(),
+        stdout.normalized().lines().find(|l| l.contains("Usage:")).unwrap(),
         @"[1m[4mUsage:[0m [1mjj[0m [OPTIONS] <COMMAND>");
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["log", "--help", "--color=always"]);
     insta::assert_snapshot!(
-        stdout.lines().find(|l| l.contains("Usage:")).unwrap(),
+        stdout.normalized().lines().find(|l| l.contains("Usage:")).unwrap(),
         @"[1m[4mUsage:[0m [1mjj log[0m [OPTIONS] [FILESETS]...");
 
     // Early args are parsed with clap's ignore_errors(), but there is a known
@@ -798,8 +813,8 @@ fn test_default_config() {
             cmd.env_remove(name);
         }
         let assert = cmd.assert().success();
-        let stdout = test_env.normalize_output(&get_stdout_string(&assert));
-        let stderr = test_env.normalize_output(&get_stderr_string(&assert));
+        let stdout = test_env.normalize_output(get_stdout_string(&assert));
+        let stderr = test_env.normalize_output(get_stderr_string(&assert));
         (stdout, stderr)
     };
 
@@ -959,6 +974,7 @@ fn test_debug_logging_enabled() {
     // The timestamp is constant sized so this is a robust operation.
     // Example timestamp: 2022-11-20T06:24:05.477703Z
     let (_timestamp, log_line) = stderr
+        .normalized()
         .lines()
         .next()
         .expect("debug logging on first line")

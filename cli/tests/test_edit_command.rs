@@ -14,6 +14,7 @@
 
 use std::path::Path;
 
+use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -82,9 +83,12 @@ fn test_edit_current_wc_commit_missing() {
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "second"]);
     test_env.jj_cmd_ok(&repo_path, &["edit", "@-"]);
 
-    let wc_id = test_env.jj_cmd_success(&repo_path, &["log", "--no-graph", "-T=commit_id", "-r=@"]);
-    let wc_child_id =
-        test_env.jj_cmd_success(&repo_path, &["log", "--no-graph", "-T=commit_id", "-r=@+"]);
+    let wc_id = test_env
+        .jj_cmd_success(&repo_path, &["log", "--no-graph", "-T=commit_id", "-r=@"])
+        .into_raw();
+    let wc_child_id = test_env
+        .jj_cmd_success(&repo_path, &["log", "--no-graph", "-T=commit_id", "-r=@+"])
+        .into_raw();
     // Make the Git backend fail to read the current working copy commit
     let commit_object_path = repo_path
         .join(".jj")
@@ -114,7 +118,10 @@ fn read_file(path: &Path) -> String {
     String::from_utf8(std::fs::read(path).unwrap()).unwrap()
 }
 
-fn get_log_output_with_stderr(test_env: &TestEnvironment, cwd: &Path) -> (String, String) {
+fn get_log_output_with_stderr(
+    test_env: &TestEnvironment,
+    cwd: &Path,
+) -> (CommandOutputString, CommandOutputString) {
     let template = r#"commit_id.short() ++ " " ++ description"#;
     test_env.jj_cmd_ok(cwd, &["log", "-T", template])
 }

@@ -122,7 +122,7 @@ fn test_log_author_timestamp_ago() {
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "--no-graph", "-T", template]);
     let line_re = Regex::new(r"[0-9]+ years ago").unwrap();
     assert!(
-        stdout.lines().all(|x| line_re.is_match(x)),
+        stdout.raw().lines().all(|x| line_re.is_match(x)),
         "expected every line to match regex"
     );
 }
@@ -290,7 +290,10 @@ fn test_log_builtin_templates() {
     let repo_path = test_env.env_root().join("repo");
     // Render without graph and append "[EOF]" marker to test line ending
     let render = |template| {
-        test_env.jj_cmd_success(&repo_path, &["log", "-T", template, "--no-graph"]) + "[EOF]\n"
+        test_env
+            .jj_cmd_success(&repo_path, &["log", "-T", template, "--no-graph"])
+            .to_string()
+            + "[EOF]\n"
     };
 
     test_env.jj_cmd_ok(
@@ -1164,7 +1167,7 @@ fn test_log_diff_predefined_formats() {
         test_env.env_root(),
         &["log", "-Rrepo", "--no-graph", "-r@", "-T", template],
     );
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @r###"
+    insta::assert_snapshot!(stdout.normalize_backslash(), @r###"
     === color_words ===
     Modified regular file repo/file1:
        1    1: a
@@ -1443,14 +1446,14 @@ fn test_repo_path() {
         ) ++ "\n"
     "#};
     let stdout = test_env.jj_cmd_success(&repo_path, &["file", "list", "-T", template]);
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @r"
+    insta::assert_snapshot!(stdout.normalize_backslash(), @r"
     dir/file display=dir/file parent=dir parent^2=
     file display=file parent= parent^2=<none>
     ");
 
     let template = r#"separate(" ", path, "display=" ++ path.display()) ++ "\n""#;
     let stdout = test_env.jj_cmd_success(&repo_path.join("dir"), &["file", "list", "-T", template]);
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @r"
+    insta::assert_snapshot!(stdout.normalize_backslash(), @r"
     dir/file display=file
     file display=../file
     ");

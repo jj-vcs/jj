@@ -16,7 +16,6 @@ use indoc::indoc;
 use itertools::Itertools;
 
 use crate::common::fake_diff_editor_path;
-use crate::common::strip_last_line;
 use crate::common::to_toml_value;
 use crate::common::TestEnvironment;
 
@@ -208,12 +207,12 @@ fn test_diff_basic() {
             "repo/y/z",
         ],
     );
-    insta::assert_snapshot!(stdout.replace('\\', "/"), @r###"
+    insta::assert_snapshot!(stdout.normalize_backslash(), @r###"
     M repo/file2
     R repo/{file1 => file3}
     C repo/{file2 => file4}
     "###);
-    insta::assert_snapshot!(stderr.replace('\\', "/"), @r###"
+    insta::assert_snapshot!(stderr.normalize_backslash(), @r###"
     Warning: No matching entries for paths: repo/x, repo/y/z
     "###);
 
@@ -479,7 +478,7 @@ fn test_diff_name_only() {
     std::fs::write(repo_path.join("added"), "add").unwrap();
     std::fs::create_dir(repo_path.join("sub")).unwrap();
     std::fs::write(repo_path.join("sub/added"), "sub/add").unwrap();
-    insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff", "--name-only"]).replace('\\', "/"),
+    insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff", "--name-only"]).normalize_backslash(),
     @r###"
     added
     deleted
@@ -2171,13 +2170,13 @@ fn test_diff_external_tool() {
 
     diff
     "#);
-    insta::assert_snapshot!(stderr.replace("exit code:", "exit status:"), @r###"
+    insta::assert_snapshot!(stderr.normalize_exit_status(), @r###"
     Warning: Tool exited with exit status: 1 (run with --debug to see the exact invocation)
     "###);
 
     // --tool=:builtin shouldn't be ignored
     let stderr = test_env.jj_cmd_failure(&repo_path, &["diff", "--tool=:builtin"]);
-    insta::assert_snapshot!(strip_last_line(&stderr), @r###"
+    insta::assert_snapshot!(stderr.strip_last_line(), @r###"
     Error: Failed to generate diff
     Caused by:
     1: Error executing ':builtin' (run with --debug to see the exact invocation)

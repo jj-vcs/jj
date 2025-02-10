@@ -19,7 +19,7 @@ use regex::Regex;
 
 use crate::common::get_stdout_string;
 use crate::common::git;
-use crate::common::strip_last_line;
+use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -38,7 +38,7 @@ fn test_op_log() {
     │  add workspace 'default'
     ○  000000000000 root()
     "#);
-    let op_log_lines = stdout.lines().collect_vec();
+    let op_log_lines = stdout.raw().lines().collect_vec();
     let add_workspace_id = op_log_lines[3].split(' ').nth(2).unwrap();
 
     // Can load the repo at a specific operation ID
@@ -297,7 +297,7 @@ fn test_op_log_no_graph_null_terminated() {
             r#"id.short(4) ++ "\0""#,
         ],
     );
-    insta::assert_debug_snapshot!(stdout, @r#""ef17\0f412\0eac7\00000\0""#);
+    insta::assert_debug_snapshot!(stdout.normalized(), @r#""ef17\0f412\0eac7\00000\0""#);
 }
 
 #[test]
@@ -335,7 +335,7 @@ fn test_op_log_template() {
     );
     let regex = Regex::new(r"\d\d years").unwrap();
     let stdout = test_env.jj_cmd_success(&repo_path, &["op", "log"]);
-    insta::assert_snapshot!(regex.replace_all(&stdout, "NN years"), @r#"
+    insta::assert_snapshot!(regex.replace_all(stdout.raw(), "NN years"), @r#"
     @  eac759b9ab75 test-username@host.example.com NN years ago, lasted less than a microsecond
     │  add workspace 'default'
     ○  000000000000 root()
@@ -349,7 +349,9 @@ fn test_op_log_builtin_templates() {
     let repo_path = test_env.env_root().join("repo");
     // Render without graph and append "[EOF]" marker to test line ending
     let render = |template| {
-        test_env.jj_cmd_success(&repo_path, &["op", "log", "-T", template, "--no-graph"])
+        test_env
+            .jj_cmd_success(&repo_path, &["op", "log", "-T", template, "--no-graph"])
+            .to_string()
             + "[EOF]\n"
     };
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "description 0"]);
@@ -524,7 +526,7 @@ fn test_op_log_configurable() {
     let repo_path = test_env.env_root().join("repo");
 
     let stdout = test_env.jj_cmd_success(&repo_path, &["op", "log"]);
-    assert!(stdout.contains("my-username@my-hostname"));
+    assert!(stdout.raw().contains("my-username@my-hostname"));
 }
 
 #[test]
@@ -693,7 +695,7 @@ fn test_op_abandon_multiple_heads() {
         &repo_path,
         &["op", "log", "--no-graph", r#"-Tid.short() ++ "\n""#],
     );
-    let (head_op_id, prev_op_id) = stdout.lines().next_tuple().unwrap();
+    let (head_op_id, prev_op_id) = stdout.raw().lines().next_tuple().unwrap();
     insta::assert_snapshot!(head_op_id, @"b0711a8ac91f");
     insta::assert_snapshot!(prev_op_id, @"116edde65ded");
 
@@ -706,7 +708,7 @@ fn test_op_abandon_multiple_heads() {
     Error: The "@" expression resolved to more than one operation
     Hint: Try specifying one of the operations by ID: b0711a8ac91f, 617923db9f7a
     "#);
-    let (_, other_head_op_id) = stderr.trim_end().rsplit_once(", ").unwrap();
+    let (_, other_head_op_id) = stderr.raw().trim_end().rsplit_once(", ").unwrap();
     insta::assert_snapshot!(other_head_op_id, @"617923db9f7a");
     assert_ne!(head_op_id, other_head_op_id);
 
@@ -775,22 +777,24 @@ fn test_op_recover_from_bad_gc() {
         &repo_path,
         &["op", "log", "--no-graph", r#"-Tid.short() ++ "\n""#],
     );
-    let (head_op_id, _, _, bad_op_id) = stdout.lines().next_tuple().unwrap();
+    let (head_op_id, _, _, bad_op_id) = stdout.raw().lines().next_tuple().unwrap();
     insta::assert_snapshot!(head_op_id, @"f999e12a5d8b");
     insta::assert_snapshot!(bad_op_id, @"e7377e6a642b");
 
     // Corrupt the repo by removing hidden but reachable commit object.
-    let bad_commit_id = test_env.jj_cmd_success(
-        &repo_path,
-        &[
-            "log",
-            "--at-op",
-            bad_op_id,
-            "--no-graph",
-            "-r@",
-            "-Tcommit_id",
-        ],
-    );
+    let bad_commit_id = test_env
+        .jj_cmd_success(
+            &repo_path,
+            &[
+                "log",
+                "--at-op",
+                bad_op_id,
+                "--no-graph",
+                "-r@",
+                "-Tcommit_id",
+            ],
+        )
+        .into_raw();
     insta::assert_snapshot!(bad_commit_id, @"ddf84fc5e0dd314092b3dfb13e09e37fa7d04ef9");
     std::fs::remove_file(git_object_path(&bad_commit_id)).unwrap();
 
@@ -800,7 +804,7 @@ fn test_op_recover_from_bad_gc() {
 
     let stderr =
         test_env.jj_cmd_internal_error(&repo_path, &["--at-op", head_op_id, "debug", "reindex"]);
-    insta::assert_snapshot!(strip_last_line(&stderr), @r#"
+    insta::assert_snapshot!(stderr.strip_last_line(), @r#"
     Internal error: Failed to index commits at operation e7377e6a642bae88039615ee159117d49688719e9d5ece9de8b0b42d7be7076904d2fa8381391f8289a0c3527405de81e8dd6504655311c69175c3681786dd3c
     Caused by:
     1: Object ddf84fc5e0dd314092b3dfb13e09e37fa7d04ef9 of type commit not found
@@ -977,7 +981,7 @@ fn test_op_diff() {
     - untracked pukowqtp 0cb7e07e bookmark-1 | Commit 1
     ");
     let stdout_without_from_to = test_env.jj_cmd_success(&repo_path, &["op", "diff"]);
-    assert_eq!(stdout, stdout_without_from_to);
+    assert_eq!(stdout.raw(), stdout_without_from_to.raw());
 
     // Diff from root operation to latest operation
     let stdout = test_env.jj_cmd_success(&repo_path, &["op", "diff", "--from", "0000000"]);
@@ -1072,7 +1076,7 @@ fn test_op_diff() {
     │  add workspace 'default'
     ○  000000000000 root()
     ");
-    let op_log_lines = stdout.lines().collect_vec();
+    let op_log_lines = stdout.raw().lines().collect_vec();
     let op_id = op_log_lines[0].split(' ').nth(4).unwrap();
     let first_parent_id = op_log_lines[3].split(' ').nth(3).unwrap();
     let second_parent_id = op_log_lines[6].split(' ').nth(3).unwrap();
@@ -1414,7 +1418,7 @@ fn test_op_diff_sibling() {
         &repo_path,
         &["op", "log", "--no-graph", r#"-Tid.short() ++ "\n""#],
     );
-    let base_op_id = stdout.lines().next().unwrap();
+    let base_op_id = stdout.raw().lines().next().unwrap();
     insta::assert_snapshot!(base_op_id, @"eac759b9ab75");
 
     // Create merge commit at one operation side. The parent trees will have to
@@ -1462,7 +1466,7 @@ fn test_op_diff_sibling() {
         &repo_path,
         &["op", "log", "--no-graph", r#"-Tid.short() ++ "\n""#],
     );
-    let (head_op_id, p1_op_id, _, _, _, _, p2_op_id) = stdout.lines().next_tuple().unwrap();
+    let (head_op_id, p1_op_id, _, _, _, _, p2_op_id) = stdout.raw().lines().next_tuple().unwrap();
     insta::assert_snapshot!(head_op_id, @"779ecb7ea7f0");
     insta::assert_snapshot!(p1_op_id, @"d700dc16fded");
     insta::assert_snapshot!(p2_op_id, @"13b143e1f4f9");
@@ -1711,7 +1715,7 @@ fn test_op_show() {
     ");
     // `jj op show @` should behave identically to `jj op show`.
     let stdout_without_op_id = test_env.jj_cmd_success(&repo_path, &["op", "show"]);
-    assert_eq!(stdout, stdout_without_op_id);
+    assert_eq!(stdout.raw(), stdout_without_op_id.raw());
 
     // Showing a given operation.
     let stdout = test_env.jj_cmd_success(&repo_path, &["op", "show", "@-"]);
@@ -2200,7 +2204,11 @@ fn modify_git_repo(git_repo: gix::Repository) -> gix::Repository {
     git_repo
 }
 
-fn get_log_output(test_env: &TestEnvironment, repo_path: &Path, op_id: &str) -> String {
+fn get_log_output(
+    test_env: &TestEnvironment,
+    repo_path: &Path,
+    op_id: &str,
+) -> CommandOutputString {
     test_env.jj_cmd_success(
         repo_path,
         &["log", "-T", "commit_id", "--at-op", op_id, "-r", "all()"],

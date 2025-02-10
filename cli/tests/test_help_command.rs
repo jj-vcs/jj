@@ -21,19 +21,19 @@ fn test_help() {
     let help_cmd_stdout = test_env.jj_cmd_success(test_env.env_root(), &["help"]);
     // The help command output should be equal to the long --help flag
     let help_flag_stdout = test_env.jj_cmd_success(test_env.env_root(), &["--help"]);
-    assert_eq!(help_cmd_stdout, help_flag_stdout);
+    assert_eq!(help_cmd_stdout.raw(), help_flag_stdout.raw());
 
     // Help command should work with commands
     let help_cmd_stdout = test_env.jj_cmd_success(test_env.env_root(), &["help", "log"]);
     let help_flag_stdout = test_env.jj_cmd_success(test_env.env_root(), &["log", "--help"]);
-    assert_eq!(help_cmd_stdout, help_flag_stdout);
+    assert_eq!(help_cmd_stdout.raw(), help_flag_stdout.raw());
 
     // Help command should work with subcommands
     let help_cmd_stdout =
         test_env.jj_cmd_success(test_env.env_root(), &["help", "workspace", "root"]);
     let help_flag_stdout =
         test_env.jj_cmd_success(test_env.env_root(), &["workspace", "root", "--help"]);
-    assert_eq!(help_cmd_stdout, help_flag_stdout);
+    assert_eq!(help_cmd_stdout.raw(), help_flag_stdout.raw());
 
     // Help command should not work recursively
     let stderr = test_env.jj_cmd_cli_error(test_env.env_root(), &["workspace", "help", "root"]);
@@ -59,12 +59,12 @@ fn test_help() {
     let help_cmd_stderr = test_env.jj_cmd_cli_error(test_env.env_root(), &["help", "nonexistent"]);
     let help_flag_stderr =
         test_env.jj_cmd_cli_error(test_env.env_root(), &["nonexistent", "--help"]);
-    assert_eq!(help_cmd_stderr, help_flag_stderr);
+    assert_eq!(help_cmd_stderr.raw(), help_flag_stderr.raw());
 
     // Some edge cases
     let help_cmd_stdout = test_env.jj_cmd_success(test_env.env_root(), &["help", "help"]);
     let help_flag_stdout = test_env.jj_cmd_success(test_env.env_root(), &["help", "--help"]);
-    assert_eq!(help_cmd_stdout, help_flag_stdout);
+    assert_eq!(help_cmd_stdout.raw(), help_flag_stdout.raw());
 
     let stderr = test_env.jj_cmd_cli_error(test_env.env_root(), &["help", "unknown"]);
     insta::assert_snapshot!(stderr, @r#"
@@ -93,12 +93,12 @@ fn test_help_keyword() {
     let help_cmd_stdout =
         test_env.jj_cmd_success(test_env.env_root(), &["help", "--keyword", "revsets"]);
     // It should be equal to the docs
-    assert_eq!(help_cmd_stdout, include_str!("../../docs/revsets.md"));
+    assert_eq!(help_cmd_stdout.raw(), include_str!("../../docs/revsets.md"));
 
     // It should show help for a certain keyword if the `-k` flag is present
     let help_cmd_stdout = test_env.jj_cmd_success(test_env.env_root(), &["help", "-k", "revsets"]);
     // It should be equal to the docs
-    assert_eq!(help_cmd_stdout, include_str!("../../docs/revsets.md"));
+    assert_eq!(help_cmd_stdout.raw(), include_str!("../../docs/revsets.md"));
 
     // It should give hints if a similar keyword is present
     let help_cmd_stderr = test_env.jj_cmd_cli_error(test_env.env_root(), &["help", "-k", "rev"]);

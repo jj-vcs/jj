@@ -14,7 +14,6 @@
 
 use insta::assert_snapshot;
 
-use crate::common::strip_last_line;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -140,5 +139,5 @@ fn test_util_exec_fail() {
         test_env.env_root(),
         &["util", "exec", "--", "jj-test-missing-program"],
     );
-    insta::assert_snapshot!(strip_last_line(&err), @"Error: Failed to execute external command 'jj-test-missing-program'");
+    insta::assert_snapshot!(err.strip_last_line(), @"Error: Failed to execute external command 'jj-test-missing-program'");
 }

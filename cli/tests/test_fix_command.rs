@@ -274,7 +274,7 @@ fn test_config_tables_all_commands_missing() {
     std::fs::write(repo_path.join("foo"), "foo\n").unwrap();
 
     let stderr = test_env.jj_cmd_failure(&repo_path, &["fix"]);
-    insta::assert_snapshot!(stderr.replace('\\', "/"), @r"
+    insta::assert_snapshot!(stderr.normalize_backslash(), @r"
     Config error: Invalid type or value for fix.tools.my-tool-missing-command-1
     Caused by: missing field `command`
 
@@ -308,7 +308,7 @@ fn test_config_tables_some_commands_missing() {
     std::fs::write(repo_path.join("foo"), "foo\n").unwrap();
 
     let stderr = test_env.jj_cmd_failure(&repo_path, &["fix"]);
-    insta::assert_snapshot!(stderr.replace('\\', "/"), @r"
+    insta::assert_snapshot!(stderr.normalize_backslash(), @r"
     Config error: Invalid type or value for fix.tools.my-tool-missing-command
     Caused by: missing field `command`
 
