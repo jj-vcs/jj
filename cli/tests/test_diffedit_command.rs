@@ -45,23 +45,21 @@ fn test_diffedit() {
     .unwrap();
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["diffedit"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
-    Nothing changed.
-    "###);
+    insta::assert_snapshot!(stderr, @"Nothing changed.");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @r###"
+        std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @r"
     You are editing changes in: kkmpptxz 3d4cce89 (no description set)
 
     The diff initially shows the commit's changes.
 
     Adjust the right side until it shows the contents you want. If you
     don't make any changes, then the operation will be aborted.
-    "###);
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     D file1
     M file2
-    "###);
+    ");
 
     // Try again with ui.diff-instructions=false
     std::fs::write(&edit_script, "files-before file1 file2\0files-after file2").unwrap();
@@ -70,14 +68,12 @@ fn test_diffedit() {
         &["diffedit", "--config=ui.diff-instructions=false"],
     );
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
-    Nothing changed.
-    "###);
+    insta::assert_snapshot!(stderr, @"Nothing changed.");
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     D file1
     M file2
-    "###);
+    ");
 
     // Try again with --tool=<name>
     std::fs::write(
@@ -94,59 +90,53 @@ fn test_diffedit() {
         ],
     );
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
-    Nothing changed.
-    "###);
+    insta::assert_snapshot!(stderr, @"Nothing changed.");
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     D file1
     M file2
-    "###);
+    ");
 
     // Nothing happens if the diff-editor exits with an error
     std::fs::write(&edit_script, "rm file2\0fail").unwrap();
     let stderr = &test_env.jj_cmd_failure(&repo_path, &["diffedit"]);
-    insta::assert_snapshot!(stderr.replace("exit code:", "exit status:"), @r###"
+    insta::assert_snapshot!(stderr.replace("exit code:", "exit status:"), @r"
     Error: Failed to edit diff
     Caused by: Tool exited with exit status: 1 (run with --debug to see the exact invocation)
-    "###);
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     D file1
     M file2
-    "###);
+    ");
 
     // Can edit changes to individual files
     std::fs::write(&edit_script, "reset file2").unwrap();
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["diffedit"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Created kkmpptxz cbc7a725 (no description set)
     Working copy now at: kkmpptxz cbc7a725 (no description set)
     Parent commit      : rlvkpnrz a72506cd (no description set)
     Added 0 files, modified 1 files, removed 0 files
-    "###);
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r###"
-    D file1
-    "###);
+    insta::assert_snapshot!(stdout, @"D file1");
 
     // Changes to a commit are propagated to descendants
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
     std::fs::write(&edit_script, "write file3\nmodified\n").unwrap();
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["diffedit", "-r", "@-"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Created rlvkpnrz d4eef3fc (no description set)
     Rebased 1 descendant commits
     Working copy now at: kkmpptxz 59ef1b95 (no description set)
     Parent commit      : rlvkpnrz d4eef3fc (no description set)
     Added 0 files, modified 1 files, removed 0 files
-    "###);
+    ");
     let contents = String::from_utf8(std::fs::read(repo_path.join("file3")).unwrap()).unwrap();
-    insta::assert_snapshot!(contents, @r###"
-    modified
-    "###);
+    insta::assert_snapshot!(contents, @"modified");
 
     // Test diffedit --from @--
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
@@ -157,17 +147,17 @@ fn test_diffedit() {
     .unwrap();
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["diffedit", "--from", "@--"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Created kkmpptxz 5b585bd1 (no description set)
     Working copy now at: kkmpptxz 5b585bd1 (no description set)
     Parent commit      : rlvkpnrz a72506cd (no description set)
     Added 0 files, modified 0 files, removed 1 files
-    "###);
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     D file1
     D file2
-    "###);
+    ");
 }
 
 #[test]
@@ -191,30 +181,28 @@ fn test_diffedit_new_file() {
     .unwrap();
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["diffedit"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
-    Nothing changed.
-    "###);
+    insta::assert_snapshot!(stderr, @"Nothing changed.");
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     D file1
     A file2
-    "###);
+    ");
 
     // Creating `file1` on the right side is noticed by `jj diffedit`
     std::fs::write(&edit_script, "write file1\nmodified\n").unwrap();
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["diffedit"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Created rlvkpnrz b0376e2b (no description set)
     Working copy now at: rlvkpnrz b0376e2b (no description set)
     Parent commit      : qpvuntsm b739eb46 (no description set)
     Added 1 files, modified 0 files, removed 0 files
-    "###);
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     M file1
     A file2
-    "###);
+    ");
 
     // Creating a file that wasn't on either side is ignored by diffedit.
     // TODO(ilyagr) We should decide whether we like this behavior.
@@ -226,14 +214,12 @@ fn test_diffedit_new_file() {
     std::fs::write(&edit_script, "write new_file\nnew file\n").unwrap();
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["diffedit"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
-    Nothing changed.
-    "###);
+    insta::assert_snapshot!(stderr, @"Nothing changed.");
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     D file1
     A file2
-    "###);
+    ");
 }
 
 #[test]
@@ -329,7 +315,7 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     .unwrap();
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["diffedit"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Created mzvwutvl fb39e804 (conflict) (empty) (no description set)
     Working copy now at: mzvwutvl fb39e804 (conflict) (empty) (no description set)
     Parent commit      : rlvkpnrz 3765cc27 side-a
@@ -339,10 +325,10 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     file    2-sided conflict
     Existing conflicts were resolved or abandoned from these commits:
       mzvwutvl hidden a813239f (conflict) (no description set)
-    "###);
+    ");
     // Conflicts should render using "snapshot" format in diff editor
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("before-file")).unwrap(), @r##"
+        std::fs::read_to_string(test_env.env_root().join("before-file")).unwrap(), @r"
     line 1
     <<<<<<< Conflict 1 of 2
     +++++++ Contents of side #1
@@ -364,9 +350,9 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     line 4.3
     >>>>>>> Conflict 2 of 2 ends
     line 5
-    "##);
+    ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("after-file")).unwrap(), @r##"
+        std::fs::read_to_string(test_env.env_root().join("after-file")).unwrap(), @r"
     line 1
     line 2.1
     line 2.2
@@ -382,10 +368,10 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     line 4.3
     >>>>>>> Conflict 1 of 1 ends
     line 5
-    "##);
+    ");
     // Conflicts should be materialized using "diff" format in working copy
     insta::assert_snapshot!(
-        std::fs::read_to_string(&file_path).unwrap(), @r##"
+        std::fs::read_to_string(&file_path).unwrap(), @r"
     line 1
     <<<<<<< Conflict 1 of 2
     +++++++ Contents of side #1
@@ -405,18 +391,18 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     line 4.3
     >>>>>>> Conflict 2 of 2 ends
     line 5
-    "##);
+    ");
 
     // File should be conflicted with no changes
     let stdout = test_env.jj_cmd_success(&repo_path, &["st"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     The working copy is clean
     There are unresolved conflicts at these paths:
     file    2-sided conflict
     Working copy : mzvwutvl fb39e804 (conflict) (empty) (no description set)
     Parent commit: rlvkpnrz 3765cc27 side-a
     Parent commit: zsuskuln 8b3de837 side-b
-    "###);
+    ");
 }
 
 #[test]
@@ -453,28 +439,24 @@ fn test_diffedit_3pane() {
         &["diffedit", "--config", config_with_output_as_after],
     );
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
-    Nothing changed.
-    "###);
+    insta::assert_snapshot!(stderr, @"Nothing changed.");
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     D file1
     M file2
-    "###);
+    ");
     // Nothing happens if we make no changes, `config_with_right_as_after` version
     let (stdout, stderr) = test_env.jj_cmd_ok(
         &repo_path,
         &["diffedit", "--config", config_with_right_as_after],
     );
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
-    Nothing changed.
-    "###);
+    insta::assert_snapshot!(stderr, @"Nothing changed.");
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     D file1
     M file2
-    "###);
+    ");
 
     // Can edit changes to individual files
     std::fs::write(&edit_script, "reset file2").unwrap();
@@ -483,16 +465,14 @@ fn test_diffedit_3pane() {
         &["diffedit", "--config", config_with_output_as_after],
     );
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Created kkmpptxz ed8aada3 (no description set)
     Working copy now at: kkmpptxz ed8aada3 (no description set)
     Parent commit      : rlvkpnrz a72506cd (no description set)
     Added 0 files, modified 1 files, removed 0 files
-    "###);
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r###"
-    D file1
-    "###);
+    insta::assert_snapshot!(stdout, @"D file1");
 
     // Can write something new to `file1`
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
@@ -502,17 +482,17 @@ fn test_diffedit_3pane() {
         &["diffedit", "--config", config_with_output_as_after],
     );
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Created kkmpptxz 7c19e689 (no description set)
     Working copy now at: kkmpptxz 7c19e689 (no description set)
     Parent commit      : rlvkpnrz a72506cd (no description set)
     Added 1 files, modified 0 files, removed 0 files
-    "###);
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     M file1
     M file2
-    "###);
+    ");
 
     // But nothing happens if we modify the right side
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
@@ -522,14 +502,12 @@ fn test_diffedit_3pane() {
         &["diffedit", "--config", config_with_right_as_after],
     );
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
-    Nothing changed.
-    "###);
+    insta::assert_snapshot!(stderr, @"Nothing changed.");
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     D file1
     M file2
-    "###);
+    ");
 
     // TODO: test with edit_script of "reset file2". This fails on right side
     // since the file is readonly.
@@ -558,10 +536,10 @@ fn test_diffedit_merge() {
     test_env.jj_cmd_ok(&repo_path, &["new"]);
     // Test the setup
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-r", "@-", "-s"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     M file1
     A file3
-    "###);
+    ");
 
     let edit_script = test_env.set_up_fake_diff_editor();
 
@@ -573,7 +551,7 @@ fn test_diffedit_merge() {
     .unwrap();
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["diffedit", "-r", "@-"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Created royxmykx 0105de4a (conflict) merge
     Rebased 1 descendant commits
     Working copy now at: yqosqzyt abbb78c1 (conflict) (empty) (no description set)
@@ -581,15 +559,15 @@ fn test_diffedit_merge() {
     Added 0 files, modified 0 files, removed 1 files
     There are unresolved conflicts at these paths:
     file2    2-sided conflict
-    "###);
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s", "-r", "@-"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     D file1
     A file3
-    "###);
+    ");
     assert!(!repo_path.join("file1").exists());
     let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file2"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
     -a
@@ -597,7 +575,7 @@ fn test_diffedit_merge() {
     +++++++ Contents of side #2
     b
     >>>>>>> Conflict 1 of 1 ends
-    "###);
+    ");
 }
 
 #[test]
@@ -618,56 +596,52 @@ fn test_diffedit_old_restore_interactive_tests() {
     // Nothing happens if we make no changes
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["diffedit", "--from", "@-"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
-    Nothing changed.
-    "###);
+    insta::assert_snapshot!(stderr, @"Nothing changed.");
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     D file1
     M file2
     C {file2 => file3}
-    "###);
+    ");
 
     // Nothing happens if the diff-editor exits with an error
     std::fs::write(&edit_script, "rm file2\0fail").unwrap();
     let stderr = test_env.jj_cmd_failure(&repo_path, &["diffedit", "--from", "@-"]);
-    insta::assert_snapshot!(stderr.replace("exit code:", "exit status:"), @r###"
+    insta::assert_snapshot!(stderr.replace("exit code:", "exit status:"), @r"
     Error: Failed to edit diff
     Caused by: Tool exited with exit status: 1 (run with --debug to see the exact invocation)
-    "###);
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     D file1
     M file2
     C {file2 => file3}
-    "###);
+    ");
 
     // Can restore changes to individual files
     std::fs::write(&edit_script, "reset file2\0reset file3").unwrap();
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["diffedit", "--from", "@-"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Created rlvkpnrz 69811eda (no description set)
     Working copy now at: rlvkpnrz 69811eda (no description set)
     Parent commit      : qpvuntsm fc687cb8 (no description set)
     Added 0 files, modified 1 files, removed 1 files
-    "###);
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r###"
-    D file1
-    "###);
+    insta::assert_snapshot!(stdout, @"D file1");
 
     // Can make unrelated edits
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
     std::fs::write(&edit_script, "write file3\nunrelated\n").unwrap();
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["diffedit", "--from", "@-"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Created rlvkpnrz 2b76a42e (no description set)
     Working copy now at: rlvkpnrz 2b76a42e (no description set)
     Parent commit      : qpvuntsm fc687cb8 (no description set)
     Added 0 files, modified 1 files, removed 0 files
-    "###);
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "--git"]);
     insta::assert_snapshot!(stdout, @r"
     diff --git a/file1 b/file1
@@ -715,12 +689,12 @@ fn test_diffedit_restore_descendants() {
         &["diffedit", "-r", "@-", "--restore-descendants"],
     );
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(stderr, @r"
     Created rlvkpnrz 62b8c2ce (no description set)
     Rebased 1 descendant commits (while preserving their content)
     Working copy now at: kkmpptxz 321d1cd1 (no description set)
     Parent commit      : rlvkpnrz 62b8c2ce (no description set)
-    "#);
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "--git"]);
     insta::assert_snapshot!(stdout, @r#"
     diff --git a/file b/file

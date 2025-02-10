@@ -28,43 +28,41 @@ fn test_edit() {
 
     // Errors out without argument
     let stderr = test_env.jj_cmd_cli_error(&repo_path, &["edit"]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     error: the following required arguments were not provided:
       <REVSET>
 
     Usage: jj edit <REVSET>
 
     For more information, try '--help'.
-    "###);
+    ");
 
     // Makes the specified commit the working-copy commit
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["edit", "@-"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Working copy now at: qpvuntsm 73383c0b first
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
-    "###);
+    ");
     let (stdout, stderr) = get_log_output_with_stderr(&test_env, &repo_path);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     ○  2c910ae2d628 second
     @  73383c0b6439 first
     ◆  000000000000
-    "###);
+    ");
     insta::assert_snapshot!(stderr, @"");
     insta::assert_snapshot!(read_file(&repo_path.join("file1")), @"0");
 
     // Changes in the working copy are amended into the commit
     std::fs::write(repo_path.join("file2"), "0").unwrap();
     let (stdout, stderr) = get_log_output_with_stderr(&test_env, &repo_path);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     ○  b384b2cc1883 second
     @  ff3f7b0dc386 first
     ◆  000000000000
-    "###);
-    insta::assert_snapshot!(stderr, @r###"
-    Rebased 1 descendant commits onto updated working copy
-    "###);
+    ");
+    insta::assert_snapshot!(stderr, @"Rebased 1 descendant commits onto updated working copy");
 }
 
 #[test]
@@ -101,13 +99,13 @@ fn test_edit_current_wc_commit_missing() {
         .jj_cmd(&repo_path, &["edit", "--ignore-working-copy", &wc_child_id])
         .assert()
         .code(255);
-    insta::assert_snapshot!(get_stderr_string(&assert), @r###"
+    insta::assert_snapshot!(get_stderr_string(&assert), @r"
     Internal error: Failed to edit a commit
     Caused by:
     1: Current working-copy commit not found
     2: Object fa15625b4a986997697639dfc2844138900c79f2 of type commit not found
     3: An object with id fa15625b4a986997697639dfc2844138900c79f2 could not be found
-    "###);
+    ");
 }
 
 fn read_file(path: &Path) -> String {

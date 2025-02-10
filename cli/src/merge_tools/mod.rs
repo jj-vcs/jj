@@ -703,11 +703,11 @@ mod tests {
         insta::assert_debug_snapshot!(get(":builtin", "").unwrap(), @"Builtin");
 
         // Just program name
-        insta::assert_debug_snapshot!(get("my diff", "").unwrap_err(), @r###"
+        insta::assert_debug_snapshot!(get("my diff", "").unwrap_err(), @r#"
         MergeArgsNotConfigured {
             tool_name: "my diff",
         }
-        "###);
+        "#);
 
         // Pick from merge-tools
         insta::assert_debug_snapshot!(get(
@@ -763,11 +763,11 @@ mod tests {
         insta::assert_debug_snapshot!(get("").unwrap(), @"Builtin");
 
         // Just program name
-        insta::assert_debug_snapshot!(get(r#"ui.merge-editor = "my-merge""#).unwrap_err(), @r###"
+        insta::assert_debug_snapshot!(get(r#"ui.merge-editor = "my-merge""#).unwrap_err(), @r#"
         MergeArgsNotConfigured {
             tool_name: "my-merge",
         }
-        "###);
+        "#);
 
         // String args
         insta::assert_debug_snapshot!(
@@ -871,11 +871,11 @@ mod tests {
 
         // List args should never be a merge-tools key
         insta::assert_debug_snapshot!(
-            get(r#"ui.merge-editor = ["meld"]"#).unwrap_err(), @r###"
+            get(r#"ui.merge-editor = ["meld"]"#).unwrap_err(), @r#"
         MergeArgsNotConfigured {
             tool_name: "meld",
         }
-        "###);
+        "#);
 
         // Invalid type
         assert!(get(r#"ui.merge-editor.k = 0"#).is_err());

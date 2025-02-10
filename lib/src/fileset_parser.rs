@@ -725,13 +725,13 @@ mod tests {
 
     #[test]
     fn test_parse_error() {
-        insta::assert_snapshot!(parse_program("foo|").unwrap_err().to_string(), @r###"
+        insta::assert_snapshot!(parse_program("foo|").unwrap_err().to_string(), @r"
          --> 1:5
           |
         1 | foo|
           |     ^---
           |
           = expected `~` or <primary>
-        "###);
+        ");
     }
 }

@@ -663,7 +663,7 @@ mod tests {
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 1);
-        insta::assert_snapshot!(resolved_config.layers()[0].data, @r"a = 'a #0'");
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
 
         let context = ConfigResolutionContext {
             home_dir: None,
@@ -672,9 +672,9 @@ mod tests {
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 3);
-        insta::assert_snapshot!(resolved_config.layers()[0].data, @r"a = 'a #0'");
-        insta::assert_snapshot!(resolved_config.layers()[1].data, @r"a = 'a #0.1 foo'");
-        insta::assert_snapshot!(resolved_config.layers()[2].data, @r"a = 'a #0.2 foo|bar'");
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
+        insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #0.1 foo'");
+        insta::assert_snapshot!(resolved_config.layers()[2].data, @"a = 'a #0.2 foo|bar'");
 
         let context = ConfigResolutionContext {
             home_dir: None,
@@ -683,8 +683,8 @@ mod tests {
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 2);
-        insta::assert_snapshot!(resolved_config.layers()[0].data, @r"a = 'a #0'");
-        insta::assert_snapshot!(resolved_config.layers()[1].data, @r"a = 'a #0.2 foo|bar'");
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
+        insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #0.2 foo|bar'");
 
         let context = ConfigResolutionContext {
             home_dir: None,
@@ -693,10 +693,10 @@ mod tests {
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 4);
-        insta::assert_snapshot!(resolved_config.layers()[0].data, @r"a = 'a #0'");
-        insta::assert_snapshot!(resolved_config.layers()[1].data, @r"a = 'a #0.1 foo'");
-        insta::assert_snapshot!(resolved_config.layers()[2].data, @r"a = 'a #0.2 foo|bar'");
-        insta::assert_snapshot!(resolved_config.layers()[3].data, @r"a = 'a #0.3 foo baz'");
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
+        insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #0.1 foo'");
+        insta::assert_snapshot!(resolved_config.layers()[2].data, @"a = 'a #0.2 foo|bar'");
+        insta::assert_snapshot!(resolved_config.layers()[3].data, @"a = 'a #0.3 foo baz'");
 
         // "fooqux" shares "foo" prefix, but should *not* match
         let context = ConfigResolutionContext {
@@ -706,7 +706,7 @@ mod tests {
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 1);
-        insta::assert_snapshot!(resolved_config.layers()[0].data, @r"a = 'a #0'");
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
     }
 
     #[test]
@@ -727,7 +727,7 @@ mod tests {
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 1);
-        insta::assert_snapshot!(resolved_config.layers()[0].data, @r"a = 'a #0'");
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
 
         // only repo matches
         let context = ConfigResolutionContext {
@@ -737,7 +737,7 @@ mod tests {
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 1);
-        insta::assert_snapshot!(resolved_config.layers()[0].data, @r"a = 'a #0'");
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
 
         // only command matches
         let context = ConfigResolutionContext {
@@ -747,7 +747,7 @@ mod tests {
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 1);
-        insta::assert_snapshot!(resolved_config.layers()[0].data, @r"a = 'a #0'");
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
 
         // both match
         let context = ConfigResolutionContext {
@@ -757,8 +757,8 @@ mod tests {
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 2);
-        insta::assert_snapshot!(resolved_config.layers()[0].data, @r"a = 'a #0'");
-        insta::assert_snapshot!(resolved_config.layers()[1].data, @r"a = 'a #0.1'");
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
+        insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #0.1'");
     }
 
     #[test]
