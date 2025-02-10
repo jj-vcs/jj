@@ -115,7 +115,7 @@ parent.
       <td><code>jj log -r 'all()'</code> or <code>jj log -r ::</code></td>
     </tr>
     <tr>
-      <td>Show log of commits not on the main bookmark</td>
+      <td>Show log of commits not on the main branch</td>
       <td>(TODO)</td>
       <td><code>jj log</code></td>
     </tr>
