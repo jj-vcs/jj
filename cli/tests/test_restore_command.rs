@@ -33,33 +33,36 @@ fn test_restore() {
 
     // There is no `-r` argument
     let stderr = test_env.jj_cmd_failure(&repo_path, &["restore", "-r=@-"]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Error: `jj restore` does not have a `--revision`/`-r` option. If you'd like to modify
     the *current* revision, use `--from`. If you'd like to modify a *different* revision,
     use `--into` or `--changes-in`.
-    "###);
+    [EOF]
+    ");
 
     // Restores from parent by default
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["restore"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Created kkmpptxz 370d81ea (empty) (no description set)
     Working copy now at: kkmpptxz 370d81ea (empty) (no description set)
     Parent commit      : rlvkpnrz ef160660 (no description set)
     Added 1 files, modified 1 files, removed 1 files
-    "###);
+    [EOF]
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
     insta::assert_snapshot!(stdout, @"");
 
     // Can restore another revision from its parents
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s", "-r=@-"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     A file2
-    "###);
+    [EOF]
+    ");
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["restore", "-c=@-"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Created rlvkpnrz b9b6011e (empty) (no description set)
     Rebased 1 descendant commits
     Working copy now at: kkmpptxz 5b361547 (conflict) (no description set)
@@ -74,7 +77,8 @@ fn test_restore() {
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
-    "###);
+    [EOF]
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s", "-r=@-"]);
     insta::assert_snapshot!(stdout, @"");
 
@@ -82,70 +86,78 @@ fn test_restore() {
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["restore", "--from", "@--"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Created kkmpptxz 1154634b (no description set)
     Working copy now at: kkmpptxz 1154634b (no description set)
     Parent commit      : rlvkpnrz ef160660 (no description set)
     Added 1 files, modified 0 files, removed 2 files
-    "###);
+    [EOF]
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     D file2
-    "###);
+    [EOF]
+    ");
 
     // Can restore into other revision
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["restore", "--into", "@-"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Created rlvkpnrz ad805965 (no description set)
     Rebased 1 descendant commits
     Working copy now at: kkmpptxz 3fcdcbf2 (empty) (no description set)
     Parent commit      : rlvkpnrz ad805965 (no description set)
-    "###);
+    [EOF]
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
     insta::assert_snapshot!(stdout, @"");
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s", "-r", "@-"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     D file1
     A file2
     A file3
-    "###);
+    [EOF]
+    ");
 
     // Can combine `--from` and `--into`
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
     let (stdout, stderr) =
         test_env.jj_cmd_ok(&repo_path, &["restore", "--from", "@", "--into", "@-"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Created rlvkpnrz f256040a (no description set)
     Rebased 1 descendant commits
     Working copy now at: kkmpptxz 9c6f2083 (empty) (no description set)
     Parent commit      : rlvkpnrz f256040a (no description set)
-    "###);
+    [EOF]
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
     insta::assert_snapshot!(stdout, @"");
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s", "-r", "@-"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     D file1
     A file2
     A file3
-    "###);
+    [EOF]
+    ");
 
     // Can restore only specified paths
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["restore", "file2", "file3"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Created kkmpptxz 4ad35a2f (no description set)
     Working copy now at: kkmpptxz 4ad35a2f (no description set)
     Parent commit      : rlvkpnrz ef160660 (no description set)
     Added 0 files, modified 1 files, removed 1 files
-    "###);
+    [EOF]
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     D file1
-    "###);
+    [EOF]
+    ");
 }
 
 // Much of this test is copied from test_resolve_command
@@ -160,7 +172,7 @@ fn test_restore_conflicted_merge() {
     create_commit(&test_env, &repo_path, "b", &["base"], &[("file", "b\n")]);
     create_commit(&test_env, &repo_path, "conflict", &["a", "b"], &[]);
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r###"
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @    conflict
     ├─╮
     │ ○  b
@@ -168,7 +180,8 @@ fn test_restore_conflicted_merge() {
     ├─╯
     ○  base
     ◆
-    "###);
+    [EOF]
+    ");
     insta::assert_snapshot!(
     std::fs::read_to_string(repo_path.join("file")).unwrap()
         , @r###"
@@ -184,7 +197,7 @@ fn test_restore_conflicted_merge() {
     // Overwrite the file...
     std::fs::write(repo_path.join("file"), "resolution").unwrap();
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff"]), 
-    @r###"
+    @r"
     Resolved conflict in file:
        1     : <<<<<<< Conflict 1 of 1
        2     : %%%%%%% Changes from base to side #1
@@ -194,12 +207,13 @@ fn test_restore_conflicted_merge() {
        6     : b
        7     : >>>>>>> Conflict 1 of 1 ends
             1: resolution
-    "###);
+    [EOF]
+    ");
 
     // ...and restore it back again.
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["restore", "file"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Created vruxwmqv 25a37060 conflict | (conflict) (empty) conflict
     Working copy now at: vruxwmqv 25a37060 conflict | (conflict) (empty) conflict
     Parent commit      : zsuskuln aa493daf a | a
@@ -207,7 +221,8 @@ fn test_restore_conflicted_merge() {
     Added 0 files, modified 1 files, removed 0 files
     There are unresolved conflicts at these paths:
     file    2-sided conflict
-    "###);
+    [EOF]
+    ");
     insta::assert_snapshot!(
     std::fs::read_to_string(repo_path.join("file")).unwrap()
         , @r###"
@@ -225,7 +240,7 @@ fn test_restore_conflicted_merge() {
     // The same, but without the `file` argument. Overwrite the file...
     std::fs::write(repo_path.join("file"), "resolution").unwrap();
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff"]), 
-    @r###"
+    @r"
     Resolved conflict in file:
        1     : <<<<<<< Conflict 1 of 1
        2     : %%%%%%% Changes from base to side #1
@@ -235,12 +250,13 @@ fn test_restore_conflicted_merge() {
        6     : b
        7     : >>>>>>> Conflict 1 of 1 ends
             1: resolution
-    "###);
+    [EOF]
+    ");
 
     // ... and restore it back again.
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["restore"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Created vruxwmqv f2c82b9c conflict | (conflict) (empty) conflict
     Working copy now at: vruxwmqv f2c82b9c conflict | (conflict) (empty) conflict
     Parent commit      : zsuskuln aa493daf a | a
@@ -248,7 +264,8 @@ fn test_restore_conflicted_merge() {
     Added 0 files, modified 1 files, removed 0 files
     There are unresolved conflicts at these paths:
     file    2-sided conflict
-    "###);
+    [EOF]
+    ");
     insta::assert_snapshot!(
     std::fs::read_to_string(repo_path.join("file")).unwrap()
         , @r###"
@@ -285,7 +302,7 @@ fn test_restore_restore_descendants() {
         &[("file", "ab\n")],
     );
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r#"
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @    ab
     ├─╮
     │ ○  b
@@ -293,7 +310,8 @@ fn test_restore_restore_descendants() {
     ├─╯
     ○  base
     ◆
-    "#);
+    [EOF]
+    ");
     insta::assert_snapshot!(
     std::fs::read_to_string(repo_path.join("file")).unwrap(), @r#"
     ab
@@ -306,13 +324,14 @@ fn test_restore_restore_descendants() {
         &["restore", "-c", "b", "file", "--restore-descendants"],
     );
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(stderr, @r"
     Created royxmykx 3fd5aa05 b | b
     Rebased 1 descendant commits (while preserving their content)
     Working copy now at: vruxwmqv bf5491a0 ab | ab
     Parent commit      : zsuskuln aa493daf a | a
     Parent commit      : royxmykx 3fd5aa05 b | b
-    "#);
+    [EOF]
+    ");
 
     // Check that "a", "b", and "ab" have their expected content by diffing them.
     // "ab" must have kept its content.
@@ -331,8 +350,9 @@ fn test_restore_restore_descendants() {
     +++ b/file2
     @@ -0,0 +1,1 @@
     +b
+    [EOF]
     ");
-    insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff", "--from=b", "--to=ab", "--git"]), @r#"
+    insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff", "--from=b", "--to=ab", "--git"]), @r"
     diff --git a/file b/file
     index df967b96a5..81bf396956 100644
     --- a/file
@@ -340,7 +360,8 @@ fn test_restore_restore_descendants() {
     @@ -1,1 +1,1 @@
     -base
     +ab
-    "#);
+    [EOF]
+    ");
 }
 
 #[test]
@@ -375,6 +396,7 @@ fn test_restore_interactive() {
     │  A file1
     │  A file2
     ◆  zzzzzzzz root() 00000000
+    [EOF]
     ");
 
     let diff_editor = test_env.set_up_fake_diff_editor();
@@ -394,6 +416,7 @@ fn test_restore_interactive() {
     Working copy now at: zsuskuln bccde490 b | b
     Parent commit      : rlvkpnrz 186caaef a | a
     Added 0 files, modified 1 files, removed 1 files
+    [EOF]
     ");
 
     insta::assert_snapshot!(
@@ -415,6 +438,7 @@ fn test_restore_interactive() {
     │  A file1
     │  A file2
     ◆  zzzzzzzz root() 00000000
+    [EOF]
     ");
 
     // Try again with --tool, which should imply --interactive
@@ -425,6 +449,7 @@ fn test_restore_interactive() {
     Working copy now at: zsuskuln 5921de19 b | b
     Parent commit      : rlvkpnrz 186caaef a | a
     Added 0 files, modified 1 files, removed 1 files
+    [EOF]
     ");
 
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "--summary"]);
@@ -437,6 +462,7 @@ fn test_restore_interactive() {
     │  A file1
     │  A file2
     ◆  zzzzzzzz root() 00000000
+    [EOF]
     ");
 }
 
@@ -469,6 +495,7 @@ fn test_restore_interactive_merge() {
     ├─╯  a
     │    A file1
     ◆  zzzzzzzz root() 00000000
+    [EOF]
     ");
 
     let diff_editor = test_env.set_up_fake_diff_editor();
@@ -489,6 +516,7 @@ fn test_restore_interactive_merge() {
     Parent commit      : rlvkpnrz 79c1b823 a | a
     Parent commit      : zsuskuln 29e70804 b | b
     Added 0 files, modified 1 files, removed 1 files
+    [EOF]
     ");
 
     insta::assert_snapshot!(
@@ -513,6 +541,7 @@ fn test_restore_interactive_merge() {
     ├─╯  a
     │    A file1
     ◆  zzzzzzzz root() 00000000
+    [EOF]
     ");
 }
 
@@ -548,6 +577,7 @@ fn test_restore_interactive_with_paths() {
     │  A file1
     │  A file2
     ◆  zzzzzzzz root() 00000000
+    [EOF]
     ");
 
     let diff_editor = test_env.set_up_fake_diff_editor();
@@ -566,6 +596,7 @@ fn test_restore_interactive_with_paths() {
     Working copy now at: zsuskuln 7187da33 b | b
     Parent commit      : rlvkpnrz 186caaef a | a
     Added 0 files, modified 1 files, removed 0 files
+    [EOF]
     ");
 
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "--summary"]);
@@ -579,6 +610,7 @@ fn test_restore_interactive_with_paths() {
     │  A file1
     │  A file2
     ◆  zzzzzzzz root() 00000000
+    [EOF]
     ");
 }
 

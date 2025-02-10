@@ -35,7 +35,10 @@ fn test_absorb_simple() {
     // Empty commit
     test_env.jj_cmd_ok(&repo_path, &["new"]);
     let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["absorb"]);
-    insta::assert_snapshot!(stderr, @"Nothing changed.");
+    insta::assert_snapshot!(stderr, @r"
+    Nothing changed.
+    [EOF]
+    ");
 
     // Insert first and last lines
     std::fs::write(repo_path.join("file1"), "1X\n1a\n1b\n2a\n2b\n2Z\n").unwrap();
@@ -46,6 +49,7 @@ fn test_absorb_simple() {
       kkmpptxz d0f1e8dd 1
     Working copy now at: yqosqzyt 277bed24 (empty) (no description set)
     Parent commit      : zsuskuln 3027ca7a 2
+    [EOF]
     ");
 
     // Modify middle line in hunk
@@ -57,6 +61,7 @@ fn test_absorb_simple() {
     Rebased 1 descendant commits.
     Working copy now at: vruxwmqv 32eb72fe (empty) (no description set)
     Parent commit      : zsuskuln 5bf0bc06 2
+    [EOF]
     ");
 
     // Remove middle line from hunk
@@ -67,12 +72,16 @@ fn test_absorb_simple() {
       zsuskuln 6e2c4777 2
     Working copy now at: yostqsxw 4a48490c (empty) (no description set)
     Parent commit      : zsuskuln 6e2c4777 2
+    [EOF]
     ");
 
     // Insert ambiguous line in between
     std::fs::write(repo_path.join("file1"), "1X\n1A\n1b\nY\n2a\n2Z\n").unwrap();
     let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["absorb"]);
-    insta::assert_snapshot!(stderr, @"Nothing changed.");
+    insta::assert_snapshot!(stderr, @r"
+    Nothing changed.
+    [EOF]
+    ");
 
     insta::assert_snapshot!(get_diffs(&test_env, &repo_path, "mutable()"), @r"
     @  yostqsxw 80965bcc (no description set)
@@ -111,6 +120,7 @@ fn test_absorb_simple() {
     │  diff --git a/file1 b/file1
     ~  new file mode 100644
        index 0000000000..e69de29bb2
+    [EOF]
     ");
     insta::assert_snapshot!(get_evolog(&test_env, &repo_path, "description(1)"), @r"
     ○    kkmpptxz d366d92c 1
@@ -123,6 +133,7 @@ fn test_absorb_simple() {
     │ ○  mzvwutvl hidden 2bc3d2ce (empty) (no description set)
     ○  kkmpptxz hidden ee76d790 1
     ○  kkmpptxz hidden 677e62d5 (empty) 1
+    [EOF]
     ");
     insta::assert_snapshot!(get_evolog(&test_env, &repo_path, "description(2)"), @r"
     ○    zsuskuln 6e2c4777 2
@@ -136,6 +147,7 @@ fn test_absorb_simple() {
     │ ○  mzvwutvl hidden 2bc3d2ce (empty) (no description set)
     ○  zsuskuln hidden cca09b4d 2
     ○  zsuskuln hidden 7b092471 (empty) 2
+    [EOF]
     ");
 }
 
@@ -170,6 +182,7 @@ fn test_absorb_replace_single_line_hunk() {
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
+    [EOF]
     ");
 
     insta::assert_snapshot!(get_diffs(&test_env, &repo_path, "mutable()"), @r"
@@ -207,6 +220,7 @@ fn test_absorb_replace_single_line_hunk() {
        +1A
        +2b
        +>>>>>>> Conflict 1 of 1 ends
+    [EOF]
     ");
 }
 
@@ -234,6 +248,7 @@ fn test_absorb_merge() {
     Parent commit      : kkmpptxz 7e9df299 1
     Parent commit      : zsuskuln baf056cf 2
     Added 0 files, modified 1 files, removed 0 files
+    [EOF]
     ");
 
     // Modify first and last lines, absorb from merge
@@ -247,6 +262,7 @@ fn test_absorb_merge() {
     Working copy now at: mzvwutvl 9db19b54 (empty) 3
     Parent commit      : kkmpptxz 4d379399 1
     Parent commit      : zsuskuln 71d1ee56 2
+    [EOF]
     ");
 
     // Add hunk to merge revision
@@ -261,6 +277,7 @@ fn test_absorb_merge() {
       mzvwutvl e93c0210 3
     Working copy now at: vruxwmqv 1b10dfa4 (empty) (no description set)
     Parent commit      : mzvwutvl e93c0210 3
+    [EOF]
     ");
 
     insta::assert_snapshot!(get_diffs(&test_env, &repo_path, "mutable()"), @r"
@@ -299,6 +316,7 @@ fn test_absorb_merge() {
        +++ b/file1
        @@ -0,0 +1,1 @@
        +0a
+    [EOF]
     ");
 }
 
@@ -324,6 +342,7 @@ fn test_absorb_discardable_merge_with_descendant() {
     Parent commit      : kkmpptxz 7e9df299 1
     Parent commit      : zsuskuln baf056cf 2
     Added 0 files, modified 1 files, removed 0 files
+    [EOF]
     ");
 
     // Modify first and last lines in the merge commit
@@ -341,6 +360,7 @@ fn test_absorb_discardable_merge_with_descendant() {
     Working copy now at: royxmykx f04f1247 3
     Parent commit      : kkmpptxz fcabe394 1
     Parent commit      : zsuskuln 02668cf6 2
+    [EOF]
     ");
 
     insta::assert_snapshot!(get_diffs(&test_env, &repo_path, "mutable()"), @r"
@@ -378,6 +398,7 @@ fn test_absorb_discardable_merge_with_descendant() {
        +++ b/file1
        @@ -0,0 +1,1 @@
        +0a
+    [EOF]
     ");
 }
 
@@ -393,7 +414,7 @@ fn test_absorb_conflict() {
     test_env.jj_cmd_ok(&repo_path, &["new", "root()"]);
     std::fs::write(repo_path.join("file1"), "2a\n2b\n").unwrap();
     let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-r@", "-ddescription(1)"]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Rebased 1 commits onto destination
     Working copy now at: kkmpptxz 74405a07 (conflict) (no description set)
     Parent commit      : qpvuntsm 3619e4e5 1
@@ -407,7 +428,8 @@ fn test_absorb_conflict() {
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
-    "###);
+    [EOF]
+    ");
 
     let conflict_content =
         String::from_utf8(std::fs::read(repo_path.join("file1")).unwrap()).unwrap();
@@ -427,6 +449,7 @@ fn test_absorb_conflict() {
     insta::assert_snapshot!(stderr, @r"
     Warning: Skipping file1: Is a conflict
     Nothing changed.
+    [EOF]
     ");
 
     // Cannot absorb from resolved conflict
@@ -436,6 +459,7 @@ fn test_absorb_conflict() {
     insta::assert_snapshot!(stderr, @r"
     Warning: Skipping file1: Is a conflict
     Nothing changed.
+    [EOF]
     ");
 }
 
@@ -455,6 +479,7 @@ fn test_absorb_deleted_file() {
     insta::assert_snapshot!(stderr, @r"
     Warning: Skipping file1: Deleted file
     Nothing changed.
+    [EOF]
     ");
 }
 
@@ -483,6 +508,7 @@ fn test_absorb_file_mode() {
     Parent commit      : qpvuntsm 991365da 1
     Remaining changes:
     M file1
+    [EOF]
     ");
 
     insta::assert_snapshot!(get_diffs(&test_env, &repo_path, "mutable()"), @r"
@@ -498,6 +524,7 @@ fn test_absorb_file_mode() {
        +++ b/file1
        @@ -0,0 +1,1 @@
        +1A
+    [EOF]
     ");
 }
 
@@ -526,6 +553,7 @@ fn test_absorb_from_into() {
     Parent commit      : kkmpptxz 91df4543 2
     Remaining changes:
     M file1
+    [EOF]
     ");
 
     insta::assert_snapshot!(get_diffs(&test_env, &repo_path, "@-::"), @r"
@@ -555,6 +583,7 @@ fn test_absorb_from_into() {
         1c
        +2b
        +Z
+    [EOF]
     ");
 
     // Absorb all lines from the working-copy parent. An empty commit won't be
@@ -566,6 +595,7 @@ fn test_absorb_from_into() {
     Rebased 2 descendant commits.
     Working copy now at: zsuskuln 53ce490b (no description set)
     Parent commit      : kkmpptxz c94cd773 (empty) 2
+    [EOF]
     ");
 
     insta::assert_snapshot!(get_diffs(&test_env, &repo_path, "mutable()"), @r"
@@ -600,6 +630,7 @@ fn test_absorb_from_into() {
     ○  qpvuntsm 230dd059 (empty) (no description set)
     │
     ~
+    [EOF]
     ");
 }
 
@@ -619,7 +650,10 @@ fn test_absorb_paths() {
     std::fs::write(repo_path.join("file2"), "1A\n").unwrap();
 
     let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["absorb", "unknown"]);
-    insta::assert_snapshot!(stderr, @"Nothing changed.");
+    insta::assert_snapshot!(stderr, @r"
+    Nothing changed.
+    [EOF]
+    ");
 
     let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["absorb", "file1"]);
     insta::assert_snapshot!(stderr, @r"
@@ -630,6 +664,7 @@ fn test_absorb_paths() {
     Parent commit      : qpvuntsm ae044adb 1
     Remaining changes:
     M file2
+    [EOF]
     ");
 
     insta::assert_snapshot!(get_diffs(&test_env, &repo_path, "mutable()"), @r"
@@ -656,6 +691,7 @@ fn test_absorb_paths() {
        +++ b/file2
        @@ -0,0 +1,1 @@
        +1a
+    [EOF]
     ");
 }
 
@@ -686,6 +722,7 @@ fn test_absorb_immutable() {
     Parent commit      : kkmpptxz d80e3c2a 2
     Remaining changes:
     M file1
+    [EOF]
     ");
 
     // Immutable revisions shouldn't be rewritten
@@ -694,6 +731,7 @@ fn test_absorb_immutable() {
     Error: Commit 3619e4e52fce is immutable
     Hint: Could not modify commit: qpvuntsm 3619e4e5 main | 1
     Hint: Pass `--ignore-immutable` or configure the set of immutable commits via `revset-aliases.immutable_heads()`.
+    [EOF]
     ");
 
     insta::assert_snapshot!(get_diffs(&test_env, &repo_path, ".."), @r"
@@ -727,6 +765,7 @@ fn test_absorb_immutable() {
        @@ -0,0 +1,2 @@
        +1a
        +1b
+    [EOF]
     ");
 }
 

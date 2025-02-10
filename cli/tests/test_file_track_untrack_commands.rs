@@ -42,27 +42,30 @@ fn test_track_untrack() {
     // Errors out when not run at the head operation
     let stderr =
         test_env.jj_cmd_failure(&repo_path, &["file", "untrack", "file1", "--at-op", "@-"]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Error: This command must be able to update the working copy.
     Hint: Don't use --at-op.
-    "###);
+    [EOF]
+    ");
     // Errors out when no path is specified
     let stderr = test_env.jj_cmd_cli_error(&repo_path, &["file", "untrack"]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     error: the following required arguments were not provided:
       <FILESETS>...
 
     Usage: jj file untrack <FILESETS>...
 
     For more information, try '--help'.
-    "###);
+    [EOF]
+    ");
     // Errors out when a specified file is not ignored
     let stderr = test_env.jj_cmd_failure(&repo_path, &["file", "untrack", "file1", "file1.bak"]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Error: 'file1' is not ignored.
     Hint: Files that are not ignored will be added back by the next command.
     Make sure they're ignored, then try again.
-    "###);
+    [EOF]
+    ");
     let files_after = test_env
         .jj_cmd_success(&repo_path, &["file", "list"])
         .into_raw();
@@ -73,10 +76,11 @@ fn test_track_untrack() {
     assert!(files_before.contains("file1.bak\n"));
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["untrack", "file1.bak"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Warning: `jj untrack` is deprecated; use `jj file untrack` instead, which is equivalent
     Warning: `jj untrack` will be removed in a future version, and this will be a hard error
-    "###);
+    [EOF]
+    ");
     let files_after = test_env
         .jj_cmd_success(&repo_path, &["file", "list"])
         .into_raw();
@@ -124,27 +128,30 @@ fn test_track_untrack_sparse() {
     // doesn't need to be ignored (because it won't be automatically added
     // back).
     let stdout = test_env.jj_cmd_success(&repo_path, &["file", "list"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     file1
     file2
-    "###);
+    [EOF]
+    ");
     test_env.jj_cmd_ok(&repo_path, &["sparse", "set", "--clear", "--add", "file1"]);
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["file", "untrack", "file2"]);
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @"");
     let stdout = test_env.jj_cmd_success(&repo_path, &["file", "list"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     file1
-    "###);
+    [EOF]
+    ");
     // Trying to manually track a file that's not included in the sparse working has
     // no effect. TODO: At least a warning would be useful
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["file", "track", "file2"]);
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @"");
     let stdout = test_env.jj_cmd_success(&repo_path, &["file", "list"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     file1
-    "###);
+    [EOF]
+    ");
 }
 
 #[test]
@@ -160,44 +167,49 @@ fn test_auto_track() {
 
     // Only configured paths get auto-tracked
     let stdout = test_env.jj_cmd_success(&repo_path, &["file", "list"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     file1.rs
-    "###);
+    [EOF]
+    ");
 
     // Can manually track paths
     let stdout = test_env.jj_cmd_success(&repo_path, &["file", "track", "file3.md"]);
     insta::assert_snapshot!(stdout, @"");
     let stdout = test_env.jj_cmd_success(&repo_path, &["file", "list"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     file1.rs
     file3.md
-    "###);
+    [EOF]
+    ");
 
     // Can manually untrack paths
     let stdout = test_env.jj_cmd_success(&repo_path, &["file", "untrack", "file3.md"]);
     insta::assert_snapshot!(stdout, @"");
     let stdout = test_env.jj_cmd_success(&repo_path, &["file", "list"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     file1.rs
-    "###);
+    [EOF]
+    ");
 
     // CWD-relative paths in `snapshot.auto-track` are evaluated from the repo root
     let subdir = repo_path.join("sub");
     std::fs::create_dir(&subdir).unwrap();
     std::fs::write(subdir.join("file1.rs"), "initial").unwrap();
     let stdout = test_env.jj_cmd_success(&subdir, &["file", "list"]);
-    insta::assert_snapshot!(stdout.normalize_backslash(), @r###"
+    insta::assert_snapshot!(stdout.normalize_backslash(), @r"
     ../file1.rs
-    "###);
+    [EOF]
+    ");
 
     // But `jj file track` wants CWD-relative paths
     let stdout = test_env.jj_cmd_success(&subdir, &["file", "track", "file1.rs"]);
     insta::assert_snapshot!(stdout, @"");
     let stdout = test_env.jj_cmd_success(&subdir, &["file", "list"]);
-    insta::assert_snapshot!(stdout.normalize_backslash(), @r###"
+    insta::assert_snapshot!(stdout.normalize_backslash(), @r"
     ../file1.rs
     file1.rs
-    "###);
+    [EOF]
+    ");
 }
 
 #[test]
@@ -215,16 +227,18 @@ fn test_track_ignored() {
     let stdout = test_env.jj_cmd_success(&repo_path, &["file", "track", "file1"]);
     insta::assert_snapshot!(stdout, @"");
     let stdout = test_env.jj_cmd_success(&repo_path, &["file", "list"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     file1
-    "###);
+    [EOF]
+    ");
     // Track an ignored path
     let stdout = test_env.jj_cmd_success(&repo_path, &["file", "track", "file1.bak"]);
     insta::assert_snapshot!(stdout, @"");
     // TODO: We should teach `jj file track` to track ignored paths (possibly
     // requiring a flag)
     let stdout = test_env.jj_cmd_success(&repo_path, &["file", "list"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     file1
-    "###);
+    [EOF]
+    ");
 }

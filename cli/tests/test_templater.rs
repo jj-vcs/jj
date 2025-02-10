@@ -26,7 +26,7 @@ fn test_templater_parse_error() {
     let repo_path = test_env.env_root().join("repo");
     let render_err = |template| test_env.jj_cmd_failure(&repo_path, &["log", "-T", template]);
 
-    insta::assert_snapshot!(render_err(r#"description ()"#), @r#"
+    insta::assert_snapshot!(render_err(r#"description ()"#), @r"
     Error: Failed to parse template: Syntax error
     Caused by:  --> 1:13
       |
@@ -34,7 +34,8 @@ fn test_templater_parse_error() {
       |             ^---
       |
       = expected <EOI>, `++`, `||`, `&&`, `==`, `!=`, `>=`, `>`, `<=`, or `<`
-    "#);
+    [EOF]
+    ");
 
     // Typo
     test_env.add_config(
@@ -55,6 +56,7 @@ fn test_templater_parse_error() {
       |
       = Keyword `conflicts` doesn't exist
     Hint: Did you mean `conflict`, `conflicting`?
+    [EOF]
     ");
     insta::assert_snapshot!(render_err(r#"commit_id.shorter()"#), @r"
     Error: Failed to parse template: Method `shorter` doesn't exist for type `CommitOrChangeId`
@@ -65,6 +67,7 @@ fn test_templater_parse_error() {
       |
       = Method `shorter` doesn't exist for type `CommitOrChangeId`
     Hint: Did you mean `short`, `shortest`?
+    [EOF]
     ");
     insta::assert_snapshot!(render_err(r#"oncat()"#), @r"
     Error: Failed to parse template: Function `oncat` doesn't exist
@@ -75,6 +78,7 @@ fn test_templater_parse_error() {
       |
       = Function `oncat` doesn't exist
     Hint: Did you mean `concat`, `socat`?
+    [EOF]
     ");
     insta::assert_snapshot!(render_err(r#""".lines().map(|s| se)"#), @r#"
     Error: Failed to parse template: Keyword `se` doesn't exist
@@ -85,6 +89,7 @@ fn test_templater_parse_error() {
       |
       = Keyword `se` doesn't exist
     Hint: Did you mean `s`, `self`?
+    [EOF]
     "#);
     insta::assert_snapshot!(render_err(r#"format_id(commit_id)"#), @r"
     Error: Failed to parse template: In alias `format_id(id)`
@@ -102,6 +107,7 @@ fn test_templater_parse_error() {
       |
       = Method `sort` doesn't exist for type `CommitOrChangeId`
     Hint: Did you mean `short`, `shortest`?
+    [EOF]
     ");
 
     // -Tbuiltin shows the predefined builtin_* aliases. This isn't 100%
@@ -115,6 +121,7 @@ fn test_templater_parse_error() {
       |
       = Keyword `builtin` doesn't exist
     Hint: Did you mean `builtin_log_comfortable`, `builtin_log_compact`, `builtin_log_compact_full_description`, `builtin_log_detailed`, `builtin_log_node`, `builtin_log_node_ascii`, `builtin_log_oneline`, `builtin_op_log_comfortable`, `builtin_op_log_compact`, `builtin_op_log_node`, `builtin_op_log_node_ascii`, `builtin_op_log_oneline`?
+    [EOF]
     ");
 }
 
@@ -134,12 +141,13 @@ fn test_template_parse_warning() {
         )
     "#};
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["log", "-r@", "-T", template]);
-    insta::assert_snapshot!(stdout, @r#"
+    insta::assert_snapshot!(stdout, @r"
     @  false test.user
     │
     ~
-    "#);
-    insta::assert_snapshot!(stderr, @r#"
+    [EOF]
+    ");
+    insta::assert_snapshot!(stderr, @r"
     Warning: In template expression
      --> 2:3
       |
@@ -181,7 +189,8 @@ fn test_template_parse_warning() {
       |          ^------^
       |
       = username() is deprecated; use email().local() instead
-    "#);
+    [EOF]
+    ");
 }
 
 #[test]
@@ -192,10 +201,10 @@ fn test_templater_upper_lower() {
     let render = |template| get_colored_template_output(&test_env, &repo_path, "@-", template);
 
     insta::assert_snapshot!(
-      render(r#"change_id.shortest(4).upper() ++ change_id.shortest(4).upper().lower()"#),
-      @"[1m[38;5;5mZ[0m[38;5;8mZZZ[1m[38;5;5mz[0m[38;5;8mzzz[39m");
+        render(r#"change_id.shortest(4).upper() ++ change_id.shortest(4).upper().lower()"#),
+        @"[1m[38;5;5mZ[0m[38;5;8mZZZ[1m[38;5;5mz[0m[38;5;8mzzz[39m[EOF]");
     insta::assert_snapshot!(
-      render(r#""Hello".upper() ++ "Hello".lower()"#), @"HELLOhello");
+        render(r#""Hello".upper() ++ "Hello".lower()"#), @"HELLOhello[EOF]");
 }
 
 #[test]
@@ -223,8 +232,8 @@ fn test_templater_alias() {
     "###,
     );
 
-    insta::assert_snapshot!(render("my_commit_id"), @"000000000000");
-    insta::assert_snapshot!(render("identity(my_commit_id)"), @"000000000000");
+    insta::assert_snapshot!(render("my_commit_id"), @"000000000000[EOF]");
+    insta::assert_snapshot!(render("identity(my_commit_id)"), @"000000000000[EOF]");
 
     insta::assert_snapshot!(render_err("commit_id ++ syntax_error"), @r"
     Error: Failed to parse template: In alias `syntax_error`
@@ -241,6 +250,7 @@ fn test_templater_alias() {
       |     ^---
       |
       = expected <identifier>
+    [EOF]
     ");
 
     insta::assert_snapshot!(render_err("commit_id ++ name_error"), @r"
@@ -258,6 +268,7 @@ fn test_templater_alias() {
       | ^--------^
       |
       = Keyword `unknown_id` doesn't exist
+    [EOF]
     ");
 
     insta::assert_snapshot!(render_err(r#"identity(identity(commit_id.short("")))"#), @r#"
@@ -293,6 +304,7 @@ fn test_templater_alias() {
       |                                   ^^
       |
       = Expected expression of type `Integer`, but actual type is `String`
+    [EOF]
     "#);
 
     insta::assert_snapshot!(render_err("commit_id ++ recurse"), @r"
@@ -322,6 +334,7 @@ fn test_templater_alias() {
       | ^-----^
       |
       = Alias `recurse` expanded recursively
+    [EOF]
     ");
 
     insta::assert_snapshot!(render_err("identity()"), @r"
@@ -332,6 +345,7 @@ fn test_templater_alias() {
       |          ^
       |
       = Function `identity`: Expected 1 arguments
+    [EOF]
     ");
     insta::assert_snapshot!(render_err("identity(commit_id, commit_id)"), @r"
     Error: Failed to parse template: Function `identity`: Expected 1 arguments
@@ -341,6 +355,7 @@ fn test_templater_alias() {
       |          ^------------------^
       |
       = Function `identity`: Expected 1 arguments
+    [EOF]
     ");
 
     insta::assert_snapshot!(render_err(r#"coalesce(label("x", "not boolean"), "")"#), @r#"
@@ -364,6 +379,7 @@ fn test_templater_alias() {
       |          ^-----------------------^
       |
       = Expected expression of type `Boolean`, but actual type is `Template`
+    [EOF]
     "#);
 
     insta::assert_snapshot!(render_err("(-my_commit_id)"), @r"
@@ -381,14 +397,16 @@ fn test_templater_alias() {
       | ^---------------^
       |
       = Expected expression of type `Integer`, but actual type is `String`
+    [EOF]
     ");
 
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["log", "-r@", "-Tdeprecated()"]);
-    insta::assert_snapshot!(stdout, @r##"
+    insta::assert_snapshot!(stdout, @r"
     #  false
     │
     ~
-    "##);
+    [EOF]
+    ");
     insta::assert_snapshot!(stderr, @r#"
     Warning: In template expression
      --> 1:1
@@ -422,6 +440,7 @@ fn test_templater_alias() {
       | ^------^
       |
       = branches() is deprecated; use bookmarks() instead
+    [EOF]
     "#);
 }
 
@@ -451,7 +470,7 @@ fn test_templater_alias_override() {
             r#"--config=template-aliases.'f(a)'='"arg"'"#,
         ],
     );
-    insta::assert_snapshot!(stdout, @"arg");
+    insta::assert_snapshot!(stdout, @"arg[EOF]");
 }
 
 #[test]
@@ -471,7 +490,7 @@ fn test_templater_bad_alias_decl() {
     // Invalid declaration should be warned and ignored.
     let (stdout, stderr) =
         test_env.jj_cmd_ok(&repo_path, &["log", "--no-graph", "-r@-", "-Tmy_commit_id"]);
-    insta::assert_snapshot!(stdout, @"000000000000");
+    insta::assert_snapshot!(stdout, @"000000000000[EOF]");
     insta::assert_snapshot!(stderr, @r"
     Warning: Failed to load `template-aliases.badfn(a, a)`:  --> 1:7
       |
@@ -479,6 +498,7 @@ fn test_templater_bad_alias_decl() {
       |       ^--^
       |
       = Redefinition of function parameter
+    [EOF]
     ");
 }
 
@@ -492,10 +512,10 @@ fn test_templater_config_function() {
 
     insta::assert_snapshot!(
         render("config('user.name')"),
-        @r#""Test User""#);
+        @r#""Test User"[EOF]"#);
     insta::assert_snapshot!(
         render("config('user')"),
-        @r#"{ email = "test.user@example.com", name = "Test User" }"#);
+        @r#"{ email = "test.user@example.com", name = "Test User" }[EOF]"#);
     insta::assert_snapshot!(render_err("config('invalid name')"), @r"
     Error: Failed to parse template: Failed to parse config name
     Caused by:
@@ -509,6 +529,9 @@ fn test_templater_config_function() {
       |
     1 | invalid name
       |         ^
+
+
+    [EOF]
     ");
     insta::assert_snapshot!(render_err("config('unknown')"), @r"
     Error: Failed to parse template: Failed to get config value
@@ -520,6 +543,7 @@ fn test_templater_config_function() {
       |
       = Failed to get config value
     2: Value not found for unknown
+    [EOF]
     ");
 }
 
