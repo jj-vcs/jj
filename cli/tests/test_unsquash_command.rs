@@ -33,56 +33,64 @@ fn test_unsquash() {
     test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "c"]);
     std::fs::write(repo_path.join("file1"), "c\n").unwrap();
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r###"
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  382c9bad7d42 c
     ○  d5d59175b481 b
     ○  184ddbcce5a9 a
     ◆  000000000000
-    "###);
+    [EOF]
+    ");
 
     // Unsquashes into the working copy from its parent by default
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["unsquash"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(stderr, @r"
     Warning: `jj unsquash` is deprecated; use `jj diffedit --restore-descendants` or `jj squash` instead
     Warning: `jj unsquash` will be removed in a future version, and this will be a hard error
     Working copy now at: mzvwutvl 9177132c c | (no description set)
     Parent commit      : qpvuntsm 184ddbcc a b | (no description set)
-    "#);
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r###"
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  9177132cfbb9 c
     ○  184ddbcce5a9 a b
     ◆  000000000000
-    "###);
+    [EOF]
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     c
-    "###);
+    [EOF]
+    ");
 
     // Can unsquash into a given commit from its parent
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["unsquash", "-r", "b"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(stderr, @r"
     Warning: `jj unsquash` is deprecated; use `jj diffedit --restore-descendants` or `jj squash` instead
     Warning: `jj unsquash` will be removed in a future version, and this will be a hard error
     Rebased 1 descendant commits
     Working copy now at: mzvwutvl b353b29c c | (no description set)
     Parent commit      : kkmpptxz 27772b15 b | (no description set)
-    "#);
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r###"
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  b353b29c423d c
     ○  27772b156771 b
     ◆  000000000000 a
-    "###);
+    [EOF]
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1", "-r", "b"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     b
-    "###);
+    [EOF]
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     c
-    "###);
+    [EOF]
+    ");
 
     // Cannot unsquash into a merge commit (because it's unclear which parent it
     // should come from)
@@ -93,7 +101,7 @@ fn test_unsquash() {
     std::fs::write(repo_path.join("file2"), "d\n").unwrap();
     test_env.jj_cmd_ok(&repo_path, &["new", "-m", "merge", "c", "d"]);
     test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "e"]);
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r###"
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @    b780e7469252 e
     ├─╮
     │ ○  f86e2b3af3e3 d
@@ -102,27 +110,30 @@ fn test_unsquash() {
     ○  d5d59175b481 b
     ○  184ddbcce5a9 a
     ◆  000000000000
-    "###);
+    [EOF]
+    ");
     let stderr = test_env.jj_cmd_failure(&repo_path, &["unsquash"]);
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(stderr, @r"
     Warning: `jj unsquash` is deprecated; use `jj diffedit --restore-descendants` or `jj squash` instead
     Warning: `jj unsquash` will be removed in a future version, and this will be a hard error
     Error: Cannot unsquash merge commits
-    "#);
+    [EOF]
+    ");
 
     // Can unsquash from a merge commit
     test_env.jj_cmd_ok(&repo_path, &["new", "e"]);
     std::fs::write(repo_path.join("file1"), "e\n").unwrap();
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["unsquash"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(stderr, @r"
     Warning: `jj unsquash` is deprecated; use `jj diffedit --restore-descendants` or `jj squash` instead
     Warning: `jj unsquash` will be removed in a future version, and this will be a hard error
     Working copy now at: pzsxstzt bd05eb69 merge
     Parent commit      : mzvwutvl 382c9bad c e?? | (no description set)
     Parent commit      : xznxytkn f86e2b3a d e?? | (no description set)
-    "#);
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r###"
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @    bd05eb698d1e
     ├─╮
     │ ○  f86e2b3af3e3 d e??
@@ -131,11 +142,13 @@ fn test_unsquash() {
     ○  d5d59175b481 b
     ○  184ddbcce5a9 a
     ◆  000000000000
-    "###);
+    [EOF]
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     e
-    "###);
+    [EOF]
+    ");
 }
 
 #[test]
@@ -156,12 +169,13 @@ fn test_unsquash_partial() {
     std::fs::write(repo_path.join("file1"), "c\n").unwrap();
     std::fs::write(repo_path.join("file2"), "c\n").unwrap();
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r###"
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  a0b1a272ebc4 c
     ○  d117da276a0f b
     ○  54d3c1c0e9fd a
     ◆  000000000000
-    "###);
+    [EOF]
+    ");
 
     // If we don't make any changes in the diff-editor, the whole change is moved
     // from the parent
@@ -169,13 +183,14 @@ fn test_unsquash_partial() {
     std::fs::write(&edit_script, "dump JJ-INSTRUCTIONS instrs").unwrap();
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["unsquash", "-r", "b", "-i"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(stderr, @r"
     Warning: `jj unsquash` is deprecated; use `jj diffedit --restore-descendants` or `jj squash` instead
     Warning: `jj unsquash` will be removed in a future version, and this will be a hard error
     Rebased 1 descendant commits
     Working copy now at: mzvwutvl 8802263d c | (no description set)
     Parent commit      : kkmpptxz 5bd83140 b | (no description set)
-    "#);
+    [EOF]
+    ");
 
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @r###"
@@ -190,50 +205,58 @@ fn test_unsquash_partial() {
     aborted.
     "###);
 
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r###"
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  8802263dbd92 c
     ○  5bd83140fd47 b
     ○  c93de9257191 a
     ◆  000000000000
-    "###);
+    [EOF]
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1", "-r", "a"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     a
-    "###);
+    [EOF]
+    ");
 
     // Can unsquash only some changes in interactive mode
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
     std::fs::write(edit_script, "reset file1").unwrap();
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["unsquash", "-i"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(stderr, @r"
     Warning: `jj unsquash` is deprecated; use `jj diffedit --restore-descendants` or `jj squash` instead
     Warning: `jj unsquash` will be removed in a future version, and this will be a hard error
     Working copy now at: mzvwutvl a896ffde c | (no description set)
     Parent commit      : kkmpptxz 904111b4 b | (no description set)
-    "#);
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r###"
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  a896ffdebb85 c
     ○  904111b4d3c4 b
     ○  54d3c1c0e9fd a
     ◆  000000000000
-    "###);
+    [EOF]
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1", "-r", "b"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     a
-    "###);
+    [EOF]
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file2", "-r", "b"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     b
-    "###);
+    [EOF]
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1", "-r", "c"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     c
-    "###);
+    [EOF]
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file2", "-r", "c"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     c
-    "###);
+    [EOF]
+    ");
 
     // Try again with --tool=<name>, which implies --interactive
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
@@ -246,28 +269,33 @@ fn test_unsquash_partial() {
         ],
     );
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(stderr, @r"
     Warning: `jj unsquash` is deprecated; use `jj diffedit --restore-descendants` or `jj squash` instead
     Warning: `jj unsquash` will be removed in a future version, and this will be a hard error
     Working copy now at: mzvwutvl aaca9268 c | (no description set)
     Parent commit      : kkmpptxz fe8eb117 b | (no description set)
-    "#);
+    [EOF]
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1", "-r", "b"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     a
-    "###);
+    [EOF]
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file2", "-r", "b"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     b
-    "###);
+    [EOF]
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1", "-r", "c"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     c
-    "###);
+    [EOF]
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file2", "-r", "c"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     c
-    "###);
+    [EOF]
+    ");
 }
 
 fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutputString {
@@ -298,29 +326,32 @@ fn test_unsquash_description() {
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
     test_env.jj_cmd_ok(&repo_path, &["describe", "@-", "-m", "source"]);
     test_env.jj_cmd_ok(&repo_path, &["unsquash"]);
-    insta::assert_snapshot!(get_description(&test_env, &repo_path, "@"), @r###"
+    insta::assert_snapshot!(get_description(&test_env, &repo_path, "@"), @r"
     source
-    "###);
+    [EOF]
+    ");
 
     // If the destination description is non-empty and the source's description is
     // empty, the resulting description is from the destination
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", "@--"]);
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "destination"]);
     test_env.jj_cmd_ok(&repo_path, &["unsquash"]);
-    insta::assert_snapshot!(get_description(&test_env, &repo_path, "@"), @r###"
+    insta::assert_snapshot!(get_description(&test_env, &repo_path, "@"), @r"
     destination
-    "###);
+    [EOF]
+    ");
 
     // If both descriptions were non-empty, we get asked for a combined description
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
     test_env.jj_cmd_ok(&repo_path, &["describe", "@-", "-m", "source"]);
     std::fs::write(&edit_script, "dump editor0").unwrap();
     test_env.jj_cmd_ok(&repo_path, &["unsquash"]);
-    insta::assert_snapshot!(get_description(&test_env, &repo_path, "@"), @r###"
+    insta::assert_snapshot!(get_description(&test_env, &repo_path, "@"), @r"
     destination
 
     source
-    "###);
+    [EOF]
+    ");
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r###"
     JJ: Enter a description for the combined commit.
@@ -336,12 +367,14 @@ fn test_unsquash_description() {
     // If the source's *content* doesn't become empty, then the source remains and
     // both descriptions are unchanged
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
-    insta::assert_snapshot!(get_description(&test_env, &repo_path, "@-"), @r###"
+    insta::assert_snapshot!(get_description(&test_env, &repo_path, "@-"), @r"
     source
-    "###);
-    insta::assert_snapshot!(get_description(&test_env, &repo_path, "@"), @r###"
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_description(&test_env, &repo_path, "@"), @r"
     destination
-    "###);
+    [EOF]
+    ");
 }
 
 #[test]

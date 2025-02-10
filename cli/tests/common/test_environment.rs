@@ -394,7 +394,12 @@ impl CommandOutputString {
 
 impl Display for CommandOutputString {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.normalized)
+        if self.is_empty() {
+            return Ok(());
+        }
+        // Append "[EOF]" marker to test line ending
+        // https://github.com/mitsuhiko/insta/issues/384
+        writeln!(f, "{}[EOF]", self.normalized)
     }
 }
 

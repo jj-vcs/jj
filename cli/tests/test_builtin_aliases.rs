@@ -54,11 +54,12 @@ fn test_builtin_alias_trunk_matches_main() {
     let (test_env, workspace_root) = set_up("main");
 
     let stdout = test_env.jj_cmd_success(&workspace_root, &["log", "-r", "trunk()"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     ◆  xtvrqkyv test.user@example.com 2001-02-03 08:05:08 main d13ecdbd
     │  (empty) description 1
     ~
-    "###);
+    [EOF]
+    ");
 }
 
 #[test]
@@ -66,11 +67,12 @@ fn test_builtin_alias_trunk_matches_master() {
     let (test_env, workspace_root) = set_up("master");
 
     let stdout = test_env.jj_cmd_success(&workspace_root, &["log", "-r", "trunk()"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     ◆  xtvrqkyv test.user@example.com 2001-02-03 08:05:08 master d13ecdbd
     │  (empty) description 1
     ~
-    "###);
+    [EOF]
+    ");
 }
 
 #[test]
@@ -78,11 +80,12 @@ fn test_builtin_alias_trunk_matches_trunk() {
     let (test_env, workspace_root) = set_up("trunk");
 
     let stdout = test_env.jj_cmd_success(&workspace_root, &["log", "-r", "trunk()"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     ◆  xtvrqkyv test.user@example.com 2001-02-03 08:05:08 trunk d13ecdbd
     │  (empty) description 1
     ~
-    "###);
+    [EOF]
+    ");
 }
 
 #[test]
@@ -93,11 +96,12 @@ fn test_builtin_alias_trunk_matches_exactly_one_commit() {
     test_env.jj_cmd_ok(&origin_path, &["bookmark", "create", "-r@", "master"]);
 
     let stdout = test_env.jj_cmd_success(&workspace_root, &["log", "-r", "trunk()"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     ◆  xtvrqkyv test.user@example.com 2001-02-03 08:05:08 main d13ecdbd
     │  (empty) description 1
     ~
-    "###);
+    [EOF]
+    ");
 }
 
 #[test]
@@ -109,11 +113,12 @@ fn test_builtin_alias_trunk_override_alias() {
     );
 
     let stdout = test_env.jj_cmd_success(&workspace_root, &["log", "-r", "trunk()"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     ◆  xtvrqkyv test.user@example.com 2001-02-03 08:05:08 override-trunk d13ecdbd
     │  (empty) description 1
     ~
-    "###);
+    [EOF]
+    ");
 }
 
 #[test]
@@ -121,9 +126,10 @@ fn test_builtin_alias_trunk_no_match() {
     let (test_env, workspace_root) = set_up("no-match-trunk");
 
     let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["log", "-r", "trunk()"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     ◆  zzzzzzzz root() 00000000
-    "###);
+    [EOF]
+    ");
     insta::assert_snapshot!(stderr, @r###"
     "###);
 }
@@ -133,9 +139,10 @@ fn test_builtin_alias_trunk_no_match_only_exact() {
     let (test_env, workspace_root) = set_up("maint");
 
     let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["log", "-r", "trunk()"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     ◆  zzzzzzzz root() 00000000
-    "###);
+    [EOF]
+    ");
     insta::assert_snapshot!(stderr, @r###"
     "###);
 }
@@ -149,14 +156,16 @@ fn test_builtin_user_redefines_builtin_immutable_heads() {
     test_env.add_config(r#"revset-aliases.'immutable()' = '@'"#);
 
     let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["log", "-r", "trunk()"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     ○  xtvrqkyv test.user@example.com 2001-02-03 08:05:08 main d13ecdbd
     │  (empty) description 1
     ~
-    "###);
+    [EOF]
+    ");
     insta::assert_snapshot!(stderr, @r"
     Warning: Redefining `revset-aliases.builtin_immutable_heads()` is not recommended; redefine `immutable_heads()` instead
     Warning: Redefining `revset-aliases.mutable()` is not recommended; redefine `immutable_heads()` instead
     Warning: Redefining `revset-aliases.immutable()` is not recommended; redefine `immutable_heads()` instead
+    [EOF]
     ");
 }

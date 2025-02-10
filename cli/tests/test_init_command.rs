@@ -18,11 +18,12 @@ use crate::common::TestEnvironment;
 fn test_init_local_disallowed() {
     let test_env = TestEnvironment::default();
     let stdout = test_env.jj_cmd_failure(test_env.env_root(), &["init", "repo"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     Error: The native backend is disallowed by default.
     Hint: Did you mean to call `jj git init`?
     Set `ui.allow-init-native` to allow initializing a repo with the native backend.
-    "###);
+    [EOF]
+    ");
 }
 
 #[test]
@@ -31,9 +32,10 @@ fn test_init_local() {
     test_env.add_config(r#"ui.allow-init-native = true"#);
     let (stdout, stderr) = test_env.jj_cmd_ok(test_env.env_root(), &["init", "repo"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Initialized repo in "repo"
-    "###);
+    [EOF]
+    "#);
 
     let workspace_root = test_env.env_root().join("repo");
     let jj_path = workspace_root.join(".jj");
@@ -54,12 +56,14 @@ fn test_init_local() {
         test_env.env_root(),
         &["init", "--ignore-working-copy", "repo2"],
     );
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Error: --ignore-working-copy is not respected
-    "###);
+    [EOF]
+    ");
 
     let stderr = test_env.jj_cmd_cli_error(test_env.env_root(), &["init", "--at-op=@-", "repo3"]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Error: --at-op is not respected
-    "###);
+    [EOF]
+    ");
 }

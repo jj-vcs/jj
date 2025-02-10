@@ -44,6 +44,7 @@ fn test_annotate_linear() {
     insta::assert_snapshot!(stdout, @r"
     qpvuntsm foo      2001-02-03 08:05:08    1: line1
     kkmpptxz test.use 2001-02-03 08:05:10    2: new text from new commit
+    [EOF]
     ");
 }
 
@@ -79,6 +80,7 @@ fn test_annotate_merge() {
     qpvuntsm test.use 2001-02-03 08:05:08    1: line1
     zsuskuln test.use 2001-02-03 08:05:11    2: new text from new commit 1
     royxmykx test.use 2001-02-03 08:05:13    3: new text from new commit 2
+    [EOF]
     ");
 }
 
@@ -113,6 +115,7 @@ fn test_annotate_conflicted() {
     yostqsxw test.use 2001-02-03 08:05:15    5: +++++++ Contents of side #2
     royxmykx test.use 2001-02-03 08:05:13    6: new text from new commit 2
     yostqsxw test.use 2001-02-03 08:05:15    7: >>>>>>> Conflict 1 of 1 ends
+    [EOF]
     ");
 }
 
@@ -147,6 +150,7 @@ fn test_annotate_merge_one_sided_conflict_resolution() {
     insta::assert_snapshot!(stdout, @r"
     qpvuntsm test.use 2001-02-03 08:05:08    1: line1
     zsuskuln test.use 2001-02-03 08:05:11    2: new text from new commit 1
+    [EOF]
     ");
 }
 
@@ -186,7 +190,7 @@ fn test_annotate_with_template() {
         &repo_path,
         &["file", "annotate", "file.txt", "-T", template],
     );
-    insta::assert_snapshot!(stdout, @r#"
+    insta::assert_snapshot!(stdout, @r"
     qpvuntsm initial
     2001-02-03 08:05:08 Test User <test.user@example.com>
        1: line1
@@ -201,5 +205,6 @@ fn test_annotate_with_template() {
        4: new text from new commit 2
        5: also continuing on a second line
        6: and a third!
-    "#);
+    [EOF]
+    ");
 }

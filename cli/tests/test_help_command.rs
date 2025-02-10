@@ -37,22 +37,25 @@ fn test_help() {
 
     // Help command should not work recursively
     let stderr = test_env.jj_cmd_cli_error(test_env.env_root(), &["workspace", "help", "root"]);
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(stderr, @r"
     error: unrecognized subcommand 'help'
 
     Usage: jj workspace [OPTIONS] <COMMAND>
 
     For more information, try '--help'.
-    "#);
+    [EOF]
+    ");
 
     let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["workspace", "add", "help"]);
     insta::assert_snapshot!(stderr, @r#"
     Error: There is no jj repo in "."
+    [EOF]
     "#);
 
     let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["new", "help", "main"]);
     insta::assert_snapshot!(stderr, @r#"
     Error: There is no jj repo in "."
+    [EOF]
     "#);
 
     // Help command should output the same as --help for nonexistent commands
@@ -67,7 +70,7 @@ fn test_help() {
     assert_eq!(help_cmd_stdout.raw(), help_flag_stdout.raw());
 
     let stderr = test_env.jj_cmd_cli_error(test_env.env_root(), &["help", "unknown"]);
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(stderr, @r"
     error: unrecognized subcommand 'unknown'
 
       tip: a similar subcommand exists: 'undo'
@@ -75,14 +78,16 @@ fn test_help() {
     Usage: jj [OPTIONS] <COMMAND>
 
     For more information, try '--help'.
-    "#);
+    [EOF]
+    ");
 
     let stderr = test_env.jj_cmd_cli_error(test_env.env_root(), &["help", "log", "--", "-r"]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     error: a value is required for '--revisions <REVSETS>' but none was supplied
 
     For more information, try '--help'.
-    "###);
+    [EOF]
+    ");
 }
 
 #[test]
@@ -102,38 +107,41 @@ fn test_help_keyword() {
 
     // It should give hints if a similar keyword is present
     let help_cmd_stderr = test_env.jj_cmd_cli_error(test_env.env_root(), &["help", "-k", "rev"]);
-    insta::assert_snapshot!(help_cmd_stderr, @r###"
+    insta::assert_snapshot!(help_cmd_stderr, @r"
     error: invalid value 'rev' for '--keyword <KEYWORD>'
       [possible values: bookmarks, config, filesets, glossary, revsets, templates, tutorial]
 
       tip: a similar value exists: 'revsets'
 
     For more information, try '--help'.
-    "###);
+    [EOF]
+    ");
 
     // It should give error with a hint if no similar keyword is found
     let help_cmd_stderr =
         test_env.jj_cmd_cli_error(test_env.env_root(), &["help", "-k", "<no-similar-keyword>"]);
-    insta::assert_snapshot!(help_cmd_stderr, @r###"
+    insta::assert_snapshot!(help_cmd_stderr, @r"
     error: invalid value '<no-similar-keyword>' for '--keyword <KEYWORD>'
       [possible values: bookmarks, config, filesets, glossary, revsets, templates, tutorial]
 
     For more information, try '--help'.
-    "###);
+    [EOF]
+    ");
 
     // The keyword flag with no argument should error with a hint
     let help_cmd_stderr = test_env.jj_cmd_cli_error(test_env.env_root(), &["help", "-k"]);
-    insta::assert_snapshot!(help_cmd_stderr, @r###"
+    insta::assert_snapshot!(help_cmd_stderr, @r"
     error: a value is required for '--keyword <KEYWORD>' but none was supplied
       [possible values: bookmarks, config, filesets, glossary, revsets, templates, tutorial]
 
     For more information, try '--help'.
-    "###);
+    [EOF]
+    ");
 
     // It shouldn't show help for a certain keyword if the `--keyword` is not
     // present
     let help_cmd_stderr = test_env.jj_cmd_cli_error(test_env.env_root(), &["help", "revsets"]);
-    insta::assert_snapshot!(help_cmd_stderr, @r#"
+    insta::assert_snapshot!(help_cmd_stderr, @r"
     error: unrecognized subcommand 'revsets'
 
       tip: some similar subcommands exist: 'resolve', 'prev', 'restore', 'rebase', 'revert'
@@ -141,5 +149,6 @@ fn test_help_keyword() {
     Usage: jj [OPTIONS] <COMMAND>
 
     For more information, try '--help'.
-    "#);
+    [EOF]
+    ");
 }

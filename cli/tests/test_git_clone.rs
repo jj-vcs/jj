@@ -68,10 +68,11 @@ fn test_git_clone(subprocess: bool) {
         test_env.jj_cmd_ok(test_env.env_root(), &["git", "clone", "source", "empty"]);
     insta::allow_duplicates! { insta::assert_snapshot!(stdout, @""); }
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Fetching into new repo in "$TEST_ENV/empty"
     Nothing changed.
-    "###);
+    [EOF]
+    "#);
     }
 
     set_up_non_empty_git_repo(&git_repo);
@@ -90,6 +91,7 @@ fn test_git_clone(subprocess: bool) {
     Working copy now at: uuqppmxq 1f0b881a (empty) (no description set)
     Parent commit      : mzyxwzks 9f01a0e0 main | message
     Added 1 files, modified 0 files, removed 0 files
+    [EOF]
     "#);
     }
     assert!(test_env.env_root().join("clone").join("file").exists());
@@ -101,9 +103,10 @@ fn test_git_clone(subprocess: bool) {
     insta::assert_snapshot!(stdout, @"");
     }
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Nothing changed.
-    "###);
+    [EOF]
+    ");
     }
 
     // Failed clone should clean up the destination directory
@@ -122,11 +125,13 @@ fn test_git_clone(subprocess: bool) {
         insta::assert_snapshot!(stderr, @r#"
         Fetching into new repo in "$TEST_ENV/failed"
         Error: Could not find repository at '$TEST_ENV/bad'
+        [EOF]
         "#);
     } else {
         insta::assert_snapshot!(stderr, @r#"
         Fetching into new repo in "$TEST_ENV/failed"
         Error: could not find repository at '$TEST_ENV/bad'; class=Repository (6)
+        [EOF]
         "#);
     }
     assert!(!test_env.env_root().join("failed").exists());
@@ -147,11 +152,13 @@ fn test_git_clone(subprocess: bool) {
         insta::assert_snapshot!(stderr, @r#"
         Fetching into new repo in "$TEST_ENV/failed"
         Error: Could not find repository at '$TEST_ENV/bad'
+        [EOF]
         "#);
     } else {
         insta::assert_snapshot!(stderr, @r#"
         Fetching into new repo in "$TEST_ENV/failed"
         Error: could not find repository at '$TEST_ENV/bad'; class=Repository (6)
+        [EOF]
         "#);
     }
     assert!(test_env.env_root().join("failed").exists());
@@ -160,36 +167,40 @@ fn test_git_clone(subprocess: bool) {
     // Failed clone (if attempted) shouldn't remove the existing workspace
     let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["git", "clone", "bad", "clone"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Error: Destination path exists and is not an empty directory
-    "###);
+    [EOF]
+    ");
     }
     assert!(test_env.env_root().join("clone").join(".jj").exists());
 
     // Try cloning into an existing workspace
     let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["git", "clone", "source", "clone"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Error: Destination path exists and is not an empty directory
-    "###);
+    [EOF]
+    ");
     }
 
     // Try cloning into an existing file
     std::fs::write(test_env.env_root().join("file"), "contents").unwrap();
     let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["git", "clone", "source", "file"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Error: Destination path exists and is not an empty directory
-    "###);
+    [EOF]
+    ");
     }
 
     // Try cloning into non-empty, non-workspace directory
     std::fs::remove_dir_all(test_env.env_root().join("clone").join(".jj")).unwrap();
     let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["git", "clone", "source", "clone"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Error: Destination path exists and is not an empty directory
-    "###);
+    [EOF]
+    ");
     }
 
     // Clone into a nested path
@@ -208,6 +219,7 @@ fn test_git_clone(subprocess: bool) {
     Working copy now at: uuzqqzqu df8acbac (empty) (no description set)
     Parent commit      : mzyxwzks 9f01a0e0 main | message
     Added 1 files, modified 0 files, removed 0 files
+    [EOF]
     "#);
     }
 }
@@ -222,7 +234,10 @@ fn test_git_clone_bad_source(subprocess: bool) {
 
     let stderr = test_env.jj_cmd_cli_error(test_env.env_root(), &["git", "clone", "", "dest"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r#"Error: local path "" does not specify a path to a repository"#);
+    insta::assert_snapshot!(stderr, @r#"
+    Error: local path "" does not specify a path to a repository
+    [EOF]
+    "#);
     }
 
     // Invalid port number
@@ -234,6 +249,7 @@ fn test_git_clone_bad_source(subprocess: bool) {
     insta::assert_snapshot!(stderr, @r#"
     Error: URL "https://example.net:bad-port/bar" can not be parsed as valid URL
     Caused by: invalid port number
+    [EOF]
     "#);
     }
 }
@@ -258,10 +274,11 @@ fn test_git_clone_colocate(subprocess: bool) {
     insta::assert_snapshot!(stdout, @"");
     }
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r#"
     Fetching into new repo in "$TEST_ENV/empty"
     Nothing changed.
-    "###);
+    [EOF]
+    "#);
     }
 
     // git_target path should be relative to the store
@@ -293,6 +310,7 @@ fn test_git_clone_colocate(subprocess: bool) {
     Working copy now at: uuqppmxq 1f0b881a (empty) (no description set)
     Parent commit      : mzyxwzks 9f01a0e0 main | message
     Added 1 files, modified 0 files, removed 0 files
+    [EOF]
     "#);
     }
     assert!(test_env.env_root().join("clone").join("file").exists());
@@ -334,11 +352,12 @@ fn test_git_clone_colocate(subprocess: bool) {
     // The old default bookmark "master" shouldn't exist.
     insta::allow_duplicates! {
     insta::assert_snapshot!(
-        get_bookmark_output(&test_env, &test_env.env_root().join("clone")), @r###"
+        get_bookmark_output(&test_env, &test_env.env_root().join("clone")), @r"
     main: mzyxwzks 9f01a0e0 message
       @git: mzyxwzks 9f01a0e0 message
       @origin: mzyxwzks 9f01a0e0 message
-    "###);
+    [EOF]
+    ");
     }
 
     // Subsequent fetch should just work even if the source path was relative
@@ -348,9 +367,10 @@ fn test_git_clone_colocate(subprocess: bool) {
     insta::assert_snapshot!(stdout, @"");
     }
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Nothing changed.
-    "###);
+    [EOF]
+    ");
     }
 
     // Failed clone should clean up the destination directory
@@ -372,11 +392,13 @@ fn test_git_clone_colocate(subprocess: bool) {
         insta::assert_snapshot!(stderr, @r#"
         Fetching into new repo in "$TEST_ENV/failed"
         Error: Could not find repository at '$TEST_ENV/bad'
+        [EOF]
         "#);
     } else {
         insta::assert_snapshot!(stderr, @r#"
         Fetching into new repo in "$TEST_ENV/failed"
         Error: could not find repository at '$TEST_ENV/bad'; class=Repository (6)
+        [EOF]
         "#);
     }
     assert!(!test_env.env_root().join("failed").exists());
@@ -400,11 +422,13 @@ fn test_git_clone_colocate(subprocess: bool) {
         insta::assert_snapshot!(stderr, @r#"
         Fetching into new repo in "$TEST_ENV/failed"
         Error: Could not find repository at '$TEST_ENV/bad'
+        [EOF]
         "#);
     } else {
         insta::assert_snapshot!(stderr, @r#"
         Fetching into new repo in "$TEST_ENV/failed"
         Error: could not find repository at '$TEST_ENV/bad'; class=Repository (6)
+        [EOF]
         "#);
     }
     assert!(test_env.env_root().join("failed").exists());
@@ -417,9 +441,10 @@ fn test_git_clone_colocate(subprocess: bool) {
         &["git", "clone", "--colocate", "bad", "clone"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Error: Destination path exists and is not an empty directory
-    "###);
+    [EOF]
+    ");
     }
     assert!(test_env.env_root().join("clone").join(".git").exists());
     assert!(test_env.env_root().join("clone").join(".jj").exists());
@@ -430,9 +455,10 @@ fn test_git_clone_colocate(subprocess: bool) {
         &["git", "clone", "source", "clone", "--colocate"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Error: Destination path exists and is not an empty directory
-    "###);
+    [EOF]
+    ");
     }
 
     // Try cloning into an existing file
@@ -442,9 +468,10 @@ fn test_git_clone_colocate(subprocess: bool) {
         &["git", "clone", "source", "file", "--colocate"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Error: Destination path exists and is not an empty directory
-    "###);
+    [EOF]
+    ");
     }
 
     // Try cloning into non-empty, non-workspace directory
@@ -454,9 +481,10 @@ fn test_git_clone_colocate(subprocess: bool) {
         &["git", "clone", "source", "clone", "--colocate"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Error: Destination path exists and is not an empty directory
-    "###);
+    [EOF]
+    ");
     }
 
     // Clone into a nested path
@@ -481,6 +509,7 @@ fn test_git_clone_colocate(subprocess: bool) {
     Working copy now at: vzqnnsmr 9407107f (empty) (no description set)
     Parent commit      : mzyxwzks 9f01a0e0 main | message
     Added 1 files, modified 0 files, removed 0 files
+    [EOF]
     "#);
     }
 }
@@ -518,16 +547,18 @@ fn test_git_clone_remote_default_bookmark(subprocess: bool) {
     Working copy now at: sqpuoqvx cad212e1 (empty) (no description set)
     Parent commit      : mzyxwzks 9f01a0e0 feature1 main | message
     Added 1 files, modified 0 files, removed 0 files
+    [EOF]
     "#);
     }
     insta::allow_duplicates! {
     insta::assert_snapshot!(
-        get_bookmark_output(&test_env, &test_env.env_root().join("clone1")), @r###"
+        get_bookmark_output(&test_env, &test_env.env_root().join("clone1")), @r"
     feature1: mzyxwzks 9f01a0e0 message
       @origin: mzyxwzks 9f01a0e0 message
     main: mzyxwzks 9f01a0e0 message
       @origin: mzyxwzks 9f01a0e0 message
-    "###);
+    [EOF]
+    ");
     }
 
     // "trunk()" alias should be set to default bookmark "main"
@@ -536,9 +567,10 @@ fn test_git_clone_remote_default_bookmark(subprocess: bool) {
         &["config", "list", "--repo", "revset-aliases.'trunk()'"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r#"
     revset-aliases.'trunk()' = "main@origin"
-    "###);
+    [EOF]
+    "#);
     }
 
     // Only the default bookmark will be imported if auto-local-bookmark is off
@@ -554,15 +586,17 @@ fn test_git_clone_remote_default_bookmark(subprocess: bool) {
     Working copy now at: rzvqmyuk cc8a5041 (empty) (no description set)
     Parent commit      : mzyxwzks 9f01a0e0 feature1@origin main | message
     Added 1 files, modified 0 files, removed 0 files
+    [EOF]
     "#);
     }
     insta::allow_duplicates! {
     insta::assert_snapshot!(
-        get_bookmark_output(&test_env, &test_env.env_root().join("clone2")), @r###"
+        get_bookmark_output(&test_env, &test_env.env_root().join("clone2")), @r"
     feature1@origin: mzyxwzks 9f01a0e0 message
     main: mzyxwzks 9f01a0e0 message
       @origin: mzyxwzks 9f01a0e0 message
-    "###);
+    [EOF]
+    ");
     }
 
     // Change the default bookmark in remote
@@ -578,6 +612,7 @@ fn test_git_clone_remote_default_bookmark(subprocess: bool) {
     Working copy now at: nppvrztz b8a8a17b (empty) (no description set)
     Parent commit      : mzyxwzks 9f01a0e0 feature1 main@origin | message
     Added 1 files, modified 0 files, removed 0 files
+    [EOF]
     "#);
     }
     insta::allow_duplicates! {
@@ -586,6 +621,7 @@ fn test_git_clone_remote_default_bookmark(subprocess: bool) {
     feature1: mzyxwzks 9f01a0e0 message
       @origin: mzyxwzks 9f01a0e0 message
     main@origin: mzyxwzks 9f01a0e0 message
+    [EOF]
     ");
     }
 
@@ -595,9 +631,10 @@ fn test_git_clone_remote_default_bookmark(subprocess: bool) {
         &["config", "list", "--repo", "revset-aliases.'trunk()'"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r#"
     revset-aliases.'trunk()' = "feature1@origin"
-    "###);
+    [EOF]
+    "#);
     }
 }
 
@@ -631,6 +668,7 @@ fn test_git_clone_remote_default_bookmark_with_escape(subprocess: bool) {
     Working copy now at: sqpuoqvx cad212e1 (empty) (no description set)
     Parent commit      : mzyxwzks 9f01a0e0 " | message
     Added 1 files, modified 0 files, removed 0 files
+    [EOF]
     "#);
     }
 
@@ -640,7 +678,10 @@ fn test_git_clone_remote_default_bookmark_with_escape(subprocess: bool) {
         &["config", "list", "--repo", "revset-aliases.'trunk()'"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @r#"revset-aliases.'trunk()' = '"\""@origin'"#);
+    insta::assert_snapshot!(stdout, @r#"
+    revset-aliases.'trunk()' = '"\""@origin'
+    [EOF]
+    "#);
     }
 }
 
@@ -665,17 +706,19 @@ fn test_git_clone_ignore_working_copy(subprocess: bool) {
     Fetching into new repo in "$TEST_ENV/clone"
     bookmark: main@origin [new] untracked
     Setting the revset alias `trunk()` to `main@origin`
+    [EOF]
     "#);
     }
     let clone_path = test_env.env_root().join("clone");
 
     let (stdout, stderr) = test_env.jj_cmd_ok(&clone_path, &["status", "--ignore-working-copy"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     The working copy has no changes.
     Working copy : sqpuoqvx cad212e1 (empty) (no description set)
     Parent commit: mzyxwzks 9f01a0e0 main | message
-    "###);
+    [EOF]
+    ");
     }
     insta::allow_duplicates! {
     insta::assert_snapshot!(stderr, @"");
@@ -684,11 +727,12 @@ fn test_git_clone_ignore_working_copy(subprocess: bool) {
     // TODO: Correct, but might be better to check out the root commit?
     let stderr = test_env.jj_cmd_failure(&clone_path, &["status"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r##"
+    insta::assert_snapshot!(stderr, @r"
     Error: The working copy is stale (not updated since operation eac759b9ab75).
     Hint: Run `jj workspace update-stale` to update it.
     See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy for more information.
-    "##);
+    [EOF]
+    ");
     }
 }
 
@@ -708,9 +752,10 @@ fn test_git_clone_at_operation(subprocess: bool) {
         &["git", "clone", "--at-op=@-", "source", "clone"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Error: --at-op is not respected
-    "###);
+    [EOF]
+    ");
     }
 }
 
@@ -742,6 +787,7 @@ fn test_git_clone_with_remote_name(subprocess: bool) {
     Working copy now at: sqpuoqvx cad212e1 (empty) (no description set)
     Parent commit      : mzyxwzks 9f01a0e0 main | message
     Added 1 files, modified 0 files, removed 0 files
+    [EOF]
     "#);
     }
 }
@@ -764,6 +810,7 @@ fn test_git_clone_with_remote_named_git(subprocess: bool) {
     insta::assert_snapshot!(stderr, @r"
     Error: Git remote named 'git' is reserved for local Git repository
     Hint: Run `jj git remote rename` to give a different name.
+    [EOF]
     ");
     }
 }
@@ -786,6 +833,7 @@ fn test_git_clone_with_remote_with_slashes(subprocess: bool) {
     insta::assert_snapshot!(stderr, @r"
     Error: Git remotes with slashes are incompatible with jj: slash/origin
     Hint: Run `jj git remote rename` to give a different name.
+    [EOF]
     ");
     }
 }
@@ -815,6 +863,7 @@ fn test_git_clone_trunk_deleted(subprocess: bool) {
     Working copy now at: sqpuoqvx cad212e1 (empty) (no description set)
     Parent commit      : mzyxwzks 9f01a0e0 main | message
     Added 1 files, modified 0 files, removed 0 files
+    [EOF]
     "#);
     }
 
@@ -826,28 +875,31 @@ fn test_git_clone_trunk_deleted(subprocess: bool) {
     insta::assert_snapshot!(stdout, @"");
     }
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(stderr, @r"
     Forgot 1 local bookmarks.
     Forgot 1 remote bookmarks.
     Warning: Failed to resolve `revset-aliases.trunk()`: Revision `main@origin` doesn't exist
     Hint: Use `jj config edit --repo` to adjust the `trunk()` alias.
-    "#);
+    [EOF]
+    ");
     }
 
     let (stdout, stderr) = test_env.jj_cmd_ok(&clone_path, &["log"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @r#"
+    insta::assert_snapshot!(stdout, @r"
     @  sqpuoqvx test.user@example.com 2001-02-03 08:05:07 cad212e1
     │  (empty) (no description set)
     ○  mzyxwzks some.one@example.com 1970-01-01 11:00:00 9f01a0e0
     │  message
     ◆  zzzzzzzz root() 00000000
-    "#);
+    [EOF]
+    ");
     }
     insta::allow_duplicates! {
     insta::assert_snapshot!(stderr, @r"
     Warning: Failed to resolve `revset-aliases.trunk()`: Revision `main@origin` doesn't exist
     Hint: Use `jj config edit --repo` to adjust the `trunk()` alias.
+    [EOF]
     ");
     }
 }
@@ -900,6 +952,7 @@ fn test_git_clone_conditional_config() {
     @  base@old-repo new empty commit
     ○  base@base add workspace 'default'
     ○  @
+    [EOF]
     ");
 
     // Clone repo at the old workspace directory.
@@ -914,6 +967,7 @@ fn test_git_clone_conditional_config() {
     Working copy now at: zxsnswpr 5695b5e5 (empty) (no description set)
     Parent commit      : mzyxwzks 9f01a0e0 main | message
     Added 1 files, modified 0 files, removed 0 files
+    [EOF]
     "#);
     jj_cmd_ok(&new_workspace_root, &["new"]);
     let (stdout, _stderr) = jj_cmd_ok(&new_workspace_root, &["log", "-T", log_template]);
@@ -923,6 +977,7 @@ fn test_git_clone_conditional_config() {
     ◆  some.one@example.com message
     │
     ~
+    [EOF]
     ");
     let (stdout, _stderr) = jj_cmd_ok(&new_workspace_root, &["op", "log", "-T", op_log_template]);
     insta::assert_snapshot!(stdout, @r"
@@ -931,6 +986,7 @@ fn test_git_clone_conditional_config() {
     ○  new-repo@base fetch from git remote into empty repo
     ○  new-repo@base add workspace 'default'
     ○  @
+    [EOF]
     ");
 }
 
@@ -954,6 +1010,7 @@ fn test_git_clone_with_depth_git2() {
     insta::assert_snapshot!(stderr, @r#"
     Fetching into new repo in "$TEST_ENV/clone"
     Error: shallow fetch is not supported by the local transport; class=Net (12)
+    [EOF]
     "#);
 }
 
@@ -980,6 +1037,7 @@ fn test_git_clone_with_depth_subprocess() {
     Working copy now at: sqpuoqvx cad212e1 (empty) (no description set)
     Parent commit      : mzyxwzks 9f01a0e0 main | message
     Added 1 files, modified 0 files, removed 0 files
+    [EOF]
     "#);
 
     let (stdout, stderr) = test_env.jj_cmd_ok(&clone_path, &["log"]);
@@ -989,6 +1047,7 @@ fn test_git_clone_with_depth_subprocess() {
     ◆  mzyxwzks some.one@example.com 1970-01-01 11:00:00 main 9f01a0e0
     │  message
     ~
+    [EOF]
     ");
     insta::assert_snapshot!(stderr, @"");
 }
@@ -1018,6 +1077,7 @@ fn test_git_clone_invalid_immutable_heads(subprocess: bool) {
     Config error: Invalid `revset-aliases.immutable_heads()`
     Caused by: Revision `unknown` doesn't exist
     For help, see https://jj-vcs.github.io/jj/latest/config/.
+    [EOF]
     "#);
     }
 }
@@ -1046,27 +1106,30 @@ fn test_git_clone_malformed(subprocess: bool) {
     Setting the revset alias `trunk()` to `main@origin`
     Internal error: Failed to check out commit 039a1eae03465fd3be0fbad87c9ca97303742677
     Caused by: Reserved path component .jj in $TEST_ENV/clone/.jj
+    [EOF]
     "#);
     }
 
     // The cloned workspace isn't usable.
     let stderr = test_env.jj_cmd_failure(&clone_path, &["status"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r##"
+    insta::assert_snapshot!(stderr, @r"
     Error: The working copy is stale (not updated since operation 4a8ddda0ff63).
     Hint: Run `jj workspace update-stale` to update it.
     See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy for more information.
-    "##);
+    [EOF]
+    ");
     }
 
     // The error can be somehow recovered.
     // TODO: add an update-stale flag to reset the working-copy?
     let stderr = test_env.jj_cmd_internal_error(&clone_path, &["workspace", "update-stale"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(stderr, @r"
     Internal error: Failed to check out commit 039a1eae03465fd3be0fbad87c9ca97303742677
     Caused by: Reserved path component .jj in $TEST_ENV/clone/.jj
-    "#);
+    [EOF]
+    ");
     }
     let (_stdout, stderr) =
         test_env.jj_cmd_ok(&clone_path, &["new", "root()", "--ignore-working-copy"]);
@@ -1075,11 +1138,12 @@ fn test_git_clone_malformed(subprocess: bool) {
     }
     let stdout = test_env.jj_cmd_success(&clone_path, &["status"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @r#"
+    insta::assert_snapshot!(stdout, @r"
     The working copy has no changes.
     Working copy : zsuskuln f652c321 (empty) (no description set)
     Parent commit: zzzzzzzz 00000000 (empty) (no description set)
-    "#);
+    [EOF]
+    ");
     }
 }
 
@@ -1095,6 +1159,7 @@ fn test_git_clone_no_git_executable() {
     insta::assert_snapshot!(stderr.strip_last_line(), @r#"
     Fetching into new repo in "$TEST_ENV/clone"
     Error: Could not execute the git process, found in the OS path 'jj-test-missing-program'
+    [EOF]
     "#);
 }
 
@@ -1114,6 +1179,7 @@ fn test_git_clone_no_git_executable_with_path() {
     insta::assert_snapshot!(stderr.strip_last_line(), @r#"
     Fetching into new repo in "$TEST_ENV/clone"
     Error: Could not execute git process at specified path '$TEST_ENV/invalid/path'
+    [EOF]
     "#);
 }
 
