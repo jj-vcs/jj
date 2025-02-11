@@ -75,7 +75,7 @@ jobs:
       with:
         toolchain: 1.76
         target: ${{ matrix.target }}
-    - uses: taiki-e/install-action@510b3ecd7915856b6909305605afa7a8a57c1b04
+    - uses: taiki-e/install-action@995f97569c4a8ae84dcd7e1a0107f65ca6ebf139
       with:
         tool: nextest
     - name: Build
