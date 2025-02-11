@@ -603,7 +603,11 @@ fn read_to_end_with_progress<R: Read>(
             data.truncate(start);
         } else if let Some(message) = line.strip_prefix(b"remote: ") {
             if let Some(cb) = callbacks.sideband_progress.as_mut() {
-                cb(message);
+                let (body, term) = trim_sideband_line(message);
+                cb(body);
+                if let Some(term) = term {
+                    cb(&[term]);
+                }
             }
             data.truncate(start);
         }
@@ -663,9 +667,20 @@ fn read_progress_line(line: &[u8]) -> Option<(u64, u64)> {
     (frac <= total).then_some((frac, total))
 }
 
+/// Removes trailing spaces from sideband line, which may be padded by the `git`
+/// CLI in order to clear the previous progress line.
+fn trim_sideband_line(line: &[u8]) -> (&[u8], Option<u8>) {
+    let (body, term) = match line {
+        [body @ .., term @ (b'\r' | b'\n')] => (body, Some(*term)),
+        _ => (line, None),
+    };
+    let n = body.iter().rev().take_while(|&&b| b == b' ').count();
+    (&body[..body.len() - n], term)
+}
+
 #[cfg(test)]
 mod test {
-    use indoc::indoc;
+    use indoc::formatdoc;
 
     use super::*;
 
@@ -791,19 +806,21 @@ Done";
             let output = read_to_end_with_progress(&mut &sample[..], &mut callbacks).unwrap();
             (output, sideband, progress)
         };
-        let sample = indoc! {b"
-            remote: line1
+        const DUMB_SUFFIX: &str = "        ";
+        let sample = formatdoc! {"
+            remote: line1{DUMB_SUFFIX}
             blah blah
-            remote: line2.0\rremote: line2.1
-            remote: line3
+            remote: line2.0{DUMB_SUFFIX}\rremote: line2.1{DUMB_SUFFIX}
+            remote: line3{DUMB_SUFFIX}
             Resolving deltas: (12/24)
             some error message
         "};
 
-        let (output, sideband, progress) = read(sample);
+        let (output, sideband, progress) = read(sample.as_bytes());
         assert_eq!(
             sideband,
-            ["line1\n", "line2.0\r", "line2.1\n", "line3\n"].map(|s| s.as_bytes().to_owned())
+            ["line1", "\n", "line2.0", "\r", "line2.1", "\n", "line3", "\n"]
+                .map(|s| s.as_bytes().to_owned())
         );
         assert_eq!(output, b"blah blah\nsome error message\n");
         insta::assert_debug_snapshot!(progress, @r"
@@ -816,10 +833,11 @@ Done";
         ");
 
         // without last newline
-        let (output, sideband, _progress) = read(sample.trim_end());
+        let (output, sideband, _progress) = read(sample.as_bytes().trim_end());
         assert_eq!(
             sideband,
-            ["line1\n", "line2.0\r", "line2.1\n", "line3\n"].map(|s| s.as_bytes().to_owned())
+            ["line1", "\n", "line2.0", "\r", "line2.1", "\n", "line3", "\n"]
+                .map(|s| s.as_bytes().to_owned())
         );
         assert_eq!(output, b"blah blah\nsome error message");
     }
