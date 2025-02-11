@@ -1,17 +1,3 @@
-[merge-tools.kdiff3]
-# --merge to open output pane, CreateBakFiles=0 to not include backup files in commit
-edit-args = ["--merge", "--cs", "CreateBakFiles=0", "$left", "$right"]
-merge-args = ["$base", "$left", "$right", "-o", "$output", "--auto"]
-
-[merge-tools.meld]
-edit-args = ["$left", "$right"]
-merge-args = ["$left", "$base", "$right", "-o", "$output", "--auto-merge"]
-
-[merge-tools.meld-3]
-program="meld"
-# If using this as a template, note that `$output` is repeated twice below
-edit-args = ["$left", "$output", "$right", "-o", "$output"]
-
 [merge-tools.diffedit3]
 program="diffedit3"
 # 17376 is a verified random number, as in https://xkcd.com/221/ :). I am trying
@@ -31,6 +17,20 @@ program="diffedit3"
 # We do NOT use a random port as a fallback since we recommend that the user
 # configure SSH to forward these 5 ports
 edit-args = ["$left", "$right", "$output", "--port", "17376-17380", "--no-browser"]
+
+[merge-tools.kdiff3]
+# --merge to open output pane, CreateBakFiles=0 to not include backup files in commit
+edit-args = ["--merge", "--cs", "CreateBakFiles=0", "$left", "$right"]
+merge-args = ["$base", "$left", "$right", "-o", "$output", "--auto"]
+
+[merge-tools.meld]
+edit-args = ["$left", "$right"]
+merge-args = ["$left", "$base", "$right", "-o", "$output", "--auto-merge"]
+
+[merge-tools.meld-3]
+program="meld"
+# If using this as a template, note that `$output` is repeated twice below
+edit-args = ["$left", "$output", "$right", "-o", "$output"]
 
 [merge-tools.vimdiff]
 program = "vim"
@@ -62,4 +62,3 @@ program = "codium"
 merge-args = ["--wait", "--merge", "$left", "$right", "$base", "$output"]
 merge-tool-edits-conflict-markers = true
 conflict-marker-style = "git"
-
