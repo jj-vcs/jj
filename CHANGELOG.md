@@ -36,6 +36,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `ellipsis` parameter; passing this prepends or appends the ellipsis to the
   content if it is truncated to fit the maximum width.
 
+* Added `revsets.log-graph-prioritize`, which can be used to configure
+  which branch in the `jj log` graph is displayed on the left instead of `@`
+  (e.g. `coalesce(description("megamerge\n"), trunk())`)
+
 ### Fixed bugs
 
 * `jj status` now shows untracked files under untracked directories.
