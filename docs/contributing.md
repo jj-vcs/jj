@@ -66,10 +66,12 @@ so you can address any remaining minor comments and then merge the PR yourself
 when you're ready. If you realize that some comments require non-trivial
 changes, please ask your reviewer to take another look.
 
+If your employer pays anyone (not necessarily you) to contribute to Jujutsu,
+please make sure your GitHub username is [recorded](paid_contributors.md).
 To avoid conflicts of interest, please don't merge a PR that has only been
-approved by someone from the same organization. Similarly, as a reviewer,
-there is no need to approve your coworkers' PRs, since the author should await
-an approval from someone else anyway. It is of course still appreciated if you
+approved by someone from the same organization. Similarly, as a reviewer, there
+is no need to approve your coworkers' PRs, since the author should await an
+approval from someone else anyway. It is of course still appreciated if you
 review and comment on their PRs. Also, if the PR seems completely unrelated to
 your company's interests, do feel free to approve it.
 
