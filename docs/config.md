@@ -1395,6 +1395,17 @@ subprocess = false
 Note that `libgit2` support will likely be removed in the future, so you are
 encouraged to report any issues you experience with the default configuration.
 
+### Ignore Git LFS Files
+
+By default Git LFS files are **not** handled by `jj`. This will result in `jj` showing
+changes in these files, even if they are unchanged. You can configure `jj` to ignore these
+files by instructing it to parse the relevant `.gitattributes` files
+
+```toml
+[git]
+ignore-lfs-files = true
+```
+
 ## Filesystem monitor
 
 In large repositories, it may be beneficial to use a "filesystem monitor" to

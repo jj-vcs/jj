@@ -79,6 +79,7 @@ use crate::fsmonitor::watchman;
 use crate::fsmonitor::FsmonitorSettings;
 #[cfg(feature = "watchman")]
 use crate::fsmonitor::WatchmanConfig;
+use crate::gitattributes::GitAttributesFile;
 use crate::gitignore::GitIgnoreFile;
 use crate::lock::FileLock;
 use crate::matchers::DifferenceMatcher;
@@ -950,6 +951,7 @@ impl TreeState {
     ) -> Result<(bool, SnapshotStats), SnapshotError> {
         let &SnapshotOptions {
             ref base_ignores,
+            ref base_attributes,
             ref fsmonitor_settings,
             progress,
             start_tracking_matcher,
@@ -1002,6 +1004,7 @@ impl TreeState {
                 dir: RepoPathBuf::root(),
                 disk_dir: self.working_copy_path.clone(),
                 git_ignore: base_ignores.clone(),
+                git_attributes: base_attributes.clone(),
                 file_states: self.file_states.all(),
             };
             // Here we use scope as a queue of per-directory jobs.
@@ -1115,6 +1118,7 @@ struct DirectoryToVisit<'a> {
     dir: RepoPathBuf,
     disk_dir: PathBuf,
     git_ignore: Arc<GitIgnoreFile>,
+    git_attributes: Option<Arc<GitAttributesFile>>,
     file_states: FileStates<'a>,
 }
 
@@ -1181,11 +1185,15 @@ impl FileSnapshotter<'_> {
             dir,
             disk_dir,
             git_ignore,
+            git_attributes,
             file_states,
         } = directory_to_visit;
 
         let git_ignore = git_ignore
             .chain_with_file(&dir.to_internal_dir_string(), disk_dir.join(".gitignore"))?;
+        let git_attributes = git_attributes
+            .map(|ga| ga.chain_with_file(disk_dir.join(".gitattributes")))
+            .transpose()?;
         let dir_entries: Vec<_> = disk_dir
             .read_dir()
             .and_then(|entries| entries.try_collect())
@@ -1199,8 +1207,15 @@ impl FileSnapshotter<'_> {
             // sequential scan should be fast enough.
             .with_min_len(100)
             .filter_map(|entry| {
-                self.process_dir_entry(&dir, &git_ignore, file_states, &entry, scope)
-                    .transpose()
+                self.process_dir_entry(
+                    &dir,
+                    &git_ignore,
+                    &git_attributes,
+                    file_states,
+                    &entry,
+                    scope,
+                )
+                .transpose()
             })
             .map(|item| match item {
                 Ok((PresentDirEntryKind::Dir, name)) => Ok(Either::Left(name)),
@@ -1217,6 +1232,7 @@ impl FileSnapshotter<'_> {
         &'scope self,
         dir: &RepoPath,
         git_ignore: &Arc<GitIgnoreFile>,
+        git_attributes: &Option<Arc<GitAttributesFile>>,
         file_states: FileStates<'scope>,
         entry: &DirEntry,
         scope: &rayon::Scope<'scope>,
@@ -1253,6 +1269,7 @@ impl FileSnapshotter<'_> {
                     dir: path,
                     disk_dir: entry.path(),
                     git_ignore: git_ignore.clone(),
+                    git_attributes: git_attributes.clone(),
                     file_states,
                 };
                 self.spawn_ok(scope, |scope| {
@@ -1267,10 +1284,14 @@ impl FileSnapshotter<'_> {
                 progress(&path);
             }
             if maybe_current_file_state.is_none()
-                && git_ignore.matches(path.as_internal_file_string())
+                && (git_ignore.matches(path.as_internal_file_string())
+                    || git_attributes
+                        .as_ref()
+                        .map(|ga| ga.matches(path.as_internal_file_string()))
+                        .unwrap_or(false))
             {
-                // If it wasn't already tracked and it matches
-                // the ignored paths, then ignore it.
+                // If it wasn't already tracked and it matches the ignored paths
+                // or it's an LFS file we don't want to track, then ignore it.
                 Ok(None)
             } else if maybe_current_file_state.is_none()
                 && !self.start_tracking_matcher.matches(&path)

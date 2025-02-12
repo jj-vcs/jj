@@ -66,16 +66,22 @@ pub struct GitSettings {
     #[cfg(feature = "git2")]
     pub subprocess: bool,
     pub executable_path: PathBuf,
+    pub ignore_lfs_files: bool,
 }
 
 impl GitSettings {
     pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
+        let ignore_lfs_files = settings
+            .get_bool("git.ignore-lfs-files")
+            .optional()?
+            .unwrap_or_default();
         Ok(GitSettings {
             auto_local_bookmark: settings.get_bool("git.auto-local-bookmark")?,
             abandon_unreachable_commits: settings.get_bool("git.abandon-unreachable-commits")?,
             #[cfg(feature = "git2")]
             subprocess: settings.get_bool("git.subprocess")?,
             executable_path: settings.get("git.executable-path")?,
+            ignore_lfs_files,
         })
     }
 }
@@ -88,6 +94,7 @@ impl Default for GitSettings {
             #[cfg(feature = "git2")]
             subprocess: true,
             executable_path: PathBuf::from("git"),
+            ignore_lfs_files: false,
         }
     }
 }
