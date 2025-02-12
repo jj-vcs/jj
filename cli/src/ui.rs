@@ -331,7 +331,7 @@ impl PagerConfig {
             CommandNameAndArgs::String(name) if name == BUILTIN_PAGER_NAME => {
                 Ok(PagerConfig::Builtin(config.get("ui.streampager")?))
             }
-            _ => Ok(PagerConfig::External(config.get("ui.pager")?)),
+            pager_command => Ok(PagerConfig::External(pager_command)),
         }
     }
 }
