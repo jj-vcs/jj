@@ -36,6 +36,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `ellipsis` parameter; passing this prepends or appends the ellipsis to the
   content if it is truncated to fit the maximum width.
 
+* Add support for just ignoring Git LFS files by parsing `.gitattribute` files and automatically
+  adding the relevant files to the internal ignore list
+
 ### Fixed bugs
 
 * `jj status` now shows untracked files under untracked directories.

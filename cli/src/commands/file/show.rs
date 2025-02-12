@@ -89,7 +89,7 @@ pub(crate) fn cmd_file_show(
         }
     }
 
-    let matcher = fileset_expression.to_matcher();
+    let matcher = workspace_command.file_matcher(ui, &args.paths)?;
     ui.request_pager();
     write_tree_entries(
         ui,
