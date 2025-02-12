@@ -895,6 +895,14 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
             Ok(L::wrap_string(out_property))
         },
     );
+    map.insert(
+        "escape_json",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|s| serde_json::to_string(&s).unwrap());
+            Ok(L::wrap_string(out_property))
+        },
+    );
     map
 }
 
@@ -2659,6 +2667,9 @@ mod tests {
         // ranges with end > start are empty
         insta::assert_snapshot!(env.render_ok(r#""abcdef".substr(4, 2)"#), @"");
         insta::assert_snapshot!(env.render_ok(r#""abcdef".substr(-2, -4)"#), @"");
+
+        insta::assert_snapshot!(env.render_ok(r#""hello".escape_json()"#), @r#""hello""#);
+        insta::assert_snapshot!(env.render_ok(r#""he \n ll \n \" o".escape_json()"#), @r#""he \n ll \n \" o""#);
     }
 
     #[test]

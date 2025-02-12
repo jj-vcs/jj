@@ -36,6 +36,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `ellipsis` parameter; passing this prepends or appends the ellipsis to the
   content if it is truncated to fit the maximum width.
 
+* Templates now support additional string method `.escape_json(x)` which serializes
+  the string in JSON format. It is useful for making machine-readable templates
+  by escaping problematic characters like `\n`.
+
 ### Fixed bugs
 
 * `jj status` now shows untracked files under untracked directories.
