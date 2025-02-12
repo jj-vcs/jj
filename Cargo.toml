@@ -23,7 +23,7 @@ assert_matches = "1.5.0"
 async-trait = "0.1.86"
 blake2 = "0.10.6"
 bstr = "1.11.3"
-clap = { version = "4.5.28", features = [
+clap = { version = "4.5.29", features = [
     "derive",
     "deprecated",
     "wrap_help",
