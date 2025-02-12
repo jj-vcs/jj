@@ -77,7 +77,7 @@ jobs:
         target: ${{ matrix.target }}
     - uses: taiki-e/install-action@995f97569c4a8ae84dcd7e1a0107f65ca6ebf139
       with:
-        tool: nextest
+        tool: nextest,taplo-cli
     - name: Build
       run: cargo build --target ${{ matrix.target }} --workspace --all-targets --verbose ${{ matrix.cargo_flags }}
     - name: Test
