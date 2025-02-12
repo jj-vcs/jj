@@ -18,6 +18,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* Add support for just ignoring Git LFS files by parsing `.gitattribute` files and automatically
+  adding the relevant files to the internal ignore list
+
 ### Fixed bugs
 
 ## [0.27.0] - 2025-03-05

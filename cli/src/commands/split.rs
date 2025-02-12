@@ -95,9 +95,7 @@ pub(crate) fn cmd_split(
     }
 
     workspace_command.check_rewritable([target_commit.id()])?;
-    let matcher = workspace_command
-        .parse_file_patterns(ui, &args.paths)?
-        .to_matcher();
+    let matcher = workspace_command.file_matcher(ui, &args.paths)?;
     let diff_selector = workspace_command.diff_selector(
         ui,
         args.tool.as_deref(),

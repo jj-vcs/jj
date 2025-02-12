@@ -50,9 +50,7 @@ pub(crate) fn cmd_file_track(
     args: &FileTrackArgs,
 ) -> Result<(), CommandError> {
     let (mut workspace_command, auto_stats) = command.workspace_helper_with_stats(ui)?;
-    let matcher = workspace_command
-        .parse_file_patterns(ui, &args.paths)?
-        .to_matcher();
+    let matcher = workspace_command.file_matcher(ui, &args.paths)?;
     let options = workspace_command.snapshot_options_with_start_tracking_matcher(&matcher)?;
 
     let mut tx = workspace_command.start_transaction().into_inner();

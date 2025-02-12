@@ -149,9 +149,7 @@ pub(crate) fn cmd_fix(
     .evaluate_to_commit_ids()?
     .try_collect()?;
     workspace_command.check_rewritable(root_commits.iter())?;
-    let matcher = workspace_command
-        .parse_file_patterns(ui, &args.paths)?
-        .to_matcher();
+    let matcher = workspace_command.file_matcher(ui, &args.paths)?;
 
     let mut tx = workspace_command.start_transaction();
 

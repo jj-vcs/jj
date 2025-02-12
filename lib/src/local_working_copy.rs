@@ -84,6 +84,7 @@ use crate::lock::FileLock;
 use crate::matchers::DifferenceMatcher;
 use crate::matchers::EverythingMatcher;
 use crate::matchers::FilesMatcher;
+use crate::matchers::GitAttributesMatcher;
 use crate::matchers::IntersectionMatcher;
 use crate::matchers::Matcher;
 use crate::matchers::PrefixMatcher;
@@ -759,6 +760,16 @@ impl TreeState {
         Box::new(PrefixMatcher::new(&self.sparse_patterns))
     }
 
+    fn git_attributes_matcher(&self) -> Box<dyn Matcher> {
+        let merged_tree = self.current_tree().unwrap();
+        let tree = merged_tree.as_merge().first();
+
+        Box::new(
+            GitAttributesMatcher::new(tree, self.working_copy_path())
+                .expect("failed to init GitAttributesMatcher"),
+        )
+    }
+
     pub fn init(
         store: Arc<Store>,
         working_copy_path: PathBuf,
@@ -771,6 +782,7 @@ impl TreeState {
 
     fn empty(store: Arc<Store>, working_copy_path: PathBuf, state_path: PathBuf) -> TreeState {
         let tree_id = store.empty_merged_tree_id();
+
         TreeState {
             store,
             working_copy_path,
@@ -955,9 +967,11 @@ impl TreeState {
             start_tracking_matcher,
             max_new_file_size,
             conflict_marker_style,
+            skip_git_lfs_files,
         } = options;
 
         let sparse_matcher = self.sparse_matcher();
+        let git_attributes_matcher = self.git_attributes_matcher();
 
         let fsmonitor_clock_needs_save = *fsmonitor_settings != FsmonitorSettings::None;
         let mut is_dirty = fsmonitor_clock_needs_save;
@@ -970,7 +984,13 @@ impl TreeState {
             Some(fsmonitor_matcher) => fsmonitor_matcher.as_ref(),
         };
 
-        let matcher = IntersectionMatcher::new(sparse_matcher.as_ref(), fsmonitor_matcher);
+        let mut matcher = Box::new(IntersectionMatcher::new(
+            sparse_matcher.as_ref(),
+            fsmonitor_matcher,
+        )) as Box<dyn Matcher>;
+        if skip_git_lfs_files {
+            matcher = Box::new(DifferenceMatcher::new(matcher, git_attributes_matcher));
+        }
         if matcher.visit(RepoPath::root()).is_nothing() {
             // No need to load the current tree, set up channels, etc.
             self.watchman_clock = watchman_clock;
@@ -1692,7 +1712,10 @@ impl TreeState {
             .update(
                 &old_tree,
                 new_tree,
-                self.sparse_matcher().as_ref(),
+                &DifferenceMatcher::new(
+                    self.sparse_matcher().as_ref(),
+                    self.git_attributes_matcher(),
+                ),
                 options.conflict_marker_style,
             )
             .block_on()?;

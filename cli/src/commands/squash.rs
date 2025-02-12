@@ -155,9 +155,7 @@ pub(crate) fn cmd_squash(
         destination = parents.pop().unwrap();
     }
 
-    let matcher = workspace_command
-        .parse_file_patterns(ui, &args.paths)?
-        .to_matcher();
+    let matcher = workspace_command.file_matcher(ui, &args.paths)?;
     let diff_selector =
         workspace_command.diff_selector(ui, args.tool.as_deref(), args.interactive)?;
     let text_editor = workspace_command.text_editor()?;

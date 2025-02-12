@@ -63,9 +63,7 @@ pub(crate) fn cmd_file_list(
     let workspace_command = command.workspace_helper(ui)?;
     let commit = workspace_command.resolve_single_rev(ui, &args.revision)?;
     let tree = commit.tree()?;
-    let matcher = workspace_command
-        .parse_file_patterns(ui, &args.paths)?
-        .to_matcher();
+    let matcher = workspace_command.file_matcher(ui, &args.paths)?;
     let template = {
         let language = workspace_command.commit_template_language();
         let text = match &args.template {

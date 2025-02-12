@@ -94,7 +94,7 @@ pub(crate) fn cmd_diff(
     let workspace_command = command.workspace_helper(ui)?;
     let repo = workspace_command.repo();
     let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
-    let matcher = fileset_expression.to_matcher();
+    let matcher = workspace_command.file_matcher(ui, &args.paths)?;
     let resolve_revision = |r: &Option<RevisionArg>| {
         workspace_command.resolve_single_rev(ui, r.as_ref().unwrap_or(&RevisionArg::AT))
     };

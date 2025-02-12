@@ -1338,6 +1338,32 @@ to the current parents may contain changes from multiple commits.
         self.path_converter().parse_file_path(input)
     }
 
+    /// Parses the given strings as file patterns, convert it to a matcher and
+    /// apply Git LFS exclusions if requested
+    pub fn file_matcher(
+        &self,
+        ui: &Ui,
+        values: &[String],
+    ) -> Result<Box<dyn Matcher>, CommandError> {
+        let mut matcher = self.parse_file_patterns(ui, values)?.to_matcher();
+        if self.settings().git_settings()?.ignore_lfs_files {
+            let root = self.workspace().workspace_root();
+            if let Some(wc_commit) = self
+                .get_wc_commit_id()
+                .map(|id| self.repo().store().get_commit(id))
+                .transpose()?
+            {
+                let tree = wc_commit.tree()?;
+                matcher = Box::new(jj_lib::matchers::DifferenceMatcher::new(
+                    matcher,
+                    jj_lib::matchers::GitAttributesMatcher::new(tree.as_merge().first(), root)
+                        .expect("gitattributes matcher failed"),
+                ));
+            }
+        }
+        Ok(matcher)
+    }
+
     /// Parses the given strings as file patterns.
     pub fn parse_file_patterns(
         &self,
@@ -1404,6 +1430,7 @@ to the current parents may contain changes from multiple commits.
             start_tracking_matcher,
             max_new_file_size,
             conflict_marker_style,
+            skip_git_lfs_files: self.settings().git_settings()?.ignore_lfs_files,
         })
     }
 

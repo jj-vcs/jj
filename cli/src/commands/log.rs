@@ -151,7 +151,7 @@ pub(crate) fn cmd_log(
     };
 
     let repo = workspace_command.repo();
-    let matcher = fileset_expression.to_matcher();
+    let matcher = workspace_command.file_matcher(ui, &args.paths)?;
     let revset = revset_expression.evaluate()?;
 
     let store = repo.store();

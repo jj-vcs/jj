@@ -221,6 +221,8 @@ pub struct SnapshotOptions<'a> {
     pub max_new_file_size: u64,
     /// Expected conflict marker style for checking for changed files.
     pub conflict_marker_style: ConflictMarkerStyle,
+    /// skip git lfs files?
+    pub skip_git_lfs_files: bool,
 }
 
 impl SnapshotOptions<'_> {
@@ -233,6 +235,7 @@ impl SnapshotOptions<'_> {
             start_tracking_matcher: &EverythingMatcher,
             max_new_file_size: u64::MAX,
             conflict_marker_style: ConflictMarkerStyle::default(),
+            skip_git_lfs_files: false,
         }
     }
 }

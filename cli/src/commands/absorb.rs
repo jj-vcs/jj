@@ -76,9 +76,7 @@ pub(crate) fn cmd_absorb(
         .parse_union_revsets(ui, &args.into)?
         .resolve()?;
 
-    let matcher = workspace_command
-        .parse_file_patterns(ui, &args.paths)?
-        .to_matcher();
+    let matcher = workspace_command.file_matcher(ui, &args.paths)?;
 
     let repo = workspace_command.repo().as_ref();
     let source = AbsorbSource::from_commit(repo, source_commit)?;

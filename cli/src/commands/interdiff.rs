@@ -74,9 +74,7 @@ pub(crate) fn cmd_interdiff(
         workspace_command.resolve_single_rev(ui, args.from.as_ref().unwrap_or(&RevisionArg::AT))?;
     let to =
         workspace_command.resolve_single_rev(ui, args.to.as_ref().unwrap_or(&RevisionArg::AT))?;
-    let matcher = workspace_command
-        .parse_file_patterns(ui, &args.paths)?
-        .to_matcher();
+    let matcher = workspace_command.file_matcher(ui, &args.paths)?;
     let diff_renderer = workspace_command.diff_renderer_for(&args.format)?;
     ui.request_pager();
     diff_renderer.show_inter_diff(

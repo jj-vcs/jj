@@ -62,9 +62,7 @@ pub fn cmd_debug_tree(
             .resolve_single_rev(ui, args.revision.as_ref().unwrap_or(&RevisionArg::AT))?;
         commit.tree()?
     };
-    let matcher = workspace_command
-        .parse_file_patterns(ui, &args.paths)?
-        .to_matcher();
+    let matcher = workspace_command.file_matcher(ui, &args.paths)?;
     for (path, value) in tree.entries_matching(matcher.as_ref()) {
         let ui_path = workspace_command.format_file_path(&path);
         writeln!(ui.stdout(), "{ui_path}: {value:?}")?;
