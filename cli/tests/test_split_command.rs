@@ -18,7 +18,7 @@ use std::path::PathBuf;
 use crate::common::TestEnvironment;
 
 fn get_log_output(test_env: &TestEnvironment, cwd: &Path) -> String {
-    let template = r#"separate(" ", change_id.short(), empty, description, local_bookmarks)"#;
+    let template = r#"separate(" ", change_id.short(), empty, local_bookmarks, description)"#;
     test_env.jj_cmd_success(cwd, &["log", "-T", template])
 }
 
@@ -226,13 +226,6 @@ fn test_split_with_default_description() {
     std::fs::write(workspace_path.join("file1"), "foo\n").unwrap();
     std::fs::write(workspace_path.join("file2"), "bar\n").unwrap();
 
-    // Create a bookmark pointing to the commit. It will be moved to the second
-    // commit after the split.
-    test_env.jj_cmd_ok(
-        &workspace_path,
-        &["bookmark", "create", "-r@", "test_bookmark"],
-    );
-
     let edit_script = test_env.set_up_fake_editor();
     std::fs::write(
         edit_script,
@@ -242,10 +235,10 @@ fn test_split_with_default_description() {
     let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_path, &["split", "file1"]);
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @r###"
-    First part: qpvuntsm 48018df6 TESTED=TODO
-    Second part: kkmpptxz 350b4c13 test_bookmark | (no description set)
-    Working copy now at: kkmpptxz 350b4c13 test_bookmark | (no description set)
-    Parent commit      : qpvuntsm 48018df6 TESTED=TODO
+    First part: qpvuntsm 02ee5d60 TESTED=TODO
+    Second part: rlvkpnrz 33cd046b (no description set)
+    Working copy now at: rlvkpnrz 33cd046b (no description set)
+    Parent commit      : qpvuntsm 02ee5d60 TESTED=TODO
     "###);
 
     // Since the commit being split has no description, the user will only be
@@ -266,7 +259,7 @@ fn test_split_with_default_description() {
     "###);
     assert!(!test_env.env_root().join("editor2").exists());
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r###"
-    @  kkmpptxzrspx false test_bookmark
+    @  rlvkpnrzqnoo false
     ○  qpvuntsmwlqt false TESTED=TODO
     ◆  zzzzzzzzzzzz true
     "###);
@@ -337,14 +330,8 @@ fn test_split_siblings_no_descendants() {
     std::fs::write(workspace_path.join("file1"), "foo\n").unwrap();
     std::fs::write(workspace_path.join("file2"), "bar\n").unwrap();
 
-    // Create a bookmark pointing to the commit. It will be moved to the second
-    // commit after the split.
-    test_env.jj_cmd_ok(
-        &workspace_path,
-        &["bookmark", "create", "-r@", "test_bookmark"],
-    );
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r###"
-    @  qpvuntsmwlqt false test_bookmark
+    @  qpvuntsmwlqt false
     ◆  zzzzzzzzzzzz true
     "###);
 
@@ -357,14 +344,14 @@ fn test_split_siblings_no_descendants() {
     let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_path, &["split", "--parallel", "file1"]);
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @r###"
-    First part: qpvuntsm 0dced07a TESTED=TODO
-    Second part: zsuskuln 0473f014 test_bookmark | (no description set)
-    Working copy now at: zsuskuln 0473f014 test_bookmark | (no description set)
+    First part: qpvuntsm 48018df6 TESTED=TODO
+    Second part: kkmpptxz 7eddbf93 (no description set)
+    Working copy now at: kkmpptxz 7eddbf93 (no description set)
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 0 files, removed 1 files
     "###);
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r###"
-    @  zsuskulnrvyr false test_bookmark
+    @  kkmpptxzrspx false
     │ ○  qpvuntsmwlqt false TESTED=TODO
     ├─╯
     ◆  zzzzzzzzzzzz true
@@ -807,5 +794,52 @@ fn test_split_with_multiple_workspaces_different_working_copy() {
     │ ○  pmmvwywvzvvn second@
     ├─╯
     ◆  zzzzzzzzzzzz
+    "###);
+}
+
+#[test]
+fn test_split_with_bookmarks() {
+    let mut test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "main"]);
+    let main_path = test_env.env_root().join("main");
+
+    // Setup.
+    test_env.jj_cmd_ok(&main_path, &["desc", "-m", "first-commit"]);
+    std::fs::write(main_path.join("file1"), "foo").unwrap();
+    std::fs::write(main_path.join("file2"), "foo").unwrap();
+    test_env.jj_cmd_ok(&main_path, &["bookmark", "set", "*le-signet*", "-r", "@"]);
+    insta::assert_snapshot!(get_log_output(&test_env, &main_path), @r###"
+    @  qpvuntsmwlqt false *le-signet* first-commit
+    ◆  zzzzzzzzzzzz true
+    "###);
+
+    // Do the split.
+    std::fs::write(
+        test_env.set_up_fake_editor(),
+        ["", "next invocation\n", "write\nsecond-commit"].join("\0"),
+    )
+    .unwrap();
+    test_env.jj_cmd_ok(&main_path, &["split", "file2"]);
+    // The bookmark moves to the second commit.
+    insta::assert_snapshot!(get_log_output(&test_env, &main_path), @r###"
+    @  mzvwutvlkqwt false *le-signet* second-commit
+    ○  qpvuntsmwlqt false first-commit
+    ◆  zzzzzzzzzzzz true
+    "###);
+
+    // Test again with a --parallel split.
+    test_env.jj_cmd_ok(&main_path, &["undo"]);
+    std::fs::write(
+        test_env.set_up_fake_editor(),
+        ["", "next invocation\n", "write\nsecond-commit"].join("\0"),
+    )
+    .unwrap();
+    test_env.jj_cmd_ok(&main_path, &["split", "file2", "--parallel"]);
+    // The bookmark moves to the second commit.
+    insta::assert_snapshot!(get_log_output(&test_env, &main_path), @r###"
+    @  vruxwmqvtpmx false *le-signet* second-commit
+    │ ○  qpvuntsmwlqt false first-commit
+    ├─╯
+    ◆  zzzzzzzzzzzz true
     "###);
 }
