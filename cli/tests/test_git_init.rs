@@ -25,31 +25,12 @@ use crate::common::strip_last_line;
 use crate::common::to_toml_value;
 use crate::common::TestEnvironment;
 
-struct InitOpts<'a> {
-    bare: bool,
-    workspace_root: Option<&'a Path>,
-}
-
 fn init_git_repo(git_repo_path: &Path, bare: bool) -> gix::Repository {
-    init_git_repo_with_opts(
-        git_repo_path,
-        InitOpts {
-            bare,
-            workspace_root: None,
-        },
-    )
-}
-
-fn init_git_repo_with_opts(git_repo_path: &Path, opts: InitOpts<'_>) -> gix::Repository {
-    let git_repo = if opts.bare {
+    let git_repo = if bare {
         git::init_bare(git_repo_path)
     } else {
         git::init(git_repo_path)
     };
-
-    if let Some(path) = opts.workspace_root {
-        git::create_gitlink(path, git_repo.path());
-    }
 
     let git::CommitResult { commit_id, .. } = git::add_commit(
         &git_repo,
@@ -379,13 +360,9 @@ fn test_git_init_colocated_via_git_repo_path_gitlink() {
     // <workspace_root>/.git -> <git_repo_path>
     let git_repo_path = test_env.env_root().join("git-repo");
     let workspace_root = test_env.env_root().join("repo");
-    init_git_repo_with_opts(
-        &git_repo_path,
-        InitOpts {
-            bare: false,
-            workspace_root: Some(&workspace_root),
-        },
-    );
+    let git_repo = init_git_repo(&git_repo_path, false);
+    git::create_gitlink(&workspace_root, git_repo.path());
+
     assert!(workspace_root.join(".git").is_file());
     let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["git", "init", "--git-repo", "."]);
     insta::assert_snapshot!(stdout, @"");
@@ -494,13 +471,8 @@ fn test_git_init_colocated_via_git_repo_path_symlink_gitlink() {
     let git_repo_path = test_env.env_root().join("git-repo");
     let git_workdir_path = test_env.env_root().join("git-workdir");
     let workspace_root = test_env.env_root().join("repo");
-    init_git_repo_with_opts(
-        &git_repo_path,
-        InitOpts {
-            bare: false,
-            workspace_root: Some(&git_workdir_path),
-        },
-    );
+    let git_repo = init_git_repo(&git_repo_path, false);
+    git::create_gitlink(&git_workdir_path, git_repo.path());
     assert!(git_workdir_path.join(".git").is_file());
     std::fs::create_dir(&workspace_root).unwrap();
     std::os::unix::fs::symlink(git_workdir_path.join(".git"), workspace_root.join(".git")).unwrap();
