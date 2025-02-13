@@ -29,7 +29,7 @@ pub struct GitRemoteAddArgs {
     /// The remote's URL or path
     ///
     /// Local path will be resolved to absolute form.
-    #[arg(value_hint = clap::ValueHint::DirPath)]
+    #[arg(value_hint = clap::ValueHint::Url)]
     url: String,
 }
 

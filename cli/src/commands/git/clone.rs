@@ -46,7 +46,7 @@ pub struct GitCloneArgs {
     /// URL or path of the Git repo to clone
     ///
     /// Local path will be resolved to absolute form.
-    #[arg(value_hint = clap::ValueHint::DirPath)]
+    #[arg(value_hint = clap::ValueHint::Url)]
     source: String,
     /// Specifies the target directory for the Jujutsu repository clone.
     /// If not provided, defaults to a directory named after the last component
