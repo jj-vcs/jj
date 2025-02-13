@@ -1453,9 +1453,6 @@ Here are some popular editors with TOML schema validation support:
 - JetBrains IDEs (IntelliJ, PyCharm, etc)
   - Install [TOML](https://plugins.jetbrains.com/plugin/8195-toml) plugin
 
-- Sublime Text
-  - Install [LSP](https://packagecontrol.io/packages/LSP) and [LSP-taplo](https://packagecontrol.io/packages/LSP-taplo)
-
 - Emacs
   - Install [lsp-mode](https://github.com/emacs-lsp/lsp-mode) and [toml-mode](https://github.com/dryman/toml-mode.el)
   - Configure [taplo](https://github.com/tamasfe/taplo) as the LSP server
