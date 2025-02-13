@@ -23,7 +23,7 @@ fn test_util_config_schema() {
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["util", "config-schema"]);
     // Validate partial snapshot, redacting any lines nested 2+ indent levels.
     insta::with_settings!({filters => vec![(r"(?m)(^        .*$\r?\n)+", "        [...]\n")]}, {
-        assert_snapshot!(stdout, @r#"
+        assert_snapshot!(stdout, @r###"
         {
             "$schema": "http://json-schema.org/draft-04/schema",
             "$comment": "`taplo` and the corresponding VS Code plugins only support draft-04 verstion of JSON Schema, see <https://taplo.tamasfe.dev/configuration/developing-schemas.html>. draft-07 is mostly compatible with it, newer versions may not be.",
@@ -32,11 +32,9 @@ fn test_util_config_schema() {
             "description": "User configuration for Jujutsu VCS. See https://jj-vcs.github.io/jj/latest/config/ for details",
             "properties": {
                 [...]
-            "fix": {
-                [...]
             }
         }
-        "#);
+        "###);
     });
 }
 
