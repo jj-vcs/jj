@@ -320,9 +320,8 @@ defined.
   count from the end of the string.
 * `.escape_json() -> String`: Serializes the string in JSON format. This
   function is useful for making machine-readable templates. For example, you
-  can use it in a template like `"{ \"foo\": " ++ self.foo().escape_json() ++ "}"` to
+  can use it in a template like `'{ "foo": ' ++ foo.escape_json() ++ ' }'` to
   return a JSON/JSONL.
-
 
 #### String literals
 
