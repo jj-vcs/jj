@@ -1553,6 +1553,11 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
             ))))
         },
     );
+    map.insert("stringify", |language, diagnostics, build_ctx, function| {
+        let [content_node] = function.expect_exact_arguments()?;
+        let content = expect_plain_text_expression(language, diagnostics, build_ctx, content_node)?;
+        Ok(L::wrap_string(content))
+    });
     map.insert("if", |language, diagnostics, build_ctx, function| {
         let ([condition_node, true_node], [false_node]) = function.expect_arguments()?;
         let condition =
@@ -3131,6 +3136,16 @@ mod tests {
                 ++ "Example"
                 ++ "\x1b]8;;\x1B\\")"#),
             @r#"]8;;http://example.com\Example]8;;\"#);
+    }
+
+    #[test]
+    fn test_stringify_function() {
+        let mut env = TestTemplateEnv::new();
+        env.add_color("error", crossterm::style::Color::DarkRed);
+
+        insta::assert_snapshot!(env.render_ok("stringify(false)"), @"false");
+        insta::assert_snapshot!(env.render_ok("stringify(42).len()"), @"2");
+        insta::assert_snapshot!(env.render_ok("stringify(label('error', 'text'))"), @"text");
     }
 
     #[test]

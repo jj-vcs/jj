@@ -74,6 +74,8 @@ The following functions are defined.
   Note: This function is intended for escape sequences and as such, its output
   is expected to be invisible / of no display width. Outputting content with
   nonzero display width may break wrapping, indentation etc.
+* `stringify(content: Template) -> String`: Format `content` to string. This
+  effectively removes color labels.
 * `if(condition: Boolean, then: Template[, else: Template]) -> Template`:
   Conditionally evaluate `then`/`else` template content.
 * `coalesce(content: Template...) -> Template`: Returns the first **non-empty**
