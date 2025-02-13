@@ -17,4 +17,5 @@
   include-markdown "../cli/tests/cli-reference@.md.snap"
   rewrite-relative-urls=false
   start="<!-- BEGIN MARKDOWN-->"
+  comments=true
 %}
