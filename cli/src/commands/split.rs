@@ -263,7 +263,7 @@ fn read_legacy_bookmark_behavior_setting(
             )?;
             writeln!(
                 ui.warning_default(),
-                "Run `jj config set --repo split.legacy-bookmark-behavior false` to silence this \
+                "Run `jj config set --user split.legacy-bookmark-behavior false` to silence this \
                  message and use the new behavior."
             )?;
             writeln!(
