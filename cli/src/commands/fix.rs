@@ -383,8 +383,9 @@ fn run_tool(
     // associated with.
     let mut vars: HashMap<&str, &str> = HashMap::new();
     vars.insert("path", tool_input.repo_path.as_internal_file_string());
-    let mut child = tool_command
-        .to_command_with_variables(&vars)
+    let mut command = tool_command.to_command_with_variables(&vars);
+    tracing::debug!(?command, ?tool_input.repo_path, "spawning fix tool");
+    let mut child = command
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()
@@ -397,6 +398,7 @@ fn run_tool(
         Some(child.wait_with_output().or(Err(())))
     })
     .unwrap()?;
+    tracing::debug!(?command, ?output.status, "fix tool exited:");
     if output.status.success() {
         Ok(output.stdout)
     } else {
