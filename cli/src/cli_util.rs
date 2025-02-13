@@ -897,14 +897,19 @@ impl WorkspaceCommandEnvironment {
         }
     }
 
+    /// Returns first immutable commit + lower and upper bounds on number of
+    /// immutable commits.
     fn find_immutable_commit<'a>(
         &self,
         repo: &dyn Repo,
         commits: impl IntoIterator<Item = &'a CommitId>,
-    ) -> Result<Option<CommitId>, CommandError> {
+    ) -> Result<Option<(CommitId, usize, Option<usize>)>, CommandError> {
         if self.command.global_args().ignore_immutable {
             let root_id = repo.store().root_commit_id();
-            return Ok(commits.into_iter().find(|id| *id == root_id).cloned());
+            return Ok(commits
+                .into_iter()
+                .find(|id| *id == root_id)
+                .map(|root| (root.clone(), 1, None)));
         }
 
         // Not using self.id_prefix_context() because the disambiguation data
@@ -924,7 +929,21 @@ impl WorkspaceCommandEnvironment {
         let mut commit_id_iter = expression.evaluate_to_commit_ids().map_err(|e| {
             config_error_with_message("Invalid `revset-aliases.immutable_heads()`", e)
         })?;
-        Ok(commit_id_iter.next().transpose()?)
+
+        let Some(first_immutable) = commit_id_iter.next().transpose()? else {
+            return Ok(None);
+        };
+
+        let mut bounds = RevsetExpressionEvaluator::new(
+            repo,
+            self.command.revset_extensions().clone(),
+            &id_prefix_context,
+            self.immutable_expression(),
+        );
+        bounds.intersect_with(&to_rewrite_revset.descendants());
+        let (lower, upper) = bounds.evaluate()?.count_estimate()?;
+
+        Ok(Some((first_immutable, lower, upper)))
     }
 
     /// Parses template of the given language into evaluation tree.
@@ -1798,7 +1817,7 @@ to the current parents may contain changes from multiple commits.
         &self,
         commits: impl IntoIterator<Item = &'a CommitId>,
     ) -> Result<(), CommandError> {
-        let Some(commit_id) = self
+        let Some((commit_id, lower_bound, upper_bound)) = self
             .env
             .find_immutable_commit(self.repo().as_ref(), commits)?
         else {
@@ -1814,10 +1833,18 @@ to the current parents may contain changes from multiple commits.
                 self.write_commit_summary(formatter, &commit)?;
                 Ok(())
             });
-            error.add_hint(
-                "Pass `--ignore-immutable` or configure the set of immutable commits via \
-                 `revset-aliases.immutable_heads()`.",
-            );
+            error.add_hint("Immutable commits are used to protect shared history.");
+            error.add_hint(indoc::indoc! {"
+                For more information, see:
+                      - https://jj-vcs.github.io/jj/latest/config/#set-of-immutable-commits
+                      - `jj help -k config`, \"Set of immutable commits\""});
+
+            let exact = upper_bound == Some(lower_bound);
+            let or_more = if exact { "" } else { " or more" };
+            error.add_hint(format!(
+                "This operation would rewrite {lower_bound}{or_more} immutable commits."
+            ));
+
             error
         };
         Err(error)

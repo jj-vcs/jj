@@ -712,12 +712,16 @@ fn test_fix_immutable_commit() {
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "immutable""#);
 
     let stderr = test_env.jj_cmd_failure(&repo_path, &["fix", "-s", "immutable"]);
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(stderr, @r##"
     Error: Commit e4b41a3ce243 is immutable
     Hint: Could not modify commit: qpvuntsm e4b41a3c immutable | (no description set)
-    Hint: Pass `--ignore-immutable` or configure the set of immutable commits via `revset-aliases.immutable_heads()`.
+    Hint: Immutable commits are used to protect shared history.
+    Hint: For more information, see:
+          - https://jj-vcs.github.io/jj/latest/config/#set-of-immutable-commits
+          - `jj help -k config`, "Set of immutable commits"
+    Hint: This operation would rewrite 1 immutable commits.
     [EOF]
-    ");
+    "##);
     let content = test_env.jj_cmd_success(&repo_path, &["file", "show", "file", "-r", "immutable"]);
     insta::assert_snapshot!(content, @"immutable[EOF]");
     let content = test_env.jj_cmd_success(&repo_path, &["file", "show", "file", "-r", "mutable"]);

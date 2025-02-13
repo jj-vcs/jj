@@ -727,12 +727,16 @@ fn test_absorb_immutable() {
 
     // Immutable revisions shouldn't be rewritten
     let stderr = test_env.jj_cmd_failure(&repo_path, &["absorb", "--into=all()"]);
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(stderr, @r##"
     Error: Commit 3619e4e52fce is immutable
     Hint: Could not modify commit: qpvuntsm 3619e4e5 main | 1
-    Hint: Pass `--ignore-immutable` or configure the set of immutable commits via `revset-aliases.immutable_heads()`.
+    Hint: Immutable commits are used to protect shared history.
+    Hint: For more information, see:
+          - https://jj-vcs.github.io/jj/latest/config/#set-of-immutable-commits
+          - `jj help -k config`, "Set of immutable commits"
+    Hint: This operation would rewrite 1 immutable commits.
     [EOF]
-    ");
+    "##);
 
     insta::assert_snapshot!(get_diffs(&test_env, &repo_path, ".."), @r"
     @  mzvwutvl 3021153d (no description set)
