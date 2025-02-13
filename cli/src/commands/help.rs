@@ -58,7 +58,11 @@ pub(crate) fn cmd_help(
         return Ok(());
     }
 
-    let mut args_to_show_help = vec![command.app().get_name()];
+    let bin_name = command
+        .string_args()
+        .first()
+        .map_or(command.app().get_name(), |name| name.as_ref());
+    let mut args_to_show_help = vec![bin_name];
     args_to_show_help.extend(args.command.iter().map(|s| s.as_str()));
     args_to_show_help.push("--help");
 
