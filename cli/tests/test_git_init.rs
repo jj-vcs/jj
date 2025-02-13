@@ -361,6 +361,7 @@ fn test_git_init_colocated_via_git_repo_path_gitlink() {
     let git_repo_path = test_env.env_root().join("git-repo");
     let workspace_root = test_env.env_root().join("repo");
     let git_repo = init_git_repo(&git_repo_path, false);
+    std::fs::create_dir(&workspace_root).unwrap();
     git::create_gitlink(&workspace_root, git_repo.path());
 
     assert!(workspace_root.join(".git").is_file());
@@ -472,6 +473,7 @@ fn test_git_init_colocated_via_git_repo_path_symlink_gitlink() {
     let git_workdir_path = test_env.env_root().join("git-workdir");
     let workspace_root = test_env.env_root().join("repo");
     let git_repo = init_git_repo(&git_repo_path, false);
+    std::fs::create_dir(&git_workdir_path).unwrap();
     git::create_gitlink(&git_workdir_path, git_repo.path());
     assert!(git_workdir_path.join(".git").is_file());
     std::fs::create_dir(&workspace_root).unwrap();

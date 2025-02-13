@@ -75,11 +75,9 @@ pub fn clone(dest_path: &Path, url: &str) -> gix::Repository {
     repo
 }
 
-// write out gitlink entry
+/// Writes out gitlink entry pointing to the `target_repo`.
 pub fn create_gitlink(src_repo: impl AsRef<Path>, target_repo: impl AsRef<Path>) {
-    let src_repo = src_repo.as_ref();
-    let git_link_path = src_repo.join(".git");
-    std::fs::create_dir_all(src_repo).unwrap();
+    let git_link_path = src_repo.as_ref().join(".git");
     std::fs::write(
         git_link_path,
         format!("gitdir: {}\n", target_repo.as_ref().display()),
