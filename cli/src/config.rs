@@ -186,23 +186,20 @@ enum ConfigPath {
     /// Could not find any config file, but a new file can be created at the
     /// specified location.
     New(PathBuf),
-    /// Could not find any config file.
-    Unavailable,
 }
 
 impl ConfigPath {
-    fn new(path: Option<PathBuf>) -> Self {
-        match path {
-            Some(path) if path.exists() => ConfigPath::Existing(path),
-            Some(path) => ConfigPath::New(path),
-            None => ConfigPath::Unavailable,
+    fn new(path: PathBuf) -> Self {
+        if path.exists() {
+            ConfigPath::Existing(path)
+        } else {
+            ConfigPath::New(path)
         }
     }
 
-    fn as_path(&self) -> Option<&Path> {
+    fn as_path(&self) -> &Path {
         match self {
-            ConfigPath::Existing(path) | ConfigPath::New(path) => Some(path),
-            ConfigPath::Unavailable => None,
+            ConfigPath::Existing(path) | ConfigPath::New(path) => path,
         }
     }
 }
@@ -229,30 +226,30 @@ struct UnresolvedConfigEnv {
 }
 
 impl UnresolvedConfigEnv {
-    fn resolve(self) -> Result<ConfigPath, ConfigEnvError> {
+    fn resolve(self) -> Result<Option<ConfigPath>, ConfigEnvError> {
         if let Some(path) = self.jj_config {
             // TODO: We should probably support colon-separated (std::env::split_paths)
-            return Ok(ConfigPath::new(Some(PathBuf::from(path))));
+            return Ok(Some(ConfigPath::new(PathBuf::from(path))));
         }
         // TODO: Should we drop the final `/config.toml` and read all files in the
         // directory?
-        let platform_config_path = ConfigPath::new(self.config_dir.map(|mut config_dir| {
+        let platform_config_path = self.config_dir.map(|mut config_dir| {
             config_dir.push("jj");
             config_dir.push("config.toml");
-            config_dir
-        }));
-        let home_config_path = ConfigPath::new(self.home_dir.map(|mut home_dir| {
+            ConfigPath::new(config_dir)
+        });
+        let home_config_path = self.home_dir.map(|mut home_dir| {
             home_dir.push(".jjconfig.toml");
-            home_dir
-        }));
+            ConfigPath::new(home_dir)
+        });
         use ConfigPath::*;
         match (platform_config_path, home_config_path) {
-            (Existing(platform_config_path), Existing(home_config_path)) => Err(
+            (Some(Existing(platform_config_path)), Some(Existing(home_config_path))) => Err(
                 ConfigEnvError::AmbiguousSource(platform_config_path, home_config_path),
             ),
-            (Existing(path), _) | (_, Existing(path)) => Ok(Existing(path)),
-            (New(path), _) | (_, New(path)) => Ok(New(path)),
-            (Unavailable, Unavailable) => Ok(Unavailable),
+            (Some(Existing(path)), _) | (_, Some(Existing(path))) => Ok(Some(Existing(path))),
+            (Some(New(path)), _) | (_, Some(New(path))) => Ok(Some(New(path))),
+            (None, None) => Ok(None),
         }
     }
 }
@@ -261,8 +258,8 @@ impl UnresolvedConfigEnv {
 pub struct ConfigEnv {
     home_dir: Option<PathBuf>,
     repo_path: Option<PathBuf>,
-    user_config_path: ConfigPath,
-    repo_config_path: ConfigPath,
+    user_config_path: Option<ConfigPath>,
+    repo_config_path: Option<ConfigPath>,
     command: Option<String>,
 }
 
@@ -281,7 +278,7 @@ impl ConfigEnv {
             home_dir,
             repo_path: None,
             user_config_path: env.resolve()?,
-            repo_config_path: ConfigPath::Unavailable,
+            repo_config_path: None,
             command: None,
         })
     }
@@ -292,13 +289,13 @@ impl ConfigEnv {
 
     /// Returns a path to the user-specific config file or directory.
     pub fn user_config_path(&self) -> Option<&Path> {
-        self.user_config_path.as_path()
+        self.user_config_path.as_ref().map(ConfigPath::as_path)
     }
 
     /// Returns a path to the existing user-specific config file or directory.
     fn existing_user_config_path(&self) -> Option<&Path> {
         match &self.user_config_path {
-            ConfigPath::Existing(path) => Some(path),
+            Some(ConfigPath::Existing(path)) => Some(path),
             _ => None,
         }
     }
@@ -350,18 +347,18 @@ impl ConfigEnv {
     /// is usually `.jj/repo`.
     pub fn reset_repo_path(&mut self, path: &Path) {
         self.repo_path = Some(path.to_owned());
-        self.repo_config_path = ConfigPath::new(Some(path.join("config.toml")));
+        self.repo_config_path = Some(ConfigPath::new(path.join("config.toml")));
     }
 
     /// Returns a path to the repo-specific config file.
     pub fn repo_config_path(&self) -> Option<&Path> {
-        self.repo_config_path.as_path()
+        self.repo_config_path.as_ref().map(ConfigPath::as_path)
     }
 
     /// Returns a path to the existing repo-specific config file.
     fn existing_repo_config_path(&self) -> Option<&Path> {
         match &self.repo_config_path {
-            ConfigPath::Existing(path) => Some(path),
+            Some(ConfigPath::Existing(path)) => Some(path),
             _ => None,
         }
     }
@@ -1396,7 +1393,7 @@ mod tests {
                 home_dir,
                 repo_path: None,
                 user_config_path: env.resolve()?,
-                repo_config_path: ConfigPath::Unavailable,
+                repo_config_path: None,
                 command: None,
             })
         }
