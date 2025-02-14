@@ -15,7 +15,6 @@ use std::io::Write;
 
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
-use jj_lib::config::ConfigGetResultExt;
 use jj_lib::object_id::ObjectId;
 use jj_lib::repo::Repo;
 use tracing::instrument;
@@ -243,35 +242,27 @@ The remainder will be in the second commit.
     Ok(())
 }
 
-/// Reads 'split.legacy-bookmark-behavior' from settings and prints a warning if
-/// the value is unset to alert the user to the behavior change.
+/// Reads and returns 'split.legacy-bookmark-behavior' from settings and prints
+/// a warning if it is set to true to alert the user of the deprecation.
 fn read_legacy_bookmark_behavior_setting(
     settings: &jj_lib::settings::UserSettings,
     ui: &Ui,
 ) -> Result<bool, CommandError> {
-    match settings
-        .get_bool("split.legacy-bookmark-behavior")
-        .optional()?
-    {
-        // Use the new behavior.
-        Some(false) => Ok(false),
-        // Use the legacy behavior.
-        Some(true) | None => {
-            writeln!(
-                ui.warning_default(),
-                "`jj split` will leave bookmarks on the first commit in the next release."
-            )?;
-            writeln!(
-                ui.warning_default(),
-                "Run `jj config set --user split.legacy-bookmark-behavior false` to silence this \
-                 message and use the new behavior."
-            )?;
-            writeln!(
-                ui.warning_default(),
-                "See https://github.com/jj-vcs/jj/issues/3419"
-            )?;
-            // TODO: https://github.com/jj-vcs/jj/issues/3419 - Return false by default in v0.28.
-            Ok(true)
-        }
+    let use_legacy_behavior = settings.get_bool("split.legacy-bookmark-behavior")?;
+    if use_legacy_behavior {
+        writeln!(
+            ui.warning_default(),
+            "`jj split` will leave bookmarks on the first commit in the next release."
+        )?;
+        writeln!(
+            ui.warning_default(),
+            "Run `jj config set --user split.legacy-bookmark-behavior false` to silence this \
+             message and use the new behavior."
+        )?;
+        writeln!(
+            ui.warning_default(),
+            "See https://github.com/jj-vcs/jj/issues/3419"
+        )?;
     }
+    Ok(use_legacy_behavior)
 }

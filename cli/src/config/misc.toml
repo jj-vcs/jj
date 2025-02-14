@@ -47,3 +47,7 @@ wrapping = "anywhere"
 max-new-file-size = "1MiB"
 auto-track = "all()"
 auto-update-stale = false
+
+# TODO: https://github.com/jj-vcs/jj/issues/3419 - Remove when fully deprecated.
+[split]
+legacy-bookmark-behavior = false

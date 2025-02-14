@@ -62,9 +62,6 @@ fn test_split_by_paths() {
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["split", "file2"]);
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @r###"
-    Warning: `jj split` will leave bookmarks on the first commit in the next release.
-    Warning: Run `jj config set --user split.legacy-bookmark-behavior false` to silence this message and use the new behavior.
-    Warning: See https://github.com/jj-vcs/jj/issues/3419
     First part: qpvuntsm 65569ca7 (no description set)
     Second part: zsuskuln 709756f0 (no description set)
     Working copy now at: zsuskuln 709756f0 (no description set)
@@ -114,9 +111,6 @@ fn test_split_by_paths() {
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @r###"
     Warning: All changes have been selected, so the second commit will be empty
-    Warning: `jj split` will leave bookmarks on the first commit in the next release.
-    Warning: Run `jj config set --user split.legacy-bookmark-behavior false` to silence this message and use the new behavior.
-    Warning: See https://github.com/jj-vcs/jj/issues/3419
     Rebased 1 descendant commits
     First part: qpvuntsm 9da0eea0 (no description set)
     Second part: znkkpsqq 5b5714a3 (empty) (no description set)
@@ -145,9 +139,6 @@ fn test_split_by_paths() {
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @r###"
     Warning: No changes have been selected, so the first commit will be empty
-    Warning: `jj split` will leave bookmarks on the first commit in the next release.
-    Warning: Run `jj config set --user split.legacy-bookmark-behavior false` to silence this message and use the new behavior.
-    Warning: See https://github.com/jj-vcs/jj/issues/3419
     Rebased 1 descendant commits
     First part: qpvuntsm bd42f95a (empty) (no description set)
     Second part: lylxulpl ed55c86b (no description set)
@@ -194,9 +185,6 @@ fn test_split_with_non_empty_description() {
     let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_path, &["split", "file1"]);
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @r###"
-    Warning: `jj split` will leave bookmarks on the first commit in the next release.
-    Warning: Run `jj config set --user split.legacy-bookmark-behavior false` to silence this message and use the new behavior.
-    Warning: See https://github.com/jj-vcs/jj/issues/3419
     First part: qpvuntsm 231a3c00 part 1
     Second part: kkmpptxz e96291aa part 2
     Working copy now at: kkmpptxz e96291aa part 2
@@ -249,9 +237,6 @@ fn test_split_with_default_description() {
     let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_path, &["split", "file1"]);
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @r###"
-    Warning: `jj split` will leave bookmarks on the first commit in the next release.
-    Warning: Run `jj config set --user split.legacy-bookmark-behavior false` to silence this message and use the new behavior.
-    Warning: See https://github.com/jj-vcs/jj/issues/3419
     First part: qpvuntsm 02ee5d60 TESTED=TODO
     Second part: rlvkpnrz 33cd046b (no description set)
     Working copy now at: rlvkpnrz 33cd046b (no description set)
@@ -317,9 +302,6 @@ fn test_split_with_merge_child() {
         test_env.jj_cmd_ok(&workspace_path, &["split", "-r", "description(a)", "file1"]);
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @r###"
-    Warning: `jj split` will leave bookmarks on the first commit in the next release.
-    Warning: Run `jj config set --user split.legacy-bookmark-behavior false` to silence this message and use the new behavior.
-    Warning: See https://github.com/jj-vcs/jj/issues/3419
     Rebased 1 descendant commits
     First part: kkmpptxz e8006b47 Add file1
     Second part: royxmykx 5e1b793d Add file2
@@ -364,9 +346,6 @@ fn test_split_siblings_no_descendants() {
     let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_path, &["split", "--parallel", "file1"]);
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @r###"
-    Warning: `jj split` will leave bookmarks on the first commit in the next release.
-    Warning: Run `jj config set --user split.legacy-bookmark-behavior false` to silence this message and use the new behavior.
-    Warning: See https://github.com/jj-vcs/jj/issues/3419
     First part: qpvuntsm 48018df6 TESTED=TODO
     Second part: kkmpptxz 7eddbf93 (no description set)
     Working copy now at: kkmpptxz 7eddbf93 (no description set)
@@ -445,9 +424,6 @@ fn test_split_siblings_with_descendants() {
     let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_path, &["split", "--parallel", "file1"]);
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @r###"
-    Warning: `jj split` will leave bookmarks on the first commit in the next release.
-    Warning: Run `jj config set --user split.legacy-bookmark-behavior false` to silence this message and use the new behavior.
-    Warning: See https://github.com/jj-vcs/jj/issues/3419
     Rebased 2 descendant commits
     First part: qpvuntsm 84df941d Add file1
     Second part: vruxwmqv 94753be3 Add file2
@@ -526,9 +502,6 @@ fn test_split_siblings_with_merge_child() {
     );
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @r###"
-    Warning: `jj split` will leave bookmarks on the first commit in the next release.
-    Warning: Run `jj config set --user split.legacy-bookmark-behavior false` to silence this message and use the new behavior.
-    Warning: See https://github.com/jj-vcs/jj/issues/3419
     Rebased 1 descendant commits
     First part: kkmpptxz e8006b47 Add file1
     Second part: royxmykx 2cc60f3d Add file2
@@ -625,9 +598,6 @@ fn test_split_interactive() {
 
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @r###"
-    Warning: `jj split` will leave bookmarks on the first commit in the next release.
-    Warning: Run `jj config set --user split.legacy-bookmark-behavior false` to silence this message and use the new behavior.
-    Warning: See https://github.com/jj-vcs/jj/issues/3419
     First part: qpvuntsm 0e15949e (no description set)
     Second part: rlvkpnrz 9ed12e4c (no description set)
     Working copy now at: rlvkpnrz 9ed12e4c (no description set)
@@ -673,9 +643,6 @@ fn test_split_interactive_with_paths() {
     // Select file1 and file2 by args, then select file1 interactively
     let (_stdout, stderr) = test_env.jj_cmd_ok(&workspace_path, &["split", "-i", "file1", "file2"]);
     insta::assert_snapshot!(stderr, @r###"
-    Warning: `jj split` will leave bookmarks on the first commit in the next release.
-    Warning: Run `jj config set --user split.legacy-bookmark-behavior false` to silence this message and use the new behavior.
-    Warning: See https://github.com/jj-vcs/jj/issues/3419
     First part: rlvkpnrz e3d766b8 (no description set)
     Second part: kkmpptxz 4cf22d3b (no description set)
     Working copy now at: kkmpptxz 4cf22d3b (no description set)
@@ -877,7 +844,7 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
     .unwrap();
     let (_, stderr) = test_env.jj_cmd_ok(&main_path, &["split", "file2"]);
     match bookmark_behavior {
-        BookmarkBehavior::Modern => {
+        BookmarkBehavior::Default | BookmarkBehavior::Modern => {
             insta::allow_duplicates! {
             insta::assert_snapshot!(stderr, @r###"
             First part: qpvuntsm 63d0c5ed *le-signet* | first-commit
@@ -894,7 +861,7 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
             "###);
             }
         }
-        BookmarkBehavior::Default | BookmarkBehavior::Legacy => {
+        BookmarkBehavior::Legacy => {
             insta::allow_duplicates! {
             insta::assert_snapshot!(stderr, @r###"
             Warning: `jj split` will leave bookmarks on the first commit in the next release.
@@ -925,7 +892,7 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
     .unwrap();
     test_env.jj_cmd_ok(&main_path, &["split", "file2", "--parallel"]);
     match bookmark_behavior {
-        BookmarkBehavior::Modern => {
+        BookmarkBehavior::Default | BookmarkBehavior::Modern => {
             insta::allow_duplicates! {
             insta::assert_snapshot!(get_log_output(&test_env, &main_path), @r###"
             @  vruxwmqvtpmx false second-commit
@@ -935,7 +902,7 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
             "###);
             }
         }
-        BookmarkBehavior::Default | BookmarkBehavior::Legacy => {
+        BookmarkBehavior::Legacy => {
             insta::allow_duplicates! {
             insta::assert_snapshot!(get_log_output(&test_env, &main_path), @r###"
             @  vruxwmqvtpmx false *le-signet* second-commit
