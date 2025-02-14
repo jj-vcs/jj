@@ -67,9 +67,9 @@ use crate::ui::Ui;
 /// is no option to push to multiple remotes.
 ///
 /// Before the command actually moves, creates, or deletes a remote bookmark, it
-/// makes several [safety checks]. If there is a problem, you may need to run
+/// makes several [safety checks][]. If there is a problem, you may need to run
 /// `jj git fetch --remote <remote name>` and/or resolve some [bookmark
-/// conflicts].
+/// conflicts][].
 ///
 /// [safety checks]:
 ///     https://jj-vcs.github.io/jj/latest/bookmarks/#pushing-bookmarks-safety-checks
