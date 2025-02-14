@@ -77,7 +77,7 @@ jobs:
       with:
         toolchain: 1.76
         target: ${{ matrix.target }}
-    - uses: taiki-e/install-action@ae9d9ea210235f03e365c28f43504df735a511be
+    - uses: taiki-e/install-action@297054b27414ad8086f67963ce1033c02fe309c3
       with:
         tool: nextest,taplo-cli
     - name: Build
@@ -273,7 +273,7 @@ jobs:
           persist-credentials: false
 
       - name: Install the latest version of uv
-        uses: astral-sh/setup-uv@38f3f104447c67c051c4a08e39b64a148898af3a
+        uses: astral-sh/setup-uv@4db96194c378173c656ce18a155ffc14a9fc4355
 
       - name: Run zizmor
         run: uvx zizmor --format sarif . > results.sarif 
