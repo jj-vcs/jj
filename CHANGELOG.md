@@ -36,6 +36,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `split.legacy-bookmark-behavior = false`.
   [#3419](https://github.com/jj-vcs/jj/issues/3419)
 
+* The `signing.sign-all` config option has been deprecated in favor of
+  `signing.behavior`. The new option accepts `drop` (never sign), `keep` (preserve
+  existing signatures), `own` (sign own commits), or `force` (sign all commits).
+  Existing `signing.sign-all = true` translates to `signing.behavior = "own"`, and
+  `false` translates to `"keep"`.
+
 
 ### New features
 

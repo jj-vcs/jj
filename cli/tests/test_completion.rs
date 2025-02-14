@@ -575,11 +575,19 @@ fn test_config() {
     );
     insta::assert_snapshot!(stdout, @"ui.conflict-marker-style=git");
 
-    let stdout =
-        test_env.jj_cmd_success(dir, &["--", "jj", "log", "--config", "signing.sign-all="]);
+    let stdout = test_env.jj_cmd_success(
+        dir,
+        &[
+            "--",
+            "jj",
+            "log",
+            "--config",
+            "git.abandon-unreachable-commits=",
+        ],
+    );
     insta::assert_snapshot!(stdout, @r"
-    signing.sign-all=false
-    signing.sign-all=true
+    git.abandon-unreachable-commits=false
+    git.abandon-unreachable-commits=true
     ");
 }
 

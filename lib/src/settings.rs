@@ -100,13 +100,12 @@ pub struct SignSettings {
 impl SignSettings {
     /// Load the signing settings from the config.
     pub fn from_settings(settings: &UserSettings) -> Self {
-        let sign_all = settings.get_bool("signing.sign-all").unwrap_or(false);
+        let behavior = settings
+            .get("signing.behavior")
+            .unwrap_or(SignBehavior::Keep);
+
         Self {
-            behavior: if sign_all {
-                SignBehavior::Own
-            } else {
-                SignBehavior::Keep
-            },
+            behavior,
             user_email: settings.user_email().to_owned(),
             key: settings.get_string("signing.key").ok(),
         }

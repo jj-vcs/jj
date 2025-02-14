@@ -141,7 +141,8 @@ pub enum SignInitError {
 }
 
 /// A enum that describes if a created/rewritten commit should be signed or not.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum SignBehavior {
     /// Drop existing signatures.
     /// This is what jj did before signing support or does now when a signing

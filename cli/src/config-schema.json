@@ -607,10 +607,10 @@
                     "type": "string",
                     "description": "The key the configured signing backend will use to to sign commits. Overridden by `jj sign` parameter or by the global `--sign-with` option"
                 },
-                "sign-all": {
-                    "type": "boolean",
-                    "description": "Whether to sign all commits by default. Overridden by global `--no-sign` option",
-                    "default": false
+                "behavior": {
+                    "type": "string",
+                    "enum": ["drop", "keep", "own", "force"],
+                    "description": "Which commits to sign by default. Values: drop (never sign), keep (preserve existing signatures), own (sign own commits), force (sign all commits)"
                 },
                 "backends": {
                     "type": "object",

@@ -1464,7 +1464,7 @@ fn test_signature_templates() {
     let repo_path = test_env.env_root().join("repo");
 
     test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "unsigned"]);
-    test_env.add_config("signing.sign-all = true");
+    test_env.add_config("signing.behavior = 'own'");
     test_env.add_config("signing.backend = 'test'");
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "signed"]);
 
