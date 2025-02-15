@@ -305,10 +305,11 @@ impl DefaultIndexStore {
         index: &ReadonlyIndexSegment,
         op_id: &OperationId,
     ) -> io::Result<()> {
-        let mut temp_file = NamedTempFile::new_in(&self.dir)?;
+        let dir = self.operations_dir();
+        let mut temp_file = NamedTempFile::new_in(&dir)?;
         let file = temp_file.as_file_mut();
         file.write_all(index.name().as_bytes())?;
-        persist_content_addressed_temp_file(temp_file, self.operations_dir().join(op_id.hex()))?;
+        persist_content_addressed_temp_file(temp_file, dir.join(op_id.hex()))?;
         Ok(())
     }
 }

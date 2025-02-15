@@ -159,8 +159,9 @@ impl OpStore for SimpleOpStore {
     }
 
     fn write_view(&self, view: &View) -> OpStoreResult<ViewId> {
+        let dir = self.views_dir();
         let temp_file =
-            NamedTempFile::new_in(&self.path).map_err(|err| io_to_write_error(err, "view"))?;
+            NamedTempFile::new_in(&dir).map_err(|err| io_to_write_error(err, "view"))?;
 
         let proto = view_to_proto(view);
         temp_file
@@ -170,7 +171,7 @@ impl OpStore for SimpleOpStore {
 
         let id = ViewId::new(blake2b_hash(view).to_vec());
 
-        persist_content_addressed_temp_file(temp_file, self.views_dir().join(id.hex()))
+        persist_content_addressed_temp_file(temp_file, dir.join(id.hex()))
             .map_err(|err| io_to_write_error(err, "view"))?;
         Ok(id)
     }
@@ -200,8 +201,9 @@ impl OpStore for SimpleOpStore {
 
     fn write_operation(&self, operation: &Operation) -> OpStoreResult<OperationId> {
         assert!(!operation.parents.is_empty());
+        let dir = self.operations_dir();
         let temp_file =
-            NamedTempFile::new_in(&self.path).map_err(|err| io_to_write_error(err, "operation"))?;
+            NamedTempFile::new_in(&dir).map_err(|err| io_to_write_error(err, "operation"))?;
 
         let proto = operation_to_proto(operation);
         temp_file
@@ -211,7 +213,7 @@ impl OpStore for SimpleOpStore {
 
         let id = OperationId::new(blake2b_hash(operation).to_vec());
 
-        persist_content_addressed_temp_file(temp_file, self.operations_dir().join(id.hex()))
+        persist_content_addressed_temp_file(temp_file, dir.join(id.hex()))
             .map_err(|err| io_to_write_error(err, "operation"))?;
         Ok(id)
     }
