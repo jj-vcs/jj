@@ -164,6 +164,7 @@ use crate::formatter::FormatRecorder;
 use crate::formatter::Formatter;
 use crate::formatter::PlainTextFormatter;
 use crate::merge_tools::DiffEditor;
+use crate::merge_tools::InitialSelection;
 use crate::merge_tools::MergeEditor;
 use crate::merge_tools::MergeToolConfigError;
 use crate::operation_templater::OperationTemplateLanguage;
@@ -2966,7 +2967,13 @@ impl DiffSelector {
                 // whereas we want to update the left tree. Unmatched paths
                 // shouldn't be based off the right tree.
                 let right_tree = right_tree.store().get_root_tree(&selected_tree_id)?;
-                Ok(editor.edit(left_tree, &right_tree, matcher, format_instructions)?)
+                Ok(editor.edit(
+                    left_tree,
+                    &right_tree,
+                    matcher,
+                    format_instructions,
+                    InitialSelection::None,
+                )?)
             }
         }
     }
