@@ -20,6 +20,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The `ui.allow-filesets` configuration option has been removed.
   [The "fileset" language](docs/filesets.md) has been enabled by default since v0.20.
 
+* `jj split --parallel` now sets the working copy revision (`@`) to the first
+  revision created by the split instead of the second. As a result, `@` remains on
+  the same change id before and after the split.
+  
+
 ### Deprecations
 
 * This release takes the first steps to make target revision required in

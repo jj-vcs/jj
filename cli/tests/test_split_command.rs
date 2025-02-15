@@ -369,13 +369,13 @@ fn test_split_siblings_no_descendants() {
     Warning: See https://github.com/jj-vcs/jj/issues/3419
     First part: qpvuntsm 48018df6 TESTED=TODO
     Second part: kkmpptxz 7eddbf93 (no description set)
-    Working copy now at: kkmpptxz 7eddbf93 (no description set)
+    Working copy now at: qpvuntsm 48018df6 TESTED=TODO
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 0 files, removed 1 files
     "###);
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r###"
-    @  kkmpptxzrspx false
-    │ ○  qpvuntsmwlqt false TESTED=TODO
+    @  qpvuntsmwlqt false TESTED=TODO
+    │ ○  kkmpptxzrspx false
     ├─╯
     ◆  zzzzzzzzzzzz true
     "###);
@@ -451,7 +451,7 @@ fn test_split_siblings_with_descendants() {
     Rebased 2 descendant commits
     First part: qpvuntsm 84df941d Add file1
     Second part: vruxwmqv 94753be3 Add file2
-    Working copy now at: vruxwmqv 94753be3 Add file2
+    Working copy now at: qpvuntsm 84df941d Add file1
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 0 files, removed 1 files
     "###);
@@ -459,8 +459,8 @@ fn test_split_siblings_with_descendants() {
     ○  kkmpptxzrspx false Add file4
     ○    rlvkpnrzqnoo false Add file3
     ├─╮
-    │ @  vruxwmqvtpmx false Add file2
-    ○ │  qpvuntsmwlqt false Add file1
+    │ ○  vruxwmqvtpmx false Add file2
+    @ │  qpvuntsmwlqt false Add file1
     ├─╯
     ◆  zzzzzzzzzzzz true
     "###);
@@ -765,8 +765,8 @@ fn test_split_with_multiple_workspaces_same_working_copy() {
     .unwrap();
     test_env.jj_cmd_ok(&main_path, &["split", "file2", "--parallel"]);
     insta::assert_snapshot!(get_workspace_log_output(&test_env, &main_path), @r###"
-    @  yostqsxwqrlt default@ second@ second-commit
-    │ ○  qpvuntsmwlqt first-commit
+    @  qpvuntsmwlqt default@ second@ first-commit
+    │ ○  yostqsxwqrlt second-commit
     ├─╯
     ◆  zzzzzzzzzzzz
     "###);
@@ -823,8 +823,8 @@ fn test_split_with_multiple_workspaces_different_working_copy() {
     .unwrap();
     test_env.jj_cmd_ok(&main_path, &["split", "file2", "--parallel"]);
     insta::assert_snapshot!(get_workspace_log_output(&test_env, &main_path), @r###"
-    @  vruxwmqvtpmx default@ second-commit
-    │ ○  qpvuntsmwlqt first-commit
+    @  qpvuntsmwlqt default@ first-commit
+    │ ○  vruxwmqvtpmx second-commit
     ├─╯
     │ ○  pmmvwywvzvvn second@
     ├─╯
@@ -928,8 +928,8 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
         BookmarkBehavior::Modern => {
             insta::allow_duplicates! {
             insta::assert_snapshot!(get_log_output(&test_env, &main_path), @r###"
-            @  vruxwmqvtpmx false second-commit
-            │ ○  qpvuntsmwlqt false *le-signet* first-commit
+            @  qpvuntsmwlqt false *le-signet* first-commit
+            │ ○  vruxwmqvtpmx false second-commit
             ├─╯
             ◆  zzzzzzzzzzzz true
             "###);
@@ -938,8 +938,8 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
         BookmarkBehavior::Default | BookmarkBehavior::Legacy => {
             insta::allow_duplicates! {
             insta::assert_snapshot!(get_log_output(&test_env, &main_path), @r###"
-            @  vruxwmqvtpmx false *le-signet* second-commit
-            │ ○  qpvuntsmwlqt false first-commit
+            @  qpvuntsmwlqt false first-commit
+            │ ○  vruxwmqvtpmx false *le-signet* second-commit
             ├─╯
             ◆  zzzzzzzzzzzz true
             "###);

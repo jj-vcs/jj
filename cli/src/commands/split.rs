@@ -221,11 +221,20 @@ The remainder will be in the second commit.
             rewriter.rebase()?.write()?;
             Ok(())
         })?;
-    // Move the working copy commit (@) to the second commit for any workspaces
-    // where the target commit is the working copy commit.
+    // Change the working copy commit as needed.
     for (workspace_id, working_copy_commit) in tx.base_repo().clone().view().wc_commit_ids() {
         if working_copy_commit == commit.id() {
-            tx.repo_mut().edit(workspace_id.clone(), &second_commit)?;
+            // TODO: https://github.com/jj-vcs/jj/issues/3419 - Delete this
+            //   branch when the config setting is removed.
+            if args.parallel && legacy_bookmark_behavior {
+                // We need to do this manually since the legacy behavior
+                // rewrites the target to the second commit.
+                tx.repo_mut().edit(workspace_id.clone(), &first_commit)?;
+            } else if !args.parallel {
+                // Move the working copy commit (@) to the second commit for any
+                // workspaces where the target commit is the working copy commit.
+                tx.repo_mut().edit(workspace_id.clone(), &second_commit)?;
+            }
         }
     }
 
