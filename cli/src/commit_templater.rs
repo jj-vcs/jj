@@ -2234,7 +2234,7 @@ pub fn builtin_annotation_line_methods<'repo>(
         "commit",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let out_property = self_property.and_then(|data| Ok(data.commit));
+            let out_property = self_property.map(|line| line.commit);
             Ok(L::wrap_commit(out_property))
         },
     );
@@ -2242,7 +2242,7 @@ pub fn builtin_annotation_line_methods<'repo>(
         "line_number",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let out_property = self_property.and_then(|data| Ok(data.line_number.try_into()?));
+            let out_property = self_property.and_then(|line| Ok(line.line_number.try_into()?));
             Ok(L::wrap_integer(out_property))
         },
     );
@@ -2250,7 +2250,7 @@ pub fn builtin_annotation_line_methods<'repo>(
         "first_line_in_hunk",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let out_property = self_property.and_then(|data| Ok(data.first_line_in_hunk));
+            let out_property = self_property.map(|line| line.first_line_in_hunk);
             Ok(L::wrap_boolean(out_property))
         },
     );
