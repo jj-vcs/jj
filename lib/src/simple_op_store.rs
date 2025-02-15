@@ -94,19 +94,30 @@ impl SimpleOpStore {
 
     /// Creates an empty OpStore, panics if it already exists
     pub fn init(store_path: &Path, root_data: RootOperationData) -> Self {
-        fs::create_dir(store_path.join("views")).unwrap();
-        fs::create_dir(store_path.join("operations")).unwrap();
-        Self::load(store_path, root_data)
+        let store = Self::new(store_path, root_data);
+        store.init_base_dirs().unwrap(); // TODO: propagate error
+        store
     }
 
     /// Load an existing OpStore
     pub fn load(store_path: &Path, root_data: RootOperationData) -> Self {
+        Self::new(store_path, root_data)
+    }
+
+    fn new(store_path: &Path, root_data: RootOperationData) -> Self {
         SimpleOpStore {
             path: store_path.to_path_buf(),
             root_data,
             root_operation_id: OperationId::from_bytes(&[0; OPERATION_ID_LENGTH]),
             root_view_id: ViewId::from_bytes(&[0; VIEW_ID_LENGTH]),
         }
+    }
+
+    fn init_base_dirs(&self) -> Result<(), PathError> {
+        for dir in [self.path.join("views"), self.path.join("operations")] {
+            fs::create_dir(&dir).context(&dir)?;
+        }
+        Ok(())
     }
 
     fn view_path(&self, id: &ViewId) -> PathBuf {
