@@ -132,7 +132,8 @@ impl<'a> GitSubprocessContext<'a> {
         let mut command = self.create_command();
         command.stdout(Stdio::piped());
         // attempt to prune stale refs with --prune
-        command.args(["fetch", "--prune"]);
+        // --no-write-fetch-head ensures our request is invisible to other parties
+        command.args(["fetch", "--prune", "--no-write-fetch-head"]);
         if callbacks.progress.is_some() {
             command.arg("--progress");
         }
