@@ -256,6 +256,9 @@ revsets (expressions) as arguments.
 * `latest(x[, count])`: Latest `count` commits in `x`, based on committer
   timestamp. The default `count` is 1.
 
+* `oldest(x[, count])`: Oldest `count` commits in `x`, based on committer
+  timestamp. The default `count` is 1.
+
 * `fork_point(x)`: The fork point of all commits in `x`. The fork point is the
   common ancestor(s) of all commits in `x` which do not have any descendants
   that are also common ancestors of all commits in `x`. It is equivalent to
