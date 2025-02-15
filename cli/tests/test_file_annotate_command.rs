@@ -179,7 +179,7 @@ fn test_annotate_with_template() {
         commit_timestamp(commit).local().format('%Y-%m-%d %H:%M:%S')
             ++ " "
             ++ commit.author(),
-    ) ++ "\n") ++ pad_start(4, line_number) ++ ": "
+    ) ++ "\n") ++ pad_start(4, line_number) ++ ": " ++ content
     "#};
 
     let stdout = test_env.jj_cmd_success(

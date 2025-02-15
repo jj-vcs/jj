@@ -27,8 +27,8 @@ separate(" ",
   commit.change_id().shortest(8),
   pad_end(8, truncate_end(8, commit.author().email().local())),
   commit_timestamp(commit).local().format('%Y-%m-%d %H:%M:%S'),
-  pad_start(4, line_number) ++ ": ",
-)
+  pad_start(4, line_number),
+) ++ ": " ++ content
 '''
 
 config_list = '''

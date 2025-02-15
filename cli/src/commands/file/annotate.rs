@@ -50,13 +50,13 @@ pub(crate) struct FileAnnotateArgs {
         add = ArgValueCandidates::new(complete::all_revisions)
     )]
     revision: Option<RevisionArg>,
-    /// Render a prefix for each line using the given template
+    /// Render each line using the given template
     ///
     /// All 0-argument methods of the [`AnnotationLine` type] are available as
     /// keywords in the [template expression].
     ///
-    /// If not specified, this defaults to the
-    /// `templates.file_annotate` setting.
+    /// If not specified, this defaults to the `templates.file_annotate`
+    /// setting.
     ///
     /// [template expression]:
     ///     https://jj-vcs.github.io/jj/latest/templates/
@@ -123,17 +123,17 @@ fn render_file_annotation(
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();
     let mut last_id = None;
-    for (line_number, (commit_id, line)) in annotation.lines().enumerate() {
+    for (line_number, (commit_id, content)) in annotation.lines().enumerate() {
         let commit_id = commit_id.expect("should reached to the empty ancestor");
         let commit = repo.store().get_commit(commit_id)?;
         let first_line_in_hunk = last_id != Some(commit_id);
         let annotation_line = AnnotationLine {
             commit,
+            content: content.to_owned(),
             line_number: line_number + 1,
             first_line_in_hunk,
         };
         template_render.format(&annotation_line, formatter.as_mut())?;
-        formatter.write_all(line)?;
         last_id = Some(commit_id);
     }
 

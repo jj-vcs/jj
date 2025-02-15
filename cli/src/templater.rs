@@ -20,6 +20,8 @@ use std::io::Write;
 use std::iter;
 use std::rc::Rc;
 
+use bstr::BStr;
+use bstr::BString;
 use jj_lib::backend::Signature;
 use jj_lib::backend::Timestamp;
 use jj_lib::config::ConfigValue;
@@ -66,6 +68,18 @@ impl<T: Template + ?Sized> Template for Box<T> {
 impl<T: Template> Template for Option<T> {
     fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
         self.as_ref().map_or(Ok(()), |t| t.format(formatter))
+    }
+}
+
+impl Template for BString {
+    fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
+        formatter.as_mut().write_all(self)
+    }
+}
+
+impl Template for &BStr {
+    fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
+        formatter.as_mut().write_all(self)
     }
 }
 

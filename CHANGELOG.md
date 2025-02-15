@@ -63,7 +63,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   using `templates.backout_description`.
 
 * New `AnnotationLine` templater type. Used in `templates.file_annotate`.
-  Provides `self.commit()`, `self.line_number()`, and `self.first_line_in_hunk()`.
+  Provides `self.commit()`, `.content()`, `.line_number()`, and
+  `.first_line_in_hunk()`.
 
 ### Fixed bugs
 

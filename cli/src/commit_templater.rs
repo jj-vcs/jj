@@ -19,6 +19,7 @@ use std::collections::HashMap;
 use std::io;
 use std::rc::Rc;
 
+use bstr::BString;
 use futures::stream::BoxStream;
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
@@ -2218,10 +2219,10 @@ pub fn builtin_cryptographic_signature_methods<'repo>(
     map
 }
 
-// TODO: add `line: BString` field when available in template language
 #[derive(Debug, Clone)]
 pub struct AnnotationLine {
     pub commit: Commit,
+    pub content: BString,
     pub line_number: usize,
     pub first_line_in_hunk: bool,
 }
@@ -2236,6 +2237,15 @@ pub fn builtin_annotation_line_methods<'repo>(
             function.expect_no_arguments()?;
             let out_property = self_property.map(|line| line.commit);
             Ok(L::wrap_commit(out_property))
+        },
+    );
+    map.insert(
+        "content",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|line| line.content);
+            // TODO: Add Bytes or BString template type?
+            Ok(L::wrap_template(out_property.into_template()))
         },
     );
     map.insert(
