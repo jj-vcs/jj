@@ -66,6 +66,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Provides `self.commit()`, `.content()`, `.line_number()`, and
   `.first_line_in_hunk()`.
 
+* Help text is now colored (when stdout is a terminal).
+
 ### Fixed bugs
 
 * `jj status` now shows untracked files under untracked directories.
