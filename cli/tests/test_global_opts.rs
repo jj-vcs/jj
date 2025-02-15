@@ -607,23 +607,23 @@ fn test_early_args() {
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["--color=always", "help"]);
     insta::assert_snapshot!(
         stdout.normalized().lines().find(|l| l.contains("Commands:")).unwrap(),
-        @"[1m[4mCommands:[0m");
+        @"[1m[33mCommands:[0m");
 
     // Check that early args are accepted after the help command
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["help", "--color=always"]);
     insta::assert_snapshot!(
         stdout.normalized().lines().find(|l| l.contains("Commands:")).unwrap(),
-        @"[1m[4mCommands:[0m");
+        @"[1m[33mCommands:[0m");
 
     // Check that early args are accepted after -h/--help
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["-h", "--color=always"]);
     insta::assert_snapshot!(
         stdout.normalized().lines().find(|l| l.contains("Usage:")).unwrap(),
-        @"[1m[4mUsage:[0m [1mjj[0m [OPTIONS] <COMMAND>");
+        @"[1m[33mUsage:[0m [1m[32mjj[0m [32m[OPTIONS][0m [32m<COMMAND>[0m");
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["log", "--help", "--color=always"]);
     insta::assert_snapshot!(
         stdout.normalized().lines().find(|l| l.contains("Usage:")).unwrap(),
-        @"[1m[4mUsage:[0m [1mjj log[0m [OPTIONS] [FILESETS]...");
+        @"[1m[33mUsage:[0m [1m[32mjj log[0m [32m[OPTIONS][0m [32m[FILESETS]...[0m");
 
     // Early args are parsed with clap's ignore_errors(), but there is a known
     // bug that causes defaults to be unpopulated. Test that the early args are

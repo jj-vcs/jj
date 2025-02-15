@@ -59,6 +59,8 @@ mod workspace;
 
 use std::fmt::Debug;
 
+use clap::builder::styling::AnsiColor;
+use clap::builder::Styles;
 use clap::CommandFactory;
 use clap::FromArgMatches;
 use clap::Subcommand;
@@ -72,7 +74,14 @@ use crate::command_error::CommandError;
 use crate::complete;
 use crate::ui::Ui;
 
+const STYLES: Styles = Styles::styled()
+    .header(AnsiColor::Yellow.on_default().bold())
+    .usage(AnsiColor::Yellow.on_default().bold())
+    .literal(AnsiColor::Green.on_default().bold())
+    .placeholder(AnsiColor::Green.on_default());
+
 #[derive(clap::Parser, Clone, Debug)]
+#[command(styles = STYLES)]
 #[command(disable_help_subcommand = true)]
 #[command(after_long_help = help::show_keyword_hint_after_help())]
 #[command(add = SubcommandCandidates::new(complete::aliases))]
