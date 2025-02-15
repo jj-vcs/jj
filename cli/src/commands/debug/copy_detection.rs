@@ -24,10 +24,11 @@ use crate::cli_util::RevisionArg;
 use crate::command_error::CommandError;
 use crate::ui::Ui;
 
-/// Rebuild commit index
+/// Show information about file copies detected
 #[derive(clap::Args, Clone, Debug)]
 pub struct CopyDetectionArgs {
-    /// Show changes in this revision, compared to its parent(s)
+    /// Show file copies detected in changed files in this revision, compared to
+    /// its parent(s)
     #[arg(default_value = "@", value_name = "REVSET")]
     revision: RevisionArg,
 }
