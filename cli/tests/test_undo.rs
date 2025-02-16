@@ -414,11 +414,12 @@ fn test_shows_a_warning_when_undoing_an_undo_operation_as_bare_jj_undo() {
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["undo"]);
     insta::assert_snapshot!(stdout, @"");
-    // TODO: There should be a warning here too
     insta::assert_snapshot!(stderr, @r"
     Undid operation: b16799358b33 (2001-02-03 08:05:12) undo operation b14487c6d6d98f7f575ea03c48ed92d899c2a0ecbe9458221b6fc11af2bf6d918c9620cae1f8268012b0e25c7dd6f78b19ec628d0504a0830dc562d6625ba9ec
     Working copy now at: mzvwutvl 167f90e7 (empty) (no description set)
     Parent commit      : qpvuntsm 230dd059 (empty) (no description set)
+    Hint: This action reverted an 'undo' operation. The repository is now in the same state as it was before the original 'undo'.
+    Hint: If your goal is to undo multiple operations, consider using `jj op log` to see past states, and `jj op restore` to restore one of these states.
     ");
 }
 
