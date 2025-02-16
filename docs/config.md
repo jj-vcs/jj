@@ -465,6 +465,14 @@ To customize these separately, use the `format_short_commit_id()` and
 'format_short_change_id(id)' = 'format_short_id(id).upper()'
 ```
 
+Operation ids can be customized by the `format_short_operation_id()` alias:
+
+```toml
+[template-aliases]
+# Always show 12 characters
+'format_short_operation_id(id)' = 'id.short(12)'
+```
+
 To get shorter prefixes for certain revisions, set `revsets.short-prefixes`:
 
 ```toml

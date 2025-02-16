@@ -184,6 +184,7 @@ commit_summary_separator = 'label("separator", " | ")'
 'format_short_id(id)' = 'id.shortest(8)'
 'format_short_change_id(id)' = 'format_short_id(id)'
 'format_short_commit_id(id)' = 'format_short_id(id)'
+'format_short_operation_id(id)' = 'id.short()'
 'format_short_signature(signature)' = '''
   coalesce(signature.email(), email_placeholder)'''
 'format_detailed_signature(signature)' = '''
@@ -251,7 +252,7 @@ if(ref.tracking_present(), surround("(", ")", separate(", ",
 
 'format_operation(op)' = '''
 concat(
-  separate(" ", op.id().short(), op.user(), format_time_range(op.time())), "\n",
+  separate(" ", format_short_operation_id(op.id()), op.user(), format_time_range(op.time())), "\n",
   op.description().first_line(), "\n",
   if(op.tags(), op.tags() ++ "\n"),
 )
@@ -262,7 +263,7 @@ concat(
 
 'format_operation_oneline(op)' = '''
 separate(" ",
-  op.id().short(), op.user(), format_time_range(op.time()),
+  format_short_operation_id(op.id()), op.user(), format_time_range(op.time()),
   op.description().first_line(),
   if(op.tags(), op.tags()),
 ) ++ "\n"
