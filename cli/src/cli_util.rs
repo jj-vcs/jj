@@ -3724,6 +3724,11 @@ impl CliRunner {
                 "--config-toml is deprecated; use --config or --config-file instead."
             )?;
         }
+
+        if args.has_config_args() {
+            warn_if_args_mismatch(ui, &self.app, &config, &string_args)?;
+        }
+
         let (matches, args) = parse_args(&self.app, &self.tracing_subscription, &string_args)
             .map_err(|err| map_clap_cli_error(err, ui, &config))?;
         for process_global_args_fn in self.process_global_args_fns {
@@ -3757,16 +3762,8 @@ impl CliRunner {
             writeln!(ui.warning_default(), "Deprecated config: {desc}")?;
         }
 
-        // If -R or --config* is specified, check if the expanded arguments differ.
-        if args.global_args.repository.is_some() || args.global_args.early_args.has_config_args() {
-            let new_string_args = expand_args(ui, &self.app, env::args_os(), &config).ok();
-            if new_string_args.as_ref() != Some(&string_args) {
-                writeln!(
-                    ui.warning_default(),
-                    "Command aliases cannot be loaded from -R/--repository path or \
-                     --config/--config-file arguments."
-                )?;
-            }
+        if args.global_args.repository.is_some() {
+            warn_if_args_mismatch(ui, &self.app, &config, &string_args)?;
         }
 
         let settings = UserSettings::from_config(config)?;
@@ -3842,6 +3839,24 @@ fn format_template_aliases_hint(template_aliases: &TemplateAliasesMap) -> String
             .join("\n"),
     );
     hint
+}
+
+// If -R or --config* is specified, check if the expanded arguments differ.
+fn warn_if_args_mismatch(
+    ui: &Ui,
+    app: &Command,
+    config: &StackedConfig,
+    expected_args: &[String],
+) -> Result<(), CommandError> {
+    let new_string_args = expand_args(ui, app, env::args_os(), config).ok();
+    if new_string_args.as_deref() != Some(expected_args) {
+        writeln!(
+            ui.warning_default(),
+            "Command aliases cannot be loaded from -R/--repository path or --config/--config-file \
+             arguments."
+        )?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]
