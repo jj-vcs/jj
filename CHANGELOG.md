@@ -70,6 +70,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Provides `self.commit()`, `.content()`, `.line_number()`, and
   `.first_line_in_hunk()`.
 
+* Templates now has `format_short_operation_id(id)` function for users to
+  cusomize the default operation id representation.
+
 ### Fixed bugs
 
 * `jj status` now shows untracked files under untracked directories.
