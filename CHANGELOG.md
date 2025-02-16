@@ -70,6 +70,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Provides `self.commit()`, `.content()`, `.line_number()`, and
   `.first_line_in_hunk()`.
 
+* Commands that suggest `--ignore-immutable` now print the number of immutable
+  commits that would be rewritten if used.
+
 ### Fixed bugs
 
 * `jj status` now shows untracked files under untracked directories.
