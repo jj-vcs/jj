@@ -793,16 +793,20 @@ fn test_git_clone_trunk_deleted(subprocess: bool) {
     "#);
     }
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&clone_path, &["bookmark", "forget", "main"]);
+    let (stdout, stderr) = test_env.jj_cmd_ok(
+        &clone_path,
+        &["bookmark", "forget", "--include-remotes", "main"],
+    );
     insta::allow_duplicates! {
     insta::assert_snapshot!(stdout, @"");
     }
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
-    Forgot 1 bookmarks.
+    insta::assert_snapshot!(stderr, @r#"
+    Forgot 1 local bookmarks.
+    Forgot 1 remote bookmarks.
     Warning: Failed to resolve `revset-aliases.trunk()`: Revision `main@origin` doesn't exist
     Hint: Use `jj config edit --repo` to adjust the `trunk()` alias.
-    ");
+    "#);
     }
 
     let (stdout, stderr) = test_env.jj_cmd_ok(&clone_path, &["log"]);

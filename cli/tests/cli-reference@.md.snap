@@ -290,7 +290,7 @@ See the [bookmark documentation] for more information.
 
 * `create` — Create a new bookmark
 * `delete` — Delete an existing bookmark and propagate the deletion to remotes on the next push
-* `forget` — Forget everything about a bookmark, including its local and remote targets
+* `forget` — Forget a bookmark without marking it as a deletion to be pushed
 * `list` — List bookmarks and their targets
 * `move` — Move existing bookmarks to target revision
 * `rename` — Rename `old` bookmark name to `new` bookmark name
@@ -322,6 +322,8 @@ Delete an existing bookmark and propagate the deletion to remotes on the next pu
 
 Revisions referred to by the deleted bookmarks are not abandoned. To delete revisions as well as bookmarks, use `jj abandon`. For example, `jj abandon main..<bookmark>` will abandon revisions belonging to the `<bookmark>` branch (relative to the `main` branch.)
 
+If you don't want the deletion of the local bookmark to propagate to any tracked remote bookmarks, use `jj bookmark forget` instead.
+
 **Usage:** `jj bookmark delete <NAMES>...`
 
 ###### **Arguments:**
@@ -336,11 +338,11 @@ Revisions referred to by the deleted bookmarks are not abandoned. To delete revi
 
 ## `jj bookmark forget`
 
-Forget everything about a bookmark, including its local and remote targets
+Forget a bookmark without marking it as a deletion to be pushed
 
-A forgotten bookmark will not impact remotes on future pushes. It will be recreated on future pulls if it still exists in the remote.
+If a local bookmark is forgotten, any corresponding remote bookmarks will become untracked to ensure that the forgotten bookmark will not impact remotes on future pushes.
 
-**Usage:** `jj bookmark forget <NAMES>...`
+**Usage:** `jj bookmark forget [OPTIONS] <NAMES>...`
 
 ###### **Arguments:**
 
@@ -349,6 +351,12 @@ A forgotten bookmark will not impact remotes on future pushes. It will be recrea
    By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by [wildcard pattern].
 
    [wildcard pattern]: https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
+
+###### **Options:**
+
+* `--include-remotes` — When forgetting a local bookmark, also forget any corresponding remote bookmarks
+
+   A forgotten remote bookmark will not impact remotes on future pushes. It will be recreated on future fetches if it still exists on the remote. If there is a corresponding Git-tracking remote bookmark, it will also be forgotten.
 
 
 
@@ -484,6 +492,8 @@ A tracking remote bookmark will be imported as a local bookmark of the same name
 Stop tracking given remote bookmarks
 
 A non-tracking remote bookmark is just a pointer to the last-fetched remote bookmark. It won't be imported as a local bookmark on future pulls.
+
+If you want to forget a local bookmark while also untracking the corresponding remote bookmarks, use `jj bookmark forget` instead.
 
 **Usage:** `jj bookmark untrack <BOOKMARK@REMOTE>...`
 

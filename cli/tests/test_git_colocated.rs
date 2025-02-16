@@ -384,11 +384,15 @@ fn test_git_colocated_bookmark_forget() {
       @git: rlvkpnrz 65b6b74e (empty) (no description set)
     "###);
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["bookmark", "forget", "foo"]);
+    let (stdout, stderr) = test_env.jj_cmd_ok(
+        &workspace_root,
+        &["bookmark", "forget", "--include-remotes", "foo"],
+    );
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
-    Forgot 1 bookmarks.
-    "###);
+    insta::assert_snapshot!(stderr, @r#"
+    Forgot 1 local bookmarks.
+    Forgot 1 remote bookmarks.
+    "#);
     // A forgotten bookmark is deleted in the git repo. For a detailed demo
     // explaining this, see `test_bookmark_forget_export` in
     // `test_bookmark_command.rs`.
