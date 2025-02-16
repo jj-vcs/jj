@@ -14,12 +14,10 @@
 
 use clap_complete::ArgValueCandidates;
 use jj_lib::git;
-use jj_lib::repo::Repo;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::complete;
-use crate::git_util::get_git_repo;
 use crate::ui::Ui;
 
 /// Remove a Git remote and forget its bookmarks
@@ -36,10 +34,8 @@ pub fn cmd_git_remote_remove(
     args: &GitRemoteRemoveArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
-    let repo = workspace_command.repo();
-    let git_repo = get_git_repo(repo.store())?;
     let mut tx = workspace_command.start_transaction();
-    git::remove_remote(tx.repo_mut(), &git_repo, &args.remote)?;
+    git::remove_remote(tx.repo_mut(), &args.remote)?;
     if tx.repo().has_changes() {
         tx.finish(ui, format!("remove git remote {}", &args.remote))
     } else {
