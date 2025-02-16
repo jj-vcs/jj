@@ -2697,6 +2697,11 @@ pub fn print_snapshot_stats(
         })
         .max()
     {
+        let large_files = stats
+            .untracked_paths
+            .keys()
+            .map(|p| path_converter.format_file_path(p))
+            .join(" ");
         writedoc!(
             ui.hint_default(),
             r"
@@ -2704,7 +2709,7 @@ pub fn print_snapshot_stats(
               - Adding the file to `.gitignore`
               - Run `jj config set --repo snapshot.max-new-file-size {size}`
                 This will increase the maximum file size allowed for new files, in this repository only.
-              - Run `jj --config snapshot.max-new-file-size={size} st`
+              - Run `jj --config snapshot.max-new-file-size={size} file track {large_files}`
                 This will increase the maximum file size allowed for new files, for this command only.
             "
         )?;
