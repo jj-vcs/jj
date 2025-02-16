@@ -1957,8 +1957,13 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
         locked_ws
             .finish(self.user_repo.repo.op_id().clone())
             .map_err(snapshot_command_error)?;
-        print_snapshot_stats(ui, &stats, &self.env.path_converter)
-            .map_err(snapshot_command_error)?;
+        print_snapshot_stats(
+            ui,
+            &stats,
+            &self.env.path_converter,
+            SnapshotContext::Automatic,
+        )
+        .map_err(snapshot_command_error)?;
         Ok(stats)
     }
 
@@ -2645,10 +2650,17 @@ pub fn print_conflicted_paths(
     Ok(())
 }
 
+pub enum SnapshotContext {
+    Automatic,
+    Track,
+    Untrack,
+}
+
 pub fn print_snapshot_stats(
     ui: &Ui,
     stats: &SnapshotStats,
     path_converter: &RepoPathUiConverter,
+    context: SnapshotContext,
 ) -> io::Result<()> {
     // Paths with UntrackedReason::FileNotAutoTracked shouldn't be warned about
     // every time we make a snapshot. These paths will be printed by
@@ -2686,26 +2698,44 @@ pub fn print_snapshot_stats(
         }
     }
 
-    if let Some(size) = stats
+    let large_files = stats
         .untracked_paths
-        .values()
-        .filter_map(|reason| match reason {
-            UntrackedReason::FileTooLarge { size, .. } => Some(*size),
+        .iter()
+        .filter_map(|(path, reason)| match reason {
+            UntrackedReason::FileTooLarge { size, .. } => Some((path, size)),
             UntrackedReason::FileNotAutoTracked => None,
         })
-        .max()
-    {
-        writedoc!(
-            ui.hint_default(),
-            r"
-            This is to prevent large files from being added by accident. You can fix this by:
-              - Adding the file to `.gitignore`
-              - Run `jj config set --repo snapshot.max-new-file-size {size}`
-                This will increase the maximum file size allowed for new files, in this repository only.
-              - Run `jj --config snapshot.max-new-file-size={size} st`
-                This will increase the maximum file size allowed for new files, for this command only.
-            "
-        )?;
+        .collect_vec();
+    if let Some(size) = large_files.iter().map(|(_, size)| size).max() {
+        match context {
+            SnapshotContext::Track => {
+                let large_files_list = large_files
+                    .iter()
+                    .map(|(p, _)| path_converter.format_file_path(p))
+                    .join(" ");
+                writedoc!(
+                    ui.hint_default(),
+                    r"
+                    This is to prevent large files from being added by accident. You can fix this by:
+                      - Run `jj config set --repo snapshot.max-new-file-size {size}`
+                        This will increase the maximum file size allowed for new files, in this repository only.
+                      - Run `jj --config snapshot.max-new-file-size={size} file track {large_files_list}`
+                        This will increase the maximum file size allowed for new files, for this command only.
+                    "
+                )?;
+            }
+            _ => writedoc!(
+                ui.hint_default(),
+                r"
+                This is to prevent large files from being added by accident. You can fix this by:
+                  - Adding the file to `.gitignore`
+                  - Run `jj config set --repo snapshot.max-new-file-size {size}`
+                    This will increase the maximum file size allowed for new files, in this repository only.
+                  - Run `jj --config snapshot.max-new-file-size={size} st`
+                    This will increase the maximum file size allowed for new files, for this command only.
+                "
+            )?,
+        };
     }
     Ok(())
 }

@@ -23,6 +23,7 @@ use tracing::instrument;
 
 use crate::cli_util::print_snapshot_stats;
 use crate::cli_util::CommandHelper;
+use crate::cli_util::SnapshotContext;
 use crate::command_error::user_error_with_hint;
 use crate::command_error::CommandError;
 use crate::complete;
@@ -111,6 +112,11 @@ Make sure they're ignored, then try again.",
     }
     let repo = tx.commit("untrack paths")?;
     locked_ws.finish(repo.op_id().clone())?;
-    print_snapshot_stats(ui, &stats, workspace_command.env().path_converter())?;
+    print_snapshot_stats(
+        ui,
+        &stats,
+        workspace_command.env().path_converter(),
+        SnapshotContext::Untrack,
+    )?;
     Ok(())
 }

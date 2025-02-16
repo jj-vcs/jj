@@ -18,6 +18,7 @@ use tracing::instrument;
 
 use crate::cli_util::print_snapshot_stats;
 use crate::cli_util::CommandHelper;
+use crate::cli_util::SnapshotContext;
 use crate::command_error::CommandError;
 use crate::ui::Ui;
 
@@ -58,6 +59,11 @@ pub(crate) fn cmd_file_track(
     }
     let repo = tx.commit("track paths")?;
     locked_ws.finish(repo.op_id().clone())?;
-    print_snapshot_stats(ui, &stats, workspace_command.env().path_converter())?;
+    print_snapshot_stats(
+        ui,
+        &stats,
+        workspace_command.env().path_converter(),
+        SnapshotContext::Track,
+    )?;
     Ok(())
 }
