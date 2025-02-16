@@ -396,6 +396,7 @@ fn test_shows_a_warning_when_undoing_an_undo_operation_as_bare_jj_undo() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
 
+    // Double-undo creation of child
     test_env.jj_cmd_ok(&repo_path, &["new"]);
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["undo"]);
@@ -403,6 +404,19 @@ fn test_shows_a_warning_when_undoing_an_undo_operation_as_bare_jj_undo() {
     insta::assert_snapshot!(stderr, @r"
     Undid operation: 2d5b73a97567 (2001-02-03 08:05:09) undo operation 289cb69a8458456474a77cc432e8009b99f039cdcaf19ba4526753e97d70fee3fd0f410ff2b7c1d10cf0c2501702e7a85d58f9d813cdca567c377431ec4d2b97
     Working copy now at: rlvkpnrz 65b6b74e (empty) (no description set)
+    Parent commit      : qpvuntsm 230dd059 (empty) (no description set)
+    Hint: This action reverted an 'undo' operation. The repository is now in the same state as it was before the original 'undo'.
+    Hint: If your goal is to undo multiple operations, consider using `jj op log` to see past states, and `jj op restore` to restore one of these states.
+    ");
+
+    // Double-undo creation of sibling
+    test_env.jj_cmd_ok(&repo_path, &["new", "@-"]);
+    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    insta::assert_snapshot!(stdout, @"");
+    insta::assert_snapshot!(stderr, @r"
+    Undid operation: b16799358b33 (2001-02-03 08:05:12) undo operation b14487c6d6d98f7f575ea03c48ed92d899c2a0ecbe9458221b6fc11af2bf6d918c9620cae1f8268012b0e25c7dd6f78b19ec628d0504a0830dc562d6625ba9ec
+    Working copy now at: mzvwutvl 167f90e7 (empty) (no description set)
     Parent commit      : qpvuntsm 230dd059 (empty) (no description set)
     Hint: This action reverted an 'undo' operation. The repository is now in the same state as it was before the original 'undo'.
     Hint: If your goal is to undo multiple operations, consider using `jj op log` to see past states, and `jj op restore` to restore one of these states.

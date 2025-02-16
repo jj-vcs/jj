@@ -13,7 +13,10 @@
 // limitations under the License.
 
 use clap_complete::ArgValueCandidates;
+use itertools::Itertools;
 use jj_lib::object_id::ObjectId;
+use jj_lib::op_store::OpStoreError;
+use jj_lib::operation::Operation;
 use jj_lib::repo::Repo;
 
 use super::view_with_desired_portions_restored;
@@ -44,6 +47,15 @@ pub struct OperationUndoArgs {
     what: Vec<UndoWhatToRestore>,
 }
 
+fn is_undo(op: &Operation, parent_op: &Operation) -> Result<bool, OpStoreError> {
+    let grand_parents: Vec<_> = parent_op.parents().try_collect()?;
+    if let [grand_parent_op] = &grand_parents[..] {
+        Ok(op.view_id() == grand_parent_op.view_id())
+    } else {
+        Ok(false)
+    }
+}
+
 pub fn cmd_op_undo(
     ui: &mut Ui,
     command: &CommandHelper,
@@ -70,7 +82,6 @@ pub fn cmd_op_undo(
         &args.what,
     );
     tx.repo_mut().set_view(new_view);
-    let was_undo_op = *tx.repo().view() == parent_op.view()?;
     if let Some(mut formatter) = ui.status_formatter() {
         write!(formatter, "Undid operation: ")?;
         let template = tx.base_workspace_helper().operation_summary_template();
@@ -79,7 +90,7 @@ pub fn cmd_op_undo(
     }
     tx.finish(ui, format!("undo operation {}", bad_op.id().hex()))?;
 
-    if args.operation == "@" && was_undo_op {
+    if args.operation == "@" && is_undo(&bad_op, &parent_op)? {
         writeln!(
             ui.hint_default(),
             "This action reverted an 'undo' operation. The repository is now in the same state as \
