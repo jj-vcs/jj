@@ -85,7 +85,6 @@ impl<'a> GitSubprocessContext<'a> {
         // root to Command::current_dir and then pass a relative path to the git
         // dir
         git_cmd
-            .arg("--bare")
             .arg("--git-dir")
             .arg(&self.git_dir)
             // Disable translation and other locale-dependent behavior so we can
