@@ -18,6 +18,41 @@ use crate::common::strip_last_line;
 use crate::common::TestEnvironment;
 
 #[test]
+fn test_clear_predecessors() {
+    let test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    let repo_path = test_env.env_root().join("repo");
+
+    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "version 2"]);
+    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "version 3"]);
+
+    let stdout = test_env.jj_cmd_success(&repo_path, &["evolog"]);
+    insta::assert_snapshot!(stdout, @r#"
+    @  qpvuntsm test.user@example.com 2001-02-03 08:05:09 ba508502
+    │  (empty) version 3
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 24c5d33a
+    │  (empty) version 2
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 230dd059
+       (empty) (no description set)
+    "#);
+
+    let (stdout, stderr) =
+        test_env.jj_cmd_ok(&repo_path, &["util", "clear-predecessors", "-r", "@"]);
+    insta::assert_snapshot!(stdout, @"");
+    insta::assert_snapshot!(stderr, @r#"
+    Cleared predecessors for 1 commits.
+    Working copy now at: qpvuntsm 1c89a3cb (empty) version 3
+    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    "#);
+
+    let stdout = test_env.jj_cmd_success(&repo_path, &["evolog"]);
+    insta::assert_snapshot!(stdout, @r#"
+    @  qpvuntsm test.user@example.com 2001-02-03 08:05:11 1c89a3cb
+       (empty) version 3
+    "#);
+}
+
+#[test]
 fn test_util_config_schema() {
     let test_env = TestEnvironment::default();
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["util", "config-schema"]);
