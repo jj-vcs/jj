@@ -1934,3 +1934,52 @@ fn test_git_fetch_preserve_commits_across_repos(subprocess: bool) {
     ");
     }
 }
+
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_git_fetch_slashed_remote(subprocess: bool) {
+    let test_env = TestEnvironment::default();
+    if !subprocess {
+        test_env.add_config("git.subprocess = false");
+    }
+    test_env.add_config("git.auto-local-bookmark = true");
+
+    let repo_path = test_env.env_root().join("repo");
+    let source_path = test_env.env_root().join("source");
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+
+    let source_repo = git2::Repository::init(source_path).unwrap();
+    add_commit_to_branch(&source_repo, "master");
+
+    test_env.jj_cmd_ok(
+        &repo_path,
+        &["git", "remote", "add", "slash/origin", "../source"],
+    );
+
+    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "fetch"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(stderr, @r"
+    Hint: Fetching from the only existing remote: slash/origin
+    bookmark: master@slash/origin [new] tracked
+    ");
+    }
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(stdout, @"");
+    }
+
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
+    master: mvrtqspq 0bc8ded5 message
+      @slash/origin: mvrtqspq 0bc8ded5 message
+    ");
+    }
+
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    @  230dd059e1b0
+    │ ○  0bc8ded5f6a3 message master
+    ├─╯
+    ◆  000000000000
+    ");
+    }
+}

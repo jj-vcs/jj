@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::BTreeSet;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
@@ -239,7 +240,11 @@ pub fn maybe_set_repository_level_trunk_alias(
     let git_repo = get_git_repo(workspace_command.repo().store())?;
     if let Ok(reference) = git_repo.find_reference("refs/remotes/origin/HEAD") {
         if let Some(reference_name) = reference.symbolic_target() {
-            if let Some(RefName::RemoteBranch { branch, .. }) = parse_git_ref(reference_name) {
+            let mut remote_names = BTreeSet::new();
+            remote_names.insert("origin");
+            if let Some(RefName::RemoteBranch { branch, .. }) =
+                parse_git_ref(reference_name, &remote_names)
+            {
                 write_repository_level_trunk_alias(
                     ui,
                     workspace_command.repo_path(),

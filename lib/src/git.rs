@@ -16,6 +16,7 @@
 
 use std::borrow::Cow;
 use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::default::Default;
@@ -165,19 +166,46 @@ impl<'a> RefToPush<'a> {
     }
 }
 
-pub fn parse_git_ref(ref_name: &str) -> Option<RefName> {
+/// Parse a git reference
+///
+/// There are three types of git references:
+///  - `refs/heads/<branch-name>`
+///  - `refs/remotes/<remote-name>/<branch-name>`
+///  - `refs/tags/<tag>`
+///
+/// Here, both `<remote-name>`, `<branch-name>` and `<tag>` are path like
+/// strings. In the case of remote references, this means that it's impossible
+/// to distinguish where the remote name ends and the branch name begins
+pub fn parse_git_ref(ref_name: &str, remote_names: &BTreeSet<impl AsRef<BStr>>) -> Option<RefName> {
     if let Some(branch_name) = ref_name.strip_prefix("refs/heads/") {
         // Git CLI says 'HEAD' is not a valid branch name
         (branch_name != "HEAD").then(|| RefName::LocalBranch(branch_name.to_string()))
     } else if let Some(remote_and_branch) = ref_name.strip_prefix("refs/remotes/") {
-        remote_and_branch
-            .split_once('/')
-            // "refs/remotes/origin/HEAD" isn't a real remote-tracking branch
-            .filter(|&(_, branch)| branch != "HEAD")
-            .map(|(remote, branch)| RefName::RemoteBranch {
-                remote: remote.to_string(),
-                branch: branch.to_string(),
-            })
+        let mut it = remote_and_branch.split("/");
+
+        let mut remote = String::new();
+        for component in it.by_ref() {
+            if !remote.is_empty() {
+                remote.push('/');
+            }
+            remote.push_str(component);
+
+            if remote_names.iter().any(|x| x.as_ref() == remote) {
+                break;
+            }
+        }
+
+        // if the remote is unknown, we assume it's a single
+        // component remote as there is no way to differentiate
+        let branch = if remote == remote_and_branch {
+            let (r, b) = remote_and_branch.split_once('/')?;
+            remote = r.to_string();
+            b.to_string()
+        } else {
+            it.join("/")
+        };
+
+        (branch != "HEAD").then_some(RefName::RemoteBranch { branch, remote })
     } else {
         ref_name
             .strip_prefix("refs/tags/")
@@ -499,12 +527,14 @@ fn diff_refs_to_import(
     git_repo: &gix::Repository,
     git_ref_filter: impl Fn(&RefName) -> bool,
 ) -> Result<RefsToImport, GitImportError> {
+    let git_remotes = git_repo.remote_names();
     let mut known_git_refs: HashMap<&str, &RefTarget> = view
         .git_refs()
         .iter()
         .filter_map(|(full_name, target)| {
             // TODO: or clean up invalid ref in case it was stored due to historical bug?
-            let ref_name = parse_git_ref(full_name).expect("stored git ref should be parsable");
+            let ref_name =
+                parse_git_ref(full_name, &git_remotes).expect("stored git ref should be parsable");
             git_ref_filter(&ref_name).then_some((full_name.as_ref(), target))
         })
         .collect();
@@ -552,7 +582,7 @@ fn diff_refs_to_import(
             // Skip non-utf8 refs.
             continue;
         };
-        let Some(ref_name) = parse_git_ref(full_name) else {
+        let Some(ref_name) = parse_git_ref(full_name, &git_remotes) else {
             // Skip other refs (such as notes) and symbolic refs.
             continue;
         };
@@ -770,6 +800,7 @@ pub fn export_some_refs(
     git_ref_filter: impl Fn(&RefName) -> bool,
 ) -> Result<Vec<FailedRefExport>, GitExportError> {
     let git_repo = get_git_repo(mut_repo.store())?;
+    let git_remotes = git_repo.remote_names();
 
     let RefsToExport {
         branches_to_update,
@@ -777,6 +808,7 @@ pub fn export_some_refs(
         mut failed_branches,
     } = diff_refs_to_export(
         mut_repo.view(),
+        &git_repo,
         mut_repo.store().root_commit_id(),
         &git_ref_filter,
     );
@@ -787,7 +819,7 @@ pub fn export_some_refs(
             .target()
             .try_name()
             .and_then(|name| str::from_utf8(name.as_bstr()).ok())
-            .and_then(parse_git_ref)
+            .and_then(|s| parse_git_ref(s, &git_remotes))
         {
             let old_target = head_ref.inner.target.clone();
             let current_oid = match head_ref.into_fully_peeled_id() {
@@ -886,9 +918,11 @@ fn copy_exportable_local_branches_to_remote_view(
 /// Calculates diff of branches to be exported.
 fn diff_refs_to_export(
     view: &View,
+    git_repo: &gix::Repository,
     root_commit_id: &CommitId,
     git_ref_filter: impl Fn(&RefName) -> bool,
 ) -> RefsToExport {
+    let git_remotes = git_repo.remote_names();
     // Local targets will be copied to the "git" remote if successfully exported. So
     // the local branches are considered to be the new "git" remote branches.
     let mut all_branch_targets: HashMap<RefName, (&RefTarget, &RefTarget)> = itertools::chain(
@@ -911,7 +945,8 @@ fn diff_refs_to_export(
         .git_refs()
         .iter()
         .map(|(full_name, target)| {
-            let ref_name = parse_git_ref(full_name).expect("stored git ref should be parsable");
+            let ref_name =
+                parse_git_ref(full_name, &git_remotes).expect("stored git ref should be parsable");
             (ref_name, target)
         })
         .filter(|(ref_name, _)| {
@@ -1771,10 +1806,14 @@ fn git2_get_default_branch(
     let mut default_branch = None;
     tracing::debug!("remote.default_branch");
     if let Ok(default_ref_buf) = connection.default_branch() {
+        let mut remote_names = BTreeSet::new();
+        remote_names.insert(remote_name);
         if let Some(default_ref) = default_ref_buf.as_str() {
             // LocalBranch here is the local branch on the remote, so it's really the remote
             // branch
-            if let Some(RefName::LocalBranch(branch_name)) = parse_git_ref(default_ref) {
+            if let Some(RefName::LocalBranch(branch_name)) =
+                parse_git_ref(default_ref, &remote_names)
+            {
                 tracing::debug!(default_branch = branch_name);
                 default_branch = Some(branch_name);
             }
