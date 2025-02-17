@@ -2811,28 +2811,21 @@ pub fn update_working_copy(
     options: &CheckoutOptions,
 ) -> Result<CheckoutStats, CommandError> {
     let old_tree_id = old_commit.map(|commit| commit.tree_id().clone());
-    let stats = if Some(new_commit.tree_id()) != old_tree_id.as_ref() {
-        // TODO: CheckoutError::ConcurrentCheckout should probably just result in a
-        // warning for most commands (but be an error for the checkout command)
-        workspace
-            .check_out(
-                repo.op_id().clone(),
-                old_tree_id.as_ref(),
-                new_commit,
-                options,
+    // TODO: CheckoutError::ConcurrentCheckout should probably just result in a
+    // warning for most commands (but be an error for the checkout command)
+    let stats = workspace
+        .check_out(
+            repo.op_id().clone(),
+            old_tree_id.as_ref(),
+            new_commit,
+            options,
+        )
+        .map_err(|err| {
+            internal_error_with_message(
+                format!("Failed to check out commit {}", new_commit.id().hex()),
+                err,
             )
-            .map_err(|err| {
-                internal_error_with_message(
-                    format!("Failed to check out commit {}", new_commit.id().hex()),
-                    err,
-                )
-            })?
-    } else {
-        // Record new operation id which represents the latest working-copy state
-        let locked_ws = workspace.start_working_copy_mutation()?;
-        locked_ws.finish(repo.op_id().clone())?;
-        CheckoutStats::default()
-    };
+        })?;
     Ok(stats)
 }
 
