@@ -32,6 +32,7 @@ use prost::Message;
 use tempfile::NamedTempFile;
 use thiserror::Error;
 
+use crate::backend::BackendInitError;
 use crate::backend::CommitId;
 use crate::backend::MillisSinceEpoch;
 use crate::backend::Timestamp;
@@ -64,6 +65,17 @@ use crate::op_store::WorkspaceId;
 const OPERATION_ID_LENGTH: usize = 64;
 const VIEW_ID_LENGTH: usize = 64;
 
+/// Error that may occur during [`SimpleOpStore`] initialization.
+#[derive(Debug, Error)]
+#[error("Failed to initialize simple operation store")]
+pub struct SimpleOpStoreInitError(#[from] pub PathError);
+
+impl From<SimpleOpStoreInitError> for BackendInitError {
+    fn from(err: SimpleOpStoreInitError) -> Self {
+        BackendInitError(err.into())
+    }
+}
+
 #[derive(Debug, Error)]
 #[error("Failed to read {kind} with ID {id}")]
 struct DecodeError {
@@ -92,11 +104,14 @@ impl SimpleOpStore {
         "simple_op_store"
     }
 
-    /// Creates an empty OpStore, panics if it already exists
-    pub fn init(store_path: &Path, root_data: RootOperationData) -> Self {
+    /// Creates an empty OpStore. Returns error if it already exists.
+    pub fn init(
+        store_path: &Path,
+        root_data: RootOperationData,
+    ) -> Result<Self, SimpleOpStoreInitError> {
         let store = Self::new(store_path, root_data);
-        store.init_base_dirs().unwrap(); // TODO: propagate error
-        store
+        store.init_base_dirs()?;
+        Ok(store)
     }
 
     /// Load an existing OpStore
@@ -794,7 +809,7 @@ mod tests {
         let root_data = RootOperationData {
             root_commit_id: CommitId::from_hex("000000"),
         };
-        let store = SimpleOpStore::init(temp_dir.path(), root_data);
+        let store = SimpleOpStore::init(temp_dir.path(), root_data).unwrap();
         let view = create_view();
         let view_id = store.write_view(&view).unwrap();
         let read_view = store.read_view(&view_id).unwrap();
@@ -807,7 +822,7 @@ mod tests {
         let root_data = RootOperationData {
             root_commit_id: CommitId::from_hex("000000"),
         };
-        let store = SimpleOpStore::init(temp_dir.path(), root_data);
+        let store = SimpleOpStore::init(temp_dir.path(), root_data).unwrap();
         let operation = create_operation();
         let op_id = store.write_operation(&operation).unwrap();
         let read_operation = store.read_operation(&op_id).unwrap();

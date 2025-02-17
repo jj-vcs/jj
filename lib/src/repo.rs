@@ -157,7 +157,9 @@ pub enum RepoInitError {
 
 impl ReadonlyRepo {
     pub fn default_op_store_initializer() -> &'static OpStoreInitializer<'static> {
-        &|_settings, store_path, root_data| Ok(Box::new(SimpleOpStore::init(store_path, root_data)))
+        &|_settings, store_path, root_data| {
+            Ok(Box::new(SimpleOpStore::init(store_path, root_data)?))
+        }
     }
 
     pub fn default_op_heads_store_initializer() -> &'static OpHeadsStoreInitializer<'static> {
