@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use clap::builder::NonEmptyStringValueParser;
 use clap_complete::ArgValueCandidates;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::RefTarget;
+use jj_lib::revset;
 
 use super::has_tracked_remote_bookmarks;
 use super::is_fast_forward;
@@ -49,7 +49,7 @@ pub struct BookmarkSetArgs {
     /// The bookmarks to update
     #[arg(
         required = true,
-        value_parser = NonEmptyStringValueParser::new(),
+        value_parser = revset::parse_symbol,
         add = ArgValueCandidates::new(complete::local_bookmarks),
     )]
     names: Vec<String>,
