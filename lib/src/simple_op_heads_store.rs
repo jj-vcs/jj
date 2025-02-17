@@ -22,12 +22,28 @@ use std::io;
 use std::path::Path;
 use std::path::PathBuf;
 
+use thiserror::Error;
+
+use crate::backend::BackendInitError;
+use crate::file_util::IoResultExt as _;
+use crate::file_util::PathError;
 use crate::lock::FileLock;
 use crate::object_id::ObjectId;
 use crate::op_heads_store::OpHeadsStore;
 use crate::op_heads_store::OpHeadsStoreError;
 use crate::op_heads_store::OpHeadsStoreLock;
 use crate::op_store::OperationId;
+
+/// Error that may occur during [`SimpleOpHeadsStore`] initialization.
+#[derive(Debug, Error)]
+#[error("Failed to initialize simple operation heads store")]
+pub struct SimpleOpHeadsStoreInitError(#[from] pub PathError);
+
+impl From<SimpleOpHeadsStoreInitError> for BackendInitError {
+    fn from(err: SimpleOpHeadsStoreInitError) -> Self {
+        BackendInitError(err.into())
+    }
+}
 
 pub struct SimpleOpHeadsStore {
     dir: PathBuf,
@@ -46,10 +62,10 @@ impl SimpleOpHeadsStore {
         "simple_op_heads_store"
     }
 
-    pub fn init(dir: &Path) -> Self {
+    pub fn init(dir: &Path) -> Result<Self, SimpleOpHeadsStoreInitError> {
         let op_heads_dir = dir.join("heads");
-        fs::create_dir(&op_heads_dir).unwrap();
-        Self { dir: op_heads_dir }
+        fs::create_dir(&op_heads_dir).context(&op_heads_dir)?;
+        Ok(Self { dir: op_heads_dir })
     }
 
     pub fn load(dir: &Path) -> Self {

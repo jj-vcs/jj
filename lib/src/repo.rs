@@ -161,7 +161,7 @@ impl ReadonlyRepo {
     }
 
     pub fn default_op_heads_store_initializer() -> &'static OpHeadsStoreInitializer<'static> {
-        &|_settings, store_path| Ok(Box::new(SimpleOpHeadsStore::init(store_path)))
+        &|_settings, store_path| Ok(Box::new(SimpleOpHeadsStore::init(store_path)?))
     }
 
     pub fn default_index_store_initializer() -> &'static IndexStoreInitializer<'static> {
