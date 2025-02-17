@@ -42,6 +42,7 @@ fn test_syntax_error() {
       |    ^---
       |
       = expected `::`, `..`, `~`, or <primary>
+    Hint: See https://jj-vcs.github.io/jj/latest/revsets/ for revsets syntax, or for how to quote symbols.
     [EOF]
     ");
 
@@ -292,6 +293,7 @@ fn test_bad_function_call() {
       |                  ^---
       |
       = expected <strict_identifier> or <expression>
+    Hint: See https://jj-vcs.github.io/jj/latest/revsets/ for revsets syntax, or for how to quote symbols.
     [EOF]
     ");
 
@@ -304,6 +306,7 @@ fn test_bad_function_call() {
       |                         ^---
       |
       = expected <expression>
+    Hint: See https://jj-vcs.github.io/jj/latest/revsets/ for revsets syntax, or for how to quote symbols.
     [EOF]
     ");
 }
@@ -481,6 +484,7 @@ fn test_alias() {
       |           ^---
       |
       = expected `::`, `..`, `~`, or <primary>
+    Hint: See https://jj-vcs.github.io/jj/latest/revsets/ for revsets syntax, or for how to quote symbols.
     [EOF]
     ");
 

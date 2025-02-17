@@ -155,6 +155,7 @@ fn test_bookmark_bad_name() {
       = expected <identifier>, <string_literal>, or <raw_string_literal>
 
     For more information, try '--help'.
+    Hint: See https://jj-vcs.github.io/jj/latest/revsets/ for revsets syntax, or for how to quote symbols.
     [EOF]
     ");
 
@@ -181,6 +182,7 @@ fn test_bookmark_bad_name() {
       = expected <identifier>, <string_literal>, or <raw_string_literal>
 
     For more information, try '--help'.
+    Hint: See https://jj-vcs.github.io/jj/latest/revsets/ for revsets syntax, or for how to quote symbols.
     [EOF]
     ");
 
@@ -195,6 +197,7 @@ fn test_bookmark_bad_name() {
       = expected <identifier>, <string_literal>, or <raw_string_literal>
 
     For more information, try '--help'.
+    Hint: See https://jj-vcs.github.io/jj/latest/revsets/ for revsets syntax, or for how to quote symbols.
     [EOF]
     ");
 

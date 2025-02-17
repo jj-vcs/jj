@@ -811,6 +811,11 @@ fn revset_parse_error_hint(err: &RevsetParseError) -> Option<String> {
     // Only for the bottom error, which is usually the root cause
     let bottom_err = iter::successors(Some(err), |e| e.origin()).last().unwrap();
     match bottom_err.kind() {
+        RevsetParseErrorKind::SyntaxError => Some(
+            "See https://jj-vcs.github.io/jj/latest/revsets/ for revsets syntax, or for how to \
+             quote symbols."
+                .into(),
+        ),
         RevsetParseErrorKind::NotPrefixOperator {
             op: _,
             similar_op,
