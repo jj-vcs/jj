@@ -598,7 +598,7 @@ fn test_git_colocated_rebase_dirty_working_copy() {
     Parent commit: qpvuntsm 3230d522 (no description set)
     Warning: These bookmarks have conflicts:
       feature
-      Use `jj bookmark list` to see details. Use `jj bookmark set <name> -r <rev>` to resolve.
+    Hint: Use `jj bookmark list` to see details. Use `jj bookmark set <name> -r <rev>` to resolve.
     ");
     insta::assert_snapshot!(stderr, @r###"
     Warning: Failed to export some bookmarks:
