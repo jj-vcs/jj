@@ -2260,16 +2260,20 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
         // TODO: Write a "pending_checkout" file with the new TreeId so we can
         // continue an interrupted update if we find such a file.
         let new_tree = commit.tree()?;
-        let stats = self
+        let tree_state = self
             .wc
             .tree_state_mut()
             .map_err(|err| CheckoutError::Other {
                 message: "Failed to load the working copy state".to_string(),
                 err: err.into(),
-            })?
-            .check_out(&new_tree, options)?;
-        self.tree_state_dirty = true;
-        Ok(stats)
+            })?;
+        if tree_state.tree_id != *commit.tree_id() {
+            let stats = tree_state.check_out(&new_tree, options)?;
+            self.tree_state_dirty = true;
+            Ok(stats)
+        } else {
+            Ok(CheckoutStats::default())
+        }
     }
 
     fn rename_workspace(&mut self, new_workspace_id: WorkspaceId) {

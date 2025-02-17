@@ -48,6 +48,7 @@ use jj_lib::working_copy::CheckoutOptions;
 use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::SnapshotOptions;
 use jj_lib::working_copy::UntrackedReason;
+use jj_lib::working_copy::WorkingCopy;
 use jj_lib::workspace::default_working_copy_factories;
 use jj_lib::workspace::LockedWorkspace;
 use jj_lib::workspace::Workspace;
@@ -368,6 +369,50 @@ fn test_checkout_file_transitions(backend: TestRepoBackend) {
             }
         };
     }
+}
+
+#[test]
+fn test_checkout_no_op() {
+    // Check out another commit with the same tree that's already checked out. The
+    // recorded operation should be updated even though the tree is unchanged.
+    let mut test_workspace = TestWorkspace::init();
+    let repo = test_workspace.repo.clone();
+
+    let file_path = RepoPath::from_internal_string("file");
+
+    let tree = create_tree(&repo, &[(file_path, "contents")]);
+    let commit1 = commit_with_tree(repo.store(), tree.id());
+    let commit2 = commit_with_tree(repo.store(), tree.id());
+
+    let ws = &mut test_workspace.workspace;
+    ws.check_out(
+        repo.op_id().clone(),
+        None,
+        &commit1,
+        &CheckoutOptions::empty_for_test(),
+    )
+    .unwrap();
+
+    // Test the setup: the file should exist on in the tree state.
+    let wc: &LocalWorkingCopy = ws.working_copy().as_any().downcast_ref().unwrap();
+    assert!(wc.file_states().unwrap().contains_path(file_path));
+
+    // Update to commit2 (same tree as commit1)
+    let new_op_id = OperationId::from_bytes(b"whatever");
+    let stats = ws
+        .check_out(
+            new_op_id.clone(),
+            None,
+            &commit2,
+            &CheckoutOptions::empty_for_test(),
+        )
+        .unwrap();
+    assert_eq!(stats, CheckoutStats::default());
+
+    // The tree state is unchanged but the recorded operation id is updated.
+    let wc: &LocalWorkingCopy = ws.working_copy().as_any().downcast_ref().unwrap();
+    assert!(wc.file_states().unwrap().contains_path(file_path));
+    assert_eq!(*wc.operation_id(), new_op_id);
 }
 
 // Test case for issue #2165
