@@ -1992,9 +1992,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
                 }
             }
         }
-        if let Some(stats) = stats {
-            print_checkout_stats(ui, stats, new_commit)?;
-        }
+        print_checkout_stats(ui, stats, new_commit)?;
         if Some(new_commit) != maybe_old_commit {
             if let Some(mut formatter) = ui.status_formatter() {
                 let conflicts = new_commit.tree()?.conflicts().collect_vec();
@@ -2811,12 +2809,12 @@ pub fn update_working_copy(
     old_commit: Option<&Commit>,
     new_commit: &Commit,
     options: &CheckoutOptions,
-) -> Result<Option<CheckoutStats>, CommandError> {
+) -> Result<CheckoutStats, CommandError> {
     let old_tree_id = old_commit.map(|commit| commit.tree_id().clone());
     let stats = if Some(new_commit.tree_id()) != old_tree_id.as_ref() {
         // TODO: CheckoutError::ConcurrentCheckout should probably just result in a
         // warning for most commands (but be an error for the checkout command)
-        let stats = workspace
+        workspace
             .check_out(
                 repo.op_id().clone(),
                 old_tree_id.as_ref(),
@@ -2828,13 +2826,12 @@ pub fn update_working_copy(
                     format!("Failed to check out commit {}", new_commit.id().hex()),
                     err,
                 )
-            })?;
-        Some(stats)
+            })?
     } else {
         // Record new operation id which represents the latest working-copy state
         let locked_ws = workspace.start_working_copy_mutation()?;
         locked_ws.finish(repo.op_id().clone())?;
-        None
+        CheckoutStats::default()
     };
     Ok(stats)
 }
