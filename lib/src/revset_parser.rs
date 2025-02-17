@@ -130,6 +130,7 @@ impl Rule {
             Rule::expression => None,
             Rule::program_modifier => None,
             Rule::program => None,
+            Rule::symbol_name => None,
             Rule::function_alias_declaration => None,
             Rule::alias_declaration => None,
         }
@@ -686,6 +687,22 @@ pub fn is_identifier(text: &str) -> bool {
     match RevsetParser::parse(Rule::identifier, text) {
         Ok(mut pairs) => pairs.next().unwrap().as_span().end() == text.len(),
         Err(_) => false,
+    }
+}
+
+/// Parses the text as a revset symbol, rejects empty string.
+pub fn parse_symbol(text: &str) -> Result<String, RevsetParseError> {
+    let mut pairs = RevsetParser::parse(Rule::symbol_name, text)?;
+    let first = pairs.next().unwrap();
+    let span = first.as_span();
+    let name = parse_as_string_literal(first);
+    if name.is_empty() {
+        Err(RevsetParseError::expression(
+            "Expected non-empty string",
+            span,
+        ))
+    } else {
+        Ok(name)
     }
 }
 
@@ -1285,6 +1302,29 @@ mod tests {
             parse_into_kind(r#"(exact:("foo" ))"#),
             Err(RevsetParseErrorKind::NotInfixOperator { .. })
         );
+    }
+
+    #[test]
+    fn test_parse_symbol_explicitly() {
+        assert_matches!(parse_symbol("").as_deref(), Err(_));
+        // empty string could be a valid ref name, but it would be super
+        // confusing if identifier was empty.
+        assert_matches!(parse_symbol("''").as_deref(), Err(_));
+
+        assert_matches!(parse_symbol("foo.bar").as_deref(), Ok("foo.bar"));
+        assert_matches!(parse_symbol("foo@bar").as_deref(), Err(_));
+        assert_matches!(parse_symbol("foo bar").as_deref(), Err(_));
+
+        assert_matches!(parse_symbol("'foo bar'").as_deref(), Ok("foo bar"));
+        assert_matches!(parse_symbol(r#""foo\tbar""#).as_deref(), Ok("foo\tbar"));
+
+        // leading/trailing whitespace is NOT ignored.
+        assert_matches!(parse_symbol(" foo").as_deref(), Err(_));
+        assert_matches!(parse_symbol("foo ").as_deref(), Err(_));
+
+        // (foo) could be parsed as a symbol "foo", but is rejected because user
+        // might expect a literal "(foo)".
+        assert_matches!(parse_symbol("(foo)").as_deref(), Err(_));
     }
 
     #[test]
