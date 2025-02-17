@@ -117,13 +117,6 @@ pub fn cmd_bookmark_set(
     if bookmark_names.len() > 1 && args.revision.is_none() {
         writeln!(ui.hint_default(), "Use -r to specify the target revision.")?;
     }
-    if new_bookmark_count > 0 {
-        // TODO: delete this hint in jj 0.25+
-        writeln!(
-            ui.hint_default(),
-            "Consider using `jj bookmark move` if your intention was to move existing bookmarks."
-        )?;
-    }
 
     tx.finish(
         ui,

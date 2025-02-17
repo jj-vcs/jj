@@ -88,11 +88,10 @@ fn test_bookmark_multiple_names() {
     // Create and move with explicit -r
     let (_stdout, stderr) =
         test_env.jj_cmd_ok(&repo_path, &["bookmark", "set", "-r@", "bar", "baz"]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Created 1 bookmarks pointing to zsuskuln 8bb159bc bar baz | (empty) (no description set)
     Moved 1 bookmarks to zsuskuln 8bb159bc bar baz | (empty) (no description set)
-    Hint: Consider using `jj bookmark move` if your intention was to move existing bookmarks.
-    "###);
+    ");
 
     // Noop changes should not be included in the stats
     let (_stdout, stderr) =
@@ -164,10 +163,9 @@ fn test_bookmark_move() {
     "###);
 
     let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["bookmark", "set", "foo", "--to=@"]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Created 1 bookmarks pointing to qpvuntsm 230dd059 foo | (empty) (no description set)
-    Hint: Consider using `jj bookmark move` if your intention was to move existing bookmarks.
-    "###);
+    ");
 
     test_env.jj_cmd_ok(&repo_path, &["new"]);
     let stderr = test_env.jj_cmd_failure(&repo_path, &["bookmark", "create", "-r@", "foo"]);
@@ -1925,7 +1923,6 @@ fn test_bookmark_set_with_default_target_revision() {
     insta::assert_snapshot!(stderr, @r"
     Warning: Target revision was not specified, defaulting to the working copy (--revision=@). In the near future it will be required to explicitly specify target revision.
     Created 1 bookmarks pointing to qpvuntsm 230dd059 foo | (empty) (no description set)
-    Hint: Consider using `jj bookmark move` if your intention was to move existing bookmarks.
     ");
 }
 
