@@ -16,7 +16,6 @@ use tracing::instrument;
 
 use crate::cli_util::print_snapshot_stats;
 use crate::cli_util::CommandHelper;
-use crate::cli_util::SnapshotContext;
 use crate::command_error::CommandError;
 use crate::ui::Ui;
 
@@ -36,12 +35,7 @@ pub fn cmd_workspace_update_stale(
     _args: &WorkspaceUpdateStaleArgs,
 ) -> Result<(), CommandError> {
     let (workspace_command, stats) = command.recover_stale_working_copy(ui)?;
-    print_snapshot_stats(
-        ui,
-        &stats,
-        workspace_command.env().path_converter(),
-        SnapshotContext::Automatic,
-    )?;
+    print_snapshot_stats(ui, &stats, workspace_command.env().path_converter())?;
 
     Ok(())
 }

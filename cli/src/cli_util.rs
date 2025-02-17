@@ -414,12 +414,7 @@ impl CommandHelper {
     #[instrument(skip(self, ui))]
     pub fn workspace_helper(&self, ui: &Ui) -> Result<WorkspaceCommandHelper, CommandError> {
         let (workspace_command, stats) = self.workspace_helper_with_stats(ui)?;
-        print_snapshot_stats(
-            ui,
-            &stats,
-            workspace_command.env().path_converter(),
-            SnapshotContext::Automatic,
-        )?;
+        print_snapshot_stats(ui, &stats, workspace_command.env().path_converter())?;
         Ok(workspace_command)
     }
 
@@ -1113,12 +1108,7 @@ impl WorkspaceCommandHelper {
         let stats = self
             .maybe_snapshot_impl(ui)
             .map_err(|err| err.into_command_error())?;
-        print_snapshot_stats(
-            ui,
-            &stats,
-            self.env().path_converter(),
-            SnapshotContext::Automatic,
-        )?;
+        print_snapshot_stats(ui, &stats, self.env().path_converter())?;
         Ok(())
     }
 
@@ -2670,12 +2660,6 @@ pub fn print_conflicted_paths(
     Ok(())
 }
 
-pub enum SnapshotContext {
-    Automatic,
-    Track,
-    Untrack,
-}
-
 /// Build human-readable messages explaining why the file was not tracked
 fn build_untracked_reason_message(reason: &UntrackedReason) -> Option<String> {
     match reason {
@@ -2723,48 +2707,28 @@ pub fn print_snapshot_stats(
     ui: &Ui,
     stats: &SnapshotStats,
     path_converter: &RepoPathUiConverter,
-    context: SnapshotContext,
 ) -> io::Result<()> {
     print_untracked_files(ui, &stats.untracked_paths, path_converter)?;
 
-    let large_files = stats
+    let large_files_sizes = stats
         .untracked_paths
-        .iter()
-        .filter_map(|(path, reason)| match reason {
-            UntrackedReason::FileTooLarge { size, .. } => Some((path, size)),
+        .values()
+        .filter_map(|reason| match reason {
+            UntrackedReason::FileTooLarge { size, .. } => Some(size),
             UntrackedReason::FileNotAutoTracked => None,
-        })
-        .collect_vec();
-    if let Some(size) = large_files.iter().map(|(_, size)| size).max() {
-        match context {
-            SnapshotContext::Track => {
-                let large_files_list = large_files
-                    .iter()
-                    .map(|(p, _)| path_converter.format_file_path(p))
-                    .join(" ");
-                writedoc!(
-                    ui.hint_default(),
-                    r"
-                    This is to prevent large files from being added by accident. You can fix this by:
-                      - Run `jj config set --repo snapshot.max-new-file-size {size}`
-                        This will increase the maximum file size allowed for new files, in this repository only.
-                      - Run `jj --config snapshot.max-new-file-size={size} file track {large_files_list}`
-                        This will increase the maximum file size allowed for new files, for this command only.
-                    "
-                )?;
-            }
-            _ => writedoc!(
-                ui.hint_default(),
-                r"
-                This is to prevent large files from being added by accident. You can fix this by:
-                  - Adding the file to `.gitignore`
-                  - Run `jj config set --repo snapshot.max-new-file-size {size}`
-                    This will increase the maximum file size allowed for new files, in this repository only.
-                  - Run `jj --config snapshot.max-new-file-size={size} st`
-                    This will increase the maximum file size allowed for new files, for this command only.
-                "
-            )?,
-        };
+        });
+    if let Some(size) = large_files_sizes.max() {
+        writedoc!(
+            ui.hint_default(),
+            r"
+            This is to prevent large files from being added by accident. You can fix this by:
+              - Adding the file to `.gitignore`
+              - Run `jj config set --repo snapshot.max-new-file-size {size}`
+                This will increase the maximum file size allowed for new files, in this repository only.
+              - Run `jj --config snapshot.max-new-file-size={size} st`
+                This will increase the maximum file size allowed for new files, for this command only.
+            "
+        )?;
     }
     Ok(())
 }
