@@ -407,10 +407,10 @@ revsets (expressions) as arguments.
 
 ## String patterns
 
-Functions that perform string matching support the following pattern syntax:
+Functions that perform string matching support the following pattern syntax (the
+quotes are optional):
 
-* `"string"`, or `string` (the quotes are optional), or `substring:"string"`:
-  Matches strings that contain `string`.
+* `"string"` or `substring:"string"`: Matches strings that contain `string`.
 * `exact:"string"`: Matches strings exactly equal to `string`.
 * `glob:"pattern"`: Matches strings with Unix-style shell [wildcard
   `pattern`](https://docs.rs/glob/latest/glob/struct.Pattern.html).

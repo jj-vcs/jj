@@ -61,7 +61,6 @@ function_arguments = {
   | ""
 }
 
-// TODO: change rhs to string_literal to require quoting? #2101
 string_pattern = {
   strict_identifier
   ~ pattern_kind_op
