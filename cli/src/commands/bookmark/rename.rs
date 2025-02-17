@@ -14,6 +14,7 @@
 
 use clap_complete::ArgValueCandidates;
 use jj_lib::op_store::RefTarget;
+use jj_lib::revset;
 
 use super::has_tracked_remote_bookmarks;
 use crate::cli_util::CommandHelper;
@@ -28,10 +29,14 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 pub struct BookmarkRenameArgs {
     /// The old name of the bookmark
-    #[arg(add = ArgValueCandidates::new(complete::local_bookmarks))]
+    #[arg(
+        value_parser = revset::parse_symbol,
+        add = ArgValueCandidates::new(complete::local_bookmarks),
+    )]
     old: String,
 
     /// The new name of the bookmark
+    #[arg(value_parser = revset::parse_symbol)]
     new: String,
 }
 

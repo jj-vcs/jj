@@ -140,24 +140,69 @@ fn test_bookmark_at_root() {
 }
 
 #[test]
-fn test_bookmark_empty_name() {
+fn test_bookmark_bad_name() {
     let test_env = TestEnvironment::default();
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
 
     let stderr = test_env.jj_cmd_cli_error(&repo_path, &["bookmark", "create", "-r@", ""]);
     insta::assert_snapshot!(stderr, @r"
-    error: a value is required for '<NAMES>...' but none was supplied
+    error: invalid value '' for '<NAMES>...':  --> 1:1
+      |
+    1 | 
+      | ^---
+      |
+      = expected <identifier>, <string_literal>, or <raw_string_literal>
 
     For more information, try '--help'.
     [EOF]
     ");
 
-    let stderr = test_env.jj_cmd_cli_error(&repo_path, &["bookmark", "set", ""]);
+    let stderr = test_env.jj_cmd_cli_error(&repo_path, &["bookmark", "set", "''"]);
     insta::assert_snapshot!(stderr, @r"
-    error: a value is required for '<NAMES>...' but none was supplied
+    error: invalid value '''' for '<NAMES>...':  --> 1:1
+      |
+    1 | ''
+      | ^^
+      |
+      = Expected non-empty string
 
     For more information, try '--help'.
+    [EOF]
+    ");
+
+    let stderr = test_env.jj_cmd_cli_error(&repo_path, &["bookmark", "rename", "x", ""]);
+    insta::assert_snapshot!(stderr, @r"
+    error: invalid value '' for '<NEW>':  --> 1:1
+      |
+    1 | 
+      | ^---
+      |
+      = expected <identifier>, <string_literal>, or <raw_string_literal>
+
+    For more information, try '--help'.
+    [EOF]
+    ");
+
+    // common errors
+    let stderr = test_env.jj_cmd_cli_error(&repo_path, &["bookmark", "set", "@-", "foo"]);
+    insta::assert_snapshot!(stderr, @r"
+    error: invalid value '@-' for '<NAMES>...':  --> 1:1
+      |
+    1 | @-
+      | ^---
+      |
+      = expected <identifier>, <string_literal>, or <raw_string_literal>
+
+    For more information, try '--help'.
+    [EOF]
+    ");
+
+    // quoted name works
+    let (_stdout, stderr) =
+        test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "'foo@bar'"]);
+    insta::assert_snapshot!(stderr, @r"
+    Created 1 bookmarks pointing to qpvuntsm 230dd059 foo@bar | (empty) (no description set)
     [EOF]
     ");
 }

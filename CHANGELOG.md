@@ -25,10 +25,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `Commit`. All methods on `Commit` can be accessed with `commit.method()`, or
   `self.commit().method()`.
 
+* Bookmark name to be created/updated is now parsed as [a revset
+  symbol](docs/revsets.md#symbols). Quotation may be needed in addition to shell
+  quotes. Example: `jj bookmark create -r@- "'name with space'"`
+
 * `jj bookmark forget` now untracks any corresponding remote bookmarks instead
   of forgetting them, since forgetting a remote bookmark can be unintuitive.
   The old behavior is still available with the new `--include-remotes` flag.
- 
+
 * `jj split` no longer moves bookmarks to the second revision created by the
   split. Instead, local bookmarks associated with the target revision will move
   to the first revision created by the split (which inherits the target

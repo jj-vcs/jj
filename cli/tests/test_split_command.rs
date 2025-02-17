@@ -867,7 +867,7 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
     test_env.jj_cmd_ok(&main_path, &["desc", "-m", "first-commit"]);
     std::fs::write(main_path.join("file1"), "foo").unwrap();
     std::fs::write(main_path.join("file2"), "foo").unwrap();
-    test_env.jj_cmd_ok(&main_path, &["bookmark", "set", "*le-signet*", "-r", "@"]);
+    test_env.jj_cmd_ok(&main_path, &["bookmark", "set", "'*le-signet*'", "-r", "@"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_log_output(&test_env, &main_path), @r"
     @  qpvuntsmwlqt false *le-signet* first-commit

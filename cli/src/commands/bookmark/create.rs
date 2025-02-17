@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use clap::builder::NonEmptyStringValueParser;
 use clap_complete::ArgValueCandidates;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::RefTarget;
+use jj_lib::revset;
 
 use super::has_tracked_remote_bookmarks;
 use crate::cli_util::CommandHelper;
@@ -44,7 +44,7 @@ pub struct BookmarkCreateArgs {
     revision: Option<RevisionArg>,
 
     /// The bookmarks to create
-    #[arg(required = true, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(required = true, value_parser = revset::parse_symbol)]
     names: Vec<String>,
 }
 
