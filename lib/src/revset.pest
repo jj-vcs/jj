@@ -19,8 +19,9 @@ whitespace = _{ " " | "\t" | "\r" | "\n" | "\x0c" }
 
 // XID_CONTINUE: https://www.unicode.org/reports/tr31/#Default_Identifier_Syntax
 // +, -, .: often included in tag/bookmark name or version number
+// *: glob characters that won't be used as operators
 // /: sometimes used as a tag/bookmark namespace separator
-identifier_part = @{ (XID_CONTINUE | "_" | "/")+ }
+identifier_part = @{ (XID_CONTINUE | "_" | "*" | "/")+ }
 identifier = @{
   identifier_part ~ (("." | "-" | "+") ~ identifier_part)*
 }

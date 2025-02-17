@@ -1165,6 +1165,11 @@ mod tests {
             parse_into_kind("foo_bar/baz"),
             Ok(ExpressionKind::Identifier("foo_bar/baz"))
         );
+        // Glob literal with star
+        assert_eq!(
+            parse_into_kind("*/foo/**"),
+            Ok(ExpressionKind::Identifier("*/foo/**"))
+        );
 
         // Internal '.', '-', and '+' are allowed
         assert_eq!(

@@ -49,6 +49,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * New built-in revset aliases `visible()` and `hidden()`.
 
+* Unquoted `*` is now allowed in revsets. `bookmarks(glob:foo*)` no longer
+  needs quoting.
+
 ### Fixed bugs
 
 * `jj fix` now prints a warning if a tool failed to run on a file.
