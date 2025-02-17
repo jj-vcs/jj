@@ -123,10 +123,7 @@ pub(crate) fn cmd_status(
             // TODO: Conflicts should also be filtered by the `matcher`. See the related
             // TODO on `MergedTree::conflicts()`.
             let conflicts = wc_commit.tree()?.conflicts().collect_vec();
-            writeln!(
-                formatter.labeled("conflict"),
-                "There are unresolved conflicts at these paths:"
-            )?;
+            writeln!(formatter, "There are unresolved conflicts at these paths:")?;
             print_conflicted_paths(conflicts, formatter, &workspace_command)?;
 
             let wc_revset = RevsetExpression::commit(wc_commit.id().clone());
@@ -173,10 +170,7 @@ pub(crate) fn cmd_status(
         .map(|(full_name, _)| full_name)
         .collect_vec();
     if !conflicted_local_bookmarks.is_empty() {
-        writeln!(
-            formatter.labeled("conflict"),
-            "These bookmarks have conflicts:"
-        )?;
+        writeln!(formatter, "These bookmarks have conflicts:")?;
         for bookmark_name in conflicted_local_bookmarks {
             write!(formatter, "  ")?;
             write!(formatter.labeled("bookmark"), "{bookmark_name}")?;
@@ -189,10 +183,7 @@ pub(crate) fn cmd_status(
         )?;
     }
     if !conflicted_remote_bookmarks.is_empty() {
-        writeln!(
-            formatter.labeled("conflict"),
-            "These remote bookmarks have conflicts:"
-        )?;
+        writeln!(formatter, "These remote bookmarks have conflicts:")?;
         for (bookmark_name, remote_name) in conflicted_remote_bookmarks {
             write!(formatter, "  ")?;
             write!(
