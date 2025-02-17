@@ -177,7 +177,7 @@ fn test_absorb_replace_single_line_hunk() {
     Parent commit      : kkmpptxz 7c36845c 2
     New conflicts appeared in these commits:
       qpvuntsm 7e885236 (conflict) 1
-    To resolve the conflicts, start by updating to it:
+    Hint: To resolve the conflicts, start by updating to it:
       jj new qpvuntsm
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
@@ -423,7 +423,7 @@ fn test_absorb_conflict() {
     file1    2-sided conflict
     New conflicts appeared in these commits:
       kkmpptxz 74405a07 (conflict) (no description set)
-    To resolve the conflicts, start by updating to it:
+    Hint: To resolve the conflicts, start by updating to it:
       jj new kkmpptxz
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.

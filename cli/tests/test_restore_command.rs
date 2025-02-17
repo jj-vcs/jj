@@ -72,7 +72,7 @@ fn test_restore() {
     file2    2-sided conflict including 1 deletion
     New conflicts appeared in these commits:
       kkmpptxz 5b361547 (conflict) (no description set)
-    To resolve the conflicts, start by updating to it:
+    Hint: To resolve the conflicts, start by updating to it:
       jj new kkmpptxz
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.

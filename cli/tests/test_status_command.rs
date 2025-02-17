@@ -207,7 +207,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     Parent commit: royxmykx 664a4c6c (conflict) (empty) boom-cont
     Warning: There are unresolved conflicts at these paths:
     conflicted.txt    2-sided conflict
-    To resolve the conflicts, start by updating to the first one:
+    Hint: To resolve the conflicts, start by updating to the first one:
       jj new mzvwutvl
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
@@ -222,7 +222,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     Parent commit: [1m[38;5;5mr[0m[38;5;8moyxmykx[39m [1m[38;5;4m6[0m[38;5;8m64a4c6c[39m [38;5;1m(conflict)[39m [38;5;2m(empty)[39m boom-cont
     [1m[38;5;3mWarning: [39mThere are unresolved conflicts at these paths:[0m
     conflicted.txt    [38;5;3m2-sided conflict[39m
-    [39mTo resolve the conflicts, start by updating to the first one:[39m
+    [1m[38;5;6mHint: [0m[39mTo resolve the conflicts, start by updating to the first one:[39m
     [39m  jj new [1m[38;5;5mm[0m[38;5;8mzvwutvl[39m[39m
     [39mThen use `jj resolve`, or edit the conflict markers in the file directly.[39m
     [39mOnce the conflicts are resolved, you may want to inspect the result with `jj diff`.[39m
@@ -305,7 +305,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     M conflicted.txt
     Working copy : kpqxywon 26bf6863 fixed 1
     Parent commit: yqosqzyt dcb25635 (conflict) (empty) boom-cont-2
-    Conflict in parent commit has been resolved in working copy
+    Hint: Conflict in parent commit has been resolved in working copy
     [EOF]
     ");
 
@@ -386,7 +386,7 @@ fn test_status_simplify_conflict_sides() {
     Warning: There are unresolved conflicts at these paths:
     fileA    2-sided conflict
     fileB    2-sided conflict
-    To resolve the conflicts, start by updating to one of the first ones:
+    Hint: To resolve the conflicts, start by updating to one of the first ones:
       jj new lylxulpl
       jj new kmkuslsw
     Then use `jj resolve`, or edit the conflict markers in the file directly.

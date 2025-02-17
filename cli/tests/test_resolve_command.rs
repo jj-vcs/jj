@@ -253,7 +253,7 @@ fn test_resolution() {
     file    2-sided conflict
     New conflicts appeared in these commits:
       vruxwmqv 608a2310 conflict | (conflict) conflict
-    To resolve the conflicts, start by updating to it:
+    Hint: To resolve the conflicts, start by updating to it:
       jj new vruxwmqv
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
@@ -404,7 +404,7 @@ fn test_resolution() {
     file    2-sided conflict
     New conflicts appeared in these commits:
       vruxwmqv 8e03fefa conflict | (conflict) conflict
-    To resolve the conflicts, start by updating to it:
+    Hint: To resolve the conflicts, start by updating to it:
       jj new vruxwmqv
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
@@ -488,7 +488,7 @@ fn test_resolution() {
     file    2-sided conflict
     New conflicts appeared in these commits:
       vruxwmqv a786ac2f conflict | (conflict) conflict
-    To resolve the conflicts, start by updating to it:
+    Hint: To resolve the conflicts, start by updating to it:
       jj new vruxwmqv
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
@@ -818,7 +818,7 @@ fn test_simplify_conflict_sides() {
     fileB    2-sided conflict
     New conflicts appeared in these commits:
       nkmrtpmo 69cc0c2d conflict | (conflict) conflict
-    To resolve the conflicts, start by updating to it:
+    Hint: To resolve the conflicts, start by updating to it:
       jj new nkmrtpmo
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
@@ -1068,7 +1068,7 @@ fn test_resolve_conflicts_with_executable() {
     file2    2-sided conflict including an executable
     New conflicts appeared in these commits:
       znkkpsqq eb159d56 conflict | (conflict) conflict
-    To resolve the conflicts, start by updating to it:
+    Hint: To resolve the conflicts, start by updating to it:
       jj new znkkpsqq
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
@@ -1115,7 +1115,7 @@ fn test_resolve_conflicts_with_executable() {
     file1    2-sided conflict including an executable
     New conflicts appeared in these commits:
       znkkpsqq 4dccbb3c conflict | (conflict) conflict
-    To resolve the conflicts, start by updating to it:
+    Hint: To resolve the conflicts, start by updating to it:
       jj new znkkpsqq
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
@@ -1232,7 +1232,7 @@ fn test_resolve_long_conflict_markers() {
     file    2-sided conflict
     New conflicts appeared in these commits:
       vruxwmqv 2b985546 conflict | (conflict) conflict
-    To resolve the conflicts, start by updating to it:
+    Hint: To resolve the conflicts, start by updating to it:
       jj new vruxwmqv
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
@@ -1308,7 +1308,7 @@ fn test_resolve_long_conflict_markers() {
     file    2-sided conflict
     New conflicts appeared in these commits:
       vruxwmqv fac9406d conflict | (conflict) conflict
-    To resolve the conflicts, start by updating to it:
+    Hint: To resolve the conflicts, start by updating to it:
       jj new vruxwmqv
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
@@ -1390,7 +1390,7 @@ fn test_resolve_long_conflict_markers() {
     file    2-sided conflict
     New conflicts appeared in these commits:
       vruxwmqv 1b29631a conflict | (conflict) conflict
-    To resolve the conflicts, start by updating to it:
+    Hint: To resolve the conflicts, start by updating to it:
       jj new vruxwmqv
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
@@ -1534,7 +1534,7 @@ fn test_multiple_conflicts() {
     this_file_has_a_very_long_name_to_test_padding 2-sided conflict
     New conflicts appeared in these commits:
       vruxwmqv 309e981c conflict | (conflict) conflict
-    To resolve the conflicts, start by updating to it:
+    Hint: To resolve the conflicts, start by updating to it:
       jj new vruxwmqv
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
@@ -1714,7 +1714,7 @@ fn test_multiple_conflicts_with_error() {
     file2    2-sided conflict
     New conflicts appeared in these commits:
       vruxwmqv d2f3f858 conflict | (conflict) conflict
-    To resolve the conflicts, start by updating to it:
+    Hint: To resolve the conflicts, start by updating to it:
       jj new vruxwmqv
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
@@ -1767,7 +1767,7 @@ fn test_multiple_conflicts_with_error() {
     file2    2-sided conflict
     New conflicts appeared in these commits:
       vruxwmqv 0a54e8ed conflict | (conflict) conflict
-    To resolve the conflicts, start by updating to it:
+    Hint: To resolve the conflicts, start by updating to it:
       jj new vruxwmqv
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.

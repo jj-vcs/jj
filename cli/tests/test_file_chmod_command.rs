@@ -239,7 +239,7 @@ fn test_chmod_file_dir_deletion_conflicts() {
     file    2-sided conflict including 1 deletion and an executable
     New conflicts appeared in these commits:
       kmkuslsw 139dee15 file_deletion | (conflict) file_deletion
-    To resolve the conflicts, start by updating to it:
+    Hint: To resolve the conflicts, start by updating to it:
       jj new kmkuslsw
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.

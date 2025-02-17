@@ -149,7 +149,7 @@ pub(crate) fn cmd_status(
                 let parent = parent?;
                 if parent.has_conflict()? {
                     writeln!(
-                        formatter.labeled("hint"),
+                        formatter.labeled("hint").with_heading("Hint: "),
                         "Conflict in parent commit has been resolved in working copy"
                     )?;
                     break;
@@ -183,8 +183,8 @@ pub(crate) fn cmd_status(
             writeln!(formatter)?;
         }
         writeln!(
-            formatter,
-            "  Use `jj bookmark list` to see details. Use `jj bookmark set <name> -r <rev>` to \
+            formatter.labeled("hint").with_heading("Hint: "),
+            "Use `jj bookmark list` to see details. Use `jj bookmark set <name> -r <rev>` to \
              resolve."
         )?;
     }
@@ -202,8 +202,8 @@ pub(crate) fn cmd_status(
             writeln!(formatter)?;
         }
         writeln!(
-            formatter,
-            "  Use `jj bookmark list` to see details. Use `jj git fetch` to resolve."
+            formatter.labeled("hint").with_heading("Hint: "),
+            "Use `jj bookmark list` to see details. Use `jj git fetch` to resolve."
         )?;
     }
 

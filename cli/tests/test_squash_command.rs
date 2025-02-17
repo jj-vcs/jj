@@ -762,7 +762,7 @@ fn test_squash_from_multiple() {
     Parent commit      : yostqsxw acfbf2a0 e | (no description set)
     New conflicts appeared in these commits:
       yqosqzyt 4df3b215 d | (conflict) (no description set)
-    To resolve the conflicts, start by updating to it:
+    Hint: To resolve the conflicts, start by updating to it:
       jj new yqosqzyt
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
@@ -895,7 +895,7 @@ fn test_squash_from_multiple_partial() {
     Parent commit      : yostqsxw 0a3637fc e | (no description set)
     New conflicts appeared in these commits:
       yqosqzyt 05a3ab3d d | (conflict) (no description set)
-    To resolve the conflicts, start by updating to it:
+    Hint: To resolve the conflicts, start by updating to it:
       jj new yqosqzyt
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
