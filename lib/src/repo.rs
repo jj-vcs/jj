@@ -157,14 +157,11 @@ pub enum RepoInitError {
 
 impl ReadonlyRepo {
     pub fn default_op_store_initializer() -> &'static OpStoreInitializer<'static> {
-        &|_settings, store_path, root_data| Box::new(SimpleOpStore::init(store_path, root_data))
+        &|_settings, store_path, root_data| Ok(Box::new(SimpleOpStore::init(store_path, root_data)))
     }
 
     pub fn default_op_heads_store_initializer() -> &'static OpHeadsStoreInitializer<'static> {
-        &|_settings, store_path| {
-            let store = SimpleOpHeadsStore::init(store_path);
-            Box::new(store)
-        }
+        &|_settings, store_path| Ok(Box::new(SimpleOpHeadsStore::init(store_path)))
     }
 
     pub fn default_index_store_initializer() -> &'static IndexStoreInitializer<'static> {
@@ -172,7 +169,7 @@ impl ReadonlyRepo {
     }
 
     pub fn default_submodule_store_initializer() -> &'static SubmoduleStoreInitializer<'static> {
-        &|_settings, store_path| Box::new(DefaultSubmoduleStore::init(store_path))
+        &|_settings, store_path| Ok(Box::new(DefaultSubmoduleStore::init(store_path)))
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -200,14 +197,14 @@ impl ReadonlyRepo {
         let root_op_data = RootOperationData {
             root_commit_id: store.root_commit_id().clone(),
         };
-        let op_store = op_store_initializer(settings, &op_store_path, root_op_data);
+        let op_store = op_store_initializer(settings, &op_store_path, root_op_data)?;
         let op_store_type_path = op_store_path.join("type");
         fs::write(&op_store_type_path, op_store.name()).context(&op_store_type_path)?;
         let op_store: Arc<dyn OpStore> = Arc::from(op_store);
 
         let op_heads_path = repo_path.join("op_heads");
         fs::create_dir(&op_heads_path).context(&op_heads_path)?;
-        let op_heads_store = op_heads_store_initializer(settings, &op_heads_path);
+        let op_heads_store = op_heads_store_initializer(settings, &op_heads_path)?;
         let op_heads_type_path = op_heads_path.join("type");
         fs::write(&op_heads_type_path, op_heads_store.name()).context(&op_heads_type_path)?;
         op_heads_store.update_op_heads(&[], op_store.root_operation_id())?;
@@ -222,7 +219,7 @@ impl ReadonlyRepo {
 
         let submodule_store_path = repo_path.join("submodule_store");
         fs::create_dir(&submodule_store_path).context(&submodule_store_path)?;
-        let submodule_store = submodule_store_initializer(settings, &submodule_store_path);
+        let submodule_store = submodule_store_initializer(settings, &submodule_store_path)?;
         let submodule_store_type_path = submodule_store_path.join("type");
         fs::write(&submodule_store_type_path, submodule_store.name())
             .context(&submodule_store_type_path)?;
@@ -347,21 +344,28 @@ impl Repo for ReadonlyRepo {
 
 pub type BackendInitializer<'a> =
     dyn Fn(&UserSettings, &Path) -> Result<Box<dyn Backend>, BackendInitError> + 'a;
+#[rustfmt::skip] // auto-formatted line would exceed the maximum width
 pub type OpStoreInitializer<'a> =
-    dyn Fn(&UserSettings, &Path, RootOperationData) -> Box<dyn OpStore> + 'a;
-pub type OpHeadsStoreInitializer<'a> = dyn Fn(&UserSettings, &Path) -> Box<dyn OpHeadsStore> + 'a;
+    dyn Fn(&UserSettings, &Path, RootOperationData) -> Result<Box<dyn OpStore>, BackendInitError>
+    + 'a;
+pub type OpHeadsStoreInitializer<'a> =
+    dyn Fn(&UserSettings, &Path) -> Result<Box<dyn OpHeadsStore>, BackendInitError> + 'a;
 pub type IndexStoreInitializer<'a> =
     dyn Fn(&UserSettings, &Path) -> Result<Box<dyn IndexStore>, BackendInitError> + 'a;
 pub type SubmoduleStoreInitializer<'a> =
-    dyn Fn(&UserSettings, &Path) -> Box<dyn SubmoduleStore> + 'a;
+    dyn Fn(&UserSettings, &Path) -> Result<Box<dyn SubmoduleStore>, BackendInitError> + 'a;
 
 type BackendFactory =
     Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn Backend>, BackendLoadError>>;
-type OpStoreFactory = Box<dyn Fn(&UserSettings, &Path, RootOperationData) -> Box<dyn OpStore>>;
-type OpHeadsStoreFactory = Box<dyn Fn(&UserSettings, &Path) -> Box<dyn OpHeadsStore>>;
+type OpStoreFactory = Box<
+    dyn Fn(&UserSettings, &Path, RootOperationData) -> Result<Box<dyn OpStore>, BackendLoadError>,
+>;
+type OpHeadsStoreFactory =
+    Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn OpHeadsStore>, BackendLoadError>>;
 type IndexStoreFactory =
     Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn IndexStore>, BackendLoadError>>;
-type SubmoduleStoreFactory = Box<dyn Fn(&UserSettings, &Path) -> Box<dyn SubmoduleStore>>;
+type SubmoduleStoreFactory =
+    Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn SubmoduleStore>, BackendLoadError>>;
 
 pub fn merge_factories_map<F>(base: &mut HashMap<String, F>, ext: HashMap<String, F>) {
     for (name, factory) in ext {
@@ -416,14 +420,14 @@ impl Default for StoreFactories {
         factories.add_op_store(
             SimpleOpStore::name(),
             Box::new(|_settings, store_path, root_data| {
-                Box::new(SimpleOpStore::load(store_path, root_data))
+                Ok(Box::new(SimpleOpStore::load(store_path, root_data)))
             }),
         );
 
         // OpHeadsStores
         factories.add_op_heads_store(
             SimpleOpHeadsStore::name(),
-            Box::new(|_settings, store_path| Box::new(SimpleOpHeadsStore::load(store_path))),
+            Box::new(|_settings, store_path| Ok(Box::new(SimpleOpHeadsStore::load(store_path)))),
         );
 
         // Index
@@ -435,7 +439,7 @@ impl Default for StoreFactories {
         // SubmoduleStores
         factories.add_submodule_store(
             DefaultSubmoduleStore::name(),
-            Box::new(|_settings, store_path| Box::new(DefaultSubmoduleStore::load(store_path))),
+            Box::new(|_settings, store_path| Ok(Box::new(DefaultSubmoduleStore::load(store_path)))),
         );
 
         factories
@@ -526,7 +530,7 @@ impl StoreFactories {
                 store_type: op_store_type.to_string(),
             }
         })?;
-        Ok(op_store_factory(settings, store_path, root_data))
+        Ok(op_store_factory(settings, store_path, root_data)?)
     }
 
     pub fn add_op_heads_store(&mut self, name: &str, factory: OpHeadsStoreFactory) {
@@ -547,7 +551,7 @@ impl StoreFactories {
                 store: "operation heads",
                 store_type: op_heads_store_type.to_string(),
             })?;
-        Ok(op_heads_store_factory(settings, store_path))
+        Ok(op_heads_store_factory(settings, store_path)?)
     }
 
     pub fn add_index_store(&mut self, name: &str, factory: IndexStoreFactory) {
@@ -589,7 +593,7 @@ impl StoreFactories {
                 store_type: submodule_store_type.to_string(),
             })?;
 
-        Ok(submodule_store_factory(settings, store_path))
+        Ok(submodule_store_factory(settings, store_path)?)
     }
 }
 
