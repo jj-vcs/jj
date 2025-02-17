@@ -33,7 +33,7 @@ fn test_syntax_error() {
     ");
 
     let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r", "x &"]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Error: Failed to parse revset: Syntax error
     Caused by:  --> 1:4
       |
@@ -41,7 +41,8 @@ fn test_syntax_error() {
       |    ^---
       |
       = expected `::`, `..`, `~`, or <primary>
-    "###);
+    Hint: See https://jj-vcs.github.io/jj/latest/revsets/ for revsets syntax, or for how to quote symbols.
+    ");
 
     let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r", "x - y"]);
     insta::assert_snapshot!(stderr, @r"
@@ -274,10 +275,11 @@ fn test_bad_function_call() {
       |                  ^---
       |
       = expected <strict_identifier> or <expression>
+    Hint: See https://jj-vcs.github.io/jj/latest/revsets/ for revsets syntax, or for how to quote symbols.
     ");
 
     let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r", "remote_bookmarks(remote=)"]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Error: Failed to parse revset: Syntax error
     Caused by:  --> 1:25
       |
@@ -285,7 +287,8 @@ fn test_bad_function_call() {
       |                         ^---
       |
       = expected <expression>
-    "###);
+    Hint: See https://jj-vcs.github.io/jj/latest/revsets/ for revsets syntax, or for how to quote symbols.
+    ");
 }
 
 #[test]
@@ -454,6 +457,7 @@ fn test_alias() {
       |           ^---
       |
       = expected `::`, `..`, `~`, or <primary>
+    Hint: See https://jj-vcs.github.io/jj/latest/revsets/ for revsets syntax, or for how to quote symbols.
     ");
 
     let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r", "identity()"]);
