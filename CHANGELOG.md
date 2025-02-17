@@ -25,6 +25,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `Commit`. All methods on `Commit` can be accessed with `commit.method()`, or
   `self.commit().method()`.
 
+* Bookmark name to be created/updated is now parsed as [a revset
+  symbol](docs/revsets.md#symbols). Quotation may be needed in addition to shell
+  quotes. Example: `jj bookmark create -r@- "'name with space'"`
+
 ### Deprecations
 
 * This release takes the first steps to make target revision required in
