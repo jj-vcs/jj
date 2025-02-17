@@ -20,6 +20,7 @@ use jj_lib::matchers::Matcher;
 use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree::MergedTreeBuilder;
+use jj_lib::repo_path::InvalidRepoPathError;
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::store::Store;
 use jj_lib::working_copy::CheckoutOptions;
@@ -31,7 +32,6 @@ use super::diff_working_copies::new_utf8_temp_dir;
 use super::diff_working_copies::set_readonly_recursively;
 use super::diff_working_copies::DiffEditWorkingCopies;
 use super::diff_working_copies::DiffSide;
-use super::ConflictResolveError;
 use super::DiffEditError;
 use super::DiffGenerateError;
 use super::MergeToolFile;
@@ -170,8 +170,17 @@ pub enum ExternalToolError {
          --debug to see the exact invocation)"
     )]
     InvalidConflictMarkers { exit_status: ExitStatus },
+    #[error(
+        "The output file is either unchanged or empty after the editor quit (run with --debug to \
+         see the exact invocation)."
+    )]
+    EmptyOrUnchanged,
+    #[error(transparent)]
+    InvalidRepoPath(#[from] InvalidRepoPathError),
+    #[error(transparent)]
+    Backend(#[from] jj_lib::backend::BackendError),
     #[error("I/O error")]
-    Io(#[source] std::io::Error),
+    Io(#[from] std::io::Error),
 }
 
 fn run_mergetool_external_single_file(
@@ -180,7 +189,7 @@ fn run_mergetool_external_single_file(
     merge_tool_file: &MergeToolFile,
     default_conflict_marker_style: ConflictMarkerStyle,
     tree_builder: &mut MergedTreeBuilder,
-) -> Result<(), ConflictResolveError> {
+) -> Result<(), ExternalToolError> {
     let MergeToolFile {
         repo_path,
         conflict,
@@ -233,7 +242,7 @@ fn run_mergetool_external_single_file(
     };
     let mut variables: HashMap<&str, _> = files
         .iter()
-        .map(|(role, contents)| -> Result<_, ConflictResolveError> {
+        .map(|(role, contents)| -> Result<_, ExternalToolError> {
             let path = temp_dir.path().join(format!("{role}{suffix}"));
             std::fs::write(&path, contents).map_err(ExternalToolError::SetUpDir)?;
             if *role != "output" {
@@ -266,15 +275,13 @@ fn run_mergetool_external_single_file(
         .is_some_and(|code| editor.merge_conflict_exit_codes.contains(&code));
 
     if !exit_status.success() && !exit_status_implies_conflict {
-        return Err(ConflictResolveError::from(ExternalToolError::ToolAborted {
-            exit_status,
-        }));
+        return Err(ExternalToolError::ToolAborted { exit_status });
     }
 
     let output_file_contents: Vec<u8> =
         std::fs::read(variables.get("output").unwrap()).map_err(ExternalToolError::Io)?;
     if output_file_contents.is_empty() || output_file_contents == initial_output_content {
-        return Err(ConflictResolveError::EmptyOrUnchanged);
+        return Err(ExternalToolError::EmptyOrUnchanged);
     }
 
     let new_file_ids = if editor.merge_tool_edits_conflict_markers || exit_status_implies_conflict {
@@ -299,9 +306,7 @@ fn run_mergetool_external_single_file(
     // we need to inform the user. If we didn't treat this as an error, the user
     // might think the conflict was resolved successfully.
     if exit_status_implies_conflict && new_file_ids.is_resolved() {
-        return Err(ConflictResolveError::ExternalTool(
-            ExternalToolError::InvalidConflictMarkers { exit_status },
-        ));
+        return Err(ExternalToolError::InvalidConflictMarkers { exit_status });
     }
 
     let new_tree_value = match new_file_ids.into_resolved() {
@@ -327,7 +332,7 @@ pub fn run_mergetool_external(
     tree: &MergedTree,
     merge_tool_files: &[MergeToolFile],
     default_conflict_marker_style: ConflictMarkerStyle,
-) -> Result<(MergedTreeId, Option<MergeToolPartialResolutionError>), ConflictResolveError> {
+) -> Result<(MergedTreeId, Option<MergeToolPartialResolutionError>), ExternalToolError> {
     // TODO: add support for "dir" invocation mode, similar to the
     // "diff-invocation-mode" config option for diffs
     let mut tree_builder = MergedTreeBuilder::new(tree.id());
