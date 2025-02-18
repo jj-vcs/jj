@@ -431,11 +431,11 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     let stdout = test_env.jj_cmd_success(&repo_path, &["st"]);
     insta::assert_snapshot!(stdout, @r"
     The working copy has no changes.
-    There are unresolved conflicts at these paths:
-    file    2-sided conflict
     Working copy : mzvwutvl fb39e804 (conflict) (empty) (no description set)
     Parent commit: rlvkpnrz 3765cc27 side-a
     Parent commit: zsuskuln 8b3de837 side-b
+    There are unresolved conflicts at these paths:
+    file    2-sided conflict
     [EOF]
     ");
 }

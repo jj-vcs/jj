@@ -108,17 +108,6 @@ pub(crate) fn cmd_status(
             }
         }
 
-        // TODO: Conflicts should also be filtered by the `matcher`. See the related
-        // TODO on `MergedTree::conflicts()`.
-        let conflicts = wc_commit.tree()?.conflicts().collect_vec();
-        if !conflicts.is_empty() {
-            writeln!(
-                formatter.labeled("conflict"),
-                "There are unresolved conflicts at these paths:"
-            )?;
-            print_conflicted_paths(conflicts, formatter, &workspace_command)?;
-        }
-
         let template = workspace_command.commit_summary_template();
         write!(formatter, "Working copy : ")?;
         formatter.with_label("working_copy", |fmt| template.format(wc_commit, fmt))?;
@@ -128,6 +117,17 @@ pub(crate) fn cmd_status(
             write!(formatter, "Parent commit: ")?;
             template.format(&parent, formatter)?;
             writeln!(formatter)?;
+        }
+
+        // TODO: Conflicts should also be filtered by the `matcher`. See the related
+        // TODO on `MergedTree::conflicts()`.
+        let conflicts = wc_commit.tree()?.conflicts().collect_vec();
+        if !conflicts.is_empty() {
+            writeln!(
+                formatter.labeled("conflict"),
+                "There are unresolved conflicts at these paths:"
+            )?;
+            print_conflicted_paths(conflicts, formatter, &workspace_command)?;
         }
 
         if wc_commit.has_conflict()? {
