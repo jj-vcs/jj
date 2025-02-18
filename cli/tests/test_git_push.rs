@@ -1866,6 +1866,35 @@ fn test_git_push_to_remote_named_git(subprocess: bool) {
     }
 }
 
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_git_push_to_remote_with_slashes(subprocess: bool) {
+    let (test_env, workspace_root) = set_up();
+    if !subprocess {
+        test_env.add_config("git.subprocess = false");
+    }
+    let git_repo = {
+        let mut git_repo_path = workspace_root.clone();
+        git_repo_path.extend([".jj", "repo", "store", "git"]);
+        git2::Repository::open(&git_repo_path).unwrap()
+    };
+    git_repo.remote_rename("origin", "slash/origin").unwrap();
+
+    let stderr = test_env.jj_cmd_failure(
+        &workspace_root,
+        &["git", "push", "--all", "--remote=slash/origin"],
+    );
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(stderr, @r"
+    Changes to push to slash/origin:
+      Add bookmark bookmark1 to d13ecdbda2a2
+      Add bookmark bookmark2 to 8476341eb395
+    Error: Git remotes with slashes are incompatible with jj: slash/origin
+    Hint: Run `jj git remote rename` to give a different name.
+    ");
+    }
+}
+
 #[test]
 fn test_git_push_sign_on_push() {
     let (test_env, workspace_root) = set_up();

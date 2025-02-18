@@ -1293,6 +1293,8 @@ pub enum GitRemoteManagementError {
     NoSuchRemote(String),
     #[error("Git remote named '{0}' already exists")]
     RemoteAlreadyExists(String),
+    #[error("Git remotes with slashes are incompatible with jj: {0}")]
+    RemoteWithSlash(String),
     #[error(
         "Git remote named '{name}' is reserved for local Git repository",
         name = REMOTE_NAME_FOR_LOCAL_GIT_REPO
@@ -1349,6 +1351,10 @@ pub fn add_remote(
 ) -> Result<(), GitRemoteManagementError> {
     if remote_name == REMOTE_NAME_FOR_LOCAL_GIT_REPO {
         return Err(GitRemoteManagementError::RemoteReservedForLocalGitRepo);
+    } else if remote_name.contains("/") {
+        return Err(GitRemoteManagementError::RemoteWithSlash(
+            remote_name.to_owned(),
+        ));
     }
     git_repo.remote(remote_name, url).map_err(|err| {
         if is_remote_exists_err(&err) {
@@ -1401,6 +1407,10 @@ pub fn rename_remote(
 ) -> Result<(), GitRemoteManagementError> {
     if new_remote_name == REMOTE_NAME_FOR_LOCAL_GIT_REPO {
         return Err(GitRemoteManagementError::RemoteReservedForLocalGitRepo);
+    } else if new_remote_name.contains("/") {
+        return Err(GitRemoteManagementError::RemoteWithSlash(
+            new_remote_name.to_owned(),
+        ));
     }
     git_repo
         .remote_rename(old_remote_name, new_remote_name)
@@ -1426,6 +1436,10 @@ pub fn set_remote_url(
 ) -> Result<(), GitRemoteManagementError> {
     if remote_name == REMOTE_NAME_FOR_LOCAL_GIT_REPO {
         return Err(GitRemoteManagementError::RemoteReservedForLocalGitRepo);
+    } else if remote_name.contains("/") {
+        return Err(GitRemoteManagementError::RemoteWithSlash(
+            remote_name.to_owned(),
+        ));
     }
 
     // Repository::remote_set_url() doesn't ensure the remote exists, it just
@@ -1479,6 +1493,8 @@ pub enum GitFetchError {
         chars = INVALID_REFSPEC_CHARS.iter().join("`, `")
     )]
     InvalidBranchPattern(StringPattern),
+    #[error("Git remotes with slashes are incompatible with jj: {0}")]
+    RemoteWithSlash(String),
     // TODO: I'm sure there are other errors possible, such as transport-level errors.
     #[error("Unexpected git error when fetching")]
     InternalGitError(#[from] git2::Error),
@@ -1559,6 +1575,9 @@ impl<'a> GitFetch<'a> {
         callbacks: RemoteCallbacks<'_>,
         depth: Option<NonZeroU32>,
     ) -> Result<(), GitFetchError> {
+        if remote_name.contains("/") {
+            return Err(GitFetchError::RemoteWithSlash(remote_name.to_owned()));
+        }
         self.fetch_impl
             .fetch(remote_name, branch_names, callbacks, depth)?;
         self.fetched.push(FetchedBranches {
@@ -1845,6 +1864,8 @@ fn subprocess_get_default_branch(
 pub enum GitPushError {
     #[error("No git remote named '{0}'")]
     NoSuchRemote(String),
+    #[error("Git remotes with slashes are incompatible with jj: {0}")]
+    RemoteWithSlash(String),
     #[error(
         "Git remote named '{name}' is reserved for local Git repository",
         name = REMOTE_NAME_FOR_LOCAL_GIT_REPO
@@ -1887,6 +1908,10 @@ pub fn push_branches(
     targets: &GitBranchPushTargets,
     callbacks: RemoteCallbacks<'_>,
 ) -> Result<(), GitPushError> {
+    if remote_name.contains("/") {
+        return Err(GitPushError::RemoteWithSlash(remote_name.to_owned()));
+    }
+
     let ref_updates = targets
         .branch_updates
         .iter()

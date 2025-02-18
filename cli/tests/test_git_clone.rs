@@ -770,6 +770,28 @@ fn test_git_clone_with_remote_named_git(subprocess: bool) {
 
 #[test_case(false; "use git2 for remote calls")]
 #[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_git_clone_with_remote_with_slashes(subprocess: bool) {
+    let test_env = TestEnvironment::default();
+    if !subprocess {
+        test_env.add_config("git.subprocess = false");
+    }
+    let git_repo_path = test_env.env_root().join("source");
+    git2::Repository::init(git_repo_path).unwrap();
+
+    let stderr = test_env.jj_cmd_failure(
+        test_env.env_root(),
+        &["git", "clone", "--remote=slash/origin", "source", "dest"],
+    );
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(stderr, @r"
+    Error: Git remotes with slashes are incompatible with jj: slash/origin
+    Hint: Run `jj git remote rename` to give a different name.
+    ");
+    }
+}
+
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_clone_trunk_deleted(subprocess: bool) {
     let test_env = TestEnvironment::default();
     if !subprocess {

@@ -266,3 +266,80 @@ fn test_git_remote_named_git() {
     ~
     "###);
 }
+
+#[test]
+fn test_git_remote_with_slashes() {
+    let test_env = TestEnvironment::default();
+
+    // Existing remote with slashes shouldn't block the repo initialization.
+    let repo_path = test_env.env_root().join("repo");
+    let git_repo = git2::Repository::init(&repo_path).unwrap();
+    git_repo
+        .remote("slash/origin", "http://example.com/repo/repo")
+        .unwrap();
+    test_env.jj_cmd_ok(&repo_path, &["git", "init", "--git-repo=."]);
+    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "main"]);
+
+    // Cannot add remote with a slash via `jj`
+    let stderr = test_env.jj_cmd_failure(
+        &repo_path,
+        &[
+            "git",
+            "remote",
+            "add",
+            "another/origin",
+            "http://examples.org/repo/repo",
+        ],
+    );
+    insta::assert_snapshot!(stderr, @r"
+    Error: Git remotes with slashes are incompatible with jj: another/origin
+    Hint: Run `jj git remote rename` to give a different name.
+    ");
+    let stdout = test_env.jj_cmd_success(&repo_path, &["git", "remote", "list"]);
+    insta::assert_snapshot!(stdout, @r###"
+    slash/origin http://example.com/repo/repo
+    "###);
+
+    // The remote can be renamed.
+    let (stdout, stderr) = test_env.jj_cmd_ok(
+        &repo_path,
+        &["git", "remote", "rename", "slash/origin", "origin"],
+    );
+    insta::assert_snapshot!(stdout, @"");
+    insta::assert_snapshot!(stderr, @"");
+    let stdout = test_env.jj_cmd_success(&repo_path, &["git", "remote", "list"]);
+    insta::assert_snapshot!(stdout, @r###"
+    origin http://example.com/repo/repo
+    "###);
+
+    // The remote cannot be renamed back by jj.
+    let stderr = test_env.jj_cmd_failure(
+        &repo_path,
+        &["git", "remote", "rename", "origin", "slash/origin"],
+    );
+    insta::assert_snapshot!(stderr, @r"
+    Error: Git remotes with slashes are incompatible with jj: slash/origin
+    Hint: Run `jj git remote rename` to give a different name.
+    ");
+
+    // Reinitialize the repo with remote with slashes
+    fs::remove_dir_all(repo_path.join(".jj")).unwrap();
+    git_repo.remote_rename("origin", "slash/origin").unwrap();
+    test_env.jj_cmd_ok(&repo_path, &["git", "init", "--git-repo=."]);
+
+    // The remote can also be removed.
+    let (stdout, stderr) =
+        test_env.jj_cmd_ok(&repo_path, &["git", "remote", "remove", "slash/origin"]);
+    insta::assert_snapshot!(stdout, @"");
+    insta::assert_snapshot!(stderr, @"");
+    let stdout = test_env.jj_cmd_success(&repo_path, &["git", "remote", "list"]);
+    insta::assert_snapshot!(stdout, @r###"
+    "###);
+    // @git bookmark shouldn't be removed.
+    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-rmain@git", "-Tbookmarks"]);
+    insta::assert_snapshot!(stdout, @r###"
+    ○  main
+    │
+    ~
+    "###);
+}

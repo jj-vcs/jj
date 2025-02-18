@@ -437,6 +437,33 @@ fn test_git_fetch_from_remote_named_git(subprocess: bool) {
 
 #[test_case(false; "use git2 for remote calls")]
 #[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_git_fetch_from_remote_with_slashes(subprocess: bool) {
+    let test_env = TestEnvironment::default();
+    if !subprocess {
+        test_env.add_config("git.subprocess = false");
+    }
+    test_env.add_config("git.auto-local-bookmark = true");
+    let repo_path = test_env.env_root().join("repo");
+    init_git_remote(&test_env, "source");
+
+    let git_repo = git2::Repository::init(&repo_path).unwrap();
+    git_repo.remote("slash/origin", "../source").unwrap();
+
+    // Existing remote with slash shouldn't block the repo initialization.
+    test_env.jj_cmd_ok(&repo_path, &["git", "init", "--git-repo=."]);
+
+    // Try fetching from the remote named 'git'.
+    let stderr = &test_env.jj_cmd_failure(&repo_path, &["git", "fetch", "--remote=slash/origin"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(stderr, @r"
+    Error: Git remotes with slashes are incompatible with jj: slash/origin
+    Hint: Run `jj git remote rename` to give a different name.
+    ");
+    }
+}
+
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_prune_before_updating_tips(subprocess: bool) {
     let test_env = TestEnvironment::default();
     if !subprocess {

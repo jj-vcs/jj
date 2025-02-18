@@ -537,6 +537,10 @@ jj currently does not support partial clones. To use jj with this repository, tr
             }
             match err {
                 GitFetchError::NoSuchRemote(_) => user_error(err),
+                GitFetchError::RemoteWithSlash(_) => user_error_with_hint(
+                    err,
+                    "Run `jj git remote rename` to give a different name.",
+                ),
                 GitFetchError::InvalidBranchPattern(_) => user_error(err),
                 GitFetchError::InternalGitError(err) => map_git2_error(err),
                 GitFetchError::Subprocess(_) => user_error(err),
@@ -557,6 +561,10 @@ jj currently does not support partial clones. To use jj with this repository, tr
         fn from(err: GitPushError) -> Self {
             match err {
                 GitPushError::NoSuchRemote(_) => user_error(err),
+                GitPushError::RemoteWithSlash(_) => user_error_with_hint(
+                    err,
+                    "Run `jj git remote rename` to give a different name.",
+                ),
                 GitPushError::RemoteReservedForLocalGitRepo => user_error(err),
                 GitPushError::RefInUnexpectedLocation(refs) => user_error_with_hint(
                     format!(
@@ -580,7 +588,8 @@ jj currently does not support partial clones. To use jj with this repository, tr
             match err {
                 GitRemoteManagementError::NoSuchRemote(_) => user_error(err),
                 GitRemoteManagementError::RemoteAlreadyExists(_) => user_error(err),
-                GitRemoteManagementError::RemoteReservedForLocalGitRepo => user_error_with_hint(
+                GitRemoteManagementError::RemoteReservedForLocalGitRepo
+                | GitRemoteManagementError::RemoteWithSlash(_) => user_error_with_hint(
                     err,
                     "Run `jj git remote rename` to give a different name.",
                 ),
