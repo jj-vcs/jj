@@ -197,18 +197,18 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
 
     let stdout = test_env.jj_cmd_success(&repo_path, &["status"]);
 
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     The working copy has no changes.
-    There are unresolved conflicts at these paths:
-    conflicted.txt    2-sided conflict
     Working copy : yqosqzyt dcb25635 (conflict) (empty) boom-cont-2
     Parent commit: royxmykx 664a4c6c (conflict) (empty) boom-cont
+    There are unresolved conflicts at these paths:
+    conflicted.txt    2-sided conflict
     To resolve the conflicts, start by updating to the first one:
       jj new mzvwutvl
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
-    "###);
+    ");
 
     // Resolve conflict
     test_env.jj_cmd_ok(&repo_path, &["new", "--message", "fixed 1"]);
@@ -352,21 +352,21 @@ fn test_status_simplify_conflict_sides() {
     );
 
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["status"]),
-    @r###"
+    @r"
     The working copy has no changes.
-    There are unresolved conflicts at these paths:
-    fileA    2-sided conflict
-    fileB    2-sided conflict
     Working copy : nkmrtpmo 83c4b9e7 conflict | (conflict) (empty) conflict
     Parent commit: kmkuslsw 4601566f conflictA | (conflict) (empty) conflictA
     Parent commit: lylxulpl 6f8d8381 conflictB | (conflict) (empty) conflictB
+    There are unresolved conflicts at these paths:
+    fileA    2-sided conflict
+    fileB    2-sided conflict
     To resolve the conflicts, start by updating to one of the first ones:
       jj new lylxulpl
       jj new kmkuslsw
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
-    "###);
+    ");
 }
 
 #[test]
