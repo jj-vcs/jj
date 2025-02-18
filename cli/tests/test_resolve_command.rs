@@ -16,6 +16,7 @@ use std::path::Path;
 
 use indoc::indoc;
 
+use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;
 
 fn create_commit(
@@ -38,7 +39,7 @@ fn create_commit(
     test_env.jj_cmd_ok(repo_path, &["bookmark", "create", "-r@", name]);
 }
 
-fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> String {
+fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutputString {
     test_env.jj_cmd_success(repo_path, &["log", "-T", "bookmarks"])
 }
 
@@ -53,7 +54,7 @@ fn test_resolution() {
     create_commit(&test_env, &repo_path, "b", &["base"], &[("file", "b\n")]);
     create_commit(&test_env, &repo_path, "conflict", &["a", "b"], &[]);
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r###"
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @    conflict
     ├─╮
     │ ○  b
@@ -61,11 +62,13 @@ fn test_resolution() {
     ├─╯
     ○  base
     ◆
-    "###);
+    [EOF]
+    ");
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["resolve", "--list"]), 
-    @r###"
+    @r"
     file    2-sided conflict
-    "###);
+    [EOF]
+    ");
     insta::assert_snapshot!(
     std::fs::read_to_string(repo_path.join("file")).unwrap()
         , @r###"
@@ -87,18 +90,19 @@ fn test_resolution() {
     .unwrap();
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["resolve"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Resolving conflicts in: file
     Working copy now at: vruxwmqv e069f073 conflict | conflict
     Parent commit      : zsuskuln aa493daf a | a
     Parent commit      : royxmykx db6a4daf b | b
     Added 0 files, modified 1 files, removed 0 files
-    "###);
+    [EOF]
+    ");
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r###"
     "###);
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff", "--git"]), 
-    @r###"
+    @r"
     diff --git a/file b/file
     index 0000000000..88425ec521 100644
     --- a/file
@@ -112,11 +116,13 @@ fn test_resolution() {
     -b
     ->>>>>>> Conflict 1 of 1 ends
     +resolution
-    "###);
+    [EOF]
+    ");
     insta::assert_snapshot!(test_env.jj_cmd_cli_error(&repo_path, &["resolve", "--list"]), 
-    @r###"
+    @r"
     Error: No conflicts found at this revision
-    "###);
+    [EOF]
+    ");
 
     // Try again with --tool=<name>
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
@@ -130,15 +136,16 @@ fn test_resolution() {
         ],
     );
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Resolving conflicts in: file
     Working copy now at: vruxwmqv 1a70c7c6 conflict | conflict
     Parent commit      : zsuskuln aa493daf a | a
     Parent commit      : royxmykx db6a4daf b | b
     Added 0 files, modified 1 files, removed 0 files
-    "###);
+    [EOF]
+    ");
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff", "--git"]),
-    @r###"
+    @r"
     diff --git a/file b/file
     index 0000000000..88425ec521 100644
     --- a/file
@@ -152,11 +159,13 @@ fn test_resolution() {
     -b
     ->>>>>>> Conflict 1 of 1 ends
     +resolution
-    "###);
+    [EOF]
+    ");
     insta::assert_snapshot!(test_env.jj_cmd_cli_error(&repo_path, &["resolve", "--list"]),
-    @r###"
+    @r"
     Error: No conflicts found at this revision
-    "###);
+    [EOF]
+    ");
 
     // Check that the output file starts with conflict markers if
     // `merge-tool-edits-conflict-markers=true`
@@ -186,7 +195,7 @@ fn test_resolution() {
     >>>>>>> Conflict 1 of 1 ends
     "###);
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff", "--git"]), 
-    @r###"
+    @r"
     diff --git a/file b/file
     index 0000000000..88425ec521 100644
     --- a/file
@@ -200,7 +209,8 @@ fn test_resolution() {
     -b
     ->>>>>>> Conflict 1 of 1 ends
     +resolution
-    "###);
+    [EOF]
+    ");
 
     // Check that if merge tool leaves conflict markers in output file and
     // `merge-tool-edits-conflict-markers=true`, these markers are properly parsed.
@@ -233,7 +243,7 @@ fn test_resolution() {
         ],
     );
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Resolving conflicts in: file
     Working copy now at: vruxwmqv 608a2310 conflict | (conflict) conflict
     Parent commit      : zsuskuln aa493daf a | a
@@ -248,7 +258,8 @@ fn test_resolution() {
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
-    "###);
+    [EOF]
+    ");
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor2")).unwrap(), @r###"
     <<<<<<< Conflict 1 of 1
@@ -261,7 +272,7 @@ fn test_resolution() {
     "###);
     // Note the "Modified" below
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff", "--git"]), 
-    @r###"
+    @r"
     diff --git a/file b/file
     --- a/file
     +++ b/file
@@ -276,11 +287,13 @@ fn test_resolution() {
     -b
     +conflict
      >>>>>>> Conflict 1 of 1 ends
-    "###);
+    [EOF]
+    ");
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["resolve", "--list"]), 
-    @r###"
+    @r"
     file    2-sided conflict
-    "###);
+    [EOF]
+    ");
 
     // Check that if merge tool leaves conflict markers in output file but
     // `merge-tool-edits-conflict-markers=false` or is not specified,
@@ -308,19 +321,20 @@ fn test_resolution() {
     .unwrap();
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["resolve"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Resolving conflicts in: file
     Working copy now at: vruxwmqv 3166dfd2 conflict | conflict
     Parent commit      : zsuskuln aa493daf a | a
     Parent commit      : royxmykx db6a4daf b | b
     Added 0 files, modified 1 files, removed 0 files
-    "###);
+    [EOF]
+    ");
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor3")).unwrap(), @r###"
     "###);
     // Note the "Resolved" below
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff", "--git"]), 
-    @r###"
+    @r"
     diff --git a/file b/file
     index 0000000000..0610716cc1 100644
     --- a/file
@@ -340,11 +354,13 @@ fn test_resolution() {
     ++++++++
     +conflict
     +>>>>>>>
-    "###);
+    [EOF]
+    ");
     insta::assert_snapshot!(test_env.jj_cmd_cli_error(&repo_path, &["resolve", "--list"]), 
-    @r###"
+    @r"
     Error: No conflicts found at this revision
-    "###);
+    [EOF]
+    ");
 
     // Check that merge tool can override conflict marker style setting, and that
     // the merge tool can output Git-style conflict markers
@@ -378,7 +394,7 @@ fn test_resolution() {
         ],
     );
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Resolving conflicts in: file
     Working copy now at: vruxwmqv 8e03fefa conflict | (conflict) conflict
     Parent commit      : zsuskuln aa493daf a | a
@@ -393,7 +409,8 @@ fn test_resolution() {
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
-    "###);
+    [EOF]
+    ");
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor4")).unwrap(), @r##"
     <<<<<<< Side #1 (Conflict 1 of 1)
@@ -405,7 +422,7 @@ fn test_resolution() {
     >>>>>>> Side #2 (Conflict 1 of 1 ends)
     "##);
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff", "--git"]), 
-    @r##"
+    @r"
     diff --git a/file b/file
     --- a/file
     +++ b/file
@@ -420,11 +437,13 @@ fn test_resolution() {
     -b
     +conflict
      >>>>>>> Conflict 1 of 1 ends
-    "##);
+    [EOF]
+    ");
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["resolve", "--list"]), 
-    @r###"
+    @r"
     file    2-sided conflict
-    "###);
+    [EOF]
+    ");
 
     // Check that merge tool can leave conflict markers by returning exit code 1
     // when using `merge-conflict-exit-codes = [1]`. The Git "diff3" conflict
@@ -459,7 +478,7 @@ fn test_resolution() {
         ],
     );
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Resolving conflicts in: file
     Working copy now at: vruxwmqv a786ac2f conflict | (conflict) conflict
     Parent commit      : zsuskuln aa493daf a | a
@@ -474,11 +493,12 @@ fn test_resolution() {
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
-    "###);
+    [EOF]
+    ");
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor5")).unwrap(), @"");
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff", "--git"]), 
-    @r##"
+    @r"
     diff --git a/file b/file
     --- a/file
     +++ b/file
@@ -493,11 +513,13 @@ fn test_resolution() {
     -b
     +conflict
      >>>>>>> Conflict 1 of 1 ends
-    "##);
+    [EOF]
+    ");
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["resolve", "--list"]), 
-    @r###"
+    @r"
     file    2-sided conflict
-    "###);
+    [EOF]
+    ");
 
     // Check that an error is reported if a merge tool indicated it would leave
     // conflict markers, but the output file didn't contain valid conflict markers.
@@ -527,12 +549,12 @@ fn test_resolution() {
             "--config=merge-tools.fake-editor.merge-conflict-exit-codes=[1]",
         ],
     );
-    // On Windows, the ExitStatus struct prints "exit code" instead of "exit status"
-    insta::assert_snapshot!(stderr.replace("exit code", "exit status"), @r#"
+    insta::assert_snapshot!(stderr.normalize_exit_status(), @r"
     Resolving conflicts in: file
     Error: Failed to resolve conflicts
     Caused by: Tool exited with exit status: 1, but did not produce valid conflict markers (run with --debug to see the exact invocation)
-    "#);
+    [EOF]
+    ");
 
     // TODO: Check that running `jj new` and then `jj resolve -r conflict` works
     // correctly.
@@ -555,10 +577,12 @@ fn check_resolve_produces_input_file(
     // https://github.com/mitsuhiko/insta/commit/745b45b. Hopefully, this will again become possible
     // in the future. See also https://github.com/mitsuhiko/insta/issues/313.
     assert_eq!(
-        test_env.jj_cmd_failure(
-            repo_path,
-            &["resolve", "--config", &merge_arg_config, filename]
-        ),
+        test_env
+            .jj_cmd_failure(
+                repo_path,
+                &["resolve", "--config", &merge_arg_config, filename]
+            )
+            .raw(),
         format!(
             "Resolving conflicts in: {filename}\nError: Failed to resolve conflicts\nCaused by: \
              The output file is either unchanged or empty after the editor quit (run with --debug \
@@ -578,7 +602,7 @@ fn test_normal_conflict_input_files() {
     create_commit(&test_env, &repo_path, "b", &["base"], &[("file", "b\n")]);
     create_commit(&test_env, &repo_path, "conflict", &["a", "b"], &[]);
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r###"
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @    conflict
     ├─╮
     │ ○  b
@@ -586,11 +610,13 @@ fn test_normal_conflict_input_files() {
     ├─╯
     ○  base
     ◆
-    "###);
+    [EOF]
+    ");
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["resolve", "--list"]), 
-    @r###"
+    @r"
     file    2-sided conflict
-    "###);
+    [EOF]
+    ");
     insta::assert_snapshot!(
     std::fs::read_to_string(repo_path.join("file")).unwrap()
         , @r###"
@@ -619,7 +645,7 @@ fn test_baseless_conflict_input_files() {
     create_commit(&test_env, &repo_path, "b", &["base"], &[("file", "b\n")]);
     create_commit(&test_env, &repo_path, "conflict", &["a", "b"], &[]);
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r###"
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @    conflict
     ├─╮
     │ ○  b
@@ -627,11 +653,13 @@ fn test_baseless_conflict_input_files() {
     ├─╯
     ○  base
     ◆
-    "###);
+    [EOF]
+    ");
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["resolve", "--list"]), 
-    @r###"
+    @r"
     file    2-sided conflict
-    "###);
+    [EOF]
+    ");
     insta::assert_snapshot!(
     std::fs::read_to_string(repo_path.join("file")).unwrap()
         , @r###"
@@ -660,21 +688,24 @@ fn test_too_many_parents() {
     create_commit(&test_env, &repo_path, "c", &["base"], &[("file", "c\n")]);
     create_commit(&test_env, &repo_path, "conflict", &["a", "b", "c"], &[]);
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["resolve", "--list"]), 
-    @r###"
+    @r"
     file    3-sided conflict
-    "###);
+    [EOF]
+    ");
     // Test warning color
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["resolve", "--list", "--color=always"]), 
-    @r###"
+    @r"
     file    [38;5;1m3-sided[38;5;3m conflict[39m
-    "###);
+    [EOF]
+    ");
 
     let error = test_env.jj_cmd_failure(&repo_path, &["resolve"]);
-    insta::assert_snapshot!(error, @r###"
+    insta::assert_snapshot!(error, @r#"
     Hint: Using default editor ':builtin'; run `jj config set --user ui.merge-editor :builtin` to disable this message.
     Error: Failed to resolve conflicts
     Caused by: The conflict at "file" has 3 sides. At most 2 sides are supported.
-    "###);
+    [EOF]
+    "#);
 }
 
 #[test]
@@ -710,15 +741,17 @@ fn test_simplify_conflict_sides() {
     // Even though the tree-level conflict is a 4-sided conflict, each file is
     // materialized as a 2-sided conflict.
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["debug", "tree"]),
-    @r###"
+    @r#"
     fileA: Ok(Conflicted([Some(File { id: FileId("d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"), executable: false }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false }), Some(File { id: FileId("0cfbf08886fca9a91cb753ec8734c84fcbe52c9f"), executable: false }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false })]))
     fileB: Ok(Conflicted([Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false }), Some(File { id: FileId("d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"), executable: false }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false }), Some(File { id: FileId("0cfbf08886fca9a91cb753ec8734c84fcbe52c9f"), executable: false })]))
-    "###);
+    [EOF]
+    "#);
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["resolve", "--list"]),
-    @r###"
+    @r"
     fileA    2-sided conflict
     fileB    2-sided conflict
-    "###);
+    [EOF]
+    ");
     insta::assert_snapshot!(
     std::fs::read_to_string(repo_path.join("fileA")).unwrap(), @r###"
     <<<<<<< Conflict 1 of 1
@@ -774,7 +807,7 @@ fn test_simplify_conflict_sides() {
         ],
     );
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Resolving conflicts in: fileB
     Working copy now at: nkmrtpmo 69cc0c2d conflict | (conflict) conflict
     Parent commit      : kmkuslsw 4601566f conflictA | (conflict) (empty) conflictA
@@ -790,7 +823,8 @@ fn test_simplify_conflict_sides() {
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
-    "###);
+    [EOF]
+    ");
     insta::assert_snapshot!(std::fs::read_to_string(repo_path.join("fileB")).unwrap(), @r###"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
@@ -801,10 +835,11 @@ fn test_simplify_conflict_sides() {
     >>>>>>> Conflict 1 of 1 ends
     "###);
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["resolve", "--list"]),
-    @r###"
+    @r"
     fileA    2-sided conflict
     fileB    2-sided conflict
-    "###);
+    [EOF]
+    ");
 }
 
 #[test]
@@ -819,7 +854,7 @@ fn test_edit_delete_conflict_input_files() {
     std::fs::remove_file(repo_path.join("file")).unwrap();
     create_commit(&test_env, &repo_path, "conflict", &["a", "b"], &[]);
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r###"
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @    conflict
     ├─╮
     │ ○  b
@@ -827,11 +862,13 @@ fn test_edit_delete_conflict_input_files() {
     ├─╯
     ○  base
     ◆
-    "###);
+    [EOF]
+    ");
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["resolve", "--list"]), 
-    @r###"
+    @r"
     file    2-sided conflict including 1 deletion
-    "###);
+    [EOF]
+    ");
     insta::assert_snapshot!(
     std::fs::read_to_string(repo_path.join("file")).unwrap()
         , @r###"
@@ -862,7 +899,7 @@ fn test_file_vs_dir() {
     // Without a placeholder file, `jj` ignores an empty directory
     std::fs::write(repo_path.join("file").join("placeholder"), "").unwrap();
     create_commit(&test_env, &repo_path, "conflict", &["a", "b"], &[]);
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r###"
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @    conflict
     ├─╮
     │ ○  b
@@ -870,14 +907,16 @@ fn test_file_vs_dir() {
     ├─╯
     ○  base
     ◆
-    "###);
+    [EOF]
+    ");
 
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["resolve", "--list"]), 
-    @r###"
+    @r"
     file    2-sided conflict including a directory
-    "###);
+    [EOF]
+    ");
     let error = test_env.jj_cmd_failure(&repo_path, &["resolve"]);
-    insta::assert_snapshot!(error, @r###"
+    insta::assert_snapshot!(error, @r#"
     Hint: Using default editor ':builtin'; run `jj config set --user ui.merge-editor :builtin` to disable this message.
     Error: Failed to resolve conflicts
     Caused by: Only conflicts that involve normal files (not symlinks, not executable, etc.) are supported. Conflict summary for "file":
@@ -886,7 +925,8 @@ fn test_file_vs_dir() {
       Adding file with id 78981922613b2afb6025042ff6bd878ac1994e85
       Adding tree with id 133bb38fc4e4bf6b551f1f04db7e48f04cac2877
 
-    "###);
+    [EOF]
+    "#);
 }
 
 #[test]
@@ -911,7 +951,7 @@ fn test_description_with_dir_and_deletion() {
         &["edit", "dir", "del"],
         &[],
     );
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r###"
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @      conflict
     ├─┬─╮
     │ │ ○  del
@@ -921,19 +961,22 @@ fn test_description_with_dir_and_deletion() {
     ├─╯
     ○  base
     ◆
-    "###);
+    [EOF]
+    ");
 
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["resolve", "--list"]), 
-    @r###"
+    @r"
     file    3-sided conflict including 1 deletion and a directory
-    "###);
+    [EOF]
+    ");
     // Test warning color. The deletion is fine, so it's not highlighted
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["resolve", "--list", "--color=always"]), 
-    @r###"
+    @r"
     file    [38;5;1m3-sided[38;5;3m conflict including 1 deletion and [38;5;1ma directory[39m
-    "###);
+    [EOF]
+    ");
     let error = test_env.jj_cmd_failure(&repo_path, &["resolve"]);
-    insta::assert_snapshot!(error, @r###"
+    insta::assert_snapshot!(error, @r#"
     Hint: Using default editor ':builtin'; run `jj config set --user ui.merge-editor :builtin` to disable this message.
     Error: Failed to resolve conflicts
     Caused by: Only conflicts that involve normal files (not symlinks, not executable, etc.) are supported. Conflict summary for "file":
@@ -943,7 +986,8 @@ fn test_description_with_dir_and_deletion() {
       Adding file with id 61780798228d17af2d34fce4cfbdf35556832472
       Adding tree with id 133bb38fc4e4bf6b551f1f04db7e48f04cac2877
 
-    "###);
+    [EOF]
+    "#);
 }
 
 #[test]
@@ -979,10 +1023,11 @@ fn test_resolve_conflicts_with_executable() {
     test_env.jj_cmd_ok(&repo_path, &["file", "chmod", "x", "file2"]);
     create_commit(&test_env, &repo_path, "conflict", &["a", "b"], &[]);
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["resolve", "--list"]), 
-    @r#"
+    @r"
     file1    2-sided conflict including an executable
     file2    2-sided conflict including an executable
-    "#);
+    [EOF]
+    ");
     insta::assert_snapshot!(
         std::fs::read_to_string(repo_path.join("file1")).unwrap(),
         @r##"
@@ -1013,7 +1058,7 @@ fn test_resolve_conflicts_with_executable() {
     std::fs::write(&editor_script, b"write\nresolution1\n").unwrap();
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["resolve", "file1"]);
     insta::assert_snapshot!(stdout, @r#""#);
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(stderr, @r"
     Resolving conflicts in: file1
     Working copy now at: znkkpsqq eb159d56 conflict | (conflict) conflict
     Parent commit      : mzvwutvl 08932848 a | a
@@ -1028,9 +1073,10 @@ fn test_resolve_conflicts_with_executable() {
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
-    "#);
+    [EOF]
+    ");
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff", "--git"]), 
-    @r##"
+    @r"
     diff --git a/file1 b/file1
     index 0000000000..95cc18629d 100755
     --- a/file1
@@ -1044,10 +1090,14 @@ fn test_resolve_conflicts_with_executable() {
     -b1
     ->>>>>>> Conflict 1 of 1 ends
     +resolution1
-    "##);
+    [EOF]
+    ");
     insta::assert_snapshot!(
         test_env.jj_cmd_success(&repo_path, &["resolve", "--list"]),
-        @"file2    2-sided conflict including an executable"
+        @r"
+    file2    2-sided conflict including an executable
+    [EOF]
+    "
     );
 
     // Test resolving the conflict in "file2", which should produce an executable
@@ -1055,7 +1105,7 @@ fn test_resolve_conflicts_with_executable() {
     std::fs::write(&editor_script, b"write\nresolution2\n").unwrap();
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["resolve", "file2"]);
     insta::assert_snapshot!(stdout, @r#""#);
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(stderr, @r"
     Resolving conflicts in: file2
     Working copy now at: znkkpsqq 4dccbb3c conflict | (conflict) conflict
     Parent commit      : mzvwutvl 08932848 a | a
@@ -1070,9 +1120,10 @@ fn test_resolve_conflicts_with_executable() {
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
-    "#);
+    [EOF]
+    ");
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff", "--git"]), 
-    @r##"
+    @r"
     diff --git a/file2 b/file2
     index 0000000000..775f078581 100755
     --- a/file2
@@ -1086,10 +1137,14 @@ fn test_resolve_conflicts_with_executable() {
     -b2
     ->>>>>>> Conflict 1 of 1 ends
     +resolution2
-    "##);
+    [EOF]
+    ");
     insta::assert_snapshot!(
         test_env.jj_cmd_success(&repo_path, &["resolve", "--list"]),
-        @"file1    2-sided conflict including an executable"
+        @r"
+    file1    2-sided conflict including an executable
+    [EOF]
+    "
     );
 }
 
@@ -1126,7 +1181,10 @@ fn test_resolve_long_conflict_markers() {
     );
     create_commit(&test_env, &repo_path, "conflict", &["a", "b"], &[]);
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["resolve", "--list"]), 
-    @"file    2-sided conflict");
+    @r"
+    file    2-sided conflict
+    [EOF]
+    ");
     insta::assert_snapshot!(
         std::fs::read_to_string(repo_path.join("file")).unwrap(),
         @r##"
@@ -1164,7 +1222,7 @@ fn test_resolve_long_conflict_markers() {
     .unwrap();
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["resolve"]);
     insta::assert_snapshot!(stdout, @r#""#);
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(stderr, @r"
     Resolving conflicts in: file
     Working copy now at: vruxwmqv 2b985546 conflict | (conflict) conflict
     Parent commit      : zsuskuln 64177fd4 a | a
@@ -1179,9 +1237,10 @@ fn test_resolve_long_conflict_markers() {
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
-    "#);
+    [EOF]
+    ");
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff", "--git"]), 
-    @r##"
+    @r"
     diff --git a/file b/file
     --- a/file
     +++ b/file
@@ -1202,10 +1261,14 @@ fn test_resolve_long_conflict_markers() {
     ++++++++ Contents of side #2
     +B
     +>>>>>>> Conflict 1 of 1 ends
-    "##);
+    [EOF]
+    ");
     insta::assert_snapshot!(
         test_env.jj_cmd_success(&repo_path, &["resolve", "--list"]),
-        @"file    2-sided conflict"
+        @r"
+    file    2-sided conflict
+    [EOF]
+    "
     );
 
     // If the merge tool edits the output file with materialized markers, the
@@ -1235,7 +1298,7 @@ fn test_resolve_long_conflict_markers() {
         ],
     );
     insta::assert_snapshot!(stdout, @r#""#);
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(stderr, @r"
     Resolving conflicts in: file
     Working copy now at: vruxwmqv fac9406d conflict | (conflict) conflict
     Parent commit      : zsuskuln 64177fd4 a | a
@@ -1250,7 +1313,8 @@ fn test_resolve_long_conflict_markers() {
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
-    "#);
+    [EOF]
+    ");
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r##"
     <<<<<<<<<<< Conflict 1 of 1
@@ -1263,7 +1327,7 @@ fn test_resolve_long_conflict_markers() {
     >>>>>>>>>>> Conflict 1 of 1 ends
     "##);
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff", "--git"]), 
-    @r##"
+    @r"
     diff --git a/file b/file
     --- a/file
     +++ b/file
@@ -1279,10 +1343,14 @@ fn test_resolve_long_conflict_markers() {
     ->>>>>>> b
     +>>>>>>> B
      >>>>>>>>>>> Conflict 1 of 1 ends
-    "##);
+    [EOF]
+    ");
     insta::assert_snapshot!(
         test_env.jj_cmd_success(&repo_path, &["resolve", "--list"]),
-        @"file    2-sided conflict"
+        @r"
+    file    2-sided conflict
+    [EOF]
+    "
     );
 
     // If the merge tool accepts the marker length as an argument, then the conflict
@@ -1312,7 +1380,7 @@ fn test_resolve_long_conflict_markers() {
         ],
     );
     insta::assert_snapshot!(stdout, @r#""#);
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(stderr, @r"
     Resolving conflicts in: file
     Working copy now at: vruxwmqv 1b29631a conflict | (conflict) conflict
     Parent commit      : zsuskuln 64177fd4 a | a
@@ -1327,9 +1395,10 @@ fn test_resolve_long_conflict_markers() {
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
-    "#);
+    [EOF]
+    ");
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff", "--git"]), 
-    @r##"
+    @r"
     diff --git a/file b/file
     --- a/file
     +++ b/file
@@ -1345,10 +1414,14 @@ fn test_resolve_long_conflict_markers() {
     ->>>>>>> b
     +>>>>>>> B
      >>>>>>>>>>> Conflict 1 of 1 ends
-    "##);
+    [EOF]
+    ");
     insta::assert_snapshot!(
         test_env.jj_cmd_success(&repo_path, &["resolve", "--list"]),
-        @"file    2-sided conflict"
+        @r"
+    file    2-sided conflict
+    [EOF]
+    "
     );
 }
 
@@ -1399,7 +1472,7 @@ fn test_multiple_conflicts() {
     );
     create_commit(&test_env, &repo_path, "conflict", &["a", "b"], &[]);
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r###"
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @    conflict
     ├─╮
     │ ○  b
@@ -1407,7 +1480,8 @@ fn test_multiple_conflicts() {
     ├─╯
     ○  base
     ◆
-    "###);
+    [EOF]
+    ");
     insta::assert_snapshot!(
     std::fs::read_to_string(repo_path.join("this_file_has_a_very_long_name_to_test_padding")).unwrap()
         , @r###"
@@ -1431,16 +1505,18 @@ fn test_multiple_conflicts() {
     >>>>>>> Conflict 1 of 1 ends
     "###);
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["resolve", "--list"]), 
-    @r###"
+    @r"
     another_file                        2-sided conflict
     this_file_has_a_very_long_name_to_test_padding 2-sided conflict
-    "###);
+    [EOF]
+    ");
     // Test colors
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["resolve", "--list", "--color=always"]), 
-    @r###"
+    @r"
     another_file                        [38;5;3m2-sided conflict[39m
     this_file_has_a_very_long_name_to_test_padding [38;5;3m2-sided conflict[39m
-    "###);
+    [EOF]
+    ");
 
     let editor_script = test_env.set_up_fake_editor();
 
@@ -1448,7 +1524,7 @@ fn test_multiple_conflicts() {
     std::fs::write(&editor_script, "expect\n\0write\nresolution another_file\n").unwrap();
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["resolve", "another_file"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Resolving conflicts in: another_file
     Working copy now at: vruxwmqv 309e981c conflict | (conflict) conflict
     Parent commit      : zsuskuln de7553ef a | a
@@ -1463,9 +1539,10 @@ fn test_multiple_conflicts() {
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
-    "###);
+    [EOF]
+    ");
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff", "--git"]), 
-    @r###"
+    @r"
     diff --git a/another_file b/another_file
     index 0000000000..a9fcc7d486 100644
     --- a/another_file
@@ -1479,11 +1556,13 @@ fn test_multiple_conflicts() {
     -second b
     ->>>>>>> Conflict 1 of 1 ends
     +resolution another_file
-    "###);
+    [EOF]
+    ");
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["resolve", "--list"]), 
-    @r###"
+    @r"
     this_file_has_a_very_long_name_to_test_padding 2-sided conflict
-    "###);
+    [EOF]
+    ");
 
     // Repeat the above with the `--quiet` option.
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
@@ -1510,7 +1589,7 @@ fn test_multiple_conflicts() {
     .unwrap();
     test_env.jj_cmd_ok(&repo_path, &["resolve"]);
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff", "--git"]), 
-    @r###"
+    @r"
     diff --git a/another_file b/another_file
     index 0000000000..7903e1c1c7 100644
     --- a/another_file
@@ -1537,16 +1616,19 @@ fn test_multiple_conflicts() {
     -first b
     ->>>>>>> Conflict 1 of 1 ends
     +second resolution for auto-chosen file
-    "###);
+    [EOF]
+    ");
 
     insta::assert_snapshot!(test_env.jj_cmd_cli_error(&repo_path, &["resolve", "--list"]), 
-    @r###"
+    @r"
     Error: No conflicts found at this revision
-    "###);
+    [EOF]
+    ");
     insta::assert_snapshot!(test_env.jj_cmd_cli_error(&repo_path, &["resolve"]), 
-    @r###"
+    @r"
     Error: No conflicts found at this revision
-    "###);
+    [EOF]
+    ");
 }
 
 #[test]
@@ -1583,10 +1665,11 @@ fn test_multiple_conflicts_with_error() {
     );
     create_commit(&test_env, &repo_path, "conflict", &["a", "b"], &[]);
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["resolve", "--list"]), 
-    @r#"
+    @r"
     file1    2-sided conflict
     file2    2-sided conflict
-    "#);
+    [EOF]
+    ");
     insta::assert_snapshot!(
         std::fs::read_to_string(repo_path.join("file1")).unwrap(),
         @r##"
@@ -1620,7 +1703,7 @@ fn test_multiple_conflicts_with_error() {
     )
     .unwrap();
     let stderr = test_env.jj_cmd_failure(&repo_path, &["resolve"]);
-    insta::assert_snapshot!(stderr.replace("exit code", "exit status"), @r#"
+    insta::assert_snapshot!(stderr.normalize_exit_status(), @r"
     Resolving conflicts in: file1
     Resolving conflicts in: file2
     Working copy now at: vruxwmqv d2f3f858 conflict | (conflict) conflict
@@ -1638,9 +1721,10 @@ fn test_multiple_conflicts_with_error() {
     Then run `jj squash` to move the resolution into the conflicted commit.
     Error: Stopped due to error after resolving 1 conflicts
     Caused by: The output file is either unchanged or empty after the editor quit (run with --debug to see the exact invocation).
-    "#);
+    [EOF]
+    ");
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff", "--git"]), 
-    @r##"
+    @r"
     diff --git a/file1 b/file1
     index 0000000000..95cc18629d 100644
     --- a/file1
@@ -1654,10 +1738,14 @@ fn test_multiple_conflicts_with_error() {
     -b1
     ->>>>>>> Conflict 1 of 1 ends
     +resolution1
-    "##);
+    [EOF]
+    ");
     insta::assert_snapshot!(
         test_env.jj_cmd_success(&repo_path, &["resolve", "--list"]),
-        @"file2    2-sided conflict"
+        @r"
+    file2    2-sided conflict
+    [EOF]
+    "
     );
 
     // Test resolving one conflict, then failing during the second resolution
@@ -1668,7 +1756,7 @@ fn test_multiple_conflicts_with_error() {
     )
     .unwrap();
     let stderr = test_env.jj_cmd_failure(&repo_path, &["resolve"]);
-    insta::assert_snapshot!(stderr.replace("exit code", "exit status"), @r#"
+    insta::assert_snapshot!(stderr.normalize_exit_status(), @r"
     Resolving conflicts in: file1
     Resolving conflicts in: file2
     Working copy now at: vruxwmqv 0a54e8ed conflict | (conflict) conflict
@@ -1686,9 +1774,10 @@ fn test_multiple_conflicts_with_error() {
     Then run `jj squash` to move the resolution into the conflicted commit.
     Error: Stopped due to error after resolving 1 conflicts
     Caused by: Tool exited with exit status: 1 (run with --debug to see the exact invocation)
-    "#);
+    [EOF]
+    ");
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff", "--git"]), 
-    @r##"
+    @r"
     diff --git a/file1 b/file1
     index 0000000000..95cc18629d 100644
     --- a/file1
@@ -1702,27 +1791,33 @@ fn test_multiple_conflicts_with_error() {
     -b1
     ->>>>>>> Conflict 1 of 1 ends
     +resolution1
-    "##);
+    [EOF]
+    ");
     insta::assert_snapshot!(
         test_env.jj_cmd_success(&repo_path, &["resolve", "--list"]),
-        @"file2    2-sided conflict"
+        @r"
+    file2    2-sided conflict
+    [EOF]
+    "
     );
 
     // Test immediately failing to resolve any conflict
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
     std::fs::write(&editor_script, "fail").unwrap();
     let stderr = test_env.jj_cmd_failure(&repo_path, &["resolve"]);
-    insta::assert_snapshot!(stderr.replace("exit code", "exit status"), @r#"
+    insta::assert_snapshot!(stderr.normalize_exit_status(), @r"
     Resolving conflicts in: file1
     Error: Failed to resolve conflicts
     Caused by: Tool exited with exit status: 1 (run with --debug to see the exact invocation)
-    "#);
+    [EOF]
+    ");
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff", "--git"]), @"");
     insta::assert_snapshot!(
         test_env.jj_cmd_success(&repo_path, &["resolve", "--list"]),
-        @r#"
+        @r"
     file1    2-sided conflict
     file2    2-sided conflict
-    "#
+    [EOF]
+    "
     );
 }

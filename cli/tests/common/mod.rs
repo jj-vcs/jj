@@ -14,6 +14,8 @@
 
 pub mod git;
 mod test_environment;
+
+pub use self::test_environment::CommandOutputString;
 pub use self::test_environment::TestEnvironment;
 
 #[track_caller]
