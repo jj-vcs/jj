@@ -32,7 +32,6 @@ use jj_lib::matchers::Matcher;
 use jj_lib::merge::Merge;
 use jj_lib::merge::MergedTreeValue;
 use jj_lib::merged_tree::MergedTree;
-use jj_lib::repo_path::InvalidRepoPathError;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::repo_path::RepoPathUiConverter;
@@ -85,8 +84,6 @@ pub enum ConflictResolveError {
     InternalTool(#[from] Box<BuiltinToolError>),
     #[error(transparent)]
     ExternalTool(#[from] ExternalToolError),
-    #[error(transparent)]
-    InvalidRepoPath(#[from] InvalidRepoPathError),
     #[error("Couldn't find the path {0:?} in this revision")]
     PathNotFound(RepoPathBuf),
     #[error("Couldn't find any conflicts at {0:?} in this revision")]
@@ -98,21 +95,14 @@ pub enum ConflictResolveError {
     NotNormalFiles(RepoPathBuf, String),
     #[error("The conflict at {path:?} has {sides} sides. At most 2 sides are supported.")]
     ConflictTooComplicated { path: RepoPathBuf, sides: usize },
-    #[error(
-        "The output file is either unchanged or empty after the editor quit (run with --debug to \
-         see the exact invocation)."
-    )]
-    EmptyOrUnchanged,
     #[error(transparent)]
     Backend(#[from] jj_lib::backend::BackendError),
-    #[error(transparent)]
-    Io(#[from] std::io::Error),
 }
 
 #[derive(Debug, Error)]
 #[error("Stopped due to error after resolving {resolved_count} conflicts")]
 pub struct MergeToolPartialResolutionError {
-    pub source: ConflictResolveError,
+    pub source: ExternalToolError,
     pub resolved_count: usize,
 }
 
@@ -389,10 +379,10 @@ impl MergeEditor {
             .map(|&repo_path| MergeToolFile::from_tree_and_path(tree, repo_path))
             .try_collect()?;
 
-        match &self.tool {
+        let (tree_id, partial_resolution_error) = match &self.tool {
             MergeTool::Builtin => {
                 let tree_id = edit_merge_builtin(tree, &merge_tool_files).map_err(Box::new)?;
-                Ok((tree_id, None))
+                (tree_id, None)
             }
             MergeTool::External(editor) => external::run_mergetool_external(
                 ui,
@@ -401,8 +391,10 @@ impl MergeEditor {
                 tree,
                 &merge_tool_files,
                 self.conflict_marker_style,
-            ),
-        }
+            )?,
+        };
+
+        Ok((tree_id, partial_resolution_error))
     }
 }
 
