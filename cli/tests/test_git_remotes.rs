@@ -43,12 +43,27 @@ fn test_git_remotes() {
     bar http://example.com/repo/bar
     foo http://example.com/repo/foo
     "###);
+    let git_config = fs::read_to_string(repo_path.join(".jj/repo/store/git/config")).unwrap();
+    insta::assert_snapshot!(git_config[git_config.find("[remote ").unwrap()..], @r#"
+    [remote "foo"]
+    	url = http://example.com/repo/foo
+    	fetch = +refs/heads/*:refs/remotes/foo/*
+    [remote "bar"]
+    	url = http://example.com/repo/bar
+    	fetch = +refs/heads/*:refs/remotes/bar/*
+    "#);
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "remote", "remove", "foo"]);
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @"");
     let stdout = test_env.jj_cmd_success(&repo_path, &["git", "remote", "list"]);
     insta::assert_snapshot!(stdout, @"bar http://example.com/repo/bar
 ");
+    let git_config = fs::read_to_string(repo_path.join(".jj/repo/store/git/config")).unwrap();
+    insta::assert_snapshot!(git_config[git_config.find("[remote ").unwrap()..], @r#"
+    [remote "bar"]
+    	url = http://example.com/repo/bar
+    	fetch = +refs/heads/*:refs/remotes/bar/*
+    "#);
     let stderr = test_env.jj_cmd_failure(&repo_path, &["git", "remote", "remove", "nonexistent"]);
     insta::assert_snapshot!(stderr, @r###"
     Error: No git remote named 'nonexistent'
@@ -145,6 +160,12 @@ fn test_git_remote_set_url() {
     insta::assert_snapshot!(stdout, @r###"
     foo http://example.com/repo/bar
     "###);
+    let git_config = fs::read_to_string(repo_path.join(".jj/repo/store/git/config")).unwrap();
+    insta::assert_snapshot!(git_config[git_config.find("[remote ").unwrap()..], @r#"
+    [remote "foo"]
+    	url = http://example.com/repo/bar
+    	fetch = +refs/heads/*:refs/remotes/foo/*
+    "#);
 }
 
 #[test]
@@ -207,6 +228,15 @@ fn test_git_remote_rename() {
     bar http://example.com/repo/foo
     baz http://example.com/repo/baz
     "###);
+    let git_config = fs::read_to_string(repo_path.join(".jj/repo/store/git/config")).unwrap();
+    insta::assert_snapshot!(git_config[git_config.find("[remote ").unwrap()..], @r#"
+    [remote "baz"]
+    	url = http://example.com/repo/baz
+    	fetch = +refs/heads/*:refs/remotes/baz/*
+    [remote "bar"]
+    	url = http://example.com/repo/foo
+    	fetch = +refs/heads/*:refs/remotes/bar/*
+    "#);
 }
 
 #[test]
@@ -231,6 +261,12 @@ fn test_git_remote_named_git() {
     insta::assert_snapshot!(stdout, @r###"
     bar http://example.com/repo/repo
     "###);
+    let git_config = fs::read_to_string(repo_path.join(".git/config")).unwrap();
+    insta::assert_snapshot!(git_config[git_config.find("[remote ").unwrap()..], @r#"
+    [remote "bar"]
+    	url = http://example.com/repo/repo
+    	fetch = +refs/heads/*:refs/remotes/bar/*
+    "#);
     // @git bookmark shouldn't be renamed.
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-rmain@git", "-Tbookmarks"]);
     insta::assert_snapshot!(stdout, @r###"
@@ -250,6 +286,13 @@ fn test_git_remote_named_git() {
     fs::remove_dir_all(repo_path.join(".jj")).unwrap();
     git_repo.remote_rename("bar", "git").unwrap();
     test_env.jj_cmd_ok(&repo_path, &["git", "init", "--git-repo=."]);
+    let git_config = fs::read_to_string(repo_path.join(".git/config")).unwrap();
+    insta::assert_snapshot!(git_config[git_config.find("[remote ").unwrap()..], @r#"
+    [remote "bar"]
+    [remote "git"]
+    	url = http://example.com/repo/repo
+    	fetch = +refs/heads/*:refs/remotes/git/*
+    "#);
 
     // The remote can also be removed.
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "remote", "remove", "git"]);
@@ -258,6 +301,8 @@ fn test_git_remote_named_git() {
     let stdout = test_env.jj_cmd_success(&repo_path, &["git", "remote", "list"]);
     insta::assert_snapshot!(stdout, @r###"
     "###);
+    let git_config = fs::read_to_string(repo_path.join(".git/config")).unwrap();
+    insta::assert_snapshot!(git_config[git_config.find("[remote ").unwrap()..], @r#"[remote "bar"]"#);
     // @git bookmark shouldn't be removed.
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-rmain@git", "-Tbookmarks"]);
     insta::assert_snapshot!(stdout, @r###"
