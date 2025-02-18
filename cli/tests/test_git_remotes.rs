@@ -84,7 +84,7 @@ fn test_git_remote_add() {
     );
     insta::assert_snapshot!(stderr, @r"
     Error: Git remote named 'git' is reserved for local Git repository
-    Hint: Run `jj git remote rename` to give a different name.
+    Hint: Give the remote a different name or rename it with `jj git remote rename`.
     ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["git", "remote", "list"]);
     insta::assert_snapshot!(stdout, @r###"
@@ -127,7 +127,7 @@ fn test_git_remote_set_url() {
     );
     insta::assert_snapshot!(stderr, @r"
     Error: Git remote named 'git' is reserved for local Git repository
-    Hint: Run `jj git remote rename` to give a different name.
+    Hint: Give the remote a different name or rename it with `jj git remote rename`.
     ");
     let (stdout, stderr) = test_env.jj_cmd_ok(
         &repo_path,
@@ -196,7 +196,7 @@ fn test_git_remote_rename() {
     let stderr = test_env.jj_cmd_failure(&repo_path, &["git", "remote", "rename", "foo", "git"]);
     insta::assert_snapshot!(stderr, @r"
     Error: Git remote named 'git' is reserved for local Git repository
-    Hint: Run `jj git remote rename` to give a different name.
+    Hint: Give the remote a different name or rename it with `jj git remote rename`.
     ");
     let (stdout, stderr) =
         test_env.jj_cmd_ok(&repo_path, &["git", "remote", "rename", "foo", "bar"]);
@@ -243,7 +243,7 @@ fn test_git_remote_named_git() {
     let stderr = test_env.jj_cmd_failure(&repo_path, &["git", "remote", "rename", "bar", "git"]);
     insta::assert_snapshot!(stderr, @r"
     Error: Git remote named 'git' is reserved for local Git repository
-    Hint: Run `jj git remote rename` to give a different name.
+    Hint: Give the remote a different name or rename it with `jj git remote rename`.
     ");
 
     // Reinitialize the repo with remote named 'git'.
@@ -293,7 +293,7 @@ fn test_git_remote_with_slashes() {
     );
     insta::assert_snapshot!(stderr, @r"
     Error: Git remotes with slashes are incompatible with jj: another/origin
-    Hint: Run `jj git remote rename` to give a different name.
+    Hint: Give the remote a different name or rename it with `jj git remote rename`.
     ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["git", "remote", "list"]);
     insta::assert_snapshot!(stdout, @r###"
@@ -319,7 +319,7 @@ fn test_git_remote_with_slashes() {
     );
     insta::assert_snapshot!(stderr, @r"
     Error: Git remotes with slashes are incompatible with jj: slash/origin
-    Hint: Run `jj git remote rename` to give a different name.
+    Hint: Give the remote a different name or rename it with `jj git remote rename`.
     ");
 
     // Reinitialize the repo with remote with slashes
