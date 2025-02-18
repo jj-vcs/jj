@@ -413,11 +413,22 @@ impl CommandHelper {
     /// Loads workspace and repo, then snapshots the working copy if allowed.
     #[instrument(skip(self, ui))]
     pub fn workspace_helper(&self, ui: &Ui) -> Result<WorkspaceCommandHelper, CommandError> {
-        Ok(self.workspace_helper_with_stats(ui)?.0)
+        let (workspace_command, stats) = self.workspace_helper_with_stats(ui)?;
+        print_snapshot_stats(
+            ui,
+            &stats,
+            workspace_command.env().path_converter(),
+            SnapshotContext::Automatic,
+        )?;
+        Ok(workspace_command)
     }
 
     /// Loads workspace and repo, then snapshots the working copy if allowed and
     /// returns the SnapshotStats.
+    ///
+    /// Note that unless you have a good reason not to do so, you should always
+    /// call [`print_snapshot_stats`] with the [`SnapshotStats`] returned by
+    /// this function to present possible untracked files to the user.
     #[instrument(skip(self, ui))]
     pub fn workspace_helper_with_stats(
         &self,
@@ -505,6 +516,9 @@ impl CommandHelper {
             .map_err(|err| map_workspace_load_error(err, None))
     }
 
+    /// Note that unless you have a good reason not to do so, you should always
+    /// call [`print_snapshot_stats`] with the [`SnapshotStats`] returned by
+    /// this function to present possible untracked files to the user.
     pub fn recover_stale_working_copy(
         &self,
         ui: &Ui,
@@ -521,7 +535,9 @@ impl CommandHelper {
                 // operation, then merge the divergent operations. The wc_commit_id of the
                 // merged repo wouldn't change because the old one wins, but it's probably
                 // fine if we picked the new wc_commit_id.
-                let stats = workspace_command.maybe_snapshot(ui)?;
+                let stats = workspace_command
+                    .maybe_snapshot_impl(ui)
+                    .map_err(|err| err.into_command_error())?;
 
                 let wc_commit_id = workspace_command.get_wc_commit_id().unwrap();
                 let repo = workspace_command.repo().clone();
@@ -1063,6 +1079,9 @@ impl WorkspaceCommandHelper {
         }
     }
 
+    /// Note that unless you have a good reason not to do so, you should always
+    /// call [`print_snapshot_stats`] with the [`SnapshotStats`] returned by
+    /// this function to present possible untracked files to the user.
     #[instrument(skip_all)]
     fn maybe_snapshot_impl(&mut self, ui: &Ui) -> Result<SnapshotStats, SnapshotWorkingCopyError> {
         if !self.may_update_working_copy {
@@ -1090,9 +1109,17 @@ impl WorkspaceCommandHelper {
     /// Snapshot the working copy if allowed, and import Git refs if the working
     /// copy is collocated with Git.
     #[instrument(skip_all)]
-    pub fn maybe_snapshot(&mut self, ui: &Ui) -> Result<SnapshotStats, CommandError> {
-        self.maybe_snapshot_impl(ui)
-            .map_err(|err| err.into_command_error())
+    pub fn maybe_snapshot(&mut self, ui: &Ui) -> Result<(), CommandError> {
+        let stats = self
+            .maybe_snapshot_impl(ui)
+            .map_err(|err| err.into_command_error())?;
+        print_snapshot_stats(
+            ui,
+            &stats,
+            self.env().path_converter(),
+            SnapshotContext::Automatic,
+        )?;
+        Ok(())
     }
 
     /// Imports new HEAD from the colocated Git repo.
@@ -1272,7 +1299,8 @@ to the current parents may contain changes from multiple commits.
         locked_ws.finish(repo.op_id().clone())?;
         self.user_repo = ReadonlyUserRepo::new(repo);
 
-        self.maybe_snapshot(ui)
+        self.maybe_snapshot_impl(ui)
+            .map_err(|err| err.into_command_error())
     }
 
     pub fn workspace_root(&self) -> &Path {
@@ -1957,13 +1985,6 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
         locked_ws
             .finish(self.user_repo.repo.op_id().clone())
             .map_err(snapshot_command_error)?;
-        print_snapshot_stats(
-            ui,
-            &stats,
-            &self.env.path_converter,
-            SnapshotContext::Automatic,
-        )
-        .map_err(snapshot_command_error)?;
         Ok(stats)
     }
 
