@@ -67,6 +67,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   useful for making machine-readable templates by escaping problematic
   characters like `\n`.
 
+* `jj git push` now accepts a `--named NAME=REVISION` argument to create a named
+  bookmark and immediately push it.
 * The description of commits backed out by `jj backout` can now be configured
   using `templates.backout_description`.
 
