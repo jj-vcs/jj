@@ -58,9 +58,18 @@ fn test_snapshot_large_file() {
         This will increase the maximum file size allowed for new files, for this command only.
     "#);
 
-    // test with file track for hint formatting
+    // test with file track for hint formatting, both files should appear in
+    // warnings even though they were snapshotted separately
     std::fs::write(repo_path.join("large2"), big_string).unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["file", "track", "large", "large2"]);
+    let (stdout, stderr) = test_env.jj_cmd_ok(
+        &repo_path,
+        &[
+            "file",
+            "--config=snapshot.auto-track='large'",
+            "track",
+            "large2",
+        ],
+    );
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @r#"
     Warning: Refused to snapshot some files:
@@ -68,14 +77,6 @@ fn test_snapshot_large_file() {
       large2: 11.0KiB (11264 bytes); the maximum size allowed is 10.0KiB (10240 bytes)
     Hint: This is to prevent large files from being added by accident. You can fix this by:
       - Adding the file to `.gitignore`
-      - Run `jj config set --repo snapshot.max-new-file-size 11264`
-        This will increase the maximum file size allowed for new files, in this repository only.
-      - Run `jj --config snapshot.max-new-file-size=11264 st`
-        This will increase the maximum file size allowed for new files, for this command only.
-    Warning: Refused to snapshot some files:
-      large: 11.0KiB (11264 bytes); the maximum size allowed is 10.0KiB (10240 bytes)
-      large2: 11.0KiB (11264 bytes); the maximum size allowed is 10.0KiB (10240 bytes)
-    Hint: This is to prevent large files from being added by accident. You can fix this by:
       - Run `jj config set --repo snapshot.max-new-file-size 11264`
         This will increase the maximum file size allowed for new files, in this repository only.
       - Run `jj --config snapshot.max-new-file-size=11264 file track large large2`

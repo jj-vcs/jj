@@ -12,13 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::io;
 use std::io::Write;
+use std::ops::Not;
 
+use indoc::writedoc;
+use itertools::Itertools;
+use jj_lib::matchers::Matcher;
+use jj_lib::repo_path::RepoPathUiConverter;
+use jj_lib::working_copy::SnapshotStats;
+use jj_lib::working_copy::UntrackedReason;
 use tracing::instrument;
 
 use crate::cli_util::print_snapshot_stats;
+use crate::cli_util::print_untracked_files;
 use crate::cli_util::CommandHelper;
-use crate::cli_util::SnapshotContext;
 use crate::command_error::CommandError;
 use crate::ui::Ui;
 
@@ -44,26 +52,90 @@ pub(crate) fn cmd_file_track(
     command: &CommandHelper,
     args: &FileTrackArgs,
 ) -> Result<(), CommandError> {
-    let mut workspace_command = command.workspace_helper(ui)?;
+    let (mut workspace_command, auto_stats) = command.workspace_helper_with_stats(ui)?;
     let matcher = workspace_command
         .parse_file_patterns(ui, &args.paths)?
         .to_matcher();
+
     let options = workspace_command.snapshot_options_with_start_tracking_matcher(&matcher)?;
 
     let mut tx = workspace_command.start_transaction().into_inner();
     let (mut locked_ws, _wc_commit) = workspace_command.start_working_copy_mutation()?;
-    let (_tree_id, stats) = locked_ws.locked_wc().snapshot(&options)?;
+    let (_tree_id, track_stats) = locked_ws.locked_wc().snapshot(&options)?;
     let num_rebased = tx.repo_mut().rebase_descendants()?;
     if num_rebased > 0 {
         writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
     }
     let repo = tx.commit("track paths")?;
     locked_ws.finish(repo.op_id().clone())?;
-    print_snapshot_stats(
+    print_track_snapshot_stats(
         ui,
-        &stats,
+        auto_stats,
+        track_stats,
+        &matcher,
         workspace_command.env().path_converter(),
-        SnapshotContext::Track,
     )?;
+    Ok(())
+}
+
+pub fn print_track_snapshot_stats(
+    ui: &Ui,
+    auto_stats: SnapshotStats,
+    track_stats: SnapshotStats,
+    track_matcher: &dyn Matcher,
+    path_converter: &RepoPathUiConverter,
+) -> io::Result<()> {
+    if track_stats
+        .untracked_paths
+        .iter()
+        .any(|(path, _)| track_matcher.matches(path))
+        .not()
+    {
+        // we can use the "normal" report path, nothing special happened to a file we
+        // care about
+        return print_snapshot_stats(ui, &auto_stats, path_converter);
+    }
+
+    let mut merged_untracked_paths = auto_stats.untracked_paths;
+    for (path, reason) in track_stats
+        .untracked_paths
+        .into_iter()
+        // focus on files that are now tracked with `file track`
+        .filter(|(_, reason)| matches!(reason, UntrackedReason::FileNotAutoTracked).not())
+    {
+        // if the path was previously rejected because it wasn't tracked, update its
+        // reason
+        merged_untracked_paths
+            .entry(path)
+            .and_modify(|other_reason| *other_reason = reason.clone())
+            .or_insert(reason);
+    }
+
+    print_untracked_files(ui, &merged_untracked_paths, path_converter)?;
+
+    let large_files = merged_untracked_paths
+        .iter()
+        .filter_map(|(path, reason)| match reason {
+            UntrackedReason::FileTooLarge { size, .. } => Some((path, size)),
+            UntrackedReason::FileNotAutoTracked => None,
+        })
+        .collect_vec();
+    if let Some(size) = large_files.iter().map(|(_path, size)| size).max() {
+        let large_files_list = large_files
+            .iter()
+            .map(|(path, _)| path_converter.format_file_path(path))
+            .join(" ");
+        writedoc!(
+            ui.hint_default(),
+            r"
+            This is to prevent large files from being added by accident. You can fix this by:
+              - Adding the file to `.gitignore`
+              - Run `jj config set --repo snapshot.max-new-file-size {size}`
+                This will increase the maximum file size allowed for new files, in this repository only.
+              - Run `jj --config snapshot.max-new-file-size={size} file track {large_files_list}`
+                This will increase the maximum file size allowed for new files, for this command only.
+            "
+        )?;
+    }
     Ok(())
 }

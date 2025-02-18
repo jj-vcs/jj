@@ -22,6 +22,7 @@ use jj_lib::revset::RevsetFilterPredicate;
 use tracing::instrument;
 
 use crate::cli_util::print_conflicted_paths;
+use crate::cli_util::print_snapshot_stats;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::diff_util::get_copy_records;
@@ -53,6 +54,11 @@ pub(crate) fn cmd_status(
     args: &StatusArgs,
 ) -> Result<(), CommandError> {
     let (workspace_command, snapshot_stats) = command.workspace_helper_with_stats(ui)?;
+    print_snapshot_stats(
+        ui,
+        &snapshot_stats,
+        workspace_command.env().path_converter(),
+    )?;
     let repo = workspace_command.repo();
     let maybe_wc_commit = workspace_command
         .get_wc_commit_id()
