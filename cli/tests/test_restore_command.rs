@@ -68,7 +68,7 @@ fn test_restore() {
     Working copy now at: kkmpptxz 5b361547 (conflict) (no description set)
     Parent commit      : rlvkpnrz b9b6011e (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
-    There are unresolved conflicts at these paths:
+    Warning: There are unresolved conflicts at these paths:
     file2    2-sided conflict including 1 deletion
     New conflicts appeared in these commits:
       kkmpptxz 5b361547 (conflict) (no description set)
@@ -219,7 +219,7 @@ fn test_restore_conflicted_merge() {
     Parent commit      : zsuskuln aa493daf a | a
     Parent commit      : royxmykx db6a4daf b | b
     Added 0 files, modified 1 files, removed 0 files
-    There are unresolved conflicts at these paths:
+    Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
     [EOF]
     ");
@@ -262,7 +262,7 @@ fn test_restore_conflicted_merge() {
     Parent commit      : zsuskuln aa493daf a | a
     Parent commit      : royxmykx db6a4daf b | b
     Added 0 files, modified 1 files, removed 0 files
-    There are unresolved conflicts at these paths:
+    Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
     [EOF]
     ");

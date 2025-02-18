@@ -354,7 +354,7 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     Parent commit      : rlvkpnrz 3765cc27 side-a
     Parent commit      : zsuskuln 8b3de837 side-b
     Added 0 files, modified 1 files, removed 0 files
-    There are unresolved conflicts at these paths:
+    Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
     Existing conflicts were resolved or abandoned from these commits:
       mzvwutvl hidden a813239f (conflict) (no description set)
@@ -434,7 +434,7 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     Working copy : mzvwutvl fb39e804 (conflict) (empty) (no description set)
     Parent commit: rlvkpnrz 3765cc27 side-a
     Parent commit: zsuskuln 8b3de837 side-b
-    There are unresolved conflicts at these paths:
+    Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
     [EOF]
     ");
@@ -611,7 +611,7 @@ fn test_diffedit_merge() {
     Working copy now at: yqosqzyt abbb78c1 (conflict) (empty) (no description set)
     Parent commit      : royxmykx 0105de4a (conflict) merge
     Added 0 files, modified 0 files, removed 1 files
-    There are unresolved conflicts at these paths:
+    Warning: There are unresolved conflicts at these paths:
     file2    2-sided conflict
     [EOF]
     ");

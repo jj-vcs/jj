@@ -35,7 +35,7 @@ fn test_report_conflicts() {
     Working copy now at: zsuskuln f8a2c4e0 (conflict) (empty) (no description set)
     Parent commit      : kkmpptxz 2271a49e (conflict) C
     Added 0 files, modified 1 files, removed 0 files
-    There are unresolved conflicts at these paths:
+    Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including 1 deletion
     New conflicts appeared in these commits:
       kkmpptxz 2271a49e (conflict) C
@@ -71,7 +71,7 @@ fn test_report_conflicts() {
     Working copy now at: zsuskuln 588bd15c (conflict) (empty) (no description set)
     Parent commit      : kkmpptxz 331a2fce (conflict) C
     Added 0 files, modified 1 files, removed 0 files
-    There are unresolved conflicts at these paths:
+    Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
     New conflicts appeared in these commits:
       kkmpptxz 331a2fce (conflict) C
@@ -92,7 +92,7 @@ fn test_report_conflicts() {
     Working copy now at: vruxwmqv 0485e30f (conflict) (empty) (no description set)
     Parent commit      : rlvkpnrz b42f84eb (conflict) B
     Added 0 files, modified 1 files, removed 0 files
-    There are unresolved conflicts at these paths:
+    Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including 1 deletion
     [EOF]
     ");
@@ -132,7 +132,7 @@ fn test_report_conflicts_with_divergent_commits() {
     Working copy now at: zsuskuln?? 4ca807ad (conflict) C2
     Parent commit      : kkmpptxz b42f84eb (conflict) B
     Added 0 files, modified 1 files, removed 0 files
-    There are unresolved conflicts at these paths:
+    Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including 1 deletion
     New conflicts appeared in these commits:
       zsuskuln?? 1db43f23 (conflict) C3
@@ -169,7 +169,7 @@ fn test_report_conflicts_with_divergent_commits() {
     Working copy now at: zsuskuln?? 3c36afc9 (conflict) C2
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
-    There are unresolved conflicts at these paths:
+    Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including 1 deletion
     New conflicts appeared in these commits:
       zsuskuln?? 3c36afc9 (conflict) C2

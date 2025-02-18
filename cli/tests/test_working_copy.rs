@@ -426,7 +426,7 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     Working copy : mzvwutvl 3a981880 (conflict) (no description set)
     Parent commit: rlvkpnrz ce613b49 side-a
     Parent commit: zsuskuln 7b2b03ab side-b
-    There are unresolved conflicts at these paths:
+    Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
     [EOF]
     ");

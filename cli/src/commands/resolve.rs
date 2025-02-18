@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::io::Write;
-
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools;
@@ -132,7 +130,7 @@ pub(crate) fn cmd_resolve(
                 let new_tree = new_commit.tree()?;
                 let new_conflicts = new_tree.conflicts().collect_vec();
                 writeln!(
-                    formatter,
+                    formatter.labeled("warning").with_heading("Warning: "),
                     "After this operation, some files at this revision still have conflicts:"
                 )?;
                 print_conflicted_paths(new_conflicts, formatter.as_mut(), &workspace_command)?;

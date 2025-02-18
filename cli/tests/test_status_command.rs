@@ -205,7 +205,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     The working copy has no changes.
     Working copy : yqosqzyt dcb25635 (conflict) (empty) boom-cont-2
     Parent commit: royxmykx 664a4c6c (conflict) (empty) boom-cont
-    There are unresolved conflicts at these paths:
+    Warning: There are unresolved conflicts at these paths:
     conflicted.txt    2-sided conflict
     To resolve the conflicts, start by updating to the first one:
       jj new mzvwutvl
@@ -220,7 +220,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     The working copy has no changes.
     Working copy : [1m[38;5;13my[38;5;8mqosqzyt[39m [38;5;12md[38;5;8mcb25635[39m [38;5;9m(conflict)[39m [38;5;10m(empty)[39m boom-cont-2[0m
     Parent commit: [1m[38;5;5mr[0m[38;5;8moyxmykx[39m [1m[38;5;4m6[0m[38;5;8m64a4c6c[39m [38;5;1m(conflict)[39m [38;5;2m(empty)[39m boom-cont
-    There are unresolved conflicts at these paths:
+    [1m[38;5;3mWarning: [39mThere are unresolved conflicts at these paths:[0m
     conflicted.txt    [38;5;3m2-sided conflict[39m
     [39mTo resolve the conflicts, start by updating to the first one:[39m
     [39m  jj new [1m[38;5;5mm[0m[38;5;8mzvwutvl[39m[39m
@@ -383,7 +383,7 @@ fn test_status_simplify_conflict_sides() {
     Working copy : nkmrtpmo 83c4b9e7 conflict | (conflict) (empty) conflict
     Parent commit: kmkuslsw 4601566f conflictA | (conflict) (empty) conflictA
     Parent commit: lylxulpl 6f8d8381 conflictB | (conflict) (empty) conflictB
-    There are unresolved conflicts at these paths:
+    Warning: There are unresolved conflicts at these paths:
     fileA    2-sided conflict
     fileB    2-sided conflict
     To resolve the conflicts, start by updating to one of the first ones:

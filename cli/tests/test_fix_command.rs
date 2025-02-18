@@ -1116,7 +1116,7 @@ fn test_fix_both_sides_of_conflict() {
     Parent commit      : qpvuntsm 8e8aad69 a | (no description set)
     Parent commit      : kkmpptxz 91f9b284 b | (no description set)
     Added 0 files, modified 1 files, removed 0 files
-    There are unresolved conflicts at these paths:
+    Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
     [EOF]
     ");

@@ -633,7 +633,7 @@ fn test_git_colocated_rebase_dirty_working_copy() {
     M file
     Working copy : rlvkpnrz 6bad94b1 feature?? | (no description set)
     Parent commit: qpvuntsm 3230d522 (no description set)
-    These bookmarks have conflicts:
+    Warning: These bookmarks have conflicts:
       feature
       Use `jj bookmark list` to see details. Use `jj bookmark set <name> -r <rev>` to resolve.
     [EOF]

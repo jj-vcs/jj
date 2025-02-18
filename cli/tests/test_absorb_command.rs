@@ -419,7 +419,7 @@ fn test_absorb_conflict() {
     Working copy now at: kkmpptxz 74405a07 (conflict) (no description set)
     Parent commit      : qpvuntsm 3619e4e5 1
     Added 0 files, modified 1 files, removed 0 files
-    There are unresolved conflicts at these paths:
+    Warning: There are unresolved conflicts at these paths:
     file1    2-sided conflict
     New conflicts appeared in these commits:
       kkmpptxz 74405a07 (conflict) (no description set)
