@@ -135,6 +135,7 @@ nav:
       - 'Code of conduct': 'code-of-conduct.md'
       - 'Design Docs': 'design_docs.md'
       - 'Design Doc Blueprint': 'design_doc_blueprint.md'
+      - 'Deprecations': 'deprecation.md'
       - 'Releasing': 'releasing.md'
       - 'Temporary Voting for Governance': 'governance/temporary-voting.md'
       - 'Governance': 'governance/GOVERNANCE.md'
