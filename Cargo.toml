@@ -23,13 +23,13 @@ assert_matches = "1.5.0"
 async-trait = "0.1.86"
 blake2 = "0.10.6"
 bstr = "1.11.3"
-clap = { version = "4.5.29", features = [
+clap = { version = "4.5.30", features = [
     "derive",
     "deprecated",
     "wrap_help",
     "string",
 ] }
-clap_complete = { version = "4.5.44", features = ["unstable-dynamic"] }
+clap_complete = { version = "4.5.45", features = ["unstable-dynamic"] }
 clap_complete_nushell = "4.5.5"
 clap-markdown = "0.1.4"
 clap_mangen = "0.2.25"
