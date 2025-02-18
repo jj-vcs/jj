@@ -2000,8 +2000,8 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
         print_checkout_stats(ui, stats, new_commit)?;
         if Some(new_commit) != maybe_old_commit {
             if let Some(mut formatter) = ui.status_formatter() {
-                let conflicts = new_commit.tree()?.conflicts().collect_vec();
-                if !conflicts.is_empty() {
+                if new_commit.has_conflict()? {
+                    let conflicts = new_commit.tree()?.conflicts().collect_vec();
                     writeln!(formatter, "There are unresolved conflicts at these paths:")?;
                     print_conflicted_paths(conflicts, formatter.as_mut(), self)?;
                 }
