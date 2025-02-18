@@ -77,6 +77,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Templates now have `format_short_operation_id(id)` function for users to
   customize the default operation id representation.
 
+* `jj bookmark forget` can now also accept remote bookmarks as arguments. For
+  instance, `jj bookmark forget bookmark@remote` will forget the target of
+  `bookmark@remote` until the next `jj git fetch` from the remote.
+
 ### Fixed bugs
 
 * `jj status` now shows untracked files under untracked directories.

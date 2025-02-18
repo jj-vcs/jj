@@ -654,7 +654,6 @@ fn test_bookmark_delete_glob() {
     error: invalid value 'whatever:bookmark' for '<NAMES>...': Invalid string pattern kind `whatever:`
 
     For more information, try '--help'.
-    Hint: Try prefixing with one of `exact:`, `glob:`, `regex:`, or `substring:`
     ");
 }
 
@@ -853,6 +852,32 @@ fn test_bookmark_forget_fetched_bookmark() {
     // There should be no output here since the remote bookmark wasn't forgotten
     insta::assert_snapshot!(stderr, @"Nothing changed.");
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @"feature1@origin: tyvxnvqr 9175cb32 (empty) another message");
+
+    // TEST 5: Explicitly naming the remote bookmarks has the same behavior as
+    // --include-remotes (same as test 1)
+    test_env.jj_cmd_ok(
+        &repo_path,
+        &["bookmark", "forget", "feature1", "feature1@origin"],
+    );
+    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @"");
+    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "export"]);
+    insta::assert_snapshot!(stdout, @"");
+    insta::assert_snapshot!(stderr, @"");
+    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "import"]);
+    insta::assert_snapshot!(stdout, @"");
+    insta::assert_snapshot!(stderr, @r###"
+    Nothing changed.
+    "###);
+    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @"");
+    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "fetch", "--remote=origin"]);
+    insta::assert_snapshot!(stdout, @"");
+    insta::assert_snapshot!(stderr, @r###"
+    bookmark: feature1@origin [new] tracked
+    "###);
+    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r#"
+    feature1: tyvxnvqr 9175cb32 (empty) another message
+      @origin: tyvxnvqr 9175cb32 (empty) another message
+    "#);
 }
 
 #[test]
