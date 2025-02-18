@@ -196,19 +196,32 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     "###);
 
     let stdout = test_env.jj_cmd_success(&repo_path, &["status"]);
-
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     The working copy has no changes.
-    There are unresolved conflicts at these paths:
-    conflicted.txt    2-sided conflict
     Working copy : yqosqzyt dcb25635 (conflict) (empty) boom-cont-2
     Parent commit: royxmykx 664a4c6c (conflict) (empty) boom-cont
-    To resolve the conflicts, start by updating to the first one:
+    Warning: There are unresolved conflicts at these paths:
+    conflicted.txt    2-sided conflict
+    Hint: To resolve the conflicts, start by updating to the first one:
       jj new mzvwutvl
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
-    "###);
+    ");
+
+    let stdout = test_env.jj_cmd_success(&repo_path, &["status", "--color=always"]);
+    insta::assert_snapshot!(stdout, @r"
+    The working copy has no changes.
+    Working copy : [1m[38;5;13my[38;5;8mqosqzyt[39m [38;5;12md[38;5;8mcb25635[39m [38;5;9m(conflict)[39m [38;5;10m(empty)[39m boom-cont-2[0m
+    Parent commit: [1m[38;5;5mr[0m[38;5;8moyxmykx[39m [1m[38;5;4m6[0m[38;5;8m64a4c6c[39m [38;5;1m(conflict)[39m [38;5;2m(empty)[39m boom-cont
+    [1m[38;5;3mWarning: [39mThere are unresolved conflicts at these paths:[0m
+    conflicted.txt    [38;5;3m2-sided conflict[39m
+    [1m[38;5;6mHint: [0m[39mTo resolve the conflicts, start by updating to the first one:[39m
+    [39m  jj new [1m[38;5;5mm[0m[38;5;8mzvwutvl[39m[39m
+    [39mThen use `jj resolve`, or edit the conflict markers in the file directly.[39m
+    [39mOnce the conflicts are resolved, you may want to inspect the result with `jj diff`.[39m
+    [39mThen run `jj squash` to move the resolution into the conflicted commit.[39m
+    ");
 
     // Resolve conflict
     test_env.jj_cmd_ok(&repo_path, &["new", "--message", "fixed 1"]);
@@ -221,10 +234,10 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     // wc is now conflict free, parent is also conflict free
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-r", "::"]);
 
-    insta::assert_snapshot!(stdout, @r###"
-    @  kpqxywon test.user@example.com 2001-02-03 08:05:18 d313f2e1
+    insta::assert_snapshot!(stdout, @r"
+    @  kmkuslsw test.user@example.com 2001-02-03 08:05:19 caa7e9d5
     │  fixed 2
-    ○  znkkpsqq test.user@example.com 2001-02-03 08:05:17 23e58975
+    ○  kpqxywon test.user@example.com 2001-02-03 08:05:18 26bf6863
     │  fixed 1
     ×  yqosqzyt test.user@example.com 2001-02-03 08:05:13 dcb25635 conflict
     │  (empty) boom-cont-2
@@ -239,26 +252,26 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 aade7195
     │  Initial contents
     ◆  zzzzzzzz root() 00000000
-    "###);
+    ");
 
     let stdout = test_env.jj_cmd_success(&repo_path, &["status"]);
 
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     Working copy changes:
     M conflicted.txt
-    Working copy : kpqxywon d313f2e1 fixed 2
-    Parent commit: znkkpsqq 23e58975 fixed 1
-    "###);
+    Working copy : kmkuslsw caa7e9d5 fixed 2
+    Parent commit: kpqxywon 26bf6863 fixed 1
+    ");
 
     // Step back one.
     // wc is still conflict free, parent has a conflict.
     test_env.jj_cmd_ok(&repo_path, &["edit", "@-"]);
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-r", "::"]);
 
-    insta::assert_snapshot!(stdout, @r###"
-    ○  kpqxywon test.user@example.com 2001-02-03 08:05:18 d313f2e1
+    insta::assert_snapshot!(stdout, @r"
+    ○  kmkuslsw test.user@example.com 2001-02-03 08:05:19 caa7e9d5
     │  fixed 2
-    @  znkkpsqq test.user@example.com 2001-02-03 08:05:17 23e58975
+    @  kpqxywon test.user@example.com 2001-02-03 08:05:18 26bf6863
     │  fixed 1
     ×  yqosqzyt test.user@example.com 2001-02-03 08:05:13 dcb25635 conflict
     │  (empty) boom-cont-2
@@ -273,17 +286,17 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 aade7195
     │  Initial contents
     ◆  zzzzzzzz root() 00000000
-    "###);
+    ");
 
     let stdout = test_env.jj_cmd_success(&repo_path, &["status"]);
 
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     Working copy changes:
     M conflicted.txt
-    Working copy : znkkpsqq 23e58975 fixed 1
+    Working copy : kpqxywon 26bf6863 fixed 1
     Parent commit: yqosqzyt dcb25635 (conflict) (empty) boom-cont-2
-    Conflict in parent commit has been resolved in working copy
-    "###);
+    Hint: Conflict in parent commit has been resolved in working copy
+    ");
 
     // Step back to all the way to `root()+` so that wc has no conflict, even though
     // there is a conflict later in the tree. So that we can confirm
@@ -291,10 +304,10 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     test_env.jj_cmd_ok(&repo_path, &["edit", "root()+"]);
     let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-r", "::"]);
 
-    insta::assert_snapshot!(stdout, @r###"
-    ○  kpqxywon test.user@example.com 2001-02-03 08:05:18 d313f2e1
+    insta::assert_snapshot!(stdout, @r"
+    ○  kmkuslsw test.user@example.com 2001-02-03 08:05:19 caa7e9d5
     │  fixed 2
-    ○  znkkpsqq test.user@example.com 2001-02-03 08:05:17 23e58975
+    ○  kpqxywon test.user@example.com 2001-02-03 08:05:18 26bf6863
     │  fixed 1
     ×  yqosqzyt test.user@example.com 2001-02-03 08:05:13 dcb25635 conflict
     │  (empty) boom-cont-2
@@ -309,7 +322,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:08 aade7195
     │  Initial contents
     ◆  zzzzzzzz root() 00000000
-    "###);
+    ");
 
     let stdout = test_env.jj_cmd_success(&repo_path, &["status"]);
 
@@ -352,21 +365,21 @@ fn test_status_simplify_conflict_sides() {
     );
 
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["status"]),
-    @r###"
+    @r"
     The working copy has no changes.
-    There are unresolved conflicts at these paths:
-    fileA    2-sided conflict
-    fileB    2-sided conflict
     Working copy : nkmrtpmo 83c4b9e7 conflict | (conflict) (empty) conflict
     Parent commit: kmkuslsw 4601566f conflictA | (conflict) (empty) conflictA
     Parent commit: lylxulpl 6f8d8381 conflictB | (conflict) (empty) conflictB
-    To resolve the conflicts, start by updating to one of the first ones:
+    Warning: There are unresolved conflicts at these paths:
+    fileA    2-sided conflict
+    fileB    2-sided conflict
+    Hint: To resolve the conflicts, start by updating to one of the first ones:
       jj new lylxulpl
       jj new kmkuslsw
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
-    "###);
+    ");
 }
 
 #[test]

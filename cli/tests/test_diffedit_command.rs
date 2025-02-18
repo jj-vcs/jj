@@ -329,17 +329,17 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     .unwrap();
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["diffedit"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Created mzvwutvl fb39e804 (conflict) (empty) (no description set)
     Working copy now at: mzvwutvl fb39e804 (conflict) (empty) (no description set)
     Parent commit      : rlvkpnrz 3765cc27 side-a
     Parent commit      : zsuskuln 8b3de837 side-b
     Added 0 files, modified 1 files, removed 0 files
-    There are unresolved conflicts at these paths:
+    Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
     Existing conflicts were resolved or abandoned from these commits:
       mzvwutvl hidden a813239f (conflict) (no description set)
-    "###);
+    ");
     // Conflicts should render using "snapshot" format in diff editor
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("before-file")).unwrap(), @r##"
@@ -409,14 +409,14 @@ fn test_diffedit_external_tool_conflict_marker_style() {
 
     // File should be conflicted with no changes
     let stdout = test_env.jj_cmd_success(&repo_path, &["st"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     The working copy has no changes.
-    There are unresolved conflicts at these paths:
-    file    2-sided conflict
     Working copy : mzvwutvl fb39e804 (conflict) (empty) (no description set)
     Parent commit: rlvkpnrz 3765cc27 side-a
     Parent commit: zsuskuln 8b3de837 side-b
-    "###);
+    Warning: There are unresolved conflicts at these paths:
+    file    2-sided conflict
+    ");
 }
 
 #[test]
@@ -573,15 +573,15 @@ fn test_diffedit_merge() {
     .unwrap();
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["diffedit", "-r", "@-"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Created royxmykx 0105de4a (conflict) merge
     Rebased 1 descendant commits
     Working copy now at: yqosqzyt abbb78c1 (conflict) (empty) (no description set)
     Parent commit      : royxmykx 0105de4a (conflict) merge
     Added 0 files, modified 0 files, removed 1 files
-    There are unresolved conflicts at these paths:
+    Warning: There are unresolved conflicts at these paths:
     file2    2-sided conflict
-    "###);
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s", "-r", "@-"]);
     insta::assert_snapshot!(stdout, @r###"
     D file1

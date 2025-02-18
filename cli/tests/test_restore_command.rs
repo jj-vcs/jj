@@ -58,22 +58,22 @@ fn test_restore() {
     "###);
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["restore", "-c=@-"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Created rlvkpnrz b9b6011e (empty) (no description set)
     Rebased 1 descendant commits
     Working copy now at: kkmpptxz 5b361547 (conflict) (no description set)
     Parent commit      : rlvkpnrz b9b6011e (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
-    There are unresolved conflicts at these paths:
+    Warning: There are unresolved conflicts at these paths:
     file2    2-sided conflict including 1 deletion
     New conflicts appeared in these commits:
       kkmpptxz 5b361547 (conflict) (no description set)
-    To resolve the conflicts, start by updating to it:
+    Hint: To resolve the conflicts, start by updating to it:
       jj new kkmpptxz
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
-    "###);
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s", "-r=@-"]);
     insta::assert_snapshot!(stdout, @"");
 
@@ -198,15 +198,15 @@ fn test_restore_conflicted_merge() {
     // ...and restore it back again.
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["restore", "file"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Created vruxwmqv 25a37060 conflict | (conflict) (empty) conflict
     Working copy now at: vruxwmqv 25a37060 conflict | (conflict) (empty) conflict
     Parent commit      : zsuskuln aa493daf a | a
     Parent commit      : royxmykx db6a4daf b | b
     Added 0 files, modified 1 files, removed 0 files
-    There are unresolved conflicts at these paths:
+    Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
-    "###);
+    ");
     insta::assert_snapshot!(
     std::fs::read_to_string(repo_path.join("file")).unwrap()
         , @r###"
@@ -239,15 +239,15 @@ fn test_restore_conflicted_merge() {
     // ... and restore it back again.
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["restore"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Created vruxwmqv f2c82b9c conflict | (conflict) (empty) conflict
     Working copy now at: vruxwmqv f2c82b9c conflict | (conflict) (empty) conflict
     Parent commit      : zsuskuln aa493daf a | a
     Parent commit      : royxmykx db6a4daf b | b
     Added 0 files, modified 1 files, removed 0 files
-    There are unresolved conflicts at these paths:
+    Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
-    "###);
+    ");
     insta::assert_snapshot!(
     std::fs::read_to_string(repo_path.join("file")).unwrap()
         , @r###"

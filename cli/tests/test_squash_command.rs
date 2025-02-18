@@ -686,18 +686,18 @@ fn test_squash_from_multiple() {
     let (stdout, stderr) =
         test_env.jj_cmd_ok(&repo_path, &["squash", "--from=b", "--from=c", "--into=d"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Rebased 2 descendant commits
     Working copy now at: kpqxywon 7ea39167 f | (no description set)
     Parent commit      : yostqsxw acfbf2a0 e | (no description set)
     New conflicts appeared in these commits:
       yqosqzyt 4df3b215 d | (conflict) (no description set)
-    To resolve the conflicts, start by updating to it:
+    Hint: To resolve the conflicts, start by updating to it:
       jj new yqosqzyt
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
-    "###);
+    ");
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r###"
     @  7ea391676d52 f
     ○    acfbf2a0600d e
@@ -811,18 +811,18 @@ fn test_squash_from_multiple_partial() {
     let (stdout, stderr) =
         test_env.jj_cmd_ok(&repo_path, &["squash", "--from=b|c", "--into=d", "file1"]);
     insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Rebased 2 descendant commits
     Working copy now at: kpqxywon a8530305 f | (no description set)
     Parent commit      : yostqsxw 0a3637fc e | (no description set)
     New conflicts appeared in these commits:
       yqosqzyt 05a3ab3d d | (conflict) (no description set)
-    To resolve the conflicts, start by updating to it:
+    Hint: To resolve the conflicts, start by updating to it:
       jj new yqosqzyt
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
-    "###);
+    ");
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r###"
     @  a8530305127c f
     ○      0a3637fca632 e

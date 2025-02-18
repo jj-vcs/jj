@@ -2000,9 +2000,12 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
         print_checkout_stats(ui, stats, new_commit)?;
         if Some(new_commit) != maybe_old_commit {
             if let Some(mut formatter) = ui.status_formatter() {
-                let conflicts = new_commit.tree()?.conflicts().collect_vec();
-                if !conflicts.is_empty() {
-                    writeln!(formatter, "There are unresolved conflicts at these paths:")?;
+                if new_commit.has_conflict()? {
+                    let conflicts = new_commit.tree()?.conflicts().collect_vec();
+                    writeln!(
+                        formatter.labeled("warning").with_heading("Warning: "),
+                        "There are unresolved conflicts at these paths:"
+                    )?;
                     print_conflicted_paths(conflicts, formatter.as_mut(), self)?;
                 }
             }
@@ -2253,33 +2256,29 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
             .try_collect()?;
 
         if !root_conflict_commits.is_empty() {
-            fmt.push_label("hint")?;
-            if only_one_conflicted_commit {
-                writeln!(fmt, "To resolve the conflicts, start by updating to it:",)?;
+            let instruction = if only_one_conflicted_commit {
+                "To resolve the conflicts, start by updating to it"
             } else if root_conflict_commits.len() == 1 {
-                writeln!(
-                    fmt,
-                    "To resolve the conflicts, start by updating to the first one:",
-                )?;
+                "To resolve the conflicts, start by updating to the first one"
             } else {
-                writeln!(
-                    fmt,
-                    "To resolve the conflicts, start by updating to one of the first ones:",
-                )?;
-            }
+                "To resolve the conflicts, start by updating to one of the first ones"
+            };
+            writeln!(fmt.labeled("hint").with_heading("Hint: "), "{instruction}:")?;
             let format_short_change_id = self.short_change_id_template();
-            for commit in root_conflict_commits {
-                write!(fmt, "  jj new ")?;
-                format_short_change_id.format(&commit, fmt)?;
-                writeln!(fmt)?;
-            }
+            fmt.with_label("hint", |fmt| {
+                for commit in &root_conflict_commits {
+                    write!(fmt, "  jj new ")?;
+                    format_short_change_id.format(commit, fmt)?;
+                    writeln!(fmt)?;
+                }
+                io::Result::Ok(())
+            })?;
             writeln!(
-                fmt,
+                fmt.labeled("hint"),
                 r#"Then use `jj resolve`, or edit the conflict markers in the file directly.
 Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
 Then run `jj squash` to move the resolution into the conflicted commit."#,
             )?;
-            fmt.pop_label()?;
         }
         Ok(())
     }

@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::io::Write;
-
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools;
@@ -128,11 +126,11 @@ pub(crate) fn cmd_resolve(
     // be printed by the `tx.finish()` instead.
     if workspace_command.get_wc_commit_id() != Some(new_commit.id()) {
         if let Some(mut formatter) = ui.status_formatter() {
-            let new_tree = new_commit.tree()?;
-            let new_conflicts = new_tree.conflicts().collect_vec();
-            if !new_conflicts.is_empty() {
+            if new_commit.has_conflict()? {
+                let new_tree = new_commit.tree()?;
+                let new_conflicts = new_tree.conflicts().collect_vec();
                 writeln!(
-                    formatter,
+                    formatter.labeled("warning").with_heading("Warning: "),
                     "After this operation, some files at this revision still have conflicts:"
                 )?;
                 print_conflicted_paths(new_conflicts, formatter.as_mut(), &workspace_command)?;
