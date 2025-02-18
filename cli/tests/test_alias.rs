@@ -339,4 +339,16 @@ fn test_alias_in_config_arg() {
     insta::assert_snapshot!(
         stderr,
         @"Warning: Command aliases cannot be loaded from -R/--repository path or --config/--config-file arguments.");
+
+    // should print warning about aliases even if cli parsing fails
+    let alias_arg = r#"--config=aliases.this-command-not-exist=['log', '-r@', '--no-graph', '-T"arg alias\n"']"#;
+    let stderr = test_env.jj_cmd_cli_error(&repo_path, &[alias_arg, "this-command-not-exist"]);
+    insta::assert_snapshot!(stderr, @r#"
+    Warning: Command aliases cannot be loaded from -R/--repository path or --config/--config-file arguments.
+    error: unrecognized subcommand 'this-command-not-exist'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    "#);
 }
