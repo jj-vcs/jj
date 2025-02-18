@@ -761,7 +761,10 @@ fn test_git_clone_with_remote_named_git(subprocess: bool) {
         &["git", "clone", "--remote=git", "source", "dest"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @"Error: Git remote named 'git' is reserved for local Git repository");
+    insta::assert_snapshot!(stderr, @r"
+    Error: Git remote named 'git' is reserved for local Git repository
+    Hint: Run `jj git remote rename` to give a different name.
+    ");
     }
 }
 

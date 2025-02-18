@@ -82,9 +82,10 @@ fn test_git_remote_add() {
         &repo_path,
         &["git", "remote", "add", "git", "http://example.com/repo/git"],
     );
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Error: Git remote named 'git' is reserved for local Git repository
-    "###);
+    Hint: Run `jj git remote rename` to give a different name.
+    ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["git", "remote", "list"]);
     insta::assert_snapshot!(stdout, @r###"
     foo http://example.com/repo/foo
@@ -124,9 +125,10 @@ fn test_git_remote_set_url() {
             "http://example.com/repo/git",
         ],
     );
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Error: Git remote named 'git' is reserved for local Git repository
-    "###);
+    Hint: Run `jj git remote rename` to give a different name.
+    ");
     let (stdout, stderr) = test_env.jj_cmd_ok(
         &repo_path,
         &[
@@ -192,9 +194,10 @@ fn test_git_remote_rename() {
     Error: Git remote named 'baz' already exists
     "###);
     let stderr = test_env.jj_cmd_failure(&repo_path, &["git", "remote", "rename", "foo", "git"]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Error: Git remote named 'git' is reserved for local Git repository
-    "###);
+    Hint: Run `jj git remote rename` to give a different name.
+    ");
     let (stdout, stderr) =
         test_env.jj_cmd_ok(&repo_path, &["git", "remote", "rename", "foo", "bar"]);
     insta::assert_snapshot!(stdout, @"");
@@ -238,9 +241,10 @@ fn test_git_remote_named_git() {
 
     // The remote cannot be renamed back by jj.
     let stderr = test_env.jj_cmd_failure(&repo_path, &["git", "remote", "rename", "bar", "git"]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Error: Git remote named 'git' is reserved for local Git repository
-    "###);
+    Hint: Run `jj git remote rename` to give a different name.
+    ");
 
     // Reinitialize the repo with remote named 'git'.
     fs::remove_dir_all(repo_path.join(".jj")).unwrap();
