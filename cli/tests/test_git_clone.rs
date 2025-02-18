@@ -763,7 +763,7 @@ fn test_git_clone_with_remote_named_git(subprocess: bool) {
     insta::allow_duplicates! {
     insta::assert_snapshot!(stderr, @r"
     Error: Git remote named 'git' is reserved for local Git repository
-    Hint: Run `jj git remote rename` to give a different name.
+    Hint: Give the remote a different name or rename it with `jj git remote rename`.
     ");
     }
 }
@@ -785,7 +785,7 @@ fn test_git_clone_with_remote_with_slashes(subprocess: bool) {
     insta::allow_duplicates! {
     insta::assert_snapshot!(stderr, @r"
     Error: Git remotes with slashes are incompatible with jj: slash/origin
-    Hint: Run `jj git remote rename` to give a different name.
+    Hint: Give the remote a different name or rename it with `jj git remote rename`.
     ");
     }
 }
