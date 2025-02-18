@@ -2676,37 +2676,35 @@ pub enum SnapshotContext {
     Untrack,
 }
 
-pub fn print_snapshot_stats(
-    ui: &Ui,
-    stats: &SnapshotStats,
-    path_converter: &RepoPathUiConverter,
-    context: SnapshotContext,
-) -> io::Result<()> {
-    // Paths with UntrackedReason::FileNotAutoTracked shouldn't be warned about
-    // every time we make a snapshot. These paths will be printed by
-    // "jj status" instead.
+/// Build human-readable messages explaining why the file was not tracked
+fn build_untracked_reason_message(reason: &UntrackedReason) -> Option<String> {
+    match reason {
+        UntrackedReason::FileTooLarge { size, max_size } => {
+            // Show both exact and human bytes sizes to avoid something
+            // like '1.0MiB, maximum size allowed is ~1.0MiB'
+            let size_approx = HumanByteSize(*size);
+            let max_size_approx = HumanByteSize(*max_size);
+            Some(format!(
+                "{size_approx} ({size} bytes); the maximum size allowed is {max_size_approx} \
+                 ({max_size} bytes)",
+            ))
+        }
+        // Paths with UntrackedReason::FileNotAutoTracked shouldn't be warned about
+        // every time we make a snapshot. These paths will be printed by
+        // "jj status" instead.
+        UntrackedReason::FileNotAutoTracked => None,
+    }
+}
 
-    let mut untracked_paths = stats
-        .untracked_paths
+/// Print a warning to the user, listing untracked files that he may care about
+pub fn print_untracked_files(
+    ui: &Ui,
+    untracked_paths: &BTreeMap<RepoPathBuf, UntrackedReason>,
+    path_converter: &RepoPathUiConverter,
+) -> io::Result<()> {
+    let mut untracked_paths = untracked_paths
         .iter()
-        .filter_map(|(path, reason)| {
-            match reason {
-                UntrackedReason::FileTooLarge { size, max_size } => {
-                    // Show both exact and human bytes sizes to avoid something
-                    // like '1.0MiB, maximum size allowed is ~1.0MiB'
-                    let size_approx = HumanByteSize(*size);
-                    let max_size_approx = HumanByteSize(*max_size);
-                    Some((
-                        path,
-                        format!(
-                            "{size_approx} ({size} bytes); the maximum size allowed is \
-                             {max_size_approx} ({max_size} bytes)",
-                        ),
-                    ))
-                }
-                UntrackedReason::FileNotAutoTracked => None,
-            }
-        })
+        .filter_map(|(path, reason)| build_untracked_reason_message(reason).map(|m| (path, m)))
         .peekable();
 
     if untracked_paths.peek().is_some() {
@@ -2717,6 +2715,17 @@ pub fn print_snapshot_stats(
             writeln!(formatter, "  {ui_path}: {message}")?;
         }
     }
+
+    Ok(())
+}
+
+pub fn print_snapshot_stats(
+    ui: &Ui,
+    stats: &SnapshotStats,
+    path_converter: &RepoPathUiConverter,
+    context: SnapshotContext,
+) -> io::Result<()> {
+    print_untracked_files(ui, &stats.untracked_paths, path_converter)?;
 
     let large_files = stats
         .untracked_paths
