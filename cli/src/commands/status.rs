@@ -119,18 +119,16 @@ pub(crate) fn cmd_status(
             writeln!(formatter)?;
         }
 
-        // TODO: Conflicts should also be filtered by the `matcher`. See the related
-        // TODO on `MergedTree::conflicts()`.
-        let conflicts = wc_commit.tree()?.conflicts().collect_vec();
-        if !conflicts.is_empty() {
+        if wc_commit.has_conflict()? {
+            // TODO: Conflicts should also be filtered by the `matcher`. See the related
+            // TODO on `MergedTree::conflicts()`.
+            let conflicts = wc_commit.tree()?.conflicts().collect_vec();
             writeln!(
                 formatter.labeled("conflict"),
                 "There are unresolved conflicts at these paths:"
             )?;
             print_conflicted_paths(conflicts, formatter, &workspace_command)?;
-        }
 
-        if wc_commit.has_conflict()? {
             let wc_revset = RevsetExpression::commit(wc_commit.id().clone());
 
             // Ancestors with conflicts, excluding the current working copy commit.
