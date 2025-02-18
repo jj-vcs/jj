@@ -2002,7 +2002,10 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
             if let Some(mut formatter) = ui.status_formatter() {
                 if new_commit.has_conflict()? {
                     let conflicts = new_commit.tree()?.conflicts().collect_vec();
-                    writeln!(formatter, "There are unresolved conflicts at these paths:")?;
+                    writeln!(
+                        formatter.labeled("warning").with_heading("Warning: "),
+                        "There are unresolved conflicts at these paths:"
+                    )?;
                     print_conflicted_paths(conflicts, formatter.as_mut(), self)?;
                 }
             }

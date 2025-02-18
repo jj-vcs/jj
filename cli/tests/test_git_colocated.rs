@@ -591,15 +591,15 @@ fn test_git_colocated_rebase_dirty_working_copy() {
     // Because the working copy is dirty, the new working-copy commit will be
     // diverged. Therefore, the feature bookmark has change-delete conflict.
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["status"]);
-    insta::assert_snapshot!(stdout, @r###"
+    insta::assert_snapshot!(stdout, @r"
     Working copy changes:
     M file
     Working copy : rlvkpnrz 6bad94b1 feature?? | (no description set)
     Parent commit: qpvuntsm 3230d522 (no description set)
-    These bookmarks have conflicts:
+    Warning: These bookmarks have conflicts:
       feature
       Use `jj bookmark list` to see details. Use `jj bookmark set <name> -r <rev>` to resolve.
-    "###);
+    ");
     insta::assert_snapshot!(stderr, @r###"
     Warning: Failed to export some bookmarks:
       feature: Modified ref had been deleted in Git

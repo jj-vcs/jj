@@ -392,12 +392,12 @@ fn test_absorb_conflict() {
     test_env.jj_cmd_ok(&repo_path, &["new", "root()"]);
     std::fs::write(repo_path.join("file1"), "2a\n2b\n").unwrap();
     let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-r@", "-ddescription(1)"]);
-    insta::assert_snapshot!(stderr, @r###"
+    insta::assert_snapshot!(stderr, @r"
     Rebased 1 commits onto destination
     Working copy now at: kkmpptxz 74405a07 (conflict) (no description set)
     Parent commit      : qpvuntsm 3619e4e5 1
     Added 0 files, modified 1 files, removed 0 files
-    There are unresolved conflicts at these paths:
+    Warning: There are unresolved conflicts at these paths:
     file1    2-sided conflict
     New conflicts appeared in these commits:
       kkmpptxz 74405a07 (conflict) (no description set)
@@ -406,7 +406,7 @@ fn test_absorb_conflict() {
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
-    "###);
+    ");
 
     let conflict_content =
         String::from_utf8(std::fs::read(repo_path.join("file1")).unwrap()).unwrap();
