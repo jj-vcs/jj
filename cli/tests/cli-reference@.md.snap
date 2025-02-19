@@ -903,6 +903,7 @@ Annotates a revision line by line. Each line includes the source change that int
 ###### **Options:**
 
 * `-r`, `--revision <REVSET>` — an optional revision to start at
+* `--domain <REVSET>` — An optional domain to restrict the query to
 * `-T`, `--template <TEMPLATE>` — Render each line using the given template
 
    All 0-argument methods of the [`AnnotationLine` type] are available as keywords in the template expression. See [`jj help -k templates`] for more information.
