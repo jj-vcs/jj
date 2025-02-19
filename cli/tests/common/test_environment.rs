@@ -14,10 +14,12 @@
 
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::ffi::OsStr;
 use std::fmt;
 use std::fmt::Display;
 use std::path::Path;
 use std::path::PathBuf;
+use std::process::ExitStatus;
 
 use indoc::formatdoc;
 use regex::Captures;
@@ -94,6 +96,32 @@ impl Default for TestEnvironment {
 }
 
 impl TestEnvironment {
+    /// Runs `jj args..` in the `current_dir`, returns the output.
+    #[must_use = "either snapshot the output or assert the exit status with .success()"]
+    pub fn run_jj_in<I>(&self, current_dir: &Path, args: I) -> CommandOutput
+    where
+        I: IntoIterator,
+        I::Item: AsRef<OsStr>,
+    {
+        self.run_jj_with(|cmd| cmd.current_dir(current_dir).args(args))
+    }
+
+    /// Runs `jj` command with additional configuration, returns the output.
+    #[must_use = "either snapshot the output or assert the exit status with .success()"]
+    pub fn run_jj_with(
+        &self,
+        configure: impl FnOnce(&mut assert_cmd::Command) -> &mut assert_cmd::Command,
+    ) -> CommandOutput {
+        let mut cmd = self.jj_cmd(&self.env_root, &[]);
+        let output = configure(&mut cmd).output().unwrap();
+        CommandOutput {
+            stdout: self.normalize_output(String::from_utf8(output.stdout).unwrap()),
+            stderr: self.normalize_output(String::from_utf8(output.stderr).unwrap()),
+            status: output.status,
+        }
+    }
+
+    // TODO: rename to new_jj_cmd, remove arguments that can be set later
     #[must_use]
     pub fn jj_cmd(&self, current_dir: &Path, args: &[&str]) -> assert_cmd::Command {
         let mut cmd = assert_cmd::Command::cargo_bin("jj").unwrap();
@@ -169,6 +197,7 @@ impl TestEnvironment {
 
     /// Run a `jj` command, check that it was successful, and return its
     /// `(stdout, stderr)`.
+    // TODO: remove jj_cmd_*() in favor of run_jj_*()
     pub fn jj_cmd_ok(
         &self,
         current_dir: &Path,
@@ -338,6 +367,69 @@ impl TestEnvironment {
     }
 }
 
+/// Command output and exit status to be displayed in normalized form.
+#[derive(Clone)]
+pub struct CommandOutput {
+    pub stdout: CommandOutputString,
+    pub stderr: CommandOutputString,
+    pub status: ExitStatus,
+}
+
+impl CommandOutput {
+    /// Normalizes Windows directory separator to slash.
+    #[must_use]
+    pub fn normalize_backslash(self) -> Self {
+        CommandOutput {
+            stdout: self.stdout.normalize_backslash(),
+            stderr: self.stderr.normalize_backslash(),
+            status: self.status,
+        }
+    }
+
+    /// Removes the last line (such as platform-specific error message) from the
+    /// normalized stderr text.
+    #[must_use]
+    pub fn strip_stderr_last_line(self) -> Self {
+        CommandOutput {
+            stdout: self.stdout,
+            stderr: self.stderr.strip_last_line(),
+            status: self.status,
+        }
+    }
+
+    /// Ensures that the command exits with success status.
+    #[track_caller]
+    pub fn success(self) -> Self {
+        assert!(self.status.success(), "{self}");
+        self
+    }
+}
+
+impl Display for CommandOutput {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let CommandOutput {
+            stdout,
+            stderr,
+            status,
+        } = self;
+        write!(f, "{stdout}")?;
+        if !stderr.is_empty() {
+            writeln!(f, "------- stderr -------")?;
+            write!(f, "{stderr}")?;
+        }
+        if !status.success() {
+            // If there is an exit code, `{status}` would get rendered as "exit
+            // code: N" on Windows, so we render it ourselves for compatibility.
+            if let Some(code) = status.code() {
+                writeln!(f, "[exit status: {code}]")?;
+            } else {
+                writeln!(f, "[{status}]")?;
+            }
+        }
+        Ok(())
+    }
+}
+
 /// Command output data to be displayed in normalized form.
 // TODO: Maybe we can add wrapper that stores both stdout/stderr and print them.
 #[derive(Clone)]
@@ -354,7 +446,7 @@ impl CommandOutputString {
         self.normalize_with(|s| s.replace('\\', "/"))
     }
 
-    /// Normalizes [`std::process::ExitStatus`] message.
+    /// Normalizes [`ExitStatus`] message.
     ///
     /// On Windows, it prints "exit code" instead of "exit status".
     #[must_use]
