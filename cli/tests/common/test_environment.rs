@@ -94,6 +94,7 @@ impl Default for TestEnvironment {
 }
 
 impl TestEnvironment {
+    #[must_use]
     pub fn jj_cmd(&self, current_dir: &Path, args: &[&str]) -> assert_cmd::Command {
         let mut cmd = assert_cmd::Command::cargo_bin("jj").unwrap();
         cmd.current_dir(current_dir);
@@ -318,6 +319,7 @@ impl TestEnvironment {
         edit_script
     }
 
+    #[must_use]
     pub fn normalize_output(&self, raw: String) -> CommandOutputString {
         let normalized = normalize_output(&raw, &self.env_root);
         CommandOutputString { raw, normalized }
@@ -347,6 +349,7 @@ pub struct CommandOutputString {
 
 impl CommandOutputString {
     /// Normalizes Windows directory separator to slash.
+    #[must_use]
     pub fn normalize_backslash(self) -> Self {
         self.normalize_with(|s| s.replace('\\', "/"))
     }
@@ -354,12 +357,14 @@ impl CommandOutputString {
     /// Normalizes [`std::process::ExitStatus`] message.
     ///
     /// On Windows, it prints "exit code" instead of "exit status".
+    #[must_use]
     pub fn normalize_exit_status(self) -> Self {
         self.normalize_with(|s| s.replace("exit code:", "exit status:"))
     }
 
     /// Removes the last line (such as platform-specific error message) from the
     /// normalized text.
+    #[must_use]
     pub fn strip_last_line(self) -> Self {
         self.normalize_with(|mut s| {
             s.truncate(strip_last_line(&s).len());
@@ -367,26 +372,31 @@ impl CommandOutputString {
         })
     }
 
+    #[must_use]
     pub fn normalize_with(mut self, f: impl FnOnce(String) -> String) -> Self {
         self.normalized = f(self.normalized);
         self
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.raw.is_empty()
     }
 
     /// Raw output data.
+    #[must_use]
     pub fn raw(&self) -> &str {
         &self.raw
     }
 
     /// Normalized text for snapshot testing.
+    #[must_use]
     pub fn normalized(&self) -> &str {
         &self.normalized
     }
 
     /// Extracts raw output data.
+    #[must_use]
     pub fn into_raw(self) -> String {
         self.raw
     }
