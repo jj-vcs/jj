@@ -16,7 +16,7 @@ use std::path::Path;
 use test_case::test_case;
 
 use crate::common::get_stderr_string;
-use crate::common::CommandOutputString;
+use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 
 fn add_commit_to_branch(git_repo: &git2::Repository, branch: &str) -> git2::Oid {
@@ -66,9 +66,10 @@ fn add_git_remote(test_env: &TestEnvironment, repo_path: &Path, remote: &str) ->
     repo
 }
 
-fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutputString {
+#[must_use]
+fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput {
     // --quiet to suppress deleted bookmarks hint
-    test_env.jj_cmd_success(repo_path, &["bookmark", "list", "--all-remotes", "--quiet"])
+    test_env.run_jj_in(repo_path, ["bookmark", "list", "--all-remotes", "--quiet"])
 }
 
 fn create_commit(test_env: &TestEnvironment, repo_path: &Path, name: &str, parents: &[&str]) {
@@ -90,9 +91,10 @@ fn create_commit(test_env: &TestEnvironment, repo_path: &Path, name: &str, paren
         .success();
 }
 
-fn get_log_output(test_env: &TestEnvironment, workspace_root: &Path) -> CommandOutputString {
+#[must_use]
+fn get_log_output(test_env: &TestEnvironment, workspace_root: &Path) -> CommandOutput {
     let template = r#"commit_id.short() ++ " " ++ description.first_line() ++ " " ++ bookmarks"#;
-    test_env.jj_cmd_success(workspace_root, &["log", "-T", template, "-r", "all()"])
+    test_env.run_jj_in(workspace_root, ["log", "-T", template, "-r", "all()"])
 }
 
 fn clone_git_remote_into(

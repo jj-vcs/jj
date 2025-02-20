@@ -17,7 +17,7 @@ use std::path::PathBuf;
 
 use test_case::test_case;
 
-use crate::common::CommandOutputString;
+use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 
 fn set_up() -> (TestEnvironment, PathBuf) {
@@ -2144,7 +2144,8 @@ fn test_git_push_sign_on_push() {
     insta::assert_snapshot!(stderr, @"");
 }
 
-fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutputString {
+#[must_use]
+fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput {
     // --quiet to suppress deleted bookmarks hint
-    test_env.jj_cmd_success(repo_path, &["bookmark", "list", "--all-remotes", "--quiet"])
+    test_env.run_jj_in(repo_path, &["bookmark", "list", "--all-remotes", "--quiet"])
 }

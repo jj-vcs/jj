@@ -17,7 +17,7 @@ use std::path::Path;
 
 use crate::common::force_interactive;
 use crate::common::get_stderr_string;
-use crate::common::CommandOutputString;
+use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -1299,7 +1299,8 @@ fn test_next_offset_when_wc_has_descendants() {
     ");
 }
 
-fn get_log_output(test_env: &TestEnvironment, cwd: &Path) -> CommandOutputString {
+#[must_use]
+fn get_log_output(test_env: &TestEnvironment, cwd: &Path) -> CommandOutput {
     let template = r#"separate(" ", change_id.short(), local_bookmarks, if(conflict, "conflict"), description)"#;
-    test_env.jj_cmd_success(cwd, &["log", "-T", template])
+    test_env.run_jj_in(cwd, ["log", "-T", template])
 }

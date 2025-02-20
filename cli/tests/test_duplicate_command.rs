@@ -14,7 +14,7 @@
 
 use std::path::Path;
 
-use crate::common::CommandOutputString;
+use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 
 fn create_commit(test_env: &TestEnvironment, repo_path: &Path, name: &str, parents: &[&str]) {
@@ -2565,14 +2565,16 @@ fn test_rebase_duplicates() {
     ");
 }
 
-fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutputString {
+#[must_use]
+fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput {
     let template = r#"commit_id.short() ++ "   " ++ description.first_line()"#;
-    test_env.jj_cmd_success(repo_path, &["log", "-T", template])
+    test_env.run_jj_in(repo_path, ["log", "-T", template])
 }
 
-fn get_log_output_with_ts(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutputString {
+#[must_use]
+fn get_log_output_with_ts(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput {
     let template = r#"
     commit_id.short() ++ "   " ++ description.first_line() ++ " @ " ++ committer.timestamp()
     "#;
-    test_env.jj_cmd_success(repo_path, &["log", "-T", template])
+    test_env.run_jj_in(repo_path, ["log", "-T", template])
 }

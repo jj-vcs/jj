@@ -22,7 +22,7 @@ use testutils::git;
 use crate::common::get_stderr_string;
 use crate::common::get_stdout_string;
 use crate::common::to_toml_value;
-use crate::common::CommandOutputString;
+use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 
 fn init_git_repo(git_repo_path: &Path, bare: bool) -> gix::Repository {
@@ -44,11 +44,13 @@ fn init_git_repo(git_repo_path: &Path, bare: bool) -> gix::Repository {
     git_repo
 }
 
-fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutputString {
-    test_env.jj_cmd_success(repo_path, &["bookmark", "list", "--all-remotes"])
+#[must_use]
+fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput {
+    test_env.run_jj_in(repo_path, ["bookmark", "list", "--all-remotes"])
 }
 
-fn get_log_output(test_env: &TestEnvironment, workspace_root: &Path) -> CommandOutputString {
+#[must_use]
+fn get_log_output(test_env: &TestEnvironment, workspace_root: &Path) -> CommandOutput {
     let template = r#"
     separate(" ",
       commit_id.short(),
@@ -56,7 +58,7 @@ fn get_log_output(test_env: &TestEnvironment, workspace_root: &Path) -> CommandO
       if(git_head, "git_head()"),
       description,
     )"#;
-    test_env.jj_cmd_success(workspace_root, &["log", "-T", template, "-r=all()"])
+    test_env.run_jj_in(workspace_root, ["log", "-T", template, "-r=all()"])
 }
 
 fn read_git_target(workspace_root: &Path) -> String {

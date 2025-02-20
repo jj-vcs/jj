@@ -15,7 +15,7 @@
 use std::path::Path;
 use std::path::PathBuf;
 
-use crate::common::CommandOutputString;
+use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -1098,7 +1098,8 @@ fn test_squash_from_multiple_partial_no_op() {
     ");
 }
 
-fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutputString {
+#[must_use]
+fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput {
     let template = r#"separate(
         " ",
         commit_id.short(),
@@ -1106,7 +1107,7 @@ fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput
         description,
         if(empty, "(empty)")
     )"#;
-    test_env.jj_cmd_success(repo_path, &["log", "-T", template])
+    test_env.run_jj_in(repo_path, ["log", "-T", template])
 }
 
 #[test]
@@ -1336,17 +1337,16 @@ fn test_squash_use_destination_message_and_message_mutual_exclusion() {
     ");
 }
 
-fn get_description(test_env: &TestEnvironment, repo_path: &Path, rev: &str) -> CommandOutputString {
-    test_env.jj_cmd_success(
+#[must_use]
+fn get_description(test_env: &TestEnvironment, repo_path: &Path, rev: &str) -> CommandOutput {
+    test_env.run_jj_in(
         repo_path,
-        &["log", "--no-graph", "-T", "description", "-r", rev],
+        ["log", "--no-graph", "-T", "description", "-r", rev],
     )
 }
 
-fn get_log_output_with_description(
-    test_env: &TestEnvironment,
-    repo_path: &Path,
-) -> CommandOutputString {
+#[must_use]
+fn get_log_output_with_description(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput {
     let template = r#"separate(" ", commit_id.short(), description)"#;
-    test_env.jj_cmd_success(repo_path, &["log", "-T", template])
+    test_env.run_jj_in(repo_path, ["log", "-T", template])
 }

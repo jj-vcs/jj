@@ -817,9 +817,9 @@ fn test_revset_committer_date_with_time_zone() {
     let mut log_commits_before_and_after = |committer_date: &str, now: &str, tz: &str| {
         test_env.add_env_var("TZ", tz);
         let config = format!("debug.commit-timestamp={now}");
-        let before_log = test_env.jj_cmd_success(
+        let before_log = test_env.run_jj_in(
             &repo_path,
-            &[
+            [
                 "--config",
                 config.as_str(),
                 "log",
@@ -830,9 +830,9 @@ fn test_revset_committer_date_with_time_zone() {
                 format!("committer_date(before:'{committer_date}') ~ root()").as_str(),
             ],
         );
-        let after_log = test_env.jj_cmd_success(
+        let after_log = test_env.run_jj_in(
             &repo_path,
-            &[
+            [
                 "--config",
                 config.as_str(),
                 "log",

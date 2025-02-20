@@ -14,7 +14,7 @@
 
 use std::path::Path;
 
-use crate::common::CommandOutputString;
+use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 
 fn create_commit(test_env: &TestEnvironment, repo_path: &Path, name: &str, parents: &[&str]) {
@@ -447,13 +447,8 @@ fn test_abandon_restore_descendants() {
     ");
 }
 
-fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutputString {
-    test_env.jj_cmd_success(
-        repo_path,
-        &[
-            "log",
-            "-T",
-            r#"separate(" ", "[" ++ change_id.short(3) ++ "]", bookmarks)"#,
-        ],
-    )
+#[must_use]
+fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput {
+    let template = r#"separate(" ", "[" ++ change_id.short(3) ++ "]", bookmarks)"#;
+    test_env.run_jj_in(repo_path, ["log", "-T", template])
 }

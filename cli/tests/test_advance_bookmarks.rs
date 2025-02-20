@@ -16,14 +16,15 @@ use std::path::Path;
 
 use test_case::test_case;
 
-use crate::common::CommandOutputString;
+use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 
-fn get_log_output_with_bookmarks(test_env: &TestEnvironment, cwd: &Path) -> CommandOutputString {
+#[must_use]
+fn get_log_output_with_bookmarks(test_env: &TestEnvironment, cwd: &Path) -> CommandOutput {
     // Don't include commit IDs since they will be different depending on
     // whether the test runs with `jj commit` or `jj describe` + `jj new`.
     let template = r#""bookmarks{" ++ local_bookmarks ++ "} desc: " ++ description"#;
-    test_env.jj_cmd_success(cwd, &["log", "-T", template])
+    test_env.run_jj_in(cwd, ["log", "-T", template])
 }
 
 fn set_advance_bookmarks(test_env: &TestEnvironment, enabled: bool) {

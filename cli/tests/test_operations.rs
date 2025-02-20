@@ -19,7 +19,7 @@ use regex::Regex;
 use testutils::git;
 
 use crate::common::get_stdout_string;
-use crate::common::CommandOutputString;
+use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -2335,13 +2335,10 @@ fn modify_git_repo(git_repo: gix::Repository) -> gix::Repository {
     git_repo
 }
 
-fn get_log_output(
-    test_env: &TestEnvironment,
-    repo_path: &Path,
-    op_id: &str,
-) -> CommandOutputString {
-    test_env.jj_cmd_success(
+#[must_use]
+fn get_log_output(test_env: &TestEnvironment, repo_path: &Path, op_id: &str) -> CommandOutput {
+    test_env.run_jj_in(
         repo_path,
-        &["log", "-T", "commit_id", "--at-op", op_id, "-r", "all()"],
+        ["log", "-T", "commit_id", "--at-op", op_id, "-r", "all()"],
     )
 }

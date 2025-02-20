@@ -452,9 +452,9 @@ fn test_diff_types() {
     }
 
     let diff = |from: &str, to: &str| {
-        test_env.jj_cmd_success(
+        test_env.run_jj_in(
             &repo_path,
-            &[
+            [
                 "diff",
                 "--types",
                 &format!(r#"--from=description("{from}")"#),
@@ -790,7 +790,11 @@ fn test_diff_color_words_inlining_threshold() {
 
     let render_diff = |max_alternation: i32, args: &[&str]| {
         let config = format!("diff.color-words.max-inline-alternation={max_alternation}");
-        test_env.jj_cmd_success(&repo_path, &[&["diff", "--config", &config], args].concat())
+        test_env.run_jj_with(|cmd| {
+            cmd.current_dir(&repo_path)
+                .args(["diff", "--config", &config])
+                .args(args)
+        })
     };
 
     let file1_path = "file1-single-line";

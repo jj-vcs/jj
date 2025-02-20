@@ -16,7 +16,7 @@ use std::path::Path;
 
 use indoc::indoc;
 
-use crate::common::CommandOutputString;
+use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -547,24 +547,26 @@ fn test_templater_config_function() {
     ");
 }
 
+#[must_use]
 fn get_template_output(
     test_env: &TestEnvironment,
     repo_path: &Path,
     rev: &str,
     template: &str,
-) -> CommandOutputString {
-    test_env.jj_cmd_success(repo_path, &["log", "--no-graph", "-r", rev, "-T", template])
+) -> CommandOutput {
+    test_env.run_jj_in(repo_path, ["log", "--no-graph", "-r", rev, "-T", template])
 }
 
+#[must_use]
 fn get_colored_template_output(
     test_env: &TestEnvironment,
     repo_path: &Path,
     rev: &str,
     template: &str,
-) -> CommandOutputString {
-    test_env.jj_cmd_success(
+) -> CommandOutput {
+    test_env.run_jj_in(
         repo_path,
-        &[
+        [
             "log",
             "--color=always",
             "--no-graph",

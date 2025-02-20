@@ -16,7 +16,7 @@ use std::path::Path;
 
 use test_case::test_case;
 
-use crate::common::CommandOutputString;
+use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 
 /// Test adding a second workspace
@@ -577,9 +577,7 @@ fn test_workspaces_conflicting_edits() {
     [EOF]
     ");
     // The stale working copy should have been resolved by the previous command
-    let stdout = get_log_output(&test_env, &secondary_path);
-    assert!(!stdout.raw().starts_with("The working copy is stale"));
-    insta::assert_snapshot!(stdout, @r"
+    insta::assert_snapshot!(get_log_output(&test_env, &secondary_path), @r"
     @  e82cd4ee8faa secondary@ (divergent)
     │ ×  30816012e0da (divergent)
     ├─╯
@@ -1367,7 +1365,8 @@ fn test_workspaces_rename_workspace() {
     ");
 }
 
-fn get_log_output(test_env: &TestEnvironment, cwd: &Path) -> CommandOutputString {
+#[must_use]
+fn get_log_output(test_env: &TestEnvironment, cwd: &Path) -> CommandOutput {
     let template = r#"
     separate(" ",
       commit_id.short(),
@@ -1375,5 +1374,5 @@ fn get_log_output(test_env: &TestEnvironment, cwd: &Path) -> CommandOutputString
       if(divergent, "(divergent)"),
     )
     "#;
-    test_env.jj_cmd_success(cwd, &["log", "-T", template, "-r", "all()"])
+    test_env.run_jj_in(cwd, ["log", "-T", template, "-r", "all()"])
 }

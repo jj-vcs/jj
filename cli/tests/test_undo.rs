@@ -15,7 +15,7 @@ use std::path::Path;
 
 use testutils::git;
 
-use crate::common::CommandOutputString;
+use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -472,7 +472,8 @@ fn test_shows_no_warning_when_undoing_a_specific_undo_change() {
     ");
 }
 
-fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutputString {
+#[must_use]
+fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput {
     // --quiet to suppress deleted bookmarks hint
-    test_env.jj_cmd_success(repo_path, &["bookmark", "list", "--all-remotes", "--quiet"])
+    test_env.run_jj_in(repo_path, ["bookmark", "list", "--all-remotes", "--quiet"])
 }

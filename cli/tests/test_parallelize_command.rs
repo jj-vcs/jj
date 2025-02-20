@@ -14,7 +14,7 @@
 
 use std::path::Path;
 
-use crate::common::CommandOutputString;
+use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -664,7 +664,8 @@ fn test_parallelize_complex_nonlinear_target() {
     ");
 }
 
-fn get_log_output(test_env: &TestEnvironment, cwd: &Path) -> CommandOutputString {
+#[must_use]
+fn get_log_output(test_env: &TestEnvironment, cwd: &Path) -> CommandOutput {
     let template = r#"
     separate(" ",
         commit_id.short(),
@@ -672,5 +673,5 @@ fn get_log_output(test_env: &TestEnvironment, cwd: &Path) -> CommandOutputString
         "parents:",
         parents.map(|c|c.description().first_line())
     )"#;
-    test_env.jj_cmd_success(cwd, &["log", "-T", template])
+    test_env.run_jj_in(cwd, ["log", "-T", template])
 }

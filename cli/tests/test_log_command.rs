@@ -731,7 +731,7 @@ fn test_log_short_shortest_length_parameter() {
     let test_env = TestEnvironment::default();
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
-    let render = |template| test_env.jj_cmd_success(&repo_path, &["log", "-T", template]);
+    let render = |template| test_env.run_jj_in(&repo_path, ["log", "-T", template]);
 
     insta::assert_snapshot!(
         render(r#"commit_id.short(0) ++ "|" ++ commit_id.shortest(0)"#), @r"
@@ -1561,9 +1561,9 @@ fn test_elided() {
     );
 
     let get_log = |revs: &str| {
-        test_env.jj_cmd_success(
+        test_env.run_jj_in(
             &repo_path,
-            &["log", "-T", r#"description ++ "\n""#, "-r", revs],
+            ["log", "-T", r#"description ++ "\n""#, "-r", revs],
         )
     };
 
@@ -1671,9 +1671,9 @@ fn test_log_with_custom_symbols() {
     );
 
     let get_log = |revs: &str| {
-        test_env.jj_cmd_success(
+        test_env.run_jj_in(
             &repo_path,
-            &["log", "-T", r#"description ++ "\n""#, "-r", revs],
+            ["log", "-T", r#"description ++ "\n""#, "-r", revs],
         )
     };
 

@@ -17,6 +17,7 @@ use std::path::Path;
 
 use git2::Oid;
 
+use crate::common::CommandOutput;
 use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;
 
@@ -1191,7 +1192,8 @@ fn test_git_colocated_update_index_3_sided_conflict() {
     "#);
 }
 
-fn get_log_output_divergence(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutputString {
+#[must_use]
+fn get_log_output_divergence(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput {
     let template = r#"
     separate(" ",
       change_id.short(),
@@ -1202,10 +1204,11 @@ fn get_log_output_divergence(test_env: &TestEnvironment, repo_path: &Path) -> Co
       if(divergent, "!divergence!"),
     )
     "#;
-    test_env.jj_cmd_success(repo_path, &["log", "-T", template])
+    test_env.run_jj_in(repo_path, ["log", "-T", template])
 }
 
-fn get_log_output(test_env: &TestEnvironment, workspace_root: &Path) -> CommandOutputString {
+#[must_use]
+fn get_log_output(test_env: &TestEnvironment, workspace_root: &Path) -> CommandOutput {
     let template = r#"
     separate(" ",
       commit_id,
@@ -1214,7 +1217,7 @@ fn get_log_output(test_env: &TestEnvironment, workspace_root: &Path) -> CommandO
       description,
     )
     "#;
-    test_env.jj_cmd_success(workspace_root, &["log", "-T", template, "-r=all()"])
+    test_env.run_jj_in(workspace_root, ["log", "-T", template, "-r=all()"])
 }
 
 fn get_log_output_with_stderr(
@@ -1345,7 +1348,8 @@ fn test_git_colocated_unreachable_commits() {
     ");
 }
 
-fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutputString {
+#[must_use]
+fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput {
     // --quiet to suppress deleted bookmarks hint
-    test_env.jj_cmd_success(repo_path, &["bookmark", "list", "--all-remotes", "--quiet"])
+    test_env.run_jj_in(repo_path, ["bookmark", "list", "--all-remotes", "--quiet"])
 }

@@ -22,7 +22,7 @@ use test_case::test_case;
 use crate::common::get_stderr_string;
 use crate::common::get_stdout_string;
 use crate::common::to_toml_value;
-use crate::common::CommandOutputString;
+use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 
 fn set_up_non_empty_git_repo(git_repo: &git2::Repository) {
@@ -1185,6 +1185,7 @@ fn test_git_clone_no_git_executable_with_path() {
     "#);
 }
 
-fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutputString {
-    test_env.jj_cmd_success(repo_path, &["bookmark", "list", "--all-remotes"])
+#[must_use]
+fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput {
+    test_env.run_jj_in(repo_path, ["bookmark", "list", "--all-remotes"])
 }

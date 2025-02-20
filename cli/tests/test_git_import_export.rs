@@ -17,7 +17,7 @@ use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use testutils::git;
 
-use crate::common::CommandOutputString;
+use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -292,8 +292,9 @@ fn test_git_import_move_export_with_default_undo() {
     ");
 }
 
-fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutputString {
-    test_env.jj_cmd_success(repo_path, &["bookmark", "list", "--all-remotes"])
+#[must_use]
+fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput {
+    test_env.run_jj_in(repo_path, ["bookmark", "list", "--all-remotes"])
 }
 
 fn get_git_repo_refs(git_repo: &gix::Repository) -> Vec<(bstr::BString, CommitId)> {

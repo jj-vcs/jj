@@ -14,7 +14,7 @@
 
 use std::path::Path;
 
-use crate::common::CommandOutputString;
+use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -769,12 +769,14 @@ fn test_absorb_immutable() {
     ");
 }
 
-fn get_diffs(test_env: &TestEnvironment, repo_path: &Path, revision: &str) -> CommandOutputString {
+#[must_use]
+fn get_diffs(test_env: &TestEnvironment, repo_path: &Path, revision: &str) -> CommandOutput {
     let template = r#"format_commit_summary_with_refs(self, "") ++ "\n""#;
-    test_env.jj_cmd_success(repo_path, &["log", "-r", revision, "-T", template, "--git"])
+    test_env.run_jj_in(repo_path, ["log", "-r", revision, "-T", template, "--git"])
 }
 
-fn get_evolog(test_env: &TestEnvironment, repo_path: &Path, revision: &str) -> CommandOutputString {
+#[must_use]
+fn get_evolog(test_env: &TestEnvironment, repo_path: &Path, revision: &str) -> CommandOutput {
     let template = r#"format_commit_summary_with_refs(self, "") ++ "\n""#;
-    test_env.jj_cmd_success(repo_path, &["evolog", "-r", revision, "-T", template])
+    test_env.run_jj_in(repo_path, ["evolog", "-r", revision, "-T", template])
 }

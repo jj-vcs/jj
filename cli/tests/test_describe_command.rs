@@ -18,7 +18,7 @@ use std::path::PathBuf;
 use indoc::indoc;
 
 use crate::common::get_stderr_string;
-use crate::common::CommandOutputString;
+use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -646,15 +646,8 @@ fn test_describe_author() {
         '''
     "#});
     let get_signatures = || {
-        test_env.jj_cmd_success(
-            &repo_path,
-            &[
-                "log",
-                "-r..",
-                "-T",
-                r#"format_signature(author) ++ "\n" ++ format_signature(committer)"#,
-            ],
-        )
+        let template = r#"format_signature(author) ++ "\n" ++ format_signature(committer)"#;
+        test_env.run_jj_in(&repo_path, ["log", "-r..", "-T", template])
     };
 
     // Initial setup
@@ -892,7 +885,8 @@ fn test_edit_cannot_be_used_with_no_edit() {
     ");
 }
 
-fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutputString {
+#[must_use]
+fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput {
     let template = r#"commit_id.short() ++ " " ++ description"#;
-    test_env.jj_cmd_success(repo_path, &["log", "-T", template])
+    test_env.run_jj_in(repo_path, ["log", "-T", template])
 }

@@ -14,7 +14,7 @@
 
 use std::path::Path;
 
-use crate::common::CommandOutputString;
+use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 
 fn create_commit(test_env: &TestEnvironment, repo_path: &Path, name: &str, parents: &[&str]) {
@@ -3031,13 +3031,15 @@ fn test_rebase_skip_if_on_destination() {
     ");
 }
 
-fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutputString {
+#[must_use]
+fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput {
     let template = "bookmarks ++ surround(': ', '', parents.map(|c| c.bookmarks()))";
-    test_env.jj_cmd_success(repo_path, &["log", "-T", template])
+    test_env.run_jj_in(repo_path, ["log", "-T", template])
 }
 
-fn get_long_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutputString {
+#[must_use]
+fn get_long_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput {
     let template = "bookmarks ++ '  ' ++ change_id.shortest(8) ++ '  ' ++ commit_id.shortest(8) \
                     ++ surround(':  ', '', parents.map(|c| c.bookmarks()))";
-    test_env.jj_cmd_success(repo_path, &["log", "-T", template])
+    test_env.run_jj_in(repo_path, ["log", "-T", template])
 }

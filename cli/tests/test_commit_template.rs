@@ -305,8 +305,7 @@ fn test_log_builtin_templates() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
     // Render without graph to test line ending
-    let render =
-        |template| test_env.jj_cmd_success(&repo_path, &["log", "-T", template, "--no-graph"]);
+    let render = |template| test_env.run_jj_in(&repo_path, ["log", "-T", template, "--no-graph"]);
 
     test_env.jj_cmd_ok(
         &repo_path,
@@ -375,7 +374,7 @@ fn test_log_builtin_templates_colored() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
     let render =
-        |template| test_env.jj_cmd_success(&repo_path, &["--color=always", "log", "-T", template]);
+        |template| test_env.run_jj_in(&repo_path, ["--color=always", "log", "-T", template]);
 
     test_env.jj_cmd_ok(
         &repo_path,
@@ -444,7 +443,7 @@ fn test_log_builtin_templates_colored_debug() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
     let render =
-        |template| test_env.jj_cmd_success(&repo_path, &["--color=debug", "log", "-T", template]);
+        |template| test_env.run_jj_in(&repo_path, ["--color=debug", "log", "-T", template]);
 
     test_env.jj_cmd_ok(
         &repo_path,
