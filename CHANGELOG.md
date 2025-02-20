@@ -41,9 +41,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The 'how to resolve conflicts' hint that is shown when conflicts appear can
   be hidden by setting `hints.resolving-conflicts = false`.
 
-* `jj op log -d` now has an alias for `jj op log --op-diff`.
+* `jj op diff` and `jj op log --op-diff` now show changes to which commits
+  correspond to working copies.
+
+* `jj op log -d` is now an alias for `jj op log --op-diff`.
 
 ### Fixed bugs
+
 
 ## [0.27.0] - 2025-03-05
 

@@ -29,6 +29,7 @@ use jj_lib::matchers::EverythingMatcher;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::op_store::RemoteRefState;
+use jj_lib::refs::diff_named_commit_ids;
 use jj_lib::refs::diff_named_ref_targets;
 use jj_lib::refs::diff_named_remote_refs;
 use jj_lib::repo::ReadonlyRepo;
@@ -274,6 +275,40 @@ pub fn show_op_diff(
                     show_change_diff(ui, formatter, diff_renderer, modified_change, width)?;
                 }
             }
+        }
+    }
+
+    let changed_working_copies = diff_named_commit_ids(
+        from_repo.view().wc_commit_ids(),
+        to_repo.view().wc_commit_ids(),
+    )
+    .collect_vec();
+    if !changed_working_copies.is_empty() {
+        writeln!(formatter)?;
+        for (name, (from_commit, to_commit)) in changed_working_copies {
+            with_content_format.write(formatter, |formatter| {
+                // Usually, there is at most one working copy changed per operation, so we put
+                // the working copy name in the heading.
+                write!(formatter, "Changed working copy ")?;
+                write!(formatter.labeled("working_copies"), "{}@", name.as_str())?;
+                writeln!(formatter, ":")?;
+                write_ref_target_summary(
+                    formatter,
+                    current_repo,
+                    commit_summary_template,
+                    &RefTarget::resolved(to_commit.cloned()),
+                    true,
+                    None,
+                )?;
+                write_ref_target_summary(
+                    formatter,
+                    current_repo,
+                    commit_summary_template,
+                    &RefTarget::resolved(from_commit.cloned()),
+                    false,
+                    None,
+                )
+            })?;
         }
     }
 
