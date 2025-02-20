@@ -16,7 +16,7 @@ use std::path::Path;
 
 use itertools::Itertools as _;
 
-use crate::common::CommandOutputString;
+use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -96,14 +96,13 @@ fn test_concurrent_operations_auto_rebase() {
     );
 
     // We should be informed about the concurrent modification
-    let (stdout, stderr) = get_log_output_with_stderr(&test_env, &repo_path);
-    insta::assert_snapshot!(stdout, @r"
+    let output = get_log_output(&test_env, &repo_path);
+    insta::assert_snapshot!(output, @r"
     ○  db141860e12c2d5591c56fde4fc99caf71cec418 new child
     @  07c3641e495cce57ea4ca789123b52f421c57aa2 rewritten
     ◆  0000000000000000000000000000000000000000
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr, @r"
+    ------- stderr -------
     Concurrent modification detected, resolving automatically.
     Rebased 1 descendant commits onto commits rewritten by other operation
     [EOF]
@@ -132,16 +131,15 @@ fn test_concurrent_operations_wc_modified() {
     std::fs::write(repo_path.join("file"), "modified\n").unwrap();
 
     // We should be informed about the concurrent modification
-    let (stdout, stderr) = get_log_output_with_stderr(&test_env, &repo_path);
-    insta::assert_snapshot!(stdout, @r"
+    let output = get_log_output(&test_env, &repo_path);
+    insta::assert_snapshot!(output, @r"
     @  4eadcf3df11f46ef3d825c776496221cc8303053 new child1
     │ ○  68119f1643b7e3c301c5f7c2b6c9bf4ccba87379 new child2
     ├─╯
     ○  2ff7ae858a3a11837fdf9d1a76be295ef53f1bb3 initial
     ◆  0000000000000000000000000000000000000000
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr, @r"
+    ------- stderr -------
     Concurrent modification detected, resolving automatically.
     [EOF]
     ");
@@ -249,10 +247,8 @@ fn test_concurrent_snapshot_wc_reloadable() {
     ");
 }
 
-fn get_log_output_with_stderr(
-    test_env: &TestEnvironment,
-    cwd: &Path,
-) -> (CommandOutputString, CommandOutputString) {
+#[must_use]
+fn get_log_output(test_env: &TestEnvironment, cwd: &Path) -> CommandOutput {
     let template = r#"commit_id ++ " " ++ description"#;
-    test_env.jj_cmd_ok(cwd, &["log", "-T", template])
+    test_env.run_jj_in(cwd, ["log", "-T", template])
 }

@@ -1665,74 +1665,63 @@ fn test_bookmark_list_filtered() {
     [EOF]
     ");
 
-    let query =
-        |args: &[&str]| test_env.jj_cmd_ok(&local_path, &[&["bookmark", "list"], args].concat());
-    let query_error = |args: &[&str]| {
-        test_env.jj_cmd_failure(&local_path, &[&["bookmark", "list"], args].concat())
+    let query = |args: &[&str]| {
+        test_env.run_jj_with(|cmd| {
+            cmd.current_dir(&local_path)
+                .args(["bookmark", "list"])
+                .args(args)
+        })
     };
 
     // "all()" doesn't include deleted bookmarks since they have no local targets.
     // So "all()" is identical to "bookmarks()".
-    let (stdout, stderr) = query(&["-rall()"]);
-    insta::assert_snapshot!(stdout, @r"
+    insta::assert_snapshot!(query(&["-rall()"]), @r"
     local-keep: kpqxywon c7b4c09c (empty) local-keep
     remote-keep: nlwprzpn 911e9120 (empty) remote-keep
     remote-rewrite: xyxluytn e31634b6 (empty) rewritten
       @origin (ahead by 1 commits, behind by 1 commits): xyxluytn hidden 3e9a5af6 (empty) remote-rewrite
     [EOF]
     ");
-    insta::assert_snapshot!(stderr, @"");
 
     // Exclude remote-only bookmarks. "remote-rewrite@origin" is included since
     // local "remote-rewrite" target matches.
-    let (stdout, stderr) = query(&["-rbookmarks()"]);
-    insta::assert_snapshot!(stdout, @r"
+    insta::assert_snapshot!(query(&["-rbookmarks()"]), @r"
     local-keep: kpqxywon c7b4c09c (empty) local-keep
     remote-keep: nlwprzpn 911e9120 (empty) remote-keep
     remote-rewrite: xyxluytn e31634b6 (empty) rewritten
       @origin (ahead by 1 commits, behind by 1 commits): xyxluytn hidden 3e9a5af6 (empty) remote-rewrite
     [EOF]
     ");
-    insta::assert_snapshot!(stderr, @"");
 
     // Select bookmarks by name.
-    let (stdout, stderr) = query(&["remote-rewrite"]);
-    insta::assert_snapshot!(stdout, @r"
+    insta::assert_snapshot!(query(&["remote-rewrite"]), @r"
     remote-rewrite: xyxluytn e31634b6 (empty) rewritten
       @origin (ahead by 1 commits, behind by 1 commits): xyxluytn hidden 3e9a5af6 (empty) remote-rewrite
     [EOF]
     ");
-    insta::assert_snapshot!(stderr, @"");
-    let (stdout, stderr) = query(&["-rbookmarks(remote-rewrite)"]);
-    insta::assert_snapshot!(stdout, @r"
+    insta::assert_snapshot!(query(&["-rbookmarks(remote-rewrite)"]), @r"
     remote-rewrite: xyxluytn e31634b6 (empty) rewritten
       @origin (ahead by 1 commits, behind by 1 commits): xyxluytn hidden 3e9a5af6 (empty) remote-rewrite
     [EOF]
     ");
-    insta::assert_snapshot!(stderr, @"");
 
     // Select bookmarks by name, combined with --all-remotes
     test_env.jj_cmd_ok(&local_path, &["git", "export"]);
-    let (stdout, stderr) = query(&["--all-remotes", "remote-rewrite"]);
-    insta::assert_snapshot!(stdout, @r"
+    insta::assert_snapshot!(query(&["--all-remotes", "remote-rewrite"]), @r"
     remote-rewrite: xyxluytn e31634b6 (empty) rewritten
       @git: xyxluytn e31634b6 (empty) rewritten
       @origin (ahead by 1 commits, behind by 1 commits): xyxluytn hidden 3e9a5af6 (empty) remote-rewrite
     [EOF]
     ");
-    insta::assert_snapshot!(stderr, @"");
-    let (stdout, stderr) = query(&["--all-remotes", "-rbookmarks(remote-rewrite)"]);
-    insta::assert_snapshot!(stdout, @r"
+    insta::assert_snapshot!(query(&["--all-remotes", "-rbookmarks(remote-rewrite)"]), @r"
     remote-rewrite: xyxluytn e31634b6 (empty) rewritten
       @git: xyxluytn e31634b6 (empty) rewritten
       @origin (ahead by 1 commits, behind by 1 commits): xyxluytn hidden 3e9a5af6 (empty) remote-rewrite
     [EOF]
     ");
-    insta::assert_snapshot!(stderr, @"");
 
     // Select bookmarks with --remote
-    let (stdout, stderr) = query(&["--remote", "origin"]);
-    insta::assert_snapshot!(stdout, @r"
+    insta::assert_snapshot!(query(&["--remote", "origin"]), @r"
     remote-delete (deleted)
       @origin: yxusvupt dad5f298 (empty) remote-delete
     remote-keep: nlwprzpn 911e9120 (empty) remote-keep
@@ -1740,13 +1729,11 @@ fn test_bookmark_list_filtered() {
     remote-rewrite: xyxluytn e31634b6 (empty) rewritten
       @origin (ahead by 1 commits, behind by 1 commits): xyxluytn hidden 3e9a5af6 (empty) remote-rewrite
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr, @r"
+    ------- stderr -------
     Hint: Bookmarks marked as deleted will be *deleted permanently* on the remote on the next `jj git push`. Use `jj bookmark forget` to prevent this.
     [EOF]
     ");
-    let (stdout, stderr) = query(&["--remote", "glob:gi?"]);
-    insta::assert_snapshot!(stdout, @r"
+    insta::assert_snapshot!(query(&["--remote", "glob:gi?"]), @r"
     local-keep: kpqxywon c7b4c09c (empty) local-keep
       @git: kpqxywon c7b4c09c (empty) local-keep
     remote-keep: nlwprzpn 911e9120 (empty) remote-keep
@@ -1755,9 +1742,7 @@ fn test_bookmark_list_filtered() {
       @git: xyxluytn e31634b6 (empty) rewritten
     [EOF]
     ");
-    insta::assert_snapshot!(stderr, @"");
-    let (stdout, stderr) = query(&["--remote", "origin", "--remote", "git"]);
-    insta::assert_snapshot!(stdout, @r"
+    insta::assert_snapshot!(query(&["--remote", "origin", "--remote", "git"]), @r"
     local-keep: kpqxywon c7b4c09c (empty) local-keep
       @git: kpqxywon c7b4c09c (empty) local-keep
     remote-delete (deleted)
@@ -1769,80 +1754,68 @@ fn test_bookmark_list_filtered() {
       @git: xyxluytn e31634b6 (empty) rewritten
       @origin (ahead by 1 commits, behind by 1 commits): xyxluytn hidden 3e9a5af6 (empty) remote-rewrite
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr, @r"
+    ------- stderr -------
     Hint: Bookmarks marked as deleted will be *deleted permanently* on the remote on the next `jj git push`. Use `jj bookmark forget` to prevent this.
     [EOF]
     ");
 
     // Can select deleted bookmark by name pattern, but not by revset.
-    let (stdout, stderr) = query(&["remote-delete"]);
-    insta::assert_snapshot!(stdout, @r"
+    insta::assert_snapshot!(query(&["remote-delete"]), @r"
     remote-delete (deleted)
       @origin: yxusvupt dad5f298 (empty) remote-delete
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr, @r"
+    ------- stderr -------
     Hint: Bookmarks marked as deleted will be *deleted permanently* on the remote on the next `jj git push`. Use `jj bookmark forget` to prevent this.
     [EOF]
     ");
-    let (stdout, stderr) = query(&["-rbookmarks(remote-delete)"]);
-    insta::assert_snapshot!(stdout, @r###"
-    "###);
-    insta::assert_snapshot!(query_error(&["-rremote-delete"]), @r"
+    insta::assert_snapshot!(query(&["-rbookmarks(remote-delete)"]), @"");
+    insta::assert_snapshot!(query(&["-rremote-delete"]), @r"
+    ------- stderr -------
     Error: Revision `remote-delete` doesn't exist
     Hint: Did you mean `remote-delete@origin`, `remote-keep`, `remote-rewrite`, `remote-rewrite@origin`?
     [EOF]
+    [exit status: 1]
     ");
-    insta::assert_snapshot!(stderr, @"");
 
     // Name patterns are OR-ed.
-    let (stdout, stderr) = query(&["glob:*-keep", "remote-delete"]);
-    insta::assert_snapshot!(stdout, @r"
+    insta::assert_snapshot!(query(&["glob:*-keep", "remote-delete"]), @r"
     local-keep: kpqxywon c7b4c09c (empty) local-keep
     remote-delete (deleted)
       @origin: yxusvupt dad5f298 (empty) remote-delete
     remote-keep: nlwprzpn 911e9120 (empty) remote-keep
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr, @r"
+    ------- stderr -------
     Hint: Bookmarks marked as deleted will be *deleted permanently* on the remote on the next `jj git push`. Use `jj bookmark forget` to prevent this.
     [EOF]
     ");
 
     // Unmatched name pattern shouldn't be an error. A warning can be added later.
-    let (stdout, stderr) = query(&["local-keep", "glob:push-*"]);
-    insta::assert_snapshot!(stdout, @r"
+    insta::assert_snapshot!(query(&["local-keep", "glob:push-*"]), @r"
     local-keep: kpqxywon c7b4c09c (empty) local-keep
     [EOF]
     ");
-    insta::assert_snapshot!(stderr, @"");
 
     // Name pattern and revset are OR-ed.
-    let (stdout, stderr) = query(&["local-keep", "-rbookmarks(remote-rewrite)"]);
-    insta::assert_snapshot!(stdout, @r"
+    insta::assert_snapshot!(query(&["local-keep", "-rbookmarks(remote-rewrite)"]), @r"
     local-keep: kpqxywon c7b4c09c (empty) local-keep
     remote-rewrite: xyxluytn e31634b6 (empty) rewritten
       @origin (ahead by 1 commits, behind by 1 commits): xyxluytn hidden 3e9a5af6 (empty) remote-rewrite
     [EOF]
     ");
-    insta::assert_snapshot!(stderr, @"");
 
     // … but still filtered by --remote
-    let (stdout, stderr) = query(&[
+    insta::assert_snapshot!(query(&[
         "local-keep",
         "-rbookmarks(remote-rewrite)",
         "--remote",
         "git",
-    ]);
-    insta::assert_snapshot!(stdout, @r"
+    ]), @r"
     local-keep: kpqxywon c7b4c09c (empty) local-keep
       @git: kpqxywon c7b4c09c (empty) local-keep
     remote-rewrite: xyxluytn e31634b6 (empty) rewritten
       @git: xyxluytn e31634b6 (empty) rewritten
     [EOF]
     ");
-    insta::assert_snapshot!(stderr, @"");
 }
 
 #[test]

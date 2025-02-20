@@ -18,7 +18,6 @@ use std::path::Path;
 use git2::Oid;
 
 use crate::common::CommandOutput;
-use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -312,14 +311,12 @@ fn test_git_colocated_rebase_on_import() {
     let commit2 = git_repo.find_commit(commit2_oid).unwrap();
     let commit1 = commit2.parents().next().unwrap();
     git_repo.branch("master", &commit1, true).unwrap();
-    let (stdout, stderr) = get_log_output_with_stderr(&test_env, &workspace_root);
-    insta::assert_snapshot!(stdout, @r"
+    insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r"
     @  15b1d70c5e33b5d2b18383292b85324d5153ffed
     ○  47fe984daf66f7bf3ebf31b9cb3513c995afb857 master git_head() add a file
     ◆  0000000000000000000000000000000000000000
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr, @r"
+    ------- stderr -------
     Abandoned 1 commits that are no longer reachable.
     Rebased 1 descendant commits off of commits rewritten from git
     Working copy now at: zsuskuln 15b1d70c (empty) (no description set)
@@ -374,16 +371,14 @@ fn test_git_colocated_bookmarks() {
             "test",
         )
         .unwrap();
-    let (stdout, stderr) = get_log_output_with_stderr(&test_env, &workspace_root);
-    insta::assert_snapshot!(stdout, @r"
+    insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r"
     @  096dc80da67094fbaa6683e2a205dddffa31f9a8
     │ ○  1e6f0b403ed2ff9713b5d6b1dc601e4804250cda master foo
     ├─╯
     ○  230dd059e1b059aefc0da06a2e5a7dbf22362f22 git_head()
     ◆  0000000000000000000000000000000000000000
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr, @r"
+    ------- stderr -------
     Abandoned 1 commits that are no longer reachable.
     Working copy now at: yqosqzyt 096dc80d (empty) (no description set)
     Parent commit      : qpvuntsm 230dd059 (empty) (no description set)
@@ -689,16 +684,14 @@ fn test_git_colocated_external_checkout() {
 
     // The old working-copy commit gets abandoned, but the whole bookmark should not
     // be abandoned. (#1042)
-    let (stdout, stderr) = get_log_output_with_stderr(&test_env, &repo_path);
-    insta::assert_snapshot!(stdout, @r"
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  8bb9e8d42a37c2a4e8dcfad97fce0b8f49bc7afa
     ○  a7e4cec4256b7995129b9d1e1bda7e1df6e60678 master git_head() A
     │ ○  eccedddfa5152d99fc8ddd1081b375387a8a382a B
     ├─╯
     ◆  0000000000000000000000000000000000000000
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr, @r"
+    ------- stderr -------
     Reset the working copy parent to the new Git HEAD.
     [EOF]
     ");
@@ -720,8 +713,7 @@ fn test_git_colocated_external_checkout() {
     git_check_out_ref("refs/heads/master");
 
     // The old working-copy commit shouldn't be abandoned. (#3747)
-    let (stdout, stderr) = get_log_output_with_stderr(&test_env, &repo_path);
-    insta::assert_snapshot!(stdout, @r"
+    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  ca2a4e32f08688c6fb795c4c034a0a7e09c0d804
     ○  a7e4cec4256b7995129b9d1e1bda7e1df6e60678 master git_head() A
     │ ○  99a813753d6db988d8fc436b0d6b30a54d6b2707 C
@@ -730,8 +722,7 @@ fn test_git_colocated_external_checkout() {
     ├─╯
     ◆  0000000000000000000000000000000000000000
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr, @r"
+    ------- stderr -------
     Reset the working copy parent to the new Git HEAD.
     [EOF]
     ");
@@ -1218,21 +1209,6 @@ fn get_log_output(test_env: &TestEnvironment, workspace_root: &Path) -> CommandO
     )
     "#;
     test_env.run_jj_in(workspace_root, ["log", "-T", template, "-r=all()"])
-}
-
-fn get_log_output_with_stderr(
-    test_env: &TestEnvironment,
-    workspace_root: &Path,
-) -> (CommandOutputString, CommandOutputString) {
-    let template = r#"
-    separate(" ",
-      commit_id,
-      bookmarks,
-      if(git_head, "git_head()"),
-      description,
-    )
-    "#;
-    test_env.jj_cmd_ok(workspace_root, &["log", "-T", template, "-r=all()"])
 }
 
 fn update_git_index(repo_path: &Path) {

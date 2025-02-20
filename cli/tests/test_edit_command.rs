@@ -14,7 +14,7 @@
 
 use std::path::Path;
 
-use crate::common::CommandOutputString;
+use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -48,26 +48,24 @@ fn test_edit() {
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
-    let (stdout, stderr) = get_log_output_with_stderr(&test_env, &repo_path);
-    insta::assert_snapshot!(stdout, @r"
+    let output = get_log_output(&test_env, &repo_path);
+    insta::assert_snapshot!(output, @r"
     ○  2c910ae2d628 second
     @  73383c0b6439 first
     ◆  000000000000
     [EOF]
     ");
-    insta::assert_snapshot!(stderr, @"");
     insta::assert_snapshot!(read_file(&repo_path.join("file1")), @"0");
 
     // Changes in the working copy are amended into the commit
     std::fs::write(repo_path.join("file2"), "0").unwrap();
-    let (stdout, stderr) = get_log_output_with_stderr(&test_env, &repo_path);
-    insta::assert_snapshot!(stdout, @r"
+    let output = get_log_output(&test_env, &repo_path);
+    insta::assert_snapshot!(output, @r"
     ○  b384b2cc1883 second
     @  ff3f7b0dc386 first
     ◆  000000000000
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr, @r"
+    ------- stderr -------
     Rebased 1 descendant commits onto updated working copy
     [EOF]
     ");
@@ -123,10 +121,8 @@ fn read_file(path: &Path) -> String {
     String::from_utf8(std::fs::read(path).unwrap()).unwrap()
 }
 
-fn get_log_output_with_stderr(
-    test_env: &TestEnvironment,
-    cwd: &Path,
-) -> (CommandOutputString, CommandOutputString) {
+#[must_use]
+fn get_log_output(test_env: &TestEnvironment, cwd: &Path) -> CommandOutput {
     let template = r#"commit_id.short() ++ " " ++ description"#;
-    test_env.jj_cmd_ok(cwd, &["log", "-T", template])
+    test_env.run_jj_in(cwd, ["log", "-T", template])
 }
