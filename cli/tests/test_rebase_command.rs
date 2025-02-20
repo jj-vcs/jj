@@ -18,15 +18,21 @@ use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;
 
 fn create_commit(test_env: &TestEnvironment, repo_path: &Path, name: &str, parents: &[&str]) {
-    if parents.is_empty() {
-        test_env.jj_cmd_ok(repo_path, &["new", "root()", "-m", name]);
-    } else {
-        let mut args = vec!["new", "-m", name];
-        args.extend(parents);
-        test_env.jj_cmd_ok(repo_path, &args);
-    }
+    let parents = match parents {
+        [] => &["root()"],
+        parents => parents,
+    };
+    test_env
+        .run_jj_with(|cmd| {
+            cmd.current_dir(repo_path)
+                .args(["new", "-m", name])
+                .args(parents)
+        })
+        .success();
     std::fs::write(repo_path.join(name), format!("{name}\n")).unwrap();
-    test_env.jj_cmd_ok(repo_path, &["bookmark", "create", "-r@", name]);
+    test_env
+        .run_jj_in(repo_path, ["bookmark", "create", "-r@", name])
+        .success();
 }
 
 #[test]
@@ -707,7 +713,7 @@ fn test_rebase_revision_onto_descendant() {
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @r"
-    Restored to operation: 8370ca29327a (2001-02-03 08:05:15) create bookmark merge pointing to commit b05964d109522cd06e48f1a2661e1a0f58be0984
+    Restored to operation: 60e340690be6 (2001-02-03 08:05:15) create bookmark merge pointing to commit b05964d109522cd06e48f1a2661e1a0f58be0984
     Working copy now at: vruxwmqv b05964d1 merge | merge
     Parent commit      : royxmykx cea87a87 b | b
     Parent commit      : zsuskuln 2c5b7858 a | a

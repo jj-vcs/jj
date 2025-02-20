@@ -56,10 +56,12 @@ fn init_git_remote(test_env: &TestEnvironment, remote: &str) -> git2::Repository
 /// Add a remote containing a bookmark with the same name
 fn add_git_remote(test_env: &TestEnvironment, repo_path: &Path, remote: &str) -> git2::Repository {
     let repo = init_git_remote(test_env, remote);
-    test_env.jj_cmd_ok(
-        repo_path,
-        &["git", "remote", "add", remote, &format!("../{remote}")],
-    );
+    test_env
+        .run_jj_in(
+            repo_path,
+            ["git", "remote", "add", remote, &format!("../{remote}")],
+        )
+        .success();
 
     repo
 }
@@ -71,15 +73,21 @@ fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandO
 
 fn create_commit(test_env: &TestEnvironment, repo_path: &Path, name: &str, parents: &[&str]) {
     let descr = format!("descr_for_{name}");
-    if parents.is_empty() {
-        test_env.jj_cmd_ok(repo_path, &["new", "root()", "-m", &descr]);
-    } else {
-        let mut args = vec!["new", "-m", &descr];
-        args.extend(parents);
-        test_env.jj_cmd_ok(repo_path, &args);
-    }
+    let parents = match parents {
+        [] => &["root()"],
+        parents => parents,
+    };
+    test_env
+        .run_jj_with(|cmd| {
+            cmd.current_dir(repo_path)
+                .args(["new", "-m", &descr])
+                .args(parents)
+        })
+        .success();
     std::fs::write(repo_path.join(name), format!("{name}\n")).unwrap();
-    test_env.jj_cmd_ok(repo_path, &["bookmark", "create", "-r@", name]);
+    test_env
+        .run_jj_in(repo_path, ["bookmark", "create", "-r@", name])
+        .success();
 }
 
 fn get_log_output(test_env: &TestEnvironment, workspace_root: &Path) -> CommandOutputString {

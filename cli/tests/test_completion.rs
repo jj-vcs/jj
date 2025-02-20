@@ -722,13 +722,17 @@ fn create_commit(
     parents: &[&str],
     files: &[(&str, Option<&str>)],
 ) {
-    if parents.is_empty() {
-        test_env.jj_cmd_ok(repo_path, &["new", "root()", "-m", name]);
-    } else {
-        let mut args = vec!["new", "-m", name];
-        args.extend(parents);
-        test_env.jj_cmd_ok(repo_path, &args);
-    }
+    let parents = match parents {
+        [] => &["root()"],
+        parents => parents,
+    };
+    test_env
+        .run_jj_with(|cmd| {
+            cmd.current_dir(repo_path)
+                .args(["new", "-m", name])
+                .args(parents)
+        })
+        .success();
     for (name, content) in files {
         if let Some((dir, _)) = name.rsplit_once('/') {
             std::fs::create_dir_all(repo_path.join(dir)).unwrap();
@@ -738,7 +742,9 @@ fn create_commit(
             None => std::fs::remove_file(repo_path.join(name)).unwrap(),
         }
     }
-    test_env.jj_cmd_ok(repo_path, &["bookmark", "create", "-r@", name]);
+    test_env
+        .run_jj_in(repo_path, ["bookmark", "create", "-r@", name])
+        .success();
 }
 
 #[test]

@@ -284,9 +284,10 @@ impl TestEnvironment {
     }
 
     pub fn current_operation_id(&self, repo_path: &Path) -> String {
-        let id_and_newline =
-            self.jj_cmd_success(repo_path, &["debug", "operation", "--display=id"]);
-        id_and_newline.raw().trim_end().to_owned()
+        let output = self
+            .run_jj_in(repo_path, ["debug", "operation", "--display=id"])
+            .success();
+        output.stdout.raw().trim_end().to_owned()
     }
 
     /// Sets up the fake editor to read an edit script from the returned path

@@ -24,17 +24,23 @@ fn create_commit(
     parents: &[&str],
     files: &[(&str, &str)],
 ) {
-    if parents.is_empty() {
-        test_env.jj_cmd_ok(repo_path, &["new", "root()", "-m", name]);
-    } else {
-        let mut args = vec!["new", "-m", name];
-        args.extend(parents);
-        test_env.jj_cmd_ok(repo_path, &args);
-    }
+    let parents = match parents {
+        [] => &["root()"],
+        parents => parents,
+    };
+    test_env
+        .run_jj_with(|cmd| {
+            cmd.current_dir(repo_path)
+                .args(["new", "-m", name])
+                .args(parents)
+        })
+        .success();
     for (name, contents) in files {
         std::fs::write(repo_path.join(name), contents).unwrap();
     }
-    test_env.jj_cmd_ok(repo_path, &["bookmark", "create", "-r@", name]);
+    test_env
+        .run_jj_in(repo_path, ["bookmark", "create", "-r@", name])
+        .success();
 }
 
 #[test]

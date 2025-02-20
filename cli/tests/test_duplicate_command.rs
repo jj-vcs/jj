@@ -18,15 +18,21 @@ use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;
 
 fn create_commit(test_env: &TestEnvironment, repo_path: &Path, name: &str, parents: &[&str]) {
-    if parents.is_empty() {
-        test_env.jj_cmd_ok(repo_path, &["new", "root()", "-m", name]);
-    } else {
-        let mut args = vec!["new", "-m", name];
-        args.extend(parents);
-        test_env.jj_cmd_ok(repo_path, &args);
-    }
+    let parents = match parents {
+        [] => &["root()"],
+        parents => parents,
+    };
+    test_env
+        .run_jj_with(|cmd| {
+            cmd.current_dir(repo_path)
+                .args(["new", "-m", name])
+                .args(parents)
+        })
+        .success();
     std::fs::write(repo_path.join(name), format!("{name}\n")).unwrap();
-    test_env.jj_cmd_ok(repo_path, &["bookmark", "create", "-r@", name]);
+    test_env
+        .run_jj_in(repo_path, ["bookmark", "create", "-r@", name])
+        .success();
 }
 
 #[test]
@@ -82,7 +88,7 @@ fn test_duplicate() {
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["undo"]);
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @r"
-    Undid operation: 01373b278eae (2001-02-03 08:05:17) duplicate 1 commit(s)
+    Undid operation: 6eead29c6998 (2001-02-03 08:05:17) duplicate 1 commit(s)
     [EOF]
     ");
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["duplicate" /* duplicates `c` */]);
@@ -2481,7 +2487,7 @@ fn test_undo_after_duplicate() {
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["undo"]);
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @r"
-    Undid operation: 7e9bd644ad7a (2001-02-03 08:05:11) duplicate 1 commit(s)
+    Undid operation: d64d953f7d2b (2001-02-03 08:05:11) duplicate 1 commit(s)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
