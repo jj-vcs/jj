@@ -542,18 +542,20 @@ fn test_resolution() {
         .join("\0"),
     )
     .unwrap();
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "resolve",
             "--config=merge-tools.fake-editor.merge-conflict-exit-codes=[1]",
         ],
     );
-    insta::assert_snapshot!(stderr.normalize_exit_status(), @r"
+    insta::assert_snapshot!(output.normalize_stderr_exit_status(), @r"
+    ------- stderr -------
     Resolving conflicts in: file
     Error: Failed to resolve conflicts
     Caused by: Tool exited with exit status: 1, but did not produce valid conflict markers (run with --debug to see the exact invocation)
     [EOF]
+    [exit status: 1]
     ");
 
     // TODO: Check that running `jj new` and then `jj resolve -r conflict` works
@@ -1702,8 +1704,9 @@ fn test_multiple_conflicts_with_error() {
         ["write\nresolution1\n", "next invocation\n"].join("\0"),
     )
     .unwrap();
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["resolve"]);
-    insta::assert_snapshot!(stderr.normalize_exit_status(), @r"
+    let output = test_env.run_jj_in(&repo_path, ["resolve"]);
+    insta::assert_snapshot!(output.normalize_stderr_exit_status(), @r"
+    ------- stderr -------
     Resolving conflicts in: file1
     Resolving conflicts in: file2
     Working copy now at: vruxwmqv d2f3f858 conflict | (conflict) conflict
@@ -1722,6 +1725,7 @@ fn test_multiple_conflicts_with_error() {
     Error: Stopped due to error after resolving 1 conflicts
     Caused by: The output file is either unchanged or empty after the editor quit (run with --debug to see the exact invocation).
     [EOF]
+    [exit status: 1]
     ");
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff", "--git"]), 
     @r"
@@ -1755,8 +1759,9 @@ fn test_multiple_conflicts_with_error() {
         ["write\nresolution1\n", "next invocation\n", "fail"].join("\0"),
     )
     .unwrap();
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["resolve"]);
-    insta::assert_snapshot!(stderr.normalize_exit_status(), @r"
+    let output = test_env.run_jj_in(&repo_path, ["resolve"]);
+    insta::assert_snapshot!(output.normalize_stderr_exit_status(), @r"
+    ------- stderr -------
     Resolving conflicts in: file1
     Resolving conflicts in: file2
     Working copy now at: vruxwmqv 0a54e8ed conflict | (conflict) conflict
@@ -1775,6 +1780,7 @@ fn test_multiple_conflicts_with_error() {
     Error: Stopped due to error after resolving 1 conflicts
     Caused by: Tool exited with exit status: 1 (run with --debug to see the exact invocation)
     [EOF]
+    [exit status: 1]
     ");
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff", "--git"]), 
     @r"
@@ -1804,12 +1810,14 @@ fn test_multiple_conflicts_with_error() {
     // Test immediately failing to resolve any conflict
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
     std::fs::write(&editor_script, "fail").unwrap();
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["resolve"]);
-    insta::assert_snapshot!(stderr.normalize_exit_status(), @r"
+    let output = test_env.run_jj_in(&repo_path, ["resolve"]);
+    insta::assert_snapshot!(output.normalize_stderr_exit_status(), @r"
+    ------- stderr -------
     Resolving conflicts in: file1
     Error: Failed to resolve conflicts
     Caused by: Tool exited with exit status: 1 (run with --debug to see the exact invocation)
     [EOF]
+    [exit status: 1]
     ");
     insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff", "--git"]), @"");
     insta::assert_snapshot!(

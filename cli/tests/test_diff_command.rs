@@ -2243,8 +2243,8 @@ fn test_diff_external_tool() {
 
     // Non-zero exit code isn't an error
     std::fs::write(&edit_script, "print diff\0fail").unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["show", "--tool=fake-diff-editor"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["show", "--tool=fake-diff-editor"]);
+    insta::assert_snapshot!(output.normalize_stderr_exit_status(), @r"
     Commit ID: 39d9055d70873099fd924b9af218289d5663eac8
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -2254,8 +2254,7 @@ fn test_diff_external_tool() {
 
     diff
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr.normalize_exit_status(), @r"
+    ------- stderr -------
     Warning: Tool exited with exit status: 1 (run with --debug to see the exact invocation)
     [EOF]
     ");

@@ -111,11 +111,13 @@ fn test_diffedit() {
 
     // Nothing happens if the diff-editor exits with an error
     std::fs::write(&edit_script, "rm file2\0fail").unwrap();
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["diffedit"]);
-    insta::assert_snapshot!(stderr.normalize_exit_status(), @r"
+    let output = test_env.run_jj_in(&repo_path, ["diffedit"]);
+    insta::assert_snapshot!(output.normalize_stderr_exit_status(), @r"
+    ------- stderr -------
     Error: Failed to edit diff
     Caused by: Tool exited with exit status: 1 (run with --debug to see the exact invocation)
     [EOF]
+    [exit status: 1]
     ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
     insta::assert_snapshot!(stdout, @r"
@@ -667,11 +669,13 @@ fn test_diffedit_old_restore_interactive_tests() {
 
     // Nothing happens if the diff-editor exits with an error
     std::fs::write(&edit_script, "rm file2\0fail").unwrap();
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["diffedit", "--from", "@-"]);
-    insta::assert_snapshot!(stderr.normalize_exit_status(), @r"
+    let output = test_env.run_jj_in(&repo_path, ["diffedit", "--from", "@-"]);
+    insta::assert_snapshot!(output.normalize_stderr_exit_status(), @r"
+    ------- stderr -------
     Error: Failed to edit diff
     Caused by: Tool exited with exit status: 1 (run with --debug to see the exact invocation)
     [EOF]
+    [exit status: 1]
     ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
     insta::assert_snapshot!(stdout, @r"

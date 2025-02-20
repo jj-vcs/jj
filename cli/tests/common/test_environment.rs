@@ -360,6 +360,16 @@ impl CommandOutput {
         }
     }
 
+    /// Normalizes [`ExitStatus`] message in stderr text.
+    #[must_use]
+    pub fn normalize_stderr_exit_status(self) -> Self {
+        CommandOutput {
+            stdout: self.stdout,
+            stderr: self.stderr.normalize_exit_status(),
+            status: self.status,
+        }
+    }
+
     /// Removes the last line (such as platform-specific error message) from the
     /// normalized stderr text.
     #[must_use]
