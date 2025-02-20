@@ -35,6 +35,14 @@ program="meld"
 # If using this as a template, note that `$output` is repeated twice below
 edit-args = ["$left", "$output", "$right", "-o", "$output"]
 
+[merge-tools.mergiraf]
+# Currently, the --fast flag often gives the best results because the structural merge
+# algorithm doesn't always maintain comments and spacing in the merge output
+# (even parts without conflicts), but you can remove it if you want to use a full structural merge.
+program = "mergiraf"
+merge-args = ["merge", "$base", "$left", "$right", "-o", "$output", "-l", "$marker_length", "--fast"]
+merge-conflict-exit-codes = [1]
+
 [merge-tools.vimdiff]
 program = "vim"
 # `-d` enables diff mode. `-f` makes vim run in foreground even if it starts a GUI.
