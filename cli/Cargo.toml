@@ -103,12 +103,6 @@ anyhow = { workspace = true }
 assert_cmd = { workspace = true }
 assert_matches = { workspace = true }
 async-trait = { workspace = true }
-gix = { workspace = true, features = [
-    "blocking-network-client",
-    "status",
-    "tree-editor",
-    "worktree-mutation",
-] }
 insta = { workspace = true }
 test-case = { workspace = true }
 testutils = { workspace = true }

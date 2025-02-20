@@ -69,6 +69,7 @@ use tempfile::TempDir;
 
 use crate::test_backend::TestBackendFactory;
 
+pub mod git;
 pub mod test_backend;
 
 pub fn hermetic_libgit2() {

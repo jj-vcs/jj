@@ -14,7 +14,8 @@
 
 use std::io::Write;
 
-use crate::common::git;
+use testutils::git;
+
 use crate::common::TestEnvironment;
 
 #[test]

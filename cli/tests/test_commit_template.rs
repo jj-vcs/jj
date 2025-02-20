@@ -14,8 +14,8 @@
 
 use indoc::indoc;
 use regex::Regex;
+use testutils::git;
 
-use crate::common::git;
 use crate::common::TestEnvironment;
 
 #[test]

@@ -17,10 +17,10 @@ use std::path::PathBuf;
 
 use indoc::formatdoc;
 use test_case::test_case;
+use testutils::git;
 
 use crate::common::get_stderr_string;
 use crate::common::get_stdout_string;
-use crate::common::git;
 use crate::common::to_toml_value;
 use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;

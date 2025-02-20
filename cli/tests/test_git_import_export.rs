@@ -15,8 +15,8 @@ use std::path::Path;
 
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
+use testutils::git;
 
-use crate::common::git;
 use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;
 

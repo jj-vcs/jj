@@ -16,9 +16,9 @@ use std::path::Path;
 
 use itertools::Itertools;
 use regex::Regex;
+use testutils::git;
 
 use crate::common::get_stdout_string;
-use crate::common::git;
 use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;
 

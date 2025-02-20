@@ -3917,8 +3917,10 @@ name = "testutils"
 version = "0.26.0"
 dependencies = [
  "async-trait",
+ "bstr",
  "futures 0.3.31",
  "git2",
+ "gix",
  "hex",
  "itertools 0.13.0",
  "jj-lib",

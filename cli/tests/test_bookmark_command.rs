@@ -14,7 +14,8 @@
 
 use std::path::Path;
 
-use crate::common::git;
+use testutils::git;
+
 use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;
 

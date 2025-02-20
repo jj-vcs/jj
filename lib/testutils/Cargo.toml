@@ -16,8 +16,15 @@ readme = { workspace = true }
 
 [dependencies]
 async-trait = { workspace = true }
+bstr = { workspace = true }
 futures = { workspace = true }
 git2 = { workspace = true }
+gix = { workspace = true, features = [
+    "blocking-network-client",
+    "status",
+    "tree-editor",
+    "worktree-mutation",
+] }
 hex = { workspace = true }
 itertools = { workspace = true }
 jj-lib = { workspace = true, features = ["testing"] }
