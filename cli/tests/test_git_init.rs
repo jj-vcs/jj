@@ -291,15 +291,17 @@ fn test_git_init_external_at_operation() {
 #[test]
 fn test_git_init_external_non_existent_directory() {
     let test_env = TestEnvironment::default();
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         test_env.env_root(),
-        &["git", "init", "repo", "--git-repo", "non-existent"],
+        ["git", "init", "repo", "--git-repo", "non-existent"],
     );
-    insta::assert_snapshot!(stderr.strip_last_line(), @r"
+    insta::assert_snapshot!(output.strip_stderr_last_line(), @r"
+    ------- stderr -------
     Error: Failed to access the repository
     Caused by:
     1: Cannot access $TEST_ENV/non-existent
     [EOF]
+    [exit status: 1]
     ");
 }
 

@@ -1153,11 +1153,13 @@ fn test_git_clone_no_git_executable() {
     let git_repo = git2::Repository::init(git_repo_path).unwrap();
     set_up_non_empty_git_repo(&git_repo);
 
-    let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["git", "clone", "source", "clone"]);
-    insta::assert_snapshot!(stderr.strip_last_line(), @r#"
+    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "clone"]);
+    insta::assert_snapshot!(output.strip_stderr_last_line(), @r#"
+    ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
     Error: Could not execute the git process, found in the OS path 'jj-test-missing-program'
     [EOF]
+    [exit status: 1]
     "#);
 }
 
@@ -1173,11 +1175,13 @@ fn test_git_clone_no_git_executable_with_path() {
     let git_repo = git2::Repository::init(git_repo_path).unwrap();
     set_up_non_empty_git_repo(&git_repo);
 
-    let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["git", "clone", "source", "clone"]);
-    insta::assert_snapshot!(stderr.strip_last_line(), @r#"
+    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "clone"]);
+    insta::assert_snapshot!(output.strip_stderr_last_line(), @r#"
+    ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
     Error: Could not execute git process at specified path '$TEST_ENV/invalid/path'
     [EOF]
+    [exit status: 1]
     "#);
 }
 

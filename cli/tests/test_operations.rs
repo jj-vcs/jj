@@ -848,13 +848,14 @@ fn test_op_recover_from_bad_gc() {
     // point, the index can be loaded, so this command succeeds.
     test_env.jj_cmd_ok(&repo_path, &["--at-op=@-", "describe", "-m4.1"]);
 
-    let stderr =
-        test_env.jj_cmd_internal_error(&repo_path, &["--at-op", head_op_id, "debug", "reindex"]);
-    insta::assert_snapshot!(stderr.strip_last_line(), @r"
+    let output = test_env.run_jj_in(&repo_path, ["--at-op", head_op_id, "debug", "reindex"]);
+    insta::assert_snapshot!(output.strip_stderr_last_line(), @r"
+    ------- stderr -------
     Internal error: Failed to index commits at operation e7377e6a642bae88039615ee159117d49688719e9d5ece9de8b0b42d7be7076904d2fa8381391f8289a0c3527405de81e8dd6504655311c69175c3681786dd3c
     Caused by:
     1: Object ddf84fc5e0dd314092b3dfb13e09e37fa7d04ef9 of type commit not found
     [EOF]
+    [exit status: 255]
     ");
 
     // "op log" should still be usable.

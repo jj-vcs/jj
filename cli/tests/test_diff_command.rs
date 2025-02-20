@@ -2260,12 +2260,14 @@ fn test_diff_external_tool() {
     ");
 
     // --tool=:builtin shouldn't be ignored
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["diff", "--tool=:builtin"]);
-    insta::assert_snapshot!(stderr.strip_last_line(), @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "--tool=:builtin"]);
+    insta::assert_snapshot!(output.strip_stderr_last_line(), @r"
+    ------- stderr -------
     Error: Failed to generate diff
     Caused by:
     1: Error executing ':builtin' (run with --debug to see the exact invocation)
     [EOF]
+    [exit status: 1]
     ");
 }
 
