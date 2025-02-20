@@ -22,6 +22,7 @@ use jj_lib::repo::Repo;
 use jj_lib::settings::UserSettings;
 use jj_lib::workspace::Workspace;
 use test_case::test_case;
+use testutils::git;
 use testutils::write_random_commit;
 use testutils::TestRepoBackend;
 use testutils::TestWorkspace;
@@ -109,7 +110,7 @@ fn test_init_external_git() {
     let temp_dir = testutils::new_temp_dir();
     let (canonical, uncanonical) = canonicalize(temp_dir.path());
     let git_repo_path = uncanonical.join("git");
-    git2::Repository::init(&git_repo_path).unwrap();
+    git::init(&git_repo_path);
     std::fs::create_dir(uncanonical.join("jj")).unwrap();
     let (workspace, repo) = Workspace::init_external_git(
         &settings,
