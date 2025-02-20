@@ -15,8 +15,8 @@
 
 use std::path::Path;
 
+use crate::common::force_interactive;
 use crate::common::get_stderr_string;
-use crate::common::get_stdout_string;
 use crate::common::CommandOutputString;
 use crate::common::TestEnvironment;
 
@@ -410,22 +410,22 @@ fn test_next_fails_on_bookmarking_children_quit_prompt() {
     ");
 
     // Try to advance the working copy commit.
-    let assert = test_env
-        .jj_cmd_stdin(&repo_path, &["next"], "q\n")
-        .assert()
-        .code(1);
-    let stdout = test_env.normalize_output(get_stdout_string(&assert));
-    let stderr = test_env.normalize_output(get_stderr_string(&assert));
-    insta::assert_snapshot!(stdout,@r"
+    let output = test_env.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .current_dir(&repo_path)
+            .arg("next")
+            .write_stdin("q\n")
+    });
+    insta::assert_snapshot!(output, @r"
     ambiguous next commit, choose one to target:
     1: zsuskuln 5f24490d (empty) third
     2: rlvkpnrz 9ed53a4a (empty) second
     q: quit the prompt
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr,@r"
+    ------- stderr -------
     enter the index of the commit you want to target: Error: ambiguous target commit
     [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -442,16 +442,20 @@ fn test_next_choose_bookmarking_child() {
     test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "fourth"]);
     test_env.jj_cmd_ok(&repo_path, &["new", "@--"]);
     // Advance the working copy commit.
-    let (stdout, stderr) = test_env.jj_cmd_stdin_ok(&repo_path, &["next"], "2\n");
-    insta::assert_snapshot!(stdout,@r"
+    let output = test_env.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .current_dir(&repo_path)
+            .arg("next")
+            .write_stdin("2\n")
+    });
+    insta::assert_snapshot!(output, @r"
     ambiguous next commit, choose one to target:
     1: royxmykx d00fe885 (empty) fourth
     2: zsuskuln 5f24490d (empty) third
     3: rlvkpnrz 9ed53a4a (empty) second
     q: quit the prompt
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr,@r"
+    ------- stderr -------
     enter the index of the commit you want to target: Working copy now at: yostqsxw 5c8fa96d (empty) (no description set)
     Parent commit      : zsuskuln 5f24490d (empty) third
     [EOF]
@@ -489,15 +493,19 @@ fn test_prev_on_merge_commit() {
     ");
 
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
-    let (stdout, stderr) = test_env.jj_cmd_stdin_ok(&repo_path, &["prev", "--edit"], "2\n");
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .current_dir(&repo_path)
+            .args(["prev", "--edit"])
+            .write_stdin("2\n")
+    });
+    insta::assert_snapshot!(output, @r"
     ambiguous prev commit, choose one to target:
     1: zsuskuln b0d21db3 right | (empty) second
     2: qpvuntsm fa15625b left | (empty) first
     q: quit the prompt
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr,@r"
+    ------- stderr -------
     enter the index of the commit you want to target: Working copy now at: qpvuntsm fa15625b left | (empty) first
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
@@ -536,31 +544,39 @@ fn test_prev_on_merge_commit_with_parent_merge() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_stdin_ok(&repo_path, &["prev"], "2\n");
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .current_dir(&repo_path)
+            .arg("prev")
+            .write_stdin("2\n")
+    });
+    insta::assert_snapshot!(output, @r"
     ambiguous prev commit, choose one to target:
     1: kkmpptxz 146d5c67 (empty) y
     2: qpvuntsm 6799aaa2 (empty) x
     3: zzzzzzzz 00000000 (empty) (no description set)
     q: quit the prompt
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr,@r"
+    ------- stderr -------
     enter the index of the commit you want to target: Working copy now at: vruxwmqv e5a6794c (empty) (no description set)
     Parent commit      : qpvuntsm 6799aaa2 (empty) x
     [EOF]
     ");
 
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
-    let (stdout, stderr) = test_env.jj_cmd_stdin_ok(&repo_path, &["prev", "--edit"], "2\n");
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .current_dir(&repo_path)
+            .args(["prev", "--edit"])
+            .write_stdin("2\n")
+    });
+    insta::assert_snapshot!(output, @r"
     ambiguous prev commit, choose one to target:
     1: mzvwutvl 89b8a355 (empty) 1
     2: zsuskuln a83fc061 (empty) z
     q: quit the prompt
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr,@r"
+    ------- stderr -------
     enter the index of the commit you want to target: Working copy now at: zsuskuln a83fc061 (empty) z
     Parent commit      : qpvuntsm 6799aaa2 (empty) x
     Parent commit      : kkmpptxz 146d5c67 (empty) y
@@ -599,16 +615,20 @@ fn test_prev_prompts_on_multiple_parents() {
     ");
 
     // Move @ backwards.
-    let (stdout, stderr) = test_env.jj_cmd_stdin_ok(&repo_path, &["prev", "2"], "3\n");
-    insta::assert_snapshot!(stdout,@r"
+    let output = test_env.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .current_dir(&repo_path)
+            .args(["prev", "2"])
+            .write_stdin("3\n")
+    });
+    insta::assert_snapshot!(output, @r"
     ambiguous prev commit, choose one to target:
     1: mzvwutvl bc4f4fe3 (empty) third
     2: kkmpptxz b0d21db3 (empty) second
     3: qpvuntsm fa15625b (empty) first
     q: quit the prompt
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr,@r"
+    ------- stderr -------
     enter the index of the commit you want to target: Working copy now at: kpqxywon ddac00b0 (empty) (no description set)
     Parent commit      : qpvuntsm fa15625b (empty) first
     [EOF]

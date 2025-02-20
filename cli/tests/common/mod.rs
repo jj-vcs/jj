@@ -39,6 +39,11 @@ pub fn fake_diff_editor_path() -> String {
     path.into_os_string().into_string().unwrap()
 }
 
+/// Forcibly enable interactive prompt.
+pub fn force_interactive(cmd: &mut assert_cmd::Command) -> &mut assert_cmd::Command {
+    cmd.env("JJ_INTERACTIVE", "1")
+}
+
 /// Coerces the value type to serialize it as TOML.
 pub fn to_toml_value(value: impl Into<toml_edit::Value>) -> toml_edit::Value {
     value.into()

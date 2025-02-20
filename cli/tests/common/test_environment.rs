@@ -171,23 +171,6 @@ impl TestEnvironment {
         cmd
     }
 
-    pub fn write_stdin(&self, cmd: &mut assert_cmd::Command, stdin: &str) {
-        cmd.env("JJ_INTERACTIVE", "1");
-        cmd.write_stdin(stdin);
-    }
-
-    pub fn jj_cmd_stdin(
-        &self,
-        current_dir: &Path,
-        args: &[&str],
-        stdin: &str,
-    ) -> assert_cmd::Command {
-        let mut cmd = self.jj_cmd(current_dir, args);
-        self.write_stdin(&mut cmd, stdin);
-
-        cmd
-    }
-
     fn get_ok(&self, mut cmd: assert_cmd::Command) -> (CommandOutputString, CommandOutputString) {
         let assert = cmd.assert().success();
         let stdout = self.normalize_output(get_stdout_string(&assert));
@@ -204,15 +187,6 @@ impl TestEnvironment {
         args: &[&str],
     ) -> (CommandOutputString, CommandOutputString) {
         self.get_ok(self.jj_cmd(current_dir, args))
-    }
-
-    pub fn jj_cmd_stdin_ok(
-        &self,
-        current_dir: &Path,
-        args: &[&str],
-        stdin: &str,
-    ) -> (CommandOutputString, CommandOutputString) {
-        self.get_ok(self.jj_cmd_stdin(current_dir, args, stdin))
     }
 
     /// Run a `jj` command, check that it was successful, and return its stdout
