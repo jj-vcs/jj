@@ -36,6 +36,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `split.legacy-bookmark-behavior = true`, but this will likely be removed in a
   future release. [#3419](https://github.com/jj-vcs/jj/issues/3419)
 
+* `jj fix` now always sets the working directory of invoked tools to be the
+  workspace root, instead of the working directory of the `jj fix`.
+
 ### Deprecations
 
 * This release takes the first steps to make target revision required in

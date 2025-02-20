@@ -15,6 +15,7 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::io::Write;
+use std::path::Path;
 use std::process::Stdio;
 use std::sync::mpsc::channel;
 
@@ -137,6 +138,7 @@ pub(crate) fn cmd_fix(
     args: &FixArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
+    let workspace_root = workspace_command.workspace_root().to_owned();
     let tools_config = get_tools_config(ui, workspace_command.settings())?;
     let root_commits: Vec<CommitId> = if args.source.is_empty() {
         let revs = workspace_command.settings().get_string("revsets.fix")?;
@@ -230,6 +232,7 @@ pub(crate) fn cmd_fix(
     // Run the configured tool on all of the chosen inputs.
     let fixed_file_ids = fix_file_ids(
         tx.repo().store().as_ref(),
+        &workspace_root,
         &tools_config,
         &unique_tool_inputs,
     )?;
@@ -316,6 +319,7 @@ struct ToolInput {
 /// each failed input.
 fn fix_file_ids<'a>(
     store: &Store,
+    workspace_root: &Path,
     tools_config: &ToolsConfig,
     tool_inputs: &'a HashSet<ToolInput>,
 ) -> Result<HashMap<&'a ToolInput, FileId>, CommandError> {
@@ -339,7 +343,12 @@ fn fix_file_ids<'a>(
                 read.read_to_end(&mut old_content)?;
                 let new_content =
                     matching_tools.fold(old_content.clone(), |prev_content, tool_config| {
-                        match run_tool(&tool_config.command, tool_input, &prev_content) {
+                        match run_tool(
+                            workspace_root,
+                            &tool_config.command,
+                            tool_input,
+                            &prev_content,
+                        ) {
                             Ok(next_content) => next_content,
                             // TODO: Because the stderr is passed through, this isn't always failing
                             // silently, but it should do something better will the exit code, tool
@@ -375,6 +384,7 @@ fn fix_file_ids<'a>(
 /// unless the command introduced changes. Returns `None` if there were any
 /// failures when starting, stopping, or communicating with the subprocess.
 fn run_tool(
+    workspace_root: &Path,
     tool_command: &CommandNameAndArgs,
     tool_input: &ToolInput,
     old_content: &[u8],
@@ -386,6 +396,7 @@ fn run_tool(
     let mut command = tool_command.to_command_with_variables(&vars);
     tracing::debug!(?command, ?tool_input.repo_path, "spawning fix tool");
     let mut child = command
+        .current_dir(workspace_root)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()

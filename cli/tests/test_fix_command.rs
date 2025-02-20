@@ -802,9 +802,8 @@ fn test_fix_cyclic() {
 
 #[test]
 fn test_deduplication() {
-    // Append all fixed content to a log file. This assumes we're running the tool
-    // in the root directory of the repo, which is worth reconsidering if we
-    // establish a contract regarding cwd.
+    // Append all fixed content to a log file. Note that fix tools are always run
+    // from the workspace root, so this will always write to $root/$path-fixlog.
     let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase", "--tee", "$path-fixlog"]);
 
     // There are at least two interesting cases: the content is repeated immediately
@@ -888,6 +887,21 @@ fn test_executed_but_nothing_changed() {
     ");
     let copy_content = std::fs::read_to_string(repo_path.join("file-copy").as_os_str()).unwrap();
     insta::assert_snapshot!(copy_content, @"content\n");
+
+    // fix tools are always run from the workspace root, regardless of working
+    // directory at time of invocation.
+    std::fs::create_dir(repo_path.join("dir")).unwrap();
+    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path.join("dir"), &["fix"]);
+    insta::assert_snapshot!(stdout, @"");
+    insta::assert_snapshot!(stderr, @r"
+    Fixed 0 commits of 1 checked.
+    Nothing changed.
+    [EOF]
+    ");
+
+    let copy_content = std::fs::read_to_string(repo_path.join("file-copy").as_os_str()).unwrap();
+    insta::assert_snapshot!(copy_content, @"content\ncontent\n");
+    assert!(!repo_path.join("dir").join("file-copy").exists());
 }
 
 #[test]
