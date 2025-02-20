@@ -22,10 +22,10 @@ fn test_show() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &["show"]);
-    let stdout = stdout.normalize_with(|s| s.split_inclusive('\n').skip(2).collect());
+    let output = test_env.run_jj_in(&repo_path, ["show"]);
+    let output = output.normalize_stdout_with(|s| s.split_inclusive('\n').skip(2).collect());
 
-    insta::assert_snapshot!(stdout, @r"
+    insta::assert_snapshot!(output, @r"
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:07)
     Committer: Test User <test.user@example.com> (2001-02-03 08:05:07)
 
@@ -300,16 +300,16 @@ fn test_show_relative_timestamps() {
         "#,
     );
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &["show"]);
+    let output = test_env.run_jj_in(&repo_path, ["show"]);
     let timestamp_re = Regex::new(r"\([0-9]+ years ago\)").unwrap();
-    let stdout = stdout.normalize_with(|s| {
+    let output = output.normalize_stdout_with(|s| {
         s.split_inclusive('\n')
             .skip(2)
             .map(|x| timestamp_re.replace_all(x, "(...timestamp...)"))
             .collect()
     });
 
-    insta::assert_snapshot!(stdout, @r"
+    insta::assert_snapshot!(output, @r"
     Author   : Test User <test.user@example.com> (...timestamp...)
     Committer: Test User <test.user@example.com> (...timestamp...)
 

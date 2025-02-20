@@ -15,7 +15,7 @@
 use insta::assert_snapshot;
 use regex::Regex;
 
-use crate::common::CommandOutputString;
+use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -92,8 +92,8 @@ fn test_debug_index() {
     let test_env = TestEnvironment::default();
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let workspace_path = test_env.env_root().join("repo");
-    let stdout = test_env.jj_cmd_success(&workspace_path, &["debug", "index"]);
-    assert_snapshot!(filter_index_stats(stdout), @r"
+    let output = test_env.run_jj_in(&workspace_path, ["debug", "index"]);
+    assert_snapshot!(filter_index_stats(output), @r"
     Number of commits: 2
     Number of merges: 0
     Max generation number: 1
@@ -115,8 +115,8 @@ fn test_debug_reindex() {
     let workspace_path = test_env.env_root().join("repo");
     test_env.jj_cmd_ok(&workspace_path, &["new"]);
     test_env.jj_cmd_ok(&workspace_path, &["new"]);
-    let stdout = test_env.jj_cmd_success(&workspace_path, &["debug", "index"]);
-    assert_snapshot!(filter_index_stats(stdout), @r"
+    let output = test_env.run_jj_in(&workspace_path, ["debug", "index"]);
+    assert_snapshot!(filter_index_stats(output), @r"
     Number of commits: 4
     Number of merges: 0
     Max generation number: 3
@@ -138,8 +138,8 @@ fn test_debug_reindex() {
     Finished indexing 4 commits.
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&workspace_path, &["debug", "index"]);
-    assert_snapshot!(filter_index_stats(stdout), @r"
+    let output = test_env.run_jj_in(&workspace_path, ["debug", "index"]);
+    assert_snapshot!(filter_index_stats(output), @r"
     Number of commits: 4
     Number of merges: 0
     Max generation number: 3
@@ -246,16 +246,15 @@ fn test_debug_operation_id() {
     let test_env = TestEnvironment::default();
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let workspace_path = test_env.env_root().join("repo");
-    let stdout =
-        test_env.jj_cmd_success(&workspace_path, &["debug", "operation", "--display", "id"]);
-    assert_snapshot!(filter_index_stats(stdout), @r"
+    let output = test_env.run_jj_in(&workspace_path, ["debug", "operation", "--display", "id"]);
+    assert_snapshot!(filter_index_stats(output), @r"
     eac759b9ab75793fd3da96e60939fb48f2cd2b2a9c1f13ffe723cf620f3005b8d3e7e923634a07ea39513e4f2f360c87b9ad5d331cf90d7a844864b83b72eba1
     [EOF]
     "
     );
 }
 
-fn filter_index_stats(output: CommandOutputString) -> CommandOutputString {
+fn filter_index_stats(output: CommandOutput) -> CommandOutput {
     let regex = Regex::new(r"    Name: [0-9a-z]+").unwrap();
-    output.normalize_with(|text| regex.replace_all(&text, "    Name: [hash]").into_owned())
+    output.normalize_stdout_with(|text| regex.replace_all(&text, "    Name: [hash]").into_owned())
 }

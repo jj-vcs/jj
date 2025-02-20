@@ -14,6 +14,7 @@
 
 mod test_environment;
 
+pub use self::test_environment::CommandOutput;
 pub use self::test_environment::CommandOutputString;
 pub use self::test_environment::TestEnvironment;
 
