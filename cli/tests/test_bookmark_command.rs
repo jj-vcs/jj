@@ -2126,7 +2126,7 @@ fn test_bookmark_move_with_default_target_revision() {
 
     // Set up remote
     let git_repo_path = test_env.env_root().join("git-repo");
-    git2::Repository::init_bare(git_repo_path).unwrap();
+    git::init_bare(git_repo_path);
     test_env.jj_cmd_ok(
         &repo_path,
         &["git", "remote", "add", "origin", "../git-repo"],
