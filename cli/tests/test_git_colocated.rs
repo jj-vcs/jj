@@ -459,7 +459,7 @@ fn test_git_colocated_bookmark_forget() {
 fn test_git_colocated_bookmark_at_root() {
     let test_env = TestEnvironment::default();
     test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "--colocate", "repo"])
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
         .success();
     let repo_path = test_env.env_root().join("repo");
 
@@ -908,7 +908,7 @@ fn test_git_colocated_undo_head_move() {
 fn test_git_colocated_update_index_preserves_timestamps() {
     let test_env = TestEnvironment::default();
     test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "--colocate", "repo"])
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
         .success();
     let repo_path = test_env.env_root().join("repo");
 
@@ -999,7 +999,7 @@ fn test_git_colocated_update_index_preserves_timestamps() {
 fn test_git_colocated_update_index_merge_conflict() {
     let test_env = TestEnvironment::default();
     test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "--colocate", "repo"])
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
         .success();
     let repo_path = test_env.env_root().join("repo");
 
@@ -1093,7 +1093,7 @@ fn test_git_colocated_update_index_merge_conflict() {
 fn test_git_colocated_update_index_rebase_conflict() {
     let test_env = TestEnvironment::default();
     test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "--colocate", "repo"])
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
         .success();
     let repo_path = test_env.env_root().join("repo");
 
@@ -1190,7 +1190,7 @@ fn test_git_colocated_update_index_rebase_conflict() {
 fn test_git_colocated_update_index_3_sided_conflict() {
     let test_env = TestEnvironment::default();
     test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "--colocate", "repo"])
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
         .success();
     let repo_path = test_env.env_root().join("repo");
 

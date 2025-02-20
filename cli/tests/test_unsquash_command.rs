@@ -21,9 +21,7 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_unsquash() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -170,9 +168,7 @@ fn test_unsquash() {
 #[test]
 fn test_unsquash_partial() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -331,9 +327,7 @@ fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput
 #[test]
 fn test_unsquash_description() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let edit_script = test_env.set_up_fake_editor();
@@ -415,9 +409,7 @@ fn test_unsquash_description() {
 #[test]
 fn test_unsquash_description_editor_avoids_unc() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let edit_script = test_env.set_up_fake_editor();

@@ -22,9 +22,7 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_diff_basic() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "foo\n").unwrap();
@@ -211,7 +209,7 @@ fn test_diff_basic() {
 
     // Unmatched paths should generate warnings
     let output = test_env.run_jj_in(
-        test_env.env_root(),
+        ".",
         [
             "diff",
             "-Rrepo",
@@ -240,9 +238,7 @@ fn test_diff_basic() {
 #[test]
 fn test_diff_empty() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "").unwrap();
@@ -273,9 +269,7 @@ fn test_diff_empty() {
 #[test]
 fn test_diff_file_mode() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // Test content+mode/mode-only changes of empty/non-empty files:
@@ -427,9 +421,7 @@ fn test_diff_file_mode() {
 #[test]
 fn test_diff_types() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let file_path = repo_path.join("foo");
@@ -515,9 +507,7 @@ fn test_diff_types() {
 #[test]
 fn test_diff_name_only() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env.run_jj_in(&repo_path, ["new"]).success();
@@ -549,9 +539,7 @@ fn test_diff_name_only() {
 #[test]
 fn test_diff_bad_args() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let output = test_env.run_jj_in(&repo_path, ["diff", "-s", "--types"]);
@@ -582,9 +570,7 @@ fn test_diff_bad_args() {
 #[test]
 fn test_diff_relative_paths() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::create_dir_all(repo_path.join("dir1").join("subdir1")).unwrap();
@@ -726,9 +712,7 @@ fn test_diff_relative_paths() {
 #[test]
 fn test_diff_hunks() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // Test added, removed, inserted, and modified lines. The modified line
@@ -823,9 +807,7 @@ fn test_diff_hunks() {
 #[test]
 fn test_diff_color_words_inlining_threshold() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let render_diff = |max_alternation: i32, args: &[&str]| {
@@ -1382,9 +1364,7 @@ fn test_diff_color_words_inlining_threshold() {
 #[test]
 fn test_diff_missing_newline() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "foo").unwrap();
@@ -1441,9 +1421,7 @@ fn test_diff_missing_newline() {
 #[test]
 fn test_color_words_diff_missing_newline() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "").unwrap();
@@ -1645,9 +1623,7 @@ fn test_color_words_diff_missing_newline() {
 #[test]
 fn test_diff_ignore_whitespace() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(
@@ -1756,9 +1732,7 @@ fn test_diff_ignore_whitespace() {
 #[test]
 fn test_diff_skipped_context() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "a\nb\nc\nd\ne\nf\ng\nh\ni\nj").unwrap();
@@ -1884,9 +1858,7 @@ fn test_diff_skipped_context() {
 #[test]
 fn test_diff_skipped_context_from_settings_color_words() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env.add_config(
@@ -1930,9 +1902,7 @@ context = 0
 #[test]
 fn test_diff_skipped_context_from_settings_git() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env.add_config(
@@ -1992,9 +1962,7 @@ context = 0
 #[test]
 fn test_diff_skipped_context_nondefault() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "a\nb\nc\nd").unwrap();
@@ -2075,9 +2043,7 @@ fn test_diff_skipped_context_nondefault() {
 #[test]
 fn test_diff_leading_trailing_context() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // N=5 context lines at start/end of the file
@@ -2215,9 +2181,7 @@ fn test_diff_leading_trailing_context() {
 #[test]
 fn test_diff_external_tool() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "foo\n").unwrap();
@@ -2384,9 +2348,7 @@ fn test_diff_external_tool() {
 #[test]
 fn test_diff_external_file_by_file_tool() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "file1\n").unwrap();
@@ -2504,9 +2466,7 @@ fn test_diff_external_file_by_file_tool() {
 #[test]
 fn test_diff_external_tool_symlink() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let external_file_path = test_env.env_root().join("external-file");
@@ -2549,9 +2509,7 @@ fn test_diff_external_tool_symlink() {
 #[test]
 fn test_diff_external_tool_conflict_marker_style() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let file_path = repo_path.join("file");
 
@@ -2665,9 +2623,7 @@ fn test_diff_external_tool_conflict_marker_style() {
 #[test]
 fn test_diff_stat() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     std::fs::write(repo_path.join("file1"), "foo\n").unwrap();
 
@@ -2702,9 +2658,7 @@ fn test_diff_stat() {
 fn test_diff_stat_long_name_or_stat() {
     let mut test_env = TestEnvironment::default();
     test_env.add_env_var("COLUMNS", "30");
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let get_stat = |test_env: &TestEnvironment, path_length: usize, stat_size: usize| {
@@ -2834,9 +2788,7 @@ fn test_diff_stat_long_name_or_stat() {
 #[test]
 fn test_diff_binary() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1.png"), b"\x89PNG\r\n\x1a\nabcdefg\0").unwrap();

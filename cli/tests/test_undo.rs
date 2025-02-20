@@ -23,9 +23,7 @@ fn test_undo_rewrite_with_child() {
     // Test that if we undo an operation that rewrote some commit, any descendants
     // after that will be rebased on top of the un-rewritten commit.
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -68,7 +66,7 @@ fn test_git_push_undo() {
     let git_repo_path = test_env.env_root().join("git-repo");
     git::init_bare(git_repo_path);
     test_env
-        .run_jj_in(test_env.env_root(), ["git", "clone", "git-repo", "repo"])
+        .run_jj_in(".", ["git", "clone", "git-repo", "repo"])
         .success();
     let repo_path = test_env.env_root().join("repo");
 
@@ -159,7 +157,7 @@ fn test_git_push_undo_with_import() {
     let git_repo_path = test_env.env_root().join("git-repo");
     git::init_bare(git_repo_path);
     test_env
-        .run_jj_in(test_env.env_root(), ["git", "clone", "git-repo", "repo"])
+        .run_jj_in(".", ["git", "clone", "git-repo", "repo"])
         .success();
     let repo_path = test_env.env_root().join("repo");
 
@@ -357,7 +355,7 @@ fn test_git_push_undo_repo_only() {
     let git_repo_path = test_env.env_root().join("git-repo");
     git::init_bare(git_repo_path);
     test_env
-        .run_jj_in(test_env.env_root(), ["git", "clone", "git-repo", "repo"])
+        .run_jj_in(".", ["git", "clone", "git-repo", "repo"])
         .success();
     let repo_path = test_env.env_root().join("repo");
 
@@ -417,7 +415,7 @@ fn test_bookmark_track_untrack_undo() {
     let git_repo_path = test_env.env_root().join("git-repo");
     git::init_bare(git_repo_path);
     test_env
-        .run_jj_in(test_env.env_root(), ["git", "clone", "git-repo", "repo"])
+        .run_jj_in(".", ["git", "clone", "git-repo", "repo"])
         .success();
     let repo_path = test_env.env_root().join("repo");
 
@@ -497,9 +495,7 @@ fn test_bookmark_track_untrack_undo() {
 #[test]
 fn test_shows_a_warning_when_undoing_an_undo_operation_as_bare_jj_undo() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // Double-undo creation of child
@@ -534,9 +530,7 @@ fn test_shows_a_warning_when_undoing_an_undo_operation_as_bare_jj_undo() {
 #[test]
 fn test_shows_no_warning_when_undoing_a_specific_undo_change() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env.run_jj_in(&repo_path, ["new"]).success();

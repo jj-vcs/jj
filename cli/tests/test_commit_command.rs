@@ -21,9 +21,7 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_commit_with_description_from_cli() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
 
     // Description applies to the current working-copy (not the new one)
@@ -41,9 +39,7 @@ fn test_commit_with_description_from_cli() {
 #[test]
 fn test_commit_with_editor() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
 
     // Check that the text file gets initialized with the current description and
@@ -90,9 +86,7 @@ fn test_commit_with_editor() {
 #[test]
 fn test_commit_with_editor_avoids_unc() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
     let edit_script = test_env.set_up_fake_editor();
 
@@ -110,9 +104,7 @@ fn test_commit_with_editor_avoids_unc() {
 #[test]
 fn test_commit_interactive() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
 
     std::fs::write(workspace_path.join("file1"), "foo\n").unwrap();
@@ -190,9 +182,7 @@ fn test_commit_interactive() {
 #[test]
 fn test_commit_interactive_with_paths() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
 
     std::fs::write(workspace_path.join("file2"), "").unwrap();
@@ -255,9 +245,7 @@ fn test_commit_interactive_with_paths() {
 #[test]
 fn test_commit_with_default_description() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     test_env.add_config(r#"ui.default-description = "\n\nTESTED=TODO""#);
     let workspace_path = test_env.env_root().join("repo");
 
@@ -288,9 +276,7 @@ fn test_commit_with_default_description() {
 #[test]
 fn test_commit_with_description_template() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     test_env.add_config(
         r#"
         [templates]
@@ -377,9 +363,7 @@ fn test_commit_with_description_template() {
 #[test]
 fn test_commit_without_working_copy() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
 
     test_env
@@ -397,9 +381,7 @@ fn test_commit_without_working_copy() {
 #[test]
 fn test_commit_paths() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
 
     std::fs::write(workspace_path.join("file1"), "foo\n").unwrap();
@@ -426,9 +408,7 @@ fn test_commit_paths() {
 #[test]
 fn test_commit_paths_warning() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
 
     std::fs::write(workspace_path.join("file1"), "foo\n").unwrap();
@@ -456,9 +436,7 @@ fn test_commit_paths_warning() {
 #[test]
 fn test_commit_reset_author() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env.add_config(

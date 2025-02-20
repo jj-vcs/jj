@@ -27,7 +27,7 @@ fn test_generate_markdown_docs_in_docs_dir() {
     let mut markdown_help = PREAMBLE.to_string();
     markdown_help.push_str(
         test_env
-            .run_jj_in(test_env.env_root(), ["util", "markdown-help"])
+            .run_jj_in(".", ["util", "markdown-help"])
             .success()
             .stdout
             .raw(),

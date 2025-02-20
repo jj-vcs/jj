@@ -17,14 +17,10 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_bookmark_names() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "origin"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "origin"]).success();
     let origin_path = test_env.env_root().join("origin");
     let origin_git_repo_path = origin_path
         .join(".jj")
@@ -193,9 +189,7 @@ fn test_bookmark_names() {
 #[test]
 fn test_global_arg_repository_is_respected() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -207,7 +201,7 @@ fn test_global_arg_repository_is_respected() {
     let test_env = test_env;
 
     let output = test_env.run_jj_in(
-        test_env.env_root(),
+        ".",
         [
             "--",
             "jj",
@@ -227,9 +221,7 @@ fn test_global_arg_repository_is_respected() {
 #[test]
 fn test_aliases_are_resolved() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -271,12 +263,12 @@ fn test_completions_are_generated() {
     insta_settings.add_filter(r"(--arguments) .*", "$1 .."); // omit path to jj binary
     let _guard = insta_settings.bind_to_scope();
 
-    let output = test_env.run_jj_in(test_env.env_root(), [""; 0]);
+    let output = test_env.run_jj_in(".", [""; 0]);
     insta::assert_snapshot!(output, @r"
     complete --keep-order --exclusive --command jj --arguments ..
     [EOF]
     ");
-    let output = test_env.run_jj_in(test_env.env_root(), ["--"]);
+    let output = test_env.run_jj_in(".", ["--"]);
     insta::assert_snapshot!(output, @r"
     complete --keep-order --exclusive --command jj --arguments ..
     [EOF]
@@ -321,68 +313,48 @@ fn test_zsh_completion() {
 #[test]
 fn test_remote_names() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init"]).success();
 
     test_env
         .run_jj_in(
-            test_env.env_root(),
+            ".",
             ["git", "remote", "add", "origin", "git@git.local:user/repo"],
         )
         .success();
 
     test_env.add_env_var("COMPLETE", "fish");
 
-    let output = test_env.run_jj_in(
-        test_env.env_root(),
-        ["--", "jj", "git", "remote", "remove", "o"],
-    );
+    let output = test_env.run_jj_in(".", ["--", "jj", "git", "remote", "remove", "o"]);
     insta::assert_snapshot!(output, @r"
     origin
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(
-        test_env.env_root(),
-        ["--", "jj", "git", "remote", "rename", "o"],
-    );
+    let output = test_env.run_jj_in(".", ["--", "jj", "git", "remote", "rename", "o"]);
     insta::assert_snapshot!(output, @r"
     origin
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(
-        test_env.env_root(),
-        ["--", "jj", "git", "remote", "set-url", "o"],
-    );
+    let output = test_env.run_jj_in(".", ["--", "jj", "git", "remote", "set-url", "o"]);
     insta::assert_snapshot!(output, @r"
     origin
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(
-        test_env.env_root(),
-        ["--", "jj", "git", "push", "--remote", "o"],
-    );
+    let output = test_env.run_jj_in(".", ["--", "jj", "git", "push", "--remote", "o"]);
     insta::assert_snapshot!(output, @r"
     origin
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(
-        test_env.env_root(),
-        ["--", "jj", "git", "fetch", "--remote", "o"],
-    );
+    let output = test_env.run_jj_in(".", ["--", "jj", "git", "fetch", "--remote", "o"]);
     insta::assert_snapshot!(output, @r"
     origin
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(
-        test_env.env_root(),
-        ["--", "jj", "bookmark", "list", "--remote", "o"],
-    );
+    let output = test_env.run_jj_in(".", ["--", "jj", "bookmark", "list", "--remote", "o"]);
     insta::assert_snapshot!(output, @r"
     origin
     [EOF]
@@ -392,9 +364,7 @@ fn test_remote_names() {
 #[test]
 fn test_aliases_are_completed() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // user config alias
@@ -425,7 +395,7 @@ fn test_aliases_are_completed() {
 
     // make sure --repository flag is respected
     let output = test_env.run_jj_in(
-        test_env.env_root(),
+        ".",
         [
             "--",
             "jj",
@@ -441,7 +411,7 @@ fn test_aliases_are_completed() {
 
     // cannot load aliases from --config flag
     let output = test_env.run_jj_in(
-        test_env.env_root(),
+        ".",
         [
             "--",
             "jj",
@@ -455,15 +425,11 @@ fn test_aliases_are_completed() {
 #[test]
 fn test_revisions() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // create remote to test remote branches
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "origin"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "origin"]).success();
     let origin_path = test_env.env_root().join("origin");
     let origin_git_repo_path = origin_path
         .join(".jj")
@@ -581,9 +547,7 @@ fn test_operations() {
     // suppress warnings on stderr of completions for invalid args
     test_env.add_config("ui.default-command = 'log'");
 
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     test_env
         .run_jj_in(&repo_path, ["describe", "-m", "description 0"])
@@ -679,9 +643,7 @@ fn test_operations() {
 #[test]
 fn test_workspaces() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "main"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_path = test_env.env_root().join("main");
 
     std::fs::write(main_path.join("file"), "contents").unwrap();
@@ -838,9 +800,7 @@ fn create_commit(
 #[test]
 fn test_files() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(

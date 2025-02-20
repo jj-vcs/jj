@@ -41,9 +41,7 @@ fn get_recorded_dates(test_env: &TestEnvironment, cwd: &Path, revset: &str) -> C
 #[test]
 fn test_split_by_paths() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "foo").unwrap();
@@ -179,9 +177,7 @@ fn test_split_by_paths() {
 #[test]
 fn test_split_with_non_empty_description() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     test_env.add_config(r#"ui.default-description = "\n\nTESTED=TODO""#);
     let workspace_path = test_env.env_root().join("repo");
 
@@ -244,9 +240,7 @@ fn test_split_with_non_empty_description() {
 #[test]
 fn test_split_with_default_description() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     test_env.add_config(r#"ui.default-description = "\n\nTESTED=TODO""#);
     let workspace_path = test_env.env_root().join("repo");
 
@@ -299,9 +293,7 @@ fn test_split_with_default_description() {
 #[test]
 fn test_split_with_merge_child() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
     test_env
         .run_jj_in(&workspace_path, ["describe", "-m=1"])
@@ -362,9 +354,7 @@ fn test_split_with_merge_child() {
 // description is set correctly on the first commit.
 fn test_split_siblings_no_descendants() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     test_env.add_config(r#"ui.default-description = "\n\nTESTED=TODO""#);
     let workspace_path = test_env.env_root().join("repo");
 
@@ -424,9 +414,7 @@ fn test_split_siblings_no_descendants() {
 fn test_split_siblings_with_descendants() {
     // Configure the environment and make the initial commits.
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     // test_env.add_config(r#"ui.default-description = "\n\nTESTED=TODO""#);
     let workspace_path = test_env.env_root().join("repo");
 
@@ -527,9 +515,7 @@ fn test_split_siblings_with_descendants() {
 #[test]
 fn test_split_siblings_with_merge_child() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
     test_env
         .run_jj_in(&workspace_path, ["describe", "-m=1"])
@@ -594,9 +580,7 @@ fn test_split_siblings_with_merge_child() {
 #[test]
 fn test_split_empty() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
     test_env
         .run_jj_in(&workspace_path, ["describe", "--message", "abc"])
@@ -615,9 +599,7 @@ fn test_split_empty() {
 #[test]
 fn test_split_message_editor_avoids_unc() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "foo").unwrap();
@@ -638,9 +620,7 @@ fn test_split_message_editor_avoids_unc() {
 #[test]
 fn test_split_interactive() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
 
     std::fs::write(workspace_path.join("file1"), "foo\n").unwrap();
@@ -699,9 +679,7 @@ fn test_split_interactive() {
 #[test]
 fn test_split_interactive_with_paths() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
 
     std::fs::write(workspace_path.join("file2"), "").unwrap();
@@ -768,9 +746,7 @@ fn test_split_interactive_with_paths() {
 #[test]
 fn test_split_with_multiple_workspaces_same_working_copy() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "main"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_path = test_env.env_root().join("main");
     let secondary_path = test_env.env_root().join("secondary");
 
@@ -839,9 +815,7 @@ fn test_split_with_multiple_workspaces_same_working_copy() {
 #[test]
 fn test_split_with_multiple_workspaces_different_working_copy() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "main"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_path = test_env.env_root().join("main");
 
     test_env
@@ -917,9 +891,7 @@ enum BookmarkBehavior {
 #[test_case(BookmarkBehavior::Modern; "modern_behavior")]
 fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "main"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_path = test_env.env_root().join("main");
 
     match bookmark_behavior {

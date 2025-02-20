@@ -20,9 +20,7 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_absorb_simple() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -163,9 +161,7 @@ fn test_absorb_simple() {
 #[test]
 fn test_absorb_replace_single_line_hunk() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -241,9 +237,7 @@ fn test_absorb_replace_single_line_hunk() {
 #[test]
 fn test_absorb_merge() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -346,9 +340,7 @@ fn test_absorb_merge() {
 #[test]
 fn test_absorb_discardable_merge_with_descendant() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -435,9 +427,7 @@ fn test_absorb_discardable_merge_with_descendant() {
 #[test]
 fn test_absorb_conflict() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -503,9 +493,7 @@ fn test_absorb_conflict() {
 #[test]
 fn test_absorb_deleted_file() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -528,9 +516,7 @@ fn test_absorb_deleted_file() {
 #[test]
 fn test_absorb_file_mode() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -582,9 +568,7 @@ fn test_absorb_file_mode() {
 #[test]
 fn test_absorb_from_into() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env.run_jj_in(&repo_path, ["new", "-m1"]).success();
@@ -692,9 +676,7 @@ fn test_absorb_from_into() {
 #[test]
 fn test_absorb_paths() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -759,9 +741,7 @@ fn test_absorb_paths() {
 #[test]
 fn test_absorb_immutable() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     test_env.add_config("revset-aliases.'immutable_heads()' = 'present(main)'");
 

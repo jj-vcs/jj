@@ -28,9 +28,7 @@ fn append_to_file(file_path: &Path, contents: &str) {
 #[test]
 fn test_annotate_linear() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file.txt"), "line1\n").unwrap();
@@ -55,9 +53,7 @@ fn test_annotate_linear() {
 #[test]
 fn test_annotate_merge() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file.txt"), "line1\n").unwrap();
@@ -107,9 +103,7 @@ fn test_annotate_merge() {
 #[test]
 fn test_annotate_conflicted() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file.txt"), "line1\n").unwrap();
@@ -158,9 +152,7 @@ fn test_annotate_conflicted() {
 #[test]
 fn test_annotate_merge_one_sided_conflict_resolution() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file.txt"), "line1\n").unwrap();
@@ -209,9 +201,7 @@ fn test_annotate_merge_one_sided_conflict_resolution() {
 #[test]
 fn test_annotate_with_template() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file.txt"), "line1\n").unwrap();

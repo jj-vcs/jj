@@ -131,9 +131,7 @@ fn test_git_fetch_with_default_config(subprocess: bool) {
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "origin");
 
@@ -154,9 +152,7 @@ fn test_git_fetch_default_remote(subprocess: bool) {
         test_env.add_config("git.subprocess = false");
     }
     test_env.add_config("git.auto-local-bookmark = true");
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "origin");
 
@@ -178,9 +174,7 @@ fn test_git_fetch_single_remote(subprocess: bool) {
         test_env.add_config("git.subprocess = false");
     }
     test_env.add_config("git.auto-local-bookmark = true");
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "rem1");
 
@@ -210,9 +204,7 @@ fn test_git_fetch_single_remote_all_remotes_flag(subprocess: bool) {
         test_env.add_config("git.subprocess = false");
     }
     test_env.add_config("git.auto-local-bookmark = true");
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "rem1");
 
@@ -236,9 +228,7 @@ fn test_git_fetch_single_remote_from_arg(subprocess: bool) {
         test_env.add_config("git.subprocess = false");
     }
     test_env.add_config("git.auto-local-bookmark = true");
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "rem1");
 
@@ -262,9 +252,7 @@ fn test_git_fetch_single_remote_from_config(subprocess: bool) {
         test_env.add_config("git.subprocess = false");
     }
     test_env.add_config("git.auto-local-bookmark = true");
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "rem1");
     test_env.add_config(r#"git.fetch = "rem1""#);
@@ -287,9 +275,7 @@ fn test_git_fetch_multiple_remotes(subprocess: bool) {
         test_env.add_config("git.subprocess = false");
     }
     test_env.add_config("git.auto-local-bookmark = true");
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "rem1");
     add_git_remote(&test_env, &repo_path, "rem2");
@@ -319,9 +305,7 @@ fn test_git_fetch_all_remotes(subprocess: bool) {
         test_env.add_config("git.subprocess = false");
     }
     test_env.add_config("git.auto-local-bookmark = true");
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "rem1");
     add_git_remote(&test_env, &repo_path, "rem2");
@@ -356,9 +340,7 @@ fn test_git_fetch_multiple_remotes_from_config(subprocess: bool) {
         test_env.add_config("git.subprocess = false");
     }
     test_env.add_config("git.auto-local-bookmark = true");
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "rem1");
     add_git_remote(&test_env, &repo_path, "rem2");
@@ -383,9 +365,7 @@ fn test_git_fetch_nonexistent_remote(subprocess: bool) {
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "rem1");
 
@@ -414,9 +394,7 @@ fn test_git_fetch_nonexistent_remote_from_config(subprocess: bool) {
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "rem1");
     test_env.add_config(r#"git.fetch = ["rem1", "rem2"]"#);
@@ -545,9 +523,7 @@ fn test_git_fetch_prune_before_updating_tips(subprocess: bool) {
         test_env.add_config("git.subprocess = false");
     }
     test_env.add_config("git.auto-local-bookmark = true");
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let git_repo = add_git_remote(&test_env, &repo_path, "origin");
     test_env.run_jj_in(&repo_path, ["git", "fetch"]).success();
@@ -584,9 +560,7 @@ fn test_git_fetch_conflicting_bookmarks(subprocess: bool) {
         test_env.add_config("git.subprocess = false");
     }
     test_env.add_config("git.auto-local-bookmark = true");
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "rem1");
 
@@ -718,7 +692,7 @@ fn test_git_fetch_all(subprocess: bool) {
     let _git_repo = git2::Repository::init(source_git_repo_path.clone()).unwrap();
 
     // Clone an empty repo. The target repo is a normal `jj` repo, *not* colocated
-    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "target"]);
+    let output = test_env.run_jj_in(".", ["git", "clone", "source", "target"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -910,7 +884,7 @@ fn test_git_fetch_some_of_many_bookmarks(subprocess: bool) {
     let _git_repo = git2::Repository::init(source_git_repo_path.clone()).unwrap();
 
     // Clone an empty repo. The target repo is a normal `jj` repo, *not* colocated
-    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "target"]);
+    let output = test_env.run_jj_in(".", ["git", "clone", "source", "target"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -1188,9 +1162,7 @@ fn test_git_fetch_bookmarks_some_missing(subprocess: bool) {
         test_env.add_config("git.subprocess = false");
     }
     test_env.add_config("git.auto-local-bookmark = true");
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "origin");
     add_git_remote(&test_env, &repo_path, "rem1");
@@ -1313,9 +1285,7 @@ fn test_git_fetch_bookmarks_some_missing(subprocess: bool) {
 #[test]
 fn test_git_fetch_bookmarks_missing_with_subprocess_localized_message() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "origin");
 
@@ -1354,7 +1324,7 @@ fn test_git_fetch_undo(subprocess: bool) {
     let _git_repo = git2::Repository::init(source_git_repo_path.clone()).unwrap();
 
     // Clone an empty repo. The target repo is a normal `jj` repo, *not* colocated
-    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "target"]);
+    let output = test_env.run_jj_in(".", ["git", "clone", "source", "target"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -1457,7 +1427,7 @@ fn test_fetch_undo_what(subprocess: bool) {
     let _git_repo = git2::Repository::init(source_git_repo_path.clone()).unwrap();
 
     // Clone an empty repo. The target repo is a normal `jj` repo, *not* colocated
-    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "target"]);
+    let output = test_env.run_jj_in(".", ["git", "clone", "source", "target"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -1587,9 +1557,7 @@ fn test_git_fetch_remove_fetch(subprocess: bool) {
         test_env.add_config("git.subprocess = false");
     }
     test_env.add_config("git.auto-local-bookmark = true");
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "origin");
 
@@ -1658,9 +1626,7 @@ fn test_git_fetch_rename_fetch(subprocess: bool) {
         test_env.add_config("git.subprocess = false");
     }
     test_env.add_config("git.auto-local-bookmark = true");
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "origin");
 
@@ -1724,7 +1690,7 @@ fn test_git_fetch_removed_bookmark(subprocess: bool) {
     let _git_repo = git2::Repository::init(source_git_repo_path.clone()).unwrap();
 
     // Clone an empty repo. The target repo is a normal `jj` repo, *not* colocated
-    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "target"]);
+    let output = test_env.run_jj_in(".", ["git", "clone", "source", "target"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -1846,7 +1812,7 @@ fn test_git_fetch_removed_parent_bookmark(subprocess: bool) {
     let _git_repo = git2::Repository::init(source_git_repo_path.clone()).unwrap();
 
     // Clone an empty repo. The target repo is a normal `jj` repo, *not* colocated
-    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "target"]);
+    let output = test_env.run_jj_in(".", ["git", "clone", "source", "target"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -1948,9 +1914,7 @@ fn test_git_fetch_remote_only_bookmark(subprocess: bool) {
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // Create non-empty git repo to add as a remote
@@ -2038,9 +2002,7 @@ fn test_git_fetch_preserve_commits_across_repos(subprocess: bool) {
         test_env.add_config("git.subprocess = false");
     }
     test_env.add_config("git.auto-local-bookmark = true");
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let upstream_repo = add_git_remote(&test_env, &repo_path, "upstream");

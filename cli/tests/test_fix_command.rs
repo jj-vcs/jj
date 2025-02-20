@@ -27,9 +27,7 @@ use crate::common::TestEnvironment;
 /// flags.
 fn init_with_fake_formatter(args: &[&str]) -> (TestEnvironment, PathBuf) {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     assert!(formatter_path.is_file());
@@ -51,9 +49,7 @@ fn init_with_fake_formatter(args: &[&str]) -> (TestEnvironment, PathBuf) {
 #[test]
 fn test_config_no_tools() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file"), "content\n").unwrap();
@@ -76,9 +72,7 @@ fn test_config_no_tools() {
 #[test]
 fn test_config_multiple_tools() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     assert!(formatter_path.is_file());
@@ -121,9 +115,7 @@ fn test_config_multiple_tools() {
 #[test]
 fn test_config_multiple_tools_with_same_name() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     assert!(formatter_path.is_file());
@@ -179,9 +171,7 @@ fn test_config_multiple_tools_with_same_name() {
 #[test]
 fn test_config_disabled_tools() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     assert!(formatter_path.is_file());
@@ -231,9 +221,7 @@ fn test_config_disabled_tools() {
 #[test]
 fn test_config_disabled_tools_warning_when_all_tools_are_disabled() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     assert!(formatter_path.is_file());
@@ -262,9 +250,7 @@ fn test_config_disabled_tools_warning_when_all_tools_are_disabled() {
 #[test]
 fn test_config_tables_overlapping_patterns() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     assert!(formatter_path.is_file());
@@ -309,9 +295,7 @@ fn test_config_tables_overlapping_patterns() {
 #[test]
 fn test_config_tables_all_commands_missing() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     test_env.add_config(
         r###"
@@ -347,9 +331,7 @@ fn test_config_tables_all_commands_missing() {
 #[test]
 fn test_config_tables_some_commands_missing() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     assert!(formatter_path.is_file());
@@ -389,9 +371,7 @@ fn test_config_tables_some_commands_missing() {
 #[test]
 fn test_config_tables_empty_patterns_list() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     assert!(formatter_path.is_file());
@@ -424,9 +404,7 @@ fn test_config_tables_empty_patterns_list() {
 #[test]
 fn test_config_filesets() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     assert!(formatter_path.is_file());
@@ -473,9 +451,7 @@ fn test_config_filesets() {
 #[test]
 fn test_relative_paths() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     assert!(formatter_path.is_file());
@@ -1053,9 +1029,7 @@ fn test_stderr_failure() {
 #[test]
 fn test_missing_command() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     test_env.add_config(indoc! {"
         [fix.tools.bad-tool]
@@ -1300,9 +1274,7 @@ fn test_fix_resolve_conflict() {
 #[test]
 fn test_all_files() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     assert!(formatter_path.is_file());

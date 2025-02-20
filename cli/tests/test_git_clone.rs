@@ -62,7 +62,7 @@ fn test_git_clone(subprocess: bool) {
     let git_repo = git2::Repository::init(git_repo_path).unwrap();
 
     // Clone an empty repo
-    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "empty"]);
+    let output = test_env.run_jj_in(".", ["git", "clone", "source", "empty"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -75,7 +75,7 @@ fn test_git_clone(subprocess: bool) {
     set_up_non_empty_git_repo(&git_repo);
 
     // Clone with relative source path
-    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "clone"]);
+    let output = test_env.run_jj_in(".", ["git", "clone", "source", "clone"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -102,7 +102,7 @@ fn test_git_clone(subprocess: bool) {
 
     // Failed clone should clean up the destination directory
     std::fs::create_dir(test_env.env_root().join("bad")).unwrap();
-    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "bad", "failed"]);
+    let output = test_env.run_jj_in(".", ["git", "clone", "bad", "failed"]);
     // git2's internal error is slightly different
     if subprocess {
         insta::assert_snapshot!(output, @r#"
@@ -125,7 +125,7 @@ fn test_git_clone(subprocess: bool) {
 
     // Failed clone shouldn't remove the existing destination directory
     std::fs::create_dir(test_env.env_root().join("failed")).unwrap();
-    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "bad", "failed"]);
+    let output = test_env.run_jj_in(".", ["git", "clone", "bad", "failed"]);
     // git2's internal error is slightly different
     if subprocess {
         insta::assert_snapshot!(output, @r#"
@@ -148,7 +148,7 @@ fn test_git_clone(subprocess: bool) {
     assert!(!test_env.env_root().join("failed").join(".jj").exists());
 
     // Failed clone (if attempted) shouldn't remove the existing workspace
-    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "bad", "clone"]);
+    let output = test_env.run_jj_in(".", ["git", "clone", "bad", "clone"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -160,7 +160,7 @@ fn test_git_clone(subprocess: bool) {
     assert!(test_env.env_root().join("clone").join(".jj").exists());
 
     // Try cloning into an existing workspace
-    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "clone"]);
+    let output = test_env.run_jj_in(".", ["git", "clone", "source", "clone"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -172,7 +172,7 @@ fn test_git_clone(subprocess: bool) {
 
     // Try cloning into an existing file
     std::fs::write(test_env.env_root().join("file"), "contents").unwrap();
-    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "file"]);
+    let output = test_env.run_jj_in(".", ["git", "clone", "source", "file"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -184,7 +184,7 @@ fn test_git_clone(subprocess: bool) {
 
     // Try cloning into non-empty, non-workspace directory
     std::fs::remove_dir_all(test_env.env_root().join("clone").join(".jj")).unwrap();
-    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "clone"]);
+    let output = test_env.run_jj_in(".", ["git", "clone", "source", "clone"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -195,10 +195,7 @@ fn test_git_clone(subprocess: bool) {
     }
 
     // Clone into a nested path
-    let output = test_env.run_jj_in(
-        test_env.env_root(),
-        ["git", "clone", "source", "nested/path/to/repo"],
-    );
+    let output = test_env.run_jj_in(".", ["git", "clone", "source", "nested/path/to/repo"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -221,7 +218,7 @@ fn test_git_clone_bad_source(subprocess: bool) {
         test_env.add_config("git.subprocess = false");
     }
 
-    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "", "dest"]);
+    let output = test_env.run_jj_in(".", ["git", "clone", "", "dest"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -233,7 +230,7 @@ fn test_git_clone_bad_source(subprocess: bool) {
 
     // Invalid port number
     let output = test_env.run_jj_in(
-        test_env.env_root(),
+        ".",
         ["git", "clone", "https://example.net:bad-port/bar", "dest"],
     );
     insta::allow_duplicates! {
@@ -259,10 +256,7 @@ fn test_git_clone_colocate(subprocess: bool) {
     let git_repo = git2::Repository::init(git_repo_path).unwrap();
 
     // Clone an empty repo
-    let output = test_env.run_jj_in(
-        test_env.env_root(),
-        ["git", "clone", "source", "empty", "--colocate"],
-    );
+    let output = test_env.run_jj_in(".", ["git", "clone", "source", "empty", "--colocate"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -286,10 +280,7 @@ fn test_git_clone_colocate(subprocess: bool) {
     set_up_non_empty_git_repo(&git_repo);
 
     // Clone with relative source path
-    let output = test_env.run_jj_in(
-        test_env.env_root(),
-        ["git", "clone", "source", "clone", "--colocate"],
-    );
+    let output = test_env.run_jj_in(".", ["git", "clone", "source", "clone", "--colocate"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -361,10 +352,7 @@ fn test_git_clone_colocate(subprocess: bool) {
 
     // Failed clone should clean up the destination directory
     std::fs::create_dir(test_env.env_root().join("bad")).unwrap();
-    let output = test_env.run_jj_in(
-        test_env.env_root(),
-        ["git", "clone", "--colocate", "bad", "failed"],
-    );
+    let output = test_env.run_jj_in(".", ["git", "clone", "--colocate", "bad", "failed"]);
     // git2's internal error is slightly different
     if subprocess {
         insta::assert_snapshot!(output, @r#"
@@ -387,10 +375,7 @@ fn test_git_clone_colocate(subprocess: bool) {
 
     // Failed clone shouldn't remove the existing destination directory
     std::fs::create_dir(test_env.env_root().join("failed")).unwrap();
-    let output = test_env.run_jj_in(
-        test_env.env_root(),
-        ["git", "clone", "--colocate", "bad", "failed"],
-    );
+    let output = test_env.run_jj_in(".", ["git", "clone", "--colocate", "bad", "failed"]);
     // git2's internal error is slightly different
     if subprocess {
         insta::assert_snapshot!(output, @r#"
@@ -414,10 +399,7 @@ fn test_git_clone_colocate(subprocess: bool) {
     assert!(!test_env.env_root().join("failed").join(".jj").exists());
 
     // Failed clone (if attempted) shouldn't remove the existing workspace
-    let output = test_env.run_jj_in(
-        test_env.env_root(),
-        ["git", "clone", "--colocate", "bad", "clone"],
-    );
+    let output = test_env.run_jj_in(".", ["git", "clone", "--colocate", "bad", "clone"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -430,10 +412,7 @@ fn test_git_clone_colocate(subprocess: bool) {
     assert!(test_env.env_root().join("clone").join(".jj").exists());
 
     // Try cloning into an existing workspace
-    let output = test_env.run_jj_in(
-        test_env.env_root(),
-        ["git", "clone", "source", "clone", "--colocate"],
-    );
+    let output = test_env.run_jj_in(".", ["git", "clone", "source", "clone", "--colocate"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -445,10 +424,7 @@ fn test_git_clone_colocate(subprocess: bool) {
 
     // Try cloning into an existing file
     std::fs::write(test_env.env_root().join("file"), "contents").unwrap();
-    let output = test_env.run_jj_in(
-        test_env.env_root(),
-        ["git", "clone", "source", "file", "--colocate"],
-    );
+    let output = test_env.run_jj_in(".", ["git", "clone", "source", "file", "--colocate"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -460,10 +436,7 @@ fn test_git_clone_colocate(subprocess: bool) {
 
     // Try cloning into non-empty, non-workspace directory
     std::fs::remove_dir_all(test_env.env_root().join("clone").join(".jj")).unwrap();
-    let output = test_env.run_jj_in(
-        test_env.env_root(),
-        ["git", "clone", "source", "clone", "--colocate"],
-    );
+    let output = test_env.run_jj_in(".", ["git", "clone", "source", "clone", "--colocate"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -475,7 +448,7 @@ fn test_git_clone_colocate(subprocess: bool) {
 
     // Clone into a nested path
     let output = test_env.run_jj_in(
-        test_env.env_root(),
+        ".",
         [
             "git",
             "clone",
@@ -520,7 +493,7 @@ fn test_git_clone_remote_default_bookmark(subprocess: bool) {
 
     // All fetched bookmarks will be imported if auto-local-bookmark is on
     test_env.add_config("git.auto-local-bookmark = true");
-    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "clone1"]);
+    let output = test_env.run_jj_in(".", ["git", "clone", "source", "clone1"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -559,7 +532,7 @@ fn test_git_clone_remote_default_bookmark(subprocess: bool) {
 
     // Only the default bookmark will be imported if auto-local-bookmark is off
     test_env.add_config("git.auto-local-bookmark = false");
-    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "clone2"]);
+    let output = test_env.run_jj_in(".", ["git", "clone", "source", "clone2"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -585,7 +558,7 @@ fn test_git_clone_remote_default_bookmark(subprocess: bool) {
 
     // Change the default bookmark in remote
     git_repo.set_head("refs/heads/feature1").unwrap();
-    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "clone3"]);
+    let output = test_env.run_jj_in(".", ["git", "clone", "source", "clone3"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -642,7 +615,7 @@ fn test_git_clone_remote_default_bookmark_with_escape(subprocess: bool) {
         .rename("refs/heads/\"", false, "")
         .unwrap();
 
-    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "clone"]);
+    let output = test_env.run_jj_in(".", ["git", "clone", "source", "clone"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -682,7 +655,7 @@ fn test_git_clone_ignore_working_copy(subprocess: bool) {
 
     // Should not update working-copy files
     let output = test_env.run_jj_in(
-        test_env.env_root(),
+        ".",
         ["git", "clone", "--ignore-working-copy", "source", "clone"],
     );
     insta::allow_duplicates! {
@@ -731,10 +704,7 @@ fn test_git_clone_at_operation(subprocess: bool) {
     let git_repo = git2::Repository::init(git_repo_path).unwrap();
     set_up_non_empty_git_repo(&git_repo);
 
-    let output = test_env.run_jj_in(
-        test_env.env_root(),
-        ["git", "clone", "--at-op=@-", "source", "clone"],
-    );
+    let output = test_env.run_jj_in(".", ["git", "clone", "--at-op=@-", "source", "clone"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -759,7 +729,7 @@ fn test_git_clone_with_remote_name(subprocess: bool) {
 
     // Clone with relative source path and a non-default remote name
     let output = test_env.run_jj_in(
-        test_env.env_root(),
+        ".",
         ["git", "clone", "source", "clone", "--remote", "upstream"],
     );
     insta::allow_duplicates! {
@@ -786,10 +756,7 @@ fn test_git_clone_with_remote_named_git(subprocess: bool) {
     let git_repo_path = test_env.env_root().join("source");
     git2::Repository::init(git_repo_path).unwrap();
 
-    let output = test_env.run_jj_in(
-        test_env.env_root(),
-        ["git", "clone", "--remote=git", "source", "dest"],
-    );
+    let output = test_env.run_jj_in(".", ["git", "clone", "--remote=git", "source", "dest"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -811,7 +778,7 @@ fn test_git_clone_with_remote_with_slashes(subprocess: bool) {
     git2::Repository::init(git_repo_path).unwrap();
 
     let output = test_env.run_jj_in(
-        test_env.env_root(),
+        ".",
         ["git", "clone", "--remote=slash/origin", "source", "dest"],
     );
     insta::allow_duplicates! {
@@ -836,7 +803,7 @@ fn test_git_clone_trunk_deleted(subprocess: bool) {
     set_up_non_empty_git_repo(&git_repo);
     let clone_path = test_env.env_root().join("clone");
 
-    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "clone"]);
+    let output = test_env.run_jj_in(".", ["git", "clone", "source", "clone"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -982,10 +949,7 @@ fn test_git_clone_with_depth_git2() {
     // (we cannot replicate git2's erroneous behaviour wrt git)
     // local transport does not support shallow clones so we just test that the
     // depth arg is passed on here
-    let output = test_env.run_jj_in(
-        test_env.env_root(),
-        ["git", "clone", "--depth", "1", "source", "clone"],
-    );
+    let output = test_env.run_jj_in(".", ["git", "clone", "--depth", "1", "source", "clone"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
@@ -1006,10 +970,7 @@ fn test_git_clone_with_depth_subprocess() {
 
     // git does support shallow clones on the local transport, so it will work
     // (we cannot replicate git2's erroneous behaviour wrt git)
-    let output = test_env.run_jj_in(
-        test_env.env_root(),
-        ["git", "clone", "--depth", "1", "source", "clone"],
-    );
+    let output = test_env.run_jj_in(".", ["git", "clone", "--depth", "1", "source", "clone"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
@@ -1049,7 +1010,7 @@ fn test_git_clone_invalid_immutable_heads(subprocess: bool) {
 
     // The error shouldn't be counted as an immutable working-copy commit. It
     // should be reported.
-    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "clone"]);
+    let output = test_env.run_jj_in(".", ["git", "clone", "source", "clone"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -1079,7 +1040,7 @@ fn test_git_clone_malformed(subprocess: bool) {
     set_up_git_repo_with_file(&git_repo, ".jj");
 
     // TODO: Perhaps, this should be a user error, not an internal error.
-    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "clone"]);
+    let output = test_env.run_jj_in(".", ["git", "clone", "source", "clone"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -1141,7 +1102,7 @@ fn test_git_clone_no_git_executable() {
     let git_repo = git2::Repository::init(git_repo_path).unwrap();
     set_up_non_empty_git_repo(&git_repo);
 
-    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "clone"]);
+    let output = test_env.run_jj_in(".", ["git", "clone", "source", "clone"]);
     insta::assert_snapshot!(output.strip_stderr_last_line(), @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
@@ -1163,7 +1124,7 @@ fn test_git_clone_no_git_executable_with_path() {
     let git_repo = git2::Repository::init(git_repo_path).unwrap();
     set_up_non_empty_git_repo(&git_repo);
 
-    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "clone"]);
+    let output = test_env.run_jj_in(".", ["git", "clone", "source", "clone"]);
     insta::assert_snapshot!(output.strip_stderr_last_line(), @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"

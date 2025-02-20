@@ -21,9 +21,7 @@ use crate::common::TestEnvironment;
 fn test_git_remotes() {
     let test_env = TestEnvironment::default();
 
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let output = test_env.run_jj_in(&repo_path, ["git", "remote", "list"]);
@@ -64,9 +62,7 @@ fn test_git_remotes() {
 fn test_git_remote_add() {
     let test_env = TestEnvironment::default();
 
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     test_env
         .run_jj_in(
@@ -111,9 +107,7 @@ fn test_git_remote_add() {
 fn test_git_remote_set_url() {
     let test_env = TestEnvironment::default();
 
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     test_env
         .run_jj_in(
@@ -174,9 +168,7 @@ fn test_git_remote_set_url() {
 #[test]
 fn test_git_remote_relative_path() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // Relative path using OS-native separator
@@ -196,7 +188,7 @@ fn test_git_remote_relative_path() {
     // Relative path using UNIX separator
     test_env
         .run_jj_in(
-            test_env.env_root(),
+            ".",
             ["-Rrepo", "git", "remote", "set-url", "foo", "unix/sep"],
         )
         .success();
@@ -211,9 +203,7 @@ fn test_git_remote_relative_path() {
 fn test_git_remote_rename() {
     let test_env = TestEnvironment::default();
 
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     test_env
         .run_jj_in(

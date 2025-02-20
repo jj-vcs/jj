@@ -19,9 +19,7 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_sparse_manage_patterns() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let edit_script = test_env.set_up_fake_editor();
@@ -199,9 +197,7 @@ fn test_sparse_editor_avoids_unc() {
     use std::path::PathBuf;
 
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let edit_script = test_env.set_up_fake_editor();
 

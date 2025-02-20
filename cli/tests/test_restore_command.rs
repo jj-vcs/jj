@@ -20,9 +20,7 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_restore() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "a\n").unwrap();
@@ -167,9 +165,7 @@ fn test_restore() {
 #[test]
 fn test_restore_conflicted_merge() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
@@ -287,9 +283,7 @@ fn test_restore_conflicted_merge() {
 #[test]
 fn test_restore_restore_descendants() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
@@ -374,9 +368,7 @@ fn test_restore_restore_descendants() {
 #[test]
 fn test_restore_interactive() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(
@@ -480,9 +472,7 @@ fn test_restore_interactive() {
 #[test]
 fn test_restore_interactive_merge() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[], &[("file1", "a1\n")]);
@@ -562,9 +552,7 @@ fn test_restore_interactive_merge() {
 #[test]
 fn test_restore_interactive_with_paths() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(

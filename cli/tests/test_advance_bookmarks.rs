@@ -66,9 +66,7 @@ fn describe_new_cmd(env: &TestEnvironment, workspace_path: &Path, commit_message
 #[test_case(describe_new_cmd; "new")]
 fn test_advance_bookmarks_enabled(make_commit: CommitFn) {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
 
     // First, test with advance-bookmarks enabled. Start by creating a bookmark on
@@ -121,9 +119,7 @@ fn test_advance_bookmarks_enabled(make_commit: CommitFn) {
 #[test_case(describe_new_cmd; "new")]
 fn test_advance_bookmarks_at_minus(make_commit: CommitFn) {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
 
     set_advance_bookmarks(&test_env, true);
@@ -178,9 +174,7 @@ fn test_advance_bookmarks_at_minus(make_commit: CommitFn) {
 #[test_case(describe_new_cmd; "new")]
 fn test_advance_bookmarks_overrides(make_commit: CommitFn) {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
 
     // advance-bookmarks is disabled by default.
@@ -307,9 +301,7 @@ fn test_advance_bookmarks_overrides(make_commit: CommitFn) {
 #[test_case(describe_new_cmd; "new")]
 fn test_advance_bookmarks_multiple_bookmarks(make_commit: CommitFn) {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
 
     set_advance_bookmarks(&test_env, true);
@@ -352,9 +344,7 @@ fn test_advance_bookmarks_multiple_bookmarks(make_commit: CommitFn) {
 #[test]
 fn test_new_advance_bookmarks_interior() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
 
     set_advance_bookmarks(&test_env, true);
@@ -409,9 +399,7 @@ fn test_new_advance_bookmarks_interior() {
 #[test]
 fn test_new_advance_bookmarks_before() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
 
     set_advance_bookmarks(&test_env, true);
@@ -465,9 +453,7 @@ fn test_new_advance_bookmarks_before() {
 #[test]
 fn test_new_advance_bookmarks_after() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
 
     set_advance_bookmarks(&test_env, true);
@@ -502,9 +488,7 @@ fn test_new_advance_bookmarks_after() {
 #[test]
 fn test_new_advance_bookmarks_merge_children() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
 
     set_advance_bookmarks(&test_env, true);

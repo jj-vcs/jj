@@ -19,9 +19,7 @@ use crate::common::TestEnvironment;
 
 fn set_up() -> (TestEnvironment, PathBuf) {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "origin"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "origin"]).success();
     let origin_path = test_env.env_root().join("origin");
     let origin_git_repo_path = origin_path
         .join(".jj")
@@ -44,7 +42,7 @@ fn set_up() -> (TestEnvironment, PathBuf) {
 
     test_env
         .run_jj_in(
-            test_env.env_root(),
+            ".",
             [
                 "git",
                 "clone",
@@ -61,7 +59,7 @@ fn set_up() -> (TestEnvironment, PathBuf) {
 
 fn set_up_remote_at_main(test_env: &TestEnvironment, workspace_root: &Path, remote_name: &str) {
     test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", remote_name])
+        .run_jj_in(".", ["git", "init", remote_name])
         .success();
     let other_path = test_env.env_root().join(remote_name);
     let other_git_repo_path = other_path

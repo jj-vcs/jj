@@ -19,9 +19,7 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_diffedit() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "a\n").unwrap();
@@ -190,9 +188,7 @@ fn test_diffedit() {
 #[test]
 fn test_diffedit_new_file() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "a\n").unwrap();
@@ -264,9 +260,7 @@ fn test_diffedit_new_file() {
 #[test]
 fn test_diffedit_external_tool_conflict_marker_style() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let file_path = repo_path.join("file");
 
@@ -459,9 +453,7 @@ fn test_diffedit_external_tool_conflict_marker_style() {
 #[test]
 fn test_diffedit_3pane() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "a\n").unwrap();
@@ -587,9 +579,7 @@ fn test_diffedit_3pane() {
 #[test]
 fn test_diffedit_merge() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "a\n").unwrap();
@@ -662,9 +652,7 @@ fn test_diffedit_merge() {
 #[test]
 fn test_diffedit_old_restore_interactive_tests() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "a\n").unwrap();
@@ -768,9 +756,7 @@ fn test_diffedit_old_restore_interactive_tests() {
 #[test]
 fn test_diffedit_restore_descendants() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file"), "println!(\"foo\")\n").unwrap();

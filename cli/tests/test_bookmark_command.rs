@@ -45,9 +45,7 @@ fn create_commit_with_refs(
 #[test]
 fn test_bookmark_multiple_names() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let output = test_env.run_jj_in(&repo_path, ["bookmark", "create", "-r@", "foo", "bar"]);
@@ -118,9 +116,7 @@ fn test_bookmark_multiple_names() {
 #[test]
 fn test_bookmark_at_root() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let output = test_env.run_jj_in(&repo_path, ["bookmark", "create", "fred", "-r=root()"]);
@@ -142,9 +138,7 @@ fn test_bookmark_at_root() {
 #[test]
 fn test_bookmark_bad_name() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let output = test_env.run_jj_in(&repo_path, ["bookmark", "create", "-r@", ""]);
@@ -223,9 +217,7 @@ fn test_bookmark_bad_name() {
 #[test]
 fn test_bookmark_move() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // Set up remote
@@ -377,9 +369,7 @@ fn test_bookmark_move() {
 #[test]
 fn test_bookmark_move_matching() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -513,9 +503,7 @@ fn test_bookmark_move_matching() {
 #[test]
 fn test_bookmark_move_conflicting() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let get_log = || {
         let template = r#"separate(" ", description.first_line(), bookmarks)"#;
@@ -601,9 +589,7 @@ fn test_bookmark_move_conflicting() {
 #[test]
 fn test_bookmark_rename() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // Set up remote
@@ -678,7 +664,7 @@ fn test_bookmark_rename() {
 fn test_bookmark_rename_colocated() {
     let test_env = TestEnvironment::default();
     test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo", "--colocate"])
+        .run_jj_in(".", ["git", "init", "repo", "--colocate"])
         .success();
     let repo_path = test_env.env_root().join("repo");
 
@@ -697,9 +683,7 @@ fn test_bookmark_rename_colocated() {
 #[test]
 fn test_bookmark_forget_glob() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -784,9 +768,7 @@ fn test_bookmark_forget_glob() {
 fn test_bookmark_delete_glob() {
     // Set up a git repo with a bookmark and a jj repo that has it as a remote.
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let git_repo_path = test_env.env_root().join("git-repo");
     let git_repo = git::init_bare(git_repo_path);
@@ -916,9 +898,7 @@ fn test_bookmark_delete_glob() {
 #[test]
 fn test_bookmark_delete_export() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env.run_jj_in(&repo_path, ["new"]).success();
@@ -948,9 +928,7 @@ fn test_bookmark_delete_export() {
 #[test]
 fn test_bookmark_forget_export() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env.run_jj_in(&repo_path, ["new"]).success();
@@ -1003,9 +981,7 @@ fn test_bookmark_forget_fetched_bookmark() {
     // Set up a git repo with a bookmark and a jj repo that has it as a remote.
     let test_env = TestEnvironment::default();
     test_env.add_config("git.auto-local-bookmark = true");
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let git_repo_path = test_env.env_root().join("git-repo");
     let git_repo = git::init_bare(git_repo_path);
@@ -1164,9 +1140,7 @@ fn test_bookmark_forget_deleted_or_nonexistent_bookmark() {
     // Set up a git repo with a bookmark and a jj repo that has it as a remote.
     let test_env = TestEnvironment::default();
     test_env.add_config("git.auto-local-bookmark = true");
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let git_repo_path = test_env.env_root().join("git-repo");
     let git_repo = git::init_bare(git_repo_path);
@@ -1223,9 +1197,7 @@ fn test_bookmark_forget_deleted_or_nonexistent_bookmark() {
 #[test]
 fn test_bookmark_track_untrack() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // Set up remote
@@ -1420,9 +1392,7 @@ fn test_bookmark_track_untrack() {
 #[test]
 fn test_bookmark_track_conflict() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let git_repo_path = test_env.env_root().join("git-repo");
@@ -1466,9 +1436,7 @@ fn test_bookmark_track_conflict() {
 #[test]
 fn test_bookmark_track_untrack_patterns() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // Set up remote
@@ -1631,9 +1599,7 @@ fn test_bookmark_list() {
     test_env.add_config("git.auto-local-bookmark = true");
 
     // Initialize remote refs
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "remote"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "remote"]).success();
     let remote_path = test_env.env_root().join("remote");
     for bookmark in [
         "remote-sync",
@@ -1658,7 +1624,7 @@ fn test_bookmark_list() {
     remote_git_path.extend([".jj", "repo", "store", "git"]);
     test_env
         .run_jj_in(
-            test_env.env_root(),
+            ".",
             ["git", "clone", remote_git_path.to_str().unwrap(), "local"],
         )
         .success();
@@ -1841,9 +1807,7 @@ fn test_bookmark_list_filtered() {
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
 
     // Initialize remote refs
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "remote"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "remote"]).success();
     let remote_path = test_env.env_root().join("remote");
     for bookmark in ["remote-keep", "remote-delete", "remote-rewrite"] {
         test_env
@@ -1863,7 +1827,7 @@ fn test_bookmark_list_filtered() {
     remote_git_path.extend([".jj", "repo", "store", "git"]);
     test_env
         .run_jj_in(
-            test_env.env_root(),
+            ".",
             ["git", "clone", remote_git_path.to_str().unwrap(), "local"],
         )
         .success();
@@ -2077,9 +2041,7 @@ fn test_bookmark_list_much_remote_divergence() {
     test_env.add_config("git.auto-local-bookmark = true");
 
     // Initialize remote refs
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "remote"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "remote"]).success();
     let remote_path = test_env.env_root().join("remote");
     test_env
         .run_jj_in(&remote_path, ["new", "root()", "-m", "remote-unsync"])
@@ -2102,7 +2064,7 @@ fn test_bookmark_list_much_remote_divergence() {
     remote_git_path.extend([".jj", "repo", "store", "git"]);
     test_env
         .run_jj_in(
-            test_env.env_root(),
+            ".",
             ["git", "clone", remote_git_path.to_str().unwrap(), "local"],
         )
         .success();
@@ -2148,9 +2110,7 @@ fn test_bookmark_list_tracked() {
     test_env.add_config("git.auto-local-bookmark = true");
 
     // Initialize remote refs
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "remote"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "remote"]).success();
     let remote_path = test_env.env_root().join("remote");
     for bookmark in [
         "remote-sync",
@@ -2175,7 +2135,7 @@ fn test_bookmark_list_tracked() {
     remote_git_path.extend([".jj", "repo", "store", "git"]);
     test_env
         .run_jj_in(
-            test_env.env_root(),
+            ".",
             [
                 "git",
                 "clone",
@@ -2187,7 +2147,7 @@ fn test_bookmark_list_tracked() {
         .success();
 
     test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "upstream"])
+        .run_jj_in(".", ["git", "init", "upstream"])
         .success();
 
     // Initialize a second remote
@@ -2368,9 +2328,7 @@ fn test_bookmark_list_tracked() {
 #[test]
 fn test_bookmark_list_conflicted() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // Track existing bookmark. Local bookmark should result in conflict.
@@ -2421,9 +2379,7 @@ fn test_bookmark_list_conflicted() {
 #[test]
 fn test_bookmark_create_with_default_target_revision() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let output = test_env.run_jj_in(&repo_path, ["bookmark", "create", "foo"]);
@@ -2438,9 +2394,7 @@ fn test_bookmark_create_with_default_target_revision() {
 #[test]
 fn test_bookmark_set_with_default_target_revision() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let output = test_env.run_jj_in(&repo_path, ["bookmark", "set", "foo"]);
@@ -2455,9 +2409,7 @@ fn test_bookmark_set_with_default_target_revision() {
 #[test]
 fn test_bookmark_move_with_default_target_revision() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // Set up remote

@@ -23,9 +23,7 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_workspaces_add_second_workspace() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "main"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_path = test_env.env_root().join("main");
     let secondary_path = test_env.env_root().join("secondary");
 
@@ -85,9 +83,7 @@ fn test_workspaces_add_second_workspace() {
 #[test]
 fn test_workspaces_sparse_patterns() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "ws1"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "ws1"]).success();
     let ws1_path = test_env.env_root().join("ws1");
     let ws2_path = test_env.env_root().join("ws2");
     let ws3_path = test_env.env_root().join("ws3");
@@ -157,9 +153,7 @@ fn test_workspaces_sparse_patterns() {
 #[test]
 fn test_workspaces_add_second_workspace_on_merge() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "main"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_path = test_env.env_root().join("main");
 
     test_env
@@ -203,9 +197,7 @@ fn test_workspaces_add_second_workspace_on_merge() {
 #[test]
 fn test_workspaces_add_ignore_working_copy() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "main"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_path = test_env.env_root().join("main");
 
     // TODO: maybe better to error out early?
@@ -227,9 +219,7 @@ fn test_workspaces_add_ignore_working_copy() {
 #[test]
 fn test_workspaces_add_at_operation() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "main"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_path = test_env.env_root().join("main");
 
     std::fs::write(main_path.join("file1"), "").unwrap();
@@ -303,9 +293,7 @@ fn test_workspaces_add_at_operation() {
 #[test]
 fn test_workspaces_add_workspace_at_revision() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "main"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_path = test_env.env_root().join("main");
     let secondary_path = test_env.env_root().join("secondary");
 
@@ -373,9 +361,7 @@ fn test_workspaces_add_workspace_at_revision() {
 #[test]
 fn test_workspaces_add_workspace_multiple_revisions() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "main"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_path = test_env.env_root().join("main");
 
     std::fs::write(main_path.join("file-1"), "contents").unwrap();
@@ -455,9 +441,7 @@ fn test_workspaces_add_workspace_multiple_revisions() {
 #[test]
 fn test_workspaces_add_workspace_from_subdir() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "main"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_path = test_env.env_root().join("main");
     let subdir_path = main_path.join("subdir");
     let secondary_path = test_env.env_root().join("secondary");
@@ -497,9 +481,7 @@ fn test_workspaces_add_workspace_from_subdir() {
 #[test]
 fn test_workspaces_add_workspace_in_current_workspace() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "main"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_path = test_env.env_root().join("main");
 
     std::fs::write(main_path.join("file"), "contents").unwrap();
@@ -563,9 +545,7 @@ fn test_workspaces_add_workspace_in_current_workspace() {
 #[test]
 fn test_workspaces_conflicting_edits() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "main"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_path = test_env.env_root().join("main");
     let secondary_path = test_env.env_root().join("secondary");
 
@@ -668,9 +648,7 @@ fn test_workspaces_conflicting_edits() {
 #[test]
 fn test_workspaces_updated_by_other() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "main"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_path = test_env.env_root().join("main");
     let secondary_path = test_env.env_root().join("secondary");
 
@@ -746,9 +724,7 @@ fn test_workspaces_updated_by_other_automatic() {
     let test_env = TestEnvironment::default();
     test_env.add_config("[snapshot]\nauto-update-stale = true\n");
 
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "main"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_path = test_env.env_root().join("main");
     let secondary_path = test_env.env_root().join("secondary");
 
@@ -824,10 +800,7 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
 
     // Use the local backend because GitBackend::gc() depends on the git CLI.
     test_env
-        .run_jj_in(
-            test_env.env_root(),
-            ["init", "main", "--config=ui.allow-init-native=true"],
-        )
+        .run_jj_in(".", ["init", "main", "--config=ui.allow-init-native=true"])
         .success();
     let main_path = test_env.env_root().join("main");
     let secondary_path = test_env.env_root().join("secondary");
@@ -1002,9 +975,7 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
 #[test]
 fn test_workspaces_update_stale_noop() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "main"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_path = test_env.env_root().join("main");
 
     let output = test_env.run_jj_in(&main_path, ["workspace", "update-stale"]);
@@ -1038,9 +1009,7 @@ fn test_workspaces_update_stale_noop() {
 #[test]
 fn test_workspaces_update_stale_snapshot() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "main"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_path = test_env.env_root().join("main");
     let secondary_path = test_env.env_root().join("secondary");
 
@@ -1079,9 +1048,7 @@ fn test_workspaces_update_stale_snapshot() {
 #[test]
 fn test_workspaces_forget() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "main"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_path = test_env.env_root().join("main");
 
     std::fs::write(main_path.join("file"), "contents").unwrap();
@@ -1152,9 +1119,7 @@ fn test_workspaces_forget() {
 #[test]
 fn test_workspaces_forget_multi_transaction() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "main"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_path = test_env.env_root().join("main");
 
     std::fs::write(main_path.join("file"), "contents").unwrap();
@@ -1211,9 +1176,7 @@ fn test_workspaces_forget_multi_transaction() {
 #[test]
 fn test_workspaces_forget_abandon_commits() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "main"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_path = test_env.env_root().join("main");
 
     std::fs::write(main_path.join("file"), "contents").unwrap();
@@ -1294,9 +1257,7 @@ fn test_workspaces_forget_abandon_commits() {
 #[test]
 fn test_list_workspaces_template() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "main"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
     test_env.add_config(
         r#"
         templates.commit_summary = """commit_id.short() ++ " " ++ description.first_line() ++
@@ -1337,9 +1298,7 @@ fn test_list_workspaces_template() {
 #[test]
 fn test_workspaces_root() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "main"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_path = test_env.env_root().join("main");
     let secondary_path = test_env.env_root().join("secondary");
 
@@ -1379,9 +1338,7 @@ fn test_workspaces_root() {
 #[test]
 fn test_debug_snapshot() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file"), "contents").unwrap();
@@ -1419,9 +1376,7 @@ fn test_debug_snapshot() {
 #[test]
 fn test_workspaces_rename_nothing_changed() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "main"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_path = test_env.env_root().join("main");
     let output = test_env.run_jj_in(&main_path, ["workspace", "rename", "default"]);
     insta::assert_snapshot!(output, @r"
@@ -1434,9 +1389,7 @@ fn test_workspaces_rename_nothing_changed() {
 #[test]
 fn test_workspaces_rename_new_workspace_name_already_used() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "main"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_path = test_env.env_root().join("main");
     test_env
         .run_jj_in(
@@ -1457,9 +1410,7 @@ fn test_workspaces_rename_new_workspace_name_already_used() {
 #[test]
 fn test_workspaces_rename_forgotten_workspace() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "main"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_path = test_env.env_root().join("main");
     test_env
         .run_jj_in(
@@ -1483,9 +1434,7 @@ fn test_workspaces_rename_forgotten_workspace() {
 #[test]
 fn test_workspaces_rename_workspace() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "main"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_path = test_env.env_root().join("main");
     test_env
         .run_jj_in(

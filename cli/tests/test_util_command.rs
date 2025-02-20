@@ -19,7 +19,7 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_util_config_schema() {
     let test_env = TestEnvironment::default();
-    let output = test_env.run_jj_in(test_env.env_root(), ["util", "config-schema"]);
+    let output = test_env.run_jj_in(".", ["util", "config-schema"]);
     // Validate partial snapshot, redacting any lines nested 2+ indent levels.
     insta::with_settings!({filters => vec![(r"(?m)(^        .*$\r?\n)+", "        [...]\n")]}, {
         assert_snapshot!(output, @r#"
@@ -43,10 +43,7 @@ fn test_gc_args() {
     let test_env = TestEnvironment::default();
     // Use the local backend because GitBackend::gc() depends on the git CLI.
     test_env
-        .run_jj_in(
-            test_env.env_root(),
-            ["init", "repo", "--config=ui.allow-init-native=true"],
-        )
+        .run_jj_in(".", ["init", "repo", "--config=ui.allow-init-native=true"])
         .success();
     let repo_path = test_env.env_root().join("repo");
 
@@ -75,10 +72,7 @@ fn test_gc_operation_log() {
     let test_env = TestEnvironment::default();
     // Use the local backend because GitBackend::gc() depends on the git CLI.
     test_env
-        .run_jj_in(
-            test_env.env_root(),
-            ["init", "repo", "--config=ui.allow-init-native=true"],
-        )
+        .run_jj_in(".", ["init", "repo", "--config=ui.allow-init-native=true"])
         .success();
     let repo_path = test_env.env_root().join("repo");
 
@@ -125,7 +119,7 @@ fn test_shell_completions() {
         let test_env = TestEnvironment::default();
         // Use the local backend because GitBackend::gc() depends on the git CLI.
         let output = test_env
-            .run_jj_in(test_env.env_root(), ["util", "completion", shell])
+            .run_jj_in(".", ["util", "completion", shell])
             .success();
         // Ensures only stdout contains text
         assert!(
@@ -145,7 +139,7 @@ fn test_util_exec() {
     let test_env = TestEnvironment::default();
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     let output = test_env.run_jj_in(
-        test_env.env_root(),
+        ".",
         [
             "util",
             "exec",
@@ -162,10 +156,7 @@ fn test_util_exec() {
 #[test]
 fn test_util_exec_fail() {
     let test_env = TestEnvironment::default();
-    let output = test_env.run_jj_in(
-        test_env.env_root(),
-        ["util", "exec", "--", "jj-test-missing-program"],
-    );
+    let output = test_env.run_jj_in(".", ["util", "exec", "--", "jj-test-missing-program"]);
     insta::assert_snapshot!(output.strip_stderr_last_line(), @r"
     ------- stderr -------
     Error: Failed to execute external command 'jj-test-missing-program'

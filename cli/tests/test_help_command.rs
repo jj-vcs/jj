@@ -18,27 +18,25 @@ use crate::common::TestEnvironment;
 fn test_help() {
     let test_env = TestEnvironment::default();
 
-    let help_cmd = test_env.run_jj_in(test_env.env_root(), ["help"]).success();
+    let help_cmd = test_env.run_jj_in(".", ["help"]).success();
     // The help command output should be equal to the long --help flag
-    let help_flag = test_env.run_jj_in(test_env.env_root(), ["--help"]);
+    let help_flag = test_env.run_jj_in(".", ["--help"]);
     assert_eq!(help_cmd, help_flag);
 
     // Help command should work with commands
-    let help_cmd = test_env
-        .run_jj_in(test_env.env_root(), ["help", "log"])
-        .success();
-    let help_flag = test_env.run_jj_in(test_env.env_root(), ["log", "--help"]);
+    let help_cmd = test_env.run_jj_in(".", ["help", "log"]).success();
+    let help_flag = test_env.run_jj_in(".", ["log", "--help"]);
     assert_eq!(help_cmd, help_flag);
 
     // Help command should work with subcommands
     let help_cmd = test_env
-        .run_jj_in(test_env.env_root(), ["help", "workspace", "root"])
+        .run_jj_in(".", ["help", "workspace", "root"])
         .success();
-    let help_flag = test_env.run_jj_in(test_env.env_root(), ["workspace", "root", "--help"]);
+    let help_flag = test_env.run_jj_in(".", ["workspace", "root", "--help"]);
     assert_eq!(help_cmd, help_flag);
 
     // Help command should not work recursively
-    let output = test_env.run_jj_in(test_env.env_root(), ["workspace", "help", "root"]);
+    let output = test_env.run_jj_in(".", ["workspace", "help", "root"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: unrecognized subcommand 'help'
@@ -50,7 +48,7 @@ fn test_help() {
     [exit status: 2]
     ");
 
-    let output = test_env.run_jj_in(test_env.env_root(), ["workspace", "add", "help"]);
+    let output = test_env.run_jj_in(".", ["workspace", "add", "help"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: There is no jj repo in "."
@@ -58,7 +56,7 @@ fn test_help() {
     [exit status: 1]
     "#);
 
-    let output = test_env.run_jj_in(test_env.env_root(), ["new", "help", "main"]);
+    let output = test_env.run_jj_in(".", ["new", "help", "main"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: There is no jj repo in "."
@@ -67,19 +65,17 @@ fn test_help() {
     "#);
 
     // Help command should output the same as --help for nonexistent commands
-    let help_cmd = test_env.run_jj_in(test_env.env_root(), ["help", "nonexistent"]);
-    let help_flag = test_env.run_jj_in(test_env.env_root(), ["nonexistent", "--help"]);
+    let help_cmd = test_env.run_jj_in(".", ["help", "nonexistent"]);
+    let help_flag = test_env.run_jj_in(".", ["nonexistent", "--help"]);
     assert_eq!(help_cmd.status.code(), Some(2), "{help_cmd}");
     assert_eq!(help_cmd, help_flag);
 
     // Some edge cases
-    let help_cmd = test_env
-        .run_jj_in(test_env.env_root(), ["help", "help"])
-        .success();
-    let help_flag = test_env.run_jj_in(test_env.env_root(), ["help", "--help"]);
+    let help_cmd = test_env.run_jj_in(".", ["help", "help"]).success();
+    let help_flag = test_env.run_jj_in(".", ["help", "--help"]);
     assert_eq!(help_cmd, help_flag);
 
-    let output = test_env.run_jj_in(test_env.env_root(), ["help", "unknown"]);
+    let output = test_env.run_jj_in(".", ["help", "unknown"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: unrecognized subcommand 'unknown'
@@ -93,7 +89,7 @@ fn test_help() {
     [exit status: 2]
     ");
 
-    let output = test_env.run_jj_in(test_env.env_root(), ["help", "log", "--", "-r"]);
+    let output = test_env.run_jj_in(".", ["help", "log", "--", "-r"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: a value is required for '--revisions <REVSETS>' but none was supplied
@@ -110,20 +106,18 @@ fn test_help_keyword() {
 
     // It should show help for a certain keyword if the `--keyword` flag is present
     let help_cmd = test_env
-        .run_jj_in(test_env.env_root(), ["help", "--keyword", "revsets"])
+        .run_jj_in(".", ["help", "--keyword", "revsets"])
         .success();
     // It should be equal to the docs
     assert_eq!(help_cmd.stdout.raw(), include_str!("../../docs/revsets.md"));
 
     // It should show help for a certain keyword if the `-k` flag is present
-    let help_cmd = test_env
-        .run_jj_in(test_env.env_root(), ["help", "-k", "revsets"])
-        .success();
+    let help_cmd = test_env.run_jj_in(".", ["help", "-k", "revsets"]).success();
     // It should be equal to the docs
     assert_eq!(help_cmd.stdout.raw(), include_str!("../../docs/revsets.md"));
 
     // It should give hints if a similar keyword is present
-    let output = test_env.run_jj_in(test_env.env_root(), ["help", "-k", "rev"]);
+    let output = test_env.run_jj_in(".", ["help", "-k", "rev"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: invalid value 'rev' for '--keyword <KEYWORD>'
@@ -137,7 +131,7 @@ fn test_help_keyword() {
     ");
 
     // It should give error with a hint if no similar keyword is found
-    let output = test_env.run_jj_in(test_env.env_root(), ["help", "-k", "<no-similar-keyword>"]);
+    let output = test_env.run_jj_in(".", ["help", "-k", "<no-similar-keyword>"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: invalid value '<no-similar-keyword>' for '--keyword <KEYWORD>'
@@ -149,7 +143,7 @@ fn test_help_keyword() {
     ");
 
     // The keyword flag with no argument should error with a hint
-    let output = test_env.run_jj_in(test_env.env_root(), ["help", "-k"]);
+    let output = test_env.run_jj_in(".", ["help", "-k"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: a value is required for '--keyword <KEYWORD>' but none was supplied
@@ -162,7 +156,7 @@ fn test_help_keyword() {
 
     // It shouldn't show help for a certain keyword if the `--keyword` is not
     // present
-    let output = test_env.run_jj_in(test_env.env_root(), ["help", "revsets"]);
+    let output = test_env.run_jj_in(".", ["help", "revsets"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: unrecognized subcommand 'revsets'

@@ -19,9 +19,7 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_show() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let output = test_env.run_jj_in(&repo_path, ["show"]);
@@ -40,9 +38,7 @@ fn test_show() {
 #[test]
 fn test_show_basic() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "foo\n").unwrap();
@@ -247,9 +243,7 @@ fn test_show_basic() {
 #[test]
 fn test_show_with_template() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     test_env
         .run_jj_in(&repo_path, ["new", "-m", "a new commit"])
@@ -266,9 +260,7 @@ fn test_show_with_template() {
 #[test]
 fn test_show_with_no_template() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let output = test_env.run_jj_in(&repo_path, ["show", "-T"]);
@@ -302,9 +294,7 @@ fn test_show_with_no_template() {
 #[test]
 fn test_show_relative_timestamps() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env.add_config(

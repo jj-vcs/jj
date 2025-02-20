@@ -78,11 +78,12 @@ impl Default for TestEnvironment {
 impl TestEnvironment {
     /// Runs `jj args..` in the `current_dir`, returns the output.
     #[must_use = "either snapshot the output or assert the exit status with .success()"]
-    pub fn run_jj_in<I>(&self, current_dir: &Path, args: I) -> CommandOutput
+    pub fn run_jj_in<I>(&self, current_dir: impl AsRef<Path>, args: I) -> CommandOutput
     where
         I: IntoIterator,
         I::Item: AsRef<OsStr>,
     {
+        let current_dir = self.env_root.join(current_dir);
         self.run_jj_with(|cmd| cmd.current_dir(current_dir).args(args))
     }
 

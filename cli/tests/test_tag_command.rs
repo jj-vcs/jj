@@ -19,9 +19,7 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_tag_list() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let git_repo = {
         let mut git_repo_path = repo_path.clone();

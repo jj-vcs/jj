@@ -53,9 +53,7 @@ fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput
 #[test]
 fn test_resolution() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
@@ -608,9 +606,7 @@ fn check_resolve_produces_input_file(
 #[test]
 fn test_normal_conflict_input_files() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
@@ -653,9 +649,7 @@ fn test_normal_conflict_input_files() {
 #[test]
 fn test_baseless_conflict_input_files() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "base", &[], &[]);
@@ -697,9 +691,7 @@ fn test_baseless_conflict_input_files() {
 #[test]
 fn test_too_many_parents() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
@@ -733,9 +725,7 @@ fn test_too_many_parents() {
 #[test]
 fn test_simplify_conflict_sides() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // Creates a 4-sided conflict, with fileA and fileB having different conflicts:
@@ -869,9 +859,7 @@ fn test_simplify_conflict_sides() {
 #[test]
 fn test_edit_delete_conflict_input_files() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
@@ -914,9 +902,7 @@ fn test_edit_delete_conflict_input_files() {
 #[test]
 fn test_file_vs_dir() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
@@ -962,9 +948,7 @@ fn test_file_vs_dir() {
 #[test]
 fn test_description_with_dir_and_deletion() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
@@ -1027,9 +1011,7 @@ fn test_description_with_dir_and_deletion() {
 #[test]
 fn test_resolve_conflicts_with_executable() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // Create a conflict in "file1" where all 3 terms are executables, and create a
@@ -1191,9 +1173,7 @@ fn test_resolve_conflicts_with_executable() {
 #[test]
 fn test_resolve_long_conflict_markers() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // Makes it easier to read the diffs between conflicts
@@ -1470,9 +1450,7 @@ fn test_resolve_long_conflict_markers() {
 #[test]
 fn test_multiple_conflicts() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(
@@ -1679,9 +1657,7 @@ fn test_multiple_conflicts() {
 #[test]
 fn test_multiple_conflicts_with_error() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // Create two conflicted files, and one non-conflicted file

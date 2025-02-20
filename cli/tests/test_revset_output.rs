@@ -17,9 +17,7 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_syntax_error() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let output = test_env.run_jj_in(&repo_path, ["log", "-r", ":x"]);
@@ -86,9 +84,7 @@ fn test_syntax_error() {
 #[test]
 fn test_bad_function_call() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let output = test_env.run_jj_in(&repo_path, ["log", "-r", "all(or::nothing)"]);
@@ -357,9 +353,7 @@ fn test_bad_function_call() {
 #[test]
 fn test_parse_warning() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let output = test_env.run_jj_in(
@@ -421,9 +415,7 @@ fn test_parse_warning() {
 #[test]
 fn test_function_name_hint() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let evaluate = |expr| test_env.run_jj_in(&repo_path, ["log", "-r", expr]);
 
@@ -492,9 +484,7 @@ fn test_function_name_hint() {
 #[test]
 fn test_alias() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env.add_config(
@@ -660,9 +650,7 @@ fn test_alias() {
 #[test]
 fn test_alias_override() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env.add_config(
@@ -689,9 +677,7 @@ fn test_alias_override() {
 #[test]
 fn test_bad_alias_decl() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env.add_config(
@@ -728,9 +714,7 @@ fn test_bad_alias_decl() {
 #[test]
 fn test_all_modifier() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // Command that accepts single revision by default
@@ -866,9 +850,7 @@ fn test_revset_committer_date_with_time_zone() {
     const AUSTRALIA: &str = "AEST-10";
     let mut test_env = TestEnvironment::default();
     test_env.add_env_var("TZ", NEW_YORK);
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env

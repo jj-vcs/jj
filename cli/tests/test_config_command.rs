@@ -31,17 +31,14 @@ fn test_config_list_single() {
     "#,
     );
 
-    let output = test_env.run_jj_in(
-        test_env.env_root(),
-        ["config", "list", "test-table.somekey"],
-    );
+    let output = test_env.run_jj_in(".", ["config", "list", "test-table.somekey"]);
     insta::assert_snapshot!(output, @r#"
     test-table.somekey = "some value"
     [EOF]
     "#);
 
     let output = test_env.run_jj_in(
-        test_env.env_root(),
+        ".",
         ["config", "list", r#"-Tname ++ "\n""#, "test-table.somekey"],
     );
     insta::assert_snapshot!(output, @r"
@@ -53,10 +50,7 @@ fn test_config_list_single() {
 #[test]
 fn test_config_list_nonexistent() {
     let test_env = TestEnvironment::default();
-    let output = test_env.run_jj_in(
-        test_env.env_root(),
-        ["config", "list", "nonexistent-test-key"],
-    );
+    let output = test_env.run_jj_in(".", ["config", "list", "nonexistent-test-key"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: No matching config key for nonexistent-test-key
@@ -76,7 +70,7 @@ fn test_config_list_table() {
     "z"."with space"."function()" = 5
     "#,
     );
-    let output = test_env.run_jj_in(test_env.env_root(), ["config", "list", "test-table"]);
+    let output = test_env.run_jj_in(".", ["config", "list", "test-table"]);
     insta::assert_snapshot!(output, @r#"
     test-table.x = true
     test-table.y.foo = "abc"
@@ -95,14 +89,14 @@ fn test_config_list_inline_table() {
     "#,
     );
     // Inline tables are expanded
-    let output = test_env.run_jj_in(test_env.env_root(), ["config", "list", "test-table"]);
+    let output = test_env.run_jj_in(".", ["config", "list", "test-table"]);
     insta::assert_snapshot!(output, @r"
     test-table.x = true
     test-table.y = 1
     [EOF]
     ");
     // Inner value can also be addressed by a dotted name path
-    let output = test_env.run_jj_in(test_env.env_root(), ["config", "list", "test-table.x"]);
+    let output = test_env.run_jj_in(".", ["config", "list", "test-table.x"]);
     insta::assert_snapshot!(output, @r"
     test-table.x = true
     [EOF]
@@ -117,7 +111,7 @@ fn test_config_list_array() {
     test-array = [1, "b", 3.4]
     "#,
     );
-    let output = test_env.run_jj_in(test_env.env_root(), ["config", "list", "test-array"]);
+    let output = test_env.run_jj_in(".", ["config", "list", "test-array"]);
     insta::assert_snapshot!(output, @r#"
     test-array = [1, "b", 3.4]
     [EOF]
@@ -137,7 +131,7 @@ fn test_config_list_array_of_tables() {
     "#,
     );
     // Array is a value, so is array of tables
-    let output = test_env.run_jj_in(test_env.env_root(), ["config", "list", "test-table"]);
+    let output = test_env.run_jj_in(".", ["config", "list", "test-table"]);
     insta::assert_snapshot!(output, @r#"
     test-table = [{ x = 1 }, { y = ["z"], z = { "key=with whitespace" = [] } }]
     [EOF]
@@ -157,7 +151,7 @@ fn test_config_list_all() {
     "#,
     );
 
-    let output = test_env.run_jj_in(test_env.env_root(), ["config", "list"]);
+    let output = test_env.run_jj_in(".", ["config", "list"]);
     insta::assert_snapshot!(
         output.normalize_stdout_with(|s| find_stdout_lines(r"(test-val|test-table\b[^=]*)", &s)), @r#"
     test-val = [1, 2, 3]
@@ -180,7 +174,7 @@ bar
     "#,
     );
 
-    let output = test_env.run_jj_in(test_env.env_root(), ["config", "list", "multiline"]);
+    let output = test_env.run_jj_in(".", ["config", "list", "multiline"]);
     insta::assert_snapshot!(output, @r"
     multiline = '''
     foo
@@ -190,7 +184,7 @@ bar
     ");
 
     let output = test_env.run_jj_in(
-        test_env.env_root(),
+        ".",
         [
             "config",
             "list",
@@ -212,9 +206,7 @@ bar
 #[test]
 fn test_config_list_layer() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     // Test with fresh new config file
     let user_config_path = test_env.config_path().join("config.toml");
     test_env.set_config_path(&user_config_path);
@@ -278,9 +270,7 @@ fn test_config_list_layer() {
 #[test]
 fn test_config_layer_override_default() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let config_key = "merge-tools.vimdiff.program";
 
@@ -372,9 +362,7 @@ fn test_config_layer_override_default() {
 #[test]
 fn test_config_layer_override_env() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let config_key = "ui.editor";
 
@@ -458,9 +446,7 @@ fn test_config_layer_override_env() {
 #[test]
 fn test_config_layer_workspace() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "main"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_path = test_env.env_root().join("main");
     let secondary_path = test_env.env_root().join("secondary");
     let config_key = "ui.editor";
@@ -498,7 +484,7 @@ fn test_config_layer_workspace() {
 #[test]
 fn test_config_set_bad_opts() {
     let test_env = TestEnvironment::default();
-    let output = test_env.run_jj_in(test_env.env_root(), ["config", "set"]);
+    let output = test_env.run_jj_in(".", ["config", "set"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: the following required arguments were not provided:
@@ -513,7 +499,7 @@ fn test_config_set_bad_opts() {
     [exit status: 2]
     ");
 
-    let output = test_env.run_jj_in(test_env.env_root(), ["config", "set", "--user", "", "x"]);
+    let output = test_env.run_jj_in(".", ["config", "set", "--user", "", "x"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: invalid value '' for '<NAME>': TOML parse error at line 1, column 1
@@ -528,10 +514,7 @@ fn test_config_set_bad_opts() {
     [exit status: 2]
     ");
 
-    let output = test_env.run_jj_in(
-        test_env.env_root(),
-        ["config", "set", "--user", "x", "['typo'}"],
-    );
+    let output = test_env.run_jj_in(".", ["config", "set", "--user", "x", "['typo'}"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: invalid value '['typo'}' for '<VALUE>': TOML parse error at line 1, column 8
@@ -551,9 +534,7 @@ fn test_config_set_bad_opts() {
 #[test]
 fn test_config_set_for_user() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     // Test with fresh new config file
     let user_config_path = test_env.config_path().join("config.toml");
     test_env.set_config_path(&user_config_path);
@@ -595,10 +576,7 @@ fn test_config_set_for_user_directory() {
     let test_env = TestEnvironment::default();
 
     test_env
-        .run_jj_in(
-            test_env.env_root(),
-            ["config", "set", "--user", "test-key", "test-val"],
-        )
+        .run_jj_in(".", ["config", "set", "--user", "test-key", "test-val"])
         .success();
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.last_config_file_path()).unwrap(),
@@ -611,10 +589,7 @@ fn test_config_set_for_user_directory() {
 
     // Add one more config file to the directory
     test_env.add_config("");
-    let output = test_env.run_jj_in(
-        test_env.env_root(),
-        ["config", "set", "--user", "test-key", "test-val"],
-    );
+    let output = test_env.run_jj_in(".", ["config", "set", "--user", "test-key", "test-val"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Cannot determine config file to edit:
@@ -628,9 +603,7 @@ fn test_config_set_for_user_directory() {
 #[test]
 fn test_config_set_for_repo() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     test_env
         .run_jj_in(
@@ -664,9 +637,7 @@ fn test_config_set_for_repo() {
 #[test]
 fn test_config_set_toml_types() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     // Test with fresh new config file
     let user_config_path = test_env.config_path().join("config.toml");
     test_env.set_config_path(&user_config_path);
@@ -697,9 +668,7 @@ fn test_config_set_toml_types() {
 #[test]
 fn test_config_set_type_mismatch() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -750,9 +719,7 @@ fn test_config_set_type_mismatch() {
 #[test]
 fn test_config_set_nontable_parent() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -777,9 +744,7 @@ fn test_config_set_nontable_parent() {
 #[test]
 fn test_config_unset_non_existent_key() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let output = test_env.run_jj_in(&repo_path, ["config", "unset", "--user", "nonexistent"]);
@@ -797,9 +762,7 @@ fn test_config_unset_inline_table_key() {
     // Test with fresh new config file
     let user_config_path = test_env.config_path().join("config.toml");
     test_env.set_config_path(&user_config_path);
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -837,16 +800,10 @@ fn test_config_unset_table_like() {
 
     // Inline table is syntactically a "value", so it can be deleted.
     test_env
-        .run_jj_in(
-            test_env.env_root(),
-            ["config", "unset", "--user", "inline-table"],
-        )
+        .run_jj_in(".", ["config", "unset", "--user", "inline-table"])
         .success();
     // Non-inline table cannot be deleted.
-    let output = test_env.run_jj_in(
-        test_env.env_root(),
-        ["config", "unset", "--user", "non-inline-table"],
-    );
+    let output = test_env.run_jj_in(".", ["config", "unset", "--user", "non-inline-table"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Failed to unset non-inline-table
@@ -865,9 +822,7 @@ fn test_config_unset_table_like() {
 #[test]
 fn test_config_unset_for_user() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     // Test with fresh new config file
     let user_config_path = test_env.config_path().join("config.toml");
     test_env.set_config_path(&user_config_path);
@@ -906,9 +861,7 @@ fn test_config_unset_for_user() {
 #[test]
 fn test_config_unset_for_repo() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -929,7 +882,7 @@ fn test_config_unset_for_repo() {
 #[test]
 fn test_config_edit_missing_opt() {
     let test_env = TestEnvironment::default();
-    let output = test_env.run_jj_in(test_env.env_root(), ["config", "edit"]);
+    let output = test_env.run_jj_in(".", ["config", "edit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: the following required arguments were not provided:
@@ -946,9 +899,7 @@ fn test_config_edit_missing_opt() {
 #[test]
 fn test_config_edit_user() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     // Remove one of the config file to disambiguate
     std::fs::remove_file(test_env.last_config_file_path()).unwrap();
@@ -977,7 +928,7 @@ fn test_config_edit_user_new_file() {
     assert!(!user_config_path.exists());
 
     test_env
-        .run_jj_in(test_env.env_root(), ["config", "edit", "--user"])
+        .run_jj_in(".", ["config", "edit", "--user"])
         .success();
     assert!(
         user_config_path.exists(),
@@ -988,9 +939,7 @@ fn test_config_edit_user_new_file() {
 #[test]
 fn test_config_edit_repo() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let repo_config_path = repo_path.join(PathBuf::from_iter([".jj", "repo", "config.toml"]));
     let edit_script = test_env.set_up_fake_editor();
@@ -1010,9 +959,7 @@ fn test_config_edit_repo() {
 #[test]
 fn test_config_path() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let user_config_path = test_env.env_root().join("config.toml");
@@ -1039,8 +986,7 @@ fn test_config_path() {
         "jj config path shouldn't create new file"
     );
 
-    insta::assert_snapshot!(
-        test_env.run_jj_in(test_env.env_root(), ["config", "path", "--repo"]), @r"
+    insta::assert_snapshot!(test_env.run_jj_in(".", ["config", "path", "--repo"]), @r"
     ------- stderr -------
     Error: No repo config path found
     [EOF]
@@ -1051,7 +997,7 @@ fn test_config_path() {
 #[test]
 fn test_config_edit_repo_outside_repo() {
     let test_env = TestEnvironment::default();
-    let output = test_env.run_jj_in(test_env.env_root(), ["config", "edit", "--repo"]);
+    let output = test_env.run_jj_in(".", ["config", "edit", "--repo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: No repo config path found to edit
@@ -1079,7 +1025,7 @@ fn test_config_get() {
     "#,
     );
 
-    let output = test_env.run_jj_in(test_env.env_root(), ["config", "get", "nonexistent"]);
+    let output = test_env.run_jj_in(".", ["config", "get", "nonexistent"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Config error: Value not found for nonexistent
@@ -1088,19 +1034,19 @@ fn test_config_get() {
     [exit status: 1]
     ");
 
-    let output = test_env.run_jj_in(test_env.env_root(), ["config", "get", "table.string"]);
+    let output = test_env.run_jj_in(".", ["config", "get", "table.string"]);
     insta::assert_snapshot!(output, @r"
     some value 1
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(test_env.env_root(), ["config", "get", "table.int"]);
+    let output = test_env.run_jj_in(".", ["config", "get", "table.int"]);
     insta::assert_snapshot!(output, @r"
     123
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(test_env.env_root(), ["config", "get", "table.list"]);
+    let output = test_env.run_jj_in(".", ["config", "get", "table.list"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Config error: Invalid type or value for table.list
@@ -1111,7 +1057,7 @@ fn test_config_get() {
     [exit status: 1]
     ");
 
-    let output = test_env.run_jj_in(test_env.env_root(), ["config", "get", "table"]);
+    let output = test_env.run_jj_in(".", ["config", "get", "table"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Config error: Invalid type or value for table
@@ -1122,7 +1068,7 @@ fn test_config_get() {
     [exit status: 1]
     ");
 
-    let output = test_env.run_jj_in(test_env.env_root(), ["config", "get", "table.overridden"]);
+    let output = test_env.run_jj_in(".", ["config", "get", "table.overridden"]);
     insta::assert_snapshot!(output, @r"
     bar
     [EOF]
@@ -1143,41 +1089,41 @@ fn test_config_path_syntax() {
     "#,
     );
 
-    let output = test_env.run_jj_in(test_env.env_root(), ["config", "list", "a.'b()'"]);
+    let output = test_env.run_jj_in(".", ["config", "list", "a.'b()'"]);
     insta::assert_snapshot!(output, @r"
     a.'b()' = 0
     [EOF]
     ");
-    let output = test_env.run_jj_in(test_env.env_root(), ["config", "list", "'b c'"]);
+    let output = test_env.run_jj_in(".", ["config", "list", "'b c'"]);
     insta::assert_snapshot!(output, @r#"
     'b c'.d = 1
     'b c'.e."f[]" = 2
     [EOF]
     "#);
-    let output = test_env.run_jj_in(test_env.env_root(), ["config", "list", "'b c'.d"]);
+    let output = test_env.run_jj_in(".", ["config", "list", "'b c'.d"]);
     insta::assert_snapshot!(output, @r"
     'b c'.d = 1
     [EOF]
     ");
-    let output = test_env.run_jj_in(test_env.env_root(), ["config", "list", "'b c'.e.'f[]'"]);
+    let output = test_env.run_jj_in(".", ["config", "list", "'b c'.e.'f[]'"]);
     insta::assert_snapshot!(output, @r"
     'b c'.e.'f[]' = 2
     [EOF]
     ");
-    let output = test_env.run_jj_in(test_env.env_root(), ["config", "get", "'b c'.e.'f[]'"]);
+    let output = test_env.run_jj_in(".", ["config", "get", "'b c'.e.'f[]'"]);
     insta::assert_snapshot!(output, @r"
     2
     [EOF]
     ");
 
     // Not a table
-    let output = test_env.run_jj_in(test_env.env_root(), ["config", "list", "a.'b()'.x"]);
+    let output = test_env.run_jj_in(".", ["config", "list", "a.'b()'.x"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: No matching config key for a.'b()'.x
     [EOF]
     ");
-    let output = test_env.run_jj_in(test_env.env_root(), ["config", "get", "a.'b()'.x"]);
+    let output = test_env.run_jj_in(".", ["config", "get", "a.'b()'.x"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Config error: Value not found for a.'b()'.x
@@ -1187,29 +1133,29 @@ fn test_config_path_syntax() {
     ");
 
     // "-" and "_" are valid TOML keys
-    let output = test_env.run_jj_in(test_env.env_root(), ["config", "list", "-"]);
+    let output = test_env.run_jj_in(".", ["config", "list", "-"]);
     insta::assert_snapshot!(output, @r"
     - = 3
     [EOF]
     ");
-    let output = test_env.run_jj_in(test_env.env_root(), ["config", "list", "_"]);
+    let output = test_env.run_jj_in(".", ["config", "list", "_"]);
     insta::assert_snapshot!(output, @r"
     _ = 4
     [EOF]
     ");
 
     // "." requires quoting
-    let output = test_env.run_jj_in(test_env.env_root(), ["config", "list", "'.'"]);
+    let output = test_env.run_jj_in(".", ["config", "list", "'.'"]);
     insta::assert_snapshot!(output, @r"
     '.' = 5
     [EOF]
     ");
-    let output = test_env.run_jj_in(test_env.env_root(), ["config", "get", "'.'"]);
+    let output = test_env.run_jj_in(".", ["config", "get", "'.'"]);
     insta::assert_snapshot!(output, @r"
     5
     [EOF]
     ");
-    let output = test_env.run_jj_in(test_env.env_root(), ["config", "get", "."]);
+    let output = test_env.run_jj_in(".", ["config", "get", "."]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: invalid value '.' for '<NAME>': TOML parse error at line 1, column 1
@@ -1225,7 +1171,7 @@ fn test_config_path_syntax() {
     ");
 
     // Invalid TOML keys
-    let output = test_env.run_jj_in(test_env.env_root(), ["config", "list", "b c"]);
+    let output = test_env.run_jj_in(".", ["config", "list", "b c"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: invalid value 'b c' for '[NAME]': TOML parse error at line 1, column 3
@@ -1239,7 +1185,7 @@ fn test_config_path_syntax() {
     [EOF]
     [exit status: 2]
     ");
-    let output = test_env.run_jj_in(test_env.env_root(), ["config", "list", ""]);
+    let output = test_env.run_jj_in(".", ["config", "list", ""]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: invalid value '' for '[NAME]': TOML parse error at line 1, column 1
@@ -1298,7 +1244,7 @@ fn test_config_conditional() {
     .unwrap();
 
     // get and list should refer to the resolved config
-    let output = test_env.run_jj_in(test_env.env_root(), ["config", "get", "foo"]);
+    let output = test_env.run_jj_in(".", ["config", "get", "foo"]);
     insta::assert_snapshot!(output, @r"
     global
     [EOF]
@@ -1320,7 +1266,7 @@ fn test_config_conditional() {
     get
     [EOF]
     ");
-    let output = test_env.run_jj_in(test_env.env_root(), ["config", "list", "--user"]);
+    let output = test_env.run_jj_in(".", ["config", "list", "--user"]);
     insta::assert_snapshot!(output, @r"
     foo = 'global'
     baz = 'config'
@@ -1353,10 +1299,7 @@ fn test_config_conditional() {
 
     // set and unset should refer to the source config
     // (there's no option to update scoped table right now.)
-    let output = test_env.run_jj_in(
-        test_env.env_root(),
-        ["config", "set", "--user", "bar", "new value"],
-    );
+    let output = test_env.run_jj_in(".", ["config", "set", "--user", "bar", "new value"]);
     insta::assert_snapshot!(output, @"");
     insta::assert_snapshot!(std::fs::read_to_string(&user_config_path).unwrap(), @r#"
     foo = 'global'
@@ -1412,9 +1355,7 @@ fn test_config_conditional() {
 #[test]
 fn test_config_conditional_without_home_dir() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     // Test with fresh new config file
     let user_config_path = test_env.env_root().join("config.toml");
@@ -1434,7 +1375,7 @@ fn test_config_conditional_without_home_dir() {
     )
     .unwrap();
 
-    let output = test_env.run_jj_in(test_env.env_root(), ["config", "get", "foo"]);
+    let output = test_env.run_jj_in(".", ["config", "get", "foo"]);
     insta::assert_snapshot!(output, @r"
     global
     [EOF]
@@ -1449,9 +1390,7 @@ fn test_config_conditional_without_home_dir() {
 #[test]
 fn test_config_show_paths() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -1460,7 +1399,7 @@ fn test_config_show_paths() {
             ["config", "set", "--user", "ui.paginate", ":builtin"],
         )
         .success();
-    let output = test_env.run_jj_in(test_env.env_root(), ["st"]);
+    let output = test_env.run_jj_in(".", ["st"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Config error: Invalid type or value for ui.paginate
@@ -1476,9 +1415,7 @@ fn test_config_show_paths() {
 #[test]
 fn test_config_author_change_warning() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let output = test_env.run_jj_in(
         &repo_path,
@@ -1514,10 +1451,7 @@ fn test_config_author_change_warning() {
 #[test]
 fn test_config_author_change_warning_root_env() {
     let test_env = TestEnvironment::default();
-    let output = test_env.run_jj_in(
-        test_env.env_root(),
-        ["config", "set", "--user", "user.email", "'Foo'"],
-    );
+    let output = test_env.run_jj_in(".", ["config", "set", "--user", "user.email", "'Foo'"]);
     insta::assert_snapshot!(output, @"");
 }
 

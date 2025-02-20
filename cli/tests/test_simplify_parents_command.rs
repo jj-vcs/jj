@@ -21,9 +21,7 @@ use crate::common::TestEnvironment;
 
 fn create_repo() -> (TestEnvironment, PathBuf) {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     (test_env, repo_path)

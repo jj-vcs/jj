@@ -21,9 +21,7 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_debug_fileset() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
 
     let output = test_env.run_jj_in(&workspace_path, ["debug", "fileset", "all()"]);
@@ -57,9 +55,7 @@ fn test_debug_fileset() {
 #[test]
 fn test_debug_revset() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
 
     let output = test_env.run_jj_in(&workspace_path, ["debug", "revset", "root()"]);
@@ -96,9 +92,7 @@ fn test_debug_revset() {
 #[test]
 fn test_debug_index() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
     let output = test_env.run_jj_in(&workspace_path, ["debug", "index"]);
     assert_snapshot!(filter_index_stats(output), @r"
@@ -119,9 +113,7 @@ fn test_debug_index() {
 #[test]
 fn test_debug_reindex() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
     test_env.run_jj_in(&workspace_path, ["new"]).success();
     test_env.run_jj_in(&workspace_path, ["new"]).success();
@@ -167,9 +159,7 @@ fn test_debug_reindex() {
 #[test]
 fn test_debug_tree() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
     let subdir = workspace_path.join("dir").join("subdir");
     std::fs::create_dir_all(&subdir).unwrap();
@@ -256,9 +246,7 @@ fn test_debug_tree() {
 #[test]
 fn test_debug_operation_id() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
     let output = test_env.run_jj_in(&workspace_path, ["debug", "operation", "--display", "id"]);
     assert_snapshot!(filter_index_stats(output), @r"

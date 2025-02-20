@@ -23,9 +23,7 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_describe() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let edit_script = test_env.set_up_fake_editor();
@@ -200,9 +198,7 @@ fn test_describe() {
 #[test]
 fn test_describe_editor_env() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // Fails if the editor doesn't exist
@@ -275,9 +271,7 @@ fn test_describe_editor_env() {
 #[test]
 fn test_describe_multiple_commits() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let edit_script = test_env.set_up_fake_editor();
@@ -551,9 +545,7 @@ fn test_describe_multiple_commits() {
 #[test]
 fn test_multiple_message_args() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // Set a description using `-m` flag
@@ -632,9 +624,7 @@ fn test_multiple_message_args() {
 #[test]
 fn test_describe_default_description() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     test_env.add_config(r#"ui.default-description = "\n\nTESTED=TODO""#);
     let workspace_path = test_env.env_root().join("repo");
 
@@ -664,9 +654,7 @@ fn test_describe_default_description() {
 #[test]
 fn test_describe_author() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let edit_script = test_env.set_up_fake_editor();
@@ -855,9 +843,7 @@ fn test_describe_author() {
 #[test]
 fn test_describe_avoids_unc() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
     let edit_script = test_env.set_up_fake_editor();
 
@@ -875,9 +861,7 @@ fn test_describe_avoids_unc() {
 #[test]
 fn test_describe_with_edit_and_message_args_opens_editor() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
 
     let edit_script = test_env.set_up_fake_editor();
@@ -903,9 +887,7 @@ fn test_describe_with_edit_and_message_args_opens_editor() {
 #[test]
 fn test_describe_change_with_existing_message_with_edit_and_message_args_opens_editor() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
 
     test_env
@@ -932,9 +914,7 @@ fn test_describe_change_with_existing_message_with_edit_and_message_args_opens_e
 #[test]
 fn test_edit_cannot_be_used_with_no_edit() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
 
     let output = test_env.run_jj_in(&workspace_path, ["describe", "--no-edit", "--edit"]);

@@ -34,7 +34,7 @@ fn test_non_utf8_arg() {
         use std::os::windows::prelude::*;
         OsString::from_wide(&[0x0066, 0x006f, 0xD800, 0x006f])
     };
-    let output = test_env.run_jj_in(test_env.env_root(), [&invalid_utf]);
+    let output = test_env.run_jj_in(".", [&invalid_utf]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Non-utf8 argument
@@ -47,9 +47,7 @@ fn test_non_utf8_arg() {
 fn test_version() {
     let test_env = TestEnvironment::default();
 
-    let output = test_env
-        .run_jj_in(test_env.env_root(), ["--version"])
-        .success();
+    let output = test_env.run_jj_in(".", ["--version"]).success();
     let stdout = output.stdout.into_raw();
     let sanitized = stdout.replace(|c: char| c.is_ascii_hexdigit(), "?");
     let expected = [
@@ -65,13 +63,11 @@ fn test_version() {
 #[test]
 fn test_no_subcommand() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // Outside of a repo.
-    let output = test_env.run_jj_in(test_env.env_root(), [""; 0]);
+    let output = test_env.run_jj_in(".", [""; 0]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Hint: Use `jj -h` for a list of available commands.
@@ -82,7 +78,7 @@ fn test_no_subcommand() {
     "#);
 
     test_env.add_config(r#"ui.default-command="log""#);
-    let output = test_env.run_jj_in(test_env.env_root(), [""; 0]);
+    let output = test_env.run_jj_in(".", [""; 0]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: There is no jj repo in "."
@@ -90,17 +86,13 @@ fn test_no_subcommand() {
     [exit status: 1]
     "#);
 
-    let output = test_env
-        .run_jj_in(test_env.env_root(), ["--help"])
-        .success();
+    let output = test_env.run_jj_in(".", ["--help"]).success();
     insta::assert_snapshot!(
         output.stdout.normalized().lines().next().unwrap(),
         @"Jujutsu (An experimental VCS)");
     insta::assert_snapshot!(output.stderr, @"");
 
-    let output = test_env
-        .run_jj_in(test_env.env_root(), ["-R", "repo"])
-        .success();
+    let output = test_env.run_jj_in(".", ["-R", "repo"]).success();
     assert_eq!(output, test_env.run_jj_in(&repo_path, ["log"]));
 
     // Inside of a repo.
@@ -147,9 +139,7 @@ fn test_no_subcommand() {
 #[test]
 fn test_ignore_working_copy() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
 
     let repo_path = test_env.env_root().join("repo");
 
@@ -182,7 +172,7 @@ fn test_ignore_working_copy() {
 #[test]
 fn test_repo_arg_with_init() {
     let test_env = TestEnvironment::default();
-    let output = test_env.run_jj_in(test_env.env_root(), ["init", "-R=.", "repo"]);
+    let output = test_env.run_jj_in(".", ["init", "-R=.", "repo"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: There is no jj repo in "."
@@ -194,7 +184,7 @@ fn test_repo_arg_with_init() {
 #[test]
 fn test_repo_arg_with_git_clone() {
     let test_env = TestEnvironment::default();
-    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "-R=.", "remote"]);
+    let output = test_env.run_jj_in(".", ["git", "clone", "-R=.", "remote"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: There is no jj repo in "."
@@ -206,9 +196,7 @@ fn test_repo_arg_with_git_clone() {
 #[test]
 fn test_resolve_workspace_directory() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let subdir = repo_path.join("dir").join("subdir");
     std::fs::create_dir_all(&subdir).unwrap();
@@ -264,7 +252,7 @@ fn test_no_workspace_directory() {
     [exit status: 1]
     "#);
 
-    let output = test_env.run_jj_in(test_env.env_root(), ["status", "-R", "repo"]);
+    let output = test_env.run_jj_in(".", ["status", "-R", "repo"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: There is no jj repo in "repo"
@@ -287,9 +275,7 @@ fn test_no_workspace_directory() {
 #[test]
 fn test_bad_path() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let subdir = repo_path.join("dir");
     std::fs::create_dir_all(&subdir).unwrap();
@@ -331,7 +317,7 @@ fn test_bad_path() {
     "#);
 
     // cwd != workspace_root, can be parsed as repo-relative path
-    let output = test_env.run_jj_in(test_env.env_root(), ["file", "show", "-Rrepo", "out"]);
+    let output = test_env.run_jj_in(".", ["file", "show", "-Rrepo", "out"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r#"
     ------- stderr -------
     Error: Failed to parse fileset: Invalid file pattern
@@ -353,9 +339,7 @@ fn test_bad_path() {
 #[test]
 fn test_invalid_filesets_looking_like_filepaths() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let output = test_env.run_jj_in(&repo_path, ["file", "show", "abc~"]);
@@ -377,9 +361,7 @@ fn test_invalid_filesets_looking_like_filepaths() {
 #[test]
 fn test_broken_repo_structure() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let store_path = repo_path.join(".jj").join("repo").join("store");
     let store_type_path = store_path.join("type");
@@ -442,9 +424,7 @@ fn test_broken_repo_structure() {
 fn test_color_config() {
     let mut test_env = TestEnvironment::default();
 
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // Test that --color=always is respected.
@@ -558,14 +538,12 @@ fn test_color_config() {
 #[test]
 fn test_color_ui_messages() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     test_env.add_config("ui.color = 'always'");
 
     // hint and error
-    let output = test_env.run_jj_in(test_env.env_root(), ["-R."]);
+    let output = test_env.run_jj_in(".", ["-R."]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     [1m[38;5;6mHint: [0m[39mUse `jj -h` for a list of available commands.[39m
@@ -645,9 +623,7 @@ fn test_color_ui_messages() {
 #[test]
 fn test_quiet() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // Can skip message about new working copy with `--quiet`
@@ -662,14 +638,14 @@ fn test_early_args() {
     let test_env = TestEnvironment::default();
 
     // The default is no color.
-    let output = test_env.run_jj_in(test_env.env_root(), ["help"]).success();
+    let output = test_env.run_jj_in(".", ["help"]).success();
     insta::assert_snapshot!(
         output.stdout.normalized().lines().find(|l| l.contains("Commands:")).unwrap(),
         @"Commands:");
 
     // Check that output is colorized.
     let output = test_env
-        .run_jj_in(test_env.env_root(), ["--color=always", "help"])
+        .run_jj_in(".", ["--color=always", "help"])
         .success();
     insta::assert_snapshot!(
         output.stdout.normalized().lines().find(|l| l.contains("Commands:")).unwrap(),
@@ -677,21 +653,19 @@ fn test_early_args() {
 
     // Check that early args are accepted after the help command
     let output = test_env
-        .run_jj_in(test_env.env_root(), ["help", "--color=always"])
+        .run_jj_in(".", ["help", "--color=always"])
         .success();
     insta::assert_snapshot!(
         output.stdout.normalized().lines().find(|l| l.contains("Commands:")).unwrap(),
         @"[1m[33mCommands:[0m");
 
     // Check that early args are accepted after -h/--help
-    let output = test_env
-        .run_jj_in(test_env.env_root(), ["-h", "--color=always"])
-        .success();
+    let output = test_env.run_jj_in(".", ["-h", "--color=always"]).success();
     insta::assert_snapshot!(
         output.stdout.normalized().lines().find(|l| l.contains("Usage:")).unwrap(),
         @"[1m[33mUsage:[0m [1m[32mjj[0m [32m[OPTIONS][0m [32m<COMMAND>[0m");
     let output = test_env
-        .run_jj_in(test_env.env_root(), ["log", "--help", "--color=always"])
+        .run_jj_in(".", ["log", "--help", "--color=always"])
         .success();
     insta::assert_snapshot!(
         output.stdout.normalized().lines().find(|l| l.contains("Usage:")).unwrap(),
@@ -700,11 +674,9 @@ fn test_early_args() {
     // Early args are parsed with clap's ignore_errors(), but there is a known
     // bug that causes defaults to be unpopulated. Test that the early args are
     // tolerant of this bug and don't cause a crash.
+    test_env.run_jj_in(".", ["--no-pager", "help"]).success();
     test_env
-        .run_jj_in(test_env.env_root(), ["--no-pager", "help"])
-        .success();
-    test_env
-        .run_jj_in(test_env.env_root(), ["--config=ui.color=always", "help"])
+        .run_jj_in(".", ["--config=ui.color=always", "help"])
         .success();
 }
 
@@ -713,7 +685,7 @@ fn test_config_args() {
     let test_env = TestEnvironment::default();
     let list_config = |args: &[&str]| {
         test_env.run_jj_in(
-            test_env.env_root(),
+            ".",
             [&["config", "list", "--include-overridden", "test"], args].concat(),
         )
     };
@@ -785,10 +757,7 @@ fn test_config_args() {
     [EOF]
     "##);
 
-    let output = test_env.run_jj_in(
-        test_env.env_root(),
-        ["config", "list", "foo", "--config-toml=foo='bar'"],
-    );
+    let output = test_env.run_jj_in(".", ["config", "list", "foo", "--config-toml=foo='bar'"]);
     insta::assert_snapshot!(output, @r"
     foo = 'bar'
     [EOF]
@@ -797,7 +766,7 @@ fn test_config_args() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(test_env.env_root(), ["config", "list", "--config=foo"]);
+    let output = test_env.run_jj_in(".", ["config", "list", "--config=foo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Config error: --config must be specified as NAME=VALUE
@@ -806,10 +775,7 @@ fn test_config_args() {
     [exit status: 1]
     ");
 
-    let output = test_env.run_jj_in(
-        test_env.env_root(),
-        ["config", "list", "--config-file=unknown.toml"],
-    );
+    let output = test_env.run_jj_in(".", ["config", "list", "--config-file=unknown.toml"]);
     insta::with_settings!({
         filters => [("(?m)^([2-9]): .*", "$1: <redacted>")],
     }, {
@@ -832,7 +798,7 @@ fn test_invalid_config() {
     let test_env = TestEnvironment::default();
 
     test_env.add_config("[section]key = value-missing-quotes");
-    let output = test_env.run_jj_in(test_env.env_root(), ["init", "repo"]);
+    let output = test_env.run_jj_in(".", ["init", "repo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Config error: Configuration cannot be parsed as TOML document
@@ -854,9 +820,7 @@ fn test_invalid_config() {
 fn test_invalid_config_value() {
     // Test that we get a reasonable error if a config value is invalid
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let output = test_env.run_jj_in(&repo_path, ["status", "--config=snapshot.auto-track=[0]"]);
@@ -892,10 +856,7 @@ fn test_conditional_config() {
     "});
 
     // Sanity check
-    let output = test_env.run_jj_in(
-        test_env.env_root(),
-        ["config", "list", "--include-overridden", "aliases"],
-    );
+    let output = test_env.run_jj_in(".", ["config", "list", "--include-overridden", "aliases"]);
     insta::assert_snapshot!(output, @r"
     aliases.foo = ['new', 'root()', '-mglobal']
     [EOF]
@@ -1050,9 +1011,7 @@ fn test_default_config() {
 fn test_no_user_configured() {
     // Test that the user is reminded if they haven't configured their name or email
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let output = test_env.run_jj_with(|cmd| {
@@ -1103,7 +1062,7 @@ fn test_help() {
     // Test that global options are separated out in the help output
     let test_env = TestEnvironment::default();
 
-    let output = test_env.run_jj_in(test_env.env_root(), ["diffedit", "-h"]);
+    let output = test_env.run_jj_in(".", ["diffedit", "-h"]);
     insta::assert_snapshot!(output, @r"
     Touch up the content changes in a revision with a diff editor
 
@@ -1138,9 +1097,7 @@ fn test_debug_logging_enabled() {
     // Test that the debug flag enabled debug logging
     let test_env = TestEnvironment::default();
 
-    let output = test_env
-        .run_jj_in(test_env.env_root(), ["version", "--debug"])
-        .success();
+    let output = test_env.run_jj_in(".", ["version", "--debug"]).success();
     // Split the first log line into a timestamp and the rest.
     // The timestamp is constant sized so this is a robust operation.
     // Example timestamp: 2022-11-20T06:24:05.477703Z

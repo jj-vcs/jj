@@ -29,9 +29,7 @@ fn test_next_simple() {
     // third
     //
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     // Create a simple linear history, which we'll traverse.
     test_env
@@ -87,9 +85,7 @@ fn test_next_simple() {
 fn test_next_multiple() {
     // Move from first => fourth.
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     test_env
         .run_jj_in(&repo_path, ["commit", "-m", "first"])
@@ -140,9 +136,7 @@ fn test_next_multiple() {
 fn test_prev_simple() {
     // Move @- from third to second.
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     test_env
         .run_jj_in(&repo_path, ["commit", "-m", "first"])
@@ -185,9 +179,7 @@ fn test_prev_simple() {
 fn test_prev_multiple_without_root() {
     // Move @- from fourth to second.
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     test_env
         .run_jj_in(&repo_path, ["commit", "-m", "first"])
@@ -235,9 +227,7 @@ fn test_prev_multiple_without_root() {
 fn test_next_exceeding_history() {
     // Try to step beyond the current repos history.
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     test_env
         .run_jj_in(&repo_path, ["commit", "-m", "first"])
@@ -276,9 +266,7 @@ fn test_next_exceeding_history() {
 #[test]
 fn test_next_parent_has_multiple_descendants() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     // Setup.
     test_env
@@ -323,9 +311,7 @@ fn test_next_parent_has_multiple_descendants() {
 #[test]
 fn test_next_with_merge_commit_parent() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     // Setup.
     test_env
@@ -378,9 +364,7 @@ fn test_next_with_merge_commit_parent() {
 #[test]
 fn test_next_on_merge_commit() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     // Setup.
     test_env
@@ -432,9 +416,7 @@ fn test_next_on_merge_commit() {
 #[test]
 fn test_next_fails_on_bookmarking_children_no_stdin() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     test_env
         .run_jj_in(&repo_path, ["commit", "-m", "first"])
@@ -477,9 +459,7 @@ fn test_next_fails_on_bookmarking_children_no_stdin() {
 #[test]
 fn test_next_fails_on_bookmarking_children_quit_prompt() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     test_env
         .run_jj_in(&repo_path, ["commit", "-m", "first"])
@@ -527,9 +507,7 @@ fn test_next_fails_on_bookmarking_children_quit_prompt() {
 #[test]
 fn test_next_choose_bookmarking_child() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     test_env
         .run_jj_in(&repo_path, ["commit", "-m", "first"])
@@ -570,9 +548,7 @@ fn test_next_choose_bookmarking_child() {
 #[test]
 fn test_prev_on_merge_commit() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     test_env
         .run_jj_in(&repo_path, ["desc", "-m", "first"])
@@ -632,9 +608,7 @@ fn test_prev_on_merge_commit() {
 #[test]
 fn test_prev_on_merge_commit_with_parent_merge() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     test_env
         .run_jj_in(&repo_path, ["desc", "-m", "x"])
@@ -716,9 +690,7 @@ fn test_prev_on_merge_commit_with_parent_merge() {
 #[test]
 fn test_prev_prompts_on_multiple_parents() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     test_env
         .run_jj_in(&repo_path, ["commit", "-m", "first"])
@@ -822,9 +794,7 @@ fn test_prev_prompts_on_multiple_parents() {
 #[test]
 fn test_prev_beyond_root_fails() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     test_env
         .run_jj_in(&repo_path, ["commit", "-m", "first"])
@@ -862,9 +832,7 @@ fn test_prev_beyond_root_fails() {
 fn test_prev_editing() {
     // Edit the third commit.
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     test_env
         .run_jj_in(&repo_path, ["commit", "-m", "first"])
@@ -912,9 +880,7 @@ fn test_prev_editing() {
 fn test_next_editing() {
     // Edit the second commit.
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     test_env
         .run_jj_in(&repo_path, ["commit", "-m", "first"])
@@ -961,9 +927,7 @@ fn test_next_editing() {
 fn test_prev_conflict() {
     // Make the first commit our new parent.
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let file_path = repo_path.join("content.txt");
     std::fs::write(&file_path, "first").unwrap();
@@ -1017,9 +981,7 @@ fn test_prev_conflict() {
 fn test_prev_conflict_editing() {
     // Edit the third commit.
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let file_path = repo_path.join("content.txt");
     test_env
@@ -1067,9 +1029,7 @@ fn test_next_conflict() {
     // There is a conflict in the third commit, so after next it should be the new
     // parent.
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let file_path = repo_path.join("content.txt");
     std::fs::write(&file_path, "first").unwrap();
@@ -1119,9 +1079,7 @@ fn test_next_conflict_editing() {
     // There is a conflict in the third commit, so after next it should be our
     // working copy.
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let file_path = repo_path.join("content.txt");
     test_env
@@ -1162,9 +1120,7 @@ fn test_next_conflict_editing() {
 fn test_next_conflict_head() {
     // When editing a head with conflicts, `jj next --conflict [--edit]` errors out.
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let file_path = repo_path.join("file");
     std::fs::write(&file_path, "first").unwrap();
@@ -1202,9 +1158,7 @@ fn test_movement_edit_mode_true() {
     let test_env = TestEnvironment::default();
     test_env.add_config(r#"ui.movement.edit = true"#);
 
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -1358,9 +1312,7 @@ fn test_movement_edit_mode_false() {
     let test_env = TestEnvironment::default();
     test_env.add_config(r#"ui.movement.edit = false"#);
 
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -1484,9 +1436,7 @@ fn test_next_offset_when_wc_has_descendants() {
     let test_env = TestEnvironment::default();
     test_env.add_config(r#"ui.movement.edit = false"#);
 
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env

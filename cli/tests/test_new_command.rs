@@ -20,9 +20,7 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_new() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -83,9 +81,7 @@ fn test_new() {
 #[test]
 fn test_new_merge() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -181,9 +177,7 @@ fn test_new_merge() {
 #[test]
 fn test_new_insert_after() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     setup_before_insertion(&test_env, &repo_path);
     insta::assert_snapshot!(get_short_log_output(&test_env, &repo_path), @r"
@@ -271,9 +265,7 @@ fn test_new_insert_after() {
 #[test]
 fn test_new_insert_after_children() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     setup_before_insertion(&test_env, &repo_path);
     insta::assert_snapshot!(get_short_log_output(&test_env, &repo_path), @r"
@@ -333,9 +325,7 @@ fn test_new_insert_after_children() {
 #[test]
 fn test_new_insert_before() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     setup_before_insertion(&test_env, &repo_path);
     insta::assert_snapshot!(get_short_log_output(&test_env, &repo_path), @r"
@@ -406,9 +396,7 @@ fn test_new_insert_before() {
 #[test]
 fn test_new_insert_before_root_successors() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     setup_before_insertion(&test_env, &repo_path);
     insta::assert_snapshot!(get_short_log_output(&test_env, &repo_path), @r"
@@ -463,9 +451,7 @@ fn test_new_insert_before_root_successors() {
 #[test]
 fn test_new_insert_before_no_loop() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     setup_before_insertion(&test_env, &repo_path);
     let template = r#"commit_id.short() ++ " " ++ if(description, description, "root")"#;
@@ -507,9 +493,7 @@ fn test_new_insert_before_no_loop() {
 #[test]
 fn test_new_insert_before_no_root_merge() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     setup_before_insertion(&test_env, &repo_path);
     insta::assert_snapshot!(get_short_log_output(&test_env, &repo_path), @r"
@@ -549,9 +533,7 @@ fn test_new_insert_before_no_root_merge() {
 #[test]
 fn test_new_insert_before_root() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     setup_before_insertion(&test_env, &repo_path);
     insta::assert_snapshot!(get_short_log_output(&test_env, &repo_path), @r"
@@ -580,9 +562,7 @@ fn test_new_insert_before_root() {
 #[test]
 fn test_new_insert_after_before() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     setup_before_insertion(&test_env, &repo_path);
     insta::assert_snapshot!(get_short_log_output(&test_env, &repo_path), @r"
@@ -658,9 +638,7 @@ fn test_new_insert_after_before() {
 #[test]
 fn test_new_insert_after_before_no_loop() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     setup_before_insertion(&test_env, &repo_path);
     let template = r#"commit_id.short() ++ " " ++ if(description, description, "root")"#;
@@ -702,9 +680,7 @@ fn test_new_insert_after_before_no_loop() {
 #[test]
 fn test_new_conflicting_bookmarks() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -750,9 +726,7 @@ fn test_new_conflicting_bookmarks() {
 #[test]
 fn test_new_conflicting_change_ids() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -781,9 +755,7 @@ fn test_new_conflicting_change_ids() {
 #[test]
 fn test_new_error_revision_does_not_exist() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env

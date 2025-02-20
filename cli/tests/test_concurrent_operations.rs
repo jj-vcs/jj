@@ -22,9 +22,7 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_concurrent_operation_divergence() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -73,9 +71,7 @@ fn test_concurrent_operation_divergence() {
 #[test]
 fn test_concurrent_operations_auto_rebase() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file"), "contents").unwrap();
@@ -124,9 +120,7 @@ fn test_concurrent_operations_auto_rebase() {
 #[test]
 fn test_concurrent_operations_wc_modified() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file"), "contents\n").unwrap();
@@ -195,9 +189,7 @@ fn test_concurrent_operations_wc_modified() {
 #[test]
 fn test_concurrent_snapshot_wc_reloadable() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let op_heads_dir = repo_path
         .join(".jj")

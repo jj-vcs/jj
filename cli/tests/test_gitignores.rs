@@ -74,7 +74,7 @@ fn test_gitignores_relative_excludes_file_path() {
     let test_env = TestEnvironment::default();
     let workspace_root = test_env.env_root().join("repo");
     test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "--colocate", "repo"])
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
         .success();
 
     let mut file = std::fs::OpenOptions::new()
@@ -97,7 +97,7 @@ fn test_gitignores_relative_excludes_file_path() {
     A ../not-ignored
     [EOF]
     ");
-    let output = test_env.run_jj_in(test_env.env_root(), ["-Rrepo", "diff", "-s"]);
+    let output = test_env.run_jj_in(".", ["-Rrepo", "diff", "-s"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     A repo/not-ignored
     [EOF]

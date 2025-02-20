@@ -38,9 +38,7 @@ fn create_commit(test_env: &TestEnvironment, repo_path: &Path, name: &str, paren
 #[test]
 fn test_basics() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
@@ -198,9 +196,7 @@ fn test_basics() {
 #[test]
 fn test_bug_2600() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // We will not touch "nottherootcommit". See the
@@ -352,9 +348,7 @@ fn test_bug_2600() {
 #[test]
 fn test_bug_2600_rootcommit_special_case() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // Set up like `test_bug_2600`, but without the `nottherootcommit` commit.
@@ -388,9 +382,7 @@ fn test_bug_2600_rootcommit_special_case() {
 #[test]
 fn test_double_abandon() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
@@ -433,9 +425,7 @@ fn test_double_abandon() {
 #[test]
 fn test_abandon_restore_descendants() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file"), "foo\n").unwrap();

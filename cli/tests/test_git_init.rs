@@ -68,7 +68,7 @@ fn read_git_target(workspace_root: &Path) -> String {
 #[test]
 fn test_git_init_internal() {
     let test_env = TestEnvironment::default();
-    let output = test_env.run_jj_in(test_env.env_root(), ["git", "init", "repo"]);
+    let output = test_env.run_jj_in(".", ["git", "init", "repo"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Initialized repo in "repo"
@@ -127,7 +127,7 @@ fn test_git_init_external(bare: bool) {
     init_git_repo(&git_repo_path, bare);
 
     let output = test_env.run_jj_in(
-        test_env.env_root(),
+        ".",
         [
             "git",
             "init",
@@ -204,7 +204,7 @@ fn test_git_init_external_import_trunk(bare: bool) {
     );
 
     let output = test_env.run_jj_in(
-        test_env.env_root(),
+        ".",
         [
             "git",
             "init",
@@ -296,10 +296,7 @@ fn test_git_init_external_at_operation() {
 #[test]
 fn test_git_init_external_non_existent_directory() {
     let test_env = TestEnvironment::default();
-    let output = test_env.run_jj_in(
-        test_env.env_root(),
-        ["git", "init", "repo", "--git-repo", "non-existent"],
-    );
+    let output = test_env.run_jj_in(".", ["git", "init", "repo", "--git-repo", "non-existent"]);
     insta::assert_snapshot!(output.strip_stderr_last_line(), @r"
     ------- stderr -------
     Error: Failed to access the repository
@@ -314,10 +311,7 @@ fn test_git_init_external_non_existent_directory() {
 fn test_git_init_external_non_existent_git_directory() {
     let test_env = TestEnvironment::default();
     let workspace_root = test_env.env_root().join("repo");
-    let output = test_env.run_jj_in(
-        test_env.env_root(),
-        ["git", "init", "repo", "--git-repo", "repo"],
-    );
+    let output = test_env.run_jj_in(".", ["git", "init", "repo", "--git-repo", "repo"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: Failed to access the repository
@@ -543,9 +537,7 @@ fn test_git_init_colocated_via_git_repo_path_imported_refs() {
     test_env.add_config("git.auto-local-bookmark = true");
 
     // Set up remote refs
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "remote"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "remote"]).success();
     let remote_path = test_env.env_root().join("remote");
     test_env
         .run_jj_in(
@@ -796,7 +788,7 @@ fn test_git_init_colocated_via_flag_git_dir_exists() {
     let workspace_root = test_env.env_root().join("repo");
     init_git_repo(&workspace_root, false);
 
-    let output = test_env.run_jj_in(test_env.env_root(), ["git", "init", "--colocate", "repo"]);
+    let output = test_env.run_jj_in(".", ["git", "init", "--colocate", "repo"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Done importing changes from the underlying Git repo.
@@ -827,7 +819,7 @@ fn test_git_init_colocated_via_flag_git_dir_exists() {
 fn test_git_init_colocated_via_flag_git_dir_not_exists() {
     let test_env = TestEnvironment::default();
     let workspace_root = test_env.env_root().join("repo");
-    let output = test_env.run_jj_in(test_env.env_root(), ["git", "init", "--colocate", "repo"]);
+    let output = test_env.run_jj_in(".", ["git", "init", "--colocate", "repo"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Initialized repo in "repo"
@@ -933,7 +925,7 @@ fn test_git_init_conditional_config() {
 fn test_git_init_bad_wc_path() {
     let test_env = TestEnvironment::default();
     std::fs::write(test_env.env_root().join("existing-file"), b"").unwrap();
-    let output = test_env.run_jj_in(test_env.env_root(), ["git", "init", "existing-file"]);
+    let output = test_env.run_jj_in(".", ["git", "init", "existing-file"]);
     insta::assert_snapshot!(output.strip_stderr_last_line(), @r"
     ------- stderr -------
     Error: Failed to create workspace

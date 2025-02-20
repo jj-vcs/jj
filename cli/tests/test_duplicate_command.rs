@@ -38,9 +38,7 @@ fn create_commit(test_env: &TestEnvironment, repo_path: &Path, name: &str, paren
 #[test]
 fn test_duplicate() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
@@ -118,9 +116,7 @@ fn test_duplicate() {
 #[test]
 fn test_duplicate_many() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
@@ -289,9 +285,7 @@ fn test_duplicate_many() {
 #[test]
 fn test_duplicate_destination() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a1", &[]);
@@ -514,9 +508,7 @@ fn test_duplicate_destination() {
 #[test]
 fn test_duplicate_insert_after() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a1", &[]);
@@ -1212,9 +1204,7 @@ fn test_duplicate_insert_after() {
 #[test]
 fn test_duplicate_insert_before() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a1", &[]);
@@ -1916,9 +1906,7 @@ fn test_duplicate_insert_before() {
 #[test]
 fn test_duplicate_insert_after_before() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a1", &[]);
@@ -2582,9 +2570,7 @@ fn test_duplicate_insert_after_before() {
 #[test]
 fn test_undo_after_duplicate() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
@@ -2625,9 +2611,7 @@ fn test_undo_after_duplicate() {
 #[test]
 fn test_rebase_duplicates() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);

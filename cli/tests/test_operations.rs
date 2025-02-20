@@ -25,9 +25,7 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_op_log() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     test_env
         .run_jj_in(&repo_path, ["describe", "-m", "description 0"])
@@ -125,9 +123,7 @@ fn test_op_log() {
 #[test]
 fn test_op_log_with_custom_symbols() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     test_env
         .run_jj_in(&repo_path, ["describe", "-m", "description 0"])
@@ -155,9 +151,7 @@ fn test_op_log_with_custom_symbols() {
 #[test]
 fn test_op_log_with_no_template() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let output = test_env.run_jj_in(&repo_path, ["op", "log", "-T"]);
@@ -191,9 +185,7 @@ fn test_op_log_with_no_template() {
 #[test]
 fn test_op_log_limit() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let output = test_env.run_jj_in(&repo_path, ["op", "log", "-Tdescription", "--limit=1"]);
@@ -206,9 +198,7 @@ fn test_op_log_limit() {
 #[test]
 fn test_op_log_no_graph() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let output = test_env.run_jj_in(&repo_path, ["op", "log", "--no-graph", "--color=always"]);
@@ -234,9 +224,7 @@ fn test_op_log_no_graph() {
 #[test]
 fn test_op_log_reversed() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     test_env
         .run_jj_in(&repo_path, ["describe", "-m", "description 0"])
@@ -333,9 +321,7 @@ fn test_op_log_reversed() {
 #[test]
 fn test_op_log_no_graph_null_terminated() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     test_env
         .run_jj_in(&repo_path, ["commit", "-m", "message1"])
@@ -362,9 +348,7 @@ fn test_op_log_no_graph_null_terminated() {
 #[test]
 fn test_op_log_template() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let render = |template| test_env.run_jj_in(&repo_path, ["op", "log", "-T", template]);
 
@@ -411,9 +395,7 @@ fn test_op_log_template() {
 #[test]
 fn test_op_log_builtin_templates() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     // Render without graph to test line ending
     let render =
@@ -456,9 +438,7 @@ fn test_op_log_builtin_templates() {
 #[test]
 fn test_op_log_word_wrap() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     std::fs::write(repo_path.join("file1"), "foo\n".repeat(100)).unwrap();
     test_env
@@ -610,9 +590,7 @@ fn test_op_log_configurable() {
 #[test]
 fn test_op_abandon_ancestors() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -744,9 +722,7 @@ fn test_op_abandon_ancestors() {
 #[test]
 fn test_op_abandon_without_updating_working_copy() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -808,9 +784,7 @@ fn test_op_abandon_without_updating_working_copy() {
 #[test]
 fn test_op_abandon_multiple_heads() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // Create 1 base operation + 2 operations to be diverged.
@@ -907,7 +881,7 @@ fn test_op_abandon_multiple_heads() {
 fn test_op_recover_from_bad_gc() {
     let test_env = TestEnvironment::default();
     test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo", "--colocate"])
+        .run_jj_in(".", ["git", "init", "repo", "--colocate"])
         .success();
     let repo_path = test_env.env_root().join("repo");
     let git_object_path = |hex: &str| {
@@ -1028,9 +1002,7 @@ fn test_op_recover_from_bad_gc() {
 #[test]
 fn test_op_summary_diff_template() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // Tests in color (easier to read with `less -R`)
@@ -1102,7 +1074,7 @@ fn test_op_diff() {
     let git_repo_path = test_env.env_root().join("git-repo");
     let git_repo = init_bare_git_repo(&git_repo_path);
     test_env
-        .run_jj_in(test_env.env_root(), ["git", "clone", "git-repo", "repo"])
+        .run_jj_in(".", ["git", "clone", "git-repo", "repo"])
         .success();
     let repo_path = test_env.env_root().join("repo");
 
@@ -1521,9 +1493,7 @@ fn test_op_diff() {
 #[test]
 fn test_op_diff_patch() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // Update working copy with a single file and create new commit.
@@ -1622,9 +1592,7 @@ fn test_op_diff_patch() {
 #[test]
 fn test_op_diff_sibling() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let output = test_env
@@ -1764,7 +1732,7 @@ fn test_op_diff_word_wrap() {
     let git_repo_path = test_env.env_root().join("git-repo");
     init_bare_git_repo(&git_repo_path);
     test_env
-        .run_jj_in(test_env.env_root(), ["git", "clone", "git-repo", "repo"])
+        .run_jj_in(".", ["git", "clone", "git-repo", "repo"])
         .success();
     let repo_path = test_env.env_root().join("repo");
     let render = |args: &[&str], columns: u32, word_wrap: bool| {
@@ -1901,7 +1869,7 @@ fn test_op_show() {
     let git_repo_path = test_env.env_root().join("git-repo");
     let git_repo = init_bare_git_repo(&git_repo_path);
     test_env
-        .run_jj_in(test_env.env_root(), ["git", "clone", "git-repo", "repo"])
+        .run_jj_in(".", ["git", "clone", "git-repo", "repo"])
         .success();
     let repo_path = test_env.env_root().join("repo");
 
@@ -2223,9 +2191,7 @@ fn test_op_show() {
 #[test]
 fn test_op_show_patch() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // Update working copy with a single file and create new commit.

@@ -51,9 +51,7 @@ fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput
 #[test]
 fn test_chmod_regular_conflict() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
@@ -160,9 +158,7 @@ fn test_chmod_regular_conflict() {
 #[test]
 fn test_chmod_file_dir_deletion_conflicts() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);

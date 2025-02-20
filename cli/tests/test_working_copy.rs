@@ -20,9 +20,7 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_snapshot_large_file() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // test a small file using raw-integer-literal syntax, which is interpreted
@@ -132,9 +130,7 @@ fn test_snapshot_large_file() {
 #[test]
 fn test_snapshot_large_file_restore() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     test_env.add_config("snapshot.max-new-file-size = 10");
 
@@ -186,9 +182,7 @@ fn test_snapshot_large_file_restore() {
 #[test]
 fn test_materialize_and_snapshot_different_conflict_markers() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // Configure to use Git-style conflict markers
@@ -297,9 +291,7 @@ fn test_materialize_and_snapshot_different_conflict_markers() {
 #[test]
 fn test_snapshot_invalid_ignore_pattern() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let gitignore_path = repo_path.join(".gitignore");
 
@@ -331,9 +323,7 @@ fn test_snapshot_invalid_ignore_pattern() {
 #[test]
 fn test_conflict_marker_length_stored_in_working_copy() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // Create a conflict in the working copy with long markers on one side

@@ -21,9 +21,7 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_squash() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -162,9 +160,7 @@ fn test_squash() {
 #[test]
 fn test_squash_partial() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -334,9 +330,7 @@ fn test_squash_partial() {
 #[test]
 fn test_squash_keep_emptied() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -389,9 +383,7 @@ fn test_squash_keep_emptied() {
 #[test]
 fn test_squash_from_to() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // Create history like this:
@@ -553,9 +545,7 @@ fn test_squash_from_to() {
 #[test]
 fn test_squash_from_to_partial() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // Create history like this:
@@ -762,9 +752,7 @@ fn test_squash_from_to_partial() {
 #[test]
 fn test_squash_from_multiple() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // Create history like this:
@@ -903,9 +891,7 @@ fn test_squash_from_multiple() {
 #[test]
 fn test_squash_from_multiple_partial() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // Create history like this:
@@ -1089,9 +1075,7 @@ fn test_squash_from_multiple_partial() {
 #[test]
 fn test_squash_from_multiple_partial_no_op() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // Create history like this:
@@ -1204,9 +1188,7 @@ fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput
 #[test]
 fn test_squash_description() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let edit_script = test_env.set_up_fake_editor();
@@ -1316,9 +1298,7 @@ fn test_squash_description() {
 #[test]
 fn test_squash_description_editor_avoids_unc() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let edit_script = test_env.set_up_fake_editor();
@@ -1348,9 +1328,7 @@ fn test_squash_description_editor_avoids_unc() {
 #[test]
 fn test_squash_empty() {
     let mut test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -1385,9 +1363,7 @@ fn test_squash_empty() {
 #[test]
 fn test_squash_use_destination_message() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env.run_jj_in(&repo_path, ["commit", "-m=a"]).success();
@@ -1441,9 +1417,7 @@ fn test_squash_use_destination_message() {
 #[test]
 fn test_squash_use_destination_message_and_message_mutual_exclusion() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     test_env.run_jj_in(&repo_path, ["commit", "-m=a"]).success();
     test_env

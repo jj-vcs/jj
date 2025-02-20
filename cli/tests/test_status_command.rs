@@ -45,9 +45,7 @@ fn create_commit(
 #[test]
 fn test_status_copies() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("copy-source"), "copy1\ncopy2\ncopy3\n").unwrap();
@@ -81,9 +79,7 @@ fn test_status_copies() {
 #[test]
 fn test_status_merge() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file"), "base").unwrap();
@@ -115,9 +111,7 @@ fn test_status_merge() {
 #[test]
 fn test_status_ignored_gitignore() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::create_dir(repo_path.join("untracked")).unwrap();
@@ -142,9 +136,7 @@ fn test_status_ignored_gitignore() {
 #[test]
 fn test_status_filtered() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file_1"), "file_1").unwrap();
@@ -166,9 +158,7 @@ fn test_status_filtered() {
 #[test]
 fn test_status_display_relevant_working_commit_conflict_hints() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
 
     let repo_path = test_env.env_root().join("repo");
     let conflicted_path = repo_path.join("conflicted.txt");
@@ -390,9 +380,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
 #[test]
 fn test_status_simplify_conflict_sides() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // Creates a 4-sided conflict, with fileA and fileB having different conflicts:
@@ -443,9 +431,7 @@ fn test_status_untracked_files() {
     let test_env = TestEnvironment::default();
     test_env.add_config(r#"snapshot.auto-track = "none()""#);
 
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("always-untracked-file"), "...").unwrap();

@@ -18,7 +18,7 @@ use crate::common::TestEnvironment;
 fn test_deprecated_flags() {
     let test_env = TestEnvironment::default();
     let output = test_env
-        .run_jj_in(test_env.env_root(), ["util", "completion", "--bash"])
+        .run_jj_in(".", ["util", "completion", "--bash"])
         .success();
     insta::assert_snapshot!(output.stderr, @r"
     Warning: `jj util completion --bash` will be removed in a future version, and this will be a hard error

@@ -17,9 +17,7 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_rewrite_immutable_generic() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     std::fs::write(repo_path.join("file"), "a").unwrap();
     test_env
@@ -145,17 +143,13 @@ fn test_rewrite_immutable_generic() {
 #[test]
 fn test_new_wc_commit_when_wc_immutable() {
     let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init"]).success();
     test_env
-        .run_jj_in(test_env.env_root(), ["git", "init"])
-        .success();
-    test_env
-        .run_jj_in(test_env.env_root(), ["bookmark", "create", "-r@", "main"])
+        .run_jj_in(".", ["bookmark", "create", "-r@", "main"])
         .success();
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "main""#);
-    test_env
-        .run_jj_in(test_env.env_root(), ["new", "-m=a"])
-        .success();
-    let output = test_env.run_jj_in(test_env.env_root(), ["bookmark", "set", "main", "-r@"]);
+    test_env.run_jj_in(".", ["new", "-m=a"]).success();
+    let output = test_env.run_jj_in(".", ["bookmark", "set", "main", "-r@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Moved 1 bookmarks to kkmpptxz a164195b main | (empty) a
@@ -169,14 +163,12 @@ fn test_new_wc_commit_when_wc_immutable() {
 #[test]
 fn test_immutable_heads_set_to_working_copy() {
     let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init"]).success();
     test_env
-        .run_jj_in(test_env.env_root(), ["git", "init"])
-        .success();
-    test_env
-        .run_jj_in(test_env.env_root(), ["bookmark", "create", "-r@", "main"])
+        .run_jj_in(".", ["bookmark", "create", "-r@", "main"])
         .success();
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "@""#);
-    let output = test_env.run_jj_in(test_env.env_root(), ["new", "-m=a"]);
+    let output = test_env.run_jj_in(".", ["new", "-m=a"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
@@ -189,9 +181,7 @@ fn test_immutable_heads_set_to_working_copy() {
 #[test]
 fn test_new_wc_commit_when_wc_immutable_multi_workspace() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     test_env
         .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "main"])
@@ -234,9 +224,7 @@ fn test_new_wc_commit_when_wc_immutable_multi_workspace() {
 #[test]
 fn test_rewrite_immutable_commands() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     std::fs::write(repo_path.join("file"), "a").unwrap();
     test_env

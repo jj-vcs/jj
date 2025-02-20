@@ -18,9 +18,7 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_evolog_with_or_without_diff() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "foo\n").unwrap();
@@ -158,9 +156,7 @@ fn test_evolog_with_or_without_diff() {
 #[test]
 fn test_evolog_with_custom_symbols() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "foo\n").unwrap();
@@ -193,9 +189,7 @@ fn test_evolog_with_custom_symbols() {
 #[test]
 fn test_evolog_word_wrap() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let render = |args: &[&str], columns: u32, word_wrap: bool| {
         let word_wrap = to_toml_value(word_wrap);
@@ -249,9 +243,7 @@ fn test_evolog_word_wrap() {
 #[test]
 fn test_evolog_squash() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -363,9 +355,7 @@ fn test_evolog_squash() {
 #[test]
 fn test_evolog_with_no_template() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let output = test_env.run_jj_in(&repo_path, ["evolog", "-T"]);
@@ -399,9 +389,7 @@ fn test_evolog_with_no_template() {
 #[test]
 fn test_evolog_reversed_no_graph() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -442,9 +430,7 @@ fn test_evolog_reversed_no_graph() {
 #[test]
 fn test_evolog_reverse_with_graph() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env

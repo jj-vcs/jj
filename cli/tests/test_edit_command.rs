@@ -20,9 +20,7 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_edit() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     std::fs::write(repo_path.join("file1"), "0").unwrap();
     test_env
@@ -86,9 +84,7 @@ fn test_edit_current_wc_commit_missing() {
     // Test that we get a reasonable error message when the current working-copy
     // commit is missing
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     test_env
         .run_jj_in(&repo_path, ["commit", "-m", "first"])

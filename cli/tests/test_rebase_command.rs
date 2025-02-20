@@ -38,9 +38,7 @@ fn create_commit(test_env: &TestEnvironment, repo_path: &Path, name: &str, paren
 #[test]
 fn test_rebase_invalid() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
@@ -146,9 +144,7 @@ fn test_rebase_invalid() {
 #[test]
 fn test_rebase_empty_sets() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
@@ -187,9 +183,7 @@ fn test_rebase_empty_sets() {
 #[test]
 fn test_rebase_bookmark() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
@@ -290,9 +284,7 @@ fn test_rebase_bookmark() {
 #[test]
 fn test_rebase_bookmark_with_merge() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
@@ -363,9 +355,7 @@ fn test_rebase_bookmark_with_merge() {
 #[test]
 fn test_rebase_single_revision() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
@@ -442,9 +432,7 @@ fn test_rebase_single_revision() {
 #[test]
 fn test_rebase_single_revision_merge_parent() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
@@ -492,9 +480,7 @@ fn test_rebase_single_revision_merge_parent() {
 #[test]
 fn test_rebase_multiple_revisions() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
@@ -694,9 +680,7 @@ fn test_rebase_multiple_revisions() {
 #[test]
 fn test_rebase_revision_onto_descendant() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "base", &[]);
@@ -780,9 +764,7 @@ fn test_rebase_revision_onto_descendant() {
 #[test]
 fn test_rebase_multiple_destinations() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
@@ -899,9 +881,7 @@ fn test_rebase_multiple_destinations() {
 #[test]
 fn test_rebase_with_descendants() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
@@ -1033,9 +1013,7 @@ fn test_rebase_with_descendants() {
 #[test]
 fn test_rebase_error_revision_does_not_exist() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env
@@ -1069,9 +1047,7 @@ fn test_rebase_error_revision_does_not_exist() {
 #[test]
 fn test_rebase_with_child_and_descendant_bug_2600() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "notroot", &[]);
@@ -1469,9 +1445,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
 #[test]
 fn test_rebase_after() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
@@ -2026,9 +2000,7 @@ fn test_rebase_after() {
 #[test]
 fn test_rebase_before() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
@@ -2633,9 +2605,7 @@ fn test_rebase_before() {
 #[test]
 fn test_rebase_after_before() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "x", &[]);
@@ -2918,9 +2888,7 @@ fn test_rebase_after_before() {
 #[test]
 fn test_rebase_skip_emptied() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
@@ -3022,9 +2990,7 @@ fn test_rebase_skip_emptied() {
 #[test]
 fn test_rebase_skip_emptied_descendants() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
@@ -3086,9 +3052,7 @@ fn test_rebase_skip_emptied_descendants() {
 #[test]
 fn test_rebase_skip_if_on_destination() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
