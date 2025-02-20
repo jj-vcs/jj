@@ -43,6 +43,10 @@ program = "mergiraf"
 merge-args = ["merge", "$base", "$left", "$right", "-o", "$output", "-l", "$marker_length", "--fast"]
 merge-conflict-exit-codes = [1]
 
+[merge-tools.smerge]
+merge-args = ["mergetool", "$base", "$left", "$right", "-o", "$output"]
+conflict-marker-style = "git"
+
 [merge-tools.vimdiff]
 program = "vim"
 # `-d` enables diff mode. `-f` makes vim run in foreground even if it starts a GUI.
