@@ -53,7 +53,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Existing `signing.sign-all = true` translates to `signing.behavior = "own"`, and
   `false` translates to `"keep"`.
 
-
 ### New features
 
 * `jj bookmark create`, `jj bookmark set` and `jj bookmark move` onto a hidden
@@ -70,6 +69,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `.escape_json()`. The latter serializes the string in JSON format. It is
   useful for making machine-readable templates by escaping problematic
   characters like `\n`.
+
+* Templates now support `trim()`, `trim_start()` and `trim_end()` methods
+  which remove whitespace from the start and end of a `String` type.
 
 * The description of commits backed out by `jj backout` can now be configured
   using `templates.backout_description`.

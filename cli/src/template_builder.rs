@@ -845,6 +845,30 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
         },
     );
     map.insert(
+        "trim",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|s| s.trim().to_owned());
+            Ok(L::wrap_string(out_property))
+        },
+    );
+    map.insert(
+        "trim_start",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|s| s.trim_start().to_owned());
+            Ok(L::wrap_string(out_property))
+        },
+    );
+    map.insert(
+        "trim_end",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|s| s.trim_end().to_owned());
+            Ok(L::wrap_string(out_property))
+        },
+    );
+    map.insert(
         "substr",
         |language, diagnostics, build_ctx, self_property, function| {
             let [start_idx, end_idx] = function.expect_exact_arguments()?;
@@ -2520,7 +2544,7 @@ mod tests {
             @"ax,ay;bx,by;cx,cy");
         // Nested string operations
         insta::assert_snapshot!(
-            env.render_ok(r#""!a\n!b\nc\nend".remove_suffix("end").lines().map(|s| s.remove_prefix("!"))"#),
+            env.render_ok(r#""!  a\n!b\nc\n   end".remove_suffix("end").trim_end().lines().map(|s| s.remove_prefix("!").trim_start())"#),
             @"a b c");
 
         // Lambda expression in alias
@@ -2646,6 +2670,15 @@ mod tests {
         insta::assert_snapshot!(
             env.render_ok(r#""bar@other.example.com".remove_suffix("@other.example.com")"#),
             @"bar");
+
+        insta::assert_snapshot!(env.render_ok(r#"" \n \r    \t \r ".trim()"#), @"");
+        insta::assert_snapshot!(env.render_ok(r#"" \n \r foo  bar \t \r ".trim()"#), @"foo  bar");
+
+        insta::assert_snapshot!(env.render_ok(r#"" \n \r    \t \r ".trim_start()"#), @"");
+        insta::assert_snapshot!(env.render_ok(r#"" \n \r foo  bar \t \r ".trim_start()"#), @"foo  bar \t \r ");
+
+        insta::assert_snapshot!(env.render_ok(r#"" \n \r    \t \r ".trim_end()"#), @"");
+        insta::assert_snapshot!(env.render_ok(r#"" \n \r foo  bar \t \r ".trim_end()"#), @" \n \r foo  bar");
 
         insta::assert_snapshot!(env.render_ok(r#""foo".substr(0, 0)"#), @"");
         insta::assert_snapshot!(env.render_ok(r#""foo".substr(0, 1)"#), @"f");
