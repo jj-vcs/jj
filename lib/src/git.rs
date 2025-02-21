@@ -515,18 +515,17 @@ fn diff_refs_to_import(
         .collect();
     // TODO: migrate tags to the remote view, and don't destructure &RemoteRef
     let mut known_remote_refs: HashMap<RefName, (&RefTarget, RemoteRefState)> = itertools::chain(
-        view.all_remote_bookmarks()
-            .map(|((name, remote), remote_ref)| {
-                // TODO: want to abstract local ref as "git" tracking remote, but
-                // we'll probably need to refactor the git_ref_filter API first.
-                let ref_name = if remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO {
-                    RefName::LocalBranch(name.to_owned())
-                } else {
-                    RefName::RemoteBranch(RemoteRefSymbol { name, remote }.to_owned())
-                };
-                let RemoteRef { target, state } = remote_ref;
-                (ref_name, (target, *state))
-            }),
+        view.all_remote_bookmarks().map(|(symbol, remote_ref)| {
+            // TODO: want to abstract local ref as "git" tracking remote, but
+            // we'll probably need to refactor the git_ref_filter API first.
+            let ref_name = if symbol.remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO {
+                RefName::LocalBranch(symbol.name.to_owned())
+            } else {
+                RefName::RemoteBranch(symbol.to_owned())
+            };
+            let RemoteRef { target, state } = remote_ref;
+            (ref_name, (target, *state))
+        }),
         // TODO: compare to tags stored in the "git" remote view. Since tags should never
         // be moved locally in jj, we can consider local tags as merge base.
         view.tags().iter().map(|(name, target)| {
@@ -897,9 +896,9 @@ fn diff_refs_to_export(
         view.local_bookmarks()
             .map(|(branch, target)| (RefName::LocalBranch(branch.to_owned()), target)),
         view.all_remote_bookmarks()
-            .filter(|&((_, remote), _)| remote != REMOTE_NAME_FOR_LOCAL_GIT_REPO)
-            .map(|((name, remote), remote_ref)| {
-                let ref_name = RefName::RemoteBranch(RemoteRefSymbol { name, remote }.to_owned());
+            .filter(|&(symbol, _)| symbol.remote != REMOTE_NAME_FOR_LOCAL_GIT_REPO)
+            .map(|(symbol, remote_ref)| {
+                let ref_name = RefName::RemoteBranch(symbol.to_owned());
                 (ref_name, &remote_ref.target)
             }),
     )

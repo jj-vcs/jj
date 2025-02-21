@@ -174,7 +174,7 @@ pub(crate) fn cmd_status(
         .view()
         .all_remote_bookmarks()
         .filter(|(_, remote_ref)| remote_ref.target.has_conflict())
-        .map(|(full_name, _)| full_name)
+        .map(|(symbol, _)| symbol)
         .collect_vec();
     if !conflicted_local_bookmarks.is_empty() {
         writeln!(
@@ -197,12 +197,9 @@ pub(crate) fn cmd_status(
             formatter.labeled("warning").with_heading("Warning: "),
             "These remote bookmarks have conflicts:"
         )?;
-        for (bookmark_name, remote_name) in conflicted_remote_bookmarks {
+        for symbol in conflicted_remote_bookmarks {
             write!(formatter, "  ")?;
-            write!(
-                formatter.labeled("bookmark"),
-                "{bookmark_name}@{remote_name}"
-            )?;
+            write!(formatter.labeled("bookmark"), "{symbol}")?;
             writeln!(formatter)?;
         }
         writeln!(

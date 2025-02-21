@@ -1734,8 +1734,8 @@ impl MutableRepo {
 
         let changed_remote_bookmarks =
             diff_named_remote_refs(base.all_remote_bookmarks(), other.all_remote_bookmarks());
-        for ((name, remote_name), (base_ref, other_ref)) in changed_remote_bookmarks {
-            self.merge_remote_bookmark(name, remote_name, base_ref, other_ref);
+        for (symbol, (base_ref, other_ref)) in changed_remote_bookmarks {
+            self.merge_remote_bookmark(symbol.name, symbol.remote, base_ref, other_ref);
         }
 
         let new_git_head_target = merge_ref_targets(

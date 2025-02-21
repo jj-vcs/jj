@@ -345,7 +345,7 @@ pub fn show_op_diff(
     )
     // Skip updates to the local git repo, since they should typically be covered in
     // local branches.
-    .filter(|((_, remote_name), _)| !jj_lib::git::is_special_git_remote(remote_name))
+    .filter(|(symbol, _)| !jj_lib::git::is_special_git_remote(symbol.remote))
     .collect_vec();
     if !changed_remote_bookmarks.is_empty() {
         writeln!(formatter)?;
@@ -356,9 +356,9 @@ pub fn show_op_diff(
             RemoteRefState::New => "untracked",
             RemoteRefState::Tracking => "tracked",
         };
-        for ((name, remote_name), (from_ref, to_ref)) in changed_remote_bookmarks {
+        for (symbol, (from_ref, to_ref)) in changed_remote_bookmarks {
             with_content_format.write(formatter, |formatter| {
-                writeln!(formatter, "{name}@{remote_name}:")?;
+                writeln!(formatter, "{symbol}:")?;
                 write_ref_target_summary(
                     formatter,
                     current_repo,

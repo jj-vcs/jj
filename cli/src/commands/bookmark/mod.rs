@@ -151,10 +151,6 @@ fn find_remote_bookmarks<'a>(
     for pattern in name_patterns {
         let mut matches = view
             .remote_bookmarks_matching(&pattern.bookmark, &pattern.remote)
-            .map(|((name, remote), remote_ref)| {
-                let symbol = RemoteRefSymbol { name, remote };
-                (symbol, remote_ref)
-            })
             .peekable();
         if matches.peek().is_none() {
             unmatched_patterns.push(pattern);
@@ -184,7 +180,7 @@ fn has_tracked_remote_bookmarks(view: &View, bookmark: &str) -> bool {
         &StringPattern::exact(bookmark),
         &StringPattern::everything(),
     )
-    .filter(|&((_, remote_name), _)| !jj_lib::git::is_special_git_remote(remote_name))
+    .filter(|&(symbol, _)| !jj_lib::git::is_special_git_remote(symbol.remote))
     .any(|(_, remote_ref)| remote_ref.is_tracking())
 }
 
