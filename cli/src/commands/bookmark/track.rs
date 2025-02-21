@@ -57,32 +57,32 @@ pub fn cmd_bookmark_track(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
     let repo = workspace_command.repo().clone();
-    let mut names = Vec::new();
-    for (name, remote_ref) in find_remote_bookmarks(repo.view(), &args.names)? {
+    let mut symbols = Vec::new();
+    for (symbol, remote_ref) in find_remote_bookmarks(repo.view(), &args.names)? {
         if remote_ref.is_tracking() {
             writeln!(
                 ui.warning_default(),
-                "Remote bookmark already tracked: {name}"
+                "Remote bookmark already tracked: {symbol}"
             )?;
         } else {
-            names.push(name);
+            symbols.push(symbol);
         }
     }
     let mut tx = workspace_command.start_transaction();
-    for name in &names {
+    for symbol in &symbols {
         tx.repo_mut()
-            .track_remote_bookmark(&name.bookmark, &name.remote);
+            .track_remote_bookmark(symbol.name, symbol.remote);
     }
-    if !names.is_empty() {
+    if !symbols.is_empty() {
         writeln!(
             ui.status(),
             "Started tracking {} remote bookmarks.",
-            names.len()
+            symbols.len()
         )?;
     }
     tx.finish(
         ui,
-        format!("track remote bookmark {}", names.iter().join(", ")),
+        format!("track remote bookmark {}", symbols.iter().join(", ")),
     )?;
 
     //show conflicted bookmarks if there are some
@@ -99,11 +99,11 @@ pub fn cmd_bookmark_track(
         };
 
         let mut remote_per_bookmark: HashMap<&str, Vec<&str>> = HashMap::new();
-        for n in &names {
+        for symbol in &symbols {
             remote_per_bookmark
-                .entry(&n.bookmark)
+                .entry(symbol.name)
                 .or_default()
-                .push(&n.remote);
+                .push(symbol.remote);
         }
         let bookmarks_to_list =
             workspace_command

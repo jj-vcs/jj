@@ -55,39 +55,39 @@ pub fn cmd_bookmark_untrack(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
     let repo = workspace_command.repo().clone();
-    let mut names = Vec::new();
-    for (name, remote_ref) in find_remote_bookmarks(repo.view(), &args.names)? {
-        if jj_lib::git::is_special_git_remote(&name.remote) {
+    let mut symbols = Vec::new();
+    for (symbol, remote_ref) in find_remote_bookmarks(repo.view(), &args.names)? {
+        if jj_lib::git::is_special_git_remote(symbol.remote) {
             // This restriction can be lifted if we want to support untracked @git
             // bookmarks.
             writeln!(
                 ui.warning_default(),
-                "Git-tracking bookmark cannot be untracked: {name}"
+                "Git-tracking bookmark cannot be untracked: {symbol}"
             )?;
         } else if !remote_ref.is_tracking() {
             writeln!(
                 ui.warning_default(),
-                "Remote bookmark not tracked yet: {name}"
+                "Remote bookmark not tracked yet: {symbol}"
             )?;
         } else {
-            names.push(name);
+            symbols.push(symbol);
         }
     }
     let mut tx = workspace_command.start_transaction();
-    for name in &names {
+    for symbol in &symbols {
         tx.repo_mut()
-            .untrack_remote_bookmark(&name.bookmark, &name.remote);
+            .untrack_remote_bookmark(symbol.name, symbol.remote);
     }
-    if !names.is_empty() {
+    if !symbols.is_empty() {
         writeln!(
             ui.status(),
             "Stopped tracking {} remote bookmarks.",
-            names.len()
+            symbols.len()
         )?;
     }
     tx.finish(
         ui,
-        format!("untrack remote bookmark {}", names.iter().join(", ")),
+        format!("untrack remote bookmark {}", symbols.iter().join(", ")),
     )?;
     Ok(())
 }

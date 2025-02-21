@@ -3012,19 +3012,6 @@ impl DiffSelector {
     }
 }
 
-#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct RemoteBookmarkName {
-    pub bookmark: String,
-    pub remote: String,
-}
-
-impl fmt::Display for RemoteBookmarkName {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let RemoteBookmarkName { bookmark, remote } = self;
-        write!(f, "{bookmark}@{remote}")
-    }
-}
-
 #[derive(Clone, Debug)]
 pub struct RemoteBookmarkNamePattern {
     pub bookmark: StringPattern,
@@ -3068,6 +3055,8 @@ impl RemoteBookmarkNamePattern {
 
 impl fmt::Display for RemoteBookmarkNamePattern {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // TODO: use revset::format_remote_symbol() if FromStr is migrated to
+        // the revset parser.
         let RemoteBookmarkNamePattern { bookmark, remote } = self;
         write!(f, "{bookmark}@{remote}")
     }
