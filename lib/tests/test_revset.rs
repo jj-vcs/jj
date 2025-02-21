@@ -18,6 +18,7 @@ use std::path::Path;
 use assert_matches::assert_matches;
 use chrono::DateTime;
 use itertools::Itertools;
+use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::MillisSinceEpoch;
 use jj_lib::backend::Signature;
@@ -25,7 +26,6 @@ use jj_lib::backend::Timestamp;
 use jj_lib::commit::Commit;
 use jj_lib::fileset::FilesetExpression;
 use jj_lib::git;
-use jj_lib::git_backend::GitBackend;
 use jj_lib::graph::reverse_graph;
 use jj_lib::graph::GraphEdge;
 use jj_lib::id_prefix::IdPrefixContext;
@@ -51,7 +51,6 @@ use jj_lib::revset::RevsetResolutionError;
 use jj_lib::revset::RevsetWorkspaceContext;
 use jj_lib::revset::SymbolResolver;
 use jj_lib::revset::SymbolResolverExtension;
-use jj_lib::settings::GitSettings;
 use jj_lib::workspace::Workspace;
 use test_case::test_case;
 use testutils::create_random_commit;
@@ -226,72 +225,62 @@ fn test_resolve_symbol_commit_id() {
 #[test_case(false ; "mutable")]
 #[test_case(true ; "readonly")]
 fn test_resolve_symbol_change_id(readonly: bool) {
-    let git_settings = GitSettings::default();
-    // Test only with git so we can get predictable change ids
+    // Test only with git so we can get predictable commit ids
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_repo.repo;
 
-    let git_repo = repo
-        .store()
-        .backend_impl()
-        .downcast_ref::<GitBackend>()
-        .unwrap()
-        .open_git_repo()
-        .unwrap();
     // Add some commits that will end up having change ids with common prefixes
-    let empty_tree_id = git_repo.treebuilder(None).unwrap().write().unwrap();
-    let git_author = git2::Signature::new(
-        "git author",
-        "git.author@example.com",
-        &git2::Time::new(1000, 60),
-    )
-    .unwrap();
-    let git_committer = git2::Signature::new(
-        "git committer",
-        "git.committer@example.com",
-        &git2::Time::new(2000, -480),
-    )
-    .unwrap();
-    let git_tree = git_repo.find_tree(empty_tree_id).unwrap();
-    let mut git_commit_ids = vec![];
-    for i in &[133, 664, 840, 5085] {
-        let git_commit_id = git_repo
-            .commit(
-                Some(&format!("refs/heads/bookmark{i}")),
-                &git_author,
-                &git_committer,
-                &format!("test {i}"),
-                &git_tree,
-                &[],
-            )
+    let author = Signature {
+        name: "git author".to_owned(),
+        email: "git.author@example.com".to_owned(),
+        timestamp: Timestamp {
+            timestamp: MillisSinceEpoch(1_000_000),
+            tz_offset: 60,
+        },
+    };
+    let committer = Signature {
+        name: "git committer".to_owned(),
+        email: "git.committer@example.com".to_owned(),
+        timestamp: Timestamp {
+            timestamp: MillisSinceEpoch(2_000_000),
+            tz_offset: -480,
+        },
+    };
+    let root_commit_id = repo.store().root_commit_id();
+    let empty_tree_id = repo.store().empty_merged_tree_id();
+    // These are change ids that would be generated for the imported commits,
+    // but that isn't important. Here we have common prefixes "04", "040",
+    // "04e1" across commit and change ids.
+    let change_ids = [
+        "04e12a5467bba790efb88a9870894ec2",
+        "040b3ba3a51d8edbc4c5855cbd09de71",
+        "04e1c7082e4e34f3f371d8a1a46770b8",
+        "911d7e52fd5ba04b8f289e14c3d30b52",
+    ]
+    .map(ChangeId::from_hex);
+    let mut commits = vec![];
+    let mut tx = repo.start_transaction();
+    for (i, change_id) in iter::zip([133, 664, 840, 5085], change_ids) {
+        let commit = tx
+            .repo_mut()
+            .new_commit(vec![root_commit_id.clone()], empty_tree_id.clone())
+            .set_change_id(change_id)
+            .set_description(format!("test {i}"))
+            .set_author(author.clone())
+            .set_committer(committer.clone())
+            .write()
             .unwrap();
-        git_commit_ids.push(git_commit_id);
+        commits.push(commit);
     }
 
-    let mut tx = repo.start_transaction();
-    git::import_refs(tx.repo_mut(), &git_settings).unwrap();
-
     // Test the test setup
-    assert_eq!(
-        hex::encode(git_commit_ids[0]),
-        // "04e12a5467bba790efb88a9870894ec208b16bf1" reversed
-        "8fd68d104372910e19511df709e5dde62a548720"
-    );
-    assert_eq!(
-        hex::encode(git_commit_ids[1]),
-        // "040b3ba3a51d8edbc4c5855cbd09de71d4c29cca" reversed
-        "5339432b8e7b90bd3aa1a323db71b8a5c5dcd020"
-    );
-    assert_eq!(
-        hex::encode(git_commit_ids[2]),
-        // "04e1c7082e4e34f3f371d8a1a46770b861b9b547" reversed
-        "e2ad9d861d0ee625851b8ecfcf2c727410e38720"
-    );
-    assert_eq!(
-        hex::encode(git_commit_ids[3]),
-        // "911d7e52fd5ba04b8f289e14c3d30b52d38c0020" reversed
-        "040031cb4ad0cbc3287914f1d205dabf4a7eb889"
-    );
+    insta::assert_snapshot!(
+        commits.iter().map(|c| format!("{} {}\n", c.id(), c.change_id())).join(""), @r"
+    8fd68d104372910e19511df709e5dde62a548720 zvlyxpuvtsoopsqzlkorrpqrszrqvlnx
+    5339432b8e7b90bd3aa1a323db71b8a5c5dcd020 zvzowopwpuymrlmonvnuruunomzqmlsy
+    e2ad9d861d0ee625851b8ecfcf2c727410e38720 zvlynszrxlvlwvkwkwsymrpypvtsszor
+    040031cb4ad0cbc3287914f1d205dabf4a7eb889 qyymsluxkmuopzvorkxrqlyvnwmwzoux
+    ");
 
     let _readonly_repo;
     let repo: &dyn Repo = if readonly {
@@ -304,35 +293,25 @@ fn test_resolve_symbol_change_id(readonly: bool) {
     // Test lookup by full change id
     assert_eq!(
         resolve_symbol(repo, "zvlyxpuvtsoopsqzlkorrpqrszrqvlnx").unwrap(),
-        vec![CommitId::from_hex(
-            "8fd68d104372910e19511df709e5dde62a548720"
-        )]
+        vec![commits[0].id().clone()]
     );
     assert_eq!(
         resolve_symbol(repo, "zvzowopwpuymrlmonvnuruunomzqmlsy").unwrap(),
-        vec![CommitId::from_hex(
-            "5339432b8e7b90bd3aa1a323db71b8a5c5dcd020"
-        )]
+        vec![commits[1].id().clone()]
     );
     assert_eq!(
         resolve_symbol(repo, "zvlynszrxlvlwvkwkwsymrpypvtsszor").unwrap(),
-        vec![CommitId::from_hex(
-            "e2ad9d861d0ee625851b8ecfcf2c727410e38720"
-        )]
+        vec![commits[2].id().clone()]
     );
 
     // Test change id prefix
     assert_eq!(
         resolve_symbol(repo, "zvlyx").unwrap(),
-        vec![CommitId::from_hex(
-            "8fd68d104372910e19511df709e5dde62a548720"
-        )]
+        vec![commits[0].id().clone()]
     );
     assert_eq!(
         resolve_symbol(repo, "zvlyn").unwrap(),
-        vec![CommitId::from_hex(
-            "e2ad9d861d0ee625851b8ecfcf2c727410e38720"
-        )]
+        vec![commits[2].id().clone()]
     );
     assert_matches!(
         resolve_symbol(repo, "zvly"),
@@ -347,15 +326,11 @@ fn test_resolve_symbol_change_id(readonly: bool) {
     // same).
     assert_eq!(
         resolve_symbol(repo, "040").unwrap(),
-        vec![CommitId::from_hex(
-            "040031cb4ad0cbc3287914f1d205dabf4a7eb889"
-        )]
+        vec![commits[3].id().clone()]
     );
     assert_eq!(
         resolve_symbol(repo, "zvz").unwrap(),
-        vec![CommitId::from_hex(
-            "5339432b8e7b90bd3aa1a323db71b8a5c5dcd020"
-        )]
+        vec![commits[1].id().clone()]
     );
 
     // Test non-hex string
