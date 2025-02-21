@@ -65,7 +65,7 @@ pub(crate) struct RestoreArgs {
     #[arg(
         long, short = 't',
         visible_alias = "to",
-        value_name = "REVSETS",
+        value_name = "REVSET",
         add = ArgValueCandidates::new(complete::mutable_revisions)
     )]
     into: Option<RevisionArg>,
