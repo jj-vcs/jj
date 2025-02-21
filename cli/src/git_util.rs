@@ -51,9 +51,8 @@ use crate::formatter::Formatter;
 use crate::ui::ProgressOutput;
 use crate::ui::Ui;
 
-// TODO: migrate to gitoxide or subprocess, and remove this function
-pub(crate) fn get_git_repo(store: &Store) -> Result<git2::Repository, CommandError> {
-    Ok(git::get_git_backend(store)?.open_git_repo()?)
+pub(crate) fn get_git_repo(store: &Store) -> Result<gix::Repository, CommandError> {
+    Ok(git::get_git_backend(store)?.git_repo())
 }
 
 pub fn is_colocated_git_workspace(workspace: &Workspace, repo: &ReadonlyRepo) -> bool {
