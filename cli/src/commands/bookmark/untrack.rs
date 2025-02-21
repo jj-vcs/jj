@@ -54,9 +54,9 @@ pub fn cmd_bookmark_untrack(
     args: &BookmarkUntrackArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
-    let view = workspace_command.repo().view();
+    let repo = workspace_command.repo().clone();
     let mut names = Vec::new();
-    for (name, remote_ref) in find_remote_bookmarks(view, &args.names)? {
+    for (name, remote_ref) in find_remote_bookmarks(repo.view(), &args.names)? {
         if jj_lib::git::is_special_git_remote(&name.remote) {
             // This restriction can be lifted if we want to support untracked @git
             // bookmarks.

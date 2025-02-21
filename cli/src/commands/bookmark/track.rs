@@ -56,9 +56,9 @@ pub fn cmd_bookmark_track(
     args: &BookmarkTrackArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
-    let view = workspace_command.repo().view();
+    let repo = workspace_command.repo().clone();
     let mut names = Vec::new();
-    for (name, remote_ref) in find_remote_bookmarks(view, &args.names)? {
+    for (name, remote_ref) in find_remote_bookmarks(repo.view(), &args.names)? {
         if remote_ref.is_tracking() {
             writeln!(
                 ui.warning_default(),
