@@ -44,6 +44,7 @@ use jj_lib::repo::RepoLoaderError;
 use jj_lib::repo::RewriteRootCommit;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::repo_path::UiPathParseError;
+use jj_lib::revset;
 use jj_lib::revset::RevsetEvaluationError;
 use jj_lib::revset::RevsetParseError;
 use jj_lib::revset::RevsetParseErrorKind;
@@ -69,6 +70,7 @@ use crate::merge_tools::ConflictResolveError;
 use crate::merge_tools::DiffEditError;
 use crate::merge_tools::MergeToolConfigError;
 use crate::merge_tools::MergeToolPartialResolutionError;
+use crate::revset_util::BookmarkNameParseError;
 use crate::revset_util::UserRevsetEvaluationError;
 use crate::template_parser::TemplateParseError;
 use crate::template_parser::TemplateParseErrorKind;
@@ -733,6 +735,8 @@ impl From<AbsorbError> for CommandError {
 fn find_source_parse_error_hint(err: &dyn error::Error) -> Option<String> {
     let source = err.source()?;
     if let Some(source) = source.downcast_ref() {
+        bookmark_name_parse_error_hint(source)
+    } else if let Some(source) = source.downcast_ref() {
         config_get_error_hint(source)
     } else if let Some(source) = source.downcast_ref() {
         file_pattern_parse_error_hint(source)
@@ -750,6 +754,20 @@ fn find_source_parse_error_hint(err: &dyn error::Error) -> Option<String> {
         template_parse_error_hint(source)
     } else {
         None
+    }
+}
+
+fn bookmark_name_parse_error_hint(err: &BookmarkNameParseError) -> Option<String> {
+    use revset::ExpressionKind;
+    match revset::parse_program(&err.input).map(|node| node.kind) {
+        Ok(ExpressionKind::RemoteSymbol(symbol)) => Some(format!(
+            "Looks like remote bookmark. Run `jj bookmark track {symbol}` to track it."
+        )),
+        _ => Some(
+            "See https://jj-vcs.github.io/jj/latest/revsets/ or use `jj help -k revsets` for how \
+             to quote symbols."
+                .into(),
+        ),
     }
 }
 

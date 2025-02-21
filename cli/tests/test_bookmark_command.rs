@@ -144,15 +144,16 @@ fn test_bookmark_bad_name() {
     let output = test_env.run_jj_in(&repo_path, ["bookmark", "create", "-r@", ""]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    error: invalid value '' for '<NAMES>...':  --> 1:1
+    error: invalid value '' for '<NAMES>...': Failed to parse bookmark name: Syntax error
+
+    For more information, try '--help'.
+    Caused by:  --> 1:1
       |
     1 | 
       | ^---
       |
       = expected <identifier>, <string_literal>, or <raw_string_literal>
-
-    For more information, try '--help'.
-    Hint: See https://jj-vcs.github.io/jj/latest/revsets/ or use `jj help -k revsets` for revsets syntax and how to quote symbols.
+    Hint: See https://jj-vcs.github.io/jj/latest/revsets/ or use `jj help -k revsets` for how to quote symbols.
     [EOF]
     [exit status: 2]
     ");
@@ -160,14 +161,16 @@ fn test_bookmark_bad_name() {
     let output = test_env.run_jj_in(&repo_path, ["bookmark", "set", "''"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    error: invalid value '''' for '<NAMES>...':  --> 1:1
+    error: invalid value '''' for '<NAMES>...': Failed to parse bookmark name: Expected non-empty string
+
+    For more information, try '--help'.
+    Caused by:  --> 1:1
       |
     1 | ''
       | ^^
       |
       = Expected non-empty string
-
-    For more information, try '--help'.
+    Hint: See https://jj-vcs.github.io/jj/latest/revsets/ or use `jj help -k revsets` for how to quote symbols.
     [EOF]
     [exit status: 2]
     ");
@@ -175,15 +178,16 @@ fn test_bookmark_bad_name() {
     let output = test_env.run_jj_in(&repo_path, ["bookmark", "rename", "x", ""]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    error: invalid value '' for '<NEW>':  --> 1:1
+    error: invalid value '' for '<NEW>': Failed to parse bookmark name: Syntax error
+
+    For more information, try '--help'.
+    Caused by:  --> 1:1
       |
     1 | 
       | ^---
       |
       = expected <identifier>, <string_literal>, or <raw_string_literal>
-
-    For more information, try '--help'.
-    Hint: See https://jj-vcs.github.io/jj/latest/revsets/ or use `jj help -k revsets` for revsets syntax and how to quote symbols.
+    Hint: See https://jj-vcs.github.io/jj/latest/revsets/ or use `jj help -k revsets` for how to quote symbols.
     [EOF]
     [exit status: 2]
     ");
@@ -192,15 +196,33 @@ fn test_bookmark_bad_name() {
     let output = test_env.run_jj_in(&repo_path, ["bookmark", "set", "@-", "foo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    error: invalid value '@-' for '<NAMES>...':  --> 1:1
+    error: invalid value '@-' for '<NAMES>...': Failed to parse bookmark name: Syntax error
+
+    For more information, try '--help'.
+    Caused by:  --> 1:1
       |
     1 | @-
       | ^---
       |
       = expected <identifier>, <string_literal>, or <raw_string_literal>
+    Hint: See https://jj-vcs.github.io/jj/latest/revsets/ or use `jj help -k revsets` for how to quote symbols.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    let stderr = test_env.run_jj_in(&repo_path, ["bookmark", "set", "-r@-", "foo@bar"]);
+    insta::assert_snapshot!(stderr, @r"
+    ------- stderr -------
+    error: invalid value 'foo@bar' for '<NAMES>...': Failed to parse bookmark name: Syntax error
 
     For more information, try '--help'.
-    Hint: See https://jj-vcs.github.io/jj/latest/revsets/ or use `jj help -k revsets` for revsets syntax and how to quote symbols.
+    Caused by:  --> 1:4
+      |
+    1 | foo@bar
+      |    ^---
+      |
+      = expected <EOI>
+    Hint: Looks like remote bookmark. Run `jj bookmark track foo@bar` to track it.
     [EOF]
     [exit status: 2]
     ");
