@@ -76,7 +76,7 @@ pub struct OperationLogArgs {
     #[arg(long, short = 'T', add = ArgValueCandidates::new(complete::template_aliases))]
     template: Option<String>,
     /// Show changes to the repository at each operation
-    #[arg(long)]
+    #[arg(long, short = 'd')]
     op_diff: bool,
     /// Show patch of modifications to changes (implies --op-diff)
     ///

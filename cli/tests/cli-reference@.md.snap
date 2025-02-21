@@ -1652,7 +1652,7 @@ Like other commands, `jj op log` snapshots the current working-copy changes and 
    [built-in keywords]: https://jj-vcs.github.io/jj/latest/templates/#operation-keywords
 
    [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
-* `--op-diff` — Show changes to the repository at each operation
+* `-d`, `--op-diff` — Show changes to the repository at each operation
 * `-p`, `--patch` — Show patch of modifications to changes (implies --op-diff)
 
    If the previous version has different parents, it will be temporarily rebased to the parents of the new version, so the diff is not contaminated by unrelated changes.
