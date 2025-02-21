@@ -217,9 +217,9 @@ impl View {
             .kmerge_by(|(symbol1, _), (symbol2, _)| symbol1 < symbol2)
     }
 
-    pub fn get_remote_bookmark(&self, name: &str, remote_name: &str) -> &RemoteRef {
-        if let Some(remote_view) = self.data.remote_views.get(remote_name) {
-            remote_view.bookmarks.get(name).flatten()
+    pub fn get_remote_bookmark(&self, symbol: RemoteRefSymbol<'_>) -> &RemoteRef {
+        if let Some(remote_view) = self.data.remote_views.get(symbol.remote) {
+            remote_view.bookmarks.get(symbol.name).flatten()
         } else {
             RemoteRef::absent_ref()
         }
@@ -227,16 +227,18 @@ impl View {
 
     /// Sets remote-tracking bookmark to the given target and state. If the
     /// target is absent, the bookmark will be removed.
-    pub fn set_remote_bookmark(&mut self, name: &str, remote_name: &str, remote_ref: RemoteRef) {
+    pub fn set_remote_bookmark(&mut self, symbol: RemoteRefSymbol<'_>, remote_ref: RemoteRef) {
         if remote_ref.is_present() {
             let remote_view = self
                 .data
                 .remote_views
-                .entry(remote_name.to_owned())
+                .entry(symbol.remote.to_owned())
                 .or_default();
-            remote_view.bookmarks.insert(name.to_owned(), remote_ref);
-        } else if let Some(remote_view) = self.data.remote_views.get_mut(remote_name) {
-            remote_view.bookmarks.remove(name);
+            remote_view
+                .bookmarks
+                .insert(symbol.name.to_owned(), remote_ref);
+        } else if let Some(remote_view) = self.data.remote_views.get_mut(symbol.remote) {
+            remote_view.bookmarks.remove(symbol.name);
         }
     }
 

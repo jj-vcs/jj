@@ -496,7 +496,7 @@ impl RefStatus {
                 RefKind::Branch,
                 if repo
                     .view()
-                    .get_remote_bookmark(&symbol.name, &symbol.remote)
+                    .get_remote_bookmark(symbol.as_ref())
                     .is_tracking()
                 {
                     TrackingStatus::Tracked

@@ -78,6 +78,7 @@ use crate::refs::diff_named_ref_targets;
 use crate::refs::diff_named_remote_refs;
 use crate::refs::merge_ref_targets;
 use crate::refs::merge_remote_refs;
+use crate::refs::RemoteRefSymbol;
 use crate::revset;
 use crate::revset::RevsetExpression;
 use crate::revset::RevsetIteratorExt;
@@ -1548,45 +1549,43 @@ impl MutableRepo {
         self.set_local_bookmark_target(name, new_target);
     }
 
-    pub fn get_remote_bookmark(&self, name: &str, remote_name: &str) -> RemoteRef {
+    pub fn get_remote_bookmark(&self, symbol: RemoteRefSymbol<'_>) -> RemoteRef {
         self.view
-            .with_ref(|v| v.get_remote_bookmark(name, remote_name).clone())
+            .with_ref(|v| v.get_remote_bookmark(symbol).clone())
     }
 
-    pub fn set_remote_bookmark(&mut self, name: &str, remote_name: &str, remote_ref: RemoteRef) {
-        self.view_mut()
-            .set_remote_bookmark(name, remote_name, remote_ref);
+    pub fn set_remote_bookmark(&mut self, symbol: RemoteRefSymbol<'_>, remote_ref: RemoteRef) {
+        self.view_mut().set_remote_bookmark(symbol, remote_ref);
     }
 
     fn merge_remote_bookmark(
         &mut self,
-        name: &str,
-        remote_name: &str,
+        symbol: RemoteRefSymbol<'_>,
         base_ref: &RemoteRef,
         other_ref: &RemoteRef,
     ) {
         let view = self.view.get_mut();
         let index = self.index.as_index();
-        let self_ref = view.get_remote_bookmark(name, remote_name);
+        let self_ref = view.get_remote_bookmark(symbol);
         let new_ref = merge_remote_refs(index, self_ref, base_ref, other_ref);
-        view.set_remote_bookmark(name, remote_name, new_ref);
+        view.set_remote_bookmark(symbol, new_ref);
     }
 
     /// Merges the specified remote bookmark in to local bookmark, and starts
     /// tracking it.
-    pub fn track_remote_bookmark(&mut self, name: &str, remote_name: &str) {
-        let mut remote_ref = self.get_remote_bookmark(name, remote_name);
+    pub fn track_remote_bookmark(&mut self, symbol: RemoteRefSymbol<'_>) {
+        let mut remote_ref = self.get_remote_bookmark(symbol);
         let base_target = remote_ref.tracking_target();
-        self.merge_local_bookmark(name, base_target, &remote_ref.target);
+        self.merge_local_bookmark(symbol.name, base_target, &remote_ref.target);
         remote_ref.state = RemoteRefState::Tracking;
-        self.set_remote_bookmark(name, remote_name, remote_ref);
+        self.set_remote_bookmark(symbol, remote_ref);
     }
 
     /// Stops tracking the specified remote bookmark.
-    pub fn untrack_remote_bookmark(&mut self, name: &str, remote_name: &str) {
-        let mut remote_ref = self.get_remote_bookmark(name, remote_name);
+    pub fn untrack_remote_bookmark(&mut self, symbol: RemoteRefSymbol<'_>) {
+        let mut remote_ref = self.get_remote_bookmark(symbol);
         remote_ref.state = RemoteRefState::New;
-        self.set_remote_bookmark(name, remote_name, remote_ref);
+        self.set_remote_bookmark(symbol, remote_ref);
     }
 
     pub fn remove_remote(&mut self, remote_name: &str) {
@@ -1735,7 +1734,7 @@ impl MutableRepo {
         let changed_remote_bookmarks =
             diff_named_remote_refs(base.all_remote_bookmarks(), other.all_remote_bookmarks());
         for (symbol, (base_ref, other_ref)) in changed_remote_bookmarks {
-            self.merge_remote_bookmark(symbol.name, symbol.remote, base_ref, other_ref);
+            self.merge_remote_bookmark(symbol, base_ref, other_ref);
         }
 
         let new_git_head_target = merge_ref_targets(

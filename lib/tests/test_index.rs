@@ -33,6 +33,7 @@ use jj_lib::object_id::ObjectId as _;
 use jj_lib::object_id::PrefixResolution;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
+use jj_lib::refs::RemoteRefSymbol;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
@@ -53,6 +54,10 @@ fn child_commit<'repo>(mut_repo: &'repo mut MutableRepo, commit: &Commit) -> Com
 // Helper just to reduce line wrapping
 fn generation_number(index: &CompositeIndex, commit_id: &CommitId) -> u32 {
     index.entry_by_id(commit_id).unwrap().generation_number()
+}
+
+fn remote_symbol<'a>(name: &'a str, remote: &'a str) -> RemoteRefSymbol<'a> {
+    RemoteRefSymbol { name, remote }
 }
 
 #[test]
@@ -350,8 +355,7 @@ fn test_index_commits_hidden_but_referenced() {
     tx.repo_mut().remove_head(commit_b.id());
     tx.repo_mut().remove_head(commit_c.id());
     tx.repo_mut().set_remote_bookmark(
-        "bookmark",
-        "origin",
+        remote_symbol("bookmark", "origin"),
         RemoteRef {
             target: RefTarget::from_legacy_form(
                 [commit_a.id().clone()],

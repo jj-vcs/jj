@@ -1876,10 +1876,7 @@ fn reload_repo_at_operation(
 }
 
 fn resolve_remote_bookmark(repo: &dyn Repo, symbol: RemoteRefSymbol<'_>) -> Option<Vec<CommitId>> {
-    let target = &repo
-        .view()
-        .get_remote_bookmark(symbol.name, symbol.remote)
-        .target;
+    let target = &repo.view().get_remote_bookmark(symbol).target;
     target
         .is_present()
         .then(|| target.added_ids().cloned().collect())

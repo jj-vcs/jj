@@ -34,6 +34,7 @@ use jj_lib::refs::classify_bookmark_push_action;
 use jj_lib::refs::BookmarkPushAction;
 use jj_lib::refs::BookmarkPushUpdate;
 use jj_lib::refs::LocalAndRemoteRef;
+use jj_lib::refs::RemoteRefSymbol;
 use jj_lib::repo::Repo;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::settings::UserSettings;
@@ -251,7 +252,10 @@ pub fn cmd_git_push(
         let change_bookmarks = change_bookmark_names.iter().map(|bookmark_name| {
             let targets = LocalAndRemoteRef {
                 local_target: tx.repo().view().get_local_bookmark(bookmark_name),
-                remote_ref: tx.repo().view().get_remote_bookmark(bookmark_name, &remote),
+                remote_ref: tx.repo().view().get_remote_bookmark(RemoteRefSymbol {
+                    name: bookmark_name,
+                    remote: &remote,
+                }),
             };
             (bookmark_name.as_ref(), targets)
         });

@@ -19,6 +19,7 @@ use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::op_store::RemoteRefState;
 use jj_lib::op_store::WorkspaceId;
+use jj_lib::refs::RemoteRefSymbol;
 use jj_lib::repo::Repo;
 use maplit::btreemap;
 use maplit::hashset;
@@ -28,6 +29,10 @@ use testutils::create_random_commit;
 use testutils::write_random_commit;
 use testutils::CommitGraphBuilder;
 use testutils::TestRepo;
+
+fn remote_symbol<'a>(name: &'a str, remote: &'a str) -> RemoteRefSymbol<'a> {
+    RemoteRefSymbol { name, remote }
+}
 
 #[test]
 fn test_heads_empty() {
@@ -221,10 +226,12 @@ fn test_merge_views_bookmarks() {
         "main",
         RefTarget::normal(main_bookmark_local_tx0.id().clone()),
     );
-    mut_repo.set_remote_bookmark("main", "origin", main_bookmark_origin_tx0_remote_ref);
     mut_repo.set_remote_bookmark(
-        "main",
-        "alternate",
+        remote_symbol("main", "origin"),
+        main_bookmark_origin_tx0_remote_ref,
+    );
+    mut_repo.set_remote_bookmark(
+        remote_symbol("main", "alternate"),
         main_bookmark_alternate_tx0_remote_ref.clone(),
     );
     let feature_bookmark_local_tx0 = write_random_commit(mut_repo);
@@ -258,8 +265,7 @@ fn test_merge_views_bookmarks() {
         RefTarget::normal(main_bookmark_local_tx2.id().clone()),
     );
     tx2.repo_mut().set_remote_bookmark(
-        "main",
-        "origin",
+        remote_symbol("main", "origin"),
         main_bookmark_origin_tx2_remote_ref.clone(),
     );
 

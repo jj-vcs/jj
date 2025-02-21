@@ -145,9 +145,9 @@ pub fn cmd_git_clone(
     }
 
     let (mut workspace_command, default_branch) = clone_result?;
-    if let Some(default_branch) = &default_branch {
+    if let Some(name) = &default_branch {
         let default_symbol = RemoteRefSymbol {
-            name: default_branch,
+            name,
             remote: remote_name,
         };
         write_repository_level_trunk_alias(ui, workspace_command.repo_path(), default_symbol)?;
@@ -155,13 +155,11 @@ pub fn cmd_git_clone(
         let default_branch_remote_ref = workspace_command
             .repo()
             .view()
-            .get_remote_bookmark(default_branch, remote_name);
+            .get_remote_bookmark(default_symbol);
         if let Some(commit_id) = default_branch_remote_ref.target.as_normal().cloned() {
             let mut checkout_tx = workspace_command.start_transaction();
             // For convenience, create local bookmark as Git would do.
-            checkout_tx
-                .repo_mut()
-                .track_remote_bookmark(default_branch, remote_name);
+            checkout_tx.repo_mut().track_remote_bookmark(default_symbol);
             if let Ok(commit) = checkout_tx.repo().store().get_commit(&commit_id) {
                 checkout_tx.check_out(&commit)?;
             }

@@ -417,16 +417,16 @@ pub fn import_some_refs(
             },
         };
         match ref_name {
-            RefName::LocalBranch(branch) => {
+            RefName::LocalBranch(name) => {
+                let symbol = RemoteRefSymbol {
+                    name,
+                    remote: REMOTE_NAME_FOR_LOCAL_GIT_REPO,
+                };
                 if new_remote_ref.is_tracking() {
-                    mut_repo.merge_local_bookmark(branch, base_target, &new_remote_ref.target);
+                    mut_repo.merge_local_bookmark(symbol.name, base_target, &new_remote_ref.target);
                 }
                 // Update Git-tracking branch like the other remote branches.
-                mut_repo.set_remote_bookmark(
-                    branch,
-                    REMOTE_NAME_FOR_LOCAL_GIT_REPO,
-                    new_remote_ref,
-                );
+                mut_repo.set_remote_bookmark(symbol, new_remote_ref);
             }
             RefName::RemoteBranch(symbol) => {
                 let symbol = symbol.as_ref();
@@ -435,7 +435,7 @@ pub fn import_some_refs(
                 }
                 // Remote-tracking branch is the last known state of the branch in the remote.
                 // It shouldn't diverge even if we had inconsistent view.
-                mut_repo.set_remote_bookmark(symbol.name, symbol.remote, new_remote_ref);
+                mut_repo.set_remote_bookmark(symbol, new_remote_ref);
             }
             RefName::Tag(name) => {
                 if new_remote_ref.is_tracking() {
@@ -859,12 +859,12 @@ pub fn export_some_refs(
 
 fn copy_exportable_local_branches_to_remote_view(
     mut_repo: &mut MutableRepo,
-    remote_name: &str,
+    remote: &str,
     git_ref_filter: impl Fn(&RefName) -> bool,
 ) {
     let new_local_branches = mut_repo
         .view()
-        .local_remote_bookmarks(remote_name)
+        .local_remote_bookmarks(remote)
         .filter_map(|(branch, targets)| {
             // TODO: filter out untracked branches (if we add support for untracked @git
             // branches)
@@ -875,12 +875,13 @@ fn copy_exportable_local_branches_to_remote_view(
         .filter(|&(branch, _)| git_ref_filter(&RefName::LocalBranch(branch.to_owned())))
         .map(|(branch, new_target)| (branch.to_owned(), new_target.clone()))
         .collect_vec();
-    for (branch, new_target) in new_local_branches {
+    for (ref name, new_target) in new_local_branches {
+        let symbol = RemoteRefSymbol { name, remote };
         let new_remote_ref = RemoteRef {
             target: new_target,
             state: RemoteRefState::Tracking,
         };
-        mut_repo.set_remote_bookmark(&branch, remote_name, new_remote_ref);
+        mut_repo.set_remote_bookmark(symbol, new_remote_ref);
     }
 }
 
@@ -1897,36 +1898,37 @@ pub struct GitRefUpdate {
 pub fn push_branches(
     mut_repo: &mut MutableRepo,
     git_settings: &GitSettings,
-    remote_name: &str,
+    remote: &str,
     targets: &GitBranchPushTargets,
     callbacks: RemoteCallbacks<'_>,
 ) -> Result<(), GitPushError> {
-    if remote_name.contains("/") {
-        return Err(GitPushError::RemoteWithSlash(remote_name.to_owned()));
+    if remote.contains("/") {
+        return Err(GitPushError::RemoteWithSlash(remote.to_owned()));
     }
 
     let ref_updates = targets
         .branch_updates
         .iter()
-        .map(|(branch_name, update)| GitRefUpdate {
-            qualified_name: format!("refs/heads/{branch_name}"),
+        .map(|(name, update)| GitRefUpdate {
+            qualified_name: format!("refs/heads/{name}"),
             expected_current_target: update.old_target.clone(),
             new_target: update.new_target.clone(),
         })
         .collect_vec();
-    push_updates(mut_repo, git_settings, remote_name, &ref_updates, callbacks)?;
+    push_updates(mut_repo, git_settings, remote, &ref_updates, callbacks)?;
 
     // TODO: add support for partially pushed refs? we could update the view
     // excluding rejected refs, but the transaction would be aborted anyway
     // if we returned an Err.
-    for (branch_name, update) in &targets.branch_updates {
-        let git_ref_name = format!("refs/remotes/{remote_name}/{branch_name}");
+    for (name, update) in &targets.branch_updates {
+        let remote_symbol = RemoteRefSymbol { name, remote };
+        let git_ref_name = format!("refs/remotes/{remote}/{name}");
         let new_remote_ref = RemoteRef {
             target: RefTarget::resolved(update.new_target.clone()),
             state: RemoteRefState::Tracking,
         };
         mut_repo.set_git_ref_target(&git_ref_name, new_remote_ref.target.clone());
-        mut_repo.set_remote_bookmark(branch_name, remote_name, new_remote_ref);
+        mut_repo.set_remote_bookmark(remote_symbol, new_remote_ref);
     }
 
     Ok(())

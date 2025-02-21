@@ -22,6 +22,7 @@ use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::op_store::RemoteRefState;
 use jj_lib::op_store::WorkspaceId;
+use jj_lib::refs::RemoteRefSymbol;
 use jj_lib::repo::Repo;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::rewrite::rebase_commit_with_options;
@@ -41,6 +42,10 @@ use testutils::rebase_descendants_with_options_return_map;
 use testutils::write_random_commit;
 use testutils::CommitGraphBuilder;
 use testutils::TestRepo;
+
+fn remote_symbol<'a>(name: &'a str, remote: &'a str) -> RemoteRefSymbol<'a> {
+    RemoteRefSymbol { name, remote }
+}
 
 #[test]
 fn test_restore_tree() {
@@ -1013,7 +1018,7 @@ fn test_rebase_descendants_basic_bookmark_update_with_non_local_bookmark() {
     tx.repo_mut()
         .set_local_bookmark_target("main", RefTarget::normal(commit_b.id().clone()));
     tx.repo_mut()
-        .set_remote_bookmark("main", "origin", commit_b_remote_ref.clone());
+        .set_remote_bookmark(remote_symbol("main", "origin"), commit_b_remote_ref.clone());
     tx.repo_mut()
         .set_tag_target("v1", RefTarget::normal(commit_b.id().clone()));
     let repo = tx.commit("test").unwrap();
@@ -1027,7 +1032,8 @@ fn test_rebase_descendants_basic_bookmark_update_with_non_local_bookmark() {
     );
     // The remote bookmark and tag should not get updated
     assert_eq!(
-        tx.repo().get_remote_bookmark("main", "origin"),
+        tx.repo()
+            .get_remote_bookmark(remote_symbol("main", "origin")),
         commit_b_remote_ref
     );
     assert_eq!(
@@ -1066,7 +1072,7 @@ fn test_rebase_descendants_update_bookmark_after_abandon(delete_abandoned_bookma
     tx.repo_mut()
         .set_local_bookmark_target("main", RefTarget::normal(commit_b.id().clone()));
     tx.repo_mut()
-        .set_remote_bookmark("main", "origin", commit_b_remote_ref.clone());
+        .set_remote_bookmark(remote_symbol("main", "origin"), commit_b_remote_ref.clone());
     tx.repo_mut()
         .set_local_bookmark_target("other", RefTarget::normal(commit_c.id().clone()));
     let repo = tx.commit("test").unwrap();
@@ -1089,7 +1095,9 @@ fn test_rebase_descendants_update_bookmark_after_abandon(delete_abandoned_bookma
         }
     );
     assert_eq!(
-        tx.repo().get_remote_bookmark("main", "origin").target,
+        tx.repo()
+            .get_remote_bookmark(remote_symbol("main", "origin"))
+            .target,
         RefTarget::normal(commit_b.id().clone())
     );
     assert_eq!(

@@ -74,9 +74,8 @@ pub fn cmd_bookmark_untrack(
         }
     }
     let mut tx = workspace_command.start_transaction();
-    for symbol in &symbols {
-        tx.repo_mut()
-            .untrack_remote_bookmark(symbol.name, symbol.remote);
+    for &symbol in &symbols {
+        tx.repo_mut().untrack_remote_bookmark(symbol);
     }
     if !symbols.is_empty() {
         writeln!(
