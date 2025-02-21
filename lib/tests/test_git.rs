@@ -53,6 +53,7 @@ use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::op_store::RemoteRefState;
 use jj_lib::refs::BookmarkPushUpdate;
+use jj_lib::refs::RemoteRefSymbol;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
@@ -1185,7 +1186,7 @@ fn test_import_some_refs() {
 
     fn get_remote_bookmark(ref_name: &RefName) -> Option<&str> {
         match ref_name {
-            RefName::RemoteBranch { branch, remote } if remote == "origin" => Some(branch),
+            RefName::RemoteBranch(symbol) => (symbol.remote == "origin").then_some(&symbol.name),
             _ => None,
         }
     }
@@ -2969,10 +2970,13 @@ fn test_fetch_multiple_branches() {
             .changed_remote_refs
             .keys()
             .collect_vec(),
-        vec![&RefName::RemoteBranch {
-            branch: "main".to_string(),
-            remote: "origin".to_string()
-        }]
+        vec![&RefName::RemoteBranch(
+            RemoteRefSymbol {
+                name: "main",
+                remote: "origin",
+            }
+            .to_owned()
+        )]
     );
 }
 

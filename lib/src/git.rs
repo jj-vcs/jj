@@ -47,6 +47,8 @@ use crate::op_store::RemoteRef;
 use crate::op_store::RemoteRefState;
 use crate::refs;
 use crate::refs::BookmarkPushUpdate;
+use crate::refs::RemoteRefSymbol;
+use crate::refs::RemoteRefSymbolBuf;
 use crate::repo::MutableRepo;
 use crate::repo::Repo;
 use crate::repo_path::RepoPath;
@@ -67,7 +69,7 @@ const INDEX_DUMMY_CONFLICT_FILE: &str = ".jj-do-not-resolve-this-conflict";
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Hash, Debug)]
 pub enum RefName {
     LocalBranch(String),
-    RemoteBranch { branch: String, remote: String },
+    RemoteBranch(RemoteRefSymbolBuf),
     Tag(String),
 }
 
@@ -75,7 +77,7 @@ impl fmt::Display for RefName {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             RefName::LocalBranch(name) => write!(f, "{name}"),
-            RefName::RemoteBranch { branch, remote } => write!(f, "{branch}@{remote}"),
+            RefName::RemoteBranch(symbol) => write!(f, "{symbol}"),
             RefName::Tag(name) => write!(f, "{name}"),
         }
     }
@@ -173,10 +175,9 @@ pub fn parse_git_ref(ref_name: &str) -> Option<RefName> {
         remote_and_branch
             .split_once('/')
             // "refs/remotes/origin/HEAD" isn't a real remote-tracking branch
-            .filter(|&(_, branch)| branch != "HEAD")
-            .map(|(remote, branch)| RefName::RemoteBranch {
-                remote: remote.to_string(),
-                branch: branch.to_string(),
+            .filter(|&(_, name)| name != "HEAD")
+            .map(|(remote, name)| {
+                RefName::RemoteBranch(RemoteRefSymbol { name, remote }.to_owned())
             })
     } else {
         ref_name
@@ -190,15 +191,18 @@ fn to_git_ref_name(parsed_ref: &RefName) -> Option<String> {
         RefName::LocalBranch(branch) => {
             (!branch.is_empty() && branch != "HEAD").then(|| format!("refs/heads/{branch}"))
         }
-        RefName::RemoteBranch { branch, remote } => (!branch.is_empty() && branch != "HEAD")
-            .then(|| format!("refs/remotes/{remote}/{branch}")),
+        RefName::RemoteBranch(RemoteRefSymbolBuf { name, remote }) => {
+            (!name.is_empty() && name != "HEAD").then(|| format!("refs/remotes/{remote}/{name}"))
+        }
         RefName::Tag(tag) => Some(format!("refs/tags/{tag}")),
     }
 }
 
 fn to_remote_branch<'a>(parsed_ref: &'a RefName, remote_name: &str) -> Option<&'a str> {
     match parsed_ref {
-        RefName::RemoteBranch { branch, remote } => (remote == remote_name).then_some(branch),
+        RefName::RemoteBranch(RemoteRefSymbolBuf { name, remote }) => {
+            (remote == remote_name).then_some(name)
+        }
         RefName::LocalBranch(..) | RefName::Tag(..) => None,
     }
 }
@@ -424,13 +428,14 @@ pub fn import_some_refs(
                     new_remote_ref,
                 );
             }
-            RefName::RemoteBranch { branch, remote } => {
+            RefName::RemoteBranch(symbol) => {
+                let symbol = symbol.as_ref();
                 if new_remote_ref.is_tracking() {
-                    mut_repo.merge_local_bookmark(branch, base_target, &new_remote_ref.target);
+                    mut_repo.merge_local_bookmark(symbol.name, base_target, &new_remote_ref.target);
                 }
                 // Remote-tracking branch is the last known state of the branch in the remote.
                 // It shouldn't diverge even if we had inconsistent view.
-                mut_repo.set_remote_bookmark(branch, remote, new_remote_ref);
+                mut_repo.set_remote_bookmark(symbol.name, symbol.remote, new_remote_ref);
             }
             RefName::Tag(name) => {
                 if new_remote_ref.is_tracking() {
@@ -511,16 +516,13 @@ fn diff_refs_to_import(
     // TODO: migrate tags to the remote view, and don't destructure &RemoteRef
     let mut known_remote_refs: HashMap<RefName, (&RefTarget, RemoteRefState)> = itertools::chain(
         view.all_remote_bookmarks()
-            .map(|((branch, remote), remote_ref)| {
+            .map(|((name, remote), remote_ref)| {
                 // TODO: want to abstract local ref as "git" tracking remote, but
                 // we'll probably need to refactor the git_ref_filter API first.
                 let ref_name = if remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO {
-                    RefName::LocalBranch(branch.to_owned())
+                    RefName::LocalBranch(name.to_owned())
                 } else {
-                    RefName::RemoteBranch {
-                        branch: branch.to_owned(),
-                        remote: remote.to_owned(),
-                    }
+                    RefName::RemoteBranch(RemoteRefSymbol { name, remote }.to_owned())
                 };
                 let RemoteRef { target, state } = remote_ref;
                 (ref_name, (target, *state))
@@ -605,7 +607,7 @@ fn default_remote_ref_state_for(ref_name: &RefName, git_settings: &GitSettings) 
     match ref_name {
         // LocalBranch means Git-tracking branch
         RefName::LocalBranch(_) | RefName::Tag(_) => RemoteRefState::Tracking,
-        RefName::RemoteBranch { .. } => {
+        RefName::RemoteBranch(_) => {
             if git_settings.auto_local_bookmark {
                 RemoteRefState::Tracking
             } else {
@@ -896,11 +898,8 @@ fn diff_refs_to_export(
             .map(|(branch, target)| (RefName::LocalBranch(branch.to_owned()), target)),
         view.all_remote_bookmarks()
             .filter(|&((_, remote), _)| remote != REMOTE_NAME_FOR_LOCAL_GIT_REPO)
-            .map(|((branch, remote), remote_ref)| {
-                let ref_name = RefName::RemoteBranch {
-                    branch: branch.to_owned(),
-                    remote: remote.to_owned(),
-                };
+            .map(|((name, remote), remote_ref)| {
+                let ref_name = RefName::RemoteBranch(RemoteRefSymbol { name, remote }.to_owned());
                 (ref_name, &remote_ref.target)
             }),
     )
@@ -918,10 +917,7 @@ fn diff_refs_to_export(
             // There are two situations where remote-tracking branches get out of sync:
             // 1. `jj branch forget`
             // 2. `jj op undo`/`restore` in colocated repo
-            matches!(
-                ref_name,
-                RefName::LocalBranch(..) | RefName::RemoteBranch { .. }
-            )
+            matches!(ref_name, RefName::LocalBranch(_) | RefName::RemoteBranch(_))
         })
         .filter(|(ref_name, _)| git_ref_filter(ref_name));
     for (ref_name, target) in known_git_refs {
@@ -1614,18 +1610,16 @@ impl<'a> GitFetch<'a> {
                 |ref_name| match ref_name {
                     RefName::LocalBranch(_) => false,
                     RefName::Tag(_) => true,
-                    RefName::RemoteBranch { branch, remote } => {
-                        self.fetched.iter().any(|fetched| {
-                            if fetched.remote != *remote {
-                                return false;
-                            }
+                    RefName::RemoteBranch(symbol) => self.fetched.iter().any(|fetched| {
+                        if fetched.remote != symbol.remote {
+                            return false;
+                        }
 
-                            fetched
-                                .branches
-                                .iter()
-                                .any(|pattern| pattern.matches(branch))
-                        })
-                    }
+                        fetched
+                            .branches
+                            .iter()
+                            .any(|pattern| pattern.matches(&symbol.name))
+                    }),
                 },
             )?;
 

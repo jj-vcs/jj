@@ -491,12 +491,12 @@ impl RefStatus {
         repo: &dyn Repo,
     ) -> Self {
         let (ref_name, ref_kind, tracking_status) = match ref_name {
-            RefName::RemoteBranch { branch, remote } => (
-                format!("{branch}@{remote}"),
+            RefName::RemoteBranch(symbol) => (
+                format!("{symbol}"),
                 RefKind::Branch,
                 if repo
                     .view()
-                    .get_remote_bookmark(branch, remote)
+                    .get_remote_bookmark(&symbol.name, &symbol.remote)
                     .is_tracking()
                 {
                     TrackingStatus::Tracked

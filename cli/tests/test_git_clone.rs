@@ -620,7 +620,7 @@ fn test_git_clone_remote_default_bookmark_with_escape(subprocess: bool) {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
-    bookmark: "@origin [new] untracked
+    bookmark: "\""@origin [new] untracked
     Setting the revset alias `trunk()` to `"\""@origin`
     Working copy now at: sqpuoqvx cad212e1 (empty) (no description set)
     Parent commit      : mzyxwzks 9f01a0e0 " | message
