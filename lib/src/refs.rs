@@ -14,6 +14,9 @@
 
 #![allow(missing_docs)]
 
+use std::fmt;
+use std::fmt::Display;
+
 use itertools::EitherOrBoth;
 
 use crate::backend::CommitId;
@@ -22,6 +25,7 @@ use crate::merge::trivial_merge;
 use crate::merge::Merge;
 use crate::op_store::RefTarget;
 use crate::op_store::RemoteRef;
+use crate::revset;
 
 /// Compares `refs1` and `refs2` targets, yields entry if they differ.
 ///
@@ -165,6 +169,93 @@ fn find_pair_to_remove(
     }
 
     None
+}
+
+/// Owned remote bookmark or tag name.
+///
+/// This type can be displayed in `{name}@{remote}` form, with quoting and
+/// escaping if necessary.
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct RemoteRefSymbolBuf {
+    /// Local name.
+    pub name: String,
+    /// Remote name.
+    pub remote: String,
+}
+
+impl RemoteRefSymbolBuf {
+    /// Converts to reference type.
+    pub fn as_ref(&self) -> RemoteRefSymbol<'_> {
+        RemoteRefSymbol {
+            name: &self.name,
+            remote: &self.remote,
+        }
+    }
+}
+
+/// Borrowed remote bookmark or tag name.
+///
+/// This type can be displayed in `{name}@{remote}` form, with quoting and
+/// escaping if necessary.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct RemoteRefSymbol<'a> {
+    /// Local name.
+    pub name: &'a str,
+    /// Remote name.
+    pub remote: &'a str,
+}
+
+impl RemoteRefSymbol<'_> {
+    /// Converts to owned type.
+    pub fn to_owned(self) -> RemoteRefSymbolBuf {
+        RemoteRefSymbolBuf {
+            name: self.name.to_owned(),
+            remote: self.remote.to_owned(),
+        }
+    }
+}
+
+impl From<RemoteRefSymbol<'_>> for RemoteRefSymbolBuf {
+    fn from(value: RemoteRefSymbol<'_>) -> Self {
+        value.to_owned()
+    }
+}
+
+impl PartialEq<RemoteRefSymbol<'_>> for RemoteRefSymbolBuf {
+    fn eq(&self, other: &RemoteRefSymbol) -> bool {
+        self.as_ref() == *other
+    }
+}
+
+impl PartialEq<RemoteRefSymbol<'_>> for &RemoteRefSymbolBuf {
+    fn eq(&self, other: &RemoteRefSymbol) -> bool {
+        self.as_ref() == *other
+    }
+}
+
+impl PartialEq<RemoteRefSymbolBuf> for RemoteRefSymbol<'_> {
+    fn eq(&self, other: &RemoteRefSymbolBuf) -> bool {
+        *self == other.as_ref()
+    }
+}
+
+impl PartialEq<&RemoteRefSymbolBuf> for RemoteRefSymbol<'_> {
+    fn eq(&self, other: &&RemoteRefSymbolBuf) -> bool {
+        *self == other.as_ref()
+    }
+}
+
+impl Display for RemoteRefSymbolBuf {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.as_ref(), f)
+    }
+}
+
+impl Display for RemoteRefSymbol<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let RemoteRefSymbol { name, remote } = self;
+        f.pad(&revset::format_remote_symbol(name, remote))
+    }
 }
 
 /// Pair of local and remote targets.
