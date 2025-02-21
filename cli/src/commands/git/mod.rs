@@ -28,7 +28,7 @@ use jj_lib::config::ConfigFile;
 use jj_lib::config::ConfigSource;
 use jj_lib::git;
 use jj_lib::git::UnexpectedGitBackendError;
-use jj_lib::revset;
+use jj_lib::refs::RemoteRefSymbol;
 use jj_lib::store::Store;
 
 use self::clone::cmd_git_clone;
@@ -116,21 +116,19 @@ fn get_single_remote(store: &Store) -> Result<Option<String>, UnexpectedGitBacke
     })
 }
 
-/// Sets repository level `trunk()` alias to the specified remote branch.
+/// Sets repository level `trunk()` alias to the specified remote symbol.
 fn write_repository_level_trunk_alias(
     ui: &Ui,
     repo_path: &Path,
-    remote: &str,
-    branch: &str,
+    symbol: RemoteRefSymbol<'_>,
 ) -> Result<(), CommandError> {
     let mut file = ConfigFile::load_or_empty(ConfigSource::Repo, repo_path.join("config.toml"))?;
-    let expr = revset::format_remote_symbol(branch, remote);
-    file.set_value(["revset-aliases", "trunk()"], &expr)
+    file.set_value(["revset-aliases", "trunk()"], symbol.to_string())
         .expect("initial repo config shouldn't have invalid values");
     file.save()?;
     writeln!(
         ui.status(),
-        "Setting the revset alias `trunk()` to `{expr}`",
+        "Setting the revset alias `trunk()` to `{symbol}`",
     )?;
     Ok(())
 }
