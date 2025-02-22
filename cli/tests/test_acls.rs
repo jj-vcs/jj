@@ -40,8 +40,8 @@ fn test_diff() {
 
     SecretBackend::adopt_git_repo(&repo_path);
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "--color-words"]);
-    insta::assert_snapshot!(stdout.normalize_backslash(), @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "--color-words"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
     Modified regular file a-first:
        1    1: foobar
     Access denied to added-secret: No access
@@ -52,8 +52,8 @@ fn test_diff() {
        1    1: foobar
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "--summary"]);
-    insta::assert_snapshot!(stdout.normalize_backslash(), @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "--summary"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
     M a-first
     C {a-first => added-secret}
     D deleted-secret
@@ -62,8 +62,8 @@ fn test_diff() {
     M z-last
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "--types"]);
-    insta::assert_snapshot!(stdout.normalize_backslash(), @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "--types"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
     FF a-first
     FF {a-first => added-secret}
     F- deleted-secret
@@ -72,8 +72,8 @@ fn test_diff() {
     FF z-last
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "--stat"]);
-    insta::assert_snapshot!(stdout.normalize_backslash(), @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "--stat"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
     a-first                   | 2 +-
     {a-first => added-secret} | 2 +-
     deleted-secret            | 1 -

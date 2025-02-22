@@ -1683,9 +1683,9 @@ fn test_bookmark_list_filtered() {
 
     let template = r#"separate(" ", commit_id.short(), bookmarks, if(hidden, "(hidden)"))"#;
     insta::assert_snapshot!(
-        test_env.jj_cmd_success(
+        test_env.run_jj_in(
             &local_path,
-            &["log", "-r::(bookmarks() | remote_bookmarks())", "-T", template],
+            ["log", "-r::(bookmarks() | remote_bookmarks())", "-T", template],
         ),
         @r"
     @  c7b4c09cd77c local-keep
@@ -2154,7 +2154,7 @@ fn test_bookmark_list_conflicted() {
       + kkmpptxz 06a973bc (empty) b
     [EOF]
     ");
-    insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["bookmark", "list", "--conflicted"]), @r"
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["bookmark", "list", "--conflicted"]), @r"
     foo (conflicted):
       + rlvkpnrz d8d5f980 (empty) a
       + kkmpptxz 06a973bc (empty) b

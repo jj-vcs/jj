@@ -837,9 +837,9 @@ fn test_git_push_multiple(subprocess: bool) {
     [EOF]
     ");
     }
-    let stdout = test_env.jj_cmd_success(&workspace_root, &["log", "-rall()"]);
+    let output = test_env.run_jj_in(&workspace_root, ["log", "-rall()"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @r"
+    insta::assert_snapshot!(output, @r"
     @  yqosqzyt test.user@example.com 2001-02-03 08:05:17 bookmark2 my-bookmark c4a3c310
     │  (empty) foo
     │ ○  rlzusymt test.user@example.com 2001-02-03 08:05:10 8476341e
@@ -948,9 +948,9 @@ fn test_git_push_changes(subprocess: bool) {
             "push-yostqsxwqrlt",
         ],
     );
-    let stdout = test_env.jj_cmd_success(&workspace_root, &["status"]);
+    let output = test_env.run_jj_in(&workspace_root, ["status"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @r"
+    insta::assert_snapshot!(output, @r"
     Working copy changes:
     M file
     Working copy : yostqsxw 38cb417c bar
@@ -972,9 +972,9 @@ fn test_git_push_changes(subprocess: bool) {
     [EOF]
     ");
     }
-    let stdout = test_env.jj_cmd_success(&workspace_root, &["status"]);
+    let output = test_env.run_jj_in(&workspace_root, ["status"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @r"
+    insta::assert_snapshot!(output, @r"
     Working copy changes:
     M file
     Working copy : yostqsxw 38cb417c push-yostqsxwqrlt | bar
@@ -1670,9 +1670,9 @@ fn test_git_push_deleted(subprocess: bool) {
     [EOF]
     ");
     }
-    let stdout = test_env.jj_cmd_success(&workspace_root, &["log", "-rall()"]);
+    let output = test_env.run_jj_in(&workspace_root, ["log", "-rall()"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @r"
+    insta::assert_snapshot!(output, @r"
     @  yqosqzyt test.user@example.com 2001-02-03 08:05:13 5b36783c
     │  (empty) (no description set)
     │ ○  rlzusymt test.user@example.com 2001-02-03 08:05:10 bookmark2 8476341e

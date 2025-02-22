@@ -58,8 +58,8 @@ fn test_diffedit() {
     Adjust the right side until it shows the contents you want. If you
     don't make any changes, then the operation will be aborted.
     "###);
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    insta::assert_snapshot!(output, @r"
     D file1
     M file2
     [EOF]
@@ -76,8 +76,8 @@ fn test_diffedit() {
     Nothing changed.
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    insta::assert_snapshot!(output, @r"
     D file1
     M file2
     [EOF]
@@ -102,8 +102,8 @@ fn test_diffedit() {
     Nothing changed.
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    insta::assert_snapshot!(output, @r"
     D file1
     M file2
     [EOF]
@@ -119,8 +119,8 @@ fn test_diffedit() {
     [EOF]
     [exit status: 1]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    insta::assert_snapshot!(output, @r"
     D file1
     M file2
     [EOF]
@@ -137,8 +137,8 @@ fn test_diffedit() {
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    insta::assert_snapshot!(output, @r"
     D file1
     [EOF]
     ");
@@ -177,8 +177,8 @@ fn test_diffedit() {
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    insta::assert_snapshot!(output, @r"
     D file1
     D file2
     [EOF]
@@ -210,8 +210,8 @@ fn test_diffedit_new_file() {
     Nothing changed.
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    insta::assert_snapshot!(output, @r"
     D file1
     A file2
     [EOF]
@@ -228,8 +228,8 @@ fn test_diffedit_new_file() {
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    insta::assert_snapshot!(output, @r"
     M file1
     A file2
     [EOF]
@@ -249,8 +249,8 @@ fn test_diffedit_new_file() {
     Nothing changed.
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    insta::assert_snapshot!(output, @r"
     D file1
     A file2
     [EOF]
@@ -430,8 +430,8 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     "##);
 
     // File should be conflicted with no changes
-    let stdout = test_env.jj_cmd_success(&repo_path, &["st"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["st"]);
+    insta::assert_snapshot!(output, @r"
     The working copy has no changes.
     Working copy : mzvwutvl fb39e804 (conflict) (empty) (no description set)
     Parent commit: rlvkpnrz 3765cc27 side-a
@@ -480,8 +480,8 @@ fn test_diffedit_3pane() {
     Nothing changed.
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    insta::assert_snapshot!(output, @r"
     D file1
     M file2
     [EOF]
@@ -496,8 +496,8 @@ fn test_diffedit_3pane() {
     Nothing changed.
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    insta::assert_snapshot!(output, @r"
     D file1
     M file2
     [EOF]
@@ -517,8 +517,8 @@ fn test_diffedit_3pane() {
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    insta::assert_snapshot!(output, @r"
     D file1
     [EOF]
     ");
@@ -538,8 +538,8 @@ fn test_diffedit_3pane() {
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    insta::assert_snapshot!(output, @r"
     M file1
     M file2
     [EOF]
@@ -557,8 +557,8 @@ fn test_diffedit_3pane() {
     Nothing changed.
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    insta::assert_snapshot!(output, @r"
     D file1
     M file2
     [EOF]
@@ -590,8 +590,8 @@ fn test_diffedit_merge() {
     std::fs::write(repo_path.join("file3"), "d\n").unwrap();
     test_env.jj_cmd_ok(&repo_path, &["new"]);
     // Test the setup
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-r", "@-", "-s"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-r", "@-", "-s"]);
+    insta::assert_snapshot!(output, @r"
     M file1
     A file3
     [EOF]
@@ -617,15 +617,15 @@ fn test_diffedit_merge() {
     file2    2-sided conflict
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s", "-r", "@-"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s", "-r", "@-"]);
+    insta::assert_snapshot!(output, @r"
     D file1
     A file3
     [EOF]
     ");
     assert!(!repo_path.join("file1").exists());
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file2"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file2"]);
+    insta::assert_snapshot!(output, @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
     -a
@@ -659,8 +659,8 @@ fn test_diffedit_old_restore_interactive_tests() {
     Nothing changed.
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    insta::assert_snapshot!(output, @r"
     D file1
     M file2
     C {file2 => file3}
@@ -677,8 +677,8 @@ fn test_diffedit_old_restore_interactive_tests() {
     [EOF]
     [exit status: 1]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    insta::assert_snapshot!(output, @r"
     D file1
     M file2
     C {file2 => file3}
@@ -696,8 +696,8 @@ fn test_diffedit_old_restore_interactive_tests() {
     Added 0 files, modified 1 files, removed 1 files
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    insta::assert_snapshot!(output, @r"
     D file1
     [EOF]
     ");
@@ -714,8 +714,8 @@ fn test_diffedit_old_restore_interactive_tests() {
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "--git"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "--git"]);
+    insta::assert_snapshot!(output, @r"
     diff --git a/file1 b/file1
     deleted file mode 100644
     index 7898192261..0000000000
@@ -769,8 +769,8 @@ fn test_diffedit_restore_descendants() {
     Parent commit      : rlvkpnrz 62b8c2ce (no description set)
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "--git"]);
-    insta::assert_snapshot!(stdout, @r#"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "--git"]);
+    insta::assert_snapshot!(output, @r#"
     diff --git a/file b/file
     index 1a598a8fc9..7b6a85ab5a 100644
     --- a/file

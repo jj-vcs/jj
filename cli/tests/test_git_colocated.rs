@@ -153,7 +153,7 @@ fn test_git_colocated_unborn_bookmark() {
     ");
     // Staged change shouldn't persist.
     checkout_index();
-    insta::assert_snapshot!(test_env.jj_cmd_success(&workspace_root, &["status"]), @r"
+    insta::assert_snapshot!(test_env.run_jj_in(&workspace_root, ["status"]), @r"
     The working copy has no changes.
     Working copy : kkmpptxz fcdbbd73 (empty) (no description set)
     Parent commit: zzzzzzzz 00000000 (empty) (no description set)
@@ -185,7 +185,7 @@ fn test_git_colocated_unborn_bookmark() {
     ");
     // Staged change shouldn't persist.
     checkout_index();
-    insta::assert_snapshot!(test_env.jj_cmd_success(&workspace_root, &["status"]), @r"
+    insta::assert_snapshot!(test_env.run_jj_in(&workspace_root, ["status"]), @r"
     The working copy has no changes.
     Working copy : royxmykx 0e146103 (empty) (no description set)
     Parent commit: kkmpptxz e3e01407 (no description set)
@@ -219,7 +219,7 @@ fn test_git_colocated_unborn_bookmark() {
     ");
     // Staged change shouldn't persist.
     checkout_index();
-    insta::assert_snapshot!(test_env.jj_cmd_success(&workspace_root, &["status"]), @r"
+    insta::assert_snapshot!(test_env.run_jj_in(&workspace_root, ["status"]), @r"
     The working copy has no changes.
     Working copy : znkkpsqq 10dd328b (empty) (no description set)
     Parent commit: zzzzzzzz 00000000 (empty) (no description set)

@@ -97,9 +97,8 @@ fn test_describe() {
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
-    let stdout =
-        test_env.jj_cmd_success(&repo_path, &["log", "--no-graph", "-r@", "-Tdescription"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "--no-graph", "-r@", "-Tdescription"]);
+    insta::assert_snapshot!(output, @r"
     line1
     line2
 
@@ -125,9 +124,8 @@ fn test_describe() {
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
-    let stdout =
-        test_env.jj_cmd_success(&repo_path, &["log", "--no-graph", "-r@", "-Tdescription"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "--no-graph", "-r@", "-Tdescription"]);
+    insta::assert_snapshot!(output, @r"
     line1
     line2
     [EOF]
@@ -191,9 +189,8 @@ fn test_describe() {
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
-    let stdout =
-        test_env.jj_cmd_success(&repo_path, &["log", "--no-graph", "-r@", "-Tdescription"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "--no-graph", "-r@", "-Tdescription"]);
+    insta::assert_snapshot!(output, @r"
     description from editor
 
     content of message from editor
@@ -540,9 +537,8 @@ fn test_multiple_message_args() {
     [EOF]
     ");
 
-    let stdout =
-        test_env.jj_cmd_success(&repo_path, &["log", "--no-graph", "-r@", "-Tdescription"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "--no-graph", "-r@", "-Tdescription"]);
+    insta::assert_snapshot!(output, @r"
     First Paragraph from CLI
 
     Second Paragraph from CLI
@@ -586,9 +582,8 @@ fn test_multiple_message_args() {
     [EOF]
     ");
 
-    let stdout =
-        test_env.jj_cmd_success(&repo_path, &["log", "--no-graph", "-r@", "-Tdescription"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "--no-graph", "-r@", "-Tdescription"]);
+    insta::assert_snapshot!(output, @r"
     First Paragraph from CLI
 
 

@@ -93,10 +93,10 @@ fn test_new_merge() {
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1"]);
-    insta::assert_snapshot!(stdout, @"a[EOF]");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file2"]);
-    insta::assert_snapshot!(stdout, @"b[EOF]");
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file1"]);
+    insta::assert_snapshot!(output, @"a[EOF]");
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file2"]);
+    insta::assert_snapshot!(output, @"b[EOF]");
 
     // Same test with `--no-edit`
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
@@ -438,8 +438,8 @@ fn test_new_insert_before_no_loop() {
     let repo_path = test_env.env_root().join("repo");
     setup_before_insertion(&test_env, &repo_path);
     let template = r#"commit_id.short() ++ " " ++ if(description, description, "root")"#;
-    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-T", template]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-T", template]);
+    insta::assert_snapshot!(output, @r"
     @    7705d353bf5d F
     ├─╮
     │ ○  41a89ffcbba2 E
@@ -625,8 +625,8 @@ fn test_new_insert_after_before_no_loop() {
     let repo_path = test_env.env_root().join("repo");
     setup_before_insertion(&test_env, &repo_path);
     let template = r#"commit_id.short() ++ " " ++ if(description, description, "root")"#;
-    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-T", template]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-T", template]);
+    insta::assert_snapshot!(output, @r"
     @    7705d353bf5d F
     ├─╮
     │ ○  41a89ffcbba2 E

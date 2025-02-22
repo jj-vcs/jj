@@ -27,8 +27,8 @@ fn test_alias_basic() {
         &repo_path,
         &["bookmark", "create", "my-bookmark", "-r", "@"],
     );
-    let stdout = test_env.jj_cmd_success(&repo_path, &["bk"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["bk"]);
+    insta::assert_snapshot!(output, @r"
     @  my-bookmark
     │
     ~
@@ -215,33 +215,33 @@ fn test_alias_global_args_before_and_after() {
     let repo_path = test_env.env_root().join("repo");
     test_env.add_config(r#"aliases.l = ["log", "-T", "commit_id", "-r", "all()"]"#);
     // Test the setup
-    let stdout = test_env.jj_cmd_success(&repo_path, &["l"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["l"]);
+    insta::assert_snapshot!(output, @r"
     @  230dd059e1b059aefc0da06a2e5a7dbf22362f22
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
 
     // Can pass global args before
-    let stdout = test_env.jj_cmd_success(&repo_path, &["l", "--at-op", "@-"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["l", "--at-op", "@-"]);
+    insta::assert_snapshot!(output, @r"
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
     // Can pass global args after
-    let stdout = test_env.jj_cmd_success(&repo_path, &["--at-op", "@-", "l"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["--at-op", "@-", "l"]);
+    insta::assert_snapshot!(output, @r"
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
     // Test passing global args both before and after
-    let stdout = test_env.jj_cmd_success(&repo_path, &["--at-op", "abc123", "l", "--at-op", "@-"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["--at-op", "abc123", "l", "--at-op", "@-"]);
+    insta::assert_snapshot!(output, @r"
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["-R", "../nonexistent", "l", "-R", "."]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["-R", "../nonexistent", "l", "-R", "."]);
+    insta::assert_snapshot!(output, @r"
     @  230dd059e1b059aefc0da06a2e5a7dbf22362f22
     ◆  0000000000000000000000000000000000000000
     [EOF]
@@ -258,8 +258,8 @@ fn test_alias_global_args_in_definition() {
     );
 
     // The global argument in the alias is respected
-    let stdout = test_env.jj_cmd_success(&repo_path, &["l"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["l"]);
+    insta::assert_snapshot!(output, @r"
     [1m[38;5;14m◆[0m  [38;5;4m0000000000000000000000000000000000000000[39m
     [EOF]
     ");
@@ -317,15 +317,15 @@ fn test_alias_in_repo_config() {
     .unwrap();
 
     // In repo1 sub directory, aliases can be loaded from the repo1 config.
-    let stdout = test_env.jj_cmd_success(&repo1_path.join("sub"), &["l"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo1_path.join("sub"), ["l"]);
+    insta::assert_snapshot!(output, @r"
     repo1 alias
     [EOF]
     ");
 
     // In repo2 directory, no repo-local aliases exist.
-    let stdout = test_env.jj_cmd_success(&repo2_path, &["l"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo2_path, ["l"]);
+    insta::assert_snapshot!(output, @r"
     user alias
     [EOF]
     ");
@@ -368,9 +368,9 @@ fn test_alias_in_repo_config() {
 
     // Config loaded from the cwd-relative workspace shouldn't persist. It's
     // used only for command arguments expansion.
-    let stdout = test_env.jj_cmd_success(
+    let output = test_env.run_jj_in(
         &repo1_path,
-        &[
+        [
             "config",
             "list",
             "aliases",
@@ -378,7 +378,7 @@ fn test_alias_in_repo_config() {
             repo2_path.to_str().unwrap(),
         ],
     );
-    insta::assert_snapshot!(stdout, @r#"
+    insta::assert_snapshot!(output, @r#"
     aliases.l = ['log', '-r@', '--no-graph', '-T"user alias\n"']
     [EOF]
     "#);

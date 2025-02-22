@@ -53,8 +53,8 @@ fn set_up(trunk_name: &str) -> (TestEnvironment, PathBuf) {
 fn test_builtin_alias_trunk_matches_main() {
     let (test_env, workspace_root) = set_up("main");
 
-    let stdout = test_env.jj_cmd_success(&workspace_root, &["log", "-r", "trunk()"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&workspace_root, ["log", "-r", "trunk()"]);
+    insta::assert_snapshot!(output, @r"
     ◆  xtvrqkyv test.user@example.com 2001-02-03 08:05:08 main d13ecdbd
     │  (empty) description 1
     ~
@@ -66,8 +66,8 @@ fn test_builtin_alias_trunk_matches_main() {
 fn test_builtin_alias_trunk_matches_master() {
     let (test_env, workspace_root) = set_up("master");
 
-    let stdout = test_env.jj_cmd_success(&workspace_root, &["log", "-r", "trunk()"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&workspace_root, ["log", "-r", "trunk()"]);
+    insta::assert_snapshot!(output, @r"
     ◆  xtvrqkyv test.user@example.com 2001-02-03 08:05:08 master d13ecdbd
     │  (empty) description 1
     ~
@@ -79,8 +79,8 @@ fn test_builtin_alias_trunk_matches_master() {
 fn test_builtin_alias_trunk_matches_trunk() {
     let (test_env, workspace_root) = set_up("trunk");
 
-    let stdout = test_env.jj_cmd_success(&workspace_root, &["log", "-r", "trunk()"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&workspace_root, ["log", "-r", "trunk()"]);
+    insta::assert_snapshot!(output, @r"
     ◆  xtvrqkyv test.user@example.com 2001-02-03 08:05:08 trunk d13ecdbd
     │  (empty) description 1
     ~
@@ -95,8 +95,8 @@ fn test_builtin_alias_trunk_matches_exactly_one_commit() {
     test_env.jj_cmd_ok(&origin_path, &["new", "root()", "-m=description 3"]);
     test_env.jj_cmd_ok(&origin_path, &["bookmark", "create", "-r@", "master"]);
 
-    let stdout = test_env.jj_cmd_success(&workspace_root, &["log", "-r", "trunk()"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&workspace_root, ["log", "-r", "trunk()"]);
+    insta::assert_snapshot!(output, @r"
     ◆  xtvrqkyv test.user@example.com 2001-02-03 08:05:08 main d13ecdbd
     │  (empty) description 1
     ~
@@ -112,8 +112,8 @@ fn test_builtin_alias_trunk_override_alias() {
         r#"revset-aliases.'trunk()' = 'latest(remote_bookmarks(exact:"override-trunk", exact:"origin"))'"#,
     );
 
-    let stdout = test_env.jj_cmd_success(&workspace_root, &["log", "-r", "trunk()"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&workspace_root, ["log", "-r", "trunk()"]);
+    insta::assert_snapshot!(output, @r"
     ◆  xtvrqkyv test.user@example.com 2001-02-03 08:05:08 override-trunk d13ecdbd
     │  (empty) description 1
     ~

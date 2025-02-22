@@ -57,8 +57,8 @@ fn test_unsquash() {
     ◆  000000000000
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file1"]);
+    insta::assert_snapshot!(output, @r"
     c
     [EOF]
     ");
@@ -81,13 +81,13 @@ fn test_unsquash() {
     ◆  000000000000 a
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1", "-r", "b"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file1", "-r", "b"]);
+    insta::assert_snapshot!(output, @r"
     b
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file1"]);
+    insta::assert_snapshot!(output, @r"
     c
     [EOF]
     ");
@@ -146,8 +146,8 @@ fn test_unsquash() {
     ◆  000000000000
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file1"]);
+    insta::assert_snapshot!(output, @r"
     e
     [EOF]
     ");
@@ -214,8 +214,8 @@ fn test_unsquash_partial() {
     ◆  000000000000
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1", "-r", "a"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file1", "-r", "a"]);
+    insta::assert_snapshot!(output, @r"
     a
     [EOF]
     ");
@@ -239,23 +239,23 @@ fn test_unsquash_partial() {
     ◆  000000000000
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1", "-r", "b"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file1", "-r", "b"]);
+    insta::assert_snapshot!(output, @r"
     a
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file2", "-r", "b"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file2", "-r", "b"]);
+    insta::assert_snapshot!(output, @r"
     b
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1", "-r", "c"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file1", "-r", "c"]);
+    insta::assert_snapshot!(output, @r"
     c
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file2", "-r", "c"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file2", "-r", "c"]);
+    insta::assert_snapshot!(output, @r"
     c
     [EOF]
     ");
@@ -278,23 +278,23 @@ fn test_unsquash_partial() {
     Parent commit      : kkmpptxz fe8eb117 b | (no description set)
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1", "-r", "b"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file1", "-r", "b"]);
+    insta::assert_snapshot!(output, @r"
     a
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file2", "-r", "b"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file2", "-r", "b"]);
+    insta::assert_snapshot!(output, @r"
     b
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1", "-r", "c"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file1", "-r", "c"]);
+    insta::assert_snapshot!(output, @r"
     c
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file2", "-r", "c"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file2", "-r", "c"]);
+    insta::assert_snapshot!(output, @r"
     c
     [EOF]
     ");

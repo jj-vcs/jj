@@ -501,14 +501,14 @@ fn test_alias() {
     "###,
     );
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-r", "my-root"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "my-root"]);
+    insta::assert_snapshot!(output, @r"
     ◆  zzzzzzzz root() 00000000
     [EOF]
     ");
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-r", "identity(my-root)"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "identity(my-root)"]);
+    insta::assert_snapshot!(output, @r"
     ◆  zzzzzzzz root() 00000000
     [EOF]
     ");
@@ -739,8 +739,8 @@ fn test_all_modifier() {
     ");
 
     // Command that accepts multiple revisions by default
-    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-rall:all()"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-rall:all()"]);
+    insta::assert_snapshot!(output, @r"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 230dd059
     │  (empty) (no description set)
     ◆  zzzzzzzz root() 00000000
@@ -765,8 +765,8 @@ fn test_all_modifier() {
     ");
 
     // Template expression that accepts multiple revisions by default
-    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-Tself.contained_in('all:all()')"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-Tself.contained_in('all:all()')"]);
+    insta::assert_snapshot!(output, @r"
     @  true
     ◆  true
     [EOF]

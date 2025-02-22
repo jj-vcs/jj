@@ -26,8 +26,8 @@ fn test_rewrite_immutable_generic() {
     test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "main"]);
     test_env.jj_cmd_ok(&repo_path, &["new", "main-", "-m=c"]);
     std::fs::write(repo_path.join("file"), "c").unwrap();
-    let stdout = test_env.jj_cmd_success(&repo_path, &["log"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log"]);
+    insta::assert_snapshot!(output, @r"
     @  mzvwutvl test.user@example.com 2001-02-03 08:05:12 7adb43e8
     │  c
     │ ○  kkmpptxz test.user@example.com 2001-02-03 08:05:10 main 72e1b68c

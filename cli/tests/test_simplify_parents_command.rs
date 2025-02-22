@@ -75,8 +75,8 @@ fn test_simplify_parents_no_change() {
 
     create_commit(&test_env, &repo_path, "a", &["root()"]);
     create_commit(&test_env, &repo_path, "b", &["a"]);
-    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-r", "all()", "-T", "description"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "all()", "-T", "description"]);
+    insta::assert_snapshot!(output, @r"
     @  b
     ○  a
     ◆
@@ -90,8 +90,8 @@ fn test_simplify_parents_no_change() {
     [EOF]
     ");
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-r", "all()", "-T", "description"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "all()", "-T", "description"]);
+    insta::assert_snapshot!(output, @r"
     @  b
     ○  a
     ◆
@@ -107,8 +107,8 @@ fn test_simplify_parents_no_change_diamond() {
     create_commit(&test_env, &repo_path, "b", &["a"]);
     create_commit(&test_env, &repo_path, "c", &["a"]);
     create_commit(&test_env, &repo_path, "d", &["b", "c"]);
-    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-r", "all()", "-T", "description"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "all()", "-T", "description"]);
+    insta::assert_snapshot!(output, @r"
     @    d
     ├─╮
     │ ○  c
@@ -127,8 +127,8 @@ fn test_simplify_parents_no_change_diamond() {
     [EOF]
     ");
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-r", "all()", "-T", "description"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "all()", "-T", "description"]);
+    insta::assert_snapshot!(output, @r"
     @    d
     ├─╮
     │ ○  c
@@ -148,9 +148,9 @@ fn test_simplify_parents_redundant_parent(args: &[&str]) {
     create_commit(&test_env, &repo_path, "a", &["root()"]);
     create_commit(&test_env, &repo_path, "b", &["a"]);
     create_commit(&test_env, &repo_path, "c", &["a", "b"]);
-    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-r", "all()", "-T", "description"]);
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "all()", "-T", "description"]);
     insta::allow_duplicates! {
-        insta::assert_snapshot!(stdout, @r"
+        insta::assert_snapshot!(output, @r"
         @    c
         ├─╮
         │ ○  b
@@ -173,9 +173,9 @@ fn test_simplify_parents_redundant_parent(args: &[&str]) {
         ");
     }
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-r", "all()", "-T", "description"]);
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "all()", "-T", "description"]);
     insta::allow_duplicates! {
-        insta::assert_snapshot!(stdout, @r"
+        insta::assert_snapshot!(output, @r"
         @  c
         ○  b
         ○  a
@@ -195,8 +195,8 @@ fn test_simplify_parents_multiple_redundant_parents() {
     create_commit(&test_env, &repo_path, "d", &["c"]);
     create_commit(&test_env, &repo_path, "e", &["d"]);
     create_commit(&test_env, &repo_path, "f", &["d", "e"]);
-    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-r", "all()", "-T", "description"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "all()", "-T", "description"]);
+    insta::assert_snapshot!(output, @r"
     @    f
     ├─╮
     │ ○  e
@@ -224,8 +224,8 @@ fn test_simplify_parents_multiple_redundant_parents() {
     [EOF]
     ");
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-r", "all()", "-T", "description"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "all()", "-T", "description"]);
+    insta::assert_snapshot!(output, @r"
     @  f
     ○  e
     ○  d
@@ -248,8 +248,8 @@ fn test_simplify_parents_multiple_redundant_parents() {
     [EOF]
     ");
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-r", "all()", "-T", "description"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "all()", "-T", "description"]);
+    insta::assert_snapshot!(output, @r"
     @  f
     ○  e
     ○  d
@@ -271,8 +271,8 @@ fn test_simplify_parents_no_args() {
     create_commit(&test_env, &repo_path, "d", &["c"]);
     create_commit(&test_env, &repo_path, "e", &["d"]);
     create_commit(&test_env, &repo_path, "f", &["d", "e"]);
-    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-r", "all()", "-T", "description"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "all()", "-T", "description"]);
+    insta::assert_snapshot!(output, @r"
     @    f
     ├─╮
     │ ○  e
@@ -298,8 +298,8 @@ fn test_simplify_parents_no_args() {
     [EOF]
     ");
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-r", "all()", "-T", "description"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "all()", "-T", "description"]);
+    insta::assert_snapshot!(output, @r"
     @  f
     ○  e
     ○  d
@@ -322,8 +322,8 @@ fn test_simplify_parents_no_args() {
     [EOF]
     ");
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-r", "all()", "-T", "description"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "all()", "-T", "description"]);
+    insta::assert_snapshot!(output, @r"
     @  f
     ○  e
     ○  d

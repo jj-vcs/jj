@@ -582,12 +582,12 @@ fn test_git_clone_remote_default_bookmark(subprocess: bool) {
     }
 
     // "trunk()" alias should be set to default bookmark "main"
-    let stdout = test_env.jj_cmd_success(
+    let output = test_env.run_jj_in(
         &test_env.env_root().join("clone1"),
-        &["config", "list", "--repo", "revset-aliases.'trunk()'"],
+        ["config", "list", "--repo", "revset-aliases.'trunk()'"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @r#"
+    insta::assert_snapshot!(output, @r#"
     revset-aliases.'trunk()' = "main@origin"
     [EOF]
     "#);
@@ -646,12 +646,12 @@ fn test_git_clone_remote_default_bookmark(subprocess: bool) {
     }
 
     // "trunk()" alias should be set to new default bookmark "feature1"
-    let stdout = test_env.jj_cmd_success(
+    let output = test_env.run_jj_in(
         &test_env.env_root().join("clone3"),
-        &["config", "list", "--repo", "revset-aliases.'trunk()'"],
+        ["config", "list", "--repo", "revset-aliases.'trunk()'"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @r#"
+    insta::assert_snapshot!(output, @r#"
     revset-aliases.'trunk()' = "feature1@origin"
     [EOF]
     "#);
@@ -693,12 +693,12 @@ fn test_git_clone_remote_default_bookmark_with_escape(subprocess: bool) {
     }
 
     // "trunk()" alias should be escaped and quoted
-    let stdout = test_env.jj_cmd_success(
+    let output = test_env.run_jj_in(
         &test_env.env_root().join("clone"),
-        &["config", "list", "--repo", "revset-aliases.'trunk()'"],
+        ["config", "list", "--repo", "revset-aliases.'trunk()'"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @r#"
+    insta::assert_snapshot!(output, @r#"
     revset-aliases.'trunk()' = '"\""@origin'
     [EOF]
     "#);
@@ -1171,9 +1171,9 @@ fn test_git_clone_malformed(subprocess: bool) {
     insta::allow_duplicates! {
     insta::assert_snapshot!(stderr, @"");
     }
-    let stdout = test_env.jj_cmd_success(&clone_path, &["status"]);
+    let output = test_env.run_jj_in(&clone_path, ["status"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @r"
+    insta::assert_snapshot!(output, @r"
     The working copy has no changes.
     Working copy : zsuskuln f652c321 (empty) (no description set)
     Parent commit: zzzzzzzz 00000000 (empty) (no description set)

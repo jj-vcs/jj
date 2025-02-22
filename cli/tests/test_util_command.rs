@@ -19,10 +19,10 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_util_config_schema() {
     let test_env = TestEnvironment::default();
-    let stdout = test_env.jj_cmd_success(test_env.env_root(), &["util", "config-schema"]);
+    let output = test_env.run_jj_in(test_env.env_root(), ["util", "config-schema"]);
     // Validate partial snapshot, redacting any lines nested 2+ indent levels.
     insta::with_settings!({filters => vec![(r"(?m)(^        .*$\r?\n)+", "        [...]\n")]}, {
-        assert_snapshot!(stdout, @r#"
+        assert_snapshot!(output, @r#"
         {
             "$schema": "http://json-schema.org/draft-04/schema",
             "$comment": "`taplo` and the corresponding VS Code plugins only support draft-04 verstion of JSON Schema, see <https://taplo.tamasfe.dev/configuration/developing-schemas.html>. draft-07 is mostly compatible with it, newer versions may not be.",

@@ -231,12 +231,12 @@ fn test_git_init_external_import_trunk(bare: bool) {
     }
 
     // "trunk()" alias should be set to remote "origin"'s default bookmark "trunk"
-    let stdout = test_env.jj_cmd_success(
+    let output = test_env.run_jj_in(
         &test_env.env_root().join("repo"),
-        &["config", "list", "--repo", "revset-aliases.\"trunk()\""],
+        ["config", "list", "--repo", "revset-aliases.\"trunk()\""],
     );
     insta::allow_duplicates! {
-        insta::assert_snapshot!(stdout, @r#"
+        insta::assert_snapshot!(output, @r#"
         revset-aliases."trunk()" = "trunk@origin"
         [EOF]
         "#);
@@ -658,8 +658,8 @@ fn test_git_init_colocated_dirty_working_copy() {
     "#);
 
     // Working-copy changes should have been snapshotted.
-    let stdout = test_env.jj_cmd_success(&workspace_root, &["log", "-s", "--ignore-working-copy"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&workspace_root, ["log", "-s", "--ignore-working-copy"]);
+    insta::assert_snapshot!(output, @r"
     @  sqpuoqvx test.user@example.com 2001-02-03 08:05:07 36dbd9a1
     │  (no description set)
     │  C {some-file => new-staged-file}

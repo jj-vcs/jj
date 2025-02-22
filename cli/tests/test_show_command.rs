@@ -48,8 +48,8 @@ fn test_show_basic() {
     std::fs::write(repo_path.join("file2"), "foo\nbar\nbaz quux\n").unwrap();
     std::fs::write(repo_path.join("file3"), "foo\n").unwrap();
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &["show"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["show"]);
+    insta::assert_snapshot!(output, @r"
     Commit ID: e34f04317a81edc6ba41fef239c0d0180f10656f
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -65,8 +65,8 @@ fn test_show_basic() {
     [EOF]
     ");
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &["show", "--context=0"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["show", "--context=0"]);
+    insta::assert_snapshot!(output, @r"
     Commit ID: e34f04317a81edc6ba41fef239c0d0180f10656f
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -82,8 +82,8 @@ fn test_show_basic() {
     [EOF]
     ");
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &["show", "--color=debug"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["show", "--color=debug"]);
+    insta::assert_snapshot!(output, @r"
     Commit ID: [38;5;4m<<commit_id::e34f04317a81edc6ba41fef239c0d0180f10656f>>[39m
     Change ID: [38;5;5m<<change_id::rlvkpnrzqnoowoytxnquwvuryrwnrmlp>>[39m
     Author   : [38;5;3m<<author name::Test User>>[39m <[38;5;3m<<author email local::test.user>><<author email::@>><<author email domain::example.com>>[39m> ([38;5;6m<<author timestamp local format::2001-02-03 08:05:09>>[39m)
@@ -99,8 +99,8 @@ fn test_show_basic() {
     [EOF]
     ");
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &["show", "-s"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["show", "-s"]);
+    insta::assert_snapshot!(output, @r"
     Commit ID: e34f04317a81edc6ba41fef239c0d0180f10656f
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -113,8 +113,8 @@ fn test_show_basic() {
     [EOF]
     ");
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &["show", "--types"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["show", "--types"]);
+    insta::assert_snapshot!(output, @r"
     Commit ID: e34f04317a81edc6ba41fef239c0d0180f10656f
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -127,8 +127,8 @@ fn test_show_basic() {
     [EOF]
     ");
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &["show", "--git"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["show", "--git"]);
+    insta::assert_snapshot!(output, @r"
     Commit ID: e34f04317a81edc6ba41fef239c0d0180f10656f
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -151,8 +151,8 @@ fn test_show_basic() {
     [EOF]
     ");
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &["show", "--git", "--context=0"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["show", "--git", "--context=0"]);
+    insta::assert_snapshot!(output, @r"
     Commit ID: e34f04317a81edc6ba41fef239c0d0180f10656f
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -174,8 +174,8 @@ fn test_show_basic() {
     [EOF]
     ");
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &["show", "--git", "--color=debug"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["show", "--git", "--color=debug"]);
+    insta::assert_snapshot!(output, @r"
     Commit ID: [38;5;4m<<commit_id::e34f04317a81edc6ba41fef239c0d0180f10656f>>[39m
     Change ID: [38;5;5m<<change_id::rlvkpnrzqnoowoytxnquwvuryrwnrmlp>>[39m
     Author   : [38;5;3m<<author name::Test User>>[39m <[38;5;3m<<author email local::test.user>><<author email::@>><<author email domain::example.com>>[39m> ([38;5;6m<<author timestamp local format::2001-02-03 08:05:09>>[39m)
@@ -198,8 +198,8 @@ fn test_show_basic() {
     [EOF]
     ");
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &["show", "-s", "--git"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["show", "-s", "--git"]);
+    insta::assert_snapshot!(output, @r"
     Commit ID: e34f04317a81edc6ba41fef239c0d0180f10656f
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -224,8 +224,8 @@ fn test_show_basic() {
     [EOF]
     ");
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &["show", "--stat"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["show", "--stat"]);
+    insta::assert_snapshot!(output, @r"
     Commit ID: e34f04317a81edc6ba41fef239c0d0180f10656f
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -247,9 +247,9 @@ fn test_show_with_template() {
     let repo_path = test_env.env_root().join("repo");
     test_env.jj_cmd_ok(&repo_path, &["new", "-m", "a new commit"]);
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &["show", "-T", "description"]);
+    let output = test_env.run_jj_in(&repo_path, ["show", "-T", "description"]);
 
-    insta::assert_snapshot!(stdout, @r"
+    insta::assert_snapshot!(output, @r"
     a new commit
     [EOF]
     ");

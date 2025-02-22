@@ -56,8 +56,8 @@ fn test_backout() {
     ◆  000000000000
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    insta::assert_snapshot!(output, @r"
     A a
     [EOF]
     ");
@@ -74,8 +74,8 @@ fn test_backout() {
     ◆  000000000000
     [EOF]
     "#);
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s", "-r", "@+"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s", "-r", "@+"]);
+    insta::assert_snapshot!(output, @r"
     D a
     [EOF]
     ");
@@ -96,8 +96,8 @@ fn test_backout() {
     ◆  000000000000
     [EOF]
     "#);
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s", "-r", "@+"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s", "-r", "@+"]);
+    insta::assert_snapshot!(output, @r"
     A a
     [EOF]
     ");
@@ -156,8 +156,8 @@ fn test_backout_multiple() {
     [EOF]
     "#);
     // View the output of each backed out commit
-    let stdout = test_env.jj_cmd_success(&repo_path, &["show", "@+"]);
-    insta::assert_snapshot!(stdout, @r#"
+    let output = test_env.run_jj_in(&repo_path, ["show", "@+"]);
+    insta::assert_snapshot!(output, @r#"
     Commit ID: 8ff3fbc2ccb0d66985f558c461d1643cebb4c7d6
     Change ID: wqnwkozpkustnxypnnntnykwrqrkrpvv
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:19)
@@ -173,8 +173,8 @@ fn test_backout_multiple() {
        3     : c
     [EOF]
     "#);
-    let stdout = test_env.jj_cmd_success(&repo_path, &["show", "@++"]);
-    insta::assert_snapshot!(stdout, @r#"
+    let output = test_env.run_jj_in(&repo_path, ["show", "@++"]);
+    insta::assert_snapshot!(output, @r#"
     Commit ID: d31d42e0267f6524d445348b1dd00926c62a6b57
     Change ID: mouksmquosnpvwqrpsvvxtxpywpnxlss
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:19)
@@ -188,8 +188,8 @@ fn test_backout_multiple() {
        1     : b
     [EOF]
     "#);
-    let stdout = test_env.jj_cmd_success(&repo_path, &["show", "@+++"]);
-    insta::assert_snapshot!(stdout, @r#"
+    let output = test_env.run_jj_in(&repo_path, ["show", "@+++"]);
+    insta::assert_snapshot!(output, @r#"
     Commit ID: 6504c4ded177fba2334f76683d1aa643700d5073
     Change ID: tqvpomtpwrqsylrpsxknultrymmqxmxv
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:19)
@@ -231,8 +231,8 @@ fn test_backout_description_template() {
     ◆  000000000000
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    insta::assert_snapshot!(output, @r"
     A a
     [EOF]
     ");

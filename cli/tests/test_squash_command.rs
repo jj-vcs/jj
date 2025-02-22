@@ -56,8 +56,8 @@ fn test_squash() {
     ◆  000000000000 (empty)
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file1"]);
+    insta::assert_snapshot!(output, @r"
     c
     [EOF]
     ");
@@ -78,13 +78,13 @@ fn test_squash() {
     ◆  000000000000 (empty)
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1", "-r", "b"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file1", "-r", "b"]);
+    insta::assert_snapshot!(output, @r"
     b
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file1"]);
+    insta::assert_snapshot!(output, @r"
     c
     [EOF]
     ");
@@ -140,8 +140,8 @@ fn test_squash() {
     ◆  000000000000 (empty)
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1", "-r", "e"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file1", "-r", "e"]);
+    insta::assert_snapshot!(output, @r"
     e
     [EOF]
     ");
@@ -206,8 +206,8 @@ fn test_squash_partial() {
     ◆  000000000000 (empty)
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1", "-r", "a"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file1", "-r", "a"]);
+    insta::assert_snapshot!(output, @r"
     b
     [EOF]
     ");
@@ -230,23 +230,23 @@ fn test_squash_partial() {
     ◆  000000000000 (empty)
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1", "-r", "a"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file1", "-r", "a"]);
+    insta::assert_snapshot!(output, @r"
     a
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file2", "-r", "a"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file2", "-r", "a"]);
+    insta::assert_snapshot!(output, @r"
     b
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1", "-r", "b"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file1", "-r", "b"]);
+    insta::assert_snapshot!(output, @r"
     b
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file2", "-r", "b"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file2", "-r", "b"]);
+    insta::assert_snapshot!(output, @r"
     b
     [EOF]
     ");
@@ -270,23 +270,23 @@ fn test_squash_partial() {
     ◆  000000000000 (empty)
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1", "-r", "a"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file1", "-r", "a"]);
+    insta::assert_snapshot!(output, @r"
     a
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file2", "-r", "a"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file2", "-r", "a"]);
+    insta::assert_snapshot!(output, @r"
     b
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1", "-r", "b"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file1", "-r", "b"]);
+    insta::assert_snapshot!(output, @r"
     b
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file2", "-r", "b"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file2", "-r", "b"]);
+    insta::assert_snapshot!(output, @r"
     b
     [EOF]
     ");
@@ -351,8 +351,8 @@ fn test_squash_keep_emptied() {
     ◆  000000000000 (empty)
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1", "-r", "a"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file1", "-r", "a"]);
+    insta::assert_snapshot!(output, @r"
     b
     [EOF]
     ");
@@ -437,14 +437,14 @@ fn test_squash_from_to() {
     [EOF]
     ");
     // The change from the source has been applied
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file1"]);
+    insta::assert_snapshot!(output, @r"
     c
     [EOF]
     ");
     // File `file2`, which was not changed in source, is unchanged
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file2"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file2"]);
+    insta::assert_snapshot!(output, @r"
     f
     [EOF]
     ");
@@ -472,8 +472,8 @@ fn test_squash_from_to() {
     ");
     // The change from the source has been applied (the file contents were already
     // "f", as is typically the case when moving changes from an ancestor)
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file2"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file2"]);
+    insta::assert_snapshot!(output, @r"
     f
     [EOF]
     ");
@@ -502,8 +502,8 @@ fn test_squash_from_to() {
     [EOF]
     ");
     // The change from the source has been applied
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file2", "-r", "d"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file2", "-r", "d"]);
+    insta::assert_snapshot!(output, @r"
     e
     [EOF]
     ");
@@ -567,19 +567,19 @@ fn test_squash_from_to_partial() {
     [EOF]
     ");
     // The changes from the source has been applied
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file1"]);
+    insta::assert_snapshot!(output, @r"
     c
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file2"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file2"]);
+    insta::assert_snapshot!(output, @r"
     c
     [EOF]
     ");
     // File `file3`, which was not changed in source, is unchanged
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file3"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file3"]);
+    insta::assert_snapshot!(output, @r"
     d
     [EOF]
     ");
@@ -605,20 +605,20 @@ fn test_squash_from_to_partial() {
     [EOF]
     ");
     // The selected change from the source has been applied
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file1"]);
+    insta::assert_snapshot!(output, @r"
     c
     [EOF]
     ");
     // The unselected change from the source has not been applied
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file2"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file2"]);
+    insta::assert_snapshot!(output, @r"
     a
     [EOF]
     ");
     // File `file3`, which was changed in source's parent, is unchanged
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file3"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file3"]);
+    insta::assert_snapshot!(output, @r"
     d
     [EOF]
     ");
@@ -645,20 +645,20 @@ fn test_squash_from_to_partial() {
     [EOF]
     ");
     // The selected change from the source has been applied
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file1"]);
+    insta::assert_snapshot!(output, @r"
     c
     [EOF]
     ");
     // The unselected change from the source has not been applied
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file2"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file2"]);
+    insta::assert_snapshot!(output, @r"
     a
     [EOF]
     ");
     // File `file3`, which was changed in source's parent, is unchanged
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file3"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file3"]);
+    insta::assert_snapshot!(output, @r"
     d
     [EOF]
     ");
@@ -686,14 +686,14 @@ fn test_squash_from_to_partial() {
     [EOF]
     ");
     // The selected change from the source has been applied
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1", "-r", "b"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file1", "-r", "b"]);
+    insta::assert_snapshot!(output, @r"
     c
     [EOF]
     ");
     // The unselected change from the source has not been applied
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file2", "-r", "b"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file2", "-r", "b"]);
+    insta::assert_snapshot!(output, @r"
     a
     [EOF]
     ");
@@ -784,8 +784,8 @@ fn test_squash_from_multiple() {
     [EOF]
     ");
     // The changes from the sources have been applied
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "-r=d", "file"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "-r=d", "file"]);
+    insta::assert_snapshot!(output, @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base #1 to side #1
     -a
@@ -820,8 +820,8 @@ fn test_squash_from_multiple() {
     [EOF]
     ");
     // The changes from the sources have been applied to the destination
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "-r=e", "file"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "-r=e", "file"]);
+    insta::assert_snapshot!(output, @r"
     f
     [EOF]
     ");
@@ -920,19 +920,19 @@ fn test_squash_from_multiple_partial() {
     [EOF]
     ");
     // The selected changes have been removed from the sources
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "-r=b", "file1"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "-r=b", "file1"]);
+    insta::assert_snapshot!(output, @r"
     a
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "-r=c", "file1"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "-r=c", "file1"]);
+    insta::assert_snapshot!(output, @r"
     a
     [EOF]
     ");
     // The selected changes from the sources have been applied
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "-r=d", "file1"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "-r=d", "file1"]);
+    insta::assert_snapshot!(output, @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base #1 to side #1
     -a
@@ -947,8 +947,8 @@ fn test_squash_from_multiple_partial() {
     ");
     // The unselected change from the sources have not been applied to the
     // destination
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "-r=d", "file2"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "-r=d", "file2"]);
+    insta::assert_snapshot!(output, @r"
     d
     [EOF]
     ");
@@ -978,30 +978,30 @@ fn test_squash_from_multiple_partial() {
     [EOF]
     ");
     // The selected changes have been removed from the sources
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "-r=b", "file1"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "-r=b", "file1"]);
+    insta::assert_snapshot!(output, @r"
     a
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "-r=c", "file1"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "-r=c", "file1"]);
+    insta::assert_snapshot!(output, @r"
     a
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "-r=f", "file1"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "-r=f", "file1"]);
+    insta::assert_snapshot!(output, @r"
     f
     [EOF]
     ");
     // The selected changes from the sources have been applied to the destination
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "-r=e", "file1"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "-r=e", "file1"]);
+    insta::assert_snapshot!(output, @r"
     f
     [EOF]
     ");
     // The unselected changes from the sources have not been applied
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "-r=d", "file2"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "-r=d", "file2"]);
+    insta::assert_snapshot!(output, @r"
     d
     [EOF]
     ");
@@ -1061,15 +1061,15 @@ fn test_squash_from_multiple_partial_no_op() {
     ◆  000000000000 (empty)
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "evolog",
             "-T",
             r#"separate(" ", commit_id.short(), description)"#,
         ],
     );
-    insta::assert_snapshot!(stdout, @r"
+    insta::assert_snapshot!(output, @r"
     @    e178068add8c d
     ├─╮
     │ ○  b73077b08c59 b

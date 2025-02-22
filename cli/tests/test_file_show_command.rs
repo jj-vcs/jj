@@ -27,15 +27,15 @@ fn test_show() {
     std::fs::write(repo_path.join("dir").join("file2"), "c\n").unwrap();
 
     // Can print the contents of a file in a commit
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1", "-r", "@-"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file1", "-r", "@-"]);
+    insta::assert_snapshot!(output, @r"
     a
     [EOF]
     ");
 
     // Defaults to printing the working-copy version
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file1"]);
+    insta::assert_snapshot!(output, @r"
     b
     [EOF]
     ");
@@ -46,8 +46,8 @@ fn test_show() {
     } else {
         "dir\\file2"
     };
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", subdir_file]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", subdir_file]);
+    insta::assert_snapshot!(output, @r"
     c
     [EOF]
     ");
@@ -62,15 +62,15 @@ fn test_show() {
     ");
 
     // Can print files under the specified directory
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "dir"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "dir"]);
+    insta::assert_snapshot!(output, @r"
     c
     [EOF]
     ");
 
     // Can print multiple files
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "."]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "."]);
+    insta::assert_snapshot!(output, @r"
     c
     b
     [EOF]
@@ -92,8 +92,8 @@ fn test_show() {
     test_env.jj_cmd_ok(&repo_path, &["new"]);
     std::fs::write(repo_path.join("file1"), "c\n").unwrap();
     test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "@", "-d", "@--"]);
-    let stdout = test_env.jj_cmd_success(&repo_path, &["file", "show", "file1"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file1"]);
+    insta::assert_snapshot!(output, @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
     -b

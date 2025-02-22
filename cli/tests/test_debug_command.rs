@@ -24,8 +24,8 @@ fn test_debug_fileset() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let workspace_path = test_env.env_root().join("repo");
 
-    let stdout = test_env.jj_cmd_success(&workspace_path, &["debug", "fileset", "all()"]);
-    assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&workspace_path, ["debug", "fileset", "all()"]);
+    assert_snapshot!(output, @r"
     -- Parsed:
     All
 
@@ -58,11 +58,11 @@ fn test_debug_revset() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let workspace_path = test_env.env_root().join("repo");
 
-    let stdout = test_env.jj_cmd_success(&workspace_path, &["debug", "revset", "root()"]);
+    let output = test_env.run_jj_in(&workspace_path, ["debug", "revset", "root()"]);
     insta::with_settings!({filters => vec![
         (r"(?m)(^    .*\n)+", "    ..\n"),
     ]}, {
-        assert_snapshot!(stdout, @r"
+        assert_snapshot!(output, @r"
         -- Parsed:
         Root
 
@@ -168,8 +168,8 @@ fn test_debug_tree() {
     std::fs::write(subdir.join("file2"), "contents 2").unwrap();
 
     // Defaults to showing the tree at the current commit
-    let stdout = test_env.jj_cmd_success(&workspace_path, &["debug", "tree"]);
-    assert_snapshot!(stdout.normalize_backslash(), @r#"
+    let output = test_env.run_jj_in(&workspace_path, ["debug", "tree"]);
+    assert_snapshot!(output.normalize_backslash(), @r#"
     dir/subdir/file1: Ok(Resolved(Some(File { id: FileId("498e9b01d79cb8d31cdf0df1a663cc1fcefd9de3"), executable: false })))
     dir/subdir/file2: Ok(Resolved(Some(File { id: FileId("b2496eaffe394cd50a9db4de5787f45f09fd9722"), executable: false })))
     [EOF]
@@ -177,31 +177,31 @@ fn test_debug_tree() {
     );
 
     // Can show the tree at another commit
-    let stdout = test_env.jj_cmd_success(&workspace_path, &["debug", "tree", "-r@-"]);
-    assert_snapshot!(stdout.normalize_backslash(), @r#"
+    let output = test_env.run_jj_in(&workspace_path, ["debug", "tree", "-r@-"]);
+    assert_snapshot!(output.normalize_backslash(), @r#"
     dir/subdir/file1: Ok(Resolved(Some(File { id: FileId("498e9b01d79cb8d31cdf0df1a663cc1fcefd9de3"), executable: false })))
     [EOF]
     "#
     );
 
     // Can filter by paths
-    let stdout = test_env.jj_cmd_success(&workspace_path, &["debug", "tree", "dir/subdir/file2"]);
-    assert_snapshot!(stdout.normalize_backslash(), @r#"
+    let output = test_env.run_jj_in(&workspace_path, ["debug", "tree", "dir/subdir/file2"]);
+    assert_snapshot!(output.normalize_backslash(), @r#"
     dir/subdir/file2: Ok(Resolved(Some(File { id: FileId("b2496eaffe394cd50a9db4de5787f45f09fd9722"), executable: false })))
     [EOF]
     "#
     );
 
     // Can a show the root tree by id
-    let stdout = test_env.jj_cmd_success(
+    let output = test_env.run_jj_in(
         &workspace_path,
-        &[
+        [
             "debug",
             "tree",
             "--id=0958358e3f80e794f032b25ed2be96cf5825da6c",
         ],
     );
-    assert_snapshot!(stdout.normalize_backslash(), @r#"
+    assert_snapshot!(output.normalize_backslash(), @r#"
     dir/subdir/file1: Ok(Resolved(Some(File { id: FileId("498e9b01d79cb8d31cdf0df1a663cc1fcefd9de3"), executable: false })))
     dir/subdir/file2: Ok(Resolved(Some(File { id: FileId("b2496eaffe394cd50a9db4de5787f45f09fd9722"), executable: false })))
     [EOF]
@@ -209,16 +209,16 @@ fn test_debug_tree() {
     );
 
     // Can a show non-root tree by id
-    let stdout = test_env.jj_cmd_success(
+    let output = test_env.run_jj_in(
         &workspace_path,
-        &[
+        [
             "debug",
             "tree",
             "--dir=dir",
             "--id=6ac232efa713535ae518a1a898b77e76c0478184",
         ],
     );
-    assert_snapshot!(stdout.normalize_backslash(), @r#"
+    assert_snapshot!(output.normalize_backslash(), @r#"
     dir/subdir/file1: Ok(Resolved(Some(File { id: FileId("498e9b01d79cb8d31cdf0df1a663cc1fcefd9de3"), executable: false })))
     dir/subdir/file2: Ok(Resolved(Some(File { id: FileId("b2496eaffe394cd50a9db4de5787f45f09fd9722"), executable: false })))
     [EOF]
@@ -226,9 +226,9 @@ fn test_debug_tree() {
     );
 
     // Can filter by paths when showing non-root tree (matcher applies from root)
-    let stdout = test_env.jj_cmd_success(
+    let output = test_env.run_jj_in(
         &workspace_path,
-        &[
+        [
             "debug",
             "tree",
             "--dir=dir",
@@ -236,7 +236,7 @@ fn test_debug_tree() {
             "dir/subdir/file2",
         ],
     );
-    assert_snapshot!(stdout.normalize_backslash(), @r#"
+    assert_snapshot!(output.normalize_backslash(), @r#"
     dir/subdir/file2: Ok(Resolved(Some(File { id: FileId("b2496eaffe394cd50a9db4de5787f45f09fd9722"), executable: false })))
     [EOF]
     "#

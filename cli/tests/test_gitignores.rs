@@ -58,8 +58,8 @@ fn test_gitignores() {
     std::fs::write(workspace_root.join("file2"), "contents").unwrap();
     std::fs::write(workspace_root.join("file3"), "contents").unwrap();
 
-    let stdout = test_env.jj_cmd_success(&workspace_root, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&workspace_root, ["diff", "-s"]);
+    insta::assert_snapshot!(output, @r"
     A .gitignore
     A file0
     A file3
@@ -88,13 +88,13 @@ fn test_gitignores_relative_excludes_file_path() {
     // core.excludesFile should be resolved relative to the workspace root, not
     // to the cwd.
     std::fs::create_dir(workspace_root.join("sub")).unwrap();
-    let stdout = test_env.jj_cmd_success(&workspace_root.join("sub"), &["diff", "-s"]);
-    insta::assert_snapshot!(stdout.normalize_backslash(), @r"
+    let output = test_env.run_jj_in(&workspace_root.join("sub"), ["diff", "-s"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
     A ../not-ignored
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(test_env.env_root(), &["-Rrepo", "diff", "-s"]);
-    insta::assert_snapshot!(stdout.normalize_backslash(), @r"
+    let output = test_env.run_jj_in(test_env.env_root(), ["-Rrepo", "diff", "-s"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
     A repo/not-ignored
     [EOF]
     ");
@@ -136,11 +136,11 @@ fn test_gitignores_ignored_file_in_target_commit() {
     Discard the conflicting changes with `jj restore --from 5ada929e5d2e`.
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(
+    let output = test_env.run_jj_in(
         &workspace_root,
-        &["diff", "--git", "--from", &target_commit_id],
+        ["diff", "--git", "--from", &target_commit_id],
     );
-    insta::assert_snapshot!(stdout, @r"
+    insta::assert_snapshot!(output, @r"
     diff --git a/ignored b/ignored
     index 8a69467466..4d9be5127b 100644
     --- a/ignored

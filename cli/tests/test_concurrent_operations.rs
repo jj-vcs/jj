@@ -42,8 +42,8 @@ fn test_concurrent_operation_divergence() {
     "#);
 
     // "op log --at-op" should work without merging the head operations
-    let stdout = test_env.jj_cmd_success(&repo_path, &["op", "log", "--at-op=d74dff64472e"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["op", "log", "--at-op=d74dff64472e"]);
+    insta::assert_snapshot!(output, @r"
     @  d74dff64472e test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
     │  describe commit 230dd059e1b059aefc0da06a2e5a7dbf22362f22
     │  args: jj describe -m 'message 2' --at-op @-
@@ -76,8 +76,8 @@ fn test_concurrent_operations_auto_rebase() {
 
     std::fs::write(repo_path.join("file"), "contents").unwrap();
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "initial"]);
-    let stdout = test_env.jj_cmd_success(&repo_path, &["op", "log"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["op", "log"]);
+    insta::assert_snapshot!(output, @r"
     @  c62ace5c0522 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
     │  describe commit 4e8f9d2be039994f589b4e57ac5e9488703e604d
     │  args: jj describe -m initial
@@ -89,7 +89,7 @@ fn test_concurrent_operations_auto_rebase() {
     ○  000000000000 root()
     [EOF]
     ");
-    let op_id_hex = stdout.raw()[3..15].to_string();
+    let op_id_hex = output.stdout.raw()[3..15].to_string();
 
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "rewritten"]);
     test_env.jj_cmd_ok(
@@ -145,8 +145,8 @@ fn test_concurrent_operations_wc_modified() {
     Concurrent modification detected, resolving automatically.
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "--git"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "--git"]);
+    insta::assert_snapshot!(output, @r"
     diff --git a/file b/file
     index 12f00e90b6..2e0996000b 100644
     --- a/file
@@ -158,8 +158,8 @@ fn test_concurrent_operations_wc_modified() {
     ");
 
     // The working copy should be committed after merging the operations
-    let stdout = test_env.jj_cmd_success(&repo_path, &["op", "log", "-Tdescription"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["op", "log", "-Tdescription"]);
+    insta::assert_snapshot!(output, @r"
     @  snapshot working copy
     ○    reconcile divergent operations
     ├─╮
@@ -193,8 +193,8 @@ fn test_concurrent_snapshot_wc_reloadable() {
     test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "new child1"]);
 
     let template = r#"id ++ "\n" ++ description ++ "\n" ++ tags"#;
-    let op_log_stdout = test_env.jj_cmd_success(&repo_path, &["op", "log", "-T", template]);
-    insta::assert_snapshot!(op_log_stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["op", "log", "-T", template]);
+    insta::assert_snapshot!(output, @r"
     @  ec6bf266624bbaed55833a34ae62fa95c0e9efa651b94eb28846972da645845052dcdc8580332a5628849f23f48b9e99fc728dc3fb13106df8d0666d746f8b85
     │  commit 554d22b2c43c1c47e279430197363e8daabe2fd6
     │  args: jj commit -m 'new child1'
@@ -213,7 +213,7 @@ fn test_concurrent_snapshot_wc_reloadable() {
 
     [EOF]
     ");
-    let op_log_lines = op_log_stdout.raw().lines().collect_vec();
+    let op_log_lines = output.stdout.raw().lines().collect_vec();
     let current_op_id = op_log_lines[0].split_once("  ").unwrap().1;
     let previous_op_id = op_log_lines[6].split_once("  ").unwrap().1;
 
@@ -236,8 +236,8 @@ fn test_concurrent_snapshot_wc_reloadable() {
     // Since the repo can be reloaded before snapshotting, "child2" should be
     // a child of "child1", not of "initial".
     let template = r#"commit_id ++ " " ++ description"#;
-    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-T", template, "-s"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-T", template, "-s"]);
+    insta::assert_snapshot!(output, @r"
     @  1795621b54f4ebb435978b65d66bc0f90d8f20b6 new child2
     │  A child2
     ○  86f54245e13f850f8275b5541e56da996b6a47b7 new child1

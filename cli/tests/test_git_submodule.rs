@@ -45,11 +45,11 @@ fn test_gitsubmodule_print_gitmodules() {
     )
     .unwrap();
 
-    let stdout = test_env.jj_cmd_success(
+    let output = test_env.run_jj_in(
         &workspace_root,
-        &["git", "submodule", "print-gitmodules", "-r", "@-"],
+        ["git", "submodule", "print-gitmodules", "-r", "@-"],
     );
-    insta::assert_snapshot!(stdout, @r"
+    insta::assert_snapshot!(output, @r"
     name:old
     url:https://github.com/old/old.git
     path:old
@@ -58,9 +58,8 @@ fn test_gitsubmodule_print_gitmodules() {
     [EOF]
     ");
 
-    let stdout =
-        test_env.jj_cmd_success(&workspace_root, &["git", "submodule", "print-gitmodules"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&workspace_root, ["git", "submodule", "print-gitmodules"]);
+    insta::assert_snapshot!(output, @r"
     name:new
     url:https://github.com/new/new.git
     path:new

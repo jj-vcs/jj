@@ -97,7 +97,7 @@ fn test_git_export_undo() {
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "export"]);
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @"");
-    insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["log", "-ra@git"]), @r"
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["log", "-ra@git"]), @r"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 a 230dd059
     │  (empty) (no description set)
     ~
@@ -134,7 +134,7 @@ fn test_git_export_undo() {
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "export"]);
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @"");
-    insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["log", "-ra@git"]), @r"
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["log", "-ra@git"]), @r"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 a 230dd059
     │  (empty) (no description set)
     ~

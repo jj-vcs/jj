@@ -266,7 +266,7 @@ fn test_materialize_and_snapshot_different_conflict_markers() {
     .unwrap();
 
     // Git-style markers should be parsed, then rendered with new config
-    insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff", "--git"]), @r"
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["diff", "--git"]), @r"
     diff --git a/file b/file
     --- a/file
     +++ b/file
@@ -424,8 +424,8 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     .unwrap();
 
     // The file should still be conflicted, and the new content should be saved
-    let stdout = test_env.jj_cmd_success(&repo_path, &["st"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["st"]);
+    insta::assert_snapshot!(output, @r"
     Working copy changes:
     M file
     Working copy : mzvwutvl 3a981880 (conflict) (no description set)
@@ -435,7 +435,7 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     file    2-sided conflict
     [EOF]
     ");
-    insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff", "--git"]), @r"
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["diff", "--git"]), @r"
     diff --git a/file b/file
     --- a/file
     +++ b/file
@@ -479,8 +479,8 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     )
     .unwrap();
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &["st"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["st"]);
+    insta::assert_snapshot!(output, @r"
     Working copy changes:
     M file
     Working copy : mzvwutvl 1aefd866 (no description set)

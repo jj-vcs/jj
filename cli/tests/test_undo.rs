@@ -31,8 +31,8 @@ fn test_undo_rewrite_with_child() {
     let output = test_env.run_jj_in(&repo_path, ["op", "log"]).success();
     let op_id_hex = output.stdout.raw()[3..15].to_string();
     test_env.jj_cmd_ok(&repo_path, &["new", "-m", "child"]);
-    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-T", "description"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-T", "description"]);
+    insta::assert_snapshot!(output, @r"
     @  child
     ○  modified
     ◆
@@ -42,8 +42,8 @@ fn test_undo_rewrite_with_child() {
 
     // Since we undid the description-change, the child commit should now be on top
     // of the initial commit
-    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "-T", "description"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-T", "description"]);
+    insta::assert_snapshot!(output, @r"
     @  child
     ○  initial
     ◆

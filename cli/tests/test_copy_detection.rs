@@ -28,7 +28,7 @@ fn test_simple_rename() {
     std::fs::write(repo_path.join("modified"), "original").unwrap();
     std::fs::write(repo_path.join("something"), "changed").unwrap();
     insta::assert_snapshot!(
-        test_env.jj_cmd_success(&repo_path, &["debug", "copy-detection"]).normalize_backslash(), @r"
+        test_env.run_jj_in(&repo_path, ["debug", "copy-detection"]).normalize_backslash(), @r"
     original -> modified
     [EOF]
     ");

@@ -102,13 +102,13 @@ fn test_split_by_paths() {
     Committer date: 2001-02-03 04:05:10.000 +07:00[EOF]
     ");
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s", "-r", "@-"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s", "-r", "@-"]);
+    insta::assert_snapshot!(output, @r"
     A file2
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    insta::assert_snapshot!(output, @r"
     A file1
     A file3
     [EOF]
@@ -136,8 +136,8 @@ fn test_split_by_paths() {
     [EOF]
     ");
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s", "-r", "@--"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s", "-r", "@--"]);
+    insta::assert_snapshot!(output, @r"
     A file2
     [EOF]
     ");
@@ -167,8 +167,8 @@ fn test_split_by_paths() {
     [EOF]
     ");
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s", "-r", "@-"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s", "-r", "@-"]);
+    insta::assert_snapshot!(output, @r"
     A file2
     [EOF]
     ");
@@ -639,8 +639,8 @@ fn test_split_interactive() {
     [EOF]
     ");
 
-    let stdout = test_env.jj_cmd_success(&workspace_path, &["log", "--summary"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&workspace_path, ["log", "--summary"]);
+    insta::assert_snapshot!(output, @r"
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:08 9ed12e4c
     │  (no description set)
     │  A file2
@@ -696,8 +696,8 @@ fn test_split_interactive_with_paths() {
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "###);
 
-    let stdout = test_env.jj_cmd_success(&workspace_path, &["log", "--summary"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&workspace_path, ["log", "--summary"]);
+    insta::assert_snapshot!(output, @r"
     @  kkmpptxz test.user@example.com 2001-02-03 08:05:09 4cf22d3b
     │  (no description set)
     │  M file2

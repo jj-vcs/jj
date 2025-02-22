@@ -154,8 +154,8 @@ fn test_commit_interactive() {
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "###);
 
-    let stdout = test_env.jj_cmd_success(&workspace_path, &["log", "--summary"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&workspace_path, ["log", "--summary"]);
+    insta::assert_snapshot!(output, @r"
     @  mzvwutvl test.user@example.com 2001-02-03 08:05:11 21b846a6
     │  (no description set)
     │  A file2
@@ -210,8 +210,8 @@ fn test_commit_interactive_with_paths() {
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
 
-    let stdout = test_env.jj_cmd_success(&workspace_path, &["log", "--summary"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&workspace_path, ["log", "--summary"]);
+    insta::assert_snapshot!(output, @r"
     @  kkmpptxz test.user@example.com 2001-02-03 08:05:09 f3e6062e
     │  (no description set)
     │  M file2
@@ -366,15 +366,15 @@ fn test_commit_paths() {
     std::fs::write(workspace_path.join("file2"), "bar\n").unwrap();
 
     test_env.jj_cmd_ok(&workspace_path, &["commit", "-m=first", "file1"]);
-    let stdout = test_env.jj_cmd_success(&workspace_path, &["diff", "-r", "@-"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&workspace_path, ["diff", "-r", "@-"]);
+    insta::assert_snapshot!(output, @r"
     Added regular file file1:
             1: foo
     [EOF]
     ");
 
-    let stdout = test_env.jj_cmd_success(&workspace_path, &["diff"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&workspace_path, ["diff"]);
+    insta::assert_snapshot!(output, @r"
     Added regular file file2:
             1: bar
     [EOF]
@@ -399,8 +399,8 @@ fn test_commit_paths_warning() {
     ");
     insta::assert_snapshot!(stdout, @"");
 
-    let stdout = test_env.jj_cmd_success(&workspace_path, &["diff"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&workspace_path, ["diff"]);
+    insta::assert_snapshot!(output, @r"
     Added regular file file1:
             1: foo
     Added regular file file2:

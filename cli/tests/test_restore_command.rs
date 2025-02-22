@@ -52,13 +52,13 @@ fn test_restore() {
     Added 1 files, modified 1 files, removed 1 files
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @"");
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    insta::assert_snapshot!(output, @"");
 
     // Can restore another revision from its parents
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s", "-r=@-"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s", "-r=@-"]);
+    insta::assert_snapshot!(output, @r"
     A file2
     [EOF]
     ");
@@ -81,8 +81,8 @@ fn test_restore() {
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s", "-r=@-"]);
-    insta::assert_snapshot!(stdout, @"");
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s", "-r=@-"]);
+    insta::assert_snapshot!(output, @"");
 
     // Can restore this revision from another revision
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
@@ -95,8 +95,8 @@ fn test_restore() {
     Added 1 files, modified 0 files, removed 2 files
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    insta::assert_snapshot!(output, @r"
     D file2
     [EOF]
     ");
@@ -112,10 +112,10 @@ fn test_restore() {
     Parent commit      : rlvkpnrz ad805965 (no description set)
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @"");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s", "-r", "@-"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    insta::assert_snapshot!(output, @"");
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s", "-r", "@-"]);
+    insta::assert_snapshot!(output, @r"
     D file1
     A file2
     A file3
@@ -134,10 +134,10 @@ fn test_restore() {
     Parent commit      : rlvkpnrz f256040a (no description set)
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @"");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s", "-r", "@-"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    insta::assert_snapshot!(output, @"");
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s", "-r", "@-"]);
+    insta::assert_snapshot!(output, @r"
     D file1
     A file2
     A file3
@@ -155,8 +155,8 @@ fn test_restore() {
     Added 0 files, modified 1 files, removed 1 files
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "-s"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    insta::assert_snapshot!(output, @r"
     D file1
     [EOF]
     ");
@@ -198,7 +198,7 @@ fn test_restore_conflicted_merge() {
 
     // Overwrite the file...
     std::fs::write(repo_path.join("file"), "resolution").unwrap();
-    insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff"]), 
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["diff"]), 
     @r"
     Resolved conflict in file:
        1     : <<<<<<< Conflict 1 of 1
@@ -236,12 +236,12 @@ fn test_restore_conflicted_merge() {
     b
     >>>>>>> Conflict 1 of 1 ends
     "###);
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff"]);
-    insta::assert_snapshot!(stdout, @"");
+    let output = test_env.run_jj_in(&repo_path, ["diff"]);
+    insta::assert_snapshot!(output, @"");
 
     // The same, but without the `file` argument. Overwrite the file...
     std::fs::write(repo_path.join("file"), "resolution").unwrap();
-    insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff"]), 
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["diff"]), 
     @r"
     Resolved conflict in file:
        1     : <<<<<<< Conflict 1 of 1
@@ -337,7 +337,7 @@ fn test_restore_restore_descendants() {
 
     // Check that "a", "b", and "ab" have their expected content by diffing them.
     // "ab" must have kept its content.
-    insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff", "--from=a", "--to=ab", "--git"]), @r"
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["diff", "--from=a", "--to=ab", "--git"]), @r"
     diff --git a/file b/file
     index 7898192261..81bf396956 100644
     --- a/file
@@ -354,7 +354,7 @@ fn test_restore_restore_descendants() {
     +b
     [EOF]
     ");
-    insta::assert_snapshot!(test_env.jj_cmd_success(&repo_path, &["diff", "--from=b", "--to=ab", "--git"]), @r"
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["diff", "--from=b", "--to=ab", "--git"]), @r"
     diff --git a/file b/file
     index df967b96a5..81bf396956 100644
     --- a/file
@@ -386,8 +386,8 @@ fn test_restore_interactive() {
         &["a"],
         &[("file1", "b1\n"), ("file2", "b2\n"), ("file3", "b3\n")],
     );
-    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "--summary"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "--summary"]);
+    insta::assert_snapshot!(output, @r"
     @  zsuskuln test.user@example.com 2001-02-03 08:05:11 b c0745ce2
     │  b
     │  M file1
@@ -430,8 +430,8 @@ fn test_restore_interactive() {
     shows the contents you want for the destination commit.
     ");
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "--summary"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "--summary"]);
+    insta::assert_snapshot!(output, @r"
     @  zsuskuln test.user@example.com 2001-02-03 08:05:13 b bccde490
     │  b
     │  M file2
@@ -454,8 +454,8 @@ fn test_restore_interactive() {
     [EOF]
     ");
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "--summary"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "--summary"]);
+    insta::assert_snapshot!(output, @r"
     @  zsuskuln test.user@example.com 2001-02-03 08:05:16 b 5921de19
     │  b
     │  M file2
@@ -483,8 +483,8 @@ fn test_restore_interactive_merge() {
         &["a", "b"],
         &[("file1", "c1\n"), ("file2", "c2\n"), ("file3", "c3\n")],
     );
-    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "--summary"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "--summary"]);
+    insta::assert_snapshot!(output, @r"
     @    royxmykx test.user@example.com 2001-02-03 08:05:13 c 34042291
     ├─╮  c
     │ │  M file1
@@ -531,8 +531,8 @@ fn test_restore_interactive_merge() {
     shows the contents you want for the destination commit.
     ");
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "--summary"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "--summary"]);
+    insta::assert_snapshot!(output, @r"
     @    royxmykx test.user@example.com 2001-02-03 08:05:15 c 72e0cbf4
     ├─╮  c
     │ │  M file2
@@ -567,8 +567,8 @@ fn test_restore_interactive_with_paths() {
         &["a"],
         &[("file1", "b1\n"), ("file2", "b2\n"), ("file3", "b3\n")],
     );
-    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "--summary"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "--summary"]);
+    insta::assert_snapshot!(output, @r"
     @  zsuskuln test.user@example.com 2001-02-03 08:05:11 b c0745ce2
     │  b
     │  M file1
@@ -601,8 +601,8 @@ fn test_restore_interactive_with_paths() {
     [EOF]
     ");
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "--summary"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "--summary"]);
+    insta::assert_snapshot!(output, @r"
     @  zsuskuln test.user@example.com 2001-02-03 08:05:13 b 7187da33
     │  b
     │  M file2

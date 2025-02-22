@@ -381,7 +381,7 @@ fn test_double_abandon() {
     create_commit(&test_env, &repo_path, "a", &[]);
     // Test the setup
     insta::assert_snapshot!(
-    test_env.jj_cmd_success(&repo_path, &["log", "--no-graph", "-r", "a"]), @r"
+    test_env.run_jj_in(&repo_path, ["log", "--no-graph", "-r", "a"]), @r"
     rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a 2443ea76
     a
     [EOF]
@@ -438,8 +438,8 @@ fn test_abandon_restore_descendants() {
     Parent commit      : qpvuntsm 485d52a9 (no description set)
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(&repo_path, &["diff", "--git"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "--git"]);
+    insta::assert_snapshot!(output, @r"
     diff --git a/file b/file
     index 257cc5642c..76018072e0 100644
     --- a/file
