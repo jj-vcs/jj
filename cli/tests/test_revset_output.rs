@@ -378,7 +378,7 @@ fn test_function_name_hint() {
     let test_env = TestEnvironment::default();
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
-    let evaluate_err = |expr| test_env.jj_cmd_failure(&repo_path, &["log", "-r", expr]);
+    let evaluate = |expr| test_env.run_jj_in(&repo_path, ["log", "-r", expr]);
 
     test_env.add_config(
         r###"
@@ -391,7 +391,8 @@ fn test_function_name_hint() {
     );
 
     // The suggestion "bookmarks" shouldn't be duplicated
-    insta::assert_snapshot!(evaluate_err("bookmark()"), @r"
+    insta::assert_snapshot!(evaluate("bookmark()"), @r"
+    ------- stderr -------
     Error: Failed to parse revset: Function `bookmark` doesn't exist
     Caused by:  --> 1:1
       |
@@ -401,10 +402,12 @@ fn test_function_name_hint() {
       = Function `bookmark` doesn't exist
     Hint: Did you mean `bookmarks`, `remote_bookmarks`?
     [EOF]
+    [exit status: 1]
     ");
 
     // Both builtin function and function alias should be suggested
-    insta::assert_snapshot!(evaluate_err("author_()"), @r"
+    insta::assert_snapshot!(evaluate("author_()"), @r"
+    ------- stderr -------
     Error: Failed to parse revset: Function `author_` doesn't exist
     Caused by:  --> 1:1
       |
@@ -414,9 +417,11 @@ fn test_function_name_hint() {
       = Function `author_` doesn't exist
     Hint: Did you mean `author`, `author_date`, `author_email`, `author_name`, `my_author`?
     [EOF]
+    [exit status: 1]
     ");
 
-    insta::assert_snapshot!(evaluate_err("my_bookmarks"), @r"
+    insta::assert_snapshot!(evaluate("my_bookmarks"), @r"
+    ------- stderr -------
     Error: Failed to parse revset: In alias `my_bookmarks`
     Caused by:
     1:  --> 1:1
@@ -433,6 +438,7 @@ fn test_function_name_hint() {
       = Function `bookmark` doesn't exist
     Hint: Did you mean `bookmarks`, `remote_bookmarks`?
     [EOF]
+    [exit status: 1]
     ");
 }
 
