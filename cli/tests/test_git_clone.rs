@@ -1127,16 +1127,17 @@ fn test_git_clone_malformed(subprocess: bool) {
     set_up_git_repo_with_file(&git_repo, ".jj");
 
     // TODO: Perhaps, this should be a user error, not an internal error.
-    let stderr =
-        test_env.jj_cmd_internal_error(test_env.env_root(), &["git", "clone", "source", "clone"]);
+    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "clone"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
     bookmark: main@origin [new] untracked
     Setting the revset alias `trunk()` to `main@origin`
     Internal error: Failed to check out commit 039a1eae03465fd3be0fbad87c9ca97303742677
     Caused by: Reserved path component .jj in $TEST_ENV/clone/.jj
     [EOF]
+    [exit status: 255]
     "#);
     }
 
@@ -1155,12 +1156,14 @@ fn test_git_clone_malformed(subprocess: bool) {
 
     // The error can be somehow recovered.
     // TODO: add an update-stale flag to reset the working-copy?
-    let stderr = test_env.jj_cmd_internal_error(&clone_path, &["workspace", "update-stale"]);
+    let output = test_env.run_jj_in(&clone_path, ["workspace", "update-stale"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Internal error: Failed to check out commit 039a1eae03465fd3be0fbad87c9ca97303742677
     Caused by: Reserved path component .jj in $TEST_ENV/clone/.jj
     [EOF]
+    [exit status: 255]
     ");
     }
     let (_stdout, stderr) =

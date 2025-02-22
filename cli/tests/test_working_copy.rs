@@ -293,22 +293,26 @@ fn test_snapshot_invalid_ignore_pattern() {
 
     // Test invalid pattern in .gitignore
     std::fs::write(&gitignore_path, " []\n").unwrap();
-    insta::assert_snapshot!(test_env.jj_cmd_internal_error(&repo_path, &["st"]), @r"
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["st"]), @r"
+    ------- stderr -------
     Internal error: Failed to snapshot the working copy
     Caused by:
     1: Failed to parse ignore patterns from file $TEST_ENV/repo/.gitignore
     2: error parsing glob ' []': unclosed character class; missing ']'
     [EOF]
+    [exit status: 255]
     ");
 
     // Test invalid UTF-8 in .gitignore
     std::fs::write(&gitignore_path, b"\xff\n").unwrap();
-    insta::assert_snapshot!(test_env.jj_cmd_internal_error(&repo_path, &["st"]), @r"
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["st"]), @r"
+    ------- stderr -------
     Internal error: Failed to snapshot the working copy
     Caused by:
     1: Invalid UTF-8 for ignore pattern in $TEST_ENV/repo/.gitignore on line #1: �
     2: invalid utf-8 sequence of 1 bytes from index 0
     [EOF]
+    [exit status: 255]
     ");
 }
 
