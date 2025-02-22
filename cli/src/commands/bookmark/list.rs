@@ -83,7 +83,10 @@ pub struct BookmarkListArgs {
     ///
     /// [wildcard pattern]:
     ///     https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
-    #[arg(value_parser = StringPattern::parse, add = ArgValueCandidates::new(complete::bookmarks))]
+    #[arg(
+        value_parser = StringPattern::parse,
+        add = ArgValueCandidates::new(complete::bookmark_names),
+    )]
     names: Option<Vec<StringPattern>>,
 
     /// Show bookmarks whose local targets are in the given revisions

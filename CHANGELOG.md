@@ -85,6 +85,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Help text is now colored (when stdout is a terminal).
 
+* `jj bookmark forget` can now also accept remote bookmarks as arguments. For
+  instance, `jj bookmark forget bookmark@remote` will forget the target of
+  `bookmark@remote` until the next `jj git fetch` from the remote.
+
 ### Fixed bugs
 
 * `jj status` now shows untracked files under untracked directories.

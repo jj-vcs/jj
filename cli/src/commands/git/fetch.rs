@@ -46,7 +46,7 @@ pub struct GitFetchArgs {
         alias = "bookmark",
         default_value = "glob:*",
         value_parser = StringPattern::parse,
-        add = ArgValueCandidates::new(complete::bookmarks),
+        add = ArgValueCandidates::new(complete::bookmark_names),
     )]
     branch: Vec<StringPattern>,
     /// The remote to fetch from (only named remotes are supported, can be
