@@ -21,12 +21,14 @@ fn test_log_with_empty_revision() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
 
-    let stderr = test_env.jj_cmd_cli_error(&repo_path, &["log", "-r="]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r="]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     error: a value is required for '--revisions <REVSETS>' but none was supplied
 
     For more information, try '--help'.
     [EOF]
+    [exit status: 2]
     ");
 }
 
@@ -36,8 +38,9 @@ fn test_log_with_no_template() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
 
-    let stderr = test_env.jj_cmd_cli_error(&repo_path, &["log", "-T"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-T"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     error: a value is required for '--template <TEMPLATE>' but none was supplied
 
     For more information, try '--help'.
@@ -59,6 +62,7 @@ fn test_log_with_no_template() {
     - email_placeholder
     - name_placeholder
     [EOF]
+    [exit status: 2]
     ");
 }
 
@@ -206,9 +210,9 @@ fn test_log_with_or_without_diff() {
     ");
 
     // Cannot use both `--git` and `--color-words`
-    let stderr = test_env.jj_cmd_cli_error(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "log",
             "-T",
             "description",
@@ -218,13 +222,15 @@ fn test_log_with_or_without_diff() {
             "--color-words",
         ],
     );
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     error: the argument '--git' cannot be used with '--color-words'
 
     Usage: jj log --template <TEMPLATE> --no-graph --patch --git [FILESETS]...
 
     For more information, try '--help'.
     [EOF]
+    [exit status: 2]
     ");
 
     // `-s` with or without graph

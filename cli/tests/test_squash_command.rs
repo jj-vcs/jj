@@ -1324,20 +1324,22 @@ fn test_squash_use_destination_message_and_message_mutual_exclusion() {
     let repo_path = test_env.env_root().join("repo");
     test_env.jj_cmd_ok(&repo_path, &["commit", "-m=a"]);
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m=b"]);
-    insta::assert_snapshot!(test_env.jj_cmd_cli_error(
+    insta::assert_snapshot!(test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "squash",
             "--message=123",
             "--use-destination-message",
         ],
     ), @r"
+    ------- stderr -------
     error: the argument '--message <MESSAGE>' cannot be used with '--use-destination-message'
 
     Usage: jj squash --message <MESSAGE> [FILESETS]...
 
     For more information, try '--help'.
     [EOF]
+    [exit status: 2]
     ");
 }
 

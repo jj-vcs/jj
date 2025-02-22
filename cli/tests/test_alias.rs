@@ -44,14 +44,16 @@ fn test_alias_bad_name() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
 
-    let stderr = test_env.jj_cmd_cli_error(&repo_path, &["foo."]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["foo."]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     error: unrecognized subcommand 'foo.'
 
     Usage: jj [OPTIONS] <COMMAND>
 
     For more information, try '--help'.
     [EOF]
+    [exit status: 2]
     ");
 }
 
@@ -103,8 +105,9 @@ fn test_alias_calls_unknown_command() {
     let repo_path = test_env.env_root().join("repo");
 
     test_env.add_config(r#"aliases.foo = ["nonexistent"]"#);
-    let stderr = test_env.jj_cmd_cli_error(&repo_path, &["foo"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["foo"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     error: unrecognized subcommand 'nonexistent'
 
       tip: a similar subcommand exists: 'next'
@@ -113,6 +116,7 @@ fn test_alias_calls_unknown_command() {
 
     For more information, try '--help'.
     [EOF]
+    [exit status: 2]
     ");
 }
 
@@ -123,8 +127,9 @@ fn test_alias_calls_command_with_invalid_option() {
     let repo_path = test_env.env_root().join("repo");
 
     test_env.add_config(r#"aliases.foo = ["log", "--nonexistent"]"#);
-    let stderr = test_env.jj_cmd_cli_error(&repo_path, &["foo"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["foo"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     error: unexpected argument '--nonexistent' found
 
       tip: to pass '--nonexistent' as a value, use '-- --nonexistent'
@@ -133,6 +138,7 @@ fn test_alias_calls_command_with_invalid_option() {
 
     For more information, try '--help'.
     [EOF]
+    [exit status: 2]
     ");
 }
 
@@ -404,8 +410,9 @@ fn test_alias_in_config_arg() {
     ");
     // should print warning about aliases even if cli parsing fails
     let alias_arg = r#"--config=aliases.this-command-not-exist=['log', '-r@', '--no-graph', '-T"arg alias\n"']"#;
-    let stderr = test_env.jj_cmd_cli_error(&repo_path, &[alias_arg, "this-command-not-exist"]);
-    insta::assert_snapshot!(stderr, @r#"
+    let output = test_env.run_jj_in(&repo_path, [alias_arg, "this-command-not-exist"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Warning: Command aliases cannot be loaded from -R/--repository path or --config/--config-file arguments.
     error: unrecognized subcommand 'this-command-not-exist'
 
@@ -413,5 +420,6 @@ fn test_alias_in_config_arg() {
 
     For more information, try '--help'.
     [EOF]
-    "#);
+    [exit status: 2]
+    ");
 }

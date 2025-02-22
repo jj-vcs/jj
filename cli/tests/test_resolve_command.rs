@@ -125,10 +125,11 @@ fn test_resolution() {
     +resolution
     [EOF]
     ");
-    insta::assert_snapshot!(test_env.jj_cmd_cli_error(&repo_path, &["resolve", "--list"]), 
-    @r"
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["resolve", "--list"]), @r"
+    ------- stderr -------
     Error: No conflicts found at this revision
     [EOF]
+    [exit status: 2]
     ");
 
     // Try again with --tool=<name>
@@ -168,10 +169,11 @@ fn test_resolution() {
     +resolution
     [EOF]
     ");
-    insta::assert_snapshot!(test_env.jj_cmd_cli_error(&repo_path, &["resolve", "--list"]),
-    @r"
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["resolve", "--list"]), @r"
+    ------- stderr -------
     Error: No conflicts found at this revision
     [EOF]
+    [exit status: 2]
     ");
 
     // Check that the output file starts with conflict markers if
@@ -363,10 +365,11 @@ fn test_resolution() {
     +>>>>>>>
     [EOF]
     ");
-    insta::assert_snapshot!(test_env.jj_cmd_cli_error(&repo_path, &["resolve", "--list"]), 
-    @r"
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["resolve", "--list"]), @r"
+    ------- stderr -------
     Error: No conflicts found at this revision
     [EOF]
+    [exit status: 2]
     ");
 
     // Check that merge tool can override conflict marker style setting, and that
@@ -1632,15 +1635,17 @@ fn test_multiple_conflicts() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(test_env.jj_cmd_cli_error(&repo_path, &["resolve", "--list"]), 
-    @r"
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["resolve", "--list"]), @r"
+    ------- stderr -------
     Error: No conflicts found at this revision
     [EOF]
+    [exit status: 2]
     ");
-    insta::assert_snapshot!(test_env.jj_cmd_cli_error(&repo_path, &["resolve"]), 
-    @r"
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["resolve"]), @r"
+    ------- stderr -------
     Error: No conflicts found at this revision
     [EOF]
+    [exit status: 2]
     ");
 }
 

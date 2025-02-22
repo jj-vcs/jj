@@ -47,8 +47,9 @@ fn test_track_untrack() {
     [exit status: 1]
     ");
     // Errors out when no path is specified
-    let stderr = test_env.jj_cmd_cli_error(&repo_path, &["file", "untrack"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "untrack"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     error: the following required arguments were not provided:
       <FILESETS>...
 
@@ -56,6 +57,7 @@ fn test_track_untrack() {
 
     For more information, try '--help'.
     [EOF]
+    [exit status: 2]
     ");
     // Errors out when a specified file is not ignored
     let output = test_env.run_jj_in(&repo_path, ["file", "untrack", "file1", "file1.bak"]);

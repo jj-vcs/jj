@@ -886,14 +886,16 @@ fn test_edit_cannot_be_used_with_no_edit() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let workspace_path = test_env.env_root().join("repo");
 
-    let stderr = test_env.jj_cmd_cli_error(&workspace_path, &["describe", "--no-edit", "--edit"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&workspace_path, ["describe", "--no-edit", "--edit"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     error: the argument '--no-edit' cannot be used with '--edit'
 
     Usage: jj describe --no-edit [REVSETS]...
 
     For more information, try '--help'.
     [EOF]
+    [exit status: 2]
     ");
 }
 

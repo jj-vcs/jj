@@ -485,8 +485,9 @@ fn test_config_layer_workspace() {
 #[test]
 fn test_config_set_bad_opts() {
     let test_env = TestEnvironment::default();
-    let stderr = test_env.jj_cmd_cli_error(test_env.env_root(), &["config", "set"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(test_env.env_root(), ["config", "set"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     error: the following required arguments were not provided:
       <--user|--repo>
       <NAME>
@@ -496,11 +497,12 @@ fn test_config_set_bad_opts() {
 
     For more information, try '--help'.
     [EOF]
+    [exit status: 2]
     ");
 
-    let stderr =
-        test_env.jj_cmd_cli_error(test_env.env_root(), &["config", "set", "--user", "", "x"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(test_env.env_root(), ["config", "set", "--user", "", "x"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     error: invalid value '' for '<NAME>': TOML parse error at line 1, column 1
       |
     1 | 
@@ -510,13 +512,15 @@ fn test_config_set_bad_opts() {
 
     For more information, try '--help'.
     [EOF]
+    [exit status: 2]
     ");
 
-    let stderr = test_env.jj_cmd_cli_error(
+    let output = test_env.run_jj_in(
         test_env.env_root(),
-        &["config", "set", "--user", "x", "['typo'}"],
+        ["config", "set", "--user", "x", "['typo'}"],
     );
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     error: invalid value '['typo'}' for '<VALUE>': TOML parse error at line 1, column 8
       |
     1 | ['typo'}
@@ -527,6 +531,7 @@ fn test_config_set_bad_opts() {
 
     For more information, try '--help'.
     [EOF]
+    [exit status: 2]
     ");
 }
 
@@ -848,8 +853,9 @@ fn test_config_unset_for_repo() {
 #[test]
 fn test_config_edit_missing_opt() {
     let test_env = TestEnvironment::default();
-    let stderr = test_env.jj_cmd_cli_error(test_env.env_root(), &["config", "edit"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(test_env.env_root(), ["config", "edit"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     error: the following required arguments were not provided:
       <--user|--repo>
 
@@ -857,6 +863,7 @@ fn test_config_edit_missing_opt() {
 
     For more information, try '--help'.
     [EOF]
+    [exit status: 2]
     ");
 }
 
@@ -1116,8 +1123,9 @@ fn test_config_path_syntax() {
     5
     [EOF]
     ");
-    let stderr = test_env.jj_cmd_cli_error(test_env.env_root(), &["config", "get", "."]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(test_env.env_root(), ["config", "get", "."]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     error: invalid value '.' for '<NAME>': TOML parse error at line 1, column 1
       |
     1 | .
@@ -1127,11 +1135,13 @@ fn test_config_path_syntax() {
 
     For more information, try '--help'.
     [EOF]
+    [exit status: 2]
     ");
 
     // Invalid TOML keys
-    let stderr = test_env.jj_cmd_cli_error(test_env.env_root(), &["config", "list", "b c"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(test_env.env_root(), ["config", "list", "b c"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     error: invalid value 'b c' for '[NAME]': TOML parse error at line 1, column 3
       |
     1 | b c
@@ -1141,9 +1151,11 @@ fn test_config_path_syntax() {
 
     For more information, try '--help'.
     [EOF]
+    [exit status: 2]
     ");
-    let stderr = test_env.jj_cmd_cli_error(test_env.env_root(), &["config", "list", ""]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(test_env.env_root(), ["config", "list", ""]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     error: invalid value '' for '[NAME]': TOML parse error at line 1, column 1
       |
     1 | 
@@ -1153,6 +1165,7 @@ fn test_config_path_syntax() {
 
     For more information, try '--help'.
     [EOF]
+    [exit status: 2]
     ");
 }
 

@@ -28,8 +28,9 @@ fn test_edit() {
     std::fs::write(repo_path.join("file1"), "1").unwrap();
 
     // Errors out without argument
-    let stderr = test_env.jj_cmd_cli_error(&repo_path, &["edit"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["edit"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     error: the following required arguments were not provided:
       <REVSET>
 
@@ -37,6 +38,7 @@ fn test_edit() {
 
     For more information, try '--help'.
     [EOF]
+    [exit status: 2]
     ");
 
     // Makes the specified commit the working-copy commit

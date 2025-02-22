@@ -240,24 +240,28 @@ fn test_git_clone_bad_source(subprocess: bool) {
         test_env.add_config("git.subprocess = false");
     }
 
-    let stderr = test_env.jj_cmd_cli_error(test_env.env_root(), &["git", "clone", "", "dest"]);
+    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "", "dest"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Error: local path "" does not specify a path to a repository
     [EOF]
+    [exit status: 2]
     "#);
     }
 
     // Invalid port number
-    let stderr = test_env.jj_cmd_cli_error(
+    let output = test_env.run_jj_in(
         test_env.env_root(),
-        &["git", "clone", "https://example.net:bad-port/bar", "dest"],
+        ["git", "clone", "https://example.net:bad-port/bar", "dest"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Error: URL "https://example.net:bad-port/bar" can not be parsed as valid URL
     Caused by: invalid port number
     [EOF]
+    [exit status: 2]
     "#);
     }
 }
@@ -765,14 +769,16 @@ fn test_git_clone_at_operation(subprocess: bool) {
     let git_repo = git2::Repository::init(git_repo_path).unwrap();
     set_up_non_empty_git_repo(&git_repo);
 
-    let stderr = test_env.jj_cmd_cli_error(
+    let output = test_env.run_jj_in(
         test_env.env_root(),
-        &["git", "clone", "--at-op=@-", "source", "clone"],
+        ["git", "clone", "--at-op=@-", "source", "clone"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: --at-op is not respected
     [EOF]
+    [exit status: 2]
     ");
     }
 }

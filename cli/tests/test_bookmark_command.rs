@@ -145,8 +145,9 @@ fn test_bookmark_bad_name() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
 
-    let stderr = test_env.jj_cmd_cli_error(&repo_path, &["bookmark", "create", "-r@", ""]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["bookmark", "create", "-r@", ""]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     error: invalid value '' for '<NAMES>...':  --> 1:1
       |
     1 | 
@@ -157,10 +158,12 @@ fn test_bookmark_bad_name() {
     For more information, try '--help'.
     Hint: See https://jj-vcs.github.io/jj/latest/revsets/ for revsets syntax, or for how to quote symbols.
     [EOF]
+    [exit status: 2]
     ");
 
-    let stderr = test_env.jj_cmd_cli_error(&repo_path, &["bookmark", "set", "''"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["bookmark", "set", "''"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     error: invalid value '''' for '<NAMES>...':  --> 1:1
       |
     1 | ''
@@ -170,10 +173,12 @@ fn test_bookmark_bad_name() {
 
     For more information, try '--help'.
     [EOF]
+    [exit status: 2]
     ");
 
-    let stderr = test_env.jj_cmd_cli_error(&repo_path, &["bookmark", "rename", "x", ""]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["bookmark", "rename", "x", ""]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     error: invalid value '' for '<NEW>':  --> 1:1
       |
     1 | 
@@ -184,11 +189,13 @@ fn test_bookmark_bad_name() {
     For more information, try '--help'.
     Hint: See https://jj-vcs.github.io/jj/latest/revsets/ for revsets syntax, or for how to quote symbols.
     [EOF]
+    [exit status: 2]
     ");
 
     // common errors
-    let stderr = test_env.jj_cmd_cli_error(&repo_path, &["bookmark", "set", "@-", "foo"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["bookmark", "set", "@-", "foo"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     error: invalid value '@-' for '<NAMES>...':  --> 1:1
       |
     1 | @-
@@ -199,6 +206,7 @@ fn test_bookmark_bad_name() {
     For more information, try '--help'.
     Hint: See https://jj-vcs.github.io/jj/latest/revsets/ for revsets syntax, or for how to quote symbols.
     [EOF]
+    [exit status: 2]
     ");
 
     // quoted name works
@@ -369,8 +377,9 @@ fn test_bookmark_move_matching() {
     ");
 
     // The default could be considered "--from=all() glob:*", but is disabled
-    let stderr = test_env.jj_cmd_cli_error(&repo_path, &["bookmark", "move", "--to=@"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["bookmark", "move", "--to=@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     error: the following required arguments were not provided:
       <--from <REVSETS>|NAMES>
 
@@ -378,6 +387,7 @@ fn test_bookmark_move_matching() {
 
     For more information, try '--help'.
     [EOF]
+    [exit status: 2]
     ");
 
     // No bookmarks pointing to the source revisions
@@ -669,12 +679,14 @@ fn test_bookmark_forget_glob() {
     ");
 
     // Malformed glob
-    let stderr = test_env.jj_cmd_cli_error(&repo_path, &["bookmark", "forget", "glob:foo-[1-3"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["bookmark", "forget", "glob:foo-[1-3"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     error: invalid value 'glob:foo-[1-3' for '<NAMES>...': Pattern syntax error near position 4: invalid range pattern
 
     For more information, try '--help'.
     [EOF]
+    [exit status: 2]
     ");
 
     // We get an error if none of the globs match anything
@@ -786,23 +798,26 @@ fn test_bookmark_delete_glob() {
     ");
 
     // Malformed glob
-    let stderr = test_env.jj_cmd_cli_error(&repo_path, &["bookmark", "delete", "glob:foo-[1-3"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["bookmark", "delete", "glob:foo-[1-3"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     error: invalid value 'glob:foo-[1-3' for '<NAMES>...': Pattern syntax error near position 4: invalid range pattern
 
     For more information, try '--help'.
     [EOF]
+    [exit status: 2]
     ");
 
     // Unknown pattern kind
-    let stderr =
-        test_env.jj_cmd_cli_error(&repo_path, &["bookmark", "forget", "whatever:bookmark"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["bookmark", "forget", "whatever:bookmark"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     error: invalid value 'whatever:bookmark' for '<NAMES>...': Invalid string pattern kind `whatever:`
 
     For more information, try '--help'.
     Hint: Try prefixing with one of `exact:`, `glob:`, `regex:`, or `substring:`
     [EOF]
+    [exit status: 2]
     ");
 }
 
@@ -1330,11 +1345,13 @@ fn test_bookmark_track_untrack_patterns() {
     // Track local bookmark
     test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "main"]);
     insta::assert_snapshot!(
-        test_env.jj_cmd_cli_error(&repo_path, &["bookmark", "track", "main"]), @r"
+        test_env.run_jj_in(&repo_path, ["bookmark", "track", "main"]), @r"
+    ------- stderr -------
     error: invalid value 'main' for '<BOOKMARK@REMOTE>...': remote bookmark must be specified in bookmark@remote form
 
     For more information, try '--help'.
     [EOF]
+    [exit status: 2]
     ");
 
     // Track/untrack unknown bookmark

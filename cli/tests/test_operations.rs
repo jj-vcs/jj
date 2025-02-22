@@ -146,8 +146,9 @@ fn test_op_log_with_no_template() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
 
-    let stderr = test_env.jj_cmd_cli_error(&repo_path, &["op", "log", "-T"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["op", "log", "-T"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     error: a value is required for '--template <TEMPLATE>' but none was supplied
 
     For more information, try '--help'.
@@ -169,6 +170,7 @@ fn test_op_log_with_no_template() {
     - email_placeholder
     - name_placeholder
     [EOF]
+    [exit status: 2]
     ");
 }
 
@@ -628,10 +630,12 @@ fn test_op_abandon_ancestors() {
     ");
 
     // Can't create concurrent abandoned operations explicitly.
-    let stderr = test_env.jj_cmd_cli_error(&repo_path, &["op", "abandon", "--at-op=@-", "@"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["op", "abandon", "--at-op=@-", "@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: --at-op is not respected
     [EOF]
+    [exit status: 2]
     ");
 
     // Abandon the current operation by undoing it first.

@@ -65,12 +65,14 @@ fn test_sparse_manage_patterns() {
     std::fs::create_dir(&sub_dir).unwrap();
 
     // Not a workspace-relative path
-    let stderr = test_env.jj_cmd_cli_error(&sub_dir, &["sparse", "set", "--add=../file2"]);
-    insta::assert_snapshot!(stderr, @r#"
+    let output = test_env.run_jj_in(&sub_dir, ["sparse", "set", "--add=../file2"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     error: invalid value '../file2' for '--add <ADD>': Invalid component ".." in repo-relative path "../file2"
 
     For more information, try '--help'.
     [EOF]
+    [exit status: 2]
     "#);
 
     // Can `--add` a few files
