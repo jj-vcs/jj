@@ -18,22 +18,30 @@ use crate::common::TestEnvironment;
 fn test_help() {
     let test_env = TestEnvironment::default();
 
-    let help_cmd_stdout = test_env.jj_cmd_success(test_env.env_root(), &["help"]);
+    let help_cmd = test_env.run_jj_in(test_env.env_root(), ["help"]).success();
     // The help command output should be equal to the long --help flag
-    let help_flag_stdout = test_env.jj_cmd_success(test_env.env_root(), &["--help"]);
-    assert_eq!(help_cmd_stdout.raw(), help_flag_stdout.raw());
+    let help_flag = test_env
+        .run_jj_in(test_env.env_root(), ["--help"])
+        .success();
+    assert_eq!(help_cmd.stdout.raw(), help_flag.stdout.raw());
 
     // Help command should work with commands
-    let help_cmd_stdout = test_env.jj_cmd_success(test_env.env_root(), &["help", "log"]);
-    let help_flag_stdout = test_env.jj_cmd_success(test_env.env_root(), &["log", "--help"]);
-    assert_eq!(help_cmd_stdout.raw(), help_flag_stdout.raw());
+    let help_cmd = test_env
+        .run_jj_in(test_env.env_root(), ["help", "log"])
+        .success();
+    let help_flag = test_env
+        .run_jj_in(test_env.env_root(), ["log", "--help"])
+        .success();
+    assert_eq!(help_cmd.stdout.raw(), help_flag.stdout.raw());
 
     // Help command should work with subcommands
-    let help_cmd_stdout =
-        test_env.jj_cmd_success(test_env.env_root(), &["help", "workspace", "root"]);
-    let help_flag_stdout =
-        test_env.jj_cmd_success(test_env.env_root(), &["workspace", "root", "--help"]);
-    assert_eq!(help_cmd_stdout.raw(), help_flag_stdout.raw());
+    let help_cmd = test_env
+        .run_jj_in(test_env.env_root(), ["help", "workspace", "root"])
+        .success();
+    let help_flag = test_env
+        .run_jj_in(test_env.env_root(), ["workspace", "root", "--help"])
+        .success();
+    assert_eq!(help_cmd.stdout.raw(), help_flag.stdout.raw());
 
     // Help command should not work recursively
     let output = test_env.run_jj_in(test_env.env_root(), ["workspace", "help", "root"]);
@@ -72,9 +80,13 @@ fn test_help() {
     assert_eq!(help_cmd.stderr.raw(), help_flag.stderr.raw());
 
     // Some edge cases
-    let help_cmd_stdout = test_env.jj_cmd_success(test_env.env_root(), &["help", "help"]);
-    let help_flag_stdout = test_env.jj_cmd_success(test_env.env_root(), &["help", "--help"]);
-    assert_eq!(help_cmd_stdout.raw(), help_flag_stdout.raw());
+    let help_cmd = test_env
+        .run_jj_in(test_env.env_root(), ["help", "help"])
+        .success();
+    let help_flag = test_env
+        .run_jj_in(test_env.env_root(), ["help", "--help"])
+        .success();
+    assert_eq!(help_cmd.stdout.raw(), help_flag.stdout.raw());
 
     let output = test_env.run_jj_in(test_env.env_root(), ["help", "unknown"]);
     insta::assert_snapshot!(output, @r"
@@ -106,15 +118,18 @@ fn test_help_keyword() {
     let test_env = TestEnvironment::default();
 
     // It should show help for a certain keyword if the `--keyword` flag is present
-    let help_cmd_stdout =
-        test_env.jj_cmd_success(test_env.env_root(), &["help", "--keyword", "revsets"]);
+    let help_cmd = test_env
+        .run_jj_in(test_env.env_root(), ["help", "--keyword", "revsets"])
+        .success();
     // It should be equal to the docs
-    assert_eq!(help_cmd_stdout.raw(), include_str!("../../docs/revsets.md"));
+    assert_eq!(help_cmd.stdout.raw(), include_str!("../../docs/revsets.md"));
 
     // It should show help for a certain keyword if the `-k` flag is present
-    let help_cmd_stdout = test_env.jj_cmd_success(test_env.env_root(), &["help", "-k", "revsets"]);
+    let help_cmd = test_env
+        .run_jj_in(test_env.env_root(), ["help", "-k", "revsets"])
+        .success();
     // It should be equal to the docs
-    assert_eq!(help_cmd_stdout.raw(), include_str!("../../docs/revsets.md"));
+    assert_eq!(help_cmd.stdout.raw(), include_str!("../../docs/revsets.md"));
 
     // It should give hints if a similar keyword is present
     let output = test_env.run_jj_in(test_env.env_root(), ["help", "-k", "rev"]);

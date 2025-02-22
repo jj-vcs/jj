@@ -129,10 +129,12 @@ fn test_log_author_timestamp_ago() {
     test_env.jj_cmd_ok(&repo_path, &["new", "-m", "second"]);
 
     let template = r#"author.timestamp().ago() ++ "\n""#;
-    let stdout = test_env.jj_cmd_success(&repo_path, &["log", "--no-graph", "-T", template]);
+    let output = test_env
+        .run_jj_in(&repo_path, &["log", "--no-graph", "-T", template])
+        .success();
     let line_re = Regex::new(r"[0-9]+ years ago").unwrap();
     assert!(
-        stdout.raw().lines().all(|x| line_re.is_match(x)),
+        output.stdout.raw().lines().all(|x| line_re.is_match(x)),
         "expected every line to match regex"
     );
 }
@@ -1571,10 +1573,14 @@ fn test_signature_templates() {
     // builtin templates
     test_env.add_config("ui.show-cryptographic-signatures = true");
 
-    let args: &[_] = &["log", "-r", "..", "-T"];
+    let args = ["log", "-r", "..", "-T"];
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &[args, &["builtin_log_oneline"]].concat());
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_with(|cmd| {
+        cmd.current_dir(&repo_path)
+            .args(args)
+            .arg("builtin_log_oneline")
+    });
+    insta::assert_snapshot!(output, @r"
     @  rlvkpnrz test.user 2001-02-03 08:05:09 a0909ee9 [✓︎] (empty) signed
     ○  qpvuntsm test.user 2001-02-03 08:05:08 879d5d20 (empty) unsigned
     │
@@ -1582,8 +1588,12 @@ fn test_signature_templates() {
     [EOF]
     ");
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &[args, &["builtin_log_compact"]].concat());
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_with(|cmd| {
+        cmd.current_dir(&repo_path)
+            .args(args)
+            .arg("builtin_log_compact")
+    });
+    insta::assert_snapshot!(output, @r"
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a0909ee9 [✓︎]
     │  (empty) signed
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 879d5d20
@@ -1592,8 +1602,12 @@ fn test_signature_templates() {
     [EOF]
     ");
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &[args, &["builtin_log_detailed"]].concat());
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_with(|cmd| {
+        cmd.current_dir(&repo_path)
+            .args(args)
+            .arg("builtin_log_detailed")
+    });
+    insta::assert_snapshot!(output, @r"
     @  Commit ID: a0909ee96bb5c66311a0c579dc8ebed4456dfc1b
     │  Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -1615,11 +1629,13 @@ fn test_signature_templates() {
 
     // customization point
     let config_val = r#"template-aliases."format_short_cryptographic_signature(signature)"="'status: ' ++ signature.status()""#;
-    let stdout = test_env.jj_cmd_success(
-        &repo_path,
-        &[args, &["builtin_log_oneline", "--config", config_val]].concat(),
-    );
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_with(|cmd| {
+        cmd.current_dir(&repo_path)
+            .args(args)
+            .arg("builtin_log_oneline")
+            .args(["--config", config_val])
+    });
+    insta::assert_snapshot!(output, @r"
     @  rlvkpnrz test.user 2001-02-03 08:05:09 a0909ee9 status: good (empty) signed
     ○  qpvuntsm test.user 2001-02-03 08:05:08 879d5d20 status: <Error: No CryptographicSignature available> (empty) unsigned
     │

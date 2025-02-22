@@ -15,7 +15,6 @@
 use std::path::PathBuf;
 
 use indoc::indoc;
-use itertools::Itertools;
 use regex::Regex;
 
 use crate::common::fake_editor_path;
@@ -160,15 +159,15 @@ fn test_config_list_all() {
     "#,
     );
 
-    let stdout = test_env.jj_cmd_success(test_env.env_root(), &["config", "list"]);
+    let output = test_env.run_jj_in(test_env.env_root(), ["config", "list"]);
     insta::assert_snapshot!(
-        find_stdout_lines(r"(test-val|test-table\b[^=]*)", stdout.raw()),
-        @r###"
+        output.normalize_stdout_with(|s| find_stdout_lines(r"(test-val|test-table\b[^=]*)", &s)), @r#"
     test-val = [1, 2, 3]
     test-table.x = true
     test-table.y.foo = "abc"
     test-table.y.bar = 123
-    "###);
+    [EOF]
+    "#);
 }
 
 #[test]
@@ -1407,17 +1406,14 @@ fn test_config_author_change_warning() {
 #[test]
 fn test_config_author_change_warning_root_env() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_success(
+    let output = test_env.run_jj_in(
         test_env.env_root(),
-        &["config", "set", "--user", "user.email", "'Foo'"],
+        ["config", "set", "--user", "user.email", "'Foo'"],
     );
+    insta::assert_snapshot!(output, @"");
 }
 
 fn find_stdout_lines(keyname_pattern: &str, stdout: &str) -> String {
-    let key_line_re = Regex::new(&format!(r"(?m)^{keyname_pattern} = .*$")).unwrap();
-    key_line_re
-        .find_iter(stdout)
-        .map(|m| m.as_str())
-        .collect_vec()
-        .join("\n")
+    let key_line_re = Regex::new(&format!(r"(?m)^{keyname_pattern} = .*\n")).unwrap();
+    key_line_re.find_iter(stdout).map(|m| m.as_str()).collect()
 }

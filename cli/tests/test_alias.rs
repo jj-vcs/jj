@@ -14,8 +14,6 @@
 
 use std::fs;
 
-use itertools::Itertools as _;
-
 use crate::common::TestEnvironment;
 
 #[test]
@@ -148,14 +146,16 @@ fn test_alias_calls_help() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
     test_env.add_config(r#"aliases.h = ["--help"]"#);
-    let stdout = test_env.jj_cmd_success(&repo_path, &["h"]);
-    insta::assert_snapshot!(stdout.normalized().lines().take(5).join("\n"), @r###"
+    let output = test_env.run_jj_in(&repo_path, &["h"]);
+    insta::assert_snapshot!(
+        output.normalize_stdout_with(|s| s.split_inclusive('\n').take(5).collect()), @r"
     Jujutsu (An experimental VCS)
 
     To get started, see the tutorial at https://jj-vcs.github.io/jj/latest/tutorial/.
 
     Usage: jj [OPTIONS] <COMMAND>
-    "###);
+    [EOF]
+    ");
 }
 
 #[test]

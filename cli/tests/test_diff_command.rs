@@ -2308,7 +2308,7 @@ fn test_diff_external_file_by_file_tool() {
 
     // diff without file patterns
     insta::assert_snapshot!(
-        test_env.jj_cmd_success(&repo_path, &[&["diff"], configs].concat()), @r"
+        test_env.run_jj_with(|cmd| cmd.current_dir(&repo_path).arg("diff").args(configs)), @r"
     ==
     file2
     --
@@ -2326,16 +2326,23 @@ fn test_diff_external_file_by_file_tool() {
 
     // diff with file patterns
     insta::assert_snapshot!(
-        test_env.jj_cmd_success(&repo_path, &[&["diff", "file1"], configs].concat()), @r"
+        test_env.run_jj_with(|cmd| {
+            cmd.current_dir(&repo_path)
+                .args(["diff", "file1"])
+                .args(configs)
+        }), @r"
     ==
     file1
     --
     file1
     [EOF]
     ");
-
     insta::assert_snapshot!(
-        test_env.jj_cmd_success(&repo_path, &[&["log", "-p"], configs].concat()), @r"
+        test_env.run_jj_with(|cmd| {
+            cmd.current_dir(&repo_path)
+                .args(["log", "-p"])
+                .args(configs)
+        }), @r"
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 7b01704a
     │  (no description set)
     │  ==
@@ -2365,7 +2372,7 @@ fn test_diff_external_file_by_file_tool() {
     ");
 
     insta::assert_snapshot!(
-        test_env.jj_cmd_success(&repo_path, &[&["show"], configs].concat()), @r"
+        test_env.run_jj_with(|cmd| cmd.current_dir(&repo_path).arg("show").args(configs)), @r"
     Commit ID: 7b01704a670bc77d11ed117d362855cff1d4513b
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)

@@ -119,8 +119,8 @@ fn test_concurrent_operations_wc_modified() {
 
     std::fs::write(repo_path.join("file"), "contents\n").unwrap();
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "initial"]);
-    let stdout = test_env.jj_cmd_success(&repo_path, &["op", "log"]);
-    let op_id_hex = stdout.raw()[3..15].to_string();
+    let output = test_env.run_jj_in(&repo_path, ["op", "log"]).success();
+    let op_id_hex = output.stdout.raw()[3..15].to_string();
 
     test_env.jj_cmd_ok(
         &repo_path,

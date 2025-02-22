@@ -111,10 +111,12 @@ fn test_gitignores_ignored_file_in_target_commit() {
     std::fs::write(workspace_root.join("ignored"), "committed contents\n").unwrap();
     test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "-r@", "with-file"]);
     let target_commit_id = test_env
-        .jj_cmd_success(
+        .run_jj_in(
             &workspace_root,
-            &["log", "--no-graph", "-T=commit_id", "-r=@"],
+            ["log", "--no-graph", "-T=commit_id", "-r=@"],
         )
+        .success()
+        .stdout
         .into_raw();
 
     // Create another commit where we ignore that path

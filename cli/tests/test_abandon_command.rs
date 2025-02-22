@@ -388,10 +388,12 @@ fn test_double_abandon() {
     ");
 
     let commit_id = test_env
-        .jj_cmd_success(
+        .run_jj_in(
             &repo_path,
-            &["log", "--no-graph", "--color=never", "-T=commit_id", "-r=a"],
+            ["log", "--no-graph", "--color=never", "-T=commit_id", "-r=a"],
         )
+        .success()
+        .stdout
         .into_raw();
 
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["abandon", &commit_id]);

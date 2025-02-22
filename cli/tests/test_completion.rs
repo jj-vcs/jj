@@ -236,16 +236,20 @@ fn test_aliases_are_resolved() {
 fn test_completions_are_generated() {
     let mut test_env = TestEnvironment::default();
     test_env.add_env_var("COMPLETE", "fish");
-    let stdout = test_env.jj_cmd_success(test_env.env_root(), &[]);
-    // cannot use assert_snapshot!, output contains path to binary that depends
-    // on environment
-    assert!(stdout
-        .raw()
-        .starts_with("complete --keep-order --exclusive --command jj --arguments"));
-    let stdout = test_env.jj_cmd_success(test_env.env_root(), &["--"]);
-    assert!(stdout
-        .raw()
-        .starts_with("complete --keep-order --exclusive --command jj --arguments"));
+    let mut insta_settings = insta::Settings::clone_current();
+    insta_settings.add_filter(r"(--arguments) .*", "$1 .."); // omit path to jj binary
+    let _guard = insta_settings.bind_to_scope();
+
+    let output = test_env.run_jj_in(test_env.env_root(), [""; 0]);
+    insta::assert_snapshot!(output, @r"
+    complete --keep-order --exclusive --command jj --arguments ..
+    [EOF]
+    ");
+    let output = test_env.run_jj_in(test_env.env_root(), ["--"]);
+    insta::assert_snapshot!(output, @r"
+    complete --keep-order --exclusive --command jj --arguments ..
+    [EOF]
+    ");
 }
 
 #[test]
@@ -526,8 +530,11 @@ fn test_operations() {
     test_env.add_env_var("COMPLETE", "fish");
     let test_env = test_env;
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &["--", "jj", "op", "show", ""]);
-    let add_workspace_id = stdout
+    let output = test_env
+        .run_jj_in(&repo_path, ["--", "jj", "op", "show", ""])
+        .success();
+    let add_workspace_id = output
+        .stdout
         .raw()
         .lines()
         .nth(5)

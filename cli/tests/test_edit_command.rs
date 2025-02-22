@@ -89,10 +89,14 @@ fn test_edit_current_wc_commit_missing() {
     test_env.jj_cmd_ok(&repo_path, &["edit", "@-"]);
 
     let wc_id = test_env
-        .jj_cmd_success(&repo_path, &["log", "--no-graph", "-T=commit_id", "-r=@"])
+        .run_jj_in(&repo_path, ["log", "--no-graph", "-T=commit_id", "-r=@"])
+        .success()
+        .stdout
         .into_raw();
     let wc_child_id = test_env
-        .jj_cmd_success(&repo_path, &["log", "--no-graph", "-T=commit_id", "-r=@+"])
+        .run_jj_in(&repo_path, ["log", "--no-graph", "-T=commit_id", "-r=@+"])
+        .success()
+        .stdout
         .into_raw();
     // Make the Git backend fail to read the current working copy commit
     let commit_object_path = repo_path

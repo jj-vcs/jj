@@ -358,10 +358,12 @@ fn test_git_colocated_bookmarks() {
 
     // Update the bookmark in Git
     let target_id = test_env
-        .jj_cmd_success(
+        .run_jj_in(
             &workspace_root,
-            &["log", "--no-graph", "-T=commit_id", "-r=description(foo)"],
+            ["log", "--no-graph", "-T=commit_id", "-r=description(foo)"],
         )
+        .success()
+        .stdout
         .into_raw();
     git_repo
         .reference(

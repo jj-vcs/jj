@@ -316,17 +316,19 @@ fn test_op_log_no_graph_null_terminated() {
     test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "message1"]);
     test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "message2"]);
 
-    let stdout = test_env.jj_cmd_success(
-        &repo_path,
-        &[
-            "op",
-            "log",
-            "--no-graph",
-            "--template",
-            r#"id.short(4) ++ "\0""#,
-        ],
-    );
-    insta::assert_debug_snapshot!(stdout.normalized(), @r#""ef17\0f412\0eac7\00000\0""#);
+    let output = test_env
+        .run_jj_in(
+            &repo_path,
+            [
+                "op",
+                "log",
+                "--no-graph",
+                "--template",
+                r#"id.short(4) ++ "\0""#,
+            ],
+        )
+        .success();
+    insta::assert_debug_snapshot!(output.stdout.normalized(), @r#""ef17\0f412\0eac7\00000\0""#);
 }
 
 #[test]
@@ -366,12 +368,14 @@ fn test_op_log_template() {
         "#,
     );
     let regex = Regex::new(r"\d\d years").unwrap();
-    let stdout = test_env.jj_cmd_success(&repo_path, &["op", "log"]);
-    insta::assert_snapshot!(regex.replace_all(stdout.raw(), "NN years"), @r#"
+    let output = test_env.run_jj_in(&repo_path, ["op", "log"]);
+    insta::assert_snapshot!(
+        output.normalize_stdout_with(|s| regex.replace_all(&s, "NN years").into_owned()), @r"
     @  eac759b9ab75 test-username@host.example.com NN years ago, lasted less than a microsecond
     │  add workspace 'default'
     ○  000000000000 root()
-    "#);
+    [EOF]
+    ");
 }
 
 #[test]
@@ -553,8 +557,13 @@ fn test_op_log_configurable() {
         .success();
     let repo_path = test_env.env_root().join("repo");
 
-    let stdout = test_env.jj_cmd_success(&repo_path, &["op", "log"]);
-    assert!(stdout.raw().contains("my-username@my-hostname"));
+    let output = test_env.run_jj_in(&repo_path, ["op", "log"]);
+    insta::assert_snapshot!(output, @r"
+    @  98b85ab600ce my-username@my-hostname 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
+    │  add workspace 'default'
+    ○  000000000000 root()
+    [EOF]
+    ");
 }
 
 #[test]
@@ -742,11 +751,13 @@ fn test_op_abandon_multiple_heads() {
     test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "commit 1"]);
     test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "commit 2"]);
     test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "commit 3"]);
-    let stdout = test_env.jj_cmd_success(
-        &repo_path,
-        &["op", "log", "--no-graph", r#"-Tid.short() ++ "\n""#],
-    );
-    let (head_op_id, prev_op_id) = stdout.raw().lines().next_tuple().unwrap();
+    let output = test_env
+        .run_jj_in(
+            &repo_path,
+            ["op", "log", "--no-graph", r#"-Tid.short() ++ "\n""#],
+        )
+        .success();
+    let (head_op_id, prev_op_id) = output.stdout.raw().lines().next_tuple().unwrap();
     insta::assert_snapshot!(head_op_id, @"b0711a8ac91f");
     insta::assert_snapshot!(prev_op_id, @"116edde65ded");
 
@@ -836,19 +847,21 @@ fn test_op_recover_from_bad_gc() {
     test_env.jj_cmd_ok(&repo_path, &["new", "-m3"]);
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m4"]);
 
-    let stdout = test_env.jj_cmd_success(
-        &repo_path,
-        &["op", "log", "--no-graph", r#"-Tid.short() ++ "\n""#],
-    );
-    let (head_op_id, _, _, bad_op_id) = stdout.raw().lines().next_tuple().unwrap();
+    let output = test_env
+        .run_jj_in(
+            &repo_path,
+            ["op", "log", "--no-graph", r#"-Tid.short() ++ "\n""#],
+        )
+        .success();
+    let (head_op_id, _, _, bad_op_id) = output.stdout.raw().lines().next_tuple().unwrap();
     insta::assert_snapshot!(head_op_id, @"f999e12a5d8b");
     insta::assert_snapshot!(bad_op_id, @"e7377e6a642b");
 
     // Corrupt the repo by removing hidden but reachable commit object.
-    let bad_commit_id = test_env
-        .jj_cmd_success(
+    let output = test_env
+        .run_jj_in(
             &repo_path,
-            &[
+            [
                 "log",
                 "--at-op",
                 bad_op_id,
@@ -857,7 +870,8 @@ fn test_op_recover_from_bad_gc() {
                 "-Tcommit_id",
             ],
         )
-        .into_raw();
+        .success();
+    let bad_commit_id = output.stdout.into_raw();
     insta::assert_snapshot!(bad_commit_id, @"ddf84fc5e0dd314092b3dfb13e09e37fa7d04ef9");
     std::fs::remove_file(git_object_path(&bad_commit_id)).unwrap();
 
@@ -1524,11 +1538,13 @@ fn test_op_diff_sibling() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
 
-    let stdout = test_env.jj_cmd_success(
-        &repo_path,
-        &["op", "log", "--no-graph", r#"-Tid.short() ++ "\n""#],
-    );
-    let base_op_id = stdout.raw().lines().next().unwrap();
+    let output = test_env
+        .run_jj_in(
+            &repo_path,
+            ["op", "log", "--no-graph", r#"-Tid.short() ++ "\n""#],
+        )
+        .success();
+    let base_op_id = output.stdout.raw().lines().next().unwrap();
     insta::assert_snapshot!(base_op_id, @"eac759b9ab75");
 
     // Create merge commit at one operation side. The parent trees will have to
@@ -1574,11 +1590,14 @@ fn test_op_diff_sibling() {
     Concurrent modification detected, resolving automatically.
     [EOF]
     ");
-    let stdout = test_env.jj_cmd_success(
-        &repo_path,
-        &["op", "log", "--no-graph", r#"-Tid.short() ++ "\n""#],
-    );
-    let (head_op_id, p1_op_id, _, _, _, _, p2_op_id) = stdout.raw().lines().next_tuple().unwrap();
+    let output = test_env
+        .run_jj_in(
+            &repo_path,
+            ["op", "log", "--no-graph", r#"-Tid.short() ++ "\n""#],
+        )
+        .success();
+    let (head_op_id, p1_op_id, _, _, _, _, p2_op_id) =
+        output.stdout.raw().lines().next_tuple().unwrap();
     insta::assert_snapshot!(head_op_id, @"779ecb7ea7f0");
     insta::assert_snapshot!(p1_op_id, @"d700dc16fded");
     insta::assert_snapshot!(p2_op_id, @"13b143e1f4f9");

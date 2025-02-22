@@ -34,7 +34,9 @@ fn test_track_untrack() {
     test_env.jj_cmd_ok(&repo_path, &["st"]);
     std::fs::write(repo_path.join(".gitignore"), "*.bak\n").unwrap();
     let files_before = test_env
-        .jj_cmd_success(&repo_path, &["file", "list"])
+        .run_jj_in(&repo_path, ["file", "list"])
+        .success()
+        .stdout
         .into_raw();
 
     // Errors out when not run at the head operation
@@ -70,7 +72,9 @@ fn test_track_untrack() {
     [exit status: 1]
     ");
     let files_after = test_env
-        .jj_cmd_success(&repo_path, &["file", "list"])
+        .run_jj_in(&repo_path, ["file", "list"])
+        .success()
+        .stdout
         .into_raw();
     // There should be no changes to the state when there was an error
     assert_eq!(files_after, files_before);
@@ -85,7 +89,9 @@ fn test_track_untrack() {
     [EOF]
     ");
     let files_after = test_env
-        .jj_cmd_success(&repo_path, &["file", "list"])
+        .run_jj_in(&repo_path, ["file", "list"])
+        .success()
+        .stdout
         .into_raw();
     // The file is no longer tracked
     assert!(!files_after.contains("file1.bak"));
@@ -112,7 +118,9 @@ fn test_track_untrack() {
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @"");
     let files_after = test_env
-        .jj_cmd_success(&repo_path, &["file", "list"])
+        .run_jj_in(&repo_path, ["file", "list"])
+        .success()
+        .stdout
         .into_raw();
     assert!(!files_after.contains("target"));
 }

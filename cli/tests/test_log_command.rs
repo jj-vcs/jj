@@ -339,19 +339,21 @@ fn test_log_null_terminate_multiline_descriptions() {
         &["describe", "-m", "commit 3 line 1", "-m", "commit 3 line 2"],
     );
 
-    let stdout = test_env.jj_cmd_success(
-        &repo_path,
-        &[
-            "log",
-            "-r",
-            "~root()",
-            "-T",
-            r#"description ++ "\0""#,
-            "--no-graph",
-        ],
-    );
+    let output = test_env
+        .run_jj_in(
+            &repo_path,
+            [
+                "log",
+                "-r",
+                "~root()",
+                "-T",
+                r#"description ++ "\0""#,
+                "--no-graph",
+            ],
+        )
+        .success();
     insta::assert_debug_snapshot!(
-        stdout.normalized(),
+        output.stdout.normalized(),
         @r###""commit 3 line 1\n\ncommit 3 line 2\n\0commit 2 line 1\n\ncommit 2 line 2\n\0commit 1 line 1\n\ncommit 1 line 2\n\0""###
     );
 }
@@ -1135,14 +1137,11 @@ fn test_default_revset() {
 
     // Log should only contain one line (for the root commit), and not show the
     // commit created above.
-    assert_eq!(
-        1,
-        test_env
-            .jj_cmd_success(&repo_path, &["log", "-T", "commit_id"])
-            .raw()
-            .lines()
-            .count()
-    );
+    insta::assert_snapshot!(
+        test_env.run_jj_in(&repo_path, ["log", "-T", "commit_id"]), @r"
+    ◆  0000000000000000000000000000000000000000
+    [EOF]
+    ");
 
     // The default revset is not used if a path is specified
     insta::assert_snapshot!(
@@ -1173,14 +1172,11 @@ fn test_default_revset_per_repo() {
 
     // Log should only contain one line (for the root commit), and not show the
     // commit created above.
-    assert_eq!(
-        1,
-        test_env
-            .jj_cmd_success(&repo_path, &["log", "-T", "commit_id"])
-            .raw()
-            .lines()
-            .count()
-    );
+    insta::assert_snapshot!(
+        test_env.run_jj_in(&repo_path, ["log", "-T", "commit_id"]), @r"
+    ◆  0000000000000000000000000000000000000000
+    [EOF]
+    ");
 }
 
 #[test]

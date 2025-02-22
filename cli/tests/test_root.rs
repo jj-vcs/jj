@@ -28,8 +28,11 @@ fn test_root(backend: TestRepoBackend) {
     let root = test_workspace.workspace.workspace_root();
     let subdir = root.join("subdir");
     std::fs::create_dir(&subdir).unwrap();
-    let stdout = test_env.jj_cmd_success(&subdir, &["root"]);
-    assert_eq!(stdout.raw(), &[root.to_str().unwrap(), "\n"].concat());
+    let output = test_env.run_jj_in(&subdir, ["root"]).success();
+    assert_eq!(
+        output.stdout.raw(),
+        &[root.to_str().unwrap(), "\n"].concat()
+    );
 }
 
 #[test]

@@ -151,7 +151,9 @@ fn test_git_import_undo() {
 
     // Create bookmark "a" in git repo
     let commit_id = test_env
-        .jj_cmd_success(&repo_path, &["log", "-Tcommit_id", "--no-graph", "-r@"])
+        .run_jj_in(&repo_path, &["log", "-Tcommit_id", "--no-graph", "-r@"])
+        .success()
+        .stdout
         .into_raw();
     let commit_id = gix::ObjectId::from_hex(commit_id.as_bytes()).unwrap();
     git_repo
@@ -210,7 +212,9 @@ fn test_git_import_move_export_with_default_undo() {
 
     // Create bookmark "a" in git repo
     let commit_id = test_env
-        .jj_cmd_success(&repo_path, &["log", "-Tcommit_id", "--no-graph", "-r@"])
+        .run_jj_in(&repo_path, &["log", "-Tcommit_id", "--no-graph", "-r@"])
+        .success()
+        .stdout
         .into_raw();
     let commit_id = gix::ObjectId::from_hex(commit_id.as_bytes()).unwrap();
     git_repo
