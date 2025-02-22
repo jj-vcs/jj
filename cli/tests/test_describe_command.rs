@@ -151,7 +151,7 @@ fn test_describe() {
 
     // Fails if the editor fails
     std::fs::write(&edit_script, "fail").unwrap();
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["describe"]);
+    let output = test_env.run_jj_in(&repo_path, ["describe"]);
     insta::with_settings!({
         filters => [
             (r"\bEditor '[^']*'", "Editor '<redacted>'"),
@@ -159,11 +159,13 @@ fn test_describe() {
             ("exit code", "exit status"), // Windows
         ],
     }, {
-        insta::assert_snapshot!(stderr, @r"
+        insta::assert_snapshot!(output, @r"
+        ------- stderr -------
         Error: Failed to edit description
         Caused by: Editor '<redacted>' exited with exit status: 1
         Hint: Edited description is left in $TEST_ENV/repo/.jj/repo/editor-<redacted>.jjdescription
         [EOF]
+        [exit status: 1]
         ");
     });
 
@@ -372,10 +374,12 @@ fn test_describe_multiple_commits() {
         "},
     )
     .unwrap();
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["describe", "@", "@-"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["describe", "@", "@-"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: The following commits were found in the edited message multiple times: 0d76a92ca7cc
     [EOF]
+    [exit status: 1]
     ");
 
     // Fails if the edited message has unexpected commit IDs
@@ -400,10 +404,12 @@ fn test_describe_multiple_commits() {
         "},
     )
     .unwrap();
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["describe", "@", "@-"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["describe", "@", "@-"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: The following commits were not being edited, but were found in the edited message: 000000000000
     [EOF]
+    [exit status: 1]
     ");
 
     // Fails if the edited message has missing commit messages
@@ -420,10 +426,12 @@ fn test_describe_multiple_commits() {
         "},
     )
     .unwrap();
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["describe", "@", "@-"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["describe", "@", "@-"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: The description for the following commits were not found in the edited message: 0d76a92ca7cc
     [EOF]
+    [exit status: 1]
     ");
 
     // Fails if the edited message has a line which does not have any preceding
@@ -441,15 +449,17 @@ fn test_describe_multiple_commits() {
         "},
     )
     .unwrap();
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["describe", "@", "@-"]);
-    insta::assert_snapshot!(stderr, @r#"
+    let output = test_env.run_jj_in(&repo_path, ["describe", "@", "@-"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Error: Found the following line without a commit header: "description from editor of @-"
     [EOF]
+    [exit status: 1]
     "#);
 
     // Fails if the editor fails
     std::fs::write(&edit_script, "fail").unwrap();
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["describe", "@", "@-"]);
+    let output = test_env.run_jj_in(&repo_path, ["describe", "@", "@-"]);
     insta::with_settings!({
         filters => [
             (r"\bEditor '[^']*'", "Editor '<redacted>'"),
@@ -457,11 +467,13 @@ fn test_describe_multiple_commits() {
             ("exit code", "exit status"), // Windows
         ],
     }, {
-        insta::assert_snapshot!(stderr, @r"
+        insta::assert_snapshot!(output, @r"
+        ------- stderr -------
         Error: Failed to edit description
         Caused by: Editor '<redacted>' exited with exit status: 1
         Hint: Edited description is left in $TEST_ENV/repo/.jj/repo/editor-<redacted>.jjdescription
         [EOF]
+        [exit status: 1]
         ");
     });
 

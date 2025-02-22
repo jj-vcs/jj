@@ -20,8 +20,9 @@ fn test_syntax_error() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r", ":x"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", ":x"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Failed to parse revset: `:` is not a prefix operator
     Caused by:  --> 1:1
       |
@@ -31,10 +32,12 @@ fn test_syntax_error() {
       = `:` is not a prefix operator
     Hint: Did you mean `::` for ancestors?
     [EOF]
+    [exit status: 1]
     ");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r", "x &"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "x &"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Failed to parse revset: Syntax error
     Caused by:  --> 1:4
       |
@@ -44,10 +47,12 @@ fn test_syntax_error() {
       = expected `::`, `..`, `~`, or <primary>
     Hint: See https://jj-vcs.github.io/jj/latest/revsets/ for revsets syntax, or for how to quote symbols.
     [EOF]
+    [exit status: 1]
     ");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r", "x - y"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "x - y"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Failed to parse revset: `-` is not an infix operator
     Caused by:  --> 1:3
       |
@@ -57,10 +62,12 @@ fn test_syntax_error() {
       = `-` is not an infix operator
     Hint: Did you mean `~` for difference?
     [EOF]
+    [exit status: 1]
     ");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r", "HEAD^"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "HEAD^"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Failed to parse revset: `^` is not a postfix operator
     Caused by:  --> 1:5
       |
@@ -70,6 +77,7 @@ fn test_syntax_error() {
       = `^` is not a postfix operator
     Hint: Did you mean `-` for parents?
     [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -79,8 +87,9 @@ fn test_bad_function_call() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r", "all(or::nothing)"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "all(or::nothing)"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Failed to parse revset: Function `all`: Expected 0 arguments
     Caused by:  --> 1:5
       |
@@ -89,10 +98,12 @@ fn test_bad_function_call() {
       |
       = Function `all`: Expected 0 arguments
     [EOF]
+    [exit status: 1]
     ");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r", "parents()"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "parents()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Failed to parse revset: Function `parents`: Expected 1 arguments
     Caused by:  --> 1:9
       |
@@ -101,10 +112,12 @@ fn test_bad_function_call() {
       |
       = Function `parents`: Expected 1 arguments
     [EOF]
+    [exit status: 1]
     ");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r", "parents(foo, bar)"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "parents(foo, bar)"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Failed to parse revset: Function `parents`: Expected 1 arguments
     Caused by:  --> 1:9
       |
@@ -113,10 +126,12 @@ fn test_bad_function_call() {
       |
       = Function `parents`: Expected 1 arguments
     [EOF]
+    [exit status: 1]
     ");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r", "heads(foo, bar)"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "heads(foo, bar)"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Failed to parse revset: Function `heads`: Expected 1 arguments
     Caused by:  --> 1:7
       |
@@ -125,10 +140,12 @@ fn test_bad_function_call() {
       |
       = Function `heads`: Expected 1 arguments
     [EOF]
+    [exit status: 1]
     ");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r", "latest(a, not_an_integer)"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "latest(a, not_an_integer)"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Failed to parse revset: Expected expression of type integer
     Caused by:  --> 1:11
       |
@@ -137,10 +154,12 @@ fn test_bad_function_call() {
       |
       = Expected expression of type integer
     [EOF]
+    [exit status: 1]
     ");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r", "files()"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "files()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Failed to parse revset: Function `files`: Expected at least 1 arguments
     Caused by:  --> 1:7
       |
@@ -149,10 +168,12 @@ fn test_bad_function_call() {
       |
       = Function `files`: Expected at least 1 arguments
     [EOF]
+    [exit status: 1]
     ");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r", "files(not::a-fileset)"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "files(not::a-fileset)"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Failed to parse revset: In fileset expression
     Caused by:
     1:  --> 1:7
@@ -169,10 +190,12 @@ fn test_bad_function_call() {
       = expected <identifier>, <string_literal>, or <raw_string_literal>
     Hint: See https://jj-vcs.github.io/jj/latest/filesets/ for filesets syntax, or for how to match file paths.
     [EOF]
+    [exit status: 1]
     ");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r", r#"files(foo:"bar")"#]);
-    insta::assert_snapshot!(stderr, @r#"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", r#"files(foo:"bar")"#]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Error: Failed to parse revset: In fileset expression
     Caused by:
     1:  --> 1:7
@@ -189,10 +212,12 @@ fn test_bad_function_call() {
       = Invalid file pattern
     3: Invalid file pattern kind `foo:`
     [EOF]
+    [exit status: 1]
     "#);
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r", r#"files(a, "../out")"#]);
-    insta::assert_snapshot!(stderr.normalize_backslash(), @r#"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", r#"files(a, "../out")"#]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
     Error: Failed to parse revset: In fileset expression
     Caused by:
     1:  --> 1:10
@@ -210,10 +235,12 @@ fn test_bad_function_call() {
     3: Path "../out" is not in the repo "."
     4: Invalid component ".." in repo-relative path "../out"
     [EOF]
+    [exit status: 1]
     "#);
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r", "bookmarks(bad:pattern)"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "bookmarks(bad:pattern)"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Failed to parse revset: Invalid string pattern
     Caused by:
     1:  --> 1:11
@@ -225,10 +252,12 @@ fn test_bad_function_call() {
     2: Invalid string pattern kind `bad:`
     Hint: Try prefixing with one of `exact:`, `glob:`, `regex:`, or `substring:`
     [EOF]
+    [exit status: 1]
     ");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r", "bookmarks(regex:'(')"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "bookmarks(regex:'(')"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Failed to parse revset: Invalid string pattern
     Caused by:
     1:  --> 1:11
@@ -242,10 +271,12 @@ fn test_bad_function_call() {
         ^
     error: unclosed group
     [EOF]
+    [exit status: 1]
     ");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r", "root()::whatever()"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "root()::whatever()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Failed to parse revset: Function `whatever` doesn't exist
     Caused by:  --> 1:9
       |
@@ -254,13 +285,15 @@ fn test_bad_function_call() {
       |
       = Function `whatever` doesn't exist
     [EOF]
+    [exit status: 1]
     ");
 
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["log", "-r", "remote_bookmarks(a, b, remote=c)"],
+        ["log", "-r", "remote_bookmarks(a, b, remote=c)"],
     );
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Error: Failed to parse revset: Function `remote_bookmarks`: Got multiple values for keyword "remote"
     Caused by:  --> 1:24
       |
@@ -269,11 +302,12 @@ fn test_bad_function_call() {
       |
       = Function `remote_bookmarks`: Got multiple values for keyword "remote"
     [EOF]
+    [exit status: 1]
     "#);
 
-    let stderr =
-        test_env.jj_cmd_failure(&repo_path, &["log", "-r", "remote_bookmarks(remote=a, b)"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "remote_bookmarks(remote=a, b)"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Failed to parse revset: Function `remote_bookmarks`: Positional argument follows keyword argument
     Caused by:  --> 1:28
       |
@@ -282,10 +316,12 @@ fn test_bad_function_call() {
       |
       = Function `remote_bookmarks`: Positional argument follows keyword argument
     [EOF]
+    [exit status: 1]
     ");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r", "remote_bookmarks(=foo)"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "remote_bookmarks(=foo)"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Failed to parse revset: Syntax error
     Caused by:  --> 1:18
       |
@@ -295,10 +331,12 @@ fn test_bad_function_call() {
       = expected <strict_identifier> or <expression>
     Hint: See https://jj-vcs.github.io/jj/latest/revsets/ for revsets syntax, or for how to quote symbols.
     [EOF]
+    [exit status: 1]
     ");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r", "remote_bookmarks(remote=)"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "remote_bookmarks(remote=)"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Failed to parse revset: Syntax error
     Caused by:  --> 1:25
       |
@@ -308,6 +346,7 @@ fn test_bad_function_call() {
       = expected <expression>
     Hint: See https://jj-vcs.github.io/jj/latest/revsets/ for revsets syntax, or for how to quote symbols.
     [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -474,8 +513,9 @@ fn test_alias() {
     [EOF]
     ");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r", "root() & syntax-error"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "root() & syntax-error"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Failed to parse revset: In alias `syntax-error`
     Caused by:
     1:  --> 1:10
@@ -492,10 +532,12 @@ fn test_alias() {
       = expected `::`, `..`, `~`, or <primary>
     Hint: See https://jj-vcs.github.io/jj/latest/revsets/ for revsets syntax, or for how to quote symbols.
     [EOF]
+    [exit status: 1]
     ");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r", "identity()"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "identity()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Failed to parse revset: Function `identity`: Expected 1 arguments
     Caused by:  --> 1:10
       |
@@ -504,10 +546,12 @@ fn test_alias() {
       |
       = Function `identity`: Expected 1 arguments
     [EOF]
+    [exit status: 1]
     ");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r", "my_author(none())"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "my_author(none())"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Failed to parse revset: In alias `my_author(x)`
     Caused by:
     1:  --> 1:1
@@ -529,10 +573,12 @@ fn test_alias() {
       |
       = Expected expression of string pattern
     [EOF]
+    [exit status: 1]
     ");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r", "root() & recurse"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "root() & recurse"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Failed to parse revset: In alias `recurse`
     Caused by:
     1:  --> 1:10
@@ -560,6 +606,7 @@ fn test_alias() {
       |
       = Alias `recurse` expanded recursively
     [EOF]
+    [exit status: 1]
     ");
 
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["log", "-r", "deprecated()"]);
@@ -615,13 +662,15 @@ fn test_alias_override() {
 
     // 'f(x)' should be overridden by --config 'f(a)'. If aliases were sorted
     // purely by name, 'f(a)' would come first.
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["log", "-r", "f(_)", "--config=revset-aliases.'f(a)'=arg"],
+        ["log", "-r", "f(_)", "--config=revset-aliases.'f(a)'=arg"],
     );
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Revision `arg` doesn't exist
     [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -670,19 +719,23 @@ fn test_all_modifier() {
     let repo_path = test_env.env_root().join("repo");
 
     // Command that accepts single revision by default
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["new", "all()"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["new", "all()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Revset `all()` resolved to more than one revision
     Hint: The revset `all()` resolved to these revisions:
       qpvuntsm 230dd059 (empty) (no description set)
       zzzzzzzz 00000000 (empty) (no description set)
     Hint: Prefix the expression with `all:` to allow any number of revisions (i.e. `all:all()`).
     [EOF]
+    [exit status: 1]
     ");
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["new", "all:all()"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["new", "all:all()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: The Git backend does not support creating merge commits with the root commit as one of the parents.
     [EOF]
+    [exit status: 1]
     ");
 
     // Command that accepts multiple revisions by default
@@ -700,13 +753,15 @@ fn test_all_modifier() {
     Created 1 bookmarks pointing to qpvuntsm 230dd059 x | (empty) (no description set)
     [EOF]
     ");
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["bookmark", "set", "-rall:all()", "x"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["bookmark", "set", "-rall:all()", "x"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Revset `all:all()` resolved to more than one revision
     Hint: The revset `all:all()` resolved to these revisions:
       qpvuntsm 230dd059 x | (empty) (no description set)
       zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
+    [exit status: 1]
     ");
 
     // Template expression that accepts multiple revisions by default
@@ -718,8 +773,9 @@ fn test_all_modifier() {
     ");
 
     // Typo
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["new", "ale:x"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["new", "ale:x"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Failed to parse revset: Modifier `ale` doesn't exist
     Caused by:  --> 1:1
       |
@@ -728,14 +784,16 @@ fn test_all_modifier() {
       |
       = Modifier `ale` doesn't exist
     [EOF]
+    [exit status: 1]
     ");
 
     // Modifier shouldn't be allowed in sub expression
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["new", "x..", "--config=revset-aliases.x='all:@'"],
+        ["new", "x..", "--config=revset-aliases.x='all:@'"],
     );
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Failed to parse revset: In alias `x`
     Caused by:
     1:  --> 1:1
@@ -751,19 +809,21 @@ fn test_all_modifier() {
       |
       = Modifier `all:` is not allowed in sub expression
     [EOF]
+    [exit status: 1]
     ");
 
     // immutable_heads() alias may be parsed as a top-level expression, but
     // still, modifier shouldn't be allowed there.
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "new",
             "--config=revset-aliases.'immutable_heads()'='all:@'",
             "--config=revsets.short-prefixes='none()'",
         ],
     );
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Config error: Invalid `revset-aliases.immutable_heads()`
     Caused by:  --> 1:1
       |
@@ -773,6 +833,7 @@ fn test_all_modifier() {
       = Modifier `all:` is not allowed in sub expression
     For help, see https://jj-vcs.github.io/jj/latest/config/.
     [EOF]
+    [exit status: 1]
     ");
 }
 

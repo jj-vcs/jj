@@ -165,41 +165,49 @@ fn test_git_clone(subprocess: bool) {
     assert!(!test_env.env_root().join("failed").join(".jj").exists());
 
     // Failed clone (if attempted) shouldn't remove the existing workspace
-    let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["git", "clone", "bad", "clone"]);
+    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "bad", "clone"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Destination path exists and is not an empty directory
     [EOF]
+    [exit status: 1]
     ");
     }
     assert!(test_env.env_root().join("clone").join(".jj").exists());
 
     // Try cloning into an existing workspace
-    let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["git", "clone", "source", "clone"]);
+    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "clone"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Destination path exists and is not an empty directory
     [EOF]
+    [exit status: 1]
     ");
     }
 
     // Try cloning into an existing file
     std::fs::write(test_env.env_root().join("file"), "contents").unwrap();
-    let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["git", "clone", "source", "file"]);
+    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "file"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Destination path exists and is not an empty directory
     [EOF]
+    [exit status: 1]
     ");
     }
 
     // Try cloning into non-empty, non-workspace directory
     std::fs::remove_dir_all(test_env.env_root().join("clone").join(".jj")).unwrap();
-    let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["git", "clone", "source", "clone"]);
+    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "clone"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Destination path exists and is not an empty directory
     [EOF]
+    [exit status: 1]
     ");
     }
 
@@ -436,54 +444,62 @@ fn test_git_clone_colocate(subprocess: bool) {
     assert!(!test_env.env_root().join("failed").join(".jj").exists());
 
     // Failed clone (if attempted) shouldn't remove the existing workspace
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         test_env.env_root(),
-        &["git", "clone", "--colocate", "bad", "clone"],
+        ["git", "clone", "--colocate", "bad", "clone"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Destination path exists and is not an empty directory
     [EOF]
+    [exit status: 1]
     ");
     }
     assert!(test_env.env_root().join("clone").join(".git").exists());
     assert!(test_env.env_root().join("clone").join(".jj").exists());
 
     // Try cloning into an existing workspace
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         test_env.env_root(),
-        &["git", "clone", "source", "clone", "--colocate"],
+        ["git", "clone", "source", "clone", "--colocate"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Destination path exists and is not an empty directory
     [EOF]
+    [exit status: 1]
     ");
     }
 
     // Try cloning into an existing file
     std::fs::write(test_env.env_root().join("file"), "contents").unwrap();
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         test_env.env_root(),
-        &["git", "clone", "source", "file", "--colocate"],
+        ["git", "clone", "source", "file", "--colocate"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Destination path exists and is not an empty directory
     [EOF]
+    [exit status: 1]
     ");
     }
 
     // Try cloning into non-empty, non-workspace directory
     std::fs::remove_dir_all(test_env.env_root().join("clone").join(".jj")).unwrap();
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         test_env.env_root(),
-        &["git", "clone", "source", "clone", "--colocate"],
+        ["git", "clone", "source", "clone", "--colocate"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Destination path exists and is not an empty directory
     [EOF]
+    [exit status: 1]
     ");
     }
 
@@ -725,13 +741,15 @@ fn test_git_clone_ignore_working_copy(subprocess: bool) {
     }
 
     // TODO: Correct, but might be better to check out the root commit?
-    let stderr = test_env.jj_cmd_failure(&clone_path, &["status"]);
+    let output = test_env.run_jj_in(&clone_path, ["status"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: The working copy is stale (not updated since operation eac759b9ab75).
     Hint: Run `jj workspace update-stale` to update it.
     See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy for more information.
     [EOF]
+    [exit status: 1]
     ");
     }
 }
@@ -802,14 +820,16 @@ fn test_git_clone_with_remote_named_git(subprocess: bool) {
     let git_repo_path = test_env.env_root().join("source");
     git2::Repository::init(git_repo_path).unwrap();
 
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         test_env.env_root(),
-        &["git", "clone", "--remote=git", "source", "dest"],
+        ["git", "clone", "--remote=git", "source", "dest"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Git remote named 'git' is reserved for local Git repository
     [EOF]
+    [exit status: 1]
     ");
     }
 }
@@ -824,14 +844,16 @@ fn test_git_clone_with_remote_with_slashes(subprocess: bool) {
     let git_repo_path = test_env.env_root().join("source");
     git2::Repository::init(git_repo_path).unwrap();
 
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         test_env.env_root(),
-        &["git", "clone", "--remote=slash/origin", "source", "dest"],
+        ["git", "clone", "--remote=slash/origin", "source", "dest"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Git remotes with slashes are incompatible with jj: slash/origin
     [EOF]
+    [exit status: 1]
     ");
     }
 }
@@ -1001,14 +1023,16 @@ fn test_git_clone_with_depth_git2() {
     // (we cannot replicate git2's erroneous behaviour wrt git)
     // local transport does not support shallow clones so we just test that the
     // depth arg is passed on here
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         test_env.env_root(),
-        &["git", "clone", "--depth", "1", "source", "clone"],
+        ["git", "clone", "--depth", "1", "source", "clone"],
     );
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
     Error: shallow fetch is not supported by the local transport; class=Net (12)
     [EOF]
+    [exit status: 1]
     "#);
 }
 
@@ -1067,15 +1091,17 @@ fn test_git_clone_invalid_immutable_heads(subprocess: bool) {
 
     // The error shouldn't be counted as an immutable working-copy commit. It
     // should be reported.
-    let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["git", "clone", "source", "clone"]);
+    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "clone"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
     bookmark: main@origin [new] untracked
     Config error: Invalid `revset-aliases.immutable_heads()`
     Caused by: Revision `unknown` doesn't exist
     For help, see https://jj-vcs.github.io/jj/latest/config/.
     [EOF]
+    [exit status: 1]
     "#);
     }
 }
@@ -1109,13 +1135,15 @@ fn test_git_clone_malformed(subprocess: bool) {
     }
 
     // The cloned workspace isn't usable.
-    let stderr = test_env.jj_cmd_failure(&clone_path, &["status"]);
+    let output = test_env.run_jj_in(&clone_path, ["status"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: The working copy is stale (not updated since operation 4a8ddda0ff63).
     Hint: Run `jj workspace update-stale` to update it.
     See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy for more information.
     [EOF]
+    [exit status: 1]
     ");
     }
 

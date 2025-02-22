@@ -1317,10 +1317,12 @@ fn test_git_colocated_unreachable_commits() {
     );
 
     // Check that trying to look up the second commit fails gracefully
-    let stderr = test_env.jj_cmd_failure(&workspace_root, &["show", &oid2.to_string()]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&workspace_root, ["show", &oid2.to_string()]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Revision `8e713ff77b54928dd4a82aaabeca44b1ae91722c` doesn't exist
     [EOF]
+    [exit status: 1]
     ");
 }
 

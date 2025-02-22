@@ -61,15 +61,19 @@ fn test_op_log() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        test_env.jj_cmd_failure(&repo_path, &["log", "--at-op", "@---"]), @r#"
+        test_env.run_jj_in(&repo_path, ["log", "--at-op", "@---"]), @r#"
+    ------- stderr -------
     Error: The "@---" expression resolved to no operations
     [EOF]
+    [exit status: 1]
     "#);
 
     // We get a reasonable message if an invalid operation ID is specified
-    insta::assert_snapshot!(test_env.jj_cmd_failure(&repo_path, &["log", "--at-op", "foo"]), @r#"
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["log", "--at-op", "foo"]), @r#"
+    ------- stderr -------
     Error: Operation ID "foo" is not a valid hexadecimal prefix
     [EOF]
+    [exit status: 1]
     "#);
 
     let stdout = test_env.jj_cmd_success(&repo_path, &["op", "log", "--op-diff"]);
@@ -101,10 +105,12 @@ fn test_op_log() {
             add_workspace_id,
         ],
     );
-    insta::assert_snapshot!(test_env.jj_cmd_failure(&repo_path, &["log", "--at-op", "@-"]), @r#"
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["log", "--at-op", "@-"]), @r#"
+    ------- stderr -------
     Error: The "@" expression resolved to more than one operation
     Hint: Try specifying one of the operations by ID: fd29e648380b, 3e8ef7115a0c
     [EOF]
+    [exit status: 1]
     "#);
 }
 
@@ -612,11 +618,13 @@ fn test_op_abandon_ancestors() {
     ");
 
     // Can't abandon the current operation.
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["op", "abandon", "..@"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["op", "abandon", "..@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Cannot abandon the current operation d92d0753399f
     Hint: Run `jj undo` to revert the current operation, then use `jj op abandon`
     [EOF]
+    [exit status: 1]
     ");
 
     // Can't create concurrent abandoned operations explicitly.
@@ -743,28 +751,34 @@ fn test_op_abandon_multiple_heads() {
     test_env.jj_cmd_ok(&repo_path, &["commit", "--at-op=@--", "-m", "commit 4"]);
 
     // Can't resolve operation relative to @.
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["op", "abandon", "@-"]);
-    insta::assert_snapshot!(stderr, @r#"
+    let output = test_env.run_jj_in(&repo_path, ["op", "abandon", "@-"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Error: The "@" expression resolved to more than one operation
     Hint: Try specifying one of the operations by ID: b0711a8ac91f, 617923db9f7a
     [EOF]
+    [exit status: 1]
     "#);
-    let (_, other_head_op_id) = stderr.raw().trim_end().rsplit_once(", ").unwrap();
+    let (_, other_head_op_id) = output.stderr.raw().trim_end().rsplit_once(", ").unwrap();
     insta::assert_snapshot!(other_head_op_id, @"617923db9f7a");
     assert_ne!(head_op_id, other_head_op_id);
 
     // Can't abandon one of the head operations.
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["op", "abandon", head_op_id]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["op", "abandon", head_op_id]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Cannot abandon the current operation b0711a8ac91f
     [EOF]
+    [exit status: 1]
     ");
 
     // Can't abandon the other head operation.
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["op", "abandon", other_head_op_id]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["op", "abandon", other_head_op_id]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Cannot abandon the current operation 617923db9f7a
     [EOF]
+    [exit status: 1]
     ");
 
     // Can abandon the operation which is not an ancestor of the other head.

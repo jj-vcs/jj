@@ -109,11 +109,13 @@ fn test_squash() {
     ◆  000000000000 (empty)
     [EOF]
     ");
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["squash"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["squash"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Cannot squash merge commits without a specified destination
     Hint: Use `--into` to specify which parent to squash into
     [EOF]
+    [exit status: 1]
     ");
 
     // Can squash into a merge commit
@@ -407,10 +409,12 @@ fn test_squash_from_to() {
     ");
 
     // Errors out if source and destination are the same
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["squash", "--into", "@"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["squash", "--into", "@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Source and destination cannot be the same
     [EOF]
+    [exit status: 1]
     ");
 
     // Can squash from sibling, which results in the source being abandoned

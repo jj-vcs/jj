@@ -128,10 +128,12 @@ fn test_new_merge() {
     ");
 
     // merge with non-unique revisions
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["new", "@", "3a44e"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["new", "@", "3a44e"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Revision `3a44e` doesn't exist
     [EOF]
+    [exit status: 1]
     ");
     // if prefixed with all:, duplicates are allowed
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["new", "@", "all:visible_heads()"]);
@@ -143,10 +145,12 @@ fn test_new_merge() {
     ");
 
     // merge with root
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["new", "@", "root()"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["new", "@", "root()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: The Git backend does not support creating merge commits with the root commit as one of the parents.
     [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -443,9 +447,9 @@ fn test_new_insert_before_no_loop() {
     [EOF]
     ");
 
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "new",
             "-m",
             "G",
@@ -455,9 +459,11 @@ fn test_new_insert_before_no_loop() {
             "C",
         ],
     );
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Refusing to create a loop: commit bfd4157e6ea4 would be both an ancestor and a descendant of the new commit
     [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -481,9 +487,9 @@ fn test_new_insert_before_no_root_merge() {
     [EOF]
     ");
 
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "new",
             "-m",
             "G",
@@ -493,9 +499,11 @@ fn test_new_insert_before_no_root_merge() {
             "D",
         ],
     );
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: The Git backend does not support creating merge commits with the root commit as one of the parents.
     [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -519,11 +527,12 @@ fn test_new_insert_before_root() {
     [EOF]
     ");
 
-    let stderr =
-        test_env.jj_cmd_failure(&repo_path, &["new", "-m", "G", "--insert-before", "root()"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["new", "-m", "G", "--insert-before", "root()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: The root commit 000000000000 is immutable
     [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -625,9 +634,9 @@ fn test_new_insert_after_before_no_loop() {
     [EOF]
     ");
 
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "new",
             "-m",
             "G",
@@ -637,9 +646,11 @@ fn test_new_insert_after_before_no_loop() {
             "C",
         ],
     );
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Refusing to create a loop: commit 83376b270925 would be both an ancestor and a descendant of the new commit
     [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -667,8 +678,9 @@ fn test_new_conflicting_bookmarks() {
     // Trigger resolution of divergent operations
     test_env.jj_cmd_ok(&repo_path, &["st"]);
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["new", "foo"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["new", "foo"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Revset `foo` resolved to more than one revision
     Hint: Bookmark foo resolved to multiple revisions because it's conflicted.
     It resolved to these revisions:
@@ -676,6 +688,7 @@ fn test_new_conflicting_bookmarks() {
       qpvuntsm 876f4b7e foo?? | (empty) one
     Hint: Set which revision the bookmark points to with `jj bookmark set foo -r <REVISION>`.
     [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -691,14 +704,16 @@ fn test_new_conflicting_change_ids() {
     // Trigger resolution of divergent operations
     test_env.jj_cmd_ok(&repo_path, &["st"]);
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["new", "qpvuntsm"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["new", "qpvuntsm"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Revset `qpvuntsm` resolved to more than one revision
     Hint: The revset `qpvuntsm` resolved to these revisions:
       qpvuntsm?? 66c6502d (empty) two
       qpvuntsm?? 876f4b7e (empty) one
     Hint: Some of these commits have the same change id. Abandon one of them with `jj abandon -r <REVISION>`.
     [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -711,10 +726,12 @@ fn test_new_error_revision_does_not_exist() {
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "one"]);
     test_env.jj_cmd_ok(&repo_path, &["new", "-m", "two"]);
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["new", "this"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["new", "this"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Revision `this` doesn't exist
     [EOF]
+    [exit status: 1]
     ");
 }
 

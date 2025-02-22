@@ -207,11 +207,12 @@ fn test_chmod_file_dir_deletion_conflicts() {
       Adding tree with id 133bb38fc4e4bf6b551f1f04db7e48f04cac2877
     [EOF]
     ");
-    let stderr =
-        test_env.jj_cmd_failure(&repo_path, &["file", "chmod", "x", "file", "-r=file_dir"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "chmod", "x", "file", "-r=file_dir"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Some of the sides of the conflict are not files at 'file'.
     [EOF]
+    [exit status: 1]
     ");
 
     // The file_deletion conflict can be chmod-ed

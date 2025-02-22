@@ -583,15 +583,17 @@ fn test_config_set_for_user_directory() {
 
     // Add one more config file to the directory
     test_env.add_config("");
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         test_env.env_root(),
-        &["config", "set", "--user", "test-key", "test-val"],
+        ["config", "set", "--user", "test-key", "test-val"],
     );
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Cannot determine config file to edit:
       $TEST_ENV/config/config0001.toml
       $TEST_ENV/config/config0002.toml
     [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -664,14 +666,16 @@ fn test_config_set_type_mismatch() {
         &repo_path,
         &["config", "set", "--user", "test-table.foo", "test-val"],
     );
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["config", "set", "--user", "test-table", "not-a-table"],
+        ["config", "set", "--user", "test-table", "not-a-table"],
     );
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Failed to set test-table
     Caused by: Would overwrite entire table test-table
     [EOF]
+    [exit status: 1]
     ");
 
     // But it's fine to overwrite arrays and inline tables
@@ -703,14 +707,16 @@ fn test_config_set_nontable_parent() {
         &repo_path,
         &["config", "set", "--user", "test-nontable", "test-val"],
     );
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["config", "set", "--user", "test-nontable.foo", "test-val"],
+        ["config", "set", "--user", "test-nontable.foo", "test-val"],
     );
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Failed to set test-nontable.foo
     Caused by: Would overwrite non-table value with parent table test-nontable
     [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -720,10 +726,12 @@ fn test_config_unset_non_existent_key() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["config", "unset", "--user", "nonexistent"]);
-    insta::assert_snapshot!(stderr, @r#"
+    let output = test_env.run_jj_in(&repo_path, ["config", "unset", "--user", "nonexistent"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Error: "nonexistent" doesn't exist
     [EOF]
+    [exit status: 1]
     "#);
 }
 
@@ -771,14 +779,16 @@ fn test_config_unset_table_like() {
         &["config", "unset", "--user", "inline-table"],
     );
     // Non-inline table cannot be deleted.
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         test_env.env_root(),
-        &["config", "unset", "--user", "non-inline-table"],
+        ["config", "unset", "--user", "non-inline-table"],
     );
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Failed to unset non-inline-table
     Caused by: Would delete entire table non-inline-table
     [EOF]
+    [exit status: 1]
     ");
 
     let user_config_toml = std::fs::read_to_string(&user_config_path).unwrap();
@@ -935,19 +945,23 @@ fn test_config_path() {
     );
 
     insta::assert_snapshot!(
-        test_env.jj_cmd_failure(test_env.env_root(), &["config", "path", "--repo"]), @r"
+        test_env.run_jj_in(test_env.env_root(), ["config", "path", "--repo"]), @r"
+    ------- stderr -------
     Error: No repo config path found
     [EOF]
+    [exit status: 1]
     ");
 }
 
 #[test]
 fn test_config_edit_repo_outside_repo() {
     let test_env = TestEnvironment::default();
-    let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["config", "edit", "--repo"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(test_env.env_root(), ["config", "edit", "--repo"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: No repo config path found to edit
     [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -970,11 +984,13 @@ fn test_config_get() {
     "#,
     );
 
-    let stdout = test_env.jj_cmd_failure(test_env.env_root(), &["config", "get", "nonexistent"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(test_env.env_root(), ["config", "get", "nonexistent"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Config error: Value not found for nonexistent
     For help, see https://jj-vcs.github.io/jj/latest/config/.
     [EOF]
+    [exit status: 1]
     ");
 
     let stdout = test_env.jj_cmd_success(test_env.env_root(), &["config", "get", "table.string"]);
@@ -989,22 +1005,26 @@ fn test_config_get() {
     [EOF]
     ");
 
-    let stdout = test_env.jj_cmd_failure(test_env.env_root(), &["config", "get", "table.list"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(test_env.env_root(), ["config", "get", "table.list"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Config error: Invalid type or value for table.list
     Caused by: Expected a value convertible to a string, but is an array
     Hint: Check the config file: $TEST_ENV/config/config0002.toml
     For help, see https://jj-vcs.github.io/jj/latest/config/.
     [EOF]
+    [exit status: 1]
     ");
 
-    let stdout = test_env.jj_cmd_failure(test_env.env_root(), &["config", "get", "table"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(test_env.env_root(), ["config", "get", "table"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Config error: Invalid type or value for table
     Caused by: Expected a value convertible to a string, but is a table
     Hint: Check the config file: $TEST_ENV/config/config0003.toml
     For help, see https://jj-vcs.github.io/jj/latest/config/.
     [EOF]
+    [exit status: 1]
     ");
 
     let stdout =
@@ -1064,11 +1084,13 @@ fn test_config_path_syntax() {
     Warning: No matching config key for a.'b()'.x
     [EOF]
     ");
-    let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["config", "get", "a.'b()'.x"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(test_env.env_root(), ["config", "get", "a.'b()'.x"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Config error: Value not found for a.'b()'.x
     For help, see https://jj-vcs.github.io/jj/latest/config/.
     [EOF]
+    [exit status: 1]
     ");
 
     // "-" and "_" are valid TOML keys
@@ -1329,14 +1351,16 @@ fn test_config_show_paths() {
         &repo_path,
         &["config", "set", "--user", "ui.paginate", ":builtin"],
     );
-    let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["st"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(test_env.env_root(), ["st"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Config error: Invalid type or value for ui.paginate
     Caused by: unknown variant `:builtin`, expected `never` or `auto`
 
     Hint: Check the config file: $TEST_ENV/config/config0001.toml
     For help, see https://jj-vcs.github.io/jj/latest/config/.
     [EOF]
+    [exit status: 1]
     ");
 }
 

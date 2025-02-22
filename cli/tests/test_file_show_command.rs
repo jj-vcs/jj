@@ -53,10 +53,12 @@ fn test_show() {
     ");
 
     // Error if the path doesn't exist
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["file", "show", "nonexistent"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "nonexistent"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: No such path: nonexistent
     [EOF]
+    [exit status: 1]
     ");
 
     // Can print files under the specified directory

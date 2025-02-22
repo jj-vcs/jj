@@ -87,12 +87,14 @@ fn test_git_private_commits_block_pushing() {
 
     // Will not push when a pushed commit is contained in git.private-commits
     test_env.add_config(r#"git.private-commits = "description(glob:'private*')""#);
-    let stderr = test_env.jj_cmd_failure(&workspace_root, &["git", "push", "--all"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--all"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Won't push commit aa3058ff8663 since it is private
     Hint: Rejected commit: yqosqzyt aa3058ff main* | (empty) private 1
     Hint: Configured git.private-commits: 'description(glob:'private*')'
     [EOF]
+    [exit status: 1]
     ");
 
     // May push when the commit is removed from git.private-commits
@@ -117,12 +119,14 @@ fn test_git_private_commits_can_be_overridden() {
 
     // Will not push when a pushed commit is contained in git.private-commits
     test_env.add_config(r#"git.private-commits = "description(glob:'private*')""#);
-    let stderr = test_env.jj_cmd_failure(&workspace_root, &["git", "push", "--all"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--all"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Won't push commit aa3058ff8663 since it is private
     Hint: Rejected commit: yqosqzyt aa3058ff main* | (empty) private 1
     Hint: Configured git.private-commits: 'description(glob:'private*')'
     [EOF]
+    [exit status: 1]
     ");
 
     // May push when the commit is removed from git.private-commits
@@ -171,15 +175,17 @@ fn test_git_private_commits_not_directly_in_line_block_pushing() {
     test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "-r@", "bookmark1"]);
 
     test_env.add_config(r#"git.private-commits = "description(glob:'private*')""#);
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &workspace_root,
-        &["git", "push", "--allow-new", "-b=bookmark1"],
+        ["git", "push", "--allow-new", "-b=bookmark1"],
     );
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Won't push commit f1253a9b1ea9 since it is private
     Hint: Rejected commit: yqosqzyt f1253a9b (empty) private 1
     Hint: Configured git.private-commits: 'description(glob:'private*')'
     [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -283,14 +289,16 @@ fn test_git_private_commits_are_evaluated_separately_for_each_remote() {
 
     // But pushing to a repo that doesn't have the private commit yet is still
     // blocked
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &workspace_root,
-        &["git", "push", "--remote=other", "-b=main"],
+        ["git", "push", "--remote=other", "-b=main"],
     );
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Won't push commit 36b7ecd11ad9 since it is private
     Hint: Rejected commit: znkkpsqq 36b7ecd1 (empty) private 1
     Hint: Configured git.private-commits: 'description(glob:'private*')'
     [EOF]
+    [exit status: 1]
     ");
 }

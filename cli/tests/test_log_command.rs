@@ -473,9 +473,9 @@ fn test_log_bad_short_prefixes() {
 
     // Error on bad config of short prefixes
     test_env.add_config(r#"revsets.short-prefixes = "!nval!d""#);
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["status"]);
-    insta::assert_snapshot!(stderr,
-        @r"
+    let output = test_env.run_jj_in(&repo_path, ["status"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Config error: Invalid `revsets.short-prefixes`
     Caused by:  --> 1:1
       |
@@ -485,6 +485,7 @@ fn test_log_bad_short_prefixes() {
       = expected <strict_identifier> or <expression>
     For help, see https://jj-vcs.github.io/jj/latest/config/.
     [EOF]
+    [exit status: 1]
     ");
 
     // Warn on resolution of short prefixes
@@ -510,11 +511,13 @@ fn test_log_bad_short_prefixes() {
 
     // Error on resolution of short prefixes
     test_env.add_config("revsets.short-prefixes = 'missing'");
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r0"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r0"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Failed to resolve short-prefixes disambiguation revset
     Caused by: Revision `missing` doesn't exist
     [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -709,10 +712,12 @@ fn test_log_prefix_highlight_counts_hidden_commits() {
     "
     );
     insta::assert_snapshot!(
-        test_env.jj_cmd_failure(&repo_path, &["log", "-r", "4", "-T", prefix_format]),
+        test_env.run_jj_in(&repo_path, ["log", "-r", "4", "-T", prefix_format]),
         @r"
+    ------- stderr -------
     Error: Commit ID prefix `4` is ambiguous
     [EOF]
+    [exit status: 1]
     "
     );
     insta::assert_snapshot!(
@@ -1384,13 +1389,15 @@ fn test_graph_styles() {
     ");
 
     // Invalid style name
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "--config=ui.graph.style=unknown"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "--config=ui.graph.style=unknown"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Config error: Invalid type or value for ui.graph.style
     Caused by: unknown variant `unknown`, expected one of `ascii`, `ascii-large`, `curved`, `square`
 
     For help, see https://jj-vcs.github.io/jj/latest/config/.
     [EOF]
+    [exit status: 1]
     ");
 }
 

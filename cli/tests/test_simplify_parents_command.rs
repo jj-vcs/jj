@@ -60,10 +60,12 @@ fn test_simplify_parents_no_commits() {
 fn test_simplify_parents_immutable() {
     let (test_env, repo_path) = create_repo();
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["simplify-parents", "-r", "root()"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["simplify-parents", "-r", "root()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: The root commit 000000000000 is immutable
     [EOF]
+    [exit status: 1]
     ");
 }
 

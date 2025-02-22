@@ -38,12 +38,13 @@ fn test_track_untrack() {
         .into_raw();
 
     // Errors out when not run at the head operation
-    let stderr =
-        test_env.jj_cmd_failure(&repo_path, &["file", "untrack", "file1", "--at-op", "@-"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "untrack", "file1", "--at-op", "@-"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: This command must be able to update the working copy.
     Hint: Don't use --at-op.
     [EOF]
+    [exit status: 1]
     ");
     // Errors out when no path is specified
     let stderr = test_env.jj_cmd_cli_error(&repo_path, &["file", "untrack"]);
@@ -57,12 +58,14 @@ fn test_track_untrack() {
     [EOF]
     ");
     // Errors out when a specified file is not ignored
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["file", "untrack", "file1", "file1.bak"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "untrack", "file1", "file1.bak"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: 'file1' is not ignored.
     Hint: Files that are not ignored will be added back by the next command.
     Make sure they're ignored, then try again.
     [EOF]
+    [exit status: 1]
     ");
     let files_after = test_env
         .jj_cmd_success(&repo_path, &["file", "list"])

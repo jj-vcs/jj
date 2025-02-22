@@ -53,11 +53,13 @@ fn test_config_no_tools() {
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file"), "content\n").unwrap();
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["fix"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["fix"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Config error: No `fix.tools` are configured
     For help, see https://jj-vcs.github.io/jj/latest/config/.
     [EOF]
+    [exit status: 1]
     ");
 
     let content = test_env.jj_cmd_success(&repo_path, &["file", "show", "file", "-r", "@"]);
@@ -136,8 +138,9 @@ fn test_config_multiple_tools_with_same_name() {
     std::fs::write(repo_path.join("foo"), "Foo\n").unwrap();
     std::fs::write(repo_path.join("bar"), "Bar\n").unwrap();
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["fix"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["fix"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Config error: Configuration cannot be parsed as TOML document
     Caused by: TOML parse error at line 6, column 9
       |
@@ -149,6 +152,7 @@ fn test_config_multiple_tools_with_same_name() {
     Hint: Check the config file: $TEST_ENV/config/config0002.toml
     For help, see https://jj-vcs.github.io/jj/latest/config/.
     [EOF]
+    [exit status: 1]
     ");
 
     test_env.set_config_path("/dev/null");
@@ -233,11 +237,13 @@ fn test_config_disabled_tools_warning_when_all_tools_are_disabled() {
 
     std::fs::write(repo_path.join("bar"), "Bar\n").unwrap();
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["fix"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["fix"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Config error: At least one entry of `fix.tools` must be enabled.
     For help, see https://jj-vcs.github.io/jj/latest/config/.
     [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -303,14 +309,16 @@ fn test_config_tables_all_commands_missing() {
 
     std::fs::write(repo_path.join("foo"), "foo\n").unwrap();
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["fix"]);
-    insta::assert_snapshot!(stderr.normalize_backslash(), @r"
+    let output = test_env.run_jj_in(&repo_path, ["fix"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    ------- stderr -------
     Config error: Invalid type or value for fix.tools.my-tool-missing-command-1
     Caused by: missing field `command`
 
     Hint: Check the config file: $TEST_ENV/config/config0002.toml
     For help, see https://jj-vcs.github.io/jj/latest/config/.
     [EOF]
+    [exit status: 1]
     ");
 
     let content = test_env.jj_cmd_success(&repo_path, &["file", "show", "foo", "-r", "@"]);
@@ -341,14 +349,16 @@ fn test_config_tables_some_commands_missing() {
 
     std::fs::write(repo_path.join("foo"), "foo\n").unwrap();
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["fix"]);
-    insta::assert_snapshot!(stderr.normalize_backslash(), @r"
+    let output = test_env.run_jj_in(&repo_path, ["fix"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    ------- stderr -------
     Config error: Invalid type or value for fix.tools.my-tool-missing-command
     Caused by: missing field `command`
 
     Hint: Check the config file: $TEST_ENV/config/config0002.toml
     For help, see https://jj-vcs.github.io/jj/latest/config/.
     [EOF]
+    [exit status: 1]
     ");
 
     let content = test_env.jj_cmd_success(&repo_path, &["file", "show", "foo", "-r", "@"]);
@@ -711,8 +721,9 @@ fn test_fix_immutable_commit() {
     test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "mutable"]);
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "immutable""#);
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["fix", "-s", "immutable"]);
-    insta::assert_snapshot!(stderr, @r##"
+    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "immutable"]);
+    insta::assert_snapshot!(output, @r##"
+    ------- stderr -------
     Error: Commit e4b41a3ce243 is immutable
     Hint: Could not modify commit: qpvuntsm e4b41a3c immutable | (no description set)
     Hint: Immutable commits are used to protect shared history.
@@ -721,6 +732,7 @@ fn test_fix_immutable_commit() {
           - `jj help -k config`, "Set of immutable commits"
     Hint: This operation would rewrite 1 immutable commits.
     [EOF]
+    [exit status: 1]
     "##);
     let content = test_env.jj_cmd_success(&repo_path, &["file", "show", "file", "-r", "immutable"]);
     insta::assert_snapshot!(content, @"immutable[EOF]");

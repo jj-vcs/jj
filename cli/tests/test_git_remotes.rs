@@ -52,10 +52,12 @@ fn test_git_remotes() {
     bar http://example.com/repo/bar
     [EOF]
     ");
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["git", "remote", "remove", "nonexistent"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["git", "remote", "remove", "nonexistent"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: No git remote named 'nonexistent'
     [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -69,9 +71,9 @@ fn test_git_remote_add() {
         &repo_path,
         &["git", "remote", "add", "foo", "http://example.com/repo/foo"],
     );
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "git",
             "remote",
             "add",
@@ -79,17 +81,21 @@ fn test_git_remote_add() {
             "http://example.com/repo/foo2",
         ],
     );
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Git remote named 'foo' already exists
     [EOF]
+    [exit status: 1]
     ");
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["git", "remote", "add", "git", "http://example.com/repo/git"],
+        ["git", "remote", "add", "git", "http://example.com/repo/git"],
     );
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Git remote named 'git' is reserved for local Git repository
     [EOF]
+    [exit status: 1]
     ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["git", "remote", "list"]);
     insta::assert_snapshot!(stdout, @r"
@@ -108,9 +114,9 @@ fn test_git_remote_set_url() {
         &repo_path,
         &["git", "remote", "add", "foo", "http://example.com/repo/foo"],
     );
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "git",
             "remote",
             "set-url",
@@ -118,13 +124,15 @@ fn test_git_remote_set_url() {
             "http://example.com/repo/bar",
         ],
     );
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: No git remote named 'bar'
     [EOF]
+    [exit status: 1]
     ");
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "git",
             "remote",
             "set-url",
@@ -132,9 +140,11 @@ fn test_git_remote_set_url() {
             "http://example.com/repo/git",
         ],
     );
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Git remote named 'git' is reserved for local Git repository
     [EOF]
+    [exit status: 1]
     ");
     let (stdout, stderr) = test_env.jj_cmd_ok(
         &repo_path,
@@ -199,20 +209,26 @@ fn test_git_remote_rename() {
         &repo_path,
         &["git", "remote", "add", "baz", "http://example.com/repo/baz"],
     );
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["git", "remote", "rename", "bar", "foo"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["git", "remote", "rename", "bar", "foo"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: No git remote named 'bar'
     [EOF]
+    [exit status: 1]
     ");
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["git", "remote", "rename", "foo", "baz"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["git", "remote", "rename", "foo", "baz"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Git remote named 'baz' already exists
     [EOF]
+    [exit status: 1]
     ");
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["git", "remote", "rename", "foo", "git"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["git", "remote", "rename", "foo", "git"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Git remote named 'git' is reserved for local Git repository
     [EOF]
+    [exit status: 1]
     ");
     let (stdout, stderr) =
         test_env.jj_cmd_ok(&repo_path, &["git", "remote", "rename", "foo", "bar"]);
@@ -259,10 +275,12 @@ fn test_git_remote_named_git() {
     ");
 
     // The remote cannot be renamed back by jj.
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["git", "remote", "rename", "bar", "git"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["git", "remote", "rename", "bar", "git"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Git remote named 'git' is reserved for local Git repository
     [EOF]
+    [exit status: 1]
     ");
 
     // Reinitialize the repo with remote named 'git'.
@@ -301,9 +319,9 @@ fn test_git_remote_with_slashes() {
     test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "main"]);
 
     // Cannot add remote with a slash via `jj`
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "git",
             "remote",
             "add",
@@ -311,9 +329,11 @@ fn test_git_remote_with_slashes() {
             "http://examples.org/repo/repo",
         ],
     );
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Git remotes with slashes are incompatible with jj: another/origin
     [EOF]
+    [exit status: 1]
     ");
     let stdout = test_env.jj_cmd_success(&repo_path, &["git", "remote", "list"]);
     insta::assert_snapshot!(stdout, @r"
@@ -335,13 +355,15 @@ fn test_git_remote_with_slashes() {
     ");
 
     // The remote cannot be renamed back by jj.
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["git", "remote", "rename", "origin", "slash/origin"],
+        ["git", "remote", "rename", "origin", "slash/origin"],
     );
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Git remotes with slashes are incompatible with jj: slash/origin
     [EOF]
+    [exit status: 1]
     ");
 
     // Reinitialize the repo with remote with slashes

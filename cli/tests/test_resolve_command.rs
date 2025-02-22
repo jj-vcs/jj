@@ -706,12 +706,14 @@ fn test_too_many_parents() {
     [EOF]
     ");
 
-    let error = test_env.jj_cmd_failure(&repo_path, &["resolve"]);
-    insta::assert_snapshot!(error, @r#"
+    let output = test_env.run_jj_in(&repo_path, ["resolve"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Hint: Using default editor ':builtin'; run `jj config set --user ui.merge-editor :builtin` to disable this message.
     Error: Failed to resolve conflicts
     Caused by: The conflict at "file" has 3 sides. At most 2 sides are supported.
     [EOF]
+    [exit status: 1]
     "#);
 }
 
@@ -922,8 +924,9 @@ fn test_file_vs_dir() {
     file    2-sided conflict including a directory
     [EOF]
     ");
-    let error = test_env.jj_cmd_failure(&repo_path, &["resolve"]);
-    insta::assert_snapshot!(error, @r#"
+    let output = test_env.run_jj_in(&repo_path, ["resolve"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Hint: Using default editor ':builtin'; run `jj config set --user ui.merge-editor :builtin` to disable this message.
     Error: Failed to resolve conflicts
     Caused by: Only conflicts that involve normal files (not symlinks, not executable, etc.) are supported. Conflict summary for "file":
@@ -933,6 +936,7 @@ fn test_file_vs_dir() {
       Adding tree with id 133bb38fc4e4bf6b551f1f04db7e48f04cac2877
 
     [EOF]
+    [exit status: 1]
     "#);
 }
 
@@ -982,8 +986,9 @@ fn test_description_with_dir_and_deletion() {
     file    [38;5;1m3-sided[38;5;3m conflict including 1 deletion and [38;5;1ma directory[39m
     [EOF]
     ");
-    let error = test_env.jj_cmd_failure(&repo_path, &["resolve"]);
-    insta::assert_snapshot!(error, @r#"
+    let output = test_env.run_jj_in(&repo_path, ["resolve"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Hint: Using default editor ':builtin'; run `jj config set --user ui.merge-editor :builtin` to disable this message.
     Error: Failed to resolve conflicts
     Caused by: Only conflicts that involve normal files (not symlinks, not executable, etc.) are supported. Conflict summary for "file":
@@ -994,6 +999,7 @@ fn test_description_with_dir_and_deletion() {
       Adding tree with id 133bb38fc4e4bf6b551f1f04db7e48f04cac2877
 
     [EOF]
+    [exit status: 1]
     "#);
 }
 

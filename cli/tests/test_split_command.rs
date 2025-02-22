@@ -561,11 +561,13 @@ fn test_split_empty() {
     let workspace_path = test_env.env_root().join("repo");
     test_env.jj_cmd_ok(&workspace_path, &["describe", "--message", "abc"]);
 
-    let stderr = test_env.jj_cmd_failure(&workspace_path, &["split"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&workspace_path, ["split"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Refusing to split empty commit 2ab033062e9fdf7fad2ded8e89c1f145e3698190.
     Hint: Use `jj new` if you want to create another empty commit.
     [EOF]
+    [exit status: 1]
     ");
 }
 

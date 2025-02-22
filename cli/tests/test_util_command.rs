@@ -51,16 +51,20 @@ fn test_gc_args() {
     let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["util", "gc"]);
     insta::assert_snapshot!(stderr, @"");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["util", "gc", "--at-op=@-"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["util", "gc", "--at-op=@-"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Cannot garbage collect from a non-head operation
     [EOF]
+    [exit status: 1]
     ");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["util", "gc", "--expire=foobar"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["util", "gc", "--expire=foobar"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: --expire only accepts 'now'
     [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -91,10 +95,12 @@ fn test_gc_operation_log() {
     test_env.jj_cmd_ok(&repo_path, &["util", "gc", "--expire=now"]);
 
     // Now this doesn't work.
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["debug", "operation", &op_to_remove]);
-    insta::assert_snapshot!(stderr, @r#"
+    let output = test_env.run_jj_in(&repo_path, ["debug", "operation", &op_to_remove]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Error: No operation ID matching "8382f401329617b0c91a63354b86ca48fc28dee8d7a916fdad5310030f9a1260e969c43ed2b13d1d48eaf38f6f45541ecf593bcb6105495d514d21b3b6a98846"
     [EOF]
+    [exit status: 1]
     "#);
 }
 

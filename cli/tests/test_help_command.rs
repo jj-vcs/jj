@@ -46,16 +46,20 @@ fn test_help() {
     [EOF]
     ");
 
-    let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["workspace", "add", "help"]);
-    insta::assert_snapshot!(stderr, @r#"
+    let output = test_env.run_jj_in(test_env.env_root(), ["workspace", "add", "help"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Error: There is no jj repo in "."
     [EOF]
+    [exit status: 1]
     "#);
 
-    let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["new", "help", "main"]);
-    insta::assert_snapshot!(stderr, @r#"
+    let output = test_env.run_jj_in(test_env.env_root(), ["new", "help", "main"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Error: There is no jj repo in "."
     [EOF]
+    [exit status: 1]
     "#);
 
     // Help command should output the same as --help for nonexistent commands

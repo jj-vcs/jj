@@ -347,10 +347,12 @@ fn test_commit_without_working_copy() {
     let workspace_path = test_env.env_root().join("repo");
 
     test_env.jj_cmd_ok(&workspace_path, &["workspace", "forget"]);
-    let stderr = test_env.jj_cmd_failure(&workspace_path, &["commit", "-m=first"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&workspace_path, ["commit", "-m=first"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: This command requires a working copy
     [EOF]
+    [exit status: 1]
     ");
 }
 

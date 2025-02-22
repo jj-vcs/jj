@@ -207,14 +207,6 @@ impl TestEnvironment {
         }
     }
 
-    /// Run a `jj` command, check that it failed with code 1, and return its
-    /// stderr
-    #[must_use]
-    pub fn jj_cmd_failure(&self, current_dir: &Path, args: &[&str]) -> CommandOutputString {
-        let assert = self.jj_cmd(current_dir, args).assert().code(1).stdout("");
-        self.normalize_output(get_stderr_string(&assert))
-    }
-
     /// Run a `jj` command and check that it failed with code 2 (for invalid
     /// usage)
     #[must_use]

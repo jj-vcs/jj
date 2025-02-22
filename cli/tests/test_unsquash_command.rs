@@ -112,12 +112,14 @@ fn test_unsquash() {
     ◆  000000000000
     [EOF]
     ");
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["unsquash"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["unsquash"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Warning: `jj unsquash` is deprecated; use `jj diffedit --restore-descendants` or `jj squash` instead
     Warning: `jj unsquash` will be removed in a future version, and this will be a hard error
     Error: Cannot unsquash merge commits
     [EOF]
+    [exit status: 1]
     ");
 
     // Can unsquash from a merge commit

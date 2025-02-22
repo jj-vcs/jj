@@ -122,10 +122,12 @@ fn test_git_export_undo() {
         ),
     ]
     "###);
-    insta::assert_snapshot!(test_env.jj_cmd_failure(&repo_path, &["log", "-ra@git"]), @r"
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["log", "-ra@git"]), @r"
+    ------- stderr -------
     Error: Revision `a@git` doesn't exist
     Hint: Did you mean `a`?
     [EOF]
+    [exit status: 1]
     ");
 
     // This would re-export bookmark "a" and create git-tracking bookmark.

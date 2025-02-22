@@ -35,9 +35,11 @@ fn test_root(backend: TestRepoBackend) {
 #[test]
 fn test_root_outside_a_repo() {
     let test_env = TestEnvironment::default();
-    let stdout = test_env.jj_cmd_failure(Path::new("/"), &["root"]);
-    insta::assert_snapshot!(stdout, @r#"
+    let output = test_env.run_jj_in(Path::new("/"), ["root"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Error: There is no jj repo in "."
     [EOF]
+    [exit status: 1]
     "#);
 }

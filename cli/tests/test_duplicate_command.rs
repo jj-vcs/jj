@@ -55,10 +55,12 @@ fn test_duplicate() {
     [EOF]
     ");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["duplicate", "all()"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["duplicate", "all()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Cannot duplicate the root commit
     [EOF]
+    [exit status: 1]
     ");
 
     let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["duplicate", "none()"]);
@@ -1147,13 +1149,15 @@ fn test_duplicate_insert_after() {
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
 
     // Should error if a loop will be created.
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["duplicate", "a1", "--after", "b1", "--after", "b2"],
+        ["duplicate", "a1", "--after", "b1", "--after", "b2"],
     );
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Refusing to create a loop: commit 7b44470918f4 would be both an ancestor and a descendant of the duplicated commits
     [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -1817,13 +1821,15 @@ fn test_duplicate_insert_before() {
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
 
     // Should error if a loop will be created.
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["duplicate", "a1", "--before", "b1", "--before", "b2"],
+        ["duplicate", "a1", "--before", "b1", "--before", "b2"],
     );
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Refusing to create a loop: commit dcc98bc8bbea would be both an ancestor and a descendant of the duplicated commits
     [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -2446,13 +2452,15 @@ fn test_duplicate_insert_after_before() {
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
 
     // Should error if a loop will be created.
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["duplicate", "a1", "--after", "b2", "--before", "b1"],
+        ["duplicate", "a1", "--after", "b2", "--before", "b1"],
     );
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Refusing to create a loop: commit 7b44470918f4 would be both an ancestor and a descendant of the duplicated commits
     [EOF]
+    [exit status: 1]
     ");
 }
 

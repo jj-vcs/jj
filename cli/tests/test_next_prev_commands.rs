@@ -215,12 +215,14 @@ fn test_next_exceeding_history() {
     [EOF]
     ");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["next", "3"]);
     // `jj next` beyond existing history fails.
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["next", "3"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: No other descendant found 3 commit(s) forward from the working copy parent(s)
     Hint: Working copy parent: qpvuntsm fa15625b (empty) first
     [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -664,13 +666,15 @@ fn test_prev_prompts_on_multiple_parents() {
     [EOF]
     ");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["next", "--no-edit"]);
-    insta::assert_snapshot!(stderr,@r"
+    let output = test_env.run_jj_in(&repo_path, ["next", "--no-edit"]);
+    insta::assert_snapshot!(output,@r"
+    ------- stderr -------
     Error: No other descendant found 1 commit(s) forward from the working copy parent(s)
     Hint: Working copy parent: mzvwutvl bc4f4fe3 (empty) third
     Hint: Working copy parent: kkmpptxz b0d21db3 (empty) second
     Hint: Working copy parent: qpvuntsm fa15625b (empty) first
     [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -693,11 +697,13 @@ fn test_prev_beyond_root_fails() {
     [EOF]
     ");
     // @- is at "fourth", and there is no parent 5 commits behind it.
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["prev", "5"]);
-    insta::assert_snapshot!(stderr,@r"
+    let output = test_env.run_jj_in(&repo_path, ["prev", "5"]);
+    insta::assert_snapshot!(output,@r"
+    ------- stderr -------
     Error: No ancestor found 5 commit(s) back from the working copy parents(s)
     Hint: Working copy parent: zsuskuln 9d7e5e99 (empty) fourth
     [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -945,18 +951,22 @@ fn test_next_conflict_head() {
     [EOF]
     ");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["next", "--conflict"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["next", "--conflict"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: The working copy parent(s) have no other descendants with conflicts
     Hint: Working copy parent: zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
+    [exit status: 1]
     ");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["next", "--conflict", "--edit"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["next", "--conflict", "--edit"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: The working copy has no descendants with conflicts
     Hint: Working copy: rlvkpnrz 0273eeab (conflict) (no description set)
     [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -1022,10 +1032,12 @@ fn test_movement_edit_mode_true() {
     [EOF]
     ");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["prev"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["prev"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: The root commit 000000000000 is immutable
     [EOF]
+    [exit status: 1]
     ");
 
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["next"]);
@@ -1096,11 +1108,13 @@ fn test_movement_edit_mode_true() {
     [EOF]
     ");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["next"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["next"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: No descendant found 1 commit(s) forward from the working copy
     Hint: Working copy: xtnwkqum 7ac7a1c4 (empty) (no description set)
     [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -1154,11 +1168,13 @@ fn test_movement_edit_mode_false() {
     [EOF]
     ");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["prev", "3"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["prev", "3"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: No ancestor found 3 commit(s) back from the working copy parents(s)
     Hint: Working copy parent: qpvuntsm fa15625b (empty) first
     [EOF]
+    [exit status: 1]
     ");
 
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["next"]);

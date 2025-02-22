@@ -40,8 +40,9 @@ fn test_rewrite_immutable_generic() {
 
     // Cannot rewrite a commit in the configured set
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "main""#);
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["edit", "main"]);
-    insta::assert_snapshot!(stderr, @r##"
+    let output = test_env.run_jj_in(&repo_path, ["edit", "main"]);
+    insta::assert_snapshot!(output, @r##"
+    ------- stderr -------
     Error: Commit 72e1b68cbcf2 is immutable
     Hint: Could not modify commit: kkmpptxz 72e1b68c main | b
     Hint: Immutable commits are used to protect shared history.
@@ -50,10 +51,12 @@ fn test_rewrite_immutable_generic() {
           - `jj help -k config`, "Set of immutable commits"
     Hint: This operation would rewrite 1 immutable commits.
     [EOF]
+    [exit status: 1]
     "##);
     // Cannot rewrite an ancestor of the configured set
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["edit", "main-"]);
-    insta::assert_snapshot!(stderr, @r##"
+    let output = test_env.run_jj_in(&repo_path, ["edit", "main-"]);
+    insta::assert_snapshot!(output, @r##"
+    ------- stderr -------
     Error: Commit b84b821b8a2b is immutable
     Hint: Could not modify commit: qpvuntsm b84b821b a
     Hint: Immutable commits are used to protect shared history.
@@ -62,13 +65,16 @@ fn test_rewrite_immutable_generic() {
           - `jj help -k config`, "Set of immutable commits"
     Hint: This operation would rewrite 2 immutable commits.
     [EOF]
+    [exit status: 1]
     "##);
     // Cannot rewrite the root commit even with an empty set of immutable commits
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["edit", "root()"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["edit", "root()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: The root commit 000000000000 is immutable
     [EOF]
+    [exit status: 1]
     ");
 
     // Error mutating the repo if immutable_heads() uses a ref that can't be
@@ -76,12 +82,14 @@ fn test_rewrite_immutable_generic() {
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "bookmark_that_does_not_exist""#);
     // Suppress warning in the commit summary template
     test_env.add_config("template-aliases.'format_short_id(id)' = 'id.short(8)'");
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["new", "main"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["new", "main"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Config error: Invalid `revset-aliases.immutable_heads()`
     Caused by: Revision `bookmark_that_does_not_exist` doesn't exist
     For help, see https://jj-vcs.github.io/jj/latest/config/.
     [EOF]
+    [exit status: 1]
     ");
 
     // Can use --ignore-immutable to override
@@ -96,10 +104,12 @@ fn test_rewrite_immutable_generic() {
     [EOF]
     ");
     // ... but not the root commit
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["--ignore-immutable", "edit", "root()"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["--ignore-immutable", "edit", "root()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: The root commit 000000000000 is immutable
     [EOF]
+    [exit status: 1]
     ");
 
     // Mutating the repo works if ref is wrapped in present()
@@ -117,10 +127,12 @@ fn test_rewrite_immutable_generic() {
 
     // immutable_heads() of different arity doesn't shadow the 0-ary one
     test_env.add_config(r#"revset-aliases."immutable_heads(foo)" = "none()""#);
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["edit", "root()"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["edit", "root()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: The root commit 000000000000 is immutable
     [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -228,8 +240,9 @@ fn test_rewrite_immutable_commands() {
     ");
 
     // abandon
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["abandon", "main"]);
-    insta::assert_snapshot!(stderr, @r##"
+    let output = test_env.run_jj_in(&repo_path, ["abandon", "main"]);
+    insta::assert_snapshot!(output, @r##"
+    ------- stderr -------
     Error: Commit bcab555fc80e is immutable
     Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
@@ -238,10 +251,12 @@ fn test_rewrite_immutable_commands() {
           - `jj help -k config`, "Set of immutable commits"
     Hint: This operation would rewrite 1 immutable commits.
     [EOF]
+    [exit status: 1]
     "##);
     // absorb
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["absorb", "--into=::@-"]);
-    insta::assert_snapshot!(stderr, @r##"
+    let output = test_env.run_jj_in(&repo_path, ["absorb", "--into=::@-"]);
+    insta::assert_snapshot!(output, @r##"
+    ------- stderr -------
     Error: Commit 72e1b68cbcf2 is immutable
     Hint: Could not modify commit: kkmpptxz 72e1b68c b
     Hint: Immutable commits are used to protect shared history.
@@ -250,10 +265,12 @@ fn test_rewrite_immutable_commands() {
           - `jj help -k config`, "Set of immutable commits"
     Hint: This operation would rewrite 2 immutable commits.
     [EOF]
+    [exit status: 1]
     "##);
     // chmod
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["file", "chmod", "-r=main", "x", "file"]);
-    insta::assert_snapshot!(stderr, @r##"
+    let output = test_env.run_jj_in(&repo_path, ["file", "chmod", "-r=main", "x", "file"]);
+    insta::assert_snapshot!(output, @r##"
+    ------- stderr -------
     Error: Commit bcab555fc80e is immutable
     Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
@@ -262,10 +279,12 @@ fn test_rewrite_immutable_commands() {
           - `jj help -k config`, "Set of immutable commits"
     Hint: This operation would rewrite 1 immutable commits.
     [EOF]
+    [exit status: 1]
     "##);
     // describe
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["describe", "main"]);
-    insta::assert_snapshot!(stderr, @r##"
+    let output = test_env.run_jj_in(&repo_path, ["describe", "main"]);
+    insta::assert_snapshot!(output, @r##"
+    ------- stderr -------
     Error: Commit bcab555fc80e is immutable
     Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
@@ -274,10 +293,12 @@ fn test_rewrite_immutable_commands() {
           - `jj help -k config`, "Set of immutable commits"
     Hint: This operation would rewrite 1 immutable commits.
     [EOF]
+    [exit status: 1]
     "##);
     // diffedit
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["diffedit", "-r=main"]);
-    insta::assert_snapshot!(stderr, @r##"
+    let output = test_env.run_jj_in(&repo_path, ["diffedit", "-r=main"]);
+    insta::assert_snapshot!(output, @r##"
+    ------- stderr -------
     Error: Commit bcab555fc80e is immutable
     Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
@@ -286,10 +307,12 @@ fn test_rewrite_immutable_commands() {
           - `jj help -k config`, "Set of immutable commits"
     Hint: This operation would rewrite 1 immutable commits.
     [EOF]
+    [exit status: 1]
     "##);
     // edit
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["edit", "main"]);
-    insta::assert_snapshot!(stderr, @r##"
+    let output = test_env.run_jj_in(&repo_path, ["edit", "main"]);
+    insta::assert_snapshot!(output, @r##"
+    ------- stderr -------
     Error: Commit bcab555fc80e is immutable
     Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
@@ -298,10 +321,12 @@ fn test_rewrite_immutable_commands() {
           - `jj help -k config`, "Set of immutable commits"
     Hint: This operation would rewrite 1 immutable commits.
     [EOF]
+    [exit status: 1]
     "##);
     // new --insert-before
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["new", "--insert-before", "main"]);
-    insta::assert_snapshot!(stderr, @r##"
+    let output = test_env.run_jj_in(&repo_path, ["new", "--insert-before", "main"]);
+    insta::assert_snapshot!(output, @r##"
+    ------- stderr -------
     Error: Commit bcab555fc80e is immutable
     Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
@@ -310,10 +335,12 @@ fn test_rewrite_immutable_commands() {
           - `jj help -k config`, "Set of immutable commits"
     Hint: This operation would rewrite 1 immutable commits.
     [EOF]
+    [exit status: 1]
     "##);
     // new --insert-after parent_of_main
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["new", "--insert-after", "description(b)"]);
-    insta::assert_snapshot!(stderr, @r##"
+    let output = test_env.run_jj_in(&repo_path, ["new", "--insert-after", "description(b)"]);
+    insta::assert_snapshot!(output, @r##"
+    ------- stderr -------
     Error: Commit bcab555fc80e is immutable
     Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
@@ -322,10 +349,12 @@ fn test_rewrite_immutable_commands() {
           - `jj help -k config`, "Set of immutable commits"
     Hint: This operation would rewrite 1 immutable commits.
     [EOF]
+    [exit status: 1]
     "##);
     // parallelize
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["parallelize", "description(b)", "main"]);
-    insta::assert_snapshot!(stderr, @r##"
+    let output = test_env.run_jj_in(&repo_path, ["parallelize", "description(b)", "main"]);
+    insta::assert_snapshot!(output, @r##"
+    ------- stderr -------
     Error: Commit bcab555fc80e is immutable
     Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
@@ -334,10 +363,12 @@ fn test_rewrite_immutable_commands() {
           - `jj help -k config`, "Set of immutable commits"
     Hint: This operation would rewrite 2 immutable commits.
     [EOF]
+    [exit status: 1]
     "##);
     // rebase -s
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["rebase", "-s=main", "-d=@"]);
-    insta::assert_snapshot!(stderr, @r##"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-s=main", "-d=@"]);
+    insta::assert_snapshot!(output, @r##"
+    ------- stderr -------
     Error: Commit bcab555fc80e is immutable
     Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
@@ -346,10 +377,12 @@ fn test_rewrite_immutable_commands() {
           - `jj help -k config`, "Set of immutable commits"
     Hint: This operation would rewrite 1 immutable commits.
     [EOF]
+    [exit status: 1]
     "##);
     // rebase -b
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["rebase", "-b=main", "-d=@"]);
-    insta::assert_snapshot!(stderr, @r##"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-b=main", "-d=@"]);
+    insta::assert_snapshot!(output, @r##"
+    ------- stderr -------
     Error: Commit 77cee210cbf5 is immutable
     Hint: Could not modify commit: zsuskuln 77cee210 c
     Hint: Immutable commits are used to protect shared history.
@@ -358,10 +391,12 @@ fn test_rewrite_immutable_commands() {
           - `jj help -k config`, "Set of immutable commits"
     Hint: This operation would rewrite 2 immutable commits.
     [EOF]
+    [exit status: 1]
     "##);
     // rebase -r
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["rebase", "-r=main", "-d=@"]);
-    insta::assert_snapshot!(stderr, @r##"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r=main", "-d=@"]);
+    insta::assert_snapshot!(output, @r##"
+    ------- stderr -------
     Error: Commit bcab555fc80e is immutable
     Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
@@ -370,10 +405,12 @@ fn test_rewrite_immutable_commands() {
           - `jj help -k config`, "Set of immutable commits"
     Hint: This operation would rewrite 1 immutable commits.
     [EOF]
+    [exit status: 1]
     "##);
     // resolve
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["resolve", "-r=description(merge)", "file"]);
-    insta::assert_snapshot!(stderr, @r##"
+    let output = test_env.run_jj_in(&repo_path, ["resolve", "-r=description(merge)", "file"]);
+    insta::assert_snapshot!(output, @r##"
+    ------- stderr -------
     Error: Commit bcab555fc80e is immutable
     Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
@@ -382,10 +419,12 @@ fn test_rewrite_immutable_commands() {
           - `jj help -k config`, "Set of immutable commits"
     Hint: This operation would rewrite 1 immutable commits.
     [EOF]
+    [exit status: 1]
     "##);
     // restore -c
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["restore", "-c=main"]);
-    insta::assert_snapshot!(stderr, @r##"
+    let output = test_env.run_jj_in(&repo_path, ["restore", "-c=main"]);
+    insta::assert_snapshot!(output, @r##"
+    ------- stderr -------
     Error: Commit bcab555fc80e is immutable
     Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
@@ -394,10 +433,12 @@ fn test_rewrite_immutable_commands() {
           - `jj help -k config`, "Set of immutable commits"
     Hint: This operation would rewrite 1 immutable commits.
     [EOF]
+    [exit status: 1]
     "##);
     // restore --into
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["restore", "--into=main"]);
-    insta::assert_snapshot!(stderr, @r##"
+    let output = test_env.run_jj_in(&repo_path, ["restore", "--into=main"]);
+    insta::assert_snapshot!(output, @r##"
+    ------- stderr -------
     Error: Commit bcab555fc80e is immutable
     Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
@@ -406,10 +447,12 @@ fn test_rewrite_immutable_commands() {
           - `jj help -k config`, "Set of immutable commits"
     Hint: This operation would rewrite 1 immutable commits.
     [EOF]
+    [exit status: 1]
     "##);
     // split
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["split", "-r=main"]);
-    insta::assert_snapshot!(stderr, @r##"
+    let output = test_env.run_jj_in(&repo_path, ["split", "-r=main"]);
+    insta::assert_snapshot!(output, @r##"
+    ------- stderr -------
     Error: Commit bcab555fc80e is immutable
     Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
@@ -418,10 +461,12 @@ fn test_rewrite_immutable_commands() {
           - `jj help -k config`, "Set of immutable commits"
     Hint: This operation would rewrite 1 immutable commits.
     [EOF]
+    [exit status: 1]
     "##);
     // squash -r
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["squash", "-r=description(b)"]);
-    insta::assert_snapshot!(stderr, @r##"
+    let output = test_env.run_jj_in(&repo_path, ["squash", "-r=description(b)"]);
+    insta::assert_snapshot!(output, @r##"
+    ------- stderr -------
     Error: Commit 72e1b68cbcf2 is immutable
     Hint: Could not modify commit: kkmpptxz 72e1b68c b
     Hint: Immutable commits are used to protect shared history.
@@ -430,10 +475,12 @@ fn test_rewrite_immutable_commands() {
           - `jj help -k config`, "Set of immutable commits"
     Hint: This operation would rewrite 4 immutable commits.
     [EOF]
+    [exit status: 1]
     "##);
     // squash --from
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["squash", "--from=main"]);
-    insta::assert_snapshot!(stderr, @r##"
+    let output = test_env.run_jj_in(&repo_path, ["squash", "--from=main"]);
+    insta::assert_snapshot!(output, @r##"
+    ------- stderr -------
     Error: Commit bcab555fc80e is immutable
     Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
@@ -442,10 +489,12 @@ fn test_rewrite_immutable_commands() {
           - `jj help -k config`, "Set of immutable commits"
     Hint: This operation would rewrite 1 immutable commits.
     [EOF]
+    [exit status: 1]
     "##);
     // squash --into
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["squash", "--into=main"]);
-    insta::assert_snapshot!(stderr, @r##"
+    let output = test_env.run_jj_in(&repo_path, ["squash", "--into=main"]);
+    insta::assert_snapshot!(output, @r##"
+    ------- stderr -------
     Error: Commit bcab555fc80e is immutable
     Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
@@ -454,10 +503,12 @@ fn test_rewrite_immutable_commands() {
           - `jj help -k config`, "Set of immutable commits"
     Hint: This operation would rewrite 1 immutable commits.
     [EOF]
+    [exit status: 1]
     "##);
     // unsquash
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["unsquash", "-r=main"]);
-    insta::assert_snapshot!(stderr, @r##"
+    let output = test_env.run_jj_in(&repo_path, ["unsquash", "-r=main"]);
+    insta::assert_snapshot!(output, @r##"
+    ------- stderr -------
     Warning: `jj unsquash` is deprecated; use `jj diffedit --restore-descendants` or `jj squash` instead
     Warning: `jj unsquash` will be removed in a future version, and this will be a hard error
     Error: Commit bcab555fc80e is immutable
@@ -468,5 +519,6 @@ fn test_rewrite_immutable_commands() {
           - `jj help -k config`, "Set of immutable commits"
     Hint: This operation would rewrite 1 immutable commits.
     [EOF]
+    [exit status: 1]
     "##);
 }

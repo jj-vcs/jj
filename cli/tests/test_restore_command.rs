@@ -32,12 +32,14 @@ fn test_restore() {
     std::fs::write(repo_path.join("file3"), "c\n").unwrap();
 
     // There is no `-r` argument
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["restore", "-r=@-"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["restore", "-r=@-"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: `jj restore` does not have a `--revision`/`-r` option. If you'd like to modify
     the *current* revision, use `--from`. If you'd like to modify a *different* revision,
     use `--into` or `--changes-in`.
     [EOF]
+    [exit status: 1]
     ");
 
     // Restores from parent by default

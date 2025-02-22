@@ -34,8 +34,9 @@ fn test_debug_fileset() {
     [EOF]
     ");
 
-    let stderr = test_env.jj_cmd_failure(&workspace_path, &["debug", "fileset", "cwd:.."]);
-    assert_snapshot!(stderr.normalize_backslash(), @r#"
+    let output = test_env.run_jj_in(&workspace_path, ["debug", "fileset", "cwd:.."]);
+    assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
     Error: Failed to parse fileset: Invalid file pattern
     Caused by:
     1:  --> 1:1
@@ -47,6 +48,7 @@ fn test_debug_fileset() {
     2: Path ".." is not in the repo "."
     3: Invalid component ".." in repo-relative path "../"
     [EOF]
+    [exit status: 1]
     "#);
 }
 

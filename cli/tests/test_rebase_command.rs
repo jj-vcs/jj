@@ -109,24 +109,30 @@ fn test_rebase_invalid() {
     ");
 
     // Rebase onto self with -r
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["rebase", "-r", "a", "-d", "a"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "a", "-d", "a"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Cannot rebase 2443ea76b0b1 onto itself
     [EOF]
+    [exit status: 1]
     ");
 
     // Rebase root with -r
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["rebase", "-r", "root()", "-d", "a"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "root()", "-d", "a"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: The root commit 000000000000 is immutable
     [EOF]
+    [exit status: 1]
     ");
 
     // Rebase onto descendant with -s
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["rebase", "-s", "a", "-d", "b"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-s", "a", "-d", "b"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Cannot rebase 2443ea76b0b1 onto descendant 1394f625cbbd
     [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -146,15 +152,19 @@ fn test_rebase_empty_sets() {
     Nothing changed.
     [EOF]
     ");
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["rebase", "-s=none()", "-d=b"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-s=none()", "-d=b"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Revset `none()` didn't resolve to any revisions
     [EOF]
+    [exit status: 1]
     ");
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["rebase", "-b=none()", "-d=b"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-b=none()", "-d=b"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Revset `none()` didn't resolve to any revisions
     [EOF]
+    [exit status: 1]
     ");
     // Empty because "b..a" is empty
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-b=a", "-d=b"]);
@@ -232,14 +242,16 @@ fn test_rebase_bookmark() {
 
     // Same test but with more than one revision per argument
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["rebase", "-b=e|d", "-d=b"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-b=e|d", "-d=b"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Revset `e|d` resolved to more than one revision
     Hint: The revset `e|d` resolved to these revisions:
       znkkpsqq e52756c8 e | e
       vruxwmqv 514fa6b2 d | d
     Hint: Prefix the expression with `all:` to allow any number of revisions (i.e. `all:e|d`).
     [EOF]
+    [exit status: 1]
     ");
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-b=all:e|d", "-d=b"]);
     insta::assert_snapshot!(stdout, @"");
@@ -783,14 +795,16 @@ fn test_rebase_multiple_destinations() {
     [EOF]
     ");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["rebase", "-r", "a", "-d", "b|c"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "a", "-d", "b|c"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Revset `b|c` resolved to more than one revision
     Hint: The revset `b|c` resolved to these revisions:
       royxmykx fe2e8e8b c | c
       zsuskuln d370aee1 b | b
     Hint: Prefix the expression with `all:` to allow any number of revisions (i.e. `all:b|c`).
     [EOF]
+    [exit status: 1]
     ");
 
     // try with 'all:' and succeed
@@ -831,29 +845,32 @@ fn test_rebase_multiple_destinations() {
     [EOF]
     ");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["rebase", "-r", "a", "-d", "b", "-d", "b"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "a", "-d", "b", "-d", "b"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: More than one revset resolved to revision d370aee184ba
     [EOF]
+    [exit status: 1]
     ");
 
     // Same error with 'all:' if there is overlap.
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["rebase", "-r", "a", "-d", "all:b|c", "-d", "b"],
+        ["rebase", "-r", "a", "-d", "all:b|c", "-d", "b"],
     );
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: More than one revset resolved to revision d370aee184ba
     [EOF]
+    [exit status: 1]
     ");
 
-    let stderr = test_env.jj_cmd_failure(
-        &repo_path,
-        &["rebase", "-r", "a", "-d", "b", "-d", "root()"],
-    );
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "a", "-d", "b", "-d", "root()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: The Git backend does not support creating merge commits with the root commit as one of the parents.
     [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -957,14 +974,16 @@ fn test_rebase_with_descendants() {
 
     // Same test as above, but with multiple commits per argument
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["rebase", "-s=b|d", "-d=a"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-s=b|d", "-d=a"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Revset `b|d` resolved to more than one revision
     Hint: The revset `b|d` resolved to these revisions:
       vruxwmqv df54a9fd d | d
       zsuskuln d370aee1 b | b
     Hint: Prefix the expression with `all:` to allow any number of revisions (i.e. `all:b|d`).
     [EOF]
+    [exit status: 1]
     ");
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-s=all:b|d", "-d=a"]);
     insta::assert_snapshot!(stdout, @"");
@@ -997,16 +1016,20 @@ fn test_rebase_error_revision_does_not_exist() {
     test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "b-one"]);
     test_env.jj_cmd_ok(&repo_path, &["new", "-r", "@-", "-m", "two"]);
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["rebase", "-b", "b-one", "-d", "this"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-b", "b-one", "-d", "this"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Revision `this` doesn't exist
     [EOF]
+    [exit status: 1]
     ");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["rebase", "-b", "this", "-d", "b-one"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-b", "this", "-d", "b-one"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Revision `this` doesn't exist
     [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -1907,13 +1930,15 @@ fn test_rebase_after() {
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
 
     // Should error if a loop will be created.
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["rebase", "-r", "e", "--after", "a", "--after", "b2"],
+        ["rebase", "-r", "e", "--after", "a", "--after", "b2"],
     );
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Refusing to create a loop: commit 2b8e1148290f would be both an ancestor and a descendant of the rebased commits
     [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -2005,10 +2030,12 @@ fn test_rebase_before() {
     ");
 
     // Rebasing a commit before the root commit should error.
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["rebase", "-r", "c", "--before", "root()"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "c", "--before", "root()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: The root commit 000000000000 is immutable
     [EOF]
+    [exit status: 1]
     ");
 
     // Rebase a commit before another commit. "c" has parents "b2" and "b4", so its
@@ -2481,13 +2508,15 @@ fn test_rebase_before() {
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
 
     // Should error if a loop will be created.
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["rebase", "-r", "e", "--before", "b2", "--before", "c"],
+        ["rebase", "-r", "e", "--before", "b2", "--before", "c"],
     );
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Refusing to create a loop: commit 2b8e1148290f would be both an ancestor and a descendant of the rebased commits
     [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -2750,13 +2779,15 @@ fn test_rebase_after_before() {
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
 
     // Should error if a loop will be created.
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["rebase", "-r", "e", "--after", "c", "--before", "a"],
+        ["rebase", "-r", "e", "--after", "c", "--before", "a"],
     );
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Refusing to create a loop: commit 31b84afe1c8f would be both an ancestor and a descendant of the rebased commits
     [EOF]
+    [exit status: 1]
     ");
 }
 

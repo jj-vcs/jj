@@ -360,14 +360,16 @@ fn test_git_fetch_nonexistent_remote(subprocess: bool) {
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "rem1");
 
-    let stderr = &test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["git", "fetch", "--remote", "rem1", "--remote", "rem2"],
+        ["git", "fetch", "--remote", "rem1", "--remote", "rem2"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: No git remote named 'rem2'
     [EOF]
+    [exit status: 1]
     ");
     }
     insta::allow_duplicates! {
@@ -388,11 +390,13 @@ fn test_git_fetch_nonexistent_remote_from_config(subprocess: bool) {
     add_git_remote(&test_env, &repo_path, "rem1");
     test_env.add_config(r#"git.fetch = ["rem1", "rem2"]"#);
 
-    let stderr = &test_env.jj_cmd_failure(&repo_path, &["git", "fetch"]);
+    let output = test_env.run_jj_in(&repo_path, ["git", "fetch"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: No git remote named 'rem2'
     [EOF]
+    [exit status: 1]
     ");
     }
     // No remote should have been fetched as part of the failing transaction
@@ -419,13 +423,15 @@ fn test_git_fetch_from_remote_named_git(subprocess: bool) {
     test_env.jj_cmd_ok(&repo_path, &["git", "init", "--git-repo=."]);
 
     // Try fetching from the remote named 'git'.
-    let stderr = &test_env.jj_cmd_failure(&repo_path, &["git", "fetch", "--remote=git"]);
+    let output = test_env.run_jj_in(&repo_path, ["git", "fetch", "--remote=git"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Failed to import refs from underlying Git repo
     Caused by: Git remote named 'git' is reserved for local Git repository
     Hint: Run `jj git remote rename` to give different name.
     [EOF]
+    [exit status: 1]
     ");
     }
 
@@ -439,11 +445,13 @@ fn test_git_fetch_from_remote_named_git(subprocess: bool) {
 
     // Explicit import is an error.
     // (This could be warning if we add mechanism to report ignored refs.)
-    insta::assert_snapshot!(test_env.jj_cmd_failure(&repo_path, &["git", "import"]), @r"
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["git", "import"]), @r"
+    ------- stderr -------
     Error: Failed to import refs from underlying Git repo
     Caused by: Git remote named 'git' is reserved for local Git repository
     Hint: Run `jj git remote rename` to give different name.
     [EOF]
+    [exit status: 1]
     ");
     }
 
@@ -484,12 +492,14 @@ fn test_git_fetch_from_remote_with_slashes(subprocess: bool) {
     test_env.jj_cmd_ok(&repo_path, &["git", "init", "--git-repo=."]);
 
     // Try fetching from the remote named 'git'.
-    let stderr = &test_env.jj_cmd_failure(&repo_path, &["git", "fetch", "--remote=slash/origin"]);
+    let output = test_env.run_jj_in(&repo_path, ["git", "fetch", "--remote=slash/origin"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Git remotes with slashes are incompatible with jj: slash/origin
     Hint: Run `jj git remote rename` to give a different name.
     [EOF]
+    [exit status: 1]
     ");
     }
 }
@@ -885,22 +895,26 @@ fn test_git_fetch_some_of_many_bookmarks(subprocess: bool) {
     }
 
     // Test an error message
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &target_jj_repo_path,
-        &["git", "fetch", "--branch", "glob:^:a*"],
+        ["git", "fetch", "--branch", "glob:^:a*"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Invalid branch pattern provided. When fetching, branch names and globs may not contain the characters `:`, `^`, `?`, `[`, `]`
     [EOF]
+    [exit status: 1]
     ");
     }
-    let stderr = test_env.jj_cmd_failure(&target_jj_repo_path, &["git", "fetch", "--branch", "a*"]);
+    let output = test_env.run_jj_in(&target_jj_repo_path, ["git", "fetch", "--branch", "a*"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Branch names may not include `*`.
     Hint: Prefix the pattern with `glob:` to expand `*` as a glob
     [EOF]
+    [exit status: 1]
     ");
     }
 

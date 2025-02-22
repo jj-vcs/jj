@@ -172,16 +172,20 @@ fn test_alias_recursive() {
     "#,
     );
     // Alias should not cause infinite recursion or hang
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["foo"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["foo"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Recursive alias definition involving `foo`
     [EOF]
+    [exit status: 1]
     ");
     // Also test with mutual recursion
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["bar"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["bar"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Recursive alias definition involving `bar`
     [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -252,23 +256,27 @@ fn test_alias_invalid_definition() {
     non-string-list = [0]
     "#,
     );
-    let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["non-list"]);
-    insta::assert_snapshot!(stderr.normalize_backslash(), @r"
+    let output = test_env.run_jj_in(test_env.env_root(), ["non-list"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    ------- stderr -------
     Config error: Invalid type or value for aliases.non-list
     Caused by: invalid type: integer `5`, expected a sequence
 
     Hint: Check the config file: $TEST_ENV/config/config0002.toml
     For help, see https://jj-vcs.github.io/jj/latest/config/.
     [EOF]
+    [exit status: 1]
     ");
-    let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["non-string-list"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(test_env.env_root(), ["non-string-list"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Config error: Invalid type or value for aliases.non-string-list
     Caused by: invalid type: integer `0`, expected a string
 
     Hint: Check the config file: $TEST_ENV/config/config0002.toml
     For help, see https://jj-vcs.github.io/jj/latest/config/.
     [EOF]
+    [exit status: 1]
     ");
 }
 

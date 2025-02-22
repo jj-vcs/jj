@@ -224,10 +224,12 @@ fn test_bookmark_move() {
         &["git", "remote", "add", "origin", "../git-repo"],
     );
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["bookmark", "move", "foo", "--to=@"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["bookmark", "move", "foo", "--to=@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: No such bookmark: foo
     [EOF]
+    [exit status: 1]
     ");
 
     let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["bookmark", "set", "foo", "--to=@"]);
@@ -237,11 +239,13 @@ fn test_bookmark_move() {
     ");
 
     test_env.jj_cmd_ok(&repo_path, &["new"]);
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["bookmark", "create", "-r@", "foo"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["bookmark", "create", "-r@", "foo"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Bookmark already exists: foo
     Hint: Use `jj bookmark set` to update it.
     [EOF]
+    [exit status: 1]
     ");
 
     let (_stdout, stderr) =
@@ -251,11 +255,13 @@ fn test_bookmark_move() {
     [EOF]
     ");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["bookmark", "set", "-r@-", "foo"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["bookmark", "set", "-r@-", "foo"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Refusing to move bookmark backwards or sideways: foo
     Hint: Use --allow-backwards to allow it.
     [EOF]
+    [exit status: 1]
     ");
 
     let (_stdout, stderr) = test_env.jj_cmd_ok(
@@ -273,11 +279,13 @@ fn test_bookmark_move() {
     [EOF]
     ");
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["bookmark", "move", "--to=@-", "foo"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["bookmark", "move", "--to=@-", "foo"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Refusing to move bookmark backwards or sideways: foo
     Hint: Use --allow-backwards to allow it.
     [EOF]
+    [exit status: 1]
     ");
 
     let (_stdout, stderr) = test_env.jj_cmd_ok(
@@ -300,11 +308,13 @@ fn test_bookmark_move() {
     ");
 
     // Deleted tracking bookmark name should still be allocated
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["bookmark", "create", "-r@", "foo"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["bookmark", "create", "-r@", "foo"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Tracked remote bookmarks exist for deleted bookmark: foo
     Hint: Use `jj bookmark set` to recreate the local bookmark. Run `jj bookmark untrack 'glob:foo@*'` to disassociate them.
     [EOF]
+    [exit status: 1]
     ");
 
     // Restoring local target shouldn't invalidate tracking state
@@ -379,13 +389,15 @@ fn test_bookmark_move_matching() {
     ");
 
     // No matching bookmarks within the source revisions
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["bookmark", "move", "--from=::@", "glob:a?", "--to=@"],
+        ["bookmark", "move", "--from=::@", "glob:a?", "--to=@"],
     );
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: No matching bookmarks for patterns: a?
     [EOF]
+    [exit status: 1]
     ");
 
     // Noop move
@@ -416,11 +428,13 @@ fn test_bookmark_move_matching() {
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
 
     // Try to move multiple bookmarks, but one of them isn't fast-forward
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["bookmark", "move", "glob:?1", "--to=@"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["bookmark", "move", "glob:?1", "--to=@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Refusing to move bookmark backwards or sideways: a1
     Hint: Use --allow-backwards to allow it.
     [EOF]
+    [exit status: 1]
     ");
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @   a2781dd9ee37
@@ -497,12 +511,13 @@ fn test_bookmark_move_conflicting() {
     ");
 
     // Can't move the bookmark to C0 since it's sibling.
-    let stderr =
-        test_env.jj_cmd_failure(&repo_path, &["bookmark", "set", "-rdescription(C0)", "foo"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["bookmark", "set", "-rdescription(C0)", "foo"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Refusing to move bookmark backwards or sideways: foo
     Hint: Use --allow-backwards to allow it.
     [EOF]
+    [exit status: 1]
     ");
 
     // Can move the bookmark to A1 since it's descendant of A0. It's not
@@ -539,10 +554,12 @@ fn test_bookmark_rename() {
         &["git", "remote", "add", "origin", "../git-repo"],
     );
 
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["bookmark", "rename", "bnoexist", "blocal"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["bookmark", "rename", "bnoexist", "blocal"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: No such bookmark: bnoexist
     [EOF]
+    [exit status: 1]
     ");
 
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m=commit-0"]);
@@ -554,10 +571,12 @@ fn test_bookmark_rename() {
     test_env.jj_cmd_ok(&repo_path, &["new"]);
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m=commit-1"]);
     test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "bexist"]);
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["bookmark", "rename", "blocal1", "bexist"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["bookmark", "rename", "blocal1", "bexist"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Bookmark already exists: bexist
     [EOF]
+    [exit status: 1]
     ");
 
     test_env.jj_cmd_ok(&repo_path, &["new"]);
@@ -659,13 +678,15 @@ fn test_bookmark_forget_glob() {
     ");
 
     // We get an error if none of the globs match anything
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["bookmark", "forget", "glob:bar*", "glob:baz*", "glob:boom*"],
+        ["bookmark", "forget", "glob:bar*", "glob:baz*", "glob:boom*"],
     );
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: No matching bookmarks for patterns: baz*, boom*
     [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -726,10 +747,12 @@ fn test_bookmark_delete_glob() {
 
     // We get an error if none of the globs match live bookmarks. Unlike `jj
     // bookmark forget`, it's not allowed to delete already deleted bookmarks.
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["bookmark", "delete", "glob:foo-[1-3]"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["bookmark", "delete", "glob:foo-[1-3]"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: No matching bookmarks for patterns: foo-[1-3]
     [EOF]
+    [exit status: 1]
     ");
 
     // Deleting a bookmark via both explicit name and glob pattern, or with
@@ -840,10 +863,12 @@ fn test_bookmark_forget_export() {
     // Forgetting a bookmark with --include-remotes deletes local and
     // remote-tracking bookmarks including the corresponding git-tracking bookmark.
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @"");
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r=foo", "--no-graph"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r=foo", "--no-graph"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Revision `foo` doesn't exist
     [EOF]
+    [exit status: 1]
     ");
 
     // `jj git export` will delete the bookmark from git. In a colocated repo,
@@ -1051,10 +1076,12 @@ fn test_bookmark_forget_deleted_or_nonexistent_bookmark() {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @"");
 
     // Can't forget a non-existent bookmark
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["bookmark", "forget", "i_do_not_exist"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["bookmark", "forget", "i_do_not_exist"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: No such bookmark: i_do_not_exist
     [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -1312,27 +1339,35 @@ fn test_bookmark_track_untrack_patterns() {
 
     // Track/untrack unknown bookmark
     insta::assert_snapshot!(
-        test_env.jj_cmd_failure(&repo_path, &["bookmark", "track", "main@origin"]), @r"
+        test_env.run_jj_in(&repo_path, ["bookmark", "track", "main@origin"]), @r"
+    ------- stderr -------
     Error: No such remote bookmark: main@origin
     [EOF]
+    [exit status: 1]
     ");
     insta::assert_snapshot!(
-        test_env.jj_cmd_failure(&repo_path, &["bookmark", "untrack", "main@origin"]), @r"
+        test_env.run_jj_in(&repo_path, ["bookmark", "untrack", "main@origin"]), @r"
+    ------- stderr -------
     Error: No such remote bookmark: main@origin
     [EOF]
+    [exit status: 1]
     ");
     insta::assert_snapshot!(
-        test_env.jj_cmd_failure(&repo_path, &["bookmark", "track", "glob:maine@*"]), @r"
+        test_env.run_jj_in(&repo_path, ["bookmark", "track", "glob:maine@*"]), @r"
+    ------- stderr -------
     Error: No matching remote bookmarks for patterns: maine@*
     [EOF]
+    [exit status: 1]
     ");
     insta::assert_snapshot!(
-        test_env.jj_cmd_failure(
+        test_env.run_jj_in(
             &repo_path,
-            &["bookmark", "untrack", "main@origin", "glob:main@o*"],
+            ["bookmark", "untrack", "main@origin", "glob:main@o*"],
         ), @r"
+    ------- stderr -------
     Error: No matching remote bookmarks for patterns: main@origin, main@o*
     [EOF]
+    [exit status: 1]
     ");
 
     // Track already tracked bookmark

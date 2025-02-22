@@ -70,8 +70,9 @@ fn test_log_parents() {
     ");
 
     // Commit object isn't printable
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-T", "parents"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-T", "parents"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Failed to parse template: Expected expression of type `Template`, but actual type is `List<Commit>`
     Caused by:  --> 1:1
       |
@@ -80,12 +81,14 @@ fn test_log_parents() {
       |
       = Expected expression of type `Template`, but actual type is `List<Commit>`
     [EOF]
+    [exit status: 1]
     ");
 
     // Redundant argument passed to keyword method
     let template = r#"parents.map(|c| c.commit_id(""))"#;
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-T", template]);
-    insta::assert_snapshot!(stderr, @r#"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-T", template]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Error: Failed to parse template: Function `commit_id`: Expected 0 arguments
     Caused by:  --> 1:29
       |
@@ -94,6 +97,7 @@ fn test_log_parents() {
       |
       = Function `commit_id`: Expected 0 arguments
     [EOF]
+    [exit status: 1]
     "#);
 }
 
@@ -195,8 +199,9 @@ fn test_log_author_timestamp_after_before() {
 
     // Should display error with invalid date.
     let template = r#"author.timestamp().after("invalid date")"#;
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r@", "--no-graph", "-T", template]);
-    insta::assert_snapshot!(stderr, @r#"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r@", "--no-graph", "-T", template]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Error: Failed to parse template: Invalid date pattern
     Caused by:
     1:  --> 1:26
@@ -207,6 +212,7 @@ fn test_log_author_timestamp_after_before() {
       = Invalid date pattern
     2: expected week day or month name
     [EOF]
+    [exit status: 1]
     "#);
 }
 
@@ -856,8 +862,9 @@ fn test_log_immutable() {
     test_env.add_config("revsets.short-prefixes = ''");
 
     test_env.add_config("revset-aliases.'immutable_heads()' = 'unknown_fn()'");
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r::", "-T", template]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r::", "-T", template]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Config error: Invalid `revset-aliases.immutable_heads()`
     Caused by:  --> 1:1
       |
@@ -867,11 +874,13 @@ fn test_log_immutable() {
       = Function `unknown_fn` doesn't exist
     For help, see https://jj-vcs.github.io/jj/latest/config/.
     [EOF]
+    [exit status: 1]
     ");
 
     test_env.add_config("revset-aliases.'immutable_heads()' = 'unknown_symbol'");
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["log", "-r::", "-T", template]);
-    insta::assert_snapshot!(stderr, @r#"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r::", "-T", template]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Error: Failed to parse template: Failed to evaluate revset
     Caused by:
     1:  --> 5:10
@@ -882,6 +891,7 @@ fn test_log_immutable() {
       = Failed to evaluate revset
     2: Revision `unknown_symbol` doesn't exist
     [EOF]
+    [exit status: 1]
     "#);
 }
 
@@ -947,11 +957,12 @@ fn test_log_contained_in() {
     ");
 
     // Suppress error that could be detected earlier
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["log", "-r::", "-T", &template_for_revset("unknown_fn()")],
+        ["log", "-r::", "-T", &template_for_revset("unknown_fn()")],
     );
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Error: Failed to parse template: In revset expression
     Caused by:
     1:  --> 5:28
@@ -967,13 +978,15 @@ fn test_log_contained_in() {
       |
       = Function `unknown_fn` doesn't exist
     [EOF]
+    [exit status: 1]
     "#);
 
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["log", "-r::", "-T", &template_for_revset("author(x:'y')")],
+        ["log", "-r::", "-T", &template_for_revset("author(x:'y')")],
     );
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Error: Failed to parse template: In revset expression
     Caused by:
     1:  --> 5:28
@@ -991,13 +1004,15 @@ fn test_log_contained_in() {
     3: Invalid string pattern kind `x:`
     Hint: Try prefixing with one of `exact:`, `glob:`, `regex:`, or `substring:`
     [EOF]
+    [exit status: 1]
     "#);
 
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["log", "-r::", "-T", &template_for_revset("maine")],
+        ["log", "-r::", "-T", &template_for_revset("maine")],
     );
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Error: Failed to parse template: Failed to evaluate revset
     Caused by:
     1:  --> 5:28
@@ -1009,6 +1024,7 @@ fn test_log_contained_in() {
     2: Revision `maine` doesn't exist
     Hint: Did you mean `main`?
     [EOF]
+    [exit status: 1]
     "#);
 }
 
@@ -1326,15 +1342,16 @@ fn test_log_diff_predefined_formats() {
         "diff.git.context = 'not an integer'\n",
     )
     .unwrap();
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "log",
             "--config-file=../config-bad.toml",
             "-Tself.diff().git()",
         ],
     );
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Error: Failed to parse template: Failed to load diff settings
     Caused by:
     1:  --> 1:13
@@ -1348,6 +1365,7 @@ fn test_log_diff_predefined_formats() {
 
     Hint: Check the config file: ../config-bad.toml
     [EOF]
+    [exit status: 1]
     "#);
 
     // color_words() with parameters

@@ -359,14 +359,16 @@ fn test_git_push_forward_unexpectedly_moved(subprocess: bool) {
     test_env.jj_cmd_ok(&workspace_root, &["bookmark", "set", "bookmark1", "-r@"]);
 
     // Pushing should fail
-    let stderr = test_env.jj_cmd_failure(&workspace_root, &["git", "push"]);
+    let output = test_env.run_jj_in(&workspace_root, ["git", "push"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Changes to push to origin:
       Move forward bookmark bookmark1 from d13ecdbda2a2 to 6750425ff51c
     Error: Refusing to push a bookmark that unexpectedly moved on the remote. Affected refs: refs/heads/bookmark1
     Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
     [EOF]
+    [exit status: 1]
     ");
     }
 }
@@ -412,14 +414,16 @@ fn test_git_push_sideways_unexpectedly_moved(subprocess: bool) {
     ");
     }
 
-    let stderr = test_env.jj_cmd_failure(&workspace_root, &["git", "push"]);
+    let output = test_env.run_jj_in(&workspace_root, ["git", "push"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Changes to push to origin:
       Move sideways bookmark bookmark1 from d13ecdbda2a2 to 0f8bf988588e
     Error: Refusing to push a bookmark that unexpectedly moved on the remote. Affected refs: refs/heads/bookmark1
     Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
     [EOF]
+    [exit status: 1]
     ");
     }
 }
@@ -462,15 +466,16 @@ fn test_git_push_deletion_unexpectedly_moved(subprocess: bool) {
     ");
     }
 
-    let stderr =
-        test_env.jj_cmd_failure(&workspace_root, &["git", "push", "--bookmark", "bookmark1"]);
+    let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--bookmark", "bookmark1"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Changes to push to origin:
       Delete bookmark bookmark1 from d13ecdbda2a2
     Error: Refusing to push a bookmark that unexpectedly moved on the remote. Affected refs: refs/heads/bookmark1
     Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
     [EOF]
+    [exit status: 1]
     ");
     }
 }
@@ -515,14 +520,16 @@ fn test_git_push_unexpectedly_deleted(subprocess: bool) {
     }
 
     // Pushing a moved bookmark fails if deleted on remote
-    let stderr = test_env.jj_cmd_failure(&workspace_root, &["git", "push"]);
+    let output = test_env.run_jj_in(&workspace_root, ["git", "push"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Changes to push to origin:
       Move sideways bookmark bookmark1 from d13ecdbda2a2 to 1ebe27ba04bf
     Error: Refusing to push a bookmark that unexpectedly moved on the remote. Affected refs: refs/heads/bookmark1
     Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
     [EOF]
+    [exit status: 1]
     ");
     }
 
@@ -540,13 +547,15 @@ fn test_git_push_unexpectedly_deleted(subprocess: bool) {
     if subprocess {
         // git does not allow to push a deleted bookmark if we expect it to exist even
         // though it was already deleted
-        let stderr = test_env.jj_cmd_failure(&workspace_root, &["git", "push", "-bbookmark1"]);
-        insta::assert_snapshot!(stderr, @r"
+        let output = test_env.run_jj_in(&workspace_root, ["git", "push", "-bbookmark1"]);
+        insta::assert_snapshot!(output, @r"
+        ------- stderr -------
         Changes to push to origin:
           Delete bookmark bookmark1 from d13ecdbda2a2
         Error: Refusing to push a bookmark that unexpectedly moved on the remote. Affected refs: refs/heads/bookmark1
         Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
         [EOF]
+        [exit status: 1]
         ");
     } else {
         // Pushing a *deleted* bookmark succeeds if deleted on remote, even if we expect
@@ -588,14 +597,16 @@ fn test_git_push_creation_unexpectedly_already_exists(subprocess: bool) {
     ");
     }
 
-    let stderr = test_env.jj_cmd_failure(&workspace_root, &["git", "push", "--allow-new"]);
+    let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--allow-new"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Changes to push to origin:
       Add bookmark bookmark1 to cb17dcdc74d5
     Error: Refusing to push a bookmark that unexpectedly moved on the remote. Affected refs: refs/heads/bookmark1
     Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
     [EOF]
+    [exit status: 1]
     ");
     }
 }
@@ -784,21 +795,25 @@ fn test_git_push_multiple(subprocess: bool) {
     }
 
     // Unmatched bookmark name is error
-    let stderr = test_env.jj_cmd_failure(&workspace_root, &["git", "push", "-b=foo"]);
+    let output = test_env.run_jj_in(&workspace_root, ["git", "push", "-b=foo"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: No such bookmark: foo
     [EOF]
+    [exit status: 1]
     ");
     }
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &workspace_root,
-        &["git", "push", "-b=foo", "-b=glob:?bookmark"],
+        ["git", "push", "-b=foo", "-b=glob:?bookmark"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: No matching bookmarks for patterns: foo, ?bookmark
     [EOF]
+    [exit status: 1]
     ");
     }
 
@@ -863,15 +878,17 @@ fn test_git_push_changes(subprocess: bool) {
     }
     // test pushing two changes at once
     std::fs::write(workspace_root.join("file"), "modified2").unwrap();
-    let stderr = test_env.jj_cmd_failure(&workspace_root, &["git", "push", "-c=(@|@-)"]);
+    let output = test_env.run_jj_in(&workspace_root, ["git", "push", "-c=(@|@-)"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Revset `(@|@-)` resolved to more than one revision
     Hint: The revset `(@|@-)` resolved to these revisions:
       yostqsxw 16c16966 push-yostqsxwqrlt* | bar
       yqosqzyt a050abf4 foo
     Hint: Prefix the expression with `all:` to allow any number of revisions (i.e. `all:(@|@-)`).
     [EOF]
+    [exit status: 1]
     ");
     }
     // test pushing two changes at once, part 2
@@ -1158,9 +1175,9 @@ fn test_git_push_mixed(subprocess: bool) {
     std::fs::write(workspace_root.join("file"), "modified again").unwrap();
 
     // --allow-new is not implied for --bookmark=.. and -r=..
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &workspace_root,
-        &[
+        [
             "git",
             "push",
             "--change=@--",
@@ -1169,11 +1186,13 @@ fn test_git_push_mixed(subprocess: bool) {
         ],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Creating bookmark push-yqosqzytrlsw for revision yqosqzytrlsw
     Error: Refusing to create new remote bookmark bookmark-1@origin
     Hint: Use --allow-new to push new bookmark. Use --remote to specify the remote to push to.
     [EOF]
+    [exit status: 1]
     ");
     }
 
@@ -1268,12 +1287,14 @@ fn test_git_push_conflict(subprocess: bool) {
         &["bookmark", "create", "-r@", "my-bookmark"],
     );
     test_env.jj_cmd_ok(&workspace_root, &["describe", "-m", "third"]);
-    let stderr = test_env.jj_cmd_failure(&workspace_root, &["git", "push", "--all"]);
+    let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--all"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Won't push commit e2221a796300 since it has conflicts
     Hint: Rejected commit: yostqsxw e2221a79 my-bookmark | (conflict) third
     [EOF]
+    [exit status: 1]
     ");
     }
 }
@@ -1290,15 +1311,17 @@ fn test_git_push_no_description(subprocess: bool) {
         &["bookmark", "create", "-r@", "my-bookmark"],
     );
     test_env.jj_cmd_ok(&workspace_root, &["describe", "-m="]);
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &workspace_root,
-        &["git", "push", "--allow-new", "--bookmark", "my-bookmark"],
+        ["git", "push", "--allow-new", "--bookmark", "my-bookmark"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Won't push commit 5b36783cd11c since it has no description
     Hint: Rejected commit: yqosqzyt 5b36783c my-bookmark | (empty) (no description set)
     [EOF]
+    [exit status: 1]
     ");
     }
     test_env.jj_cmd_ok(
@@ -1330,9 +1353,9 @@ fn test_git_push_no_description_in_immutable(subprocess: bool) {
         &["bookmark", "create", "-r@", "my-bookmark"],
     );
 
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &workspace_root,
-        &[
+        [
             "git",
             "push",
             "--allow-new",
@@ -1341,10 +1364,12 @@ fn test_git_push_no_description_in_immutable(subprocess: bool) {
         ],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Won't push commit 5b36783cd11c since it has no description
     Hint: Rejected commit: yqosqzyt 5b36783c imm | (empty) (no description set)
     [EOF]
+    [exit status: 1]
     ");
     }
 
@@ -1388,28 +1413,32 @@ fn test_git_push_missing_author(subprocess: bool) {
     };
     run_without_var("JJ_USER", &["new", "root()", "-m=initial"]);
     run_without_var("JJ_USER", &["bookmark", "create", "-r@", "missing-name"]);
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &workspace_root,
-        &["git", "push", "--allow-new", "--bookmark", "missing-name"],
+        ["git", "push", "--allow-new", "--bookmark", "missing-name"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Won't push commit 944313939bbd since it has no author and/or committer set
     Hint: Rejected commit: vruxwmqv 94431393 missing-name | (empty) initial
     [EOF]
+    [exit status: 1]
     ");
     }
     run_without_var("JJ_EMAIL", &["new", "root()", "-m=initial"]);
     run_without_var("JJ_EMAIL", &["bookmark", "create", "-r@", "missing-email"]);
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &workspace_root,
-        &["git", "push", "--allow-new", "--bookmark=missing-email"],
+        ["git", "push", "--allow-new", "--bookmark=missing-email"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Won't push commit 59354714f789 since it has no author and/or committer set
     Hint: Rejected commit: kpqxywon 59354714 missing-email | (empty) initial
     [EOF]
+    [exit status: 1]
     ");
     }
 }
@@ -1438,9 +1467,9 @@ fn test_git_push_missing_author_in_immutable(subprocess: bool) {
         &["bookmark", "create", "-r@", "my-bookmark"],
     );
 
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &workspace_root,
-        &[
+        [
             "git",
             "push",
             "--allow-new",
@@ -1449,10 +1478,12 @@ fn test_git_push_missing_author_in_immutable(subprocess: bool) {
         ],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Won't push commit 011f740bf8b5 since it has no author and/or committer set
     Hint: Rejected commit: yostqsxw 011f740b imm | (empty) no author email
     [EOF]
+    [exit status: 1]
     ");
     }
 
@@ -1499,15 +1530,17 @@ fn test_git_push_missing_committer(subprocess: bool) {
         &["bookmark", "create", "-r@", "missing-name"],
     );
     run_without_var("JJ_USER", &["describe", "-m=no committer name"]);
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &workspace_root,
-        &["git", "push", "--allow-new", "--bookmark=missing-name"],
+        ["git", "push", "--allow-new", "--bookmark=missing-name"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Won't push commit 4fd190283d1a since it has no author and/or committer set
     Hint: Rejected commit: yqosqzyt 4fd19028 missing-name | (empty) no committer name
     [EOF]
+    [exit status: 1]
     ");
     }
     test_env.jj_cmd_ok(&workspace_root, &["new", "root()"]);
@@ -1516,30 +1549,34 @@ fn test_git_push_missing_committer(subprocess: bool) {
         &["bookmark", "create", "-r@", "missing-email"],
     );
     run_without_var("JJ_EMAIL", &["describe", "-m=no committer email"]);
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &workspace_root,
-        &["git", "push", "--allow-new", "--bookmark=missing-email"],
+        ["git", "push", "--allow-new", "--bookmark=missing-email"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Won't push commit eab97428a6ec since it has no author and/or committer set
     Hint: Rejected commit: kpqxywon eab97428 missing-email | (empty) no committer email
     [EOF]
+    [exit status: 1]
     ");
     }
 
     // Test message when there are multiple reasons (missing committer and
     // description)
     run_without_var("JJ_EMAIL", &["describe", "-m=", "missing-email"]);
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &workspace_root,
-        &["git", "push", "--allow-new", "--bookmark=missing-email"],
+        ["git", "push", "--allow-new", "--bookmark=missing-email"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Won't push commit 1143ed607f54 since it has no description and it has no author and/or committer set
     Hint: Rejected commit: kpqxywon 1143ed60 missing-email | (empty) (no description set)
     [EOF]
+    [exit status: 1]
     ");
     }
 }
@@ -1569,9 +1606,9 @@ fn test_git_push_missing_committer_in_immutable(subprocess: bool) {
         &["bookmark", "create", "-r@", "my-bookmark"],
     );
 
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &workspace_root,
-        &[
+        [
             "git",
             "push",
             "--allow-new",
@@ -1580,10 +1617,12 @@ fn test_git_push_missing_committer_in_immutable(subprocess: bool) {
         ],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Won't push commit 7e61dc727a8f since it has no author and/or committer set
     Hint: Rejected commit: yostqsxw 7e61dc72 imm | (empty) no committer email
     [EOF]
+    [exit status: 1]
     ");
     }
 
@@ -1712,15 +1751,17 @@ fn test_git_push_conflicting_bookmarks(subprocess: bool) {
     }
 
     // --bookmark should be blocked by conflicting bookmark
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &workspace_root,
-        &["git", "push", "--allow-new", "--bookmark", "bookmark2"],
+        ["git", "push", "--allow-new", "--bookmark", "bookmark2"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: Bookmark bookmark2 is conflicted
     Hint: Run `jj bookmark list` to inspect, and use `jj bookmark set` to fix it up.
     [EOF]
+    [exit status: 1]
     ");
     }
 
@@ -1780,11 +1821,13 @@ fn test_git_push_deleted_untracked(subprocess: bool) {
     [EOF]
     ");
     }
-    let stderr = test_env.jj_cmd_failure(&workspace_root, &["git", "push", "--bookmark=bookmark1"]);
+    let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--bookmark=bookmark1"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Error: No such bookmark: bookmark1
     [EOF]
+    [exit status: 1]
     ");
     }
 }
@@ -1948,15 +1991,16 @@ fn test_git_push_to_remote_named_git(subprocess: bool) {
     };
     git_repo.remote_rename("origin", "git").unwrap();
 
-    let stderr =
-        test_env.jj_cmd_failure(&workspace_root, &["git", "push", "--all", "--remote=git"]);
+    let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--all", "--remote=git"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Changes to push to git:
       Add bookmark bookmark1 to d13ecdbda2a2
       Add bookmark bookmark2 to 8476341eb395
     Error: Git remote named 'git' is reserved for local Git repository
     [EOF]
+    [exit status: 1]
     ");
     }
 }
@@ -1975,18 +2019,20 @@ fn test_git_push_to_remote_with_slashes(subprocess: bool) {
     };
     git_repo.remote_rename("origin", "slash/origin").unwrap();
 
-    let stderr = test_env.jj_cmd_failure(
+    let output = test_env.run_jj_in(
         &workspace_root,
-        &["git", "push", "--all", "--remote=slash/origin"],
+        ["git", "push", "--all", "--remote=slash/origin"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Changes to push to slash/origin:
       Add bookmark bookmark1 to d13ecdbda2a2
       Add bookmark bookmark2 to 8476341eb395
     Error: Git remotes with slashes are incompatible with jj: slash/origin
     Hint: Run `jj git remote rename` to give a different name.
     [EOF]
+    [exit status: 1]
     ");
     }
 }
