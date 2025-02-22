@@ -274,13 +274,15 @@ fn test_resolve_symbol_change_id(readonly: bool) {
     }
 
     // Test the test setup
-    insta::assert_snapshot!(
-        commits.iter().map(|c| format!("{} {}\n", c.id(), c.change_id())).join(""), @r"
-    8fd68d104372910e19511df709e5dde62a548720 zvlyxpuvtsoopsqzlkorrpqrszrqvlnx
-    5339432b8e7b90bd3aa1a323db71b8a5c5dcd020 zvzowopwpuymrlmonvnuruunomzqmlsy
-    e2ad9d861d0ee625851b8ecfcf2c727410e38720 zvlynszrxlvlwvkwkwsymrpypvtsszor
-    040031cb4ad0cbc3287914f1d205dabf4a7eb889 qyymsluxkmuopzvorkxrqlyvnwmwzoux
-    ");
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(
+            commits.iter().map(|c| format!("{} {}\n", c.id(), c.change_id())).join(""), @r"
+        8fd68d104372910e19511df709e5dde62a548720 zvlyxpuvtsoopsqzlkorrpqrszrqvlnx
+        5339432b8e7b90bd3aa1a323db71b8a5c5dcd020 zvzowopwpuymrlmonvnuruunomzqmlsy
+        e2ad9d861d0ee625851b8ecfcf2c727410e38720 zvlynszrxlvlwvkwkwsymrpypvtsszor
+        040031cb4ad0cbc3287914f1d205dabf4a7eb889 qyymsluxkmuopzvorkxrqlyvnwmwzoux
+        ");
+    }
 
     let _readonly_repo;
     let repo: &dyn Repo = if readonly {
