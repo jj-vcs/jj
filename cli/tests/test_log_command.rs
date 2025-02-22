@@ -362,10 +362,7 @@ fn test_log_shortest_accessors() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
     let render = |rev, template| {
-        test_env.jj_cmd_success(
-            &repo_path,
-            &["log", "--no-graph", "-r", rev, "-T", template],
-        )
+        test_env.run_jj_in(&repo_path, ["log", "--no-graph", "-r", rev, "-T", template])
     };
     test_env.add_config(
         r#"

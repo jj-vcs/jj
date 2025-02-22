@@ -420,15 +420,8 @@ fn test_commit_reset_author() {
 'format_signature(signature)' = 'signature.name() ++ " " ++ signature.email() ++ " " ++ signature.timestamp()'"#,
     );
     let get_signatures = || {
-        test_env.jj_cmd_success(
-            &repo_path,
-            &[
-                "log",
-                "-r@",
-                "-T",
-                r#"format_signature(author) ++ "\n" ++ format_signature(committer)"#,
-            ],
-        )
+        let template = r#"format_signature(author) ++ "\n" ++ format_signature(committer)"#;
+        test_env.run_jj_in(&repo_path, ["log", "-r@", "-T", template])
     };
     insta::assert_snapshot!(get_signatures(), @r"
     @  Test User test.user@example.com 2001-02-03 04:05:07.000 +07:00

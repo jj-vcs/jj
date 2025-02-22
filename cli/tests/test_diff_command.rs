@@ -2592,7 +2592,7 @@ fn test_diff_stat_long_name_or_stat() {
         let content = "content line\n".repeat(stat_size);
         std::fs::write(repo_path.join(ascii_name), &content).unwrap();
         std::fs::write(repo_path.join(han_name), &content).unwrap();
-        test_env.jj_cmd_success(&repo_path, &["diff", "--stat"])
+        test_env.run_jj_in(&repo_path, ["diff", "--stat"])
     };
 
     insta::assert_snapshot!(get_stat(&test_env, 1, 1), @r"

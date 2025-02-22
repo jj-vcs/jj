@@ -43,9 +43,9 @@ fn test_resolution_of_git_tracking_bookmarks() {
     // Test that we can address both revisions
     let query = |expr| {
         let template = r#"commit_id ++ " " ++ description"#;
-        test_env.jj_cmd_success(
+        test_env.run_jj_in(
             &repo_path,
-            &["log", "-r", expr, "-T", template, "--no-graph"],
+            ["log", "-r", expr, "-T", template, "--no-graph"],
         )
     };
     insta::assert_snapshot!(query("main"), @r"

@@ -334,7 +334,7 @@ fn test_op_log_template() {
     let test_env = TestEnvironment::default();
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
-    let render = |template| test_env.jj_cmd_success(&repo_path, &["op", "log", "-T", template]);
+    let render = |template| test_env.run_jj_in(&repo_path, ["op", "log", "-T", template]);
 
     insta::assert_snapshot!(render(r#"id ++ "\n""#), @r"
     @  eac759b9ab75793fd3da96e60939fb48f2cd2b2a9c1f13ffe723cf620f3005b8d3e7e923634a07ea39513e4f2f360c87b9ad5d331cf90d7a844864b83b72eba1
@@ -380,9 +380,8 @@ fn test_op_log_builtin_templates() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
     // Render without graph to test line ending
-    let render = |template| {
-        test_env.jj_cmd_success(&repo_path, &["op", "log", "-T", template, "--no-graph"])
-    };
+    let render =
+        |template| test_env.run_jj_in(&repo_path, ["op", "log", "-T", template, "--no-graph"]);
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "description 0"]);
 
     insta::assert_snapshot!(render(r#"builtin_op_log_compact"#), @r#"
