@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::path::PathBuf;
-
 use crate::common::TestEnvironment;
 
 #[test]
@@ -93,15 +91,15 @@ fn test_track_untrack() {
     assert!(repo_path.join("file2.bak").exists());
 
     // Errors out when multiple specified files are not ignored
-    let stderr = test_env.jj_cmd_failure(&repo_path, &["file", "untrack", "target"]);
-    assert_eq!(
-        stderr.raw(),
-        format!(
-            "Error: '{}' and 1 other files are not ignored.\nHint: Files that are not ignored \
-             will be added back by the next command.\nMake sure they're ignored, then try again.\n",
-            PathBuf::from("target").join("file2").display()
-        )
-    );
+    let output = test_env.run_jj_in(&repo_path, ["file", "untrack", "target"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    ------- stderr -------
+    Error: 'target/file2' and 1 other files are not ignored.
+    Hint: Files that are not ignored will be added back by the next command.
+    Make sure they're ignored, then try again.
+    [EOF]
+    [exit status: 1]
+    ");
 
     // Can untrack after adding to ignore patterns
     std::fs::write(repo_path.join(".gitignore"), ".bak\ntarget/\n").unwrap();

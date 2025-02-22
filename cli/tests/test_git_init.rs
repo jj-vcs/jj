@@ -919,6 +919,11 @@ fn test_git_init_conditional_config() {
 fn test_git_init_bad_wc_path() {
     let test_env = TestEnvironment::default();
     std::fs::write(test_env.env_root().join("existing-file"), b"").unwrap();
-    let stderr = test_env.jj_cmd_failure(test_env.env_root(), &["git", "init", "existing-file"]);
-    assert!(stderr.raw().contains("Failed to create workspace"));
+    let output = test_env.run_jj_in(test_env.env_root(), ["git", "init", "existing-file"]);
+    insta::assert_snapshot!(output.strip_stderr_last_line(), @r"
+    ------- stderr -------
+    Error: Failed to create workspace
+    [EOF]
+    [exit status: 1]
+    ");
 }

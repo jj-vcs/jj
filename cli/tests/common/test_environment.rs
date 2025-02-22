@@ -391,6 +391,15 @@ impl CommandOutput {
         }
     }
 
+    #[must_use]
+    pub fn normalize_stderr_with(self, f: impl FnOnce(String) -> String) -> Self {
+        CommandOutput {
+            stdout: self.stdout,
+            stderr: self.stderr.normalize_with(f),
+            status: self.status,
+        }
+    }
+
     /// Ensures that the command exits with success status.
     #[track_caller]
     pub fn success(self) -> Self {

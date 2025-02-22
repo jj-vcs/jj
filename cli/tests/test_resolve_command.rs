@@ -582,22 +582,20 @@ fn check_resolve_produces_input_file(
     let merge_arg_config = format!(r#"merge-tools.fake-editor.merge-args=["${role}"]"#);
     // This error means that fake-editor exited successfully but did not modify the
     // output file.
-    // We cannot use `insta::assert_snapshot!` here after insta 1.22 due to
-    // https://github.com/mitsuhiko/insta/commit/745b45b. Hopefully, this will again become possible
-    // in the future. See also https://github.com/mitsuhiko/insta/issues/313.
-    assert_eq!(
-        test_env
-            .jj_cmd_failure(
-                repo_path,
-                &["resolve", "--config", &merge_arg_config, filename]
-            )
-            .raw(),
-        format!(
-            "Resolving conflicts in: {filename}\nError: Failed to resolve conflicts\nCaused by: \
-             The output file is either unchanged or empty after the editor quit (run with --debug \
-             to see the exact invocation).\n"
-        )
+    let output = test_env.run_jj_in(
+        repo_path,
+        ["resolve", "--config", &merge_arg_config, filename],
     );
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(output.normalize_stderr_with(|s| s.replacen(filename, "$FILENAME", 1)), @r"
+        ------- stderr -------
+        Resolving conflicts in: $FILENAME
+        Error: Failed to resolve conflicts
+        Caused by: The output file is either unchanged or empty after the editor quit (run with --debug to see the exact invocation).
+        [EOF]
+        [exit status: 1]
+        ");
+    }
 }
 
 #[test]
