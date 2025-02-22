@@ -67,20 +67,33 @@ fn test_alias_calls_empty_command() {
     aliases.empty_command_with_opts = ["--no-pager"]
     "#,
     );
-    let stderr = test_env.jj_cmd_cli_error(&repo_path, &["empty"]);
-    insta::assert_snapshot!(stderr.normalized().lines().take(3).join("\n"), @r###"
+
+    let output = test_env.run_jj_in(&repo_path, ["empty"]);
+    insta::assert_snapshot!(
+        output.normalize_stderr_with(|s| s.split_inclusive('\n').take(3).collect()), @r"
+    ------- stderr -------
     Jujutsu (An experimental VCS)
 
     Usage: jj [OPTIONS] <COMMAND>
-    "###);
-    let stderr = test_env.jj_cmd_cli_error(&repo_path, &["empty", "--no-pager"]);
-    insta::assert_snapshot!(stderr.normalized().lines().next().unwrap_or_default(), @r###"
+    [EOF]
+    [exit status: 2]
+    ");
+    let output = test_env.run_jj_in(&repo_path, ["empty", "--no-pager"]);
+    insta::assert_snapshot!(
+        output.normalize_stderr_with(|s| s.split_inclusive('\n').take(1).collect()), @r"
+    ------- stderr -------
     error: 'jj' requires a subcommand but one was not provided
-    "###);
-    let stderr = test_env.jj_cmd_cli_error(&repo_path, &["empty_command_with_opts"]);
-    insta::assert_snapshot!(stderr.normalized().lines().next().unwrap_or_default(), @r###"
+    [EOF]
+    [exit status: 2]
+    ");
+    let output = test_env.run_jj_in(&repo_path, ["empty_command_with_opts"]);
+    insta::assert_snapshot!(
+        output.normalize_stderr_with(|s| s.split_inclusive('\n').take(1).collect()), @r"
+    ------- stderr -------
     error: 'jj' requires a subcommand but one was not provided
-    "###);
+    [EOF]
+    [exit status: 2]
+    ");
 }
 
 #[test]
