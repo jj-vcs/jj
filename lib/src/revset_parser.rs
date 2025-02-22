@@ -45,6 +45,7 @@ use crate::dsl_util::FoldableExpression;
 use crate::dsl_util::FunctionCallParser;
 use crate::dsl_util::InvalidArguments;
 use crate::dsl_util::StringLiteralParser;
+use crate::refs::RemoteRefSymbolBuf;
 
 #[derive(Parser)]
 #[grammar = "revset.pest"]
@@ -325,10 +326,7 @@ pub enum ExpressionKind<'i> {
         value: String,
     },
     /// `<name>@<remote>`
-    RemoteSymbol {
-        name: String,
-        remote: String,
-    },
+    RemoteSymbol(RemoteRefSymbolBuf),
     /// `<workspace_id>@`
     AtWorkspace(String),
     /// `@`
@@ -357,7 +355,7 @@ impl<'i> FoldableExpression<'i> for ExpressionKind<'i> {
             ExpressionKind::Identifier(name) => folder.fold_identifier(name, span),
             ExpressionKind::String(_)
             | ExpressionKind::StringPattern { .. }
-            | ExpressionKind::RemoteSymbol { .. }
+            | ExpressionKind::RemoteSymbol(_)
             | ExpressionKind::AtWorkspace(_)
             | ExpressionKind::AtCurrentWorkspace
             | ExpressionKind::DagRangeAll
@@ -653,7 +651,7 @@ fn parse_primary_node(pair: Pair<Rule>) -> Result<ExpressionNode, RevsetParseErr
                         // infix "<name>@<remote>"
                         Some(second) => {
                             let remote = parse_as_string_literal(second);
-                            ExpressionKind::RemoteSymbol { name, remote }
+                            ExpressionKind::RemoteSymbol(RemoteRefSymbolBuf { name, remote })
                         }
                     }
                 }
@@ -912,7 +910,7 @@ mod tests {
             ExpressionKind::Identifier(_)
             | ExpressionKind::String(_)
             | ExpressionKind::StringPattern { .. }
-            | ExpressionKind::RemoteSymbol { .. }
+            | ExpressionKind::RemoteSymbol(_)
             | ExpressionKind::AtWorkspace(_)
             | ExpressionKind::AtCurrentWorkspace
             | ExpressionKind::DagRangeAll
@@ -1337,10 +1335,10 @@ mod tests {
         );
         assert_eq!(
             parse_into_kind("main@origin"),
-            Ok(ExpressionKind::RemoteSymbol {
+            Ok(ExpressionKind::RemoteSymbol(RemoteRefSymbolBuf {
                 name: "main".to_owned(),
                 remote: "origin".to_owned()
-            })
+            }))
         );
 
         // Quoted component in @ expression
@@ -1350,24 +1348,24 @@ mod tests {
         );
         assert_eq!(
             parse_into_kind(r#""foo bar"@origin"#),
-            Ok(ExpressionKind::RemoteSymbol {
+            Ok(ExpressionKind::RemoteSymbol(RemoteRefSymbolBuf {
                 name: "foo bar".to_owned(),
                 remote: "origin".to_owned()
-            })
+            }))
         );
         assert_eq!(
             parse_into_kind(r#"main@"foo bar""#),
-            Ok(ExpressionKind::RemoteSymbol {
+            Ok(ExpressionKind::RemoteSymbol(RemoteRefSymbolBuf {
                 name: "main".to_owned(),
                 remote: "foo bar".to_owned()
-            })
+            }))
         );
         assert_eq!(
             parse_into_kind(r#"'foo bar'@'bar baz'"#),
-            Ok(ExpressionKind::RemoteSymbol {
+            Ok(ExpressionKind::RemoteSymbol(RemoteRefSymbolBuf {
                 name: "foo bar".to_owned(),
                 remote: "bar baz".to_owned()
-            })
+            }))
         );
 
         // Quoted "@" is not interpreted as a working copy or remote symbol
@@ -1391,10 +1389,10 @@ mod tests {
         );
         assert_eq!(
             parse_into_kind("柔@術"),
-            Ok(ExpressionKind::RemoteSymbol {
+            Ok(ExpressionKind::RemoteSymbol(RemoteRefSymbolBuf {
                 name: "柔".to_owned(),
                 remote: "術".to_owned()
-            })
+            }))
         );
     }
 
