@@ -16,6 +16,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fmt;
+use std::fmt::Debug;
 use std::fmt::Display;
 use std::path::Path;
 use std::path::PathBuf;
@@ -273,7 +274,7 @@ impl TestEnvironment {
 }
 
 /// Command output and exit status to be displayed in normalized form.
-#[derive(Clone)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CommandOutput {
     pub stdout: CommandOutputString,
     pub stderr: CommandOutputString,
@@ -426,6 +427,13 @@ impl CommandOutputString {
     }
 }
 
+impl Debug for CommandOutputString {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Print only raw data. Normalized string should be nearly identical.
+        Debug::fmt(&self.raw, f)
+    }
+}
+
 impl Display for CommandOutputString {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.is_empty() {
@@ -434,6 +442,15 @@ impl Display for CommandOutputString {
         // Append "[EOF]" marker to test line ending
         // https://github.com/mitsuhiko/insta/issues/384
         writeln!(f, "{}[EOF]", self.normalized)
+    }
+}
+
+impl Eq for CommandOutputString {}
+
+impl PartialEq for CommandOutputString {
+    fn eq(&self, other: &Self) -> bool {
+        // Compare only raw data. Normalized string is for displaying purpose.
+        self.raw == other.raw
     }
 }
 
