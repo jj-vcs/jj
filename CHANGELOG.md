@@ -259,6 +259,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Please [see the documentation](/docs/config.md#json-schema-support) for more
   on this.
 
+* New `git.init-track-local-bookmarks` config option to automatically set local
+  bookmarks as tracking remote bookmarks during `jj git init --colocate`.
+
 ### Fixed bugs
 
 * `jj git fetch` with multiple remotes will now fetch from all remotes before

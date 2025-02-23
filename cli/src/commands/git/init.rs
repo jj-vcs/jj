@@ -12,21 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::io;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use itertools::Itertools;
 use jj_lib::file_util;
 use jj_lib::git;
 use jj_lib::git::parse_git_ref;
 use jj_lib::git::RefName;
+use jj_lib::op_store::BookmarkTarget;
+use jj_lib::op_store::RefTarget;
+use jj_lib::op_store::RemoteRef;
+use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
+use jj_lib::revset::RevsetExpression;
+use jj_lib::view::View;
 use jj_lib::workspace::Workspace;
 
 use super::write_repository_level_trunk_alias;
-use crate::cli_util::print_trackable_remote_bookmarks;
 use crate::cli_util::start_repo_transaction;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
@@ -35,6 +42,7 @@ use crate::command_error::user_error_with_hint;
 use crate::command_error::user_error_with_message;
 use crate::command_error::CommandError;
 use crate::commands::git::maybe_add_gitignore;
+use crate::formatter::Formatter;
 use crate::git_util::get_git_repo;
 use crate::git_util::is_colocated_git_workspace;
 use crate::git_util::print_failed_git_export;
@@ -172,18 +180,23 @@ fn do_init(
             maybe_add_gitignore(&workspace_command)?;
             workspace_command.maybe_snapshot(ui)?;
             maybe_set_repository_level_trunk_alias(ui, &workspace_command)?;
-            if !workspace_command.working_copy_shared_with_git() {
-                let mut tx = workspace_command.start_transaction();
+            let working_copy_shared_with_git = workspace_command.working_copy_shared_with_git();
+            let mut tx = workspace_command.start_transaction();
+            if !working_copy_shared_with_git {
                 jj_lib::git::import_head(tx.repo_mut())?;
                 if let Some(git_head_id) = tx.repo().view().git_head().as_normal().cloned() {
                     let git_head_commit = tx.repo().store().get_commit(&git_head_id)?;
                     tx.check_out(&git_head_commit)?;
                 }
-                if tx.repo().has_changes() {
-                    tx.finish(ui, "import git head")?;
-                }
             }
-            print_trackable_remote_bookmarks(ui, workspace_command.repo().view())?;
+            if settings.get_bool("git.init-track-local-bookmarks")? {
+                track_trackable_remote_bookmarks(ui, tx.repo_mut())?;
+            } else {
+                print_trackable_remote_bookmarks(ui, tx.repo().view())?;
+            }
+            if tx.repo().has_changes() {
+                tx.finish(ui, "import git head")?;
+            }
         }
         GitInitMode::Internal => {
             Workspace::init_internal_git(&settings, workspace_root)?;
@@ -251,4 +264,124 @@ pub fn maybe_set_repository_level_trunk_alias(
     };
 
     Ok(())
+}
+
+fn present_local_bookmarks(view: &View) -> impl Iterator<Item = (&str, BookmarkTarget)> {
+    view.bookmarks()
+        .filter(|(_, bookmark_target)| bookmark_target.local_target.is_present())
+}
+
+fn print_trackable_remote_bookmarks(ui: &Ui, view: &View) -> io::Result<()> {
+    let remote_bookmark_names = present_local_bookmarks(view)
+        .flat_map(|(name, bookmark_target)| {
+            bookmark_target
+                .remote_refs
+                .into_iter()
+                .filter(|&(_, remote_ref)| !remote_ref.is_tracking())
+                .map(move |(remote, _)| format!("{name}@{remote}"))
+        })
+        .collect_vec();
+    if remote_bookmark_names.is_empty() {
+        return Ok(());
+    }
+
+    if let Some(mut formatter) = ui.status_formatter() {
+        print_skipped_tracking(formatter.as_mut(), &remote_bookmark_names)?;
+    }
+    Ok(())
+}
+
+fn track_trackable_remote_bookmarks(
+    ui: &mut Ui,
+    repo: &mut MutableRepo,
+) -> Result<(), CommandError> {
+    let present_local_bookmarks = present_local_bookmarks(repo.view());
+    let (remote_bookmarks, skipped_tracking): (Vec<_>, Vec<_>) = present_local_bookmarks
+        .flat_map(|(name, bookmark_target)| {
+            let repo: &_ = repo;
+            let local_target = bookmark_target.local_target;
+            bookmark_target
+                .remote_refs
+                .into_iter()
+                .filter_map(|(remote_name, remote_ref)| {
+                    should_track(repo, name, local_target, remote_name, remote_ref)
+                })
+        })
+        .partition_result();
+
+    if let Some(mut formatter) = ui.status_formatter() {
+        if !remote_bookmarks.is_empty() {
+            writeln!(formatter, "Tracking the following remote bookmarks:")?;
+            for (name, remote_name) in &remote_bookmarks {
+                write!(formatter, "  ")?;
+                writeln!(formatter.labeled("bookmark"), "{name}@{remote_name}")?;
+            }
+        }
+
+        print_skipped_tracking(formatter.as_mut(), &skipped_tracking)?;
+    }
+
+    for (name, remote_name) in &remote_bookmarks {
+        repo.track_remote_bookmark(name, remote_name);
+    }
+
+    Ok(())
+}
+
+fn print_skipped_tracking(
+    formatter: &mut dyn Formatter,
+    remote_bookmark_names: &[String],
+) -> Result<(), io::Error> {
+    if remote_bookmark_names.is_empty() {
+        return Ok(());
+    }
+
+    writeln!(
+        formatter.labeled("hint").with_heading("Hint: "),
+        "The following remote bookmarks aren't associated with the existing local bookmarks:"
+    )?;
+    for full_name in remote_bookmark_names {
+        write!(formatter, "  ")?;
+        writeln!(formatter.labeled("bookmark"), "{full_name}")?;
+    }
+    writeln!(
+        formatter.labeled("hint").with_heading("Hint: "),
+        "Run `jj bookmark track {names}` to keep local bookmarks updated on future pulls.",
+        names = remote_bookmark_names.join(" "),
+    )?;
+    Ok(())
+}
+
+/// Returns:
+/// `None`: already tracking, or name@git
+/// `Some(Err("name@remote"))`: should skip tracking, local is behind
+/// `Some(Ok((name, remote)))`: should track
+fn should_track(
+    repo: &dyn Repo,
+    name: &str,
+    local_target: &RefTarget,
+    remote_name: &str,
+    remote_ref: &RemoteRef,
+) -> Option<Result<(String, String), String>> {
+    if remote_ref.is_tracking() || jj_lib::git::is_special_git_remote(remote_name) {
+        return None;
+    }
+
+    let remote_added = remote_ref.target.added_ids().cloned().collect();
+    let Ok(ahead_of_remote) = RevsetExpression::commits(remote_added)
+        .descendants()
+        .evaluate(repo)
+        .map(|r| r.containing_fn())
+    else {
+        return Some(Err(format!("{name}@{remote_name}")));
+    };
+
+    if local_target
+        .added_ids()
+        .any(|add| ahead_of_remote(add).unwrap_or(false))
+    {
+        Some(Ok((name.to_owned(), remote_name.to_owned())))
+    } else {
+        Some(Err(format!("{name}@{remote_name}")))
+    }
 }
