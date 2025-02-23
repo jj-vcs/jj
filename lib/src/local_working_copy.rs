@@ -1055,7 +1055,14 @@ impl TreeState {
             let state_paths: HashSet<_> = file_states.paths().map(|path| path.to_owned()).collect();
             assert_eq!(state_paths, tree_paths);
         }
-        self.watchman_clock = watchman_clock;
+        // Since untracked paths aren't cached in the tree state, we'll need to
+        // rescan the working directory changes to report or track them later.
+        // TODO: store untracked paths and update watchman_clock?
+        if stats.untracked_paths.is_empty() || watchman_clock.is_none() {
+            self.watchman_clock = watchman_clock;
+        } else {
+            tracing::info!("not updating watchman clock because there are untracked files");
+        }
         Ok((is_dirty, stats))
     }
 

@@ -101,8 +101,6 @@ pub(crate) fn cmd_status(
             }
 
             if wc_has_untracked {
-                // TODO: make sure this always display all untracked non-ignored files, even
-                // when using watchman. See https://github.com/jj-vcs/jj/commit/168c7979feab40d58f49fe19683975697a7bc089 for details.
                 writeln!(formatter, "Untracked paths:")?;
                 formatter.with_label("diff", |formatter| {
                     for path in snapshot_stats.untracked_paths.keys() {

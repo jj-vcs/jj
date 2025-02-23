@@ -96,6 +96,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj status` now shows untracked files under untracked directories.
   [#5389](https://github.com/jj-vcs/jj/issues/5389)
 
+* Added workaround for the bug that untracked files are ignored when watchman is
+  enabled. [#5728](https://github.com/jj-vcs/jj/issues/5728)
+
 * The `signing.backends.ssh.allowed-signers` configuration option will now
   expand `~/` to `$HOME/`.
   [#5626](https://github.com/jj-vcs/jj/pull/5626)
