@@ -364,7 +364,6 @@ impl Display for CommandOutput {
 }
 
 /// Command output data to be displayed in normalized form.
-// TODO: Maybe we can add wrapper that stores both stdout/stderr and print them.
 #[derive(Clone)]
 pub struct CommandOutputString {
     // TODO: use BString?
