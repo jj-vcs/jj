@@ -912,19 +912,15 @@ impl WorkspaceCommandEnvironment {
         }
     }
 
-    /// Returns first immutable commit + lower and upper bounds on number of
-    /// immutable commits.
+    /// Returns first immutable commit.
     fn find_immutable_commit(
         &self,
         repo: &dyn Repo,
         commit_ids: &[CommitId],
-    ) -> Result<Option<(CommitId, usize, Option<usize>)>, CommandError> {
+    ) -> Result<Option<CommitId>, CommandError> {
         if self.command.global_args().ignore_immutable {
             let root_id = repo.store().root_commit_id();
-            return Ok(commit_ids
-                .iter()
-                .find(|id| *id == root_id)
-                .map(|root| (root.clone(), 1, None)));
+            return Ok(commit_ids.iter().find(|id| *id == root_id).cloned());
         }
 
         // Not using self.id_prefix_context() because the disambiguation data
@@ -944,20 +940,7 @@ impl WorkspaceCommandEnvironment {
             config_error_with_message("Invalid `revset-aliases.immutable_heads()`", e)
         })?;
 
-        let Some(first_immutable) = commit_id_iter.next().transpose()? else {
-            return Ok(None);
-        };
-
-        let mut bounds = RevsetExpressionEvaluator::new(
-            repo,
-            self.command.revset_extensions().clone(),
-            &id_prefix_context,
-            self.immutable_expression(),
-        );
-        bounds.intersect_with(&to_rewrite_revset.descendants());
-        let (lower, upper) = bounds.evaluate()?.count_estimate()?;
-
-        Ok(Some((first_immutable, lower, upper)))
+        Ok(commit_id_iter.next().transpose()?)
     }
 
     pub fn template_aliases_map(&self) -> &TemplateAliasesMap {
@@ -1812,18 +1795,16 @@ to the current parents may contain changes from multiple commits.
         &self,
         commits: impl IntoIterator<Item = &'a CommitId>,
     ) -> Result<(), CommandError> {
+        let repo = self.repo().as_ref();
         let commit_ids = commits.into_iter().cloned().collect_vec();
-        let Some((commit_id, lower_bound, upper_bound)) = self
-            .env
-            .find_immutable_commit(self.repo().as_ref(), &commit_ids)?
-        else {
+        let Some(commit_id) = self.env.find_immutable_commit(repo, &commit_ids)? else {
             return Ok(());
         };
-        let error = if &commit_id == self.repo().store().root_commit_id() {
+        let error = if &commit_id == repo.store().root_commit_id() {
             user_error(format!("The root commit {commit_id:.12} is immutable"))
         } else {
             let mut error = user_error(format!("Commit {commit_id:.12} is immutable"));
-            let commit = self.repo().store().get_commit(&commit_id)?;
+            let commit = repo.store().get_commit(&commit_id)?;
             error.add_formatted_hint_with(|formatter| {
                 write!(formatter, "Could not modify commit: ")?;
                 self.write_commit_summary(formatter, &commit)?;
@@ -1835,6 +1816,21 @@ to the current parents may contain changes from multiple commits.
                       - https://jj-vcs.github.io/jj/latest/config/#set-of-immutable-commits
                       - `jj help -k config`, \"Set of immutable commits\""});
 
+            // Not using self.id_prefix_context() for consistency with
+            // find_immutable_commit().
+            let id_prefix_context =
+                IdPrefixContext::new(self.env.command.revset_extensions().clone());
+            let to_rewrite_expr = RevsetExpression::commits(commit_ids);
+            let (lower_bound, upper_bound) = RevsetExpressionEvaluator::new(
+                repo,
+                self.env.command.revset_extensions().clone(),
+                &id_prefix_context,
+                self.env
+                    .immutable_expression()
+                    .intersection(&to_rewrite_expr.descendants()),
+            )
+            .evaluate()?
+            .count_estimate()?;
             let exact = upper_bound == Some(lower_bound);
             let or_more = if exact { "" } else { " or more" };
             error.add_hint(format!(
