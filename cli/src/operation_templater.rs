@@ -122,6 +122,19 @@ impl TemplateLanguage<'static> for OperationTemplateLanguage {
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(self, diagnostics, build_ctx, property, function)
             }
+            OperationTemplatePropertyKind::OperationOpt(property) => {
+                let type_name = "Operation";
+                let table = &self.build_fn_table.operation_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                let inner_property = property.try_unwrap(type_name);
+                build(
+                    self,
+                    diagnostics,
+                    build_ctx,
+                    Box::new(inner_property),
+                    function,
+                )
+            }
             OperationTemplatePropertyKind::OperationId(property) => {
                 let table = &self.build_fn_table.operation_id_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
@@ -142,6 +155,12 @@ impl OperationTemplateLanguage {
         OperationTemplatePropertyKind::Operation(Box::new(property))
     }
 
+    pub fn wrap_operation_opt(
+        property: impl TemplateProperty<Output = Option<Operation>> + 'static,
+    ) -> OperationTemplatePropertyKind {
+        OperationTemplatePropertyKind::OperationOpt(Box::new(property))
+    }
+
     pub fn wrap_operation_id(
         property: impl TemplateProperty<Output = OperationId> + 'static,
     ) -> OperationTemplatePropertyKind {
@@ -152,6 +171,7 @@ impl OperationTemplateLanguage {
 pub enum OperationTemplatePropertyKind {
     Core(CoreTemplatePropertyKind<'static>),
     Operation(Box<dyn TemplateProperty<Output = Operation>>),
+    OperationOpt(Box<dyn TemplateProperty<Output = Option<Operation>>>),
     OperationId(Box<dyn TemplateProperty<Output = OperationId>>),
 }
 
@@ -160,6 +180,7 @@ impl IntoTemplateProperty<'static> for OperationTemplatePropertyKind {
         match self {
             OperationTemplatePropertyKind::Core(property) => property.type_name(),
             OperationTemplatePropertyKind::Operation(_) => "Operation",
+            OperationTemplatePropertyKind::OperationOpt(_) => "Option<Operation>",
             OperationTemplatePropertyKind::OperationId(_) => "OperationId",
         }
     }
@@ -168,6 +189,9 @@ impl IntoTemplateProperty<'static> for OperationTemplatePropertyKind {
         match self {
             OperationTemplatePropertyKind::Core(property) => property.try_into_boolean(),
             OperationTemplatePropertyKind::Operation(_) => None,
+            OperationTemplatePropertyKind::OperationOpt(property) => {
+                Some(Box::new(property.map(|opt| opt.is_some())))
+            }
             OperationTemplatePropertyKind::OperationId(_) => None,
         }
     }
@@ -193,6 +217,7 @@ impl IntoTemplateProperty<'static> for OperationTemplatePropertyKind {
         match self {
             OperationTemplatePropertyKind::Core(property) => property.try_into_template(),
             OperationTemplatePropertyKind::Operation(_) => None,
+            OperationTemplatePropertyKind::OperationOpt(_) => None,
             OperationTemplatePropertyKind::OperationId(property) => Some(property.into_template()),
         }
     }
@@ -205,6 +230,7 @@ impl IntoTemplateProperty<'static> for OperationTemplatePropertyKind {
             ) => lhs.try_into_eq(rhs),
             (OperationTemplatePropertyKind::Core(_), _) => None,
             (OperationTemplatePropertyKind::Operation(_), _) => None,
+            (OperationTemplatePropertyKind::OperationOpt(_), _) => None,
             (OperationTemplatePropertyKind::OperationId(_), _) => None,
         }
     }
@@ -217,6 +243,7 @@ impl IntoTemplateProperty<'static> for OperationTemplatePropertyKind {
             ) => lhs.try_into_cmp(rhs),
             (OperationTemplatePropertyKind::Core(_), _) => None,
             (OperationTemplatePropertyKind::Operation(_), _) => None,
+            (OperationTemplatePropertyKind::OperationOpt(_), _) => None,
             (OperationTemplatePropertyKind::OperationId(_), _) => None,
         }
     }
