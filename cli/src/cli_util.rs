@@ -27,6 +27,7 @@ use std::mem;
 use std::path::Path;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::slice;
 use std::str;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -913,15 +914,15 @@ impl WorkspaceCommandEnvironment {
 
     /// Returns first immutable commit + lower and upper bounds on number of
     /// immutable commits.
-    fn find_immutable_commit<'a>(
+    fn find_immutable_commit(
         &self,
         repo: &dyn Repo,
-        commits: impl IntoIterator<Item = &'a CommitId>,
+        commit_ids: &[CommitId],
     ) -> Result<Option<(CommitId, usize, Option<usize>)>, CommandError> {
         if self.command.global_args().ignore_immutable {
             let root_id = repo.store().root_commit_id();
-            return Ok(commits
-                .into_iter()
+            return Ok(commit_ids
+                .iter()
                 .find(|id| *id == root_id)
                 .map(|root| (root.clone(), 1, None)));
         }
@@ -930,8 +931,7 @@ impl WorkspaceCommandEnvironment {
         // must not be calculated and cached against arbitrary repo. It's also
         // unlikely that the immutable expression contains short hashes.
         let id_prefix_context = IdPrefixContext::new(self.command.revset_extensions().clone());
-        let to_rewrite_revset =
-            RevsetExpression::commits(commits.into_iter().cloned().collect_vec());
+        let to_rewrite_revset = RevsetExpression::commits(commit_ids.to_vec());
         let mut expression = RevsetExpressionEvaluator::new(
             repo,
             self.command.revset_extensions().clone(),
@@ -1812,9 +1812,10 @@ to the current parents may contain changes from multiple commits.
         &self,
         commits: impl IntoIterator<Item = &'a CommitId>,
     ) -> Result<(), CommandError> {
+        let commit_ids = commits.into_iter().cloned().collect_vec();
         let Some((commit_id, lower_bound, upper_bound)) = self
             .env
-            .find_immutable_commit(self.repo().as_ref(), commits)?
+            .find_immutable_commit(self.repo().as_ref(), &commit_ids)?
         else {
             return Ok(());
         };
@@ -2075,7 +2076,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
         for (name, wc_commit_id) in &tx.repo().view().wc_commit_ids().clone() {
             if self
                 .env
-                .find_immutable_commit(tx.repo(), [wc_commit_id])?
+                .find_immutable_commit(tx.repo(), slice::from_ref(wc_commit_id))?
                 .is_some()
             {
                 let wc_commit = tx.repo().store().get_commit(wc_commit_id)?;
