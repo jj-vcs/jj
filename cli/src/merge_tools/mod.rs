@@ -135,6 +135,43 @@ impl MergeTool {
     fn external(tool: ExternalMergeTool) -> Self {
         MergeTool::External(Box::new(tool))
     }
+
+    /// Resolves builtin merge tool names or loads external tool options from
+    /// `[merge-tools.<name>]`.
+    fn get_tool_config(
+        settings: &UserSettings,
+        name: &str,
+    ) -> Result<Option<Self>, MergeToolConfigError> {
+        match name {
+            BUILTIN_EDITOR_NAME => Ok(Some(MergeTool::Builtin)),
+            _ => Ok(get_external_tool_config(settings, name)?.map(MergeTool::external)),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum DiffTool {
+    Builtin,
+    // Boxed because ExternalMergeTool is big compared to the Builtin variant.
+    External(Box<ExternalMergeTool>),
+}
+
+impl DiffTool {
+    fn external(tool: ExternalMergeTool) -> Self {
+        DiffTool::External(Box::new(tool))
+    }
+
+    /// Resolves builtin merge tool name or loads external tool options from
+    /// `[merge-tools.<name>]`.
+    fn get_tool_config(
+        settings: &UserSettings,
+        name: &str,
+    ) -> Result<Option<Self>, MergeToolConfigError> {
+        match name {
+            BUILTIN_EDITOR_NAME => Ok(Some(DiffTool::Builtin)),
+            _ => Ok(get_external_tool_config(settings, name)?.map(DiffTool::external)),
+        }
+    }
 }
 
 /// Finds the appropriate tool for diff editing or merges
@@ -159,19 +196,6 @@ fn editor_args_from_settings(
     }
 }
 
-/// Resolves builtin merge tool name or loads external tool options from
-/// `[merge-tools.<name>]`.
-fn get_tool_config(
-    settings: &UserSettings,
-    name: &str,
-) -> Result<Option<MergeTool>, ConfigGetError> {
-    if name == BUILTIN_EDITOR_NAME {
-        Ok(Some(MergeTool::Builtin))
-    } else {
-        Ok(get_external_tool_config(settings, name)?.map(MergeTool::external))
-    }
-}
-
 /// Loads external diff/merge tool options from `[merge-tools.<name>]`.
 pub fn get_external_tool_config(
     settings: &UserSettings,
@@ -190,7 +214,7 @@ pub fn get_external_tool_config(
 /// Configured diff editor.
 #[derive(Clone, Debug)]
 pub struct DiffEditor {
-    tool: MergeTool,
+    tool: DiffTool,
     base_ignores: Arc<GitIgnoreFile>,
     use_instructions: bool,
     conflict_marker_style: ConflictMarkerStyle,
@@ -205,8 +229,8 @@ impl DiffEditor {
         base_ignores: Arc<GitIgnoreFile>,
         conflict_marker_style: ConflictMarkerStyle,
     ) -> Result<Self, MergeToolConfigError> {
-        let tool = get_tool_config(settings, name)?
-            .unwrap_or_else(|| MergeTool::external(ExternalMergeTool::with_program(name)));
+        let tool = DiffTool::get_tool_config(settings, name)?
+            .unwrap_or_else(|| DiffTool::external(ExternalMergeTool::with_program(name)));
         Self::new_inner(tool, settings, base_ignores, conflict_marker_style)
     }
 
@@ -219,16 +243,16 @@ impl DiffEditor {
     ) -> Result<Self, MergeToolConfigError> {
         let args = editor_args_from_settings(ui, settings, "ui.diff-editor")?;
         let tool = if let CommandNameAndArgs::String(name) = &args {
-            get_tool_config(settings, name)?
+            DiffTool::get_tool_config(settings, name)?
         } else {
             None
         }
-        .unwrap_or_else(|| MergeTool::external(ExternalMergeTool::with_edit_args(&args)));
+        .unwrap_or_else(|| DiffTool::external(ExternalMergeTool::with_edit_args(&args)));
         Self::new_inner(tool, settings, base_ignores, conflict_marker_style)
     }
 
     fn new_inner(
-        tool: MergeTool,
+        tool: DiffTool,
         settings: &UserSettings,
         base_ignores: Arc<GitIgnoreFile>,
         conflict_marker_style: ConflictMarkerStyle,
@@ -257,13 +281,13 @@ impl DiffEditor {
         format_instructions: impl FnOnce() -> String,
     ) -> Result<MergedTreeId, DiffEditError> {
         match &self.tool {
-            MergeTool::Builtin => {
+            DiffTool::Builtin => {
                 Ok(
                     edit_diff_builtin(left_tree, right_tree, matcher, self.conflict_marker_style)
                         .map_err(Box::new)?,
                 )
             }
-            MergeTool::External(editor) => {
+            DiffTool::External(editor) => {
                 let instructions = self.use_instructions.then(format_instructions);
                 edit_diff_external(
                     editor,
@@ -337,7 +361,7 @@ impl MergeEditor {
         path_converter: RepoPathUiConverter,
         conflict_marker_style: ConflictMarkerStyle,
     ) -> Result<Self, MergeToolConfigError> {
-        let tool = get_tool_config(settings, name)?
+        let tool = MergeTool::get_tool_config(settings, name)?
             .unwrap_or_else(|| MergeTool::external(ExternalMergeTool::with_program(name)));
         Self::new_inner(name, tool, path_converter, conflict_marker_style)
     }
@@ -351,7 +375,7 @@ impl MergeEditor {
     ) -> Result<Self, MergeToolConfigError> {
         let args = editor_args_from_settings(ui, settings, "ui.merge-editor")?;
         let tool = if let CommandNameAndArgs::String(name) = &args {
-            get_tool_config(settings, name)?
+            MergeTool::get_tool_config(settings, name)?
         } else {
             None
         }
