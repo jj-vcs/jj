@@ -101,27 +101,11 @@ fn test_no_subcommand() {
     let output = test_env
         .run_jj_in(test_env.env_root(), ["-R", "repo"])
         .success();
-    assert_eq!(
-        output.stdout.raw(),
-        test_env
-            .run_jj_in(&repo_path, ["log"])
-            .success()
-            .stdout
-            .raw()
-    );
-    insta::assert_snapshot!(output.stderr, @"");
+    assert_eq!(output, test_env.run_jj_in(&repo_path, ["log"]));
 
     // Inside of a repo.
     let output = test_env.run_jj_in(&repo_path, [""; 0]).success();
-    assert_eq!(
-        output.stdout.raw(),
-        test_env
-            .run_jj_in(&repo_path, ["log"])
-            .success()
-            .stdout
-            .raw()
-    );
-    insta::assert_snapshot!(output.stderr, @"");
+    assert_eq!(output, test_env.run_jj_in(&repo_path, ["log"]));
 
     // Command argument that looks like a command name.
     test_env
@@ -184,7 +168,7 @@ fn test_ignore_working_copy() {
         &repo_path,
         ["log", "-T", "commit_id", "--ignore-working-copy"],
     );
-    assert_eq!(output_again.stdout.raw(), output.stdout.raw());
+    assert_eq!(output_again, output);
 
     // But without --ignore-working-copy, we get a new commit ID.
     let output = test_env.run_jj_in(&repo_path, ["log", "-T", "commit_id"]);

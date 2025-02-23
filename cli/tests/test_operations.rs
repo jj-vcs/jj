@@ -1070,8 +1070,8 @@ fn test_op_diff() {
     - untracked pukowqtp 0cb7e07e bookmark-1 | Commit 1
     [EOF]
     ");
-    let output_without_from_to = test_env.run_jj_in(&repo_path, ["op", "diff"]).success();
-    assert_eq!(output.stdout.raw(), output_without_from_to.stdout.raw());
+    let output_without_from_to = test_env.run_jj_in(&repo_path, ["op", "diff"]);
+    assert_eq!(output, output_without_from_to);
 
     // Diff from root operation to latest operation
     let output = test_env.run_jj_in(&repo_path, ["op", "diff", "--from", "0000000"]);
@@ -1849,8 +1849,8 @@ fn test_op_show() {
     [EOF]
     ");
     // `jj op show @` should behave identically to `jj op show`.
-    let output_without_op_id = test_env.run_jj_in(&repo_path, ["op", "show"]).success();
-    assert_eq!(output.stdout.raw(), output_without_op_id.stdout.raw());
+    let output_without_op_id = test_env.run_jj_in(&repo_path, ["op", "show"]);
+    assert_eq!(output, output_without_op_id);
 
     // Showing a given operation.
     let output = test_env.run_jj_in(&repo_path, ["op", "show", "@-"]);

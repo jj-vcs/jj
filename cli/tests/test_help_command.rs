@@ -20,28 +20,22 @@ fn test_help() {
 
     let help_cmd = test_env.run_jj_in(test_env.env_root(), ["help"]).success();
     // The help command output should be equal to the long --help flag
-    let help_flag = test_env
-        .run_jj_in(test_env.env_root(), ["--help"])
-        .success();
-    assert_eq!(help_cmd.stdout.raw(), help_flag.stdout.raw());
+    let help_flag = test_env.run_jj_in(test_env.env_root(), ["--help"]);
+    assert_eq!(help_cmd, help_flag);
 
     // Help command should work with commands
     let help_cmd = test_env
         .run_jj_in(test_env.env_root(), ["help", "log"])
         .success();
-    let help_flag = test_env
-        .run_jj_in(test_env.env_root(), ["log", "--help"])
-        .success();
-    assert_eq!(help_cmd.stdout.raw(), help_flag.stdout.raw());
+    let help_flag = test_env.run_jj_in(test_env.env_root(), ["log", "--help"]);
+    assert_eq!(help_cmd, help_flag);
 
     // Help command should work with subcommands
     let help_cmd = test_env
         .run_jj_in(test_env.env_root(), ["help", "workspace", "root"])
         .success();
-    let help_flag = test_env
-        .run_jj_in(test_env.env_root(), ["workspace", "root", "--help"])
-        .success();
-    assert_eq!(help_cmd.stdout.raw(), help_flag.stdout.raw());
+    let help_flag = test_env.run_jj_in(test_env.env_root(), ["workspace", "root", "--help"]);
+    assert_eq!(help_cmd, help_flag);
 
     // Help command should not work recursively
     let output = test_env.run_jj_in(test_env.env_root(), ["workspace", "help", "root"]);
@@ -76,17 +70,14 @@ fn test_help() {
     let help_cmd = test_env.run_jj_in(test_env.env_root(), ["help", "nonexistent"]);
     let help_flag = test_env.run_jj_in(test_env.env_root(), ["nonexistent", "--help"]);
     assert_eq!(help_cmd.status.code(), Some(2), "{help_cmd}");
-    assert_eq!(help_flag.status.code(), Some(2), "{help_flag}");
-    assert_eq!(help_cmd.stderr.raw(), help_flag.stderr.raw());
+    assert_eq!(help_cmd, help_flag);
 
     // Some edge cases
     let help_cmd = test_env
         .run_jj_in(test_env.env_root(), ["help", "help"])
         .success();
-    let help_flag = test_env
-        .run_jj_in(test_env.env_root(), ["help", "--help"])
-        .success();
-    assert_eq!(help_cmd.stdout.raw(), help_flag.stdout.raw());
+    let help_flag = test_env.run_jj_in(test_env.env_root(), ["help", "--help"]);
+    assert_eq!(help_cmd, help_flag);
 
     let output = test_env.run_jj_in(test_env.env_root(), ["help", "unknown"]);
     insta::assert_snapshot!(output, @r"
