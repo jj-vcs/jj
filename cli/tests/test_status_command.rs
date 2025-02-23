@@ -428,15 +428,17 @@ fn test_status_untracked_files() {
     [EOF]
     ");
 
-    test_env.jj_cmd_success(
-        &repo_path,
-        &[
-            "file",
-            "track",
-            "initially-untracked-file",
-            "sub/initially-untracked",
-        ],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            [
+                "file",
+                "track",
+                "initially-untracked-file",
+                "sub/initially-untracked",
+            ],
+        )
+        .success();
 
     let output = test_env.run_jj_in(&repo_path, ["status"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
@@ -463,15 +465,17 @@ fn test_status_untracked_files() {
     [EOF]
     ");
 
-    test_env.jj_cmd_success(
-        &repo_path,
-        &[
-            "file",
-            "untrack",
-            "initially-untracked-file",
-            "sub/initially-untracked",
-        ],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            [
+                "file",
+                "untrack",
+                "initially-untracked-file",
+                "sub/initially-untracked",
+            ],
+        )
+        .success();
     let output = test_env.run_jj_in(&repo_path, ["status"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     Working copy changes:

@@ -823,7 +823,7 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
 
     if automatic {
         // Run a no-op command to set the randomness seed for commit hashes.
-        test_env.jj_cmd_success(&secondary_path, &["help"]);
+        test_env.run_jj_in(&secondary_path, ["help"]).success();
 
         let (stdout, stderr) = test_env.jj_cmd_ok(&secondary_path, &["st"]);
         insta::assert_snapshot!(stdout, @r"
@@ -1147,7 +1147,9 @@ fn test_workspaces_forget_abandon_commits() {
     ");
 
     // delete the default workspace (should not abandon commit since not empty)
-    test_env.jj_cmd_success(&main_path, &["workspace", "forget", "default"]);
+    test_env
+        .run_jj_in(&main_path, ["workspace", "forget", "default"])
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &main_path), @r"
     ○  57d63245a308 fourth@ second@ third@
     │ ○  4e8f9d2be039
@@ -1158,7 +1160,9 @@ fn test_workspaces_forget_abandon_commits() {
 
     // delete the second workspace (should not abandon commit since other workspaces
     // still have commit checked out)
-    test_env.jj_cmd_success(&main_path, &["workspace", "forget", "second"]);
+    test_env
+        .run_jj_in(&main_path, ["workspace", "forget", "second"])
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &main_path), @r"
     ○  57d63245a308 fourth@ third@
     │ ○  4e8f9d2be039
@@ -1169,7 +1173,9 @@ fn test_workspaces_forget_abandon_commits() {
 
     // delete the last 2 workspaces (commit should be abandoned now even though
     // forgotten in same tx)
-    test_env.jj_cmd_success(&main_path, &["workspace", "forget", "third", "fourth"]);
+    test_env
+        .run_jj_in(&main_path, ["workspace", "forget", "third", "fourth"])
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &main_path), @r"
     ○  4e8f9d2be039
     ◆  000000000000

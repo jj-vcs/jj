@@ -639,7 +639,9 @@ fn test_config_set_toml_types() {
     let repo_path = test_env.env_root().join("repo");
 
     let set_value = |key, value| {
-        test_env.jj_cmd_success(&repo_path, &["config", "set", "--user", key, value]);
+        test_env
+            .run_jj_in(&repo_path, ["config", "set", "--user", key, value])
+            .success();
     };
     set_value("test-table.integer", "42");
     set_value("test-table.float", "3.14");
@@ -681,22 +683,30 @@ fn test_config_set_type_mismatch() {
     ");
 
     // But it's fine to overwrite arrays and inline tables
-    test_env.jj_cmd_success(
-        &repo_path,
-        &["config", "set", "--user", "test-table.array", "[1,2,3]"],
-    );
-    test_env.jj_cmd_success(
-        &repo_path,
-        &["config", "set", "--user", "test-table.array", "[4,5,6]"],
-    );
-    test_env.jj_cmd_success(
-        &repo_path,
-        &["config", "set", "--user", "test-table.inline", "{ x = 42}"],
-    );
-    test_env.jj_cmd_success(
-        &repo_path,
-        &["config", "set", "--user", "test-table.inline", "42"],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["config", "set", "--user", "test-table.array", "[1,2,3]"],
+        )
+        .success();
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["config", "set", "--user", "test-table.array", "[4,5,6]"],
+        )
+        .success();
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["config", "set", "--user", "test-table.inline", "{ x = 42}"],
+        )
+        .success();
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["config", "set", "--user", "test-table.inline", "42"],
+        )
+        .success();
 }
 
 #[test]
@@ -776,10 +786,12 @@ fn test_config_unset_table_like() {
     .unwrap();
 
     // Inline table is syntactically a "value", so it can be deleted.
-    test_env.jj_cmd_success(
-        test_env.env_root(),
-        &["config", "unset", "--user", "inline-table"],
-    );
+    test_env
+        .run_jj_in(
+            test_env.env_root(),
+            ["config", "unset", "--user", "inline-table"],
+        )
+        .success();
     // Non-inline table cannot be deleted.
     let output = test_env.run_jj_in(
         test_env.env_root(),
