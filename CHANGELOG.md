@@ -103,6 +103,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   which branch in the `jj log` graph is displayed on the left instead of `@`
   (e.g. `coalesce(description("megamerge\n"), trunk())`)
 
+* `jj resolve` now accepts new built-in merge tools `:ours` and `:theirs`.
+  These merge tools accept side #1 and side #2 of the conflict respectively.
+
 ### Fixed bugs
 
 * `jj log -p --stat` now shows diff stats as well as the default color-words/git

@@ -1661,3 +1661,78 @@ fn test_multiple_conflicts_with_error() {
     [EOF]
     ");
 }
+
+#[test]
+fn test_resolve_with_contents_of_side() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    create_commit_with_files(&work_dir, "base", &[], &[("file", "base\n")]);
+    create_commit_with_files(&work_dir, "a", &["base"], &[("file", "a\n")]);
+    create_commit_with_files(&work_dir, "b", &["base"], &[("file", "b\n")]);
+    create_commit_with_files(&work_dir, "conflict", &["a", "b"], &[]);
+    // Test the setup
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @    conflict
+    ├─╮
+    │ ○  b
+    ○ │  a
+    ├─╯
+    ○  base
+    ◆
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    file    2-sided conflict
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.read_file("file"), @r"
+    <<<<<<< Conflict 1 of 1
+    %%%%%%% Changes from base to side #1
+    -base
+    +a
+    +++++++ Contents of side #2
+    b
+    >>>>>>> Conflict 1 of 1 ends
+    ");
+
+    // Check that ":ours" merge tool works correctly
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"");
+    let output = work_dir.run_jj(["resolve", "--tool", ":ours"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: vruxwmqv 09b42f21 conflict | conflict
+    Parent commit (@-)      : zsuskuln aa493daf a | a
+    Parent commit (@-)      : royxmykx db6a4daf b | b
+    Added 0 files, modified 1 files, removed 0 files
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.read_file("file"), @"a");
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r#"
+    ------- stderr -------
+    Error: No conflicts found at this revision
+    [EOF]
+    [exit status: 2]
+    "#);
+
+    // Check that ":theirs" merge tool works correctly
+    work_dir.run_jj(["undo"]).success();
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"");
+    let output = work_dir.run_jj(["resolve", "--tool", ":theirs"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: vruxwmqv 91b58732 conflict | conflict
+    Parent commit (@-)      : zsuskuln aa493daf a | a
+    Parent commit (@-)      : royxmykx db6a4daf b | b
+    Added 0 files, modified 1 files, removed 0 files
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.read_file("file"), @"b");
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r#"
+    ------- stderr -------
+    Error: No conflicts found at this revision
+    [EOF]
+    [exit status: 2]
+    "#);
+}

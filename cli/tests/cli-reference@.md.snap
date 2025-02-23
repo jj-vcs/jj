@@ -2135,6 +2135,8 @@ Note that conflicts can also be resolved without using this command. You may edi
 * `-l`, `--list` — Instead of resolving conflicts, list all the conflicts
 * `--tool <NAME>` — Specify 3-way merge tool to be used
 
+   The built-in merge tools `:ours` and `:theirs` can be used to choose side #1 and side #2 of the conflict respectively.
+
 
 
 ## `jj restore`
