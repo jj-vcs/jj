@@ -519,8 +519,7 @@ fn test_bookmark_move_conflicting() {
     let repo_path = test_env.env_root().join("repo");
     let get_log = || {
         let template = r#"separate(" ", description.first_line(), bookmarks)"#;
-        let (stdout, _stderr) = test_env.jj_cmd_ok(&repo_path, &["log", "-T", template]);
-        stdout
+        test_env.run_jj_in(&repo_path, ["log", "-T", template])
     };
 
     test_env
@@ -563,6 +562,9 @@ fn test_bookmark_move_conflicting() {
     │ ○  B0 foo??
     ├─╯
     ◆
+    [EOF]
+    ------- stderr -------
+    Concurrent modification detected, resolving automatically.
     [EOF]
     ");
 

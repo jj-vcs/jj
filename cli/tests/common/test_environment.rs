@@ -29,8 +29,6 @@ use tempfile::TempDir;
 
 use super::fake_diff_editor_path;
 use super::fake_editor_path;
-use super::get_stderr_string;
-use super::get_stdout_string;
 use super::strip_last_line;
 use super::to_toml_value;
 
@@ -151,24 +149,6 @@ impl TestEnvironment {
         }
 
         cmd
-    }
-
-    fn get_ok(&self, mut cmd: assert_cmd::Command) -> (CommandOutputString, CommandOutputString) {
-        let assert = cmd.assert().success();
-        let stdout = self.normalize_output(get_stdout_string(&assert));
-        let stderr = self.normalize_output(get_stderr_string(&assert));
-        (stdout, stderr)
-    }
-
-    /// Run a `jj` command, check that it was successful, and return its
-    /// `(stdout, stderr)`.
-    // TODO: remove jj_cmd_*() in favor of run_jj_*()
-    pub fn jj_cmd_ok(
-        &self,
-        current_dir: &Path,
-        args: &[&str],
-    ) -> (CommandOutputString, CommandOutputString) {
-        self.get_ok(self.jj_cmd(current_dir, args))
     }
 
     pub fn env_root(&self) -> &Path {

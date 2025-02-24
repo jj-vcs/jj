@@ -955,11 +955,12 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
         ["", "next invocation\n", "write\nsecond-commit"].join("\0"),
     )
     .unwrap();
-    let (_, stderr) = test_env.jj_cmd_ok(&main_path, &["split", "file2"]);
+    let output = test_env.run_jj_in(&main_path, ["split", "file2"]);
     match bookmark_behavior {
         BookmarkBehavior::Default | BookmarkBehavior::Modern => {
             insta::allow_duplicates! {
-            insta::assert_snapshot!(stderr, @r"
+            insta::assert_snapshot!(output, @r"
+            ------- stderr -------
             First part: qpvuntsm 63d0c5ed *le-signet* | first-commit
             Second part: mzvwutvl a9f5665f second-commit
             Working copy now at: mzvwutvl a9f5665f second-commit
@@ -978,7 +979,8 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
         }
         BookmarkBehavior::Legacy => {
             insta::allow_duplicates! {
-            insta::assert_snapshot!(stderr, @r"
+            insta::assert_snapshot!(output, @r"
+            ------- stderr -------
             Warning: `jj split` will leave bookmarks on the first commit in the next release.
             Warning: Run `jj config set --user split.legacy-bookmark-behavior false` to silence this message and use the new behavior.
             Warning: See https://github.com/jj-vcs/jj/issues/3419

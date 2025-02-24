@@ -509,11 +509,10 @@ fn test_git_colocated_conflicting_git_refs() {
     test_env
         .run_jj_in(&workspace_root, ["bookmark", "create", "-r@", "main"])
         .success();
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "-r@", "main/sub"]);
-    insta::assert_snapshot!(stdout, @"");
+    let output = test_env.run_jj_in(&workspace_root, ["bookmark", "create", "-r@", "main/sub"]);
     insta::with_settings!({filters => vec![("Failed to set: .*", "Failed to set: ...")]}, {
-        insta::assert_snapshot!(stderr, @r#"
+        insta::assert_snapshot!(output, @r#"
+        ------- stderr -------
         Created 1 bookmarks pointing to qpvuntsm 230dd059 main main/sub | (empty) (no description set)
         Warning: Failed to export some bookmarks:
           main/sub: Failed to set: ...

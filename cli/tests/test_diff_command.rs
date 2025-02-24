@@ -2231,15 +2231,15 @@ fn test_diff_external_tool() {
 
     // nonzero exit codes should print a warning
     std::fs::write(&edit_script, "fail").unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["diff", "--config=ui.diff.tool=fake-diff-editor"],
+        ["diff", "--config=ui.diff.tool=fake-diff-editor"],
     );
     let mut insta_settings = insta::Settings::clone_current();
     insta_settings.add_filter("exit (status|code)", "<exit status>");
     insta_settings.bind(|| {
-        insta::assert_snapshot!(stdout, @r"");
-        insta::assert_snapshot!(stderr, @r"
+        insta::assert_snapshot!(output, @r"
+        ------- stderr -------
         Warning: Tool exited with <exit status>: 1 (run with --debug to see the exact invocation)
         [EOF]
         ");

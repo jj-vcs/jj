@@ -81,10 +81,10 @@ fn test_git_export_conflicting_git_refs() {
     test_env
         .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "main/sub"])
         .success();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "export"]);
-    insta::assert_snapshot!(stdout, @"");
+    let output = test_env.run_jj_in(&repo_path, ["git", "export"]);
     insta::with_settings!({filters => vec![("Failed to set: .*", "Failed to set: ...")]}, {
-        insta::assert_snapshot!(stderr, @r#"
+        insta::assert_snapshot!(output, @r#"
+        ------- stderr -------
         Warning: Failed to export some bookmarks:
           main/sub: Failed to set: ...
         Hint: Git doesn't allow a branch name that looks like a parent directory of

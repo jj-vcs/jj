@@ -1498,8 +1498,13 @@ fn test_config_author_change_warning() {
     log_cmd.env_remove("JJ_EMAIL");
     log_cmd.assert().success();
 
-    let (stdout, _) = test_env.jj_cmd_ok(&repo_path, &["log"]);
-    assert!(stdout.raw().contains("Foo"));
+    let output = test_env.run_jj_in(&repo_path, ["log"]);
+    insta::assert_snapshot!(output, @r"
+    @  qpvuntsm Foo 2001-02-03 08:05:09 ed1febd8
+    │  (empty) (no description set)
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
 }
 
 #[test]

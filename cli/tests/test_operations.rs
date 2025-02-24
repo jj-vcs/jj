@@ -1236,8 +1236,15 @@ fn test_op_diff() {
             ],
         )
         .success();
-    let (_, stderr) = test_env.jj_cmd_ok(&repo_path, &["log"]);
-    insta::assert_snapshot!(&stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log"]);
+    insta::assert_snapshot!(output, @r"
+    @  sqpuoqvx test.user@example.com 2001-02-03 08:05:07 c7b48fea
+    │  (empty) (no description set)
+    ◆  pukowqtp someone@example.org 1970-01-01 11:00:00 bookmark-1?? bookmark-1@origin 0cb7e07e
+    │  Commit 1
+    ~
+    [EOF]
+    ------- stderr -------
     Concurrent modification detected, resolving automatically.
     [EOF]
     ");
@@ -1985,8 +1992,15 @@ fn test_op_show() {
             ],
         )
         .success();
-    let (_, stderr) = test_env.jj_cmd_ok(&repo_path, &["log"]);
-    insta::assert_snapshot!(&stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log"]);
+    insta::assert_snapshot!(output, @r"
+    @  sqpuoqvx test.user@example.com 2001-02-03 08:05:07 c7b48fea
+    │  (empty) (no description set)
+    ◆  pukowqtp someone@example.org 1970-01-01 11:00:00 bookmark-1?? bookmark-1@origin 0cb7e07e
+    │  Commit 1
+    ~
+    [EOF]
+    ------- stderr -------
     Concurrent modification detected, resolving automatically.
     [EOF]
     ");

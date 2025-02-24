@@ -124,10 +124,14 @@ fn test_shell_completions() {
     fn test(shell: &str) {
         let test_env = TestEnvironment::default();
         // Use the local backend because GitBackend::gc() depends on the git CLI.
-        let (out, err) = test_env.jj_cmd_ok(test_env.env_root(), &["util", "completion", shell]);
+        let output = test_env
+            .run_jj_in(test_env.env_root(), ["util", "completion", shell])
+            .success();
         // Ensures only stdout contains text
-        assert!(!out.is_empty());
-        assert!(err.is_empty());
+        assert!(
+            !output.stdout.is_empty() && output.stderr.is_empty(),
+            "{output}"
+        );
     }
 
     test("bash");
@@ -140,9 +144,9 @@ fn test_shell_completions() {
 fn test_util_exec() {
     let test_env = TestEnvironment::default();
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
-    let (out, err) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         test_env.env_root(),
-        &[
+        [
             "util",
             "exec",
             "--",
@@ -151,9 +155,8 @@ fn test_util_exec() {
             "hello",
         ],
     );
-    insta::assert_snapshot!(out, @"hello[EOF]");
     // Ensures only stdout contains text
-    assert!(err.is_empty());
+    insta::assert_snapshot!(output, @"hello[EOF]");
 }
 
 #[test]
