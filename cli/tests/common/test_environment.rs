@@ -15,12 +15,8 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::OsStr;
-use std::fmt;
-use std::fmt::Debug;
-use std::fmt::Display;
 use std::path::Path;
 use std::path::PathBuf;
-use std::process::ExitStatus;
 
 use bstr::BString;
 use indoc::formatdoc;
@@ -28,9 +24,10 @@ use regex::Captures;
 use regex::Regex;
 use tempfile::TempDir;
 
+use super::command_output::CommandOutput;
+use super::command_output::CommandOutputString;
 use super::fake_diff_editor_path;
 use super::fake_editor_path;
-use super::strip_last_line;
 use super::to_toml_value;
 
 pub struct TestEnvironment {
@@ -328,187 +325,6 @@ impl TestWorkDir<'_> {
             self.create_dir_all(dir);
         }
         std::fs::write(self.root.join(path), contents).unwrap();
-    }
-}
-
-/// Command output and exit status to be displayed in normalized form.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CommandOutput {
-    pub stdout: CommandOutputString,
-    pub stderr: CommandOutputString,
-    pub status: ExitStatus,
-}
-
-impl CommandOutput {
-    /// Normalizes Windows directory separator to slash.
-    #[must_use]
-    pub fn normalize_backslash(self) -> Self {
-        CommandOutput {
-            stdout: self.stdout.normalize_backslash(),
-            stderr: self.stderr.normalize_backslash(),
-            status: self.status,
-        }
-    }
-
-    /// Normalizes [`ExitStatus`] message in stderr text.
-    #[must_use]
-    pub fn normalize_stderr_exit_status(self) -> Self {
-        CommandOutput {
-            stdout: self.stdout,
-            stderr: self.stderr.normalize_exit_status(),
-            status: self.status,
-        }
-    }
-
-    /// Removes the last line (such as platform-specific error message) from the
-    /// normalized stderr text.
-    #[must_use]
-    pub fn strip_stderr_last_line(self) -> Self {
-        CommandOutput {
-            stdout: self.stdout,
-            stderr: self.stderr.strip_last_line(),
-            status: self.status,
-        }
-    }
-
-    #[must_use]
-    pub fn normalize_stdout_with(self, f: impl FnOnce(String) -> String) -> Self {
-        CommandOutput {
-            stdout: self.stdout.normalize_with(f),
-            stderr: self.stderr,
-            status: self.status,
-        }
-    }
-
-    #[must_use]
-    pub fn normalize_stderr_with(self, f: impl FnOnce(String) -> String) -> Self {
-        CommandOutput {
-            stdout: self.stdout,
-            stderr: self.stderr.normalize_with(f),
-            status: self.status,
-        }
-    }
-
-    /// Ensures that the command exits with success status.
-    #[track_caller]
-    pub fn success(self) -> Self {
-        assert!(self.status.success(), "{self}");
-        self
-    }
-}
-
-impl Display for CommandOutput {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let CommandOutput {
-            stdout,
-            stderr,
-            status,
-        } = self;
-        write!(f, "{stdout}")?;
-        if !stderr.is_empty() {
-            writeln!(f, "------- stderr -------")?;
-            write!(f, "{stderr}")?;
-        }
-        if !status.success() {
-            // If there is an exit code, `{status}` would get rendered as "exit
-            // code: N" on Windows, so we render it ourselves for compatibility.
-            if let Some(code) = status.code() {
-                writeln!(f, "[exit status: {code}]")?;
-            } else {
-                writeln!(f, "[{status}]")?;
-            }
-        }
-        Ok(())
-    }
-}
-
-/// Command output data to be displayed in normalized form.
-#[derive(Clone)]
-pub struct CommandOutputString {
-    // TODO: use BString?
-    raw: String,
-    normalized: String,
-}
-
-impl CommandOutputString {
-    /// Normalizes Windows directory separator to slash.
-    #[must_use]
-    pub fn normalize_backslash(self) -> Self {
-        self.normalize_with(|s| s.replace('\\', "/"))
-    }
-
-    /// Normalizes [`ExitStatus`] message.
-    ///
-    /// On Windows, it prints "exit code" instead of "exit status".
-    #[must_use]
-    pub fn normalize_exit_status(self) -> Self {
-        self.normalize_with(|s| s.replace("exit code:", "exit status:"))
-    }
-
-    /// Removes the last line (such as platform-specific error message) from the
-    /// normalized text.
-    #[must_use]
-    pub fn strip_last_line(self) -> Self {
-        self.normalize_with(|mut s| {
-            s.truncate(strip_last_line(&s).len());
-            s
-        })
-    }
-
-    #[must_use]
-    pub fn normalize_with(mut self, f: impl FnOnce(String) -> String) -> Self {
-        self.normalized = f(self.normalized);
-        self
-    }
-
-    #[must_use]
-    pub fn is_empty(&self) -> bool {
-        self.raw.is_empty()
-    }
-
-    /// Raw output data.
-    #[must_use]
-    pub fn raw(&self) -> &str {
-        &self.raw
-    }
-
-    /// Normalized text for snapshot testing.
-    #[must_use]
-    pub fn normalized(&self) -> &str {
-        &self.normalized
-    }
-
-    /// Extracts raw output data.
-    #[must_use]
-    pub fn into_raw(self) -> String {
-        self.raw
-    }
-}
-
-impl Debug for CommandOutputString {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Print only raw data. Normalized string should be nearly identical.
-        Debug::fmt(&self.raw, f)
-    }
-}
-
-impl Display for CommandOutputString {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.is_empty() {
-            return Ok(());
-        }
-        // Append "[EOF]" marker to test line ending
-        // https://github.com/mitsuhiko/insta/issues/384
-        writeln!(f, "{}[EOF]", self.normalized)
-    }
-}
-
-impl Eq for CommandOutputString {}
-
-impl PartialEq for CommandOutputString {
-    fn eq(&self, other: &Self) -> bool {
-        // Compare only raw data. Normalized string is for displaying purpose.
-        self.raw == other.raw
     }
 }
 

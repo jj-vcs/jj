@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod command_output;
 mod test_environment;
 
-pub use self::test_environment::CommandOutput;
+pub use self::command_output::CommandOutput;
 pub use self::test_environment::TestEnvironment;
 pub use self::test_environment::TestWorkDir;
 
