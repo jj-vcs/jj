@@ -19,8 +19,6 @@ use indoc::formatdoc;
 use test_case::test_case;
 use testutils::git;
 
-use crate::common::get_stderr_string;
-use crate::common::get_stdout_string;
 use crate::common::to_toml_value;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
@@ -865,15 +863,14 @@ fn test_git_init_conditional_config() {
     let old_workspace_root = test_env.env_root().join("old");
     let new_workspace_root = test_env.env_root().join("new");
 
-    let jj_cmd_ok = |current_dir: &Path, args: &[&str]| {
-        let mut cmd = test_env.jj_cmd(current_dir, args);
-        cmd.env_remove("JJ_EMAIL");
-        cmd.env_remove("JJ_OP_HOSTNAME");
-        cmd.env_remove("JJ_OP_USERNAME");
-        let assert = cmd.assert().success();
-        let stdout = test_env.normalize_output(get_stdout_string(&assert));
-        let stderr = test_env.normalize_output(get_stderr_string(&assert));
-        (stdout, stderr)
+    let run_jj_in = |current_dir: &Path, args: &[&str]| {
+        test_env.run_jj_with(|cmd| {
+            cmd.current_dir(current_dir)
+                .args(args)
+                .env_remove("JJ_EMAIL")
+                .env_remove("JJ_OP_HOSTNAME")
+                .env_remove("JJ_OP_USERNAME")
+        })
     };
     let log_template = r#"separate(' ', author.email(), description.first_line()) ++ "\n""#;
     let op_log_template = r#"separate(' ', user, description.first_line()) ++ "\n""#;
@@ -893,14 +890,15 @@ fn test_git_init_conditional_config() {
 
     // Override operation.hostname by repo config, which should be loaded into
     // the command settings, but shouldn't be copied to the new repo.
-    jj_cmd_ok(test_env.env_root(), &["git", "init", "old"]);
-    jj_cmd_ok(
+    run_jj_in(test_env.env_root(), &["git", "init", "old"]).success();
+    run_jj_in(
         &old_workspace_root,
         &["config", "set", "--repo", "operation.hostname", "old-repo"],
-    );
-    jj_cmd_ok(&old_workspace_root, &["new"]);
-    let (stdout, _stderr) = jj_cmd_ok(&old_workspace_root, &["op", "log", "-T", op_log_template]);
-    insta::assert_snapshot!(stdout, @r"
+    )
+    .success();
+    run_jj_in(&old_workspace_root, &["new"]).success();
+    let output = run_jj_in(&old_workspace_root, &["op", "log", "-T", op_log_template]);
+    insta::assert_snapshot!(output, @r"
     @  base@old-repo new empty commit
     ○  base@base add workspace 'default'
     ○  @
@@ -908,21 +906,22 @@ fn test_git_init_conditional_config() {
     ");
 
     // Create new repo at the old workspace directory.
-    let (_stdout, stderr) = jj_cmd_ok(&old_workspace_root, &["git", "init", "../new"]);
-    insta::assert_snapshot!(stderr.normalize_backslash(), @r#"
+    let output = run_jj_in(&old_workspace_root, &["git", "init", "../new"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
     Initialized repo in "../new"
     [EOF]
     "#);
-    jj_cmd_ok(&new_workspace_root, &["new"]);
-    let (stdout, _stderr) = jj_cmd_ok(&new_workspace_root, &["log", "-T", log_template]);
-    insta::assert_snapshot!(stdout, @r"
+    run_jj_in(&new_workspace_root, &["new"]).success();
+    let output = run_jj_in(&new_workspace_root, &["log", "-T", log_template]);
+    insta::assert_snapshot!(output, @r"
     @  new-repo@example.org
     ○  new-repo@example.org
     ◆
     [EOF]
     ");
-    let (stdout, _stderr) = jj_cmd_ok(&new_workspace_root, &["op", "log", "-T", op_log_template]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = run_jj_in(&new_workspace_root, &["op", "log", "-T", op_log_template]);
+    insta::assert_snapshot!(output, @r"
     @  new-repo@base new empty commit
     ○  new-repo@base add workspace 'default'
     ○  @

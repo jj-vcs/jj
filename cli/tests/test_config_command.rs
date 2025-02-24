@@ -1492,11 +1492,15 @@ fn test_config_author_change_warning() {
     [EOF]
     "#);
 
-    // test_env.jj_cmd resets state for every invocation
+    // test_env.run_jj*() resets state for every invocation
     // for this test, the state (user.email) is needed
-    let mut log_cmd = test_env.jj_cmd(&repo_path, &["describe", "--reset-author", "--no-edit"]);
-    log_cmd.env_remove("JJ_EMAIL");
-    log_cmd.assert().success();
+    test_env
+        .run_jj_with(|cmd| {
+            cmd.current_dir(&repo_path)
+                .args(["describe", "--reset-author", "--no-edit"])
+                .env_remove("JJ_EMAIL")
+        })
+        .success();
 
     let output = test_env.run_jj_in(&repo_path, ["log"]);
     insta::assert_snapshot!(output, @r"

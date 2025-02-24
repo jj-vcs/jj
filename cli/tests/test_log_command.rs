@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::common::get_stdout_string;
+use crate::common::to_toml_value;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -1511,17 +1511,13 @@ fn test_log_word_wrap() {
         .success();
     let repo_path = test_env.env_root().join("repo");
     let render = |args: &[&str], columns: u32, word_wrap: bool| {
-        let mut args = args.to_vec();
-        if word_wrap {
-            args.push("--config=ui.log-word-wrap=true");
-        }
-        let assert = test_env
-            .jj_cmd(&repo_path, &args)
-            .env("COLUMNS", columns.to_string())
-            .assert()
-            .success()
-            .stderr("");
-        get_stdout_string(&assert)
+        let word_wrap = to_toml_value(word_wrap);
+        test_env.run_jj_with(|cmd| {
+            cmd.current_dir(&repo_path)
+                .args(args)
+                .arg(format!("--config=ui.log-word-wrap={word_wrap}"))
+                .env("COLUMNS", columns.to_string())
+        })
     };
 
     test_env
@@ -1538,36 +1534,41 @@ fn test_log_word_wrap() {
         .success();
 
     // ui.log-word-wrap option applies to both graph/no-graph outputs
-    insta::assert_snapshot!(render(&["log", "-r@"], 40, false), @r###"
+    insta::assert_snapshot!(render(&["log", "-r@"], 40, false), @r"
     @  mzvwutvl test.user@example.com 2001-02-03 08:05:11 f3efbd00
     │  (empty) merge
     ~
-    "###);
-    insta::assert_snapshot!(render(&["log", "-r@"], 40, true), @r###"
+    [EOF]
+    ");
+    insta::assert_snapshot!(render(&["log", "-r@"], 40, true), @r"
     @  mzvwutvl test.user@example.com
     │  2001-02-03 08:05:11 f3efbd00
     ~  (empty) merge
-    "###);
-    insta::assert_snapshot!(render(&["log", "--no-graph", "-r@"], 40, false), @r###"
+    [EOF]
+    ");
+    insta::assert_snapshot!(render(&["log", "--no-graph", "-r@"], 40, false), @r"
     mzvwutvl test.user@example.com 2001-02-03 08:05:11 f3efbd00
     (empty) merge
-    "###);
-    insta::assert_snapshot!(render(&["log", "--no-graph", "-r@"], 40, true), @r###"
+    [EOF]
+    ");
+    insta::assert_snapshot!(render(&["log", "--no-graph", "-r@"], 40, true), @r"
     mzvwutvl test.user@example.com
     2001-02-03 08:05:11 f3efbd00
     (empty) merge
-    "###);
+    [EOF]
+    ");
 
     // Color labels should be preserved
-    insta::assert_snapshot!(render(&["log", "-r@", "--color=always"], 40, true), @r###"
+    insta::assert_snapshot!(render(&["log", "-r@", "--color=always"], 40, true), @r"
     [1m[38;5;2m@[0m  [1m[38;5;13mm[38;5;8mzvwutvl[39m [38;5;3mtest.user@example.com[39m[0m
     │  [1m[38;5;14m2001-02-03 08:05:11[39m [38;5;12mf[38;5;8m3efbd00[39m[0m
     ~  [1m[38;5;10m(empty)[39m merge[0m
-    "###);
+    [EOF]
+    ");
 
     // Graph width should be subtracted from the term width
     let template = r#""0 1 2 3 4 5 6 7 8 9""#;
-    insta::assert_snapshot!(render(&["log", "-T", template], 10, true), @r###"
+    insta::assert_snapshot!(render(&["log", "-T", template], 10, true), @r"
     @    0 1 2
     ├─╮  3 4 5
     │ │  6 7 8
@@ -1586,10 +1587,11 @@ fn test_log_word_wrap() {
     ◆  0 1 2 3
        4 5 6 7
        8 9
-    "###);
+    [EOF]
+    ");
 
     // Shouldn't panic with $COLUMNS < graph_width
-    insta::assert_snapshot!(render(&["log", "-r@"], 0, true), @r###"
+    insta::assert_snapshot!(render(&["log", "-r@"], 0, true), @r"
     @  mzvwutvl
     │  test.user@example.com
     ~  2001-02-03
@@ -1597,8 +1599,9 @@ fn test_log_word_wrap() {
        f3efbd00
        (empty)
        merge
-    "###);
-    insta::assert_snapshot!(render(&["log", "-r@"], 1, true), @r###"
+    [EOF]
+    ");
+    insta::assert_snapshot!(render(&["log", "-r@"], 1, true), @r"
     @  mzvwutvl
     │  test.user@example.com
     ~  2001-02-03
@@ -1606,7 +1609,8 @@ fn test_log_word_wrap() {
        f3efbd00
        (empty)
        merge
-    "###);
+    [EOF]
+    ");
 }
 
 #[test]
@@ -1617,20 +1621,18 @@ fn test_log_diff_stat_width() {
         .success();
     let repo_path = test_env.env_root().join("repo");
     let render = |args: &[&str], columns: u32| {
-        let assert = test_env
-            .jj_cmd(&repo_path, args)
-            .env("COLUMNS", columns.to_string())
-            .assert()
-            .success()
-            .stderr("");
-        get_stdout_string(&assert)
+        test_env.run_jj_with(|cmd| {
+            cmd.current_dir(&repo_path)
+                .args(args)
+                .env("COLUMNS", columns.to_string())
+        })
     };
 
     std::fs::write(repo_path.join("file1"), "foo\n".repeat(100)).unwrap();
     test_env.run_jj_in(&repo_path, ["new", "root()"]).success();
     std::fs::write(repo_path.join("file2"), "foo\n".repeat(100)).unwrap();
 
-    insta::assert_snapshot!(render(&["log", "--stat", "--no-graph"], 30), @r###"
+    insta::assert_snapshot!(render(&["log", "--stat", "--no-graph"], 30), @r"
     rlvkpnrz test.user@example.com 2001-02-03 08:05:09 287520bf
     (no description set)
     file2 | 100 +++++++++++++++
@@ -1641,10 +1643,11 @@ fn test_log_diff_stat_width() {
     1 file changed, 100 insertions(+), 0 deletions(-)
     zzzzzzzz root() 00000000
     0 files changed, 0 insertions(+), 0 deletions(-)
-    "###);
+    [EOF]
+    ");
 
     // Graph width should be subtracted
-    insta::assert_snapshot!(render(&["log", "--stat"], 30), @r###"
+    insta::assert_snapshot!(render(&["log", "--stat"], 30), @r"
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 287520bf
     │  (no description set)
     │  file2 | 100 ++++++++++++
@@ -1655,7 +1658,8 @@ fn test_log_diff_stat_width() {
     │    1 file changed, 100 insertions(+), 0 deletions(-)
     ◆  zzzzzzzz root() 00000000
        0 files changed, 0 insertions(+), 0 deletions(-)
-    "###);
+    [EOF]
+    ");
 }
 
 #[test]

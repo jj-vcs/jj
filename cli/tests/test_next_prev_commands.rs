@@ -16,7 +16,6 @@
 use std::path::Path;
 
 use crate::common::force_interactive;
-use crate::common::get_stderr_string;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 
@@ -461,11 +460,17 @@ fn test_next_fails_on_bookmarking_children_no_stdin() {
     ");
 
     // Try to advance the working copy commit.
-    let assert = test_env.jj_cmd(&repo_path, &["next"]).assert().code(1);
-    let stderr = test_env.normalize_output(get_stderr_string(&assert));
-    insta::assert_snapshot!(stderr,@r"
+    let output = test_env.run_jj_in(&repo_path, ["next"]);
+    insta::assert_snapshot!(output, @r"
+    ambiguous next commit, choose one to target:
+    1: zsuskuln 5f24490d (empty) third
+    2: rlvkpnrz 9ed53a4a (empty) second
+    q: quit the prompt
+    [EOF]
+    ------- stderr -------
     Error: Cannot prompt for input since the output is not connected to a terminal
     [EOF]
+    [exit status: 1]
     ");
 }
 

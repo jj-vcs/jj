@@ -83,8 +83,6 @@ fn test_edit() {
 // Windows says "Access is denied" when trying to delete the object file.
 #[cfg(unix)]
 fn test_edit_current_wc_commit_missing() {
-    use crate::common::get_stderr_string;
-
     // Test that we get a reasonable error message when the current working-copy
     // commit is missing
     let test_env = TestEnvironment::default();
@@ -122,17 +120,17 @@ fn test_edit_current_wc_commit_missing() {
     std::fs::remove_file(commit_object_path).unwrap();
 
     // Pass --ignore-working-copy to avoid triggering the error at snapshot time
-    let assert = test_env
-        .jj_cmd(&repo_path, &["edit", "--ignore-working-copy", &wc_child_id])
-        .assert()
-        .code(255);
-    insta::assert_snapshot!(get_stderr_string(&assert), @r###"
+    let output = test_env.run_jj_in(&repo_path, ["edit", "--ignore-working-copy", &wc_child_id]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Internal error: Failed to edit a commit
     Caused by:
     1: Current working-copy commit not found
     2: Object fa15625b4a986997697639dfc2844138900c79f2 of type commit not found
     3: An object with id fa15625b4a986997697639dfc2844138900c79f2 could not be found
-    "###);
+    [EOF]
+    [exit status: 255]
+    ");
 }
 
 fn read_file(path: &Path) -> String {

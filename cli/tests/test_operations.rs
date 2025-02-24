@@ -18,7 +18,7 @@ use itertools::Itertools;
 use regex::Regex;
 use testutils::git;
 
-use crate::common::get_stdout_string;
+use crate::common::to_toml_value;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 
@@ -466,29 +466,26 @@ fn test_op_log_word_wrap() {
         .success();
 
     let render = |args: &[&str], columns: u32, word_wrap: bool| {
-        let mut args = args.to_vec();
-        if word_wrap {
-            args.push("--config=ui.log-word-wrap=true");
-        }
-        let assert = test_env
-            .jj_cmd(&repo_path, &args)
-            .env("COLUMNS", columns.to_string())
-            .assert()
-            .success()
-            .stderr("");
-        get_stdout_string(&assert)
+        let word_wrap = to_toml_value(word_wrap);
+        test_env.run_jj_with(|cmd| {
+            cmd.current_dir(&repo_path)
+                .args(args)
+                .arg(format!("--config=ui.log-word-wrap={word_wrap}"))
+                .env("COLUMNS", columns.to_string())
+        })
     };
 
     // ui.log-word-wrap option works
-    insta::assert_snapshot!(render(&["op", "log"], 40, false), @r#"
+    insta::assert_snapshot!(render(&["op", "log"], 40, false), @r"
     @  b7cd3d0069f6 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
     │  snapshot working copy
     │  args: jj debug snapshot
     ○  eac759b9ab75 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
     │  add workspace 'default'
     ○  000000000000 root()
-    "#);
-    insta::assert_snapshot!(render(&["op", "log"], 40, true), @r#"
+    [EOF]
+    ");
+    insta::assert_snapshot!(render(&["op", "log"], 40, true), @r"
     @  b7cd3d0069f6
     │  test-username@host.example.com
     │  2001-02-03 04:05:08.000 +07:00 -
@@ -501,10 +498,11 @@ fn test_op_log_word_wrap() {
     │  2001-02-03 04:05:07.000 +07:00
     │  add workspace 'default'
     ○  000000000000 root()
-    "#);
+    [EOF]
+    ");
 
     // Nested graph should be wrapped
-    insta::assert_snapshot!(render(&["op", "log", "--op-diff"], 40, true), @r#"
+    insta::assert_snapshot!(render(&["op", "log", "--op-diff"], 40, true), @r"
     @  b7cd3d0069f6
     │  test-username@host.example.com
     │  2001-02-03 04:05:08.000 +07:00 -
@@ -527,10 +525,11 @@ fn test_op_log_word_wrap() {
     │  ○  + qpvuntsm 230dd059 (empty) (no
     │     description set)
     ○  000000000000 root()
-    "#);
+    [EOF]
+    ");
 
     // Nested diff stat shouldn't exceed the terminal width
-    insta::assert_snapshot!(render(&["op", "log", "-n1", "--stat"], 40, true), @r#"
+    insta::assert_snapshot!(render(&["op", "log", "-n1", "--stat"], 40, true), @r"
     @  b7cd3d0069f6
     │  test-username@host.example.com
     │  2001-02-03 04:05:08.000 +07:00 -
@@ -545,8 +544,9 @@ fn test_op_log_word_wrap() {
     │     (no description set)
     │     file1 | 100 +++++++++++++++++++
     │     1 file changed, 100 insertions(+), 0 deletions(-)
-    "#);
-    insta::assert_snapshot!(render(&["op", "log", "-n1", "--no-graph", "--stat"], 40, true), @r#"
+    [EOF]
+    ");
+    insta::assert_snapshot!(render(&["op", "log", "-n1", "--no-graph", "--stat"], 40, true), @r"
     b7cd3d0069f6
     test-username@host.example.com
     2001-02-03 04:05:08.000 +07:00 -
@@ -560,12 +560,13 @@ fn test_op_log_word_wrap() {
     description set)
     file1 | 100 +++++++++++++++++++++++++
     1 file changed, 100 insertions(+), 0 deletions(-)
-    "#);
+    [EOF]
+    ");
 
     // Nested graph widths should be subtracted from the term width
     let config = r#"templates.commit_summary='"0 1 2 3 4 5 6 7 8 9"'"#;
     insta::assert_snapshot!(
-        render(&["op", "log", "-T''", "--op-diff", "-n1", "--config", config], 15, true), @r#"
+        render(&["op", "log", "-T''", "--op-diff", "-n1", "--config", config], 15, true), @r"
     @
     │
     │  Changed
@@ -576,7 +577,8 @@ fn test_op_log_word_wrap() {
     │     - 0 1 2 3
     │     4 5 6 7 8
     │     9
-    "#);
+    [EOF]
+    ");
 }
 
 #[test]
@@ -588,10 +590,11 @@ fn test_op_log_configurable() {
         "#,
     );
     test_env
-        .jj_cmd(test_env.env_root(), &["git", "init", "repo"])
-        .env_remove("JJ_OP_HOSTNAME")
-        .env_remove("JJ_OP_USERNAME")
-        .assert()
+        .run_jj_with(|cmd| {
+            cmd.args(["git", "init", "repo"])
+                .env_remove("JJ_OP_HOSTNAME")
+                .env_remove("JJ_OP_USERNAME")
+        })
         .success();
     let repo_path = test_env.env_root().join("repo");
 
@@ -1765,17 +1768,13 @@ fn test_op_diff_word_wrap() {
         .success();
     let repo_path = test_env.env_root().join("repo");
     let render = |args: &[&str], columns: u32, word_wrap: bool| {
-        let mut args = args.to_vec();
-        if word_wrap {
-            args.push("--config=ui.log-word-wrap=true");
-        }
-        let assert = test_env
-            .jj_cmd(&repo_path, &args)
-            .env("COLUMNS", columns.to_string())
-            .assert()
-            .success()
-            .stderr("");
-        get_stdout_string(&assert)
+        let word_wrap = to_toml_value(word_wrap);
+        test_env.run_jj_with(|cmd| {
+            cmd.current_dir(&repo_path)
+                .args(args)
+                .arg(format!("--config=ui.log-word-wrap={word_wrap}"))
+                .env("COLUMNS", columns.to_string())
+        })
     };
 
     // Add some file content changes
@@ -1829,6 +1828,7 @@ fn test_op_diff_word_wrap() {
     + untracked rnnkyono 11671e4c
     bookmark-3@origin | Commit 3
     - untracked (absent)
+    [EOF]
     ");
 
     // Graph width should be subtracted from the term width
@@ -1891,6 +1891,7 @@ fn test_op_diff_word_wrap() {
     -
     untracked
     (absent)
+    [EOF]
     ");
 }
 

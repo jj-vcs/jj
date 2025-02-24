@@ -1498,9 +1498,7 @@ fn test_git_push_missing_author(subprocess: bool) {
     }
     let run_without_var = |var: &str, args: &[&str]| {
         test_env
-            .jj_cmd(&workspace_root, args)
-            .env_remove(var)
-            .assert()
+            .run_jj_with(|cmd| cmd.current_dir(&workspace_root).args(args).env_remove(var))
             .success();
     };
     run_without_var("JJ_USER", &["new", "root()", "-m=initial"]);
@@ -1544,9 +1542,7 @@ fn test_git_push_missing_author_in_immutable(subprocess: bool) {
     }
     let run_without_var = |var: &str, args: &[&str]| {
         test_env
-            .jj_cmd(&workspace_root, args)
-            .env_remove(var)
-            .assert()
+            .run_jj_with(|cmd| cmd.current_dir(&workspace_root).args(args).env_remove(var))
             .success();
     };
     run_without_var("JJ_USER", &["new", "root()", "-m=no author name"]);
@@ -1616,9 +1612,7 @@ fn test_git_push_missing_committer(subprocess: bool) {
     }
     let run_without_var = |var: &str, args: &[&str]| {
         test_env
-            .jj_cmd(&workspace_root, args)
-            .env_remove(var)
-            .assert()
+            .run_jj_with(|cmd| cmd.current_dir(&workspace_root).args(args).env_remove(var))
             .success();
     };
     test_env
@@ -1692,9 +1686,7 @@ fn test_git_push_missing_committer_in_immutable(subprocess: bool) {
     }
     let run_without_var = |var: &str, args: &[&str]| {
         test_env
-            .jj_cmd(&workspace_root, args)
-            .env_remove(var)
-            .assert()
+            .run_jj_with(|cmd| cmd.current_dir(&workspace_root).args(args).env_remove(var))
             .success();
     };
     run_without_var("JJ_USER", &["describe", "-m=no committer name"]);

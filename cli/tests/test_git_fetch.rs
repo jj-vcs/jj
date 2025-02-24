@@ -15,7 +15,6 @@ use std::path::Path;
 
 use test_case::test_case;
 
-use crate::common::get_stderr_string;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 
@@ -218,8 +217,7 @@ fn test_git_fetch_single_remote_all_remotes_flag(subprocess: bool) {
     add_git_remote(&test_env, &repo_path, "rem1");
 
     test_env
-        .jj_cmd(&repo_path, &["git", "fetch", "--all-remotes"])
-        .assert()
+        .run_jj_in(&repo_path, ["git", "fetch", "--all-remotes"])
         .success();
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
@@ -1322,20 +1320,20 @@ fn test_git_fetch_bookmarks_missing_with_subprocess_localized_message() {
     add_git_remote(&test_env, &repo_path, "origin");
 
     // "fatal: couldn't find remote ref %s" shouldn't be localized.
-    let assert = test_env
-        .jj_cmd(&repo_path, &["git", "fetch", "--branch=unknown"])
-        // Initialize locale as "en_US" which is the most common.
-        .env("LC_ALL", "en_US.UTF-8")
-        // Set some other locale variables for testing.
-        .env("LC_MESSAGES", "en_US.UTF-8")
-        .env("LANG", "en_US.UTF-8")
-        // GNU gettext prioritizes LANGUAGE if translation is enabled. It works
-        // no matter if system locale exists or not.
-        .env("LANGUAGE", "zh_TW")
-        .assert()
-        .success();
-    let stderr = test_env.normalize_output(get_stderr_string(&assert));
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_with(|cmd| {
+        cmd.current_dir(&repo_path)
+            .args(["git", "fetch", "--branch=unknown"])
+            // Initialize locale as "en_US" which is the most common.
+            .env("LC_ALL", "en_US.UTF-8")
+            // Set some other locale variables for testing.
+            .env("LC_MESSAGES", "en_US.UTF-8")
+            .env("LANG", "en_US.UTF-8")
+            // GNU gettext prioritizes LANGUAGE if translation is enabled. It works
+            // no matter if system locale exists or not.
+            .env("LANGUAGE", "zh_TW")
+    });
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Warning: No branch matching `unknown` found on any specified/configured remote
     Nothing changed.
     [EOF]

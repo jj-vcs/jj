@@ -19,8 +19,6 @@ use std::path::PathBuf;
 use indoc::formatdoc;
 use test_case::test_case;
 
-use crate::common::get_stderr_string;
-use crate::common::get_stdout_string;
 use crate::common::to_toml_value;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
@@ -104,54 +102,46 @@ fn test_git_clone(subprocess: bool) {
 
     // Failed clone should clean up the destination directory
     std::fs::create_dir(test_env.env_root().join("bad")).unwrap();
-    let assert = test_env
-        .jj_cmd(test_env.env_root(), &["git", "clone", "bad", "failed"])
-        .assert()
-        .code(1);
-    let stdout = test_env.normalize_output(get_stdout_string(&assert));
-    let stderr = test_env.normalize_output(get_stderr_string(&assert));
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
+    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "bad", "failed"]);
     // git2's internal error is slightly different
     if subprocess {
-        insta::assert_snapshot!(stderr, @r#"
+        insta::assert_snapshot!(output, @r#"
+        ------- stderr -------
         Fetching into new repo in "$TEST_ENV/failed"
         Error: Could not find repository at '$TEST_ENV/bad'
         [EOF]
+        [exit status: 1]
         "#);
     } else {
-        insta::assert_snapshot!(stderr, @r#"
+        insta::assert_snapshot!(output, @r#"
+        ------- stderr -------
         Fetching into new repo in "$TEST_ENV/failed"
         Error: could not find repository at '$TEST_ENV/bad'; class=Repository (6)
         [EOF]
+        [exit status: 1]
         "#);
     }
     assert!(!test_env.env_root().join("failed").exists());
 
     // Failed clone shouldn't remove the existing destination directory
     std::fs::create_dir(test_env.env_root().join("failed")).unwrap();
-    let assert = test_env
-        .jj_cmd(test_env.env_root(), &["git", "clone", "bad", "failed"])
-        .assert()
-        .code(1);
-    let stdout = test_env.normalize_output(get_stdout_string(&assert));
-    let stderr = test_env.normalize_output(get_stderr_string(&assert));
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
+    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "bad", "failed"]);
     // git2's internal error is slightly different
     if subprocess {
-        insta::assert_snapshot!(stderr, @r#"
+        insta::assert_snapshot!(output, @r#"
+        ------- stderr -------
         Fetching into new repo in "$TEST_ENV/failed"
         Error: Could not find repository at '$TEST_ENV/bad'
         [EOF]
+        [exit status: 1]
         "#);
     } else {
-        insta::assert_snapshot!(stderr, @r#"
+        insta::assert_snapshot!(output, @r#"
+        ------- stderr -------
         Fetching into new repo in "$TEST_ENV/failed"
         Error: could not find repository at '$TEST_ENV/bad'; class=Repository (6)
         [EOF]
+        [exit status: 1]
         "#);
     }
     assert!(test_env.env_root().join("failed").exists());
@@ -371,60 +361,52 @@ fn test_git_clone_colocate(subprocess: bool) {
 
     // Failed clone should clean up the destination directory
     std::fs::create_dir(test_env.env_root().join("bad")).unwrap();
-    let assert = test_env
-        .jj_cmd(
-            test_env.env_root(),
-            &["git", "clone", "--colocate", "bad", "failed"],
-        )
-        .assert()
-        .code(1);
-    let stdout = test_env.normalize_output(get_stdout_string(&assert));
-    let stderr = test_env.normalize_output(get_stderr_string(&assert));
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
+    let output = test_env.run_jj_in(
+        test_env.env_root(),
+        ["git", "clone", "--colocate", "bad", "failed"],
+    );
     // git2's internal error is slightly different
     if subprocess {
-        insta::assert_snapshot!(stderr, @r#"
+        insta::assert_snapshot!(output, @r#"
+        ------- stderr -------
         Fetching into new repo in "$TEST_ENV/failed"
         Error: Could not find repository at '$TEST_ENV/bad'
         [EOF]
+        [exit status: 1]
         "#);
     } else {
-        insta::assert_snapshot!(stderr, @r#"
+        insta::assert_snapshot!(output, @r#"
+        ------- stderr -------
         Fetching into new repo in "$TEST_ENV/failed"
         Error: could not find repository at '$TEST_ENV/bad'; class=Repository (6)
         [EOF]
+        [exit status: 1]
         "#);
     }
     assert!(!test_env.env_root().join("failed").exists());
 
     // Failed clone shouldn't remove the existing destination directory
     std::fs::create_dir(test_env.env_root().join("failed")).unwrap();
-    let assert = test_env
-        .jj_cmd(
-            test_env.env_root(),
-            &["git", "clone", "--colocate", "bad", "failed"],
-        )
-        .assert()
-        .code(1);
-    let stdout = test_env.normalize_output(get_stdout_string(&assert));
-    let stderr = test_env.normalize_output(get_stderr_string(&assert));
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
+    let output = test_env.run_jj_in(
+        test_env.env_root(),
+        ["git", "clone", "--colocate", "bad", "failed"],
+    );
     // git2's internal error is slightly different
     if subprocess {
-        insta::assert_snapshot!(stderr, @r#"
+        insta::assert_snapshot!(output, @r#"
+        ------- stderr -------
         Fetching into new repo in "$TEST_ENV/failed"
         Error: Could not find repository at '$TEST_ENV/bad'
         [EOF]
+        [exit status: 1]
         "#);
     } else {
-        insta::assert_snapshot!(stderr, @r#"
+        insta::assert_snapshot!(output, @r#"
+        ------- stderr -------
         Fetching into new repo in "$TEST_ENV/failed"
         Error: could not find repository at '$TEST_ENV/bad'; class=Repository (6)
         [EOF]
+        [exit status: 1]
         "#);
     }
     assert!(test_env.env_root().join("failed").exists());
@@ -909,15 +891,14 @@ fn test_git_clone_conditional_config() {
     let source_git_repo = git2::Repository::init(source_repo_path).unwrap();
     set_up_non_empty_git_repo(&source_git_repo);
 
-    let jj_cmd_ok = |current_dir: &Path, args: &[&str]| {
-        let mut cmd = test_env.jj_cmd(current_dir, args);
-        cmd.env_remove("JJ_EMAIL");
-        cmd.env_remove("JJ_OP_HOSTNAME");
-        cmd.env_remove("JJ_OP_USERNAME");
-        let assert = cmd.assert().success();
-        let stdout = test_env.normalize_output(get_stdout_string(&assert));
-        let stderr = test_env.normalize_output(get_stderr_string(&assert));
-        (stdout, stderr)
+    let run_jj_in = |current_dir: &Path, args: &[&str]| {
+        test_env.run_jj_with(|cmd| {
+            cmd.current_dir(current_dir)
+                .args(args)
+                .env_remove("JJ_EMAIL")
+                .env_remove("JJ_OP_HOSTNAME")
+                .env_remove("JJ_OP_USERNAME")
+        })
     };
     let log_template = r#"separate(' ', author.email(), description.first_line()) ++ "\n""#;
     let op_log_template = r#"separate(' ', user, description.first_line()) ++ "\n""#;
@@ -937,14 +918,15 @@ fn test_git_clone_conditional_config() {
 
     // Override operation.hostname by repo config, which should be loaded into
     // the command settings, but shouldn't be copied to the new repo.
-    jj_cmd_ok(test_env.env_root(), &["git", "init", "old"]);
-    jj_cmd_ok(
+    run_jj_in(test_env.env_root(), &["git", "init", "old"]).success();
+    run_jj_in(
         &old_workspace_root,
         &["config", "set", "--repo", "operation.hostname", "old-repo"],
-    );
-    jj_cmd_ok(&old_workspace_root, &["new"]);
-    let (stdout, _stderr) = jj_cmd_ok(&old_workspace_root, &["op", "log", "-T", op_log_template]);
-    insta::assert_snapshot!(stdout, @r"
+    )
+    .success();
+    run_jj_in(&old_workspace_root, &["new"]).success();
+    let output = run_jj_in(&old_workspace_root, &["op", "log", "-T", op_log_template]);
+    insta::assert_snapshot!(output, @r"
     @  base@old-repo new empty commit
     ○  base@base add workspace 'default'
     ○  @
@@ -952,11 +934,12 @@ fn test_git_clone_conditional_config() {
     ");
 
     // Clone repo at the old workspace directory.
-    let (_stdout, stderr) = jj_cmd_ok(
+    let output = run_jj_in(
         &old_workspace_root,
         &["git", "clone", "../source", "../new"],
     );
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Fetching into new repo in "$TEST_ENV/new"
     bookmark: main@origin [new] untracked
     Setting the revset alias `trunk()` to `main@origin`
@@ -965,9 +948,9 @@ fn test_git_clone_conditional_config() {
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
-    jj_cmd_ok(&new_workspace_root, &["new"]);
-    let (stdout, _stderr) = jj_cmd_ok(&new_workspace_root, &["log", "-T", log_template]);
-    insta::assert_snapshot!(stdout, @r"
+    run_jj_in(&new_workspace_root, &["new"]).success();
+    let output = run_jj_in(&new_workspace_root, &["log", "-T", log_template]);
+    insta::assert_snapshot!(output, @r"
     @  new-repo@example.org
     ○  new-repo@example.org
     ◆  some.one@example.com message
@@ -975,8 +958,8 @@ fn test_git_clone_conditional_config() {
     ~
     [EOF]
     ");
-    let (stdout, _stderr) = jj_cmd_ok(&new_workspace_root, &["op", "log", "-T", op_log_template]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = run_jj_in(&new_workspace_root, &["op", "log", "-T", op_log_template]);
+    insta::assert_snapshot!(output, @r"
     @  new-repo@base new empty commit
     ○  new-repo@base check out git remote's default branch
     ○  new-repo@base fetch from git remote into empty repo

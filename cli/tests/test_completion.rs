@@ -12,9 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use itertools::Itertools as _;
-
-use crate::common::get_stdout_string;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -294,29 +291,31 @@ fn test_zsh_completion() {
     // ["--", "jj"]
     //        ^^^^ index = 0
     let complete_at = |index: usize, args: &[&str]| {
-        let assert = test_env
-            .jj_cmd(test_env.env_root(), args)
-            .env("_CLAP_COMPLETE_INDEX", index.to_string())
-            .assert()
-            .success();
-        get_stdout_string(&assert)
+        test_env.run_jj_with(|cmd| {
+            cmd.args(args)
+                .env("_CLAP_COMPLETE_INDEX", index.to_string())
+        })
     };
 
     // Command names should be suggested. If the default command were expanded,
     // only "log" would be listed.
-    let stdout = complete_at(1, &["--", "jj"]);
-    insta::assert_snapshot!(stdout.lines().take(2).join("\n"), @r"
+    let output = complete_at(1, &["--", "jj"]);
+    insta::assert_snapshot!(
+        output.normalize_stdout_with(|s| s.split_inclusive('\n').take(2).collect()), @r"
     abandon:Abandon a revision
     absorb:Move changes from a revision into the stack of mutable revisions
+    [EOF]
     ");
-    let stdout = complete_at(2, &["--", "jj", "--no-pager"]);
-    insta::assert_snapshot!(stdout.lines().take(2).join("\n"), @r"
+    let output = complete_at(2, &["--", "jj", "--no-pager"]);
+    insta::assert_snapshot!(
+        output.normalize_stdout_with(|s| s.split_inclusive('\n').take(2).collect()), @r"
     abandon:Abandon a revision
     absorb:Move changes from a revision into the stack of mutable revisions
+    [EOF]
     ");
 
-    let stdout = complete_at(1, &["--", "jj", "b"]);
-    insta::assert_snapshot!(stdout, @"bookmark:Manage bookmarks [default alias: b]");
+    let output = complete_at(1, &["--", "jj", "b"]);
+    insta::assert_snapshot!(output, @"bookmark:Manage bookmarks [default alias: b][EOF]");
 }
 
 #[test]

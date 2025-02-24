@@ -235,7 +235,7 @@ impl TestEnvironment {
     }
 
     #[must_use]
-    pub fn normalize_output(&self, raw: String) -> CommandOutputString {
+    fn normalize_output(&self, raw: String) -> CommandOutputString {
         let normalized = normalize_output(&raw, &self.env_root);
         CommandOutputString { raw, normalized }
     }

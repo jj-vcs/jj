@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::common::get_stdout_string;
+use crate::common::to_toml_value;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -198,17 +198,13 @@ fn test_evolog_word_wrap() {
         .success();
     let repo_path = test_env.env_root().join("repo");
     let render = |args: &[&str], columns: u32, word_wrap: bool| {
-        let mut args = args.to_vec();
-        if word_wrap {
-            args.push("--config=ui.log-word-wrap=true");
-        }
-        let assert = test_env
-            .jj_cmd(&repo_path, &args)
-            .env("COLUMNS", columns.to_string())
-            .assert()
-            .success()
-            .stderr("");
-        get_stdout_string(&assert)
+        let word_wrap = to_toml_value(word_wrap);
+        test_env.run_jj_with(|cmd| {
+            cmd.current_dir(&repo_path)
+                .args(args)
+                .arg(format!("--config=ui.log-word-wrap={word_wrap}"))
+                .env("COLUMNS", columns.to_string())
+        })
     };
 
     test_env
@@ -216,34 +212,38 @@ fn test_evolog_word_wrap() {
         .success();
 
     // ui.log-word-wrap option applies to both graph/no-graph outputs
-    insta::assert_snapshot!(render(&["evolog"], 40, false), @r###"
+    insta::assert_snapshot!(render(&["evolog"], 40, false), @r"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:08 fa15625b
     │  (empty) first
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 230dd059
        (empty) (no description set)
-    "###);
-    insta::assert_snapshot!(render(&["evolog"], 40, true), @r###"
+    [EOF]
+    ");
+    insta::assert_snapshot!(render(&["evolog"], 40, true), @r"
     @  qpvuntsm test.user@example.com
     │  2001-02-03 08:05:08 fa15625b
     │  (empty) first
     ○  qpvuntsm hidden test.user@example.com
        2001-02-03 08:05:07 230dd059
        (empty) (no description set)
-    "###);
-    insta::assert_snapshot!(render(&["evolog", "--no-graph"], 40, false), @r###"
+    [EOF]
+    ");
+    insta::assert_snapshot!(render(&["evolog", "--no-graph"], 40, false), @r"
     qpvuntsm test.user@example.com 2001-02-03 08:05:08 fa15625b
     (empty) first
     qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 230dd059
     (empty) (no description set)
-    "###);
-    insta::assert_snapshot!(render(&["evolog", "--no-graph"], 40, true), @r###"
+    [EOF]
+    ");
+    insta::assert_snapshot!(render(&["evolog", "--no-graph"], 40, true), @r"
     qpvuntsm test.user@example.com
     2001-02-03 08:05:08 fa15625b
     (empty) first
     qpvuntsm hidden test.user@example.com
     2001-02-03 08:05:07 230dd059
     (empty) (no description set)
-    "###);
+    [EOF]
+    ");
 }
 
 #[test]

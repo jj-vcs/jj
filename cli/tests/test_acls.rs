@@ -14,8 +14,6 @@
 
 use jj_lib::secret_backend::SecretBackend;
 
-use crate::common::get_stderr_string;
-use crate::common::get_stdout_string;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -85,11 +83,8 @@ fn test_diff() {
     6 files changed, 3 insertions(+), 4 deletions(-)
     [EOF]
     ");
-    let assert = test_env
-        .jj_cmd(&repo_path, &["diff", "--git"])
-        .assert()
-        .failure();
-    insta::assert_snapshot!(get_stdout_string(&assert).replace('\\', "/"), @r###"
+    let output = test_env.run_jj_in(&repo_path, ["diff", "--git"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
     diff --git a/a-first b/a-first
     index 257cc5642c..5716ca5987 100644
     --- a/a-first
@@ -97,11 +92,13 @@ fn test_diff() {
     @@ -1,1 +1,1 @@
     -foo
     +bar
-    "###);
-    insta::assert_snapshot!(get_stderr_string(&assert), @r#"
+    [EOF]
+    ------- stderr -------
     Error: Access denied to added-secret
     Caused by: No access
-    "#);
+    [EOF]
+    [exit status: 1]
+    ");
 
     // TODO: Test external tool
 }

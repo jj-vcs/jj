@@ -17,16 +17,6 @@ mod test_environment;
 pub use self::test_environment::CommandOutput;
 pub use self::test_environment::TestEnvironment;
 
-#[track_caller]
-pub fn get_stdout_string(assert: &assert_cmd::assert::Assert) -> String {
-    String::from_utf8(assert.get_output().stdout.clone()).unwrap()
-}
-
-#[track_caller]
-pub fn get_stderr_string(assert: &assert_cmd::assert::Assert) -> String {
-    String::from_utf8(assert.get_output().stderr.clone()).unwrap()
-}
-
 pub fn fake_editor_path() -> String {
     let path = assert_cmd::cargo::cargo_bin("fake-editor");
     assert!(path.is_file());

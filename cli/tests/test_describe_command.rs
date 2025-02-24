@@ -17,7 +17,6 @@ use std::path::PathBuf;
 
 use indoc::indoc;
 
-use crate::common::get_stderr_string;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 
@@ -207,38 +206,70 @@ fn test_describe_editor_env() {
     let repo_path = test_env.env_root().join("repo");
 
     // Fails if the editor doesn't exist
-    let assert = test_env
-        .jj_cmd(&repo_path, &["describe"])
-        .env("EDITOR", "this-editor-does-not-exist")
-        .assert()
-        .failure();
-    assert!(get_stderr_string(&assert).contains("Failed to run"));
+    let output = test_env.run_jj_with(|cmd| {
+        cmd.current_dir(&repo_path)
+            .arg("describe")
+            .env("EDITOR", "this-editor-does-not-exist")
+    });
+    insta::assert_snapshot!(
+        output.normalize_stderr_with(|s| s.split_inclusive('\n').take(3).collect()), @r"
+    ------- stderr -------
+    Error: Failed to edit description
+    Caused by:
+    1: Failed to run editor 'this-editor-does-not-exist'
+    [EOF]
+    [exit status: 1]
+    ");
 
     // `$VISUAL` overrides `$EDITOR`
-    let assert = test_env
-        .jj_cmd(&repo_path, &["describe"])
-        .env("VISUAL", "bad-editor-from-visual-env")
-        .env("EDITOR", "bad-editor-from-editor-env")
-        .assert()
-        .failure();
-    assert!(get_stderr_string(&assert).contains("bad-editor-from-visual-env"));
+    let output = test_env.run_jj_with(|cmd| {
+        cmd.current_dir(&repo_path)
+            .arg("describe")
+            .env("VISUAL", "bad-editor-from-visual-env")
+            .env("EDITOR", "bad-editor-from-editor-env")
+    });
+    insta::assert_snapshot!(
+        output.normalize_stderr_with(|s| s.split_inclusive('\n').take(3).collect()), @r"
+    ------- stderr -------
+    Error: Failed to edit description
+    Caused by:
+    1: Failed to run editor 'bad-editor-from-visual-env'
+    [EOF]
+    [exit status: 1]
+    ");
 
     // `ui.editor` config overrides `$VISUAL`
     test_env.add_config(r#"ui.editor = "bad-editor-from-config""#);
-    let assert = test_env
-        .jj_cmd(&repo_path, &["describe"])
-        .env("VISUAL", "bad-editor-from-visual-env")
-        .assert()
-        .failure();
-    assert!(get_stderr_string(&assert).contains("bad-editor-from-config"));
+    let output = test_env.run_jj_with(|cmd| {
+        cmd.current_dir(&repo_path)
+            .arg("describe")
+            .env("VISUAL", "bad-editor-from-visual-env")
+    });
+    insta::assert_snapshot!(
+        output.normalize_stderr_with(|s| s.split_inclusive('\n').take(3).collect()), @r"
+    ------- stderr -------
+    Error: Failed to edit description
+    Caused by:
+    1: Failed to run editor 'bad-editor-from-config'
+    [EOF]
+    [exit status: 1]
+    ");
 
     // `$JJ_EDITOR` overrides `ui.editor` config
-    let assert = test_env
-        .jj_cmd(&repo_path, &["describe"])
-        .env("JJ_EDITOR", "bad-jj-editor-from-jj-editor-env")
-        .assert()
-        .failure();
-    assert!(get_stderr_string(&assert).contains("bad-jj-editor-from-jj-editor-env"));
+    let output = test_env.run_jj_with(|cmd| {
+        cmd.current_dir(&repo_path)
+            .arg("describe")
+            .env("JJ_EDITOR", "bad-jj-editor-from-jj-editor-env")
+    });
+    insta::assert_snapshot!(
+        output.normalize_stderr_with(|s| s.split_inclusive('\n').take(3).collect()), @r"
+    ------- stderr -------
+    Error: Failed to edit description
+    Caused by:
+    1: Failed to run editor 'bad-jj-editor-from-jj-editor-env'
+    [EOF]
+    [exit status: 1]
+    ");
 }
 
 #[test]
