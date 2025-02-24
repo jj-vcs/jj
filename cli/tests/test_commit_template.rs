@@ -533,16 +533,15 @@ fn test_log_evolog_divergence() {
         &repo_path,
         &["describe", "-m", "description 2", "--at-operation", "@-"],
     );
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["log"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log"]);
+    insta::assert_snapshot!(output, @r"
     @  qpvuntsm?? test.user@example.com 2001-02-03 08:05:08 ff309c29
     │  description 1
     │ ○  qpvuntsm?? test.user@example.com 2001-02-03 08:05:10 6ba70e00
     ├─╯  description 2
     ◆  zzzzzzzz root() 00000000
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr, @r"
+    ------- stderr -------
     Concurrent modification detected, resolving automatically.
     [EOF]
     ");
@@ -1063,10 +1062,9 @@ fn test_short_prefix_in_transaction() {
     let parent_id = "58731d"; // Force id lookup to build index before mutation.
                               // If the cached index wasn't invalidated, the
                               // newly created commit wouldn't be found in it.
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["new", parent_id, "--no-edit", "-m", "test"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["new", parent_id, "--no-edit", "-m", "test"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Created new commit km[kuslswpqwq] 7[4ac55dd119b] test
     [EOF]
     ");

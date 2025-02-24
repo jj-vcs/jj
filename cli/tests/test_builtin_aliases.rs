@@ -125,26 +125,22 @@ fn test_builtin_alias_trunk_override_alias() {
 fn test_builtin_alias_trunk_no_match() {
     let (test_env, workspace_root) = set_up("no-match-trunk");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["log", "-r", "trunk()"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&workspace_root, ["log", "-r", "trunk()"]);
+    insta::assert_snapshot!(output, @r"
     ◆  zzzzzzzz root() 00000000
     [EOF]
     ");
-    insta::assert_snapshot!(stderr, @r###"
-    "###);
 }
 
 #[test]
 fn test_builtin_alias_trunk_no_match_only_exact() {
     let (test_env, workspace_root) = set_up("maint");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["log", "-r", "trunk()"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&workspace_root, ["log", "-r", "trunk()"]);
+    insta::assert_snapshot!(output, @r"
     ◆  zzzzzzzz root() 00000000
     [EOF]
     ");
-    insta::assert_snapshot!(stderr, @r###"
-    "###);
 }
 
 #[test]
@@ -155,14 +151,13 @@ fn test_builtin_user_redefines_builtin_immutable_heads() {
     test_env.add_config(r#"revset-aliases.'mutable()' = '@'"#);
     test_env.add_config(r#"revset-aliases.'immutable()' = '@'"#);
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["log", "-r", "trunk()"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&workspace_root, ["log", "-r", "trunk()"]);
+    insta::assert_snapshot!(output, @r"
     ○  xtvrqkyv test.user@example.com 2001-02-03 08:05:08 main d13ecdbd
     │  (empty) description 1
     ~
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr, @r"
+    ------- stderr -------
     Warning: Redefining `revset-aliases.builtin_immutable_heads()` is not recommended; redefine `immutable_heads()` instead
     Warning: Redefining `revset-aliases.mutable()` is not recommended; redefine `immutable_heads()` instead
     Warning: Redefining `revset-aliases.immutable()` is not recommended; redefine `immutable_heads()` instead

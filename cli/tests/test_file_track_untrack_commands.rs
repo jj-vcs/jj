@@ -73,9 +73,9 @@ fn test_track_untrack() {
 
     // Can untrack a single file
     assert!(files_before.stdout.raw().contains("file1.bak\n"));
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["untrack", "file1.bak"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["untrack", "file1.bak"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Warning: `jj untrack` is deprecated; use `jj file untrack` instead, which is equivalent
     Warning: `jj untrack` will be removed in a future version, and this will be a hard error
     [EOF]
@@ -102,9 +102,8 @@ fn test_track_untrack() {
 
     // Can untrack after adding to ignore patterns
     std::fs::write(repo_path.join(".gitignore"), ".bak\ntarget/\n").unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["file", "untrack", "target"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @"");
+    let output = test_env.run_jj_in(&repo_path, ["file", "untrack", "target"]);
+    insta::assert_snapshot!(output, @"");
     let files_after = test_env.run_jj_in(&repo_path, ["file", "list"]).success();
     assert!(!files_after.stdout.raw().contains("target"));
 }
@@ -129,9 +128,8 @@ fn test_track_untrack_sparse() {
     [EOF]
     ");
     test_env.jj_cmd_ok(&repo_path, &["sparse", "set", "--clear", "--add", "file1"]);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["file", "untrack", "file2"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @"");
+    let output = test_env.run_jj_in(&repo_path, ["file", "untrack", "file2"]);
+    insta::assert_snapshot!(output, @"");
     let output = test_env.run_jj_in(&repo_path, ["file", "list"]);
     insta::assert_snapshot!(output, @r"
     file1
@@ -139,9 +137,8 @@ fn test_track_untrack_sparse() {
     ");
     // Trying to manually track a file that's not included in the sparse working has
     // no effect. TODO: At least a warning would be useful
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["file", "track", "file2"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @"");
+    let output = test_env.run_jj_in(&repo_path, ["file", "track", "file2"]);
+    insta::assert_snapshot!(output, @"");
     let output = test_env.run_jj_in(&repo_path, ["file", "list"]);
     insta::assert_snapshot!(output, @r"
     file1

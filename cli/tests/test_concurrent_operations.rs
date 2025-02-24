@@ -54,15 +54,14 @@ fn test_concurrent_operation_divergence() {
     ");
 
     // We should be informed about the concurrent modification
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["log", "-T", "description"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-T", "description"]);
+    insta::assert_snapshot!(output, @r"
     @  message 1
     │ ○  message 2
     ├─╯
     ◆
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr, @r"
+    ------- stderr -------
     Concurrent modification detected, resolving automatically.
     [EOF]
     ");
@@ -225,9 +224,9 @@ fn test_concurrent_snapshot_wc_reloadable() {
     )
     .unwrap();
     std::fs::write(repo_path.join("child2"), "").unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "new child2"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["describe", "-m", "new child2"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: kkmpptxz 1795621b new child2
     Parent commit      : rlvkpnrz 86f54245 new child1
     [EOF]

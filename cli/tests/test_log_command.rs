@@ -489,13 +489,12 @@ fn test_log_bad_short_prefixes() {
 
     // Warn on resolution of short prefixes
     test_env.add_config("revsets.short-prefixes = 'missing'");
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["log", "-Tcommit_id.shortest()"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-Tcommit_id.shortest()"]);
+    insta::assert_snapshot!(output, @r"
     @  2
     ◆  0
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr, @r"
+    ------- stderr -------
     Warning: In template expression
      --> 1:11
       |
@@ -821,15 +820,14 @@ fn test_log_divergence() {
         &repo_path,
         &["describe", "-m", "description 2", "--at-operation", "@-"],
     );
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["log", "-T", template]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-T", template]);
+    insta::assert_snapshot!(output, @r"
     @  description 1 !divergence!
     │ ○  description 2 !divergence!
     ├─╯
     ◆
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr, @r"
+    ------- stderr -------
     Concurrent modification detected, resolving automatically.
     [EOF]
     ");
@@ -1064,24 +1062,22 @@ fn test_log_warn_path_might_be_revset() {
     std::fs::write(repo_path.join("file1"), "foo\n").unwrap();
 
     // Don't warn if the file actually exists.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["log", "file1", "-T", "description"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "file1", "-T", "description"]);
+    insta::assert_snapshot!(output, @r"
     @
     │
     ~
     [EOF]
     ");
-    insta::assert_snapshot!(stderr, @"");
 
     // Warn for `jj log .` specifically, for former Mercurial users.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["log", ".", "-T", "description"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", ".", "-T", "description"]);
+    insta::assert_snapshot!(output, @r#"
     @
     │
     ~
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr, @r#"
+    ------- stderr -------
     Warning: The argument "." is being interpreted as a fileset expression, but this is often not useful because all non-empty commits touch '.'. If you meant to show the working copy commit, pass -r '@' instead.
     [EOF]
     "#);
@@ -1089,31 +1085,28 @@ fn test_log_warn_path_might_be_revset() {
     // ...but checking `jj log .` makes sense in a subdirectory.
     let subdir = repo_path.join("dir");
     std::fs::create_dir_all(&subdir).unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&subdir, &["log", "."]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @"");
+    let output = test_env.run_jj_in(&subdir, ["log", "."]);
+    insta::assert_snapshot!(output, @"");
 
     // Warn for `jj log @` instead of `jj log -r @`.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["log", "@", "-T", "description"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r#"
+    let output = test_env.run_jj_in(&repo_path, ["log", "@", "-T", "description"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Warning: The argument "@" is being interpreted as a fileset expression. To specify a revset, pass -r "@" instead.
     [EOF]
     "#);
 
     // Warn when there's no path with the provided name.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["log", "file2", "-T", "description"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r#"
+    let output = test_env.run_jj_in(&repo_path, ["log", "file2", "-T", "description"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Warning: The argument "file2" is being interpreted as a fileset expression. To specify a revset, pass -r "file2" instead.
     [EOF]
     "#);
 
     // If an explicit revision is provided, then suppress the warning.
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["log", "@", "-r", "@", "-T", "description"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r###"
+    let output = test_env.run_jj_in(&repo_path, ["log", "@", "-r", "@", "-T", "description"]);
+    insta::assert_snapshot!(output, @r###"
     "###);
 }
 

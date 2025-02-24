@@ -42,9 +42,9 @@ fn test_unsquash() {
     ");
 
     // Unsquashes into the working copy from its parent by default
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["unsquash"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["unsquash"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Warning: `jj unsquash` is deprecated; use `jj diffedit --restore-descendants` or `jj squash` instead
     Warning: `jj unsquash` will be removed in a future version, and this will be a hard error
     Working copy now at: mzvwutvl 9177132c c | (no description set)
@@ -65,9 +65,9 @@ fn test_unsquash() {
 
     // Can unsquash into a given commit from its parent
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["unsquash", "-r", "b"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["unsquash", "-r", "b"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Warning: `jj unsquash` is deprecated; use `jj diffedit --restore-descendants` or `jj squash` instead
     Warning: `jj unsquash` will be removed in a future version, and this will be a hard error
     Rebased 1 descendant commits
@@ -125,9 +125,9 @@ fn test_unsquash() {
     // Can unsquash from a merge commit
     test_env.jj_cmd_ok(&repo_path, &["new", "e"]);
     std::fs::write(repo_path.join("file1"), "e\n").unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["unsquash"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["unsquash"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Warning: `jj unsquash` is deprecated; use `jj diffedit --restore-descendants` or `jj squash` instead
     Warning: `jj unsquash` will be removed in a future version, and this will be a hard error
     Working copy now at: pzsxstzt bd05eb69 merge
@@ -183,9 +183,9 @@ fn test_unsquash_partial() {
     // from the parent
     let edit_script = test_env.set_up_fake_diff_editor();
     std::fs::write(&edit_script, "dump JJ-INSTRUCTIONS instrs").unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["unsquash", "-r", "b", "-i"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["unsquash", "-r", "b", "-i"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Warning: `jj unsquash` is deprecated; use `jj diffedit --restore-descendants` or `jj squash` instead
     Warning: `jj unsquash` will be removed in a future version, and this will be a hard error
     Rebased 1 descendant commits
@@ -223,9 +223,9 @@ fn test_unsquash_partial() {
     // Can unsquash only some changes in interactive mode
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
     std::fs::write(edit_script, "reset file1").unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["unsquash", "-i"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["unsquash", "-i"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Warning: `jj unsquash` is deprecated; use `jj diffedit --restore-descendants` or `jj squash` instead
     Warning: `jj unsquash` will be removed in a future version, and this will be a hard error
     Working copy now at: mzvwutvl a896ffde c | (no description set)
@@ -262,16 +262,16 @@ fn test_unsquash_partial() {
 
     // Try again with --tool=<name>, which implies --interactive
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "unsquash",
             "--config=ui.diff-editor='false'",
             "--tool=fake-diff-editor",
         ],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Warning: `jj unsquash` is deprecated; use `jj diffedit --restore-descendants` or `jj squash` instead
     Warning: `jj unsquash` will be removed in a future version, and this will be a hard error
     Working copy now at: mzvwutvl aaca9268 c | (no description set)

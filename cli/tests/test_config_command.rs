@@ -53,12 +53,12 @@ fn test_config_list_single() {
 #[test]
 fn test_config_list_nonexistent() {
     let test_env = TestEnvironment::default();
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         test_env.env_root(),
-        &["config", "list", "nonexistent-test-key"],
+        ["config", "list", "nonexistent-test-key"],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Warning: No matching config key for nonexistent-test-key
     [EOF]
     ");
@@ -1092,10 +1092,9 @@ fn test_config_path_syntax() {
     ");
 
     // Not a table
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(test_env.env_root(), &["config", "list", "a.'b()'.x"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(test_env.env_root(), ["config", "list", "a.'b()'.x"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Warning: No matching config key for a.'b()'.x
     [EOF]
     ");
@@ -1271,11 +1270,11 @@ fn test_config_conditional() {
 
     // set and unset should refer to the source config
     // (there's no option to update scoped table right now.)
-    let (_stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         test_env.env_root(),
-        &["config", "set", "--user", "bar", "new value"],
+        ["config", "set", "--user", "bar", "new value"],
     );
-    insta::assert_snapshot!(stderr, @"");
+    insta::assert_snapshot!(output, @"");
     insta::assert_snapshot!(std::fs::read_to_string(&user_config_path).unwrap(), @r#"
     foo = 'global'
     baz = 'global'
@@ -1299,8 +1298,8 @@ fn test_config_conditional() {
     --when.commands = ['config list']
     qux = 'list'
     "#);
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo1_path, &["config", "unset", "--user", "foo"]);
-    insta::assert_snapshot!(stderr, @"");
+    let output = test_env.run_jj_in(&repo1_path, ["config", "unset", "--user", "foo"]);
+    insta::assert_snapshot!(output, @"");
     insta::assert_snapshot!(std::fs::read_to_string(&user_config_path).unwrap(), @r#"
     baz = 'global'
     qux = 'global'
@@ -1390,12 +1389,12 @@ fn test_config_author_change_warning() {
     let test_env = TestEnvironment::default();
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["config", "set", "--repo", "user.email", "'Foo'"],
+        ["config", "set", "--repo", "user.email", "'Foo'"],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Warning: This setting will only impact future commits.
     The author of the working copy will stay "Test User <test.user@example.com>".
     To change the working copy author, use "jj describe --reset-author --no-edit"

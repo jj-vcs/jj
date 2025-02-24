@@ -117,22 +117,20 @@ fn test_file_list_show() {
     SecretBackend::adopt_git_repo(&repo_path);
 
     // "file list" should just work since it doesn't access file content
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["file", "list"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "list"]);
+    insta::assert_snapshot!(output, @r"
     a-first
     secret
     z-last
     [EOF]
     ");
-    insta::assert_snapshot!(stderr, @"");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["file", "show", "."]);
-    insta::assert_snapshot!(stdout.normalize_backslash(), @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "."]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
     foo
     baz
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr.normalize_backslash(), @r"
+    ------- stderr -------
     Warning: Path 'secret' exists but access is denied: No access
     [EOF]
     ");

@@ -32,9 +32,9 @@ fn test_init_local_disallowed() {
 fn test_init_local() {
     let test_env = TestEnvironment::default();
     test_env.add_config(r#"ui.allow-init-native = true"#);
-    let (stdout, stderr) = test_env.jj_cmd_ok(test_env.env_root(), &["init", "repo"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r#"
+    let output = test_env.run_jj_in(test_env.env_root(), ["init", "repo"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Initialized repo in "repo"
     [EOF]
     "#);

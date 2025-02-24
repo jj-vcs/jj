@@ -166,12 +166,11 @@ fn test_alias_cannot_override_builtin() {
 
     test_env.add_config(r#"aliases.log = ["rebase"]"#);
     // Alias should give a warning
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["log", "-r", "root()"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "root()"]);
+    insta::assert_snapshot!(output, @r"
     ◆  zzzzzzzz root() 00000000
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr, @r"
+    ------- stderr -------
     Warning: Cannot define an alias that overrides the built-in command 'log'
     [EOF]
     ");
@@ -331,40 +330,31 @@ fn test_alias_in_repo_config() {
     ");
 
     // Aliases can't be loaded from the -R path due to chicken and egg problem.
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&repo2_path, &["l", "-R", repo1_path.to_str().unwrap()]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo2_path, ["l", "-R", repo1_path.to_str().unwrap()]);
+    insta::assert_snapshot!(output, @r"
     user alias
     [EOF]
-    ");
-    insta::assert_snapshot!(
-        stderr,
-        @r"
+    ------- stderr -------
     Warning: Command aliases cannot be loaded from -R/--repository path or --config/--config-file arguments.
     [EOF]
     ");
 
     // Aliases are loaded from the cwd-relative workspace even with -R.
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&repo1_path, &["l", "-R", repo2_path.to_str().unwrap()]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo1_path, ["l", "-R", repo2_path.to_str().unwrap()]);
+    insta::assert_snapshot!(output, @r"
     repo1 alias
     [EOF]
-    ");
-    insta::assert_snapshot!(
-        stderr,
-        @r"
+    ------- stderr -------
     Warning: Command aliases cannot be loaded from -R/--repository path or --config/--config-file arguments.
     [EOF]
     ");
 
     // No warning if the expanded command is identical.
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo1_path,
-        &["file", "list", "-R", repo2_path.to_str().unwrap()],
+        ["file", "list", "-R", repo2_path.to_str().unwrap()],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @"");
+    insta::assert_snapshot!(output, @"");
 
     // Config loaded from the cwd-relative workspace shouldn't persist. It's
     // used only for command arguments expansion.
@@ -391,20 +381,18 @@ fn test_alias_in_config_arg() {
     let repo_path = test_env.env_root().join("repo");
     test_env.add_config(r#"aliases.l = ['log', '-r@', '--no-graph', '-T"user alias\n"']"#);
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["l"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["l"]);
+    insta::assert_snapshot!(output, @r"
     user alias
     [EOF]
     ");
-    insta::assert_snapshot!(stderr, @"");
 
     let alias_arg = r#"--config=aliases.l=['log', '-r@', '--no-graph', '-T"arg alias\n"']"#;
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &[alias_arg, "l"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, [alias_arg, "l"]);
+    insta::assert_snapshot!(output, @r"
     user alias
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr, @r"
+    ------- stderr -------
     Warning: Command aliases cannot be loaded from -R/--repository path or --config/--config-file arguments.
     [EOF]
     ");

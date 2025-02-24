@@ -131,9 +131,9 @@ fn test_git_colocated_unborn_bookmark() {
 
     // Stage some change, and check out root. This shouldn't clobber the HEAD.
     add_file_to_index("file0", "");
-    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["new", "root()"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&workspace_root, ["new", "root()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: kkmpptxz fcdbbd73 (empty) (no description set)
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 0 files, removed 1 files
@@ -163,9 +163,9 @@ fn test_git_colocated_unborn_bookmark() {
     // Stage some change, and create new HEAD. This shouldn't move the default
     // bookmark.
     add_file_to_index("file1", "");
-    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["new"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&workspace_root, ["new"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: royxmykx 0e146103 (empty) (no description set)
     Parent commit      : kkmpptxz e3e01407 (no description set)
     [EOF]
@@ -198,9 +198,9 @@ fn test_git_colocated_unborn_bookmark() {
     // Stage some change, and check out root again. This should unset the HEAD.
     // https://github.com/jj-vcs/jj/issues/1495
     add_file_to_index("file2", "");
-    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["new", "root()"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&workspace_root, ["new", "root()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: znkkpsqq 10dd328b (empty) (no description set)
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 0 files, removed 2 files
@@ -228,9 +228,9 @@ fn test_git_colocated_unborn_bookmark() {
 
     // New snapshot and commit can be created after the HEAD got unset.
     std::fs::write(workspace_root.join("file3"), "").unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["new"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&workspace_root, ["new"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: wqnwkozp 101e2723 (empty) (no description set)
     Parent commit      : znkkpsqq fc8af934 (no description set)
     [EOF]
@@ -409,12 +409,12 @@ fn test_git_colocated_bookmark_forget() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &workspace_root,
-        &["bookmark", "forget", "--include-remotes", "foo"],
+        ["bookmark", "forget", "--include-remotes", "foo"],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Forgot 1 local bookmarks.
     Forgot 1 remote bookmarks.
     [EOF]
@@ -431,24 +431,25 @@ fn test_git_colocated_bookmark_at_root() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "--colocate", "repo"]);
     let repo_path = test_env.env_root().join("repo");
 
-    let (_stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "foo", "-r=root()"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["bookmark", "create", "foo", "-r=root()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Created 1 bookmarks pointing to zzzzzzzz 00000000 foo | (empty) (no description set)
     Warning: Failed to export some bookmarks:
       foo: Ref cannot point to the root commit in Git
     [EOF]
     ");
 
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["bookmark", "move", "foo", "--to=@"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["bookmark", "move", "foo", "--to=@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Moved 1 bookmarks to qpvuntsm 230dd059 foo | (empty) (no description set)
     [EOF]
     ");
 
-    let (_stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "bookmark",
             "move",
             "foo",
@@ -456,7 +457,8 @@ fn test_git_colocated_bookmark_at_root() {
             "--to=root()",
         ],
     );
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Moved 1 bookmarks to zzzzzzzz 00000000 foo* | (empty) (no description set)
     Warning: Failed to export some bookmarks:
       foo: Ref cannot point to the root commit in Git
@@ -529,8 +531,9 @@ fn test_git_colocated_checkout_non_empty_working_copy() {
 
     test_env.jj_cmd_ok(&workspace_root, &["describe", "-m", "two"]);
     test_env.jj_cmd_ok(&workspace_root, &["new", "@-"]);
-    let (_, stderr) = test_env.jj_cmd_ok(&workspace_root, &["describe", "-m", "new"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&workspace_root, ["describe", "-m", "new"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: kkmpptxz 149cc31c (empty) new
     Parent commit      : lnksqltp e61b6729 master | initial
     [EOF]
@@ -583,9 +586,9 @@ fn test_git_colocated_fetch_deleted_or_moved_bookmark() {
     test_env.jj_cmd_ok(&origin_path, &["bookmark", "delete", "B_to_delete"]);
     // Move bookmark C sideways
     test_env.jj_cmd_ok(&origin_path, &["describe", "C_to_move", "-m", "moved C"]);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&clone_path, &["git", "fetch"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&clone_path, ["git", "fetch"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     bookmark: B_to_delete@origin [deleted] untracked
     bookmark: C_to_move@origin   [updated] tracked
     Abandoned 2 commits that are no longer reachable.
@@ -625,8 +628,8 @@ fn test_git_colocated_rebase_dirty_working_copy() {
 
     // Because the working copy is dirty, the new working-copy commit will be
     // diverged. Therefore, the feature bookmark has change-delete conflict.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["status"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["status"]);
+    insta::assert_snapshot!(output, @r"
     Working copy changes:
     M file
     Working copy : rlvkpnrz 6bad94b1 feature?? | (no description set)
@@ -635,8 +638,7 @@ fn test_git_colocated_rebase_dirty_working_copy() {
       feature
     Hint: Use `jj bookmark list` to see details. Use `jj bookmark set <name> -r <rev>` to resolve.
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr, @r"
+    ------- stderr -------
     Warning: Failed to export some bookmarks:
       feature: Modified ref had been deleted in Git
     Done importing changes from the underlying Git repo.
@@ -806,9 +808,9 @@ fn test_git_colocated_undo_head_move() {
         @"eb08b363bb5ef8ee549314260488980d7bbe8f63");
 
     // HEAD should be moved back
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["undo"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["undo"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Undid operation: b50ec983d1c1 (2001-02-03 08:05:13) new empty commit
     Working copy now at: royxmykx eb08b363 (empty) (no description set)
     Parent commit      : qpvuntsm 230dd059 (empty) (no description set)

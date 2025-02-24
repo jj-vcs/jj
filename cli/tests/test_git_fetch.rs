@@ -179,9 +179,10 @@ fn test_git_fetch_single_remote(subprocess: bool) {
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "rem1");
 
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "fetch"]);
+    let output = test_env.run_jj_in(&repo_path, ["git", "fetch"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Hint: Fetching from the only existing remote: rem1
     bookmark: rem1@rem1 [new] tracked
     [EOF]
@@ -436,12 +437,9 @@ fn test_git_fetch_from_remote_named_git(subprocess: bool) {
     }
 
     // Implicit import shouldn't fail because of the remote ref.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["bookmark", "list", "--all-remotes"]);
+    let output = test_env.run_jj_in(&repo_path, ["bookmark", "list", "--all-remotes"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @"");
+    insta::assert_snapshot!(output, @"");
     }
 
     // Explicit import is an error.
@@ -459,17 +457,14 @@ fn test_git_fetch_from_remote_named_git(subprocess: bool) {
 
     // The remote can be renamed, and the ref can be imported.
     test_env.jj_cmd_ok(&repo_path, &["git", "remote", "rename", "git", "bar"]);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["bookmark", "list", "--all-remotes"]);
+    let output = test_env.run_jj_in(&repo_path, ["bookmark", "list", "--all-remotes"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @r"
+    insta::assert_snapshot!(output, @r"
     git: mrylzrtu 76fc7466 message
       @bar: mrylzrtu 76fc7466 message
       @git: mrylzrtu 76fc7466 message
     [EOF]
-    ");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    ------- stderr -------
     Done importing changes from the underlying Git repo.
     [EOF]
     ");
@@ -669,13 +664,10 @@ fn test_git_fetch_all(subprocess: bool) {
     let _git_repo = git2::Repository::init(source_git_repo_path.clone()).unwrap();
 
     // Clone an empty repo. The target repo is a normal `jj` repo, *not* colocated
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(test_env.env_root(), &["git", "clone", "source", "target"]);
+    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "target"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Fetching into new repo in "$TEST_ENV/target"
     Nothing changed.
     [EOF]
@@ -710,19 +702,17 @@ fn test_git_fetch_all(subprocess: bool) {
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &target_jj_repo_path), @"");
     }
-    let (stdout, stderr) = test_env.jj_cmd_ok(&target_jj_repo_path, &["git", "fetch"]);
+    let output = test_env.run_jj_in(&target_jj_repo_path, ["git", "fetch"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-        }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     bookmark: a1@origin     [new] tracked
     bookmark: a2@origin     [new] tracked
     bookmark: b@origin      [new] tracked
     bookmark: trunk1@origin [new] tracked
     [EOF]
     ");
-        }
+    }
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &target_jj_repo_path), @r"
     a1: nknoxmzm 359a9a02 descr_for_a1
@@ -802,12 +792,10 @@ fn test_git_fetch_all(subprocess: bool) {
     [EOF]
     ");
     }
-    let (stdout, stderr) = test_env.jj_cmd_ok(&target_jj_repo_path, &["git", "fetch"]);
+    let output = test_env.run_jj_in(&target_jj_repo_path, ["git", "fetch"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     bookmark: a1@origin     [updated] tracked
     bookmark: a2@origin     [updated] tracked
     bookmark: b@origin      [updated] tracked
@@ -866,13 +854,10 @@ fn test_git_fetch_some_of_many_bookmarks(subprocess: bool) {
     let _git_repo = git2::Repository::init(source_git_repo_path.clone()).unwrap();
 
     // Clone an empty repo. The target repo is a normal `jj` repo, *not* colocated
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(test_env.env_root(), &["git", "clone", "source", "target"]);
+    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "target"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Fetching into new repo in "$TEST_ENV/target"
     Nothing changed.
     [EOF]
@@ -929,13 +914,10 @@ fn test_git_fetch_some_of_many_bookmarks(subprocess: bool) {
     ");
     }
     // Fetch one bookmark...
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&target_jj_repo_path, &["git", "fetch", "--branch", "b"]);
+    let output = test_env.run_jj_in(&target_jj_repo_path, ["git", "fetch", "--branch", "b"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     bookmark: b@origin [new] tracked
     [EOF]
     ");
@@ -959,15 +941,13 @@ fn test_git_fetch_some_of_many_bookmarks(subprocess: bool) {
     ");
     }
     // ...then fetch two others with a glob.
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &target_jj_repo_path,
-        &["git", "fetch", "--branch", "glob:a*"],
+        ["git", "fetch", "--branch", "glob:a*"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     bookmark: a1@origin [new] tracked
     bookmark: a2@origin [new] tracked
     [EOF]
@@ -988,13 +968,10 @@ fn test_git_fetch_some_of_many_bookmarks(subprocess: bool) {
     ");
     }
     // Fetching the same bookmark again
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&target_jj_repo_path, &["git", "fetch", "--branch", "a1"]);
+    let output = test_env.run_jj_in(&target_jj_repo_path, ["git", "fetch", "--branch", "a1"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Nothing changed.
     [EOF]
     ");
@@ -1052,15 +1029,13 @@ fn test_git_fetch_some_of_many_bookmarks(subprocess: bool) {
     [EOF]
     ");
     }
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &target_jj_repo_path,
-        &["git", "fetch", "--branch", "b", "--branch", "a1"],
+        ["git", "fetch", "--branch", "b", "--branch", "a1"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     bookmark: a1@origin [updated] tracked
     bookmark: b@origin  [updated] tracked
     Abandoned 1 commits that are no longer reachable.
@@ -1102,15 +1077,13 @@ fn test_git_fetch_some_of_many_bookmarks(subprocess: bool) {
     }
     // Now, let's fetch a2 and double-check that fetching a1 and b again doesn't do
     // anything.
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &target_jj_repo_path,
-        &["git", "fetch", "--branch", "b", "--branch", "glob:a*"],
+        ["git", "fetch", "--branch", "b", "--branch", "glob:a*"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     bookmark: a2@origin [updated] tracked
     Abandoned 1 commits that are no longer reachable.
     [EOF]
@@ -1165,10 +1138,10 @@ fn test_git_fetch_bookmarks_some_missing(subprocess: bool) {
     add_git_remote(&test_env, &repo_path, "rem3");
 
     // single missing bookmark, implicit remotes (@origin)
-    let (_stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["git", "fetch", "--branch", "noexist"]);
+    let output = test_env.run_jj_in(&repo_path, ["git", "fetch", "--branch", "noexist"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Warning: No branch matching `noexist` found on any specified/configured remote
     Nothing changed.
     [EOF]
@@ -1179,14 +1152,15 @@ fn test_git_fetch_bookmarks_some_missing(subprocess: bool) {
     }
 
     // multiple missing bookmarks, implicit remotes (@origin)
-    let (_stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "git", "fetch", "--branch", "noexist1", "--branch", "noexist2",
         ],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Warning: No branch matching `noexist1` found on any specified/configured remote
     Warning: No branch matching `noexist2` found on any specified/configured remote
     Nothing changed.
@@ -1198,9 +1172,10 @@ fn test_git_fetch_bookmarks_some_missing(subprocess: bool) {
     }
 
     // single existing bookmark, implicit remotes (@origin)
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "fetch", "--branch", "origin"]);
+    let output = test_env.run_jj_in(&repo_path, ["git", "fetch", "--branch", "origin"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     bookmark: origin@origin [new] tracked
     [EOF]
     ");
@@ -1215,15 +1190,16 @@ fn test_git_fetch_bookmarks_some_missing(subprocess: bool) {
 
     // multiple existing bookmark, explicit remotes, each bookmark is only in one
     // remote.
-    let (_stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "git", "fetch", "--branch", "rem1", "--branch", "rem2", "--branch", "rem3", "--remote",
             "rem1", "--remote", "rem2", "--remote", "rem3",
         ],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     bookmark: rem1@rem1 [new] tracked
     bookmark: rem2@rem2 [new] tracked
     bookmark: rem3@rem3 [new] tracked
@@ -1245,14 +1221,15 @@ fn test_git_fetch_bookmarks_some_missing(subprocess: bool) {
     }
 
     // multiple bookmarks, one exists, one doesn't
-    let (_stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "git", "fetch", "--branch", "rem1", "--branch", "notexist", "--remote", "rem1",
         ],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Warning: No branch matching `notexist` found on any specified/configured remote
     Nothing changed.
     [EOF]
@@ -1315,13 +1292,10 @@ fn test_git_fetch_undo(subprocess: bool) {
     let _git_repo = git2::Repository::init(source_git_repo_path.clone()).unwrap();
 
     // Clone an empty repo. The target repo is a normal `jj` repo, *not* colocated
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(test_env.env_root(), &["git", "clone", "source", "target"]);
+    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "target"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Fetching into new repo in "$TEST_ENV/target"
     Nothing changed.
     [EOF]
@@ -1346,15 +1320,13 @@ fn test_git_fetch_undo(subprocess: bool) {
     }
 
     // Fetch 2 bookmarks
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &target_jj_repo_path,
-        &["git", "fetch", "--branch", "b", "--branch", "a1"],
+        ["git", "fetch", "--branch", "b", "--branch", "a1"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     bookmark: a1@origin [new] tracked
     bookmark: b@origin  [new] tracked
     [EOF]
@@ -1372,12 +1344,10 @@ fn test_git_fetch_undo(subprocess: bool) {
     [EOF]
     ");
     }
-    let (stdout, stderr) = test_env.jj_cmd_ok(&target_jj_repo_path, &["undo"]);
+    let output = test_env.run_jj_in(&target_jj_repo_path, ["undo"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Undid operation: eb2029853b02 (2001-02-03 08:05:18) fetch from git remote(s) origin
     [EOF]
     ");
@@ -1391,13 +1361,10 @@ fn test_git_fetch_undo(subprocess: bool) {
     ");
     }
     // Now try to fetch just one bookmark
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&target_jj_repo_path, &["git", "fetch", "--branch", "b"]);
+    let output = test_env.run_jj_in(&target_jj_repo_path, ["git", "fetch", "--branch", "b"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     bookmark: b@origin [new] tracked
     [EOF]
     ");
@@ -1428,13 +1395,10 @@ fn test_fetch_undo_what(subprocess: bool) {
     let _git_repo = git2::Repository::init(source_git_repo_path.clone()).unwrap();
 
     // Clone an empty repo. The target repo is a normal `jj` repo, *not* colocated
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(test_env.env_root(), &["git", "clone", "source", "target"]);
+    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "target"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Fetching into new repo in "$TEST_ENV/target"
     Nothing changed.
     [EOF]
@@ -1466,12 +1430,10 @@ fn test_fetch_undo_what(subprocess: bool) {
     let base_operation_id = test_env.current_operation_id(&repo_path);
 
     // Fetch a bookmark
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "fetch", "--branch", "b"]);
+    let output = test_env.run_jj_in(&repo_path, ["git", "fetch", "--branch", "b"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     bookmark: b@origin [new] tracked
     [EOF]
     ");
@@ -1496,15 +1458,13 @@ fn test_fetch_undo_what(subprocess: bool) {
 
     // We can undo the change in the repo without moving the remote-tracking
     // bookmark
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["op", "restore", "--what", "repo", &base_operation_id],
+        ["op", "restore", "--what", "repo", &base_operation_id],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Restored to operation: eac759b9ab75 (2001-02-03 08:05:07) add workspace 'default'
     [EOF]
     ");
@@ -1530,9 +1490,9 @@ fn test_fetch_undo_what(subprocess: bool) {
     }
     // Restoring just the remote-tracking state will not affect `newbookmark`, but
     // will eliminate `b@origin`.
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "op",
             "restore",
             "--what",
@@ -1541,10 +1501,8 @@ fn test_fetch_undo_what(subprocess: bool) {
         ],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Restored to operation: eac759b9ab75 (2001-02-03 08:05:07) add workspace 'default'
     [EOF]
     ");
@@ -1601,12 +1559,10 @@ fn test_git_fetch_remove_fetch(subprocess: bool) {
     test_env.jj_cmd_ok(&repo_path, &["git", "remote", "add", "origin", "../origin"]);
 
     // Check that origin@origin is properly recreated
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "fetch"]);
+    let output = test_env.run_jj_in(&repo_path, ["git", "fetch"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     bookmark: origin@origin [new] tracked
     [EOF]
     ");
@@ -1668,13 +1624,10 @@ fn test_git_fetch_rename_fetch(subprocess: bool) {
     }
 
     // Check that jj indicates that nothing has changed
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["git", "fetch", "--remote", "upstream"]);
+    let output = test_env.run_jj_in(&repo_path, ["git", "fetch", "--remote", "upstream"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Nothing changed.
     [EOF]
     ");
@@ -1693,13 +1646,10 @@ fn test_git_fetch_removed_bookmark(subprocess: bool) {
     let _git_repo = git2::Repository::init(source_git_repo_path.clone()).unwrap();
 
     // Clone an empty repo. The target repo is a normal `jj` repo, *not* colocated
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(test_env.env_root(), &["git", "clone", "source", "target"]);
+    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "target"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Fetching into new repo in "$TEST_ENV/target"
     Nothing changed.
     [EOF]
@@ -1724,12 +1674,10 @@ fn test_git_fetch_removed_bookmark(subprocess: bool) {
     }
 
     // Fetch all bookmarks
-    let (stdout, stderr) = test_env.jj_cmd_ok(&target_jj_repo_path, &["git", "fetch"]);
+    let output = test_env.run_jj_in(&target_jj_repo_path, ["git", "fetch"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     bookmark: a1@origin     [new] tracked
     bookmark: a2@origin     [new] tracked
     bookmark: b@origin      [new] tracked
@@ -1759,13 +1707,10 @@ fn test_git_fetch_removed_bookmark(subprocess: bool) {
     );
 
     // Fetch bookmark a1 from origin and check that a2 is still there
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&target_jj_repo_path, &["git", "fetch", "--branch", "a1"]);
+    let output = test_env.run_jj_in(&target_jj_repo_path, ["git", "fetch", "--branch", "a1"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Nothing changed.
     [EOF]
     ");
@@ -1786,13 +1731,10 @@ fn test_git_fetch_removed_bookmark(subprocess: bool) {
     }
 
     // Fetch bookmarks a2 from origin, and check that it has been removed locally
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&target_jj_repo_path, &["git", "fetch", "--branch", "a2"]);
+    let output = test_env.run_jj_in(&target_jj_repo_path, ["git", "fetch", "--branch", "a2"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     bookmark: a2@origin [deleted] untracked
     Abandoned 1 commits that are no longer reachable.
     [EOF]
@@ -1824,13 +1766,10 @@ fn test_git_fetch_removed_parent_bookmark(subprocess: bool) {
     let _git_repo = git2::Repository::init(source_git_repo_path.clone()).unwrap();
 
     // Clone an empty repo. The target repo is a normal `jj` repo, *not* colocated
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(test_env.env_root(), &["git", "clone", "source", "target"]);
+    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "target"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Fetching into new repo in "$TEST_ENV/target"
     Nothing changed.
     [EOF]
@@ -1855,12 +1794,10 @@ fn test_git_fetch_removed_parent_bookmark(subprocess: bool) {
     }
 
     // Fetch all bookmarks
-    let (stdout, stderr) = test_env.jj_cmd_ok(&target_jj_repo_path, &["git", "fetch"]);
+    let output = test_env.run_jj_in(&target_jj_repo_path, ["git", "fetch"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     bookmark: a1@origin     [new] tracked
     bookmark: a2@origin     [new] tracked
     bookmark: b@origin      [new] tracked
@@ -1892,17 +1829,15 @@ fn test_git_fetch_removed_parent_bookmark(subprocess: bool) {
     // Fetch bookmarks master, trunk1 and a1 from origin and check that only those
     // bookmarks have been removed and that others were not rebased because of
     // abandoned commits.
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &target_jj_repo_path,
-        &[
+        [
             "git", "fetch", "--branch", "master", "--branch", "trunk1", "--branch", "a1",
         ],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     bookmark: a1@origin     [deleted] untracked
     bookmark: trunk1@origin [deleted] untracked
     Abandoned 1 commits that are no longer reachable.

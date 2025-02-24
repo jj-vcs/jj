@@ -208,9 +208,9 @@ fn test_diff_basic() {
     ");
 
     // Unmatched paths should generate warnings
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         test_env.env_root(),
-        &[
+        [
             "diff",
             "-Rrepo",
             "-s",
@@ -220,21 +220,19 @@ fn test_diff_basic() {
             "repo/y/z",
         ],
     );
-    insta::assert_snapshot!(stdout.normalize_backslash(), @r"
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
     M repo/file2
     R repo/{file1 => file3}
     C repo/{file2 => file4}
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr.normalize_backslash(), @r"
+    ------- stderr -------
     Warning: No matching entries for paths: repo/x, repo/y/z
     [EOF]
     ");
 
     // Unmodified paths shouldn't generate warnings
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["diff", "-s", "--from=@", "file2"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @"");
+    let output = test_env.run_jj_in(&repo_path, ["diff", "-s", "--from=@", "file2"]);
+    insta::assert_snapshot!(output, @"");
 }
 
 #[test]
@@ -2141,17 +2139,16 @@ fn test_diff_external_tool() {
 
     // nonzero exit codes should not print a warning if it's an expected exit code
     std::fs::write(&edit_script, "fail").unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "diff",
             "--tool",
             "fake-diff-editor",
             "--config=merge-tools.fake-diff-editor.diff-expected-exit-codes=[1]",
         ],
     );
-    insta::assert_snapshot!(stdout, @r"");
-    insta::assert_snapshot!(stderr, @r"");
+    insta::assert_snapshot!(output, @"");
 
     std::fs::write(
         &edit_script,
@@ -2520,9 +2517,8 @@ fn test_diff_external_tool_conflict_marker_style() {
         ["files-before file", "files-after file", "dump file file"].join("\0"),
     )
     .unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["diff", "--tool", "fake-diff-editor"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @"");
+    let output = test_env.run_jj_in(&repo_path, ["diff", "--tool", "fake-diff-editor"]);
+    insta::assert_snapshot!(output, @"");
     // Conflicts should render using "snapshot" format
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("file")).unwrap(), @r##"

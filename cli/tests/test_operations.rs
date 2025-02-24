@@ -237,8 +237,8 @@ fn test_op_log_reversed() {
     );
 
     // Should be able to display log with fork and branch points
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["op", "log", "--reversed"]);
-    insta::assert_snapshot!(&stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["op", "log", "--reversed"]);
+    insta::assert_snapshot!(output, @r"
     ○  000000000000 root()
     ○    eac759b9ab75 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
     ├─╮  add workspace 'default'
@@ -252,8 +252,7 @@ fn test_op_log_reversed() {
        reconcile divergent operations
        args: jj op log --reversed
     [EOF]
-    ");
-    insta::assert_snapshot!(&stderr, @r"
+    ------- stderr -------
     Concurrent modification detected, resolving automatically.
     [EOF]
     ");
@@ -587,8 +586,9 @@ fn test_op_abandon_ancestors() {
     ");
 
     // Abandon old operations. The working-copy operation id should be updated.
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["op", "abandon", "..@-"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["op", "abandon", "..@-"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Abandoned 2 operations and reparented 1 descendant operations.
     [EOF]
     ");
@@ -610,8 +610,9 @@ fn test_op_abandon_ancestors() {
     test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "commit 3"]);
     test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "commit 4"]);
     test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "commit 5"]);
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["op", "abandon", "@---..@-"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["op", "abandon", "@---..@-"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Abandoned 2 operations and reparented 1 descendant operations.
     [EOF]
     ");
@@ -647,8 +648,9 @@ fn test_op_abandon_ancestors() {
 
     // Abandon the current operation by undoing it first.
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["op", "abandon", "@-"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["op", "abandon", "@-"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Abandoned 1 operations and reparented 1 descendant operations.
     [EOF]
     ");
@@ -670,8 +672,9 @@ fn test_op_abandon_ancestors() {
     ");
 
     // Abandon empty range.
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["op", "abandon", "@-..@-"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["op", "abandon", "@-..@-"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Nothing changed.
     [EOF]
     ");
@@ -694,11 +697,9 @@ fn test_op_abandon_without_updating_working_copy() {
     test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "commit 3"]);
 
     // Abandon without updating the working copy.
-    let (_stdout, stderr) = test_env.jj_cmd_ok(
-        &repo_path,
-        &["op", "abandon", "@-", "--ignore-working-copy"],
-    );
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["op", "abandon", "@-", "--ignore-working-copy"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Abandoned 1 operations and reparented 1 descendant operations.
     [EOF]
     ");
@@ -719,8 +720,9 @@ fn test_op_abandon_without_updating_working_copy() {
     // The working-copy operation id isn't updated if it differs from the repo.
     // It could be updated if the tree matches, but there's no extra logic for
     // that.
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["op", "abandon", "@-"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["op", "abandon", "@-"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Abandoned 1 operations and reparented 1 descendant operations.
     Warning: The working copy operation b0711a8ac91f is not updated because it differs from the repo 0508a30825ed.
     [EOF]
@@ -797,14 +799,15 @@ fn test_op_abandon_multiple_heads() {
     // Can abandon the operation which is not an ancestor of the other head.
     // This would crash if we attempted to remap the unchanged op in the op
     // heads store.
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["op", "abandon", prev_op_id]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["op", "abandon", prev_op_id]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Abandoned 1 operations and reparented 2 descendant operations.
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["op", "log"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["op", "log"]);
+    insta::assert_snapshot!(output, @r"
     @    7e65e7e27e34 test-username@host.example.com 2001-02-03 04:05:17.000 +07:00 - 2001-02-03 04:05:17.000 +07:00
     ├─╮  reconcile divergent operations
     │ │  args: jj op log
@@ -821,8 +824,7 @@ fn test_op_abandon_multiple_heads() {
     │  add workspace 'default'
     ○  000000000000 root()
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr, @r"
+    ------- stderr -------
     Concurrent modification detected, resolving automatically.
     [EOF]
     ");
@@ -889,11 +891,11 @@ fn test_op_recover_from_bad_gc() {
     ");
 
     // "op log" should still be usable.
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["op", "log", "--ignore-working-copy", "--at-op", head_op_id],
+        ["op", "log", "--ignore-working-copy", "--at-op", head_op_id],
     );
-    insta::assert_snapshot!(stdout, @r"
+    insta::assert_snapshot!(output, @r"
     @  f999e12a5d8b test-username@host.example.com 2001-02-03 04:05:12.000 +07:00 - 2001-02-03 04:05:12.000 +07:00
     │  describe commit 37bb762e5dc08073ec4323bdffc023a0f0cc901e
     │  args: jj describe -m4
@@ -914,19 +916,18 @@ fn test_op_recover_from_bad_gc() {
     ○  000000000000 root()
     [EOF]
     ");
-    insta::assert_snapshot!(stderr, @"");
 
     // "op abandon" should work.
-    let (_stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["op", "abandon", &format!("..{bad_op_id}")]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["op", "abandon", &format!("..{bad_op_id}")]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Abandoned 3 operations and reparented 4 descendant operations.
     [EOF]
     ");
 
     // The repo should no longer be corrupt.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["log"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log"]);
+    insta::assert_snapshot!(output, @r"
     @  mzvwutvl?? test.user@example.com 2001-02-03 08:05:12 6d868f04
     │  (empty) 4
     │ ○  mzvwutvl?? test.user@example.com 2001-02-03 08:05:15 dc2c6d52
@@ -935,8 +936,7 @@ fn test_op_recover_from_bad_gc() {
     │  (empty) (no description set)
     ◆  zzzzzzzz root() 00000000
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr, @r"
+    ------- stderr -------
     Concurrent modification detected, resolving automatically.
     [EOF]
     ");
@@ -950,9 +950,9 @@ fn test_op_summary_diff_template() {
 
     // Tests in color (easier to read with `less -R`)
     test_env.jj_cmd_ok(&repo_path, &["new", "--no-edit", "-m=scratch"]);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["op", "undo", "--color=always"]);
-    insta::assert_snapshot!(&stdout, @"");
-    insta::assert_snapshot!(&stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["op", "undo", "--color=always"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Undid operation: [38;5;4mac20a4ff4791[39m ([38;5;6m2001-02-03 08:05:08[39m) new empty commit
     [EOF]
     ");
@@ -979,9 +979,9 @@ fn test_op_summary_diff_template() {
 
     // Tests with templates
     test_env.jj_cmd_ok(&repo_path, &["new", "--no-edit", "-m=scratch"]);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["op", "undo", "--color=debug"]);
-    insta::assert_snapshot!(&stdout, @"");
-    insta::assert_snapshot!(&stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["op", "undo", "--color=debug"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Undid operation: [38;5;4m<<operation id short::2301f6e6ec31>>[39m<<operation:: (>>[38;5;6m<<operation time end local format::2001-02-03 08:05:11>>[39m<<operation::) >><<operation description first_line::new empty commit>>
     [EOF]
     ");
@@ -1221,10 +1221,9 @@ fn test_op_diff() {
 
     // Test fetching from git remote.
     modify_git_repo(git_repo);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "fetch"]);
-    insta::assert_snapshot!(&stdout, @r###"
-    "###);
-    insta::assert_snapshot!(&stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["git", "fetch"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     bookmark: bookmark-1@origin [updated] tracked
     bookmark: bookmark-2@origin [updated] untracked
     bookmark: bookmark-3@origin [deleted] untracked
@@ -1262,9 +1261,9 @@ fn test_op_diff() {
     ");
 
     // Test creation of bookmark.
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "bookmark",
             "create",
             "bookmark-2",
@@ -1272,9 +1271,8 @@ fn test_op_diff() {
             "bookmark-2@origin",
         ],
     );
-    insta::assert_snapshot!(&stdout, @r###"
-    "###);
-    insta::assert_snapshot!(&stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Created 1 bookmarks pointing to kulxwnxm e1a239a5 bookmark-2 bookmark-2@origin | Commit 5
     [EOF]
     ");
@@ -1291,11 +1289,9 @@ fn test_op_diff() {
     ");
 
     // Test tracking of bookmark.
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["bookmark", "track", "bookmark-2@origin"]);
-    insta::assert_snapshot!(&stdout, @r###"
-     "###);
-    insta::assert_snapshot!(&stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["bookmark", "track", "bookmark-2@origin"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Started tracking 1 remote bookmarks.
     [EOF]
     ");
@@ -1313,11 +1309,9 @@ fn test_op_diff() {
 
     // Test creation of new commit.
     // Test tracking of bookmark.
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["bookmark", "track", "bookmark-2@origin"]);
-    insta::assert_snapshot!(&stdout, @r###"
-    "###);
-    insta::assert_snapshot!(&stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["bookmark", "track", "bookmark-2@origin"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Warning: Remote bookmark already tracked: bookmark-2@origin
     Nothing changed.
     [EOF]
@@ -1335,13 +1329,9 @@ fn test_op_diff() {
     ");
 
     // Test creation of new commit.
-    let (stdout, stderr) = test_env.jj_cmd_ok(
-        &repo_path,
-        &["new", "bookmark-1@origin", "-m", "new commit"],
-    );
-    insta::assert_snapshot!(&stdout, @r###"
-    "###);
-    insta::assert_snapshot!(&stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["new", "bookmark-1@origin", "-m", "new commit"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: wvuyspvk fefb1e17 (empty) new commit
     Parent commit      : zkmtkqvo 0dee6313 bookmark-1?? bookmark-1@origin | Commit 4
     Added 1 files, modified 0 files, removed 0 files
@@ -1359,11 +1349,9 @@ fn test_op_diff() {
     ");
 
     // Test updating of local bookmark.
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["bookmark", "set", "bookmark-1", "-r", "@"]);
-    insta::assert_snapshot!(&stdout, @r###"
-    "###);
-    insta::assert_snapshot!(&stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["bookmark", "set", "bookmark-1", "-r", "@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Moved 1 bookmarks to wvuyspvk fefb1e17 bookmark-1* | (empty) new commit
     [EOF]
     ");
@@ -1381,10 +1369,9 @@ fn test_op_diff() {
     ");
 
     // Test deletion of local bookmark.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["bookmark", "delete", "bookmark-2"]);
-    insta::assert_snapshot!(&stdout, @r###"
-    "###);
-    insta::assert_snapshot!(&stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["bookmark", "delete", "bookmark-2"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Deleted 1 bookmarks.
     [EOF]
     ");
@@ -1401,10 +1388,9 @@ fn test_op_diff() {
     ");
 
     // Test pushing to Git remote.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "push", "--tracked"]);
-    insta::assert_snapshot!(&stdout, @r###"
-    "###);
-    insta::assert_snapshot!(&stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["git", "push", "--tracked"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Changes to push to origin:
       Move forward bookmark bookmark-1 from 0dee631320b1 to fefb1e17c853
       Delete bookmark bookmark-2 from e1a239a57eb1
@@ -1440,9 +1426,9 @@ fn test_op_diff_patch() {
 
     // Update working copy with a single file and create new commit.
     std::fs::write(repo_path.join("file"), "a\n").unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["new"]);
-    insta::assert_snapshot!(&stdout, @"");
-    insta::assert_snapshot!(&stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["new"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: rlvkpnrz 56950632 (empty) (no description set)
     Parent commit      : qpvuntsm 6b1027d2 (no description set)
     [EOF]
@@ -1476,9 +1462,9 @@ fn test_op_diff_patch() {
 
     // Squash the working copy commit.
     std::fs::write(repo_path.join("file"), "b\n").unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["squash"]);
-    insta::assert_snapshot!(&stdout, @"");
-    insta::assert_snapshot!(&stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["squash"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: mzvwutvl 9f4fb57f (empty) (no description set)
     Parent commit      : qpvuntsm 2ac85fd1 (no description set)
     [EOF]
@@ -1511,9 +1497,9 @@ fn test_op_diff_patch() {
     ");
 
     // Abandon the working copy commit.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["abandon"]);
-    insta::assert_snapshot!(&stdout, @"");
-    insta::assert_snapshot!(&stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["abandon"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Abandoned commit mzvwutvl 9f4fb57f (empty) (no description set)
     Working copy now at: yqosqzyt 33f321c4 (empty) (no description set)
     Parent commit      : qpvuntsm 2ac85fd1 (no description set)
@@ -1557,8 +1543,8 @@ fn test_op_diff_sibling() {
     // Create another operation diverged from the base operation.
     test_env.jj_cmd_ok(&repo_path, &["describe", "--at-op", base_op_id, "-mB"]);
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["op", "log"]);
-    insta::assert_snapshot!(&stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["op", "log"]);
+    insta::assert_snapshot!(output, @r"
     @    779ecb7ea7f0 test-username@host.example.com 2001-02-03 04:05:13.000 +07:00 - 2001-02-03 04:05:13.000 +07:00
     ├─╮  reconcile divergent operations
     │ │  args: jj op log
@@ -1584,8 +1570,7 @@ fn test_op_diff_sibling() {
     │  add workspace 'default'
     ○  000000000000 root()
     [EOF]
-    ");
-    insta::assert_snapshot!(&stderr, @r"
+    ------- stderr -------
     Concurrent modification detected, resolving automatically.
     [EOF]
     ");
@@ -1906,10 +1891,9 @@ fn test_op_show() {
 
     // Test fetching from git remote.
     modify_git_repo(git_repo);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "fetch"]);
-    insta::assert_snapshot!(&stdout, @r###"
-    "###);
-    insta::assert_snapshot!(&stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["git", "fetch"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     bookmark: bookmark-1@origin [updated] tracked
     bookmark: bookmark-2@origin [updated] untracked
     bookmark: bookmark-3@origin [deleted] untracked
@@ -1948,9 +1932,9 @@ fn test_op_show() {
     ");
 
     // Test creation of bookmark.
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "bookmark",
             "create",
             "bookmark-2",
@@ -1958,9 +1942,8 @@ fn test_op_show() {
             "bookmark-2@origin",
         ],
     );
-    insta::assert_snapshot!(&stdout, @r###"
-    "###);
-    insta::assert_snapshot!(&stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Created 1 bookmarks pointing to kulxwnxm e1a239a5 bookmark-2 bookmark-2@origin | Commit 5
     [EOF]
     ");
@@ -1978,11 +1961,9 @@ fn test_op_show() {
     ");
 
     // Test tracking of a bookmark.
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["bookmark", "track", "bookmark-2@origin"]);
-    insta::assert_snapshot!(&stdout, @r###"
-     "###);
-    insta::assert_snapshot!(&stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["bookmark", "track", "bookmark-2@origin"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Started tracking 1 remote bookmarks.
     [EOF]
     ");
@@ -2000,11 +1981,9 @@ fn test_op_show() {
     ");
 
     // Test creation of new commit.
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["bookmark", "track", "bookmark-2@origin"]);
-    insta::assert_snapshot!(&stdout, @r###"
-    "###);
-    insta::assert_snapshot!(&stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["bookmark", "track", "bookmark-2@origin"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Warning: Remote bookmark already tracked: bookmark-2@origin
     Nothing changed.
     [EOF]
@@ -2023,13 +2002,9 @@ fn test_op_show() {
     ");
 
     // Test creation of new commit.
-    let (stdout, stderr) = test_env.jj_cmd_ok(
-        &repo_path,
-        &["new", "bookmark-1@origin", "-m", "new commit"],
-    );
-    insta::assert_snapshot!(&stdout, @r###"
-    "###);
-    insta::assert_snapshot!(&stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["new", "bookmark-1@origin", "-m", "new commit"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: xznxytkn 560df364 (empty) new commit
     Parent commit      : zkmtkqvo 0dee6313 bookmark-1?? bookmark-1@origin | Commit 4
     Added 1 files, modified 0 files, removed 0 files
@@ -2048,11 +2023,9 @@ fn test_op_show() {
     ");
 
     // Test updating of local bookmark.
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["bookmark", "set", "bookmark-1", "-r", "@"]);
-    insta::assert_snapshot!(&stdout, @r###"
-    "###);
-    insta::assert_snapshot!(&stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["bookmark", "set", "bookmark-1", "-r", "@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Moved 1 bookmarks to xznxytkn 560df364 bookmark-1* | (empty) new commit
     [EOF]
     ");
@@ -2071,10 +2044,9 @@ fn test_op_show() {
     ");
 
     // Test deletion of local bookmark.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["bookmark", "delete", "bookmark-2"]);
-    insta::assert_snapshot!(&stdout, @r###"
-    "###);
-    insta::assert_snapshot!(&stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["bookmark", "delete", "bookmark-2"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Deleted 1 bookmarks.
     [EOF]
     ");
@@ -2092,10 +2064,9 @@ fn test_op_show() {
     ");
 
     // Test pushing to Git remote.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "push", "--tracked"]);
-    insta::assert_snapshot!(&stdout, @r###"
-    "###);
-    insta::assert_snapshot!(&stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["git", "push", "--tracked"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Changes to push to origin:
       Move forward bookmark bookmark-1 from 0dee631320b1 to 560df364f0a0
       Delete bookmark bookmark-2 from e1a239a57eb1
@@ -2132,9 +2103,9 @@ fn test_op_show_patch() {
 
     // Update working copy with a single file and create new commit.
     std::fs::write(repo_path.join("file"), "a\n").unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["new"]);
-    insta::assert_snapshot!(&stdout, @"");
-    insta::assert_snapshot!(&stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["new"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: rlvkpnrz 56950632 (empty) (no description set)
     Parent commit      : qpvuntsm 6b1027d2 (no description set)
     [EOF]
@@ -2170,9 +2141,9 @@ fn test_op_show_patch() {
 
     // Squash the working copy commit.
     std::fs::write(repo_path.join("file"), "b\n").unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["squash"]);
-    insta::assert_snapshot!(&stdout, @"");
-    insta::assert_snapshot!(&stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["squash"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: mzvwutvl 9f4fb57f (empty) (no description set)
     Parent commit      : qpvuntsm 2ac85fd1 (no description set)
     [EOF]
@@ -2206,9 +2177,9 @@ fn test_op_show_patch() {
     ");
 
     // Abandon the working copy commit.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["abandon"]);
-    insta::assert_snapshot!(&stdout, @"");
-    insta::assert_snapshot!(&stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["abandon"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Abandoned commit mzvwutvl 9f4fb57f (empty) (no description set)
     Working copy now at: yqosqzyt 33f321c4 (empty) (no description set)
     Parent commit      : qpvuntsm 2ac85fd1 (no description set)

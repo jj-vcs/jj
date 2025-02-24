@@ -132,9 +132,9 @@ fn test_chmod_regular_conflict() {
     ");
 
     // Unmatched paths should generate warnings
-    let (_stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["file", "chmod", "x", "nonexistent", "file"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "chmod", "x", "nonexistent", "file"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Warning: No matching entries for paths: nonexistent
     Working copy now at: yostqsxw 2b11d002 conflict | (conflict) conflict
     Parent commit      : royxmykx 427fbd2f x | x
@@ -233,12 +233,12 @@ fn test_chmod_file_dir_deletion_conflicts() {
     >>>>>>> Conflict 1 of 1 ends
     [EOF]
     ");
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["file", "chmod", "x", "file", "-r=file_deletion"],
+        ["file", "chmod", "x", "file", "-r=file_deletion"],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: kmkuslsw 139dee15 file_deletion | (conflict) file_deletion
     Parent commit      : zsuskuln c51c9c55 file | file
     Parent commit      : royxmykx 6b18b3c1 deletion | deletion

@@ -151,9 +151,9 @@ fn test_rebase_empty_sets() {
     create_commit(&test_env, &repo_path, "b", &["a"]);
 
     // TODO: Make all of these say "Nothing changed"?
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-r=none()", "-d=b"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r=none()", "-d=b"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Nothing changed.
     [EOF]
     ");
@@ -172,9 +172,9 @@ fn test_rebase_empty_sets() {
     [exit status: 1]
     ");
     // Empty because "b..a" is empty
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-b=a", "-d=b"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-b=a", "-d=b"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Nothing changed.
     [EOF]
     ");
@@ -204,9 +204,9 @@ fn test_rebase_bookmark() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-b", "c", "-d", "e"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-b", "c", "-d", "e"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 3 commits onto destination
     [EOF]
     ");
@@ -223,9 +223,9 @@ fn test_rebase_bookmark() {
 
     // Test rebasing multiple bookmarks at once
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-b=e", "-b=d", "-d=b"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-b=e", "-b=d", "-d=b"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Skipped rebase of 1 commits that were already in place
     Rebased 1 commits onto destination
     Working copy now at: znkkpsqq 9ca2a154 e | e
@@ -258,9 +258,9 @@ fn test_rebase_bookmark() {
     [EOF]
     [exit status: 1]
     ");
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-b=all:e|d", "-d=b"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-b=all:e|d", "-d=b"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Skipped rebase of 1 commits that were already in place
     Rebased 1 commits onto destination
     Working copy now at: znkkpsqq 817e3fb0 e | e
@@ -306,9 +306,9 @@ fn test_rebase_bookmark_with_merge() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-b", "d", "-d", "b"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-b", "d", "-d", "b"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 3 commits onto destination
     Working copy now at: znkkpsqq 5f8a3db2 e | e
     Parent commit      : rlvkpnrz 2443ea76 a | a
@@ -329,9 +329,9 @@ fn test_rebase_bookmark_with_merge() {
     ");
 
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-d", "b"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-d", "b"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 3 commits onto destination
     Working copy now at: znkkpsqq a331ac11 e | e
     Parent commit      : rlvkpnrz 2443ea76 a | a
@@ -378,9 +378,9 @@ fn test_rebase_single_revision() {
 
     // Descendants of the rebased commit "c" should be rebased onto parents. First
     // we test with a non-merge commit.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "c", "-d", "b"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "c", "-d", "b"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     Rebased 2 descendant commits
     Working copy now at: znkkpsqq 2668ffbe e | e
@@ -404,9 +404,9 @@ fn test_rebase_single_revision() {
 
     // Now, let's try moving the merge commit. After, both parents of "d" ("b" and
     // "c") should become parents of "e".
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "d", "-d", "a"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "d", "-d", "a"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     Rebased 1 descendant commits
     Working copy now at: znkkpsqq ed210c15 e | e
@@ -453,9 +453,9 @@ fn test_rebase_single_revision_merge_parent() {
 
     // Descendants of the rebased commit should be rebased onto parents, and if
     // the descendant is a merge commit, it shouldn't forget its other parents.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "c", "-d", "a"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "c", "-d", "a"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     Rebased 1 descendant commits
     Working copy now at: vruxwmqv a37531e8 d | d
@@ -511,10 +511,9 @@ fn test_rebase_multiple_revisions() {
     ");
 
     // Test with two non-related non-merge commits.
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "c", "-r", "e", "-d", "a"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "c", "-r", "e", "-d", "a"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 2 commits onto destination
     Rebased 4 descendant commits
     Working copy now at: xznxytkn 016685dc i | i
@@ -545,10 +544,9 @@ fn test_rebase_multiple_revisions() {
     // Test with two related non-merge commits. Since "b" is a parent of "c", when
     // rebasing commits "b" and "c", their ancestry relationship should be
     // preserved.
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "b", "-r", "c", "-d", "e"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "b", "-r", "c", "-d", "e"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 2 commits onto destination
     Rebased 4 descendant commits
     Working copy now at: xznxytkn 94538385 i | i
@@ -580,9 +578,9 @@ fn test_rebase_multiple_revisions() {
     // inherit its descendants which are not in the subtree ("c" and "d").
     // "f" will retain its parent "c" since "c" is outside the target set, and not
     // a descendant of any new children.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "e::g", "-d", "a"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "e::g", "-d", "a"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 3 commits onto destination
     Rebased 2 descendant commits
     Working copy now at: xznxytkn 1868ded4 i | i
@@ -616,12 +614,12 @@ fn test_rebase_multiple_revisions() {
     // rebased commits. "d" should be a new parent of "f", and "f" should be a
     // new parent of "h". "f" will retain its parent "c" since "c" is outside the
     // target set, and not a descendant of any new children.
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["rebase", "-r", "d", "-r", "f", "-r", "h", "-d", "b"],
+        ["rebase", "-r", "d", "-r", "f", "-r", "h", "-d", "b"],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 3 commits onto destination
     Rebased 3 descendant commits
     Working copy now at: xznxytkn 9cfd1635 i | i
@@ -651,9 +649,9 @@ fn test_rebase_multiple_revisions() {
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
 
     // Test rebasing a subgraph onto its descendants.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "d::e", "-d", "i"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "d::e", "-d", "i"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 2 commits onto destination
     Rebased 4 descendant commits
     Working copy now at: xznxytkn 5d911e5c i | i
@@ -703,9 +701,9 @@ fn test_rebase_revision_onto_descendant() {
     let setup_opid = test_env.current_operation_id(&repo_path);
 
     // Simpler example
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "base", "-d", "a"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "base", "-d", "a"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     Rebased 3 descendant commits
     Working copy now at: vruxwmqv bff4a4eb merge | merge
@@ -727,9 +725,9 @@ fn test_rebase_revision_onto_descendant() {
     ");
 
     // Now, let's rebase onto the descendant merge
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["op", "restore", &setup_opid]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Restored to operation: 60e340690be6 (2001-02-03 08:05:15) create bookmark merge pointing to commit b05964d109522cd06e48f1a2661e1a0f58be0984
     Working copy now at: vruxwmqv b05964d1 merge | merge
     Parent commit      : royxmykx cea87a87 b | b
@@ -737,9 +735,9 @@ fn test_rebase_revision_onto_descendant() {
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "base", "-d", "merge"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "base", "-d", "merge"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     Rebased 3 descendant commits
     Working copy now at: vruxwmqv 986b7a49 merge | merge
@@ -783,10 +781,9 @@ fn test_rebase_multiple_destinations() {
     [EOF]
     ");
 
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "a", "-d", "b", "-d", "c"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "a", "-d", "b", "-d", "c"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     [EOF]
     ");
@@ -813,9 +810,9 @@ fn test_rebase_multiple_destinations() {
     ");
 
     // try with 'all:' and succeed
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "a", "-d", "all:b|c"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "a", "-d", "all:b|c"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     [EOF]
     ");
@@ -901,9 +898,9 @@ fn test_rebase_with_descendants() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-s", "b", "-d", "a"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-s", "b", "-d", "a"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 3 commits onto destination
     Working copy now at: vruxwmqv 705832bd d | d
     Parent commit      : royxmykx 57c7246a c | c
@@ -922,9 +919,9 @@ fn test_rebase_with_descendants() {
 
     // Rebase several subtrees at once.
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-s=c", "-s=d", "-d=a"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-s=c", "-s=d", "-d=a"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 2 commits onto destination
     Working copy now at: vruxwmqv 92c2bc9a d | d
     Parent commit      : rlvkpnrz 2443ea76 a | a
@@ -957,9 +954,9 @@ fn test_rebase_with_descendants() {
 
     // `d` was a descendant of `b`, and both are moved to be direct descendants of
     // `a`. `c` remains a descendant of `b`.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-s=b", "-s=d", "-d=a"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-s=b", "-s=d", "-d=a"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 3 commits onto destination
     Working copy now at: vruxwmqv f1e71cb7 d | d
     Parent commit      : rlvkpnrz 2443ea76 a | a
@@ -990,9 +987,9 @@ fn test_rebase_with_descendants() {
     [EOF]
     [exit status: 1]
     ");
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-s=all:b|d", "-d=a"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-s=all:b|d", "-d=a"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 3 commits onto destination
     Working copy now at: vruxwmqv d17539f7 d | d
     Parent commit      : rlvkpnrz 2443ea76 a | a
@@ -1067,10 +1064,9 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
 
     // ===================== rebase -s tests =================
     // This should be a no-op
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["rebase", "-s", "base", "-d", "notroot"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-s", "base", "-d", "notroot"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Skipped rebase of 4 commits that were already in place
     Nothing changed.
     [EOF]
@@ -1089,9 +1085,9 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
 
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
     // This should be a no-op
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-s", "a", "-d", "base"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-s", "a", "-d", "base"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Skipped rebase of 3 commits that were already in place
     Nothing changed.
     [EOF]
@@ -1109,9 +1105,9 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     ");
 
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-s", "a", "-d", "root()"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-s", "a", "-d", "root()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 3 commits onto destination
     Working copy now at: znkkpsqq cf8ecff5 c | c
     Parent commit      : vruxwmqv 24e1a270 b | b
@@ -1148,9 +1144,9 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
 
     // The commits in roots(base..c), i.e. commit "a" should be rebased onto "base",
     // which is a no-op
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-b", "c", "-d", "base"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-b", "c", "-d", "base"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Skipped rebase of 3 commits that were already in place
     Nothing changed.
     [EOF]
@@ -1168,9 +1164,9 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     ");
 
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-b", "c", "-d", "a"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-b", "c", "-d", "a"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 2 commits onto destination
     Working copy now at: znkkpsqq 76914dcc c | c
     Parent commit      : vruxwmqv f73f03c7 b | b
@@ -1190,9 +1186,9 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
 
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
     // This should be a no-op
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-b", "a", "-d", "root()"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-b", "a", "-d", "root()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Skipped rebase of 5 commits that were already in place
     Nothing changed.
     [EOF]
@@ -1224,10 +1220,9 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     [EOF]
     ");
 
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "base", "-d", "root()"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "base", "-d", "root()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     Rebased 3 descendant commits
     Working copy now at: znkkpsqq 45371aaf c | c
@@ -1252,9 +1247,9 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     // This tests the algorithm for rebasing onto descendants. The result should
     // have unsimplified ancestry.
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "base", "-d", "b"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "base", "-d", "b"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     Rebased 3 descendant commits
     Working copy now at: znkkpsqq e28fa972 c | c
@@ -1278,9 +1273,9 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     // This tests the algorithm for rebasing onto descendants. The result should
     // have unsimplified ancestry.
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "base", "-d", "a"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "base", "-d", "a"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     Rebased 3 descendant commits
     Working copy now at: znkkpsqq a9da974c c | c
@@ -1315,9 +1310,9 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "a", "-d", "root()"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "a", "-d", "root()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     Rebased 2 descendant commits
     Working copy now at: znkkpsqq 7210b05e c | c
@@ -1339,9 +1334,9 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     ");
 
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "b", "-d", "root()"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "b", "-d", "root()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     Rebased 1 descendant commits
     Working copy now at: znkkpsqq f280545e c | c
@@ -1367,9 +1362,9 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     // This tests the algorithm for rebasing onto descendants. The result should
     // have unsimplified ancestry.
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "b", "-d", "c"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "b", "-d", "c"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     Rebased 1 descendant commits
     Working copy now at: znkkpsqq c0a7cd80 c | c
@@ -1393,9 +1388,9 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     // In this test, the commit with weird ancestry is not rebased (neither directly
     // nor indirectly).
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "c", "-d", "a"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "c", "-d", "a"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     Working copy now at: znkkpsqq 7a3bc050 c | c
     Parent commit      : royxmykx 86a06598 a | a
@@ -1450,12 +1445,12 @@ fn test_rebase_after() {
     let setup_opid = test_env.current_operation_id(&repo_path);
 
     // Rebasing a commit after its parents should be a no-op.
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["rebase", "-r", "c", "--after", "b2", "--after", "b4"],
+        ["rebase", "-r", "c", "--after", "b2", "--after", "b4"],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Skipped rebase of 4 commits that were already in place
     Nothing changed.
     [EOF]
@@ -1478,9 +1473,9 @@ fn test_rebase_after() {
     ");
 
     // Rebasing a commit after itself should be a no-op.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "c", "--after", "c"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "c", "--after", "c"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Skipped rebase of 4 commits that were already in place
     Nothing changed.
     [EOF]
@@ -1504,9 +1499,9 @@ fn test_rebase_after() {
 
     // Rebase a commit after another commit. "c" has parents "b2" and "b4", so its
     // children "d" and "e" should be rebased onto "b2" and "b4" respectively.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "c", "--after", "e"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "c", "--after", "e"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     Rebased 3 descendant commits
     Working copy now at: xznxytkn e0e873c8 f | f
@@ -1532,9 +1527,9 @@ fn test_rebase_after() {
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
 
     // Rebase a commit after a leaf commit.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "e", "--after", "f"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "e", "--after", "f"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     Rebased 1 descendant commits
     Working copy now at: xznxytkn 9804b742 f | f
@@ -1561,9 +1556,9 @@ fn test_rebase_after() {
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
 
     // Rebase a commit after a commit in a bookmark of a merge commit.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "f", "--after", "b1"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "f", "--after", "b1"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     Rebased 4 descendant commits
     Working copy now at: xznxytkn 80c27408 f | f
@@ -1590,9 +1585,9 @@ fn test_rebase_after() {
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
 
     // Rebase a commit after the last commit in a bookmark of a merge commit.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "f", "--after", "b2"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "f", "--after", "b2"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     Rebased 3 descendant commits
     Working copy now at: xznxytkn ebbc24b1 f | f
@@ -1621,9 +1616,9 @@ fn test_rebase_after() {
     // Rebase a commit after a commit with multiple children.
     // "c" has two children "d" and "e", so the rebased commit "f" will inherit the
     // two children.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "f", "--after", "c"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "f", "--after", "c"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     Rebased 2 descendant commits
     Working copy now at: xznxytkn 8f8c91d3 f | f
@@ -1650,12 +1645,12 @@ fn test_rebase_after() {
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
 
     // Rebase a commit after multiple commits.
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["rebase", "-r", "f", "--after", "e", "--after", "d"],
+        ["rebase", "-r", "f", "--after", "e", "--after", "d"],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     Working copy now at: xznxytkn 7784e5a0 f | f
     Parent commit      : nkmrtpmo 858693f7 e | e
@@ -1683,12 +1678,9 @@ fn test_rebase_after() {
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
 
     // Rebase two unrelated commits.
-    let (stdout, stderr) = test_env.jj_cmd_ok(
-        &repo_path,
-        &["rebase", "-r", "d", "-r", "e", "--after", "a"],
-    );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "d", "-r", "e", "--after", "a"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 2 commits onto destination
     Rebased 6 descendant commits
     Working copy now at: xznxytkn 0b53613e f | f
@@ -1717,12 +1709,12 @@ fn test_rebase_after() {
 
     // Rebase a subgraph with merge commit and two parents, which should preserve
     // the merge.
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["rebase", "-r", "b2", "-r", "b4", "-r", "c", "--after", "f"],
+        ["rebase", "-r", "b2", "-r", "b4", "-r", "c", "--after", "f"],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 3 commits onto destination
     Rebased 3 descendant commits
     Working copy now at: xznxytkn eaf1d6b8 f | f
@@ -1751,10 +1743,9 @@ fn test_rebase_after() {
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
 
     // Rebase a subgraph with four commits after one of the commits itself.
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "b1::d", "--after", "c"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "b1::d", "--after", "c"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 4 commits onto destination
     Rebased 2 descendant commits
     Working copy now at: xznxytkn 9bc7e54c f | f
@@ -1783,10 +1774,9 @@ fn test_rebase_after() {
     // Rebase a subgraph before the parents of one of the commits in the subgraph.
     // "c" had parents "b2" and "b4", but no longer has "b4" as a parent since
     // "b4" would be a descendant of "c" after the rebase.
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "b2::d", "--after", "root()"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "b2::d", "--after", "root()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 3 commits onto destination
     Rebased 6 descendant commits
     Working copy now at: xznxytkn 0875aabc f | f
@@ -1813,12 +1803,12 @@ fn test_rebase_after() {
 
     // Rebase a subgraph with disconnected commits. Since "b2" is an ancestor of
     // "e", "b2" should be a parent of "e" after the rebase.
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["rebase", "-r", "e", "-r", "b2", "--after", "d"],
+        ["rebase", "-r", "e", "-r", "b2", "--after", "d"],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 2 commits onto destination
     Rebased 3 descendant commits
     Working copy now at: xznxytkn 3238a418 f | f
@@ -1845,9 +1835,9 @@ fn test_rebase_after() {
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
 
     // `rebase -s` of commit "c" and its descendants after itself should be a no-op.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-s", "c", "--after", "c"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-s", "c", "--after", "c"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Skipped rebase of 4 commits that were already in place
     Nothing changed.
     [EOF]
@@ -1871,12 +1861,12 @@ fn test_rebase_after() {
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
 
     // `rebase -s` of a commit and its descendants after multiple commits.
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["rebase", "-s", "c", "--after", "b1", "--after", "b3"],
+        ["rebase", "-s", "c", "--after", "b1", "--after", "b3"],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 4 commits onto destination
     Rebased 2 descendant commits
     Working copy now at: xznxytkn a4ace41c f | f
@@ -1907,9 +1897,9 @@ fn test_rebase_after() {
     // `rebase -b` of commit "b3" after "b1" moves its descendants which are not
     // already descendants of "b1" (just "b3" and "b4") in between "b1" and its
     // child "b2".
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-b", "b3", "--after", "b1"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-b", "b3", "--after", "b1"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 6 commits onto destination
     Rebased 1 descendant commits
     Working copy now at: xznxytkn b4078b57 f | f
@@ -1982,12 +1972,12 @@ fn test_rebase_before() {
     let setup_opid = test_env.current_operation_id(&repo_path);
 
     // Rebasing a commit before its children should be a no-op.
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["rebase", "-r", "c", "--before", "d", "--before", "e"],
+        ["rebase", "-r", "c", "--before", "d", "--before", "e"],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Skipped rebase of 4 commits that were already in place
     Nothing changed.
     [EOF]
@@ -2010,9 +2000,9 @@ fn test_rebase_before() {
     ");
 
     // Rebasing a commit before itself should be a no-op.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "c", "--before", "c"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "c", "--before", "c"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Skipped rebase of 4 commits that were already in place
     Nothing changed.
     [EOF]
@@ -2045,9 +2035,9 @@ fn test_rebase_before() {
 
     // Rebase a commit before another commit. "c" has parents "b2" and "b4", so its
     // children "d" and "e" should be rebased onto "b2" and "b4" respectively.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "c", "--before", "a"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "c", "--before", "a"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     Rebased 8 descendant commits
     Working copy now at: xznxytkn 24335685 f | f
@@ -2073,9 +2063,9 @@ fn test_rebase_before() {
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
 
     // Rebase a commit before its parent.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "f", "--before", "e"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "f", "--before", "e"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     Rebased 1 descendant commits
     Working copy now at: xznxytkn 8e3b728a f | f
@@ -2102,9 +2092,9 @@ fn test_rebase_before() {
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
 
     // Rebase a commit before a commit in a bookmark of a merge commit.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "f", "--before", "b2"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "f", "--before", "b2"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     Rebased 4 descendant commits
     Working copy now at: xznxytkn 2b4f48f8 f | f
@@ -2131,9 +2121,9 @@ fn test_rebase_before() {
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
 
     // Rebase a commit before the first commit in a bookmark of a merge commit.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "f", "--before", "b1"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "f", "--before", "b1"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     Rebased 5 descendant commits
     Working copy now at: xznxytkn 488ebb95 f | f
@@ -2162,9 +2152,9 @@ fn test_rebase_before() {
     // Rebase a commit before a merge commit. "c" has two parents "b2" and "b4", so
     // the rebased commit "f" will have the two commits "b2" and "b4" as its
     // parents.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "f", "--before", "c"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "f", "--before", "c"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     Rebased 3 descendant commits
     Working copy now at: xznxytkn aae1bc10 f | f
@@ -2192,12 +2182,12 @@ fn test_rebase_before() {
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
 
     // Rebase a commit before multiple commits.
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["rebase", "-r", "b1", "--before", "d", "--before", "e"],
+        ["rebase", "-r", "b1", "--before", "d", "--before", "e"],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     Rebased 5 descendant commits
     Working copy now at: xznxytkn 8268ec4d f | f
@@ -2224,12 +2214,12 @@ fn test_rebase_before() {
 
     // Rebase a commit before two commits in separate bookmarks to create a merge
     // commit.
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["rebase", "-r", "f", "--before", "b2", "--before", "b4"],
+        ["rebase", "-r", "f", "--before", "b2", "--before", "b4"],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     Rebased 5 descendant commits
     Working copy now at: xznxytkn 7ba8014f f | f
@@ -2260,12 +2250,12 @@ fn test_rebase_before() {
 
     // Rebase two unrelated commits "b2" and "b4" before a single commit "a". This
     // creates a merge commit "a" with the two parents "b2" and "b4".
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["rebase", "-r", "b2", "-r", "b4", "--before", "a"],
+        ["rebase", "-r", "b2", "-r", "b4", "--before", "a"],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 2 commits onto destination
     Rebased 7 descendant commits
     Working copy now at: xznxytkn fabd8dd7 f | f
@@ -2293,12 +2283,12 @@ fn test_rebase_before() {
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
 
     // Rebase a subgraph with a merge commit and two parents.
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["rebase", "-r", "b2", "-r", "b4", "-r", "c", "--before", "e"],
+        ["rebase", "-r", "b2", "-r", "b4", "-r", "c", "--before", "e"],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 3 commits onto destination
     Rebased 3 descendant commits
     Working copy now at: xznxytkn cbe2be58 f | f
@@ -2327,12 +2317,12 @@ fn test_rebase_before() {
 
     // Rebase a subgraph with disconnected commits. Since "b1" is an ancestor of
     // "e", "b1" should be a parent of "e" after the rebase.
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["rebase", "-r", "b1", "-r", "e", "--before", "a"],
+        ["rebase", "-r", "b1", "-r", "e", "--before", "a"],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 2 commits onto destination
     Rebased 7 descendant commits
     Working copy now at: xznxytkn 1c48b514 f | f
@@ -2360,10 +2350,9 @@ fn test_rebase_before() {
     // Rebase a subgraph before the parents of one of the commits in the subgraph.
     // "c" had parents "b2" and "b4", but no longer has "b4" as a parent since
     // "b4" would be a descendant of "c" after the rebase.
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "b2::d", "--before", "a"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "b2::d", "--before", "a"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 3 commits onto destination
     Rebased 6 descendant commits
     Working copy now at: xznxytkn f5991dc7 f | f
@@ -2391,10 +2380,9 @@ fn test_rebase_before() {
     // Rebase a subgraph before the parents of one of the commits in the subgraph.
     // "c" had parents "b2" and "b4", but no longer has "b4" as a parent since
     // "b4" would be a descendant of "c" after the rebase.
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "b2::d", "--before", "a"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "b2::d", "--before", "a"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 3 commits onto destination
     Rebased 6 descendant commits
     Working copy now at: xznxytkn 308a31e9 f | f
@@ -2421,9 +2409,9 @@ fn test_rebase_before() {
 
     // `rebase -s` of commit "c" and its descendants before itself should be a
     // no-op.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-s", "c", "--before", "c"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-s", "c", "--before", "c"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Skipped rebase of 4 commits that were already in place
     Nothing changed.
     [EOF]
@@ -2447,12 +2435,12 @@ fn test_rebase_before() {
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
 
     // `rebase -s` of a commit and its descendants before multiple commits.
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["rebase", "-s", "c", "--before", "b2", "--before", "b4"],
+        ["rebase", "-s", "c", "--before", "b2", "--before", "b4"],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 4 commits onto destination
     Rebased 2 descendant commits
     Working copy now at: xznxytkn 84704387 f | f
@@ -2483,10 +2471,9 @@ fn test_rebase_before() {
     // `rebase -b` of commit "b3" before "b2" moves its descendants which are not
     // already descendants of its parent "b1" (just "b3" and "b4") in between "b1"
     // and its child "b2".
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["rebase", "-b", "b3", "--before", "b1"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-b", "b3", "--before", "b1"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Skipped rebase of 2 commits that were already in place
     Rebased 4 commits onto destination
     Rebased 2 descendant commits
@@ -2564,12 +2551,12 @@ fn test_rebase_after_before() {
 
     // Rebase a commit after another commit and before that commit's child to
     // insert directly between the two commits.
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["rebase", "-r", "d", "--after", "e", "--before", "f"],
+        ["rebase", "-r", "d", "--after", "e", "--before", "f"],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     Rebased 1 descendant commits
     Working copy now at: nmzmmopx 56c81c6d f | f
@@ -2598,12 +2585,12 @@ fn test_rebase_after_before() {
 
     // Rebase a commit after another commit and before that commit's descendant to
     // create a new merge commit.
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["rebase", "-r", "d", "--after", "a", "--before", "f"],
+        ["rebase", "-r", "d", "--after", "a", "--before", "f"],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     Rebased 1 descendant commits
     Working copy now at: nmzmmopx 398173ed f | f
@@ -2637,12 +2624,12 @@ fn test_rebase_after_before() {
     // "e" should have "b1" and "b2" as parents as well. "c" is then inserted in
     // between "d" and "e", making "e" a merge commit with 3 parents "b1", "b2",
     // and "c".
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["rebase", "-r", "c", "--after", "d", "--before", "e"],
+        ["rebase", "-r", "c", "--after", "d", "--before", "e"],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     Rebased 3 descendant commits
     Working copy now at: nmzmmopx 2be98daf f | f
@@ -2674,14 +2661,14 @@ fn test_rebase_after_before() {
     // the target commits ("d" and "e"), "f" also has commits "b1" and "b2" as
     // parents since its parents "d" and "e" were in the target set and were
     // replaced by their closest ancestors outside the target set.
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "rebase", "-r", "c", "-r", "d", "-r", "e", "--after", "a", "--before", "f",
         ],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 3 commits onto destination
     Rebased 1 descendant commits
     Working copy now at: nmzmmopx bee09b10 f | f
@@ -2714,12 +2701,12 @@ fn test_rebase_after_before() {
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
 
     // `rebase -s` of a commit and its descendants.
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["rebase", "-s", "c", "--before", "b1", "--after", "b2"],
+        ["rebase", "-s", "c", "--before", "b1", "--after", "b2"],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 4 commits onto destination
     Rebased 1 descendant commits
     Working copy now at: nmzmmopx 951204cf f | f
@@ -2750,12 +2737,12 @@ fn test_rebase_after_before() {
     // `rebase -b` of a commit "y" to a destination after "a" will rebase all
     // commits in "roots(a..y)" and their descendants, corresponding to "x", "y"
     // and "z". They will be inserted in a new branch after "a" and before "c".
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["rebase", "-b", "y", "--after", "a", "--before", "c"],
+        ["rebase", "-b", "y", "--after", "a", "--before", "c"],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 3 commits onto destination
     Rebased 4 descendant commits
     Working copy now at: nmzmmopx 4496f88e f | f
@@ -2822,9 +2809,9 @@ fn test_rebase_skip_emptied() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-d=b", "--skip-emptied"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-d=b", "--skip-emptied"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 2 commits onto destination
     Abandoned 1 newly emptied commits
     Working copy now at: yostqsxw bc4222f2 (empty) also already empty
@@ -2856,17 +2843,17 @@ fn test_rebase_skip_emptied() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "rebase",
             "-r=description('will become empty')",
             "-d=b",
             "--skip-emptied",
         ],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 2 descendant commits
     Abandoned 1 newly emptied commits
     Working copy now at: yostqsxw 74149b9b (empty) also already empty
@@ -2914,12 +2901,12 @@ fn test_rebase_skip_emptied_descendants() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["rebase", "-r", "b", "--before", "c", "--skip-emptied"],
+        ["rebase", "-r", "b", "--before", "c", "--skip-emptied"],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Skipped rebase of 1 commits that were already in place
     Rebased 3 descendant commits
     Working copy now at: znkkpsqq 353bac5c (empty) also already empty
@@ -2970,9 +2957,9 @@ fn test_rebase_skip_if_on_destination() {
     ");
 
     // Skip rebase with -b
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-b", "d", "-d", "a"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-b", "d", "-d", "a"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Skipped rebase of 6 commits that were already in place
     Nothing changed.
     [EOF]
@@ -2993,10 +2980,9 @@ fn test_rebase_skip_if_on_destination() {
     ");
 
     // Skip rebase with -s
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["rebase", "-s", "c", "-d", "b1", "-d", "b2"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-s", "c", "-d", "b1", "-d", "b2"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Skipped rebase of 4 commits that were already in place
     Nothing changed.
     [EOF]
@@ -3017,9 +3003,9 @@ fn test_rebase_skip_if_on_destination() {
     ");
 
     // Skip rebase with -r since commit has no children
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "d", "-d", "c"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "d", "-d", "c"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Skipped rebase of 1 commits that were already in place
     Nothing changed.
     [EOF]
@@ -3040,9 +3026,9 @@ fn test_rebase_skip_if_on_destination() {
     ");
 
     // Skip rebase of commit, but rebases children onto destination with -r
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "e", "-d", "c"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "e", "-d", "c"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Skipped rebase of 1 commits that were already in place
     Rebased 1 descendant commits
     Working copy now at: lylxulpl 77cb229f f | f

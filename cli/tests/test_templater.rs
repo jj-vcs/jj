@@ -154,14 +154,13 @@ fn test_template_parse_warning() {
           author.username(),
         )
     "#};
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["log", "-r@", "-T", template]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r@", "-T", template]);
+    insta::assert_snapshot!(output, @r"
     @  false test.user
     │
     ~
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr, @r"
+    ------- stderr -------
     Warning: In template expression
      --> 2:3
       |
@@ -429,14 +428,13 @@ fn test_templater_alias() {
     [exit status: 1]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["log", "-r@", "-Tdeprecated()"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r@", "-Tdeprecated()"]);
+    insta::assert_snapshot!(output, @r##"
     #  false
     │
     ~
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr, @r#"
+    ------- stderr -------
     Warning: In template expression
      --> 1:1
       |
@@ -470,7 +468,7 @@ fn test_templater_alias() {
       |
       = branches() is deprecated; use bookmarks() instead
     [EOF]
-    "#);
+    "##);
 }
 
 #[test]
@@ -517,10 +515,10 @@ fn test_templater_bad_alias_decl() {
     );
 
     // Invalid declaration should be warned and ignored.
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["log", "--no-graph", "-r@-", "-Tmy_commit_id"]);
-    insta::assert_snapshot!(stdout, @"000000000000[EOF]");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "--no-graph", "-r@-", "-Tmy_commit_id"]);
+    insta::assert_snapshot!(output, @r"
+    000000000000[EOF]
+    ------- stderr -------
     Warning: Failed to load `template-aliases.badfn(a, a)`:  --> 1:7
       |
     1 | badfn(a, a)

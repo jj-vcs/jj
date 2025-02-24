@@ -134,9 +134,9 @@ fn test_debug_reindex() {
     [EOF]
     "
     );
-    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_path, &["debug", "reindex"]);
-    assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&workspace_path, ["debug", "reindex"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Finished indexing 4 commits.
     [EOF]
     ");

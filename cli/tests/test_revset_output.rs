@@ -356,17 +356,17 @@ fn test_parse_warning() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
     let repo_path = test_env.env_root().join("repo");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "log",
             "-r",
             "branches() | remote_branches() | tracked_remote_branches() | \
              untracked_remote_branches()",
         ],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Warning: In revset expression
      --> 1:1
       |
@@ -398,9 +398,9 @@ fn test_parse_warning() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["log", "-r", "files(foo, bar)"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "files(foo, bar)"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Warning: In revset expression
      --> 1:7
       |
@@ -609,9 +609,9 @@ fn test_alias() {
     [exit status: 1]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["log", "-r", "deprecated()"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "deprecated()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Warning: In revset expression
      --> 1:1
       |
@@ -627,9 +627,9 @@ fn test_alias() {
       = branches() is deprecated; use bookmarks() instead
     [EOF]
     ");
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["log", "-r", "all:deprecated()"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "all:deprecated()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Warning: In revset expression
      --> 1:5
       |
@@ -690,12 +690,11 @@ fn test_bad_alias_decl() {
     );
 
     // Invalid declaration should be warned and ignored.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["log", "-r", "my-root"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "my-root"]);
+    insta::assert_snapshot!(output, @r#"
     ◆  zzzzzzzz root() 00000000
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr, @r#"
+    ------- stderr -------
     Warning: Failed to load `revset-aliases."bad"`:  --> 1:1
       |
     1 | "bad"
@@ -748,8 +747,9 @@ fn test_all_modifier() {
     ");
 
     // Command that accepts only single revision
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-rall:@", "x"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["bookmark", "create", "-rall:@", "x"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Created 1 bookmarks pointing to qpvuntsm 230dd059 x | (empty) (no description set)
     [EOF]
     ");

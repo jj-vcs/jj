@@ -60,9 +60,9 @@ fn test_basics() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["abandon", "--retain-bookmarks", "d"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["abandon", "--retain-bookmarks", "d"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Abandoned commit vruxwmqv b7c62f28 d | d
     Rebased 1 descendant commits onto parents of abandoned commits
     Working copy now at: znkkpsqq 11a2e10e e | e
@@ -84,12 +84,12 @@ fn test_basics() {
     ");
 
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["abandon", "--retain-bookmarks"], /* abandons `e` */
+        ["abandon", "--retain-bookmarks"], /* abandons `e` */
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Abandoned commit znkkpsqq 5557ece3 e | e
     Working copy now at: nkmrtpmo d4f8ea73 (empty) (no description set)
     Parent commit      : rlvkpnrz 2443ea76 a e?? | a
@@ -111,9 +111,9 @@ fn test_basics() {
     ");
 
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["abandon", "descendants(d)"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["abandon", "descendants(d)"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Abandoned the following commits:
       znkkpsqq 5557ece3 e | e
       vruxwmqv b7c62f28 d | d
@@ -138,9 +138,9 @@ fn test_basics() {
 
     // Test abandoning the same commit twice directly
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["abandon", "-rb", "b"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["abandon", "-rb", "b"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Abandoned commit zsuskuln 1394f625 b | b
     Deleted bookmarks: b
     [EOF]
@@ -158,9 +158,9 @@ fn test_basics() {
 
     // Test abandoning the same commit twice indirectly
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["abandon", "d::", "e"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["abandon", "d::", "e"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Abandoned the following commits:
       znkkpsqq 5557ece3 e | e
       vruxwmqv b7c62f28 d | d
@@ -183,8 +183,9 @@ fn test_basics() {
     [EOF]
     ");
 
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["abandon", "none()"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["abandon", "none()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     No revisions to abandon.
     [EOF]
     ");
@@ -222,9 +223,9 @@ fn test_bug_2600() {
     let setup_opid = test_env.current_operation_id(&repo_path);
 
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["abandon", "base"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["abandon", "base"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Abandoned commit zsuskuln 73c929fc base | base
     Deleted bookmarks: base
     Rebased 3 descendant commits onto parents of abandoned commits
@@ -247,9 +248,9 @@ fn test_bug_2600() {
     ");
 
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["abandon", "a"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["abandon", "a"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Abandoned commit royxmykx 98f3b9ba a | a
     Deleted bookmarks: a
     Rebased 2 descendant commits onto parents of abandoned commits
@@ -271,9 +272,9 @@ fn test_bug_2600() {
     ");
 
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["abandon", "b"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["abandon", "b"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Abandoned commit vruxwmqv 8c0dced0 b | b
     Deleted bookmarks: b
     Rebased 1 descendant commits onto parents of abandoned commits
@@ -308,10 +309,9 @@ fn test_bug_2600() {
     ◆  [zzz]
     [EOF]
     ");
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["abandon", "--retain-bookmarks", "a", "b"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["abandon", "--retain-bookmarks", "a", "b"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Abandoned the following commits:
       vruxwmqv 8c0dced0 b | b
       royxmykx 98f3b9ba a | a
@@ -330,12 +330,11 @@ fn test_bug_2600() {
     ◆  [zzz]
     [EOF]
     ");
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["bookmark", "list", "b"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["bookmark", "list", "b"]);
+    insta::assert_snapshot!(output, @r"
     b: zsuskuln 73c929fc base
     [EOF]
     ");
-    insta::assert_snapshot!(stderr, @"");
 }
 
 #[test]
@@ -396,9 +395,9 @@ fn test_double_abandon() {
         .stdout
         .into_raw();
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["abandon", &commit_id]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["abandon", &commit_id]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Abandoned commit rlvkpnrz 2443ea76 a | a
     Deleted bookmarks: a
     Working copy now at: royxmykx f37b4afd (empty) (no description set)
@@ -406,9 +405,9 @@ fn test_double_abandon() {
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["abandon", &commit_id]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["abandon", &commit_id]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Abandoned commit rlvkpnrz hidden 2443ea76 a
     Nothing changed.
     [EOF]
@@ -428,10 +427,9 @@ fn test_abandon_restore_descendants() {
     std::fs::write(repo_path.join("file"), "baz\n").unwrap();
 
     // Remove the commit containing "bar"
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["abandon", "-r@-", "--restore-descendants"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["abandon", "-r@-", "--restore-descendants"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Abandoned commit rlvkpnrz 225adef1 (no description set)
     Rebased 1 descendant commits (while preserving their content) onto parents of abandoned commits
     Working copy now at: kkmpptxz a734deb0 (no description set)

@@ -42,9 +42,9 @@ fn test_edit() {
     ");
 
     // Makes the specified commit the working-copy commit
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["edit", "@-"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["edit", "@-"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: qpvuntsm 73383c0b first
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files

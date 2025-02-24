@@ -257,12 +257,12 @@ fn test_parallelize_disconnected_target_commits() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &workspace_path,
-        &["parallelize", "description(1)", "description(3)"],
+        ["parallelize", "description(1)", "description(3)"],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Nothing changed.
     [EOF]
     ");
@@ -633,11 +633,12 @@ fn test_parallelize_complex_nonlinear_target() {
     [EOF]
     ");
 
-    let (_stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &workspace_path,
-        &["parallelize", "description(0)::description(4)"],
+        ["parallelize", "description(0)::description(4)"],
     );
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: yostqsxw 59a216e5 (empty) 3c
     Parent commit      : rlvkpnrz 745bea80 (empty) 0
     Parent commit      : mzvwutvl cb944786 (empty) 3

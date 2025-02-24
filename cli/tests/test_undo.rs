@@ -426,9 +426,9 @@ fn test_shows_a_warning_when_undoing_an_undo_operation_as_bare_jj_undo() {
     // Double-undo creation of child
     test_env.jj_cmd_ok(&repo_path, &["new"]);
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["undo"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["undo"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Undid operation: 2d5b73a97567 (2001-02-03 08:05:09) undo operation 289cb69a8458456474a77cc432e8009b99f039cdcaf19ba4526753e97d70fee3fd0f410ff2b7c1d10cf0c2501702e7a85d58f9d813cdca567c377431ec4d2b97
     Working copy now at: rlvkpnrz 65b6b74e (empty) (no description set)
     Parent commit      : qpvuntsm 230dd059 (empty) (no description set)
@@ -440,9 +440,9 @@ fn test_shows_a_warning_when_undoing_an_undo_operation_as_bare_jj_undo() {
     // Double-undo creation of sibling
     test_env.jj_cmd_ok(&repo_path, &["new", "@-"]);
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["undo"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["undo"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Undid operation: b16799358b33 (2001-02-03 08:05:12) undo operation b14487c6d6d98f7f575ea03c48ed92d899c2a0ecbe9458221b6fc11af2bf6d918c9620cae1f8268012b0e25c7dd6f78b19ec628d0504a0830dc562d6625ba9ec
     Working copy now at: mzvwutvl 167f90e7 (empty) (no description set)
     Parent commit      : qpvuntsm 230dd059 (empty) (no description set)
@@ -462,9 +462,9 @@ fn test_shows_no_warning_when_undoing_a_specific_undo_change() {
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
     let output = test_env.run_jj_in(&repo_path, ["op", "log"]).success();
     let op_id_hex = output.stdout.raw()[3..15].to_string();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["undo", &op_id_hex]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["undo", &op_id_hex]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Undid operation: 2d5b73a97567 (2001-02-03 08:05:09) undo operation 289cb69a8458456474a77cc432e8009b99f039cdcaf19ba4526753e97d70fee3fd0f410ff2b7c1d10cf0c2501702e7a85d58f9d813cdca567c377431ec4d2b97
     Working copy now at: rlvkpnrz 65b6b74e (empty) (no description set)
     Parent commit      : qpvuntsm 230dd059 (empty) (no description set)

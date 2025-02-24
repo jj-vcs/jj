@@ -64,11 +64,10 @@ fn test_git_clone(subprocess: bool) {
     let git_repo = git2::Repository::init(git_repo_path).unwrap();
 
     // Clone an empty repo
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(test_env.env_root(), &["git", "clone", "source", "empty"]);
-    insta::allow_duplicates! { insta::assert_snapshot!(stdout, @""); }
+    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "empty"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Fetching into new repo in "$TEST_ENV/empty"
     Nothing changed.
     [EOF]
@@ -78,13 +77,10 @@ fn test_git_clone(subprocess: bool) {
     set_up_non_empty_git_repo(&git_repo);
 
     // Clone with relative source path
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(test_env.env_root(), &["git", "clone", "source", "clone"]);
+    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "clone"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
     bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
@@ -97,13 +93,10 @@ fn test_git_clone(subprocess: bool) {
     assert!(test_env.env_root().join("clone").join("file").exists());
 
     // Subsequent fetch should just work even if the source path was relative
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&test_env.env_root().join("clone"), &["git", "fetch"]);
+    let output = test_env.run_jj_in(&test_env.env_root().join("clone"), ["git", "fetch"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Nothing changed.
     [EOF]
     ");
@@ -212,15 +205,13 @@ fn test_git_clone(subprocess: bool) {
     }
 
     // Clone into a nested path
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         test_env.env_root(),
-        &["git", "clone", "source", "nested/path/to/repo"],
+        ["git", "clone", "source", "nested/path/to/repo"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Fetching into new repo in "$TEST_ENV/nested/path/to/repo"
     bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
@@ -278,15 +269,13 @@ fn test_git_clone_colocate(subprocess: bool) {
     let git_repo = git2::Repository::init(git_repo_path).unwrap();
 
     // Clone an empty repo
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         test_env.env_root(),
-        &["git", "clone", "source", "empty", "--colocate"],
+        ["git", "clone", "source", "empty", "--colocate"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Fetching into new repo in "$TEST_ENV/empty"
     Nothing changed.
     [EOF]
@@ -307,15 +296,13 @@ fn test_git_clone_colocate(subprocess: bool) {
     set_up_non_empty_git_repo(&git_repo);
 
     // Clone with relative source path
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         test_env.env_root(),
-        &["git", "clone", "source", "clone", "--colocate"],
+        ["git", "clone", "source", "clone", "--colocate"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
     bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
@@ -373,13 +360,10 @@ fn test_git_clone_colocate(subprocess: bool) {
     }
 
     // Subsequent fetch should just work even if the source path was relative
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&test_env.env_root().join("clone"), &["git", "fetch"]);
+    let output = test_env.run_jj_in(&test_env.env_root().join("clone"), ["git", "fetch"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Nothing changed.
     [EOF]
     ");
@@ -508,9 +492,9 @@ fn test_git_clone_colocate(subprocess: bool) {
     }
 
     // Clone into a nested path
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         test_env.env_root(),
-        &[
+        [
             "git",
             "clone",
             "source",
@@ -519,10 +503,8 @@ fn test_git_clone_colocate(subprocess: bool) {
         ],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Fetching into new repo in "$TEST_ENV/nested/path/to/repo"
     bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
@@ -556,10 +538,10 @@ fn test_git_clone_remote_default_bookmark(subprocess: bool) {
 
     // All fetched bookmarks will be imported if auto-local-bookmark is on
     test_env.add_config("git.auto-local-bookmark = true");
-    let (_stdout, stderr) =
-        test_env.jj_cmd_ok(test_env.env_root(), &["git", "clone", "source", "clone1"]);
+    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "clone1"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone1"
     bookmark: feature1@origin [new] tracked
     bookmark: main@origin     [new] tracked
@@ -595,10 +577,10 @@ fn test_git_clone_remote_default_bookmark(subprocess: bool) {
 
     // Only the default bookmark will be imported if auto-local-bookmark is off
     test_env.add_config("git.auto-local-bookmark = false");
-    let (_stdout, stderr) =
-        test_env.jj_cmd_ok(test_env.env_root(), &["git", "clone", "source", "clone2"]);
+    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "clone2"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone2"
     bookmark: feature1@origin [new] untracked
     bookmark: main@origin     [new] untracked
@@ -621,10 +603,10 @@ fn test_git_clone_remote_default_bookmark(subprocess: bool) {
 
     // Change the default bookmark in remote
     git_repo.set_head("refs/heads/feature1").unwrap();
-    let (_stdout, stderr) =
-        test_env.jj_cmd_ok(test_env.env_root(), &["git", "clone", "source", "clone3"]);
+    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "clone3"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone3"
     bookmark: feature1@origin [new] untracked
     bookmark: main@origin     [new] untracked
@@ -678,10 +660,10 @@ fn test_git_clone_remote_default_bookmark_with_escape(subprocess: bool) {
         .rename("refs/heads/\"", false, "")
         .unwrap();
 
-    let (_stdout, stderr) =
-        test_env.jj_cmd_ok(test_env.env_root(), &["git", "clone", "source", "clone"]);
+    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "clone"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
     bookmark: "@origin [new] untracked
     Setting the revset alias `trunk()` to `"\""@origin`
@@ -717,12 +699,13 @@ fn test_git_clone_ignore_working_copy(subprocess: bool) {
     set_up_non_empty_git_repo(&git_repo);
 
     // Should not update working-copy files
-    let (_stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         test_env.env_root(),
-        &["git", "clone", "--ignore-working-copy", "source", "clone"],
+        ["git", "clone", "--ignore-working-copy", "source", "clone"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
     bookmark: main@origin [new] untracked
     Setting the revset alias `trunk()` to `main@origin`
@@ -731,17 +714,14 @@ fn test_git_clone_ignore_working_copy(subprocess: bool) {
     }
     let clone_path = test_env.env_root().join("clone");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&clone_path, &["status", "--ignore-working-copy"]);
+    let output = test_env.run_jj_in(&clone_path, ["status", "--ignore-working-copy"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @r"
+    insta::assert_snapshot!(output, @r"
     The working copy has no changes.
     Working copy : sqpuoqvx cad212e1 (empty) (no description set)
     Parent commit: mzyxwzks 9f01a0e0 main | message
     [EOF]
     ");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @"");
     }
 
     // TODO: Correct, but might be better to check out the root commit?
@@ -796,15 +776,13 @@ fn test_git_clone_with_remote_name(subprocess: bool) {
     set_up_non_empty_git_repo(&git_repo);
 
     // Clone with relative source path and a non-default remote name
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         test_env.env_root(),
-        &["git", "clone", "source", "clone", "--remote", "upstream"],
+        ["git", "clone", "source", "clone", "--remote", "upstream"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
     bookmark: main@upstream [new] tracked
     Setting the revset alias `trunk()` to `main@upstream`
@@ -876,13 +854,10 @@ fn test_git_clone_trunk_deleted(subprocess: bool) {
     set_up_non_empty_git_repo(&git_repo);
     let clone_path = test_env.env_root().join("clone");
 
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(test_env.env_root(), &["git", "clone", "source", "clone"]);
+    let output = test_env.run_jj_in(test_env.env_root(), ["git", "clone", "source", "clone"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
     bookmark: main@origin [new] untracked
     Setting the revset alias `trunk()` to `main@origin`
@@ -893,15 +868,13 @@ fn test_git_clone_trunk_deleted(subprocess: bool) {
     "#);
     }
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &clone_path,
-        &["bookmark", "forget", "--include-remotes", "main"],
+        ["bookmark", "forget", "--include-remotes", "main"],
     );
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Forgot 1 local bookmarks.
     Forgot 1 remote bookmarks.
     Warning: Failed to resolve `revset-aliases.trunk()`: Revision `main@origin` doesn't exist
@@ -910,19 +883,16 @@ fn test_git_clone_trunk_deleted(subprocess: bool) {
     ");
     }
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&clone_path, &["log"]);
+    let output = test_env.run_jj_in(&clone_path, ["log"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stdout, @r"
+    insta::assert_snapshot!(output, @r"
     @  sqpuoqvx test.user@example.com 2001-02-03 08:05:07 cad212e1
     │  (empty) (no description set)
     ○  mzyxwzks some.one@example.com 1970-01-01 11:00:00 9f01a0e0
     │  message
     ◆  zzzzzzzz root() 00000000
     [EOF]
-    ");
-    }
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @r"
+    ------- stderr -------
     Warning: Failed to resolve `revset-aliases.trunk()`: Revision `main@origin` doesn't exist
     Hint: Use `jj config edit --repo` to adjust the `trunk()` alias.
     [EOF]
@@ -1053,12 +1023,12 @@ fn test_git_clone_with_depth_subprocess() {
 
     // git does support shallow clones on the local transport, so it will work
     // (we cannot replicate git2's erroneous behaviour wrt git)
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         test_env.env_root(),
-        &["git", "clone", "--depth", "1", "source", "clone"],
+        ["git", "clone", "--depth", "1", "source", "clone"],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
     bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
@@ -1068,8 +1038,8 @@ fn test_git_clone_with_depth_subprocess() {
     [EOF]
     "#);
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&clone_path, &["log"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&clone_path, ["log"]);
+    insta::assert_snapshot!(output, @r"
     @  sqpuoqvx test.user@example.com 2001-02-03 08:05:07 cad212e1
     │  (empty) (no description set)
     ◆  mzyxwzks some.one@example.com 1970-01-01 11:00:00 main 9f01a0e0
@@ -1077,7 +1047,6 @@ fn test_git_clone_with_depth_subprocess() {
     ~
     [EOF]
     ");
-    insta::assert_snapshot!(stderr, @"");
 }
 
 #[test_case(false; "use git2 for remote calls")]
@@ -1166,10 +1135,9 @@ fn test_git_clone_malformed(subprocess: bool) {
     [exit status: 255]
     ");
     }
-    let (_stdout, stderr) =
-        test_env.jj_cmd_ok(&clone_path, &["new", "root()", "--ignore-working-copy"]);
+    let output = test_env.run_jj_in(&clone_path, ["new", "root()", "--ignore-working-copy"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(stderr, @"");
+    insta::assert_snapshot!(output, @"");
     }
     let output = test_env.run_jj_in(&clone_path, ["status"]);
     insta::allow_duplicates! {

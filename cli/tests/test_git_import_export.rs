@@ -29,9 +29,8 @@ fn test_resolution_of_git_tracking_bookmarks() {
     test_env.jj_cmd_ok(&repo_path, &["describe", "-r", "main", "-m", "old_message"]);
 
     // Create local-git tracking bookmark
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "export"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @"");
+    let output = test_env.run_jj_in(&repo_path, ["git", "export"]);
+    insta::assert_snapshot!(output, @"");
     // Move the local bookmark somewhere else
     test_env.jj_cmd_ok(&repo_path, &["describe", "-r", "main", "-m", "new_message"]);
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
@@ -94,9 +93,8 @@ fn test_git_export_undo() {
     a: qpvuntsm 230dd059 (empty) (no description set)
     [EOF]
     ");
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "export"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @"");
+    let output = test_env.run_jj_in(&repo_path, ["git", "export"]);
+    insta::assert_snapshot!(output, @"");
     insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["log", "-ra@git"]), @r"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 a 230dd059
     │  (empty) (no description set)
@@ -106,9 +104,9 @@ fn test_git_export_undo() {
 
     // Exported refs won't be removed by undoing the export, but the git-tracking
     // bookmark is. This is the same as remote-tracking bookmarks.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["op", "undo"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["op", "undo"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Undid operation: edb40232c741 (2001-02-03 08:05:10) export git refs
     [EOF]
     ");
@@ -131,9 +129,8 @@ fn test_git_export_undo() {
     ");
 
     // This would re-export bookmark "a" and create git-tracking bookmark.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "export"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @"");
+    let output = test_env.run_jj_in(&repo_path, ["git", "export"]);
+    insta::assert_snapshot!(output, @"");
     insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["log", "-ra@git"]), @r"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 a 230dd059
     │  (empty) (no description set)
@@ -169,9 +166,9 @@ fn test_git_import_undo() {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @"");
     let base_operation_id = test_env.current_operation_id(&repo_path);
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "import"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["git", "import"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     bookmark: a [new] tracked
     [EOF]
     ");
@@ -182,17 +179,17 @@ fn test_git_import_undo() {
     ");
 
     // "git import" can be undone by default.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["op", "restore", &base_operation_id]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["op", "restore", &base_operation_id]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Restored to operation: eac759b9ab75 (2001-02-03 08:05:07) add workspace 'default'
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @"");
     // Try "git import" again, which should re-import the bookmark "a".
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "import"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["git", "import"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     bookmark: a [new] tracked
     [EOF]
     ");
@@ -231,9 +228,9 @@ fn test_git_import_move_export_with_default_undo() {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @"");
     let base_operation_id = test_env.current_operation_id(&repo_path);
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "import"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["git", "import"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     bookmark: a [new] tracked
     [EOF]
     ");
@@ -251,9 +248,8 @@ fn test_git_import_move_export_with_default_undo() {
       @git (behind by 1 commits): qpvuntsm 230dd059 (empty) (no description set)
     [EOF]
     ");
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "export"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @"");
+    let output = test_env.run_jj_in(&repo_path, ["git", "export"]);
+    insta::assert_snapshot!(output, @"");
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
     a: yqosqzyt 096dc80d (empty) (no description set)
       @git: yqosqzyt 096dc80d (empty) (no description set)
@@ -263,9 +259,9 @@ fn test_git_import_move_export_with_default_undo() {
     // "git import" can be undone with the default `restore` behavior, as shown in
     // the previous test. However, "git export" can't: the bookmarks in the git
     // repo stay where they were.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["op", "restore", &base_operation_id]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["op", "restore", &base_operation_id]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Restored to operation: eac759b9ab75 (2001-02-03 08:05:07) add workspace 'default'
     Working copy now at: qpvuntsm 230dd059 (empty) (no description set)
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
@@ -285,9 +281,9 @@ fn test_git_import_move_export_with_default_undo() {
 
     // The last bookmark "a" state is imported from git. No idea what's the most
     // intuitive result here.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "import"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["git", "import"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     bookmark: a [new] tracked
     [EOF]
     ");

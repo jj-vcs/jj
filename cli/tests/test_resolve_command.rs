@@ -95,9 +95,9 @@ fn test_resolution() {
         ["dump editor0", "write\nresolution\n"].join("\0"),
     )
     .unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["resolve"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["resolve"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Resolving conflicts in: file
     Working copy now at: vruxwmqv e069f073 conflict | conflict
     Parent commit      : zsuskuln aa493daf a | a
@@ -135,16 +135,16 @@ fn test_resolution() {
     // Try again with --tool=<name>
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
     std::fs::write(&editor_script, "write\nresolution\n").unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "resolve",
             "--config=ui.merge-editor='false'",
             "--tool=fake-editor",
         ],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Resolving conflicts in: file
     Working copy now at: vruxwmqv 1a70c7c6 conflict | conflict
     Parent commit      : zsuskuln aa493daf a | a
@@ -244,15 +244,15 @@ fn test_resolution() {
         .join("\0"),
     )
     .unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "resolve",
             "--config=merge-tools.fake-editor.merge-tool-edits-conflict-markers=true",
         ],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Resolving conflicts in: file
     Working copy now at: vruxwmqv 608a2310 conflict | (conflict) conflict
     Parent commit      : zsuskuln aa493daf a | a
@@ -328,9 +328,9 @@ fn test_resolution() {
         .join("\0"),
     )
     .unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["resolve"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["resolve"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Resolving conflicts in: file
     Working copy now at: vruxwmqv 3166dfd2 conflict | conflict
     Parent commit      : zsuskuln aa493daf a | a
@@ -395,16 +395,16 @@ fn test_resolution() {
         .join("\0"),
     )
     .unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "resolve",
             "--config=merge-tools.fake-editor.merge-tool-edits-conflict-markers=true",
             "--config=merge-tools.fake-editor.conflict-marker-style=git",
         ],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Resolving conflicts in: file
     Working copy now at: vruxwmqv 8e03fefa conflict | (conflict) conflict
     Parent commit      : zsuskuln aa493daf a | a
@@ -480,15 +480,15 @@ fn test_resolution() {
         .join("\0"),
     )
     .unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "resolve",
             "--config=merge-tools.fake-editor.merge-conflict-exit-codes=[1]",
         ],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Resolving conflicts in: file
     Working copy now at: vruxwmqv a786ac2f conflict | (conflict) conflict
     Parent commit      : zsuskuln aa493daf a | a
@@ -810,16 +810,16 @@ fn test_simplify_conflict_sides() {
         "},
     )
     .unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "resolve",
             "--config=merge-tools.fake-editor.merge-tool-edits-conflict-markers=true",
             "fileB",
         ],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Resolving conflicts in: fileB
     Working copy now at: nkmrtpmo 69cc0c2d conflict | (conflict) conflict
     Parent commit      : kmkuslsw 4601566f conflictA | (conflict) (empty) conflictA
@@ -1072,9 +1072,9 @@ fn test_resolve_conflicts_with_executable() {
 
     // Test resolving the conflict in "file1", which should produce an executable
     std::fs::write(&editor_script, b"write\nresolution1\n").unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["resolve", "file1"]);
-    insta::assert_snapshot!(stdout, @r#""#);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["resolve", "file1"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Resolving conflicts in: file1
     Working copy now at: znkkpsqq eb159d56 conflict | (conflict) conflict
     Parent commit      : mzvwutvl 08932848 a | a
@@ -1119,9 +1119,9 @@ fn test_resolve_conflicts_with_executable() {
     // Test resolving the conflict in "file2", which should produce an executable
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
     std::fs::write(&editor_script, b"write\nresolution2\n").unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["resolve", "file2"]);
-    insta::assert_snapshot!(stdout, @r#""#);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["resolve", "file2"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Resolving conflicts in: file2
     Working copy now at: znkkpsqq 4dccbb3c conflict | (conflict) conflict
     Parent commit      : mzvwutvl 08932848 a | a
@@ -1236,9 +1236,9 @@ fn test_resolve_long_conflict_markers() {
         "},
     )
     .unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["resolve"]);
-    insta::assert_snapshot!(stdout, @r#""#);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["resolve"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Resolving conflicts in: file
     Working copy now at: vruxwmqv 2b985546 conflict | (conflict) conflict
     Parent commit      : zsuskuln 64177fd4 a | a
@@ -1306,15 +1306,15 @@ fn test_resolve_long_conflict_markers() {
         "},
     )
     .unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "resolve",
             "--config=merge-tools.fake-editor.merge-tool-edits-conflict-markers=true",
         ],
     );
-    insta::assert_snapshot!(stdout, @r#""#);
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Resolving conflicts in: file
     Working copy now at: vruxwmqv fac9406d conflict | (conflict) conflict
     Parent commit      : zsuskuln 64177fd4 a | a
@@ -1388,15 +1388,15 @@ fn test_resolve_long_conflict_markers() {
         "},
     )
     .unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "resolve",
             r#"--config=merge-tools.fake-editor.merge-args=["$output", "$marker_length"]"#,
         ],
     );
-    insta::assert_snapshot!(stdout, @r#""#);
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Resolving conflicts in: file
     Working copy now at: vruxwmqv 1b29631a conflict | (conflict) conflict
     Parent commit      : zsuskuln 64177fd4 a | a
@@ -1538,9 +1538,9 @@ fn test_multiple_conflicts() {
 
     // Check that we can manually pick which of the conflicts to resolve first
     std::fs::write(&editor_script, "expect\n\0write\nresolution another_file\n").unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["resolve", "another_file"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["resolve", "another_file"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Resolving conflicts in: another_file
     Working copy now at: vruxwmqv 309e981c conflict | (conflict) conflict
     Parent commit      : zsuskuln de7553ef a | a
@@ -1583,9 +1583,8 @@ fn test_multiple_conflicts() {
     // Repeat the above with the `--quiet` option.
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
     std::fs::write(&editor_script, "expect\n\0write\nresolution another_file\n").unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["resolve", "--quiet", "another_file"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @"");
+    let output = test_env.run_jj_in(&repo_path, ["resolve", "--quiet", "another_file"]);
+    insta::assert_snapshot!(output, @"");
 
     // Without a path, `jj resolve` should call the merge tool multiple times
     test_env.jj_cmd_ok(&repo_path, &["undo"]);

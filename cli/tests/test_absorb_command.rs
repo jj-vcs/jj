@@ -34,16 +34,18 @@ fn test_absorb_simple() {
 
     // Empty commit
     test_env.jj_cmd_ok(&repo_path, &["new"]);
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["absorb"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["absorb"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Nothing changed.
     [EOF]
     ");
 
     // Insert first and last lines
     std::fs::write(repo_path.join("file1"), "1X\n1a\n1b\n2a\n2b\n2Z\n").unwrap();
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["absorb"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["absorb"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Absorbed changes into these revisions:
       zsuskuln 3027ca7a 2
       kkmpptxz d0f1e8dd 1
@@ -54,8 +56,9 @@ fn test_absorb_simple() {
 
     // Modify middle line in hunk
     std::fs::write(repo_path.join("file1"), "1X\n1A\n1b\n2a\n2b\n2Z\n").unwrap();
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["absorb"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["absorb"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Absorbed changes into these revisions:
       kkmpptxz d366d92c 1
     Rebased 1 descendant commits.
@@ -66,8 +69,9 @@ fn test_absorb_simple() {
 
     // Remove middle line from hunk
     std::fs::write(repo_path.join("file1"), "1X\n1A\n1b\n2a\n2Z\n").unwrap();
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["absorb"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["absorb"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Absorbed changes into these revisions:
       zsuskuln 6e2c4777 2
     Working copy now at: yostqsxw 4a48490c (empty) (no description set)
@@ -77,8 +81,9 @@ fn test_absorb_simple() {
 
     // Insert ambiguous line in between
     std::fs::write(repo_path.join("file1"), "1X\n1A\n1b\nY\n2a\n2Z\n").unwrap();
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["absorb"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["absorb"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Nothing changed.
     [EOF]
     ");
@@ -168,8 +173,9 @@ fn test_absorb_replace_single_line_hunk() {
     // cleanly.
     test_env.jj_cmd_ok(&repo_path, &["new"]);
     std::fs::write(repo_path.join("file1"), "2a\n1A\n2b\n").unwrap();
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["absorb"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["absorb"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Absorbed changes into these revisions:
       qpvuntsm 7e885236 (conflict) 1
     Rebased 1 descendant commits.
@@ -239,11 +245,12 @@ fn test_absorb_merge() {
     test_env.jj_cmd_ok(&repo_path, &["new", "-m2", "description(0)"]);
     std::fs::write(repo_path.join("file1"), "0a\n2a\n2b\n").unwrap();
 
-    let (_stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["new", "-m3", "description(1)", "description(2)"],
+        ["new", "-m3", "description(1)", "description(2)"],
     );
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: mzvwutvl 08898161 (empty) 3
     Parent commit      : kkmpptxz 7e9df299 1
     Parent commit      : zsuskuln baf056cf 2
@@ -253,8 +260,9 @@ fn test_absorb_merge() {
 
     // Modify first and last lines, absorb from merge
     std::fs::write(repo_path.join("file1"), "1A\n1b\n0a\n2a\n2B\n").unwrap();
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["absorb"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["absorb"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Absorbed changes into these revisions:
       zsuskuln 71d1ee56 2
       kkmpptxz 4d379399 1
@@ -271,8 +279,9 @@ fn test_absorb_merge() {
     // Absorb into merge
     test_env.jj_cmd_ok(&repo_path, &["new"]);
     std::fs::write(repo_path.join("file2"), "3A\n").unwrap();
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["absorb"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["absorb"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Absorbed changes into these revisions:
       mzvwutvl e93c0210 3
     Working copy now at: vruxwmqv 1b10dfa4 (empty) (no description set)
@@ -335,9 +344,9 @@ fn test_absorb_discardable_merge_with_descendant() {
     test_env.jj_cmd_ok(&repo_path, &["new", "-m2", "description(0)"]);
     std::fs::write(repo_path.join("file1"), "0a\n2a\n2b\n").unwrap();
 
-    let (_stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["new", "description(1)", "description(2)"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["new", "description(1)", "description(2)"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: mzvwutvl f59b2364 (empty) (no description set)
     Parent commit      : kkmpptxz 7e9df299 1
     Parent commit      : zsuskuln baf056cf 2
@@ -351,8 +360,9 @@ fn test_absorb_discardable_merge_with_descendant() {
     test_env.jj_cmd_ok(&repo_path, &["new", "-m3"]);
     std::fs::write(repo_path.join("file2"), "3a\n").unwrap();
     // Then absorb the merge commit
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["absorb", "--from=@-"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["absorb", "--from=@-"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Absorbed changes into these revisions:
       zsuskuln 02668cf6 2
       kkmpptxz fcabe394 1
@@ -413,8 +423,9 @@ fn test_absorb_conflict() {
 
     test_env.jj_cmd_ok(&repo_path, &["new", "root()"]);
     std::fs::write(repo_path.join("file1"), "2a\n2b\n").unwrap();
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-r@", "-ddescription(1)"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r@", "-ddescription(1)"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     Working copy now at: kkmpptxz 74405a07 (conflict) (no description set)
     Parent commit      : qpvuntsm 3619e4e5 1
@@ -445,8 +456,9 @@ fn test_absorb_conflict() {
     ");
 
     // Cannot absorb from conflict
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["absorb"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["absorb"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Warning: Skipping file1: Is a conflict
     Nothing changed.
     [EOF]
@@ -455,8 +467,9 @@ fn test_absorb_conflict() {
     // Cannot absorb from resolved conflict
     test_env.jj_cmd_ok(&repo_path, &["new"]);
     std::fs::write(repo_path.join("file1"), "1A\n1b\n2a\n2B\n").unwrap();
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["absorb"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["absorb"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Warning: Skipping file1: Is a conflict
     Nothing changed.
     [EOF]
@@ -475,8 +488,9 @@ fn test_absorb_deleted_file() {
     test_env.jj_cmd_ok(&repo_path, &["new"]);
     std::fs::remove_file(repo_path.join("file1")).unwrap();
 
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["absorb"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["absorb"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Warning: Skipping file1: Deleted file
     Nothing changed.
     [EOF]
@@ -499,8 +513,9 @@ fn test_absorb_file_mode() {
     test_env.jj_cmd_ok(&repo_path, &["file", "chmod", "n", "file1"]);
 
     // Mode change shouldn't be absorbed
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["absorb"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["absorb"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Absorbed changes into these revisions:
       qpvuntsm 991365da 1
     Rebased 1 descendant commits.
@@ -544,8 +559,9 @@ fn test_absorb_from_into() {
     // range. Line "Y" doesn't have such line.
     test_env.jj_cmd_ok(&repo_path, &["new"]);
     std::fs::write(repo_path.join("file1"), "1a\nX\n2a\n1b\nY\n1c\n2b\nZ\n").unwrap();
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["absorb", "--into=@-"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["absorb", "--into=@-"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Absorbed changes into these revisions:
       kkmpptxz 91df4543 2
     Rebased 1 descendant commits.
@@ -588,8 +604,9 @@ fn test_absorb_from_into() {
 
     // Absorb all lines from the working-copy parent. An empty commit won't be
     // discarded because "absorb" isn't a command to squash commit descriptions.
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["absorb", "--from=@-"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["absorb", "--from=@-"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Absorbed changes into these revisions:
       rlvkpnrz 3a5fd02e 1
     Rebased 2 descendant commits.
@@ -649,14 +666,16 @@ fn test_absorb_paths() {
     std::fs::write(repo_path.join("file1"), "1A\n").unwrap();
     std::fs::write(repo_path.join("file2"), "1A\n").unwrap();
 
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["absorb", "unknown"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["absorb", "unknown"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Nothing changed.
     [EOF]
     ");
 
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["absorb", "file1"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["absorb", "file1"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Absorbed changes into these revisions:
       qpvuntsm ae044adb 1
     Rebased 1 descendant commits.
@@ -713,8 +732,9 @@ fn test_absorb_immutable() {
     std::fs::write(repo_path.join("file1"), "1A\n1b\n2a\n2B\n").unwrap();
 
     // Immutable revisions are excluded by default
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["absorb"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["absorb"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Absorbed changes into these revisions:
       kkmpptxz d80e3c2a 2
     Rebased 1 descendant commits.

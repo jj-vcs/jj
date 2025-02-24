@@ -58,9 +58,9 @@ fn test_next_simple() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["next"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["next"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: vruxwmqv 0c7d7732 (empty) (no description set)
     Parent commit      : kkmpptxz 30056b0c (empty) third
     [EOF]
@@ -100,9 +100,9 @@ fn test_next_multiple() {
     ");
 
     // We should now be the child of the fourth commit.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["next", "2"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["next", "2"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: vruxwmqv 41cc776d (empty) (no description set)
     Parent commit      : zsuskuln 9d7e5e99 (empty) fourth
     [EOF]
@@ -137,9 +137,9 @@ fn test_prev_simple() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["prev"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["prev"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: royxmykx 6db74f64 (empty) (no description set)
     Parent commit      : rlvkpnrz 9ed53a4a (empty) second
     [EOF]
@@ -176,9 +176,9 @@ fn test_prev_multiple_without_root() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["prev", "2"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["prev", "2"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: yqosqzyt 794ffd20 (empty) (no description set)
     Parent commit      : rlvkpnrz 9ed53a4a (empty) second
     [EOF]
@@ -249,9 +249,9 @@ fn test_next_parent_has_multiple_descendants() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["next", "--edit"]);
-    insta::assert_snapshot!(stdout,@r###""###);
-    insta::assert_snapshot!(stderr,@r"
+    let output = test_env.run_jj_in(&repo_path, ["next", "--edit"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: mzvwutvl 1b8531ce (empty) 4
     Parent commit      : zsuskuln b1394455 (empty) 3
     [EOF]
@@ -294,9 +294,9 @@ fn test_next_with_merge_commit_parent() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["next"]);
-    insta::assert_snapshot!(stdout,@r###""###);
-    insta::assert_snapshot!(stderr,@r"
+    let output = test_env.run_jj_in(&repo_path, ["next"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: vruxwmqv e2cefcb7 (empty) (no description set)
     Parent commit      : mzvwutvl b54bbdea (empty) 4
     [EOF]
@@ -339,9 +339,9 @@ fn test_next_on_merge_commit() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["next", "--edit"]);
-    insta::assert_snapshot!(stdout,@r###""###);
-    insta::assert_snapshot!(stderr,@r"
+    let output = test_env.run_jj_in(&repo_path, ["next", "--edit"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: mzvwutvl b54bbdea (empty) 4
     Parent commit      : zsuskuln 5542f0b4 (empty) 3
     [EOF]
@@ -486,9 +486,9 @@ fn test_prev_on_merge_commit() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["prev"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr,@r"
+    let output = test_env.run_jj_in(&repo_path, ["prev"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: vruxwmqv 41658cf4 (empty) (no description set)
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
@@ -729,9 +729,9 @@ fn test_prev_editing() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["prev", "--edit"]);
-    insta::assert_snapshot!(stdout, @r"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["prev", "--edit"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: kkmpptxz 30056b0c (empty) third
     Parent commit      : rlvkpnrz 9ed53a4a (empty) second
     [EOF]
@@ -768,9 +768,9 @@ fn test_next_editing() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["next", "--edit"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["next", "--edit"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: kkmpptxz 30056b0c (empty) third
     Parent commit      : rlvkpnrz 9ed53a4a (empty) second
     [EOF]
@@ -1000,9 +1000,9 @@ fn test_movement_edit_mode_true() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["prev"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["prev"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: rlvkpnrz 9ed53a4a (empty) second
     Parent commit      : qpvuntsm fa15625b (empty) first
     [EOF]
@@ -1016,9 +1016,9 @@ fn test_movement_edit_mode_true() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["prev"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["prev"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: qpvuntsm fa15625b (empty) first
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
@@ -1040,9 +1040,9 @@ fn test_movement_edit_mode_true() {
     [exit status: 1]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["next"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["next"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: rlvkpnrz 9ed53a4a (empty) second
     Parent commit      : qpvuntsm fa15625b (empty) first
     [EOF]
@@ -1056,9 +1056,9 @@ fn test_movement_edit_mode_true() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["next"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["next"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: kkmpptxz 30056b0c (empty) third
     Parent commit      : rlvkpnrz 9ed53a4a (empty) second
     [EOF]
@@ -1072,9 +1072,9 @@ fn test_movement_edit_mode_true() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["prev", "--no-edit"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["prev", "--no-edit"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: uyznsvlq 7ad57fb8 (empty) (no description set)
     Parent commit      : qpvuntsm fa15625b (empty) first
     [EOF]
@@ -1090,9 +1090,9 @@ fn test_movement_edit_mode_true() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["next", "--no-edit"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["next", "--no-edit"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: xtnwkqum 7ac7a1c4 (empty) (no description set)
     Parent commit      : rlvkpnrz 9ed53a4a (empty) second
     [EOF]
@@ -1150,9 +1150,9 @@ fn test_movement_edit_mode_false() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["prev", "--no-edit"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["prev", "--no-edit"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: vruxwmqv 087a65b1 (empty) (no description set)
     Parent commit      : qpvuntsm fa15625b (empty) first
     [EOF]
@@ -1177,9 +1177,9 @@ fn test_movement_edit_mode_false() {
     [exit status: 1]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["next"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["next"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: kpqxywon d06750fb (empty) (no description set)
     Parent commit      : rlvkpnrz 9ed53a4a (empty) second
     [EOF]
@@ -1195,17 +1195,17 @@ fn test_movement_edit_mode_false() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["next", "--no-edit"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["next", "--no-edit"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: wqnwkozp 10fa181f (empty) (no description set)
     Parent commit      : kkmpptxz 30056b0c (empty) third
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["prev", "--edit", "2"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["prev", "--edit", "2"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: rlvkpnrz 9ed53a4a (empty) second
     Parent commit      : qpvuntsm fa15625b (empty) first
     [EOF]
@@ -1219,9 +1219,9 @@ fn test_movement_edit_mode_false() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["next", "--edit"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["next", "--edit"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: kkmpptxz 30056b0c (empty) third
     Parent commit      : rlvkpnrz 9ed53a4a (empty) second
     [EOF]

@@ -77,13 +77,11 @@ fn test_show() {
     ");
 
     // Unmatched paths should generate warnings
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["file", "show", "file1", "non-existent"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file1", "non-existent"]);
+    insta::assert_snapshot!(output, @r"
     b
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr, @r"
+    ------- stderr -------
     Warning: No matching entries for paths: non-existent
     [EOF]
     ");
@@ -118,13 +116,12 @@ fn test_show_symlink() {
     std::os::unix::fs::symlink("symlink1_target", repo_path.join("symlink1")).unwrap();
 
     // Can print multiple files
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["file", "show", "."]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "show", "."]);
+    insta::assert_snapshot!(output, @r"
     c
     a
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr, @r"
+    ------- stderr -------
     Warning: Path 'symlink1' exists but is not a file
     [EOF]
     ");

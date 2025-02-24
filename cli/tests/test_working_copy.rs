@@ -28,12 +28,11 @@ fn test_snapshot_large_file() {
     test_env.add_config(r#"snapshot.max-new-file-size = 10"#);
     std::fs::write(repo_path.join("empty"), "").unwrap();
     std::fs::write(repo_path.join("large"), "a lot of text").unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["file", "list"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "list"]);
+    insta::assert_snapshot!(output, @r"
     empty
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr, @r"
+    ------- stderr -------
     Warning: Refused to snapshot some files:
       large: 13.0B (13 bytes); the maximum size allowed is 10.0B (10 bytes)
     Hint: This is to prevent large files from being added by accident. You can fix this by:
@@ -49,12 +48,11 @@ fn test_snapshot_large_file() {
     test_env.add_config(r#"snapshot.max-new-file-size = "10KB""#);
     let big_string = vec![0; 1024 * 11];
     std::fs::write(repo_path.join("large"), &big_string).unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["file", "list"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["file", "list"]);
+    insta::assert_snapshot!(output, @r"
     empty
     [EOF]
-    ");
-    insta::assert_snapshot!(stderr, @r"
+    ------- stderr -------
     Warning: Refused to snapshot some files:
       large: 11.0KiB (11264 bytes); the maximum size allowed is 10.0KiB (10240 bytes)
     Hint: This is to prevent large files from being added by accident. You can fix this by:
@@ -69,17 +67,17 @@ fn test_snapshot_large_file() {
     // test with file track for hint formatting, both files should appear in
     // warnings even though they were snapshotted separately
     std::fs::write(repo_path.join("large2"), big_string).unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "file",
             "--config=snapshot.auto-track='large'",
             "track",
             "large2",
         ],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Warning: Refused to snapshot some files:
       large: 11.0KiB (11264 bytes); the maximum size allowed is 10.0KiB (10240 bytes)
       large2: 11.0KiB (11264 bytes); the maximum size allowed is 10.0KiB (10240 bytes)
@@ -107,28 +105,26 @@ fn test_snapshot_large_file() {
     ");
 
     // No error if we disable auto-tracking of the path
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["file", "list", "--config=snapshot.auto-track='none()'"],
+        ["file", "list", "--config=snapshot.auto-track='none()'"],
     );
-    insta::assert_snapshot!(stdout, @r"
+    insta::assert_snapshot!(output, @r"
     empty
     [EOF]
     ");
-    insta::assert_snapshot!(stderr, @"");
 
     // max-new-file-size=0 means no limit
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["file", "list", "--config=snapshot.max-new-file-size=0"],
+        ["file", "list", "--config=snapshot.max-new-file-size=0"],
     );
-    insta::assert_snapshot!(stdout, @r"
+    insta::assert_snapshot!(output, @r"
     empty
     large
     large2
     [EOF]
     ");
-    insta::assert_snapshot!(stderr, @"");
 }
 
 #[test]
@@ -145,9 +141,9 @@ fn test_snapshot_large_file_restore() {
     // working-copy content shouldn't be overwritten.
     test_env.jj_cmd_ok(&repo_path, &["new", "root()"]);
     std::fs::write(repo_path.join("file"), "a lot of text").unwrap();
-    let (_stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["restore", "--from=description(committed)"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["restore", "--from=description(committed)"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Warning: Refused to snapshot some files:
       file: 13.0B (13 bytes); the maximum size allowed is 10.0B (10 bytes)
     Hint: This is to prevent large files from being added by accident. You can fix this by:
@@ -171,15 +167,14 @@ fn test_snapshot_large_file_restore() {
 
     // However, the next command will snapshot the large file because it is now
     // tracked. TODO: Should we remember the untracked state?
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["status"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["status"]);
+    insta::assert_snapshot!(output, @r"
     Working copy changes:
     A file
     Working copy : kkmpptxz b75eed09 (no description set)
     Parent commit: zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
-    insta::assert_snapshot!(stderr, @"");
 }
 
 #[test]

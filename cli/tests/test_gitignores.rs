@@ -125,9 +125,9 @@ fn test_gitignores_ignored_file_in_target_commit() {
     std::fs::write(workspace_root.join(".gitignore"), ".gitignore\nignored\n").unwrap();
 
     // Update to the commit with the "ignored" file
-    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["edit", "with-file"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&workspace_root, ["edit", "with-file"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: qpvuntsm 5ada929e with-file | (no description set)
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
     Added 1 files, modified 0 files, removed 0 files

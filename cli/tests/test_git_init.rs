@@ -70,9 +70,9 @@ fn read_git_target(workspace_root: &Path) -> String {
 #[test]
 fn test_git_init_internal() {
     let test_env = TestEnvironment::default();
-    let (stdout, stderr) = test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r#"
+    let output = test_env.run_jj_in(test_env.env_root(), ["git", "init", "repo"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Initialized repo in "repo"
     [EOF]
     "#);
@@ -128,9 +128,9 @@ fn test_git_init_external(bare: bool) {
     let git_repo_path = test_env.env_root().join("git-repo");
     init_git_repo(&git_repo_path, bare);
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         test_env.env_root(),
-        &[
+        [
             "git",
             "init",
             "repo",
@@ -139,17 +139,15 @@ fn test_git_init_external(bare: bool) {
         ],
     );
     insta::allow_duplicates! {
-        insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-        insta::assert_snapshot!(stderr, @r#"
-        Done importing changes from the underlying Git repo.
-        Working copy now at: sqpuoqvx 0bd37cef (empty) (no description set)
-        Parent commit      : nntyzxmz e80a42cc my-bookmark | My commit message
-        Added 1 files, modified 0 files, removed 0 files
-        Initialized repo in "repo"
-        [EOF]
-        "#);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Done importing changes from the underlying Git repo.
+    Working copy now at: sqpuoqvx 0bd37cef (empty) (no description set)
+    Parent commit      : nntyzxmz e80a42cc my-bookmark | My commit message
+    Added 1 files, modified 0 files, removed 0 files
+    Initialized repo in "repo"
+    [EOF]
+    "#);
     }
 
     let workspace_root = test_env.env_root().join("repo");
@@ -207,9 +205,9 @@ fn test_git_init_external_import_trunk(bare: bool) {
         "refs/remotes/origin/trunk",
     );
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         test_env.env_root(),
-        &[
+        [
             "git",
             "init",
             "repo",
@@ -218,18 +216,16 @@ fn test_git_init_external_import_trunk(bare: bool) {
         ],
     );
     insta::allow_duplicates! {
-        insta::assert_snapshot!(stdout, @"");
-    }
-    insta::allow_duplicates! {
-        insta::assert_snapshot!(stderr, @r#"
-        Done importing changes from the underlying Git repo.
-        Setting the revset alias `trunk()` to `trunk@origin`
-        Working copy now at: sqpuoqvx 0bd37cef (empty) (no description set)
-        Parent commit      : nntyzxmz e80a42cc my-bookmark trunk@origin | My commit message
-        Added 1 files, modified 0 files, removed 0 files
-        Initialized repo in "repo"
-        [EOF]
-        "#);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Done importing changes from the underlying Git repo.
+    Setting the revset alias `trunk()` to `trunk@origin`
+    Working copy now at: sqpuoqvx 0bd37cef (empty) (no description set)
+    Parent commit      : nntyzxmz e80a42cc my-bookmark trunk@origin | My commit message
+    Added 1 files, modified 0 files, removed 0 files
+    Initialized repo in "repo"
+    [EOF]
+    "#);
     }
 
     // "trunk()" alias should be set to remote "origin"'s default bookmark "trunk"
@@ -343,9 +339,9 @@ fn test_git_init_colocated_via_git_repo_path() {
     let test_env = TestEnvironment::default();
     let workspace_root = test_env.env_root().join("repo");
     init_git_repo(&workspace_root, false);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["git", "init", "--git-repo", "."]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r#"
+    let output = test_env.run_jj_in(&workspace_root, ["git", "init", "--git-repo", "."]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Done importing changes from the underlying Git repo.
     Initialized repo in "."
     [EOF]
@@ -393,9 +389,9 @@ fn test_git_init_colocated_via_git_repo_path_gitlink() {
     git::create_gitlink(&workspace_root, git_repo.path());
 
     assert!(workspace_root.join(".git").is_file());
-    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["git", "init", "--git-repo", "."]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r#"
+    let output = test_env.run_jj_in(&workspace_root, ["git", "init", "--git-repo", "."]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Done importing changes from the underlying Git repo.
     Initialized repo in "."
     [EOF]
@@ -431,9 +427,9 @@ fn test_git_init_colocated_via_git_repo_path_symlink_directory() {
     init_git_repo(&git_repo_path, false);
     std::fs::create_dir(&workspace_root).unwrap();
     std::os::unix::fs::symlink(git_repo_path.join(".git"), workspace_root.join(".git")).unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["git", "init", "--git-repo", "."]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r#"
+    let output = test_env.run_jj_in(&workspace_root, ["git", "init", "--git-repo", "."]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Done importing changes from the underlying Git repo.
     Initialized repo in "."
     [EOF]
@@ -473,9 +469,9 @@ fn test_git_init_colocated_via_git_repo_path_symlink_directory_without_bare_conf
 
     std::fs::rename(workspace_root.join(".git"), &git_repo_path).unwrap();
     std::os::unix::fs::symlink(&git_repo_path, workspace_root.join(".git")).unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["git", "init", "--git-repo", "."]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r#"
+    let output = test_env.run_jj_in(&workspace_root, ["git", "init", "--git-repo", "."]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Done importing changes from the underlying Git repo.
     Initialized repo in "."
     [EOF]
@@ -515,9 +511,9 @@ fn test_git_init_colocated_via_git_repo_path_symlink_gitlink() {
     assert!(git_workdir_path.join(".git").is_file());
     std::fs::create_dir(&workspace_root).unwrap();
     std::os::unix::fs::symlink(git_workdir_path.join(".git"), workspace_root.join(".git")).unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["git", "init", "--git-repo", "."]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r#"
+    let output = test_env.run_jj_in(&workspace_root, ["git", "init", "--git-repo", "."]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Done importing changes from the underlying Git repo.
     Initialized repo in "."
     [EOF]
@@ -577,8 +573,9 @@ fn test_git_init_colocated_via_git_repo_path_imported_refs() {
     // With git.auto-local-bookmark = true
     let local_path = test_env.env_root().join("local1");
     set_up_local_repo(&local_path);
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&local_path, &["git", "init", "--git-repo=."]);
-    insta::assert_snapshot!(stderr, @r#"
+    let output = test_env.run_jj_in(&local_path, ["git", "init", "--git-repo=."]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Done importing changes from the underlying Git repo.
     Initialized repo in "."
     [EOF]
@@ -597,8 +594,9 @@ fn test_git_init_colocated_via_git_repo_path_imported_refs() {
     test_env.add_config("git.auto-local-bookmark = false");
     let local_path = test_env.env_root().join("local2");
     set_up_local_repo(&local_path);
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&local_path, &["git", "init", "--git-repo=."]);
-    insta::assert_snapshot!(stderr, @r#"
+    let output = test_env.run_jj_in(&local_path, ["git", "init", "--git-repo=."]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Done importing changes from the underlying Git repo.
     Hint: The following remote bookmarks aren't associated with the existing local bookmarks:
       local-remote@origin
@@ -651,9 +649,9 @@ fn test_git_init_colocated_dirty_working_copy() {
     ]
     "#);
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["git", "init", "--git-repo", "."]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r#"
+    let output = test_env.run_jj_in(&workspace_root, ["git", "init", "--git-repo", "."]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Done importing changes from the underlying Git repo.
     Initialized repo in "."
     [EOF]
@@ -761,12 +759,12 @@ fn test_git_init_external_but_git_dir_exists() {
     let workspace_root = test_env.env_root().join("repo");
     git::init(&git_repo_path);
     init_git_repo(&workspace_root, false);
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &workspace_root,
-        &["git", "init", "--git-repo", git_repo_path.to_str().unwrap()],
+        ["git", "init", "--git-repo", git_repo_path.to_str().unwrap()],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r#"
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Initialized repo in "."
     [EOF]
     "#);
@@ -794,10 +792,9 @@ fn test_git_init_colocated_via_flag_git_dir_exists() {
     let workspace_root = test_env.env_root().join("repo");
     init_git_repo(&workspace_root, false);
 
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "--colocate", "repo"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r#"
+    let output = test_env.run_jj_in(test_env.env_root(), ["git", "init", "--colocate", "repo"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Done importing changes from the underlying Git repo.
     Initialized repo in "repo"
     [EOF]
@@ -826,10 +823,9 @@ fn test_git_init_colocated_via_flag_git_dir_exists() {
 fn test_git_init_colocated_via_flag_git_dir_not_exists() {
     let test_env = TestEnvironment::default();
     let workspace_root = test_env.env_root().join("repo");
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "--colocate", "repo"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r#"
+    let output = test_env.run_jj_in(test_env.env_root(), ["git", "init", "--colocate", "repo"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
     Initialized repo in "repo"
     [EOF]
     "#);

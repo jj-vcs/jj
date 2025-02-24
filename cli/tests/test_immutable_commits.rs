@@ -94,10 +94,9 @@ fn test_rewrite_immutable_generic() {
 
     // Can use --ignore-immutable to override
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "main""#);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["--ignore-immutable", "edit", "main"]);
-    insta::assert_snapshot!(stdout, @r###"
-    "###);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["--ignore-immutable", "edit", "main"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: kkmpptxz 72e1b68c main | b
     Parent commit      : qpvuntsm b84b821b a
     Added 0 files, modified 1 files, removed 0 files
@@ -116,10 +115,9 @@ fn test_rewrite_immutable_generic() {
     test_env.add_config(
         r#"revset-aliases."immutable_heads()" = "present(bookmark_that_does_not_exist)""#,
     );
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["new", "main"]);
-    insta::assert_snapshot!(stdout, @r###"
-    "###);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["new", "main"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: wqnwkozp fc921593 (empty) (no description set)
     Parent commit      : kkmpptxz 72e1b68c main | b
     [EOF]
@@ -143,8 +141,9 @@ fn test_new_wc_commit_when_wc_immutable() {
     test_env.jj_cmd_ok(test_env.env_root(), &["bookmark", "create", "-r@", "main"]);
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "main""#);
     test_env.jj_cmd_ok(test_env.env_root(), &["new", "-m=a"]);
-    let (_, stderr) = test_env.jj_cmd_ok(test_env.env_root(), &["bookmark", "set", "main", "-r@"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(test_env.env_root(), ["bookmark", "set", "main", "-r@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Moved 1 bookmarks to kkmpptxz a164195b main | (empty) a
     Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
     Working copy now at: zsuskuln ef5fa85b (empty) (no description set)
@@ -159,8 +158,9 @@ fn test_immutable_heads_set_to_working_copy() {
     test_env.jj_cmd_ok(test_env.env_root(), &["git", "init"]);
     test_env.jj_cmd_ok(test_env.env_root(), &["bookmark", "create", "-r@", "main"]);
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "@""#);
-    let (_, stderr) = test_env.jj_cmd_ok(test_env.env_root(), &["new", "-m=a"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(test_env.env_root(), ["new", "-m=a"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
     Working copy now at: pmmvwywv 7278b2d8 (empty) (no description set)
     Parent commit      : kkmpptxz a713ef56 (empty) a
@@ -179,8 +179,9 @@ fn test_new_wc_commit_when_wc_immutable_multi_workspace() {
     test_env.jj_cmd_ok(&repo_path, &["workspace", "add", "../workspace1"]);
     let workspace1_envroot = test_env.env_root().join("workspace1");
     test_env.jj_cmd_ok(&workspace1_envroot, &["edit", "default@"]);
-    let (_, stderr) = test_env.jj_cmd_ok(&repo_path, &["bookmark", "set", "main", "-r@"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["bookmark", "set", "main", "-r@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Moved 1 bookmarks to kkmpptxz 7796c4df main | (empty) a
     Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
     Warning: The working-copy commit in workspace 'workspace1' became immutable, so a new commit has been created on top of it.
@@ -189,8 +190,8 @@ fn test_new_wc_commit_when_wc_immutable_multi_workspace() {
     [EOF]
     ");
     test_env.jj_cmd_ok(&workspace1_envroot, &["workspace", "update-stale"]);
-    let (stdout, _) = test_env.jj_cmd_ok(&workspace1_envroot, &["log", "--no-graph"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&workspace1_envroot, ["log", "--no-graph"]);
+    insta::assert_snapshot!(output, @r"
     nppvrztz test.user@example.com 2001-02-03 08:05:11 workspace1@ ee0671fd
     (empty) (no description set)
     royxmykx test.user@example.com 2001-02-03 08:05:12 default@ 896465c4
@@ -224,8 +225,8 @@ fn test_rewrite_immutable_commands() {
     test_env.add_config(r#"revset-aliases."trunk()" = "main""#);
 
     // Log shows mutable commits, their parents, and trunk() by default
-    let (stdout, _stderr) = test_env.jj_cmd_ok(&repo_path, &["log"]);
-    insta::assert_snapshot!(stdout, @r"
+    let output = test_env.run_jj_in(&repo_path, ["log"]);
+    insta::assert_snapshot!(output, @r"
     @  yqosqzyt test.user@example.com 2001-02-03 08:05:14 55641cc5
     │  (no description set)
     │ ◆  mzvwutvl test.user@example.com 2001-02-03 08:05:12 main bcab555f conflict

@@ -27,10 +27,9 @@ fn test_report_conflicts() {
     std::fs::write(repo_path.join("file"), "C\n").unwrap();
     test_env.jj_cmd_ok(&repo_path, &["commit", "-m=C"]);
 
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["rebase", "-s=description(B)", "-d=root()"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-s=description(B)", "-d=root()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 3 commits onto destination
     Working copy now at: zsuskuln f8a2c4e0 (conflict) (empty) (no description set)
     Parent commit      : kkmpptxz 2271a49e (conflict) C
@@ -48,9 +47,9 @@ fn test_report_conflicts() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-d=description(A)"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-d=description(A)"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 3 commits onto destination
     Working copy now at: zsuskuln d70c003d (empty) (no description set)
     Parent commit      : kkmpptxz 43e94449 C
@@ -62,10 +61,9 @@ fn test_report_conflicts() {
     ");
 
     // Can get hint about multiple root commits
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["rebase", "-r=description(B)", "-d=root()"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r=description(B)", "-d=root()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     Rebased 2 descendant commits
     Working copy now at: zsuskuln 588bd15c (conflict) (empty) (no description set)
@@ -86,9 +84,9 @@ fn test_report_conflicts() {
     ");
 
     // Resolve one of the conflicts by (mostly) following the instructions
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["new", "rlvkpnrzqnoo"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["new", "rlvkpnrzqnoo"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: vruxwmqv 0485e30f (conflict) (empty) (no description set)
     Parent commit      : rlvkpnrz b42f84eb (conflict) B
     Added 0 files, modified 1 files, removed 0 files
@@ -97,9 +95,9 @@ fn test_report_conflicts() {
     [EOF]
     ");
     std::fs::write(repo_path.join("file"), "resolved\n").unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["squash"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["squash"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: yostqsxw f5a0cf8c (empty) (no description set)
     Parent commit      : rlvkpnrz 87370844 B
     Existing conflicts were resolved or abandoned from these commits:
@@ -123,10 +121,9 @@ fn test_report_conflicts_with_divergent_commits() {
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m=C2"]);
     test_env.jj_cmd_ok(&repo_path, &["describe", "-m=C3", "--at-op=@-"]);
 
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["rebase", "-s=description(B)", "-d=root()"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-s=description(B)", "-d=root()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Concurrent modification detected, resolving automatically.
     Rebased 3 commits onto destination
     Working copy now at: zsuskuln?? 4ca807ad (conflict) C2
@@ -146,9 +143,9 @@ fn test_report_conflicts_with_divergent_commits() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-d=description(A)"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-d=description(A)"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 3 commits onto destination
     Working copy now at: zsuskuln?? f2d7a228 C2
     Parent commit      : kkmpptxz db069a22 B
@@ -161,10 +158,9 @@ fn test_report_conflicts_with_divergent_commits() {
     ");
 
     // Same thing when rebasing the divergent commits one at a time
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["rebase", "-s=description(C2)", "-d=root()"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-s=description(C2)", "-d=root()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     Working copy now at: zsuskuln?? 3c36afc9 (conflict) C2
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
@@ -181,10 +177,9 @@ fn test_report_conflicts_with_divergent_commits() {
     [EOF]
     ");
 
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["rebase", "-s=description(C3)", "-d=root()"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["rebase", "-s=description(C3)", "-d=root()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     New conflicts appeared in these commits:
       zsuskuln?? e3ff827e (conflict) C3
@@ -196,12 +191,12 @@ fn test_report_conflicts_with_divergent_commits() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["rebase", "-s=description(C2)", "-d=description(B)"],
+        ["rebase", "-s=description(C2)", "-d=description(B)"],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     Working copy now at: zsuskuln?? 1f9680bd C2
     Parent commit      : kkmpptxz db069a22 B
@@ -211,12 +206,12 @@ fn test_report_conflicts_with_divergent_commits() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["rebase", "-s=description(C3)", "-d=description(B)"],
+        ["rebase", "-s=description(C3)", "-d=description(B)"],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 commits onto destination
     Existing conflicts were resolved or abandoned from these commits:
       zsuskuln hidden e3ff827e (conflict) C3

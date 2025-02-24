@@ -64,9 +64,9 @@ fn test_split_by_paths() {
         ["dump editor0", "next invocation\n", "dump editor1"].join("\0"),
     )
     .unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["split", "file2"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["split", "file2"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     First part: qpvuntsm 65569ca7 (no description set)
     Second part: zsuskuln 709756f0 (no description set)
     Working copy now at: zsuskuln 709756f0 (no description set)
@@ -116,9 +116,9 @@ fn test_split_by_paths() {
 
     // Insert an empty commit after @- with "split ."
     test_env.set_up_fake_editor();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["split", "-r", "@-", "."]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["split", "-r", "@-", "."]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Warning: All changes have been selected, so the second commit will be empty
     Rebased 1 descendant commits
     First part: qpvuntsm 9da0eea0 (no description set)
@@ -147,9 +147,9 @@ fn test_split_by_paths() {
 
     // Insert an empty commit before @- with "split nonexistent"
     test_env.set_up_fake_editor();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["split", "-r", "@-", "nonexistent"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["split", "-r", "@-", "nonexistent"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Warning: No changes have been selected, so the first commit will be empty
     Rebased 1 descendant commits
     First part: qpvuntsm bd42f95a (empty) (no description set)
@@ -197,9 +197,9 @@ fn test_split_with_non_empty_description() {
         .join("\0"),
     )
     .unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_path, &["split", "file1"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&workspace_path, ["split", "file1"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     First part: qpvuntsm 231a3c00 part 1
     Second part: kkmpptxz e96291aa part 2
     Working copy now at: kkmpptxz e96291aa part 2
@@ -251,9 +251,9 @@ fn test_split_with_default_description() {
         ["dump editor1", "next invocation\n", "dump editor2"].join("\0"),
     )
     .unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_path, &["split", "file1"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&workspace_path, ["split", "file1"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     First part: qpvuntsm 02ee5d60 TESTED=TODO
     Second part: rlvkpnrz 33cd046b (no description set)
     Working copy now at: rlvkpnrz 33cd046b (no description set)
@@ -318,10 +318,9 @@ fn test_split_with_merge_child() {
         ["write\nAdd file1", "next invocation\n", "write\nAdd file2"].join("\0"),
     )
     .unwrap();
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&workspace_path, &["split", "-r", "description(a)", "file1"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&workspace_path, ["split", "-r", "description(a)", "file1"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 descendant commits
     First part: kkmpptxz e8006b47 Add file1
     Second part: royxmykx 5e1b793d Add file2
@@ -366,9 +365,9 @@ fn test_split_siblings_no_descendants() {
         ["dump editor1", "next invocation\n", "dump editor2"].join("\0"),
     )
     .unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_path, &["split", "--parallel", "file1"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&workspace_path, ["split", "--parallel", "file1"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     First part: qpvuntsm 48018df6 TESTED=TODO
     Second part: kkmpptxz 7eddbf93 (no description set)
     Working copy now at: kkmpptxz 7eddbf93 (no description set)
@@ -447,9 +446,9 @@ fn test_split_siblings_with_descendants() {
         .join("\0"),
     )
     .unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_path, &["split", "--parallel", "file1"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&workspace_path, ["split", "--parallel", "file1"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 2 descendant commits
     First part: qpvuntsm 84df941d Add file1
     Second part: vruxwmqv 94753be3 Add file2
@@ -525,12 +524,12 @@ fn test_split_siblings_with_merge_child() {
         ["write\nAdd file1", "next invocation\n", "write\nAdd file2"].join("\0"),
     )
     .unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &workspace_path,
-        &["split", "-r", "description(a)", "--parallel", "file1"],
+        ["split", "-r", "description(a)", "--parallel", "file1"],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 descendant commits
     First part: kkmpptxz e8006b47 Add file1
     Second part: royxmykx 2cc60f3d Add file2
@@ -608,9 +607,9 @@ fn test_split_interactive() {
     std::fs::write(diff_editor, diff_script).unwrap();
 
     // Split the working commit interactively and select only file1
-    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_path, &["split"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&workspace_path, ["split"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     First part: qpvuntsm 0e15949e (no description set)
     Second part: rlvkpnrz 9ed12e4c (no description set)
     Working copy now at: rlvkpnrz 9ed12e4c (no description set)
@@ -676,8 +675,9 @@ fn test_split_interactive_with_paths() {
     std::fs::write(diff_editor, diff_script).unwrap();
 
     // Select file1 and file2 by args, then select file1 interactively
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&workspace_path, &["split", "-i", "file1", "file2"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&workspace_path, ["split", "-i", "file1", "file2"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     First part: rlvkpnrz e3d766b8 (no description set)
     Second part: kkmpptxz 4cf22d3b (no description set)
     Working copy now at: kkmpptxz 4cf22d3b (no description set)

@@ -386,9 +386,9 @@ fn test_config_tables_empty_patterns_list() {
 
     std::fs::write(repo_path.join("foo"), "foo\n").unwrap();
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["fix"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["fix"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Fixed 0 commits of 1 checked.
     Nothing changed.
     [EOF]
@@ -521,9 +521,9 @@ fn test_relative_paths() {
 #[test]
 fn test_fix_empty_commit() {
     let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["fix", "-s", "@"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Fixed 0 commits of 1 checked.
     Nothing changed.
     [EOF]
@@ -537,9 +537,9 @@ fn test_fix_leaf_commit() {
     test_env.jj_cmd_ok(&repo_path, &["new"]);
     std::fs::write(repo_path.join("file"), "affected").unwrap();
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["fix", "-s", "@"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Fixed 1 commits of 1 checked.
     Working copy now at: rlvkpnrz 85ce8924 (no description set)
     Parent commit      : qpvuntsm b2ca2bc5 (no description set)
@@ -568,9 +568,9 @@ fn test_fix_parent_commit() {
     std::fs::write(repo_path.join("file"), "child2").unwrap();
     test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "child2"]);
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["fix", "-s", "parent"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "parent"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Fixed 3 commits of 3 checked.
     Working copy now at: mzvwutvl d30c8ae2 child2 | (no description set)
     Parent commit      : qpvuntsm 70a4dae2 parent | (no description set)
@@ -606,9 +606,9 @@ fn test_fix_sibling_commit() {
     std::fs::write(repo_path.join("file"), "child2").unwrap();
     test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "child2"]);
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["fix", "-s", "child1"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "child1"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Fixed 1 commits of 1 checked.
     [EOF]
     ");
@@ -649,9 +649,9 @@ fn test_default_revset() {
     // which includes bar{1,2,3} and excludes trunk{1,2} (which is immutable) and
     // foo (which is mutable but not reachable).
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "trunk2""#);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["fix"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["fix"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Fixed 3 commits of 3 checked.
     Working copy now at: yostqsxw dabc47b2 bar2 | (no description set)
     Parent commit      : yqosqzyt 984b5924 bar1 | (no description set)
@@ -696,9 +696,9 @@ fn test_custom_default_revset() {
     test_env.jj_cmd_ok(&repo_path, &["new", "-r", "foo"]);
     test_env.add_config(r#"revsets.fix = "bar""#);
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["fix"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["fix"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Fixed 1 commits of 1 checked.
     [EOF]
     ");
@@ -745,9 +745,9 @@ fn test_fix_empty_file() {
     let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
     std::fs::write(repo_path.join("file"), "").unwrap();
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["fix", "-s", "@"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Fixed 0 commits of 1 checked.
     Nothing changed.
     [EOF]
@@ -762,9 +762,9 @@ fn test_fix_some_paths() {
     std::fs::write(repo_path.join("file1"), "foo").unwrap();
     std::fs::write(repo_path.join("file2"), "bar").unwrap();
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["fix", "-s", "@", "file1"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "@", "file1"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Fixed 1 commits of 1 checked.
     Working copy now at: qpvuntsm 54a90d2b (no description set)
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
@@ -785,9 +785,9 @@ fn test_fix_cyclic() {
     let (test_env, repo_path) = init_with_fake_formatter(&["--reverse"]);
     std::fs::write(repo_path.join("file"), "content\n").unwrap();
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["fix"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["fix"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Fixed 1 commits of 1 checked.
     Working copy now at: qpvuntsm bf5e6a5a (no description set)
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
@@ -800,9 +800,9 @@ fn test_fix_cyclic() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["fix"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["fix"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Fixed 1 commits of 1 checked.
     Working copy now at: qpvuntsm 0e2d20d6 (no description set)
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
@@ -836,9 +836,9 @@ fn test_deduplication() {
     std::fs::write(repo_path.join("file"), "foo\n").unwrap();
     test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "d"]);
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["fix", "-s", "a"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "a"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Fixed 4 commits of 4 checked.
     Working copy now at: yqosqzyt cf770245 d | (no description set)
     Parent commit      : mzvwutvl 370615a5 c | (empty) (no description set)
@@ -889,9 +889,9 @@ fn test_executed_but_nothing_changed() {
     let (test_env, repo_path) = init_with_fake_formatter(&["--tee", "$path-copy"]);
     std::fs::write(repo_path.join("file"), "content\n").unwrap();
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["fix", "-s", "@"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Fixed 0 commits of 1 checked.
     Nothing changed.
     [EOF]
@@ -907,9 +907,9 @@ fn test_executed_but_nothing_changed() {
     // fix tools are always run from the workspace root, regardless of working
     // directory at time of invocation.
     std::fs::create_dir(repo_path.join("dir")).unwrap();
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path.join("dir"), &["fix"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path.join("dir"), ["fix"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Fixed 0 commits of 1 checked.
     Nothing changed.
     [EOF]
@@ -925,9 +925,9 @@ fn test_failure() {
     let (test_env, repo_path) = init_with_fake_formatter(&["--fail"]);
     std::fs::write(repo_path.join("file"), "content").unwrap();
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["fix", "-s", "@"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Fixed 0 commits of 1 checked.
     Nothing changed.
     [EOF]
@@ -944,9 +944,9 @@ fn test_stderr_success() {
 
     // TODO: Associate the stderr lines with the relevant tool/file/commit instead
     // of passing it through directly.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["fix", "-s", "@"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     errorFixed 1 commits of 1 checked.
     Working copy now at: qpvuntsm 487808ba (no description set)
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
@@ -963,9 +963,9 @@ fn test_stderr_failure() {
         init_with_fake_formatter(&["--stderr", "error", "--stdout", "new content", "--fail"]);
     std::fs::write(repo_path.join("file"), "old content").unwrap();
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["fix", "-s", "@"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     errorFixed 0 commits of 1 checked.
     Nothing changed.
     [EOF]
@@ -987,9 +987,9 @@ fn test_missing_command() {
     // TODO: We should display a warning about invalid tool configurations. When we
     // support multiple tools, we should also keep going to see if any of the other
     // executions succeed.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["fix", "-s", "@"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Fixed 0 commits of 1 checked.
     Nothing changed.
     [EOF]
@@ -1003,9 +1003,9 @@ fn test_fix_file_types() {
     std::fs::create_dir(repo_path.join("dir")).unwrap();
     try_symlink("file", repo_path.join("link")).unwrap();
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["fix", "-s", "@"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Fixed 1 commits of 1 checked.
     Working copy now at: qpvuntsm 6836a9e4 (no description set)
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
@@ -1029,9 +1029,9 @@ fn test_fix_executable() {
     permissions.set_mode(permissions.mode() | 0o111);
     std::fs::set_permissions(&path, permissions).unwrap();
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["fix", "-s", "@"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Fixed 1 commits of 1 checked.
     Working copy now at: qpvuntsm fee78e99 (no description set)
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
@@ -1061,9 +1061,9 @@ fn test_fix_trivial_merge_commit() {
     test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "b"]);
     test_env.jj_cmd_ok(&repo_path, &["new", "a", "b"]);
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["fix", "-s", "@"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Fixed 0 commits of 1 checked.
     Nothing changed.
     [EOF]
@@ -1094,9 +1094,9 @@ fn test_fix_adding_merge_commit() {
     std::fs::write(repo_path.join("file_c"), "change c").unwrap();
     std::fs::write(repo_path.join("file_d"), "change d").unwrap();
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["fix", "-s", "@"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Fixed 1 commits of 1 checked.
     Working copy now at: mzvwutvl f93eb5a9 (no description set)
     Parent commit      : qpvuntsm 6e64e7a7 a | (no description set)
@@ -1138,9 +1138,9 @@ fn test_fix_both_sides_of_conflict() {
 
     // The conflicts are not different from the merged parent, so they would not be
     // fixed if we didn't fix the parents also.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["fix", "-s", "a", "-s", "b"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "a", "-s", "b"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Fixed 3 commits of 3 checked.
     Working copy now at: mzvwutvl a55c6ec2 (conflict) (empty) (no description set)
     Parent commit      : qpvuntsm 8e8aad69 a | (no description set)
@@ -1186,9 +1186,9 @@ fn test_fix_resolve_conflict() {
 
     // The conflicts are not different from the merged parent, so they would not be
     // fixed if we didn't fix the parents also.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["fix", "-s", "a", "-s", "b"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "a", "-s", "b"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Fixed 3 commits of 3 checked.
     Working copy now at: mzvwutvl 50fd048d (empty) (no description set)
     Parent commit      : qpvuntsm dd2721f1 a | (no description set)
@@ -1244,9 +1244,9 @@ fn test_all_files() {
     // although some like file C won't have any tools configured to make changes to
     // them. Specified but unfixed files are silently skipped, whether they lack
     // configuration, are ignored, don't exist, aren't normal files, etc.
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "fix",
             "--include-unchanged-files",
             "b/b",
@@ -1254,8 +1254,8 @@ fn test_all_files() {
             "does_not.exist",
         ],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Fixed 2 commits of 2 checked.
     Working copy now at: rlvkpnrz c098d165 child
     Parent commit      : qpvuntsm 0bb31627 parent
@@ -1306,9 +1306,9 @@ fn test_all_files() {
     ");
 
     // Not specifying files means all files will be fixed in each revision.
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["fix", "--include-unchanged-files"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["fix", "--include-unchanged-files"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Fixed 2 commits of 2 checked.
     Working copy now at: rlvkpnrz c5d0aa1d child
     Parent commit      : qpvuntsm b4d02ca9 parent

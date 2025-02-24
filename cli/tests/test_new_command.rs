@@ -100,9 +100,9 @@ fn test_new_merge() {
 
     // Same test with `--no-edit`
     test_env.jj_cmd_ok(&repo_path, &["undo"]);
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["new", "main", "@", "--no-edit"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["new", "main", "@", "--no-edit"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Created new commit znkkpsqq 496490a6 (empty) (no description set)
     [EOF]
     ");
@@ -138,9 +138,9 @@ fn test_new_merge() {
     [exit status: 1]
     ");
     // if prefixed with all:, duplicates are allowed
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["new", "@", "all:visible_heads()"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["new", "@", "all:visible_heads()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: nkmrtpmo ed2dc1d9 (empty) (no description set)
     Parent commit      : wqnwkozp 11402323 (empty) (no description set)
     [EOF]
@@ -177,12 +177,12 @@ fn test_new_insert_after() {
     ");
 
     // --insert-after can be repeated; --after is an alias
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["new", "-m", "G", "--insert-after", "B", "--after", "D"],
+        ["new", "-m", "G", "--insert-after", "B", "--after", "D"],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 2 descendant commits
     Working copy now at: kxryzmor 1fc93fd1 (empty) G
     Parent commit      : kkmpptxz bfd4157e B | (empty) B
@@ -205,10 +205,9 @@ fn test_new_insert_after() {
     [EOF]
     ");
 
-    let (stdout, stderr) =
-        test_env.jj_cmd_ok(&repo_path, &["new", "-m", "H", "--insert-after", "D"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&repo_path, ["new", "-m", "H", "--insert-after", "D"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 3 descendant commits
     Working copy now at: uyznsvlq fcf8281b (empty) H
     Parent commit      : vruxwmqv c9257eff D | (empty) D
@@ -268,9 +267,9 @@ fn test_new_insert_after_children() {
     // Check that inserting G after A and C doesn't try to rebase B (which is
     // initially a child of A) onto G as that would create a cycle since B is
     // a parent of C which is a parent G.
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "new",
             "-m",
             "G",
@@ -280,8 +279,8 @@ fn test_new_insert_after_children() {
             "C",
         ],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: kxryzmor 6d63e17b (empty) G
     Parent commit      : qpvuntsm 5ef24e4b A | (empty) A
     Parent commit      : mzvwutvl 83376b27 C | (empty) C
@@ -325,9 +324,9 @@ fn test_new_insert_before() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "new",
             "-m",
             "G",
@@ -337,8 +336,8 @@ fn test_new_insert_before() {
             "F",
         ],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 2 descendant commits
     Working copy now at: kxryzmor 7ed2d6ff (empty) G
     Parent commit      : kkmpptxz bfd4157e B | (empty) B
@@ -396,9 +395,9 @@ fn test_new_insert_before_root_successors() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &[
+        [
             "new",
             "-m",
             "G",
@@ -408,8 +407,8 @@ fn test_new_insert_before_root_successors() {
             "D",
         ],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 5 descendant commits
     Working copy now at: kxryzmor 36541977 (empty) G
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
@@ -562,12 +561,12 @@ fn test_new_insert_after_before() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["new", "-m", "G", "--after", "C", "--before", "F"],
+        ["new", "-m", "G", "--after", "C", "--before", "F"],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 1 descendant commits
     Working copy now at: kxryzmor 78a97058 (empty) G
     Parent commit      : mzvwutvl 83376b27 C | (empty) C
@@ -588,12 +587,12 @@ fn test_new_insert_after_before() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(
+    let output = test_env.run_jj_in(
         &repo_path,
-        &["new", "-m", "H", "--after", "D", "--before", "B"],
+        ["new", "-m", "H", "--after", "D", "--before", "B"],
     );
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Rebased 4 descendant commits
     Working copy now at: uyznsvlq fcf8281b (empty) H
     Parent commit      : vruxwmqv c9257eff D | (empty) D

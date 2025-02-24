@@ -192,9 +192,9 @@ fn test_commit_interactive_with_paths() {
     std::fs::write(diff_editor, diff_script).unwrap();
 
     // Select file1 and file2 by args, then select file1 interactively
-    let (_stdout, stderr) =
-        test_env.jj_cmd_ok(&workspace_path, &["commit", "-i", "file1", "file2"]);
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&workspace_path, ["commit", "-i", "file1", "file2"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Working copy now at: kkmpptxz f3e6062e (no description set)
     Parent commit      : rlvkpnrz 9453cb28 edit
     [EOF]
@@ -390,9 +390,9 @@ fn test_commit_paths_warning() {
     std::fs::write(workspace_path.join("file1"), "foo\n").unwrap();
     std::fs::write(workspace_path.join("file2"), "bar\n").unwrap();
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_path, &["commit", "-m=first", "file3"]);
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
+    let output = test_env.run_jj_in(&workspace_path, ["commit", "-m=first", "file3"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     Warning: The given paths do not match any file: file3
     Working copy now at: rlvkpnrz d1872100 (no description set)
     Parent commit      : qpvuntsm fa15625b (empty) first

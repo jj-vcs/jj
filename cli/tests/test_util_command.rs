@@ -48,8 +48,8 @@ fn test_gc_args() {
     );
     let repo_path = test_env.env_root().join("repo");
 
-    let (_stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["util", "gc"]);
-    insta::assert_snapshot!(stderr, @"");
+    let output = test_env.run_jj_in(&repo_path, ["util", "gc"]);
+    insta::assert_snapshot!(output, @"");
 
     let output = test_env.run_jj_in(&repo_path, ["util", "gc", "--at-op=@-"]);
     insta::assert_snapshot!(output, @r"
