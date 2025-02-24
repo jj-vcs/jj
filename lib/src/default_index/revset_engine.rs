@@ -974,6 +974,10 @@ impl EvaluationContext<'_> {
                 let candidate_set = self.evaluate(candidates)?;
                 Ok(Box::new(self.take_latest_revset(&*candidate_set, *count)?))
             }
+            ResolvedExpression::Oldest { candidates, count } => {
+                let candidate_set = self.evaluate(candidates)?;
+                Ok(Box::new(self.take_oldest_revset(&*candidate_set, *count)?))
+            }
             ResolvedExpression::Coalesce(expression1, expression2) => {
                 let set1 = self.evaluate(expression1)?;
                 if set1.positions().attach(index).next().is_some() {
@@ -1054,6 +1058,51 @@ impl EvaluationContext<'_> {
             .try_collect()?;
         positions.sort_unstable_by_key(|&pos| Reverse(pos));
         positions.dedup();
+        Ok(EagerRevset { positions })
+    }
+
+    fn take_oldest_revset(
+        &self,
+        candidate_set: &dyn InternalRevset,
+        count: usize,
+    ) -> Result<EagerRevset, RevsetEvaluationError> {
+        if count == 0 {
+            return Ok(EagerRevset::empty());
+        }
+
+        #[derive(Clone, Eq, Ord, PartialEq, PartialOrd)]
+        struct Item {
+            timestamp: MillisSinceEpoch,
+            pos: IndexPosition, // tie-breaker
+        }
+
+        let make_rev_item = |pos| -> Result<_, RevsetEvaluationError> {
+            let entry = self.index.entry_by_pos(pos?);
+            let commit = self.store.get_commit(&entry.commit_id())?;
+            Ok(Item {
+                timestamp: commit.committer().timestamp.timestamp,
+                pos: entry.position(),
+            })
+        };
+
+        // Maintain max-heap containing the earliest (smallest) count items.
+        let mut candidate_iter = candidate_set
+            .positions()
+            .attach(self.index)
+            .map(make_rev_item)
+            .fuse();
+        let mut oldest_items: BinaryHeap<_> = candidate_iter.by_ref().take(count).try_collect()?;
+        for item in candidate_iter {
+            let item = item?;
+            let mut newest = oldest_items.peek_mut().unwrap();
+            if *newest > item {
+                *newest = item;
+            }
+        }
+
+        assert!(oldest_items.len() <= count);
+        let mut positions = oldest_items.into_iter().map(|item| item.pos).collect_vec();
+        positions.sort_unstable_by_key(|&pos| Reverse(pos));
         Ok(EagerRevset { positions })
     }
 
