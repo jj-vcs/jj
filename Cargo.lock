@@ -2432,7 +2432,6 @@ dependencies = [
  "strsim",
  "tempfile",
  "test-case",
- "testutils",
  "thiserror 2.0.11",
  "tokio",
  "toml_edit",
@@ -2449,6 +2448,31 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.98",
+]
+
+[[package]]
+name = "jj-lib-tests"
+version = "0.26.0"
+dependencies = [
+ "assert_matches",
+ "chrono",
+ "dunce",
+ "futures 0.3.31",
+ "git2",
+ "gix",
+ "hex",
+ "indoc",
+ "insta",
+ "itertools 0.13.0",
+ "jj-lib",
+ "maplit",
+ "num_cpus",
+ "pollster",
+ "pretty_assertions",
+ "rand",
+ "tempfile",
+ "test-case",
+ "testutils",
 ]
 
 [[package]]
