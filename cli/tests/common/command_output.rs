@@ -17,8 +17,6 @@ use std::fmt::Debug;
 use std::fmt::Display;
 use std::process::ExitStatus;
 
-use super::strip_last_line;
-
 /// Command output and exit status to be displayed in normalized form.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CommandOutput {
@@ -198,4 +196,14 @@ impl PartialEq for CommandOutputString {
         // Compare only raw data. Normalized string is for displaying purpose.
         self.raw == other.raw
     }
+}
+
+/// Returns a string with the last line removed.
+///
+/// Use this to remove the root error message containing platform-specific
+/// content for example.
+pub fn strip_last_line(s: &str) -> &str {
+    s.trim_end_matches('\n')
+        .rsplit_once('\n')
+        .map_or(s, |(h, _)| &s[..h.len() + 1])
 }

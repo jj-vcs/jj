@@ -41,16 +41,6 @@ pub fn to_toml_value(value: impl Into<toml_edit::Value>) -> toml_edit::Value {
     value.into()
 }
 
-/// Returns a string with the last line removed.
-///
-/// Use this to remove the root error message containing platform-specific
-/// content for example.
-pub fn strip_last_line(s: &str) -> &str {
-    s.trim_end_matches('\n')
-        .rsplit_once('\n')
-        .map_or(s, |(h, _)| &s[..h.len() + 1])
-}
-
 pub fn create_commit(work_dir: &TestWorkDir, name: &str, parents: &[&str]) {
     create_commit_with_files(work_dir, name, parents, &[(name, &format!("{name}\n"))]);
 }
