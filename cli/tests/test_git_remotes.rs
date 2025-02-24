@@ -13,9 +13,17 @@
 // limitations under the License.
 
 use std::fs;
+use std::path::Path;
 use std::path::PathBuf;
 
 use crate::common::TestEnvironment;
+
+fn read_git_remote_config(repo_path: &Path) -> String {
+    let git_config = fs::read_to_string(repo_path.join(".jj/repo/store/git/config"))
+        .or_else(|_| fs::read_to_string(repo_path.join(".git/config")))
+        .unwrap();
+    git_config[git_config.find("[remote ").unwrap()..].to_owned()
+}
 
 #[test]
 fn test_git_remotes() {
@@ -44,6 +52,14 @@ fn test_git_remotes() {
     foo http://example.com/repo/foo
     [EOF]
     ");
+    insta::assert_snapshot!(read_git_remote_config(&repo_path), @r#"
+    [remote "foo"]
+    	url = http://example.com/repo/foo
+    	fetch = +refs/heads/*:refs/remotes/foo/*
+    [remote "bar"]
+    	url = http://example.com/repo/bar
+    	fetch = +refs/heads/*:refs/remotes/bar/*
+    "#);
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "remote", "remove", "foo"]);
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @"");
@@ -59,6 +75,11 @@ fn test_git_remotes() {
     [EOF]
     [exit status: 1]
     ");
+    insta::assert_snapshot!(read_git_remote_config(&repo_path), @r#"
+    [remote "bar"]
+    	url = http://example.com/repo/bar
+    	fetch = +refs/heads/*:refs/remotes/bar/*
+    "#);
 }
 
 #[test]
@@ -163,6 +184,11 @@ fn test_git_remote_set_url() {
     foo http://example.com/repo/bar
     [EOF]
     ");
+    insta::assert_snapshot!(read_git_remote_config(&repo_path), @r#"
+    [remote "foo"]
+    	url = http://example.com/repo/bar
+    	fetch = +refs/heads/*:refs/remotes/foo/*
+    "#);
 }
 
 #[test]
@@ -240,6 +266,14 @@ fn test_git_remote_rename() {
     baz http://example.com/repo/baz
     [EOF]
     ");
+    insta::assert_snapshot!(read_git_remote_config(&repo_path), @r#"
+    [remote "baz"]
+    	url = http://example.com/repo/baz
+    	fetch = +refs/heads/*:refs/remotes/baz/*
+    [remote "bar"]
+    	url = http://example.com/repo/foo
+    	fetch = +refs/heads/*:refs/remotes/bar/*
+    "#);
 }
 
 #[test]
@@ -265,6 +299,11 @@ fn test_git_remote_named_git() {
     bar http://example.com/repo/repo
     [EOF]
     ");
+    insta::assert_snapshot!(read_git_remote_config(&repo_path), @r#"
+    [remote "bar"]
+    	url = http://example.com/repo/repo
+    	fetch = +refs/heads/*:refs/remotes/bar/*
+    "#);
     // @git bookmark shouldn't be renamed.
     let output = test_env.run_jj_in(&repo_path, ["log", "-rmain@git", "-Tbookmarks"]);
     insta::assert_snapshot!(output, @r"
@@ -287,6 +326,12 @@ fn test_git_remote_named_git() {
     fs::remove_dir_all(repo_path.join(".jj")).unwrap();
     git_repo.remote_rename("bar", "git").unwrap();
     test_env.jj_cmd_ok(&repo_path, &["git", "init", "--git-repo=."]);
+    insta::assert_snapshot!(read_git_remote_config(&repo_path), @r#"
+    [remote "bar"]
+    [remote "git"]
+    	url = http://example.com/repo/repo
+    	fetch = +refs/heads/*:refs/remotes/git/*
+    "#);
 
     // The remote can also be removed.
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "remote", "remove", "git"]);
@@ -295,6 +340,7 @@ fn test_git_remote_named_git() {
     let output = test_env.run_jj_in(&repo_path, ["git", "remote", "list"]);
     insta::assert_snapshot!(output, @r###"
     "###);
+    insta::assert_snapshot!(read_git_remote_config(&repo_path), @r#"[remote "bar"]"#);
     // @git bookmark shouldn't be removed.
     let output = test_env.run_jj_in(&repo_path, ["log", "-rmain@git", "-Tbookmarks"]);
     insta::assert_snapshot!(output, @r"
