@@ -20,6 +20,7 @@ use std::sync::Arc;
 
 use bstr::BString;
 use itertools::Itertools;
+use jj_lib::backend::BackendError;
 use jj_lib::backend::FileId;
 use jj_lib::backend::MergedTreeId;
 use jj_lib::config::ConfigGetError;
@@ -32,6 +33,7 @@ use jj_lib::matchers::Matcher;
 use jj_lib::merge::Merge;
 use jj_lib::merge::MergedTreeValue;
 use jj_lib::merged_tree::MergedTree;
+use jj_lib::merged_tree::MergedTreeBuilder;
 use jj_lib::repo_path::InvalidRepoPathError;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
@@ -56,6 +58,8 @@ use crate::config::CommandNameAndArgs;
 use crate::ui::Ui;
 
 const BUILTIN_EDITOR_NAME: &str = ":builtin";
+const OURS_TOOL_NAME: &str = ":ours";
+const THEIRS_TOOL_NAME: &str = ":theirs";
 
 #[derive(Debug, Error)]
 pub enum DiffEditError {
@@ -69,6 +73,8 @@ pub enum DiffEditError {
     Snapshot(#[from] SnapshotError),
     #[error(transparent)]
     Config(#[from] ConfigGetError),
+    #[error("The tool `{tool_name}` cannot be used as a diff editor")]
+    DiffEditNotSupported { tool_name: String },
 }
 
 #[derive(Debug, Error)]
@@ -127,6 +133,8 @@ pub enum MergeToolConfigError {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum MergeTool {
     Builtin,
+    Ours,
+    Theirs,
     // Boxed because ExternalMergeTool is big compared to the Builtin variant.
     External(Box<ExternalMergeTool>),
 }
@@ -165,10 +173,11 @@ fn get_tool_config(
     settings: &UserSettings,
     name: &str,
 ) -> Result<Option<MergeTool>, ConfigGetError> {
-    if name == BUILTIN_EDITOR_NAME {
-        Ok(Some(MergeTool::Builtin))
-    } else {
-        Ok(get_external_tool_config(settings, name)?.map(MergeTool::external))
+    match name {
+        BUILTIN_EDITOR_NAME => Ok(Some(MergeTool::Builtin)),
+        OURS_TOOL_NAME => Ok(Some(MergeTool::Ours)),
+        THEIRS_TOOL_NAME => Ok(Some(MergeTool::Theirs)),
+        _ => Ok(get_external_tool_config(settings, name)?.map(MergeTool::external)),
     }
 }
 
@@ -263,6 +272,12 @@ impl DiffEditor {
                         .map_err(Box::new)?,
                 )
             }
+            MergeTool::Ours => Err(DiffEditError::DiffEditNotSupported {
+                tool_name: String::from(OURS_TOOL_NAME),
+            }),
+            MergeTool::Theirs => Err(DiffEditError::DiffEditNotSupported {
+                tool_name: String::from(THEIRS_TOOL_NAME),
+            }),
             MergeTool::External(editor) => {
                 let instructions = self.use_instructions.then(format_instructions);
                 edit_diff_external(
@@ -394,6 +409,14 @@ impl MergeEditor {
                 let tree_id = edit_merge_builtin(tree, &merge_tool_files).map_err(Box::new)?;
                 Ok((tree_id, None))
             }
+            MergeTool::Ours => {
+                let tree_id = pick_conflict_side(tree, &merge_tool_files, 0)?;
+                Ok((tree_id, None))
+            }
+            MergeTool::Theirs => {
+                let tree_id = pick_conflict_side(tree, &merge_tool_files, 1)?;
+                Ok((tree_id, None))
+            }
             MergeTool::External(editor) => external::run_mergetool_external(
                 ui,
                 &self.path_converter,
@@ -404,6 +427,21 @@ impl MergeEditor {
             ),
         }
     }
+}
+
+fn pick_conflict_side(
+    tree: &MergedTree,
+    merge_tool_files: &[MergeToolFile],
+    add_index: usize,
+) -> Result<MergedTreeId, BackendError> {
+    let mut tree_builder = MergedTreeBuilder::new(tree.id());
+    for merge_tool_file in merge_tool_files {
+        tree_builder.set_or_remove(
+            merge_tool_file.repo_path.clone(),
+            Merge::resolved(merge_tool_file.conflict.get_add(add_index).unwrap().clone()),
+        );
+    }
+    tree_builder.write_tree(tree.store())
 }
 
 #[cfg(test)]

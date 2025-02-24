@@ -807,3 +807,34 @@ fn test_diffedit_restore_descendants() {
     [EOF]
     "#);
 }
+
+#[test]
+fn test_diffedit_unsupported_merge_tool() {
+    let test_env = TestEnvironment::default();
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    let repo_path = test_env.env_root().join("repo");
+
+    std::fs::write(repo_path.join("file"), "a\n").unwrap();
+    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    std::fs::write(repo_path.join("file"), "b\n").unwrap();
+
+    insta::assert_snapshot!(
+        test_env.run_jj_in(&repo_path, ["diffedit", "--tool", ":ours"]),
+        @r#"
+    ------- stderr -------
+    Error: Failed to edit diff
+    Caused by: The tool `:ours` cannot be used as a diff editor
+    [EOF]
+    [exit status: 1]
+    "#);
+
+    insta::assert_snapshot!(
+        test_env.run_jj_in(&repo_path, ["diffedit", "--tool", ":theirs"]),
+        @r#"
+    ------- stderr -------
+    Error: Failed to edit diff
+    Caused by: The tool `:theirs` cannot be used as a diff editor
+    [EOF]
+    [exit status: 1]
+    "#);
+}

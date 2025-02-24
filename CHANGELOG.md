@@ -91,6 +91,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Commands that used to suggest `--ignore-immutable` now print the number of
   immutable commits that would be rewritten if used and a link to the docs.
 
+* `jj resolve` now accepts new built-in merge tools `:ours` and `:theirs`.
+  These merge tools accept side #1 and side #2 of the conflict respectively.
+
 ### Fixed bugs
 
 * `jj status` now shows untracked files under untracked directories.
