@@ -1032,9 +1032,9 @@ fn test_bookmark_forget_fetched_bookmark() {
     feature1@origin: tyvxnvqr 9175cb32 (empty) another message
     [EOF]
     ");
+    // There should be no output here since the remote bookmark wasn't forgotten
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "fetch", "--remote=origin"]);
     insta::assert_snapshot!(stdout, @"");
-    // There should be no output here since the remote bookmark wasn't forgotten
     insta::assert_snapshot!(stderr, @r"
     Nothing changed.
     [EOF]

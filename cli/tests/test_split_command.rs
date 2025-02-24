@@ -609,6 +609,14 @@ fn test_split_interactive() {
 
     // Split the working commit interactively and select only file1
     let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_path, &["split"]);
+    insta::assert_snapshot!(stdout, @"");
+    insta::assert_snapshot!(stderr, @r"
+    First part: qpvuntsm 0e15949e (no description set)
+    Second part: rlvkpnrz 9ed12e4c (no description set)
+    Working copy now at: rlvkpnrz 9ed12e4c (no description set)
+    Parent commit      : qpvuntsm 0e15949e (no description set)
+    [EOF]
+    ");
 
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @r#"
@@ -629,15 +637,6 @@ fn test_split_interactive() {
 
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "###);
-
-    insta::assert_snapshot!(stdout, @"");
-    insta::assert_snapshot!(stderr, @r"
-    First part: qpvuntsm 0e15949e (no description set)
-    Second part: rlvkpnrz 9ed12e4c (no description set)
-    Working copy now at: rlvkpnrz 9ed12e4c (no description set)
-    Parent commit      : qpvuntsm 0e15949e (no description set)
-    [EOF]
-    ");
 
     let output = test_env.run_jj_in(&workspace_path, ["log", "--summary"]);
     insta::assert_snapshot!(output, @r"

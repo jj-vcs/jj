@@ -99,8 +99,8 @@ fn test_next_multiple() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["next", "2"]);
     // We should now be the child of the fourth commit.
+    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["next", "2"]);
     insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @r"
     Working copy now at: vruxwmqv 41cc776d (empty) (no description set)

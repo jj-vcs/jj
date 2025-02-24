@@ -140,6 +140,8 @@ fn test_git_push_current_bookmark(subprocess: bool) {
       Add bookmark my-bookmark to bc7610b65a91
     [EOF]
     ");
+    }
+    insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &workspace_root), @r"
     bookmark1: xtvrqkyv 0f8dc656 (empty) modified bookmark1 commit
       @origin (ahead by 1 commits, behind by 1 commits): xtvrqkyv hidden d13ecdbd (empty) description 1
@@ -829,6 +831,8 @@ fn test_git_push_multiple(subprocess: bool) {
       Add bookmark my-bookmark to c4a3c3105d92
     [EOF]
     ");
+    }
+    insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &workspace_root), @r"
     bookmark2: yqosqzyt c4a3c310 (empty) foo
       @origin: yqosqzyt c4a3c310 (empty) foo
@@ -2066,8 +2070,8 @@ fn test_git_push_sign_on_push() {
         &workspace_root,
         &["new", "-m", "commit which should not be signed 2"],
     );
-    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["log", "-T", template]);
     // There should be no signed commits initially
+    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["log", "-T", template]);
     insta::assert_snapshot!(stdout, @r"
     @  commit which should not be signed 2
     ○  commit which should not be signed 1
@@ -2095,8 +2099,8 @@ fn test_git_push_sign_on_push() {
     Dry-run requested, not pushing.
     [EOF]
     ");
-    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["log", "-T", template]);
     // There should be no signed commits after performing a dry run
+    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["log", "-T", template]);
     insta::assert_snapshot!(stdout, @r"
     @  commit which should not be signed 2
     ○  commit which should not be signed 1
@@ -2120,8 +2124,8 @@ fn test_git_push_sign_on_push() {
     Parent commit      : kpqxywon 90df08d3 (empty) commit which should not be signed 1
     [EOF]
     ");
-    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["log", "-T", template]);
     // Only commits which are being pushed should be signed
+    let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_root, &["log", "-T", template]);
     insta::assert_snapshot!(stdout, @r"
     @  commit which should not be signed 2
     ○  commit which should not be signed 1

@@ -442,9 +442,11 @@ fn test_git_fetch_from_remote_named_git(subprocess: bool) {
     }
     insta::allow_duplicates! {
     insta::assert_snapshot!(stderr, @"");
+    }
 
     // Explicit import is an error.
     // (This could be warning if we add mechanism to report ignored refs.)
+    insta::allow_duplicates! {
     insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["git", "import"]), @r"
     ------- stderr -------
     Error: Failed to import refs from underlying Git repo
@@ -996,6 +998,8 @@ fn test_git_fetch_some_of_many_bookmarks(subprocess: bool) {
     Nothing changed.
     [EOF]
     ");
+    }
+    insta::allow_duplicates! {
     insta::assert_snapshot!(get_log_output(&test_env, &target_jj_repo_path), @r"
     @  230dd059e1b0
     │ ○  decaa3966c83 descr_for_a2 a2
@@ -1355,6 +1359,8 @@ fn test_git_fetch_undo(subprocess: bool) {
     bookmark: b@origin  [new] tracked
     [EOF]
     ");
+    }
+    insta::allow_duplicates! {
     insta::assert_snapshot!(get_log_output(&test_env, &target_jj_repo_path), @r"
     @  230dd059e1b0
     │ ○  c7d4bdcbc215 descr_for_b b
@@ -1375,7 +1381,9 @@ fn test_git_fetch_undo(subprocess: bool) {
     Undid operation: eb2029853b02 (2001-02-03 08:05:18) fetch from git remote(s) origin
     [EOF]
     ");
+    }
     // The undo works as expected
+    insta::allow_duplicates! {
     insta::assert_snapshot!(get_log_output(&test_env, &target_jj_repo_path), @r"
     @  230dd059e1b0
     ◆  000000000000
@@ -1393,6 +1401,8 @@ fn test_git_fetch_undo(subprocess: bool) {
     bookmark: b@origin [new] tracked
     [EOF]
     ");
+    }
+    insta::allow_duplicates! {
     insta::assert_snapshot!(get_log_output(&test_env, &target_jj_repo_path), @r"
     @  230dd059e1b0
     │ ○  c7d4bdcbc215 descr_for_b b
@@ -1787,6 +1797,8 @@ fn test_git_fetch_removed_bookmark(subprocess: bool) {
     Abandoned 1 commits that are no longer reachable.
     [EOF]
     ");
+    }
+    insta::allow_duplicates! {
     insta::assert_snapshot!(get_log_output(&test_env, &target_jj_repo_path), @r"
     @  230dd059e1b0
     │ ○  c7d4bdcbc215 descr_for_b b

@@ -984,11 +984,11 @@ fn test_missing_command() {
         command = ['this_executable_shouldnt_exist']
         patterns = ['all()']
     "});
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["fix", "-s", "@"]);
-    insta::assert_snapshot!(stdout, @"");
     // TODO: We should display a warning about invalid tool configurations. When we
     // support multiple tools, we should also keep going to see if any of the other
     // executions succeed.
+    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["fix", "-s", "@"]);
+    insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @r"
     Fixed 0 commits of 1 checked.
     Nothing changed.

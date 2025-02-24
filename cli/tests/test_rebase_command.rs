@@ -1066,10 +1066,10 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     ");
 
     // ===================== rebase -s tests =================
+    // This should be a no-op
     let (stdout, stderr) =
         test_env.jj_cmd_ok(&repo_path, &["rebase", "-s", "base", "-d", "notroot"]);
     insta::assert_snapshot!(stdout, @"");
-    // This should be a no-op
     insta::assert_snapshot!(stderr, @r"
     Skipped rebase of 4 commits that were already in place
     Nothing changed.
@@ -1088,9 +1088,9 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     ");
 
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    // This should be a no-op
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-s", "a", "-d", "base"]);
     insta::assert_snapshot!(stdout, @"");
-    // This should be a no-op
     insta::assert_snapshot!(stderr, @r"
     Skipped rebase of 3 commits that were already in place
     Nothing changed.
@@ -1146,10 +1146,10 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     [EOF]
     ");
 
-    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-b", "c", "-d", "base"]);
-    insta::assert_snapshot!(stdout, @"");
     // The commits in roots(base..c), i.e. commit "a" should be rebased onto "base",
     // which is a no-op
+    let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-b", "c", "-d", "base"]);
+    insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @r"
     Skipped rebase of 3 commits that were already in place
     Nothing changed.
@@ -1189,9 +1189,9 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     ");
 
     test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    // This should be a no-op
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-b", "a", "-d", "root()"]);
     insta::assert_snapshot!(stdout, @"");
-    // This should be a no-op
     insta::assert_snapshot!(stderr, @r"
     Skipped rebase of 5 commits that were already in place
     Nothing changed.
@@ -2969,9 +2969,9 @@ fn test_rebase_skip_if_on_destination() {
     [EOF]
     ");
 
+    // Skip rebase with -b
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-b", "d", "-d", "a"]);
     insta::assert_snapshot!(stdout, @"");
-    // Skip rebase with -b
     insta::assert_snapshot!(stderr, @r"
     Skipped rebase of 6 commits that were already in place
     Nothing changed.
@@ -2992,10 +2992,10 @@ fn test_rebase_skip_if_on_destination() {
     [EOF]
     ");
 
+    // Skip rebase with -s
     let (stdout, stderr) =
         test_env.jj_cmd_ok(&repo_path, &["rebase", "-s", "c", "-d", "b1", "-d", "b2"]);
     insta::assert_snapshot!(stdout, @"");
-    // Skip rebase with -s
     insta::assert_snapshot!(stderr, @r"
     Skipped rebase of 4 commits that were already in place
     Nothing changed.
@@ -3016,9 +3016,9 @@ fn test_rebase_skip_if_on_destination() {
     [EOF]
     ");
 
+    // Skip rebase with -r since commit has no children
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "d", "-d", "c"]);
     insta::assert_snapshot!(stdout, @"");
-    // Skip rebase with -r since commit has no children
     insta::assert_snapshot!(stderr, @r"
     Skipped rebase of 1 commits that were already in place
     Nothing changed.
@@ -3039,9 +3039,9 @@ fn test_rebase_skip_if_on_destination() {
     [EOF]
     ");
 
+    // Skip rebase of commit, but rebases children onto destination with -r
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "e", "-d", "c"]);
     insta::assert_snapshot!(stdout, @"");
-    // Skip rebase of commit, but rebases children onto destination with -r
     insta::assert_snapshot!(stderr, @r"
     Skipped rebase of 1 commits that were already in place
     Rebased 1 descendant commits

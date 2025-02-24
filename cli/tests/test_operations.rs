@@ -238,10 +238,6 @@ fn test_op_log_reversed() {
 
     // Should be able to display log with fork and branch points
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["op", "log", "--reversed"]);
-    insta::assert_snapshot!(&stderr, @r"
-    Concurrent modification detected, resolving automatically.
-    [EOF]
-    ");
     insta::assert_snapshot!(&stdout, @r"
     ○  000000000000 root()
     ○    eac759b9ab75 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
@@ -255,6 +251,10 @@ fn test_op_log_reversed() {
     @  e4538ffdc13d test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
        reconcile divergent operations
        args: jj op log --reversed
+    [EOF]
+    ");
+    insta::assert_snapshot!(&stderr, @r"
+    Concurrent modification detected, resolving automatically.
     [EOF]
     ");
 

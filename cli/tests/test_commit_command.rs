@@ -391,13 +391,13 @@ fn test_commit_paths_warning() {
     std::fs::write(workspace_path.join("file2"), "bar\n").unwrap();
 
     let (stdout, stderr) = test_env.jj_cmd_ok(&workspace_path, &["commit", "-m=first", "file3"]);
+    insta::assert_snapshot!(stdout, @"");
     insta::assert_snapshot!(stderr, @r"
     Warning: The given paths do not match any file: file3
     Working copy now at: rlvkpnrz d1872100 (no description set)
     Parent commit      : qpvuntsm fa15625b (empty) first
     [EOF]
     ");
-    insta::assert_snapshot!(stdout, @"");
 
     let output = test_env.run_jj_in(&workspace_path, ["diff"]);
     insta::assert_snapshot!(output, @r"
