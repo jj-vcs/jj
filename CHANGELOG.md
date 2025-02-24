@@ -39,6 +39,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   directly as positional arguments, such as
   `jj bisect --range=..main -- cargo check --all-targets`.
 
+* Divergent changes are no longer marked red in immutable revisions. Since the
+  revision is immutable, the user shouldn't take any action, so the red color
+  was unnecessarily alarming.
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer
