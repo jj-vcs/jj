@@ -145,7 +145,12 @@ builtin_log_oneline = 'builtin_log_oneline(self)'
 'builtin_log_oneline(commit)' = '''
 if(commit.root(),
   format_root_commit(commit),
-  label(if(commit.current_working_copy(), "working_copy"),
+  label(
+    separate(" ",
+      if(commit.current_working_copy(), "working_copy"),
+      if(commit.immutable(), "immutable", "mutable"),
+      if(commit.conflict(), "conflicted"),
+    ),
     concat(
       separate(" ",
         format_short_change_id_with_hidden_and_divergent_info(commit),
@@ -174,7 +179,12 @@ builtin_log_compact = 'builtin_log_compact(self)'
 'builtin_log_compact(commit)' = '''
 if(commit.root(),
   format_root_commit(commit),
-  label(if(commit.current_working_copy(), "working_copy"),
+  label(
+    separate(" ",
+      if(commit.current_working_copy(), "working_copy"),
+      if(commit.immutable(), "immutable", "mutable"),
+      if(commit.conflict(), "conflicted"),
+    ),
     concat(
       format_short_commit_header(commit) ++ "\n",
       separate(" ",
@@ -193,7 +203,12 @@ builtin_log_redacted = 'builtin_log_redacted(self)'
 'builtin_log_redacted(commit)' = '''
 if(commit.root(),
   format_root_commit(commit),
-  label(if(commit.current_working_copy(), "working_copy"),
+  label(
+    separate(" ",
+      if(commit.current_working_copy(), "working_copy"),
+      if(commit.immutable(), "immutable", "mutable"),
+      if(commit.conflict(), "conflicted"),
+    ),
     concat(
       format_short_commit_header_redacted(commit) ++ "\n",
       separate(" ",
@@ -209,7 +224,12 @@ builtin_log_compact_full_description = 'builtin_log_compact_full_description(sel
 'builtin_log_compact_full_description(commit)' = '''
 if(commit.root(),
   format_root_commit(commit),
-  label(if(commit.current_working_copy(), "working_copy"),
+  label(
+    separate(" ",
+      if(commit.current_working_copy(), "working_copy"),
+      if(commit.immutable(), "immutable", "mutable"),
+      if(commit.conflict(), "conflicted"),
+    ),
     concat(
       format_short_commit_header(commit) ++ "\n",
       separate(" ",
@@ -328,12 +348,14 @@ label(if(commit.current_working_copy(), "working_copy"),
 '''
 
 'format_root_commit(root)' = '''
-separate(" ",
-  format_short_change_id(root.change_id()),
-  label("root", "root()"),
-  format_short_commit_id(root.commit_id()),
-  root.bookmarks(),
-) ++ "\n"
+label("immutable",
+  separate(" ",
+    format_short_change_id(root.change_id()),
+    label("root", "root()"),
+    format_short_commit_id(root.commit_id()),
+    root.bookmarks(),
+  ) ++ "\n"
+)
 '''
 
 'format_ref_targets(ref)' = '''
@@ -467,7 +489,7 @@ coalesce(
   label(
     separate(" ",
       if(current_working_copy, "working_copy"),
-      if(immutable, "immutable"),
+      if(immutable, "immutable", "mutable"),
       if(conflict, "conflicted"),
     ),
     coalesce(
@@ -486,7 +508,7 @@ coalesce(
   label(
     separate(" ",
       if(current_working_copy, "working_copy"),
-      if(immutable, "immutable"),
+      if(immutable, "immutable", "mutable"),
       if(conflict, "conflicted"),
     ),
     coalesce(
