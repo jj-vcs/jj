@@ -36,6 +36,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   are currently supported, and anything else (like refspecs which rename
   branches) will be ignored.
 
+* The `conflict` label used for coloring log graph nodes was renamed to
+  `conflicted`.
+
 ### Deprecations
 
 * The on-disk index format has changed. `jj` will write index files in both old

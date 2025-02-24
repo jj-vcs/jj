@@ -468,7 +468,7 @@ coalesce(
     separate(" ",
       if(current_working_copy, "working_copy"),
       if(immutable, "immutable"),
-      if(conflict, "conflict"),
+      if(conflict, "conflicted"),
     ),
     coalesce(
       if(current_working_copy, "@"),
@@ -487,7 +487,7 @@ coalesce(
     separate(" ",
       if(current_working_copy, "working_copy"),
       if(immutable, "immutable"),
-      if(conflict, "conflict"),
+      if(conflict, "conflicted"),
     ),
     coalesce(
       if(current_working_copy, "@"),
