@@ -352,6 +352,36 @@ fn test_git_fetch_all_remotes(subprocess: bool) {
 
 #[test_case(false; "use git2 for remote calls")]
 #[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_git_fetch_all_remotes_from_config(subprocess: bool) {
+    let test_env = TestEnvironment::default();
+    if !subprocess {
+        test_env.add_config("git.subprocess = false");
+    }
+    test_env.add_config("git.auto-local-bookmark = true");
+    test_env.add_config("git.fetch-all-remotes = true");
+    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    let repo_path = test_env.env_root().join("repo");
+    add_git_remote(&test_env, &repo_path, "rem1");
+    add_git_remote(&test_env, &repo_path, "rem2");
+
+    // add empty [remote "rem3"] section to .git/config, which should be ignored
+    test_env.jj_cmd_ok(&repo_path, &["git", "remote", "add", "rem3", "../unknown"]);
+    test_env.jj_cmd_ok(&repo_path, &["git", "remote", "remove", "rem3"]);
+
+    test_env.jj_cmd_ok(&repo_path, &["git", "fetch"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
+    rem1: qxosxrvv 6a211027 message
+      @rem1: qxosxrvv 6a211027 message
+    rem2: yszkquru 2497a8a0 message
+      @rem2: yszkquru 2497a8a0 message
+    [EOF]
+    ");
+    }
+}
+
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_multiple_remotes_from_config(subprocess: bool) {
     let test_env = TestEnvironment::default();
     if !subprocess {

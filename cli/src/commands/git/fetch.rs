@@ -61,6 +61,9 @@ pub struct GitFetchArgs {
     )]
     remotes: Vec<String>,
     /// Fetch from all remotes
+    ///
+    /// This defaults to the `git.fetch-all-remotes` setting. If that is configured to `true`,
+    /// all remotes will be fetched all the time.
     #[arg(long, conflicts_with = "remotes")]
     all_remotes: bool,
 }
@@ -72,7 +75,7 @@ pub fn cmd_git_fetch(
     args: &GitFetchArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
-    let remotes = if args.all_remotes {
+    let remotes = if should_fetch_all_remotes(args, &workspace_command) {
         git::get_all_remote_names(workspace_command.repo().store())?
     } else if args.remotes.is_empty() {
         get_default_fetch_remotes(ui, &workspace_command)?
@@ -167,4 +170,16 @@ fn warn_if_branches_not_found(
     }
 
     Ok(())
+}
+
+fn should_fetch_all_remotes(
+    args: &GitFetchArgs,
+    workspace_command: &WorkspaceCommandHelper,
+) -> bool {
+    const KEY: &str = "git.fetch-all-remotes";
+    let fetch_all_settings = workspace_command
+        .settings()
+        .get_bool(KEY)
+        .unwrap_or_default();
+    args.all_remotes || fetch_all_settings
 }
