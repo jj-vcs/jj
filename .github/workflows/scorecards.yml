@@ -14,6 +14,10 @@ jobs:
   analysis:
     name: Scorecards analysis
     runs-on: ubuntu-24.04
+    permissions:
+      # Needed to upload the results to code-scanning dashboard.
+      security-events: write
+      id-token: write
 
     steps:
       - name: "Checkout code"
@@ -45,7 +49,3 @@ jobs:
         uses: github/codeql-action/upload-sarif@9e8d0789d4a0fa9ceb6b1738f7e269594bdd67f0
         with:
           sarif_file: results.sarif
-        permissions:
-          # Needed to upload the results to code-scanning dashboard.
-          security-events: write
-          id-token: write
