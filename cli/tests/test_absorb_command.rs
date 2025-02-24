@@ -20,20 +20,24 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_absorb_simple() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m0"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m0"])
+        .success();
     std::fs::write(repo_path.join("file1"), "").unwrap();
 
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m1"]);
+    test_env.run_jj_in(&repo_path, ["new", "-m1"]).success();
     std::fs::write(repo_path.join("file1"), "1a\n1b\n").unwrap();
 
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m2"]);
+    test_env.run_jj_in(&repo_path, ["new", "-m2"]).success();
     std::fs::write(repo_path.join("file1"), "1a\n1b\n2a\n2b\n").unwrap();
 
     // Empty commit
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     let output = test_env.run_jj_in(&repo_path, ["absorb"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -159,19 +163,23 @@ fn test_absorb_simple() {
 #[test]
 fn test_absorb_replace_single_line_hunk() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m1"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m1"])
+        .success();
     std::fs::write(repo_path.join("file1"), "1a\n").unwrap();
 
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m2"]);
+    test_env.run_jj_in(&repo_path, ["new", "-m2"]).success();
     std::fs::write(repo_path.join("file1"), "2a\n1a\n2b\n").unwrap();
 
     // Replace single-line hunk, which produces a conflict right now. If our
     // merge logic were based on interleaved delta, the hunk would be applied
     // cleanly.
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file1"), "2a\n1A\n2b\n").unwrap();
     let output = test_env.run_jj_in(&repo_path, ["absorb"]);
     insta::assert_snapshot!(output, @r"
@@ -233,16 +241,22 @@ fn test_absorb_replace_single_line_hunk() {
 #[test]
 fn test_absorb_merge() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m0"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m0"])
+        .success();
     std::fs::write(repo_path.join("file1"), "0a\n").unwrap();
 
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m1"]);
+    test_env.run_jj_in(&repo_path, ["new", "-m1"]).success();
     std::fs::write(repo_path.join("file1"), "1a\n1b\n0a\n").unwrap();
 
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m2", "description(0)"]);
+    test_env
+        .run_jj_in(&repo_path, ["new", "-m2", "description(0)"])
+        .success();
     std::fs::write(repo_path.join("file1"), "0a\n2a\n2b\n").unwrap();
 
     let output = test_env.run_jj_in(
@@ -277,7 +291,7 @@ fn test_absorb_merge() {
     std::fs::write(repo_path.join("file2"), "3a\n").unwrap();
 
     // Absorb into merge
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file2"), "3A\n").unwrap();
     let output = test_env.run_jj_in(&repo_path, ["absorb"]);
     insta::assert_snapshot!(output, @r"
@@ -332,16 +346,22 @@ fn test_absorb_merge() {
 #[test]
 fn test_absorb_discardable_merge_with_descendant() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m0"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m0"])
+        .success();
     std::fs::write(repo_path.join("file1"), "0a\n").unwrap();
 
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m1"]);
+    test_env.run_jj_in(&repo_path, ["new", "-m1"]).success();
     std::fs::write(repo_path.join("file1"), "1a\n1b\n0a\n").unwrap();
 
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m2", "description(0)"]);
+    test_env
+        .run_jj_in(&repo_path, ["new", "-m2", "description(0)"])
+        .success();
     std::fs::write(repo_path.join("file1"), "0a\n2a\n2b\n").unwrap();
 
     let output = test_env.run_jj_in(&repo_path, ["new", "description(1)", "description(2)"]);
@@ -357,7 +377,7 @@ fn test_absorb_discardable_merge_with_descendant() {
     // Modify first and last lines in the merge commit
     std::fs::write(repo_path.join("file1"), "1A\n1b\n0a\n2a\n2B\n").unwrap();
     // Add new commit on top
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m3"]);
+    test_env.run_jj_in(&repo_path, ["new", "-m3"]).success();
     std::fs::write(repo_path.join("file2"), "3a\n").unwrap();
     // Then absorb the merge commit
     let output = test_env.run_jj_in(&repo_path, ["absorb", "--from=@-"]);
@@ -415,13 +435,17 @@ fn test_absorb_discardable_merge_with_descendant() {
 #[test]
 fn test_absorb_conflict() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m1"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m1"])
+        .success();
     std::fs::write(repo_path.join("file1"), "1a\n1b\n").unwrap();
 
-    test_env.jj_cmd_ok(&repo_path, &["new", "root()"]);
+    test_env.run_jj_in(&repo_path, ["new", "root()"]).success();
     std::fs::write(repo_path.join("file1"), "2a\n2b\n").unwrap();
     let output = test_env.run_jj_in(&repo_path, ["rebase", "-r@", "-ddescription(1)"]);
     insta::assert_snapshot!(output, @r"
@@ -465,7 +489,7 @@ fn test_absorb_conflict() {
     ");
 
     // Cannot absorb from resolved conflict
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file1"), "1A\n1b\n2a\n2B\n").unwrap();
     let output = test_env.run_jj_in(&repo_path, ["absorb"]);
     insta::assert_snapshot!(output, @r"
@@ -479,13 +503,17 @@ fn test_absorb_conflict() {
 #[test]
 fn test_absorb_deleted_file() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m1"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m1"])
+        .success();
     std::fs::write(repo_path.join("file1"), "1a\n").unwrap();
 
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::remove_file(repo_path.join("file1")).unwrap();
 
     let output = test_env.run_jj_in(&repo_path, ["absorb"]);
@@ -500,17 +528,25 @@ fn test_absorb_deleted_file() {
 #[test]
 fn test_absorb_file_mode() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m1"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m1"])
+        .success();
     std::fs::write(repo_path.join("file1"), "1a\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["file", "chmod", "x", "file1"]);
+    test_env
+        .run_jj_in(&repo_path, ["file", "chmod", "x", "file1"])
+        .success();
 
     // Modify content and mode
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file1"), "1A\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["file", "chmod", "n", "file1"]);
+    test_env
+        .run_jj_in(&repo_path, ["file", "chmod", "n", "file1"])
+        .success();
 
     // Mode change shouldn't be absorbed
     let output = test_env.run_jj_in(&repo_path, ["absorb"]);
@@ -546,18 +582,20 @@ fn test_absorb_file_mode() {
 #[test]
 fn test_absorb_from_into() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m1"]);
+    test_env.run_jj_in(&repo_path, ["new", "-m1"]).success();
     std::fs::write(repo_path.join("file1"), "1a\n1b\n1c\n").unwrap();
 
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m2"]);
+    test_env.run_jj_in(&repo_path, ["new", "-m2"]).success();
     std::fs::write(repo_path.join("file1"), "1a\n2a\n1b\n1c\n2b\n").unwrap();
 
     // Line "X" and "Z" have unambiguous adjacent line within the destinations
     // range. Line "Y" doesn't have such line.
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file1"), "1a\nX\n2a\n1b\nY\n1c\n2b\nZ\n").unwrap();
     let output = test_env.run_jj_in(&repo_path, ["absorb", "--into=@-"]);
     insta::assert_snapshot!(output, @r"
@@ -654,15 +692,19 @@ fn test_absorb_from_into() {
 #[test]
 fn test_absorb_paths() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m1"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m1"])
+        .success();
     std::fs::write(repo_path.join("file1"), "1a\n").unwrap();
     std::fs::write(repo_path.join("file2"), "1a\n").unwrap();
 
     // Modify both files
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file1"), "1A\n").unwrap();
     std::fs::write(repo_path.join("file2"), "1A\n").unwrap();
 
@@ -717,18 +759,24 @@ fn test_absorb_paths() {
 #[test]
 fn test_absorb_immutable() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     test_env.add_config("revset-aliases.'immutable_heads()' = 'present(main)'");
 
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m1"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m1"])
+        .success();
     std::fs::write(repo_path.join("file1"), "1a\n1b\n").unwrap();
 
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m2"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "set", "-r@-", "main"]);
+    test_env.run_jj_in(&repo_path, ["new", "-m2"]).success();
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "set", "-r@-", "main"])
+        .success();
     std::fs::write(repo_path.join("file1"), "1a\n1b\n2a\n2b\n").unwrap();
 
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file1"), "1A\n1b\n2a\n2B\n").unwrap();
 
     // Immutable revisions are excluded by default

@@ -20,13 +20,15 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_restore() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "a\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file2"), "b\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::remove_file(repo_path.join("file1")).unwrap();
     std::fs::write(repo_path.join("file2"), "c\n").unwrap();
     std::fs::write(repo_path.join("file3"), "c\n").unwrap();
@@ -56,7 +58,7 @@ fn test_restore() {
     insta::assert_snapshot!(output, @"");
 
     // Can restore another revision from its parents
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     let output = test_env.run_jj_in(&repo_path, ["diff", "-s", "-r=@-"]);
     insta::assert_snapshot!(output, @r"
     A file2
@@ -85,7 +87,7 @@ fn test_restore() {
     insta::assert_snapshot!(output, @"");
 
     // Can restore this revision from another revision
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     let output = test_env.run_jj_in(&repo_path, ["restore", "--from", "@--"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -102,7 +104,7 @@ fn test_restore() {
     ");
 
     // Can restore into other revision
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     let output = test_env.run_jj_in(&repo_path, ["restore", "--into", "@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -123,7 +125,7 @@ fn test_restore() {
     ");
 
     // Can combine `--from` and `--into`
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     let output = test_env.run_jj_in(&repo_path, ["restore", "--from", "@", "--into", "@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -144,7 +146,7 @@ fn test_restore() {
     ");
 
     // Can restore only specified paths
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     let output = test_env.run_jj_in(&repo_path, ["restore", "file2", "file3"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -165,7 +167,9 @@ fn test_restore() {
 #[test]
 fn test_restore_conflicted_merge() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
@@ -283,7 +287,9 @@ fn test_restore_conflicted_merge() {
 #[test]
 fn test_restore_restore_descendants() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
@@ -368,7 +374,9 @@ fn test_restore_restore_descendants() {
 #[test]
 fn test_restore_interactive() {
     let mut test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(
@@ -444,7 +452,7 @@ fn test_restore_interactive() {
     ");
 
     // Try again with --tool, which should imply --interactive
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     let output = test_env.run_jj_in(&repo_path, ["restore", "--tool=fake-diff-editor"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -472,7 +480,9 @@ fn test_restore_interactive() {
 #[test]
 fn test_restore_interactive_merge() {
     let mut test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[], &[("file1", "a1\n")]);
@@ -552,7 +562,9 @@ fn test_restore_interactive_merge() {
 #[test]
 fn test_restore_interactive_with_paths() {
     let mut test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(

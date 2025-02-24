@@ -20,11 +20,17 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_edit() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     std::fs::write(repo_path.join("file1"), "0").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "first"]);
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "second"]);
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "first"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "second"])
+        .success();
     std::fs::write(repo_path.join("file1"), "1").unwrap();
 
     // Errors out without argument
@@ -82,11 +88,17 @@ fn test_edit_current_wc_commit_missing() {
     // Test that we get a reasonable error message when the current working-copy
     // commit is missing
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
-    test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "first"]);
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "second"]);
-    test_env.jj_cmd_ok(&repo_path, &["edit", "@-"]);
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "first"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "second"])
+        .success();
+    test_env.run_jj_in(&repo_path, ["edit", "@-"]).success();
 
     let wc_id = test_env
         .run_jj_in(&repo_path, ["log", "--no-graph", "-T=commit_id", "-r=@"])

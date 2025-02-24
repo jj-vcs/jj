@@ -21,7 +21,9 @@ use crate::common::TestEnvironment;
 fn test_git_remotes() {
     let test_env = TestEnvironment::default();
 
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     let output = test_env.run_jj_in(&repo_path, ["git", "remote", "list"]);
@@ -62,12 +64,16 @@ fn test_git_remotes() {
 fn test_git_remote_add() {
     let test_env = TestEnvironment::default();
 
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &["git", "remote", "add", "foo", "http://example.com/repo/foo"],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["git", "remote", "add", "foo", "http://example.com/repo/foo"],
+        )
+        .success();
     let output = test_env.run_jj_in(
         &repo_path,
         [
@@ -105,12 +111,16 @@ fn test_git_remote_add() {
 fn test_git_remote_set_url() {
     let test_env = TestEnvironment::default();
 
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &["git", "remote", "add", "foo", "http://example.com/repo/foo"],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["git", "remote", "add", "foo", "http://example.com/repo/foo"],
+        )
+        .success();
     let output = test_env.run_jj_in(
         &repo_path,
         [
@@ -164,15 +174,19 @@ fn test_git_remote_set_url() {
 #[test]
 fn test_git_remote_relative_path() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     // Relative path using OS-native separator
     let path = PathBuf::from_iter(["..", "native", "sep"]);
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &["git", "remote", "add", "foo", path.to_str().unwrap()],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["git", "remote", "add", "foo", path.to_str().unwrap()],
+        )
+        .success();
     let output = test_env.run_jj_in(&repo_path, ["git", "remote", "list"]);
     insta::assert_snapshot!(output, @r"
     foo $TEST_ENV/native/sep
@@ -180,10 +194,12 @@ fn test_git_remote_relative_path() {
     ");
 
     // Relative path using UNIX separator
-    test_env.jj_cmd_ok(
-        test_env.env_root(),
-        &["-Rrepo", "git", "remote", "set-url", "foo", "unix/sep"],
-    );
+    test_env
+        .run_jj_in(
+            test_env.env_root(),
+            ["-Rrepo", "git", "remote", "set-url", "foo", "unix/sep"],
+        )
+        .success();
     let output = test_env.run_jj_in(&repo_path, ["git", "remote", "list"]);
     insta::assert_snapshot!(output, @r"
     foo $TEST_ENV/unix/sep
@@ -195,16 +211,22 @@ fn test_git_remote_relative_path() {
 fn test_git_remote_rename() {
     let test_env = TestEnvironment::default();
 
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &["git", "remote", "add", "foo", "http://example.com/repo/foo"],
-    );
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &["git", "remote", "add", "baz", "http://example.com/repo/baz"],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["git", "remote", "add", "foo", "http://example.com/repo/foo"],
+        )
+        .success();
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["git", "remote", "add", "baz", "http://example.com/repo/baz"],
+        )
+        .success();
     let output = test_env.run_jj_in(&repo_path, ["git", "remote", "rename", "bar", "foo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -246,8 +268,12 @@ fn test_git_remote_named_git() {
     git_repo
         .remote("git", "http://example.com/repo/repo")
         .unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["git", "init", "--git-repo=."]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "main"]);
+    test_env
+        .run_jj_in(&repo_path, ["git", "init", "--git-repo=."])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "main"])
+        .success();
 
     // The remote can be renamed.
     let output = test_env.run_jj_in(&repo_path, ["git", "remote", "rename", "git", "bar"]);
@@ -278,7 +304,9 @@ fn test_git_remote_named_git() {
     // Reinitialize the repo with remote named 'git'.
     fs::remove_dir_all(repo_path.join(".jj")).unwrap();
     git_repo.remote_rename("bar", "git").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["git", "init", "--git-repo=."]);
+    test_env
+        .run_jj_in(&repo_path, ["git", "init", "--git-repo=."])
+        .success();
 
     // The remote can also be removed.
     let output = test_env.run_jj_in(&repo_path, ["git", "remote", "remove", "git"]);
@@ -306,8 +334,12 @@ fn test_git_remote_with_slashes() {
     git_repo
         .remote("slash/origin", "http://example.com/repo/repo")
         .unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["git", "init", "--git-repo=."]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "main"]);
+    test_env
+        .run_jj_in(&repo_path, ["git", "init", "--git-repo=."])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "main"])
+        .success();
 
     // Cannot add remote with a slash via `jj`
     let output = test_env.run_jj_in(
@@ -359,7 +391,9 @@ fn test_git_remote_with_slashes() {
     // Reinitialize the repo with remote with slashes
     fs::remove_dir_all(repo_path.join(".jj")).unwrap();
     git_repo.remote_rename("origin", "slash/origin").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["git", "init", "--git-repo=."]);
+    test_env
+        .run_jj_in(&repo_path, ["git", "init", "--git-repo=."])
+        .success();
 
     // The remote can also be removed.
     let output = test_env.run_jj_in(&repo_path, ["git", "remote", "remove", "slash/origin"]);

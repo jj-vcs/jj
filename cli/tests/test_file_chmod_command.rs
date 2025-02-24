@@ -51,14 +51,18 @@ fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput
 #[test]
 fn test_chmod_regular_conflict() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
     create_commit(&test_env, &repo_path, "n", &["base"], &[("file", "n\n")]);
     create_commit(&test_env, &repo_path, "x", &["base"], &[("file", "x\n")]);
     // Test chmodding a file. The effect will be visible in the conflict below.
-    test_env.jj_cmd_ok(&repo_path, &["file", "chmod", "x", "file", "-r=x"]);
+    test_env
+        .run_jj_in(&repo_path, ["file", "chmod", "x", "file", "-r=x"])
+        .success();
     create_commit(&test_env, &repo_path, "conflict", &["x", "n"], &[]);
 
     // Test the setup
@@ -92,7 +96,9 @@ fn test_chmod_regular_conflict() {
     ");
 
     // Test chmodding a conflict
-    test_env.jj_cmd_ok(&repo_path, &["file", "chmod", "x", "file"]);
+    test_env
+        .run_jj_in(&repo_path, ["file", "chmod", "x", "file"])
+        .success();
     let output = test_env.run_jj_in(&repo_path, ["debug", "tree"]);
     insta::assert_snapshot!(output, 
     @r#"
@@ -111,7 +117,9 @@ fn test_chmod_regular_conflict() {
     >>>>>>> Conflict 1 of 1 ends
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["file", "chmod", "n", "file"]);
+    test_env
+        .run_jj_in(&repo_path, ["file", "chmod", "n", "file"])
+        .success();
     let output = test_env.run_jj_in(&repo_path, ["debug", "tree"]);
     insta::assert_snapshot!(output, 
     @r#"
@@ -152,7 +160,9 @@ fn test_chmod_regular_conflict() {
 #[test]
 fn test_chmod_file_dir_deletion_conflicts() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);

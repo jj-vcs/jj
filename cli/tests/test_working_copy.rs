@@ -20,7 +20,9 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_snapshot_large_file() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     // test a small file using raw-integer-literal syntax, which is interpreted
@@ -130,16 +132,20 @@ fn test_snapshot_large_file() {
 #[test]
 fn test_snapshot_large_file_restore() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     test_env.add_config("snapshot.max-new-file-size = 10");
 
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-mcommitted"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-mcommitted"])
+        .success();
     std::fs::write(repo_path.join("file"), "small").unwrap();
 
     // Write a large file in the working copy, restore it from a commit. The
     // working-copy content shouldn't be overwritten.
-    test_env.jj_cmd_ok(&repo_path, &["new", "root()"]);
+    test_env.run_jj_in(&repo_path, ["new", "root()"]).success();
     std::fs::write(repo_path.join("file"), "a lot of text").unwrap();
     let output = test_env.run_jj_in(&repo_path, ["restore", "--from=description(committed)"]);
     insta::assert_snapshot!(output, @r"
@@ -180,7 +186,9 @@ fn test_snapshot_large_file_restore() {
 #[test]
 fn test_materialize_and_snapshot_different_conflict_markers() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     // Configure to use Git-style conflict markers
@@ -197,7 +205,9 @@ fn test_materialize_and_snapshot_different_conflict_markers() {
         "},
     )
     .unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "base"]);
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "base"])
+        .success();
     std::fs::write(
         &conflict_file,
         indoc! {"
@@ -207,8 +217,12 @@ fn test_materialize_and_snapshot_different_conflict_markers() {
         "},
     )
     .unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "side-a"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "description(base)", "-m", "side-b"]);
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "side-a"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "description(base)", "-m", "side-b"])
+        .success();
     std::fs::write(
         &conflict_file,
         indoc! {"
@@ -218,10 +232,12 @@ fn test_materialize_and_snapshot_different_conflict_markers() {
         "},
     )
     .unwrap();
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &["new", "description(side-a)", "description(side-b)"],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["new", "description(side-a)", "description(side-b)"],
+        )
+        .success();
 
     // File should have Git-style conflict markers
     insta::assert_snapshot!(std::fs::read_to_string(&conflict_file).unwrap(), @r##"
@@ -281,7 +297,9 @@ fn test_materialize_and_snapshot_different_conflict_markers() {
 #[test]
 fn test_snapshot_invalid_ignore_pattern() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     let gitignore_path = repo_path.join(".gitignore");
 
@@ -313,7 +331,9 @@ fn test_snapshot_invalid_ignore_pattern() {
 #[test]
 fn test_conflict_marker_length_stored_in_working_copy() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     // Create a conflict in the working copy with long markers on one side
@@ -327,7 +347,9 @@ fn test_conflict_marker_length_stored_in_working_copy() {
         "},
     )
     .unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "base"]);
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "base"])
+        .success();
     std::fs::write(
         &conflict_file,
         indoc! {"
@@ -337,8 +359,12 @@ fn test_conflict_marker_length_stored_in_working_copy() {
         "},
     )
     .unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "side-a"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "description(base)", "-m", "side-b"]);
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "side-a"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "description(base)", "-m", "side-b"])
+        .success();
     std::fs::write(
         &conflict_file,
         indoc! {"
@@ -350,10 +376,12 @@ fn test_conflict_marker_length_stored_in_working_copy() {
         "},
     )
     .unwrap();
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &["new", "description(side-a)", "description(side-b)"],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["new", "description(side-a)", "description(side-b)"],
+        )
+        .success();
 
     // File should be materialized with long conflict markers
     insta::assert_snapshot!(std::fs::read_to_string(&conflict_file).unwrap(), @r##"

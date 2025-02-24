@@ -38,7 +38,9 @@ fn create_commit(test_env: &TestEnvironment, repo_path: &Path, name: &str, paren
 #[test]
 fn test_basics() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
@@ -83,7 +85,7 @@ fn test_basics() {
     [EOF]
     ");
 
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     let output = test_env.run_jj_in(
         &repo_path,
         ["abandon", "--retain-bookmarks"], /* abandons `e` */
@@ -110,7 +112,7 @@ fn test_basics() {
     [EOF]
     ");
 
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     let output = test_env.run_jj_in(&repo_path, ["abandon", "descendants(d)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -137,7 +139,7 @@ fn test_basics() {
     ");
 
     // Test abandoning the same commit twice directly
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     let output = test_env.run_jj_in(&repo_path, ["abandon", "-rb", "b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -157,7 +159,7 @@ fn test_basics() {
     ");
 
     // Test abandoning the same commit twice indirectly
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     let output = test_env.run_jj_in(&repo_path, ["abandon", "d::", "e"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -196,7 +198,9 @@ fn test_basics() {
 #[test]
 fn test_bug_2600() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     // We will not touch "nottherootcommit". See the
@@ -222,7 +226,9 @@ fn test_bug_2600() {
     ");
     let setup_opid = test_env.current_operation_id(&repo_path);
 
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
     let output = test_env.run_jj_in(&repo_path, ["abandon", "base"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -247,7 +253,9 @@ fn test_bug_2600() {
     [EOF]
     ");
 
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
     let output = test_env.run_jj_in(&repo_path, ["abandon", "a"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -271,7 +279,9 @@ fn test_bug_2600() {
     [EOF]
     ");
 
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
     let output = test_env.run_jj_in(&repo_path, ["abandon", "b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -296,7 +306,9 @@ fn test_bug_2600() {
     [EOF]
     ");
 
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
     // ========= Reminder of the setup ===========
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  [znk] c
@@ -340,7 +352,9 @@ fn test_bug_2600() {
 #[test]
 fn test_bug_2600_rootcommit_special_case() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     // Set up like `test_bug_2600`, but without the `nottherootcommit` commit.
@@ -374,7 +388,9 @@ fn test_bug_2600_rootcommit_special_case() {
 #[test]
 fn test_double_abandon() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
@@ -417,13 +433,15 @@ fn test_double_abandon() {
 #[test]
 fn test_abandon_restore_descendants() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file"), "foo\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file"), "bar\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file"), "baz\n").unwrap();
 
     // Remove the commit containing "bar"

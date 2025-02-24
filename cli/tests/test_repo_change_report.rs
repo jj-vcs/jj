@@ -17,15 +17,17 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_report_conflicts() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file"), "A\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["commit", "-m=A"]);
+    test_env.run_jj_in(&repo_path, ["commit", "-m=A"]).success();
     std::fs::write(repo_path.join("file"), "B\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["commit", "-m=B"]);
+    test_env.run_jj_in(&repo_path, ["commit", "-m=B"]).success();
     std::fs::write(repo_path.join("file"), "C\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["commit", "-m=C"]);
+    test_env.run_jj_in(&repo_path, ["commit", "-m=C"]).success();
 
     let output = test_env.run_jj_in(&repo_path, ["rebase", "-s=description(B)", "-d=root()"]);
     insta::assert_snapshot!(output, @r"
@@ -109,17 +111,25 @@ fn test_report_conflicts() {
 #[test]
 fn test_report_conflicts_with_divergent_commits() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m=A"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m=A"])
+        .success();
     std::fs::write(repo_path.join("file"), "A\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m=B"]);
+    test_env.run_jj_in(&repo_path, ["new", "-m=B"]).success();
     std::fs::write(repo_path.join("file"), "B\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m=C"]);
+    test_env.run_jj_in(&repo_path, ["new", "-m=C"]).success();
     std::fs::write(repo_path.join("file"), "C\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m=C2"]);
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m=C3", "--at-op=@-"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m=C2"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m=C3", "--at-op=@-"])
+        .success();
 
     let output = test_env.run_jj_in(&repo_path, ["rebase", "-s=description(B)", "-d=root()"]);
     insta::assert_snapshot!(output, @r"

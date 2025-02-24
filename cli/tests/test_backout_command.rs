@@ -46,7 +46,9 @@ fn create_commit(
 #[test]
 fn test_backout() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[], &[("a", "a\n")]);
@@ -80,7 +82,7 @@ fn test_backout() {
     ");
 
     // Backout the new backed-out commit
-    test_env.jj_cmd_ok(&repo_path, &["edit", "@+"]);
+    test_env.run_jj_in(&repo_path, ["edit", "@+"]).success();
     let output = test_env.run_jj_in(&repo_path, ["backout", "-r", "@"]);
     insta::assert_snapshot!(output, @"");
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r#"
@@ -104,7 +106,9 @@ fn test_backout() {
 #[test]
 fn test_backout_multiple() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[], &[("a", "a\n")]);
@@ -205,7 +209,9 @@ fn test_backout_multiple() {
 #[test]
 fn test_backout_description_template() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     test_env.add_config(
         r#"
         [templates]

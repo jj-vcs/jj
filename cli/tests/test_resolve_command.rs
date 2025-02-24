@@ -53,7 +53,9 @@ fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput
 #[test]
 fn test_resolution() {
     let mut test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
@@ -133,7 +135,7 @@ fn test_resolution() {
     ");
 
     // Try again with --tool=<name>
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     std::fs::write(&editor_script, "write\nresolution\n").unwrap();
     let output = test_env.run_jj_in(
         &repo_path,
@@ -178,7 +180,7 @@ fn test_resolution() {
 
     // Check that the output file starts with conflict markers if
     // `merge-tool-edits-conflict-markers=true`
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["diff", "--git"]),
     @"");
     std::fs::write(
@@ -186,13 +188,15 @@ fn test_resolution() {
         ["dump editor1", "write\nresolution\n"].join("\0"),
     )
     .unwrap();
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &[
-            "resolve",
-            "--config=merge-tools.fake-editor.merge-tool-edits-conflict-markers=true",
-        ],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            [
+                "resolve",
+                "--config=merge-tools.fake-editor.merge-tool-edits-conflict-markers=true",
+            ],
+        )
+        .success();
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor1")).unwrap(), @r###"
     <<<<<<< Conflict 1 of 1
@@ -223,7 +227,7 @@ fn test_resolution() {
 
     // Check that if merge tool leaves conflict markers in output file and
     // `merge-tool-edits-conflict-markers=true`, these markers are properly parsed.
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["diff", "--git"]), 
     @"");
     std::fs::write(
@@ -307,7 +311,7 @@ fn test_resolution() {
     // Check that if merge tool leaves conflict markers in output file but
     // `merge-tool-edits-conflict-markers=false` or is not specified,
     // `jj` considers the conflict resolved.
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["diff", "--git"]), 
     @"");
     std::fs::write(
@@ -374,7 +378,7 @@ fn test_resolution() {
 
     // Check that merge tool can override conflict marker style setting, and that
     // the merge tool can output Git-style conflict markers
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["diff", "--git"]), 
         @"");
     std::fs::write(
@@ -458,7 +462,7 @@ fn test_resolution() {
     // Check that merge tool can leave conflict markers by returning exit code 1
     // when using `merge-conflict-exit-codes = [1]`. The Git "diff3" conflict
     // markers should also be parsed correctly.
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["diff", "--git"]), 
         @"");
     std::fs::write(
@@ -533,7 +537,7 @@ fn test_resolution() {
 
     // Check that an error is reported if a merge tool indicated it would leave
     // conflict markers, but the output file didn't contain valid conflict markers.
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["diff", "--git"]), 
         @"");
     std::fs::write(
@@ -604,7 +608,9 @@ fn check_resolve_produces_input_file(
 #[test]
 fn test_normal_conflict_input_files() {
     let mut test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
@@ -647,7 +653,9 @@ fn test_normal_conflict_input_files() {
 #[test]
 fn test_baseless_conflict_input_files() {
     let mut test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "base", &[], &[]);
@@ -689,7 +697,9 @@ fn test_baseless_conflict_input_files() {
 #[test]
 fn test_too_many_parents() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
@@ -723,7 +733,9 @@ fn test_too_many_parents() {
 #[test]
 fn test_simplify_conflict_sides() {
     let mut test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     // Creates a 4-sided conflict, with fileA and fileB having different conflicts:
@@ -857,7 +869,9 @@ fn test_simplify_conflict_sides() {
 #[test]
 fn test_edit_delete_conflict_input_files() {
     let mut test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
@@ -900,7 +914,9 @@ fn test_edit_delete_conflict_input_files() {
 #[test]
 fn test_file_vs_dir() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
@@ -946,7 +962,9 @@ fn test_file_vs_dir() {
 #[test]
 fn test_description_with_dir_and_deletion() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
@@ -1009,7 +1027,9 @@ fn test_description_with_dir_and_deletion() {
 #[test]
 fn test_resolve_conflicts_with_executable() {
     let mut test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     // Create a conflict in "file1" where all 3 terms are executables, and create a
@@ -1021,7 +1041,9 @@ fn test_resolve_conflicts_with_executable() {
         &[],
         &[("file1", "base1\n"), ("file2", "base2\n")],
     );
-    test_env.jj_cmd_ok(&repo_path, &["file", "chmod", "x", "file1"]);
+    test_env
+        .run_jj_in(&repo_path, ["file", "chmod", "x", "file1"])
+        .success();
     create_commit(
         &test_env,
         &repo_path,
@@ -1036,7 +1058,9 @@ fn test_resolve_conflicts_with_executable() {
         &["base"],
         &[("file1", "b1\n"), ("file2", "b2\n")],
     );
-    test_env.jj_cmd_ok(&repo_path, &["file", "chmod", "x", "file2"]);
+    test_env
+        .run_jj_in(&repo_path, ["file", "chmod", "x", "file2"])
+        .success();
     create_commit(&test_env, &repo_path, "conflict", &["a", "b"], &[]);
     insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["resolve", "--list"]), 
     @r"
@@ -1117,7 +1141,7 @@ fn test_resolve_conflicts_with_executable() {
     );
 
     // Test resolving the conflict in "file2", which should produce an executable
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     std::fs::write(&editor_script, b"write\nresolution2\n").unwrap();
     let output = test_env.run_jj_in(&repo_path, ["resolve", "file2"]);
     insta::assert_snapshot!(output, @r"
@@ -1167,7 +1191,9 @@ fn test_resolve_conflicts_with_executable() {
 #[test]
 fn test_resolve_long_conflict_markers() {
     let mut test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     // Makes it easier to read the diffs between conflicts
@@ -1289,7 +1315,7 @@ fn test_resolve_long_conflict_markers() {
 
     // If the merge tool edits the output file with materialized markers, the
     // markers must match the length of the materialized markers to be parsed
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     std::fs::write(
         &editor_script,
         indoc! {b"
@@ -1371,7 +1397,7 @@ fn test_resolve_long_conflict_markers() {
 
     // If the merge tool accepts the marker length as an argument, then the conflict
     // markers should be at least as long as "$marker_length"
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     std::fs::write(
         &editor_script,
         indoc! {b"
@@ -1444,7 +1470,9 @@ fn test_resolve_long_conflict_markers() {
 #[test]
 fn test_multiple_conflicts() {
     let mut test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(
@@ -1581,13 +1609,13 @@ fn test_multiple_conflicts() {
     ");
 
     // Repeat the above with the `--quiet` option.
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     std::fs::write(&editor_script, "expect\n\0write\nresolution another_file\n").unwrap();
     let output = test_env.run_jj_in(&repo_path, ["resolve", "--quiet", "another_file"]);
     insta::assert_snapshot!(output, @"");
 
     // Without a path, `jj resolve` should call the merge tool multiple times
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["diff", "--git"]), 
     @"");
     std::fs::write(
@@ -1602,7 +1630,7 @@ fn test_multiple_conflicts() {
         .join("\0"),
     )
     .unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["resolve"]);
+    test_env.run_jj_in(&repo_path, ["resolve"]).success();
     insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["diff", "--git"]), 
     @r"
     diff --git a/another_file b/another_file
@@ -1651,7 +1679,9 @@ fn test_multiple_conflicts() {
 #[test]
 fn test_multiple_conflicts_with_error() {
     let mut test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     // Create two conflicted files, and one non-conflicted file
@@ -1768,7 +1798,7 @@ fn test_multiple_conflicts_with_error() {
     );
 
     // Test resolving one conflict, then failing during the second resolution
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     std::fs::write(
         &editor_script,
         ["write\nresolution1\n", "next invocation\n", "fail"].join("\0"),
@@ -1823,7 +1853,7 @@ fn test_multiple_conflicts_with_error() {
     );
 
     // Test immediately failing to resolve any conflict
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     std::fs::write(&editor_script, "fail").unwrap();
     let output = test_env.run_jj_in(&repo_path, ["resolve"]);
     insta::assert_snapshot!(output.normalize_stderr_exit_status(), @r"

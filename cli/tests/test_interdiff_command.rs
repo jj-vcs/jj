@@ -17,19 +17,25 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_interdiff_basic() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "foo\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file2"), "foo\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "left"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "left"])
+        .success();
 
-    test_env.jj_cmd_ok(&repo_path, &["new", "root()"]);
+    test_env.run_jj_in(&repo_path, ["new", "root()"]).success();
     std::fs::write(repo_path.join("file3"), "foo\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file2"), "foo\nbar\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "right"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "right"])
+        .success();
 
     // implicit --to
     let output = test_env.run_jj_in(&repo_path, ["interdiff", "--from", "left"]);
@@ -41,7 +47,7 @@ fn test_interdiff_basic() {
     ");
 
     // explicit --to
-    test_env.jj_cmd_ok(&repo_path, &["new", "@-"]);
+    test_env.run_jj_in(&repo_path, ["new", "@-"]).success();
     let output = test_env.run_jj_in(&repo_path, ["interdiff", "--from", "left", "--to", "right"]);
     insta::assert_snapshot!(output, @r"
     Modified regular file file2:
@@ -49,7 +55,7 @@ fn test_interdiff_basic() {
             2: bar
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
 
     // formats specifiers
     let output = test_env.run_jj_in(
@@ -80,23 +86,29 @@ fn test_interdiff_basic() {
 #[test]
 fn test_interdiff_paths() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "foo\n").unwrap();
     std::fs::write(repo_path.join("file2"), "foo\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file1"), "bar\n").unwrap();
     std::fs::write(repo_path.join("file2"), "bar\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "left"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "left"])
+        .success();
 
-    test_env.jj_cmd_ok(&repo_path, &["new", "root()"]);
+    test_env.run_jj_in(&repo_path, ["new", "root()"]).success();
     std::fs::write(repo_path.join("file1"), "foo\n").unwrap();
     std::fs::write(repo_path.join("file2"), "foo\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file1"), "baz\n").unwrap();
     std::fs::write(repo_path.join("file2"), "baz\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "right"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "right"])
+        .success();
 
     let output = test_env.run_jj_in(
         &repo_path,
@@ -132,19 +144,25 @@ fn test_interdiff_paths() {
 #[test]
 fn test_interdiff_conflicting() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file"), "foo\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file"), "bar\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "left"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "left"])
+        .success();
 
-    test_env.jj_cmd_ok(&repo_path, &["new", "root()"]);
+    test_env.run_jj_in(&repo_path, ["new", "root()"]).success();
     std::fs::write(repo_path.join("file"), "abc\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file"), "def\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "right"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "right"])
+        .success();
 
     let output = test_env.run_jj_in(
         &repo_path,

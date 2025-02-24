@@ -18,7 +18,9 @@ use crate::common::TestEnvironment;
 fn test_track_untrack() {
     let test_env = TestEnvironment::default();
     test_env.add_config(r#"ui.allow-init-native = true"#);
-    test_env.jj_cmd_ok(test_env.env_root(), &["init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "initial").unwrap();
@@ -31,7 +33,7 @@ fn test_track_untrack() {
 
     // Run a command so all the files get tracked, then add "*.bak" to the ignore
     // patterns
-    test_env.jj_cmd_ok(&repo_path, &["st"]);
+    test_env.run_jj_in(&repo_path, ["st"]).success();
     std::fs::write(repo_path.join(".gitignore"), "*.bak\n").unwrap();
     let files_before = test_env.run_jj_in(&repo_path, ["file", "list"]).success();
 
@@ -112,7 +114,9 @@ fn test_track_untrack() {
 fn test_track_untrack_sparse() {
     let test_env = TestEnvironment::default();
     test_env.add_config(r#"ui.allow-init-native = true"#);
-    test_env.jj_cmd_ok(test_env.env_root(), &["init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "contents").unwrap();
@@ -127,7 +131,9 @@ fn test_track_untrack_sparse() {
     file2
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["sparse", "set", "--clear", "--add", "file1"]);
+    test_env
+        .run_jj_in(&repo_path, ["sparse", "set", "--clear", "--add", "file1"])
+        .success();
     let output = test_env.run_jj_in(&repo_path, ["file", "untrack", "file2"]);
     insta::assert_snapshot!(output, @"");
     let output = test_env.run_jj_in(&repo_path, ["file", "list"]);
@@ -150,7 +156,9 @@ fn test_track_untrack_sparse() {
 fn test_auto_track() {
     let test_env = TestEnvironment::default();
     test_env.add_config(r#"snapshot.auto-track = 'glob:*.rs'"#);
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1.rs"), "initial").unwrap();
@@ -208,7 +216,9 @@ fn test_auto_track() {
 fn test_track_ignored() {
     let test_env = TestEnvironment::default();
     test_env.add_config(r#"snapshot.auto-track = 'none()'"#);
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join(".gitignore"), "*.bak\n").unwrap();

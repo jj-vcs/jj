@@ -25,9 +25,13 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_op_log() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "description 0"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "description 0"])
+        .success();
 
     let output = test_env.run_jj_in(&repo_path, ["op", "log"]);
     insta::assert_snapshot!(output, @r"
@@ -94,17 +98,21 @@ fn test_op_log() {
     [EOF]
     ");
 
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "description 1"]);
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &[
-            "describe",
-            "-m",
-            "description 2",
-            "--at-op",
-            add_workspace_id,
-        ],
-    );
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "description 1"])
+        .success();
+    test_env
+        .run_jj_in(
+            &repo_path,
+            [
+                "describe",
+                "-m",
+                "description 2",
+                "--at-op",
+                add_workspace_id,
+            ],
+        )
+        .success();
     insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["log", "--at-op", "@-"]), @r#"
     ------- stderr -------
     Error: The "@" expression resolved to more than one operation
@@ -117,9 +125,13 @@ fn test_op_log() {
 #[test]
 fn test_op_log_with_custom_symbols() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "description 0"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "description 0"])
+        .success();
 
     let output = test_env.run_jj_in(
         &repo_path,
@@ -143,7 +155,9 @@ fn test_op_log_with_custom_symbols() {
 #[test]
 fn test_op_log_with_no_template() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     let output = test_env.run_jj_in(&repo_path, ["op", "log", "-T"]);
@@ -177,7 +191,9 @@ fn test_op_log_with_no_template() {
 #[test]
 fn test_op_log_limit() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     let output = test_env.run_jj_in(&repo_path, ["op", "log", "-Tdescription", "--limit=1"]);
@@ -190,7 +206,9 @@ fn test_op_log_limit() {
 #[test]
 fn test_op_log_no_graph() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     let output = test_env.run_jj_in(&repo_path, ["op", "log", "--no-graph", "--color=always"]);
@@ -216,9 +234,13 @@ fn test_op_log_no_graph() {
 #[test]
 fn test_op_log_reversed() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "description 0"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "description 0"])
+        .success();
 
     let output = test_env.run_jj_in(&repo_path, ["op", "log", "--reversed"]);
     insta::assert_snapshot!(output, @r"
@@ -231,10 +253,12 @@ fn test_op_log_reversed() {
     [EOF]
     ");
 
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &["describe", "-m", "description 1", "--at-op", "@-"],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["describe", "-m", "description 1", "--at-op", "@-"],
+        )
+        .success();
 
     // Should be able to display log with fork and branch points
     let output = test_env.run_jj_in(&repo_path, ["op", "log", "--reversed"]);
@@ -309,10 +333,16 @@ fn test_op_log_reversed() {
 #[test]
 fn test_op_log_no_graph_null_terminated() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
-    test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "message1"]);
-    test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "message2"]);
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "message1"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "message2"])
+        .success();
 
     let output = test_env
         .run_jj_in(
@@ -332,7 +362,9 @@ fn test_op_log_no_graph_null_terminated() {
 #[test]
 fn test_op_log_template() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     let render = |template| test_env.run_jj_in(&repo_path, ["op", "log", "-T", template]);
 
@@ -379,12 +411,16 @@ fn test_op_log_template() {
 #[test]
 fn test_op_log_builtin_templates() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     // Render without graph to test line ending
     let render =
         |template| test_env.run_jj_in(&repo_path, ["op", "log", "-T", template, "--no-graph"]);
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "description 0"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "description 0"])
+        .success();
 
     insta::assert_snapshot!(render(r#"builtin_op_log_compact"#), @r#"
     d009cfc04993 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
@@ -420,10 +456,14 @@ fn test_op_log_builtin_templates() {
 #[test]
 fn test_op_log_word_wrap() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     std::fs::write(repo_path.join("file1"), "foo\n".repeat(100)).unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["debug", "snapshot"]);
+    test_env
+        .run_jj_in(&repo_path, ["debug", "snapshot"])
+        .success();
 
     let render = |args: &[&str], columns: u32, word_wrap: bool| {
         let mut args = args.to_vec();
@@ -567,11 +607,17 @@ fn test_op_log_configurable() {
 #[test]
 fn test_op_abandon_ancestors() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "commit 1"]);
-    test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "commit 2"]);
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "commit 1"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "commit 2"])
+        .success();
     insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["op", "log"]), @r"
     @  116edde65ded test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
     │  commit 81a4ef3dd421f3184289df1c58bd3a16ea1e3d8e
@@ -607,9 +653,15 @@ fn test_op_abandon_ancestors() {
     ");
 
     // Abandon operation range.
-    test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "commit 3"]);
-    test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "commit 4"]);
-    test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "commit 5"]);
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "commit 3"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "commit 4"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "commit 5"])
+        .success();
     let output = test_env.run_jj_in(&repo_path, ["op", "abandon", "@---..@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -647,7 +699,7 @@ fn test_op_abandon_ancestors() {
     ");
 
     // Abandon the current operation by undoing it first.
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     let output = test_env.run_jj_in(&repo_path, ["op", "abandon", "@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -689,12 +741,20 @@ fn test_op_abandon_ancestors() {
 #[test]
 fn test_op_abandon_without_updating_working_copy() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "commit 1"]);
-    test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "commit 2"]);
-    test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "commit 3"]);
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "commit 1"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "commit 2"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "commit 3"])
+        .success();
 
     // Abandon without updating the working copy.
     let output = test_env.run_jj_in(&repo_path, ["op", "abandon", "@-", "--ignore-working-copy"]);
@@ -745,13 +805,21 @@ fn test_op_abandon_without_updating_working_copy() {
 #[test]
 fn test_op_abandon_multiple_heads() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     // Create 1 base operation + 2 operations to be diverged.
-    test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "commit 1"]);
-    test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "commit 2"]);
-    test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "commit 3"]);
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "commit 1"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "commit 2"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "commit 3"])
+        .success();
     let output = test_env
         .run_jj_in(
             &repo_path,
@@ -763,7 +831,9 @@ fn test_op_abandon_multiple_heads() {
     insta::assert_snapshot!(prev_op_id, @"116edde65ded");
 
     // Create 1 other concurrent operation.
-    test_env.jj_cmd_ok(&repo_path, &["commit", "--at-op=@--", "-m", "commit 4"]);
+    test_env
+        .run_jj_in(&repo_path, ["commit", "--at-op=@--", "-m", "commit 4"])
+        .success();
 
     // Can't resolve operation relative to @.
     let output = test_env.run_jj_in(&repo_path, ["op", "abandon", "@-"]);
@@ -833,7 +903,9 @@ fn test_op_abandon_multiple_heads() {
 #[test]
 fn test_op_recover_from_bad_gc() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo", "--colocate"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo", "--colocate"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     let git_object_path = |hex: &str| {
         let (shard, file_name) = hex.split_at(2);
@@ -842,11 +914,17 @@ fn test_op_recover_from_bad_gc() {
         file_path
     };
 
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m1"]);
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m2"]); // victim
-    test_env.jj_cmd_ok(&repo_path, &["abandon"]); // break predecessors chain
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m3"]);
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m4"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m1"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m2"])
+        .success(); // victim
+    test_env.run_jj_in(&repo_path, ["abandon"]).success(); // break predecessors chain
+    test_env.run_jj_in(&repo_path, ["new", "-m3"]).success();
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m4"])
+        .success();
 
     let output = test_env
         .run_jj_in(
@@ -878,7 +956,9 @@ fn test_op_recover_from_bad_gc() {
 
     // Do concurrent modification to make the situation even worse. At this
     // point, the index can be loaded, so this command succeeds.
-    test_env.jj_cmd_ok(&repo_path, &["--at-op=@-", "describe", "-m4.1"]);
+    test_env
+        .run_jj_in(&repo_path, ["--at-op=@-", "describe", "-m4.1"])
+        .success();
 
     let output = test_env.run_jj_in(&repo_path, ["--at-op", head_op_id, "debug", "reindex"]);
     insta::assert_snapshot!(output.strip_stderr_last_line(), @r"
@@ -945,11 +1025,15 @@ fn test_op_recover_from_bad_gc() {
 #[test]
 fn test_op_summary_diff_template() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     // Tests in color (easier to read with `less -R`)
-    test_env.jj_cmd_ok(&repo_path, &["new", "--no-edit", "-m=scratch"]);
+    test_env
+        .run_jj_in(&repo_path, ["new", "--no-edit", "-m=scratch"])
+        .success();
     let output = test_env.run_jj_in(&repo_path, ["op", "undo", "--color=always"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -978,7 +1062,9 @@ fn test_op_summary_diff_template() {
     ");
 
     // Tests with templates
-    test_env.jj_cmd_ok(&repo_path, &["new", "--no-edit", "-m=scratch"]);
+    test_env
+        .run_jj_in(&repo_path, ["new", "--no-edit", "-m=scratch"])
+        .success();
     let output = test_env.run_jj_in(&repo_path, ["op", "undo", "--color=debug"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1012,7 +1098,9 @@ fn test_op_diff() {
     let test_env = TestEnvironment::default();
     let git_repo_path = test_env.env_root().join("git-repo");
     let git_repo = init_bare_git_repo(&git_repo_path);
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "clone", "git-repo", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "clone", "git-repo", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     // Overview of op log.
@@ -1134,18 +1222,20 @@ fn test_op_diff() {
     ");
 
     // Create a conflicted bookmark using a concurrent operation.
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &[
-            "bookmark",
-            "set",
-            "bookmark-1",
-            "-r",
-            "bookmark-2@origin",
-            "--at-op",
-            "@-",
-        ],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            [
+                "bookmark",
+                "set",
+                "bookmark-1",
+                "-r",
+                "bookmark-2@origin",
+                "--at-op",
+                "@-",
+            ],
+        )
+        .success();
     let (_, stderr) = test_env.jj_cmd_ok(&repo_path, &["log"]);
     insta::assert_snapshot!(&stderr, @r"
     Concurrent modification detected, resolving automatically.
@@ -1421,7 +1511,9 @@ fn test_op_diff() {
 #[test]
 fn test_op_diff_patch() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     // Update working copy with a single file and create new commit.
@@ -1520,7 +1612,9 @@ fn test_op_diff_patch() {
 #[test]
 fn test_op_diff_sibling() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     let output = test_env
@@ -1534,14 +1628,22 @@ fn test_op_diff_sibling() {
 
     // Create merge commit at one operation side. The parent trees will have to
     // be merged when diffing, which requires the commit index of this side.
-    test_env.jj_cmd_ok(&repo_path, &["new", "root()", "-mA.1"]);
+    test_env
+        .run_jj_in(&repo_path, ["new", "root()", "-mA.1"])
+        .success();
     std::fs::write(repo_path.join("file1"), "a\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new", "root()", "-mA.2"]);
+    test_env
+        .run_jj_in(&repo_path, ["new", "root()", "-mA.2"])
+        .success();
     std::fs::write(repo_path.join("file2"), "a\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new", "all:@-+", "-mA"]);
+    test_env
+        .run_jj_in(&repo_path, ["new", "all:@-+", "-mA"])
+        .success();
 
     // Create another operation diverged from the base operation.
-    test_env.jj_cmd_ok(&repo_path, &["describe", "--at-op", base_op_id, "-mB"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "--at-op", base_op_id, "-mB"])
+        .success();
 
     let output = test_env.run_jj_in(&repo_path, ["op", "log"]);
     insta::assert_snapshot!(output, @r"
@@ -1651,7 +1753,9 @@ fn test_op_diff_word_wrap() {
     let test_env = TestEnvironment::default();
     let git_repo_path = test_env.env_root().join("git-repo");
     init_bare_git_repo(&git_repo_path);
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "clone", "git-repo", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "clone", "git-repo", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     let render = |args: &[&str], columns: u32, word_wrap: bool| {
         let mut args = args.to_vec();
@@ -1669,7 +1773,9 @@ fn test_op_diff_word_wrap() {
 
     // Add some file content changes
     std::fs::write(repo_path.join("file1"), "foo\n".repeat(100)).unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["debug", "snapshot"]);
+    test_env
+        .run_jj_in(&repo_path, ["debug", "snapshot"])
+        .success();
 
     // ui.log-word-wrap option works, and diff stat respects content width
     insta::assert_snapshot!(render(&["op", "diff", "--from=@---", "--stat"], 40, true), @r"
@@ -1786,7 +1892,9 @@ fn test_op_show() {
     let test_env = TestEnvironment::default();
     let git_repo_path = test_env.env_root().join("git-repo");
     let git_repo = init_bare_git_repo(&git_repo_path);
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "clone", "git-repo", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "clone", "git-repo", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     // Overview of op log.
@@ -1863,18 +1971,20 @@ fn test_op_show() {
     ");
 
     // Create a conflicted bookmark using a concurrent operation.
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &[
-            "bookmark",
-            "set",
-            "bookmark-1",
-            "-r",
-            "bookmark-2@origin",
-            "--at-op",
-            "@-",
-        ],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            [
+                "bookmark",
+                "set",
+                "bookmark-1",
+                "-r",
+                "bookmark-2@origin",
+                "--at-op",
+                "@-",
+            ],
+        )
+        .success();
     let (_, stderr) = test_env.jj_cmd_ok(&repo_path, &["log"]);
     insta::assert_snapshot!(&stderr, @r"
     Concurrent modification detected, resolving automatically.
@@ -2098,7 +2208,9 @@ fn test_op_show() {
 #[test]
 fn test_op_show_patch() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     // Update working copy with a single file and create new commit.

@@ -20,13 +20,19 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_parallelize_no_descendants() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let workspace_path = test_env.env_root().join("repo");
 
     for n in 1..6 {
-        test_env.jj_cmd_ok(&workspace_path, &["commit", &format!("-m{n}")]);
+        test_env
+            .run_jj_in(&workspace_path, ["commit", &format!("-m{n}")])
+            .success();
     }
-    test_env.jj_cmd_ok(&workspace_path, &["describe", "-m=6"]);
+    test_env
+        .run_jj_in(&workspace_path, ["describe", "-m=6"])
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r"
     @  02b7709cc4e9 6 parents: 5
     ○  1b2f08d76b66 5 parents: 4
@@ -38,7 +44,9 @@ fn test_parallelize_no_descendants() {
     [EOF]
     ");
 
-    test_env.jj_cmd_ok(&workspace_path, &["parallelize", "description(1)::"]);
+    test_env
+        .run_jj_in(&workspace_path, ["parallelize", "description(1)::"])
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r"
     @  4850b4629edb 6 parents:
     │ ○  87627fbb7d29 5 parents:
@@ -60,13 +68,19 @@ fn test_parallelize_no_descendants() {
 #[test]
 fn test_parallelize_with_descendants_simple() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let workspace_path = test_env.env_root().join("repo");
 
     for n in 1..6 {
-        test_env.jj_cmd_ok(&workspace_path, &["commit", &format!("-m{n}")]);
+        test_env
+            .run_jj_in(&workspace_path, ["commit", &format!("-m{n}")])
+            .success();
     }
-    test_env.jj_cmd_ok(&workspace_path, &["describe", "-m=6"]);
+    test_env
+        .run_jj_in(&workspace_path, ["describe", "-m=6"])
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r"
     @  02b7709cc4e9 6 parents: 5
     ○  1b2f08d76b66 5 parents: 4
@@ -78,10 +92,12 @@ fn test_parallelize_with_descendants_simple() {
     [EOF]
     ");
 
-    test_env.jj_cmd_ok(
-        &workspace_path,
-        &["parallelize", "description(1)::description(4)"],
-    );
+    test_env
+        .run_jj_in(
+            &workspace_path,
+            ["parallelize", "description(1)::description(4)"],
+        )
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r"
     @  9bc057f8b6e3 6 parents: 5
     ○        9e36a8afe793 5 parents: 1 2 3 4
@@ -104,14 +120,22 @@ fn test_parallelize_with_descendants_simple() {
 #[test]
 fn test_parallelize_where_interior_has_non_target_children() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let workspace_path = test_env.env_root().join("repo");
 
     for n in 1..6 {
-        test_env.jj_cmd_ok(&workspace_path, &["commit", &format!("-m{n}")]);
+        test_env
+            .run_jj_in(&workspace_path, ["commit", &format!("-m{n}")])
+            .success();
     }
-    test_env.jj_cmd_ok(&workspace_path, &["new", "description(2)", "-m=2c"]);
-    test_env.jj_cmd_ok(&workspace_path, &["new", "description(5)", "-m=6"]);
+    test_env
+        .run_jj_in(&workspace_path, ["new", "description(2)", "-m=2c"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["new", "description(5)", "-m=6"])
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r"
     @  2508ea92308a 6 parents: 5
     ○  1b2f08d76b66 5 parents: 4
@@ -125,10 +149,12 @@ fn test_parallelize_where_interior_has_non_target_children() {
     [EOF]
     ");
 
-    test_env.jj_cmd_ok(
-        &workspace_path,
-        &["parallelize", "description(1)::description(4)"],
-    );
+    test_env
+        .run_jj_in(
+            &workspace_path,
+            ["parallelize", "description(1)::description(4)"],
+        )
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r"
     @  c9525dff9d03 6 parents: 5
     ○        b3ad09518546 5 parents: 1 2 3 4
@@ -150,14 +176,22 @@ fn test_parallelize_where_interior_has_non_target_children() {
 #[test]
 fn test_parallelize_where_root_has_non_target_children() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let workspace_path = test_env.env_root().join("repo");
 
     for n in 1..4 {
-        test_env.jj_cmd_ok(&workspace_path, &["commit", &format!("-m{n}")]);
+        test_env
+            .run_jj_in(&workspace_path, ["commit", &format!("-m{n}")])
+            .success();
     }
-    test_env.jj_cmd_ok(&workspace_path, &["new", "description(1)", "-m=1c"]);
-    test_env.jj_cmd_ok(&workspace_path, &["new", "description(3)", "-m=4"]);
+    test_env
+        .run_jj_in(&workspace_path, ["new", "description(1)", "-m=1c"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["new", "description(3)", "-m=4"])
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r"
     @  9132691e6256 4 parents: 3
     ○  4cd999dfaac0 3 parents: 2
@@ -168,10 +202,12 @@ fn test_parallelize_where_root_has_non_target_children() {
     ◆  000000000000 parents:
     [EOF]
     ");
-    test_env.jj_cmd_ok(
-        &workspace_path,
-        &["parallelize", "description(1)::description(3)"],
-    );
+    test_env
+        .run_jj_in(
+            &workspace_path,
+            ["parallelize", "description(1)::description(3)"],
+        )
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r"
     @      3397916989e7 4 parents: 1 2 3
     ├─┬─╮
@@ -191,19 +227,31 @@ fn test_parallelize_where_root_has_non_target_children() {
 #[test]
 fn test_parallelize_with_merge_commit_child() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let workspace_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&workspace_path, &["commit", "-m", "1"]);
+    test_env
+        .run_jj_in(&workspace_path, ["commit", "-m", "1"])
+        .success();
     for n in 2..4 {
-        test_env.jj_cmd_ok(&workspace_path, &["commit", "-m", &n.to_string()]);
+        test_env
+            .run_jj_in(&workspace_path, ["commit", "-m", &n.to_string()])
+            .success();
     }
-    test_env.jj_cmd_ok(&workspace_path, &["new", "root()", "-m", "a"]);
-    test_env.jj_cmd_ok(
-        &workspace_path,
-        &["new", "description(2)", "description(a)", "-m", "2a-c"],
-    );
-    test_env.jj_cmd_ok(&workspace_path, &["new", "description(3)", "-m", "4"]);
+    test_env
+        .run_jj_in(&workspace_path, ["new", "root()", "-m", "a"])
+        .success();
+    test_env
+        .run_jj_in(
+            &workspace_path,
+            ["new", "description(2)", "description(a)", "-m", "2a-c"],
+        )
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["new", "description(3)", "-m", "4"])
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r"
     @  99ffaf5b3984 4 parents: 3
     ○  4cd999dfaac0 3 parents: 2
@@ -218,10 +266,12 @@ fn test_parallelize_with_merge_commit_child() {
     ");
 
     // After this finishes, child-2a will have three parents: "1", "2", and "a".
-    test_env.jj_cmd_ok(
-        &workspace_path,
-        &["parallelize", "description(1)::description(3)"],
-    );
+    test_env
+        .run_jj_in(
+            &workspace_path,
+            ["parallelize", "description(1)::description(3)"],
+        )
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r"
     @      3ee9279847a6 4 parents: 1 2 3
     ├─┬─╮
@@ -242,13 +292,19 @@ fn test_parallelize_with_merge_commit_child() {
 #[test]
 fn test_parallelize_disconnected_target_commits() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let workspace_path = test_env.env_root().join("repo");
 
     for n in 1..3 {
-        test_env.jj_cmd_ok(&workspace_path, &["commit", &format!("-m{n}")]);
+        test_env
+            .run_jj_in(&workspace_path, ["commit", &format!("-m{n}")])
+            .success();
     }
-    test_env.jj_cmd_ok(&workspace_path, &["describe", "-m=3"]);
+    test_env
+        .run_jj_in(&workspace_path, ["describe", "-m=3"])
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r"
     @  4cd999dfaac0 3 parents: 2
     ○  d3902619fade 2 parents: 1
@@ -278,18 +334,34 @@ fn test_parallelize_disconnected_target_commits() {
 #[test]
 fn test_parallelize_head_is_a_merge() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let workspace_path = test_env.env_root().join("repo");
-    test_env.jj_cmd_ok(&workspace_path, &["commit", "-m=0"]);
-    test_env.jj_cmd_ok(&workspace_path, &["commit", "-m=1"]);
-    test_env.jj_cmd_ok(&workspace_path, &["commit", "-m=2"]);
-    test_env.jj_cmd_ok(&workspace_path, &["new", "root()"]);
-    test_env.jj_cmd_ok(&workspace_path, &["commit", "-m=a"]);
-    test_env.jj_cmd_ok(&workspace_path, &["commit", "-m=b"]);
-    test_env.jj_cmd_ok(
-        &workspace_path,
-        &["new", "description(2)", "description(b)", "-m=merged-head"],
-    );
+    test_env
+        .run_jj_in(&workspace_path, ["commit", "-m=0"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["commit", "-m=1"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["commit", "-m=2"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["new", "root()"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["commit", "-m=a"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["commit", "-m=b"])
+        .success();
+    test_env
+        .run_jj_in(
+            &workspace_path,
+            ["new", "description(2)", "description(b)", "-m=merged-head"],
+        )
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r"
     @    1fb53c45237e merged-head parents: 2 b
     ├─╮
@@ -303,7 +375,9 @@ fn test_parallelize_head_is_a_merge() {
     [EOF]
     ");
 
-    test_env.jj_cmd_ok(&workspace_path, &["parallelize", "description(1)::"]);
+    test_env
+        .run_jj_in(&workspace_path, ["parallelize", "description(1)::"])
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r"
     @    82131a679769 merged-head parents: 0 b
     ├─╮
@@ -323,16 +397,28 @@ fn test_parallelize_head_is_a_merge() {
 #[test]
 fn test_parallelize_interior_target_is_a_merge() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let workspace_path = test_env.env_root().join("repo");
-    test_env.jj_cmd_ok(&workspace_path, &["commit", "-m=0"]);
-    test_env.jj_cmd_ok(&workspace_path, &["describe", "-m=1"]);
-    test_env.jj_cmd_ok(&workspace_path, &["new", "root()", "-m=a"]);
-    test_env.jj_cmd_ok(
-        &workspace_path,
-        &["new", "description(1)", "description(a)", "-m=2"],
-    );
-    test_env.jj_cmd_ok(&workspace_path, &["new", "-m=3"]);
+    test_env
+        .run_jj_in(&workspace_path, ["commit", "-m=0"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["describe", "-m=1"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["new", "root()", "-m=a"])
+        .success();
+    test_env
+        .run_jj_in(
+            &workspace_path,
+            ["new", "description(1)", "description(a)", "-m=2"],
+        )
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["new", "-m=3"])
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r"
     @  9b77792c77ac 3 parents: 2
     ○    1e29145c95fd 2 parents: 1 a
@@ -345,7 +431,9 @@ fn test_parallelize_interior_target_is_a_merge() {
     [EOF]
     ");
 
-    test_env.jj_cmd_ok(&workspace_path, &["parallelize", "description(1)::"]);
+    test_env
+        .run_jj_in(&workspace_path, ["parallelize", "description(1)::"])
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r"
     @    042fc3f4315c 3 parents: 0 a
     ├─╮
@@ -364,16 +452,28 @@ fn test_parallelize_interior_target_is_a_merge() {
 #[test]
 fn test_parallelize_root_is_a_merge() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let workspace_path = test_env.env_root().join("repo");
-    test_env.jj_cmd_ok(&workspace_path, &["describe", "-m=y"]);
-    test_env.jj_cmd_ok(&workspace_path, &["new", "root()", "-m=x"]);
-    test_env.jj_cmd_ok(
-        &workspace_path,
-        &["new", "description(y)", "description(x)", "-m=1"],
-    );
-    test_env.jj_cmd_ok(&workspace_path, &["new", "-m=2"]);
-    test_env.jj_cmd_ok(&workspace_path, &["new", "-m=3"]);
+    test_env
+        .run_jj_in(&workspace_path, ["describe", "-m=y"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["new", "root()", "-m=x"])
+        .success();
+    test_env
+        .run_jj_in(
+            &workspace_path,
+            ["new", "description(y)", "description(x)", "-m=1"],
+        )
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["new", "-m=2"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["new", "-m=3"])
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r"
     @  cc239b744d01 3 parents: 2
     ○  2bf00c2ad44c 2 parents: 1
@@ -386,10 +486,12 @@ fn test_parallelize_root_is_a_merge() {
     [EOF]
     ");
 
-    test_env.jj_cmd_ok(
-        &workspace_path,
-        &["parallelize", "description(1)::description(2)"],
-    );
+    test_env
+        .run_jj_in(
+            &workspace_path,
+            ["parallelize", "description(1)::description(2)"],
+        )
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r"
     @    2c7fdfa00b38 3 parents: 1 2
     ├─╮
@@ -408,11 +510,19 @@ fn test_parallelize_root_is_a_merge() {
 #[test]
 fn test_parallelize_multiple_heads() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let workspace_path = test_env.env_root().join("repo");
-    test_env.jj_cmd_ok(&workspace_path, &["commit", "-m=0"]);
-    test_env.jj_cmd_ok(&workspace_path, &["describe", "-m=1"]);
-    test_env.jj_cmd_ok(&workspace_path, &["new", "description(0)", "-m=2"]);
+    test_env
+        .run_jj_in(&workspace_path, ["commit", "-m=0"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["describe", "-m=1"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["new", "description(0)", "-m=2"])
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r"
     @  97d7522f40e8 2 parents: 0
     │ ○  0c058af014a6 1 parents: 0
@@ -422,7 +532,9 @@ fn test_parallelize_multiple_heads() {
     [EOF]
     ");
 
-    test_env.jj_cmd_ok(&workspace_path, &["parallelize", "description(0)::"]);
+    test_env
+        .run_jj_in(&workspace_path, ["parallelize", "description(0)::"])
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r"
     @  e84481c26195 2 parents:
     │ ○  6270540ee067 1 parents:
@@ -440,11 +552,19 @@ fn test_parallelize_multiple_heads() {
 #[test]
 fn test_parallelize_multiple_heads_with_and_without_children() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let workspace_path = test_env.env_root().join("repo");
-    test_env.jj_cmd_ok(&workspace_path, &["commit", "-m=0"]);
-    test_env.jj_cmd_ok(&workspace_path, &["describe", "-m=1"]);
-    test_env.jj_cmd_ok(&workspace_path, &["new", "description(0)", "-m=2"]);
+    test_env
+        .run_jj_in(&workspace_path, ["commit", "-m=0"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["describe", "-m=1"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["new", "description(0)", "-m=2"])
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r"
     @  97d7522f40e8 2 parents: 0
     │ ○  0c058af014a6 1 parents: 0
@@ -454,10 +574,12 @@ fn test_parallelize_multiple_heads_with_and_without_children() {
     [EOF]
     ");
 
-    test_env.jj_cmd_ok(
-        &workspace_path,
-        &["parallelize", "description(0)", "description(1)"],
-    );
+    test_env
+        .run_jj_in(
+            &workspace_path,
+            ["parallelize", "description(0)", "description(1)"],
+        )
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r"
     @  97d7522f40e8 2 parents: 0
     ○  745bea8029c1 0 parents:
@@ -471,15 +593,25 @@ fn test_parallelize_multiple_heads_with_and_without_children() {
 #[test]
 fn test_parallelize_multiple_roots() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let workspace_path = test_env.env_root().join("repo");
-    test_env.jj_cmd_ok(&workspace_path, &["describe", "-m=1"]);
-    test_env.jj_cmd_ok(&workspace_path, &["new", "root()", "-m=a"]);
-    test_env.jj_cmd_ok(
-        &workspace_path,
-        &["new", "description(1)", "description(a)", "-m=2"],
-    );
-    test_env.jj_cmd_ok(&workspace_path, &["new", "-m=3"]);
+    test_env
+        .run_jj_in(&workspace_path, ["describe", "-m=1"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["new", "root()", "-m=a"])
+        .success();
+    test_env
+        .run_jj_in(
+            &workspace_path,
+            ["new", "description(1)", "description(a)", "-m=2"],
+        )
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["new", "-m=3"])
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r"
     @  34da938ad94a 3 parents: 2
     ○    85d5043b881d 2 parents: 1 a
@@ -492,7 +624,9 @@ fn test_parallelize_multiple_roots() {
     ");
 
     // Succeeds because the roots have the same parents.
-    test_env.jj_cmd_ok(&workspace_path, &["parallelize", "root().."]);
+    test_env
+        .run_jj_in(&workspace_path, ["parallelize", "root().."])
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r"
     @  3c90598481cd 3 parents:
     │ ○  b96aa55582e5 2 parents:
@@ -509,15 +643,31 @@ fn test_parallelize_multiple_roots() {
 #[test]
 fn test_parallelize_multiple_heads_with_different_children() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let workspace_path = test_env.env_root().join("repo");
-    test_env.jj_cmd_ok(&workspace_path, &["commit", "-m=1"]);
-    test_env.jj_cmd_ok(&workspace_path, &["commit", "-m=2"]);
-    test_env.jj_cmd_ok(&workspace_path, &["commit", "-m=3"]);
-    test_env.jj_cmd_ok(&workspace_path, &["new", "root()"]);
-    test_env.jj_cmd_ok(&workspace_path, &["commit", "-m=a"]);
-    test_env.jj_cmd_ok(&workspace_path, &["commit", "-m=b"]);
-    test_env.jj_cmd_ok(&workspace_path, &["commit", "-m=c"]);
+    test_env
+        .run_jj_in(&workspace_path, ["commit", "-m=1"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["commit", "-m=2"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["commit", "-m=3"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["new", "root()"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["commit", "-m=a"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["commit", "-m=b"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["commit", "-m=c"])
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r"
     @  4bc4dace0e65 parents: c
     ○  63b0da9212c0 c parents: b
@@ -531,14 +681,16 @@ fn test_parallelize_multiple_heads_with_different_children() {
     [EOF]
     ");
 
-    test_env.jj_cmd_ok(
-        &workspace_path,
-        &[
-            "parallelize",
-            "description(1)::description(2)",
-            "description(a)::description(b)",
-        ],
-    );
+    test_env
+        .run_jj_in(
+            &workspace_path,
+            [
+                "parallelize",
+                "description(1)::description(2)",
+                "description(a)::description(b)",
+            ],
+        )
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r"
     @  f6c9d9ee3db8 parents: c
     ○    62661d5f0c77 c parents: a b
@@ -560,17 +712,31 @@ fn test_parallelize_multiple_heads_with_different_children() {
 #[test]
 fn test_parallelize_multiple_roots_with_different_parents() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let workspace_path = test_env.env_root().join("repo");
-    test_env.jj_cmd_ok(&workspace_path, &["commit", "-m=1"]);
-    test_env.jj_cmd_ok(&workspace_path, &["commit", "-m=2"]);
-    test_env.jj_cmd_ok(&workspace_path, &["new", "root()"]);
-    test_env.jj_cmd_ok(&workspace_path, &["commit", "-m=a"]);
-    test_env.jj_cmd_ok(&workspace_path, &["commit", "-m=b"]);
-    test_env.jj_cmd_ok(
-        &workspace_path,
-        &["new", "description(2)", "description(b)", "-m=merged-head"],
-    );
+    test_env
+        .run_jj_in(&workspace_path, ["commit", "-m=1"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["commit", "-m=2"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["new", "root()"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["commit", "-m=a"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["commit", "-m=b"])
+        .success();
+    test_env
+        .run_jj_in(
+            &workspace_path,
+            ["new", "description(2)", "description(b)", "-m=merged-head"],
+        )
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r"
     @    ba4297d53c1a merged-head parents: 2 b
     ├─╮
@@ -583,10 +749,12 @@ fn test_parallelize_multiple_roots_with_different_parents() {
     [EOF]
     ");
 
-    test_env.jj_cmd_ok(
-        &workspace_path,
-        &["parallelize", "description(2)::", "description(b)::"],
-    );
+    test_env
+        .run_jj_in(
+            &workspace_path,
+            ["parallelize", "description(2)::", "description(b)::"],
+        )
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r"
     @    0943ed52b3ed merged-head parents: 1 a
     ├─╮
@@ -605,16 +773,34 @@ fn test_parallelize_multiple_roots_with_different_parents() {
 #[test]
 fn test_parallelize_complex_nonlinear_target() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let workspace_path = test_env.env_root().join("repo");
-    test_env.jj_cmd_ok(&workspace_path, &["new", "-m=0", "root()"]);
-    test_env.jj_cmd_ok(&workspace_path, &["new", "-m=1", "description(0)"]);
-    test_env.jj_cmd_ok(&workspace_path, &["new", "-m=2", "description(0)"]);
-    test_env.jj_cmd_ok(&workspace_path, &["new", "-m=3", "description(0)"]);
-    test_env.jj_cmd_ok(&workspace_path, &["new", "-m=4", "all:heads(..)"]);
-    test_env.jj_cmd_ok(&workspace_path, &["new", "-m=1c", "description(1)"]);
-    test_env.jj_cmd_ok(&workspace_path, &["new", "-m=2c", "description(2)"]);
-    test_env.jj_cmd_ok(&workspace_path, &["new", "-m=3c", "description(3)"]);
+    test_env
+        .run_jj_in(&workspace_path, ["new", "-m=0", "root()"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["new", "-m=1", "description(0)"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["new", "-m=2", "description(0)"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["new", "-m=3", "description(0)"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["new", "-m=4", "all:heads(..)"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["new", "-m=1c", "description(1)"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["new", "-m=2c", "description(2)"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_path, ["new", "-m=3c", "description(3)"])
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r"
     @  b043eb81416c 3c parents: 3
     │ ○    48277ee9afe0 4 parents: 3 2 1

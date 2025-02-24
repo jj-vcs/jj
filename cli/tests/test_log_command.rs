@@ -18,7 +18,9 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_log_with_empty_revision() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     let output = test_env.run_jj_in(&repo_path, ["log", "-r="]);
@@ -35,7 +37,9 @@ fn test_log_with_empty_revision() {
 #[test]
 fn test_log_with_no_template() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     let output = test_env.run_jj_in(&repo_path, ["log", "-T"]);
@@ -69,12 +73,18 @@ fn test_log_with_no_template() {
 #[test]
 fn test_log_with_or_without_diff() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "foo\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "add a file"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m", "a new commit"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "add a file"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "-m", "a new commit"])
+        .success();
     std::fs::write(repo_path.join("file1"), "foo\nbar\n").unwrap();
 
     let output = test_env.run_jj_in(&repo_path, ["log", "-T", "description"]);
@@ -317,21 +327,29 @@ fn test_log_with_or_without_diff() {
 #[test]
 fn test_log_null_terminate_multiline_descriptions() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &["commit", "-m", "commit 1 line 1", "-m", "commit 1 line 2"],
-    );
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &["commit", "-m", "commit 2 line 1", "-m", "commit 2 line 2"],
-    );
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &["describe", "-m", "commit 3 line 1", "-m", "commit 3 line 2"],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["commit", "-m", "commit 1 line 1", "-m", "commit 1 line 2"],
+        )
+        .success();
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["commit", "-m", "commit 2 line 1", "-m", "commit 2 line 2"],
+        )
+        .success();
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["describe", "-m", "commit 3 line 1", "-m", "commit 3 line 2"],
+        )
+        .success();
 
     let output = test_env
         .run_jj_in(
@@ -355,7 +373,9 @@ fn test_log_null_terminate_multiline_descriptions() {
 #[test]
 fn test_log_shortest_accessors() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     let render = |rev, template| {
         test_env.run_jj_in(&repo_path, ["log", "--no-graph", "-r", rev, "-T", template])
@@ -368,20 +388,28 @@ fn test_log_shortest_accessors() {
     );
 
     std::fs::write(repo_path.join("file"), "original file\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "initial"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "c", "-r@", "original"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "initial"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "c", "-r@", "original"])
+        .success();
     insta::assert_snapshot!(
         render("original", r#"format_id(change_id) ++ " " ++ format_id(commit_id)"#),
         @"q[pvuntsmwlqt] e[0e22b9fae75][EOF]");
 
     // Create a chain of 10 commits
     for i in 1..10 {
-        test_env.jj_cmd_ok(&repo_path, &["new", "-m", &format!("commit{i}")]);
+        test_env
+            .run_jj_in(&repo_path, ["new", "-m", &format!("commit{i}")])
+            .success();
         std::fs::write(repo_path.join("file"), format!("file {i}\n")).unwrap();
     }
     // Create 2^3 duplicates of the chain
     for _ in 0..3 {
-        test_env.jj_cmd_ok(&repo_path, &["duplicate", "description(commit)"]);
+        test_env
+            .run_jj_in(&repo_path, ["duplicate", "description(commit)"])
+            .success();
     }
 
     insta::assert_snapshot!(
@@ -464,7 +492,9 @@ fn test_log_shortest_accessors() {
 #[test]
 fn test_log_bad_short_prefixes() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     // Suppress warning in the commit summary template
@@ -522,7 +552,9 @@ fn test_log_bad_short_prefixes() {
 #[test]
 fn test_log_prefix_highlight_styled() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     fn prefix_format(len: Option<usize>) -> String {
@@ -541,8 +573,12 @@ fn test_log_prefix_highlight_styled() {
     }
 
     std::fs::write(repo_path.join("file"), "original file\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "initial"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "c", "-r@", "original"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "initial"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "c", "-r@", "original"])
+        .success();
     insta::assert_snapshot!(
         test_env.run_jj_in(&repo_path, ["log", "-r", "original", "-T", &prefix_format(Some(12))]),
         @r"
@@ -555,12 +591,16 @@ fn test_log_prefix_highlight_styled() {
 
     // Create a chain of 10 commits
     for i in 1..10 {
-        test_env.jj_cmd_ok(&repo_path, &["new", "-m", &format!("commit{i}")]);
+        test_env
+            .run_jj_in(&repo_path, ["new", "-m", &format!("commit{i}")])
+            .success();
         std::fs::write(repo_path.join("file"), format!("file {i}\n")).unwrap();
     }
     // Create 2^3 duplicates of the chain
     for _ in 0..3 {
-        test_env.jj_cmd_ok(&repo_path, &["duplicate", "description(commit)"]);
+        test_env
+            .run_jj_in(&repo_path, ["duplicate", "description(commit)"])
+            .success();
     }
 
     insta::assert_snapshot!(
@@ -658,7 +698,9 @@ fn test_log_prefix_highlight_styled() {
 #[test]
 fn test_log_prefix_highlight_counts_hidden_commits() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     test_env.add_config(
         r#"
@@ -680,8 +722,12 @@ fn test_log_prefix_highlight_counts_hidden_commits() {
     "#;
 
     std::fs::write(repo_path.join("file"), "original file\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "initial"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "c", "-r@", "original"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "initial"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "c", "-r@", "original"])
+        .success();
     insta::assert_snapshot!(
         test_env.run_jj_in(&repo_path, ["log", "-r", "all()", "-T", prefix_format]),
         @r"
@@ -692,11 +738,17 @@ fn test_log_prefix_highlight_counts_hidden_commits() {
     );
 
     // Create 2^7 hidden commits
-    test_env.jj_cmd_ok(&repo_path, &["new", "root()", "-m", "extra"]);
+    test_env
+        .run_jj_in(&repo_path, ["new", "root()", "-m", "extra"])
+        .success();
     for _ in 0..7 {
-        test_env.jj_cmd_ok(&repo_path, &["duplicate", "description(extra)"]);
+        test_env
+            .run_jj_in(&repo_path, ["duplicate", "description(extra)"])
+            .success();
     }
-    test_env.jj_cmd_ok(&repo_path, &["abandon", "description(extra)"]);
+    test_env
+        .run_jj_in(&repo_path, ["abandon", "description(extra)"])
+        .success();
 
     // The unique prefixes became longer.
     insta::assert_snapshot!(
@@ -732,7 +784,9 @@ fn test_log_prefix_highlight_counts_hidden_commits() {
 #[test]
 fn test_log_short_shortest_length_parameter() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     let render = |template| test_env.run_jj_in(&repo_path, ["log", "-T", template]);
 
@@ -765,7 +819,9 @@ fn test_log_short_shortest_length_parameter() {
 #[test]
 fn test_log_author_format() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     insta::assert_snapshot!(
@@ -801,12 +857,16 @@ fn test_log_author_format() {
 #[test]
 fn test_log_divergence() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     let template = r#"description.first_line() ++ if(divergent, " !divergence!")"#;
 
     std::fs::write(repo_path.join("file"), "foo\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "description 1"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "description 1"])
+        .success();
     // No divergence
     let output = test_env.run_jj_in(&repo_path, ["log", "-T", template]);
     insta::assert_snapshot!(output, @r"
@@ -816,10 +876,12 @@ fn test_log_divergence() {
     ");
 
     // Create divergence
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &["describe", "-m", "description 2", "--at-operation", "@-"],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["describe", "-m", "description 2", "--at-operation", "@-"],
+        )
+        .success();
     let output = test_env.run_jj_in(&repo_path, ["log", "-T", template]);
     insta::assert_snapshot!(output, @r"
     @  description 1 !divergence!
@@ -836,11 +898,17 @@ fn test_log_divergence() {
 #[test]
 fn test_log_reversed() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "first"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m", "second"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "first"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "-m", "second"])
+        .success();
 
     let output = test_env.run_jj_in(&repo_path, ["log", "-T", "description", "--reversed"]);
     insta::assert_snapshot!(output, @r"
@@ -864,12 +932,18 @@ fn test_log_reversed() {
 #[test]
 fn test_log_filtered_by_path() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "foo\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "first"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m", "second"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "first"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "-m", "second"])
+        .success();
     std::fs::write(repo_path.join("file1"), "foo\nbar\n").unwrap();
     std::fs::write(repo_path.join("file2"), "baz\n").unwrap();
 
@@ -966,19 +1040,27 @@ fn test_log_filtered_by_path() {
 #[test]
 fn test_log_limit() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "a"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "a"])
+        .success();
     std::fs::write(repo_path.join("a"), "").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m", "b"]);
+    test_env.run_jj_in(&repo_path, ["new", "-m", "b"]).success();
     std::fs::write(repo_path.join("b"), "").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m", "c", "description(a)"]);
+    test_env
+        .run_jj_in(&repo_path, ["new", "-m", "c", "description(a)"])
+        .success();
     std::fs::write(repo_path.join("c"), "").unwrap();
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &["new", "-m", "d", "description(c)", "description(b)"],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["new", "-m", "d", "description(c)", "description(b)"],
+        )
+        .success();
 
     let output = test_env.run_jj_in(&repo_path, ["log", "-T", "description", "--limit=3"]);
     insta::assert_snapshot!(output, @r"
@@ -1056,7 +1138,9 @@ fn test_log_limit() {
 #[test]
 fn test_log_warn_path_might_be_revset() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "foo\n").unwrap();
@@ -1113,11 +1197,15 @@ fn test_log_warn_path_might_be_revset() {
 #[test]
 fn test_default_revset() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "foo\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "add a file"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "add a file"])
+        .success();
 
     // Set configuration to only show the root commit.
     test_env.add_config(r#"revsets.log = "root()""#);
@@ -1144,11 +1232,15 @@ fn test_default_revset() {
 #[test]
 fn test_default_revset_per_repo() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "foo\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "add a file"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "add a file"])
+        .success();
 
     // Set configuration to only show the root commit.
     std::fs::write(
@@ -1169,11 +1261,17 @@ fn test_default_revset_per_repo() {
 #[test]
 fn test_multiple_revsets() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     for name in ["foo", "bar", "baz"] {
-        test_env.jj_cmd_ok(&repo_path, &["new", "-m", name]);
-        test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", name]);
+        test_env
+            .run_jj_in(&repo_path, ["new", "-m", name])
+            .success();
+        test_env
+            .run_jj_in(&repo_path, ["bookmark", "create", "-r@", name])
+            .success();
     }
 
     // Default revset should be overridden if one or more -r options are specified.
@@ -1211,14 +1309,20 @@ fn test_multiple_revsets() {
 fn test_graph_template_color() {
     // Test that color codes from a multi-line template don't span the graph lines.
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &["describe", "-m", "first line\nsecond line\nthird line"],
-    );
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m", "single line"]);
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["describe", "-m", "first line\nsecond line\nthird line"],
+        )
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "-m", "single line"])
+        .success();
 
     test_env.add_config(
         r#"[colors]
@@ -1262,26 +1366,38 @@ fn test_graph_template_color() {
 fn test_graph_styles() {
     // Test that different graph styles are available.
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "initial"]);
-    test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "main bookmark 1"]);
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "main bookmark 2"]);
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &["new", "-m", "side bookmark\nwith\nlong\ndescription"],
-    );
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &[
-            "new",
-            "-m",
-            "merge",
-            r#"description("main bookmark 1")"#,
-            "@",
-        ],
-    );
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "initial"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "main bookmark 1"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "main bookmark 2"])
+        .success();
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["new", "-m", "side bookmark\nwith\nlong\ndescription"],
+        )
+        .success();
+    test_env
+        .run_jj_in(
+            &repo_path,
+            [
+                "new",
+                "-m",
+                "merge",
+                r#"description("main bookmark 1")"#,
+                "@",
+            ],
+        )
+        .success();
 
     // Default (curved) style
     let output = test_env.run_jj_in(&repo_path, ["log", "-T=description"]);
@@ -1390,7 +1506,9 @@ fn test_graph_styles() {
 #[test]
 fn test_log_word_wrap() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     let render = |args: &[&str], columns: u32, word_wrap: bool| {
         let mut args = args.to_vec();
@@ -1406,10 +1524,18 @@ fn test_log_word_wrap() {
         get_stdout_string(&assert)
     };
 
-    test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "main bookmark 1"]);
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "main bookmark 2"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m", "side"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m", "merge", "@--", "@"]);
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "main bookmark 1"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "main bookmark 2"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "-m", "side"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "-m", "merge", "@--", "@"])
+        .success();
 
     // ui.log-word-wrap option applies to both graph/no-graph outputs
     insta::assert_snapshot!(render(&["log", "-r@"], 40, false), @r###"
@@ -1486,7 +1612,9 @@ fn test_log_word_wrap() {
 #[test]
 fn test_log_diff_stat_width() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     let render = |args: &[&str], columns: u32| {
         let assert = test_env
@@ -1499,7 +1627,7 @@ fn test_log_diff_stat_width() {
     };
 
     std::fs::write(repo_path.join("file1"), "foo\n".repeat(100)).unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new", "root()"]);
+    test_env.run_jj_in(&repo_path, ["new", "root()"]).success();
     std::fs::write(repo_path.join("file2"), "foo\n".repeat(100)).unwrap();
 
     insta::assert_snapshot!(render(&["log", "--stat", "--no-graph"], 30), @r###"
@@ -1534,24 +1662,38 @@ fn test_log_diff_stat_width() {
 fn test_elided() {
     // Test that elided commits are shown as synthetic nodes.
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "initial"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m", "main bookmark 1"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m", "main bookmark 2"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "@--", "-m", "side bookmark 1"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m", "side bookmark 2"]);
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &[
-            "new",
-            "-m",
-            "merge",
-            r#"description("main bookmark 2")"#,
-            "@",
-        ],
-    );
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "initial"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "-m", "main bookmark 1"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "-m", "main bookmark 2"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "@--", "-m", "side bookmark 1"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "-m", "side bookmark 2"])
+        .success();
+    test_env
+        .run_jj_in(
+            &repo_path,
+            [
+                "new",
+                "-m",
+                "merge",
+                r#"description("main bookmark 2")"#,
+                "@",
+            ],
+        )
+        .success();
 
     let get_log = |revs: &str| {
         test_env.run_jj_in(
@@ -1644,24 +1786,38 @@ fn test_elided() {
 fn test_log_with_custom_symbols() {
     // Test that elided commits are shown as synthetic nodes.
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "initial"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m", "main bookmark 1"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m", "main bookmark 2"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "@--", "-m", "side bookmark 1"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m", "side bookmark 2"]);
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &[
-            "new",
-            "-m",
-            "merge",
-            r#"description("main bookmark 2")"#,
-            "@",
-        ],
-    );
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "initial"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "-m", "main bookmark 1"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "-m", "main bookmark 2"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "@--", "-m", "side bookmark 1"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "-m", "side bookmark 2"])
+        .success();
+    test_env
+        .run_jj_in(
+            &repo_path,
+            [
+                "new",
+                "-m",
+                "merge",
+                r#"description("main bookmark 2")"#,
+                "@",
+            ],
+        )
+        .success();
 
     let get_log = |revs: &str| {
         test_env.run_jj_in(
@@ -1721,17 +1877,21 @@ fn test_log_with_custom_symbols() {
 #[test]
 fn test_log_full_description_template() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &[
-            "describe",
-            "-m",
-            "this is commit with a multiline description\n\n<full description>",
-        ],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            [
+                "describe",
+                "-m",
+                "this is commit with a multiline description\n\n<full description>",
+            ],
+        )
+        .success();
 
     let output = test_env.run_jj_in(
         &repo_path,

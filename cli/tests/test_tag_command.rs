@@ -19,7 +19,9 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_tag_list() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     let git_repo = {
         let mut git_repo_path = repo_path.clone();
@@ -38,23 +40,37 @@ fn test_tag_list() {
             .unwrap();
     };
 
-    test_env.jj_cmd_ok(&repo_path, &["new", "root()", "-mcommit1"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "bookmark1"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "root()", "-mcommit2"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "bookmark2"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "root()", "-mcommit3"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "bookmark3"]);
-    test_env.jj_cmd_ok(&repo_path, &["git", "export"]);
+    test_env
+        .run_jj_in(&repo_path, ["new", "root()", "-mcommit1"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "bookmark1"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "root()", "-mcommit2"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "bookmark2"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "root()", "-mcommit3"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "bookmark3"])
+        .success();
+    test_env.run_jj_in(&repo_path, ["git", "export"]).success();
 
     copy_ref("refs/heads/bookmark1", "test_tag");
     copy_ref("refs/heads/bookmark2", "test_tag2");
     copy_ref("refs/heads/bookmark1", "conflicted_tag");
-    test_env.jj_cmd_ok(&repo_path, &["git", "import"]);
+    test_env.run_jj_in(&repo_path, ["git", "import"]).success();
     copy_ref("refs/heads/bookmark2", "conflicted_tag");
-    test_env.jj_cmd_ok(&repo_path, &["git", "import"]);
+    test_env.run_jj_in(&repo_path, ["git", "import"]).success();
     copy_ref("refs/heads/bookmark3", "conflicted_tag");
-    test_env.jj_cmd_ok(&repo_path, &["git", "import", "--at-op=@-"]);
-    test_env.jj_cmd_ok(&repo_path, &["status"]); // resolve concurrent ops
+    test_env
+        .run_jj_in(&repo_path, ["git", "import", "--at-op=@-"])
+        .success();
+    test_env.run_jj_in(&repo_path, ["status"]).success(); // resolve concurrent ops
 
     insta::assert_snapshot!(
         test_env.run_jj_in(&repo_path, ["tag", "list"]),

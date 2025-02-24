@@ -21,7 +21,9 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_diff() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::create_dir(repo_path.join("dir")).unwrap();
@@ -30,7 +32,7 @@ fn test_diff() {
     std::fs::write(repo_path.join("dir").join("secret"), "foo\n").unwrap();
     std::fs::write(repo_path.join("modified-secret"), "foo\n").unwrap();
     std::fs::write(repo_path.join("z-last"), "foo\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("a-first"), "bar\n").unwrap();
     std::fs::remove_file(repo_path.join("deleted-secret")).unwrap();
     std::fs::write(repo_path.join("added-secret"), "bar\n").unwrap();
@@ -107,7 +109,9 @@ fn test_diff() {
 #[test]
 fn test_file_list_show() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("a-first"), "foo\n").unwrap();

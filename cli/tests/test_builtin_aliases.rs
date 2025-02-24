@@ -18,7 +18,9 @@ use crate::common::TestEnvironment;
 
 fn set_up(trunk_name: &str) -> (TestEnvironment, PathBuf) {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "origin"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "origin"])
+        .success();
     let origin_path = test_env.env_root().join("origin");
     let origin_git_repo_path = origin_path
         .join(".jj")
@@ -26,25 +28,37 @@ fn set_up(trunk_name: &str) -> (TestEnvironment, PathBuf) {
         .join("store")
         .join("git");
 
-    test_env.jj_cmd_ok(&origin_path, &["describe", "-m=description 1"]);
-    test_env.jj_cmd_ok(&origin_path, &["bookmark", "create", "-r@", trunk_name]);
-    test_env.jj_cmd_ok(&origin_path, &["new", "root()", "-m=description 2"]);
-    test_env.jj_cmd_ok(
-        &origin_path,
-        &["bookmark", "create", "-r@", "unrelated_bookmark"],
-    );
-    test_env.jj_cmd_ok(&origin_path, &["git", "export"]);
+    test_env
+        .run_jj_in(&origin_path, ["describe", "-m=description 1"])
+        .success();
+    test_env
+        .run_jj_in(&origin_path, ["bookmark", "create", "-r@", trunk_name])
+        .success();
+    test_env
+        .run_jj_in(&origin_path, ["new", "root()", "-m=description 2"])
+        .success();
+    test_env
+        .run_jj_in(
+            &origin_path,
+            ["bookmark", "create", "-r@", "unrelated_bookmark"],
+        )
+        .success();
+    test_env
+        .run_jj_in(&origin_path, ["git", "export"])
+        .success();
 
-    test_env.jj_cmd_ok(
-        test_env.env_root(),
-        &[
-            "git",
-            "clone",
-            "--config=git.auto-local-bookmark=true",
-            origin_git_repo_path.to_str().unwrap(),
-            "local",
-        ],
-    );
+    test_env
+        .run_jj_in(
+            test_env.env_root(),
+            [
+                "git",
+                "clone",
+                "--config=git.auto-local-bookmark=true",
+                origin_git_repo_path.to_str().unwrap(),
+                "local",
+            ],
+        )
+        .success();
     let workspace_root = test_env.env_root().join("local");
     (test_env, workspace_root)
 }
@@ -92,8 +106,12 @@ fn test_builtin_alias_trunk_matches_trunk() {
 fn test_builtin_alias_trunk_matches_exactly_one_commit() {
     let (test_env, workspace_root) = set_up("main");
     let origin_path = test_env.env_root().join("origin");
-    test_env.jj_cmd_ok(&origin_path, &["new", "root()", "-m=description 3"]);
-    test_env.jj_cmd_ok(&origin_path, &["bookmark", "create", "-r@", "master"]);
+    test_env
+        .run_jj_in(&origin_path, ["new", "root()", "-m=description 3"])
+        .success();
+    test_env
+        .run_jj_in(&origin_path, ["bookmark", "create", "-r@", "master"])
+        .success();
 
     let output = test_env.run_jj_in(&workspace_root, ["log", "-r", "trunk()"]);
     insta::assert_snapshot!(output, @r"

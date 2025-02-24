@@ -21,12 +21,14 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_log_parents() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "@-"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "@", "@-"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
+    test_env.run_jj_in(&repo_path, ["new", "@-"]).success();
+    test_env.run_jj_in(&repo_path, ["new", "@", "@-"]).success();
 
     let template =
         r#"commit_id ++ "\nP: " ++ parents.len() ++ " " ++ parents.map(|c| c.commit_id()) ++ "\n""#;
@@ -101,11 +103,17 @@ fn test_log_parents() {
 #[test]
 fn test_log_author_timestamp() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "first"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m", "second"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "first"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "-m", "second"])
+        .success();
 
     let output = test_env.run_jj_in(&repo_path, ["log", "-T", "author.timestamp()"]);
     insta::assert_snapshot!(output, @r"
@@ -119,11 +127,17 @@ fn test_log_author_timestamp() {
 #[test]
 fn test_log_author_timestamp_ago() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "first"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m", "second"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "first"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "-m", "second"])
+        .success();
 
     let template = r#"author.timestamp().ago() ++ "\n""#;
     let output = test_env
@@ -139,7 +153,9 @@ fn test_log_author_timestamp_ago() {
 #[test]
 fn test_log_author_timestamp_utc() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     let output = test_env.run_jj_in(&repo_path, ["log", "-T", "author.timestamp().utc()"]);
@@ -154,7 +170,9 @@ fn test_log_author_timestamp_utc() {
 #[test]
 fn test_log_author_timestamp_local() {
     let mut test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env.add_env_var("TZ", "UTC-05:30");
@@ -176,10 +194,14 @@ fn test_log_author_timestamp_local() {
 #[test]
 fn test_log_author_timestamp_after_before() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "first"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "first"])
+        .success();
 
     let template = r#"
     separate(" ",
@@ -218,16 +240,20 @@ fn test_log_author_timestamp_after_before() {
 #[test]
 fn test_mine_is_true_when_author_is_user() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &[
-            "--config=user.email=johndoe@example.com",
-            "--config=user.name=John Doe",
-            "new",
-        ],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            [
+                "--config=user.email=johndoe@example.com",
+                "--config=user.name=John Doe",
+                "new",
+            ],
+        )
+        .success();
 
     let output = test_env.run_jj_in(
         &repo_path,
@@ -248,13 +274,21 @@ fn test_mine_is_true_when_author_is_user() {
 #[test]
 fn test_log_default() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "foo\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "add a file"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m", "description 1"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "my-bookmark"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "add a file"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "-m", "description 1"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "my-bookmark"])
+        .success();
 
     // Test default log output format
     let output = test_env.run_jj_in(&repo_path, ["log"]);
@@ -293,10 +327,14 @@ fn test_log_default() {
 #[test]
 fn test_log_default_without_working_copy() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["workspace", "forget"]);
+    test_env
+        .run_jj_in(&repo_path, ["workspace", "forget"])
+        .success();
     let output = test_env.run_jj_in(&repo_path, ["log"]);
     insta::assert_snapshot!(output, @r"
     ◆  zzzzzzzz root() 00000000
@@ -307,16 +345,22 @@ fn test_log_default_without_working_copy() {
 #[test]
 fn test_log_builtin_templates() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     // Render without graph to test line ending
     let render = |template| test_env.run_jj_in(&repo_path, ["log", "-T", template, "--no-graph"]);
 
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &["--config=user.email=''", "--config=user.name=''", "new"],
-    );
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "my-bookmark"]);
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["--config=user.email=''", "--config=user.name=''", "new"],
+        )
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "my-bookmark"])
+        .success();
 
     insta::assert_snapshot!(render(r#"builtin_log_oneline"#), @r###"
     rlvkpnrz (no email set) 2001-02-03 08:05:08 my-bookmark dc315397 (empty) (no description set)
@@ -376,16 +420,22 @@ fn test_log_builtin_templates() {
 #[test]
 fn test_log_builtin_templates_colored() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     let render =
         |template| test_env.run_jj_in(&repo_path, ["--color=always", "log", "-T", template]);
 
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &["--config=user.email=''", "--config=user.name=''", "new"],
-    );
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "my-bookmark"]);
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["--config=user.email=''", "--config=user.name=''", "new"],
+        )
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "my-bookmark"])
+        .success();
 
     insta::assert_snapshot!(render(r#"builtin_log_oneline"#), @r"
     [1m[38;5;2m@[0m  [1m[38;5;13mr[38;5;8mlvkpnrz[39m [38;5;9m(no email set)[39m [38;5;14m2001-02-03 08:05:08[39m [38;5;13mmy-bookmark[39m [38;5;12md[38;5;8mc315397[39m [38;5;10m(empty)[39m [38;5;10m(no description set)[39m[0m
@@ -445,16 +495,22 @@ fn test_log_builtin_templates_colored() {
 #[test]
 fn test_log_builtin_templates_colored_debug() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     let render =
         |template| test_env.run_jj_in(&repo_path, ["--color=debug", "log", "-T", template]);
 
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &["--config=user.email=''", "--config=user.name=''", "new"],
-    );
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "my-bookmark"]);
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["--config=user.email=''", "--config=user.name=''", "new"],
+        )
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "my-bookmark"])
+        .success();
 
     insta::assert_snapshot!(render(r#"builtin_log_oneline"#), @r"
     [1m[38;5;2m<<node working_copy::@>>[0m  [1m[38;5;13m<<log working_copy change_id shortest prefix::r>>[38;5;8m<<log working_copy change_id shortest rest::lvkpnrz>>[39m<<log working_copy:: >>[38;5;9m<<log working_copy email placeholder::(no email set)>>[39m<<log working_copy:: >>[38;5;14m<<log working_copy committer timestamp local format::2001-02-03 08:05:08>>[39m<<log working_copy:: >>[38;5;13m<<log working_copy bookmarks name::my-bookmark>>[39m<<log working_copy:: >>[38;5;12m<<log working_copy commit_id shortest prefix::d>>[38;5;8m<<log working_copy commit_id shortest rest::c315397>>[39m<<log working_copy:: >>[38;5;10m<<log working_copy empty::(empty)>>[39m<<log working_copy:: >>[38;5;10m<<log working_copy empty description placeholder::(no description set)>>[39m<<log working_copy::>>[0m
@@ -514,11 +570,15 @@ fn test_log_builtin_templates_colored_debug() {
 #[test]
 fn test_log_evolog_divergence() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file"), "foo\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "description 1"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "description 1"])
+        .success();
     // No divergence
     let output = test_env.run_jj_in(&repo_path, ["log"]);
     insta::assert_snapshot!(output, @r"
@@ -529,10 +589,12 @@ fn test_log_evolog_divergence() {
     ");
 
     // Create divergence
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &["describe", "-m", "description 2", "--at-operation", "@-"],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["describe", "-m", "description 2", "--at-operation", "@-"],
+        )
+        .success();
     let output = test_env.run_jj_in(&repo_path, ["log"]);
     insta::assert_snapshot!(output, @r"
     @  qpvuntsm?? test.user@example.com 2001-02-03 08:05:08 ff309c29
@@ -588,7 +650,9 @@ fn test_log_bookmarks() {
     test_env.add_config("git.auto-local-bookmark = true");
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
 
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "origin"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "origin"])
+        .success();
     let origin_path = test_env.env_root().join("origin");
     let origin_git_repo_path = origin_path
         .join(".jj")
@@ -597,43 +661,75 @@ fn test_log_bookmarks() {
         .join("git");
 
     // Created some bookmarks on the remote
-    test_env.jj_cmd_ok(&origin_path, &["describe", "-m=description 1"]);
-    test_env.jj_cmd_ok(&origin_path, &["bookmark", "create", "-r@", "bookmark1"]);
-    test_env.jj_cmd_ok(&origin_path, &["new", "root()", "-m=description 2"]);
-    test_env.jj_cmd_ok(
-        &origin_path,
-        &["bookmark", "create", "-r@", "bookmark2", "unchanged"],
-    );
-    test_env.jj_cmd_ok(&origin_path, &["new", "root()", "-m=description 3"]);
-    test_env.jj_cmd_ok(&origin_path, &["bookmark", "create", "-r@", "bookmark3"]);
-    test_env.jj_cmd_ok(&origin_path, &["git", "export"]);
-    test_env.jj_cmd_ok(
-        test_env.env_root(),
-        &[
-            "git",
-            "clone",
-            origin_git_repo_path.to_str().unwrap(),
-            "local",
-        ],
-    );
+    test_env
+        .run_jj_in(&origin_path, ["describe", "-m=description 1"])
+        .success();
+    test_env
+        .run_jj_in(&origin_path, ["bookmark", "create", "-r@", "bookmark1"])
+        .success();
+    test_env
+        .run_jj_in(&origin_path, ["new", "root()", "-m=description 2"])
+        .success();
+    test_env
+        .run_jj_in(
+            &origin_path,
+            ["bookmark", "create", "-r@", "bookmark2", "unchanged"],
+        )
+        .success();
+    test_env
+        .run_jj_in(&origin_path, ["new", "root()", "-m=description 3"])
+        .success();
+    test_env
+        .run_jj_in(&origin_path, ["bookmark", "create", "-r@", "bookmark3"])
+        .success();
+    test_env
+        .run_jj_in(&origin_path, ["git", "export"])
+        .success();
+    test_env
+        .run_jj_in(
+            test_env.env_root(),
+            [
+                "git",
+                "clone",
+                origin_git_repo_path.to_str().unwrap(),
+                "local",
+            ],
+        )
+        .success();
     let workspace_root = test_env.env_root().join("local");
 
     // Rewrite bookmark1, move bookmark2 forward, create conflict in bookmark3, add
     // new-bookmark
-    test_env.jj_cmd_ok(
-        &workspace_root,
-        &["describe", "bookmark1", "-m", "modified bookmark1 commit"],
-    );
-    test_env.jj_cmd_ok(&workspace_root, &["new", "bookmark2"]);
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "set", "bookmark2", "--to=@"]);
-    test_env.jj_cmd_ok(
-        &workspace_root,
-        &["bookmark", "create", "-r@", "new-bookmark"],
-    );
-    test_env.jj_cmd_ok(&workspace_root, &["describe", "bookmark3", "-m=local"]);
-    test_env.jj_cmd_ok(&origin_path, &["describe", "bookmark3", "-m=origin"]);
-    test_env.jj_cmd_ok(&origin_path, &["git", "export"]);
-    test_env.jj_cmd_ok(&workspace_root, &["git", "fetch"]);
+    test_env
+        .run_jj_in(
+            &workspace_root,
+            ["describe", "bookmark1", "-m", "modified bookmark1 commit"],
+        )
+        .success();
+    test_env
+        .run_jj_in(&workspace_root, ["new", "bookmark2"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_root, ["bookmark", "set", "bookmark2", "--to=@"])
+        .success();
+    test_env
+        .run_jj_in(
+            &workspace_root,
+            ["bookmark", "create", "-r@", "new-bookmark"],
+        )
+        .success();
+    test_env
+        .run_jj_in(&workspace_root, ["describe", "bookmark3", "-m=local"])
+        .success();
+    test_env
+        .run_jj_in(&origin_path, ["describe", "bookmark3", "-m=origin"])
+        .success();
+    test_env
+        .run_jj_in(&origin_path, ["git", "export"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_root, ["git", "fetch"])
+        .success();
 
     let template = r#"commit_id.short() ++ " " ++ if(bookmarks, bookmarks, "(no bookmarks)")"#;
     let output = test_env.run_jj_in(&workspace_root, ["log", "-T", template]);
@@ -708,9 +804,13 @@ fn test_log_git_head() {
     let test_env = TestEnvironment::default();
     let repo_path = test_env.env_root().join("repo");
     git::init(&repo_path);
-    test_env.jj_cmd_ok(&repo_path, &["git", "init", "--git-repo=."]);
+    test_env
+        .run_jj_in(&repo_path, ["git", "init", "--git-repo=."])
+        .success();
 
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m=initial"]);
+    test_env
+        .run_jj_in(&repo_path, ["new", "-m=initial"])
+        .success();
     std::fs::write(repo_path.join("file"), "foo\n").unwrap();
 
     let output = test_env.run_jj_in(&repo_path, ["log", "-T", "git_head"]);
@@ -735,11 +835,17 @@ fn test_log_git_head() {
 #[test]
 fn test_log_commit_id_normal_hex() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m", "first"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m", "second"]);
+    test_env
+        .run_jj_in(&repo_path, ["new", "-m", "first"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "-m", "second"])
+        .success();
 
     let output = test_env.run_jj_in(
         &repo_path,
@@ -761,11 +867,17 @@ fn test_log_commit_id_normal_hex() {
 #[test]
 fn test_log_change_id_normal_hex() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m", "first"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m", "second"]);
+    test_env
+        .run_jj_in(&repo_path, ["new", "-m", "first"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "-m", "second"])
+        .success();
 
     let output = test_env.run_jj_in(
         &repo_path,
@@ -787,10 +899,14 @@ fn test_log_change_id_normal_hex() {
 #[test]
 fn test_log_customize_short_id() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "first"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "first"])
+        .success();
 
     // Customize both the commit and the change id
     let decl = "template-aliases.'format_short_id(id)'";
@@ -828,13 +944,21 @@ fn test_log_customize_short_id() {
 #[test]
 fn test_log_immutable() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
-    test_env.jj_cmd_ok(&repo_path, &["new", "-mA", "root()"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "-mB"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "main"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "-mC"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "-mD", "root()"]);
+    test_env
+        .run_jj_in(&repo_path, ["new", "-mA", "root()"])
+        .success();
+    test_env.run_jj_in(&repo_path, ["new", "-mB"]).success();
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "main"])
+        .success();
+    test_env.run_jj_in(&repo_path, ["new", "-mC"]).success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "-mD", "root()"])
+        .success();
 
     let template = r#"
     separate(" ",
@@ -896,13 +1020,21 @@ fn test_log_immutable() {
 #[test]
 fn test_log_contained_in() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
-    test_env.jj_cmd_ok(&repo_path, &["new", "-mA", "root()"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "-mB"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "main"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "-mC"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "-mD", "root()"]);
+    test_env
+        .run_jj_in(&repo_path, ["new", "-mA", "root()"])
+        .success();
+    test_env.run_jj_in(&repo_path, ["new", "-mB"]).success();
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "main"])
+        .success();
+    test_env.run_jj_in(&repo_path, ["new", "-mC"]).success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "-mD", "root()"])
+        .success();
 
     let template_for_revset = |revset: &str| {
         format!(
@@ -1029,7 +1161,9 @@ fn test_log_contained_in() {
 #[test]
 fn test_short_prefix_in_transaction() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     test_env.add_config(r#"
@@ -1046,16 +1180,22 @@ fn test_short_prefix_in_transaction() {
     "#);
 
     std::fs::write(repo_path.join("file"), "original file\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "initial"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "initial"])
+        .success();
 
     // Create a chain of 5 commits
     for i in 0..5 {
-        test_env.jj_cmd_ok(&repo_path, &["new", "-m", &format!("commit{i}")]);
+        test_env
+            .run_jj_in(&repo_path, ["new", "-m", &format!("commit{i}")])
+            .success();
         std::fs::write(repo_path.join("file"), format!("file {i}\n")).unwrap();
     }
     // Create 2^4 duplicates of the chain
     for _ in 0..4 {
-        test_env.jj_cmd_ok(&repo_path, &["duplicate", "description(commit)"]);
+        test_env
+            .run_jj_in(&repo_path, ["duplicate", "description(commit)"])
+            .success();
     }
 
     // Short prefix should be used for commit summary inside the transaction
@@ -1102,13 +1242,15 @@ fn test_short_prefix_in_transaction() {
 #[test]
 fn test_log_diff_predefined_formats() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "a\nb\n").unwrap();
     std::fs::write(repo_path.join("file2"), "a\n").unwrap();
     std::fs::write(repo_path.join("rename-source"), "rename").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file1"), "a\nb\nc\n").unwrap();
     std::fs::write(repo_path.join("file2"), "b\nc\n").unwrap();
     std::fs::rename(
@@ -1447,7 +1589,9 @@ fn test_log_diff_predefined_formats() {
 #[test]
 fn test_file_list_entries() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::create_dir(repo_path.join("dir")).unwrap();
@@ -1455,17 +1599,23 @@ fn test_file_list_entries() {
     std::fs::write(repo_path.join("exec-file"), "content1").unwrap();
     std::fs::write(repo_path.join("conflict-exec-file"), "content1").unwrap();
     std::fs::write(repo_path.join("conflict-file"), "content1").unwrap();
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &["file", "chmod", "x", "exec-file", "conflict-exec-file"],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["file", "chmod", "x", "exec-file", "conflict-exec-file"],
+        )
+        .success();
 
-    test_env.jj_cmd_ok(&repo_path, &["new", "root()"]);
+    test_env.run_jj_in(&repo_path, ["new", "root()"]).success();
     std::fs::write(repo_path.join("conflict-exec-file"), "content2").unwrap();
     std::fs::write(repo_path.join("conflict-file"), "content2").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["file", "chmod", "x", "conflict-exec-file"]);
+    test_env
+        .run_jj_in(&repo_path, ["file", "chmod", "x", "conflict-exec-file"])
+        .success();
 
-    test_env.jj_cmd_ok(&repo_path, &["new", "all:visible_heads()"]);
+    test_env
+        .run_jj_in(&repo_path, ["new", "all:visible_heads()"])
+        .success();
 
     let template = indoc! {r#"
         separate(" ",
@@ -1489,7 +1639,9 @@ fn test_file_list_entries() {
 #[test]
 fn test_file_list_symlink() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::os::unix::fs::symlink("symlink_target", repo_path.join("symlink")).unwrap();
@@ -1505,7 +1657,9 @@ fn test_file_list_symlink() {
 #[test]
 fn test_repo_path() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::create_dir(repo_path.join("dir")).unwrap();
@@ -1540,13 +1694,19 @@ fn test_repo_path() {
 fn test_signature_templates() {
     let test_env = TestEnvironment::default();
 
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "unsigned"]);
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "unsigned"])
+        .success();
     test_env.add_config("signing.behavior = 'own'");
     test_env.add_config("signing.backend = 'test'");
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "signed"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "signed"])
+        .success();
 
     let template = r#"
     if(signature,

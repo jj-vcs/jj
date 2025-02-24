@@ -20,10 +20,14 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_bookmark_names() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "origin"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "origin"])
+        .success();
     let origin_path = test_env.env_root().join("origin");
     let origin_git_repo_path = origin_path
         .join(".jj")
@@ -31,41 +35,61 @@ fn test_bookmark_names() {
         .join("store")
         .join("git");
 
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "aaa-local"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "bbb-local"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "aaa-local"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "bbb-local"])
+        .success();
 
     // add various remote branches
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &[
-            "git",
-            "remote",
-            "add",
-            "origin",
-            origin_git_repo_path.to_str().unwrap(),
-        ],
-    );
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "aaa-tracked"]);
-    test_env.jj_cmd_ok(&repo_path, &["desc", "-r", "aaa-tracked", "-m", "x"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "bbb-tracked"]);
-    test_env.jj_cmd_ok(&repo_path, &["desc", "-r", "bbb-tracked", "-m", "x"]);
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &["git", "push", "--allow-new", "--bookmark", "glob:*-tracked"],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            [
+                "git",
+                "remote",
+                "add",
+                "origin",
+                origin_git_repo_path.to_str().unwrap(),
+            ],
+        )
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "aaa-tracked"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["desc", "-r", "aaa-tracked", "-m", "x"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "bbb-tracked"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["desc", "-r", "bbb-tracked", "-m", "x"])
+        .success();
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["git", "push", "--allow-new", "--bookmark", "glob:*-tracked"],
+        )
+        .success();
 
-    test_env.jj_cmd_ok(
-        &origin_path,
-        &["bookmark", "create", "-r@", "aaa-untracked"],
-    );
-    test_env.jj_cmd_ok(&origin_path, &["desc", "-r", "aaa-untracked", "-m", "x"]);
-    test_env.jj_cmd_ok(
-        &origin_path,
-        &["bookmark", "create", "-r@", "bbb-untracked"],
-    );
-    test_env.jj_cmd_ok(&origin_path, &["desc", "-r", "bbb-untracked", "-m", "x"]);
-    test_env.jj_cmd_ok(&origin_path, &["git", "export"]);
-    test_env.jj_cmd_ok(&repo_path, &["git", "fetch"]);
+    test_env
+        .run_jj_in(&origin_path, ["bookmark", "create", "-r@", "aaa-untracked"])
+        .success();
+    test_env
+        .run_jj_in(&origin_path, ["desc", "-r", "aaa-untracked", "-m", "x"])
+        .success();
+    test_env
+        .run_jj_in(&origin_path, ["bookmark", "create", "-r@", "bbb-untracked"])
+        .success();
+    test_env
+        .run_jj_in(&origin_path, ["desc", "-r", "bbb-untracked", "-m", "x"])
+        .success();
+    test_env
+        .run_jj_in(&origin_path, ["git", "export"])
+        .success();
+    test_env.run_jj_in(&repo_path, ["git", "fetch"]).success();
 
     let mut test_env = test_env;
     // Every shell hook is a little different, e.g. the zsh hooks add some
@@ -172,10 +196,14 @@ fn test_bookmark_names() {
 #[test]
 fn test_global_arg_repository_is_respected() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "aaa"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "aaa"])
+        .success();
 
     let mut test_env = test_env;
     test_env.add_env_var("COMPLETE", "fish");
@@ -202,18 +230,24 @@ fn test_global_arg_repository_is_respected() {
 #[test]
 fn test_aliases_are_resolved() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "aaa"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "aaa"])
+        .success();
 
     // user config alias
     test_env.add_config(r#"aliases.b = ["bookmark"]"#);
     // repo config alias
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &["config", "set", "--repo", "aliases.b2", "['bookmark']"],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["config", "set", "--repo", "aliases.b2", "['bookmark']"],
+        )
+        .success();
 
     let mut test_env = test_env;
     test_env.add_env_var("COMPLETE", "fish");
@@ -288,12 +322,16 @@ fn test_zsh_completion() {
 #[test]
 fn test_remote_names() {
     let mut test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init"])
+        .success();
 
-    test_env.jj_cmd_ok(
-        test_env.env_root(),
-        &["git", "remote", "add", "origin", "git@git.local:user/repo"],
-    );
+    test_env
+        .run_jj_in(
+            test_env.env_root(),
+            ["git", "remote", "add", "origin", "git@git.local:user/repo"],
+        )
+        .success();
 
     test_env.add_env_var("COMPLETE", "fish");
 
@@ -355,22 +393,26 @@ fn test_remote_names() {
 #[test]
 fn test_aliases_are_completed() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     // user config alias
     test_env.add_config(r#"aliases.user-alias = ["bookmark"]"#);
     // repo config alias
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &[
-            "config",
-            "set",
-            "--repo",
-            "aliases.repo-alias",
-            "['bookmark']",
-        ],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            [
+                "config",
+                "set",
+                "--repo",
+                "aliases.repo-alias",
+                "['bookmark']",
+            ],
+        )
+        .success();
 
     let mut test_env = test_env;
     test_env.add_env_var("COMPLETE", "fish");
@@ -414,34 +456,50 @@ fn test_aliases_are_completed() {
 #[test]
 fn test_revisions() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     // create remote to test remote branches
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "origin"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "origin"])
+        .success();
     let origin_path = test_env.env_root().join("origin");
     let origin_git_repo_path = origin_path
         .join(".jj")
         .join("repo")
         .join("store")
         .join("git");
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &[
-            "git",
-            "remote",
-            "add",
-            "origin",
-            origin_git_repo_path.to_str().unwrap(),
-        ],
-    );
-    test_env.jj_cmd_ok(&origin_path, &["b", "c", "-r@", "remote_bookmark"]);
-    test_env.jj_cmd_ok(&origin_path, &["commit", "-m", "remote_commit"]);
-    test_env.jj_cmd_ok(&origin_path, &["git", "export"]);
-    test_env.jj_cmd_ok(&repo_path, &["git", "fetch"]);
+    test_env
+        .run_jj_in(
+            &repo_path,
+            [
+                "git",
+                "remote",
+                "add",
+                "origin",
+                origin_git_repo_path.to_str().unwrap(),
+            ],
+        )
+        .success();
+    test_env
+        .run_jj_in(&origin_path, ["b", "c", "-r@", "remote_bookmark"])
+        .success();
+    test_env
+        .run_jj_in(&origin_path, ["commit", "-m", "remote_commit"])
+        .success();
+    test_env
+        .run_jj_in(&origin_path, ["git", "export"])
+        .success();
+    test_env.run_jj_in(&repo_path, ["git", "fetch"]).success();
 
-    test_env.jj_cmd_ok(&repo_path, &["b", "c", "-r@", "immutable_bookmark"]);
-    test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "immutable"]);
+    test_env
+        .run_jj_in(&repo_path, ["b", "c", "-r@", "immutable_bookmark"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "immutable"])
+        .success();
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "immutable_bookmark""#);
     test_env.add_config(r#"revset-aliases."siblings" = "@-+ ~@""#);
     test_env.add_config(
@@ -452,10 +510,16 @@ fn test_revisions() {
     '''"#,
     );
 
-    test_env.jj_cmd_ok(&repo_path, &["b", "c", "-r@", "mutable_bookmark"]);
-    test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "mutable"]);
+    test_env
+        .run_jj_in(&repo_path, ["b", "c", "-r@", "mutable_bookmark"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "mutable"])
+        .success();
 
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "working_copy"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "working_copy"])
+        .success();
 
     let mut test_env = test_env;
     test_env.add_env_var("COMPLETE", "fish");
@@ -518,13 +582,25 @@ fn test_operations() {
     // suppress warnings on stderr of completions for invalid args
     test_env.add_config("ui.default-command = 'log'");
 
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "description 0"]);
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "description 1"]);
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "description 2"]);
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "description 3"]);
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "description 4"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "description 0"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "description 1"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "description 2"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "description 3"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "description 4"])
+        .success();
 
     let mut test_env = test_env;
     test_env.add_env_var("COMPLETE", "fish");
@@ -604,17 +680,23 @@ fn test_operations() {
 #[test]
 fn test_workspaces() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "main"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "main"])
+        .success();
     let main_path = test_env.env_root().join("main");
 
     std::fs::write(main_path.join("file"), "contents").unwrap();
-    test_env.jj_cmd_ok(&main_path, &["describe", "-m", "initial"]);
+    test_env
+        .run_jj_in(&main_path, ["describe", "-m", "initial"])
+        .success();
 
-    test_env.jj_cmd_ok(
-        &main_path,
-        // same prefix as "default" workspace
-        &["workspace", "add", "--name", "def-second", "../secondary"],
-    );
+    test_env
+        .run_jj_in(
+            &main_path,
+            // same prefix as "default" workspace
+            ["workspace", "add", "--name", "def-second", "../secondary"],
+        )
+        .success();
 
     let mut test_env = test_env;
     test_env.add_env_var("COMPLETE", "fish");
@@ -757,7 +839,9 @@ fn create_commit(
 #[test]
 fn test_files() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(
@@ -804,7 +888,9 @@ fn test_files() {
             ("f_dir/dir_file_3", Some("bar\n")),
         ],
     );
-    test_env.jj_cmd_ok(&repo_path, &["rebase", "-r=@", "-d=first"]);
+    test_env
+        .run_jj_in(&repo_path, ["rebase", "-r=@", "-d=first"])
+        .success();
 
     // two commits that are similar but not identical, for `jj interdiff`
     create_commit(

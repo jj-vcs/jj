@@ -20,11 +20,17 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_new() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "add a file"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m", "a new commit"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "add a file"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "-m", "a new commit"])
+        .success();
 
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  34f3c770f1db22ac5c58df21d587aed1a030201f a new commit
@@ -34,7 +40,9 @@ fn test_new() {
     ");
 
     // Start a new change off of a specific commit (the root commit in this case).
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m", "off of root", "root()"]);
+    test_env
+        .run_jj_in(&repo_path, ["new", "-m", "off of root", "root()"])
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  026537ddb96b801b9cb909985d5443aab44616c1 off of root
     │ ○  34f3c770f1db22ac5c58df21d587aed1a030201f a new commit
@@ -45,7 +53,9 @@ fn test_new() {
     ");
 
     // --edit is a no-op
-    test_env.jj_cmd_ok(&repo_path, &["new", "--edit", "-m", "yet another commit"]);
+    test_env
+        .run_jj_in(&repo_path, ["new", "--edit", "-m", "yet another commit"])
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  101cbec5cae8049cb9850a906ef3675631ed48fa yet another commit
     ○  026537ddb96b801b9cb909985d5443aab44616c1 off of root
@@ -73,17 +83,27 @@ fn test_new() {
 #[test]
 fn test_new_merge() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "main"]);
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "add file1"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "main"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "add file1"])
+        .success();
     std::fs::write(repo_path.join("file1"), "a").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new", "root()", "-m", "add file2"]);
+    test_env
+        .run_jj_in(&repo_path, ["new", "root()", "-m", "add file2"])
+        .success();
     std::fs::write(repo_path.join("file2"), "b").unwrap();
 
     // Create a merge commit
-    test_env.jj_cmd_ok(&repo_path, &["new", "main", "@"]);
+    test_env
+        .run_jj_in(&repo_path, ["new", "main", "@"])
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @    2f9a61ea1fef257eca52fcee2feec1cbd2e41660
     ├─╮
@@ -99,7 +119,7 @@ fn test_new_merge() {
     insta::assert_snapshot!(output, @"b[EOF]");
 
     // Same test with `--no-edit`
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     let output = test_env.run_jj_in(&repo_path, ["new", "main", "@", "--no-edit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -117,8 +137,10 @@ fn test_new_merge() {
     ");
 
     // Same test with `jj new`
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "main", "@"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "main", "@"])
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @    114023233c454e2eca22b8b209f9e42f755eb28c
     ├─╮
@@ -159,7 +181,9 @@ fn test_new_merge() {
 #[test]
 fn test_new_insert_after() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     setup_before_insertion(&test_env, &repo_path);
     insta::assert_snapshot!(get_short_log_output(&test_env, &repo_path), @r"
@@ -247,7 +271,9 @@ fn test_new_insert_after() {
 #[test]
 fn test_new_insert_after_children() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     setup_before_insertion(&test_env, &repo_path);
     insta::assert_snapshot!(get_short_log_output(&test_env, &repo_path), @r"
@@ -307,7 +333,9 @@ fn test_new_insert_after_children() {
 #[test]
 fn test_new_insert_before() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     setup_before_insertion(&test_env, &repo_path);
     insta::assert_snapshot!(get_short_log_output(&test_env, &repo_path), @r"
@@ -378,7 +406,9 @@ fn test_new_insert_before() {
 #[test]
 fn test_new_insert_before_root_successors() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     setup_before_insertion(&test_env, &repo_path);
     insta::assert_snapshot!(get_short_log_output(&test_env, &repo_path), @r"
@@ -433,7 +463,9 @@ fn test_new_insert_before_root_successors() {
 #[test]
 fn test_new_insert_before_no_loop() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     setup_before_insertion(&test_env, &repo_path);
     let template = r#"commit_id.short() ++ " " ++ if(description, description, "root")"#;
@@ -475,7 +507,9 @@ fn test_new_insert_before_no_loop() {
 #[test]
 fn test_new_insert_before_no_root_merge() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     setup_before_insertion(&test_env, &repo_path);
     insta::assert_snapshot!(get_short_log_output(&test_env, &repo_path), @r"
@@ -515,7 +549,9 @@ fn test_new_insert_before_no_root_merge() {
 #[test]
 fn test_new_insert_before_root() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     setup_before_insertion(&test_env, &repo_path);
     insta::assert_snapshot!(get_short_log_output(&test_env, &repo_path), @r"
@@ -544,7 +580,9 @@ fn test_new_insert_before_root() {
 #[test]
 fn test_new_insert_after_before() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     setup_before_insertion(&test_env, &repo_path);
     insta::assert_snapshot!(get_short_log_output(&test_env, &repo_path), @r"
@@ -620,7 +658,9 @@ fn test_new_insert_after_before() {
 #[test]
 fn test_new_insert_after_before_no_loop() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     setup_before_insertion(&test_env, &repo_path);
     let template = r#"commit_id.short() ++ " " ++ if(description, description, "root")"#;
@@ -662,26 +702,36 @@ fn test_new_insert_after_before_no_loop() {
 #[test]
 fn test_new_conflicting_bookmarks() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "one"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m", "two", "@-"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "foo"]);
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &[
-            "--at-op=@-",
-            "bookmark",
-            "create",
-            "foo",
-            "-r",
-            r#"description("one")"#,
-        ],
-    );
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "one"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "-m", "two", "@-"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "foo"])
+        .success();
+    test_env
+        .run_jj_in(
+            &repo_path,
+            [
+                "--at-op=@-",
+                "bookmark",
+                "create",
+                "foo",
+                "-r",
+                r#"description("one")"#,
+            ],
+        )
+        .success();
 
     // Trigger resolution of divergent operations
-    test_env.jj_cmd_ok(&repo_path, &["st"]);
+    test_env.run_jj_in(&repo_path, ["st"]).success();
 
     let output = test_env.run_jj_in(&repo_path, ["new", "foo"]);
     insta::assert_snapshot!(output, @r"
@@ -700,14 +750,20 @@ fn test_new_conflicting_bookmarks() {
 #[test]
 fn test_new_conflicting_change_ids() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "one"]);
-    test_env.jj_cmd_ok(&repo_path, &["--at-op=@-", "describe", "-m", "two"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "one"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["--at-op=@-", "describe", "-m", "two"])
+        .success();
 
     // Trigger resolution of divergent operations
-    test_env.jj_cmd_ok(&repo_path, &["st"]);
+    test_env.run_jj_in(&repo_path, ["st"]).success();
 
     let output = test_env.run_jj_in(&repo_path, ["new", "qpvuntsm"]);
     insta::assert_snapshot!(output, @r"
@@ -725,11 +781,17 @@ fn test_new_conflicting_change_ids() {
 #[test]
 fn test_new_error_revision_does_not_exist() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "one"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m", "two"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "one"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "-m", "two"])
+        .success();
 
     let output = test_env.run_jj_in(&repo_path, ["new", "this"]);
     insta::assert_snapshot!(output, @r"
@@ -741,19 +803,43 @@ fn test_new_error_revision_does_not_exist() {
 }
 
 fn setup_before_insertion(test_env: &TestEnvironment, repo_path: &Path) {
-    test_env.jj_cmd_ok(repo_path, &["bookmark", "create", "-r@", "A"]);
-    test_env.jj_cmd_ok(repo_path, &["commit", "-m", "A"]);
-    test_env.jj_cmd_ok(repo_path, &["bookmark", "create", "-r@", "B"]);
-    test_env.jj_cmd_ok(repo_path, &["commit", "-m", "B"]);
-    test_env.jj_cmd_ok(repo_path, &["bookmark", "create", "-r@", "C"]);
-    test_env.jj_cmd_ok(repo_path, &["describe", "-m", "C"]);
-    test_env.jj_cmd_ok(repo_path, &["new", "-m", "D", "root()"]);
-    test_env.jj_cmd_ok(repo_path, &["bookmark", "create", "-r@", "D"]);
-    test_env.jj_cmd_ok(repo_path, &["new", "-m", "E", "root()"]);
-    test_env.jj_cmd_ok(repo_path, &["bookmark", "create", "-r@", "E"]);
+    test_env
+        .run_jj_in(repo_path, ["bookmark", "create", "-r@", "A"])
+        .success();
+    test_env
+        .run_jj_in(repo_path, ["commit", "-m", "A"])
+        .success();
+    test_env
+        .run_jj_in(repo_path, ["bookmark", "create", "-r@", "B"])
+        .success();
+    test_env
+        .run_jj_in(repo_path, ["commit", "-m", "B"])
+        .success();
+    test_env
+        .run_jj_in(repo_path, ["bookmark", "create", "-r@", "C"])
+        .success();
+    test_env
+        .run_jj_in(repo_path, ["describe", "-m", "C"])
+        .success();
+    test_env
+        .run_jj_in(repo_path, ["new", "-m", "D", "root()"])
+        .success();
+    test_env
+        .run_jj_in(repo_path, ["bookmark", "create", "-r@", "D"])
+        .success();
+    test_env
+        .run_jj_in(repo_path, ["new", "-m", "E", "root()"])
+        .success();
+    test_env
+        .run_jj_in(repo_path, ["bookmark", "create", "-r@", "E"])
+        .success();
     // Any number of -r's is ignored
-    test_env.jj_cmd_ok(repo_path, &["new", "-m", "F", "-r", "D", "-r", "E"]);
-    test_env.jj_cmd_ok(repo_path, &["bookmark", "create", "-r@", "F"]);
+    test_env
+        .run_jj_in(repo_path, ["new", "-m", "F", "-r", "D", "-r", "E"])
+        .success();
+    test_env
+        .run_jj_in(repo_path, ["bookmark", "create", "-r@", "F"])
+        .success();
 }
 
 #[must_use]

@@ -19,14 +19,16 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_diffedit() {
     let mut test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "a\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file2"), "a\n").unwrap();
     std::fs::write(repo_path.join("file3"), "a\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::remove_file(repo_path.join("file1")).unwrap();
     std::fs::write(repo_path.join("file2"), "b\n").unwrap();
 
@@ -144,7 +146,7 @@ fn test_diffedit() {
     ");
 
     // Changes to a commit are propagated to descendants
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     std::fs::write(&edit_script, "write file3\nmodified\n").unwrap();
     let output = test_env.run_jj_in(&repo_path, ["diffedit", "-r", "@-"]);
     insta::assert_snapshot!(output, @r"
@@ -162,7 +164,7 @@ fn test_diffedit() {
     "###);
 
     // Test diffedit --from @--
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     std::fs::write(
         &edit_script,
         "files-before file1\0files-after JJ-INSTRUCTIONS file2 file3\0reset file2",
@@ -188,11 +190,13 @@ fn test_diffedit() {
 #[test]
 fn test_diffedit_new_file() {
     let mut test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "a\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::remove_file(repo_path.join("file1")).unwrap();
     std::fs::write(repo_path.join("file2"), "b\n").unwrap();
 
@@ -241,7 +245,7 @@ fn test_diffedit_new_file() {
     // On one hand, it is unexpected and potentially a minor BUG. On the other
     // hand, this prevents `jj` from loading any backup files the merge tool
     // generates.
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     std::fs::write(&edit_script, "write new_file\nnew file\n").unwrap();
     let output = test_env.run_jj_in(&repo_path, ["diffedit"]);
     insta::assert_snapshot!(output, @r"
@@ -260,7 +264,9 @@ fn test_diffedit_new_file() {
 #[test]
 fn test_diffedit_external_tool_conflict_marker_style() {
     let mut test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     let file_path = repo_path.join("file");
 
@@ -276,7 +282,9 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     "},
     )
     .unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "base"]);
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "base"])
+        .success();
     std::fs::write(
         &file_path,
         indoc! {"
@@ -289,8 +297,12 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     "},
     )
     .unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "side-a"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "description(base)", "-m", "side-b"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "side-a"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "description(base)", "-m", "side-b"])
+        .success();
     std::fs::write(
         &file_path,
         indoc! {"
@@ -305,10 +317,12 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     .unwrap();
 
     // Resolve one of the conflicts in the working copy
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &["new", "description(side-a)", "description(side-b)"],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["new", "description(side-a)", "description(side-b)"],
+        )
+        .success();
     std::fs::write(
         &file_path,
         indoc! {"
@@ -445,14 +459,16 @@ fn test_diffedit_external_tool_conflict_marker_style() {
 #[test]
 fn test_diffedit_3pane() {
     let mut test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "a\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file2"), "a\n").unwrap();
     std::fs::write(repo_path.join("file3"), "a\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::remove_file(repo_path.join("file1")).unwrap();
     std::fs::write(repo_path.join("file2"), "b\n").unwrap();
 
@@ -524,7 +540,7 @@ fn test_diffedit_3pane() {
     ");
 
     // Can write something new to `file1`
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     std::fs::write(&edit_script, "write file1\nnew content").unwrap();
     let output = test_env.run_jj_in(
         &repo_path,
@@ -546,7 +562,7 @@ fn test_diffedit_3pane() {
     ");
 
     // But nothing happens if we modify the right side
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     std::fs::write(&edit_script, "write file1\nnew content").unwrap();
     let output = test_env.run_jj_in(
         &repo_path,
@@ -571,24 +587,30 @@ fn test_diffedit_3pane() {
 #[test]
 fn test_diffedit_merge() {
     let mut test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "a\n").unwrap();
     std::fs::write(repo_path.join("file2"), "a\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "b"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "b"])
+        .success();
     std::fs::write(repo_path.join("file1"), "b\n").unwrap();
     std::fs::write(repo_path.join("file2"), "b\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new", "@-"]);
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new", "@-"]).success();
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file1"), "c\n").unwrap();
     std::fs::write(repo_path.join("file2"), "c\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new", "@", "b", "-m", "merge"]);
+    test_env
+        .run_jj_in(&repo_path, ["new", "@", "b", "-m", "merge"])
+        .success();
     // Resolve the conflict in file1, but leave the conflict in file2
     std::fs::write(repo_path.join("file1"), "d\n").unwrap();
     std::fs::write(repo_path.join("file3"), "d\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     // Test the setup
     let output = test_env.run_jj_in(&repo_path, ["diff", "-r", "@-", "-s"]);
     insta::assert_snapshot!(output, @r"
@@ -640,12 +662,14 @@ fn test_diffedit_merge() {
 #[test]
 fn test_diffedit_old_restore_interactive_tests() {
     let mut test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "a\n").unwrap();
     std::fs::write(repo_path.join("file2"), "a\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::remove_file(repo_path.join("file1")).unwrap();
     std::fs::write(repo_path.join("file2"), "b\n").unwrap();
     std::fs::write(repo_path.join("file3"), "b\n").unwrap();
@@ -703,7 +727,7 @@ fn test_diffedit_old_restore_interactive_tests() {
     ");
 
     // Can make unrelated edits
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     std::fs::write(&edit_script, "write file3\nunrelated\n").unwrap();
     let output = test_env.run_jj_in(&repo_path, ["diffedit", "--from", "@-"]);
     insta::assert_snapshot!(output, @r"
@@ -744,13 +768,15 @@ fn test_diffedit_old_restore_interactive_tests() {
 #[test]
 fn test_diffedit_restore_descendants() {
     let mut test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file"), "println!(\"foo\")\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file"), "println!(\"bar\")\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file"), "println!(\"baz\");\n").unwrap();
 
     let edit_script = test_env.set_up_fake_diff_editor();

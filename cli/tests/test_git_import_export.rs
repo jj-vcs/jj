@@ -23,16 +23,24 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_resolution_of_git_tracking_bookmarks() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "main"]);
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-r", "main", "-m", "old_message"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "main"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-r", "main", "-m", "old_message"])
+        .success();
 
     // Create local-git tracking bookmark
     let output = test_env.run_jj_in(&repo_path, ["git", "export"]);
     insta::assert_snapshot!(output, @"");
     // Move the local bookmark somewhere else
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-r", "main", "-m", "new_message"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-r", "main", "-m", "new_message"])
+        .success();
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
     main: qpvuntsm b61d21b6 (empty) new_message
       @git (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden 03757d22 (empty) old_message
@@ -62,11 +70,17 @@ fn test_resolution_of_git_tracking_bookmarks() {
 #[test]
 fn test_git_export_conflicting_git_refs() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "main"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "main/sub"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "main"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "main/sub"])
+        .success();
     let (stdout, stderr) = test_env.jj_cmd_ok(&repo_path, &["git", "export"]);
     insta::assert_snapshot!(stdout, @"");
     insta::with_settings!({filters => vec![("Failed to set: .*", "Failed to set: ...")]}, {
@@ -84,11 +98,15 @@ fn test_git_export_conflicting_git_refs() {
 #[test]
 fn test_git_export_undo() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     let git_repo = git::open(repo_path.join(".jj/repo/store/git"));
 
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "a"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "a"])
+        .success();
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
     a: qpvuntsm 230dd059 (empty) (no description set)
     [EOF]
@@ -142,7 +160,9 @@ fn test_git_export_undo() {
 #[test]
 fn test_git_import_undo() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     let git_repo = git::open(repo_path.join(".jj/repo/store/git"));
 
@@ -203,7 +223,9 @@ fn test_git_import_undo() {
 #[test]
 fn test_git_import_move_export_with_default_undo() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     let git_repo = git::open(repo_path.join(".jj/repo/store/git"));
 
@@ -241,8 +263,10 @@ fn test_git_import_move_export_with_default_undo() {
     ");
 
     // Move bookmark "a" and export to git repo
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "set", "a", "--to=@"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "set", "a", "--to=@"])
+        .success();
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
     a: yqosqzyt 096dc80d (empty) (no description set)
       @git (behind by 1 commits): qpvuntsm 230dd059 (empty) (no description set)

@@ -38,7 +38,9 @@ fn create_commit(test_env: &TestEnvironment, repo_path: &Path, name: &str, paren
 #[test]
 fn test_rebase_invalid() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
@@ -144,7 +146,9 @@ fn test_rebase_invalid() {
 #[test]
 fn test_rebase_empty_sets() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
@@ -183,7 +187,9 @@ fn test_rebase_empty_sets() {
 #[test]
 fn test_rebase_bookmark() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
@@ -222,7 +228,7 @@ fn test_rebase_bookmark() {
     ");
 
     // Test rebasing multiple bookmarks at once
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     let output = test_env.run_jj_in(&repo_path, ["rebase", "-b=e", "-b=d", "-d=b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -246,7 +252,7 @@ fn test_rebase_bookmark() {
     ");
 
     // Same test but with more than one revision per argument
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     let output = test_env.run_jj_in(&repo_path, ["rebase", "-b=e|d", "-d=b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -284,7 +290,9 @@ fn test_rebase_bookmark() {
 #[test]
 fn test_rebase_bookmark_with_merge() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
@@ -328,7 +336,7 @@ fn test_rebase_bookmark_with_merge() {
     [EOF]
     ");
 
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     let output = test_env.run_jj_in(&repo_path, ["rebase", "-d", "b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -355,7 +363,9 @@ fn test_rebase_bookmark_with_merge() {
 #[test]
 fn test_rebase_single_revision() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
@@ -400,7 +410,7 @@ fn test_rebase_single_revision() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
 
     // Now, let's try moving the merge commit. After, both parents of "d" ("b" and
     // "c") should become parents of "e".
@@ -432,7 +442,9 @@ fn test_rebase_single_revision() {
 #[test]
 fn test_rebase_single_revision_merge_parent() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
@@ -480,7 +492,9 @@ fn test_rebase_single_revision_merge_parent() {
 #[test]
 fn test_rebase_multiple_revisions() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
@@ -539,7 +553,7 @@ fn test_rebase_multiple_revisions() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
 
     // Test with two related non-merge commits. Since "b" is a parent of "c", when
     // rebasing commits "b" and "c", their ancestry relationship should be
@@ -571,7 +585,7 @@ fn test_rebase_multiple_revisions() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
 
     // Test with a subgraph containing a merge commit. Since the merge commit "f"
     // was extracted, its descendants which are not part of the subgraph will
@@ -607,7 +621,7 @@ fn test_rebase_multiple_revisions() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
 
     // Test with commits in a disconnected subgraph. The subgraph has the
     // relationship d->e->f->g->h, but only "d", "f" and "h" are in the set of
@@ -646,7 +660,7 @@ fn test_rebase_multiple_revisions() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
 
     // Test rebasing a subgraph onto its descendants.
     let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "d::e", "-d", "i"]);
@@ -680,7 +694,9 @@ fn test_rebase_multiple_revisions() {
 #[test]
 fn test_rebase_revision_onto_descendant() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "base", &[]);
@@ -764,7 +780,9 @@ fn test_rebase_revision_onto_descendant() {
 #[test]
 fn test_rebase_multiple_destinations() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
@@ -827,16 +845,18 @@ fn test_rebase_multiple_destinations() {
     ");
 
     // undo and do it again, but with 'ui.always-allow-large-revsets'
-    let (_, _) = test_env.jj_cmd_ok(&repo_path, &["undo"]);
-    let (_, _) = test_env.jj_cmd_ok(
-        &repo_path,
-        &[
-            "rebase",
-            "--config=ui.always-allow-large-revsets=true",
-            "-r=a",
-            "-d=b|c",
-        ],
-    );
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
+    test_env
+        .run_jj_in(
+            &repo_path,
+            [
+                "rebase",
+                "--config=ui.always-allow-large-revsets=true",
+                "-r=a",
+                "-d=b|c",
+            ],
+        )
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     ○    a: c b
     ├─╮
@@ -879,7 +899,9 @@ fn test_rebase_multiple_destinations() {
 #[test]
 fn test_rebase_with_descendants() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
@@ -918,7 +940,7 @@ fn test_rebase_with_descendants() {
     ");
 
     // Rebase several subtrees at once.
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     let output = test_env.run_jj_in(&repo_path, ["rebase", "-s=c", "-s=d", "-d=a"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -939,7 +961,7 @@ fn test_rebase_with_descendants() {
     [EOF]
     ");
 
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     // Reminder of the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  d: c
@@ -975,7 +997,7 @@ fn test_rebase_with_descendants() {
     ");
 
     // Same test as above, but with multiple commits per argument
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     let output = test_env.run_jj_in(&repo_path, ["rebase", "-s=b|d", "-d=a"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1011,12 +1033,20 @@ fn test_rebase_with_descendants() {
 #[test]
 fn test_rebase_error_revision_does_not_exist() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "one"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "b-one"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "-r", "@-", "-m", "two"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "one"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "b-one"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "-r", "@-", "-m", "two"])
+        .success();
 
     let output = test_env.run_jj_in(&repo_path, ["rebase", "-b", "b-one", "-d", "this"]);
     insta::assert_snapshot!(output, @r"
@@ -1039,7 +1069,9 @@ fn test_rebase_error_revision_does_not_exist() {
 #[test]
 fn test_rebase_with_child_and_descendant_bug_2600() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "notroot", &[]);
@@ -1083,7 +1115,9 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     [EOF]
     ");
 
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
     // This should be a no-op
     let output = test_env.run_jj_in(&repo_path, ["rebase", "-s", "a", "-d", "base"]);
     insta::assert_snapshot!(output, @r"
@@ -1104,7 +1138,9 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     [EOF]
     ");
 
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
     let output = test_env.run_jj_in(&repo_path, ["rebase", "-s", "a", "-d", "root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1129,7 +1165,9 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
 
     // ===================== rebase -b tests =================
     // ====== Reminder of the setup =========
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  c: b
     ○    b: base a
@@ -1163,7 +1201,9 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     [EOF]
     ");
 
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
     let output = test_env.run_jj_in(&repo_path, ["rebase", "-b", "c", "-d", "a"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1184,7 +1224,9 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     [EOF]
     ");
 
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
     // This should be a no-op
     let output = test_env.run_jj_in(&repo_path, ["rebase", "-b", "a", "-d", "root()"]);
     insta::assert_snapshot!(output, @r"
@@ -1207,7 +1249,9 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
 
     // ===================== rebase -r tests =================
     // ====== Reminder of the setup =========
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  c: b
     ○    b: base a
@@ -1246,7 +1290,9 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
 
     // This tests the algorithm for rebasing onto descendants. The result should
     // have unsimplified ancestry.
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
     let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "base", "-d", "b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1272,7 +1318,9 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
 
     // This tests the algorithm for rebasing onto descendants. The result should
     // have unsimplified ancestry.
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
     let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "base", "-d", "a"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1296,7 +1344,9 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     [EOF]
     ");
 
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
     // ====== Reminder of the setup =========
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  c: b
@@ -1333,7 +1383,9 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     [EOF]
     ");
 
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
     let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "b", "-d", "root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1361,7 +1413,9 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
 
     // This tests the algorithm for rebasing onto descendants. The result should
     // have unsimplified ancestry.
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
     let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "b", "-d", "c"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1387,7 +1441,9 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
 
     // In this test, the commit with weird ancestry is not rebased (neither directly
     // nor indirectly).
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
     let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "c", "-d", "a"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1413,7 +1469,9 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
 #[test]
 fn test_rebase_after() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
@@ -1524,7 +1582,9 @@ fn test_rebase_after() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Rebase a commit after a leaf commit.
     let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "e", "--after", "f"]);
@@ -1553,7 +1613,9 @@ fn test_rebase_after() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Rebase a commit after a commit in a bookmark of a merge commit.
     let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "f", "--after", "b1"]);
@@ -1582,7 +1644,9 @@ fn test_rebase_after() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Rebase a commit after the last commit in a bookmark of a merge commit.
     let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "f", "--after", "b2"]);
@@ -1611,7 +1675,9 @@ fn test_rebase_after() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Rebase a commit after a commit with multiple children.
     // "c" has two children "d" and "e", so the rebased commit "f" will inherit the
@@ -1642,7 +1708,9 @@ fn test_rebase_after() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Rebase a commit after multiple commits.
     let output = test_env.run_jj_in(
@@ -1675,7 +1743,9 @@ fn test_rebase_after() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Rebase two unrelated commits.
     let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "d", "-r", "e", "--after", "a"]);
@@ -1705,7 +1775,9 @@ fn test_rebase_after() {
       ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Rebase a subgraph with merge commit and two parents, which should preserve
     // the merge.
@@ -1740,7 +1812,9 @@ fn test_rebase_after() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Rebase a subgraph with four commits after one of the commits itself.
     let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "b1::d", "--after", "c"]);
@@ -1769,7 +1843,9 @@ fn test_rebase_after() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Rebase a subgraph before the parents of one of the commits in the subgraph.
     // "c" had parents "b2" and "b4", but no longer has "b4" as a parent since
@@ -1799,7 +1875,9 @@ fn test_rebase_after() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Rebase a subgraph with disconnected commits. Since "b2" is an ancestor of
     // "e", "b2" should be a parent of "e" after the rebase.
@@ -1832,7 +1910,9 @@ fn test_rebase_after() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // `rebase -s` of commit "c" and its descendants after itself should be a no-op.
     let output = test_env.run_jj_in(&repo_path, ["rebase", "-s", "c", "--after", "c"]);
@@ -1858,7 +1938,9 @@ fn test_rebase_after() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // `rebase -s` of a commit and its descendants after multiple commits.
     let output = test_env.run_jj_in(
@@ -1892,7 +1974,9 @@ fn test_rebase_after() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // `rebase -b` of commit "b3" after "b1" moves its descendants which are not
     // already descendants of "b1" (just "b3" and "b4") in between "b1" and its
@@ -1922,7 +2006,9 @@ fn test_rebase_after() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Should error if a loop will be created.
     let output = test_env.run_jj_in(
@@ -1940,7 +2026,9 @@ fn test_rebase_after() {
 #[test]
 fn test_rebase_before() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
@@ -2060,7 +2148,9 @@ fn test_rebase_before() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Rebase a commit before its parent.
     let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "f", "--before", "e"]);
@@ -2089,7 +2179,9 @@ fn test_rebase_before() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Rebase a commit before a commit in a bookmark of a merge commit.
     let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "f", "--before", "b2"]);
@@ -2118,7 +2210,9 @@ fn test_rebase_before() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Rebase a commit before the first commit in a bookmark of a merge commit.
     let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "f", "--before", "b1"]);
@@ -2147,7 +2241,9 @@ fn test_rebase_before() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Rebase a commit before a merge commit. "c" has two parents "b2" and "b4", so
     // the rebased commit "f" will have the two commits "b2" and "b4" as its
@@ -2179,7 +2275,9 @@ fn test_rebase_before() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Rebase a commit before multiple commits.
     let output = test_env.run_jj_in(
@@ -2210,7 +2308,9 @@ fn test_rebase_before() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Rebase a commit before two commits in separate bookmarks to create a merge
     // commit.
@@ -2246,7 +2346,9 @@ fn test_rebase_before() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Rebase two unrelated commits "b2" and "b4" before a single commit "a". This
     // creates a merge commit "a" with the two parents "b2" and "b4".
@@ -2280,7 +2382,9 @@ fn test_rebase_before() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Rebase a subgraph with a merge commit and two parents.
     let output = test_env.run_jj_in(
@@ -2313,7 +2417,9 @@ fn test_rebase_before() {
       ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Rebase a subgraph with disconnected commits. Since "b1" is an ancestor of
     // "e", "b1" should be a parent of "e" after the rebase.
@@ -2345,7 +2451,9 @@ fn test_rebase_before() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Rebase a subgraph before the parents of one of the commits in the subgraph.
     // "c" had parents "b2" and "b4", but no longer has "b4" as a parent since
@@ -2375,7 +2483,9 @@ fn test_rebase_before() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Rebase a subgraph before the parents of one of the commits in the subgraph.
     // "c" had parents "b2" and "b4", but no longer has "b4" as a parent since
@@ -2405,7 +2515,9 @@ fn test_rebase_before() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // `rebase -s` of commit "c" and its descendants before itself should be a
     // no-op.
@@ -2432,7 +2544,9 @@ fn test_rebase_before() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // `rebase -s` of a commit and its descendants before multiple commits.
     let output = test_env.run_jj_in(
@@ -2466,7 +2580,9 @@ fn test_rebase_before() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // `rebase -b` of commit "b3" before "b2" moves its descendants which are not
     // already descendants of its parent "b1" (just "b3" and "b4") in between "b1"
@@ -2497,7 +2613,9 @@ fn test_rebase_before() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Should error if a loop will be created.
     let output = test_env.run_jj_in(
@@ -2515,7 +2633,9 @@ fn test_rebase_before() {
 #[test]
 fn test_rebase_after_before() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "x", &[]);
@@ -2581,7 +2701,9 @@ fn test_rebase_after_before() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Rebase a commit after another commit and before that commit's descendant to
     // create a new merge commit.
@@ -2618,7 +2740,9 @@ fn test_rebase_after_before() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // "c" has parents "b1" and "b2", so when it is rebased, its children "d" and
     // "e" should have "b1" and "b2" as parents as well. "c" is then inserted in
@@ -2655,7 +2779,9 @@ fn test_rebase_after_before() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Rebase multiple commits and preserve their ancestry. Apart from the heads of
     // the target commits ("d" and "e"), "f" also has commits "b1" and "b2" as
@@ -2698,7 +2824,9 @@ fn test_rebase_after_before() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // `rebase -s` of a commit and its descendants.
     let output = test_env.run_jj_in(
@@ -2732,7 +2860,9 @@ fn test_rebase_after_before() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // `rebase -b` of a commit "y" to a destination after "a" will rebase all
     // commits in "roots(a..y)" and their descendants, corresponding to "x", "y"
@@ -2768,7 +2898,9 @@ fn test_rebase_after_before() {
     ◆
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Should error if a loop will be created.
     let output = test_env.run_jj_in(
@@ -2786,15 +2918,25 @@ fn test_rebase_after_before() {
 #[test]
 fn test_rebase_skip_emptied() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
     create_commit(&test_env, &repo_path, "b", &["a"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "a", "-m", "will become empty"]);
-    test_env.jj_cmd_ok(&repo_path, &["restore", "--from=b"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m", "already empty"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m", "also already empty"]);
+    test_env
+        .run_jj_in(&repo_path, ["new", "a", "-m", "will become empty"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["restore", "--from=b"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "-m", "already empty"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "-m", "also already empty"])
+        .success();
     let setup_opid = test_env.current_operation_id(&repo_path);
 
     // Test the setup
@@ -2830,7 +2972,9 @@ fn test_rebase_skip_emptied() {
     [EOF]
     ");
 
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
     // Test the setup
     insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["log", "-T", "description"]), @r"
     @  also already empty
@@ -2878,16 +3022,28 @@ fn test_rebase_skip_emptied() {
 #[test]
 fn test_rebase_skip_emptied_descendants() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
     create_commit(&test_env, &repo_path, "b", &["a"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "a", "-m", "c (will become empty)"]);
-    test_env.jj_cmd_ok(&repo_path, &["restore", "--from=b"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "c"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m", "already empty"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m", "also already empty"]);
+    test_env
+        .run_jj_in(&repo_path, ["new", "a", "-m", "c (will become empty)"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["restore", "--from=b"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "c"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "-m", "already empty"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "-m", "also already empty"])
+        .success();
 
     // Test the setup
     insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["log", "-T", "description"]), @r"
@@ -2930,7 +3086,9 @@ fn test_rebase_skip_emptied_descendants() {
 #[test]
 fn test_rebase_skip_if_on_destination() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);

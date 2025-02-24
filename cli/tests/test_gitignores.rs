@@ -23,7 +23,9 @@ fn test_gitignores() {
     let test_env = TestEnvironment::default();
     let workspace_root = test_env.env_root().join("repo");
     git::init(&workspace_root);
-    test_env.jj_cmd_ok(&workspace_root, &["git", "init", "--git-repo", "."]);
+    test_env
+        .run_jj_in(&workspace_root, ["git", "init", "--git-repo", "."])
+        .success();
 
     // Say in core.excludesFiles that we don't want file1, file2, or file3
     let mut file = std::fs::OpenOptions::new()
@@ -71,7 +73,9 @@ fn test_gitignores() {
 fn test_gitignores_relative_excludes_file_path() {
     let test_env = TestEnvironment::default();
     let workspace_root = test_env.env_root().join("repo");
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "--colocate", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "--colocate", "repo"])
+        .success();
 
     let mut file = std::fs::OpenOptions::new()
         .append(true)
@@ -105,11 +109,15 @@ fn test_gitignores_ignored_file_in_target_commit() {
     let test_env = TestEnvironment::default();
     let workspace_root = test_env.env_root().join("repo");
     git::init(&workspace_root);
-    test_env.jj_cmd_ok(&workspace_root, &["git", "init", "--git-repo", "."]);
+    test_env
+        .run_jj_in(&workspace_root, ["git", "init", "--git-repo", "."])
+        .success();
 
     // Create a commit with file "ignored" in it
     std::fs::write(workspace_root.join("ignored"), "committed contents\n").unwrap();
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "-r@", "with-file"]);
+    test_env
+        .run_jj_in(&workspace_root, ["bookmark", "create", "-r@", "with-file"])
+        .success();
     let target_commit_id = test_env
         .run_jj_in(
             &workspace_root,
@@ -120,7 +128,9 @@ fn test_gitignores_ignored_file_in_target_commit() {
         .into_raw();
 
     // Create another commit where we ignore that path
-    test_env.jj_cmd_ok(&workspace_root, &["new", "root()"]);
+    test_env
+        .run_jj_in(&workspace_root, ["new", "root()"])
+        .success();
     std::fs::write(workspace_root.join("ignored"), "contents in working copy\n").unwrap();
     std::fs::write(workspace_root.join(".gitignore"), ".gitignore\nignored\n").unwrap();
 

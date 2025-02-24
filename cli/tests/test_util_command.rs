@@ -42,10 +42,12 @@ fn test_util_config_schema() {
 fn test_gc_args() {
     let test_env = TestEnvironment::default();
     // Use the local backend because GitBackend::gc() depends on the git CLI.
-    test_env.jj_cmd_ok(
-        test_env.env_root(),
-        &["init", "repo", "--config=ui.allow-init-native=true"],
-    );
+    test_env
+        .run_jj_in(
+            test_env.env_root(),
+            ["init", "repo", "--config=ui.allow-init-native=true"],
+        )
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     let output = test_env.run_jj_in(&repo_path, ["util", "gc"]);
@@ -72,27 +74,39 @@ fn test_gc_args() {
 fn test_gc_operation_log() {
     let test_env = TestEnvironment::default();
     // Use the local backend because GitBackend::gc() depends on the git CLI.
-    test_env.jj_cmd_ok(
-        test_env.env_root(),
-        &["init", "repo", "--config=ui.allow-init-native=true"],
-    );
+    test_env
+        .run_jj_in(
+            test_env.env_root(),
+            ["init", "repo", "--config=ui.allow-init-native=true"],
+        )
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     // Create an operation.
     std::fs::write(repo_path.join("file"), "a change\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "a change"]);
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "a change"])
+        .success();
     let op_to_remove = test_env.current_operation_id(&repo_path);
 
     // Make another operation the head.
     std::fs::write(repo_path.join("file"), "another change\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "another change"]);
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "another change"])
+        .success();
 
     // This works before the operation is removed.
-    test_env.jj_cmd_ok(&repo_path, &["debug", "operation", &op_to_remove]);
+    test_env
+        .run_jj_in(&repo_path, ["debug", "operation", &op_to_remove])
+        .success();
 
     // Remove some operations.
-    test_env.jj_cmd_ok(&repo_path, &["operation", "abandon", "..@-"]);
-    test_env.jj_cmd_ok(&repo_path, &["util", "gc", "--expire=now"]);
+    test_env
+        .run_jj_in(&repo_path, ["operation", "abandon", "..@-"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["util", "gc", "--expire=now"])
+        .success();
 
     // Now this doesn't work.
     let output = test_env.run_jj_in(&repo_path, ["debug", "operation", &op_to_remove]);

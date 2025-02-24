@@ -17,11 +17,13 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_show() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "a\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file1"), "b\n").unwrap();
     std::fs::create_dir(repo_path.join("dir")).unwrap();
     std::fs::write(repo_path.join("dir").join("file2"), "c\n").unwrap();
@@ -87,9 +89,11 @@ fn test_show() {
     ");
 
     // Can print a conflict
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file1"), "c\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["rebase", "-r", "@", "-d", "@--"]);
+    test_env
+        .run_jj_in(&repo_path, ["rebase", "-r", "@", "-d", "@--"])
+        .success();
     let output = test_env.run_jj_in(&repo_path, ["file", "show", "file1"]);
     insta::assert_snapshot!(output, @r"
     <<<<<<< Conflict 1 of 1
@@ -107,7 +111,9 @@ fn test_show() {
 #[test]
 fn test_show_symlink() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "a\n").unwrap();

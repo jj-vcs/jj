@@ -27,7 +27,9 @@ use crate::common::TestEnvironment;
 /// flags.
 fn init_with_fake_formatter(args: &[&str]) -> (TestEnvironment, PathBuf) {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     assert!(formatter_path.is_file());
@@ -49,7 +51,9 @@ fn init_with_fake_formatter(args: &[&str]) -> (TestEnvironment, PathBuf) {
 #[test]
 fn test_config_no_tools() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file"), "content\n").unwrap();
@@ -72,7 +76,9 @@ fn test_config_no_tools() {
 #[test]
 fn test_config_multiple_tools() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     assert!(formatter_path.is_file());
@@ -93,7 +99,7 @@ fn test_config_multiple_tools() {
     std::fs::write(repo_path.join("bar"), "Bar\n").unwrap();
     std::fs::write(repo_path.join("baz"), "Baz\n").unwrap();
 
-    let (_stdout, _stderr) = test_env.jj_cmd_ok(&repo_path, &["fix"]);
+    test_env.run_jj_in(&repo_path, ["fix"]).success();
 
     let output = test_env.run_jj_in(&repo_path, ["file", "show", "foo", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
@@ -115,7 +121,9 @@ fn test_config_multiple_tools() {
 #[test]
 fn test_config_multiple_tools_with_same_name() {
     let mut test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     assert!(formatter_path.is_file());
@@ -171,7 +179,9 @@ fn test_config_multiple_tools_with_same_name() {
 #[test]
 fn test_config_disabled_tools() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     assert!(formatter_path.is_file());
@@ -199,7 +209,7 @@ fn test_config_disabled_tools() {
     std::fs::write(repo_path.join("bar"), "Bar\n").unwrap();
     std::fs::write(repo_path.join("baz"), "Baz\n").unwrap();
 
-    let (_stdout, _stderr) = test_env.jj_cmd_ok(&repo_path, &["fix"]);
+    test_env.run_jj_in(&repo_path, ["fix"]).success();
 
     let output = test_env.run_jj_in(&repo_path, ["file", "show", "foo", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
@@ -221,7 +231,9 @@ fn test_config_disabled_tools() {
 #[test]
 fn test_config_disabled_tools_warning_when_all_tools_are_disabled() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     assert!(formatter_path.is_file());
@@ -250,7 +262,9 @@ fn test_config_disabled_tools_warning_when_all_tools_are_disabled() {
 #[test]
 fn test_config_tables_overlapping_patterns() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     assert!(formatter_path.is_file());
@@ -272,7 +286,7 @@ fn test_config_tables_overlapping_patterns() {
     std::fs::write(repo_path.join("bar"), "bar\n").unwrap();
     std::fs::write(repo_path.join("baz"), "baz\n").unwrap();
 
-    let (_stdout, _stderr) = test_env.jj_cmd_ok(&repo_path, &["fix"]);
+    test_env.run_jj_in(&repo_path, ["fix"]).success();
 
     let output = test_env.run_jj_in(&repo_path, ["file", "show", "foo", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
@@ -295,7 +309,9 @@ fn test_config_tables_overlapping_patterns() {
 #[test]
 fn test_config_tables_all_commands_missing() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     test_env.add_config(
         r###"
@@ -331,7 +347,9 @@ fn test_config_tables_all_commands_missing() {
 #[test]
 fn test_config_tables_some_commands_missing() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     assert!(formatter_path.is_file());
@@ -371,7 +389,9 @@ fn test_config_tables_some_commands_missing() {
 #[test]
 fn test_config_tables_empty_patterns_list() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     assert!(formatter_path.is_file());
@@ -404,7 +424,9 @@ fn test_config_tables_empty_patterns_list() {
 #[test]
 fn test_config_filesets() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     assert!(formatter_path.is_file());
@@ -429,7 +451,7 @@ fn test_config_filesets() {
     std::fs::write(repo_path.join("b1"), "b1\n").unwrap();
     std::fs::write(repo_path.join("b2"), "b2\n").unwrap();
 
-    let (_stdout, _stderr) = test_env.jj_cmd_ok(&repo_path, &["fix"]);
+    test_env.run_jj_in(&repo_path, ["fix"]).success();
 
     let output = test_env.run_jj_in(&repo_path, ["file", "show", "a1", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
@@ -451,7 +473,9 @@ fn test_config_filesets() {
 #[test]
 fn test_relative_paths() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     assert!(formatter_path.is_file());
@@ -472,7 +496,9 @@ fn test_relative_paths() {
     // Positional arguments are cwd-relative, but the configured patterns are
     // repo-relative, so this command fixes the empty intersection of those
     // filesets.
-    let (_stdout, _stderr) = test_env.jj_cmd_ok(&repo_path.join("dir"), &["fix", "foo3"]);
+    test_env
+        .run_jj_in(&repo_path.join("dir"), ["fix", "foo3"])
+        .success();
     let output = test_env.run_jj_in(&repo_path, ["file", "show", "foo1", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     unfixed
@@ -490,7 +516,9 @@ fn test_relative_paths() {
     ");
 
     // Positional arguments can specify a subset of the configured fileset.
-    let (_stdout, _stderr) = test_env.jj_cmd_ok(&repo_path.join("dir"), &["fix", "../foo1"]);
+    test_env
+        .run_jj_in(&repo_path.join("dir"), ["fix", "../foo1"])
+        .success();
     let output = test_env.run_jj_in(&repo_path, ["file", "show", "foo1", "-r", "@"]);
     insta::assert_snapshot!(output, @"Fixed![EOF]");
     let output = test_env.run_jj_in(&repo_path, ["file", "show", "foo2", "-r", "@"]);
@@ -506,7 +534,9 @@ fn test_relative_paths() {
 
     // The current directory does not change the interpretation of the config, so
     // foo2 is fixed but not dir/foo3.
-    let (_stdout, _stderr) = test_env.jj_cmd_ok(&repo_path.join("dir"), &["fix"]);
+    test_env
+        .run_jj_in(&repo_path.join("dir"), ["fix"])
+        .success();
     let output = test_env.run_jj_in(&repo_path, ["file", "show", "foo1", "-r", "@"]);
     insta::assert_snapshot!(output, @"Fixed![EOF]");
     let output = test_env.run_jj_in(&repo_path, ["file", "show", "foo2", "-r", "@"]);
@@ -534,7 +564,7 @@ fn test_fix_empty_commit() {
 fn test_fix_leaf_commit() {
     let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
     std::fs::write(repo_path.join("file"), "unaffected").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file"), "affected").unwrap();
 
     let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "@"]);
@@ -560,13 +590,21 @@ fn test_fix_parent_commit() {
     let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
     // Using one file name for all commits adds coverage of some possible bugs.
     std::fs::write(repo_path.join("file"), "parent").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "parent"]);
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "parent"])
+        .success();
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file"), "child1").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "child1"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "-r", "parent"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "child1"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "-r", "parent"])
+        .success();
     std::fs::write(repo_path.join("file"), "child2").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "child2"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "child2"])
+        .success();
 
     let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "parent"]);
     insta::assert_snapshot!(output, @r"
@@ -598,13 +636,21 @@ fn test_fix_parent_commit() {
 fn test_fix_sibling_commit() {
     let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
     std::fs::write(repo_path.join("file"), "parent").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "parent"]);
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "parent"])
+        .success();
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file"), "child1").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "child1"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "-r", "parent"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "child1"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "-r", "parent"])
+        .success();
     std::fs::write(repo_path.join("file"), "child2").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "child2"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "child2"])
+        .success();
 
     let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "child1"]);
     insta::assert_snapshot!(output, @r"
@@ -627,23 +673,35 @@ fn test_fix_sibling_commit() {
 fn test_default_revset() {
     let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
     std::fs::write(repo_path.join("file"), "trunk1").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "trunk1"]);
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "trunk1"])
+        .success();
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file"), "trunk2").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "trunk2"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "trunk1"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "trunk2"])
+        .success();
+    test_env.run_jj_in(&repo_path, ["new", "trunk1"]).success();
     std::fs::write(repo_path.join("file"), "foo").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "foo"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "trunk1"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "foo"])
+        .success();
+    test_env.run_jj_in(&repo_path, ["new", "trunk1"]).success();
     std::fs::write(repo_path.join("file"), "bar1").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "bar1"]);
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "bar1"])
+        .success();
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file"), "bar2").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "bar2"]);
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "bar2"])
+        .success();
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file"), "bar3").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "bar3"]);
-    test_env.jj_cmd_ok(&repo_path, &["edit", "bar2"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "bar3"])
+        .success();
+    test_env.run_jj_in(&repo_path, ["edit", "bar2"]).success();
 
     // With no args and no revset configuration, we fix `reachable(@, mutable())`,
     // which includes bar{1,2,3} and excludes trunk{1,2} (which is immutable) and
@@ -686,14 +744,20 @@ fn test_custom_default_revset() {
     let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
 
     std::fs::write(repo_path.join("file"), "foo").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "foo"]);
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "foo"])
+        .success();
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file"), "bar").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "bar"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "bar"])
+        .success();
 
     // Check out a different commit so that the schema default `reachable(@,
     // mutable())` would behave differently from our customized default.
-    test_env.jj_cmd_ok(&repo_path, &["new", "-r", "foo"]);
+    test_env
+        .run_jj_in(&repo_path, ["new", "-r", "foo"])
+        .success();
     test_env.add_config(r#"revsets.fix = "bar""#);
 
     let output = test_env.run_jj_in(&repo_path, ["fix"]);
@@ -715,10 +779,14 @@ fn test_custom_default_revset() {
 fn test_fix_immutable_commit() {
     let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
     std::fs::write(repo_path.join("file"), "immutable").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "immutable"]);
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "immutable"])
+        .success();
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file"), "mutable").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "mutable"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "mutable"])
+        .success();
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "immutable""#);
 
     let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "immutable"]);
@@ -825,16 +893,24 @@ fn test_deduplication() {
     // There are at least two interesting cases: the content is repeated immediately
     // in the child commit, or later in another descendant.
     std::fs::write(repo_path.join("file"), "foo\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "a"]);
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "a"])
+        .success();
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file"), "bar\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "b"]);
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "b"])
+        .success();
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file"), "bar\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "c"]);
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "c"])
+        .success();
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file"), "foo\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "d"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "d"])
+        .success();
 
     let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "a"]);
     insta::assert_snapshot!(output, @r"
@@ -977,7 +1053,9 @@ fn test_stderr_failure() {
 #[test]
 fn test_missing_command() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     test_env.add_config(indoc! {"
         [fix.tools.bad-tool]
@@ -1054,12 +1132,16 @@ fn test_fix_trivial_merge_commit() {
     let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
     std::fs::write(repo_path.join("file_a"), "content a").unwrap();
     std::fs::write(repo_path.join("file_c"), "content c").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "a"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "@-"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "a"])
+        .success();
+    test_env.run_jj_in(&repo_path, ["new", "@-"]).success();
     std::fs::write(repo_path.join("file_b"), "content b").unwrap();
     std::fs::write(repo_path.join("file_c"), "content c").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "b"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "a", "b"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "b"])
+        .success();
+    test_env.run_jj_in(&repo_path, ["new", "a", "b"]).success();
 
     let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "@"]);
     insta::assert_snapshot!(output, @r"
@@ -1083,12 +1165,16 @@ fn test_fix_adding_merge_commit() {
     let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
     std::fs::write(repo_path.join("file_a"), "content a").unwrap();
     std::fs::write(repo_path.join("file_c"), "content c").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "a"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "@-"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "a"])
+        .success();
+    test_env.run_jj_in(&repo_path, ["new", "@-"]).success();
     std::fs::write(repo_path.join("file_b"), "content b").unwrap();
     std::fs::write(repo_path.join("file_c"), "content c").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "b"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "a", "b"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "b"])
+        .success();
+    test_env.run_jj_in(&repo_path, ["new", "a", "b"]).success();
     std::fs::write(repo_path.join("file_a"), "change a").unwrap();
     std::fs::write(repo_path.join("file_b"), "change b").unwrap();
     std::fs::write(repo_path.join("file_c"), "change c").unwrap();
@@ -1130,11 +1216,15 @@ fn test_fix_adding_merge_commit() {
 fn test_fix_both_sides_of_conflict() {
     let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
     std::fs::write(repo_path.join("file"), "content a\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "a"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "@-"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "a"])
+        .success();
+    test_env.run_jj_in(&repo_path, ["new", "@-"]).success();
     std::fs::write(repo_path.join("file"), "content b\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "b"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "a", "b"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "b"])
+        .success();
+    test_env.run_jj_in(&repo_path, ["new", "a", "b"]).success();
 
     // The conflicts are not different from the merged parent, so they would not be
     // fixed if we didn't fix the parents also.
@@ -1178,11 +1268,15 @@ fn test_fix_resolve_conflict() {
     // will be resolved.
     let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
     std::fs::write(repo_path.join("file"), "Content\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "a"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "@-"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "a"])
+        .success();
+    test_env.run_jj_in(&repo_path, ["new", "@-"]).success();
     std::fs::write(repo_path.join("file"), "cOnTeNt\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "b"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "a", "b"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "b"])
+        .success();
+    test_env.run_jj_in(&repo_path, ["new", "a", "b"]).success();
 
     // The conflicts are not different from the merged parent, so they would not be
     // fixed if we didn't fix the parents also.
@@ -1206,7 +1300,9 @@ fn test_fix_resolve_conflict() {
 #[test]
 fn test_all_files() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     assert!(formatter_path.is_file());
@@ -1234,11 +1330,15 @@ fn test_all_files() {
     std::fs::write(repo_path.join("b/b"), "parent bbb\n").unwrap();
     std::fs::write(repo_path.join("c/c"), "parent ccc\n").unwrap();
     std::fs::write(repo_path.join("ddd"), "parent ddd\n").unwrap();
-    let (_stdout, _stderr) = test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "parent"]);
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "parent"])
+        .success();
 
     std::fs::write(repo_path.join("a/a"), "child aaa\n").unwrap();
     std::fs::write(repo_path.join("ddd"), "child ddd\n").unwrap();
-    let (_stdout, _stderr) = test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "child"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "child"])
+        .success();
 
     // Specifying files means exactly those files will be fixed in each revision,
     // although some like file C won't have any tools configured to make changes to

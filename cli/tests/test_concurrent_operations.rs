@@ -22,14 +22,17 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_concurrent_operation_divergence() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "message 1"]);
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &["describe", "-m", "message 2", "--at-op", "@-"],
-    );
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "message 1"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "message 2", "--at-op", "@-"])
+        .success();
 
     // "--at-op=@" disables op heads merging, and prints head operation ids.
     let output = test_env.run_jj_in(&repo_path, ["op", "log", "--at-op=@"]);
@@ -70,11 +73,15 @@ fn test_concurrent_operation_divergence() {
 #[test]
 fn test_concurrent_operations_auto_rebase() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file"), "contents").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "initial"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "initial"])
+        .success();
     let output = test_env.run_jj_in(&repo_path, ["op", "log"]);
     insta::assert_snapshot!(output, @r"
     @  c62ace5c0522 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
@@ -90,11 +97,15 @@ fn test_concurrent_operations_auto_rebase() {
     ");
     let op_id_hex = output.stdout.raw()[3..15].to_string();
 
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "rewritten"]);
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &["new", "--at-op", &op_id_hex, "-m", "new child"],
-    );
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "rewritten"])
+        .success();
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["new", "--at-op", &op_id_hex, "-m", "new child"],
+        )
+        .success();
 
     // We should be informed about the concurrent modification
     let output = get_log_output(&test_env, &repo_path);
@@ -113,22 +124,30 @@ fn test_concurrent_operations_auto_rebase() {
 #[test]
 fn test_concurrent_operations_wc_modified() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file"), "contents\n").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["describe", "-m", "initial"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "-m", "initial"])
+        .success();
     let output = test_env.run_jj_in(&repo_path, ["op", "log"]).success();
     let op_id_hex = output.stdout.raw()[3..15].to_string();
 
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &["new", "--at-op", &op_id_hex, "-m", "new child1"],
-    );
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &["new", "--at-op", &op_id_hex, "-m", "new child2"],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["new", "--at-op", &op_id_hex, "-m", "new child1"],
+        )
+        .success();
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["new", "--at-op", &op_id_hex, "-m", "new child2"],
+        )
+        .success();
     std::fs::write(repo_path.join("file"), "modified\n").unwrap();
 
     // We should be informed about the concurrent modification
@@ -176,7 +195,9 @@ fn test_concurrent_operations_wc_modified() {
 #[test]
 fn test_concurrent_snapshot_wc_reloadable() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     let op_heads_dir = repo_path
         .join(".jj")
@@ -185,11 +206,15 @@ fn test_concurrent_snapshot_wc_reloadable() {
         .join("heads");
 
     std::fs::write(repo_path.join("base"), "").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "initial"]);
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "initial"])
+        .success();
 
     // Create new commit and checkout it.
     std::fs::write(repo_path.join("child1"), "").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["commit", "-m", "new child1"]);
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "new child1"])
+        .success();
 
     let template = r#"id ++ "\n" ++ description ++ "\n" ++ tags"#;
     let output = test_env.run_jj_in(&repo_path, ["op", "log", "-T", template]);

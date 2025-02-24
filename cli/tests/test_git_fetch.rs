@@ -132,11 +132,13 @@ fn test_git_fetch_with_default_config(subprocess: bool) {
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "origin");
 
-    test_env.jj_cmd_ok(&repo_path, &["git", "fetch"]);
+    test_env.run_jj_in(&repo_path, ["git", "fetch"]).success();
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
     origin@origin: oputwtnw ffecd2d6 message
@@ -153,11 +155,13 @@ fn test_git_fetch_default_remote(subprocess: bool) {
         test_env.add_config("git.subprocess = false");
     }
     test_env.add_config("git.auto-local-bookmark = true");
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "origin");
 
-    test_env.jj_cmd_ok(&repo_path, &["git", "fetch"]);
+    test_env.run_jj_in(&repo_path, ["git", "fetch"]).success();
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
     origin: oputwtnw ffecd2d6 message
@@ -175,7 +179,9 @@ fn test_git_fetch_single_remote(subprocess: bool) {
         test_env.add_config("git.subprocess = false");
     }
     test_env.add_config("git.auto-local-bookmark = true");
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "rem1");
 
@@ -205,7 +211,9 @@ fn test_git_fetch_single_remote_all_remotes_flag(subprocess: bool) {
         test_env.add_config("git.subprocess = false");
     }
     test_env.add_config("git.auto-local-bookmark = true");
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "rem1");
 
@@ -230,11 +238,15 @@ fn test_git_fetch_single_remote_from_arg(subprocess: bool) {
         test_env.add_config("git.subprocess = false");
     }
     test_env.add_config("git.auto-local-bookmark = true");
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "rem1");
 
-    test_env.jj_cmd_ok(&repo_path, &["git", "fetch", "--remote", "rem1"]);
+    test_env
+        .run_jj_in(&repo_path, ["git", "fetch", "--remote", "rem1"])
+        .success();
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
     rem1: qxosxrvv 6a211027 message
@@ -252,12 +264,14 @@ fn test_git_fetch_single_remote_from_config(subprocess: bool) {
         test_env.add_config("git.subprocess = false");
     }
     test_env.add_config("git.auto-local-bookmark = true");
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "rem1");
     test_env.add_config(r#"git.fetch = "rem1""#);
 
-    test_env.jj_cmd_ok(&repo_path, &["git", "fetch"]);
+    test_env.run_jj_in(&repo_path, ["git", "fetch"]).success();
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
     rem1: qxosxrvv 6a211027 message
@@ -275,15 +289,19 @@ fn test_git_fetch_multiple_remotes(subprocess: bool) {
         test_env.add_config("git.subprocess = false");
     }
     test_env.add_config("git.auto-local-bookmark = true");
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "rem1");
     add_git_remote(&test_env, &repo_path, "rem2");
 
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &["git", "fetch", "--remote", "rem1", "--remote", "rem2"],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["git", "fetch", "--remote", "rem1", "--remote", "rem2"],
+        )
+        .success();
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
     rem1: qxosxrvv 6a211027 message
@@ -303,16 +321,24 @@ fn test_git_fetch_all_remotes(subprocess: bool) {
         test_env.add_config("git.subprocess = false");
     }
     test_env.add_config("git.auto-local-bookmark = true");
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "rem1");
     add_git_remote(&test_env, &repo_path, "rem2");
 
     // add empty [remote "rem3"] section to .git/config, which should be ignored
-    test_env.jj_cmd_ok(&repo_path, &["git", "remote", "add", "rem3", "../unknown"]);
-    test_env.jj_cmd_ok(&repo_path, &["git", "remote", "remove", "rem3"]);
+    test_env
+        .run_jj_in(&repo_path, ["git", "remote", "add", "rem3", "../unknown"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["git", "remote", "remove", "rem3"])
+        .success();
 
-    test_env.jj_cmd_ok(&repo_path, &["git", "fetch", "--all-remotes"]);
+    test_env
+        .run_jj_in(&repo_path, ["git", "fetch", "--all-remotes"])
+        .success();
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
     rem1: qxosxrvv 6a211027 message
@@ -332,13 +358,15 @@ fn test_git_fetch_multiple_remotes_from_config(subprocess: bool) {
         test_env.add_config("git.subprocess = false");
     }
     test_env.add_config("git.auto-local-bookmark = true");
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "rem1");
     add_git_remote(&test_env, &repo_path, "rem2");
     test_env.add_config(r#"git.fetch = ["rem1", "rem2"]"#);
 
-    test_env.jj_cmd_ok(&repo_path, &["git", "fetch"]);
+    test_env.run_jj_in(&repo_path, ["git", "fetch"]).success();
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
     rem1: qxosxrvv 6a211027 message
@@ -357,7 +385,9 @@ fn test_git_fetch_nonexistent_remote(subprocess: bool) {
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "rem1");
 
@@ -386,7 +416,9 @@ fn test_git_fetch_nonexistent_remote_from_config(subprocess: bool) {
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "rem1");
     test_env.add_config(r#"git.fetch = ["rem1", "rem2"]"#);
@@ -421,7 +453,9 @@ fn test_git_fetch_from_remote_named_git(subprocess: bool) {
     git_repo.remote("git", "../git").unwrap();
 
     // Existing remote named 'git' shouldn't block the repo initialization.
-    test_env.jj_cmd_ok(&repo_path, &["git", "init", "--git-repo=."]);
+    test_env
+        .run_jj_in(&repo_path, ["git", "init", "--git-repo=."])
+        .success();
 
     // Try fetching from the remote named 'git'.
     let output = test_env.run_jj_in(&repo_path, ["git", "fetch", "--remote=git"]);
@@ -456,7 +490,9 @@ fn test_git_fetch_from_remote_named_git(subprocess: bool) {
     }
 
     // The remote can be renamed, and the ref can be imported.
-    test_env.jj_cmd_ok(&repo_path, &["git", "remote", "rename", "git", "bar"]);
+    test_env
+        .run_jj_in(&repo_path, ["git", "remote", "rename", "git", "bar"])
+        .success();
     let output = test_env.run_jj_in(&repo_path, ["bookmark", "list", "--all-remotes"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
@@ -486,7 +522,9 @@ fn test_git_fetch_from_remote_with_slashes(subprocess: bool) {
     git_repo.remote("slash/origin", "../source").unwrap();
 
     // Existing remote with slash shouldn't block the repo initialization.
-    test_env.jj_cmd_ok(&repo_path, &["git", "init", "--git-repo=."]);
+    test_env
+        .run_jj_in(&repo_path, ["git", "init", "--git-repo=."])
+        .success();
 
     // Try fetching from the remote named 'git'.
     let output = test_env.run_jj_in(&repo_path, ["git", "fetch", "--remote=slash/origin"]);
@@ -509,10 +547,12 @@ fn test_git_fetch_prune_before_updating_tips(subprocess: bool) {
         test_env.add_config("git.subprocess = false");
     }
     test_env.add_config("git.auto-local-bookmark = true");
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     let git_repo = add_git_remote(&test_env, &repo_path, "origin");
-    test_env.jj_cmd_ok(&repo_path, &["git", "fetch"]);
+    test_env.run_jj_in(&repo_path, ["git", "fetch"]).success();
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
     origin: oputwtnw ffecd2d6 message
@@ -528,7 +568,7 @@ fn test_git_fetch_prune_before_updating_tips(subprocess: bool) {
         .rename("origin/subname", false)
         .unwrap();
 
-    test_env.jj_cmd_ok(&repo_path, &["git", "fetch"]);
+    test_env.run_jj_in(&repo_path, ["git", "fetch"]).success();
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
     origin/subname: oputwtnw ffecd2d6 message
@@ -546,13 +586,17 @@ fn test_git_fetch_conflicting_bookmarks(subprocess: bool) {
         test_env.add_config("git.subprocess = false");
     }
     test_env.add_config("git.auto-local-bookmark = true");
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "rem1");
 
     // Create a rem1 bookmark locally
-    test_env.jj_cmd_ok(&repo_path, &["new", "root()"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "rem1"]);
+    test_env.run_jj_in(&repo_path, ["new", "root()"]).success();
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "rem1"])
+        .success();
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
     rem1: kkmpptxz fcdbbd73 (empty) (no description set)
@@ -560,10 +604,12 @@ fn test_git_fetch_conflicting_bookmarks(subprocess: bool) {
     ");
     }
 
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &["git", "fetch", "--remote", "rem1", "--branch", "glob:*"],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["git", "fetch", "--remote", "rem1", "--branch", "glob:*"],
+        )
+        .success();
     // This should result in a CONFLICTED bookmark
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
@@ -587,15 +633,19 @@ fn test_git_fetch_conflicting_bookmarks_colocated(subprocess: bool) {
     let repo_path = test_env.env_root().join("repo");
     let _git_repo = git2::Repository::init(&repo_path).unwrap();
     // create_colocated_repo_and_bookmarks_from_trunk1(&test_env, &repo_path);
-    test_env.jj_cmd_ok(&repo_path, &["git", "init", "--git-repo", "."]);
+    test_env
+        .run_jj_in(&repo_path, ["git", "init", "--git-repo", "."])
+        .success();
     add_git_remote(&test_env, &repo_path, "rem1");
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @"");
     }
 
     // Create a rem1 bookmark locally
-    test_env.jj_cmd_ok(&repo_path, &["new", "root()"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "rem1"]);
+    test_env.run_jj_in(&repo_path, ["new", "root()"]).success();
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "rem1"])
+        .success();
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
     rem1: zsuskuln f652c321 (empty) (no description set)
@@ -604,10 +654,12 @@ fn test_git_fetch_conflicting_bookmarks_colocated(subprocess: bool) {
     ");
     }
 
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &["git", "fetch", "--remote", "rem1", "--branch", "rem1"],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["git", "fetch", "--remote", "rem1", "--branch", "rem1"],
+        )
+        .success();
     // This should result in a CONFLICTED bookmark
     // See https://github.com/jj-vcs/jj/pull/1146#discussion_r1112372340 for the bug this tests for.
     insta::allow_duplicates! {
@@ -629,7 +681,9 @@ fn create_colocated_repo_and_bookmarks_from_trunk1(
     repo_path: &Path,
 ) -> String {
     // Create a colocated repo in `source` to populate it more easily
-    test_env.jj_cmd_ok(repo_path, &["git", "init", "--git-repo", "."]);
+    test_env
+        .run_jj_in(repo_path, ["git", "init", "--git-repo", "."])
+        .success();
     create_commit(test_env, repo_path, "trunk1", &[]);
     create_commit(test_env, repo_path, "a1", &["trunk1"]);
     create_commit(test_env, repo_path, "a2", &["trunk1"]);
@@ -643,7 +697,9 @@ fn create_colocated_repo_and_bookmarks_from_trunk1(
 fn create_trunk2_and_rebase_bookmarks(test_env: &TestEnvironment, repo_path: &Path) -> String {
     create_commit(test_env, repo_path, "trunk2", &["trunk1"]);
     for br in ["a1", "a2", "b"] {
-        test_env.jj_cmd_ok(repo_path, &["rebase", "-b", br, "-d", "trunk2"]);
+        test_env
+            .run_jj_in(repo_path, ["rebase", "-b", br, "-d", "trunk2"])
+            .success();
     }
     format!(
         "   ===== Source git repo contents =====\n{}",
@@ -759,10 +815,12 @@ fn test_git_fetch_all(subprocess: bool) {
     ");
     }
     // Change a bookmark in the source repo as well, so that it becomes conflicted.
-    test_env.jj_cmd_ok(
-        &target_jj_repo_path,
-        &["describe", "b", "-m=new_descr_for_b_to_create_conflict"],
-    );
+    test_env
+        .run_jj_in(
+            &target_jj_repo_path,
+            ["describe", "b", "-m=new_descr_for_b_to_create_conflict"],
+        )
+        .success();
 
     // Our repo before and after fetch
     insta::allow_duplicates! {
@@ -1009,10 +1067,12 @@ fn test_git_fetch_some_of_many_bookmarks(subprocess: bool) {
     ");
     }
     // Change a bookmark in the source repo as well, so that it becomes conflicted.
-    test_env.jj_cmd_ok(
-        &target_jj_repo_path,
-        &["describe", "b", "-m=new_descr_for_b_to_create_conflict"],
-    );
+    test_env
+        .run_jj_in(
+            &target_jj_repo_path,
+            ["describe", "b", "-m=new_descr_for_b_to_create_conflict"],
+        )
+        .success();
 
     // Our repo before and after fetch of two bookmarks
     insta::allow_duplicates! {
@@ -1130,7 +1190,9 @@ fn test_git_fetch_bookmarks_some_missing(subprocess: bool) {
         test_env.add_config("git.subprocess = false");
     }
     test_env.add_config("git.auto-local-bookmark = true");
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "origin");
     add_git_remote(&test_env, &repo_path, "rem1");
@@ -1253,7 +1315,9 @@ fn test_git_fetch_bookmarks_some_missing(subprocess: bool) {
 #[test]
 fn test_git_fetch_bookmarks_missing_with_subprocess_localized_message() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "origin");
 
@@ -1479,7 +1543,9 @@ fn test_fetch_undo_what(subprocess: bool) {
 
     // Now, let's demo restoring just the remote-tracking bookmark. First, let's
     // change our local repo state...
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "c", "-r@", "newbookmark"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "c", "-r@", "newbookmark"])
+        .success();
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
     b (deleted)
@@ -1523,11 +1589,15 @@ fn test_git_fetch_remove_fetch(subprocess: bool) {
         test_env.add_config("git.subprocess = false");
     }
     test_env.add_config("git.auto-local-bookmark = true");
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "origin");
 
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "origin"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "origin"])
+        .success();
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
     origin: qpvuntsm 230dd059 (empty) (no description set)
@@ -1535,7 +1605,7 @@ fn test_git_fetch_remove_fetch(subprocess: bool) {
     ");
     }
 
-    test_env.jj_cmd_ok(&repo_path, &["git", "fetch"]);
+    test_env.run_jj_in(&repo_path, ["git", "fetch"]).success();
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
     origin (conflicted):
@@ -1546,7 +1616,9 @@ fn test_git_fetch_remove_fetch(subprocess: bool) {
     ");
     }
 
-    test_env.jj_cmd_ok(&repo_path, &["git", "remote", "remove", "origin"]);
+    test_env
+        .run_jj_in(&repo_path, ["git", "remote", "remove", "origin"])
+        .success();
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
     origin (conflicted):
@@ -1556,7 +1628,9 @@ fn test_git_fetch_remove_fetch(subprocess: bool) {
     ");
     }
 
-    test_env.jj_cmd_ok(&repo_path, &["git", "remote", "add", "origin", "../origin"]);
+    test_env
+        .run_jj_in(&repo_path, ["git", "remote", "add", "origin", "../origin"])
+        .success();
 
     // Check that origin@origin is properly recreated
     let output = test_env.run_jj_in(&repo_path, ["git", "fetch"]);
@@ -1586,11 +1660,15 @@ fn test_git_fetch_rename_fetch(subprocess: bool) {
         test_env.add_config("git.subprocess = false");
     }
     test_env.add_config("git.auto-local-bookmark = true");
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
     add_git_remote(&test_env, &repo_path, "origin");
 
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "origin"]);
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "origin"])
+        .success();
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
     origin: qpvuntsm 230dd059 (empty) (no description set)
@@ -1598,7 +1676,7 @@ fn test_git_fetch_rename_fetch(subprocess: bool) {
     ");
     }
 
-    test_env.jj_cmd_ok(&repo_path, &["git", "fetch"]);
+    test_env.run_jj_in(&repo_path, ["git", "fetch"]).success();
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
     origin (conflicted):
@@ -1609,10 +1687,12 @@ fn test_git_fetch_rename_fetch(subprocess: bool) {
     ");
     }
 
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &["git", "remote", "rename", "origin", "upstream"],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["git", "remote", "rename", "origin", "upstream"],
+        )
+        .success();
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
     origin (conflicted):
@@ -1701,10 +1781,12 @@ fn test_git_fetch_removed_bookmark(subprocess: bool) {
     }
 
     // Remove a2 bookmark in origin
-    test_env.jj_cmd_ok(
-        &source_git_repo_path,
-        &["bookmark", "forget", "--include-remotes", "a2"],
-    );
+    test_env
+        .run_jj_in(
+            &source_git_repo_path,
+            ["bookmark", "forget", "--include-remotes", "a2"],
+        )
+        .success();
 
     // Fetch bookmark a1 from origin and check that a2 is still there
     let output = test_env.run_jj_in(&target_jj_repo_path, ["git", "fetch", "--branch", "a1"]);
@@ -1821,10 +1903,12 @@ fn test_git_fetch_removed_parent_bookmark(subprocess: bool) {
     }
 
     // Remove all bookmarks in origin.
-    test_env.jj_cmd_ok(
-        &source_git_repo_path,
-        &["bookmark", "forget", "--include-remotes", "glob:*"],
-    );
+    test_env
+        .run_jj_in(
+            &source_git_repo_path,
+            ["bookmark", "forget", "--include-remotes", "glob:*"],
+        )
+        .success();
 
     // Fetch bookmarks master, trunk1 and a1 from origin and check that only those
     // bookmarks have been removed and that others were not rebased because of
@@ -1866,7 +1950,9 @@ fn test_git_fetch_remote_only_bookmark(subprocess: bool) {
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     // Create non-empty git repo to add as a remote
@@ -1880,10 +1966,12 @@ fn test_git_fetch_remote_only_bookmark(subprocess: bool) {
         .unwrap();
     let tree_oid = tree_builder.write().unwrap();
     let tree = git_repo.find_tree(tree_oid).unwrap();
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &["git", "remote", "add", "origin", "../git-repo"],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["git", "remote", "add", "origin", "../git-repo"],
+        )
+        .success();
     // Create a commit and a bookmark in the git repo
     git_repo
         .commit(
@@ -1898,7 +1986,9 @@ fn test_git_fetch_remote_only_bookmark(subprocess: bool) {
 
     // Fetch using git.auto_local_bookmark = true
     test_env.add_config("git.auto-local-bookmark = true");
-    test_env.jj_cmd_ok(&repo_path, &["git", "fetch", "--remote=origin"]);
+    test_env
+        .run_jj_in(&repo_path, ["git", "fetch", "--remote=origin"])
+        .success();
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
     feature1: mzyxwzks 9f01a0e0 message
@@ -1920,7 +2010,9 @@ fn test_git_fetch_remote_only_bookmark(subprocess: bool) {
 
     // Fetch using git.auto_local_bookmark = false
     test_env.add_config("git.auto-local-bookmark = false");
-    test_env.jj_cmd_ok(&repo_path, &["git", "fetch", "--remote=origin"]);
+    test_env
+        .run_jj_in(&repo_path, ["git", "fetch", "--remote=origin"])
+        .success();
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  230dd059e1b0
@@ -1948,23 +2040,29 @@ fn test_git_fetch_preserve_commits_across_repos(subprocess: bool) {
         test_env.add_config("git.subprocess = false");
     }
     test_env.add_config("git.auto-local-bookmark = true");
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     let upstream_repo = add_git_remote(&test_env, &repo_path, "upstream");
 
     let fork_path = test_env.env_root().join("fork");
     let fork_repo = clone_git_remote_into(&test_env, "upstream", "fork");
-    test_env.jj_cmd_ok(&repo_path, &["git", "remote", "add", "fork", "../fork"]);
+    test_env
+        .run_jj_in(&repo_path, ["git", "remote", "add", "fork", "../fork"])
+        .success();
 
     // add commit to fork remote in another branch
     add_commit_to_branch(&fork_repo, "feature");
 
     // fetch remote bookmarks
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &["git", "fetch", "--remote=fork", "--remote=upstream"],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["git", "fetch", "--remote=fork", "--remote=upstream"],
+        )
+        .success();
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  230dd059e1b0
@@ -2025,10 +2123,12 @@ fn test_git_fetch_preserve_commits_across_repos(subprocess: bool) {
     branch.delete().unwrap();
 
     // fetch again on the jj repo, first looking at fork and then at upstream
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &["git", "fetch", "--remote=fork", "--remote=upstream"],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["git", "fetch", "--remote=fork", "--remote=upstream"],
+        )
+        .success();
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  230dd059e1b0

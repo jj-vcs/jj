@@ -232,7 +232,9 @@ fn test_simplify_parents_multiple_redundant_parents() {
     ");
 
     // Test with `-s`.
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
     let output = test_env.run_jj_in(&repo_path, ["simplify-parents", "-s", "c"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -306,7 +308,9 @@ fn test_simplify_parents_no_args() {
     ");
 
     // Test with custom `revsets.simplify-parents`.
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
     test_env.add_config(r#"revsets.simplify-parents = "d::""#);
     let output = test_env.run_jj_in(&repo_path, ["simplify-parents"]);
     insta::assert_snapshot!(output, @r"

@@ -45,12 +45,14 @@ fn create_commit(
 #[test]
 fn test_status_copies() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("copy-source"), "copy1\ncopy2\ncopy3\n").unwrap();
     std::fs::write(repo_path.join("rename-source"), "rename").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(
         repo_path.join("copy-source"),
         "copy1\ncopy2\ncopy3\nsource\n",
@@ -79,15 +81,23 @@ fn test_status_copies() {
 #[test]
 fn test_status_merge() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file"), "base").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new", "-m=left"]);
-    test_env.jj_cmd_ok(&repo_path, &["bookmark", "create", "-r@", "left"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "@-", "-m=right"]);
+    test_env.run_jj_in(&repo_path, ["new", "-m=left"]).success();
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "left"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "@-", "-m=right"])
+        .success();
     std::fs::write(repo_path.join("file"), "right").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["new", "left", "@"]);
+    test_env
+        .run_jj_in(&repo_path, ["new", "left", "@"])
+        .success();
 
     // The output should mention each parent, and the diff should be empty (compared
     // to the auto-merged parents)
@@ -105,7 +115,9 @@ fn test_status_merge() {
 #[test]
 fn test_status_ignored_gitignore() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::create_dir(repo_path.join("untracked")).unwrap();
@@ -130,7 +142,9 @@ fn test_status_ignored_gitignore() {
 #[test]
 fn test_status_filtered() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file_1"), "file_1").unwrap();
@@ -152,40 +166,54 @@ fn test_status_filtered() {
 #[test]
 fn test_status_display_relevant_working_commit_conflict_hints() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
 
     let repo_path = test_env.env_root().join("repo");
     let conflicted_path = repo_path.join("conflicted.txt");
 
     // PARENT: Write the initial file
     std::fs::write(&conflicted_path, "initial contents").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["describe", "--message", "Initial contents"]);
+    test_env
+        .run_jj_in(&repo_path, ["describe", "--message", "Initial contents"])
+        .success();
 
     // CHILD1: New commit on top of <PARENT>
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &["new", "--message", "First part of conflicting change"],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["new", "--message", "First part of conflicting change"],
+        )
+        .success();
     std::fs::write(&conflicted_path, "Child 1").unwrap();
 
     // CHILD2: New commit also on top of <PARENT>
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &[
-            "new",
-            "--message",
-            "Second part of conflicting change",
-            "@-",
-        ],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            [
+                "new",
+                "--message",
+                "Second part of conflicting change",
+                "@-",
+            ],
+        )
+        .success();
     std::fs::write(&conflicted_path, "Child 2").unwrap();
 
     // CONFLICT: New commit that is conflicted by merging <CHILD1> and <CHILD2>
-    test_env.jj_cmd_ok(&repo_path, &["new", "--message", "boom", "all:(@-)+"]);
+    test_env
+        .run_jj_in(&repo_path, ["new", "--message", "boom", "all:(@-)+"])
+        .success();
     // Adding more descendants to ensure we correctly find the root ancestors with
     // conflicts, not just the parents.
-    test_env.jj_cmd_ok(&repo_path, &["new", "--message", "boom-cont"]);
-    test_env.jj_cmd_ok(&repo_path, &["new", "--message", "boom-cont-2"]);
+    test_env
+        .run_jj_in(&repo_path, ["new", "--message", "boom-cont"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["new", "--message", "boom-cont-2"])
+        .success();
 
     let output = test_env.run_jj_in(&repo_path, ["log", "-r", "::"]);
 
@@ -237,11 +265,15 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     ");
 
     // Resolve conflict
-    test_env.jj_cmd_ok(&repo_path, &["new", "--message", "fixed 1"]);
+    test_env
+        .run_jj_in(&repo_path, ["new", "--message", "fixed 1"])
+        .success();
     std::fs::write(&conflicted_path, "first commit to fix conflict").unwrap();
 
     // Add one more commit atop the commit that resolves the conflict.
-    test_env.jj_cmd_ok(&repo_path, &["new", "--message", "fixed 2"]);
+    test_env
+        .run_jj_in(&repo_path, ["new", "--message", "fixed 2"])
+        .success();
     std::fs::write(&conflicted_path, "edit not conflict").unwrap();
 
     // wc is now conflict free, parent is also conflict free
@@ -280,7 +312,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
 
     // Step back one.
     // wc is still conflict free, parent has a conflict.
-    test_env.jj_cmd_ok(&repo_path, &["edit", "@-"]);
+    test_env.run_jj_in(&repo_path, ["edit", "@-"]).success();
     let output = test_env.run_jj_in(&repo_path, ["log", "-r", "::"]);
 
     insta::assert_snapshot!(output, @r"
@@ -318,7 +350,9 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     // Step back to all the way to `root()+` so that wc has no conflict, even though
     // there is a conflict later in the tree. So that we can confirm
     // our hinting logic doesn't get confused.
-    test_env.jj_cmd_ok(&repo_path, &["edit", "root()+"]);
+    test_env
+        .run_jj_in(&repo_path, ["edit", "root()+"])
+        .success();
     let output = test_env.run_jj_in(&repo_path, ["log", "-r", "::"]);
 
     insta::assert_snapshot!(output, @r"
@@ -356,7 +390,9 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
 #[test]
 fn test_status_simplify_conflict_sides() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     // Creates a 4-sided conflict, with fileA and fileB having different conflicts:
@@ -407,7 +443,9 @@ fn test_status_untracked_files() {
     let test_env = TestEnvironment::default();
     test_env.add_config(r#"snapshot.auto-track = "none()""#);
 
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("always-untracked-file"), "...").unwrap();
@@ -453,7 +491,7 @@ fn test_status_untracked_files() {
     [EOF]
     ");
 
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
 
     let output = test_env.run_jj_in(&repo_path, ["status"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
@@ -491,7 +529,7 @@ fn test_status_untracked_files() {
     [EOF]
     ");
 
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
 
     let output = test_env.run_jj_in(&repo_path, ["status"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"

@@ -19,7 +19,9 @@ use crate::common::TestEnvironment;
 
 fn set_up() -> (TestEnvironment, PathBuf) {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "origin"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "origin"])
+        .success();
     let origin_path = test_env.env_root().join("origin");
     let origin_git_repo_path = origin_path
         .join(".jj")
@@ -27,63 +29,83 @@ fn set_up() -> (TestEnvironment, PathBuf) {
         .join("store")
         .join("git");
 
-    test_env.jj_cmd_ok(&origin_path, &["describe", "-m=public 1"]);
-    test_env.jj_cmd_ok(&origin_path, &["new", "-m=public 2"]);
-    test_env.jj_cmd_ok(&origin_path, &["bookmark", "create", "-r@", "main"]);
-    test_env.jj_cmd_ok(&origin_path, &["git", "export"]);
+    test_env
+        .run_jj_in(&origin_path, ["describe", "-m=public 1"])
+        .success();
+    test_env
+        .run_jj_in(&origin_path, ["new", "-m=public 2"])
+        .success();
+    test_env
+        .run_jj_in(&origin_path, ["bookmark", "create", "-r@", "main"])
+        .success();
+    test_env
+        .run_jj_in(&origin_path, ["git", "export"])
+        .success();
 
-    test_env.jj_cmd_ok(
-        test_env.env_root(),
-        &[
-            "git",
-            "clone",
-            "--config=git.auto-local-bookmark=true",
-            origin_git_repo_path.to_str().unwrap(),
-            "local",
-        ],
-    );
+    test_env
+        .run_jj_in(
+            test_env.env_root(),
+            [
+                "git",
+                "clone",
+                "--config=git.auto-local-bookmark=true",
+                origin_git_repo_path.to_str().unwrap(),
+                "local",
+            ],
+        )
+        .success();
     let workspace_root = test_env.env_root().join("local");
 
     (test_env, workspace_root)
 }
 
 fn set_up_remote_at_main(test_env: &TestEnvironment, workspace_root: &Path, remote_name: &str) {
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", remote_name]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", remote_name])
+        .success();
     let other_path = test_env.env_root().join(remote_name);
     let other_git_repo_path = other_path
         .join(".jj")
         .join("repo")
         .join("store")
         .join("git");
-    test_env.jj_cmd_ok(
-        workspace_root,
-        &[
-            "git",
-            "remote",
-            "add",
-            remote_name,
-            other_git_repo_path.to_str().unwrap(),
-        ],
-    );
-    test_env.jj_cmd_ok(
-        workspace_root,
-        &[
-            "git",
-            "push",
-            "--allow-new",
-            "--remote",
-            remote_name,
-            "-b=main",
-        ],
-    );
+    test_env
+        .run_jj_in(
+            workspace_root,
+            [
+                "git",
+                "remote",
+                "add",
+                remote_name,
+                other_git_repo_path.to_str().unwrap(),
+            ],
+        )
+        .success();
+    test_env
+        .run_jj_in(
+            workspace_root,
+            [
+                "git",
+                "push",
+                "--allow-new",
+                "--remote",
+                remote_name,
+                "-b=main",
+            ],
+        )
+        .success();
 }
 
 #[test]
 fn test_git_private_commits_block_pushing() {
     let (test_env, workspace_root) = set_up();
 
-    test_env.jj_cmd_ok(&workspace_root, &["new", "main", "-m=private 1"]);
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "set", "main", "-r@"]);
+    test_env
+        .run_jj_in(&workspace_root, ["new", "main", "-m=private 1"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_root, ["bookmark", "set", "main", "-r@"])
+        .success();
 
     // Will not push when a pushed commit is contained in git.private-commits
     test_env.add_config(r#"git.private-commits = "description(glob:'private*')""#);
@@ -115,8 +137,12 @@ fn test_git_private_commits_block_pushing() {
 fn test_git_private_commits_can_be_overridden() {
     let (test_env, workspace_root) = set_up();
 
-    test_env.jj_cmd_ok(&workspace_root, &["new", "main", "-m=private 1"]);
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "set", "main", "-r@"]);
+    test_env
+        .run_jj_in(&workspace_root, ["new", "main", "-m=private 1"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_root, ["bookmark", "set", "main", "-r@"])
+        .success();
 
     // Will not push when a pushed commit is contained in git.private-commits
     test_env.add_config(r#"git.private-commits = "description(glob:'private*')""#);
@@ -147,8 +173,12 @@ fn test_git_private_commits_can_be_overridden() {
 fn test_git_private_commits_are_not_checked_if_immutable() {
     let (test_env, workspace_root) = set_up();
 
-    test_env.jj_cmd_ok(&workspace_root, &["new", "main", "-m=private 1"]);
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "set", "main", "-r@"]);
+    test_env
+        .run_jj_in(&workspace_root, ["new", "main", "-m=private 1"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_root, ["bookmark", "set", "main", "-r@"])
+        .success();
 
     test_env.add_config(r#"git.private-commits = "description(glob:'private*')""#);
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "all()""#);
@@ -169,10 +199,16 @@ fn test_git_private_commits_not_directly_in_line_block_pushing() {
     let (test_env, workspace_root) = set_up();
 
     // New private commit descended from root()
-    test_env.jj_cmd_ok(&workspace_root, &["new", "root()", "-m=private 1"]);
+    test_env
+        .run_jj_in(&workspace_root, ["new", "root()", "-m=private 1"])
+        .success();
 
-    test_env.jj_cmd_ok(&workspace_root, &["new", "main", "@", "-m=public 3"]);
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "-r@", "bookmark1"]);
+    test_env
+        .run_jj_in(&workspace_root, ["new", "main", "@", "-m=public 3"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_root, ["bookmark", "create", "-r@", "bookmark1"])
+        .success();
 
     test_env.add_config(r#"git.private-commits = "description(glob:'private*')""#);
     let output = test_env.run_jj_in(
@@ -193,9 +229,15 @@ fn test_git_private_commits_not_directly_in_line_block_pushing() {
 fn test_git_private_commits_descending_from_commits_pushed_do_not_block_pushing() {
     let (test_env, workspace_root) = set_up();
 
-    test_env.jj_cmd_ok(&workspace_root, &["new", "main", "-m=public 3"]);
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "move", "main", "--to=@"]);
-    test_env.jj_cmd_ok(&workspace_root, &["new", "-m=private 1"]);
+    test_env
+        .run_jj_in(&workspace_root, ["new", "main", "-m=public 3"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_root, ["bookmark", "move", "main", "--to=@"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_root, ["new", "-m=private 1"])
+        .success();
 
     test_env.add_config(r#"git.private-commits = "description(glob:'private*')""#);
     let output = test_env.run_jj_in(&workspace_root, ["git", "push", "-b=main"]);
@@ -212,16 +254,24 @@ fn test_git_private_commits_already_on_the_remote_do_not_block_push() {
     let (test_env, workspace_root) = set_up();
 
     // Start a bookmark before a "private" commit lands in main
-    test_env.jj_cmd_ok(
-        &workspace_root,
-        &["bookmark", "create", "bookmark1", "-r=main"],
-    );
+    test_env
+        .run_jj_in(
+            &workspace_root,
+            ["bookmark", "create", "bookmark1", "-r=main"],
+        )
+        .success();
 
     // Push a commit that would become a private_root if it weren't already on
     // the remote
-    test_env.jj_cmd_ok(&workspace_root, &["new", "main", "-m=private 1"]);
-    test_env.jj_cmd_ok(&workspace_root, &["new", "-m=public 3"]);
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "set", "main", "-r@"]);
+    test_env
+        .run_jj_in(&workspace_root, ["new", "main", "-m=private 1"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_root, ["new", "-m=public 3"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_root, ["bookmark", "set", "main", "-r@"])
+        .success();
     let output = test_env.run_jj_in(
         &workspace_root,
         ["git", "push", "--allow-new", "-b=main", "-b=bookmark1"],
@@ -240,10 +290,9 @@ fn test_git_private_commits_already_on_the_remote_do_not_block_push() {
     test_env.add_config(r#"git.private-commits = "description(glob:'private*')""#);
 
     // Since "private 1" is already on the remote, pushing it should be allowed
-    test_env.jj_cmd_ok(
-        &workspace_root,
-        &["bookmark", "set", "bookmark1", "-r=main"],
-    );
+    test_env
+        .run_jj_in(&workspace_root, ["bookmark", "set", "bookmark1", "-r=main"])
+        .success();
     let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--all"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -254,11 +303,15 @@ fn test_git_private_commits_already_on_the_remote_do_not_block_push() {
 
     // Ensure that the already-pushed commit doesn't block a new bookmark from
     // being pushed
-    test_env.jj_cmd_ok(
-        &workspace_root,
-        &["new", "description('private 1')", "-m=public 4"],
-    );
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "create", "-r@", "bookmark2"]);
+    test_env
+        .run_jj_in(
+            &workspace_root,
+            ["new", "description('private 1')", "-m=public 4"],
+        )
+        .success();
+    test_env
+        .run_jj_in(&workspace_root, ["bookmark", "create", "-r@", "bookmark2"])
+        .success();
     let output = test_env.run_jj_in(
         &workspace_root,
         ["git", "push", "--allow-new", "-b=bookmark2"],
@@ -279,9 +332,15 @@ fn test_git_private_commits_are_evaluated_separately_for_each_remote() {
 
     // Push a commit that would become a private_root if it weren't already on
     // the remote
-    test_env.jj_cmd_ok(&workspace_root, &["new", "main", "-m=private 1"]);
-    test_env.jj_cmd_ok(&workspace_root, &["new", "-m=public 3"]);
-    test_env.jj_cmd_ok(&workspace_root, &["bookmark", "set", "main", "-r@"]);
+    test_env
+        .run_jj_in(&workspace_root, ["new", "main", "-m=private 1"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_root, ["new", "-m=public 3"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_root, ["bookmark", "set", "main", "-r@"])
+        .success();
     let output = test_env.run_jj_in(&workspace_root, ["git", "push", "-b=main"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------

@@ -368,7 +368,7 @@ fn test_git_init_colocated_via_git_repo_path() {
     ");
 
     // Check that the Git repo's HEAD moves
-    test_env.jj_cmd_ok(&workspace_root, &["new"]);
+    test_env.run_jj_in(&workspace_root, ["new"]).success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r"
     @  62eda98b5eb4
     ○  5f169ecc57b8 git_head()
@@ -407,7 +407,7 @@ fn test_git_init_colocated_via_git_repo_path_gitlink() {
     ");
 
     // Check that the Git repo's HEAD moves
-    test_env.jj_cmd_ok(&workspace_root, &["new"]);
+    test_env.run_jj_in(&workspace_root, ["new"]).success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r"
     @  62eda98b5eb4
     ○  5f169ecc57b8 git_head()
@@ -445,7 +445,7 @@ fn test_git_init_colocated_via_git_repo_path_symlink_directory() {
     ");
 
     // Check that the Git repo's HEAD moves
-    test_env.jj_cmd_ok(&workspace_root, &["new"]);
+    test_env.run_jj_in(&workspace_root, ["new"]).success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r"
     @  62eda98b5eb4
     ○  5f169ecc57b8 git_head()
@@ -487,7 +487,7 @@ fn test_git_init_colocated_via_git_repo_path_symlink_directory_without_bare_conf
     ");
 
     // Check that the Git repo's HEAD moves
-    test_env.jj_cmd_ok(&workspace_root, &["new"]);
+    test_env.run_jj_in(&workspace_root, ["new"]).success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r"
     @  62eda98b5eb4
     ○  5f169ecc57b8 git_head()
@@ -529,7 +529,7 @@ fn test_git_init_colocated_via_git_repo_path_symlink_gitlink() {
     ");
 
     // Check that the Git repo's HEAD moves
-    test_env.jj_cmd_ok(&workspace_root, &["new"]);
+    test_env.run_jj_in(&workspace_root, ["new"]).success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r"
     @  62eda98b5eb4
     ○  5f169ecc57b8 git_head()
@@ -545,14 +545,20 @@ fn test_git_init_colocated_via_git_repo_path_imported_refs() {
     test_env.add_config("git.auto-local-bookmark = true");
 
     // Set up remote refs
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "remote"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "remote"])
+        .success();
     let remote_path = test_env.env_root().join("remote");
-    test_env.jj_cmd_ok(
-        &remote_path,
-        &["bookmark", "create", "-r@", "local-remote", "remote-only"],
-    );
-    test_env.jj_cmd_ok(&remote_path, &["new"]);
-    test_env.jj_cmd_ok(&remote_path, &["git", "export"]);
+    test_env
+        .run_jj_in(
+            &remote_path,
+            ["bookmark", "create", "-r@", "local-remote", "remote-only"],
+        )
+        .success();
+    test_env.run_jj_in(&remote_path, ["new"]).success();
+    test_env
+        .run_jj_in(&remote_path, ["git", "export"])
+        .success();
 
     let remote_git_path = remote_path.join(PathBuf::from_iter([".jj", "repo", "store", "git"]));
     let set_up_local_repo = |local_path: &Path| {
@@ -777,7 +783,7 @@ fn test_git_init_external_but_git_dir_exists() {
     ");
 
     // Check that Git HEAD is not set because this isn't a colocated repo
-    test_env.jj_cmd_ok(&workspace_root, &["new"]);
+    test_env.run_jj_in(&workspace_root, ["new"]).success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r"
     @  4db490c88528
     ○  230dd059e1b0
@@ -809,7 +815,7 @@ fn test_git_init_colocated_via_flag_git_dir_exists() {
     ");
 
     // Check that the Git repo's HEAD moves
-    test_env.jj_cmd_ok(&workspace_root, &["new"]);
+    test_env.run_jj_in(&workspace_root, ["new"]).success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r"
     @  62eda98b5eb4
     ○  5f169ecc57b8 git_head()
@@ -837,10 +843,12 @@ fn test_git_init_colocated_via_flag_git_dir_not_exists() {
     ");
 
     // Create the default bookmark (create both in case we change the default)
-    test_env.jj_cmd_ok(
-        &workspace_root,
-        &["bookmark", "create", "-r@", "main", "master"],
-    );
+    test_env
+        .run_jj_in(
+            &workspace_root,
+            ["bookmark", "create", "-r@", "main", "master"],
+        )
+        .success();
 
     // If .git/HEAD pointed to the default bookmark, new working-copy commit would
     // be created on top.

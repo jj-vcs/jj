@@ -24,7 +24,9 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_describe() {
     let mut test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     let edit_script = test_env.set_up_fake_editor();
@@ -199,7 +201,9 @@ fn test_describe() {
 #[test]
 fn test_describe_editor_env() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     // Fails if the editor doesn't exist
@@ -240,14 +244,16 @@ fn test_describe_editor_env() {
 #[test]
 fn test_describe_multiple_commits() {
     let mut test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     let edit_script = test_env.set_up_fake_editor();
 
     // Initial setup
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  c6349e79bbfd
     ○  65b6b74e0897
@@ -514,7 +520,9 @@ fn test_describe_multiple_commits() {
 #[test]
 fn test_multiple_message_args() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     // Set a description using `-m` flag
@@ -593,7 +601,9 @@ fn test_multiple_message_args() {
 #[test]
 fn test_describe_default_description() {
     let mut test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     test_env.add_config(r#"ui.default-description = "\n\nTESTED=TODO""#);
     let workspace_path = test_env.env_root().join("repo");
 
@@ -623,7 +633,9 @@ fn test_describe_default_description() {
 #[test]
 fn test_describe_author() {
     let mut test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     let edit_script = test_env.set_up_fake_editor();
@@ -656,9 +668,9 @@ fn test_describe_author() {
     };
 
     // Initial setup
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
+    test_env.run_jj_in(&repo_path, ["new"]).success();
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     insta::assert_snapshot!(get_signatures(), @r"
     @  Test User test.user@example.com 2001-02-03 04:05:10.000 +07:00
     │  Test User test.user@example.com 2001-02-03 04:05:10.000 +07:00
@@ -673,14 +685,16 @@ fn test_describe_author() {
     ");
 
     // Change the author for the latest commit (the committer is always reset)
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &[
-            "describe",
-            "--author",
-            "Super Seeder <super.seeder@example.com>",
-        ],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            [
+                "describe",
+                "--author",
+                "Super Seeder <super.seeder@example.com>",
+            ],
+        )
+        .success();
     insta::assert_snapshot!(get_signatures(), @r"
     @  Super Seeder super.seeder@example.com 2001-02-03 04:05:12.000 +07:00
     │  Test User test.user@example.com 2001-02-03 04:05:12.000 +07:00
@@ -704,17 +718,19 @@ fn test_describe_author() {
     "###);
 
     // Change the author for multiple commits (the committer is always reset)
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &[
-            "describe",
-            "@---",
-            "@-",
-            "--no-edit",
-            "--author",
-            "Super Seeder <super.seeder@example.com>",
-        ],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            [
+                "describe",
+                "@---",
+                "@-",
+                "--no-edit",
+                "--author",
+                "Super Seeder <super.seeder@example.com>",
+            ],
+        )
+        .success();
     insta::assert_snapshot!(get_signatures(), @r"
     @  Super Seeder super.seeder@example.com 2001-02-03 04:05:12.000 +07:00
     │  Test User test.user@example.com 2001-02-03 04:05:14.000 +07:00
@@ -729,16 +745,18 @@ fn test_describe_author() {
     ");
 
     // Reset the author for the latest commit (the committer is always reset)
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &[
-            "describe",
-            "--config=user.name=Ove Ridder",
-            "--config=user.email=ove.ridder@example.com",
-            "--no-edit",
-            "--reset-author",
-        ],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            [
+                "describe",
+                "--config=user.name=Ove Ridder",
+                "--config=user.email=ove.ridder@example.com",
+                "--no-edit",
+                "--reset-author",
+            ],
+        )
+        .success();
     insta::assert_snapshot!(get_signatures(), @r"
     @  Ove Ridder ove.ridder@example.com 2001-02-03 04:05:16.000 +07:00
     │  Ove Ridder ove.ridder@example.com 2001-02-03 04:05:16.000 +07:00
@@ -753,17 +771,19 @@ fn test_describe_author() {
     ");
 
     // Reset the author for multiple commits (the committer is always reset)
-    test_env.jj_cmd_ok(
-        &repo_path,
-        &[
-            "describe",
-            "@---",
-            "@-",
-            "--config=user.name=Ove Ridder",
-            "--config=user.email=ove.ridder@example.com",
-            "--reset-author",
-        ],
-    );
+    test_env
+        .run_jj_in(
+            &repo_path,
+            [
+                "describe",
+                "@---",
+                "@-",
+                "--config=user.name=Ove Ridder",
+                "--config=user.email=ove.ridder@example.com",
+                "--reset-author",
+            ],
+        )
+        .success();
     insta::assert_snapshot!(get_signatures(), @r"
     @  Ove Ridder ove.ridder@example.com 2001-02-03 04:05:18.000 +07:00
     │  Ove Ridder ove.ridder@example.com 2001-02-03 04:05:18.000 +07:00
@@ -804,12 +824,14 @@ fn test_describe_author() {
 #[test]
 fn test_describe_avoids_unc() {
     let mut test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let workspace_path = test_env.env_root().join("repo");
     let edit_script = test_env.set_up_fake_editor();
 
     std::fs::write(edit_script, "dump-path path").unwrap();
-    test_env.jj_cmd_ok(&workspace_path, &["describe"]);
+    test_env.run_jj_in(&workspace_path, ["describe"]).success();
 
     let edited_path =
         PathBuf::from(std::fs::read_to_string(test_env.env_root().join("path")).unwrap());
@@ -822,7 +844,9 @@ fn test_describe_avoids_unc() {
 #[test]
 fn test_describe_with_edit_and_message_args_opens_editor() {
     let mut test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let workspace_path = test_env.env_root().join("repo");
 
     let edit_script = test_env.set_up_fake_editor();
@@ -848,10 +872,14 @@ fn test_describe_with_edit_and_message_args_opens_editor() {
 #[test]
 fn test_describe_change_with_existing_message_with_edit_and_message_args_opens_editor() {
     let mut test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let workspace_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&workspace_path, &["describe", "-m", "original message"]);
+    test_env
+        .run_jj_in(&workspace_path, ["describe", "-m", "original message"])
+        .success();
 
     let edit_script = test_env.set_up_fake_editor();
     std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
@@ -873,7 +901,9 @@ fn test_describe_change_with_existing_message_with_edit_and_message_args_opens_e
 #[test]
 fn test_edit_cannot_be_used_with_no_edit() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let workspace_path = test_env.env_root().join("repo");
 
     let output = test_env.run_jj_in(&workspace_path, ["describe", "--no-edit", "--edit"]);

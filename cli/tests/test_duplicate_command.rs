@@ -38,7 +38,9 @@ fn create_commit(test_env: &TestEnvironment, repo_path: &Path, name: &str, paren
 #[test]
 fn test_duplicate() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
@@ -116,7 +118,9 @@ fn test_duplicate() {
 #[test]
 fn test_duplicate_many() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
@@ -161,7 +165,7 @@ fn test_duplicate_many() {
     ");
 
     // Try specifying the same commit twice directly
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     let output = test_env.run_jj_in(&repo_path, ["duplicate", "b", "b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -183,7 +187,7 @@ fn test_duplicate_many() {
     ");
 
     // Try specifying the same commit twice indirectly
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     let output = test_env.run_jj_in(&repo_path, ["duplicate", "b::", "d::"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -210,7 +214,7 @@ fn test_duplicate_many() {
     [EOF]
     ");
 
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     // Reminder of the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @    921dde6e55c0   e
@@ -250,7 +254,7 @@ fn test_duplicate_many() {
     ");
 
     // Check for BUG -- makes too many 'a'-s, etc.
-    test_env.jj_cmd_ok(&repo_path, &["undo"]);
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
     let output = test_env.run_jj_in(&repo_path, ["duplicate", "a::"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -285,7 +289,9 @@ fn test_duplicate_many() {
 #[test]
 fn test_duplicate_destination() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a1", &[]);
@@ -332,7 +338,9 @@ fn test_duplicate_destination() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate a single commit onto multiple destinations.
     let output = test_env.run_jj_in(&repo_path, ["duplicate", "a1", "-d", "c", "-d", "d"]);
@@ -356,7 +364,9 @@ fn test_duplicate_destination() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate a single commit onto its descendant.
     let output = test_env.run_jj_in(&repo_path, ["duplicate", "a1", "-d", "a3"]);
@@ -381,7 +391,9 @@ fn test_duplicate_destination() {
     [EOF]
     ");
 
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
     // Duplicate multiple commits without a direct ancestry relationship onto a
     // single destination.
     let output = test_env.run_jj_in(&repo_path, ["duplicate", "-r=a1", "-r=b", "-d", "c"]);
@@ -407,7 +419,9 @@ fn test_duplicate_destination() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits without a direct ancestry relationship onto
     // multiple destinations.
@@ -438,7 +452,9 @@ fn test_duplicate_destination() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits with an ancestry relationship onto a
     // single destination.
@@ -464,7 +480,9 @@ fn test_duplicate_destination() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits with an ancestry relationship onto
     // multiple destinations.
@@ -496,7 +514,9 @@ fn test_duplicate_destination() {
 #[test]
 fn test_duplicate_insert_after() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a1", &[]);
@@ -556,7 +576,9 @@ fn test_duplicate_insert_after() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate a single commit after a single ancestor commit.
     let output = test_env.run_jj_in(&repo_path, ["duplicate", "a3", "--after", "a1"]);
@@ -585,7 +607,9 @@ fn test_duplicate_insert_after() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate a single commit after a single descendant commit.
     let output = test_env.run_jj_in(&repo_path, ["duplicate", "a1", "--after", "a3"]);
@@ -614,7 +638,9 @@ fn test_duplicate_insert_after() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate a single commit after multiple commits with no direct
     // relationship.
@@ -648,7 +674,9 @@ fn test_duplicate_insert_after() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate a single commit after multiple commits including an ancestor.
     let output = test_env.run_jj_in(
@@ -681,7 +709,9 @@ fn test_duplicate_insert_after() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate a single commit after multiple commits including a descendant.
     let output = test_env.run_jj_in(
@@ -714,7 +744,9 @@ fn test_duplicate_insert_after() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits without a direct ancestry relationship after a
     // single commit without a direct relationship.
@@ -747,7 +779,9 @@ fn test_duplicate_insert_after() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits without a direct ancestry relationship after a
     // single commit which is an ancestor of one of the duplicated commits.
@@ -781,7 +815,9 @@ fn test_duplicate_insert_after() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits without a direct ancestry relationship after a
     // single commit which is a descendant of one of the duplicated commits.
@@ -815,7 +851,9 @@ fn test_duplicate_insert_after() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits without a direct ancestry relationship after
     // multiple commits without a direct relationship to the duplicated commits.
@@ -857,7 +895,9 @@ fn test_duplicate_insert_after() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits without a direct ancestry relationship after
     // multiple commits including an ancestor of one of the duplicated commits.
@@ -896,7 +936,9 @@ fn test_duplicate_insert_after() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits without a direct ancestry relationship after
     // multiple commits including a descendant of one of the duplicated commits.
@@ -934,7 +976,9 @@ fn test_duplicate_insert_after() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits with an ancestry relationship after a single
     // commit without a direct relationship.
@@ -964,7 +1008,9 @@ fn test_duplicate_insert_after() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits with an ancestry relationship after a single
     // ancestor commit.
@@ -997,7 +1043,9 @@ fn test_duplicate_insert_after() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits with an ancestry relationship after a single
     // descendant commit.
@@ -1030,7 +1078,9 @@ fn test_duplicate_insert_after() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits with an ancestry relationship after multiple
     // commits without a direct relationship to the duplicated commits.
@@ -1064,7 +1114,9 @@ fn test_duplicate_insert_after() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits with an ancestry relationship after multiple
     // commits including an ancestor of one of the duplicated commits.
@@ -1101,7 +1153,9 @@ fn test_duplicate_insert_after() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits with an ancestry relationship after multiple
     // commits including a descendant of one of the duplicated commits.
@@ -1138,7 +1192,9 @@ fn test_duplicate_insert_after() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Should error if a loop will be created.
     let output = test_env.run_jj_in(
@@ -1156,7 +1212,9 @@ fn test_duplicate_insert_after() {
 #[test]
 fn test_duplicate_insert_before() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a1", &[]);
@@ -1216,7 +1274,9 @@ fn test_duplicate_insert_before() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate a single commit before a single ancestor commit.
     let output = test_env.run_jj_in(&repo_path, ["duplicate", "a3", "--before", "a1"]);
@@ -1245,7 +1305,9 @@ fn test_duplicate_insert_before() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate a single commit before a single descendant commit.
     let output = test_env.run_jj_in(&repo_path, ["duplicate", "a1", "--before", "a3"]);
@@ -1274,7 +1336,9 @@ fn test_duplicate_insert_before() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate a single commit before multiple commits with no direct
     // relationship.
@@ -1308,7 +1372,9 @@ fn test_duplicate_insert_before() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate a single commit before multiple commits including an ancestor.
     let output = test_env.run_jj_in(
@@ -1342,7 +1408,9 @@ fn test_duplicate_insert_before() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate a single commit before multiple commits including a descendant.
     let output = test_env.run_jj_in(
@@ -1376,7 +1444,9 @@ fn test_duplicate_insert_before() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits without a direct ancestry relationship before a
     // single commit without a direct relationship.
@@ -1409,7 +1479,9 @@ fn test_duplicate_insert_before() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits without a direct ancestry relationship before a
     // single commit which is an ancestor of one of the duplicated commits.
@@ -1443,7 +1515,9 @@ fn test_duplicate_insert_before() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits without a direct ancestry relationship before a
     // single commit which is a descendant of one of the duplicated commits.
@@ -1477,7 +1551,9 @@ fn test_duplicate_insert_before() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits without a direct ancestry relationship before
     // multiple commits without a direct relationship to the duplicated commits.
@@ -1516,7 +1592,9 @@ fn test_duplicate_insert_before() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits without a direct ancestry relationship before
     // multiple commits including an ancestor of one of the duplicated commits.
@@ -1553,7 +1631,9 @@ fn test_duplicate_insert_before() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits without a direct ancestry relationship before
     // multiple commits including a descendant of one of the duplicated commits.
@@ -1592,7 +1672,9 @@ fn test_duplicate_insert_before() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits with an ancestry relationship before a single
     // commit without a direct relationship.
@@ -1623,7 +1705,9 @@ fn test_duplicate_insert_before() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits with an ancestry relationship before a single
     // ancestor commit.
@@ -1656,7 +1740,9 @@ fn test_duplicate_insert_before() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits with an ancestry relationship before a single
     // descendant commit.
@@ -1689,7 +1775,9 @@ fn test_duplicate_insert_before() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits with an ancestry relationship before multiple
     // commits without a direct relationship to the duplicated commits.
@@ -1728,7 +1816,9 @@ fn test_duplicate_insert_before() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits with an ancestry relationship before multiple
     // commits including an ancestor of one of the duplicated commits.
@@ -1766,7 +1856,9 @@ fn test_duplicate_insert_before() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits with an ancestry relationship before multiple
     // commits including a descendant of one of the duplicated commits.
@@ -1804,7 +1896,9 @@ fn test_duplicate_insert_before() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Should error if a loop will be created.
     let output = test_env.run_jj_in(
@@ -1822,7 +1916,9 @@ fn test_duplicate_insert_before() {
 #[test]
 fn test_duplicate_insert_after_before() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a1", &[]);
@@ -1886,7 +1982,9 @@ fn test_duplicate_insert_after_before() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate a single commit in between ancestor commits.
     let output = test_env.run_jj_in(
@@ -1918,7 +2016,9 @@ fn test_duplicate_insert_after_before() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate a single commit in between an ancestor commit and a commit with no
     // direct relationship.
@@ -1952,7 +2052,9 @@ fn test_duplicate_insert_after_before() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate a single commit in between descendant commits.
     let output = test_env.run_jj_in(
@@ -1984,7 +2086,9 @@ fn test_duplicate_insert_after_before() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate a single commit in between a descendant commit and a commit with no
     // direct relationship.
@@ -2019,7 +2123,9 @@ fn test_duplicate_insert_after_before() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate a single commit in between an ancestor commit and a descendant
     // commit.
@@ -2053,7 +2159,9 @@ fn test_duplicate_insert_after_before() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits without a direct ancestry relationship between
     // commits without a direct relationship.
@@ -2095,7 +2203,9 @@ fn test_duplicate_insert_after_before() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits without a direct ancestry relationship between a
     // commit which is an ancestor of one of the duplicated commits and a commit
@@ -2133,7 +2243,9 @@ fn test_duplicate_insert_after_before() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits without a direct ancestry relationship between a
     // commit which is a descendant of one of the duplicated commits and a
@@ -2172,7 +2284,9 @@ fn test_duplicate_insert_after_before() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits without a direct ancestry relationship between
     // commits without a direct relationship to the duplicated commits.
@@ -2214,7 +2328,9 @@ fn test_duplicate_insert_after_before() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits with an ancestry relationship between
     // commits without a direct relationship to the duplicated commits.
@@ -2254,7 +2370,9 @@ fn test_duplicate_insert_after_before() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits with an ancestry relationship between a commit
     // which is an ancestor of one of the duplicated commits and a commit
@@ -2291,7 +2409,9 @@ fn test_duplicate_insert_after_before() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits with an ancestry relationship between a commit
     // which is a a descendant of one of the duplicated commits and a commit
@@ -2327,7 +2447,9 @@ fn test_duplicate_insert_after_before() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits with an ancestry relationship between descendant
     // commits.
@@ -2363,7 +2485,9 @@ fn test_duplicate_insert_after_before() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits with an ancestry relationship between ancestor
     // commits.
@@ -2399,7 +2523,9 @@ fn test_duplicate_insert_after_before() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Duplicate multiple commits with an ancestry relationship between an ancestor
     // commit and a descendant commit.
@@ -2435,7 +2561,9 @@ fn test_duplicate_insert_after_before() {
     ◆  000000000000
     [EOF]
     ");
-    test_env.jj_cmd_ok(&repo_path, &["op", "restore", &setup_opid]);
+    test_env
+        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
+        .success();
 
     // Should error if a loop will be created.
     let output = test_env.run_jj_in(
@@ -2454,7 +2582,9 @@ fn test_duplicate_insert_after_before() {
 #[test]
 fn test_undo_after_duplicate() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);
@@ -2495,7 +2625,9 @@ fn test_undo_after_duplicate() {
 #[test]
 fn test_rebase_duplicates() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env, &repo_path, "a", &[]);

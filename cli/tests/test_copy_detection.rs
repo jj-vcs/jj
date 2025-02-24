@@ -17,13 +17,17 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_simple_rename() {
     let test_env = TestEnvironment::default();
-    test_env.jj_cmd_ok(test_env.env_root(), &["git", "init", "repo"]);
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
     let repo_path = test_env.env_root().join("repo");
 
-    test_env.jj_cmd_ok(&repo_path, &["new"]);
+    test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("original"), "original").unwrap();
     std::fs::write(repo_path.join("something"), "something").unwrap();
-    test_env.jj_cmd_ok(&repo_path, &["commit", "-mfirst"]);
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-mfirst"])
+        .success();
     std::fs::remove_file(repo_path.join("original")).unwrap();
     std::fs::write(repo_path.join("modified"), "original").unwrap();
     std::fs::write(repo_path.join("something"), "changed").unwrap();
