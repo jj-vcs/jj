@@ -946,7 +946,7 @@ fn test_default_config() {
     test_env.set_config_path(&config_dir);
 
     let envs_to_drop = test_env
-        .jj_cmd(test_env.env_root(), &[])
+        .new_jj_cmd()
         .get_envs()
         .filter_map(|(name, _)| name.to_str())
         .filter(|&name| name.starts_with("JJ_") && name != "JJ_CONFIG")

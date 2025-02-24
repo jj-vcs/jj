@@ -92,7 +92,7 @@ impl TestEnvironment {
         &self,
         configure: impl FnOnce(&mut assert_cmd::Command) -> &mut assert_cmd::Command,
     ) -> CommandOutput {
-        let mut cmd = self.jj_cmd(&self.env_root, &[]);
+        let mut cmd = self.new_jj_cmd();
         let output = configure(&mut cmd).output().unwrap();
         CommandOutput {
             stdout: self.normalize_output(String::from_utf8(output.stdout).unwrap()),
@@ -101,12 +101,13 @@ impl TestEnvironment {
         }
     }
 
-    // TODO: rename to new_jj_cmd, remove arguments that can be set later
+    /// Returns command builder to run `jj` in the test environment.
+    ///
+    /// Use `run_jj_with()` to run command within customized environment.
     #[must_use]
-    pub fn jj_cmd(&self, current_dir: &Path, args: &[&str]) -> assert_cmd::Command {
+    pub fn new_jj_cmd(&self) -> assert_cmd::Command {
         let mut cmd = assert_cmd::Command::cargo_bin("jj").unwrap();
-        cmd.current_dir(current_dir);
-        cmd.args(args);
+        cmd.current_dir(&self.env_root);
         cmd.env_clear();
         cmd.env("COLUMNS", "100");
         for (key, value) in &self.env_vars {
