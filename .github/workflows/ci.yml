@@ -77,7 +77,7 @@ jobs:
       with:
         toolchain: 1.76
         target: ${{ matrix.target }}
-    - uses: taiki-e/install-action@ae97ff9daf1cd2e216671a047d80ff48461e30bb
+    - uses: taiki-e/install-action@6c595e9f7bd0b1a8268c34262aebfea65f6d3768
       with:
         tool: nextest,taplo-cli
     - name: Build
