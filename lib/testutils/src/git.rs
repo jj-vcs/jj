@@ -56,23 +56,26 @@ pub fn init_bare(directory: impl AsRef<Path>) -> gix::Repository {
     .to_thread_local()
 }
 
-pub fn clone(dest_path: &Path, url: &str) -> gix::Repository {
-    let mut prepare_fetch = gix::clone::PrepareFetch::new(
-        url,
-        dest_path,
-        gix::create::Kind::WithWorktree,
-        gix::create::Options::default(),
-        open_options(),
-    )
-    .unwrap();
-    let (mut prepare_checkout, _outcome) = prepare_fetch
-        .fetch_then_checkout(gix::progress::Discard, &gix::interrupt::IS_INTERRUPTED)
+pub fn clone(dest_path: &Path, repo_url: &str) -> gix::Repository {
+    // gitoxide doesn't write the remote HEAD as a symbolic link, which prevents
+    // `jj` from getting it.
+    //
+    // This, plus the fact that the code to clone a repo in gitoxide is non-trivial,
+    // makes it appealing to just spawn a git subprocess
+    let output = std::process::Command::new("git")
+        .args(["clone", repo_url])
+        .arg(dest_path)
+        .output()
         .unwrap();
-    let (repo, _outcome) = prepare_checkout
-        .main_worktree(gix::progress::Discard, &gix::interrupt::IS_INTERRUPTED)
-        .unwrap();
+    assert!(
+        output.status.success(),
+        "git cloning failed with exit code {}:\n{}\n----- stderr -----\n{}",
+        output.status,
+        bstr::BString::from(output.stdout),
+        bstr::BString::from(output.stderr),
+    );
 
-    repo
+    open(dest_path)
 }
 
 /// Writes out gitlink entry pointing to the `target_repo`.

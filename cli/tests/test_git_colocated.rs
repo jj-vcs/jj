@@ -587,7 +587,7 @@ fn test_git_colocated_fetch_deleted_or_moved_bookmark() {
     let test_env = TestEnvironment::default();
     test_env.add_config("git.auto-local-bookmark = true");
     let origin_path = test_env.env_root().join("origin");
-    git2::Repository::init(&origin_path).unwrap();
+    git::init(&origin_path);
     test_env
         .run_jj_in(&origin_path, ["git", "init", "--git-repo=."])
         .success();
@@ -611,7 +611,7 @@ fn test_git_colocated_fetch_deleted_or_moved_bookmark() {
         .success();
 
     let clone_path = test_env.env_root().join("clone");
-    git2::Repository::clone(origin_path.to_str().unwrap(), &clone_path).unwrap();
+    git::clone(&clone_path, origin_path.to_str().unwrap());
     test_env
         .run_jj_in(&clone_path, ["git", "init", "--git-repo=."])
         .success();
