@@ -197,8 +197,7 @@ fn test_restore_conflicted_merge() {
 
     // Overwrite the file...
     std::fs::write(repo_path.join("file"), "resolution").unwrap();
-    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["diff"]), 
-    @r"
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["diff"]), @r"
     Resolved conflict in file:
        1     : <<<<<<< Conflict 1 of 1
        2     : %%%%%%% Changes from base to side #1
@@ -240,8 +239,7 @@ fn test_restore_conflicted_merge() {
 
     // The same, but without the `file` argument. Overwrite the file...
     std::fs::write(repo_path.join("file"), "resolution").unwrap();
-    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["diff"]), 
-    @r"
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["diff"]), @r"
     Resolved conflict in file:
        1     : <<<<<<< Conflict 1 of 1
        2     : %%%%%%% Changes from base to side #1

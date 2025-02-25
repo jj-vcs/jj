@@ -106,8 +106,7 @@ fn test_debug_index() {
         Number of commits: 2
         Name: [hash]
     [EOF]
-    "
-    );
+    ");
 }
 
 #[test]
@@ -132,8 +131,7 @@ fn test_debug_reindex() {
         Number of commits: 1
         Name: [hash]
     [EOF]
-    "
-    );
+    ");
     let output = test_env.run_jj_in(&workspace_path, ["debug", "reindex"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -152,8 +150,7 @@ fn test_debug_reindex() {
         Number of commits: 4
         Name: [hash]
     [EOF]
-    "
-    );
+    ");
 }
 
 #[test]
@@ -252,8 +249,7 @@ fn test_debug_operation_id() {
     assert_snapshot!(filter_index_stats(output), @r"
     eac759b9ab75793fd3da96e60939fb48f2cd2b2a9c1f13ffe723cf620f3005b8d3e7e923634a07ea39513e4f2f360c87b9ad5d331cf90d7a844864b83b72eba1
     [EOF]
-    "
-    );
+    ");
 }
 
 fn filter_index_stats(output: CommandOutput) -> CommandOutput {

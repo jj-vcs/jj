@@ -407,8 +407,7 @@ fn test_log_shortest_accessors() {
         @"qpv[untsmwlqt] e0[e22b9fae75][EOF]");
 
     insta::assert_snapshot!(
-        render("::@", r#"change_id.shortest() ++ " " ++ commit_id.shortest() ++ "\n""#),
-        @r"
+        render("::@", r#"change_id.shortest() ++ " " ++ commit_id.shortest() ++ "\n""#), @r"
     wq ed
     km ef3
     kp af
@@ -424,8 +423,7 @@ fn test_log_shortest_accessors() {
     ");
 
     insta::assert_snapshot!(
-        render("::@", r#"format_id(change_id) ++ " " ++ format_id(commit_id) ++ "\n""#),
-        @r"
+        render("::@", r#"format_id(change_id) ++ " " ++ format_id(commit_id) ++ "\n""#), @r"
     wq[nwkozpkust] ed[e204633421]
     km[kuslswpqwq] ef3[d013266cd]
     kp[qxywonksrl] af[95b841712d]
@@ -443,8 +441,7 @@ fn test_log_shortest_accessors() {
     // Can get shorter prefixes in configured revset
     test_env.add_config(r#"revsets.short-prefixes = "(@----)::""#);
     insta::assert_snapshot!(
-        render("::@", r#"format_id(change_id) ++ " " ++ format_id(commit_id) ++ "\n""#),
-        @r"
+        render("::@", r#"format_id(change_id) ++ " " ++ format_id(commit_id) ++ "\n""#), @r"
     w[qnwkozpkust] ed[e204633421]
     km[kuslswpqwq] ef[3d013266cd]
     kp[qxywonksrl] a[f95b841712d]
@@ -462,8 +459,7 @@ fn test_log_shortest_accessors() {
     // Can disable short prefixes by setting to empty string
     test_env.add_config(r#"revsets.short-prefixes = """#);
     insta::assert_snapshot!(
-        render("::@", r#"format_id(change_id) ++ " " ++ format_id(commit_id) ++ "\n""#),
-        @r"
+        render("::@", r#"format_id(change_id) ++ " " ++ format_id(commit_id) ++ "\n""#), @r"
     wq[nwkozpkust] ed[e204633421]
     km[kuslswpqwq] ef3[d013266cd]
     kp[qxywonksrl] af[95b841712d]
@@ -566,14 +562,12 @@ fn test_log_prefix_highlight_styled() {
         .run_jj_in(&repo_path, ["bookmark", "c", "-r@", "original"])
         .success();
     insta::assert_snapshot!(
-        test_env.run_jj_in(&repo_path, ["log", "-r", "original", "-T", &prefix_format(Some(12))]),
-        @r"
+        test_env.run_jj_in(&repo_path, ["log", "-r", "original", "-T", &prefix_format(Some(12))]), @r"
     @  Change qpvuntsmwlqt initial e0e22b9fae75 original
     │
     ~
     [EOF]
-    "
-    );
+    ");
 
     // Create a chain of 10 commits
     for i in 1..10 {
@@ -590,14 +584,12 @@ fn test_log_prefix_highlight_styled() {
     }
 
     insta::assert_snapshot!(
-        test_env.run_jj_in(&repo_path, ["log", "-r", "original", "-T", &prefix_format(Some(12))]),
-        @r"
+        test_env.run_jj_in(&repo_path, ["log", "-r", "original", "-T", &prefix_format(Some(12))]), @r"
     ○  Change qpvuntsmwlqt initial e0e22b9fae75 original
     │
     ~
     [EOF]
-    "
-    );
+    ");
     let output = test_env.run_jj_in(
         &repo_path,
         [
@@ -609,8 +601,7 @@ fn test_log_prefix_highlight_styled() {
             &prefix_format(Some(12)),
         ],
     );
-    insta::assert_snapshot!(output,
-        @r"
+    insta::assert_snapshot!(output, @r"
     [1m[38;5;2m@[0m  Change [1m[38;5;5mwq[0m[38;5;8mnwkozpkust[39m commit9 [1m[38;5;4med[0m[38;5;8me204633421[39m
     ○  Change [1m[38;5;5mkm[0m[38;5;8mkuslswpqwq[39m commit8 [1m[38;5;4mef3[0m[38;5;8md013266cd[39m
     ○  Change [1m[38;5;5mkp[0m[38;5;8mqxywonksrl[39m commit7 [1m[38;5;4maf[0m[38;5;8m95b841712d[39m
@@ -623,8 +614,7 @@ fn test_log_prefix_highlight_styled() {
     ○  Change [1m[38;5;5mqpv[0m[38;5;8muntsmwlqt[39m initial [1m[38;5;4me0[0m[38;5;8me22b9fae75[39m [38;5;5moriginal[39m
     [1m[38;5;14m◆[0m  Change [1m[38;5;5mzzz[0m[38;5;8mzzzzzzzzz[39m [1m[38;5;4m00[0m[38;5;8m0000000000[39m
     [EOF]
-    "
-    );
+    ");
     let output = test_env.run_jj_in(
         &repo_path,
         [
@@ -636,8 +626,7 @@ fn test_log_prefix_highlight_styled() {
             &prefix_format(Some(3)),
         ],
     );
-    insta::assert_snapshot!(output,
-        @r"
+    insta::assert_snapshot!(output, @r"
     [1m[38;5;2m@[0m  Change [1m[38;5;5mwq[0m[38;5;8mn[39m commit9 [1m[38;5;4med[0m[38;5;8me[39m
     ○  Change [1m[38;5;5mkm[0m[38;5;8mk[39m commit8 [1m[38;5;4mef3[0m
     ○  Change [1m[38;5;5mkp[0m[38;5;8mq[39m commit7 [1m[38;5;4maf[0m[38;5;8m9[39m
@@ -650,8 +639,7 @@ fn test_log_prefix_highlight_styled() {
     ○  Change [1m[38;5;5mqpv[0m initial [1m[38;5;4me0[0m[38;5;8me[39m [38;5;5moriginal[39m
     [1m[38;5;14m◆[0m  Change [1m[38;5;5mzzz[0m [1m[38;5;4m00[0m[38;5;8m0[39m
     [EOF]
-    "
-    );
+    ");
     let output = test_env.run_jj_in(
         &repo_path,
         [
@@ -663,8 +651,7 @@ fn test_log_prefix_highlight_styled() {
             &prefix_format(None),
         ],
     );
-    insta::assert_snapshot!(output,
-        @r"
+    insta::assert_snapshot!(output, @r"
     [1m[38;5;2m@[0m  Change [1m[38;5;5mwq[0m commit9 [1m[38;5;4med[0m
     ○  Change [1m[38;5;5mkm[0m commit8 [1m[38;5;4mef3[0m
     ○  Change [1m[38;5;5mkp[0m commit7 [1m[38;5;4maf[0m
@@ -677,8 +664,7 @@ fn test_log_prefix_highlight_styled() {
     ○  Change [1m[38;5;5mqpv[0m initial [1m[38;5;4me0[0m [38;5;5moriginal[39m
     [1m[38;5;14m◆[0m  Change [1m[38;5;5mzzz[0m [1m[38;5;4m00[0m
     [EOF]
-    "
-    );
+    ");
 }
 
 #[test]
@@ -713,13 +699,11 @@ fn test_log_prefix_highlight_counts_hidden_commits() {
         .run_jj_in(&repo_path, ["bookmark", "c", "-r@", "original"])
         .success();
     insta::assert_snapshot!(
-        test_env.run_jj_in(&repo_path, ["log", "-r", "all()", "-T", prefix_format]),
-        @r"
+        test_env.run_jj_in(&repo_path, ["log", "-r", "all()", "-T", prefix_format]), @r"
     @  Change q[pvuntsmwlqt] initial e0[e22b9fae75] original
     ◆  Change z[zzzzzzzzzzz] 0[00000000000]
     [EOF]
-    "
-    );
+    ");
 
     // Create 2^7 hidden commits
     test_env
@@ -736,33 +720,27 @@ fn test_log_prefix_highlight_counts_hidden_commits() {
 
     // The unique prefixes became longer.
     insta::assert_snapshot!(
-        test_env.run_jj_in(&repo_path, ["log", "-T", prefix_format]),
-        @r"
+        test_env.run_jj_in(&repo_path, ["log", "-T", prefix_format]), @r"
     @  Change wq[nwkozpkust] 44[4c3c5066d3]
     │ ○  Change qpv[untsmwlqt] initial e0e[22b9fae75] original
     ├─╯
     ◆  Change zzz[zzzzzzzzz] 00[0000000000]
     [EOF]
-    "
-    );
+    ");
     insta::assert_snapshot!(
-        test_env.run_jj_in(&repo_path, ["log", "-r", "4", "-T", prefix_format]),
-        @r"
+        test_env.run_jj_in(&repo_path, ["log", "-r", "4", "-T", prefix_format]), @r"
     ------- stderr -------
     Error: Commit ID prefix `4` is ambiguous
     [EOF]
     [exit status: 1]
-    "
-    );
+    ");
     insta::assert_snapshot!(
-        test_env.run_jj_in(&repo_path, ["log", "-r", "44", "-T", prefix_format]),
-        @r"
+        test_env.run_jj_in(&repo_path, ["log", "-r", "44", "-T", prefix_format]), @r"
     @  Change wq[nwkozpkust] 44[4c3c5066d3]
     │
     ~
     [EOF]
-    "
-    );
+    ");
 }
 
 #[test]
@@ -805,14 +783,12 @@ fn test_log_author_format() {
     let repo_path = test_env.env_root().join("repo");
 
     insta::assert_snapshot!(
-        test_env.run_jj_in(&repo_path, ["log", "--revisions=@"]),
-        @r"
+        test_env.run_jj_in(&repo_path, ["log", "--revisions=@"]), @r"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 230dd059
     │  (empty) (no description set)
     ~
     [EOF]
-    "
-    );
+    ");
 
     let decl = "template-aliases.'format_short_signature(signature)'";
     insta::assert_snapshot!(
@@ -824,14 +800,12 @@ fn test_log_author_format() {
                 "log",
                 "--revisions=@",
             ],
-        ),
-        @r"
+        ), @r"
     @  qpvuntsm test.user 2001-02-03 08:05:07 230dd059
     │  (empty) (no description set)
     ~
     [EOF]
-    "
-    );
+    ");
 }
 
 #[test]
@@ -1188,8 +1162,7 @@ fn test_default_revset() {
 
     // The default revset is not used if a path is specified
     insta::assert_snapshot!(
-        test_env.run_jj_in(&repo_path, ["log", "file1", "-T", "description"]),
-        @r"
+        test_env.run_jj_in(&repo_path, ["log", "file1", "-T", "description"]), @r"
     @  add a file
     │
     ~
@@ -1242,16 +1215,14 @@ fn test_multiple_revsets() {
     test_env.add_config(r#"revsets.log = "root()""#);
 
     insta::assert_snapshot!(
-        test_env.run_jj_in(&repo_path, ["log", "-T", "bookmarks", "-rfoo"]),
-        @r"
+        test_env.run_jj_in(&repo_path, ["log", "-T", "bookmarks", "-rfoo"]), @r"
     ○  foo
     │
     ~
     [EOF]
     ");
     insta::assert_snapshot!(
-        test_env.run_jj_in(&repo_path, ["log", "-T", "bookmarks", "-rfoo", "-rbar", "-rbaz"]),
-        @r"
+        test_env.run_jj_in(&repo_path, ["log", "-T", "bookmarks", "-rfoo", "-rbar", "-rbaz"]), @r"
     @  baz
     ○  bar
     ○  foo
@@ -1260,8 +1231,7 @@ fn test_multiple_revsets() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        test_env.run_jj_in(&repo_path, ["log", "-T", "bookmarks", "-rfoo", "-rfoo"]),
-        @r"
+        test_env.run_jj_in(&repo_path, ["log", "-T", "bookmarks", "-rfoo", "-rfoo"]), @r"
     ○  foo
     │
     ~

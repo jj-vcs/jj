@@ -75,14 +75,12 @@ fn test_chmod_regular_conflict() {
     [EOF]
     ");
     let output = test_env.run_jj_in(&repo_path, ["debug", "tree"]);
-    insta::assert_snapshot!(output, 
-    @r#"
+    insta::assert_snapshot!(output, @r#"
     file: Ok(Conflicted([Some(File { id: FileId("587be6b4c3f93f93c489c0111bba5596147a26cb"), executable: true }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false }), Some(File { id: FileId("8ba3a16384aacc37d01564b28401755ce8053f51"), executable: false })]))
     [EOF]
     "#);
     let output = test_env.run_jj_in(&repo_path, ["file", "show", "file"]);
-    insta::assert_snapshot!(output, 
-    @r"
+    insta::assert_snapshot!(output, @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
     -base
@@ -98,14 +96,12 @@ fn test_chmod_regular_conflict() {
         .run_jj_in(&repo_path, ["file", "chmod", "x", "file"])
         .success();
     let output = test_env.run_jj_in(&repo_path, ["debug", "tree"]);
-    insta::assert_snapshot!(output, 
-    @r#"
+    insta::assert_snapshot!(output, @r#"
     file: Ok(Conflicted([Some(File { id: FileId("587be6b4c3f93f93c489c0111bba5596147a26cb"), executable: true }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: true }), Some(File { id: FileId("8ba3a16384aacc37d01564b28401755ce8053f51"), executable: true })]))
     [EOF]
     "#);
     let output = test_env.run_jj_in(&repo_path, ["file", "show", "file"]);
-    insta::assert_snapshot!(output, 
-    @r"
+    insta::assert_snapshot!(output, @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
     -base
@@ -119,14 +115,12 @@ fn test_chmod_regular_conflict() {
         .run_jj_in(&repo_path, ["file", "chmod", "n", "file"])
         .success();
     let output = test_env.run_jj_in(&repo_path, ["debug", "tree"]);
-    insta::assert_snapshot!(output, 
-    @r#"
+    insta::assert_snapshot!(output, @r#"
     file: Ok(Conflicted([Some(File { id: FileId("587be6b4c3f93f93c489c0111bba5596147a26cb"), executable: false }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false }), Some(File { id: FileId("8ba3a16384aacc37d01564b28401755ce8053f51"), executable: false })]))
     [EOF]
     "#);
     let output = test_env.run_jj_in(&repo_path, ["file", "show", "file"]);
-    insta::assert_snapshot!(output, 
-    @r"
+    insta::assert_snapshot!(output, @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
     -base
@@ -199,14 +193,12 @@ fn test_chmod_file_dir_deletion_conflicts() {
 
     // The file-dir conflict cannot be chmod-ed
     let output = test_env.run_jj_in(&repo_path, ["debug", "tree", "-r=file_dir"]);
-    insta::assert_snapshot!(output,
-    @r#"
+    insta::assert_snapshot!(output, @r#"
     file: Ok(Conflicted([Some(File { id: FileId("78981922613b2afb6025042ff6bd878ac1994e85"), executable: false }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false }), Some(Tree(TreeId("133bb38fc4e4bf6b551f1f04db7e48f04cac2877")))]))
     [EOF]
     "#);
     let output = test_env.run_jj_in(&repo_path, ["file", "show", "-r=file_dir", "file"]);
-    insta::assert_snapshot!(output,
-    @r"
+    insta::assert_snapshot!(output, @r"
     Conflict:
       Removing file with id df967b96a579e45a18b8251732d16804b2e56a55
       Adding file with id 78981922613b2afb6025042ff6bd878ac1994e85
@@ -223,14 +215,12 @@ fn test_chmod_file_dir_deletion_conflicts() {
 
     // The file_deletion conflict can be chmod-ed
     let output = test_env.run_jj_in(&repo_path, ["debug", "tree", "-r=file_deletion"]);
-    insta::assert_snapshot!(output,
-    @r#"
+    insta::assert_snapshot!(output, @r#"
     file: Ok(Conflicted([Some(File { id: FileId("78981922613b2afb6025042ff6bd878ac1994e85"), executable: false }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false }), None]))
     [EOF]
     "#);
     let output = test_env.run_jj_in(&repo_path, ["file", "show", "-r=file_deletion", "file"]);
-    insta::assert_snapshot!(output,
-    @r"
+    insta::assert_snapshot!(output, @r"
     <<<<<<< Conflict 1 of 1
     +++++++ Contents of side #1
     a
@@ -261,14 +251,12 @@ fn test_chmod_file_dir_deletion_conflicts() {
     [EOF]
     ");
     let output = test_env.run_jj_in(&repo_path, ["debug", "tree", "-r=file_deletion"]);
-    insta::assert_snapshot!(output,
-    @r#"
+    insta::assert_snapshot!(output, @r#"
     file: Ok(Conflicted([Some(File { id: FileId("78981922613b2afb6025042ff6bd878ac1994e85"), executable: true }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: true }), None]))
     [EOF]
     "#);
     let output = test_env.run_jj_in(&repo_path, ["file", "show", "-r=file_deletion", "file"]);
-    insta::assert_snapshot!(output,
-    @r"
+    insta::assert_snapshot!(output, @r"
     <<<<<<< Conflict 1 of 1
     +++++++ Contents of side #1
     a
