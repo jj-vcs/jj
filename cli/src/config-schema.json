@@ -695,6 +695,13 @@
                     "default": false
                 }
             }
+        },
+        "hints": {
+            "type": "object",
+            "description": "Various hints in jj's UI that can be disabled",
+            "additionalProperties": {
+                "type": "boolean"
+            }
         }
     }
 }

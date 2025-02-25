@@ -224,3 +224,40 @@ fn test_report_conflicts_with_divergent_commits() {
     [EOF]
     ");
 }
+
+#[test]
+fn test_report_conflicts_with_resolving_conflicts_hint_disabled() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+
+    std::fs::write(repo_path.join("file"), "A\n").unwrap();
+    test_env.run_jj_in(&repo_path, ["commit", "-m=A"]).success();
+    std::fs::write(repo_path.join("file"), "B\n").unwrap();
+    test_env.run_jj_in(&repo_path, ["commit", "-m=B"]).success();
+    std::fs::write(repo_path.join("file"), "C\n").unwrap();
+    test_env.run_jj_in(&repo_path, ["commit", "-m=C"]).success();
+
+    let output = test_env.run_jj_in(
+        &repo_path,
+        [
+            "rebase",
+            "-s=description(B)",
+            "-d=root()",
+            "--config=hints.resolving-conflicts=false",
+        ],
+    );
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Rebased 3 commits onto destination
+    Working copy now at: zsuskuln f8a2c4e0 (conflict) (empty) (no description set)
+    Parent commit      : kkmpptxz 2271a49e (conflict) C
+    Added 0 files, modified 1 files, removed 0 files
+    Warning: There are unresolved conflicts at these paths:
+    file    2-sided conflict including 1 deletion
+    New conflicts appeared in these commits:
+      kkmpptxz 2271a49e (conflict) C
+      rlvkpnrz b7d83633 (conflict) B
+    [EOF]
+    ");
+}

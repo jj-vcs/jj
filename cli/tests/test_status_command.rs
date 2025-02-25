@@ -254,6 +254,19 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     [EOF]
     ");
 
+    let output = test_env.run_jj_in(
+        &repo_path,
+        ["status", "--config=hints.resolving-conflicts=false"],
+    );
+    insta::assert_snapshot!(output, @r"
+    The working copy has no changes.
+    Working copy : yqosqzyt dcb25635 (conflict) (empty) boom-cont-2
+    Parent commit: royxmykx 664a4c6c (conflict) (empty) boom-cont
+    Warning: There are unresolved conflicts at these paths:
+    conflicted.txt    2-sided conflict
+    [EOF]
+    ");
+
     // Resolve conflict
     test_env
         .run_jj_in(&repo_path, ["new", "--message", "fixed 1"])
@@ -270,9 +283,9 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     let output = test_env.run_jj_in(&repo_path, ["log", "-r", "::"]);
 
     insta::assert_snapshot!(output, @r"
-    @  kmkuslsw test.user@example.com 2001-02-03 08:05:19 caa7e9d5
+    @  wqnwkozp test.user@example.com 2001-02-03 08:05:20 c4a6dbc2
     │  fixed 2
-    ○  kpqxywon test.user@example.com 2001-02-03 08:05:18 26bf6863
+    ○  kmkuslsw test.user@example.com 2001-02-03 08:05:19 fcebf6ee
     │  fixed 1
     ×  yqosqzyt test.user@example.com 2001-02-03 08:05:13 dcb25635 conflict
     │  (empty) boom-cont-2
@@ -295,8 +308,8 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     insta::assert_snapshot!(output, @r"
     Working copy changes:
     M conflicted.txt
-    Working copy : kmkuslsw caa7e9d5 fixed 2
-    Parent commit: kpqxywon 26bf6863 fixed 1
+    Working copy : wqnwkozp c4a6dbc2 fixed 2
+    Parent commit: kmkuslsw fcebf6ee fixed 1
     [EOF]
     ");
 
@@ -306,9 +319,9 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     let output = test_env.run_jj_in(&repo_path, ["log", "-r", "::"]);
 
     insta::assert_snapshot!(output, @r"
-    ○  kmkuslsw test.user@example.com 2001-02-03 08:05:19 caa7e9d5
+    ○  wqnwkozp test.user@example.com 2001-02-03 08:05:20 c4a6dbc2
     │  fixed 2
-    @  kpqxywon test.user@example.com 2001-02-03 08:05:18 26bf6863
+    @  kmkuslsw test.user@example.com 2001-02-03 08:05:19 fcebf6ee
     │  fixed 1
     ×  yqosqzyt test.user@example.com 2001-02-03 08:05:13 dcb25635 conflict
     │  (empty) boom-cont-2
@@ -331,7 +344,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     insta::assert_snapshot!(output, @r"
     Working copy changes:
     M conflicted.txt
-    Working copy : kpqxywon 26bf6863 fixed 1
+    Working copy : kmkuslsw fcebf6ee fixed 1
     Parent commit: yqosqzyt dcb25635 (conflict) (empty) boom-cont-2
     Hint: Conflict in parent commit has been resolved in working copy
     [EOF]
@@ -346,9 +359,9 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     let output = test_env.run_jj_in(&repo_path, ["log", "-r", "::"]);
 
     insta::assert_snapshot!(output, @r"
-    ○  kmkuslsw test.user@example.com 2001-02-03 08:05:19 caa7e9d5
+    ○  wqnwkozp test.user@example.com 2001-02-03 08:05:20 c4a6dbc2
     │  fixed 2
-    ○  kpqxywon test.user@example.com 2001-02-03 08:05:18 26bf6863
+    ○  kmkuslsw test.user@example.com 2001-02-03 08:05:19 fcebf6ee
     │  fixed 1
     ×  yqosqzyt test.user@example.com 2001-02-03 08:05:13 dcb25635 conflict
     │  (empty) boom-cont-2

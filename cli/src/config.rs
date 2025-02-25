@@ -490,6 +490,7 @@ pub fn default_config_layers() -> Vec<ConfigLayer> {
     let parse = |text: &'static str| ConfigLayer::parse(ConfigSource::Default, text).unwrap();
     let mut layers = vec![
         parse(include_str!("config/colors.toml")),
+        parse(include_str!("config/hints.toml")),
         parse(include_str!("config/merge_tools.toml")),
         parse(include_str!("config/misc.toml")),
         parse(include_str!("config/revsets.toml")),
