@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::HashSet;
+
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools;
 use jj_lib::config::ConfigGetResultExt as _;
@@ -23,6 +25,8 @@ use jj_lib::str_util::StringPattern;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
 use crate::cli_util::WorkspaceCommandTransaction;
+use crate::command_error::config_error;
+use crate::command_error::user_error;
 use crate::command_error::CommandError;
 use crate::commands::git::get_single_remote;
 use crate::complete;
@@ -54,12 +58,20 @@ pub struct GitFetchArgs {
     ///
     /// This defaults to the `git.fetch` setting. If that is not configured, and
     /// if there are multiple remotes, the remote named "origin" will be used.
+    ///
+    /// By default, the specified remote names matches exactly. Use a [string
+    /// pattern], e.g. `--remote 'glob:*'`, to select remotes using
+    /// patterns.
+    ///
+    /// [string pattern]:
+    ///     https://jj-vcs.github.io/jj/latest/revsets#string-patterns
     #[arg(
         long = "remote",
         value_name = "REMOTE",
+        value_parser = StringPattern::parse,
         add = ArgValueCandidates::new(complete::git_remotes),
     )]
-    remotes: Vec<String>,
+    remotes: Vec<StringPattern>,
     /// Fetch from all remotes
     #[arg(long, conflicts_with = "remotes")]
     all_remotes: bool,
@@ -72,13 +84,49 @@ pub fn cmd_git_fetch(
     args: &GitFetchArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
-    let remotes = if args.all_remotes {
-        git::get_all_remote_names(workspace_command.repo().store())?
+    let remote_patterns = if args.all_remotes {
+        vec![StringPattern::everything()]
     } else if args.remotes.is_empty() {
         get_default_fetch_remotes(ui, &workspace_command)?
     } else {
         args.remotes.clone()
     };
+
+    let all_remotes = git::get_all_remote_names(workspace_command.repo().store())?;
+
+    let mut matching_remotes = HashSet::new();
+    let mut unmatched_patterns = Vec::new();
+    for pattern in remote_patterns {
+        let remotes = all_remotes
+            .iter()
+            .filter(|r| pattern.matches(r))
+            .collect_vec();
+        if remotes.is_empty() {
+            unmatched_patterns.push(pattern);
+        } else {
+            matching_remotes.extend(remotes);
+        }
+    }
+
+    match &unmatched_patterns[..] {
+        [] => {} // Everything matched, all good
+        [pattern] if pattern.is_exact() => {
+            return Err(user_error(format!("No git remote named '{pattern}'")))
+        }
+        patterns => {
+            return Err(user_error(format!(
+                "No matching git remotes for patterns: {}",
+                patterns.iter().join(", ")
+            )))
+        }
+    }
+
+    let remotes = all_remotes
+        .iter()
+        .filter(|r| matching_remotes.contains(r))
+        .map(|r| r.as_str())
+        .collect_vec();
+
     let mut tx = workspace_command.start_transaction();
     do_git_fetch(ui, &mut tx, &remotes, &args.branch)?;
     tx.finish(
@@ -93,13 +141,16 @@ const DEFAULT_REMOTE: &str = "origin";
 fn get_default_fetch_remotes(
     ui: &Ui,
     workspace_command: &WorkspaceCommandHelper,
-) -> Result<Vec<String>, CommandError> {
+) -> Result<Vec<StringPattern>, CommandError> {
     const KEY: &str = "git.fetch";
     let settings = workspace_command.settings();
-    if let Ok(remotes) = settings.get(KEY) {
-        Ok(remotes)
+    if let Ok(remotes) = settings.get::<Vec<String>>(KEY) {
+        remotes
+            .into_iter()
+            .map(|r| parse_remote_pattern(&r))
+            .try_collect()
     } else if let Some(remote) = settings.get_string(KEY).optional()? {
-        Ok(vec![remote])
+        Ok(vec![parse_remote_pattern(&remote)?])
     } else if let Some(remote) = get_single_remote(workspace_command.repo().store())? {
         // if nothing was explicitly configured, try to guess
         if remote != DEFAULT_REMOTE {
@@ -108,16 +159,20 @@ fn get_default_fetch_remotes(
                 "Fetching from the only existing remote: {remote}"
             )?;
         }
-        Ok(vec![remote])
+        Ok(vec![StringPattern::exact(remote)])
     } else {
-        Ok(vec![DEFAULT_REMOTE.to_owned()])
+        Ok(vec![StringPattern::exact(DEFAULT_REMOTE)])
     }
+}
+
+fn parse_remote_pattern(remote: &str) -> Result<StringPattern, CommandError> {
+    StringPattern::parse(remote).map_err(config_error)
 }
 
 fn do_git_fetch(
     ui: &mut Ui,
     tx: &mut WorkspaceCommandTransaction,
-    remotes: &[String],
+    remotes: &[&str],
     branch_names: &[StringPattern],
 ) -> Result<(), CommandError> {
     let git_settings = tx.settings().git_settings()?;
@@ -130,31 +185,27 @@ fn do_git_fetch(
     }
     let import_stats = git_fetch.import_refs()?;
     print_git_import_stats(ui, tx.repo(), &import_stats, true)?;
-    warn_if_branches_not_found(
-        ui,
-        tx,
-        branch_names,
-        &remotes.iter().map(StringPattern::exact).collect_vec(),
-    )
+    warn_if_branches_not_found(ui, tx, branch_names, remotes)
 }
 
 fn warn_if_branches_not_found(
     ui: &mut Ui,
     tx: &WorkspaceCommandTransaction,
     branches: &[StringPattern],
-    remotes: &[StringPattern],
+    remotes: &[&str],
 ) -> Result<(), CommandError> {
     for branch in branches {
         let matches = remotes.iter().any(|remote| {
+            let remote = StringPattern::exact(*remote);
             tx.repo()
                 .view()
-                .remote_bookmarks_matching(branch, remote)
+                .remote_bookmarks_matching(branch, &remote)
                 .next()
                 .is_some()
                 || tx
                     .base_repo()
                     .view()
-                    .remote_bookmarks_matching(branch, remote)
+                    .remote_bookmarks_matching(branch, &remote)
                     .next()
                     .is_some()
         });

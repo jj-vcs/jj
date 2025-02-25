@@ -93,6 +93,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * The new `jj sign` and `jj unsign` commands allow for signing/unsigning commits.
 
+* `jj git fetch` now supports [string pattern syntax](docs/revsets.md#string-patterns)
+  on `--remote` option and `git.fetch` configuration.
+
 ### Fixed bugs
 
 * `jj status` now shows untracked files under untracked directories.

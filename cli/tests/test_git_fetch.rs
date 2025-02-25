@@ -299,6 +299,110 @@ fn test_git_fetch_multiple_remotes(subprocess: bool) {
 
 #[test_case(false; "use git2 for remote calls")]
 #[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_git_fetch_with_glob(subprocess: bool) {
+    let test_env = TestEnvironment::default();
+    if !subprocess {
+        test_env.add_config("git.subprocess = false");
+    }
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    add_git_remote(&test_env, &repo_path, "rem1");
+    add_git_remote(&test_env, &repo_path, "rem2");
+
+    let output = test_env.run_jj_in(&repo_path, ["git", "fetch", "--remote", "glob:*"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    bookmark: rem1@rem1 [new] untracked
+    bookmark: rem2@rem2 [new] untracked
+    [EOF]
+    ");
+    }
+}
+
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_git_fetch_with_glob_and_exact_match(subprocess: bool) {
+    let test_env = TestEnvironment::default();
+    if !subprocess {
+        test_env.add_config("git.subprocess = false");
+    }
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    add_git_remote(&test_env, &repo_path, "rem1");
+    add_git_remote(&test_env, &repo_path, "rem2");
+    add_git_remote(&test_env, &repo_path, "upstream1");
+    add_git_remote(&test_env, &repo_path, "upstream2");
+    add_git_remote(&test_env, &repo_path, "origin");
+
+    let output = test_env.run_jj_in(
+        &repo_path,
+        ["git", "fetch", "--remote=glob:rem*", "--remote=origin"],
+    );
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    bookmark: origin@origin [new] untracked
+    bookmark: rem1@rem1     [new] untracked
+    bookmark: rem2@rem2     [new] untracked
+    [EOF]
+    ");
+    }
+}
+
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_git_fetch_with_glob_from_config(subprocess: bool) {
+    let test_env = TestEnvironment::default();
+    if !subprocess {
+        test_env.add_config("git.subprocess = false");
+    }
+    test_env.add_config(r#"git.fetch = "glob:rem*""#);
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    add_git_remote(&test_env, &repo_path, "rem1");
+    add_git_remote(&test_env, &repo_path, "rem2");
+    add_git_remote(&test_env, &repo_path, "upstream");
+
+    let output = test_env.run_jj_in(&repo_path, ["git", "fetch"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    bookmark: rem1@rem1 [new] untracked
+    bookmark: rem2@rem2 [new] untracked
+    [EOF]
+    ");
+    }
+}
+
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_git_fetch_with_glob_with_no_matching_remotes(subprocess: bool) {
+    let test_env = TestEnvironment::default();
+    if !subprocess {
+        test_env.add_config("git.subprocess = false");
+    }
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    add_git_remote(&test_env, &repo_path, "upstream");
+
+    let output = test_env.run_jj_in(&repo_path, ["git", "fetch", "--remote=glob:rem*"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: No matching git remotes for patterns: rem*
+    [EOF]
+    [exit status: 1]
+    ");
+    }
+    // No remote should have been fetched as part of the failing transaction
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @"");
+    }
+}
+
+#[test_case(false; "use git2 for remote calls")]
+#[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_all_remotes(subprocess: bool) {
     let test_env = TestEnvironment::default();
     if !subprocess {

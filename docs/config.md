@@ -1253,6 +1253,14 @@ jj config set --repo git.fetch "upstream"
 jj config set --repo git.fetch '["origin", "upstream"]'
 ```
 
+By default, the specified remote names matches exactly. You can also use a
+[string pattern](revsets.md#string-patterns) to select remotes using patterns:
+
+```sh
+jj config set --repo git.fetch "glob:*"
+jj config set --repo git.fetch '["glob:remote*", "glob:upstream*"]'
+```
+
 Similarly, you can also set the variable `git.push` to cause `jj git push` to
 push to a different remote:
 
