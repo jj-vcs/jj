@@ -213,10 +213,7 @@ impl View {
             .map(|(remote, remote_view)| {
                 bookmark_pattern
                     .filter_btree_map_as_deref(&remote_view.bookmarks)
-                    .map(|(name, remote_ref)| {
-                        let symbol = RemoteRefSymbol { name, remote };
-                        (symbol, remote_ref)
-                    })
+                    .map(|(name, remote_ref)| (name.to_remote_symbol(remote), remote_ref))
             })
             .kmerge_by(|(symbol1, _), (symbol2, _)| symbol1 < symbol2)
     }

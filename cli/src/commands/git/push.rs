@@ -216,7 +216,7 @@ pub fn cmd_git_push(
     if args.all {
         for (name, targets) in view.local_remote_bookmarks(remote) {
             let allow_new = true; // implied by --all
-            match classify_bookmark_update(RemoteRefSymbol { name, remote }, targets, allow_new) {
+            match classify_bookmark_update(name.to_remote_symbol(remote), targets, allow_new) {
                 Ok(Some(update)) => bookmark_updates.push((name.to_owned(), update)),
                 Ok(None) => {}
                 Err(reason) => reason.print(ui)?,
@@ -232,7 +232,7 @@ pub fn cmd_git_push(
                 continue;
             }
             let allow_new = false; // doesn't matter
-            match classify_bookmark_update(RemoteRefSymbol { name, remote }, targets, allow_new) {
+            match classify_bookmark_update(name.to_remote_symbol(remote), targets, allow_new) {
                 Ok(Some(update)) => bookmark_updates.push((name.to_owned(), update)),
                 Ok(None) => {}
                 Err(reason) => reason.print(ui)?,
@@ -248,7 +248,7 @@ pub fn cmd_git_push(
                 continue;
             }
             let allow_new = false; // doesn't matter
-            match classify_bookmark_update(RemoteRefSymbol { name, remote }, targets, allow_new) {
+            match classify_bookmark_update(name.to_remote_symbol(remote), targets, allow_new) {
                 Ok(Some(update)) => bookmark_updates.push((name.to_owned(), update)),
                 Ok(None) => {}
                 Err(reason) => reason.print(ui)?,
@@ -266,7 +266,7 @@ pub fn cmd_git_push(
         let change_bookmark_names =
             update_change_bookmarks(ui, &mut tx, &args.change, &bookmark_prefix)?;
         let change_bookmarks = change_bookmark_names.iter().map(|name| {
-            let remote_symbol = RemoteRefSymbol { name, remote };
+            let remote_symbol = name.to_remote_symbol(remote);
             let targets = LocalAndRemoteRef {
                 local_target: tx.repo().view().get_local_bookmark(name),
                 remote_ref: tx.repo().view().get_remote_bookmark(remote_symbol),
@@ -297,7 +297,7 @@ pub fn cmd_git_push(
             if !seen_bookmarks.insert(name) {
                 continue;
             }
-            let remote_symbol = RemoteRefSymbol { name, remote };
+            let remote_symbol = name.to_remote_symbol(remote);
             match classify_bookmark_update(remote_symbol, targets, allow_new) {
                 Ok(Some(update)) => bookmark_updates.push((name.to_owned(), update)),
                 Ok(None) => writeln!(
@@ -322,7 +322,7 @@ pub fn cmd_git_push(
             if !seen_bookmarks.insert(name) {
                 continue;
             }
-            match classify_bookmark_update(RemoteRefSymbol { name, remote }, targets, allow_new) {
+            match classify_bookmark_update(name.to_remote_symbol(remote), targets, allow_new) {
                 Ok(Some(update)) => bookmark_updates.push((name.to_owned(), update)),
                 Ok(None) => {}
                 Err(reason) => reason.print(ui)?,

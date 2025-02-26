@@ -593,8 +593,7 @@ fn diff_refs_to_import(
         .tags()
         .iter()
         .map(|(name, target)| {
-            let remote = REMOTE_NAME_FOR_LOCAL_GIT_REPO;
-            let symbol = RemoteRefSymbol { name, remote };
+            let symbol = name.to_remote_symbol(REMOTE_NAME_FOR_LOCAL_GIT_REPO);
             let state = RemoteRefState::Tracking;
             (symbol, (target, state))
         })
@@ -983,8 +982,7 @@ pub fn export_some_refs(
         mut_repo,
         REMOTE_NAME_FOR_LOCAL_GIT_REPO,
         |name| {
-            let remote = REMOTE_NAME_FOR_LOCAL_GIT_REPO;
-            let symbol = RemoteRefSymbol { name, remote };
+            let symbol = name.to_remote_symbol(REMOTE_NAME_FOR_LOCAL_GIT_REPO);
             git_ref_filter(GitRefKind::Bookmark, symbol) && get(&failed_bookmarks, symbol).is_none()
         },
     );
@@ -1010,13 +1008,12 @@ fn copy_exportable_local_bookmarks_to_remote_view(
         .filter(|&(name, _)| name_filter(name))
         .map(|(name, new_target)| (name.to_owned(), new_target.clone()))
         .collect_vec();
-    for (ref name, new_target) in new_local_bookmarks {
-        let symbol = RemoteRefSymbol { name, remote };
+    for (name, new_target) in new_local_bookmarks {
         let new_remote_ref = RemoteRef {
             target: new_target,
             state: RemoteRefState::Tracking,
         };
-        mut_repo.set_remote_bookmark(symbol, new_remote_ref);
+        mut_repo.set_remote_bookmark(name.to_remote_symbol(remote), new_remote_ref);
     }
 }
 
@@ -1031,8 +1028,8 @@ fn diff_refs_to_export(
     let mut all_bookmark_targets: HashMap<RemoteRefSymbol, (&RefTarget, &RefTarget)> =
         itertools::chain(
             view.local_bookmarks().map(|(name, target)| {
-                let remote = REMOTE_NAME_FOR_LOCAL_GIT_REPO;
-                (RemoteRefSymbol { name, remote }, target)
+                let symbol = name.to_remote_symbol(REMOTE_NAME_FOR_LOCAL_GIT_REPO);
+                (symbol, target)
             }),
             view.all_remote_bookmarks()
                 .filter(|&(symbol, _)| symbol.remote != REMOTE_NAME_FOR_LOCAL_GIT_REPO)
@@ -2468,7 +2465,6 @@ pub fn push_branches(
     // if we returned an Err.
     if push_stats.all_ok() {
         for (name, update) in &targets.branch_updates {
-            let remote_symbol = RemoteRefSymbol { name, remote };
             let git_ref_name = format!(
                 "refs/remotes/{remote}/{name}",
                 remote = remote.as_str(),
@@ -2479,7 +2475,7 @@ pub fn push_branches(
                 state: RemoteRefState::Tracking,
             };
             mut_repo.set_git_ref_target(&git_ref_name, new_remote_ref.target.clone());
-            mut_repo.set_remote_bookmark(remote_symbol, new_remote_ref);
+            mut_repo.set_remote_bookmark(name.to_remote_symbol(remote), new_remote_ref);
         }
     }
 

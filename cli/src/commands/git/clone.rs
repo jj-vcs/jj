@@ -21,8 +21,6 @@ use std::path::Path;
 use jj_lib::git;
 use jj_lib::git::GitFetch;
 use jj_lib::ref_name::RefNameBuf;
-use jj_lib::ref_name::RemoteName;
-use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::repo::Repo as _;
 use jj_lib::str_util::StringPattern;
 use jj_lib::workspace::Workspace;
@@ -147,8 +145,7 @@ pub fn cmd_git_clone(
 
     let (mut workspace_command, default_branch) = clone_result?;
     if let Some(name) = &default_branch {
-        let remote = RemoteName::new(remote_name); // TODO: use newtype globally
-        let default_symbol = RemoteRefSymbol { name, remote };
+        let default_symbol = name.to_remote_symbol(remote_name.as_ref());
         write_repository_level_trunk_alias(ui, workspace_command.repo_path(), default_symbol)?;
 
         let default_branch_remote_ref = workspace_command

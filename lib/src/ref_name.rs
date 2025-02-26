@@ -268,6 +268,13 @@ macro_rules! impl_name_type {
 impl_name_type!(RefNameBuf, RefName);
 impl_name_type!(RemoteNameBuf, RemoteName);
 
+impl RefName {
+    /// Constructs a remote symbol with this local name.
+    pub fn to_remote_symbol<'a>(&'a self, remote: &'a RemoteName) -> RemoteRefSymbol<'a> {
+        RemoteRefSymbol { name: self, remote }
+    }
+}
+
 /// Symbol for displaying.
 ///
 /// This type can be displayed with quoting and escaping if necessary.

@@ -24,7 +24,6 @@ use jj_lib::file_util;
 use jj_lib::git;
 use jj_lib::git::parse_git_ref;
 use jj_lib::git::GitRefKind;
-use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::view::View;
@@ -246,10 +245,7 @@ pub fn maybe_set_repository_level_trunk_alias(
                 .and_then(parse_git_ref)
             {
                 // TODO: Can we assume the symbolic target points to the same remote?
-                let symbol = RemoteRefSymbol {
-                    name: symbol.name,
-                    remote: "origin".as_ref(),
-                };
+                let symbol = symbol.name.to_remote_symbol("origin".as_ref());
                 write_repository_level_trunk_alias(ui, workspace_command.repo_path(), symbol)?;
             }
         };
@@ -267,7 +263,7 @@ fn print_trackable_remote_bookmarks(ui: &Ui, view: &View) -> io::Result<()> {
                 .remote_refs
                 .into_iter()
                 .filter(|&(_, remote_ref)| !remote_ref.is_tracking())
-                .map(move |(remote, _)| RemoteRefSymbol { name, remote })
+                .map(move |(remote, _)| name.to_remote_symbol(remote))
         })
         .collect_vec();
     if remote_bookmark_symbols.is_empty() {

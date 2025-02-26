@@ -369,10 +369,10 @@ pub(crate) fn flatten_remote_bookmarks(
     remote_views
         .iter()
         .map(|(remote, remote_view)| {
-            remote_view.bookmarks.iter().map(move |(name, remote_ref)| {
-                let symbol = RemoteRefSymbol { name, remote };
-                (symbol, remote_ref)
-            })
+            remote_view
+                .bookmarks
+                .iter()
+                .map(move |(name, remote_ref)| (name.to_remote_symbol(remote), remote_ref))
         })
         .kmerge_by(|(symbol1, _), (symbol2, _)| symbol1 < symbol2)
 }

@@ -18,7 +18,6 @@ use jj_lib::op_store::BookmarkTarget;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::ref_name::RefName;
-use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::str_util::StringPattern;
 use jj_lib::view::View;
 
@@ -73,7 +72,7 @@ pub fn cmd_bookmark_forget(
         tx.repo_mut()
             .set_local_bookmark_target(name, RefTarget::absent());
         for (remote, _) in &bookmark_target.remote_refs {
-            let symbol = RemoteRefSymbol { name, remote };
+            let symbol = name.to_remote_symbol(remote);
             // If `--include-remotes` is specified, we forget the corresponding remote
             // bookmarks instead of untracking them
             if args.include_remotes {
