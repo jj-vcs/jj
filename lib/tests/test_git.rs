@@ -39,6 +39,7 @@ use jj_lib::commit_builder::CommitBuilder;
 use jj_lib::git;
 use jj_lib::git::FailedRefExportReason;
 use jj_lib::git::GitBranchPushTargets;
+use jj_lib::git::GitExportError;
 use jj_lib::git::GitFetch;
 use jj_lib::git::GitFetchError;
 use jj_lib::git::GitImportError;
@@ -72,6 +73,7 @@ use test_case::test_case;
 use testutils::commit_transactions;
 use testutils::create_random_commit;
 use testutils::write_random_commit;
+use testutils::CommitGraphBuilder;
 use testutils::TestRepo;
 use testutils::TestRepoBackend;
 
@@ -2309,6 +2311,75 @@ fn test_reset_head_to_root() {
     assert!(tx.repo().git_head().is_absent());
     // The placeholder ref should be deleted
     assert!(git_repo.find_reference("refs/jj/root").is_err());
+}
+
+#[test]
+fn test_reset_head_detached_out_of_sync() {
+    // Create colocated workspace
+    let settings = testutils::user_settings();
+    let temp_dir = testutils::new_temp_dir();
+    let workspace_root = temp_dir.path().join("repo");
+    let git_repo = testutils::git::init(&workspace_root);
+    let (_workspace, repo) =
+        Workspace::init_external_git(&settings, &workspace_root, &workspace_root.join(".git"))
+            .unwrap();
+
+    let mut tx = repo.start_transaction();
+
+    //   4
+    //   |
+    // 2 3
+    // |/
+    // 1 5
+    // |/
+    // root
+    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
+    let commit1 = graph_builder.initial_commit();
+    let commit2 = graph_builder.commit_with_parents(&[&commit1]);
+    let commit3 = graph_builder.commit_with_parents(&[&commit1]);
+    let commit4 = graph_builder.commit_with_parents(&[&commit3]);
+    let commit5 = graph_builder.initial_commit();
+
+    // unborn -> commit1 (= commit2's parent)
+    git::reset_head(tx.repo_mut(), &commit2).unwrap();
+    assert_eq!(
+        tx.repo().git_head(),
+        RefTarget::normal(commit1.id().clone())
+    );
+
+    // External process updates HEAD to point to commit5
+    testutils::git::set_head_to_id(
+        &git_repo,
+        gix::ObjectId::from_bytes_or_panic(commit5.id().as_bytes()),
+    );
+
+    // {expected: commit1, actual: commit5} -> commit1 (= commit3's parent):
+    // works because the expected HEAD is unchanged.
+    git::reset_head(tx.repo_mut(), &commit3).unwrap();
+    assert_eq!(
+        tx.repo().git_head(),
+        RefTarget::normal(commit1.id().clone())
+    );
+
+    // {expected: commit1, actual: commit5} -> commit3 (= commit4's parent)
+    assert_matches!(
+        git::reset_head(tx.repo_mut(), &commit4),
+        Err(GitExportError::InternalGitError(_))
+    );
+
+    // Import the HEAD moved by external process
+    git::import_head(tx.repo_mut()).unwrap();
+    assert_eq!(
+        tx.repo().git_head(),
+        RefTarget::normal(commit5.id().clone())
+    );
+
+    // commit5 -> commit3 (= commit4's parent)
+    git::reset_head(tx.repo_mut(), &commit4).unwrap();
+    assert_eq!(
+        tx.repo().git_head(),
+        RefTarget::normal(commit3.id().clone())
+    );
 }
 
 fn get_index_state(workspace_root: &Path) -> String {

@@ -1093,24 +1093,36 @@ pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), 
     let git_repo = get_git_repo(mut_repo.store())?;
 
     let first_parent_id = &wc_commit.parent_ids()[0];
-    let first_parent = if first_parent_id != mut_repo.store().root_commit_id() {
+    let new_head_target = if first_parent_id != mut_repo.store().root_commit_id() {
         RefTarget::normal(first_parent_id.clone())
     } else {
         RefTarget::absent()
     };
 
     // If the first parent of the working copy has changed, reset the Git HEAD.
-    if mut_repo.git_head() != first_parent {
-        update_git_head(
-            &git_repo,
-            // TODO: we might want to use `PreviousValue::MustExistAndMatch` to handle concurrent
-            // modifications properly (#3754)
-            gix::refs::transaction::PreviousValue::MustExist,
-            first_parent
-                .as_normal()
-                .map(|id| gix::ObjectId::from_bytes_or_panic(id.as_bytes())),
-        )?;
-        mut_repo.set_git_head_target(first_parent);
+    let old_head_target = mut_repo.git_head();
+    if old_head_target != new_head_target {
+        let expected_ref = if let Some(id) = old_head_target.as_normal() {
+            // We have to check the actual HEAD state because we don't record a
+            // symbolic ref as such.
+            let actual_head = git_repo.head().map_err(GitExportError::from_git)?;
+            if actual_head.is_detached() {
+                let id = gix::ObjectId::from_bytes_or_panic(id.as_bytes());
+                gix::refs::transaction::PreviousValue::MustExistAndMatch(id.into())
+            } else {
+                // Just overwrite symbolic ref, which is unusual. Alternatively,
+                // maybe we can test the target ref by issuing noop edit.
+                gix::refs::transaction::PreviousValue::MustExist
+            }
+        } else {
+            // Just overwrite if unborn (or conflict), which is also unusual.
+            gix::refs::transaction::PreviousValue::MustExist
+        };
+        let new_oid = new_head_target
+            .as_normal()
+            .map(|id| gix::ObjectId::from_bytes_or_panic(id.as_bytes()));
+        update_git_head(&git_repo, expected_ref, new_oid)?;
+        mut_repo.set_git_head_target(new_head_target);
     }
 
     // If there is an ongoing operation (merge, rebase, etc.), we need to clean it
