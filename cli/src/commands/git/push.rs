@@ -196,10 +196,12 @@ pub fn cmd_git_push(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
 
+    let default_remote;
     let remote = if let Some(name) = &args.remote {
-        name.clone()
+        name
     } else {
-        get_default_push_remote(ui, &workspace_command)?
+        default_remote = get_default_push_remote(ui, &workspace_command)?;
+        &default_remote
     };
 
     let mut tx = workspace_command.start_transaction();
@@ -207,36 +209,36 @@ pub fn cmd_git_push(
     let tx_description;
     let mut bookmark_updates = vec![];
     if args.all {
-        for (bookmark_name, targets) in view.local_remote_bookmarks(&remote) {
+        for (name, targets) in view.local_remote_bookmarks(remote) {
             let allow_new = true; // implied by --all
-            match classify_bookmark_update(bookmark_name, &remote, targets, allow_new) {
-                Ok(Some(update)) => bookmark_updates.push((bookmark_name.to_owned(), update)),
+            match classify_bookmark_update(name, remote, targets, allow_new) {
+                Ok(Some(update)) => bookmark_updates.push((name.to_owned(), update)),
                 Ok(None) => {}
                 Err(reason) => reason.print(ui)?,
             }
         }
         tx_description = format!("push all bookmarks to git remote {remote}");
     } else if args.tracked {
-        for (bookmark_name, targets) in view.local_remote_bookmarks(&remote) {
+        for (name, targets) in view.local_remote_bookmarks(remote) {
             if !targets.remote_ref.is_tracking() {
                 continue;
             }
             let allow_new = false; // doesn't matter
-            match classify_bookmark_update(bookmark_name, &remote, targets, allow_new) {
-                Ok(Some(update)) => bookmark_updates.push((bookmark_name.to_owned(), update)),
+            match classify_bookmark_update(name, remote, targets, allow_new) {
+                Ok(Some(update)) => bookmark_updates.push((name.to_owned(), update)),
                 Ok(None) => {}
                 Err(reason) => reason.print(ui)?,
             }
         }
         tx_description = format!("push all tracked bookmarks to git remote {remote}");
     } else if args.deleted {
-        for (bookmark_name, targets) in view.local_remote_bookmarks(&remote) {
+        for (name, targets) in view.local_remote_bookmarks(remote) {
             if targets.local_target.is_present() {
                 continue;
             }
             let allow_new = false; // doesn't matter
-            match classify_bookmark_update(bookmark_name, &remote, targets, allow_new) {
-                Ok(Some(update)) => bookmark_updates.push((bookmark_name.to_owned(), update)),
+            match classify_bookmark_update(name, remote, targets, allow_new) {
+                Ok(Some(update)) => bookmark_updates.push((name.to_owned(), update)),
                 Ok(None) => {}
                 Err(reason) => reason.print(ui)?,
             }
@@ -249,43 +251,43 @@ pub fn cmd_git_push(
         let bookmark_prefix = tx.settings().get_string("git.push-bookmark-prefix")?;
         let change_bookmark_names =
             update_change_bookmarks(ui, &mut tx, &args.change, &bookmark_prefix)?;
-        let change_bookmarks = change_bookmark_names.iter().map(|bookmark_name| {
+        let change_bookmarks = change_bookmark_names.iter().map(|name| {
             let targets = LocalAndRemoteRef {
-                local_target: tx.repo().view().get_local_bookmark(bookmark_name),
-                remote_ref: tx.repo().view().get_remote_bookmark(RemoteRefSymbol {
-                    name: bookmark_name,
-                    remote: &remote,
-                }),
+                local_target: tx.repo().view().get_local_bookmark(name),
+                remote_ref: tx
+                    .repo()
+                    .view()
+                    .get_remote_bookmark(RemoteRefSymbol { name, remote }),
             };
-            (bookmark_name.as_ref(), targets)
+            (name.as_ref(), targets)
         });
         let view = tx.repo().view();
-        for (bookmark_name, targets) in change_bookmarks {
-            if !seen_bookmarks.insert(bookmark_name) {
+        for (name, targets) in change_bookmarks {
+            if !seen_bookmarks.insert(name) {
                 continue;
             }
             let allow_new = true; // --change implies creation of remote bookmark
-            match classify_bookmark_update(bookmark_name, &remote, targets, allow_new) {
-                Ok(Some(update)) => bookmark_updates.push((bookmark_name.to_owned(), update)),
+            match classify_bookmark_update(name, remote, targets, allow_new) {
+                Ok(Some(update)) => bookmark_updates.push((name.to_owned(), update)),
                 Ok(None) => writeln!(
                     ui.status(),
-                    "Bookmark {bookmark_name}@{remote} already matches {bookmark_name}",
+                    "Bookmark {name}@{remote} already matches {name}",
                 )?,
                 Err(reason) => return Err(reason.into()),
             }
         }
 
         let allow_new = args.allow_new || tx.settings().get("git.push-new-bookmarks")?;
-        let bookmarks_by_name = find_bookmarks_to_push(view, &args.bookmark, &remote)?;
-        for &(bookmark_name, targets) in &bookmarks_by_name {
-            if !seen_bookmarks.insert(bookmark_name) {
+        let bookmarks_by_name = find_bookmarks_to_push(view, &args.bookmark, remote)?;
+        for &(name, targets) in &bookmarks_by_name {
+            if !seen_bookmarks.insert(name) {
                 continue;
             }
-            match classify_bookmark_update(bookmark_name, &remote, targets, allow_new) {
-                Ok(Some(update)) => bookmark_updates.push((bookmark_name.to_owned(), update)),
+            match classify_bookmark_update(name, remote, targets, allow_new) {
+                Ok(Some(update)) => bookmark_updates.push((name.to_owned(), update)),
                 Ok(None) => writeln!(
                     ui.status(),
-                    "Bookmark {bookmark_name}@{remote} already matches {bookmark_name}",
+                    "Bookmark {name}@{remote} already matches {name}",
                 )?,
                 Err(reason) => return Err(reason.into()),
             }
@@ -296,16 +298,16 @@ pub fn cmd_git_push(
         let bookmarks_targeted = find_bookmarks_targeted_by_revisions(
             ui,
             tx.base_workspace_helper(),
-            &remote,
+            remote,
             &args.revisions,
             use_default_revset,
         )?;
-        for &(bookmark_name, targets) in &bookmarks_targeted {
-            if !seen_bookmarks.insert(bookmark_name) {
+        for &(name, targets) in &bookmarks_targeted {
+            if !seen_bookmarks.insert(name) {
                 continue;
             }
-            match classify_bookmark_update(bookmark_name, &remote, targets, allow_new) {
-                Ok(Some(update)) => bookmark_updates.push((bookmark_name.to_owned(), update)),
+            match classify_bookmark_update(name, remote, targets, allow_new) {
+                Ok(Some(update)) => bookmark_updates.push((name.to_owned(), update)),
                 Ok(None) => {}
                 Err(reason) => reason.print(ui)?,
             }
@@ -333,7 +335,7 @@ pub fn cmd_git_push(
         None
     };
     let commits_to_sign =
-        validate_commits_ready_to_push(ui, &bookmark_updates, &remote, &tx, args, sign_behavior)?;
+        validate_commits_ready_to_push(ui, &bookmark_updates, remote, &tx, args, sign_behavior)?;
     if !args.dry_run && !commits_to_sign.is_empty() {
         if let Some(sign_behavior) = sign_behavior {
             let num_updated_signatures = commits_to_sign.len();
@@ -374,7 +376,7 @@ pub fn cmd_git_push(
     };
     let git_settings = tx.settings().git_settings()?;
     with_remote_git_callbacks(ui, |cb| {
-        git::push_branches(tx.repo_mut(), &git_settings, &remote, &targets, cb)
+        git::push_branches(tx.repo_mut(), &git_settings, remote, &targets, cb)
     })?;
     tx.finish(ui, tx_description)?;
     Ok(())
@@ -634,8 +636,8 @@ impl From<RejectedBookmarkUpdateReason> for CommandError {
 }
 
 fn classify_bookmark_update(
-    bookmark_name: &str,
-    remote_name: &str,
+    name: &str,
+    remote: &str,
     targets: LocalAndRemoteRef,
     allow_new: bool,
 ) -> Result<Option<BookmarkPushUpdate>, RejectedBookmarkUpdateReason> {
@@ -643,28 +645,25 @@ fn classify_bookmark_update(
     match push_action {
         BookmarkPushAction::AlreadyMatches => Ok(None),
         BookmarkPushAction::LocalConflicted => Err(RejectedBookmarkUpdateReason {
-            message: format!("Bookmark {bookmark_name} is conflicted"),
+            message: format!("Bookmark {name} is conflicted"),
             hint: Some(
                 "Run `jj bookmark list` to inspect, and use `jj bookmark set` to fix it up."
                     .to_owned(),
             ),
         }),
         BookmarkPushAction::RemoteConflicted => Err(RejectedBookmarkUpdateReason {
-            message: format!("Bookmark {bookmark_name}@{remote_name} is conflicted"),
+            message: format!("Bookmark {name}@{remote} is conflicted"),
             hint: Some("Run `jj git fetch` to update the conflicted remote bookmark.".to_owned()),
         }),
         BookmarkPushAction::RemoteUntracked => Err(RejectedBookmarkUpdateReason {
-            message: format!("Non-tracking remote bookmark {bookmark_name}@{remote_name} exists"),
+            message: format!("Non-tracking remote bookmark {name}@{remote} exists"),
             hint: Some(format!(
-                "Run `jj bookmark track {bookmark_name}@{remote_name}` to import the remote \
-                 bookmark."
+                "Run `jj bookmark track {name}@{remote}` to import the remote bookmark."
             )),
         }),
         BookmarkPushAction::Update(update) if update.old_target.is_none() && !allow_new => {
             Err(RejectedBookmarkUpdateReason {
-                message: format!(
-                    "Refusing to create new remote bookmark {bookmark_name}@{remote_name}"
-                ),
+                message: format!("Refusing to create new remote bookmark {name}@{remote}"),
                 hint: Some(
                     "Use --allow-new to push new bookmark. Use --remote to specify the remote to \
                      push to."
@@ -729,13 +728,13 @@ fn update_change_bookmarks(
 fn find_bookmarks_to_push<'a>(
     view: &'a View,
     bookmark_patterns: &[StringPattern],
-    remote_name: &str,
+    remote: &str,
 ) -> Result<Vec<(&'a str, LocalAndRemoteRef<'a>)>, CommandError> {
     let mut matching_bookmarks = vec![];
     let mut unmatched_patterns = vec![];
     for pattern in bookmark_patterns {
         let mut matches = view
-            .local_remote_bookmarks_matching(pattern, remote_name)
+            .local_remote_bookmarks_matching(pattern, remote)
             .filter(|(_, targets)| {
                 // If the remote exists but is not tracking, the absent local shouldn't
                 // be considered a deleted bookmark.
@@ -760,7 +759,7 @@ fn find_bookmarks_to_push<'a>(
 fn find_bookmarks_targeted_by_revisions<'a>(
     ui: &Ui,
     workspace_command: &'a WorkspaceCommandHelper,
-    remote_name: &str,
+    remote: &str,
     revisions: &[RevisionArg],
     use_default_revset: bool,
 ) -> Result<Vec<(&'a str, LocalAndRemoteRef<'a>)>, CommandError> {
@@ -770,7 +769,7 @@ fn find_bookmarks_targeted_by_revisions<'a>(
         let workspace_id = workspace_command.workspace_id();
         let expression = RevsetExpression::remote_bookmarks(
             StringPattern::everything(),
-            StringPattern::exact(remote_name),
+            StringPattern::exact(remote),
             None,
         )
         .range(&RevsetExpression::working_copy(workspace_id.clone()))
@@ -783,7 +782,7 @@ fn find_bookmarks_targeted_by_revisions<'a>(
             writeln!(
                 ui.warning_default(),
                 "No bookmarks found in the default push revset: \
-                 remote_bookmarks(remote={remote_name})..@"
+                 remote_bookmarks(remote={remote})..@"
             )?;
         }
         for commit_id in commit_ids {
@@ -807,7 +806,7 @@ fn find_bookmarks_targeted_by_revisions<'a>(
     let bookmarks_targeted = workspace_command
         .repo()
         .view()
-        .local_remote_bookmarks(remote_name)
+        .local_remote_bookmarks(remote)
         .filter(|(_, targets)| {
             let mut local_ids = targets.local_target.added_ids();
             local_ids.any(|id| revision_commit_ids.contains(id))
