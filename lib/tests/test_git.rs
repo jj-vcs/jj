@@ -2328,14 +2328,13 @@ fn get_index_state(workspace_root: &Path) -> String {
         .join("")
 }
 
-// TODO(git2): need to find a good way to make index work with gitoxide
 #[test]
 fn test_reset_head_with_index() {
     // Create colocated workspace
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let workspace_root = temp_dir.path().join("repo");
-    let git_repo = git2::Repository::init(&workspace_root).unwrap();
+    let git_repo = testutils::git::init(&workspace_root);
     let (_workspace, repo) =
         Workspace::init_external_git(&settings, &workspace_root, &workspace_root.join(".git"))
             .unwrap();
@@ -2360,14 +2359,9 @@ fn test_reset_head_with_index() {
 
     // Add "staged changes" to the Git index
     {
-        let file_path = RepoPath::from_internal_string("file.txt");
-        testutils::write_working_copy_file(&workspace_root, file_path, "i am a file\n");
-        let mut index = git_repo.index().unwrap();
-        index.read(true).unwrap();
-        index
-            .add_path(&file_path.to_fs_path_unchecked(Path::new("")))
-            .unwrap();
-        index.write().unwrap();
+        let mut index_manager = testutils::git::IndexManager::new(&git_repo);
+        index_manager.add_file("file.txt", b"i am a file\n");
+        index_manager.sync_index();
     }
     insta::assert_snapshot!(get_index_state(&workspace_root), @"Unconflicted file.txt Mode(FILE)");
 
