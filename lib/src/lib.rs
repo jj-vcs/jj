@@ -86,6 +86,7 @@ pub mod op_walk;
 pub mod operation;
 #[expect(missing_docs)]
 pub mod protos;
+pub mod ref_name;
 pub mod refs;
 pub mod repo;
 pub mod repo_path;
