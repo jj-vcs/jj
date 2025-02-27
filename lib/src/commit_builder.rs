@@ -134,8 +134,13 @@ impl CommitBuilder<'_> {
         self
     }
 
-    pub fn set_sign_key(mut self, sign_key: Option<String>) -> Self {
+    pub fn set_sign_key(mut self, sign_key: String) -> Self {
         self.inner.set_sign_key(sign_key);
+        self
+    }
+
+    pub fn clear_sign_key(mut self) -> Self {
+        self.inner.clear_sign_key();
         self
     }
 
@@ -331,8 +336,13 @@ impl DetachedCommitBuilder {
         self
     }
 
-    pub fn set_sign_key(&mut self, sign_key: Option<String>) -> &mut Self {
-        self.sign_settings.key = sign_key;
+    pub fn set_sign_key(&mut self, sign_key: String) -> &mut Self {
+        self.sign_settings.key = Some(sign_key);
+        self
+    }
+
+    pub fn clear_sign_key(&mut self) -> &mut Self {
+        self.sign_settings.key = None;
         self
     }
 
