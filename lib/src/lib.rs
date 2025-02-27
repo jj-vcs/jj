@@ -95,6 +95,8 @@ pub mod rewrite;
 pub mod secret_backend;
 pub mod settings;
 pub mod signing;
+// Allow this file to be outside the normal crate.
+#[path = "../../cli/examples/simple-backend/simple_backend.rs"]
 pub mod simple_backend;
 pub mod simple_op_heads_store;
 pub mod simple_op_store;

@@ -555,7 +555,7 @@ mod tests {
         let temp_dir = new_temp_dir();
         let store_path = temp_dir.path();
 
-        let backend = PocBackend::init(store_path);
+        let backend = SimpleBackend::init(store_path);
         let mut commit = Commit {
             parents: vec![],
             predecessors: vec![],
