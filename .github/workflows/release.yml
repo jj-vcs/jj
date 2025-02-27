@@ -146,5 +146,6 @@ jobs:
           .github/scripts/docs-build-deploy "${RELEASE_TAG_NAME}" latest --update-aliases --push
         env:
           RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
+          GH_TOKEN:  ${{ secrets.GITHUB_TOKEN }}
       - name: "Show `git diff --stat`"
         run: git diff --stat gh-pages^ gh-pages || echo "(No diffs)"

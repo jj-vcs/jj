@@ -36,5 +36,7 @@ jobs:
           export MKDOCS_SITE_NAME="Jujutsu docs (prerelease)"
           export MKDOCS_PRIMARY_COLOR="blue grey"
           .github/scripts/docs-build-deploy prerelease --push
+        env:
+            GH_TOKEN:  ${{ secrets.GITHUB_TOKEN }}
       - name: "Show `git diff --stat`"
         run: git diff --stat gh-pages^ gh-pages || echo "(No diffs)"
