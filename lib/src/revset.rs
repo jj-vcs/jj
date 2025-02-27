@@ -54,6 +54,7 @@ use crate::repo::RepoLoaderError;
 use crate::repo_path::RepoPathUiConverter;
 use crate::revset_parser;
 pub use crate::revset_parser::expect_literal;
+pub use crate::revset_parser::parse_program;
 pub use crate::revset_parser::parse_symbol;
 pub use crate::revset_parser::BinaryOp;
 pub use crate::revset_parser::ExpressionKind;
@@ -1191,7 +1192,7 @@ pub fn parse(
     revset_str: &str,
     context: &RevsetParseContext,
 ) -> Result<Rc<UserRevsetExpression>, RevsetParseError> {
-    let node = revset_parser::parse_program(revset_str)?;
+    let node = parse_program(revset_str)?;
     let node = dsl_util::expand_aliases(node, context.aliases_map)?;
     lower_expression(diagnostics, &node, context)
         .map_err(|err| err.extend_function_candidates(context.aliases_map.function_names()))
@@ -1202,7 +1203,7 @@ pub fn parse_with_modifier(
     revset_str: &str,
     context: &RevsetParseContext,
 ) -> Result<(Rc<UserRevsetExpression>, Option<RevsetModifier>), RevsetParseError> {
-    let node = revset_parser::parse_program(revset_str)?;
+    let node = parse_program(revset_str)?;
     let node = dsl_util::expand_aliases(node, context.aliases_map)?;
     revset_parser::expect_program_with(
         diagnostics,

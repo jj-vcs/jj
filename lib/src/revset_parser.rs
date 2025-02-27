@@ -462,7 +462,8 @@ fn union_nodes<'i>(lhs: ExpressionNode<'i>, rhs: ExpressionNode<'i>) -> Expressi
     ExpressionNode::new(expr, span)
 }
 
-pub(super) fn parse_program(revset_str: &str) -> Result<ExpressionNode, RevsetParseError> {
+/// Parses text into expression tree. No name resolution is made at this stage.
+pub fn parse_program(revset_str: &str) -> Result<ExpressionNode, RevsetParseError> {
     let mut pairs = RevsetParser::parse(Rule::program, revset_str)?;
     let first = pairs.next().unwrap();
     match first.as_rule() {
