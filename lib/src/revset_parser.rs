@@ -145,7 +145,7 @@ pub type RevsetDiagnostics = Diagnostics<RevsetParseError>;
 #[derive(Debug, Error)]
 #[error("{pest_error}")]
 pub struct RevsetParseError {
-    kind: RevsetParseErrorKind,
+    kind: Box<RevsetParseErrorKind>,
     pest_error: Box<pest::error::Error<Rule>>,
     source: Option<Box<dyn error::Error + Send + Sync>>,
 }
@@ -205,7 +205,7 @@ impl RevsetParseError {
             span,
         ));
         RevsetParseError {
-            kind,
+            kind: Box::new(kind),
             pest_error,
             source: None,
         }
@@ -231,7 +231,7 @@ impl RevsetParseError {
         I: IntoIterator,
         I::Item: AsRef<str>,
     {
-        if let RevsetParseErrorKind::NoSuchFunction { name, candidates } = &mut self.kind {
+        if let RevsetParseErrorKind::NoSuchFunction { name, candidates } = self.kind.as_mut() {
             let other_candidates = collect_similar(name, other_functions);
             *candidates = itertools::merge(mem::take(candidates), other_candidates)
                 .dedup()
@@ -273,7 +273,7 @@ impl AliasExpandError for RevsetParseError {
 impl From<pest::error::Error<Rule>> for RevsetParseError {
     fn from(err: pest::error::Error<Rule>) -> Self {
         RevsetParseError {
-            kind: RevsetParseErrorKind::SyntaxError,
+            kind: Box::new(RevsetParseErrorKind::SyntaxError),
             pest_error: Box::new(rename_rules_in_pest_error(err)),
             source: None,
         }
@@ -872,7 +872,7 @@ mod tests {
     fn parse_into_kind(text: &str) -> Result<ExpressionKind, RevsetParseErrorKind> {
         parse_program(text)
             .map(|node| node.kind)
-            .map_err(|err| err.kind)
+            .map_err(|err| *err.kind)
     }
 
     fn parse_normalized(text: &str) -> ExpressionNode {
@@ -1676,11 +1676,11 @@ mod tests {
 
         // Infinite recursion, where the top-level error isn't of RecursiveAlias kind.
         assert_eq!(
-            with_aliases([("A", "A")]).parse("A").unwrap_err().kind,
+            *with_aliases([("A", "A")]).parse("A").unwrap_err().kind,
             RevsetParseErrorKind::InAliasExpansion("A".to_owned())
         );
         assert_eq!(
-            with_aliases([("A", "B"), ("B", "b|C"), ("C", "c|B")])
+            *with_aliases([("A", "B"), ("B", "b|C"), ("C", "c|B")])
                 .parse("A")
                 .unwrap_err()
                 .kind,
@@ -1689,7 +1689,7 @@ mod tests {
 
         // Error in alias definition.
         assert_eq!(
-            with_aliases([("A", "a(")]).parse("A").unwrap_err().kind,
+            *with_aliases([("A", "a(")]).parse("A").unwrap_err().kind,
             RevsetParseErrorKind::InAliasExpansion("A".to_owned())
         );
     }
@@ -1763,21 +1763,21 @@ mod tests {
 
         // Invalid number of arguments.
         assert_eq!(
-            with_aliases([("F()", "x")]).parse("F(a)").unwrap_err().kind,
+            *with_aliases([("F()", "x")]).parse("F(a)").unwrap_err().kind,
             RevsetParseErrorKind::InvalidFunctionArguments {
                 name: "F".to_owned(),
                 message: "Expected 0 arguments".to_owned()
             }
         );
         assert_eq!(
-            with_aliases([("F(x)", "x")]).parse("F()").unwrap_err().kind,
+            *with_aliases([("F(x)", "x")]).parse("F()").unwrap_err().kind,
             RevsetParseErrorKind::InvalidFunctionArguments {
                 name: "F".to_owned(),
                 message: "Expected 1 arguments".to_owned()
             }
         );
         assert_eq!(
-            with_aliases([("F(x,y)", "x|y")])
+            *with_aliases([("F(x,y)", "x|y")])
                 .parse("F(a,b,c)")
                 .unwrap_err()
                 .kind,
@@ -1787,7 +1787,7 @@ mod tests {
             }
         );
         assert_eq!(
-            with_aliases([("F(x)", "x"), ("F(x,y)", "x|y")])
+            *with_aliases([("F(x)", "x"), ("F(x,y)", "x|y")])
                 .parse("F()")
                 .unwrap_err()
                 .kind,
@@ -1797,7 +1797,7 @@ mod tests {
             }
         );
         assert_eq!(
-            with_aliases([("F()", "x"), ("F(x,y)", "x|y")])
+            *with_aliases([("F()", "x"), ("F(x,y)", "x|y")])
                 .parse("F(a)")
                 .unwrap_err()
                 .kind,
@@ -1809,7 +1809,7 @@ mod tests {
 
         // Keyword argument isn't supported for now.
         assert_eq!(
-            with_aliases([("F(x)", "x")])
+            *with_aliases([("F(x)", "x")])
                 .parse("F(x=y)")
                 .unwrap_err()
                 .kind,
@@ -1821,14 +1821,14 @@ mod tests {
 
         // Infinite recursion, where the top-level error isn't of RecursiveAlias kind.
         assert_eq!(
-            with_aliases([("F(x)", "G(x)"), ("G(x)", "H(x)"), ("H(x)", "F(x)")])
+            *with_aliases([("F(x)", "G(x)"), ("G(x)", "H(x)"), ("H(x)", "F(x)")])
                 .parse("F(a)")
                 .unwrap_err()
                 .kind,
             RevsetParseErrorKind::InAliasExpansion("F(x)".to_owned())
         );
         assert_eq!(
-            with_aliases([("F(x)", "F(x,b)"), ("F(x,y)", "F(x|y)")])
+            *with_aliases([("F(x)", "F(x,b)"), ("F(x,y)", "F(x|y)")])
                 .parse("F(a)")
                 .unwrap_err()
                 .kind,
