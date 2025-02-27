@@ -1029,7 +1029,7 @@ fn test_config_get() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Config error: Value not found for nonexistent
-    For help, see https://jj-vcs.github.io/jj/latest/config/.
+    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
     ");
@@ -1052,7 +1052,7 @@ fn test_config_get() {
     Config error: Invalid type or value for table.list
     Caused by: Expected a value convertible to a string, but is an array
     Hint: Check the config file: $TEST_ENV/config/config0002.toml
-    For help, see https://jj-vcs.github.io/jj/latest/config/.
+    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
     ");
@@ -1063,7 +1063,7 @@ fn test_config_get() {
     Config error: Invalid type or value for table
     Caused by: Expected a value convertible to a string, but is a table
     Hint: Check the config file: $TEST_ENV/config/config0003.toml
-    For help, see https://jj-vcs.github.io/jj/latest/config/.
+    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
     ");
@@ -1127,7 +1127,7 @@ fn test_config_path_syntax() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Config error: Value not found for a.'b()'.x
-    For help, see https://jj-vcs.github.io/jj/latest/config/.
+    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
     ");
@@ -1406,7 +1406,7 @@ fn test_config_show_paths() {
     Caused by: unknown variant `:builtin`, expected `never` or `auto`
 
     Hint: Check the config file: $TEST_ENV/config/config0001.toml
-    For help, see https://jj-vcs.github.io/jj/latest/config/.
+    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
     ");

@@ -778,8 +778,8 @@ fn file_pattern_parse_error_hint(err: &FilePatternParseError) -> Option<String> 
 fn fileset_parse_error_hint(err: &FilesetParseError) -> Option<String> {
     match err.kind() {
         FilesetParseErrorKind::SyntaxError => Some(String::from(
-            "See https://jj-vcs.github.io/jj/latest/filesets/ for filesets syntax, or for how to \
-             match file paths.",
+            "See https://jj-vcs.github.io/jj/latest/filesets/ or use `jj help -k filesets` for \
+             filesets syntax and how to match file paths.",
         )),
         FilesetParseErrorKind::NoSuchFunction {
             name: _,
@@ -812,8 +812,8 @@ fn revset_parse_error_hint(err: &RevsetParseError) -> Option<String> {
     let bottom_err = iter::successors(Some(err), |e| e.origin()).last().unwrap();
     match bottom_err.kind() {
         RevsetParseErrorKind::SyntaxError => Some(
-            "See https://jj-vcs.github.io/jj/latest/revsets/ for revsets syntax, or for how to \
-             quote symbols."
+            "See https://jj-vcs.github.io/jj/latest/revsets/ or use `jj help -k revsets` for \
+             revsets syntax and how to quote symbols."
                 .into(),
         ),
         RevsetParseErrorKind::NotPrefixOperator {
@@ -905,7 +905,8 @@ fn try_handle_command_result(
             print_error(ui, "Config error: ", err, hints)?;
             writeln!(
                 ui.stderr_formatter().labeled("hint"),
-                "For help, see https://jj-vcs.github.io/jj/latest/config/."
+                "For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k \
+                 config`."
             )?;
             Ok(ExitCode::from(1))
         }

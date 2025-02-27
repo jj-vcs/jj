@@ -1018,7 +1018,7 @@ fn test_git_clone_invalid_immutable_heads(subprocess: bool) {
     bookmark: main@origin [new] untracked
     Config error: Invalid `revset-aliases.immutable_heads()`
     Caused by: Revision `unknown` doesn't exist
-    For help, see https://jj-vcs.github.io/jj/latest/config/.
+    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
     "#);

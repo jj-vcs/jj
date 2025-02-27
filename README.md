@@ -198,6 +198,8 @@ As you become more familiar with Jujutsu, the following resources may be helpful
 - The [FAQ](https://jj-vcs.github.io/jj/latest/FAQ).
 - The [Glossary](https://jj-vcs.github.io/jj/latest/glossary).
 - The `jj help` command (e.g. `jj help rebase`).
+- The `jj help -k <keyword>` command (e.g. `jj help -k config`). Use `jj help --help`
+  to see what keywords are available.
 
 If you are using a **prerelease** version of `jj`, you would want to consult
 [the docs for the prerelease (main branch)

@@ -118,10 +118,10 @@ impl ConfigLevelArgs {
 /// Operates on jj configuration, which comes from the config file and
 /// environment variables.
 ///
-/// See the [config documentation] for file locations, supported config options,
-/// and other details about `jj config`.
+/// See [`jj help -k config`] to know more about file locations, supported
+/// config options, and other details about `jj config`.
 ///
-/// [config documentation]:
+/// [`jj help -k config`]:
 ///     https://jj-vcs.github.io/jj/latest/config/
 #[derive(clap::Subcommand, Clone, Debug)]
 pub(crate) enum ConfigCommand {

@@ -36,9 +36,9 @@ use crate::ui::Ui;
 /// revisions are preceded by a "-" and new target revisions are preceded by a
 /// "+".
 ///
-/// See the [bookmark documentation] for more information.
+/// See [`jj help -k bookmarks`] for more information.
 ///
-/// [bookmark documentation]:
+/// [`jj help -k bookmarks`]:
 ///     https://jj-vcs.github.io/jj/latest/bookmarks
 #[derive(clap::Args, Clone, Debug)]
 pub struct BookmarkListArgs {
@@ -95,14 +95,15 @@ pub struct BookmarkListArgs {
 
     /// Render each bookmark using the given template
     ///
-    /// All 0-argument methods of the [`RefName` type] are available as
-    /// keywords in the [template expression].
-    ///
-    /// [template expression]:
-    ///     https://jj-vcs.github.io/jj/latest/templates/
+    /// All 0-argument methods of the [`RefName` type] are available as keywords
+    /// in the template expression. See [`jj help -k templates`] for more
+    /// information.
     ///
     /// [`RefName` type]:
     ///     https://jj-vcs.github.io/jj/latest/templates/#refname-type
+    ///
+    /// [`jj help -k templates`]:
+    ///     https://jj-vcs.github.io/jj/latest/templates/
     #[arg(long, short = 'T', add = ArgValueCandidates::new(complete::template_aliases))]
     template: Option<String>,
 }

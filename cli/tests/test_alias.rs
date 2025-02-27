@@ -147,10 +147,12 @@ fn test_alias_calls_help() {
     test_env.add_config(r#"aliases.h = ["--help"]"#);
     let output = test_env.run_jj_in(&repo_path, &["h"]);
     insta::assert_snapshot!(
-        output.normalize_stdout_with(|s| s.split_inclusive('\n').take(5).collect()), @r"
+        output.normalize_stdout_with(|s| s.split_inclusive('\n').take(7).collect()), @r"
     Jujutsu (An experimental VCS)
 
-    To get started, see the tutorial at https://jj-vcs.github.io/jj/latest/tutorial/.
+    To get started, see the tutorial [`jj help -k tutorial`].
+
+    [`jj help -k tutorial`]: https://jj-vcs.github.io/jj/latest/tutorial/
 
     Usage: jj [OPTIONS] <COMMAND>
     [EOF]
@@ -280,7 +282,7 @@ fn test_alias_invalid_definition() {
     Caused by: invalid type: integer `5`, expected a sequence
 
     Hint: Check the config file: $TEST_ENV/config/config0002.toml
-    For help, see https://jj-vcs.github.io/jj/latest/config/.
+    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
     ");
@@ -291,7 +293,7 @@ fn test_alias_invalid_definition() {
     Caused by: invalid type: integer `0`, expected a string
 
     Hint: Check the config file: $TEST_ENV/config/config0002.toml
-    For help, see https://jj-vcs.github.io/jj/latest/config/.
+    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
     ");

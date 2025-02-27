@@ -113,7 +113,9 @@ This document contains the help content for the `jj` command-line program.
 
 Jujutsu (An experimental VCS)
 
-To get started, see the tutorial at https://jj-vcs.github.io/jj/latest/tutorial/.
+To get started, see the tutorial [`jj help -k tutorial`].
+
+[`jj help -k tutorial`]: https://jj-vcs.github.io/jj/latest/tutorial/
 
 **Usage:** `jj [OPTIONS] [COMMAND]`
 
@@ -284,9 +286,9 @@ The description of the new revisions can be customized with the `templates.backo
 
 Manage bookmarks [default alias: b]
 
-See the [bookmark documentation] for more information.
+See [`jj help -k bookmarks`] for more information.
 
-[bookmark documentation]: https://jj-vcs.github.io/jj/latest/bookmarks
+[`jj help -k bookmarks`]: https://jj-vcs.github.io/jj/latest/bookmarks
 
 **Usage:** `jj bookmark <COMMAND>`
 
@@ -370,9 +372,9 @@ List bookmarks and their targets
 
 By default, a tracking remote bookmark will be included only if its target is different from the local target. A non-tracking remote bookmark won't be listed. For a conflicted bookmark (both local and remote), old target revisions are preceded by a "-" and new target revisions are preceded by a "+".
 
-See the [bookmark documentation] for more information.
+See [`jj help -k bookmarks`] for more information.
 
-[bookmark documentation]: https://jj-vcs.github.io/jj/latest/bookmarks
+[`jj help -k bookmarks`]: https://jj-vcs.github.io/jj/latest/bookmarks
 
 **Usage:** `jj bookmark list [OPTIONS] [NAMES]...`
 
@@ -401,11 +403,11 @@ See the [bookmark documentation] for more information.
    Note that `-r deleted_bookmark` will not work since `deleted_bookmark` wouldn't have a local target.
 * `-T`, `--template <TEMPLATE>` — Render each bookmark using the given template
 
-   All 0-argument methods of the [`RefName` type] are available as keywords in the [template expression].
-
-   [template expression]: https://jj-vcs.github.io/jj/latest/templates/
+   All 0-argument methods of the [`RefName` type] are available as keywords in the template expression. See [`jj help -k templates`] for more information.
 
    [`RefName` type]: https://jj-vcs.github.io/jj/latest/templates/#refname-type
+
+   [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
 
 
 
@@ -547,9 +549,9 @@ Manage config options
 
 Operates on jj configuration, which comes from the config file and environment variables.
 
-See the [config documentation] for file locations, supported config options, and other details about `jj config`.
+See [`jj help -k config`] to know more about file locations, supported config options, and other details about `jj config`.
 
-[config documentation]: https://jj-vcs.github.io/jj/latest/config/
+[`jj help -k config`]: https://jj-vcs.github.io/jj/latest/config/
 
 **Usage:** `jj config <COMMAND>`
 
@@ -617,13 +619,15 @@ List variables set in config file, along with their values
 * `--repo` — Target the repo-level config
 * `-T`, `--template <TEMPLATE>` — Render each variable using the given template
 
-   The following keywords are available in the [template expression]:
+   The following keywords are available in the template expression:
 
    * `name: String`: Config name.
    * `value: ConfigValue`: Value to be formatted in TOML syntax.
    * `overridden: Boolean`: True if the value is shadowed by other.
 
-   [template expression]:
+   See [`jj help -k templates`] for more information.
+
+   [`jj help -k templates`]:
        https://jj-vcs.github.io/jj/latest/templates/
 
 
@@ -855,11 +859,11 @@ Lists the previous commits which a change has pointed to. The current commit of 
 
    Run `jj log -T` to list the built-in templates.
 
-   You can also specify arbitrary [template expressions] using the [built-in keywords].
-
-   [template expression]: https://jj-vcs.github.io/jj/latest/templates/
+   You can also specify arbitrary template expressions using the [built-in keywords]. See [`jj help -k templates`] for more information.
 
    [built-in keywords]: https://jj-vcs.github.io/jj/latest/templates/#commit-keywords
+
+   [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
 * `-p`, `--patch` — Show patch compared to the previous version of this change
 
    If the previous version has different parents, it will be temporarily rebased to the parents of the new version, so the diff is not contaminated by unrelated changes.
@@ -914,13 +918,13 @@ Annotates a revision line by line. Each line includes the source change that int
 * `-r`, `--revision <REVSET>` — an optional revision to start at
 * `-T`, `--template <TEMPLATE>` — Render each line using the given template
 
-   All 0-argument methods of the [`AnnotationLine` type] are available as keywords in the [template expression].
+   All 0-argument methods of the [`AnnotationLine` type] are available as keywords in the template expression. See [`jj help -k templates`] for more information.
 
    If not specified, this defaults to the `templates.file_annotate` setting.
 
-   [template expression]: https://jj-vcs.github.io/jj/latest/templates/
-
    [`AnnotationLine` type]: https://jj-vcs.github.io/jj/latest/templates/#annotationline-type
+
+   [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
 
 
 
@@ -969,11 +973,11 @@ List files in a revision
   Default value: `@`
 * `-T`, `--template <TEMPLATE>` — Render each file entry using the given template
 
-   All 0-argument methods of the [`TreeEntry` type] are available as keywords in the [template expression].
-
-   [template expression]: https://jj-vcs.github.io/jj/latest/templates/
+   All 0-argument methods of the [`TreeEntry` type] are available as keywords in the template expression. See [`jj help -k templates`] for more information.
 
    [`TreeEntry` type]: https://jj-vcs.github.io/jj/latest/templates/#treeentry-type
+
+   [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
 
 
 
@@ -1466,11 +1470,13 @@ The working-copy commit is indicated by a `@` symbol in the graph. [Immutable re
 
    Run `jj log -T` to list the built-in templates.
 
-   You can also specify arbitrary [template expressions] using the [built-in keywords].
+   You can also specify arbitrary template expressions using the [built-in keywords]. See [`jj help -k templates`] for more information.
 
    If not specified, this defaults to the `templates.log` setting.
 
-   [template expression]: https://jj-vcs.github.io/jj/latest/templates/ [built-in keywords]: https://jj-vcs.github.io/jj/latest/templates/#commit-keywords
+   [built-in keywords]: https://jj-vcs.github.io/jj/latest/templates/#commit-keywords
+
+   [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
 * `-p`, `--patch` — Show patch
 * `-s`, `--summary` — For each path, show only whether it was modified, added, or deleted
 * `--stat` — Show a histogram of the changes
@@ -1655,11 +1661,11 @@ Like other commands, `jj op log` snapshots the current working-copy changes and 
 * `--no-graph` — Don't show the graph, show a flat list of operations
 * `-T`, `--template <TEMPLATE>` — Render each operation using the given template
 
-   You can specify arbitrary [template expressions] using the [built-in keywords].
-
-   [template expression]: https://jj-vcs.github.io/jj/latest/templates/
+   You can specify arbitrary template expressions using the [built-in keywords]. See [`jj help -k templates`] for more information.
 
    [built-in keywords]: https://jj-vcs.github.io/jj/latest/templates/#operation-keywords
+
+   [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
 * `--op-diff` — Show changes to the repository at each operation
 * `-p`, `--patch` — Show patch of modifications to changes (implies --op-diff)
 
@@ -2195,11 +2201,11 @@ Show commit description and changes in a revision
 
 * `-T`, `--template <TEMPLATE>` — Render a revision using the given template
 
-   You can specify arbitrary [template expressions] using the [built-in keywords].
-
-   [template expression]: https://jj-vcs.github.io/jj/latest/templates/
+   You can specify arbitrary template expressions using the [built-in keywords]. See [`jj help -k templates`] for more information.
 
    [built-in keywords]: https://jj-vcs.github.io/jj/latest/templates/#commit-keywords
+
+   [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
 * `-s`, `--summary` — For each path, show only whether it was modified, added, or deleted
 * `--stat` — Show a histogram of the changes
 * `--types` — For each path, show only its type before and after
@@ -2421,11 +2427,11 @@ List tags
 
 * `-T`, `--template <TEMPLATE>` — Render each tag using the given template
 
-   All 0-argument methods of the [`RefName` type] are available as keywords in the [template expression].
-
-   [template expression]: https://jj-vcs.github.io/jj/latest/templates/
+   All 0-argument methods of the [`RefName` type] are available as keywords in the template expression. See [`jj help -k templates`] for more information.
 
    [`RefName` type]: https://jj-vcs.github.io/jj/latest/templates/#refname-type
+
+   [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
 
 
 

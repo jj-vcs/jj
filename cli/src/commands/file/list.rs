@@ -38,13 +38,14 @@ pub(crate) struct FileListArgs {
     /// Render each file entry using the given template
     ///
     /// All 0-argument methods of the [`TreeEntry` type] are available as
-    /// keywords in the [template expression].
-    ///
-    /// [template expression]:
-    ///     https://jj-vcs.github.io/jj/latest/templates/
+    /// keywords in the template expression. See [`jj help -k templates`] for
+    /// more information.
     ///
     /// [`TreeEntry` type]:
     ///     https://jj-vcs.github.io/jj/latest/templates/#treeentry-type
+    ///
+    /// [`jj help -k templates`]:
+    ///     https://jj-vcs.github.io/jj/latest/templates/
     #[arg(long, short = 'T')]
     template: Option<String>,
 

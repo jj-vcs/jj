@@ -958,7 +958,7 @@ fn test_log_immutable() {
       | ^--------^
       |
       = Function `unknown_fn` doesn't exist
-    For help, see https://jj-vcs.github.io/jj/latest/config/.
+    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
     ");

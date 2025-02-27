@@ -57,7 +57,7 @@ fn test_config_no_tools() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Config error: No `fix.tools` are configured
-    For help, see https://jj-vcs.github.io/jj/latest/config/.
+    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
     ");
@@ -150,7 +150,7 @@ fn test_config_multiple_tools_with_same_name() {
     duplicate key `my-tool` in table `fix.tools`
 
     Hint: Check the config file: $TEST_ENV/config/config0002.toml
-    For help, see https://jj-vcs.github.io/jj/latest/config/.
+    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
     ");
@@ -241,7 +241,7 @@ fn test_config_disabled_tools_warning_when_all_tools_are_disabled() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Config error: At least one entry of `fix.tools` must be enabled.
-    For help, see https://jj-vcs.github.io/jj/latest/config/.
+    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
     ");
@@ -316,7 +316,7 @@ fn test_config_tables_all_commands_missing() {
     Caused by: missing field `command`
 
     Hint: Check the config file: $TEST_ENV/config/config0002.toml
-    For help, see https://jj-vcs.github.io/jj/latest/config/.
+    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
     ");
@@ -356,7 +356,7 @@ fn test_config_tables_some_commands_missing() {
     Caused by: missing field `command`
 
     Hint: Check the config file: $TEST_ENV/config/config0002.toml
-    For help, see https://jj-vcs.github.io/jj/latest/config/.
+    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
     ");

@@ -68,14 +68,15 @@ pub(crate) struct EvologArgs {
     ///
     /// Run `jj log -T` to list the built-in templates.
     ///
-    /// You can also specify arbitrary [template expressions] using the
-    /// [built-in keywords].
-    ///
-    /// [template expression]:
-    ///     https://jj-vcs.github.io/jj/latest/templates/
+    /// You can also specify arbitrary template expressions using the
+    /// [built-in keywords]. See [`jj help -k templates`] for more
+    /// information.
     ///
     /// [built-in keywords]:
     ///     https://jj-vcs.github.io/jj/latest/templates/#commit-keywords
+    ///
+    /// [`jj help -k templates`]:
+    ///     https://jj-vcs.github.io/jj/latest/templates/
     #[arg(long, short = 'T', add = ArgValueCandidates::new(complete::template_aliases))]
     template: Option<String>,
     /// Show patch compared to the previous version of this change

@@ -496,7 +496,7 @@ fn test_log_bad_short_prefixes() {
       | ^---
       |
       = expected <strict_identifier> or <expression>
-    For help, see https://jj-vcs.github.io/jj/latest/config/.
+    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
     ");
@@ -1427,7 +1427,7 @@ fn test_graph_styles() {
     Config error: Invalid type or value for ui.graph.style
     Caused by: unknown variant `unknown`, expected one of `ascii`, `ascii-large`, `curved`, `square`
 
-    For help, see https://jj-vcs.github.io/jj/latest/config/.
+    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
     ");

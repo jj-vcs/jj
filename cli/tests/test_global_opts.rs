@@ -352,7 +352,7 @@ fn test_invalid_filesets_looking_like_filepaths() {
       |     ^---
       |
       = expected `~` or <primary>
-    Hint: See https://jj-vcs.github.io/jj/latest/filesets/ for filesets syntax, or for how to match file paths.
+    Hint: See https://jj-vcs.github.io/jj/latest/filesets/ or use `jj help -k filesets` for filesets syntax and how to match file paths.
     [EOF]
     [exit status: 1]
     ");
@@ -529,7 +529,7 @@ fn test_color_config() {
     Config error: Invalid type or value for ui.color
     Caused by: wanted string or table
 
-    For help, see https://jj-vcs.github.io/jj/latest/config/.
+    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
     ");
@@ -770,7 +770,7 @@ fn test_config_args() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Config error: --config must be specified as NAME=VALUE
-    For help, see https://jj-vcs.github.io/jj/latest/config/.
+    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
     ");
@@ -785,7 +785,7 @@ fn test_config_args() {
         Caused by:
         1: Cannot access unknown.toml
         2: <redacted>
-        For help, see https://jj-vcs.github.io/jj/latest/config/.
+        For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
         [EOF]
         [exit status: 1]
         ");
@@ -810,7 +810,7 @@ fn test_invalid_config() {
     expected newline, `#`
 
     Hint: Check the config file: $TEST_ENV/config/config0002.toml
-    For help, see https://jj-vcs.github.io/jj/latest/config/.
+    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
     ");
@@ -829,7 +829,7 @@ fn test_invalid_config_value() {
     Config error: Invalid type or value for snapshot.auto-track
     Caused by: invalid type: sequence, expected a string
 
-    For help, see https://jj-vcs.github.io/jj/latest/config/.
+    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
     ");

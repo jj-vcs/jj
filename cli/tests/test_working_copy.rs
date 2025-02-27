@@ -99,7 +99,7 @@ fn test_snapshot_large_file() {
     ------- stderr -------
     Config error: Invalid type or value for snapshot.max-new-file-size
     Caused by: Expected a positive integer or a string in '<number><unit>' form
-    For help, see https://jj-vcs.github.io/jj/latest/config/.
+    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
     ");

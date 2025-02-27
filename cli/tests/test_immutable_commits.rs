@@ -93,7 +93,7 @@ fn test_rewrite_immutable_generic() {
     ------- stderr -------
     Config error: Invalid `revset-aliases.immutable_heads()`
     Caused by: Revision `bookmark_that_does_not_exist` doesn't exist
-    For help, see https://jj-vcs.github.io/jj/latest/config/.
+    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
     ");

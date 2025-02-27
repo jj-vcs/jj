@@ -3064,7 +3064,10 @@ impl fmt::Display for RemoteBookmarkNamePattern {
 
 /// Jujutsu (An experimental VCS)
 ///
-/// To get started, see the tutorial at https://jj-vcs.github.io/jj/latest/tutorial/.
+/// To get started, see the tutorial [`jj help -k tutorial`].
+///
+/// [`jj help -k tutorial`]:
+///     https://jj-vcs.github.io/jj/latest/tutorial/
 #[allow(rustdoc::bare_urls)]
 #[derive(clap::Parser, Clone, Debug)]
 #[command(name = "jj")]
