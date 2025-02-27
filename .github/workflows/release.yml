@@ -128,7 +128,8 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          persist-credentials: false
+          # `.github/scripts/docs-build-deploy` will need to `git push` to the docs branch
+          persist-credentials: true
       - run:  "git fetch origin gh-pages --depth=1"
       - uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38
         with:
@@ -146,6 +147,5 @@ jobs:
           .github/scripts/docs-build-deploy "${RELEASE_TAG_NAME}" latest --update-aliases --push
         env:
           RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
-          GH_TOKEN:  ${{ secrets.GITHUB_TOKEN }}
       - name: "Show `git diff --stat`"
         run: git diff --stat gh-pages^ gh-pages || echo "(No diffs)"

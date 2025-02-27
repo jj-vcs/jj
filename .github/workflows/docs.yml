@@ -9,6 +9,8 @@ permissions: {}
 
 jobs:
   prerelease-docs-build-deploy:
+    # IMPORTANT: this workflow also functions as a test for `docs-deploy-website-latest-release` in
+    # releases.yml. Any fixes here should probably be duplicated there.
     permissions:
       contents: write
     if: github.repository_owner == 'jj-vcs' # Stops this job from running on forks
@@ -20,7 +22,8 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          persist-credentials: false
+          # `.github/scripts/docs-build-deploy` will need to `git push` to the docs branch
+          persist-credentials: true
       - run:  "git fetch origin gh-pages --depth=1"
       - uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38
         with:
@@ -36,7 +39,5 @@ jobs:
           export MKDOCS_SITE_NAME="Jujutsu docs (prerelease)"
           export MKDOCS_PRIMARY_COLOR="blue grey"
           .github/scripts/docs-build-deploy prerelease --push
-        env:
-            GH_TOKEN:  ${{ secrets.GITHUB_TOKEN }}
       - name: "Show `git diff --stat`"
         run: git diff --stat gh-pages^ gh-pages || echo "(No diffs)"
