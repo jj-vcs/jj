@@ -46,6 +46,10 @@ pub struct SignArgs {
         add = ArgValueCandidates::new(complete::mutable_revisions),
     )]
     revisions: Vec<RevisionArg>,
+
+    /// The key used for signing
+    #[arg(long)]
+    key: Option<String>,
 }
 
 pub fn cmd_sign(ui: &mut Ui, command: &CommandHelper, args: &SignArgs) -> Result<(), CommandError> {
@@ -78,9 +82,13 @@ pub fn cmd_sign(ui: &mut Ui, command: &CommandHelper, args: &SignArgs) -> Result
         to_sign.iter().ids().cloned().collect_vec(),
         |rewriter| {
             let old_commit = rewriter.old_commit().clone();
-            let commit_builder = rewriter.reparent();
+            let mut commit_builder = rewriter.reparent();
 
             if to_sign.contains(&old_commit) {
+                if let Some(key) = &args.key {
+                    commit_builder = commit_builder.set_sign_key(key.clone());
+                }
+
                 let new_commit = commit_builder
                     .set_sign_behavior(SignBehavior::Force)
                     .write()?;

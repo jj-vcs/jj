@@ -135,6 +135,63 @@ backend = "test"
 }
 
 #[test]
+fn test_sign_with_key() {
+    let test_env = TestEnvironment::default();
+
+    test_env.add_config(
+        r#"
+[ui]
+show-cryptographic-signatures = true
+
+[signing]
+behavior = "keep"
+backend = "test"
+key = "some-key"
+"#,
+    );
+
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "one"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "two"])
+        .success();
+
+    test_env
+        .run_jj_in(&repo_path, ["sign", "-r", "@-"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["sign", "-r", "@--", "--key", "another-key"])
+        .success();
+
+    let output = test_env.run_jj_in(
+        &repo_path,
+        ["log", "-r", "@-|@--", "-Tbuiltin_log_detailed"],
+    );
+    insta::assert_snapshot!(output, @r"
+    ○  Commit ID: f1a2b1ef76ee5b995ddbb1b13e8b54e4b0d32a12
+    │  Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
+    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:11)
+    │  Signature: good signature by test-display some-key
+    │
+    │      two
+    │
+    ○  Commit ID: d0e65e58aef1aca0ab92d3d42a9b00b82b7f76a6
+    │  Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    ~  Author   : Test User <test.user@example.com> (2001-02-03 08:05:08)
+       Committer: Test User <test.user@example.com> (2001-02-03 08:05:11)
+       Signature: good signature by test-display another-key
+
+           one
+
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_warn_about_signing_commits_not_authored_by_me() {
     let test_env = TestEnvironment::default();
 
