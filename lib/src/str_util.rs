@@ -19,6 +19,7 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::fmt;
 use std::fmt::Debug;
+use std::ops::Deref;
 
 use either::Either;
 use thiserror::Error;
@@ -246,15 +247,54 @@ impl StringPattern {
         }
     }
 
-    /// Iterates entries of the given `map` whose keys matches this pattern.
+    /// Iterates entries of the given `map` whose string keys match this
+    /// pattern.
     pub fn filter_btree_map<'a, 'b, K: Borrow<str> + Ord, V>(
         &'b self,
         map: &'a BTreeMap<K, V>,
     ) -> impl Iterator<Item = (&'a K, &'a V)> + use<'a, 'b, K, V> {
+        self.filter_btree_map_with(map, |key| key, |key| key)
+    }
+
+    /// Iterates entries of the given `map` whose string-like keys match this
+    /// pattern.
+    ///
+    /// The borrowed key type is constrained by the `Deref::Target`. It must be
+    /// convertible to/from `str`.
+    pub fn filter_btree_map_as_deref<'a, 'b, K, V>(
+        &'b self,
+        map: &'a BTreeMap<K, V>,
+    ) -> impl Iterator<Item = (&'a K, &'a V)> + use<'a, 'b, K, V>
+    where
+        K: Borrow<K::Target> + Deref + Ord,
+        K::Target: AsRef<str> + Ord,
+        str: AsRef<K::Target>,
+    {
+        self.filter_btree_map_with(map, AsRef::as_ref, AsRef::as_ref)
+    }
+
+    fn filter_btree_map_with<'a, 'b, K, Q, V, FromKey, ToKey>(
+        &'b self,
+        map: &'a BTreeMap<K, V>,
+        from_key: FromKey,
+        to_key: ToKey,
+        // TODO: Q, FromKey, and ToKey don't have to be captured, but
+        // "currently, all type parameters are required to be mentioned in the
+        // precise captures list" as of rustc 1.85.0.
+    ) -> impl Iterator<Item = (&'a K, &'a V)> + use<'a, 'b, K, Q, V, FromKey, ToKey>
+    where
+        K: Borrow<Q> + Ord,
+        Q: Ord + ?Sized,
+        FromKey: Fn(&Q) -> &str,
+        ToKey: Fn(&str) -> &Q,
+    {
         if let Some(key) = self.as_exact() {
-            Either::Left(map.get_key_value(key).into_iter())
+            Either::Left(map.get_key_value(to_key(key)).into_iter())
         } else {
-            Either::Right(map.iter().filter(|&(key, _)| self.matches(key.borrow())))
+            Either::Right(
+                map.iter()
+                    .filter(move |&(key, _)| self.matches(from_key(key.borrow()))),
+            )
         }
     }
 }
