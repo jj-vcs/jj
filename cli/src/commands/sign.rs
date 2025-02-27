@@ -32,6 +32,9 @@ use crate::ui::Ui;
 pub struct SignArgs {
     /// What revision(s) to sign
     ///
+    /// If no revisions are specified, this defaults to the `revsets.sign`
+    /// setting.
+    ///
     /// Note that revisions are always re-signed.
     ///
     /// While that leads to discomfort for users, which sign with hardware
@@ -55,10 +58,14 @@ pub fn cmd_sign(ui: &mut Ui, command: &CommandHelper, args: &SignArgs) -> Result
         ));
     }
 
-    let to_sign: IndexSet<Commit> = workspace_command
-        .parse_union_revsets(ui, &args.revisions)?
-        .evaluate_to_commits()?
-        .try_collect()?;
+    let revset_expression = if args.revisions.is_empty() {
+        let revset_string = workspace_command.settings().get_string("revsets.sign")?;
+        workspace_command.parse_revset(ui, &RevisionArg::from(revset_string))?
+    } else {
+        workspace_command.parse_union_revsets(ui, &args.revisions)?
+    };
+
+    let to_sign: IndexSet<Commit> = revset_expression.evaluate_to_commits()?.try_collect()?;
 
     workspace_command.check_rewritable(to_sign.iter().ids())?;
 

@@ -2227,6 +2227,8 @@ Cryptographically sign a revision
 
 * `-r`, `--revisions <REVSETS>` — What revision(s) to sign
 
+   If no revisions are specified, this defaults to the `revsets.sign` setting.
+
    Note that revisions are always re-signed.
 
    While that leads to discomfort for users, which sign with hardware devices, as of now we cannot reliably check if a commit is already signed by the user without creating a signature (see https://github.com/jj-vcs/jj/issues/5786).

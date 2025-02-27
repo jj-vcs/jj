@@ -99,6 +99,42 @@ backend = "test"
 }
 
 #[test]
+fn test_sign_default_revset() {
+    let test_env = TestEnvironment::default();
+
+    test_env.add_config(
+        r#"
+[ui]
+show-cryptographic-signatures = true
+
+[signing]
+behavior = "keep"
+backend = "test"
+"#,
+    );
+
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    test_env
+        .run_jj_in(&repo_path, ["commit", "-m", "one"])
+        .success();
+
+    test_env.add_config("revsets.sign = '@'");
+
+    test_env.run_jj_in(&repo_path, ["sign"]).success();
+
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "all()"]);
+    insta::assert_snapshot!(output, @r"
+    @  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 8623fdf2 [✓︎]
+    │  (empty) (no description set)
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 876f4b7e
+    │  (empty) one
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_warn_about_signing_commits_not_authored_by_me() {
     let test_env = TestEnvironment::default();
 

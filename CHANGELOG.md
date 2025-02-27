@@ -92,6 +92,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   immutable commits that would be rewritten if used and a link to the docs.
 
 * The new `jj sign` and `jj unsign` commands allow for signing/unsigning commits.
+  `jj sign` supports configuring the default revset through `revsets.sign` when
+  no `--revisions` arguments are provided.
 
 ### Fixed bugs
 

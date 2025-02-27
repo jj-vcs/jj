@@ -8,6 +8,7 @@ simplify-parents = "reachable(@, mutable())"
 # evaluate, lengthy warning messages would be printed. Use present(expr) to
 # suppress symbol resolution error.
 log = "present(@) | ancestors(immutable_heads().., 2) | present(trunk())"
+sign = "reachable(@, mutable())"
 
 [revset-aliases]
 # trunk() can be overridden as '<bookmark>@<remote>'. Use present(trunk()) if

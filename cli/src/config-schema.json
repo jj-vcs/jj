@@ -512,6 +512,11 @@
                     "type": "string",
                     "description": "Default set of revisions to simplify when no explicit revset is given for jj simplify-parents",
                     "default": "reachable(@, mutable())"
+                },
+                "sign": {
+                    "type": "string",
+                    "description": "Default set of revisions to sign when no explicit revset is given for jj sign",
+                    "default": "reachable(@, mutable())"
                 }
             },
             "additionalProperties": {
