@@ -24,7 +24,7 @@ mod test_config_command;
 mod test_config_schema;
 mod test_copy_detection;
 mod test_debug_command;
-mod test_debug_init_local_command;
+mod test_debug_init_simple_command;
 mod test_describe_command;
 mod test_diff_command;
 mod test_diffedit_command;

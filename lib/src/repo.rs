@@ -54,7 +54,6 @@ use crate::index::IndexReadError;
 use crate::index::IndexStore;
 use crate::index::MutableIndex;
 use crate::index::ReadonlyIndex;
-use crate::local_backend::LocalBackend;
 use crate::merge::MergeBuilder;
 use crate::object_id::HexPrefix;
 use crate::object_id::ObjectId as _;
@@ -91,6 +90,7 @@ use crate::rewrite::RewriteRefsOptions;
 use crate::settings::UserSettings;
 use crate::signing::SignInitError;
 use crate::signing::Signer;
+use crate::simple_backend::SimpleBackend;
 use crate::simple_op_heads_store::SimpleOpHeadsStore;
 use crate::simple_op_store::SimpleOpStore;
 use crate::store::Store;
@@ -396,9 +396,10 @@ impl Default for StoreFactories {
         let mut factories = StoreFactories::empty();
 
         // Backends
+        #[cfg(feature = "testing")]
         factories.add_backend(
-            LocalBackend::name(),
-            Box::new(|_settings, store_path| Ok(Box::new(LocalBackend::load(store_path)))),
+            SimpleBackend::name(),
+            Box::new(|_settings, store_path| Ok(Box::new(SimpleBackend::load(store_path)))),
         );
         #[cfg(feature = "git")]
         factories.add_backend(

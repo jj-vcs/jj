@@ -74,7 +74,6 @@ pub mod graph;
 pub mod hex_util;
 pub mod id_prefix;
 pub mod index;
-pub mod local_backend;
 pub mod local_working_copy;
 pub mod lock;
 pub mod matchers;
@@ -97,6 +96,10 @@ pub mod rewrite;
 pub mod secret_backend;
 pub mod settings;
 pub mod signing;
+// TODO: This file is mostly used for testing, whenever we no longer require it
+// in the lib it should be moved to the examples (e.g
+// "examples/simple-backend/").
+pub mod simple_backend;
 pub mod simple_op_heads_store;
 pub mod simple_op_store;
 pub mod ssh_signing;

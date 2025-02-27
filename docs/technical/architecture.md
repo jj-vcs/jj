@@ -88,9 +88,9 @@ Because we use the Git Object ID as commit ID, two commits that differ only in
 their change ID, for example, will get the same commit ID, so we error out when
 trying to write the second one of them.
 
-### LocalBackend
+### SimpleBackend
 
-The `LocalBackend` is just a proof of concept. It stores objects addressed by
+The `SimpleBackend` is just a proof of concept. It stores objects addressed by
 their hash, with one file per object.
 
 ### Store

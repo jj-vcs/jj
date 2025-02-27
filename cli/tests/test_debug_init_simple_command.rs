@@ -17,7 +17,7 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_init_local() {
     let test_env = TestEnvironment::default();
-    let output = test_env.run_jj_in(".", ["debug", "init-local", "repo"]);
+    let output = test_env.run_jj_in(".", ["debug", "init-simple", "repo"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Initialized repo in "repo"
@@ -41,7 +41,7 @@ fn test_init_local() {
 
     let output = test_env.run_jj_in(
         ".",
-        ["debug", "init-local", "--ignore-working-copy", "repo2"],
+        ["debug", "init-simple", "--ignore-working-copy", "repo2"],
     );
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -50,7 +50,7 @@ fn test_init_local() {
     [exit status: 2]
     ");
 
-    let output = test_env.run_jj_in(".", ["debug", "init-local", "--at-op=@-", "repo3"]);
+    let output = test_env.run_jj_in(".", ["debug", "init-simple", "--at-op=@-", "repo3"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: --at-op is not respected

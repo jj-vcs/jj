@@ -20,7 +20,7 @@ use testutils::TestWorkspace;
 
 use crate::common::TestEnvironment;
 
-#[test_case(TestRepoBackend::Local ; "local backend")]
+#[test_case(TestRepoBackend::Simple ; "simple backend")]
 #[test_case(TestRepoBackend::Git ; "git backend")]
 fn test_root(backend: TestRepoBackend) {
     let test_env = TestEnvironment::default();

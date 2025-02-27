@@ -58,7 +58,7 @@ fn good_verification() -> Option<Verification> {
     })
 }
 
-#[test_case(TestRepoBackend::Local ; "local backend")]
+#[test_case(TestRepoBackend::Simple ; "simple backend")]
 #[test_case(TestRepoBackend::Git ; "git backend")]
 fn manual(backend: TestRepoBackend) {
     let settings = user_settings(SignBehavior::Own);

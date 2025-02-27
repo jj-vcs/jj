@@ -38,7 +38,7 @@ fn test_init_local() {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let (canonical, uncanonical) = canonicalize(temp_dir.path());
-    let (workspace, repo) = Workspace::init_local(&settings, &uncanonical).unwrap();
+    let (workspace, repo) = Workspace::init_simple(&settings, &uncanonical).unwrap();
     assert!(repo
         .store()
         .backend_impl()
@@ -138,7 +138,7 @@ fn test_init_external_git() {
     write_random_commit(tx.repo_mut());
 }
 
-#[test_case(TestRepoBackend::Local ; "local backend")]
+#[test_case(TestRepoBackend::Simple ; "simple backend")]
 #[test_case(TestRepoBackend::Git ; "git backend")]
 fn test_init_with_default_config(backend: TestRepoBackend) {
     // Test that we can create a repo without setting any non-default config
@@ -156,7 +156,7 @@ fn test_init_with_default_config(backend: TestRepoBackend) {
     assert_eq!(wc_commit.committer().email, "".to_string());
 }
 
-#[test_case(TestRepoBackend::Local ; "local backend")]
+#[test_case(TestRepoBackend::Simple ; "simple backend")]
 #[test_case(TestRepoBackend::Git ; "git backend")]
 fn test_init_checkout(backend: TestRepoBackend) {
     // Test the contents of the working-copy commit after init

@@ -88,16 +88,16 @@ fn to_other_err(err: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Bac
 }
 
 #[derive(Debug)]
-pub struct LocalBackend {
+pub struct SimpleBackend {
     path: PathBuf,
     root_commit_id: CommitId,
     root_change_id: ChangeId,
     empty_tree_id: TreeId,
 }
 
-impl LocalBackend {
+impl SimpleBackend {
     pub fn name() -> &'static str {
-        "local"
+        "Simple"
     }
 
     pub fn init(store_path: &Path) -> Self {
@@ -121,7 +121,7 @@ impl LocalBackend {
         let empty_tree_id = TreeId::from_hex(
             "482ae5a29fbe856c7272f2071b8b0f0359ee2d89ff392b8a900643fbd0836eccd067b8bf41909e206c90d45d6e7d8b6686b93ecaee5fe1a9060d87b672101310",
         );
-        LocalBackend {
+        SimpleBackend {
             path: store_path.to_path_buf(),
             root_commit_id,
             root_change_id,
@@ -151,7 +151,7 @@ impl LocalBackend {
 }
 
 #[async_trait]
-impl Backend for LocalBackend {
+impl Backend for SimpleBackend {
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -352,7 +352,7 @@ impl Backend for LocalBackend {
     }
 }
 
-#[expect(clippy::assigning_clones)]
+#[allow(clippy::assigning_clones)]
 pub fn commit_to_proto(commit: &Commit) -> crate::protos::local_store::Commit {
     let mut proto = crate::protos::local_store::Commit::default();
     for parent in &commit.parents {
@@ -554,7 +554,7 @@ mod tests {
         let temp_dir = new_temp_dir();
         let store_path = temp_dir.path();
 
-        let backend = LocalBackend::init(store_path);
+        let backend = SimpleBackend::init(store_path);
         let mut commit = Commit {
             parents: vec![],
             predecessors: vec![],

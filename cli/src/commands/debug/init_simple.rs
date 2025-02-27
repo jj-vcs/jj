@@ -24,27 +24,24 @@ use crate::command_error::user_error_with_message;
 use crate::command_error::CommandError;
 use crate::ui::Ui;
 
-/// Create a new repo in the given directory using the proof-of-concept native
+/// Create a new repo in the given directory using the proof-of-concept simple
 /// backend
-///
-/// The proof-of-concept backend is called "local" because it does not support
-/// cloning, pushing, or fetching repositories or commits.
 ///
 /// This command is otherwise analogous to `jj git init`. If the given directory
 /// does not exist, it will be created. If no directory is given, the current
 /// directory is used.
 #[derive(clap::Args, Clone, Debug)]
-pub(crate) struct DebugInitLocalArgs {
+pub(crate) struct DebugInitSimpleArgs {
     /// The destination directory
     #[arg(default_value = ".", value_hint = clap::ValueHint::DirPath)]
     destination: String,
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_debug_init_local(
+pub(crate) fn cmd_debug_init_simple(
     ui: &mut Ui,
     command: &CommandHelper,
-    args: &DebugInitLocalArgs,
+    args: &DebugInitSimpleArgs,
 ) -> Result<(), CommandError> {
     if command.global_args().ignore_working_copy {
         return Err(cli_error("--ignore-working-copy is not respected"));
@@ -58,7 +55,7 @@ pub(crate) fn cmd_debug_init_local(
         .and_then(|_| dunce::canonicalize(wc_path))
         .map_err(|e| user_error_with_message("Failed to create workspace", e))?;
 
-    Workspace::init_local(&command.settings_for_new_workspace(&wc_path)?, &wc_path)?;
+    Workspace::init_simple(&command.settings_for_new_workspace(&wc_path)?, &wc_path)?;
 
     let relative_wc_path = file_util::relative_path(cwd, &wc_path);
     writeln!(
