@@ -23,9 +23,10 @@ a comparison with Git, including how workflows are different, see the
     [only the last pushurl](https://github.com/jj-vcs/jj/issues/4889) is
     respected).
   * `core.excludesFile`
-* **Authentication: Partial.** Only `ssh-agent`, a password-less key (
-  only `~/.ssh/id_rsa`, `~/.ssh/id_ed25519` or `~/.ssh/id_ed25519_sk`), or
-  a `credential.helper`.
+* **Authentication: Yes.** With the default authentication scheme, which uses
+  `git` under the hood. With `git.subprocess = false`, only `ssh-agent`, a
+   password-less key (only `~/.ssh/id_rsa`, `~/.ssh/id_ed25519` or
+   `~/.ssh/id_ed25519_sk`), or a `credential.helper` are supported.
 * **Branches: Yes.** You can read more about
   [how branches work in Jujutsu](bookmarks.md)
   and [how they interoperate with Git](#branches).
