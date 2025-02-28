@@ -18,6 +18,7 @@ use std::path::Path;
 
 pub use self::test_environment::CommandOutput;
 pub use self::test_environment::TestEnvironment;
+pub use self::test_environment::TestWorkDir;
 
 pub fn fake_editor_path() -> String {
     let path = assert_cmd::cargo::cargo_bin("fake-editor");
