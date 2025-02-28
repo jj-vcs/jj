@@ -304,10 +304,10 @@ pub struct IndexManager<'a> {
 
 impl<'a> IndexManager<'a> {
     pub fn new(repo: &'a gix::Repository) -> IndexManager<'a> {
-        let index = gix::index::File::from_state(
-            gix::index::State::new(repo.object_hash()),
-            repo.index_path(),
-        );
+        // This would be equivalent to repo.open_index_or_empty() if such
+        // function existed.
+        let index = repo.index_or_empty().unwrap();
+        let index = gix::index::File::clone(&index); // unshare
         IndexManager { index, repo }
     }
 
