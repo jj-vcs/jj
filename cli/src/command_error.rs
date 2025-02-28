@@ -32,6 +32,7 @@ use jj_lib::dsl_util::Diagnostics;
 use jj_lib::fileset::FilePatternParseError;
 use jj_lib::fileset::FilesetParseError;
 use jj_lib::fileset::FilesetParseErrorKind;
+use jj_lib::fix::FixError;
 use jj_lib::gitignore::GitIgnoreError;
 use jj_lib::op_heads_store::OpHeadResolutionError;
 use jj_lib::op_heads_store::OpHeadsStoreError;
@@ -708,6 +709,20 @@ impl From<AbsorbError> for CommandError {
         match err {
             AbsorbError::Backend(err) => err.into(),
             AbsorbError::RevsetEvaluation(err) => err.into(),
+        }
+    }
+}
+
+impl From<FixError> for CommandError {
+    fn from(err: FixError) -> Self {
+        match err {
+            FixError::Backend(err) => err.into(),
+            FixError::RevsetEvaluation(err) => err.into(),
+            FixError::IO(err) => err.into(),
+            FixError::FixContent(err) => internal_error_with_message(
+                "An error occurred while attempting to fix file content",
+                err,
+            ),
         }
     }
 }
