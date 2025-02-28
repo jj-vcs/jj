@@ -28,6 +28,11 @@ use crate::complete;
 use crate::ui::Ui;
 
 /// Cryptographically sign a revision
+///
+/// This command requires configuring a [commit signing] backend.
+///
+/// [commit signing]:
+///     https://jj-vcs.github.io/jj/latest/config/#commit-signing
 #[derive(clap::Args, Clone, Debug)]
 pub struct SignArgs {
     /// What revision(s) to sign

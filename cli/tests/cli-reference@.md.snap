@@ -2227,6 +2227,10 @@ Show commit description and changes in a revision
 
 Cryptographically sign a revision
 
+This command requires configuring a [commit signing] backend.
+
+[commit signing]: https://jj-vcs.github.io/jj/latest/config/#commit-signing
+
 **Usage:** `jj sign [OPTIONS]`
 
 ###### **Options:**
@@ -2621,6 +2625,10 @@ Undo an operation (shortcut for `jj op undo`)
 ## `jj unsign`
 
 Drop a cryptographic signature
+
+See also [commit signing] docs.
+
+[commit signing]: https://jj-vcs.github.io/jj/latest/config/#commit-signing
 
 **Usage:** `jj unsign [OPTIONS]`
 

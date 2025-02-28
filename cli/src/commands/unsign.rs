@@ -26,6 +26,11 @@ use crate::complete;
 use crate::ui::Ui;
 
 /// Drop a cryptographic signature
+///
+/// See also [commit signing] docs.
+///
+/// [commit signing]:
+///     https://jj-vcs.github.io/jj/latest/config/#commit-signing
 #[derive(clap::Args, Clone, Debug)]
 pub struct UnsignArgs {
     /// What revision(s) to unsign
