@@ -300,7 +300,6 @@ pub fn status(repo: &gix::Repository) -> Vec<GitStatus> {
 pub struct IndexManager<'a> {
     index: gix::index::File,
     repo: &'a gix::Repository,
-    added_entries: Vec<(gix::ObjectId, &'a str)>,
 }
 
 impl<'a> IndexManager<'a> {
@@ -309,18 +308,13 @@ impl<'a> IndexManager<'a> {
             gix::index::State::new(repo.object_hash()),
             repo.index_path(),
         );
-        IndexManager {
-            index,
-            repo,
-            added_entries: Vec::new(),
-        }
+        IndexManager { index, repo }
     }
 
-    pub fn add_file(&mut self, name: &'a str, data: &[u8]) {
+    pub fn add_file(&mut self, name: &str, data: &[u8]) {
         std::fs::write(self.repo.work_dir().unwrap().join(name), data).unwrap();
         let blob_oid = self.repo.write_blob(data).unwrap().detach();
 
-        self.added_entries.push((blob_oid, name));
         self.index.dangerously_push_entry(
             gix::index::entry::Stat::default(),
             blob_oid,
