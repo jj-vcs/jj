@@ -196,7 +196,7 @@ The remainder will be in the second commit.
         commit_builder.write(tx.repo_mut())?
     };
 
-    let legacy_bookmark_behavior = read_legacy_bookmark_behavior_setting(tx.settings(), ui)?;
+    let legacy_bookmark_behavior = tx.settings().get_bool("split.legacy-bookmark-behavior")?;
     if legacy_bookmark_behavior {
         // Mark the commit being split as rewritten to the second commit. This
         // moves any bookmarks pointing to the target commit to the second
@@ -240,29 +240,4 @@ The remainder will be in the second commit.
     }
     tx.finish(ui, format!("split commit {}", commit.id().hex()))?;
     Ok(())
-}
-
-/// Reads and returns 'split.legacy-bookmark-behavior' from settings and prints
-/// a warning if it is set to true to alert the user of the deprecation.
-fn read_legacy_bookmark_behavior_setting(
-    settings: &jj_lib::settings::UserSettings,
-    ui: &Ui,
-) -> Result<bool, CommandError> {
-    let use_legacy_behavior = settings.get_bool("split.legacy-bookmark-behavior")?;
-    if use_legacy_behavior {
-        writeln!(
-            ui.warning_default(),
-            "`jj split` will leave bookmarks on the first commit in the next release."
-        )?;
-        writeln!(
-            ui.warning_default(),
-            "Run `jj config set --user split.legacy-bookmark-behavior false` to silence this \
-             message and use the new behavior."
-        )?;
-        writeln!(
-            ui.warning_default(),
-            "See https://github.com/jj-vcs/jj/issues/3419"
-        )?;
-    }
-    Ok(use_legacy_behavior)
 }

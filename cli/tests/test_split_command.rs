@@ -881,24 +881,24 @@ fn test_split_with_multiple_workspaces_different_working_copy() {
 
 enum BookmarkBehavior {
     Default,
-    Legacy,
-    Modern,
+    MoveBookmarkToChild,
+    LeaveBookmarkWithTarget,
 }
 
 // TODO: https://github.com/jj-vcs/jj/issues/3419 - Delete params when the config is removed.
 #[test_case(BookmarkBehavior::Default; "default_behavior")]
-#[test_case(BookmarkBehavior::Legacy; "legacy_behavior")]
-#[test_case(BookmarkBehavior::Modern; "modern_behavior")]
+#[test_case(BookmarkBehavior::MoveBookmarkToChild; "move_bookmark_to_child")]
+#[test_case(BookmarkBehavior::LeaveBookmarkWithTarget; "leave_bookmark_with_target")]
 fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
     let mut test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_path = test_env.env_root().join("main");
 
     match bookmark_behavior {
-        BookmarkBehavior::Modern => {
+        BookmarkBehavior::LeaveBookmarkWithTarget => {
             test_env.add_config("split.legacy-bookmark-behavior=false");
         }
-        BookmarkBehavior::Legacy => {
+        BookmarkBehavior::MoveBookmarkToChild => {
             test_env.add_config("split.legacy-bookmark-behavior=true");
         }
         BookmarkBehavior::Default => (),
@@ -929,7 +929,7 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
     .unwrap();
     let output = test_env.run_jj_in(&main_path, ["split", "file2"]);
     match bookmark_behavior {
-        BookmarkBehavior::Default | BookmarkBehavior::Modern => {
+        BookmarkBehavior::LeaveBookmarkWithTarget => {
             insta::allow_duplicates! {
             insta::assert_snapshot!(output, @r"
             ------- stderr -------
@@ -949,19 +949,16 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
             ");
             }
         }
-        BookmarkBehavior::Legacy => {
+        BookmarkBehavior::Default | BookmarkBehavior::MoveBookmarkToChild => {
             insta::allow_duplicates! {
-            insta::assert_snapshot!(output, @r"
+            insta::assert_snapshot!(output, @r###"
             ------- stderr -------
-            Warning: `jj split` will leave bookmarks on the first commit in the next release.
-            Warning: Run `jj config set --user split.legacy-bookmark-behavior false` to silence this message and use the new behavior.
-            Warning: See https://github.com/jj-vcs/jj/issues/3419
             First part: qpvuntsm 63d0c5ed first-commit
             Second part: mzvwutvl a9f5665f *le-signet* | second-commit
             Working copy now at: mzvwutvl a9f5665f *le-signet* | second-commit
             Parent commit      : qpvuntsm 63d0c5ed first-commit
             [EOF]
-            ");
+            "###);
             }
             insta::allow_duplicates! {
             insta::assert_snapshot!(get_log_output(&test_env, &main_path), @r"
@@ -985,7 +982,7 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
         .run_jj_in(&main_path, ["split", "file2", "--parallel"])
         .success();
     match bookmark_behavior {
-        BookmarkBehavior::Default | BookmarkBehavior::Modern => {
+        BookmarkBehavior::LeaveBookmarkWithTarget => {
             insta::allow_duplicates! {
             insta::assert_snapshot!(get_log_output(&test_env, &main_path), @r"
             @  vruxwmqvtpmx false second-commit
@@ -996,7 +993,7 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
             ");
             }
         }
-        BookmarkBehavior::Legacy => {
+        BookmarkBehavior::Default | BookmarkBehavior::MoveBookmarkToChild => {
             insta::allow_duplicates! {
             insta::assert_snapshot!(get_log_output(&test_env, &main_path), @r"
             @  vruxwmqvtpmx false *le-signet* second-commit
