@@ -43,6 +43,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj op log -d` now has an alias for `jj op log --op-diff`.
 
+* `jj bookmark list` now supports `--sort` option. Similar to `git branch --sort`.
+  See `jj bookmark list --help` for more details.
+
 ### Fixed bugs
 
 ## [0.27.0] - 2025-03-05
