@@ -1194,20 +1194,30 @@ impl MutableRepo {
 
     /// Order a set of commits in an order they should be rebased in. The result
     /// is in reverse order so the next value can be removed from the end.
-    fn order_commits_for_rebase(&self, to_visit: Vec<Commit>) -> BackendResult<Vec<Commit>> {
+    fn order_commits_for_rebase(
+        &self,
+        to_visit: Vec<Commit>,
+    ) -> BackendResult<Vec<(Commit, Vec<CommitId>)>> {
         let to_visit_set: HashSet<CommitId> =
             to_visit.iter().map(|commit| commit.id().clone()).collect();
         let mut visited = HashSet::new();
+        let mut parents_map = HashMap::new();
         // Calculate an order where we rebase parents first, but if the parents were
         // rewritten, make sure we rebase the rewritten parent first.
         let store = self.store();
-        dag_walk::topo_order_reverse_ok(
+        let ordered_commits = dag_walk::topo_order_reverse_ok(
             to_visit.into_iter().map(Ok),
             |commit| commit.id().clone(),
             |commit| -> Vec<BackendResult<Commit>> {
                 visited.insert(commit.id().clone());
                 let mut dependents = vec![];
-                for parent in commit.parents() {
+                let parent_ids = commit.parent_ids();
+                parents_map.insert(
+                    commit.id().clone(),
+                    parent_ids.iter().cloned().collect_vec(),
+                );
+                for parent_id in parent_ids {
+                    let parent = store.get_commit(parent_id);
                     let Ok(parent) = parent else {
                         dependents.push(parent);
                         continue;
@@ -1225,7 +1235,15 @@ impl MutableRepo {
                 }
                 dependents
             },
-        )
+        )?;
+
+        Ok(ordered_commits
+            .into_iter()
+            .map(|commit| {
+                let parent_ids = parents_map.remove(&commit.id().clone()).unwrap();
+                (commit, parent_ids)
+            })
+            .collect())
     }
 
     /// Rewrite descendants of the given roots.
@@ -1259,8 +1277,8 @@ impl MutableRepo {
     ) -> BackendResult<()> {
         let descendants = self.find_descendants_for_rebase(roots)?;
         let mut to_visit = self.order_commits_for_rebase(descendants)?;
-        while let Some(old_commit) = to_visit.pop() {
-            let new_parent_ids = self.new_parents(old_commit.parent_ids());
+        while let Some((old_commit, parent_ids)) = to_visit.pop() {
+            let new_parent_ids = self.new_parents(&parent_ids);
             let rewriter = CommitRewriter::new(self, old_commit, new_parent_ids);
             callback(rewriter)?;
         }
