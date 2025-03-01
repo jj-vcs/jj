@@ -57,6 +57,7 @@ use jj_lib::backend::CommitId;
 use jj_lib::backend::MergedTreeId;
 use jj_lib::backend::TreeValue;
 use jj_lib::commit::Commit;
+use jj_lib::commit::CommitIteratorExt;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::config::ConfigLayer;
@@ -3060,6 +3061,107 @@ impl fmt::Display for RemoteBookmarkNamePattern {
         let RemoteBookmarkNamePattern { bookmark, remote } = self;
         write!(f, "{bookmark}@{remote}")
     }
+}
+
+/// Computes the location (new parents and new children) to place commits.
+///
+/// The `destination` argument is mutually exclusive to the `insert_after` and
+/// `insert_before` arguments.
+pub fn compute_commit_location(
+    ui: &mut Ui,
+    workspace_command: &WorkspaceCommandHelper,
+    destination: Option<&[RevisionArg]>,
+    insert_after: Option<&[RevisionArg]>,
+    insert_before: Option<&[RevisionArg]>,
+    commit_type: &str,
+) -> Result<(Vec<Commit>, Vec<Commit>), CommandError> {
+    let resolve_revisions =
+        |revisions: Option<&[RevisionArg]>| -> Result<Option<Vec<Commit>>, CommandError> {
+            if let Some(revisions) = revisions {
+                Ok(Some(
+                    workspace_command
+                        .resolve_some_revsets_default_single(ui, revisions)?
+                        .into_iter()
+                        .collect_vec(),
+                ))
+            } else {
+                Ok(None)
+            }
+        };
+    let destination_commits = resolve_revisions(destination)?;
+    let after_commits = resolve_revisions(insert_after)?;
+    let before_commits = resolve_revisions(insert_before)?;
+
+    let (new_parents, new_children) = match (destination_commits, after_commits, before_commits) {
+        (Some(destination_commits), None, None) => (destination_commits, vec![]),
+        (None, Some(after_commits), Some(before_commits)) => (after_commits, before_commits),
+        (None, Some(after_commits), None) => {
+            let new_children: Vec<_> =
+                RevsetExpression::commits(after_commits.iter().ids().cloned().collect_vec())
+                    .children()
+                    .evaluate(workspace_command.repo().as_ref())?
+                    .iter()
+                    .commits(workspace_command.repo().store())
+                    .try_collect()?;
+
+            (after_commits, new_children)
+        }
+        (None, None, Some(before_commits)) => {
+            // Not using `RevsetExpression::parents` here to persist the order of parents
+            // specified in `before_commits`.
+            let new_parent_ids = before_commits
+                .iter()
+                .flat_map(|commit| commit.parent_ids().iter().cloned())
+                .unique();
+            let new_parents: Vec<_> = new_parent_ids
+                .map(|commit_id| workspace_command.repo().store().get_commit(&commit_id))
+                .try_collect()?;
+
+            (new_parents, before_commits)
+        }
+        (Some(_), Some(_), _) | (Some(_), _, Some(_)) => {
+            panic!("destination cannot be used with insert_after/insert_before")
+        }
+        (None, None, None) => {
+            panic!("expected at least one of destination or insert_after/insert_before")
+        }
+    };
+
+    if !new_children.is_empty() {
+        workspace_command.check_rewritable(new_children.iter().ids())?;
+        ensure_no_commit_loop(
+            workspace_command.repo().as_ref(),
+            &RevsetExpression::commits(new_children.iter().ids().cloned().collect_vec()),
+            &RevsetExpression::commits(new_parents.iter().ids().cloned().collect_vec()),
+            commit_type,
+        )?;
+    }
+
+    Ok((new_parents, new_children))
+}
+
+/// Ensure that there is no possible cycle between the potential children and
+/// parents of the given commits.
+fn ensure_no_commit_loop(
+    repo: &ReadonlyRepo,
+    children_expression: &Rc<ResolvedRevsetExpression>,
+    parents_expression: &Rc<ResolvedRevsetExpression>,
+    commit_type: &str,
+) -> Result<(), CommandError> {
+    if let Some(commit_id) = children_expression
+        .dag_range_to(parents_expression)
+        .evaluate(repo)?
+        .iter()
+        .next()
+    {
+        let commit_id = commit_id?;
+        return Err(user_error(format!(
+            "Refusing to create a loop: commit {} would be both an ancestor and a descendant of \
+             the {commit_type}",
+            short_commit_hash(&commit_id),
+        )));
+    }
+    Ok(())
 }
 
 /// Jujutsu (An experimental VCS)

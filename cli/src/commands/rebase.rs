@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use std::io::Write;
-use std::rc::Rc;
 use std::sync::Arc;
 
 use clap::ArgGroup;
@@ -25,7 +24,6 @@ use jj_lib::commit::CommitIteratorExt;
 use jj_lib::object_id::ObjectId;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
-use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetIteratorExt;
 use jj_lib::rewrite::move_commits;
@@ -36,6 +34,7 @@ use jj_lib::rewrite::RebaseOptions;
 use jj_lib::rewrite::RewriteRefsOptions;
 use tracing::instrument;
 
+use crate::cli_util::compute_commit_location;
 use crate::cli_util::short_commit_hash;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
@@ -428,8 +427,14 @@ fn rebase_revisions(
         .try_collect()?; // in reverse topological order
     workspace_command.check_rewritable(target_commits.iter().ids())?;
 
-    let (new_parents, new_children) =
-        compute_rebase_destination(ui, workspace_command, rebase_destination)?;
+    let (new_parents, new_children) = compute_commit_location(
+        ui,
+        workspace_command,
+        rebase_destination.destination.as_deref(),
+        rebase_destination.insert_after.as_deref(),
+        rebase_destination.insert_before.as_deref(),
+        "rebased commits",
+    )?;
     if rebase_destination.destination.is_some() && new_children.is_empty() {
         for commit in &target_commits {
             if new_parents.contains(commit) {
@@ -463,8 +468,14 @@ fn rebase_source(
         .collect_vec();
     workspace_command.check_rewritable(source_commits.iter().ids())?;
 
-    let (new_parents, new_children) =
-        compute_rebase_destination(ui, workspace_command, rebase_destination)?;
+    let (new_parents, new_children) = compute_commit_location(
+        ui,
+        workspace_command,
+        rebase_destination.destination.as_deref(),
+        rebase_destination.insert_after.as_deref(),
+        rebase_destination.insert_before.as_deref(),
+        "rebased commits",
+    )?;
     if rebase_destination.destination.is_some() && new_children.is_empty() {
         for commit in &source_commits {
             check_rebase_destinations(workspace_command.repo(), &new_parents, commit)?;
@@ -498,8 +509,14 @@ fn rebase_branch(
             .collect_vec()
     };
 
-    let (new_parents, new_children) =
-        compute_rebase_destination(ui, workspace_command, rebase_destination)?;
+    let (new_parents, new_children) = compute_commit_location(
+        ui,
+        workspace_command,
+        rebase_destination.destination.as_deref(),
+        rebase_destination.insert_after.as_deref(),
+        rebase_destination.insert_before.as_deref(),
+        "rebased commits",
+    )?;
     let new_parent_ids = new_parents.iter().ids().cloned().collect_vec();
     let branch_commit_ids = branch_commits.iter().ids().cloned().collect_vec();
     let roots_expression = RevsetExpression::commits(new_parent_ids.clone())
@@ -565,74 +582,6 @@ fn rebase_descendants_transaction(
     tx.finish(ui, tx_description)
 }
 
-/// Computes the new parents and children for the given
-/// [`RebaseDestinationArgs`].
-fn compute_rebase_destination(
-    ui: &mut Ui,
-    workspace_command: &mut WorkspaceCommandHelper,
-    rebase_destination: &RebaseDestinationArgs,
-) -> Result<(Vec<Commit>, Vec<Commit>), CommandError> {
-    let resolve_revisions =
-        |revisions: &Option<Vec<RevisionArg>>| -> Result<Option<Vec<Commit>>, CommandError> {
-            if let Some(revisions) = revisions {
-                Ok(Some(
-                    workspace_command
-                        .resolve_some_revsets_default_single(ui, revisions)?
-                        .into_iter()
-                        .collect_vec(),
-                ))
-            } else {
-                Ok(None)
-            }
-        };
-    let destination_commits = resolve_revisions(&rebase_destination.destination)?;
-    let after_commits = resolve_revisions(&rebase_destination.insert_after)?;
-    let before_commits = resolve_revisions(&rebase_destination.insert_before)?;
-
-    let (new_parents, new_children) = match (destination_commits, after_commits, before_commits) {
-        (Some(destination_commits), None, None) => (destination_commits, vec![]),
-        (None, Some(after_commits), Some(before_commits)) => (after_commits, before_commits),
-        (None, Some(after_commits), None) => {
-            let new_children: Vec<_> =
-                RevsetExpression::commits(after_commits.iter().ids().cloned().collect_vec())
-                    .children()
-                    .evaluate(workspace_command.repo().as_ref())?
-                    .iter()
-                    .commits(workspace_command.repo().store())
-                    .try_collect()?;
-
-            (after_commits, new_children)
-        }
-        (None, None, Some(before_commits)) => {
-            // Not using `RevsetExpression::parents` here to persist the order of parents
-            // specified in `before_commits`.
-            let new_parent_ids = before_commits
-                .iter()
-                .flat_map(|commit| commit.parent_ids().iter().cloned().collect_vec())
-                .unique()
-                .collect_vec();
-            let new_parents: Vec<_> = new_parent_ids
-                .iter()
-                .map(|commit_id| workspace_command.repo().store().get_commit(commit_id))
-                .try_collect()?;
-
-            (new_parents, before_commits)
-        }
-        _ => unreachable!(),
-    };
-
-    if !new_children.is_empty() {
-        workspace_command.check_rewritable(new_children.iter().ids())?;
-        ensure_no_commit_loop(
-            workspace_command.repo().as_ref(),
-            &RevsetExpression::commits(new_children.iter().ids().cloned().collect_vec()),
-            &RevsetExpression::commits(new_parents.iter().ids().cloned().collect_vec()),
-        )?;
-    }
-
-    Ok((new_parents, new_children))
-}
-
 /// Creates a transaction for rebasing revisions.
 fn rebase_revisions_transaction(
     ui: &mut Ui,
@@ -667,29 +616,6 @@ fn rebase_revisions_transaction(
     )?;
     print_move_commits_stats(ui, &stats)?;
     tx.finish(ui, tx_description)
-}
-
-/// Ensure that there is no possible cycle between the potential children and
-/// parents of rebased commits.
-fn ensure_no_commit_loop(
-    repo: &ReadonlyRepo,
-    children_expression: &Rc<ResolvedRevsetExpression>,
-    parents_expression: &Rc<ResolvedRevsetExpression>,
-) -> Result<(), CommandError> {
-    if let Some(commit_id) = children_expression
-        .dag_range_to(parents_expression)
-        .evaluate(repo)?
-        .iter()
-        .next()
-    {
-        let commit_id = commit_id?;
-        return Err(user_error(format!(
-            "Refusing to create a loop: commit {} would be both an ancestor and a descendant of \
-             the rebased commits",
-            short_commit_hash(&commit_id),
-        )));
-    }
-    Ok(())
 }
 
 fn check_rebase_destinations(

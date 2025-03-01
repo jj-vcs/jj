@@ -14,25 +14,18 @@
 
 use std::collections::HashSet;
 use std::io::Write;
-use std::rc::Rc;
 
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::CommitIteratorExt;
-use jj_lib::repo::ReadonlyRepo;
-use jj_lib::repo::Repo;
-use jj_lib::revset::ResolvedRevsetExpression;
-use jj_lib::revset::RevsetExpression;
-use jj_lib::revset::RevsetIteratorExt;
 use jj_lib::rewrite::merge_commit_trees;
 use jj_lib::rewrite::rebase_commit;
 use tracing::instrument;
 
-use crate::cli_util::short_commit_hash;
+use crate::cli_util::compute_commit_location;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
-use crate::command_error::user_error;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::description_util::join_message_paragraphs;
@@ -57,7 +50,7 @@ pub(crate) struct NewArgs {
         value_name = "REVSETS",
         add = ArgValueCandidates::new(complete::all_revisions)
     )]
-    pub(crate) revisions: Vec<RevisionArg>,
+    revisions: Option<Vec<RevisionArg>>,
     /// Ignored (but lets you pass `-d`/`-r` for consistency with other
     /// commands)
     #[arg(short = 'd', hide = true, short_alias = 'r',  action = clap::ArgAction::Count)]
@@ -80,7 +73,7 @@ pub(crate) struct NewArgs {
         value_name = "REVSETS",
         add = ArgValueCandidates::new(complete::all_revisions),
     )]
-    insert_after: Vec<RevisionArg>,
+    insert_after: Option<Vec<RevisionArg>>,
     /// Insert the new change before the given commit(s)
     #[arg(
         long,
@@ -90,7 +83,7 @@ pub(crate) struct NewArgs {
         value_name = "REVSETS",
         add = ArgValueCandidates::new(complete::mutable_revisions),
     )]
-    insert_before: Vec<RevisionArg>,
+    insert_before: Option<Vec<RevisionArg>>,
 }
 
 #[instrument(skip_all)]
@@ -101,85 +94,26 @@ pub(crate) fn cmd_new(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
 
-    let parent_commits;
-    let parent_commit_ids: Vec<CommitId>;
-    let children_commits;
+    let (parent_commits, children_commits) = compute_commit_location(
+        ui,
+        &workspace_command,
+        // HACK: `args.revisions` will always have a value due to the `default_value`, however
+        // `compute_commit_location` requires that the `destination` argument is mutually exclusive
+        // to `insert_after` and `insert_before` arguments.
+        if args.insert_before.is_some() || args.insert_after.is_some() {
+            None
+        } else {
+            args.revisions.as_deref()
+        },
+        args.insert_after.as_deref(),
+        args.insert_before.as_deref(),
+        "new commit",
+    )?;
+    let parent_commit_ids = parent_commits.iter().ids().cloned().collect_vec();
     let mut advance_bookmarks_target = None;
     let mut advanceable_bookmarks = vec![];
 
-    if !args.insert_before.is_empty() && !args.insert_after.is_empty() {
-        parent_commits = workspace_command
-            .resolve_some_revsets_default_single(ui, &args.insert_after)?
-            .into_iter()
-            .collect_vec();
-        parent_commit_ids = parent_commits.iter().ids().cloned().collect();
-        children_commits = workspace_command
-            .resolve_some_revsets_default_single(ui, &args.insert_before)?
-            .into_iter()
-            .collect_vec();
-        let children_commit_ids = children_commits.iter().ids().cloned().collect();
-        let children_expression = RevsetExpression::commits(children_commit_ids);
-        let parents_expression = RevsetExpression::commits(parent_commit_ids.clone());
-        ensure_no_commit_loop(
-            workspace_command.repo(),
-            &children_expression,
-            &parents_expression,
-        )?;
-    } else if !args.insert_before.is_empty() {
-        // Instead of having the new commit as a child of the changes given on the
-        // command line, add it between the changes' parents and the changes.
-        // The parents of the new commit will be the parents of the target commits
-        // which are not descendants of other target commits.
-        children_commits = workspace_command
-            .resolve_some_revsets_default_single(ui, &args.insert_before)?
-            .into_iter()
-            .collect_vec();
-        let children_commit_ids = children_commits.iter().ids().cloned().collect();
-        workspace_command.check_rewritable(&children_commit_ids)?;
-        let children_expression = RevsetExpression::commits(children_commit_ids);
-        let parents_expression = children_expression.parents();
-        ensure_no_commit_loop(
-            workspace_command.repo(),
-            &children_expression,
-            &parents_expression,
-        )?;
-        // Manually collect the parent commit IDs to preserve the order of parents.
-        parent_commit_ids = children_commits
-            .iter()
-            .flat_map(|commit| commit.parent_ids())
-            .unique()
-            .cloned()
-            .collect_vec();
-        parent_commits = parent_commit_ids
-            .iter()
-            .map(|commit_id| workspace_command.repo().store().get_commit(commit_id))
-            .try_collect()?;
-    } else if !args.insert_after.is_empty() {
-        parent_commits = workspace_command
-            .resolve_some_revsets_default_single(ui, &args.insert_after)?
-            .into_iter()
-            .collect_vec();
-        parent_commit_ids = parent_commits.iter().ids().cloned().collect();
-        let parents_expression = RevsetExpression::commits(parent_commit_ids.clone());
-        let children_expression = parents_expression.children();
-        ensure_no_commit_loop(
-            workspace_command.repo(),
-            &children_expression,
-            &parents_expression,
-        )?;
-        children_commits = children_expression
-            .evaluate(workspace_command.repo().as_ref())?
-            .iter()
-            .commits(workspace_command.repo().store())
-            .try_collect()?;
-    } else {
-        parent_commits = workspace_command
-            .resolve_some_revsets_default_single(ui, &args.revisions)?
-            .into_iter()
-            .collect_vec();
-        parent_commit_ids = parent_commits.iter().ids().cloned().collect();
-        children_commits = vec![];
-
+    if args.insert_before.is_none() && args.insert_after.is_none() {
         let should_advance_bookmarks = parent_commits.len() == 1;
         if should_advance_bookmarks {
             advance_bookmarks_target = Some(parent_commit_ids[0].clone());
@@ -187,7 +121,6 @@ pub(crate) fn cmd_new(
                 workspace_command.get_advanceable_bookmarks(parent_commits[0].parent_ids())?;
         }
     };
-    workspace_command.check_rewritable(children_commits.iter().ids())?;
 
     let parent_commit_ids_set: HashSet<CommitId> = parent_commit_ids.iter().cloned().collect();
 
@@ -233,28 +166,5 @@ pub(crate) fn cmd_new(
     }
 
     tx.finish(ui, "new empty commit")?;
-    Ok(())
-}
-
-/// Ensure that there is no possible cycle between the potential children and
-/// parents of the new commit.
-fn ensure_no_commit_loop(
-    repo: &ReadonlyRepo,
-    children_expression: &Rc<ResolvedRevsetExpression>,
-    parents_expression: &Rc<ResolvedRevsetExpression>,
-) -> Result<(), CommandError> {
-    if let Some(commit_id) = children_expression
-        .dag_range_to(parents_expression)
-        .evaluate(repo)?
-        .iter()
-        .next()
-    {
-        let commit_id = commit_id?;
-        return Err(user_error(format!(
-            "Refusing to create a loop: commit {} would be both an ancestor and a descendant of \
-             the new commit",
-            short_commit_hash(&commit_id),
-        )));
-    }
     Ok(())
 }
