@@ -941,7 +941,7 @@ fn diff_refs_to_export(
             continue;
         }
         let old_oid = if let Some(id) = old_target.as_normal() {
-            Some(gix::ObjectId::try_from(id.as_bytes()).unwrap())
+            Some(gix::ObjectId::from_bytes_or_panic(id.as_bytes()))
         } else if old_target.has_conflict() {
             // The old git ref should only be a conflict if there were concurrent import
             // operations while the value changed. Don't overwrite these values.
@@ -952,7 +952,7 @@ fn diff_refs_to_export(
             None
         };
         if let Some(id) = new_target.as_normal() {
-            let new_oid = gix::ObjectId::try_from(id.as_bytes()).unwrap();
+            let new_oid = gix::ObjectId::from_bytes_or_panic(id.as_bytes());
             branches_to_update.insert(ref_name, (old_oid, new_oid));
         } else if new_target.has_conflict() {
             // Skip conflicts and leave the old value in git_refs

@@ -704,7 +704,7 @@ fn deserialize_extras(commit: &mut Commit, bytes: &[u8]) {
 /// Used for preventing GC of commits we create.
 fn to_no_gc_ref_update(id: &CommitId) -> gix::refs::transaction::RefEdit {
     let name = format!("{NO_GC_REF_NAMESPACE}{id}");
-    let new = gix::refs::Target::Object(validate_git_object_id(id).unwrap());
+    let new = gix::refs::Target::Object(gix::ObjectId::from_bytes_or_panic(id.as_bytes()));
     let expected = gix::refs::transaction::PreviousValue::ExistingMustMatch(new.clone());
     gix::refs::transaction::RefEdit {
         change: gix::refs::transaction::Change::Update {
@@ -826,7 +826,7 @@ fn validate_git_object_id(id: &impl ObjectId) -> BackendResult<gix::ObjectId> {
             hash: id.hex(),
         });
     }
-    Ok(id.as_bytes().try_into().unwrap())
+    Ok(gix::ObjectId::from_bytes_or_panic(id.as_bytes()))
 }
 
 fn map_not_found_err(err: gix::object::find::existing::Error, id: &impl ObjectId) -> BackendError {
@@ -1068,7 +1068,7 @@ impl Backend for GitBackend {
                     } => gix::objs::tree::Entry {
                         mode: gix::object::tree::EntryKind::Blob.into(),
                         filename: name.into(),
-                        oid: id.as_bytes().try_into().unwrap(),
+                        oid: gix::ObjectId::from_bytes_or_panic(id.as_bytes()),
                     },
                     TreeValue::File {
                         id,
@@ -1076,27 +1076,27 @@ impl Backend for GitBackend {
                     } => gix::objs::tree::Entry {
                         mode: gix::object::tree::EntryKind::BlobExecutable.into(),
                         filename: name.into(),
-                        oid: id.as_bytes().try_into().unwrap(),
+                        oid: gix::ObjectId::from_bytes_or_panic(id.as_bytes()),
                     },
                     TreeValue::Symlink(id) => gix::objs::tree::Entry {
                         mode: gix::object::tree::EntryKind::Link.into(),
                         filename: name.into(),
-                        oid: id.as_bytes().try_into().unwrap(),
+                        oid: gix::ObjectId::from_bytes_or_panic(id.as_bytes()),
                     },
                     TreeValue::Tree(id) => gix::objs::tree::Entry {
                         mode: gix::object::tree::EntryKind::Tree.into(),
                         filename: name.into(),
-                        oid: id.as_bytes().try_into().unwrap(),
+                        oid: gix::ObjectId::from_bytes_or_panic(id.as_bytes()),
                     },
                     TreeValue::GitSubmodule(id) => gix::objs::tree::Entry {
                         mode: gix::object::tree::EntryKind::Commit.into(),
                         filename: name.into(),
-                        oid: id.as_bytes().try_into().unwrap(),
+                        oid: gix::ObjectId::from_bytes_or_panic(id.as_bytes()),
                     },
                     TreeValue::Conflict(id) => gix::objs::tree::Entry {
                         mode: gix::object::tree::EntryKind::Blob.into(),
                         filename: (name.to_owned() + CONFLICT_SUFFIX).into(),
-                        oid: id.as_bytes().try_into().unwrap(),
+                        oid: gix::ObjectId::from_bytes_or_panic(id.as_bytes()),
                     },
                 }
             })
@@ -1420,7 +1420,7 @@ fn write_tree_conflict(
     .map(|(name, tree_id)| gix::objs::tree::Entry {
         mode: gix::object::tree::EntryKind::Tree.into(),
         filename: name.into(),
-        oid: tree_id.as_bytes().try_into().unwrap(),
+        oid: gix::ObjectId::from_bytes_or_panic(tree_id.as_bytes()),
     })
     .collect_vec();
     let readme_id = repo
@@ -2231,7 +2231,7 @@ mod tests {
 
         let git_repo = backend.git_repo();
         let obj = git_repo
-            .find_object(gix::ObjectId::try_from(id.as_bytes()).unwrap())
+            .find_object(gix::ObjectId::from_bytes_or_panic(id.as_bytes()))
             .unwrap();
         insta::assert_snapshot!(std::str::from_utf8(&obj.data).unwrap(), @r"
         tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904
