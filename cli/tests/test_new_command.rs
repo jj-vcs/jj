@@ -282,9 +282,8 @@ fn test_new_insert_after_children() {
     [EOF]
     ");
 
-    // Check that inserting G after A and C doesn't try to rebase B (which is
-    // initially a child of A) onto G as that would create a cycle since B is
-    // a parent of C which is a parent G.
+    // Attempting to insert G after A and C errors out due to the cycle created
+    // as A is an ancestor of C.
     let output = test_env.run_jj_in(
         &repo_path,
         [
@@ -297,29 +296,12 @@ fn test_new_insert_after_children() {
             "C",
         ],
     );
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Working copy now at: kxryzmor 6d63e17b (empty) G
-    Parent commit      : qpvuntsm 5ef24e4b A | (empty) A
-    Parent commit      : mzvwutvl 83376b27 C | (empty) C
+    Error: Refusing to create a loop: commit 83376b270925 would be both an ancestor and a descendant of the new commit
     [EOF]
-    ");
-    insta::assert_snapshot!(get_short_log_output(&test_env, &repo_path), @r"
-    @    G
-    ├─╮
-    │ ○  C
-    │ ○  B
-    ├─╯
-    ○  A
-    │ ○    F
-    │ ├─╮
-    │ │ ○  E
-    ├───╯
-    │ ○  D
-    ├─╯
-    ◆  root
-    [EOF]
-    ");
+    [exit status: 1]
+    "#);
 }
 
 #[test]

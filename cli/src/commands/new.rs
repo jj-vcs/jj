@@ -161,12 +161,12 @@ pub(crate) fn cmd_new(
             .collect_vec();
         parent_commit_ids = parent_commits.iter().ids().cloned().collect();
         let parents_expression = RevsetExpression::commits(parent_commit_ids.clone());
-        // Each child of the targets will be rebased: its set of parents will be updated
-        // so that the targets are replaced by the new commit.
-        // Exclude children that are ancestors of the new commit
-        let children_expression = parents_expression
-            .children()
-            .minus(&parents_expression.ancestors());
+        let children_expression = parents_expression.children();
+        ensure_no_commit_loop(
+            workspace_command.repo(),
+            &children_expression,
+            &parents_expression,
+        )?;
         children_commits = children_expression
             .evaluate(workspace_command.repo().as_ref())?
             .iter()
