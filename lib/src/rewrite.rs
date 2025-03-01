@@ -32,7 +32,6 @@ use crate::backend::MergedTreeId;
 use crate::commit::Commit;
 use crate::commit::CommitIteratorExt as _;
 use crate::commit_builder::CommitBuilder;
-use crate::dag_walk;
 use crate::index::Index;
 use crate::index::IndexError;
 use crate::matchers::Matcher;
@@ -638,24 +637,14 @@ pub fn move_commits(
     // new children commits (if any), and their descendants.
     let mut roots = target_roots.iter().cloned().collect_vec();
     roots.extend(new_children.iter().ids().cloned());
-    let to_visit_expression = RevsetExpression::commits(roots).descendants();
-    let to_visit: Vec<_> = to_visit_expression
-        .evaluate(mut_repo)
-        .map_err(|err| err.expect_backend_error())?
-        .iter()
-        .commits(mut_repo.store())
-        .try_collect()
-        // TODO: Return evaluation error to caller
-        .map_err(|err| err.expect_backend_error())?;
-    let to_visit_commits: IndexMap<_, _> = to_visit
-        .into_iter()
-        .map(|commit| (commit.id().clone(), commit))
-        .collect();
 
-    let to_visit_commits_new_parents: HashMap<_, _> = to_visit_commits
+    let descendants = mut_repo.find_descendants_for_rebase(roots.clone())?;
+    let commit_new_parents_map: HashMap<_, _> = descendants
         .iter()
-        .map(|(commit_id, commit)| {
-            let new_parents =
+        .map(|commit| {
+            let commit_id = commit.id();
+            let new_parent_ids =
+
             // New child of the rebased target commits.
             if let Some(new_child_parents) = new_children_parents.get(commit_id) {
                 new_child_parents.clone()
@@ -708,31 +697,9 @@ pub fn move_commits(
             } else {
                 commit.parent_ids().iter().cloned().collect_vec()
             };
-
-            (commit_id.clone(), new_parents)
+            (commit.id().clone(), new_parent_ids)
         })
         .collect();
-
-    // Re-compute the order of commits to visit, such that each commit's new parents
-    // must be visited first.
-    let mut visited: HashSet<CommitId> = HashSet::new();
-    let mut to_visit = dag_walk::topo_order_reverse(
-        to_visit_commits.keys().cloned().collect_vec(),
-        |commit_id| commit_id.clone(),
-        |commit_id| -> Vec<CommitId> {
-            visited.insert(commit_id.clone());
-            to_visit_commits_new_parents
-                .get(commit_id)
-                .cloned()
-                .unwrap()
-                .iter()
-                // Only add parents which are in the set to be visited and have not already been
-                // visited.
-                .filter(|&id| to_visit_commits.contains_key(id) && !visited.contains(id))
-                .cloned()
-                .collect()
-        },
-    );
 
     let mut num_rebased_targets = 0;
     let mut num_rebased_descendants = 0;
@@ -746,35 +713,36 @@ pub fn move_commits(
         simplify_ancestor_merge: options.simplify_ancestor_merge,
     };
 
-    // Rebase each commit onto its new parents in the reverse topological order
-    // computed above.
-    while let Some(old_commit_id) = to_visit.pop() {
-        let old_commit = to_visit_commits.get(&old_commit_id).unwrap();
-        let parent_ids = to_visit_commits_new_parents.get(&old_commit_id).unwrap();
-        let new_parent_ids = mut_repo.new_parents(parent_ids);
-        let rewriter = CommitRewriter::new(mut_repo, old_commit.clone(), new_parent_ids);
-        if rewriter.parents_changed() {
-            let is_target_commit = target_commit_ids.contains(&old_commit_id);
-            let rebased_commit = rebase_commit_with_options(
-                rewriter,
-                if is_target_commit {
-                    options
+    mut_repo.transform_commits(
+        descendants,
+        &commit_new_parents_map,
+        &options.rewrite_refs,
+        |rewriter| {
+            let old_commit_id = rewriter.old_commit().id();
+            if rewriter.parents_changed() {
+                let is_target_commit = target_commit_ids.contains(old_commit_id);
+                let rebased_commit = rebase_commit_with_options(
+                    rewriter,
+                    if is_target_commit {
+                        options
+                    } else {
+                        rebase_descendant_options
+                    },
+                )?;
+                if let RebasedCommit::Abandoned { .. } = rebased_commit {
+                    num_abandoned += 1;
+                } else if is_target_commit {
+                    num_rebased_targets += 1;
                 } else {
-                    rebase_descendant_options
-                },
-            )?;
-            if let RebasedCommit::Abandoned { .. } = rebased_commit {
-                num_abandoned += 1;
-            } else if is_target_commit {
-                num_rebased_targets += 1;
+                    num_rebased_descendants += 1;
+                }
             } else {
-                num_rebased_descendants += 1;
+                num_skipped_rebases += 1;
             }
-        } else {
-            num_skipped_rebases += 1;
-        }
-    }
-    mut_repo.update_rewritten_references(&options.rewrite_refs)?;
+
+            Ok(())
+        },
+    )?;
 
     Ok(MoveCommitsStats {
         num_rebased_targets,
