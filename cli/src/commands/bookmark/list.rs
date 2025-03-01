@@ -12,13 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::cmp;
 use std::collections::HashSet;
 use std::rc::Rc;
+use std::sync::Arc;
 
+use clap::ValueEnum;
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
+use jj_lib::commit::Commit;
+use jj_lib::op_store::BookmarkTarget;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
+use jj_lib::store::Store;
 use jj_lib::str_util::StringPattern;
 
 use crate::cli_util::CommandHelper;
@@ -107,6 +113,14 @@ pub struct BookmarkListArgs {
     ///     https://jj-vcs.github.io/jj/latest/templates/
     #[arg(long, short = 'T', add = ArgValueCandidates::new(complete::template_aliases))]
     template: Option<String>,
+
+    /// Sort bookmarks based on the given key (or multiple keys). Suffix the key
+    /// with `-` to sort in descending order of the value (e.g. `--sort name-`).
+    ///
+    /// Note that when using multiple keys, the first key is the most
+    /// significant.
+    #[arg(long, value_name = "SORT_KEY", value_enum, value_delimiter = ',')]
+    sort: Vec<SortKey>,
 }
 
 pub fn cmd_bookmark_list(
@@ -167,13 +181,89 @@ pub fn cmd_bookmark_list(
             .labeled("bookmark_list")
     };
 
+    let mut bookmarks_to_list = view
+        .bookmarks()
+        .filter(|(name, target)| {
+            bookmark_names_to_list
+                .as_ref()
+                .is_none_or(|bookmark_names| bookmark_names.contains(name))
+                && (!args.conflicted || target.local_target.has_conflict())
+        })
+        .collect_vec();
+
+    // Multi-pass sorting, the first key is most significant.
+    let store = repo.store();
+    for (i, sort_key) in args.sort.iter().rev().enumerate() {
+        match sort_key {
+            SortKey::Name => {
+                // Bookmarks are already sorted by name.
+                let is_noop = i == 0 && sort_key == &SortKey::Name;
+                if !is_noop {
+                    bookmarks_to_list.sort_by_key(|&(name, _)| name);
+                }
+            }
+            SortKey::NameReversed => bookmarks_to_list.sort_by_key(|&(name, _)| cmp::Reverse(name)),
+            SortKey::AuthorName => bookmarks_to_list.sort_by_key(|(_, target)| {
+                commit_for_bookmark_target(target, store).map(|commit| commit.author().name.clone())
+            }),
+            SortKey::AuthorNameReversed => bookmarks_to_list.sort_by_key(|(_, target)| {
+                cmp::Reverse(
+                    commit_for_bookmark_target(target, store)
+                        .map(|commit| commit.author().name.clone()),
+                )
+            }),
+            SortKey::AuthorEmail => bookmarks_to_list.sort_by_key(|(_, target)| {
+                commit_for_bookmark_target(target, store)
+                    .map(|commit| commit.author().email.clone())
+            }),
+            SortKey::AuthorEmailReversed => bookmarks_to_list.sort_by_key(|(_, target)| {
+                cmp::Reverse(
+                    commit_for_bookmark_target(target, store)
+                        .map(|commit| commit.author().email.clone()),
+                )
+            }),
+            SortKey::AuthorDate => bookmarks_to_list.sort_by_key(|(_, target)| {
+                commit_for_bookmark_target(target, store).map(|commit| commit.author().timestamp)
+            }),
+            SortKey::AuthorDateReversed => bookmarks_to_list.sort_by_key(|(_, target)| {
+                cmp::Reverse(
+                    commit_for_bookmark_target(target, store)
+                        .map(|commit| commit.author().timestamp),
+                )
+            }),
+            SortKey::CommitterName => bookmarks_to_list.sort_by_key(|(_, target)| {
+                commit_for_bookmark_target(target, store)
+                    .map(|commit| commit.committer().name.clone())
+            }),
+            SortKey::CommitterNameReversed => bookmarks_to_list.sort_by_key(|(_, target)| {
+                cmp::Reverse(
+                    commit_for_bookmark_target(target, store)
+                        .map(|commit| commit.committer().name.clone()),
+                )
+            }),
+            SortKey::CommitterEmail => bookmarks_to_list.sort_by_key(|(_, target)| {
+                commit_for_bookmark_target(target, store)
+                    .map(|commit| commit.committer().email.clone())
+            }),
+            SortKey::CommitterEmailReversed => bookmarks_to_list.sort_by_key(|(_, target)| {
+                cmp::Reverse(
+                    commit_for_bookmark_target(target, store)
+                        .map(|commit| commit.committer().email.clone()),
+                )
+            }),
+            SortKey::CommitterDate => bookmarks_to_list.sort_by_key(|(_, target)| {
+                commit_for_bookmark_target(target, store).map(|commit| commit.committer().timestamp)
+            }),
+            SortKey::CommitterDateReversed => bookmarks_to_list.sort_by_key(|(_, target)| {
+                cmp::Reverse(
+                    commit_for_bookmark_target(target, store)
+                        .map(|commit| commit.committer().timestamp),
+                )
+            }),
+        }
+    }
+
     let mut bookmark_list_items: Vec<RefListItem> = Vec::new();
-    let bookmarks_to_list = view.bookmarks().filter(|(name, target)| {
-        bookmark_names_to_list
-            .as_ref()
-            .is_none_or(|bookmark_names| bookmark_names.contains(name))
-            && (!args.conflicted || target.local_target.has_conflict())
-    });
     for (name, bookmark_target) in bookmarks_to_list {
         let local_target = bookmark_target.local_target;
         let remote_refs = bookmark_target.remote_refs;
@@ -269,4 +359,38 @@ struct RefListItem {
     primary: Rc<CommitRef>,
     /// Remote bookmarks tracked by the primary (or local) bookmark.
     tracked: Vec<Rc<CommitRef>>,
+}
+
+/// Sort key for the `--sort` argument option.
+#[derive(Copy, Clone, PartialEq, Debug, ValueEnum)]
+enum SortKey {
+    Name,
+    #[value(name = "name-")]
+    NameReversed,
+    AuthorName,
+    #[value(name = "author-name-")]
+    AuthorNameReversed,
+    AuthorEmail,
+    #[value(name = "author-email-")]
+    AuthorEmailReversed,
+    AuthorDate,
+    #[value(name = "author-date-")]
+    AuthorDateReversed,
+    CommitterName,
+    #[value(name = "committer-name-")]
+    CommitterNameReversed,
+    CommitterEmail,
+    #[value(name = "committer-email-")]
+    CommitterEmailReversed,
+    CommitterDate,
+    #[value(name = "committer-date-")]
+    CommitterDateReversed,
+}
+
+fn commit_for_bookmark_target(bookmark: &BookmarkTarget<'_>, store: &Arc<Store>) -> Option<Commit> {
+    bookmark
+        .local_target
+        .added_ids()
+        .next()
+        .and_then(|id| store.get_commit(id).ok())
 }
