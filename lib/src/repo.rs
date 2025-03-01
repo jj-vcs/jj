@@ -1198,7 +1198,11 @@ impl MutableRepo {
 
     /// Order a set of commits in an order they should be rebased in. The result
     /// is in reverse order so the next value can be removed from the end.
-    fn order_commits_for_rebase(&self, to_visit: Vec<Commit>) -> BackendResult<Vec<Commit>> {
+    fn order_commits_for_rebase(
+        &self,
+        to_visit: Vec<Commit>,
+        new_parents_map: &HashMap<CommitId, Vec<CommitId>>,
+    ) -> BackendResult<Vec<Commit>> {
         let to_visit_set: HashSet<CommitId> =
             to_visit.iter().map(|commit| commit.id().clone()).collect();
         let mut visited = HashSet::new();
@@ -1211,7 +1215,11 @@ impl MutableRepo {
             |commit| -> Vec<BackendResult<Commit>> {
                 visited.insert(commit.id().clone());
                 let mut dependents = vec![];
-                for parent in commit.parents() {
+                let parent_ids = new_parents_map
+                    .get(commit.id())
+                    .map_or(commit.parent_ids(), |parent_ids| parent_ids);
+                for parent_id in parent_ids {
+                    let parent = store.get_commit(parent_id);
                     let Ok(parent) = parent else {
                         dependents.push(parent);
                         continue;
@@ -1249,22 +1257,30 @@ impl MutableRepo {
         callback: impl FnMut(CommitRewriter) -> BackendResult<()>,
     ) -> BackendResult<()> {
         let options = RewriteRefsOptions::default();
-        self.transform_descendants_with_options(roots, &options, callback)
+        self.transform_descendants_with_options(roots, &HashMap::new(), &options, callback)
     }
 
     /// Rewrite descendants of the given roots with options.
+    ///
+    /// If a commit is in the `new_parents_map` is provided, it will be rebased
+    /// onto the new parents provided in the map instead of its original
+    /// parents.
     ///
     /// See [`Self::transform_descendants()`] for details.
     pub fn transform_descendants_with_options(
         &mut self,
         roots: Vec<CommitId>,
+        new_parents_map: &HashMap<CommitId, Vec<CommitId>>,
         options: &RewriteRefsOptions,
         mut callback: impl FnMut(CommitRewriter) -> BackendResult<()>,
     ) -> BackendResult<()> {
         let descendants = self.find_descendants_for_rebase(roots)?;
-        let mut to_visit = self.order_commits_for_rebase(descendants)?;
+        let mut to_visit = self.order_commits_for_rebase(descendants, new_parents_map)?;
         while let Some(old_commit) = to_visit.pop() {
-            let new_parent_ids = self.new_parents(old_commit.parent_ids());
+            let parent_ids = new_parents_map
+                .get(old_commit.id())
+                .map_or(old_commit.parent_ids(), |parent_ids| parent_ids);
+            let new_parent_ids = self.new_parents(parent_ids);
             let rewriter = CommitRewriter::new(self, old_commit, new_parent_ids);
             callback(rewriter)?;
         }
@@ -1302,14 +1318,19 @@ impl MutableRepo {
         mut progress: impl FnMut(Commit, RebasedCommit),
     ) -> BackendResult<()> {
         let roots = self.parent_mapping.keys().cloned().collect();
-        self.transform_descendants_with_options(roots, &options.rewrite_refs, |rewriter| {
-            if rewriter.parents_changed() {
-                let old_commit = rewriter.old_commit().clone();
-                let rebased_commit = rebase_commit_with_options(rewriter, options)?;
-                progress(old_commit, rebased_commit);
-            }
-            Ok(())
-        })?;
+        self.transform_descendants_with_options(
+            roots,
+            &HashMap::new(),
+            &options.rewrite_refs,
+            |rewriter| {
+                if rewriter.parents_changed() {
+                    let old_commit = rewriter.old_commit().clone();
+                    let rebased_commit = rebase_commit_with_options(rewriter, options)?;
+                    progress(old_commit, rebased_commit);
+                }
+                Ok(())
+            },
+        )?;
         self.parent_mapping.clear();
         Ok(())
     }

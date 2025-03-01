@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::io::Write as _;
 
@@ -101,6 +102,7 @@ pub(crate) fn cmd_abandon(
     let mut num_rebased = 0;
     tx.repo_mut().transform_descendants_with_options(
         to_abandon_set.iter().copied().cloned().collect(),
+        &HashMap::new(),
         &options,
         |rewriter| {
             if to_abandon_set.contains(rewriter.old_commit().id()) {

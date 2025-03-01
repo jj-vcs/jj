@@ -14,7 +14,10 @@
 
 use std::collections::HashMap;
 
+use jj_lib::commit::Commit;
 use jj_lib::repo::Repo as _;
+use jj_lib::rewrite::RewriteRefsOptions;
+use maplit::hashmap;
 use maplit::hashset;
 use testutils::CommitGraphBuilder;
 use testutils::TestRepo;
@@ -119,4 +122,78 @@ fn test_transform_descendants_sync_linearize_merge() {
     );
 
     assert_eq!(new_commit_c.parent_ids(), vec![commit_b.id().clone()]);
+}
+
+// Reorder commits B and C by using the `new_parents_map`. Reordering has to be
+// done outside of the typical callback since we must ensure that the new
+// traversal order of the commits is valid.
+//
+// G
+// | E
+// | D F
+// | |/
+// | C
+// | B
+// |/
+// A
+#[test]
+fn test_transform_descendants_new_parents_map() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let mut tx = repo.start_transaction();
+    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
+    let commit_a = graph_builder.initial_commit();
+    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
+    let commit_c = graph_builder.commit_with_parents(&[&commit_b]);
+    let commit_d = graph_builder.commit_with_parents(&[&commit_c]);
+    let commit_e = graph_builder.commit_with_parents(&[&commit_d]);
+    let commit_f = graph_builder.commit_with_parents(&[&commit_c]);
+    let commit_g = graph_builder.commit_with_parents(&[&commit_a]);
+
+    let options = RewriteRefsOptions::default();
+    let mut rebased = HashMap::new();
+    tx.repo_mut()
+        .transform_descendants_with_options(
+            vec![commit_b.id().clone()],
+            &hashmap! {
+                commit_b.id().clone() => vec![commit_c.id().clone()],
+                commit_c.id().clone() => vec![commit_a.id().clone()],
+            },
+            &options,
+            |mut rewriter| {
+                let old_commit_id = rewriter.old_commit().id().clone();
+                if old_commit_id != *commit_b.id() {
+                    if let Some(new_commit_c) = rebased.get(commit_c.id()) {
+                        let new_commit_b: &Commit = rebased.get(commit_b.id()).unwrap();
+                        rewriter.replace_parent(new_commit_c.id(), [new_commit_b.id()]);
+                    }
+                }
+                let new_commit = rewriter.rebase()?.write()?;
+                rebased.insert(old_commit_id, new_commit);
+                Ok(())
+            },
+        )
+        .unwrap();
+    assert_eq!(rebased.len(), 5);
+    let new_commit_b = rebased.get(commit_b.id()).unwrap();
+    let new_commit_c = rebased.get(commit_c.id()).unwrap();
+    let new_commit_d = rebased.get(commit_d.id()).unwrap();
+    let new_commit_e = rebased.get(commit_e.id()).unwrap();
+    let new_commit_f = rebased.get(commit_f.id()).unwrap();
+
+    assert_eq!(
+        *tx.repo().view().heads(),
+        hashset! {
+            commit_g.id().clone(),
+            new_commit_e.id().clone(),
+            new_commit_f.id().clone(),
+        }
+    );
+
+    assert_eq!(new_commit_c.parent_ids(), vec![commit_a.id().clone()]);
+    assert_eq!(new_commit_b.parent_ids(), vec![new_commit_c.id().clone()]);
+    assert_eq!(new_commit_d.parent_ids(), vec![new_commit_b.id().clone()]);
+    assert_eq!(new_commit_e.parent_ids(), vec![new_commit_d.id().clone()]);
+    assert_eq!(new_commit_f.parent_ids(), vec![new_commit_b.id().clone()]);
 }
