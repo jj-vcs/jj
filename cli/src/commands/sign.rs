@@ -44,7 +44,10 @@ pub struct SignArgs {
     ///
     /// While that leads to discomfort for users, which sign with hardware
     /// devices, as of now we cannot reliably check if a commit is already
-    /// signed by the user without creating a signature (see https://github.com/jj-vcs/jj/issues/5786).
+    /// signed by the user without creating a signature (see [#5786]).
+    ///
+    /// [#5786]:
+    ///     https://github.com/jj-vcs/jj/issues/5786
     #[arg(
         long, short,
         value_name = "REVSETS",
