@@ -190,6 +190,24 @@ impl<'repo> CommitRewriter<'repo> {
         }
     }
 
+    /// Update the intended new parents by replacing any occurrence of
+    /// `old_parent` by `unrewritten_parents`.
+    pub fn replace_rewritten_parent<'a>(
+        &mut self,
+        old_parent: &CommitId,
+        unrewritten_parents: impl IntoIterator<Item = &'a CommitId>,
+    ) {
+        let old_parent = &self.mut_repo.new_parents(&[old_parent.clone()])[0];
+        let new_parents = self
+            .mut_repo
+            .new_parents(&unrewritten_parents.into_iter().cloned().collect_vec());
+        if let Some(i) = self.new_parents.iter().position(|p| p == old_parent) {
+            self.new_parents.splice(i..i + 1, new_parents);
+            let mut unique = HashSet::new();
+            self.new_parents.retain(|p| unique.insert(p.clone()));
+        }
+    }
+
     /// Checks if the intended new parents are different from the old commit's
     /// parents.
     pub fn parents_changed(&self) -> bool {
