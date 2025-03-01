@@ -15,6 +15,7 @@
 mod copy_detection;
 mod fileset;
 mod index;
+mod init_local;
 mod local_working_copy;
 mod operation;
 mod reindex;
@@ -37,6 +38,8 @@ use self::fileset::cmd_debug_fileset;
 use self::fileset::DebugFilesetArgs;
 use self::index::cmd_debug_index;
 use self::index::DebugIndexArgs;
+use self::init_local::cmd_debug_init_local;
+use self::init_local::DebugInitLocalArgs;
 use self::local_working_copy::cmd_debug_local_working_copy;
 use self::local_working_copy::DebugLocalWorkingCopyArgs;
 use self::operation::cmd_debug_operation;
@@ -74,6 +77,7 @@ pub enum DebugCommand {
     Revset(DebugRevsetArgs),
     Snapshot(DebugSnapshotArgs),
     Template(DebugTemplateArgs),
+    InitLocal(DebugInitLocalArgs),
     Tree(DebugTreeArgs),
     #[command(subcommand)]
     Watchman(DebugWatchmanCommand),
@@ -95,6 +99,7 @@ pub fn cmd_debug(
         DebugCommand::Revset(args) => cmd_debug_revset(ui, command, args),
         DebugCommand::Snapshot(args) => cmd_debug_snapshot(ui, command, args),
         DebugCommand::Template(args) => cmd_debug_template(ui, command, args),
+        DebugCommand::InitLocal(args) => cmd_debug_init_local(ui, command, args),
         DebugCommand::Tree(args) => cmd_debug_tree(ui, command, args),
         DebugCommand::Watchman(args) => cmd_debug_watchman(ui, command, args),
         DebugCommand::WorkingCopy(args) => cmd_debug_working_copy(ui, command, args),

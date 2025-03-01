@@ -30,17 +30,17 @@ use crate::ui::Ui;
 /// If the given directory does not exist, it will be created. If no directory
 /// is given, the current directory is used.
 #[derive(clap::Args, Clone, Debug)]
-pub(crate) struct InitArgs {
+pub(crate) struct DebugInitLocalArgs {
     /// The destination directory
     #[arg(default_value = ".", value_hint = clap::ValueHint::DirPath)]
     destination: String,
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_init(
+pub(crate) fn cmd_debug_init_local(
     ui: &mut Ui,
     command: &CommandHelper,
-    args: &InitArgs,
+    args: &DebugInitLocalArgs,
 ) -> Result<(), CommandError> {
     if command.global_args().ignore_working_copy {
         return Err(cli_error("--ignore-working-copy is not respected"));

@@ -16,8 +16,10 @@ use crate::common::TestEnvironment;
 
 #[test]
 fn test_init_local_disallowed() {
+    // TODO(ilyagr): it is unclear whether `ui.allow-init-native` is useful now
+    // that `jj init` was renamed to `jj debug init-local`.
     let test_env = TestEnvironment::default();
-    let output = test_env.run_jj_in(".", ["init", "repo"]);
+    let output = test_env.run_jj_in(".", ["debug", "init-local", "repo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: The native backend is disallowed by default.
@@ -32,7 +34,7 @@ fn test_init_local_disallowed() {
 fn test_init_local() {
     let test_env = TestEnvironment::default();
     test_env.add_config(r#"ui.allow-init-native = true"#);
-    let output = test_env.run_jj_in(".", ["init", "repo"]);
+    let output = test_env.run_jj_in(".", ["debug", "init-local", "repo"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Initialized repo in "repo"
@@ -54,7 +56,10 @@ fn test_init_local() {
     assert!(store_path.join("symlinks").is_dir());
     assert!(store_path.join("conflicts").is_dir());
 
-    let output = test_env.run_jj_in(".", ["init", "--ignore-working-copy", "repo2"]);
+    let output = test_env.run_jj_in(
+        ".",
+        ["debug", "init-local", "--ignore-working-copy", "repo2"],
+    );
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: --ignore-working-copy is not respected
@@ -62,7 +67,7 @@ fn test_init_local() {
     [exit status: 2]
     ");
 
-    let output = test_env.run_jj_in(".", ["init", "--at-op=@-", "repo3"]);
+    let output = test_env.run_jj_in(".", ["debug", "init-local", "--at-op=@-", "repo3"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: --at-op is not respected
