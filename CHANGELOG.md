@@ -113,6 +113,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   explicitly specified, in which case the specified option will apply for both
   the initial clone and subsequent fetches.
 
+* Operation and working-copy state files are now synchronized to disk on save.
+  This will mitigate data corruption on system crash.
+  [#4423](https://github.com/jj-vcs/jj/issues/4423)
+
 ### Packaging changes
 
 * The test suite no longer optionally uses Taplo CLI or jq, and packagers can

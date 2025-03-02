@@ -190,11 +190,19 @@ fn to_slash_separated(path: &Path) -> OsString {
     buf
 }
 
-/// Persists the temporary file.
+/// Persists the temporary file after synchronizing the content.
+///
+/// After system crash, the persisted file should have a valid content if
+/// existed. However, the persisted file name (or directory entry) could be
+/// lost. It's up to caller to synchronize the directory entries.
+///
+/// See also <https://lwn.net/Articles/457667/> for the behavior on Linux.
 pub fn persist_temp_file<P: AsRef<Path>>(
     temp_file: NamedTempFile,
     new_path: P,
 ) -> io::Result<File> {
+    // Ensure persisted file content is flushed to disk.
+    temp_file.as_file().sync_data()?;
     temp_file
         .persist(new_path)
         .map_err(|PersistError { error, file: _ }| error)
@@ -206,6 +214,9 @@ pub fn persist_content_addressed_temp_file<P: AsRef<Path>>(
     temp_file: NamedTempFile,
     new_path: P,
 ) -> io::Result<File> {
+    // Ensure new file content is flushed to disk, so the old file content
+    // wouldn't be lost if existed at the same location.
+    temp_file.as_file().sync_data()?;
     if cfg!(windows) {
         // On Windows, overwriting file can fail if the file is opened without
         // FILE_SHARE_DELETE for example. We don't need to take a risk if the
