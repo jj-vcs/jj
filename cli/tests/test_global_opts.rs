@@ -170,9 +170,9 @@ fn test_ignore_working_copy() {
 }
 
 #[test]
-fn test_repo_arg_with_init() {
+fn test_repo_arg_with_git_init() {
     let test_env = TestEnvironment::default();
-    let output = test_env.run_jj_in(".", ["init", "-R=.", "repo"]);
+    let output = test_env.run_jj_in(".", ["git", "init", "-R=.", "repo"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: There is no jj repo in "."
@@ -798,7 +798,7 @@ fn test_invalid_config() {
     let test_env = TestEnvironment::default();
 
     test_env.add_config("[section]key = value-missing-quotes");
-    let output = test_env.run_jj_in(".", ["init", "repo"]);
+    let output = test_env.run_jj_in(".", ["git", "init", "repo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Config error: Configuration cannot be parsed as TOML document
