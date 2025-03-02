@@ -412,3 +412,62 @@ fn test_alias_in_config_arg() {
     [exit status: 2]
     ");
 }
+
+#[test]
+fn test_aliases_overriding_friendly_errors() {
+    let test_env = TestEnvironment::default();
+    let output = test_env.run_jj_in(".", ["init", "repo"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    error: unrecognized subcommand 'init'
+
+      tip: a similar subcommand exists: 'git'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    Hint: You probably want `jj git init`. See also `jj help git`.
+    Hint: You can configure `aliases.init = ["git", "init"]` if you want `jj init` to work and always use the Git backend.
+    [EOF]
+    [exit status: 2]
+    "#);
+    let output = test_env.run_jj_in(".", ["clone", "https://example.org/repo"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    error: unrecognized subcommand 'clone'
+
+      tip: a similar subcommand exists: 'config'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    Hint: You probably want `jj git clone`. See also `jj help git`.
+    Hint: You can configure `aliases.clone = ["git", "clone"]` if you want `jj clone` to work and always use the Git backend.
+    [EOF]
+    [exit status: 2]
+    "#);
+    let output = test_env.run_jj_in(".", ["init", "--help"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    error: unrecognized subcommand 'init'
+
+      tip: a similar subcommand exists: 'git'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    Hint: You probably want `jj git init`. See also `jj help git`.
+    Hint: You can configure `aliases.init = ["git", "init"]` if you want `jj init` to work and always use the Git backend.
+    [EOF]
+    [exit status: 2]
+    "#);
+
+    // Test that `init` can be overridden as an alias. (We use `jj config get`
+    // as a command with a predictable output)
+    test_env.add_config(r#"aliases.init=["config", "get", "user.name"]"#);
+    let output = test_env.run_jj_in(".", ["init"]);
+    insta::assert_snapshot!(output, @r"
+    Test User
+    [EOF]
+    ");
+}
