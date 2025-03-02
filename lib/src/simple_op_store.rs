@@ -76,21 +76,6 @@ impl From<SimpleOpStoreInitError> for BackendInitError {
     }
 }
 
-#[derive(Debug, Error)]
-#[error("Failed to read {kind} with ID {id}")]
-struct DecodeError {
-    kind: &'static str,
-    id: String,
-    #[source]
-    err: prost::DecodeError,
-}
-
-impl From<DecodeError> for OpStoreError {
-    fn from(err: DecodeError) -> Self {
-        OpStoreError::Other(err.into())
-    }
-}
-
 #[derive(Debug)]
 pub struct SimpleOpStore {
     path: PathBuf,
@@ -165,11 +150,8 @@ impl OpStore for SimpleOpStore {
         let path = self.views_dir().join(id.hex());
         let buf = fs::read(path).map_err(|err| io_to_read_error(err, id))?;
 
-        let proto = crate::protos::op_store::View::decode(&*buf).map_err(|err| DecodeError {
-            kind: "view",
-            id: id.hex(),
-            err,
-        })?;
+        let proto = crate::protos::op_store::View::decode(&*buf)
+            .map_err(|err| to_read_error(err.into(), id))?;
         Ok(view_from_proto(proto))
     }
 
@@ -199,12 +181,8 @@ impl OpStore for SimpleOpStore {
         let path = self.operations_dir().join(id.hex());
         let buf = fs::read(path).map_err(|err| io_to_read_error(err, id))?;
 
-        let proto =
-            crate::protos::op_store::Operation::decode(&*buf).map_err(|err| DecodeError {
-                kind: "operation",
-                id: id.hex(),
-                err,
-            })?;
+        let proto = crate::protos::op_store::Operation::decode(&*buf)
+            .map_err(|err| to_read_error(err.into(), id))?;
         let mut operation = operation_from_proto(proto);
         if operation.parents.is_empty() {
             // Repos created before we had the root operation will have an operation without
@@ -370,11 +348,18 @@ fn io_to_read_error(err: std::io::Error, id: &impl ObjectId) -> OpStoreError {
             source: Box::new(err),
         }
     } else {
-        OpStoreError::ReadObject {
-            object_type: id.object_type(),
-            hash: id.hex(),
-            source: Box::new(err),
-        }
+        to_read_error(err.into(), id)
+    }
+}
+
+fn to_read_error(
+    source: Box<dyn std::error::Error + Send + Sync>,
+    id: &impl ObjectId,
+) -> OpStoreError {
+    OpStoreError::ReadObject {
+        object_type: id.object_type(),
+        hash: id.hex(),
+        source,
     }
 }
 
