@@ -19,12 +19,14 @@ use jj_lib::commit::Commit;
 use jj_lib::matchers::Matcher;
 use jj_lib::object_id::ObjectId;
 use jj_lib::repo::Repo;
+use jj_lib::rewrite::CommitWithSelection;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::DiffSelector;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::WorkspaceCommandHelper;
+use crate::cli_util::WorkspaceCommandTransaction;
 use crate::command_error::user_error_with_hint;
 use crate::command_error::CommandError;
 use crate::complete;
@@ -138,44 +140,14 @@ pub(crate) fn cmd_split(
     } = args.resolve(ui, &workspace_command)?;
     let text_editor = workspace_command.text_editor()?;
     let mut tx = workspace_command.start_transaction();
-    let end_tree = target_commit.tree()?;
-    let base_tree = target_commit.parent_tree(tx.repo())?;
-    let format_instructions = || {
-        format!(
-            "\
-You are splitting a commit into two: {}
-
-The diff initially shows the changes in the commit you're splitting.
-
-Adjust the right side until it shows the contents you want for the first commit.
-The remainder will be in the second commit.
-",
-            tx.format_commit_summary(&target_commit)
-        )
-    };
 
     // Prompt the user to select the changes they want for the first commit.
-    let selected_tree_id =
-        diff_selector.select(&base_tree, &end_tree, matcher.as_ref(), format_instructions)?;
-    if &selected_tree_id == target_commit.tree_id() {
-        // The user selected everything from the original commit.
-        writeln!(
-            ui.warning_default(),
-            "All changes have been selected, so the second commit will be empty"
-        )?;
-    } else if selected_tree_id == base_tree.id() {
-        // The user selected nothing, so the first commit will be empty.
-        writeln!(
-            ui.warning_default(),
-            "No changes have been selected, so the first commit will be empty"
-        )?;
-    }
+    let target = select_diff(ui, &tx, &target_commit, &matcher, &diff_selector)?;
 
     // Create the first commit, which includes the changes selected by the user.
-    let selected_tree = tx.repo().store().get_root_tree(&selected_tree_id)?;
     let first_commit = {
-        let mut commit_builder = tx.repo_mut().rewrite_commit(&target_commit).detach();
-        commit_builder.set_tree_id(selected_tree_id);
+        let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
+        commit_builder.set_tree_id(target.selected_tree.id());
         if commit_builder.description().is_empty() {
             commit_builder.set_description(tx.settings().get_string("ui.default-description")?);
         }
@@ -194,27 +166,28 @@ The remainder will be in the second commit.
     // Create the second commit, which includes everything the user didn't
     // select.
     let second_commit = {
-        let new_tree = if parallel {
+        let target_tree = target.commit.tree()?;
+        let new_tree = if args.parallel {
             // Merge the original commit tree with its parent using the tree
             // containing the user selected changes as the base for the merge.
             // This results in a tree with the changes the user didn't select.
-            end_tree.merge(&selected_tree, &base_tree)?
+            target_tree.merge(&target.selected_tree, &target.parent_tree)?
         } else {
-            end_tree
+            target_tree
         };
         let parents = if parallel {
-            target_commit.parent_ids().to_vec()
+            target.commit.parent_ids().to_vec()
         } else {
             vec![first_commit.id().clone()]
         };
-        let mut commit_builder = tx.repo_mut().rewrite_commit(&target_commit).detach();
+        let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
         commit_builder
             .set_parents(parents)
             .set_tree_id(new_tree.id())
             // Generate a new change id so that the commit being split doesn't
             // become divergent.
             .generate_new_change_id();
-        let description = if target_commit.description().is_empty() {
+        let description = if target.commit.description().is_empty() {
             // If there was no description before, don't ask for one for the
             // second commit.
             "".to_string()
@@ -238,11 +211,11 @@ The remainder will be in the second commit.
         // moves any bookmarks pointing to the target commit to the second
         // commit.
         tx.repo_mut()
-            .set_rewritten_commit(target_commit.id().clone(), second_commit.id().clone());
+            .set_rewritten_commit(target.commit.id().clone(), second_commit.id().clone());
     }
     let mut num_rebased = 0;
     tx.repo_mut()
-        .transform_descendants(vec![target_commit.id().clone()], |mut rewriter| {
+        .transform_descendants(vec![target.commit.id().clone()], |mut rewriter| {
             num_rebased += 1;
             if parallel && legacy_bookmark_behavior {
                 // The old_parent is the second commit due to the rewrite above.
@@ -259,7 +232,7 @@ The remainder will be in the second commit.
     // Move the working copy commit (@) to the second commit for any workspaces
     // where the target commit is the working copy commit.
     for (workspace_id, working_copy_commit) in tx.base_repo().clone().view().wc_commit_ids() {
-        if working_copy_commit == target_commit.id() {
+        if working_copy_commit == target.commit.id() {
             tx.repo_mut().edit(workspace_id.clone(), &second_commit)?;
         }
     }
@@ -274,7 +247,55 @@ The remainder will be in the second commit.
         tx.write_commit_summary(formatter.as_mut(), &second_commit)?;
         writeln!(formatter)?;
     }
-    tx.finish(ui, format!("split commit {}", target_commit.id().hex()))?;
+    tx.finish(ui, format!("split commit {}", target.commit.id().hex()))?;
     Ok(())
 }
 
+/// Prompts the user to select the content they want in the first commit and
+/// returns the target commit and the tree corresponding to the selection.
+fn select_diff(
+    ui: &Ui,
+    tx: &WorkspaceCommandTransaction,
+    target_commit: &Commit,
+    matcher: &dyn Matcher,
+    diff_selector: &DiffSelector,
+) -> Result<CommitWithSelection, CommandError> {
+    let format_instructions = || {
+        format!(
+            "\
+You are splitting a commit into two: {}
+
+The diff initially shows the changes in the commit you're splitting.
+
+Adjust the right side until it shows the contents you want for the first commit.
+The remainder will be in the second commit.
+",
+            tx.format_commit_summary(target_commit)
+        )
+    };
+    let parent_tree = target_commit.parent_tree(tx.repo())?;
+    let selected_tree_id = diff_selector.select(
+        &parent_tree,
+        &target_commit.tree()?,
+        matcher,
+        format_instructions,
+    )?;
+    let selection = CommitWithSelection {
+        commit: target_commit.clone(),
+        selected_tree: tx.repo().store().get_root_tree(&selected_tree_id)?,
+        parent_tree,
+    };
+    if selection.is_full_selection() {
+        writeln!(
+            ui.warning_default(),
+            "All changes have been selected, so the second commit will be empty"
+        )?;
+    } else if selection.is_empty_selection() {
+        writeln!(
+            ui.warning_default(),
+            "No changes have been selected, so the first commit will be empty"
+        )?;
+    }
+
+    Ok(selection)
+}

@@ -1037,7 +1037,7 @@ pub struct CommitWithSelection {
 
 impl CommitWithSelection {
     /// Returns true if the selection contains all changes in the commit.
-    fn is_full_selection(&self) -> bool {
+    pub fn is_full_selection(&self) -> bool {
         &self.selected_tree.id() == self.commit.tree_id()
     }
 
@@ -1046,7 +1046,7 @@ impl CommitWithSelection {
     ///
     /// Both `is_full_selection()` and `is_empty_selection()`
     /// can be true if the commit is itself empty.
-    fn is_empty_selection(&self) -> bool {
+    pub fn is_empty_selection(&self) -> bool {
         self.selected_tree.id() == self.parent_tree.id()
     }
 }
