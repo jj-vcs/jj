@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::path::Path;
+use std::path::PathBuf;
 
 use itertools::Itertools;
 use regex::Regex;
@@ -996,6 +997,46 @@ fn test_op_recover_from_bad_gc() {
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
     [EOF]
+    ");
+}
+
+#[test]
+fn test_op_corrupted_operation_file() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    let op_store_path = repo_path.join(PathBuf::from_iter([".jj", "repo", "op_store"]));
+
+    let op_id = test_env.current_operation_id(&repo_path);
+    insta::assert_snapshot!(op_id, @"eac759b9ab75793fd3da96e60939fb48f2cd2b2a9c1f13ffe723cf620f3005b8d3e7e923634a07ea39513e4f2f360c87b9ad5d331cf90d7a844864b83b72eba1");
+
+    let op_file_path = op_store_path.join("operations").join(&op_id);
+    assert!(op_file_path.exists());
+
+    // truncated
+    std::fs::write(&op_file_path, b"").unwrap();
+    let output = test_env.run_jj_in(&repo_path, ["op", "log"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Internal error: Failed to load an operation
+    Caused by:
+    1: Error when reading object eac759b9ab75793fd3da96e60939fb48f2cd2b2a9c1f13ffe723cf620f3005b8d3e7e923634a07ea39513e4f2f360c87b9ad5d331cf90d7a844864b83b72eba1 of type operation
+    2: Invalid hash length (expected 64 bytes, got 0 bytes)
+    [EOF]
+    [exit status: 255]
+    ");
+
+    // undecodable
+    std::fs::write(&op_file_path, b"\0").unwrap();
+    let output = test_env.run_jj_in(&repo_path, ["op", "log"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Internal error: Failed to load an operation
+    Caused by:
+    1: Error when reading object eac759b9ab75793fd3da96e60939fb48f2cd2b2a9c1f13ffe723cf620f3005b8d3e7e923634a07ea39513e4f2f360c87b9ad5d331cf90d7a844864b83b72eba1 of type operation
+    2: failed to decode Protobuf message: invalid tag value: 0
+    [EOF]
+    [exit status: 255]
     ");
 }
 

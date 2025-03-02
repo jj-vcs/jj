@@ -183,7 +183,8 @@ impl OpStore for SimpleOpStore {
 
         let proto = crate::protos::op_store::Operation::decode(&*buf)
             .map_err(|err| to_read_error(err.into(), id))?;
-        let mut operation = operation_from_proto(proto);
+        let mut operation =
+            operation_from_proto(proto).map_err(|err| to_read_error(err.into(), id))?;
         if operation.parents.is_empty() {
             // Repos created before we had the root operation will have an operation without
             // parents.
@@ -370,6 +371,34 @@ fn io_to_write_error(err: std::io::Error, object_type: &'static str) -> OpStoreE
     }
 }
 
+#[derive(Debug, Error)]
+enum PostDecodeError {
+    #[error("Invalid hash length (expected {expected} bytes, got {actual} bytes)")]
+    InvalidHashLength { expected: usize, actual: usize },
+}
+
+fn operation_id_from_proto(bytes: Vec<u8>) -> Result<OperationId, PostDecodeError> {
+    if bytes.len() != OPERATION_ID_LENGTH {
+        Err(PostDecodeError::InvalidHashLength {
+            expected: OPERATION_ID_LENGTH,
+            actual: bytes.len(),
+        })
+    } else {
+        Ok(OperationId::new(bytes))
+    }
+}
+
+fn view_id_from_proto(bytes: Vec<u8>) -> Result<ViewId, PostDecodeError> {
+    if bytes.len() != VIEW_ID_LENGTH {
+        Err(PostDecodeError::InvalidHashLength {
+            expected: VIEW_ID_LENGTH,
+            actual: bytes.len(),
+        })
+    } else {
+        Ok(ViewId::new(bytes))
+    }
+}
+
 fn timestamp_to_proto(timestamp: &Timestamp) -> crate::protos::op_store::Timestamp {
     crate::protos::op_store::Timestamp {
         millis_since_epoch: timestamp.timestamp.0,
@@ -426,15 +455,21 @@ fn operation_to_proto(operation: &Operation) -> crate::protos::op_store::Operati
     proto
 }
 
-fn operation_from_proto(proto: crate::protos::op_store::Operation) -> Operation {
-    let parents = proto.parents.into_iter().map(OperationId::new).collect();
-    let view_id = ViewId::new(proto.view_id);
+fn operation_from_proto(
+    proto: crate::protos::op_store::Operation,
+) -> Result<Operation, PostDecodeError> {
+    let parents = proto
+        .parents
+        .into_iter()
+        .map(operation_id_from_proto)
+        .try_collect()?;
+    let view_id = view_id_from_proto(proto.view_id)?;
     let metadata = operation_metadata_from_proto(proto.metadata.unwrap_or_default());
-    Operation {
+    Ok(Operation {
         view_id,
         parents,
         metadata,
-    }
+    })
 }
 
 fn view_to_proto(view: &View) -> crate::protos::op_store::View {
@@ -473,6 +508,7 @@ fn view_to_proto(view: &View) -> crate::protos::op_store::View {
 }
 
 fn view_from_proto(proto: crate::protos::op_store::View) -> View {
+    // TODO: validate commit id length?
     let mut view = View::empty();
     // For compatibility with old repos before we had support for multiple working
     // copies
@@ -744,11 +780,16 @@ mod tests {
     }
 
     fn create_operation() -> Operation {
+        let pad_id_bytes = |hex: &str, len: usize| {
+            let mut bytes = hex::decode(hex).unwrap();
+            bytes.resize(len, b'\0');
+            bytes
+        };
         Operation {
-            view_id: ViewId::from_hex("aaa111"),
+            view_id: ViewId::new(pad_id_bytes("aaa111", VIEW_ID_LENGTH)),
             parents: vec![
-                OperationId::from_hex("bbb111"),
-                OperationId::from_hex("bbb222"),
+                OperationId::new(pad_id_bytes("bbb111", OPERATION_ID_LENGTH)),
+                OperationId::new(pad_id_bytes("bbb222", OPERATION_ID_LENGTH)),
             ],
             metadata: OperationMetadata {
                 start_time: Timestamp {
@@ -785,7 +826,7 @@ mod tests {
         // Test exact output so we detect regressions in compatibility
         assert_snapshot!(
             OperationId::new(blake2b_hash(&create_operation()).to_vec()).hex(),
-            @"20b495d54aa3be3a672a2ed6dbbf7a711dabce4cc0161d657e5177070491c1e780eec3fd35c2aa9dcc22371462aeb412a502a847f29419e65718f56a0ad1b2d0"
+            @"a721c8bfe6d30b4279437722417743c2c5d9efe731942663e3e7d37320e0ab6b49a7c1452d101cc427ceb8927a4cab03d49dabe73c0677bb9edf5c8b2aa83585"
         );
     }
 
