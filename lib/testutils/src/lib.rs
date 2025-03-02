@@ -135,6 +135,16 @@ pub fn user_settings() -> UserSettings {
     UserSettings::from_config(base_user_config()).unwrap()
 }
 
+/// Panic if `CI` environment variable is set to a non-empty value
+///
+/// Most CI environments set this variable automatically. See e.g.
+/// <https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/store-information-in-variables#default-environment-variables>
+#[track_caller]
+pub fn ensure_running_outside_ci(reason: &str) {
+    let running_in_ci = std::env::var("CI").is_ok_and(|value| !value.is_empty());
+    assert!(!running_in_ci, "Running in CI, {reason}.");
+}
+
 #[derive(Debug)]
 pub struct TestEnvironment {
     temp_dir: TempDir,
