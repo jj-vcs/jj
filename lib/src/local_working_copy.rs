@@ -52,7 +52,6 @@ use rayon::iter::IntoParallelIterator as _;
 use rayon::prelude::IndexedParallelIterator as _;
 use rayon::prelude::ParallelIterator as _;
 use tempfile::NamedTempFile;
-use tempfile::PersistError;
 use thiserror::Error;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncReadExt as _;
@@ -83,6 +82,7 @@ use crate::eol::create_target_eol_strategy;
 use crate::file_util::BlockingAsyncReader;
 use crate::file_util::check_symlink_support;
 use crate::file_util::copy_async_to_sync;
+use crate::file_util::persist_temp_file;
 use crate::file_util::try_symlink;
 use crate::fsmonitor::FsmonitorSettings;
 #[cfg(feature = "watchman")]
@@ -950,14 +950,12 @@ impl TreeState {
         // TODO: Retry if persisting fails (it will on Windows if the file happened to
         // be open for read).
         let target_path = self.state_path.join("tree_state");
-        temp_file
-            .persist(&target_path)
-            .map_err(|tempfile::PersistError { error, file: _ }| {
-                TreeStateError::PersistTreeState {
-                    path: target_path.clone(),
-                    source: error,
-                }
-            })?;
+        persist_temp_file(temp_file, &target_path).map_err(|source| {
+            TreeStateError::PersistTreeState {
+                path: target_path.clone(),
+                source,
+            }
+        })?;
         Ok(())
     }
 
@@ -2147,9 +2145,8 @@ impl CheckoutState {
             .map_err(|err| wrap_err(err.into()))?;
         // TODO: Retry if persisting fails (it will on Windows if the file happened to
         // be open for read).
-        temp_file
-            .persist(state_path.join("checkout"))
-            .map_err(|PersistError { error, file: _ }| wrap_err(error.into()))?;
+        persist_temp_file(temp_file, state_path.join("checkout"))
+            .map_err(|err| wrap_err(err.into()))?;
         Ok(())
     }
 }

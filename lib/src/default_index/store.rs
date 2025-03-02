@@ -29,7 +29,6 @@ use itertools::Itertools as _;
 use pollster::FutureExt as _;
 use prost::Message as _;
 use tempfile::NamedTempFile;
-use tempfile::PersistError;
 use thiserror::Error;
 
 use super::changed_path::ChangedPathIndexSegmentId;
@@ -51,6 +50,7 @@ use crate::dag_walk;
 use crate::file_util;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
+use crate::file_util::persist_temp_file;
 use crate::index::Index as _;
 use crate::index::IndexReadError;
 use crate::index::IndexStore;
@@ -540,10 +540,7 @@ impl DefaultIndexStore {
         file.write_all(&proto.encode_to_vec())
             .context(temp_file.path())?;
         let path = dir.join(op_id.hex());
-        temp_file
-            .persist(&path)
-            .map_err(|PersistError { error, file: _ }| error)
-            .context(&path)?;
+        persist_temp_file(temp_file, &path).context(&path)?;
 
         // TODO: drop support for legacy operation link file in jj 0.39 or so
         let dir = self.legacy_operations_dir();
@@ -552,10 +549,7 @@ impl DefaultIndexStore {
         file.write_all(index.readonly_commits().id().hex().as_bytes())
             .context(temp_file.path())?;
         let path = dir.join(op_id.hex());
-        temp_file
-            .persist(&path)
-            .map_err(|PersistError { error, file: _ }| error)
-            .context(&path)?;
+        persist_temp_file(temp_file, &path).context(&path)?;
         Ok(())
     }
 }

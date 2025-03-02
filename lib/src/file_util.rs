@@ -190,7 +190,17 @@ fn to_slash_separated(path: &Path) -> OsString {
     buf
 }
 
-/// Like `NamedTempFile::persist()`, but doesn't try to overwrite the existing
+/// Persists the temporary file.
+pub fn persist_temp_file<P: AsRef<Path>>(
+    temp_file: NamedTempFile,
+    new_path: P,
+) -> io::Result<File> {
+    temp_file
+        .persist(new_path)
+        .map_err(|PersistError { error, file: _ }| error)
+}
+
+/// Like [`persist_temp_file()`], but doesn't try to overwrite the existing
 /// target on Windows.
 pub fn persist_content_addressed_temp_file<P: AsRef<Path>>(
     temp_file: NamedTempFile,
