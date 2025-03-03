@@ -255,7 +255,7 @@ fn test_git_push_undo_colocated() {
     let git_repo_path = test_env.env_root().join("git-repo");
     git::init_bare(git_repo_path.clone());
     let repo_path = test_env.env_root().join("clone");
-    git::clone(&repo_path, git_repo_path.to_str().unwrap());
+    git::clone(&repo_path, git_repo_path.to_str().unwrap(), None);
 
     test_env
         .run_jj_in(&repo_path, ["git", "init", "--git-repo=."])

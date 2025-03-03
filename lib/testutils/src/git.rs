@@ -56,14 +56,15 @@ pub fn init_bare(directory: impl AsRef<Path>) -> gix::Repository {
     .to_thread_local()
 }
 
-pub fn clone(dest_path: &Path, repo_url: &str) -> gix::Repository {
+pub fn clone(dest_path: &Path, repo_url: &str, remote_name: Option<&str>) -> gix::Repository {
+    let remote_name = remote_name.unwrap_or("origin");
     // gitoxide doesn't write the remote HEAD as a symbolic link, which prevents
     // `jj` from getting it.
     //
     // This, plus the fact that the code to clone a repo in gitoxide is non-trivial,
     // makes it appealing to just spawn a git subprocess
     let output = std::process::Command::new("git")
-        .args(["clone", repo_url])
+        .args(["clone", repo_url, "--origin", remote_name])
         .arg(dest_path)
         .output()
         .unwrap();

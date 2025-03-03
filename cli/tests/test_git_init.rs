@@ -552,7 +552,7 @@ fn test_git_init_colocated_via_git_repo_path_imported_refs() {
 
     let remote_git_path = remote_path.join(PathBuf::from_iter([".jj", "repo", "store", "git"]));
     let set_up_local_repo = |local_path: &Path| {
-        let git_repo = git::clone(local_path, remote_git_path.to_str().unwrap());
+        let git_repo = git::clone(local_path, remote_git_path.to_str().unwrap(), None);
         let git_ref = git_repo
             .find_reference("refs/remotes/origin/local-remote")
             .unwrap();

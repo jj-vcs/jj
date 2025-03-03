@@ -622,7 +622,7 @@ fn test_git_colocated_fetch_deleted_or_moved_bookmark() {
         .success();
 
     let clone_path = test_env.env_root().join("clone");
-    git::clone(&clone_path, origin_path.to_str().unwrap());
+    git::clone(&clone_path, origin_path.to_str().unwrap(), None);
     test_env
         .run_jj_in(&clone_path, ["git", "init", "--git-repo=."])
         .success();

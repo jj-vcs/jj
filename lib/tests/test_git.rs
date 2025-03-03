@@ -1390,7 +1390,8 @@ impl GitRepoData {
         let origin_repo_dir = temp_dir.path().join("source");
         let origin_repo = testutils::git::init_bare(&origin_repo_dir);
         let git_repo_dir = temp_dir.path().join("git");
-        let git_repo = testutils::git::clone(&git_repo_dir, origin_repo_dir.to_str().unwrap());
+        let git_repo =
+            testutils::git::clone(&git_repo_dir, origin_repo_dir.to_str().unwrap(), None);
         let jj_repo_dir = temp_dir.path().join("jj");
         std::fs::create_dir(&jj_repo_dir).unwrap();
         let repo = ReadonlyRepo::init(
@@ -3123,7 +3124,8 @@ fn set_up_push_repos(settings: &UserSettings, temp_dir: &TempDir) -> PushTestSet
         "refs/heads/main",
         &[parent_of_initial_git_commit],
     );
-    let clone_repo = testutils::git::clone(&clone_repo_dir, source_repo_dir.to_str().unwrap());
+    let clone_repo =
+        testutils::git::clone(&clone_repo_dir, source_repo_dir.to_str().unwrap(), None);
     std::fs::create_dir(&jj_repo_dir).unwrap();
     let jj_repo = ReadonlyRepo::init(
         settings,
