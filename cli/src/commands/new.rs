@@ -18,7 +18,7 @@ use std::io::Write;
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools;
 use jj_lib::backend::CommitId;
-use jj_lib::commit::CommitIteratorExt;
+use jj_lib::repo::Repo;
 use jj_lib::rewrite::merge_commit_trees;
 use jj_lib::rewrite::rebase_commit;
 use tracing::instrument;
@@ -94,7 +94,7 @@ pub(crate) fn cmd_new(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
 
-    let (parent_commits, children_commits) = compute_commit_location(
+    let (parent_commit_ids, child_commit_ids) = compute_commit_location(
         ui,
         &workspace_command,
         // HACK: `args.revisions` will always have a value due to the `default_value`, however
@@ -109,7 +109,10 @@ pub(crate) fn cmd_new(
         args.insert_before.as_deref(),
         "new commit",
     )?;
-    let parent_commit_ids = parent_commits.iter().ids().cloned().collect_vec();
+    let parent_commits: Vec<_> = parent_commit_ids
+        .iter()
+        .map(|commit_id| workspace_command.repo().store().get_commit(commit_id))
+        .try_collect()?;
     let mut advance_bookmarks_target = None;
     let mut advanceable_bookmarks = vec![];
 
@@ -132,8 +135,12 @@ pub(crate) fn cmd_new(
         .set_description(join_message_paragraphs(&args.message_paragraphs))
         .write()?;
 
+    let child_commits: Vec<_> = child_commit_ids
+        .iter()
+        .map(|commit_id| tx.repo().store().get_commit(commit_id))
+        .try_collect()?;
     let mut num_rebased = 0;
-    for child_commit in children_commits {
+    for child_commit in child_commits {
         let new_parent_ids = child_commit
             .parent_ids()
             .iter()

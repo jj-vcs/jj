@@ -56,7 +56,6 @@ use jj_lib::backend::CommitId;
 use jj_lib::backend::MergedTreeId;
 use jj_lib::backend::TreeValue;
 use jj_lib::commit::Commit;
-use jj_lib::commit::CommitIteratorExt;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::config::ConfigLayer;
@@ -3072,71 +3071,74 @@ pub fn compute_commit_location(
     insert_after: Option<&[RevisionArg]>,
     insert_before: Option<&[RevisionArg]>,
     commit_type: &str,
-) -> Result<(Vec<Commit>, Vec<Commit>), CommandError> {
+) -> Result<(Vec<CommitId>, Vec<CommitId>), CommandError> {
     let resolve_revisions =
-        |revisions: Option<&[RevisionArg]>| -> Result<Option<Vec<Commit>>, CommandError> {
+        |revisions: Option<&[RevisionArg]>| -> Result<Option<Vec<CommitId>>, CommandError> {
             if let Some(revisions) = revisions {
                 Ok(Some(
                     workspace_command
                         .resolve_some_revsets_default_single(ui, revisions)?
-                        .iter()
-                        .map(|id| workspace_command.repo().store().get_commit(id))
-                        .try_collect()?,
+                        .into_iter()
+                        .collect_vec(),
                 ))
             } else {
                 Ok(None)
             }
         };
-    let destination_commits = resolve_revisions(destination)?;
-    let after_commits = resolve_revisions(insert_after)?;
-    let before_commits = resolve_revisions(insert_before)?;
+    let destination_commit_ids = resolve_revisions(destination)?;
+    let after_commit_ids = resolve_revisions(insert_after)?;
+    let before_commit_ids = resolve_revisions(insert_before)?;
 
-    let (new_parents, new_children) = match (destination_commits, after_commits, before_commits) {
-        (Some(destination_commits), None, None) => (destination_commits, vec![]),
-        (None, Some(after_commits), Some(before_commits)) => (after_commits, before_commits),
-        (None, Some(after_commits), None) => {
-            let new_children: Vec<_> =
-                RevsetExpression::commits(after_commits.iter().ids().cloned().collect_vec())
+    let (new_parent_ids, new_child_ids) =
+        match (destination_commit_ids, after_commit_ids, before_commit_ids) {
+            (Some(destination_commit_ids), None, None) => (destination_commit_ids, vec![]),
+            (None, Some(after_commit_ids), Some(before_commit_ids)) => {
+                (after_commit_ids, before_commit_ids)
+            }
+            (None, Some(after_commit_ids), None) => {
+                let new_child_ids: Vec<_> = RevsetExpression::commits(after_commit_ids.clone())
                     .children()
                     .evaluate(workspace_command.repo().as_ref())?
                     .iter()
-                    .commits(workspace_command.repo().store())
                     .try_collect()?;
 
-            (after_commits, new_children)
-        }
-        (None, None, Some(before_commits)) => {
-            // Not using `RevsetExpression::parents` here to persist the order of parents
-            // specified in `before_commits`.
-            let new_parent_ids = before_commits
-                .iter()
-                .flat_map(|commit| commit.parent_ids().iter().cloned())
-                .unique();
-            let new_parents: Vec<_> = new_parent_ids
-                .map(|commit_id| workspace_command.repo().store().get_commit(&commit_id))
-                .try_collect()?;
+                (after_commit_ids, new_child_ids)
+            }
+            (None, None, Some(before_commit_ids)) => {
+                let before_commits: Vec<_> = before_commit_ids
+                    .iter()
+                    .map(|id| workspace_command.repo().store().get_commit(id))
+                    .try_collect()?;
+                // Not using `RevsetExpression::parents` here to persist the order of parents
+                // specified in `before_commits`.
+                let new_parent_ids = before_commits
+                    .iter()
+                    .flat_map(|commit| commit.parent_ids())
+                    .unique()
+                    .cloned()
+                    .collect_vec();
 
-            (new_parents, before_commits)
-        }
-        (Some(_), Some(_), _) | (Some(_), _, Some(_)) => {
-            panic!("destination cannot be used with insert_after/insert_before")
-        }
-        (None, None, None) => {
-            panic!("expected at least one of destination or insert_after/insert_before")
-        }
-    };
+                (new_parent_ids, before_commit_ids)
+            }
+            (Some(_), Some(_), _) | (Some(_), _, Some(_)) => {
+                panic!("destination cannot be used with insert_after/insert_before")
+            }
+            (None, None, None) => {
+                panic!("expected at least one of destination or insert_after/insert_before")
+            }
+        };
 
-    if !new_children.is_empty() {
-        workspace_command.check_rewritable(new_children.iter().ids())?;
+    if !new_child_ids.is_empty() {
+        workspace_command.check_rewritable(new_child_ids.iter())?;
         ensure_no_commit_loop(
             workspace_command.repo().as_ref(),
-            &RevsetExpression::commits(new_children.iter().ids().cloned().collect_vec()),
-            &RevsetExpression::commits(new_parents.iter().ids().cloned().collect_vec()),
+            &RevsetExpression::commits(new_child_ids.clone()),
+            &RevsetExpression::commits(new_parent_ids.clone()),
             commit_type,
         )?;
     }
 
-    Ok((new_parents, new_children))
+    Ok((new_parent_ids, new_child_ids))
 }
 
 /// Ensure that there is no possible cycle between the potential children and
