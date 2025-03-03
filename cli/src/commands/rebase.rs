@@ -462,10 +462,11 @@ fn rebase_source(
     rebase_destination: &RebaseDestinationArgs,
     rebase_options: &RebaseOptions,
 ) -> Result<(), CommandError> {
-    let source_commits = workspace_command
+    let source_commits: Vec<_> = workspace_command
         .resolve_some_revsets_default_single(ui, source)?
-        .into_iter()
-        .collect_vec();
+        .iter()
+        .map(|id| workspace_command.repo().store().get_commit(id))
+        .try_collect()?;
     workspace_command.check_rewritable(source_commits.iter().ids())?;
 
     let (new_parents, new_children) = compute_commit_location(
@@ -499,14 +500,16 @@ fn rebase_branch(
     rebase_destination: &RebaseDestinationArgs,
     rebase_options: &RebaseOptions,
 ) -> Result<(), CommandError> {
-    let branch_commits: Vec<_> = if branch.is_empty() {
-        vec![workspace_command.resolve_single_rev(ui, &RevisionArg::AT)?]
+    let branch_commit_ids: Vec<_> = if branch.is_empty() {
+        vec![workspace_command
+            .resolve_single_rev(ui, &RevisionArg::AT)?
+            .id()
+            .clone()]
     } else {
         workspace_command
             .resolve_some_revsets_default_single(ui, branch)?
-            .iter()
-            .cloned()
-            .collect_vec()
+            .into_iter()
+            .collect()
     };
 
     let (new_parents, new_children) = compute_commit_location(
@@ -518,7 +521,6 @@ fn rebase_branch(
         "rebased commits",
     )?;
     let new_parent_ids = new_parents.iter().ids().cloned().collect_vec();
-    let branch_commit_ids = branch_commits.iter().ids().cloned().collect_vec();
     let roots_expression = RevsetExpression::commits(new_parent_ids.clone())
         .range(&RevsetExpression::commits(branch_commit_ids))
         .roots();

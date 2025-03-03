@@ -691,7 +691,11 @@ fn update_change_bookmarks(
 
     let mut bookmark_names = Vec::new();
     let workspace_command = tx.base_workspace_helper();
-    let all_commits = workspace_command.resolve_some_revsets_default_single(ui, changes)?;
+    let all_commits: Vec<_> = workspace_command
+        .resolve_some_revsets_default_single(ui, changes)?
+        .iter()
+        .map(|id| tx.repo().store().get_commit(id))
+        .try_collect()?;
 
     for commit in all_commits {
         let workspace_command = tx.base_workspace_helper();

@@ -180,8 +180,9 @@ pub fn cmd_workspace_add(
     } else {
         old_workspace_command
             .resolve_some_revsets_default_single(ui, &args.revision)?
-            .into_iter()
-            .collect_vec()
+            .iter()
+            .map(|id| tx.repo().store().get_commit(id))
+            .try_collect()?
     };
 
     let tree = merge_commit_trees(tx.repo(), &parents)?;
