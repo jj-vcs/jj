@@ -3062,6 +3062,35 @@ impl fmt::Display for RemoteBookmarkNamePattern {
     }
 }
 
+#[derive(Clone, Debug)]
+pub enum LocalOrRemoteBookmarkNamePattern {
+    Local(StringPattern),
+    Remote(RemoteBookmarkNamePattern),
+}
+
+impl FromStr for LocalOrRemoteBookmarkNamePattern {
+    type Err = String;
+
+    fn from_str(src: &str) -> Result<Self, Self::Err> {
+        if src.contains('@') {
+            let remote = src.parse()?;
+            Ok(Self::Remote(remote))
+        } else {
+            let local = StringPattern::parse(src).map_err(|err| err.to_string())?;
+            Ok(Self::Local(local))
+        }
+    }
+}
+
+impl fmt::Display for LocalOrRemoteBookmarkNamePattern {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Local(local) => write!(f, "{local}"),
+            Self::Remote(remote) => write!(f, "{remote}"),
+        }
+    }
+}
+
 /// Jujutsu (An experimental VCS)
 ///
 /// To get started, see the tutorial [`jj help -k tutorial`].
