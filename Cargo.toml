@@ -17,10 +17,10 @@ categories = ["version-control", "development-tools"]
 keywords = ["VCS", "DVCS", "SCM", "Git", "Mercurial"]
 
 [workspace.dependencies]
-anyhow = "1.0.96"
+anyhow = "1.0.97"
 assert_cmd = "2.0.8"
 assert_matches = "1.5.0"
-async-trait = "0.1.86"
+async-trait = "0.1.87"
 blake2 = "0.10.6"
 bstr = "1.11.3"
 clap = { version = "4.5.31", features = [
@@ -68,7 +68,7 @@ hex = "0.4.3"
 ignore = "0.4.23"
 indexmap = { version = "2.7.1", features = ["serde"] }
 indoc = "2.0.4"
-insta = { version = "1.42.1", features = ["filters"] }
+insta = { version = "1.42.2", features = ["filters"] }
 itertools = "0.13.0"
 libc = { version = "0.2.170" }
 maplit = "1.0.2"
@@ -79,14 +79,14 @@ pest = "2.7.15"
 pest_derive = "2.7.15"
 pollster = "0.3.0"
 pretty_assertions = "1.4.1"
-proc-macro2 = "1.0.93"
+proc-macro2 = "1.0.94"
 prost = "0.12.6"
 prost-build = "0.12.6"
-quote = "1.0.38"
+quote = "1.0.39"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
 rayon = "1.10.0"
-ref-cast = "1.0.23"
+ref-cast = "1.0.24"
 regex = "1.11.1"
 rpassword = "7.3.1"
 rustix = { version = "0.38.44", features = ["fs"] }
@@ -95,7 +95,7 @@ sapling-renderdag = "0.1.0"
 sapling-streampager = "0.11.0"
 scm-record = "0.5.0"
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0.139"
+serde_json = "1.0.140"
 slab = "0.4.9"
 smallvec = { version = "1.14.0", features = [
     "const_generics",
@@ -103,11 +103,11 @@ smallvec = { version = "1.14.0", features = [
     "union",
 ] }
 strsim = "0.11.1"
-syn = "2.0.98"
+syn = "2.0.99"
 tempfile = "3.17.1"
 test-case = "3.3.1"
 textwrap = "0.16.1"
-thiserror = "2.0.11"
+thiserror = "2.0.12"
 timeago = { version = "0.4.2", default-features = false }
 tokio = { version = "1.43.0" }
 toml_edit = { version = "0.22.24", features = ["serde"] }
