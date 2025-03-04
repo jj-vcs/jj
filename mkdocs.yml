@@ -148,3 +148,8 @@ nav:
     - 'Copy tracking and tracing': 'design/copy-tracking.md'
 
 - 'Development Roadmap': "roadmap.md"
+
+# The following follow .gitignore syntax, relative
+# to the docs dir.
+not_in_nav: |
+  /paid_contributors.md
