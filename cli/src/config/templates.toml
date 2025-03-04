@@ -91,7 +91,7 @@ if(root,
     concat(
       separate(" ",
         format_short_change_id_with_hidden_and_divergent_info(self),
-        if(author.email(), author.email().local(), email_placeholder),
+        format_short_signature_oneline(author),
         format_timestamp(commit_timestamp(self)),
         bookmarks,
         tags,
@@ -199,6 +199,9 @@ commit_summary_separator = 'label("separator", " | ")'
 'format_short_operation_id(id)' = 'id.short()'
 'format_short_signature(signature)' = '''
   coalesce(signature.email(), email_placeholder)'''
+'format_short_signature_oneline(signature)' = '''
+  coalesce(signature.email().local(), email_placeholder)'''
+
 'format_detailed_signature(signature)' = '''
   coalesce(signature.name(), name_placeholder)
   ++ " <" ++ coalesce(signature.email(), email_placeholder) ++ ">"
