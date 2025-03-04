@@ -17,8 +17,7 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_track_untrack() {
     let test_env = TestEnvironment::default();
-    test_env.add_config(r#"ui.allow-init-native = true"#);
-    test_env.run_jj_in(".", ["init", "repo"]).success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "initial").unwrap();
@@ -111,8 +110,7 @@ fn test_track_untrack() {
 #[test]
 fn test_track_untrack_sparse() {
     let test_env = TestEnvironment::default();
-    test_env.add_config(r#"ui.allow-init-native = true"#);
-    test_env.run_jj_in(".", ["init", "repo"]).success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "contents").unwrap();

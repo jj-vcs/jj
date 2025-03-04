@@ -798,10 +798,7 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
         test_env.add_config("[snapshot]\nauto-update-stale = true\n");
     }
 
-    // Use the local backend because GitBackend::gc() depends on the git CLI.
-    test_env
-        .run_jj_in(".", ["init", "main", "--config=ui.allow-init-native=true"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_path = test_env.env_root().join("main");
     let secondary_path = test_env.env_root().join("secondary");
 
@@ -848,14 +845,14 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
     );
     insta::allow_duplicates! {
         insta::assert_snapshot!(output, @r"
-        @  757bc1140b abandon commit 20dd439c4bd12c6ad56c187ac490bd0141804618f638dc5c4dc92ff9aecba20f152b23160db9dcf61beb31a5cb14091d9def5a36d11c9599cc4d2e5689236af1
-        ○  8d4abed655 create initial working-copy commit in workspace secondary
-        ○  3de27432e5 add workspace 'secondary'
-        ○  bcf69de808 new empty commit
-        ○  a36b99a15c snapshot working copy
-        ○  ddf023d319 new empty commit
-        ○  829c93f6a3 snapshot working copy
-        ○  2557266dd2 add workspace 'default'
+        @  64d9b429d9 abandon commit dc638a7f20571df2c846c84d1469b9fcd0edafc0
+        ○  129f2dca87 create initial working-copy commit in workspace secondary
+        ○  1516a7f851 add workspace 'secondary'
+        ○  19bf99b2b1 new empty commit
+        ○  38c9c18632 snapshot working copy
+        ○  5e4f01399f new empty commit
+        ○  299bc7a187 snapshot working copy
+        ○  eac759b9ab add workspace 'default'
         ○  0000000000
         [EOF]
         ");
@@ -871,10 +868,10 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
 
     insta::allow_duplicates! {
         insta::assert_snapshot!(get_log_output(&test_env, &main_path), @r"
-        @  6c051bd1ccd5 default@
-        │ ○  96b31dafdc41 secondary@
+        @  2d02e07ed190 default@
+        │ ○  3df3bf89ddf1 secondary@
         ├─╯
-        ○  7c5b25a4fc8f
+        ○  e734830954d8
         ◆  000000000000
         [EOF]
         ");
@@ -887,15 +884,15 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
         let output = test_env.run_jj_in(&secondary_path, ["st"]);
         insta::assert_snapshot!(output, @r"
         Working copy changes:
-        A added
+        C {modified => added}
         D deleted
         M modified
-        Working copy : kmkuslsw 15df8cb5 RECOVERY COMMIT FROM `jj workspace update-stale`
-        Parent commit: rzvqmyuk 96b31daf (empty) (no description set)
+        Working copy : kmkuslsw 0b518140 RECOVERY COMMIT FROM `jj workspace update-stale`
+        Parent commit: rzvqmyuk 3df3bf89 (empty) (no description set)
         [EOF]
         ------- stderr -------
-        Failed to read working copy's current operation; attempting recovery. Error message from read attempt: Object 8d4abed655badb70b1bab62aa87136619dbc3c8015a8ce8dfb7abfeca4e2f36c713d8f84e070a0613907a6cee7e1cc05323fe1205a319b93fe978f11a060c33c of type operation not found
-        Created and checked out recovery commit 76d0126b3e5c
+        Failed to read working copy's current operation; attempting recovery. Error message from read attempt: Object 129f2dca870b954e2966fba35893bb47a5bc6358db6e8c4065cee91d2d49073efc3e055b9b81269a13c443d964abb18e83d25de73db2376ff434c876c59976ac of type operation not found
+        Created and checked out recovery commit 8ed0355c5d31
         [EOF]
         ");
     } else {
@@ -912,19 +909,19 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
         let output = test_env.run_jj_in(&secondary_path, ["workspace", "update-stale"]);
         insta::assert_snapshot!(output, @r"
         ------- stderr -------
-        Failed to read working copy's current operation; attempting recovery. Error message from read attempt: Object 8d4abed655badb70b1bab62aa87136619dbc3c8015a8ce8dfb7abfeca4e2f36c713d8f84e070a0613907a6cee7e1cc05323fe1205a319b93fe978f11a060c33c of type operation not found
-        Created and checked out recovery commit 76d0126b3e5c
+        Failed to read working copy's current operation; attempting recovery. Error message from read attempt: Object 129f2dca870b954e2966fba35893bb47a5bc6358db6e8c4065cee91d2d49073efc3e055b9b81269a13c443d964abb18e83d25de73db2376ff434c876c59976ac of type operation not found
+        Created and checked out recovery commit 8ed0355c5d31
         [EOF]
         ");
     }
 
     insta::allow_duplicates! {
         insta::assert_snapshot!(get_log_output(&test_env, &main_path), @r"
-        @  6c051bd1ccd5 default@
-        │ ○  15df8cb57d3f secondary@
-        │ ○  96b31dafdc41
+        @  2d02e07ed190 default@
+        │ ○  0b5181407d03 secondary@
+        │ ○  3df3bf89ddf1
         ├─╯
-        ○  7c5b25a4fc8f
+        ○  e734830954d8
         ◆  000000000000
         [EOF]
         ");
@@ -944,11 +941,11 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
     insta::allow_duplicates! {
         insta::assert_snapshot!(output, @r"
         Working copy changes:
-        A added
+        C {modified => added}
         D deleted
         M modified
-        Working copy : kmkuslsw 15df8cb5 RECOVERY COMMIT FROM `jj workspace update-stale`
-        Parent commit: rzvqmyuk 96b31daf (empty) (no description set)
+        Working copy : kmkuslsw 0b518140 RECOVERY COMMIT FROM `jj workspace update-stale`
+        Parent commit: rzvqmyuk 3df3bf89 (empty) (no description set)
         [EOF]
         ");
     }
@@ -963,9 +960,9 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
     let output = test_env.run_jj_in(&secondary_path, ["evolog"]);
     insta::allow_duplicates! {
         insta::assert_snapshot!(output, @r"
-        @  kmkuslsw test.user@example.com 2001-02-03 08:05:18 secondary@ 15df8cb5
+        @  kmkuslsw test.user@example.com 2001-02-03 08:05:18 secondary@ 0b518140
         │  RECOVERY COMMIT FROM `jj workspace update-stale`
-        ○  kmkuslsw hidden test.user@example.com 2001-02-03 08:05:18 76d0126b
+        ○  kmkuslsw hidden test.user@example.com 2001-02-03 08:05:18 8ed0355c
            (empty) RECOVERY COMMIT FROM `jj workspace update-stale`
         [EOF]
         ");

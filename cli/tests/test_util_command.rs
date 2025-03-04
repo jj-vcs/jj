@@ -41,10 +41,7 @@ fn test_util_config_schema() {
 #[test]
 fn test_gc_args() {
     let test_env = TestEnvironment::default();
-    // Use the local backend because GitBackend::gc() depends on the git CLI.
-    test_env
-        .run_jj_in(".", ["init", "repo", "--config=ui.allow-init-native=true"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     let output = test_env.run_jj_in(&repo_path, ["util", "gc"]);
@@ -70,10 +67,7 @@ fn test_gc_args() {
 #[test]
 fn test_gc_operation_log() {
     let test_env = TestEnvironment::default();
-    // Use the local backend because GitBackend::gc() depends on the git CLI.
-    test_env
-        .run_jj_in(".", ["init", "repo", "--config=ui.allow-init-native=true"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     // Create an operation.
@@ -106,7 +100,7 @@ fn test_gc_operation_log() {
     let output = test_env.run_jj_in(&repo_path, ["debug", "operation", &op_to_remove]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: No operation ID matching "8382f401329617b0c91a63354b86ca48fc28dee8d7a916fdad5310030f9a1260e969c43ed2b13d1d48eaf38f6f45541ecf593bcb6105495d514d21b3b6a98846"
+    Error: No operation ID matching "bda58b425f645d895ce92608576509b4fcc0c96dbc5f18717a817f09a530117dff0c2054a28781b4c7f1fdbf5a726c89ebd8666fe54dc9f3cc52ca9596110418"
     [EOF]
     [exit status: 1]
     "#);
