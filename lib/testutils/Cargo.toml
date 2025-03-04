@@ -20,7 +20,6 @@ bstr = { workspace = true }
 futures = { workspace = true }
 git2 = { workspace = true }
 gix = { workspace = true, features = [
-    "blocking-network-client",
     "status",
     "tree-editor",
     "worktree-mutation",
