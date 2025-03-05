@@ -40,6 +40,13 @@ open to feedback.
 
 Find it [here][jj_tui].
 
+## Jujutsu Kaizen
+
+Jujutsu Kaizen is a plugin for Visual Studio Code. The goal of this extension is to bring the great UX of Jujutsu into the VS Code UI.
+Its developers are currently focused on achieving parity for commonly used features of VS Code's built-in Git extension, such as the various operations possible via the Source Control view.
+
+Find it [here][jjk].
+
 ## LazyJJ
 
 lazyjj is a lazygit inspired TUI for Jujutsu.
@@ -73,6 +80,7 @@ You can find other community contributed tools and integrations in our
 [hunk.nvim]: https://github.com/julienvincent/hunk.nvim
 [jj-fzf]: https://github.com/tim-janik/jj-fzf
 [jj_tui]: https://github.com/faldor20/jj_tui
+[jjk]: https://github.com/keanemind/jjk
 [lazyjj]: https://github.com/Cretezy/lazyjj
 [vjj]: https://github.com/noahmayr/vjj
 [visualjj]: https://www.visualjj.com
