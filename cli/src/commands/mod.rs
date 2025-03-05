@@ -70,7 +70,6 @@ use tracing::instrument;
 
 use crate::cli_util::Args;
 use crate::cli_util::CommandHelper;
-use crate::command_error::user_error_with_hint;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::ui::Ui;
@@ -129,11 +128,6 @@ enum Command {
     Rebase(rebase::RebaseArgs),
     Resolve(resolve::ResolveArgs),
     Restore(restore::RestoreArgs),
-    #[command(
-        hide = true,
-        help_template = "Not a real subcommand; consider `jj backout` or `jj restore`"
-    )]
-    Revert(DummyCommandArgs),
     Root(root::RootArgs),
     #[command(hide = true)]
     // TODO: Flesh out.
@@ -162,13 +156,6 @@ enum Command {
     Version(version::VersionArgs),
     #[command(subcommand)]
     Workspace(workspace::WorkspaceCommand),
-}
-
-/// A dummy command that accepts any arguments
-#[derive(clap::Args, Clone, Debug)]
-struct DummyCommandArgs {
-    #[arg(trailing_var_arg = true, allow_hyphen_values = true, hide = true)]
-    _args: Vec<String>,
 }
 
 pub fn default_app() -> clap::Command {
@@ -213,7 +200,6 @@ pub fn run_command(ui: &mut Ui, command_helper: &CommandHelper) -> Result<(), Co
         Command::Rebase(args) => rebase::cmd_rebase(ui, command_helper, args),
         Command::Resolve(args) => resolve::cmd_resolve(ui, command_helper, args),
         Command::Restore(args) => restore::cmd_restore(ui, command_helper, args),
-        Command::Revert(_args) => revert(),
         Command::Root(args) => root::cmd_root(ui, command_helper, args),
         Command::Run(args) => run::cmd_run(ui, command_helper, args),
         Command::SimplifyParents(args) => {
@@ -256,13 +242,6 @@ pub(crate) fn renamed_cmd<Args>(
         )?;
         cmd(ui, command, args)
     }
-}
-
-fn revert() -> Result<(), CommandError> {
-    Err(user_error_with_hint(
-        "No such subcommand: revert",
-        "Consider `jj backout` or `jj restore`",
-    ))
 }
 
 #[cfg(test)]

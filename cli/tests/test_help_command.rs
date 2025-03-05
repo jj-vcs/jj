@@ -161,7 +161,7 @@ fn test_help_keyword() {
     ------- stderr -------
     error: unrecognized subcommand 'revsets'
 
-      tip: some similar subcommands exist: 'resolve', 'prev', 'restore', 'rebase', 'revert'
+      tip: some similar subcommands exist: 'resolve', 'prev', 'restore', 'rebase'
 
     Usage: jj [OPTIONS] <COMMAND>
 

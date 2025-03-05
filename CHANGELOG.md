@@ -91,8 +91,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj git fetch` now supports [string pattern syntax](docs/revsets.md#string-patterns)
   on `--remote` option and `git.fetch` configuration.
 
- * The `jj init` stub that prints an error can now also be overridden with an
-   alias. Both `jj init` and `jj clone` add a hint to a generic error.
+ * The `jj init`/`revert` stub that prints an error can now also be overridden
+   with an alias. Both `jj init` and `jj clone` add a hint to a generic error.
 
 ### Fixed bugs
 
