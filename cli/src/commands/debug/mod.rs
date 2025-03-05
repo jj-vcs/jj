@@ -70,6 +70,7 @@ pub enum DebugCommand {
     CopyDetection(CopyDetectionArgs),
     Fileset(DebugFilesetArgs),
     Index(DebugIndexArgs),
+    InitLocal(DebugInitLocalArgs),
     LocalWorkingCopy(DebugLocalWorkingCopyArgs),
     #[command(visible_alias = "view")]
     Operation(DebugOperationArgs),
@@ -77,7 +78,6 @@ pub enum DebugCommand {
     Revset(DebugRevsetArgs),
     Snapshot(DebugSnapshotArgs),
     Template(DebugTemplateArgs),
-    InitLocal(DebugInitLocalArgs),
     Tree(DebugTreeArgs),
     #[command(subcommand)]
     Watchman(DebugWatchmanCommand),
@@ -90,16 +90,16 @@ pub fn cmd_debug(
     subcommand: &DebugCommand,
 ) -> Result<(), CommandError> {
     match subcommand {
+        DebugCommand::CopyDetection(args) => cmd_debug_copy_detection(ui, command, args),
         DebugCommand::Fileset(args) => cmd_debug_fileset(ui, command, args),
         DebugCommand::Index(args) => cmd_debug_index(ui, command, args),
+        DebugCommand::InitLocal(args) => cmd_debug_init_local(ui, command, args),
         DebugCommand::LocalWorkingCopy(args) => cmd_debug_local_working_copy(ui, command, args),
         DebugCommand::Operation(args) => cmd_debug_operation(ui, command, args),
         DebugCommand::Reindex(args) => cmd_debug_reindex(ui, command, args),
-        DebugCommand::CopyDetection(args) => cmd_debug_copy_detection(ui, command, args),
         DebugCommand::Revset(args) => cmd_debug_revset(ui, command, args),
         DebugCommand::Snapshot(args) => cmd_debug_snapshot(ui, command, args),
         DebugCommand::Template(args) => cmd_debug_template(ui, command, args),
-        DebugCommand::InitLocal(args) => cmd_debug_init_local(ui, command, args),
         DebugCommand::Tree(args) => cmd_debug_tree(ui, command, args),
         DebugCommand::Watchman(args) => cmd_debug_watchman(ui, command, args),
         DebugCommand::WorkingCopy(args) => cmd_debug_working_copy(ui, command, args),
