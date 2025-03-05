@@ -20,7 +20,6 @@ push-new-bookmarks = false
 sign-on-push = false
 
 [ui]
-allow-init-native = false
 always-allow-large-revsets = false
 color = "auto"
 default-description = ""

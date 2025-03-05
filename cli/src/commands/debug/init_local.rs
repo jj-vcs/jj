@@ -20,7 +20,6 @@ use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::cli_error;
-use crate::command_error::user_error_with_hint;
 use crate::command_error::user_error_with_message;
 use crate::command_error::CommandError;
 use crate::ui::Ui;
@@ -59,13 +58,6 @@ pub(crate) fn cmd_debug_init_local(
         .and_then(|_| dunce::canonicalize(wc_path))
         .map_err(|e| user_error_with_message("Failed to create workspace", e))?;
 
-    if !command.settings().get_bool("ui.allow-init-native")? {
-        return Err(user_error_with_hint(
-            "The native backend is disallowed by default.",
-            "Did you mean to call `jj git init`?
-Set `ui.allow-init-native` to allow initializing a repo with the native backend.",
-        ));
-    }
     Workspace::init_local(&command.settings_for_new_workspace(&wc_path)?, &wc_path)?;
 
     let relative_wc_path = file_util::relative_path(cwd, &wc_path);

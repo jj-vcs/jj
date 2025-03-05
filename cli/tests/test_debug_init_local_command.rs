@@ -15,25 +15,8 @@
 use crate::common::TestEnvironment;
 
 #[test]
-fn test_init_local_disallowed() {
-    // TODO(ilyagr): it is unclear whether `ui.allow-init-native` is useful now
-    // that `jj init` was renamed to `jj debug init-local`.
-    let test_env = TestEnvironment::default();
-    let output = test_env.run_jj_in(".", ["debug", "init-local", "repo"]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Error: The native backend is disallowed by default.
-    Hint: Did you mean to call `jj git init`?
-    Set `ui.allow-init-native` to allow initializing a repo with the native backend.
-    [EOF]
-    [exit status: 1]
-    ");
-}
-
-#[test]
 fn test_init_local() {
     let test_env = TestEnvironment::default();
-    test_env.add_config(r#"ui.allow-init-native = true"#);
     let output = test_env.run_jj_in(".", ["debug", "init-local", "repo"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
