@@ -53,6 +53,8 @@ struct UserSettingsData {
     operation_timestamp: Option<Timestamp>,
     operation_hostname: String,
     operation_username: String,
+    signing_behavior: SignBehavior,
+    signing_key: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -98,19 +100,6 @@ pub struct SignSettings {
 }
 
 impl SignSettings {
-    /// Load the signing settings from the config.
-    pub fn from_settings(settings: &UserSettings) -> Self {
-        let behavior = settings
-            .get("signing.behavior")
-            .unwrap_or(SignBehavior::Keep);
-
-        Self {
-            behavior,
-            user_email: settings.user_email().to_owned(),
-            key: settings.get_string("signing.key").ok(),
-        }
-    }
-
     /// Check if a commit should be signed according to the configured behavior
     /// and email.
     pub fn should_sign(&self, commit: &Commit) -> bool {
@@ -157,6 +146,8 @@ impl UserSettings {
             .optional()?;
         let operation_hostname = config.get("operation.hostname")?;
         let operation_username = config.get("operation.username")?;
+        let signing_behavior = config.get("signing.behavior")?;
+        let signing_key = config.get("signing.key").optional()?;
         let data = UserSettingsData {
             user_name,
             user_email,
@@ -164,6 +155,8 @@ impl UserSettings {
             operation_timestamp,
             operation_hostname,
             operation_username,
+            signing_behavior,
+            signing_key,
         };
         Ok(UserSettings {
             config: Arc::new(config),
@@ -247,8 +240,11 @@ impl UserSettings {
     }
 
     pub fn sign_settings(&self) -> SignSettings {
-        // TODO: propagate config error
-        SignSettings::from_settings(self)
+        SignSettings {
+            behavior: self.data.signing_behavior,
+            user_email: self.data.user_email.clone(),
+            key: self.data.signing_key.clone(),
+        }
     }
 }
 

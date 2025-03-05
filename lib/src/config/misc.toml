@@ -21,6 +21,8 @@ username = ""
 
 [signing]
 backend = "none"
+behavior = "keep"
+# key = <none>
 
 [signing.backends.gpg]
 allow-expired-keys = false

@@ -47,7 +47,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `signing.behavior`. The new option accepts `drop` (never sign), `keep` (preserve
   existing signatures), `own` (sign own commits), or `force` (sign all commits).
   Existing `signing.sign-all = true` translates to `signing.behavior = "own"`, and
-  `false` translates to `"keep"`.
+  `false` translates to `"keep"`. Invalid configuration is now an error.
 
 ### New features
 
