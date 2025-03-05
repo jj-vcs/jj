@@ -75,7 +75,12 @@ separate(" ",
 builtin_log_oneline = '''
 if(root,
   format_root_commit(self),
-  label(if(current_working_copy, "working_copy"),
+  label(
+    separate(" ",
+      if(current_working_copy, "working_copy"),
+      if(immutable, "immutable", "mutable"),
+      if(conflict, "conflict"),
+    ),
     concat(
       separate(" ",
         format_short_change_id_with_hidden_and_divergent_info(self),
@@ -103,7 +108,12 @@ if(root,
 builtin_log_compact = '''
 if(root,
   format_root_commit(self),
-  label(if(current_working_copy, "working_copy"),
+  label(
+    separate(" ",
+      if(current_working_copy, "working_copy"),
+      if(immutable, "immutable", "mutable"),
+      if(conflict, "conflict"),
+    ),
     concat(
       format_short_commit_header(self) ++ "\n",
       separate(" ",
@@ -121,7 +131,12 @@ if(root,
 builtin_log_compact_full_description = '''
 if(root,
   format_root_commit(self),
-  label(if(current_working_copy, "working_copy"),
+  label(
+    separate(" ",
+      if(current_working_copy, "working_copy"),
+      if(immutable, "immutable", "mutable"),
+      if(conflict, "conflict"),
+    ),
     concat(
       format_short_commit_header(self) ++ "\n",
       separate(" ",
@@ -218,12 +233,14 @@ separate(" ",
 '''
 
 'format_root_commit(root)' = '''
-separate(" ",
-  format_short_change_id(root.change_id()),
-  label("root", "root()"),
-  format_short_commit_id(root.commit_id()),
-  root.bookmarks(),
-) ++ "\n"
+label("immutable",
+  separate(" ",
+    format_short_change_id(root.change_id()),
+    label("root", "root()"),
+    format_short_commit_id(root.commit_id()),
+    root.bookmarks(),
+  ) ++ "\n"
+)
 '''
 
 'format_ref_targets(ref)' = '''
@@ -331,7 +348,7 @@ coalesce(
   label(
     separate(" ",
       if(current_working_copy, "working_copy"),
-      if(immutable, "immutable"),
+      if(immutable, "immutable", "mutable"),
       if(conflict, "conflict"),
     ),
     coalesce(
@@ -350,7 +367,7 @@ coalesce(
   label(
     separate(" ",
       if(current_working_copy, "working_copy"),
-      if(immutable, "immutable"),
+      if(immutable, "immutable", "mutable"),
       if(conflict, "conflict"),
     ),
     coalesce(

@@ -109,6 +109,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `config-schema.json` now allows an array of strings or nested table for the
   `ui.pager` setting.
 
+* Divergent changes are no longer marked red in immutable revisions. Since the
+  revision is immutable, the user shouldn't take any action, so the red color
+  was unnecessarily alarming.
+
 ## [0.26.0] - 2025-02-05
 
 ### Release highlights

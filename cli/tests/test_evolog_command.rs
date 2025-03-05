@@ -47,17 +47,7 @@ fn test_evolog_with_or_without_diff() {
 
     // Color
     let output = test_env.run_jj_in(&repo_path, ["--color=always", "evolog"]);
-    insta::assert_snapshot!(output, @r"
-    [1m[38;5;2m@[0m  [1m[38;5;13mr[38;5;8mlvkpnrz[39m [38;5;3mtest.user@example.com[39m [38;5;14m2001-02-03 08:05:10[39m [38;5;12m6[38;5;8m6b42ad3[39m[0m
-    │  [1mmy description[0m
-    [1m[38;5;1m×[0m  [1m[39mr[0m[38;5;8mlvkpnrz[39m hidden [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:09[39m [1m[38;5;4m07[0m[38;5;8mb18245[39m [38;5;1mconflict[39m
-    │  my description
-    ○  [1m[39mr[0m[38;5;8mlvkpnrz[39m hidden [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:09[39m [1m[38;5;4m06[0m[38;5;8m8224a7[39m
-    │  my description
-    ○  [1m[39mr[0m[38;5;8mlvkpnrz[39m hidden [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:08[39m [1m[38;5;4m2b[0m[38;5;8m023b5f[39m
-       [38;5;2m(empty)[39m my description
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"\u{1b}[1m\u{1b}[38;5;2m@\u{1b}[0m  \u{1b}[1m\u{1b}[38;5;13mr\u{1b}[38;5;8mlvkpnrz\u{1b}[39m \u{1b}[38;5;3mtest.user@example.com\u{1b}[39m \u{1b}[38;5;14m2001-02-03 08:05:10\u{1b}[39m \u{1b}[38;5;12m6\u{1b}[38;5;8m6b42ad3\u{1b}[39m\u{1b}[0m\n│  \u{1b}[1mmy description\u{1b}[0m\n\u{1b}[1m\u{1b}[38;5;1m×\u{1b}[0m  \u{1b}[1m\u{1b}[39mr\u{1b}[0m\u{1b}[38;5;8mlvkpnrz\u{1b}[38;5;1m hidden \u{1b}[38;5;3mtest.user@example.com\u{1b}[38;5;1m \u{1b}[38;5;6m2001-02-03 08:05:09\u{1b}[38;5;1m \u{1b}[1m\u{1b}[38;5;4m07\u{1b}[0m\u{1b}[38;5;8mb18245\u{1b}[38;5;1m conflict\u{1b}[39m\n│  \u{1b}[38;5;1mmy description\u{1b}[39m\n○  \u{1b}[1m\u{1b}[39mr\u{1b}[0m\u{1b}[38;5;8mlvkpnrz\u{1b}[39m hidden \u{1b}[38;5;3mtest.user@example.com\u{1b}[39m \u{1b}[38;5;6m2001-02-03 08:05:09\u{1b}[39m \u{1b}[1m\u{1b}[38;5;4m06\u{1b}[0m\u{1b}[38;5;8m8224a7\u{1b}[39m\n│  my description\n○  \u{1b}[1m\u{1b}[39mr\u{1b}[0m\u{1b}[38;5;8mlvkpnrz\u{1b}[39m hidden \u{1b}[38;5;3mtest.user@example.com\u{1b}[39m \u{1b}[38;5;6m2001-02-03 08:05:08\u{1b}[39m \u{1b}[1m\u{1b}[38;5;4m2b\u{1b}[0m\u{1b}[38;5;8m023b5f\u{1b}[39m\n   \u{1b}[38;5;2m(empty)\u{1b}[39m my description\n[EOF]");
 
     // There should be no diff caused by the rebase because it was a pure rebase
     // (even even though it resulted in a conflict).

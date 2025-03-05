@@ -1284,14 +1284,7 @@ fn test_graph_template_color() {
     [EOF]
     ");
     let output = test_env.run_jj_in(&repo_path, ["--color=debug", "log", "-T", template]);
-    insta::assert_snapshot!(output, @r"
-    [1m[38;5;2m<<node working_copy::@>>[0m  [1m[38;5;2m<<log working_copy description::single line>>[0m
-    <<node::○>>  [38;5;1m<<log description::first line>>[39m
-    │  [38;5;1m<<log description::second line>>[39m
-    │  [38;5;1m<<log description::third line>>[39m
-    [1m[38;5;14m<<node immutable::◆>>[0m
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"\u{1b}[1m\u{1b}[38;5;2m<<node working_copy mutable::@>>\u{1b}[0m  \u{1b}[1m\u{1b}[38;5;2m<<log working_copy description::single line>>\u{1b}[0m\n<<node mutable::○>>  \u{1b}[38;5;1m<<log description::first line>>\u{1b}[39m\n│  \u{1b}[38;5;1m<<log description::second line>>\u{1b}[39m\n│  \u{1b}[38;5;1m<<log description::third line>>\u{1b}[39m\n\u{1b}[1m\u{1b}[38;5;14m<<node immutable::◆>>\u{1b}[0m\n[EOF]");
 }
 
 #[test]
