@@ -174,17 +174,6 @@ fn find_remote_bookmarks<'a>(
     }
 }
 
-/// Whether or not the `bookmark` has any tracked remotes (i.e. is a tracking
-/// local bookmark.)
-fn has_tracked_remote_bookmarks(view: &View, bookmark: &RefName) -> bool {
-    view.remote_bookmarks_matching(
-        &StringPattern::exact(bookmark),
-        &StringPattern::everything(),
-    )
-    .filter(|&(symbol, _)| !jj_lib::git::is_special_git_remote(symbol.remote))
-    .any(|(_, remote_ref)| remote_ref.is_tracking())
-}
-
 fn is_fast_forward(repo: &dyn Repo, old_target: &RefTarget, new_target_id: &CommitId) -> bool {
     if old_target.is_present() {
         // Strictly speaking, "all" old targets should be ancestors, but we allow

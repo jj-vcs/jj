@@ -18,7 +18,7 @@ use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::RefTarget;
 use jj_lib::ref_name::RefNameBuf;
 
-use super::has_tracked_remote_bookmarks;
+use crate::cli_util::has_tracked_remote_bookmarks;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::command_error::user_error_with_hint;

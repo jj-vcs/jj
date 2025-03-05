@@ -117,6 +117,7 @@ use jj_lib::settings::HumanByteSize;
 use jj_lib::settings::UserSettings;
 use jj_lib::str_util::StringPattern;
 use jj_lib::transaction::Transaction;
+use jj_lib::view::View;
 use jj_lib::working_copy;
 use jj_lib::working_copy::CheckoutOptions;
 use jj_lib::working_copy::CheckoutStats;
@@ -2878,6 +2879,17 @@ pub fn update_working_copy(
             )
         })?;
     Ok(stats)
+}
+
+/// Whether or not the `bookmark` has any tracked remotes (i.e. is a tracking
+/// local bookmark.)
+pub fn has_tracked_remote_bookmarks(view: &View, bookmark: &RefName) -> bool {
+    view.remote_bookmarks_matching(
+        &StringPattern::exact(bookmark),
+        &StringPattern::everything(),
+    )
+    .filter(|&(symbol, _)| !jj_lib::git::is_special_git_remote(symbol.remote))
+    .any(|(_, remote_ref)| remote_ref.is_tracking())
 }
 
 pub fn load_template_aliases(
