@@ -22,7 +22,7 @@ use jj_lib::matchers::Matcher;
 use jj_lib::object_id::ObjectId;
 use jj_lib::repo::Repo;
 use jj_lib::rewrite;
-use jj_lib::rewrite::CommitToSquash;
+use jj_lib::rewrite::CommitWithSelection;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -252,7 +252,7 @@ fn select_diff(
     destination: &Commit,
     matcher: &dyn Matcher,
     diff_selector: &DiffSelector,
-) -> Result<Vec<CommitToSquash>, CommandError> {
+) -> Result<Vec<CommitWithSelection>, CommandError> {
     let mut source_commits = vec![];
     for source in sources {
         let parent_tree = source.parent_tree(tx.repo())?;
@@ -277,7 +277,7 @@ fn select_diff(
         let selected_tree_id =
             diff_selector.select(&parent_tree, &source_tree, matcher, format_instructions)?;
         let selected_tree = tx.repo().store().get_root_tree(&selected_tree_id)?;
-        source_commits.push(CommitToSquash {
+        source_commits.push(CommitWithSelection {
             commit: source.clone(),
             selected_tree,
             parent_tree,

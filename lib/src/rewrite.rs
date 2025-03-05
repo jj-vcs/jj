@@ -1029,13 +1029,13 @@ fn compute_commits_heads(
         .collect_vec()
 }
 
-pub struct CommitToSquash {
+pub struct CommitWithSelection {
     pub commit: Commit,
     pub selected_tree: MergedTree,
     pub parent_tree: MergedTree,
 }
 
-impl CommitToSquash {
+impl CommitWithSelection {
     /// Returns true if the selection contains all changes in the commit.
     fn is_full_selection(&self) -> bool {
         &self.selected_tree.id() == self.commit.tree_id()
@@ -1065,12 +1065,12 @@ pub struct SquashedCommit<'repo> {
 /// finishing the commit.
 pub fn squash_commits<'repo>(
     repo: &'repo mut MutableRepo,
-    sources: &[CommitToSquash],
+    sources: &[CommitWithSelection],
     destination: &Commit,
     keep_emptied: bool,
 ) -> BackendResult<Option<SquashedCommit<'repo>>> {
     struct SourceCommit<'a> {
-        commit: &'a CommitToSquash,
+        commit: &'a CommitWithSelection,
         abandon: bool,
     }
     let mut source_commits = vec![];
