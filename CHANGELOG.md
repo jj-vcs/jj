@@ -10,12 +10,38 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Release highlights
 
+### Breaking changes
+
+### Deprecations
+
+### New features
+
+### Fixed bugs
+
+## [0.27.0] - 2025-03-05
+
+### Release highlights
+
 * `git.subprocess` is now enabled by default, improving compatibility with Git
   fetches and pushes by spawning an external `git` process. Users can opt out
   of this by setting `git.subprocess = false`, but this will likely be removed
   in a future release. Please report any issues you run into.
 
 ### Breaking changes
+
+* Bookmark name to be created/updated is now parsed as [a revset
+  symbol](docs/revsets.md#symbols). Quotation may be needed in addition to shell
+  quotes. Example: `jj bookmark create -r@- "'name with space'"`
+
+* `jj bookmark create`, `jj bookmark set` and `jj bookmark move` onto a hidden
+   commit make it visible.
+
+* `jj bookmark forget` now untracks any corresponding remote bookmarks instead
+  of forgetting them, since forgetting a remote bookmark can be unintuitive.
+  The old behavior is still available with the new `--include-remotes` flag.
+
+* `jj fix` now always sets the working directory of invoked tools to be the
+  workspace root, instead of the working directory of the `jj fix`.
 
 * The `ui.allow-filesets` configuration option has been removed.
   [The "fileset" language](docs/filesets.md) has been enabled by default since v0.20.
@@ -24,17 +50,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and now has an implicit `self` parameter of type `AnnotationLine`, instead of
   `Commit`. All methods on `Commit` can be accessed with `commit.method()`, or
   `self.commit().method()`.
-
-* Bookmark name to be created/updated is now parsed as [a revset
-  symbol](docs/revsets.md#symbols). Quotation may be needed in addition to shell
-  quotes. Example: `jj bookmark create -r@- "'name with space'"`
-
-* `jj bookmark forget` now untracks any corresponding remote bookmarks instead
-  of forgetting them, since forgetting a remote bookmark can be unintuitive.
-  The old behavior is still available with the new `--include-remotes` flag.
-
-* `jj fix` now always sets the working directory of invoked tools to be the
-  workspace root, instead of the working directory of the `jj fix`.
 
 ### Deprecations
 
@@ -51,11 +66,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
-* `jj bookmark create`, `jj bookmark set` and `jj bookmark move` onto a hidden
-   commit make it visible.
+* The new `jj sign` and `jj unsign` commands allow for signing/unsigning commits.
+  `jj sign` supports configuring the default revset through `revsets.sign` when
+  no `--revisions` arguments are provided.
 
-* `jj undo` now shows a hint when undoing an undo operation that the user may
-   be looking for `jj op restore` instead.
+* `jj git fetch` now supports [string pattern syntax](docs/revsets.md#string-patterns)
+  on `--remote` option and `git.fetch` configuration.
 
 * Template functions `truncate_start()` and `truncate_end()` gained an optional
   `ellipsis` parameter; passing this prepends or appends the ellipsis to the
@@ -79,20 +95,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Templates now have `format_short_operation_id(id)` function for users to
   customize the default operation id representation.
 
+* The `jj init`/`jj revert` stubs that print errors can now be overridden with
+  aliases. All of `jj clone/init/revert` add a hint to a generic error.
+
 * Help text is now colored (when stdout is a terminal).
 
 * Commands that used to suggest `--ignore-immutable` now print the number of
   immutable commits that would be rewritten if used and a link to the docs.
 
-* The new `jj sign` and `jj unsign` commands allow for signing/unsigning commits.
-  `jj sign` supports configuring the default revset through `revsets.sign` when
-  no `--revisions` arguments are provided.
-
-* `jj git fetch` now supports [string pattern syntax](docs/revsets.md#string-patterns)
-  on `--remote` option and `git.fetch` configuration.
-
- * The `jj init`/`revert` stub that prints an error can now also be overridden
-   with an alias. Both `jj init` and `jj clone` add a hint to a generic error.
+* `jj undo` now shows a hint when undoing an undo operation that the user may
+   be looking for `jj op restore` instead.
 
 ### Fixed bugs
 
@@ -111,6 +123,43 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `config-schema.json` now allows an array of strings or nested table for the
   `ui.pager` setting.
+
+### Contributors
+
+Thanks to the people who made this release happen!
+
+* Alain Leufroy (@aleufroy)
+* Aleksey Kuznetsov (@zummenix)
+* Alexander Mikhailov (@AM5800)
+* Andrew Gilbert (@andyg0808)
+* Antoine Martin (@alarsyo)
+* Anton Bulakh (@necauqua)
+* Austin Seipp (@thoughtpolice)
+* Baltasar Dinis (@bsdinis)
+* Benjamin Tan (@bnjmnt4n)
+* Bryce Berger (@bryceberger)
+* Burak Varlı (@unexge)
+* David Rieber (@drieber)
+* Emily (@emilazy)
+* Evan Mesterhazy (@emesterhazy)
+* George Christou (@gechr)
+* HKalbasi (@HKalbasi)
+* Ilya Grigoriev (@ilyagr)
+* Jacob Hayes (@JacobHayes)
+* Jonathan Frere (@MrJohz)
+* Jonathan Tan (@jonathantanmy)
+* Josh Steadmon (@steadmon)
+* maan2003 (@maan2003)
+* Martin von Zweigbergk (@martinvonz)
+* Matthew Davidson (@KingMob)
+* Philip Metzger (@PhilipMetzger)
+* Philipp Albrecht (@pylbrecht)
+* Roman Timushev (@rtimush)
+* Samuel Tardieu (@samueltardieu)
+* Scott Taylor (@scott2000)
+* Stephan Hügel (@urschrei)
+* Vincent Ging Ho Yim (@cenviity)
+* Yuya Nishihara (@yuja)
 
 ## [0.26.0] - 2025-02-05
 
