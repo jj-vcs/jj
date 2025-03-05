@@ -15,12 +15,16 @@ use std::io::Write;
 
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
+use jj_lib::commit::Commit;
+use jj_lib::matchers::Matcher;
 use jj_lib::object_id::ObjectId;
 use jj_lib::repo::Repo;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
+use crate::cli_util::DiffSelector;
 use crate::cli_util::RevisionArg;
+use crate::cli_util::WorkspaceCommandHelper;
 use crate::command_error::user_error_with_hint;
 use crate::command_error::CommandError;
 use crate::complete;
@@ -76,6 +80,49 @@ pub(crate) struct SplitArgs {
     paths: Vec<String>,
 }
 
+impl SplitArgs {
+    /// Resolves the raw SplitArgs into the components necessary to run the
+    /// command. Returns an error if the command cannot proceed.
+    fn resolve(
+        &self,
+        ui: &Ui,
+        workspace_command: &WorkspaceCommandHelper,
+    ) -> Result<ResolvedSplitArgs, CommandError> {
+        let target_commit = workspace_command.resolve_single_rev(ui, &self.revision)?;
+        if target_commit.is_empty(workspace_command.repo().as_ref())? {
+            return Err(user_error_with_hint(
+                format!(
+                    "Refusing to split empty commit {}.",
+                    target_commit.id().hex()
+                ),
+                "Use `jj new` if you want to create another empty commit.",
+            ));
+        }
+        workspace_command.check_rewritable([target_commit.id()])?;
+        let matcher = workspace_command
+            .parse_file_patterns(ui, &self.paths)?
+            .to_matcher();
+        let diff_selector = workspace_command.diff_selector(
+            ui,
+            self.tool.as_deref(),
+            self.interactive || self.paths.is_empty(),
+        )?;
+        Ok(ResolvedSplitArgs {
+            target_commit,
+            matcher,
+            diff_selector,
+            parallel: self.parallel,
+        })
+    }
+}
+
+struct ResolvedSplitArgs {
+    target_commit: Commit,
+    matcher: Box<dyn Matcher>,
+    diff_selector: DiffSelector,
+    parallel: bool,
+}
+
 #[instrument(skip_all)]
 pub(crate) fn cmd_split(
     ui: &mut Ui,
@@ -83,26 +130,12 @@ pub(crate) fn cmd_split(
     args: &SplitArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
-    let target_commit = workspace_command.resolve_single_rev(ui, &args.revision)?;
-    if target_commit.is_empty(workspace_command.repo().as_ref())? {
-        return Err(user_error_with_hint(
-            format!(
-                "Refusing to split empty commit {}.",
-                target_commit.id().hex()
-            ),
-            "Use `jj new` if you want to create another empty commit.",
-        ));
-    }
-
-    workspace_command.check_rewritable([target_commit.id()])?;
-    let matcher = workspace_command
-        .parse_file_patterns(ui, &args.paths)?
-        .to_matcher();
-    let diff_selector = workspace_command.diff_selector(
-        ui,
-        args.tool.as_deref(),
-        args.interactive || args.paths.is_empty(),
-    )?;
+    let ResolvedSplitArgs {
+        target_commit,
+        matcher,
+        diff_selector,
+        parallel,
+    } = args.resolve(ui, &workspace_command)?;
     let text_editor = workspace_command.text_editor()?;
     let mut tx = workspace_command.start_transaction();
     let end_tree = target_commit.tree()?;
@@ -161,7 +194,7 @@ The remainder will be in the second commit.
     // Create the second commit, which includes everything the user didn't
     // select.
     let second_commit = {
-        let new_tree = if args.parallel {
+        let new_tree = if parallel {
             // Merge the original commit tree with its parent using the tree
             // containing the user selected changes as the base for the merge.
             // This results in a tree with the changes the user didn't select.
@@ -169,7 +202,7 @@ The remainder will be in the second commit.
         } else {
             end_tree
         };
-        let parents = if args.parallel {
+        let parents = if parallel {
             target_commit.parent_ids().to_vec()
         } else {
             vec![first_commit.id().clone()]
@@ -211,11 +244,11 @@ The remainder will be in the second commit.
     tx.repo_mut()
         .transform_descendants(vec![target_commit.id().clone()], |mut rewriter| {
             num_rebased += 1;
-            if args.parallel && legacy_bookmark_behavior {
+            if parallel && legacy_bookmark_behavior {
                 // The old_parent is the second commit due to the rewrite above.
                 rewriter
                     .replace_parent(second_commit.id(), [first_commit.id(), second_commit.id()]);
-            } else if args.parallel {
+            } else if parallel {
                 rewriter.replace_parent(first_commit.id(), [first_commit.id(), second_commit.id()]);
             } else {
                 rewriter.replace_parent(first_commit.id(), [second_commit.id()]);
@@ -244,3 +277,4 @@ The remainder will be in the second commit.
     tx.finish(ui, format!("split commit {}", target_commit.id().hex()))?;
     Ok(())
 }
+
