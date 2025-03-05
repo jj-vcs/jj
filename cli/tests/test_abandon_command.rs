@@ -465,6 +465,64 @@ fn test_abandon_restore_descendants() {
     ");
 }
 
+#[test]
+fn test_abandon_tracking_bookmarks() {
+    let test_env = TestEnvironment::default();
+
+    test_env.run_jj_in(".", ["git", "init", "remote"]).success();
+    let remote_dir = test_env.work_dir("remote");
+    remote_dir
+        .run_jj(["bookmark", "set", "-r@", "foo"])
+        .success();
+    remote_dir.run_jj(["git", "export"]).success();
+
+    // Create colocated Git repo which may have @git tracking bookmarks
+    test_env
+        .run_jj_in(
+            ".",
+            [
+                "git",
+                "clone",
+                "--colocate",
+                "--config=git.auto-local-bookmark=true",
+                "remote/.jj/repo/store/git",
+                "local",
+            ],
+        )
+        .success();
+    let local_dir = test_env.work_dir("local");
+    local_dir
+        .run_jj(["bookmark", "set", "-r@", "bar"])
+        .success();
+    insta::assert_snapshot!(get_log_output(&local_dir), @r"
+    @  [zsu] bar
+    │ ○  [vvk] foo
+    ├─╯
+    ◆  [zzz]
+    [EOF]
+    ");
+
+    let output = local_dir.run_jj(["abandon", "foo"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Abandoned 1 commits:
+      vvkvtnvv 230dd059 foo | (empty) (no description set)
+    Deleted bookmarks: foo
+    Warning: Remote bookmarks tracked by deleted bookmarks will be deleted on the next `jj git push`.
+    [EOF]
+    ");
+    let output = local_dir.run_jj(["abandon", "bar"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Abandoned 1 commits:
+      zsuskuln f652c321 bar | (empty) (no description set)
+    Deleted bookmarks: bar
+    Working copy now at: vruxwmqv 41658cf4 (empty) (no description set)
+    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+}
+
 #[must_use]
 fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     let template = r#"separate(" ", "[" ++ change_id.short(3) ++ "]", bookmarks)"#;

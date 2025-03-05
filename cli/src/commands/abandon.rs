@@ -25,6 +25,7 @@ use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::RewriteRefsOptions;
 use tracing::instrument;
 
+use crate::cli_util::has_tracked_remote_bookmarks;
 use crate::cli_util::print_updated_commits;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
@@ -115,6 +116,14 @@ pub(crate) fn cmd_abandon(
         },
     )?;
 
+    let deleted_bookmarks = diff_named_ref_targets(
+        tx.base_repo().view().local_bookmarks(),
+        tx.repo().view().local_bookmarks(),
+    )
+    .filter(|(_, (_old, new))| new.is_absent())
+    .map(|(name, _)| name.to_owned())
+    .collect_vec();
+
     if let Some(mut formatter) = ui.status_formatter() {
         writeln!(formatter, "Abandoned {} commits:", to_abandon.len())?;
         print_updated_commits(
@@ -122,13 +131,6 @@ pub(crate) fn cmd_abandon(
             &tx.base_workspace_helper().commit_summary_template(),
             &to_abandon,
         )?;
-        let deleted_bookmarks = diff_named_ref_targets(
-            tx.base_repo().view().local_bookmarks(),
-            tx.repo().view().local_bookmarks(),
-        )
-        .filter(|(_, (_old, new))| new.is_absent())
-        .map(|(name, _)| name)
-        .collect_vec();
         if !deleted_bookmarks.is_empty() {
             writeln!(
                 formatter,
@@ -161,5 +163,20 @@ pub(crate) fn cmd_abandon(
         )
     };
     tx.finish(ui, transaction_description)?;
+
+    #[cfg(feature = "git")]
+    if jj_lib::git::get_git_backend(workspace_command.repo().store()).is_ok() {
+        let view = workspace_command.repo().view();
+        if deleted_bookmarks
+            .iter()
+            .any(|name| has_tracked_remote_bookmarks(view, name))
+        {
+            writeln!(
+                ui.warning_default(),
+                "Remote bookmarks tracked by deleted bookmarks will be deleted on the next `jj \
+                 git push`."
+            )?;
+        }
+    }
     Ok(())
 }
