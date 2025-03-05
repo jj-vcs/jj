@@ -15,29 +15,34 @@
 use crate::common::TestEnvironment;
 
 #[test]
-fn test_init_local_disallowed() {
+fn test_init_toy_disallowed() {
     let test_env = TestEnvironment::default();
     let output = test_env.run_jj_in(".", ["init", "repo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: The native backend is disallowed by default.
+    Warning: --ui.allow-init-native is deprecated; use ui.allow-init-toy instead.
+    Error: The toy backend is disallowed by default.
     Hint: Did you mean to call `jj git init`?
-    Set `ui.allow-init-native` to allow initializing a repo with the native backend.
+    Set `ui.allow-init-toy` to allow initializing a repo with the toy backend.
     [EOF]
     [exit status: 1]
     ");
 }
 
 #[test]
-fn test_init_local() {
+fn test_init_toy() {
     let test_env = TestEnvironment::default();
-    test_env.add_config(r#"ui.allow-init-native = true"#);
+    test_env.add_config(r#"ui.allow-init-toy = true"#);
     let output = test_env.run_jj_in(".", ["init", "repo"]);
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Initialized repo in "repo"
+    Warning: --ui.allow-init-native is deprecated; use ui.allow-init-toy instead.
+    Error: The toy backend is disallowed by default.
+    Hint: Did you mean to call `jj git init`?
+    Set `ui.allow-init-toy` to allow initializing a repo with the toy backend.
     [EOF]
-    "#);
+    [exit status: 1]
+    ");
 
     let workspace_root = test_env.env_root().join("repo");
     let jj_path = workspace_root.join(".jj");
@@ -68,5 +73,20 @@ fn test_init_local() {
     Error: --at-op is not respected
     [EOF]
     [exit status: 2]
+    ");
+}
+
+// TODO: remove in jj 0.33+
+#[test]
+fn test_init_native_deprecation_warning() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config(r#"ui.allow-init-native = true"#);
+    let output = test_env.run_jj_in(".", ["init", "repo"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Config error: Value not found for ui.allow-init-toy
+    For help, see https://jj-vcs.github.io/jj/latest/config/.
+    [EOF]
+    [exit status: 1]
     ");
 }

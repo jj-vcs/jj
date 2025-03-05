@@ -63,9 +63,9 @@
                 }
             },
             "properties": {
-                "allow-init-native": {
+                "allow-init-toy": {
                     "type": "boolean",
-                    "description": "Whether to allow initializing a repo with the native backend",
+                    "description": "Whether to allow initializing a repo with the toy backend",
                     "default": false
                 },
                 "always-allow-large-revsets": {

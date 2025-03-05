@@ -73,7 +73,6 @@ pub mod graph;
 pub mod hex_util;
 pub mod id_prefix;
 pub mod index;
-pub mod local_backend;
 pub mod local_working_copy;
 pub mod lock;
 pub mod matchers;
@@ -106,6 +105,9 @@ pub mod submodule_store;
 #[cfg(feature = "testing")]
 pub mod test_signing_backend;
 pub mod time_util;
+// Allow this file to be outside the normal crate.
+#[path = "../../cli/examples/toy-backend/toy_backend.rs"]
+pub mod toy_backend;
 pub mod transaction;
 pub mod tree;
 pub mod tree_builder;

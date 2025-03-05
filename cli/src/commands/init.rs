@@ -54,11 +54,23 @@ pub(crate) fn cmd_init(
         .and_then(|_| dunce::canonicalize(wc_path))
         .map_err(|e| user_error_with_message("Failed to create workspace", e))?;
 
-    if !command.settings().get_bool("ui.allow-init-native")? {
+    // TODO: remove ui.allow-init-native after jj 0.33+ and inline the condition
+    // again
+    let config_disabled = {
+        let old_name = !command.settings().get_bool("ui.allow-init-native")?;
+        if old_name {
+            writeln!(
+                ui.warning_default(),
+                "--ui.allow-init-native is deprecated; use ui.allow-init-toy instead."
+            )?;
+        }
+        old_name || !command.settings().get_bool("ui.allow-init-toy")?
+    };
+    if config_disabled {
         return Err(user_error_with_hint(
-            "The native backend is disallowed by default.",
+            "The toy backend is disallowed by default.",
             "Did you mean to call `jj git init`?
-Set `ui.allow-init-native` to allow initializing a repo with the native backend.",
+Set `ui.allow-init-toy` to allow initializing a repo with the toy backend.",
         ));
     }
     Workspace::init_local(&command.settings_for_new_workspace(&wc_path)?, &wc_path)?;

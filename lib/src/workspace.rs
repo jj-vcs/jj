@@ -30,7 +30,6 @@ use crate::backend::MergedTreeId;
 use crate::commit::Commit;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
-use crate::local_backend::LocalBackend;
 use crate::local_working_copy::LocalWorkingCopy;
 use crate::local_working_copy::LocalWorkingCopyFactory;
 use crate::op_heads_store::OpHeadsStoreError;
@@ -53,6 +52,7 @@ use crate::settings::UserSettings;
 use crate::signing::SignInitError;
 use crate::signing::Signer;
 use crate::store::Store;
+use crate::toy_backend::ToyBackend;
 use crate::working_copy::CheckoutError;
 use crate::working_copy::CheckoutOptions;
 use crate::working_copy::CheckoutStats;
@@ -185,7 +185,7 @@ impl Workspace {
         workspace_root: &Path,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let backend_initializer: &BackendInitializer =
-            &|_settings, store_path| Ok(Box::new(LocalBackend::init(store_path)));
+            &|_settings, store_path| Ok(Box::new(ToyBackend::init(store_path)));
         let signer = Signer::from_settings(user_settings)?;
         Self::init_with_backend(user_settings, workspace_root, backend_initializer, signer)
     }

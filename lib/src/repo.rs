@@ -54,7 +54,6 @@ use crate::index::IndexReadError;
 use crate::index::IndexStore;
 use crate::index::MutableIndex;
 use crate::index::ReadonlyIndex;
-use crate::local_backend::LocalBackend;
 use crate::merge::MergeBuilder;
 use crate::object_id::HexPrefix;
 use crate::object_id::ObjectId;
@@ -95,6 +94,7 @@ use crate::simple_op_heads_store::SimpleOpHeadsStore;
 use crate::simple_op_store::SimpleOpStore;
 use crate::store::Store;
 use crate::submodule_store::SubmoduleStore;
+use crate::toy_backend::ToyBackend;
 use crate::transaction::Transaction;
 use crate::view::RenameWorkspaceError;
 use crate::view::View;
@@ -397,8 +397,8 @@ impl Default for StoreFactories {
 
         // Backends
         factories.add_backend(
-            LocalBackend::name(),
-            Box::new(|_settings, store_path| Ok(Box::new(LocalBackend::load(store_path)))),
+            ToyBackend::name(),
+            Box::new(|_settings, store_path| Ok(Box::new(ToyBackend::load(store_path)))),
         );
         #[cfg(feature = "git")]
         factories.add_backend(

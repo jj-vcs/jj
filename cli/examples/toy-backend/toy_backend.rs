@@ -14,6 +14,9 @@
 
 #![allow(missing_docs)]
 
+// Important: This is not freestanding yet (still linked into the jj-binary), as
+// it still is used by tests. see lib/src/lib.rs and search for #[path = "..."].
+
 use std::any::Any;
 use std::fmt::Debug;
 use std::fs;
@@ -87,17 +90,18 @@ fn to_other_err(err: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Bac
     BackendError::Other(err.into())
 }
 
+/// A simple Toy backend which shows how to implement a Jujutsu backend.
 #[derive(Debug)]
-pub struct LocalBackend {
+pub struct ToyBackend {
     path: PathBuf,
     root_commit_id: CommitId,
     root_change_id: ChangeId,
     empty_tree_id: TreeId,
 }
 
-impl LocalBackend {
+impl ToyBackend {
     pub fn name() -> &'static str {
-        "local"
+        "toy"
     }
 
     pub fn init(store_path: &Path) -> Self {
@@ -121,7 +125,7 @@ impl LocalBackend {
         let empty_tree_id = TreeId::from_hex(
             "482ae5a29fbe856c7272f2071b8b0f0359ee2d89ff392b8a900643fbd0836eccd067b8bf41909e206c90d45d6e7d8b6686b93ecaee5fe1a9060d87b672101310",
         );
-        LocalBackend {
+        ToyBackend {
             path: store_path.to_path_buf(),
             root_commit_id,
             root_change_id,
@@ -151,7 +155,7 @@ impl LocalBackend {
 }
 
 #[async_trait]
-impl Backend for LocalBackend {
+impl Backend for ToyBackend {
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -555,7 +559,7 @@ mod tests {
         let temp_dir = new_temp_dir();
         let store_path = temp_dir.path();
 
-        let backend = LocalBackend::init(store_path);
+        let backend = ToyBackend::init(store_path);
         let mut commit = Commit {
             parents: vec![],
             predecessors: vec![],
