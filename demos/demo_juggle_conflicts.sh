@@ -4,7 +4,7 @@ set -euo pipefail
 
 new_tmp_dir
 (
-    jj init --config ui.allow-init-native=true
+    jj debug init-local
     echo "first" > file
     jj bookmark create first
     jj commit -m 'first'

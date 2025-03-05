@@ -25,10 +25,15 @@ use crate::command_error::user_error_with_message;
 use crate::command_error::CommandError;
 use crate::ui::Ui;
 
-/// Create a new repo in the given directory
+/// Create a new repo in the given directory using the proof-of-concept native
+/// backend
 ///
-/// If the given directory does not exist, it will be created. If no directory
-/// is given, the current directory is used.
+/// The proof-of-concept backend is called "local" because it does not support
+/// cloning, pushing, or fetching repositories or commits.
+///
+/// This command is otherwise analogous to `jj git init`. If the given directory
+/// does not exist, it will be created. If no directory is given, the current
+/// directory is used.
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct DebugInitLocalArgs {
     /// The destination directory
