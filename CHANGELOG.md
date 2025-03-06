@@ -36,6 +36,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `core.watchman.register_snapshot_trigger` has been renamed to `core.watchman.register-snapshot-trigger` for consistency with other configuration options.
 
+* `jj backout` is deprecated in favor of `jj revert`.
+
 ### New features
 
 * `jj sign` will automatically use the gpg key associated with the author's email

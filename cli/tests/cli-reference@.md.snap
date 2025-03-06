@@ -13,7 +13,6 @@ This document contains the help content for the `jj` command-line program.
 * [`jj`↴](#jj)
 * [`jj abandon`↴](#jj-abandon)
 * [`jj absorb`↴](#jj-absorb)
-* [`jj backout`↴](#jj-backout)
 * [`jj bookmark`↴](#jj-bookmark)
 * [`jj bookmark create`↴](#jj-bookmark-create)
 * [`jj bookmark delete`↴](#jj-bookmark-delete)
@@ -126,7 +125,6 @@ To get started, see the tutorial [`jj help -k tutorial`].
 
 * `abandon` — Abandon a revision
 * `absorb` — Move changes from a revision into the stack of mutable revisions
-* `backout` — Apply the reverse of given revisions on top of another revision
 * `bookmark` — Manage bookmarks [default alias: b]
 * `commit` — Update the description and create a new change on top
 * `config` — Manage config options
@@ -260,25 +258,6 @@ The modification made by `jj absorb` can be reviewed by `jj op show -p`.
    Only ancestors of the source revision will be considered.
 
   Default value: `mutable()`
-
-
-
-## `jj backout`
-
-Apply the reverse of given revisions on top of another revision
-
-The description of the new revisions can be customized with the `templates.backout_description` config variable.
-
-**Usage:** `jj backout [OPTIONS]`
-
-###### **Options:**
-
-* `-r`, `--revisions <REVSETS>` — The revision(s) to apply the reverse of
-
-  Default value: `@`
-* `-d`, `--destination <REVSETS>` — The revision to apply the reverse changes on top of
-
-  Default value: `@`
 
 
 
