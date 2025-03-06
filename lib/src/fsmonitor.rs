@@ -60,8 +60,7 @@ impl FsmonitorSettings {
         let name = "core.fsmonitor";
         match settings.get_string(name)?.as_ref() {
             "watchman" => Ok(Self::Watchman(WatchmanConfig {
-                // TODO: rename to "register-snapshot-trigger" for consistency?
-                register_trigger: settings.get_bool("core.watchman.register_snapshot_trigger")?,
+                register_trigger: settings.get_bool("core.watchman.register-snapshot-trigger")?,
             })),
             "test" => Err(ConfigGetError::Type {
                 name: name.to_owned(),

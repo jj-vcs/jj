@@ -250,7 +250,7 @@
                 "watchman": {
                     "type": "object",
                     "properties": {
-                      "register_snapshot_trigger": {
+                      "register-snapshot-trigger": {
                         "type": "boolean",
                         "default": false,
                         "description": "Whether to use triggers to monitor for changes in the background."

@@ -62,7 +62,7 @@ pub fn cmd_debug_watchman(
                     writeln!(ui.stdout(), "Watchman is enabled via `core.fsmonitor`.")?;
                     writeln!(
                         ui.stdout(),
-                        r"Background snapshotting is {}. Use `core.watchman.register_snapshot_trigger` to control it.",
+                        r"Background snapshotting is {}. Use `core.watchman.register-snapshot-trigger` to control it.",
                         if config.register_trigger {
                             "enabled"
                         } else {

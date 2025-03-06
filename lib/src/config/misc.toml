@@ -2,7 +2,7 @@
 fsmonitor = "none"
 
 [core.watchman]
-register_snapshot_trigger = false
+register-snapshot-trigger = false
 
 [debug]
 # commit-timestamp = <now>

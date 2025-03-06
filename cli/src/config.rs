@@ -620,6 +620,11 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
                 }
             },
         ),
+        // TODO: Delete in jj 0.34+
+        ConfigMigrationRule::rename_value(
+            "core.watchman.register_snapshot_trigger",
+            "core.watchman.register-snapshot-trigger",
+        ),
     ]
 }
 

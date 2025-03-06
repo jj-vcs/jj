@@ -680,7 +680,7 @@ fn test_config() {
     let output = test_env.run_jj_in(dir, ["--", "jj", "config", "get", "c"]);
     insta::assert_snapshot!(output, @r"
     core.fsmonitor	Whether to use an external filesystem monitor, useful for large repos
-    core.watchman.register_snapshot_trigger	Whether to use triggers to monitor for changes in the background.
+    core.watchman.register-snapshot-trigger	Whether to use triggers to monitor for changes in the background.
     [EOF]
     ");
 
@@ -690,14 +690,14 @@ fn test_config() {
     core
     core.fsmonitor	Whether to use an external filesystem monitor, useful for large repos
     core.watchman
-    core.watchman.register_snapshot_trigger	Whether to use triggers to monitor for changes in the background.
+    core.watchman.register-snapshot-trigger	Whether to use triggers to monitor for changes in the background.
     [EOF]
     ");
 
     let output = test_env.run_jj_in(dir, ["--", "jj", "log", "--config", "c"]);
     insta::assert_snapshot!(output, @r"
     core.fsmonitor=	Whether to use an external filesystem monitor, useful for large repos
-    core.watchman.register_snapshot_trigger=	Whether to use triggers to monitor for changes in the background.
+    core.watchman.register-snapshot-trigger=	Whether to use triggers to monitor for changes in the background.
     [EOF]
     ");
 
