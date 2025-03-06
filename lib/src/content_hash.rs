@@ -85,9 +85,15 @@ impl<T: ContentHash> ContentHash for Vec<T> {
     }
 }
 
-impl ContentHash for String {
+impl ContentHash for str {
     fn hash(&self, state: &mut impl DigestUpdate) {
         self.as_bytes().hash(state);
+    }
+}
+
+impl ContentHash for String {
+    fn hash(&self, state: &mut impl DigestUpdate) {
+        self.as_str().hash(state);
     }
 }
 
