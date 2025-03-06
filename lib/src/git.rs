@@ -1914,7 +1914,9 @@ pub fn push_branches(
     targets: &GitBranchPushTargets,
     callbacks: RemoteCallbacks<'_>,
 ) -> Result<(), GitPushError> {
-    if remote.contains("/") {
+    if remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO {
+        return Err(GitPushError::RemoteReservedForLocalGitRepo);
+    } else if remote.contains("/") {
         return Err(GitPushError::RemoteWithSlash(remote.to_owned()));
     }
 
@@ -1954,10 +1956,6 @@ pub fn push_updates(
     updates: &[GitRefUpdate],
     callbacks: RemoteCallbacks<'_>,
 ) -> Result<(), GitPushError> {
-    if remote_name == REMOTE_NAME_FOR_LOCAL_GIT_REPO {
-        return Err(GitPushError::RemoteReservedForLocalGitRepo);
-    }
-
     let mut qualified_remote_refs_expected_locations = HashMap::new();
     let mut refspecs = vec![];
     for update in updates {
