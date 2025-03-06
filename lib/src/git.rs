@@ -14,6 +14,7 @@
 
 #![allow(missing_docs)]
 
+use std::borrow::Borrow;
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
@@ -96,6 +97,18 @@ fn validate_remote_name(name: &str) -> Result<(), GitRemoteNameError> {
 pub enum GitRefKind {
     Bookmark,
     Tag,
+}
+
+/// Newtype to look up `HashMap` entry by key of shorter lifetime.
+///
+/// https://users.rust-lang.org/t/unexpected-lifetime-issue-with-hashmap-remove/113961/6
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+struct RemoteRefKey<'a>((GitRefKind, RemoteRefSymbol<'a>));
+
+impl<'a: 'b, 'b> Borrow<(GitRefKind, RemoteRefSymbol<'b>)> for RemoteRefKey<'a> {
+    fn borrow(&self) -> &(GitRefKind, RemoteRefSymbol<'b>) {
+        &self.0
+    }
 }
 
 // TODO: will be replaced with (GitRefKind, RemoteRefSymbol)
@@ -330,9 +343,9 @@ pub enum GitImportError {
         #[source]
         err: BackendError,
     },
-    #[error("Ancestor of Git ref {ref_name} is missing")]
+    #[error("Ancestor of Git ref {symbol} is missing")]
     MissingRefAncestor {
-        ref_name: String,
+        symbol: RemoteRefSymbolBuf,
         #[source]
         err: BackendError,
     },
@@ -355,9 +368,9 @@ impl GitImportError {
 pub struct GitImportStats {
     /// Commits superseded by newly imported commits.
     pub abandoned_commits: Vec<CommitId>,
-    /// Remote `(ref_name, (old_remote_ref, new_target))`s to be merged in to
-    /// the local refs.
-    pub changed_remote_refs: BTreeMap<RefName, (RemoteRef, RefTarget)>,
+    /// Remote `((kind, symbol), (old_remote_ref, new_target))`s to be merged in
+    /// to the local refs.
+    pub changed_remote_refs: BTreeMap<(GitRefKind, RemoteRefSymbolBuf), (RemoteRef, RefTarget)>,
     /// Git ref names that couldn't be imported.
     ///
     /// This list doesn't include refs that are supposed to be ignored, such as
@@ -369,9 +382,9 @@ pub struct GitImportStats {
 struct RefsToImport {
     /// Git ref `(full_name, new_target)`s to be copied to the view.
     changed_git_refs: Vec<(String, RefTarget)>,
-    /// Remote `(ref_name, (old_remote_ref, new_target))`s to be merged in to
-    /// the local refs.
-    changed_remote_refs: BTreeMap<RefName, (RemoteRef, RefTarget)>,
+    /// Remote `((kind, symbol), (old_remote_ref, new_target))`s to be merged in
+    /// to the local refs.
+    changed_remote_refs: BTreeMap<(GitRefKind, RemoteRefSymbolBuf), (RemoteRef, RefTarget)>,
     /// Git ref names that couldn't be imported.
     failed_ref_names: Vec<BString>,
 }
@@ -428,10 +441,10 @@ pub fn import_some_refs(
         }
         store.get_commit(id)
     };
-    for (ref_name, (_, new_target)) in &changed_remote_refs {
+    for ((_, symbol), (_, new_target)) in &changed_remote_refs {
         for id in new_target.added_ids() {
             let commit = get_commit(id).map_err(|err| GitImportError::MissingRefAncestor {
-                ref_name: ref_name.to_string(),
+                symbol: symbol.clone(),
                 err,
             })?;
             head_commits.push(commit);
@@ -447,30 +460,19 @@ pub fn import_some_refs(
     for (full_name, new_target) in changed_git_refs {
         mut_repo.set_git_ref_target(&full_name, new_target);
     }
-    for (ref_name, (old_remote_ref, new_target)) in &changed_remote_refs {
+    for ((kind, symbol), (old_remote_ref, new_target)) in &changed_remote_refs {
+        let symbol = symbol.as_ref();
         let base_target = old_remote_ref.tracking_target();
         let new_remote_ref = RemoteRef {
             target: new_target.clone(),
             state: if old_remote_ref.is_present() {
                 old_remote_ref.state
             } else {
-                default_remote_ref_state_for(ref_name, git_settings)
+                default_remote_ref_state_for(*kind, symbol, git_settings)
             },
         };
-        match ref_name {
-            RefName::LocalBranch(name) => {
-                let symbol = RemoteRefSymbol {
-                    name,
-                    remote: REMOTE_NAME_FOR_LOCAL_GIT_REPO,
-                };
-                if new_remote_ref.is_tracking() {
-                    mut_repo.merge_local_bookmark(symbol.name, base_target, &new_remote_ref.target);
-                }
-                // Update Git-tracking branch like the other remote branches.
-                mut_repo.set_remote_bookmark(symbol, new_remote_ref);
-            }
-            RefName::RemoteBranch(symbol) => {
-                let symbol = symbol.as_ref();
+        match kind {
+            GitRefKind::Bookmark => {
                 if new_remote_ref.is_tracking() {
                     mut_repo.merge_local_bookmark(symbol.name, base_target, &new_remote_ref.target);
                 }
@@ -478,9 +480,9 @@ pub fn import_some_refs(
                 // It shouldn't diverge even if we had inconsistent view.
                 mut_repo.set_remote_bookmark(symbol, new_remote_ref);
             }
-            RefName::Tag(name) => {
+            GitRefKind::Tag => {
                 if new_remote_ref.is_tracking() {
-                    mut_repo.merge_tag(name, base_target, &new_remote_ref.target);
+                    mut_repo.merge_tag(symbol.name, base_target, &new_remote_ref.target);
                 }
                 // TODO: If we add Git-tracking tag, it will be updated here.
             }
@@ -505,7 +507,7 @@ pub fn import_some_refs(
 /// Those commits will be recorded as abandoned in the `MutableRepo`.
 fn abandon_unreachable_commits(
     mut_repo: &mut MutableRepo,
-    changed_remote_refs: &BTreeMap<RefName, (RemoteRef, RefTarget)>,
+    changed_remote_refs: &BTreeMap<(GitRefKind, RemoteRefSymbolBuf), (RemoteRef, RefTarget)>,
 ) -> BackendResult<Vec<CommitId>> {
     let hidable_git_heads = changed_remote_refs
         .values()
@@ -557,23 +559,24 @@ fn diff_refs_to_import(
         })
         .collect();
     // TODO: migrate tags to the remote view, and don't destructure &RemoteRef
-    let mut known_remote_refs: HashMap<RefName, (&RefTarget, RemoteRefState)> = itertools::chain(
-        view.all_remote_bookmarks().map(|(symbol, remote_ref)| {
-            let RemoteRef { target, state } = remote_ref;
-            ((GitRefKind::Bookmark, symbol), (target, *state))
-        }),
-        // TODO: compare to tags stored in the "git" remote view. Since tags should never
-        // be moved locally in jj, we can consider local tags as merge base.
-        view.tags().iter().map(|(name, target)| {
-            let remote = REMOTE_NAME_FOR_LOCAL_GIT_REPO;
-            let symbol = RemoteRefSymbol { name, remote };
-            let state = RemoteRefState::Tracking;
-            ((GitRefKind::Tag, symbol), (target, state))
-        }),
-    )
-    .filter(|&((kind, symbol), _)| git_ref_filter(kind, symbol))
-    .map(|((kind, symbol), remote_ref)| (to_legacy_ref_name(kind, symbol), remote_ref))
-    .collect();
+    let mut known_remote_refs: HashMap<RemoteRefKey, (&RefTarget, RemoteRefState)> =
+        itertools::chain(
+            view.all_remote_bookmarks().map(|(symbol, remote_ref)| {
+                let RemoteRef { target, state } = remote_ref;
+                ((GitRefKind::Bookmark, symbol), (target, *state))
+            }),
+            // TODO: compare to tags stored in the "git" remote view. Since tags should never
+            // be moved locally in jj, we can consider local tags as merge base.
+            view.tags().iter().map(|(name, target)| {
+                let remote = REMOTE_NAME_FOR_LOCAL_GIT_REPO;
+                let symbol = RemoteRefSymbol { name, remote };
+                let state = RemoteRefState::Tracking;
+                ((GitRefKind::Tag, symbol), (target, state))
+            }),
+        )
+        .filter(|&((kind, symbol), _)| git_ref_filter(kind, symbol))
+        .map(|((kind, symbol), remote_ref)| (RemoteRefKey((kind, symbol)), remote_ref))
+        .collect();
 
     let mut changed_git_refs = Vec::new();
     let mut changed_remote_refs = BTreeMap::new();
@@ -606,7 +609,6 @@ fn diff_refs_to_import(
         if !git_ref_filter(kind, symbol) {
             continue;
         }
-        let ref_name = to_legacy_ref_name(kind, symbol);
         let old_git_target = known_git_refs.get(full_name).copied().flatten();
         let Some(id) = resolve_git_ref_to_commit_id(&git_ref, old_git_target) else {
             // Skip (or remove existing) invalid refs.
@@ -620,25 +622,28 @@ fn diff_refs_to_import(
         // TODO: Make it configurable which remotes are publishing and update public
         // heads here.
         let (old_remote_target, old_remote_state) = known_remote_refs
-            .remove(&ref_name)
+            .remove(&(kind, symbol))
             .unwrap_or_else(|| (RefTarget::absent_ref(), RemoteRefState::New));
         if new_target != *old_remote_target {
             let old_remote_ref = RemoteRef {
                 target: old_remote_target.clone(),
                 state: old_remote_state,
             };
-            changed_remote_refs.insert(ref_name, (old_remote_ref, new_target));
+            changed_remote_refs.insert((kind, symbol.to_owned()), (old_remote_ref, new_target));
         }
     }
     for full_name in known_git_refs.into_keys() {
         changed_git_refs.push((full_name.to_owned(), RefTarget::absent()));
     }
-    for (ref_name, (old_target, old_state)) in known_remote_refs {
+    for (RemoteRefKey((kind, symbol)), (old_target, old_state)) in known_remote_refs {
         let old_remote_ref = RemoteRef {
             target: old_target.clone(),
             state: old_state,
         };
-        changed_remote_refs.insert(ref_name, (old_remote_ref, RefTarget::absent()));
+        changed_remote_refs.insert(
+            (kind, symbol.to_owned()),
+            (old_remote_ref, RefTarget::absent()),
+        );
     }
 
     // Stabilize output
@@ -650,17 +655,20 @@ fn diff_refs_to_import(
     })
 }
 
-fn default_remote_ref_state_for(ref_name: &RefName, git_settings: &GitSettings) -> RemoteRefState {
-    match ref_name {
-        // LocalBranch means Git-tracking branch
-        RefName::LocalBranch(_) | RefName::Tag(_) => RemoteRefState::Tracking,
-        RefName::RemoteBranch(_) => {
-            if git_settings.auto_local_bookmark {
+fn default_remote_ref_state_for(
+    kind: GitRefKind,
+    symbol: RemoteRefSymbol<'_>,
+    git_settings: &GitSettings,
+) -> RemoteRefState {
+    match kind {
+        GitRefKind::Bookmark => {
+            if symbol.remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO || git_settings.auto_local_bookmark {
                 RemoteRefState::Tracking
             } else {
                 RemoteRefState::New
             }
         }
+        GitRefKind::Tag => RemoteRefState::Tracking,
     }
 }
 

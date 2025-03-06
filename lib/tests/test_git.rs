@@ -1463,9 +1463,9 @@ fn test_import_refs_missing_git_commit() {
     assert_matches!(
         result,
         Err(GitImportError::MissingRefAncestor {
-            ref_name,
+            symbol,
             err: BackendError::ObjectNotFound { .. }
-        }) if &ref_name == "main"
+        }) if symbol == remote_symbol("main", "git")
     );
 
     // Missing commit is ancestor of HEAD
@@ -3086,12 +3086,9 @@ fn test_fetch_multiple_branches() {
             .changed_remote_refs
             .keys()
             .collect_vec(),
-        vec![&RefName::RemoteBranch(
-            RemoteRefSymbol {
-                name: "main",
-                remote: "origin",
-            }
-            .to_owned()
+        vec![&(
+            GitRefKind::Bookmark,
+            remote_symbol("main", "origin").to_owned()
         )]
     );
 }
