@@ -564,11 +564,10 @@ jj currently does not support partial clones. To use jj with this repository, tr
         fn from(err: GitPushError) -> Self {
             match err {
                 GitPushError::NoSuchRemote(_) => user_error(err),
-                GitPushError::RemoteWithSlash(_) => user_error_with_hint(
+                GitPushError::RemoteName(_) => user_error_with_hint(
                     err,
                     "Run `jj git remote rename` to give a different name.",
                 ),
-                GitPushError::RemoteReservedForLocalGitRepo => user_error(err),
                 GitPushError::RefInUnexpectedLocation(refs) => user_error_with_hint(
                     format!(
                         "Refusing to push a bookmark that unexpectedly moved on the remote. \

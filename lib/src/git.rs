@@ -66,6 +66,27 @@ const UNBORN_ROOT_REF_NAME: &str = "refs/jj/root";
 /// commit with a conflict that isn't represented in the Git index.
 const INDEX_DUMMY_CONFLICT_FILE: &str = ".jj-do-not-resolve-this-conflict";
 
+#[derive(Debug, Error)]
+pub enum GitRemoteNameError {
+    #[error(
+        "Git remote named '{name}' is reserved for local Git repository",
+        name = REMOTE_NAME_FOR_LOCAL_GIT_REPO
+    )]
+    ReservedForLocalGitRepo,
+    #[error("Git remotes with slashes are incompatible with jj: {0}")]
+    WithSlash(String),
+}
+
+fn validate_remote_name(name: &str) -> Result<(), GitRemoteNameError> {
+    if name == REMOTE_NAME_FOR_LOCAL_GIT_REPO {
+        Err(GitRemoteNameError::ReservedForLocalGitRepo)
+    } else if name.contains("/") {
+        Err(GitRemoteNameError::WithSlash(name.to_owned()))
+    } else {
+        Ok(())
+    }
+}
+
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Hash, Debug)]
 pub enum RefName {
     LocalBranch(String),
@@ -1301,13 +1322,8 @@ pub enum GitRemoteManagementError {
     NoSuchRemote(String),
     #[error("Git remote named '{0}' already exists")]
     RemoteAlreadyExists(String),
-    #[error("Git remotes with slashes are incompatible with jj: {0}")]
-    RemoteWithSlash(String),
-    #[error(
-        "Git remote named '{name}' is reserved for local Git repository",
-        name = REMOTE_NAME_FOR_LOCAL_GIT_REPO
-    )]
-    RemoteReservedForLocalGitRepo,
+    #[error(transparent)]
+    RemoteName(#[from] GitRemoteNameError),
     #[error(transparent)]
     InternalGitError(git2::Error),
 }
@@ -1357,13 +1373,7 @@ pub fn add_remote(
     remote_name: &str,
     url: &str,
 ) -> Result<(), GitRemoteManagementError> {
-    if remote_name == REMOTE_NAME_FOR_LOCAL_GIT_REPO {
-        return Err(GitRemoteManagementError::RemoteReservedForLocalGitRepo);
-    } else if remote_name.contains("/") {
-        return Err(GitRemoteManagementError::RemoteWithSlash(
-            remote_name.to_owned(),
-        ));
-    }
+    validate_remote_name(remote_name)?;
     git_repo.remote(remote_name, url).map_err(|err| {
         if is_remote_exists_err(&err) {
             GitRemoteManagementError::RemoteAlreadyExists(remote_name.to_owned())
@@ -1413,13 +1423,7 @@ pub fn rename_remote(
     old_remote_name: &str,
     new_remote_name: &str,
 ) -> Result<(), GitRemoteManagementError> {
-    if new_remote_name == REMOTE_NAME_FOR_LOCAL_GIT_REPO {
-        return Err(GitRemoteManagementError::RemoteReservedForLocalGitRepo);
-    } else if new_remote_name.contains("/") {
-        return Err(GitRemoteManagementError::RemoteWithSlash(
-            new_remote_name.to_owned(),
-        ));
-    }
+    validate_remote_name(new_remote_name)?;
     git_repo
         .remote_rename(old_remote_name, new_remote_name)
         .map_err(|err| {
@@ -1442,13 +1446,7 @@ pub fn set_remote_url(
     remote_name: &str,
     new_remote_url: &str,
 ) -> Result<(), GitRemoteManagementError> {
-    if remote_name == REMOTE_NAME_FOR_LOCAL_GIT_REPO {
-        return Err(GitRemoteManagementError::RemoteReservedForLocalGitRepo);
-    } else if remote_name.contains("/") {
-        return Err(GitRemoteManagementError::RemoteWithSlash(
-            remote_name.to_owned(),
-        ));
-    }
+    validate_remote_name(remote_name)?;
 
     // Repository::remote_set_url() doesn't ensure the remote exists, it just
     // creates it if it's missing.
@@ -1870,13 +1868,8 @@ fn subprocess_get_default_branch(
 pub enum GitPushError {
     #[error("No git remote named '{0}'")]
     NoSuchRemote(String),
-    #[error("Git remotes with slashes are incompatible with jj: {0}")]
-    RemoteWithSlash(String),
-    #[error(
-        "Git remote named '{name}' is reserved for local Git repository",
-        name = REMOTE_NAME_FOR_LOCAL_GIT_REPO
-    )]
-    RemoteReservedForLocalGitRepo,
+    #[error(transparent)]
+    RemoteName(#[from] GitRemoteNameError),
     #[error("Refs in unexpected location: {0:?}")]
     RefInUnexpectedLocation(Vec<String>),
     #[error("Remote rejected the update of some refs (do you have permission to push to {0:?}?)")]
@@ -1914,11 +1907,7 @@ pub fn push_branches(
     targets: &GitBranchPushTargets,
     callbacks: RemoteCallbacks<'_>,
 ) -> Result<(), GitPushError> {
-    if remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO {
-        return Err(GitPushError::RemoteReservedForLocalGitRepo);
-    } else if remote.contains("/") {
-        return Err(GitPushError::RemoteWithSlash(remote.to_owned()));
-    }
+    validate_remote_name(remote)?;
 
     let ref_updates = targets
         .branch_updates

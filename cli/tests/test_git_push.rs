@@ -2098,6 +2098,7 @@ fn test_git_push_to_remote_named_git(subprocess: bool) {
       Add bookmark bookmark1 to d13ecdbda2a2
       Add bookmark bookmark2 to 8476341eb395
     Error: Git remote named 'git' is reserved for local Git repository
+    Hint: Run `jj git remote rename` to give a different name.
     [EOF]
     [exit status: 1]
     ");
