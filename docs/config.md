@@ -1455,13 +1455,18 @@ services. It is an error for both of these files to exist.
 | Windows  | `{FOLDERID_RoamingAppData}\jj\config.toml`         | `C:\Users\Alice\AppData\Roaming\jj\config.toml`           |
 
 The location of the `jj` config file can also be overridden with the
-`JJ_CONFIG` environment variable. If it is not empty, it should contain the path
-to a TOML file that will be used instead of any configuration file in the
-default locations. For example,
+`JJ_CONFIG` environment variable. If it is not empty, it will be used instead
+of any configuration file in the default locations. If it is a path to a TOML
+file, then that file will be loaded instead. If it is a path to a directory,
+then all the TOML files in that directory will be loaded in lexicographic order
+and merged. This allows you to split your configuration across multiple files
+and can combine well with [Conditional Variables](#conditional-variables).
 
+For example,
 ```shell
 env JJ_CONFIG=/dev/null jj log       # Ignores any settings specified in the config file.
 ```
+could be used to run jj without loading any user configs.
 
 ### JSON Schema Support
 
@@ -1525,12 +1530,14 @@ jj --config-file=extra-config.toml log
 
 ### Conditional variables
 
-You can conditionally enable config variables by using `--when` and
-`[[--scope]]` tables. Variables defined in `[[--scope]]` tables are expanded to
-the root table. `--when` specifies the condition to enable the scope table.
+You can conditionally enable config variables by using `--when`.
 
-If no conditions are specified, table is always enabled. If multiple conditions
-are specified, the intersection is used.
+#### Using `[[--scope]]` tables
+Variables defined in `[[--scope]]` tables are expanded to the root table.
+`--when` specifies the condition to enable the scope table.
+
+If no conditions are specified, the table is always enabled. If multiple
+conditions are specified, their intersection is used.
 
 ```toml
 [user]
@@ -1554,7 +1561,38 @@ paginate = "never"
 pager = "delta"
 ```
 
-Condition keys:
+#### Using multiple files
+`--when` can also be used on the top level of a TOML file, which is convenient
+when splitting your config across multiple files using [`JJ_CONFIG`](#user-config-file).
+The behavior of conditions are the same as when using `[[--scope]]` tables.
+
+Note that the TOML files are read and merged in lexicographical order. This
+means that in the below example `work.toml` will override `config.toml`, but if
+`work.toml` would be renamed `at_work.toml` the overriding would not work as
+intended.
+
+```toml
+# In config.toml
+[user]
+name = "YOUR NAME"
+email = "YOUR_DEFAULT_EMAIL@example.com"
+```
+
+```toml
+# In work.toml
+--when.repositories = ["~/the/work/repo"]
+
+[user]
+email = "YOUR_WORK_EMAIL@workplace.com"
+
+[revset-aliases]
+work = "heads(::@ ~ description(exact:''))::"
+
+[aliases]
+wip = ["log", "-r", "work"]
+```
+
+#### Available condition keys
 
 * `--when.repositories`: List of paths to match the repository path prefix.
 
