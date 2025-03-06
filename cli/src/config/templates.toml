@@ -56,6 +56,14 @@ log = 'builtin_log_compact'
 op_log = 'builtin_op_log_compact'
 show = 'builtin_log_detailed'
 
+revert_description = '''
+concat(
+  'Revert "' ++ description.first_line() ++ '"' ++ "\n",
+  "\n",
+  "This reverts commit " ++ commit_id ++ ".\n",
+)
+'''
+
 tag_list = '''
 label("tag", name) ++ format_ref_targets(self) ++ "\n"
 '''
