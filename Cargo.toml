@@ -44,7 +44,7 @@ crossterm = { version = "0.28", default-features = false, features = ["windows"]
 digest = "0.10.7"
 dirs = "6.0.0"
 dunce = "1.0.5"
-either = "1.14.0"
+either = "1.15.0"
 futures = "0.3.31"
 git2 = { version = "0.19.0", features = [
     # Do *not* disable this feature even if you'd like dynamic linking. Instead,
@@ -67,7 +67,7 @@ hashbrown = { version = "0.15.2", default-features = false, features = ["inline-
 hex = "0.4.3"
 ignore = "0.4.23"
 indexmap = { version = "2.7.1", features = ["serde"] }
-indoc = "2.0.4"
+indoc = "2.0.6"
 insta = { version = "1.42.2", features = ["filters"] }
 itertools = "0.13.0"
 libc = { version = "0.2.170" }
@@ -106,7 +106,7 @@ strsim = "0.11.1"
 syn = "2.0.99"
 tempfile = "3.17.1"
 test-case = "3.3.1"
-textwrap = "0.16.1"
+textwrap = "0.16.2"
 thiserror = "2.0.12"
 timeago = { version = "0.4.2", default-features = false }
 tokio = { version = "1.43.0" }
