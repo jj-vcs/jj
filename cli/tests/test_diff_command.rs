@@ -2601,7 +2601,7 @@ fn test_diff_external_tool_conflict_marker_style() {
     insta::assert_snapshot!(output, @"");
     // Conflicts should render using "snapshot" format
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("file")).unwrap(), @r##"
+        std::fs::read_to_string(test_env.env_root().join("file")).unwrap(), @r"
     line 1
     line 2.1
     line 2.2
@@ -2617,7 +2617,7 @@ fn test_diff_external_tool_conflict_marker_style() {
     line 4.3
     >>>>>>> Conflict 1 of 1 ends
     line 5
-    "##);
+    ");
 }
 
 #[test]

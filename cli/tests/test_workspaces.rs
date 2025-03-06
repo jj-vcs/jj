@@ -952,9 +952,7 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
     insta::allow_duplicates! {
         // The modified file should have the same contents it had before (not reset to
         // the base contents)
-        insta::assert_snapshot!(std::fs::read_to_string(secondary_path.join("modified")).unwrap(), @r###"
-        secondary
-        "###);
+        insta::assert_snapshot!(std::fs::read_to_string(secondary_path.join("modified")).unwrap(), @"secondary");
     }
 
     let output = test_env.run_jj_in(&secondary_path, ["evolog"]);

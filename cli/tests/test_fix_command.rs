@@ -766,7 +766,7 @@ fn test_fix_immutable_commit() {
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "immutable""#);
 
     let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "immutable"]);
-    insta::assert_snapshot!(output, @r##"
+    insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: Commit e4b41a3ce243 is immutable
     Hint: Could not modify commit: qpvuntsm e4b41a3c immutable | (no description set)
@@ -777,7 +777,7 @@ fn test_fix_immutable_commit() {
     Hint: This operation would rewrite 1 immutable commits.
     [EOF]
     [exit status: 1]
-    "##);
+    "#);
     let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "immutable"]);
     insta::assert_snapshot!(output, @"immutable[EOF]");
     let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "mutable"]);
@@ -921,7 +921,10 @@ fn test_deduplication() {
     // Each new content string only appears once in the log, because all the other
     // inputs (like file name) were identical, and so the results were reused. We
     // sort the log because the order of execution inside `jj fix` is undefined.
-    insta::assert_snapshot!(sorted_lines(repo_path.join("file-fixlog")), @"BAR\nFOO\n");
+    insta::assert_snapshot!(sorted_lines(repo_path.join("file-fixlog")), @r"
+    BAR
+    FOO
+    ");
 }
 
 fn sorted_lines(path: PathBuf) -> String {
@@ -954,7 +957,7 @@ fn test_executed_but_nothing_changed() {
     [EOF]
     ");
     let copy_content = std::fs::read_to_string(repo_path.join("file-copy").as_os_str()).unwrap();
-    insta::assert_snapshot!(copy_content, @"content\n");
+    insta::assert_snapshot!(copy_content, @"content");
 
     // fix tools are always run from the workspace root, regardless of working
     // directory at time of invocation.
@@ -968,7 +971,10 @@ fn test_executed_but_nothing_changed() {
     ");
 
     let copy_content = std::fs::read_to_string(repo_path.join("file-copy").as_os_str()).unwrap();
-    insta::assert_snapshot!(copy_content, @"content\ncontent\n");
+    insta::assert_snapshot!(copy_content, @r"
+    content
+    content
+    ");
     assert!(!repo_path.join("dir").join("file-copy").exists());
 }
 

@@ -943,8 +943,7 @@ fn test_bookmark_delete_export() {
     ");
 
     test_env.run_jj_in(&repo_path, ["git", "export"]).success();
-    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r###"
-    "###);
+    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @"");
 }
 
 #[test]

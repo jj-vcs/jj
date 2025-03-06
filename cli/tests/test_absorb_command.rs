@@ -775,7 +775,7 @@ fn test_absorb_immutable() {
 
     // Immutable revisions shouldn't be rewritten
     let output = test_env.run_jj_in(&repo_path, ["absorb", "--into=all()"]);
-    insta::assert_snapshot!(output, @r##"
+    insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: Commit 3619e4e52fce is immutable
     Hint: Could not modify commit: qpvuntsm 3619e4e5 main | 1
@@ -786,7 +786,7 @@ fn test_absorb_immutable() {
     Hint: This operation would rewrite 1 immutable commits.
     [EOF]
     [exit status: 1]
-    "##);
+    "#);
 
     insta::assert_snapshot!(get_diffs(&test_env, &repo_path, ".."), @r"
     @  mzvwutvl 3021153d (no description set)

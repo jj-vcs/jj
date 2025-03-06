@@ -181,9 +181,7 @@ fn test_sparse_manage_patterns() {
     Added 2 files, modified 0 files, removed 1 files
     [EOF]
     ");
-    insta::assert_snapshot!(read_patterns(), @r###"
-    file1
-    "###);
+    insta::assert_snapshot!(read_patterns(), @"file1");
     let output = test_env.run_jj_in(&sub_dir, ["sparse", "list"]);
     insta::assert_snapshot!(output, @r"
     file2

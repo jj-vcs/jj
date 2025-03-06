@@ -296,12 +296,12 @@ fn test_new_insert_after_children() {
             "C",
         ],
     );
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Refusing to create a loop: commit 83376b270925 would be both an ancestor and a descendant of the new commit
     [EOF]
     [exit status: 1]
-    "#);
+    ");
 }
 
 #[test]

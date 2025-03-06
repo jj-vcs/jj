@@ -50,14 +50,14 @@ fn test_diffedit() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @r###"
+        std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @r"
     You are editing changes in: kkmpptxz 3d4cce89 (no description set)
 
     The diff initially shows the commit's changes.
 
     Adjust the right side until it shows the contents you want. If you
     don't make any changes, then the operation will be aborted.
-    "###);
+    ");
     let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
     insta::assert_snapshot!(output, @r"
     D file1
@@ -157,9 +157,7 @@ fn test_diffedit() {
     [EOF]
     ");
     let contents = String::from_utf8(std::fs::read(repo_path.join("file3")).unwrap()).unwrap();
-    insta::assert_snapshot!(contents, @r###"
-    modified
-    "###);
+    insta::assert_snapshot!(contents, @"modified");
 
     // Test diffedit --from @--
     test_env.run_jj_in(&repo_path, ["undo"]).success();
@@ -372,7 +370,7 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     ");
     // Conflicts should render using "snapshot" format in diff editor
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("before-file")).unwrap(), @r##"
+        std::fs::read_to_string(test_env.env_root().join("before-file")).unwrap(), @r"
     line 1
     <<<<<<< Conflict 1 of 2
     +++++++ Contents of side #1
@@ -394,9 +392,9 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     line 4.3
     >>>>>>> Conflict 2 of 2 ends
     line 5
-    "##);
+    ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("after-file")).unwrap(), @r##"
+        std::fs::read_to_string(test_env.env_root().join("after-file")).unwrap(), @r"
     line 1
     line 2.1
     line 2.2
@@ -412,10 +410,10 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     line 4.3
     >>>>>>> Conflict 1 of 1 ends
     line 5
-    "##);
+    ");
     // Conflicts should be materialized using "diff" format in working copy
     insta::assert_snapshot!(
-        std::fs::read_to_string(&file_path).unwrap(), @r##"
+        std::fs::read_to_string(&file_path).unwrap(), @r"
     line 1
     <<<<<<< Conflict 1 of 2
     +++++++ Contents of side #1
@@ -435,7 +433,7 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     line 4.3
     >>>>>>> Conflict 2 of 2 ends
     line 5
-    "##);
+    ");
 
     // File should be conflicted with no changes
     let output = test_env.run_jj_in(&repo_path, ["st"]);

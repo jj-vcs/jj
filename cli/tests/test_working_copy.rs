@@ -234,7 +234,7 @@ fn test_materialize_and_snapshot_different_conflict_markers() {
         .success();
 
     // File should have Git-style conflict markers
-    insta::assert_snapshot!(std::fs::read_to_string(&conflict_file).unwrap(), @r##"
+    insta::assert_snapshot!(std::fs::read_to_string(&conflict_file).unwrap(), @r"
     line 1
     <<<<<<< Side #1 (Conflict 1 of 1)
     line 2 - a
@@ -246,7 +246,7 @@ fn test_materialize_and_snapshot_different_conflict_markers() {
     line 2 - b
     line 3 - b
     >>>>>>> Side #2 (Conflict 1 of 1 ends)
-    "##);
+    ");
 
     // Configure to use JJ-style "snapshot" conflict markers
     test_env.add_config(r#"ui.conflict-marker-style = "snapshot""#);
@@ -374,7 +374,7 @@ fn test_conflict_marker_length_stored_in_working_copy() {
         .success();
 
     // File should be materialized with long conflict markers
-    insta::assert_snapshot!(std::fs::read_to_string(&conflict_file).unwrap(), @r##"
+    insta::assert_snapshot!(std::fs::read_to_string(&conflict_file).unwrap(), @r"
     line 1
     <<<<<<<<<<< Conflict 1 of 1
     %%%%%%%%%%% Changes from base to side #1
@@ -388,7 +388,7 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     ======= fake marker
     line 3
     >>>>>>>>>>> Conflict 1 of 1 ends
-    "##);
+    ");
 
     // The timestamps in the `jj debug local-working-copy` output change, so we want
     // to remove them before asserting the snapshot

@@ -358,7 +358,7 @@ fn test_log_null_terminate_multiline_descriptions() {
         .success();
     insta::assert_debug_snapshot!(
         output.stdout.normalized(),
-        @r###""commit 3 line 1\n\ncommit 3 line 2\n\0commit 2 line 1\n\ncommit 2 line 2\n\0commit 1 line 1\n\ncommit 1 line 2\n\0""###
+        @r#""commit 3 line 1\n\ncommit 3 line 2\n\0commit 2 line 1\n\ncommit 2 line 2\n\0commit 1 line 1\n\ncommit 1 line 2\n\0""#
     );
 }
 
@@ -1134,8 +1134,7 @@ fn test_log_warn_path_might_be_revset() {
 
     // If an explicit revision is provided, then suppress the warning.
     let output = test_env.run_jj_in(&repo_path, ["log", "@", "-r", "@", "-T", "description"]);
-    insta::assert_snapshot!(output, @r###"
-    "###);
+    insta::assert_snapshot!(output, @"");
 }
 
 #[test]

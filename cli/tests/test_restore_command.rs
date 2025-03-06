@@ -185,7 +185,7 @@ fn test_restore_conflicted_merge() {
     ");
     insta::assert_snapshot!(
     std::fs::read_to_string(repo_path.join("file")).unwrap()
-        , @r###"
+        , @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
     -base
@@ -193,7 +193,7 @@ fn test_restore_conflicted_merge() {
     +++++++ Contents of side #2
     b
     >>>>>>> Conflict 1 of 1 ends
-    "###);
+    ");
 
     // Overwrite the file...
     std::fs::write(repo_path.join("file"), "resolution").unwrap();
@@ -225,7 +225,7 @@ fn test_restore_conflicted_merge() {
     ");
     insta::assert_snapshot!(
     std::fs::read_to_string(repo_path.join("file")).unwrap()
-        , @r###"
+        , @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
     -base
@@ -233,7 +233,7 @@ fn test_restore_conflicted_merge() {
     +++++++ Contents of side #2
     b
     >>>>>>> Conflict 1 of 1 ends
-    "###);
+    ");
     let output = test_env.run_jj_in(&repo_path, ["diff"]);
     insta::assert_snapshot!(output, @"");
 
@@ -267,7 +267,7 @@ fn test_restore_conflicted_merge() {
     ");
     insta::assert_snapshot!(
     std::fs::read_to_string(repo_path.join("file")).unwrap()
-        , @r###"
+        , @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
     -base
@@ -275,7 +275,7 @@ fn test_restore_conflicted_merge() {
     +++++++ Contents of side #2
     b
     >>>>>>> Conflict 1 of 1 ends
-    "###);
+    ");
 }
 
 #[test]
@@ -312,9 +312,7 @@ fn test_restore_restore_descendants() {
     [EOF]
     ");
     insta::assert_snapshot!(
-    std::fs::read_to_string(repo_path.join("file")).unwrap(), @r#"
-    ab
-    "#);
+    std::fs::read_to_string(repo_path.join("file")).unwrap(), @"ab");
 
     // Commit "b" was not supposed to modify "file", restore it from its parent
     // while preserving its child commit content.

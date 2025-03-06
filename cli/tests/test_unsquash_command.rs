@@ -213,7 +213,7 @@ fn test_unsquash_partial() {
     ");
 
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @r###"
+        std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @r"
     You are moving changes from: qpvuntsm 54d3c1c0 a | (no description set)
     into its child: kkmpptxz d117da27 b | (no description set)
 
@@ -223,7 +223,7 @@ fn test_unsquash_partial() {
     the parent commit. The changes you edited out will be moved into the
     child commit. If you don't make any changes, then the operation will be
     aborted.
-    "###);
+    ");
 
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  8802263dbd92 c
@@ -382,7 +382,7 @@ fn test_unsquash_description() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r###"
+        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r#"
     JJ: Enter a description for the combined commit.
     JJ: Description from the destination commit:
     destination
@@ -391,7 +391,7 @@ fn test_unsquash_description() {
     source
 
     JJ: Lines starting with "JJ:" (like this one) will be removed.
-    "###);
+    "#);
 
     // If the source's *content* doesn't become empty, then the source remains and
     // both descriptions are unchanged

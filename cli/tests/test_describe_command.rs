@@ -55,11 +55,11 @@ fn test_describe() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r###"
+        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r#"
     description from CLI
 
     JJ: Lines starting with "JJ:" (like this one) will be removed.
-    "###);
+    "#);
 
     // Set a description in editor
     std::fs::write(&edit_script, "write\ndescription from editor").unwrap();
@@ -319,7 +319,7 @@ fn test_describe_multiple_commits() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r###"
+        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r#"
     JJ: Enter or edit commit descriptions after the `JJ: describe` lines.
     JJ: Warning:
     JJ: - The text you enter will be lost on a syntax error.
@@ -331,7 +331,7 @@ fn test_describe_multiple_commits() {
     description from CLI
 
     JJ: Lines starting with "JJ: " (like this one) will be removed.
-    "###);
+    "#);
 
     // Set the description of multiple commits in the editor
     std::fs::write(
@@ -640,7 +640,7 @@ fn test_describe_default_description() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r###"
+        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
     TESTED=TODO
 
     JJ: This commit contains the following changes:
@@ -648,7 +648,7 @@ fn test_describe_default_description() {
     JJ:     A file2
 
     JJ: Lines starting with "JJ:" (like this one) will be removed.
-    "###);
+    "#);
 }
 
 #[test]
@@ -727,14 +727,14 @@ fn test_describe_author() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r###"
+        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
     JJ: Author: Super Seeder <super.seeder@example.com> (2001-02-03 08:05:12)
     JJ: Committer: Test User <test.user@example.com> (2001-02-03 08:05:12)
 
     JJ: 0 files changed, 0 insertions(+), 0 deletions(-)
 
     JJ: Lines starting with "JJ:" (like this one) will be removed.
-    "###);
+    "#);
 
     // Change the author for multiple commits (the committer is always reset)
     test_env

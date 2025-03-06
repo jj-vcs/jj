@@ -626,12 +626,12 @@ fn test_config_set_for_repo() {
                 expected_repo_config_path.display()
             )
         });
-    insta::assert_snapshot!(repo_config_toml, @r###"
+    insta::assert_snapshot!(repo_config_toml, @r#"
     test-key = "test-val"
 
     [test-table]
     foo = true
-    "###);
+    "#);
 }
 
 #[test]
@@ -654,7 +654,7 @@ fn test_config_set_toml_types() {
     set_value("test-table.boolean", "true");
     set_value("test-table.string", r#""foo""#);
     set_value("test-table.invalid", r"a + b");
-    insta::assert_snapshot!(std::fs::read_to_string(&user_config_path).unwrap(), @r###"
+    insta::assert_snapshot!(std::fs::read_to_string(&user_config_path).unwrap(), @r#"
     [test-table]
     integer = 42
     float = 3.14
@@ -662,7 +662,7 @@ fn test_config_set_toml_types() {
     boolean = true
     string = "foo"
     invalid = "a + b"
-    "###);
+    "#);
 }
 
 #[test]
@@ -853,9 +853,7 @@ fn test_config_unset_for_user() {
         .success();
 
     let user_config_toml = std::fs::read_to_string(&user_config_path).unwrap();
-    insta::assert_snapshot!(user_config_toml, @r#"
-        [table]
-        "#);
+    insta::assert_snapshot!(user_config_toml, @"[table]");
 }
 
 #[test]

@@ -1065,5 +1065,5 @@ fn test_files() {
 
     let outside_repo = test_env.env_root();
     let output = test_env.run_jj_in(outside_repo, ["--", "jj", "log", "f_"]);
-    insta::assert_snapshot!(output, @r"");
+    insta::assert_snapshot!(output, @"");
 }

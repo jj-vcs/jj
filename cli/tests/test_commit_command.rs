@@ -57,11 +57,11 @@ fn test_commit_with_editor() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r###"
+        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r#"
     initial
 
     JJ: Lines starting with "JJ:" (like this one) will be removed.
-    "###);
+    "#);
 
     // Check that the editor content includes diff summary
     std::fs::write(workspace_path.join("file1"), "foo\n").unwrap();
@@ -72,7 +72,7 @@ fn test_commit_with_editor() {
     std::fs::write(&edit_script, "dump editor1").unwrap();
     test_env.run_jj_in(&workspace_path, ["commit"]).success();
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor1")).unwrap(), @r###"
+        std::fs::read_to_string(test_env.env_root().join("editor1")).unwrap(), @r#"
     add files
 
     JJ: This commit contains the following changes:
@@ -80,7 +80,7 @@ fn test_commit_with_editor() {
     JJ:     A file2
 
     JJ: Lines starting with "JJ:" (like this one) will be removed.
-    "###);
+    "#);
 }
 
 #[test]
@@ -125,23 +125,23 @@ fn test_commit_interactive() {
         .success();
 
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @r###"
+        std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @r"
     You are splitting the working-copy commit: qpvuntsm 4219467e add files
 
     The diff initially shows all changes. Adjust the right side until it shows the
     contents you want for the first commit. The remainder will be included in the
     new working-copy commit.
-    "###);
+    ");
 
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r###"
+        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
     add files
 
     JJ: This commit contains the following changes:
     JJ:     A file1
 
     JJ: Lines starting with "JJ:" (like this one) will be removed.
-    "###);
+    "#);
 
     // Try again with --tool=<name>, which implies --interactive
     test_env.run_jj_in(&workspace_path, ["undo"]).success();
@@ -157,14 +157,14 @@ fn test_commit_interactive() {
         .success();
 
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r###"
+        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
     add files
 
     JJ: This commit contains the following changes:
     JJ:     A file1
 
     JJ: Lines starting with "JJ:" (like this one) will be removed.
-    "###);
+    "#);
 
     let output = test_env.run_jj_in(&workspace_path, ["log", "--summary"]);
     insta::assert_snapshot!(output, @r"
@@ -262,7 +262,7 @@ fn test_commit_with_default_description() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r###"
+        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
     TESTED=TODO
 
     JJ: This commit contains the following changes:
@@ -270,7 +270,7 @@ fn test_commit_with_default_description() {
     JJ:     A file2
 
     JJ: Lines starting with "JJ:" (like this one) will be removed.
-    "###);
+    "#);
 }
 
 #[test]
@@ -311,7 +311,7 @@ fn test_commit_with_description_template() {
         .run_jj_in(&workspace_path, ["commit", "file1"])
         .success();
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r###"
+        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
     JJ: Author: Test User <test.user@example.com> (2001-02-03 08:05:08)
     JJ: Committer: Test User <test.user@example.com> (2001-02-03 08:05:08)
 
@@ -319,7 +319,7 @@ fn test_commit_with_description_template() {
     JJ: 1 file changed, 1 insertion(+), 0 deletions(-)
 
     JJ: Lines starting with "JJ:" (like this one) will be removed.
-    "###);
+    "#);
 
     // Only file2 with modified author should be included in the diff
     test_env
@@ -334,7 +334,7 @@ fn test_commit_with_description_template() {
         )
         .success();
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r###"
+        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
     JJ: Author: Another User <another.user@example.com> (2001-02-03 08:05:08)
     JJ: Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
 
@@ -342,14 +342,14 @@ fn test_commit_with_description_template() {
     JJ: 1 file changed, 1 insertion(+), 0 deletions(-)
 
     JJ: Lines starting with "JJ:" (like this one) will be removed.
-    "###);
+    "#);
 
     // Timestamp after the reset should be available to the template
     test_env
         .run_jj_in(&workspace_path, ["commit", "--reset-author"])
         .success();
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r###"
+        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
     JJ: Author: Test User <test.user@example.com> (2001-02-03 08:05:10)
     JJ: Committer: Test User <test.user@example.com> (2001-02-03 08:05:10)
 
@@ -357,7 +357,7 @@ fn test_commit_with_description_template() {
     JJ: 1 file changed, 1 insertion(+), 0 deletions(-)
 
     JJ: Lines starting with "JJ:" (like this one) will be removed.
-    "###);
+    "#);
 }
 
 #[test]

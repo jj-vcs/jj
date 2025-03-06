@@ -945,22 +945,22 @@ fn test_git_colocated_update_index_preserves_timestamps() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    insta::assert_snapshot!(get_index_state(&repo_path), @r"
     Unconflicted Mode(FILE) ed48318d9bf4 ctime=0:0 mtime=0:0 size=0 file1.txt
     Unconflicted Mode(FILE) 2e0996000b7e ctime=0:0 mtime=0:0 size=0 file2.txt
     Unconflicted Mode(FILE) d5f7fc3f74f7 ctime=0:0 mtime=0:0 size=0 file4.txt
-    "#);
+    ");
 
     // Update index with stats for all files. We may want to do this automatically
     // in the future after we update the index in `git::reset_head` (#3786), but for
     // now, we at least want to preserve existing stat information when possible.
     update_git_index(&repo_path);
 
-    insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    insta::assert_snapshot!(get_index_state(&repo_path), @r"
     Unconflicted Mode(FILE) ed48318d9bf4 ctime=[nonzero] mtime=[nonzero] size=18 file1.txt
     Unconflicted Mode(FILE) 2e0996000b7e ctime=[nonzero] mtime=[nonzero] size=9 file2.txt
     Unconflicted Mode(FILE) d5f7fc3f74f7 ctime=[nonzero] mtime=[nonzero] size=6 file4.txt
-    "#);
+    ");
 
     // Edit parent commit, causing the changes to be removed from the index without
     // touching the working copy
@@ -976,11 +976,11 @@ fn test_git_colocated_update_index_preserves_timestamps() {
     ");
 
     // Index should contain stat for unchanged file still.
-    insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    insta::assert_snapshot!(get_index_state(&repo_path), @r"
     Unconflicted Mode(FILE) ed48318d9bf4 ctime=[nonzero] mtime=[nonzero] size=18 file1.txt
     Unconflicted Mode(FILE) 28d2718c947b ctime=0:0 mtime=0:0 size=0 file2.txt
     Unconflicted Mode(FILE) 528557ab3a42 ctime=0:0 mtime=0:0 size=0 file3.txt
-    "#);
+    ");
 
     // Create sibling commit, causing working copy to match index
     test_env.run_jj_in(&repo_path, ["new", "commit1"]).success();
@@ -995,11 +995,11 @@ fn test_git_colocated_update_index_preserves_timestamps() {
     ");
 
     // Index should contain stat for unchanged file still.
-    insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    insta::assert_snapshot!(get_index_state(&repo_path), @r"
     Unconflicted Mode(FILE) ed48318d9bf4 ctime=[nonzero] mtime=[nonzero] size=18 file1.txt
     Unconflicted Mode(FILE) 28d2718c947b ctime=0:0 mtime=0:0 size=0 file2.txt
     Unconflicted Mode(FILE) 528557ab3a42 ctime=0:0 mtime=0:0 size=0 file3.txt
-    "#);
+    ");
 }
 
 #[test]
@@ -1031,18 +1031,18 @@ fn test_git_colocated_update_index_merge_conflict() {
         .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "right"])
         .success();
 
-    insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    insta::assert_snapshot!(get_index_state(&repo_path), @r"
     Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 base.txt
     Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 conflict.txt
-    "#);
+    ");
 
     // Update index with stat for base.txt
     update_git_index(&repo_path);
 
-    insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    insta::assert_snapshot!(get_index_state(&repo_path), @r"
     Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 base.txt
     Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 conflict.txt
-    "#);
+    ");
 
     // Create merge conflict
     test_env
@@ -1062,14 +1062,14 @@ fn test_git_colocated_update_index_merge_conflict() {
 
     // Conflict should be added in index with correct blob IDs. The stat for
     // base.txt should not change.
-    insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    insta::assert_snapshot!(get_index_state(&repo_path), @r"
     Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 base.txt
     Base         Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 conflict.txt
     Ours         Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 conflict.txt
     Theirs       Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 conflict.txt
     Unconflicted Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 left.txt
     Unconflicted Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 right.txt
-    "#);
+    ");
 
     test_env.run_jj_in(&repo_path, ["new"]).success();
 
@@ -1086,14 +1086,14 @@ fn test_git_colocated_update_index_merge_conflict() {
     ");
 
     // Index should be the same after `jj new`.
-    insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    insta::assert_snapshot!(get_index_state(&repo_path), @r"
     Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 base.txt
     Base         Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 conflict.txt
     Ours         Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 conflict.txt
     Theirs       Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 conflict.txt
     Unconflicted Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 left.txt
     Unconflicted Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 right.txt
-    "#);
+    ");
 }
 
 #[test]
@@ -1136,18 +1136,18 @@ fn test_git_colocated_update_index_rebase_conflict() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    insta::assert_snapshot!(get_index_state(&repo_path), @r"
     Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 base.txt
     Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 conflict.txt
-    "#);
+    ");
 
     // Update index with stat for base.txt
     update_git_index(&repo_path);
 
-    insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    insta::assert_snapshot!(get_index_state(&repo_path), @r"
     Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 base.txt
     Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 conflict.txt
-    "#);
+    ");
 
     // Create rebase conflict
     test_env
@@ -1164,11 +1164,11 @@ fn test_git_colocated_update_index_rebase_conflict() {
 
     // Index should contain files from parent commit, so there should be no conflict
     // in conflict.txt yet. The stat for base.txt should not change.
-    insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    insta::assert_snapshot!(get_index_state(&repo_path), @r"
     Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 base.txt
     Unconflicted Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 conflict.txt
     Unconflicted Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 right.txt
-    "#);
+    ");
 
     test_env.run_jj_in(&repo_path, ["new"]).success();
 
@@ -1183,14 +1183,14 @@ fn test_git_colocated_update_index_rebase_conflict() {
 
     // Now the working copy commit's parent is conflicted, so the index should have
     // a conflict with correct blob IDs.
-    insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    insta::assert_snapshot!(get_index_state(&repo_path), @r"
     Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 base.txt
     Base         Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 conflict.txt
     Ours         Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 conflict.txt
     Theirs       Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 conflict.txt
     Unconflicted Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 left.txt
     Unconflicted Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 right.txt
-    "#);
+    ");
 }
 
 #[test]
@@ -1229,18 +1229,18 @@ fn test_git_colocated_update_index_3_sided_conflict() {
         .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "side-3"])
         .success();
 
-    insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    insta::assert_snapshot!(get_index_state(&repo_path), @r"
     Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 base.txt
     Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 conflict.txt
-    "#);
+    ");
 
     // Update index with stat for base.txt
     update_git_index(&repo_path);
 
-    insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    insta::assert_snapshot!(get_index_state(&repo_path), @r"
     Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 base.txt
     Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 conflict.txt
-    "#);
+    ");
 
     // Create 3-sided merge conflict
     test_env
@@ -1262,14 +1262,14 @@ fn test_git_colocated_update_index_3_sided_conflict() {
 
     // We can't add conflicts with more than 2 sides to the index, so we add a dummy
     // conflict instead. The stat for base.txt should not change.
-    insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    insta::assert_snapshot!(get_index_state(&repo_path), @r"
     Ours         Mode(FILE) eb8299123d2a ctime=0:0 mtime=0:0 size=0 .jj-do-not-resolve-this-conflict
     Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 base.txt
     Unconflicted Mode(FILE) dd8f930010b3 ctime=0:0 mtime=0:0 size=0 conflict.txt
     Unconflicted Mode(FILE) dd8f930010b3 ctime=0:0 mtime=0:0 size=0 side-1.txt
     Unconflicted Mode(FILE) 7b44e11df720 ctime=0:0 mtime=0:0 size=0 side-2.txt
     Unconflicted Mode(FILE) 42f37a71bf20 ctime=0:0 mtime=0:0 size=0 side-3.txt
-    "#);
+    ");
 
     test_env.run_jj_in(&repo_path, ["new"]).success();
 
@@ -1288,27 +1288,27 @@ fn test_git_colocated_update_index_3_sided_conflict() {
     ");
 
     // Index should be the same after `jj new`.
-    insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    insta::assert_snapshot!(get_index_state(&repo_path), @r"
     Ours         Mode(FILE) eb8299123d2a ctime=0:0 mtime=0:0 size=0 .jj-do-not-resolve-this-conflict
     Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 base.txt
     Unconflicted Mode(FILE) dd8f930010b3 ctime=0:0 mtime=0:0 size=0 conflict.txt
     Unconflicted Mode(FILE) dd8f930010b3 ctime=0:0 mtime=0:0 size=0 side-1.txt
     Unconflicted Mode(FILE) 7b44e11df720 ctime=0:0 mtime=0:0 size=0 side-2.txt
     Unconflicted Mode(FILE) 42f37a71bf20 ctime=0:0 mtime=0:0 size=0 side-3.txt
-    "#);
+    ");
 
     // If we add a file named ".jj-do-not-resolve-this-conflict", it should take
     // precedence over the dummy conflict.
     std::fs::write(repo_path.join(".jj-do-not-resolve-this-conflict"), "file\n").unwrap();
     test_env.run_jj_in(&repo_path, ["new"]).success();
-    insta::assert_snapshot!(get_index_state(&repo_path), @r#"
+    insta::assert_snapshot!(get_index_state(&repo_path), @r"
     Unconflicted Mode(FILE) f73f3093ff86 ctime=0:0 mtime=0:0 size=0 .jj-do-not-resolve-this-conflict
     Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 base.txt
     Unconflicted Mode(FILE) dd8f930010b3 ctime=0:0 mtime=0:0 size=0 conflict.txt
     Unconflicted Mode(FILE) dd8f930010b3 ctime=0:0 mtime=0:0 size=0 side-1.txt
     Unconflicted Mode(FILE) 7b44e11df720 ctime=0:0 mtime=0:0 size=0 side-2.txt
     Unconflicted Mode(FILE) 42f37a71bf20 ctime=0:0 mtime=0:0 size=0 side-3.txt
-    "#);
+    ");
 }
 
 #[must_use]

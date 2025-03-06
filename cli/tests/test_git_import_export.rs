@@ -122,7 +122,7 @@ fn test_git_export_undo() {
     Undid operation: edb40232c741 (2001-02-03 08:05:10) export git refs
     [EOF]
     ");
-    insta::assert_debug_snapshot!(get_git_repo_refs(&git_repo), @r###"
+    insta::assert_debug_snapshot!(get_git_repo_refs(&git_repo), @r#"
     [
         (
             "refs/heads/a",
@@ -131,7 +131,7 @@ fn test_git_export_undo() {
             ),
         ),
     ]
-    "###);
+    "#);
     insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["log", "-ra@git"]), @r"
     ------- stderr -------
     Error: Revision `a@git` doesn't exist
@@ -282,7 +282,7 @@ fn test_git_import_move_export_with_default_undo() {
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @"");
-    insta::assert_debug_snapshot!(get_git_repo_refs(&git_repo), @r###"
+    insta::assert_debug_snapshot!(get_git_repo_refs(&git_repo), @r#"
     [
         (
             "refs/heads/a",
@@ -291,7 +291,7 @@ fn test_git_import_move_export_with_default_undo() {
             ),
         ),
     ]
-    "###);
+    "#);
 
     // The last bookmark "a" state is imported from git. No idea what's the most
     // intuitive result here.

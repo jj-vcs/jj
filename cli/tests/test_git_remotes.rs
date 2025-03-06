@@ -302,8 +302,7 @@ fn test_git_remote_named_git() {
     let output = test_env.run_jj_in(&repo_path, ["git", "remote", "remove", "git"]);
     insta::assert_snapshot!(output, @"");
     let output = test_env.run_jj_in(&repo_path, ["git", "remote", "list"]);
-    insta::assert_snapshot!(output, @r###"
-    "###);
+    insta::assert_snapshot!(output, @"");
     // @git bookmark shouldn't be removed.
     let output = test_env.run_jj_in(&repo_path, ["log", "-rmain@git", "-Tbookmarks"]);
     insta::assert_snapshot!(output, @r"
@@ -387,8 +386,7 @@ fn test_git_remote_with_slashes() {
     let output = test_env.run_jj_in(&repo_path, ["git", "remote", "remove", "slash/origin"]);
     insta::assert_snapshot!(output, @"");
     let output = test_env.run_jj_in(&repo_path, ["git", "remote", "list"]);
-    insta::assert_snapshot!(output, @r###"
-    "###);
+    insta::assert_snapshot!(output, @"");
     // @git bookmark shouldn't be removed.
     let output = test_env.run_jj_in(&repo_path, ["log", "-rmain@git", "-Tbookmarks"]);
     insta::assert_snapshot!(output, @r"

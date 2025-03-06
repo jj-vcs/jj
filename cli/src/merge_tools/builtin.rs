@@ -728,7 +728,7 @@ mod tests {
             ConflictMarkerStyle::Diff,
         )
         .unwrap();
-        insta::assert_debug_snapshot!(files, @r###"
+        insta::assert_debug_snapshot!(files, @r#"
         [
             File {
                 old_path: None,
@@ -816,7 +816,7 @@ mod tests {
                 ],
             },
         ]
-        "###);
+        "#);
 
         let no_changes_tree_id = apply_diff_builtin(
             store,
@@ -865,7 +865,7 @@ mod tests {
             ConflictMarkerStyle::Diff,
         )
         .unwrap();
-        insta::assert_debug_snapshot!(files, @r###"
+        insta::assert_debug_snapshot!(files, @r#"
         [
             File {
                 old_path: None,
@@ -888,7 +888,7 @@ mod tests {
                 ],
             },
         ]
-        "###);
+        "#);
         let no_changes_tree_id = apply_diff_builtin(
             store,
             &left_tree,
@@ -936,7 +936,7 @@ mod tests {
             ConflictMarkerStyle::Diff,
         )
         .unwrap();
-        insta::assert_debug_snapshot!(files, @r###"
+        insta::assert_debug_snapshot!(files, @r#"
         [
             File {
                 old_path: None,
@@ -959,7 +959,7 @@ mod tests {
                 ],
             },
         ]
-        "###);
+        "#);
         let no_changes_tree_id = apply_diff_builtin(
             store,
             &left_tree,
@@ -1008,7 +1008,7 @@ mod tests {
             ConflictMarkerStyle::Diff,
         )
         .unwrap();
-        insta::assert_debug_snapshot!(files, @r###"
+        insta::assert_debug_snapshot!(files, @r#"
         [
             File {
                 old_path: None,
@@ -1031,7 +1031,7 @@ mod tests {
                 ],
             },
         ]
-        "###);
+        "#);
         let no_changes_tree_id = apply_diff_builtin(
             store,
             &left_tree,
@@ -1098,7 +1098,7 @@ mod tests {
             .unwrap();
         let merge_result = files::merge(&content);
         let sections = make_merge_sections(merge_result).unwrap();
-        insta::assert_debug_snapshot!(sections, @r###"
+        insta::assert_debug_snapshot!(sections, @r#"
         [
             Changed {
                 lines: [
@@ -1146,6 +1146,6 @@ mod tests {
                 ],
             },
         ]
-        "###);
+        "#);
     }
 }

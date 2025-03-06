@@ -405,7 +405,7 @@ fn test_op_log_builtin_templates() {
         .run_jj_in(&repo_path, ["describe", "-m", "description 0"])
         .success();
 
-    insta::assert_snapshot!(render(r#"builtin_op_log_compact"#), @r#"
+    insta::assert_snapshot!(render(r#"builtin_op_log_compact"#), @r"
     d009cfc04993 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
     describe commit 230dd059e1b059aefc0da06a2e5a7dbf22362f22
     args: jj describe -m 'description 0'
@@ -413,9 +413,9 @@ fn test_op_log_builtin_templates() {
     add workspace 'default'
     000000000000 root()
     [EOF]
-    "#);
+    ");
 
-    insta::assert_snapshot!(render(r#"builtin_op_log_comfortable"#), @r#"
+    insta::assert_snapshot!(render(r#"builtin_op_log_comfortable"#), @r"
     d009cfc04993 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
     describe commit 230dd059e1b059aefc0da06a2e5a7dbf22362f22
     args: jj describe -m 'description 0'
@@ -426,7 +426,7 @@ fn test_op_log_builtin_templates() {
     000000000000 root()
 
     [EOF]
-    "#);
+    ");
 
     insta::assert_snapshot!(render(r#"builtin_op_log_oneline"#), @r"
     d009cfc04993 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00 describe commit 230dd059e1b059aefc0da06a2e5a7dbf22362f22 args: jj describe -m 'description 0'

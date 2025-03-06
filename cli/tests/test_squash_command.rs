@@ -203,7 +203,7 @@ fn test_squash_partial() {
     ");
 
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @r###"
+        std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @r"
     You are moving changes from: kkmpptxz d117da27 b | (no description set)
     into commit: qpvuntsm 54d3c1c0 a | (no description set)
 
@@ -214,7 +214,7 @@ fn test_squash_partial() {
     Adjust the right side until the diff shows the changes you want to move
     to the destination. If you don't make any changes, then all the changes
     from the source will be moved into the destination.
-    "###);
+    ");
 
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  3c6332267ea8 c

@@ -77,7 +77,7 @@ fn test_resolution() {
     ");
     insta::assert_snapshot!(
     std::fs::read_to_string(repo_path.join("file")).unwrap()
-        , @r###"
+        , @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
     -base
@@ -85,7 +85,7 @@ fn test_resolution() {
     +++++++ Contents of side #2
     b
     >>>>>>> Conflict 1 of 1 ends
-    "###);
+    ");
 
     let editor_script = test_env.set_up_fake_editor();
     // Check that output file starts out empty and resolve the conflict
@@ -105,8 +105,7 @@ fn test_resolution() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r###"
-    "###);
+        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @"");
     insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["diff", "--git"]), @r"
     diff --git a/file b/file
     index 0000000000..88425ec521 100644
@@ -192,7 +191,7 @@ fn test_resolution() {
         )
         .success();
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor1")).unwrap(), @r###"
+        std::fs::read_to_string(test_env.env_root().join("editor1")).unwrap(), @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
     -base
@@ -200,7 +199,7 @@ fn test_resolution() {
     +++++++ Contents of side #2
     b
     >>>>>>> Conflict 1 of 1 ends
-    "###);
+    ");
     insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["diff", "--git"]), @r"
     diff --git a/file b/file
     index 0000000000..88425ec521 100644
@@ -266,7 +265,7 @@ fn test_resolution() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor2")).unwrap(), @r###"
+        std::fs::read_to_string(test_env.env_root().join("editor2")).unwrap(), @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
     -base
@@ -274,7 +273,7 @@ fn test_resolution() {
     +++++++ Contents of side #2
     b
     >>>>>>> Conflict 1 of 1 ends
-    "###);
+    ");
     // Note the "Modified" below
     insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["diff", "--git"]), @r"
     diff --git a/file b/file
@@ -332,8 +331,7 @@ fn test_resolution() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor3")).unwrap(), @r###"
-    "###);
+        std::fs::read_to_string(test_env.env_root().join("editor3")).unwrap(), @"");
     // Note the "Resolved" below
     insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["diff", "--git"]), @r"
     diff --git a/file b/file
@@ -413,7 +411,7 @@ fn test_resolution() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor4")).unwrap(), @r##"
+        std::fs::read_to_string(test_env.env_root().join("editor4")).unwrap(), @r"
     <<<<<<< Side #1 (Conflict 1 of 1)
     a
     ||||||| Base
@@ -421,7 +419,7 @@ fn test_resolution() {
     =======
     b
     >>>>>>> Side #2 (Conflict 1 of 1 ends)
-    "##);
+    ");
     insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["diff", "--git"]), @r"
     diff --git a/file b/file
     --- a/file
@@ -614,7 +612,7 @@ fn test_normal_conflict_input_files() {
     ");
     insta::assert_snapshot!(
     std::fs::read_to_string(repo_path.join("file")).unwrap()
-        , @r###"
+        , @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
     -base
@@ -622,7 +620,7 @@ fn test_normal_conflict_input_files() {
     +++++++ Contents of side #2
     b
     >>>>>>> Conflict 1 of 1 ends
-    "###);
+    ");
 
     check_resolve_produces_input_file(&mut test_env, &repo_path, "file", "base", "base\n");
     check_resolve_produces_input_file(&mut test_env, &repo_path, "file", "left", "a\n");
@@ -656,14 +654,14 @@ fn test_baseless_conflict_input_files() {
     ");
     insta::assert_snapshot!(
     std::fs::read_to_string(repo_path.join("file")).unwrap()
-        , @r###"
+        , @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
     +a
     +++++++ Contents of side #2
     b
     >>>>>>> Conflict 1 of 1 ends
-    "###);
+    ");
 
     check_resolve_produces_input_file(&mut test_env, &repo_path, "file", "base", "");
     check_resolve_produces_input_file(&mut test_env, &repo_path, "file", "left", "a\n");
@@ -746,7 +744,7 @@ fn test_simplify_conflict_sides() {
     [EOF]
     ");
     insta::assert_snapshot!(
-    std::fs::read_to_string(repo_path.join("fileA")).unwrap(), @r###"
+    std::fs::read_to_string(repo_path.join("fileA")).unwrap(), @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
     -base
@@ -754,9 +752,9 @@ fn test_simplify_conflict_sides() {
     +++++++ Contents of side #2
     2
     >>>>>>> Conflict 1 of 1 ends
-    "###);
+    ");
     insta::assert_snapshot!(
-    std::fs::read_to_string(repo_path.join("fileB")).unwrap(), @r###"
+    std::fs::read_to_string(repo_path.join("fileB")).unwrap(), @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
     -base
@@ -764,7 +762,7 @@ fn test_simplify_conflict_sides() {
     +++++++ Contents of side #2
     2
     >>>>>>> Conflict 1 of 1 ends
-    "###);
+    ");
 
     // Conflict should be simplified before being handled by external merge tool.
     check_resolve_produces_input_file(&mut test_env, &repo_path, "fileA", "base", "base\n");
@@ -818,7 +816,7 @@ fn test_simplify_conflict_sides() {
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
     ");
-    insta::assert_snapshot!(std::fs::read_to_string(repo_path.join("fileB")).unwrap(), @r###"
+    insta::assert_snapshot!(std::fs::read_to_string(repo_path.join("fileB")).unwrap(), @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
     -base_edited
@@ -826,7 +824,7 @@ fn test_simplify_conflict_sides() {
     +++++++ Contents of side #2
     2_edited
     >>>>>>> Conflict 1 of 1 ends
-    "###);
+    ");
     insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["resolve", "--list"]), @r"
     fileA    2-sided conflict
     fileB    2-sided conflict
@@ -862,14 +860,14 @@ fn test_edit_delete_conflict_input_files() {
     ");
     insta::assert_snapshot!(
     std::fs::read_to_string(repo_path.join("file")).unwrap()
-        , @r###"
+        , @r"
     <<<<<<< Conflict 1 of 1
     +++++++ Contents of side #1
     a
     %%%%%%% Changes from base to side #2
     -base
     >>>>>>> Conflict 1 of 1 ends
-    "###);
+    ");
 
     check_resolve_produces_input_file(&mut test_env, &repo_path, "file", "base", "base\n");
     check_resolve_produces_input_file(&mut test_env, &repo_path, "file", "left", "a\n");
@@ -1025,7 +1023,7 @@ fn test_resolve_conflicts_with_executable() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(repo_path.join("file1")).unwrap(), @r##"
+        std::fs::read_to_string(repo_path.join("file1")).unwrap(), @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
     -base1
@@ -1033,10 +1031,10 @@ fn test_resolve_conflicts_with_executable() {
     +++++++ Contents of side #2
     b1
     >>>>>>> Conflict 1 of 1 ends
-    "##
+    "
     );
     insta::assert_snapshot!(
-        std::fs::read_to_string(repo_path.join("file2")).unwrap(), @r##"
+        std::fs::read_to_string(repo_path.join("file2")).unwrap(), @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
     -base2
@@ -1044,7 +1042,7 @@ fn test_resolve_conflicts_with_executable() {
     +++++++ Contents of side #2
     b2
     >>>>>>> Conflict 1 of 1 ends
-    "##
+    "
     );
     let editor_script = test_env.set_up_fake_editor();
 
@@ -1173,7 +1171,7 @@ fn test_resolve_long_conflict_markers() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(repo_path.join("file")).unwrap(), @r##"
+        std::fs::read_to_string(repo_path.join("file")).unwrap(), @r"
     <<<<<<<<<<< Conflict 1 of 1
     +++++++++++ Contents of side #1
     <<<<<<< a
@@ -1182,7 +1180,7 @@ fn test_resolve_long_conflict_markers() {
     +++++++++++ Contents of side #2
     >>>>>>> b
     >>>>>>>>>>> Conflict 1 of 1 ends
-    "##
+    "
     );
     let editor_script = test_env.set_up_fake_editor();
     // Allow signaling that conflict markers were produced even if not editing
@@ -1299,7 +1297,7 @@ fn test_resolve_long_conflict_markers() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r##"
+        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r"
     <<<<<<<<<<< Conflict 1 of 1
     +++++++++++ Contents of side #1
     <<<<<<< a
@@ -1308,7 +1306,7 @@ fn test_resolve_long_conflict_markers() {
     +++++++++++ Contents of side #2
     >>>>>>> b
     >>>>>>>>>>> Conflict 1 of 1 ends
-    "##);
+    ");
     insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["diff", "--git"]), @r"
     diff --git a/file b/file
     --- a/file
@@ -1461,7 +1459,7 @@ fn test_multiple_conflicts() {
     ");
     insta::assert_snapshot!(
     std::fs::read_to_string(
-        repo_path.join("this_file_has_a_very_long_name_to_test_padding")).unwrap(), @r###"
+        repo_path.join("this_file_has_a_very_long_name_to_test_padding")).unwrap(), @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
     -first base
@@ -1469,9 +1467,9 @@ fn test_multiple_conflicts() {
     +++++++ Contents of side #2
     first b
     >>>>>>> Conflict 1 of 1 ends
-    "###);
+    ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(repo_path.join("another_file")).unwrap(), @r###"
+        std::fs::read_to_string(repo_path.join("another_file")).unwrap(), @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
     -second base
@@ -1479,7 +1477,7 @@ fn test_multiple_conflicts() {
     +++++++ Contents of side #2
     second b
     >>>>>>> Conflict 1 of 1 ends
-    "###);
+    ");
     insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["resolve", "--list"]), @r"
     another_file                        2-sided conflict
     this_file_has_a_very_long_name_to_test_padding 2-sided conflict
@@ -1642,7 +1640,7 @@ fn test_multiple_conflicts_with_error() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(repo_path.join("file1")).unwrap(), @r##"
+        std::fs::read_to_string(repo_path.join("file1")).unwrap(), @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
     -base1
@@ -1650,10 +1648,10 @@ fn test_multiple_conflicts_with_error() {
     +++++++ Contents of side #2
     b1
     >>>>>>> Conflict 1 of 1 ends
-    "##
+    "
     );
     insta::assert_snapshot!(
-        std::fs::read_to_string(repo_path.join("file2")).unwrap(), @r##"
+        std::fs::read_to_string(repo_path.join("file2")).unwrap(), @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
     -base2
@@ -1661,7 +1659,7 @@ fn test_multiple_conflicts_with_error() {
     +++++++ Contents of side #2
     b2
     >>>>>>> Conflict 1 of 1 ends
-    "##
+    "
     );
     let editor_script = test_env.set_up_fake_editor();
 
