@@ -35,6 +35,7 @@ use jj_lib::git;
 use jj_lib::git::FailedRefExport;
 use jj_lib::git::FailedRefExportReason;
 use jj_lib::git::GitImportStats;
+use jj_lib::git::GitRefKind;
 use jj_lib::git::RefName;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
@@ -299,10 +300,8 @@ pub fn print_git_import_stats(
 
         let has_both_ref_kinds = refs_stats
             .iter()
-            .any(|x| matches!(x.ref_kind, RefKind::Branch))
-            && refs_stats
-                .iter()
-                .any(|x| matches!(x.ref_kind, RefKind::Tag));
+            .any(|x| x.ref_kind == GitRefKind::Bookmark)
+            && refs_stats.iter().any(|x| x.ref_kind == GitRefKind::Tag);
 
         let max_width = refs_stats.iter().map(|x| x.ref_name.width()).max();
         if let Some(max_width) = max_width {
@@ -496,7 +495,7 @@ impl RateEstimateState {
 }
 
 struct RefStatus {
-    ref_kind: RefKind,
+    ref_kind: GitRefKind,
     ref_name: String,
     tracking_status: TrackingStatus,
     import_status: ImportStatus,
@@ -512,7 +511,7 @@ impl RefStatus {
         let (ref_name, ref_kind, tracking_status) = match ref_name {
             RefName::RemoteBranch(symbol) => (
                 format!("{symbol}"),
-                RefKind::Branch,
+                GitRefKind::Bookmark,
                 if repo
                     .view()
                     .get_remote_bookmark(symbol.as_ref())
@@ -523,10 +522,12 @@ impl RefStatus {
                     TrackingStatus::Untracked
                 },
             ),
-            RefName::Tag(tag) => (tag.clone(), RefKind::Tag, TrackingStatus::NotApplicable),
-            RefName::LocalBranch(branch) => {
-                (branch.clone(), RefKind::Branch, TrackingStatus::Tracked)
-            }
+            RefName::Tag(tag) => (tag.clone(), GitRefKind::Tag, TrackingStatus::NotApplicable),
+            RefName::LocalBranch(branch) => (
+                branch.clone(),
+                GitRefKind::Bookmark,
+                TrackingStatus::Tracked,
+            ),
         };
 
         let import_status = match (remote_ref.target.is_absent(), ref_target.is_absent()) {
@@ -566,20 +567,15 @@ impl RefStatus {
         let padded_ref_name = format!("{}{:>pad_width$}", self.ref_name, "", pad_width = pad_width);
 
         let ref_kind = match self.ref_kind {
-            RefKind::Branch => "bookmark: ",
-            RefKind::Tag if !has_both_ref_kinds => "tag: ",
-            RefKind::Tag => "tag:    ",
+            GitRefKind::Bookmark => "bookmark: ",
+            GitRefKind::Tag if !has_both_ref_kinds => "tag: ",
+            GitRefKind::Tag => "tag:    ",
         };
 
         write!(out, "{ref_kind}")?;
         write!(out.labeled("bookmark"), "{padded_ref_name}")?;
         writeln!(out, " [{import_status}] {tracking_status}")
     }
-}
-
-enum RefKind {
-    Branch,
-    Tag,
 }
 
 enum TrackingStatus {
