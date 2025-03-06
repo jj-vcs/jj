@@ -1,7 +1,7 @@
 cargo-features = []
 
 [workspace]
-resolver = "2"
+resolver = "3"
 members = ["cli", "lib", "lib/gen-protos", "lib/proc-macros", "lib/testutils"]
 
 [workspace.package]
