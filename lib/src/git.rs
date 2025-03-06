@@ -91,6 +91,14 @@ fn validate_remote_name(name: &str) -> Result<(), GitRemoteNameError> {
     }
 }
 
+/// Type of Git ref to be imported or exported.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub enum GitRefKind {
+    Bookmark,
+    Tag,
+}
+
+// TODO: will be replaced with (GitRefKind, RemoteRefSymbol)
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Hash, Debug)]
 pub enum RefName {
     LocalBranch(String),
@@ -192,22 +200,45 @@ impl<'a> RefToPush<'a> {
     }
 }
 
-pub fn parse_git_ref(ref_name: &str) -> Option<RefName> {
-    if let Some(branch_name) = ref_name.strip_prefix("refs/heads/") {
+pub fn parse_git_ref(full_name: &str) -> Option<RefName> {
+    let (kind, symbol) = parse_git_ref_inner(full_name)?;
+    Some(to_legacy_ref_name(kind, symbol))
+}
+
+/// Translates Git ref name to jj's `name@remote` symbol. Returns `None` if the
+/// ref cannot be represented in jj.
+// TODO: replace parse_git_ref()
+fn parse_git_ref_inner(full_name: &str) -> Option<(GitRefKind, RemoteRefSymbol<'_>)> {
+    if let Some(name) = full_name.strip_prefix("refs/heads/") {
+        let remote = REMOTE_NAME_FOR_LOCAL_GIT_REPO;
         // Git CLI says 'HEAD' is not a valid branch name
-        (branch_name != "HEAD").then(|| RefName::LocalBranch(branch_name.to_string()))
-    } else if let Some(remote_and_branch) = ref_name.strip_prefix("refs/remotes/") {
-        remote_and_branch
-            .split_once('/')
-            // "refs/remotes/origin/HEAD" isn't a real remote-tracking branch
-            .filter(|&(_, name)| name != "HEAD")
-            .map(|(remote, name)| {
-                RefName::RemoteBranch(RemoteRefSymbol { name, remote }.to_owned())
-            })
+        (name != "HEAD").then_some((GitRefKind::Bookmark, RemoteRefSymbol { name, remote }))
+    } else if let Some(remote_and_name) = full_name.strip_prefix("refs/remotes/") {
+        let (remote, name) = remote_and_name.split_once('/')?;
+        // "refs/remotes/origin/HEAD" isn't a real remote-tracking branch
+        (remote != REMOTE_NAME_FOR_LOCAL_GIT_REPO && name != "HEAD")
+            .then_some((GitRefKind::Bookmark, RemoteRefSymbol { name, remote }))
+    } else if let Some(name) = full_name.strip_prefix("refs/tags/") {
+        let remote = REMOTE_NAME_FOR_LOCAL_GIT_REPO;
+        Some((GitRefKind::Tag, RemoteRefSymbol { name, remote }))
     } else {
-        ref_name
-            .strip_prefix("refs/tags/")
-            .map(|tag_name| RefName::Tag(tag_name.to_string()))
+        None
+    }
+}
+
+fn to_legacy_ref_name(kind: GitRefKind, symbol: RemoteRefSymbol<'_>) -> RefName {
+    match kind {
+        GitRefKind::Bookmark => {
+            if symbol.remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO {
+                RefName::LocalBranch(symbol.name.to_owned())
+            } else {
+                RefName::RemoteBranch(symbol.to_owned())
+            }
+        }
+        GitRefKind::Tag => {
+            assert_eq!(symbol.remote, REMOTE_NAME_FOR_LOCAL_GIT_REPO);
+            RefName::Tag(symbol.name.to_owned())
+        }
     }
 }
 
