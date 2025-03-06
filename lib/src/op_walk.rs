@@ -303,7 +303,7 @@ pub fn reparent_range(
     assert!(
         ops_to_reparent
             .last()
-            .map_or(true, |op| op.id() != op_store.root_operation_id()),
+            .is_none_or(|op| op.id() != op_store.root_operation_id()),
         "root operation cannot be rewritten"
     );
     let mut rewritten_ids = HashMap::new();

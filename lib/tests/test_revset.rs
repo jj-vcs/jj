@@ -3392,9 +3392,8 @@ fn test_evaluate_expression_machine_generated_union() {
 
     // This query shouldn't trigger stack overflow. Here we use "x::y" in case
     // we had optimization path for trivial "commit_id|.." expression.
-    let revset_str = iter::repeat(format!("({}::{})", commit1.id(), commit2.id()))
-        .take(5000)
-        .join("|");
+    let revset_str =
+        std::iter::repeat_n(format!("({}::{})", commit1.id(), commit2.id()), 5000).join("|");
     assert_eq!(
         resolve_commit_ids(mut_repo, &revset_str),
         vec![commit2.id().clone(), commit1.id().clone()]

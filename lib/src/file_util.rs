@@ -17,7 +17,6 @@
 use std::fs;
 use std::fs::File;
 use std::io;
-use std::iter;
 use std::path::Component;
 use std::path::Path;
 use std::path::PathBuf;
@@ -95,7 +94,7 @@ pub fn relative_path(from: &Path, to: &Path) -> PathBuf {
             if i == 0 && suffix.as_os_str().is_empty() {
                 return ".".into();
             } else {
-                let mut result = PathBuf::from_iter(iter::repeat("..").take(i));
+                let mut result = PathBuf::from_iter(std::iter::repeat_n("..", i));
                 result.push(suffix);
                 return result;
             }

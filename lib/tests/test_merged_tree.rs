@@ -246,8 +246,7 @@ fn test_from_legacy_tree() {
 
     // Create the merged tree by starting from an empty merged tree and adding
     // entries from the merged tree we created before
-    let empty_merged_id_builder: MergeBuilder<_> = std::iter::repeat(store.empty_tree_id())
-        .take(5)
+    let empty_merged_id_builder: MergeBuilder<_> = std::iter::repeat_n(store.empty_tree_id(), 5)
         .cloned()
         .collect();
     let empty_merged_id = MergedTreeId::Merge(empty_merged_id_builder.build());

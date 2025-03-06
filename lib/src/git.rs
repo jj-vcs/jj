@@ -2213,7 +2213,7 @@ fn allow_push(
     // sufficient) for the destination_location to be either a descendant of
     // actual_remote_location or equal to it. Either way, we would know about that
     // commit locally.
-    if !actual_remote_location.map_or(true, |id| index.has_id(id)) {
+    if !actual_remote_location.is_none_or(|id| index.has_id(id)) {
         return Err(());
     }
     let remote_target = RefTarget::resolved(actual_remote_location.cloned());

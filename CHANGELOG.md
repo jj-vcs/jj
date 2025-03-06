@@ -12,6 +12,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+* The minimum supported Rust version (MSRV) is now 1.84.0.
+
 ### Deprecations
 
 ### New features

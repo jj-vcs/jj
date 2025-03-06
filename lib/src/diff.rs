@@ -625,7 +625,7 @@ impl<'input> Diff<'input> {
         // ignore-whitespace. They are tokenized as [] and [" "] respectively.
         if base_input.is_empty() || other_inputs.iter().any(|input| input.is_empty()) {
             base_token_ranges = vec![];
-            other_token_ranges = iter::repeat(vec![]).take(other_inputs.len()).collect();
+            other_token_ranges = std::iter::repeat_n(vec![], other_inputs.len()).collect();
         } else {
             base_token_ranges = tokenizer(base_input);
             other_token_ranges = other_inputs

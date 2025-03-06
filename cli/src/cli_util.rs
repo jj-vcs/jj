@@ -22,7 +22,6 @@ use std::fmt;
 use std::fmt::Debug;
 use std::io;
 use std::io::Write as _;
-use std::iter;
 use std::mem;
 use std::path::Path;
 use std::path::PathBuf;
@@ -3548,7 +3547,7 @@ fn handle_shell_completion(
             // TODO: Maybe we should instead expand args[..index] + [""], adjust
             // the index accordingly, strip the last "", and append remainder?
             let pad_len = usize::saturating_sub(index + 1, orig_args.len());
-            let padded_args = orig_args.chain(iter::repeat(OsString::new()).take(pad_len));
+            let padded_args = orig_args.chain(std::iter::repeat_n(OsString::new(), pad_len));
             expand_args(ui, app, padded_args, config)?
         } else {
             expand_args(ui, app, orig_args, config)?

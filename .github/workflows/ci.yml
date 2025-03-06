@@ -75,7 +75,7 @@ jobs:
     - name: Install Rust
       uses: dtolnay/rust-toolchain@a54c7afa936fefeb4456b2dd8068152669aa8203
       with:
-        toolchain: 1.76
+        toolchain: 1.84
         target: ${{ matrix.target }}
     - uses: taiki-e/install-action@970d55e3ce02a46d60ffae7b4fab3dedace6e769
       with:
@@ -98,7 +98,7 @@ jobs:
     - name: Install Rust
       uses: dtolnay/rust-toolchain@a54c7afa936fefeb4456b2dd8068152669aa8203
       with:
-        toolchain: 1.76
+        toolchain: 1.84
     - name: Build
       run: cargo build -p jj-cli --no-default-features --verbose
 
@@ -213,7 +213,7 @@ jobs:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@1482605bfc5719782e1267fd0c0cc350fe7646b8
         with:
-          toolchain: 1.76
+          toolchain: 1.84
       # NOTE: We need to run `cargo test --doc` separately from normal tests:
       # - `cargo build --all-targets` specifies: "Build all targets"
       # - `cargo test --all-targets` specifies: "Test all targets (does not include doctests)"
@@ -276,9 +276,9 @@ jobs:
         uses: astral-sh/setup-uv@f94ec6bedd8674c4426838e6b50417d36b6ab231
 
       - name: Run zizmor
-        run: uvx zizmor --format sarif . > results.sarif 
+        run: uvx zizmor --format sarif . > results.sarif
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@b56ba49b26e50535fa1e7f7db0f4f7b4bf65d80d

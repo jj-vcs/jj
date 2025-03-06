@@ -169,7 +169,7 @@ pub fn cmd_bookmark_list(
     let bookmarks_to_list = view.bookmarks().filter(|(name, target)| {
         bookmark_names_to_list
             .as_ref()
-            .map_or(true, |bookmark_names| bookmark_names.contains(name))
+            .is_none_or(|bookmark_names| bookmark_names.contains(name))
             && (!args.conflicted || target.local_target.has_conflict())
     });
     for (name, bookmark_target) in bookmarks_to_list {
@@ -179,7 +179,7 @@ pub fn cmd_bookmark_list(
             .iter()
             .copied()
             .filter(|&(remote_name, _)| {
-                args.remotes.as_ref().map_or(true, |patterns| {
+                args.remotes.as_ref().is_none_or(|patterns| {
                     patterns.iter().any(|pattern| pattern.matches(remote_name))
                 })
             })

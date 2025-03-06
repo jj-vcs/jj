@@ -1335,7 +1335,7 @@ impl Backend for GitBackend {
                     .map_err(|err| to_invalid_utf8_err(err, head_id))?;
 
                 let target = RepoPathBuf::from_internal_string(dest);
-                if !paths.map_or(true, |paths| paths.contains(&target)) {
+                if !paths.is_none_or(|paths| paths.contains(&target)) {
                     return Ok(None);
                 }
 

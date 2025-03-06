@@ -2191,7 +2191,7 @@ fn resolve_commit_ref(
                 .view()
                 .remote_bookmarks_matching(bookmark_pattern, remote_pattern)
                 .filter(|(_, remote_ref)| {
-                    remote_ref_state.map_or(true, |state| remote_ref.state == state)
+                    remote_ref_state.is_none_or(|state| remote_ref.state == state)
                 })
                 .filter(|&(symbol, _)| !crate::git::is_special_git_remote(symbol.remote))
                 .flat_map(|(_, remote_ref)| remote_ref.target.added_ids())

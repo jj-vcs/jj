@@ -303,10 +303,10 @@ fn rename_rules_in_pest_error(mut err: pest::error::Error<Rule>) -> pest::error:
     // (positive) suggestion.
     let mut known_syms = HashSet::new();
     positives.retain(|rule| {
-        !rule.is_compat() && rule.to_symbol().map_or(true, |sym| known_syms.insert(sym))
+        !rule.is_compat() && rule.to_symbol().is_none_or(|sym| known_syms.insert(sym))
     });
     let mut known_syms = HashSet::new();
-    negatives.retain(|rule| rule.to_symbol().map_or(true, |sym| known_syms.insert(sym)));
+    negatives.retain(|rule| rule.to_symbol().is_none_or(|sym| known_syms.insert(sym)));
     err.renamed_rules(|rule| {
         rule.to_symbol()
             .map(|sym| format!("`{sym}`"))
