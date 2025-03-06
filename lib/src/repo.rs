@@ -175,7 +175,7 @@ impl ReadonlyRepo {
         &|_settings, store_path| Ok(Box::new(DefaultSubmoduleStore::init(store_path)))
     }
 
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     pub fn init(
         settings: &UserSettings,
         repo_path: &Path,

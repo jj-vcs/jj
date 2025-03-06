@@ -847,8 +847,7 @@ impl TreeState {
         Ok(())
     }
 
-    #[allow(unknown_lints)] // XXX FIXME (aseipp): nightly bogons; re-test this occasionally
-    #[allow(clippy::assigning_clones)]
+    #[expect(clippy::assigning_clones)]
     fn save(&mut self) -> Result<(), TreeStateError> {
         let mut proto: crate::protos::working_copy::TreeState = Default::default();
         match &self.tree_id {
@@ -2218,7 +2217,7 @@ impl WorkingCopyFactory for LocalWorkingCopyFactory {
 /// `finish()` or `discard()`.
 pub struct LockedLocalWorkingCopy {
     wc: LocalWorkingCopy,
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     lock: FileLock,
     old_operation_id: OperationId,
     old_tree_id: MergedTreeId,

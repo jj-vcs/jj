@@ -1365,7 +1365,7 @@ fn try_transform_expression<St: ExpressionState, E>(
         .map(Rc::new))
     }
 
-    #[allow(clippy::type_complexity)]
+    #[expect(clippy::type_complexity)]
     fn transform_rec_pair<St: ExpressionState, E>(
         (expression1, expression2): (&Rc<RevsetExpression<St>>, &Rc<RevsetExpression<St>>),
         pre: &mut impl FnMut(&Rc<RevsetExpression<St>>) -> Result<TransformedExpression<St>, E>,
@@ -1578,7 +1578,7 @@ fn internalize_filter<St: ExpressionState>(
     }
 
     // Extracts 'c & f' from intersect_down()-ed node.
-    #[allow(clippy::type_complexity)]
+    #[expect(clippy::type_complexity)]
     fn as_filter_intersection<St: ExpressionState>(
         expression: &RevsetExpression<St>,
     ) -> Option<(&Rc<RevsetExpression<St>>, &Rc<RevsetExpression<St>>)> {
@@ -2814,7 +2814,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::redundant_clone)] // allow symbol.clone()
+    #[expect(clippy::redundant_clone)] // allow symbol.clone()
     fn test_revset_expression_building() {
         let settings = insta_settings();
         let _guard = settings.bind_to_scope();

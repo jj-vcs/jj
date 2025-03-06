@@ -92,7 +92,7 @@ pub struct FilesetParseError {
 }
 
 /// Categories of fileset parsing and name resolution error.
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Clone, Debug, Eq, Error, PartialEq)]
 pub enum FilesetParseErrorKind {
     #[error("Syntax error")]

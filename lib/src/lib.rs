@@ -84,7 +84,7 @@ pub mod op_heads_store;
 pub mod op_store;
 pub mod op_walk;
 pub mod operation;
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub mod protos;
 pub mod refs;
 pub mod repo;

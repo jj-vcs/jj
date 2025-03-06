@@ -298,7 +298,7 @@ impl<'a> DiffRenderer<'a> {
     }
 
     /// Generates diff between `from_tree` and `to_tree`.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     pub fn show_diff(
         &self,
         ui: &Ui, // TODO: remove Ui dependency if possible
@@ -322,7 +322,7 @@ impl<'a> DiffRenderer<'a> {
         })
     }
 
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     fn show_diff_inner(
         &self,
         ui: &Ui,

@@ -1100,7 +1100,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::redundant_clone)] // allow id_n.clone()
+    #[expect(clippy::redundant_clone)] // allow id_n.clone()
     fn test_walk_ancestors_filtered_by_generation_range_merging() {
         let mut new_change_id = change_id_generator();
         let mut index = DefaultMutableIndex::full(3, 16);

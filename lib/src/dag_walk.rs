@@ -298,7 +298,7 @@ impl<T: Ord, ID: Hash + Eq + Clone, E> TopoOrderReverseLazyInner<T, ID, E> {
 /// ```
 ///
 /// We assume the graph is (mostly) topologically ordered by `T: Ord`.
-#[allow(clippy::type_complexity)]
+#[expect(clippy::type_complexity)]
 fn look_ahead_sub_graph<T, ID, E, NI>(
     start: Vec<T>,
     id_fn: impl Fn(&T) -> ID,

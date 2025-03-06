@@ -161,7 +161,7 @@ pub fn cmd_op_diff(
 /// `ReadonlyRepo`s for the operations.
 /// `current_repo` should contain a `Repo` with the indices of both repos merged
 /// into it.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub fn show_op_diff(
     ui: &Ui,
     formatter: &mut dyn Formatter,

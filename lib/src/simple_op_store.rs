@@ -512,7 +512,7 @@ fn view_from_proto(proto: crate::protos::op_store::View) -> View {
     let mut view = View::empty();
     // For compatibility with old repos before we had support for multiple working
     // copies
-    #[allow(deprecated)]
+    #[expect(deprecated)]
     if !proto.wc_commit_id.is_empty() {
         view.wc_commit_ids
             .insert(WorkspaceId::default(), CommitId::new(proto.wc_commit_id));
@@ -544,7 +544,7 @@ fn view_from_proto(proto: crate::protos::op_store::View) -> View {
         view.git_refs.insert(git_ref.name, target);
     }
 
-    #[allow(deprecated)]
+    #[expect(deprecated)]
     if proto.git_head.is_some() {
         view.git_head = ref_target_from_proto(proto.git_head);
     } else if !proto.git_head_legacy.is_empty() {
@@ -644,7 +644,7 @@ fn ref_target_to_proto(value: &RefTarget) -> Option<crate::protos::op_store::Ref
     Some(proto)
 }
 
-#[allow(deprecated)]
+#[expect(deprecated)]
 #[cfg(test)]
 fn ref_target_to_proto_legacy(value: &RefTarget) -> Option<crate::protos::op_store::RefTarget> {
     if let Some(id) = value.as_normal() {
@@ -679,12 +679,11 @@ fn ref_target_from_proto(maybe_proto: Option<crate::protos::op_store::RefTarget>
         return RefTarget::absent();
     };
     match proto.value.unwrap() {
-        #[allow(deprecated)]
         crate::protos::op_store::ref_target::Value::CommitId(id) => {
             // Legacy non-conflicting id
             RefTarget::normal(CommitId::new(id))
         }
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         crate::protos::op_store::ref_target::Value::ConflictLegacy(conflict) => {
             // Legacy conflicting ids
             let removes = conflict.removes.into_iter().map(CommitId::new);

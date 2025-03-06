@@ -147,7 +147,7 @@ pub mod watchman {
         }
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     #[derive(Debug, Error)]
     pub enum Error {
         #[error("Could not connect to Watchman")]

@@ -141,7 +141,7 @@ impl<'a> RevsetGraphWalk<'a> {
         index_entry: &IndexEntry,
     ) -> Result<&[IndexGraphEdge], RevsetEvaluationError> {
         let position = index_entry.position();
-        // `if let Some(edges) = ...` doesn't pass lifetime check as of Rust 1.76.0
+        // `if let Some(edges) = ...` doesn't pass lifetime check as of Rust 1.84.0
         if self.edges.contains_key(&position) {
             return Ok(self.edges.get(&position).unwrap());
         }

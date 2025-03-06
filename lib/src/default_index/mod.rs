@@ -175,7 +175,7 @@ mod tests {
         let id_1 = CommitId::from_hex("111111");
         let change_id1 = new_change_id();
         let id_2 = CommitId::from_hex("222222");
-        #[allow(clippy::redundant_clone)] // Work around nightly clippy false positive
+        #[expect(clippy::redundant_clone)] // Work around nightly clippy false positive
         // TODO: Remove the exception after https://github.com/rust-lang/rust-clippy/issues/10577
         // is fixed or file a new bug.
         let change_id2 = change_id1.clone();
@@ -415,7 +415,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::redundant_clone)] // allow id_n.clone()
+    #[expect(clippy::redundant_clone)] // allow id_n.clone()
     fn neighbor_commit_ids() {
         let temp_dir = new_temp_dir();
         let mut new_change_id = change_id_generator();

@@ -120,7 +120,7 @@ pub struct CommitTemplateLanguage<'repo> {
 impl<'repo> CommitTemplateLanguage<'repo> {
     /// Sets up environment where commit template will be transformed to
     /// evaluation tree.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     pub fn new(
         repo: &'repo dyn Repo,
         path_converter: &'repo RepoPathUiConverter,

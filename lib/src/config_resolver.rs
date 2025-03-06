@@ -251,12 +251,12 @@ enum MigrationRule {
     RenameUpdateValue {
         old_name: ConfigNamePathBuf,
         new_name: ConfigNamePathBuf,
-        #[allow(clippy::type_complexity)] // type alias wouldn't help readability
+        #[expect(clippy::type_complexity)] // type alias wouldn't help readability
         new_value_fn: Box<dyn Fn(&ConfigValue) -> Result<ConfigValue, DynError>>,
     },
     Custom {
         matches_fn: Box<dyn Fn(&ConfigLayer) -> bool>,
-        #[allow(clippy::type_complexity)] // type alias wouldn't help readability
+        #[expect(clippy::type_complexity)] // type alias wouldn't help readability
         apply_fn: Box<dyn Fn(&mut ConfigLayer) -> Result<String, ConfigMigrateLayerError>>,
     },
 }

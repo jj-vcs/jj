@@ -21,7 +21,7 @@ use crate::submodule_store::SubmoduleStore;
 
 #[derive(Debug)]
 pub struct DefaultSubmoduleStore {
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     path: PathBuf,
 }
 

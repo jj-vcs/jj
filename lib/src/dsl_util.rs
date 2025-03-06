@@ -14,7 +14,6 @@
 
 //! Domain-specific language helpers.
 
-use std::array;
 use std::ascii;
 use std::collections::HashMap;
 use std::fmt;
@@ -149,7 +148,7 @@ impl<'i, T> FunctionCallNode<'i, T> {
     }
 
     /// Extracts N required arguments and remainders.
-    #[allow(clippy::type_complexity)]
+    #[expect(clippy::type_complexity)]
     pub fn expect_some_arguments<const N: usize>(
         &self,
     ) -> Result<(&[ExpressionNode<'i, T>; N], &[ExpressionNode<'i, T>]), InvalidArguments<'i>> {
@@ -163,7 +162,7 @@ impl<'i, T> FunctionCallNode<'i, T> {
     }
 
     /// Extracts N required arguments and M optional arguments.
-    #[allow(clippy::type_complexity)]
+    #[expect(clippy::type_complexity)]
     pub fn expect_arguments<const N: usize, const M: usize>(
         &self,
     ) -> Result<
@@ -194,7 +193,7 @@ impl<'i, T> FunctionCallNode<'i, T> {
     ///
     /// `names` is a list of parameter names. Unnamed positional arguments
     /// should be padded with `""`.
-    #[allow(clippy::type_complexity)]
+    #[expect(clippy::type_complexity)]
     pub fn expect_named_arguments<const N: usize, const M: usize>(
         &self,
         names: &[&str],
@@ -207,8 +206,7 @@ impl<'i, T> FunctionCallNode<'i, T> {
     > {
         if self.keyword_args.is_empty() {
             let (required, optional) = self.expect_arguments::<N, M>()?;
-            // TODO: use .each_ref() if MSRV is bumped to 1.77.0
-            Ok((array::from_fn(|i| &required[i]), optional))
+            Ok((required.each_ref(), optional))
         } else {
             let (required, optional) = self.expect_named_arguments_vec(names, N, N + M)?;
             Ok((
@@ -218,7 +216,7 @@ impl<'i, T> FunctionCallNode<'i, T> {
         }
     }
 
-    #[allow(clippy::type_complexity)]
+    #[expect(clippy::type_complexity)]
     fn expect_named_arguments_vec(
         &self,
         names: &[&str],

@@ -2245,7 +2245,7 @@ fn allow_push(
 
 #[non_exhaustive]
 #[derive(Default)]
-#[allow(clippy::type_complexity)]
+#[expect(clippy::type_complexity)]
 pub struct RemoteCallbacks<'a> {
     pub progress: Option<&'a mut dyn FnMut(&Progress)>,
     pub sideband_progress: Option<&'a mut dyn FnMut(&[u8])>,

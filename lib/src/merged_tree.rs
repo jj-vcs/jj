@@ -856,7 +856,7 @@ pub struct TreeDiffStreamImpl<'matcher> {
     /// a corresponding entry in `pending_trees`.
     items: BTreeMap<DiffStreamKey, BackendResult<(MergedTreeValue, MergedTreeValue)>>,
     // TODO: Is it better to combine this and `items` into a single map?
-    #[allow(clippy::type_complexity)]
+    #[expect(clippy::type_complexity)]
     pending_trees: VecDeque<(
         RepoPathBuf,
         BoxFuture<'matcher, BackendResult<(Merge<Tree>, Merge<Tree>)>>,

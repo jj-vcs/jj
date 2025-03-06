@@ -55,7 +55,7 @@ pub struct AllHeadsForGcUnsupported;
 /// Defines the interface for types that provide persistent storage for an
 /// index.
 pub trait IndexStore: Send + Sync + Debug {
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     fn as_any(&self) -> &dyn Any;
 
     /// Returns a name representing the type of index that the `IndexStore` is
@@ -136,7 +136,7 @@ pub trait Index: Send + Sync {
     ) -> Result<Box<dyn Revset + 'index>, RevsetEvaluationError>;
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub trait ReadonlyIndex: Send + Sync {
     fn as_any(&self) -> &dyn Any;
 
@@ -148,7 +148,7 @@ pub trait ReadonlyIndex: Send + Sync {
     fn start_modification(&self) -> Box<dyn MutableIndex>;
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub trait MutableIndex {
     fn as_any(&self) -> &dyn Any;
 

@@ -3169,7 +3169,6 @@ fn ensure_no_commit_loop(
 ///
 /// [`jj help -k tutorial`]:
 ///     https://jj-vcs.github.io/jj/latest/tutorial/
-#[allow(rustdoc::bare_urls)]
 #[derive(clap::Parser, Clone, Debug)]
 #[command(name = "jj")]
 pub struct Args {

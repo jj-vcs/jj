@@ -276,7 +276,7 @@ impl Workspace {
         Self::init_with_backend(user_settings, workspace_root, &backend_initializer, signer)
     }
 
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     pub fn init_with_factories(
         user_settings: &UserSettings,
         workspace_root: &Path,
