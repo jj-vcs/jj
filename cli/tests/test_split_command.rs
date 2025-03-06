@@ -288,6 +288,94 @@ fn test_split_with_default_description() {
     ");
 }
 
+#[test]
+fn test_split_with_descendants() {
+    // Configure the environment and make the initial commits.
+    let mut test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let workspace_path = test_env.env_root().join("repo");
+
+    // First commit. This is the one we will split later.
+    std::fs::write(workspace_path.join("file1"), "foo\n").unwrap();
+    std::fs::write(workspace_path.join("file2"), "bar\n").unwrap();
+    test_env
+        .run_jj_in(&workspace_path, ["commit", "-m", "Add file1 & file2"])
+        .success();
+    // Second commit.
+    std::fs::write(workspace_path.join("file3"), "baz\n").unwrap();
+    test_env
+        .run_jj_in(&workspace_path, ["commit", "-m", "Add file3"])
+        .success();
+    // Third commit.
+    std::fs::write(workspace_path.join("file4"), "foobarbaz\n").unwrap();
+    test_env
+        .run_jj_in(&workspace_path, ["describe", "-m", "Add file4"])
+        .success();
+    insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r###"
+    @  kkmpptxzrspx false Add file4
+    ○  rlvkpnrzqnoo false Add file3
+    ○  qpvuntsmwlqt false Add file1 & file2
+    ◆  zzzzzzzzzzzz true
+    [EOF]
+    "###);
+
+    // Set up the editor and do the split.
+    let edit_script = test_env.set_up_fake_editor();
+    std::fs::write(
+        edit_script,
+        [
+            "dump editor1",
+            "write\nAdd file1",
+            "next invocation\n",
+            "dump editor2",
+            "write\nAdd file2",
+        ]
+        .join("\0"),
+    )
+    .unwrap();
+    let output = test_env.run_jj_in(&workspace_path, ["split", "file1", "-r", "qpvu"]);
+    insta::assert_snapshot!(output, @r###"
+    ------- stderr -------
+    Rebased 2 descendant commits
+    First part: qpvuntsm 34dd141b Add file1
+    Second part: royxmykx 465e03d0 Add file2
+    Working copy now at: kkmpptxz 2d5d641f Add file4
+    Parent commit      : rlvkpnrz b3bd9eb7 Add file3
+    [EOF]
+    "###);
+    insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r###"
+    @  kkmpptxzrspx false Add file4
+    ○  rlvkpnrzqnoo false Add file3
+    ○  royxmykxtrkr false Add file2
+    ○  qpvuntsmwlqt false Add file1
+    ◆  zzzzzzzzzzzz true
+    [EOF]
+    "###);
+
+    // The commit we're splitting has a description, so the user will be
+    // prompted to enter a description for each of the commits.
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor1")).unwrap(), @r###"
+    JJ: Enter a description for the first commit.
+    Add file1 & file2
+
+    JJ: This commit contains the following changes:
+    JJ:     A file1
+
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "###);
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor2")).unwrap(), @r###"
+    JJ: Enter a description for the second commit.
+    Add file1 & file2
+
+    JJ: This commit contains the following changes:
+    JJ:     A file2
+
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "###);
+}
+
 // This test makes sure that the children of the commit being split retain any
 // other parents which weren't involved in the split.
 #[test]
@@ -415,7 +503,6 @@ fn test_split_siblings_with_descendants() {
     // Configure the environment and make the initial commits.
     let mut test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    // test_env.add_config(r#"ui.default-description = "\n\nTESTED=TODO""#);
     let workspace_path = test_env.env_root().join("repo");
 
     // First commit. This is the one we will split later.
