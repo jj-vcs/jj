@@ -76,6 +76,7 @@ This document contains the help content for the `jj` command-line program.
 * [`jj rebase`↴](#jj-rebase)
 * [`jj resolve`↴](#jj-resolve)
 * [`jj restore`↴](#jj-restore)
+* [`jj revert`↴](#jj-revert)
 * [`jj root`↴](#jj-root)
 * [`jj show`↴](#jj-show)
 * [`jj sign`↴](#jj-sign)
@@ -149,6 +150,7 @@ To get started, see the tutorial [`jj help -k tutorial`].
 * `rebase` — Move revisions to different parent(s)
 * `resolve` — Resolve conflicted files with an external merge tool
 * `restore` — Restore paths from another revision
+* `revert` — Apply the reverse of the given revision(s)
 * `root` — Show the current workspace root directory (shortcut for `jj workspace root`)
 * `show` — Show commit description and changes in a revision
 * `sign` — Cryptographically sign a revision
@@ -2168,6 +2170,25 @@ See `jj diffedit` if you'd like to restore portions of files rather than entire 
 * `-i`, `--interactive` — Interactively choose which parts to restore
 * `--tool <NAME>` — Specify diff editor to be used (implies --interactive)
 * `--restore-descendants` — Preserve the content (not the diff) when rebasing descendants
+
+
+
+## `jj revert`
+
+Apply the reverse of the given revision(s)
+
+The reverse of each of the given revisions is applied sequentially in reverse topological order at the given location.
+
+The description of the new revisions can be customized with the `templates.revert_description` config variable.
+
+**Usage:** `jj revert [OPTIONS] <--destination <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>`
+
+###### **Options:**
+
+* `-r`, `--revisions <REVSETS>` — The revision(s) to apply the reverse of
+* `-d`, `--destination <REVSETS>` — The revision(s) to apply the reverse changes on top of
+* `-A`, `--insert-after <REVSETS>` — The revision(s) to insert the reverse changes after (can be repeated to create a merge commit)
+* `-B`, `--insert-before <REVSETS>` — The revision(s) to insert the reverse changes before (can be repeated to create a merge commit)
 
 
 

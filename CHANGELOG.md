@@ -67,6 +67,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj bookmark move --to/--from` can now be abbreviated to `jj bookmark move -t/-f`
 
+* A new command `jj revert` is added, which is similar to `jj backout` but
+  adds the `--destination`, `--insert-after`, and `--insert-before` options to
+  customize the location of reverted commits.
+
 ### Fixed bugs
 
 * `jj log -p --stat` now shows diff stats as well as the default color-words/git
