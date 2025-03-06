@@ -261,6 +261,10 @@ pub enum RevsetExpression<St: ExpressionState> {
         candidates: Rc<Self>,
         count: usize,
     },
+    Oldest {
+        candidates: Rc<Self>,
+        count: usize,
+    },
     Filter(RevsetFilterPredicate),
     /// Marker for subtree that should be intersected as filter.
     AsFilter(Rc<Self>),
@@ -372,6 +376,13 @@ impl<St: ExpressionState<CommitRef = RevsetCommitRef>> RevsetExpression<St> {
 impl<St: ExpressionState> RevsetExpression<St> {
     pub fn latest(self: &Rc<Self>, count: usize) -> Rc<Self> {
         Rc::new(Self::Latest {
+            candidates: self.clone(),
+            count,
+        })
+    }
+
+    pub fn oldest(self: &Rc<Self>, count: usize) -> Rc<Self> {
+        Rc::new(Self::Oldest {
             candidates: self.clone(),
             count,
         })
@@ -633,6 +644,10 @@ pub enum ResolvedExpression {
         candidates: Box<Self>,
         count: usize,
     },
+    Oldest {
+        candidates: Box<Self>,
+        count: usize,
+    },
     Coalesce(Box<Self>, Box<Self>),
     Union(Box<Self>, Box<Self>),
     /// Intersects `candidates` with `predicate` by filtering.
@@ -818,6 +833,16 @@ static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, RevsetFunction>> = Lazy:
             1
         };
         Ok(candidates.latest(count))
+    });
+    map.insert("oldest", |diagnostics, function, context| {
+        let ([candidates_arg], [count_opt_arg]) = function.expect_arguments()?;
+        let candidates = lower_expression(diagnostics, candidates_arg, context)?;
+        let count = if let Some(count_arg) = count_opt_arg {
+            expect_literal(diagnostics, "integer", count_arg)?
+        } else {
+            1
+        };
+        Ok(candidates.oldest(count))
     });
     map.insert("fork_point", |diagnostics, function, context| {
         let [expression_arg] = function.expect_exact_arguments()?;
@@ -1308,6 +1333,11 @@ fn try_transform_expression<St: ExpressionState, E>(
                     candidates,
                     count: *count,
                 }),
+            RevsetExpression::Oldest { candidates, count } => transform_rec(candidates, pre, post)?
+                .map(|candidates| RevsetExpression::Oldest {
+                    candidates,
+                    count: *count,
+                }),
             RevsetExpression::Filter(_) => None,
             RevsetExpression::AsFilter(candidates) => {
                 transform_rec(candidates, pre, post)?.map(RevsetExpression::AsFilter)
@@ -1501,6 +1531,11 @@ where
             let candidates = folder.fold_expression(candidates)?;
             let count = *count;
             RevsetExpression::Latest { candidates, count }.into()
+        }
+        RevsetExpression::Oldest { candidates, count } => {
+            let candidates = folder.fold_expression(candidates)?;
+            let count = *count;
+            RevsetExpression::Oldest { candidates, count }.into()
         }
         RevsetExpression::Filter(predicate) => RevsetExpression::Filter(predicate.clone()).into(),
         RevsetExpression::AsFilter(candidates) => {
@@ -2382,6 +2417,10 @@ impl VisibilityResolutionContext<'_> {
                 candidates: self.resolve(candidates).into(),
                 count: *count,
             },
+            RevsetExpression::Oldest { candidates, count } => ResolvedExpression::Oldest {
+                candidates: self.resolve(candidates).into(),
+                count: *count,
+            },
             RevsetExpression::Filter(_) | RevsetExpression::AsFilter(_) => {
                 // Top-level filter without intersection: e.g. "~author(_)" is represented as
                 // `AsFilter(NotIn(Filter(Author(_))))`.
@@ -2483,7 +2522,8 @@ impl VisibilityResolutionContext<'_> {
             | RevsetExpression::Heads(_)
             | RevsetExpression::Roots(_)
             | RevsetExpression::ForkPoint(_)
-            | RevsetExpression::Latest { .. } => {
+            | RevsetExpression::Latest { .. }
+            | RevsetExpression::Oldest { .. } => {
                 ResolvedPredicateExpression::Set(self.resolve(expression).into())
             }
             RevsetExpression::Filter(predicate) => {
@@ -3551,6 +3591,14 @@ mod tests {
         insta::assert_debug_snapshot!(
             optimize(parse("latest(bookmarks() & all(), 2)").unwrap()), @r###"
         Latest {
+            candidates: CommitRef(Bookmarks(Substring(""))),
+            count: 2,
+        }
+        "###);
+
+        insta::assert_debug_snapshot!(
+            optimize(parse("oldest(bookmarks() & all(), 2)").unwrap()), @r###"
+        Oldest {
             candidates: CommitRef(Bookmarks(Substring(""))),
             count: 2,
         }

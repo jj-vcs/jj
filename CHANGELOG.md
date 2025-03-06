@@ -323,6 +323,8 @@ Thanks to the people who made this release happen!
   Please [see the documentation](/docs/config.md#json-schema-support) for more
   on this.
 
+* New `oldest` revset function to get the oldest commit in a set.
+
 ### Fixed bugs
 
 * `jj git fetch` with multiple remotes will now fetch from all remotes before
