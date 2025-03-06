@@ -31,6 +31,7 @@ use crate::ui::Ui;
 /// The description of the new revisions can be customized with the
 /// `templates.backout_description` config variable.
 #[derive(clap::Args, Clone, Debug)]
+#[command(hide = true)]
 pub(crate) struct BackoutArgs {
     /// The revision(s) to apply the reverse of
     #[arg(
@@ -58,6 +59,15 @@ pub(crate) fn cmd_backout(
     command: &CommandHelper,
     args: &BackoutArgs,
 ) -> Result<(), CommandError> {
+    writeln!(
+        ui.warning_default(),
+        "`jj backout` is deprecated; use `jj revert` instead"
+    )?;
+    writeln!(
+        ui.warning_default(),
+        "`jj backout` will be removed in a future version, and this will be a hard error"
+    )?;
+
     let mut workspace_command = command.workspace_helper(ui)?;
     let to_back_out: Vec<_> = workspace_command
         .parse_union_revsets(ui, &args.revisions)?

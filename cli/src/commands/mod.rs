@@ -88,6 +88,7 @@ const STYLES: Styles = Styles::styled()
 enum Command {
     Abandon(abandon::AbandonArgs),
     Absorb(absorb::AbsorbArgs),
+    // TODO: Remove in jj 0.34+
     Backout(backout::BackoutArgs),
     #[cfg(feature = "bench")]
     #[command(subcommand)]
