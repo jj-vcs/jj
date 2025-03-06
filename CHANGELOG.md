@@ -13,6 +13,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Breaking changes
 
 * The minimum supported Rust version (MSRV) is now 1.84.0.
+* The `git.push-branch-prefix` config has been removed in favor of
+  `git.push-bookmark-prefix`.
 
 ### Deprecations
 

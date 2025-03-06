@@ -604,8 +604,6 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
     vec![
         // TODO: Delete in jj 0.32+
         ConfigMigrationRule::rename_value("git.auto-local-branch", "git.auto-local-bookmark"),
-        // TODO: Delete in jj 0.28+
-        ConfigMigrationRule::rename_value("git.push-branch-prefix", "git.push-bookmark-prefix"),
         // TODO: Delete in jj 0.33+
         ConfigMigrationRule::rename_update_value(
             "signing.sign-all",

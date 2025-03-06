@@ -1064,27 +1064,6 @@ fn test_git_push_changes(subprocess: bool) {
     [EOF]
     ");
     }
-
-    // Test deprecation warning for `git.push-branch-prefix`
-    let output = test_env.run_jj_in(
-        &workspace_root,
-        [
-            "git",
-            "push",
-            "--config=git.push-branch-prefix=branch-",
-            "--change=@",
-        ],
-    );
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Warning: Deprecated config: git.push-branch-prefix is renamed to git.push-bookmark-prefix
-    Creating bookmark branch-yostqsxwqrlt for revision yostqsxwqrlt
-    Changes to push to origin:
-      Add bookmark branch-yostqsxwqrlt to 38cb417ce3a6
-    [EOF]
-    ");
-    }
 }
 
 #[test_case(false; "use git2 for remote calls")]
