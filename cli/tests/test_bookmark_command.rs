@@ -129,7 +129,7 @@ fn test_bookmark_at_root() {
     ------- stderr -------
     Nothing changed.
     Warning: Failed to export some bookmarks:
-      fred: Ref cannot point to the root commit in Git
+      fred@git: Ref cannot point to the root commit in Git
     [EOF]
     ");
 }

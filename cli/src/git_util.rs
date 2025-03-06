@@ -587,9 +587,9 @@ pub fn print_failed_git_export(
     if !failed_refs.is_empty() {
         writeln!(ui.warning_default(), "Failed to export some bookmarks:")?;
         let mut formatter = ui.stderr_formatter();
-        for FailedRefExport { name, reason } in failed_refs {
+        for FailedRefExport { symbol, reason } in failed_refs {
             write!(formatter, "  ")?;
-            write!(formatter.labeled("bookmark"), "{name}")?;
+            write!(formatter.labeled("bookmark"), "{symbol}")?;
             for err in iter::successors(Some(reason as &dyn error::Error), |err| err.source()) {
                 write!(formatter, ": {err}")?;
             }

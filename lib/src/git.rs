@@ -258,15 +258,25 @@ fn to_legacy_ref_name(kind: GitRefKind, symbol: RemoteRefSymbol<'_>) -> RefName 
     }
 }
 
-fn to_git_ref_name(parsed_ref: &RefName) -> Option<String> {
-    match parsed_ref {
-        RefName::LocalBranch(branch) => {
-            (!branch.is_empty() && branch != "HEAD").then(|| format!("refs/heads/{branch}"))
+fn to_git_ref_name(kind: GitRefKind, symbol: RemoteRefSymbol<'_>) -> Option<String> {
+    let RemoteRefSymbol { name, remote } = symbol;
+    if name.is_empty() || remote.is_empty() {
+        return None;
+    }
+    match kind {
+        GitRefKind::Bookmark => {
+            if name == "HEAD" {
+                return None;
+            }
+            if remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO {
+                Some(format!("refs/heads/{name}"))
+            } else {
+                Some(format!("refs/remotes/{remote}/{name}"))
+            }
         }
-        RefName::RemoteBranch(RemoteRefSymbolBuf { name, remote }) => {
-            (!name.is_empty() && name != "HEAD").then(|| format!("refs/remotes/{remote}/{name}"))
+        GitRefKind::Tag => {
+            (remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO).then(|| format!("refs/tags/{name}"))
         }
-        RefName::Tag(tag) => Some(format!("refs/tags/{tag}")),
     }
 }
 
@@ -769,7 +779,7 @@ impl GitExportError {
 /// A ref we failed to export to Git, along with the reason it failed.
 #[derive(Debug)]
 pub struct FailedRefExport {
-    pub name: RefName,
+    pub symbol: RemoteRefSymbolBuf,
     pub reason: FailedRefExportReason,
 }
 
@@ -805,16 +815,16 @@ pub enum FailedRefExportReason {
 
 #[derive(Debug)]
 struct RefsToExport {
-    /// Remote bookmark `(ref_name, (old_oid, new_oid))`s to update, sorted by
-    /// `ref_name`.
-    branches_to_update: Vec<(RefName, (Option<gix::ObjectId>, gix::ObjectId))>,
-    /// Remote bookmark `(ref_name, old_oid)`s to delete, sorted by `ref_name`.
+    /// Remote bookmark `(symbol, (old_oid, new_oid))`s to update, sorted by
+    /// `symbol`.
+    branches_to_update: Vec<(RemoteRefSymbolBuf, (Option<gix::ObjectId>, gix::ObjectId))>,
+    /// Remote bookmark `(symbol, old_oid)`s to delete, sorted by `symbol`.
     ///
     /// Deletion has to be exported first to avoid conflict with new bookmarks
     /// on file-system.
-    branches_to_delete: Vec<(RefName, gix::ObjectId)>,
-    /// Remote bookmarks that couldn't be exported, sorted by `ref_name`.
-    failed_branches: Vec<(RefName, FailedRefExportReason)>,
+    branches_to_delete: Vec<(RemoteRefSymbolBuf, gix::ObjectId)>,
+    /// Remote bookmarks that couldn't be exported, sorted by `symbol`.
+    failed_branches: Vec<(RemoteRefSymbolBuf, FailedRefExportReason)>,
 }
 
 /// Export changes to branches made in the Jujutsu repo compared to our last
@@ -836,9 +846,9 @@ pub fn export_some_refs(
     mut_repo: &mut MutableRepo,
     git_ref_filter: impl Fn(GitRefKind, RemoteRefSymbol<'_>) -> bool,
 ) -> Result<Vec<FailedRefExport>, GitExportError> {
-    fn get<'a, V>(map: &'a [(RefName, V)], key: &RefName) -> Option<&'a V> {
+    fn get<'a, V>(map: &'a [(RemoteRefSymbolBuf, V)], key: RemoteRefSymbol<'_>) -> Option<&'a V> {
         debug_assert!(map.is_sorted_by_key(|(k, _)| k));
-        let index = map.binary_search_by_key(&key, |(k, _)| k).ok()?;
+        let index = map.binary_search_by_key(&key, |(k, _)| k.as_ref()).ok()?;
         let (_, value) = &map[index];
         Some(value)
     }
@@ -857,11 +867,11 @@ pub fn export_some_refs(
 
     // TODO: Also check other worktrees' HEAD.
     if let Ok(head_ref) = git_repo.find_reference("HEAD") {
-        if let Some(parsed_ref) = head_ref
-            .target()
-            .try_name()
+        let target_name = head_ref.target().try_name().map(|name| name.to_owned());
+        if let Some((GitRefKind::Bookmark, symbol)) = target_name
+            .as_ref()
             .and_then(|name| str::from_utf8(name.as_bstr()).ok())
-            .and_then(parse_git_ref)
+            .and_then(parse_git_ref_inner)
         {
             let old_target = head_ref.inner.target.clone();
             let current_oid = match head_ref.into_fully_peeled_id() {
@@ -875,9 +885,9 @@ pub fn export_some_refs(
                 )) => None, // Unborn ref should be considered absent
                 Err(err) => return Err(GitExportError::from_git(err)),
             };
-            let new_oid = if let Some((_old_oid, new_oid)) = get(&branches_to_update, &parsed_ref) {
+            let new_oid = if let Some((_old_oid, new_oid)) = get(&branches_to_update, symbol) {
                 Some(new_oid)
-            } else if get(&branches_to_delete, &parsed_ref).is_some() {
+            } else if get(&branches_to_delete, symbol).is_some() {
                 None
             } else {
                 current_oid.as_ref()
@@ -891,25 +901,25 @@ pub fn export_some_refs(
             }
         }
     }
-    for (parsed_ref_name, old_oid) in branches_to_delete {
-        let Some(git_ref_name) = to_git_ref_name(&parsed_ref_name) else {
-            failed_branches.push((parsed_ref_name, FailedRefExportReason::InvalidGitName));
+    for (symbol, old_oid) in branches_to_delete {
+        let Some(git_ref_name) = to_git_ref_name(GitRefKind::Bookmark, symbol.as_ref()) else {
+            failed_branches.push((symbol, FailedRefExportReason::InvalidGitName));
             continue;
         };
         if let Err(reason) = delete_git_ref(&git_repo, &git_ref_name, &old_oid) {
-            failed_branches.push((parsed_ref_name, reason));
+            failed_branches.push((symbol, reason));
         } else {
             let new_target = RefTarget::absent();
             mut_repo.set_git_ref_target(&git_ref_name, new_target);
         }
     }
-    for (parsed_ref_name, (old_oid, new_oid)) in branches_to_update {
-        let Some(git_ref_name) = to_git_ref_name(&parsed_ref_name) else {
-            failed_branches.push((parsed_ref_name, FailedRefExportReason::InvalidGitName));
+    for (symbol, (old_oid, new_oid)) in branches_to_update {
+        let Some(git_ref_name) = to_git_ref_name(GitRefKind::Bookmark, symbol.as_ref()) else {
+            failed_branches.push((symbol, FailedRefExportReason::InvalidGitName));
             continue;
         };
         if let Err(reason) = update_git_ref(&git_repo, &git_ref_name, old_oid, new_oid) {
-            failed_branches.push((parsed_ref_name, reason));
+            failed_branches.push((symbol, reason));
         } else {
             let new_target = RefTarget::normal(CommitId::from_bytes(new_oid.as_bytes()));
             mut_repo.set_git_ref_target(&git_ref_name, new_target);
@@ -925,14 +935,13 @@ pub fn export_some_refs(
         |name| {
             let remote = REMOTE_NAME_FOR_LOCAL_GIT_REPO;
             let symbol = RemoteRefSymbol { name, remote };
-            git_ref_filter(GitRefKind::Bookmark, symbol)
-                && get(&failed_branches, &RefName::LocalBranch(name.to_owned())).is_none()
+            git_ref_filter(GitRefKind::Bookmark, symbol) && get(&failed_branches, symbol).is_none()
         },
     );
 
     let failed_branches = failed_branches
         .into_iter()
-        .map(|(name, reason)| FailedRefExport { name, reason })
+        .map(|(symbol, reason)| FailedRefExport { symbol, reason })
         .collect();
     Ok(failed_branches)
 }
@@ -973,21 +982,19 @@ fn diff_refs_to_export(
 ) -> RefsToExport {
     // Local targets will be copied to the "git" remote if successfully exported. So
     // the local branches are considered to be the new "git" remote branches.
-    let mut all_branch_targets: HashMap<RefName, (&RefTarget, &RefTarget)> = itertools::chain(
-        view.local_bookmarks().map(|(name, target)| {
-            let remote = REMOTE_NAME_FOR_LOCAL_GIT_REPO;
-            (RemoteRefSymbol { name, remote }, target)
-        }),
-        view.all_remote_bookmarks()
-            .filter(|&(symbol, _)| symbol.remote != REMOTE_NAME_FOR_LOCAL_GIT_REPO)
-            .map(|(symbol, remote_ref)| (symbol, &remote_ref.target)),
-    )
-    .filter(|&(symbol, _)| git_ref_filter(GitRefKind::Bookmark, symbol))
-    .map(|(symbol, new_target)| {
-        let ref_name = to_legacy_ref_name(GitRefKind::Bookmark, symbol);
-        (ref_name, (RefTarget::absent_ref(), new_target))
-    })
-    .collect();
+    let mut all_branch_targets: HashMap<RemoteRefSymbol, (&RefTarget, &RefTarget)> =
+        itertools::chain(
+            view.local_bookmarks().map(|(name, target)| {
+                let remote = REMOTE_NAME_FOR_LOCAL_GIT_REPO;
+                (RemoteRefSymbol { name, remote }, target)
+            }),
+            view.all_remote_bookmarks()
+                .filter(|&(symbol, _)| symbol.remote != REMOTE_NAME_FOR_LOCAL_GIT_REPO)
+                .map(|(symbol, remote_ref)| (symbol, &remote_ref.target)),
+        )
+        .filter(|&(symbol, _)| git_ref_filter(GitRefKind::Bookmark, symbol))
+        .map(|(symbol, new_target)| (symbol, (RefTarget::absent_ref(), new_target)))
+        .collect();
     let known_git_refs = view
         .git_refs()
         .iter()
@@ -1001,14 +1008,10 @@ fn diff_refs_to_export(
             // 1. `jj branch forget`
             // 2. `jj op undo`/`restore` in colocated repo
             kind == GitRefKind::Bookmark && git_ref_filter(kind, symbol)
-        })
-        .map(|((kind, symbol), target)| {
-            let ref_name = to_legacy_ref_name(kind, symbol);
-            (ref_name, target)
         });
-    for (ref_name, target) in known_git_refs {
+    for ((_kind, symbol), target) in known_git_refs {
         all_branch_targets
-            .entry(ref_name)
+            .entry(symbol)
             .and_modify(|(old_target, _)| *old_target = target)
             .or_insert((target, RefTarget::absent_ref()));
     }
@@ -1017,13 +1020,13 @@ fn diff_refs_to_export(
     let mut branches_to_delete = Vec::new();
     let mut failed_branches = Vec::new();
     let root_commit_target = RefTarget::normal(root_commit_id.clone());
-    for (ref_name, (old_target, new_target)) in all_branch_targets {
+    for (symbol, (old_target, new_target)) in all_branch_targets {
         if new_target == old_target {
             continue;
         }
         if *new_target == root_commit_target {
             // Git doesn't have a root commit
-            failed_branches.push((ref_name, FailedRefExportReason::OnRootCommit));
+            failed_branches.push((symbol.to_owned(), FailedRefExportReason::OnRootCommit));
             continue;
         }
         let old_oid = if let Some(id) = old_target.as_normal() {
@@ -1031,7 +1034,7 @@ fn diff_refs_to_export(
         } else if old_target.has_conflict() {
             // The old git ref should only be a conflict if there were concurrent import
             // operations while the value changed. Don't overwrite these values.
-            failed_branches.push((ref_name, FailedRefExportReason::ConflictedOldState));
+            failed_branches.push((symbol.to_owned(), FailedRefExportReason::ConflictedOldState));
             continue;
         } else {
             assert!(old_target.is_absent());
@@ -1039,20 +1042,20 @@ fn diff_refs_to_export(
         };
         if let Some(id) = new_target.as_normal() {
             let new_oid = gix::ObjectId::from_bytes_or_panic(id.as_bytes());
-            branches_to_update.push((ref_name, (old_oid, new_oid)));
+            branches_to_update.push((symbol.to_owned(), (old_oid, new_oid)));
         } else if new_target.has_conflict() {
             // Skip conflicts and leave the old value in git_refs
             continue;
         } else {
             assert!(new_target.is_absent());
-            branches_to_delete.push((ref_name, old_oid.unwrap()));
+            branches_to_delete.push((symbol.to_owned(), old_oid.unwrap()));
         }
     }
 
     // Stabilize export order and output, allow binary search.
-    branches_to_update.sort_unstable_by(|(name1, _), (name2, _)| name1.cmp(name2));
-    branches_to_delete.sort_unstable_by(|(name1, _), (name2, _)| name1.cmp(name2));
-    failed_branches.sort_unstable_by(|(name1, _), (name2, _)| name1.cmp(name2));
+    branches_to_update.sort_unstable_by(|(sym1, _), (sym2, _)| sym1.cmp(sym2));
+    branches_to_delete.sort_unstable_by(|(sym1, _), (sym2, _)| sym1.cmp(sym2));
+    failed_branches.sort_unstable_by(|(sym1, _), (sym2, _)| sym1.cmp(sym2));
     RefsToExport {
         branches_to_update,
         branches_to_delete,

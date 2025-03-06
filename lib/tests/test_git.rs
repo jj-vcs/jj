@@ -46,7 +46,6 @@ use jj_lib::git::GitImportError;
 use jj_lib::git::GitPushError;
 use jj_lib::git::GitRefKind;
 use jj_lib::git::GitRefUpdate;
-use jj_lib::git::RefName;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::BookmarkTarget;
@@ -1947,7 +1946,7 @@ fn test_export_bookmark_on_root_commit() {
     );
     let failed = git::export_refs(mut_repo).unwrap();
     assert_eq!(failed.len(), 1);
-    assert_eq!(failed[0].name, RefName::LocalBranch("on_root".to_string()));
+    assert_eq!(failed[0].symbol.as_ref(), remote_symbol("on_root", "git"));
     assert_matches!(failed[0].reason, FailedRefExportReason::OnRootCommit);
 }
 
@@ -1970,11 +1969,11 @@ fn test_export_partial_failure() {
     mut_repo.set_local_bookmark_target("main/sub", target.clone());
     let failed = git::export_refs(mut_repo).unwrap();
     assert_eq!(failed.len(), 3);
-    assert_eq!(failed[0].name, RefName::LocalBranch("".to_string()));
+    assert_eq!(failed[0].symbol.as_ref(), remote_symbol("", "git"));
     assert_matches!(failed[0].reason, FailedRefExportReason::InvalidGitName);
-    assert_eq!(failed[1].name, RefName::LocalBranch("HEAD".to_string()));
+    assert_eq!(failed[1].symbol.as_ref(), remote_symbol("HEAD", "git"));
     assert_matches!(failed[1].reason, FailedRefExportReason::InvalidGitName);
-    assert_eq!(failed[2].name, RefName::LocalBranch("main/sub".to_string()));
+    assert_eq!(failed[2].symbol.as_ref(), remote_symbol("main/sub", "git"));
     assert_matches!(failed[2].reason, FailedRefExportReason::FailedToSet(_));
 
     // The `main` bookmark should have succeeded but the other should have failed
@@ -2013,9 +2012,9 @@ fn test_export_partial_failure() {
     mut_repo.set_local_bookmark_target("main", RefTarget::absent());
     let failed = git::export_refs(mut_repo).unwrap();
     assert_eq!(failed.len(), 2);
-    assert_eq!(failed[0].name, RefName::LocalBranch("".to_string()));
+    assert_eq!(failed[0].symbol.as_ref(), remote_symbol("", "git"));
     assert_matches!(failed[0].reason, FailedRefExportReason::InvalidGitName);
-    assert_eq!(failed[1].name, RefName::LocalBranch("HEAD".to_string()));
+    assert_eq!(failed[1].symbol.as_ref(), remote_symbol("HEAD", "git"));
     assert_matches!(failed[1].reason, FailedRefExportReason::InvalidGitName);
     assert!(git_repo.find_reference("refs/heads/").is_err());
     assert!(git_repo.find_reference("refs/heads/HEAD").is_err());
@@ -2142,11 +2141,11 @@ fn test_export_reexport_transitions() {
         git::export_refs(mut_repo)
             .unwrap()
             .into_iter()
-            .map(|failed| failed.name)
+            .map(|failed| failed.symbol)
             .collect_vec(),
         vec!["ABC", "ABX", "AXB", "XAB"]
             .into_iter()
-            .map(|s| RefName::LocalBranch(s.to_string()))
+            .map(|s| remote_symbol(s, "git").to_owned())
             .collect_vec()
     );
     for bookmark in ["AAX", "ABX", "AXA", "AXX"] {
