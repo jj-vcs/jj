@@ -432,7 +432,10 @@ impl ReadonlyIndexSegment {
     }
 
     /// Scans graph entry positions stored in the overflow change ids table.
-    fn overflow_changes_from(&self, overflow_pos: u32) -> impl Iterator<Item = LocalPosition> + '_ {
+    fn overflow_changes_from(
+        &self,
+        overflow_pos: u32,
+    ) -> impl Iterator<Item = LocalPosition> + use<'_> {
         let table = &self.data[self.change_overflow_base..];
         let offset = (overflow_pos as usize) * 4;
         table[offset..]

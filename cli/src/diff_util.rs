@@ -477,7 +477,7 @@ pub fn get_copy_records<'a>(
     root: &CommitId,
     head: &CommitId,
     matcher: &'a dyn Matcher,
-) -> BackendResult<impl Iterator<Item = BackendResult<CopyRecord>> + 'a> {
+) -> BackendResult<impl Iterator<Item = BackendResult<CopyRecord>> + use<'a>> {
     // TODO: teach backend about matching path prefixes?
     let stream = store.get_copy_records(None, root, head)?;
     // TODO: test record.source as well? should be AND-ed or OR-ed?

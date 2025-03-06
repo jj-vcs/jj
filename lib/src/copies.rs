@@ -85,7 +85,7 @@ impl CopyRecords {
     }
 
     /// Gets all copy records.
-    pub fn iter(&self) -> impl Iterator<Item = &CopyRecord> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = &CopyRecord> {
         self.records.iter()
     }
 }

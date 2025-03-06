@@ -242,7 +242,9 @@ impl PartialOrd for OperationByEndTime {
 }
 
 /// Walks `head_ops` and their ancestors in reverse topological order.
-pub fn walk_ancestors(head_ops: &[Operation]) -> impl Iterator<Item = OpStoreResult<Operation>> {
+pub fn walk_ancestors(
+    head_ops: &[Operation],
+) -> impl Iterator<Item = OpStoreResult<Operation>> + use<> {
     // Emit the latest head first to stabilize the order.
     let mut head_ops = head_ops
         .iter()

@@ -1886,7 +1886,7 @@ fn resolve_remote_bookmark(repo: &dyn Repo, symbol: RemoteRefSymbol<'_>) -> Opti
 fn all_formatted_bookmark_symbols(
     repo: &dyn Repo,
     include_synced_remotes: bool,
-) -> impl Iterator<Item = String> + '_ {
+) -> impl Iterator<Item = String> + use<'_> {
     let view = repo.view();
     view.bookmarks().flat_map(move |(name, bookmark_target)| {
         let local_target = bookmark_target.local_target;
@@ -2611,7 +2611,7 @@ impl RevsetExtensions {
         }
     }
 
-    pub fn symbol_resolvers(&self) -> &[impl AsRef<dyn SymbolResolverExtension>] {
+    pub fn symbol_resolvers(&self) -> &[impl AsRef<dyn SymbolResolverExtension> + use<>] {
         &self.symbol_resolvers
     }
 
@@ -2668,7 +2668,7 @@ impl<'a> RevsetParseContext<'a> {
         &self.date_pattern_context
     }
 
-    pub fn symbol_resolvers(&self) -> &[impl AsRef<dyn SymbolResolverExtension>] {
+    pub fn symbol_resolvers(&self) -> &'a [impl AsRef<dyn SymbolResolverExtension> + use<>] {
         self.extensions.symbol_resolvers()
     }
 }

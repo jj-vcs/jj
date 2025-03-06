@@ -114,7 +114,7 @@ impl<'a> IndexEntry<'a> {
         self.source.parent_positions(self.local_pos)
     }
 
-    pub fn parents(&self) -> impl ExactSizeIterator<Item = IndexEntry<'a>> {
+    pub fn parents(&self) -> impl ExactSizeIterator<Item = IndexEntry<'a>> + use<'a> {
         let composite = CompositeIndex::new(self.source);
         self.parent_positions()
             .into_iter()

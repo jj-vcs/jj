@@ -35,7 +35,7 @@ use testutils::TestRepo;
 
 fn create_commit_fn(
     mut_repo: &mut MutableRepo,
-) -> impl FnMut(&str, &[&CommitId], MergedTreeId) -> Commit + '_ {
+) -> impl FnMut(&str, &[&CommitId], MergedTreeId) -> Commit + use<'_> {
     // stabilize commit IDs for ease of debugging
     let signature = Signature {
         name: "Some One".to_owned(),

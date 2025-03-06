@@ -480,10 +480,13 @@ impl<V> RepoPathTree<V> {
 
     /// Walks the tree from the root to the given `dir`, yielding each sub tree
     /// and remaining path.
-    fn walk_to<'a, 'b: 'a>(
+    fn walk_to<'a, 'b>(
         &'a self,
         dir: &'b RepoPath,
-    ) -> impl Iterator<Item = (&'a Self, &'b RepoPath)> + 'a {
+        // TODO: V doesn't have to be captured, but "currently, all type
+        // parameters are required to be mentioned in the precise captures list"
+        // as of rustc 1.85.0.
+    ) -> impl Iterator<Item = (&'a Self, &'b RepoPath)> + use<'a, 'b, V> {
         iter::successors(Some((self, dir)), |(sub, dir)| {
             let mut components = dir.components();
             let name = components.next()?;

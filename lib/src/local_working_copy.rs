@@ -385,7 +385,7 @@ impl<'a> FileStates<'a> {
     }
 
     /// Iterates sorted file paths.
-    pub fn paths(&self) -> impl ExactSizeIterator<Item = &'a RepoPath> {
+    pub fn paths(&self) -> impl ExactSizeIterator<Item = &'a RepoPath> + use<'a> {
         self.data
             .iter()
             .map(|entry| RepoPath::from_internal_string(&entry.path))

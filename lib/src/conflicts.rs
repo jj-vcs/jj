@@ -665,7 +665,7 @@ pub struct MaterializedTreeDiffEntry {
 pub fn materialized_diff_stream<'a>(
     store: &'a Store,
     tree_diff: BoxStream<'a, CopiesTreeDiffEntry>,
-) -> impl Stream<Item = MaterializedTreeDiffEntry> + 'a {
+) -> impl Stream<Item = MaterializedTreeDiffEntry> + use<'a> {
     tree_diff
         .map(|CopiesTreeDiffEntry { path, values }| async {
             match values {

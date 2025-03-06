@@ -182,7 +182,9 @@ impl MergedTree {
     /// all sides are trees, so tree/file conflicts will be reported as a single
     /// conflict, not one for each path in the tree.
     // TODO: Restrict this by a matcher (or add a separate method for that).
-    pub fn conflicts(&self) -> impl Iterator<Item = (RepoPathBuf, BackendResult<MergedTreeValue>)> {
+    pub fn conflicts(
+        &self,
+    ) -> impl Iterator<Item = (RepoPathBuf, BackendResult<MergedTreeValue>)> + use<> {
         ConflictIterator::new(self)
     }
 

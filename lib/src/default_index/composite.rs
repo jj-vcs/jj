@@ -355,12 +355,12 @@ impl CompositeIndex {
         self.heads_pos(result)
     }
 
-    pub(super) fn all_heads(&self) -> impl Iterator<Item = CommitId> + '_ {
+    pub(super) fn all_heads(&self) -> impl Iterator<Item = CommitId> + use<'_> {
         self.all_heads_pos()
             .map(move |pos| self.entry_by_pos(pos).commit_id())
     }
 
-    pub(super) fn all_heads_pos(&self) -> impl Iterator<Item = IndexPosition> {
+    pub(super) fn all_heads_pos(&self) -> impl Iterator<Item = IndexPosition> + use<> {
         // TODO: can be optimized to use bit vec and leading/trailing_ones()
         let num_commits = self.num_commits();
         let mut not_head: Vec<bool> = vec![false; num_commits as usize];

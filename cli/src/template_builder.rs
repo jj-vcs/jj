@@ -2052,7 +2052,10 @@ mod tests {
         }
     }
 
-    fn new_error_property<O>(message: &str) -> impl TemplateProperty<Output = O> + '_ {
+    // TODO: O doesn't have to be captured, but "currently, all type parameters
+    // are required to be mentioned in the precise captures list" as of rustc
+    // 1.85.0.
+    fn new_error_property<O>(message: &str) -> impl TemplateProperty<Output = O> + use<'_, O> {
         Literal(()).and_then(|()| Err(TemplatePropertyError(message.into())))
     }
 

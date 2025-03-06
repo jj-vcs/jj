@@ -100,7 +100,7 @@ impl Operation {
         &self.data.parents
     }
 
-    pub fn parents(&self) -> impl ExactSizeIterator<Item = OpStoreResult<Operation>> + '_ {
+    pub fn parents(&self) -> impl ExactSizeIterator<Item = OpStoreResult<Operation>> + use<'_> {
         let op_store = &self.op_store;
         self.data.parents.iter().map(|parent_id| {
             let data = op_store.read_operation(parent_id)?;

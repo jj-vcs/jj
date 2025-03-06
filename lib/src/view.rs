@@ -138,20 +138,20 @@ impl View {
 
     /// Iterates local bookmarks `(name, target)` in lexicographical order where
     /// the target adds `commit_id`.
-    pub fn local_bookmarks_for_commit<'a: 'b, 'b>(
+    pub fn local_bookmarks_for_commit<'a, 'b>(
         &'a self,
         commit_id: &'b CommitId,
-    ) -> impl Iterator<Item = (&'a str, &'a RefTarget)> + 'b {
+    ) -> impl Iterator<Item = (&'a str, &'a RefTarget)> + use<'a, 'b> {
         self.local_bookmarks()
             .filter(|(_, target)| target.added_ids().contains(commit_id))
     }
 
     /// Iterates local bookmark `(name, target)`s matching the given pattern.
     /// Entries are sorted by `name`.
-    pub fn local_bookmarks_matching<'a: 'b, 'b>(
+    pub fn local_bookmarks_matching<'a, 'b>(
         &'a self,
         pattern: &'b StringPattern,
-    ) -> impl Iterator<Item = (&'a str, &'a RefTarget)> + 'b {
+    ) -> impl Iterator<Item = (&'a str, &'a RefTarget)> + use<'a, 'b> {
         pattern
             .filter_btree_map(&self.data.local_bookmarks)
             .map(|(name, target)| (name.as_ref(), target))
@@ -181,7 +181,10 @@ impl View {
 
     /// Iterates over `(name, remote_ref)`s for all remote bookmarks of the
     /// specified remote in lexicographical order.
-    pub fn remote_bookmarks(&self, remote_name: &str) -> impl Iterator<Item = (&str, &RemoteRef)> {
+    pub fn remote_bookmarks(
+        &self,
+        remote_name: &str,
+    ) -> impl Iterator<Item = (&str, &RemoteRef)> + use<'_> {
         let maybe_remote_view = self.data.remote_views.get(remote_name);
         maybe_remote_view
             .map(|remote_view| {
@@ -198,11 +201,11 @@ impl View {
     /// specified remote that match the given pattern.
     ///
     /// Entries are sorted by `symbol`, which is `(name, remote)`.
-    pub fn remote_bookmarks_matching<'a: 'b, 'b>(
+    pub fn remote_bookmarks_matching<'a, 'b>(
         &'a self,
         bookmark_pattern: &'b StringPattern,
         remote_pattern: &'b StringPattern,
-    ) -> impl Iterator<Item = (RemoteRefSymbol<'a>, &'a RemoteRef)> + 'b {
+    ) -> impl Iterator<Item = (RemoteRefSymbol<'a>, &'a RemoteRef)> + use<'a, 'b> {
         // Use kmerge instead of flat_map for consistency with all_remote_bookmarks().
         remote_pattern
             .filter_btree_map(&self.data.remote_views)
@@ -249,10 +252,10 @@ impl View {
     /// Note that this does *not* take into account whether the local bookmark
     /// tracks the remote bookmark or not. Missing values are represented as
     /// RefTarget::absent_ref() or RemoteRef::absent_ref().
-    pub fn local_remote_bookmarks<'a>(
-        &'a self,
+    pub fn local_remote_bookmarks(
+        &self,
         remote_name: &str,
-    ) -> impl Iterator<Item = (&'a str, LocalAndRemoteRef<'a>)> + 'a {
+    ) -> impl Iterator<Item = (&str, LocalAndRemoteRef<'_>)> + use<'_> {
         refs::iter_named_local_remote_refs(
             self.local_bookmarks(),
             self.remote_bookmarks(remote_name),
@@ -275,11 +278,11 @@ impl View {
     /// Note that this does *not* take into account whether the local bookmark
     /// tracks the remote bookmark or not. Missing values are represented as
     /// RefTarget::absent_ref() or RemoteRef::absent_ref().
-    pub fn local_remote_bookmarks_matching<'a: 'b, 'b>(
+    pub fn local_remote_bookmarks_matching<'a, 'b>(
         &'a self,
         bookmark_pattern: &'b StringPattern,
         remote_name: &str,
-    ) -> impl Iterator<Item = (&'a str, LocalAndRemoteRef<'a>)> + 'b {
+    ) -> impl Iterator<Item = (&'a str, LocalAndRemoteRef<'a>)> + use<'a, 'b> {
         // Change remote_name to StringPattern if needed, but merge-join adapter won't
         // be usable.
         let maybe_remote_view = self.data.remote_views.get(remote_name);
@@ -315,10 +318,10 @@ impl View {
 
     /// Iterates tags `(name, target)`s matching the given pattern. Entries
     /// are sorted by `name`.
-    pub fn tags_matching<'a: 'b, 'b>(
+    pub fn tags_matching<'a, 'b>(
         &'a self,
         pattern: &'b StringPattern,
-    ) -> impl Iterator<Item = (&'a str, &'a RefTarget)> + 'b {
+    ) -> impl Iterator<Item = (&'a str, &'a RefTarget)> + use<'a, 'b> {
         pattern
             .filter_btree_map(&self.data.tags)
             .map(|(name, target)| (name.as_ref(), target))

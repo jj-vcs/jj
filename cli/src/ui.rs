@@ -724,7 +724,7 @@ fn duplicate_child_stdin(stdin: &ChildStdin) -> io::Result<std::os::windows::io:
     stdin.as_handle().try_clone_to_owned()
 }
 
-fn format_error_with_sources(err: &dyn error::Error) -> impl fmt::Display + '_ {
+fn format_error_with_sources(err: &dyn error::Error) -> impl fmt::Display + use<'_> {
     iter::successors(Some(err), |&err| err.source()).format(": ")
 }
 

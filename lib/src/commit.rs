@@ -93,7 +93,7 @@ impl Commit {
         &self.data.parents
     }
 
-    pub fn parents(&self) -> impl Iterator<Item = BackendResult<Commit>> + '_ {
+    pub fn parents(&self) -> impl Iterator<Item = BackendResult<Commit>> + use<'_> {
         self.data.parents.iter().map(|id| self.store.get_commit(id))
     }
 
@@ -101,7 +101,7 @@ impl Commit {
         &self.data.predecessors
     }
 
-    pub fn predecessors(&self) -> impl Iterator<Item = BackendResult<Commit>> + '_ {
+    pub fn predecessors(&self) -> impl Iterator<Item = BackendResult<Commit>> + use<'_> {
         self.data
             .predecessors
             .iter()

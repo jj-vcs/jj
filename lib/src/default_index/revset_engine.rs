@@ -127,14 +127,16 @@ impl<I: AsCompositeIndex + Clone> RevsetImpl<I> {
         Self { inner, index }
     }
 
-    fn positions(&self) -> impl Iterator<Item = Result<IndexPosition, RevsetEvaluationError>> + '_ {
+    fn positions(
+        &self,
+    ) -> impl Iterator<Item = Result<IndexPosition, RevsetEvaluationError>> + use<'_, I> {
         self.inner.positions().attach(self.index.as_composite())
     }
 
     pub fn iter_graph_impl(
         &self,
         skip_transitive_edges: bool,
-    ) -> impl Iterator<Item = Result<GraphNode<CommitId>, RevsetEvaluationError>> {
+    ) -> impl Iterator<Item = Result<GraphNode<CommitId>, RevsetEvaluationError>> + use<I> {
         let index = self.index.clone();
         let walk = self.inner.positions();
         let mut graph_walk = RevsetGraphWalk::new(walk, skip_transitive_edges);
@@ -1336,10 +1338,10 @@ fn matches_diff_from_parent(
     .block_on()
 }
 
-fn match_lines<'a: 'b, 'b>(
+fn match_lines<'a, 'b>(
     text: &'a [u8],
     pattern: &'b StringPattern,
-) -> impl Iterator<Item = &'a [u8]> + 'b {
+) -> impl Iterator<Item = &'a [u8]> + use<'a, 'b> {
     // The pattern is matched line by line so that it can be anchored to line
     // start/end. For example, exact:"" will match blank lines.
     text.split_inclusive(|b| *b == b'\n').filter(|line| {

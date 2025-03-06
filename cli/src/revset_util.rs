@@ -128,7 +128,7 @@ impl<'repo> RevsetExpressionEvaluator<'repo> {
     pub fn evaluate_to_commits(
         &self,
     ) -> Result<
-        impl Iterator<Item = Result<Commit, RevsetEvaluationError>> + 'repo,
+        impl Iterator<Item = Result<Commit, RevsetEvaluationError>> + use<'repo>,
         UserRevsetEvaluationError,
     > {
         Ok(self.evaluate()?.iter().commits(self.repo.store()))

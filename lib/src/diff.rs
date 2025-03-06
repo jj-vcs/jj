@@ -76,11 +76,11 @@ pub fn find_nonword_ranges(text: &[u8]) -> Vec<Range<usize>> {
         .collect()
 }
 
-fn bytes_ignore_all_whitespace(text: &[u8]) -> impl Iterator<Item = u8> + '_ {
+fn bytes_ignore_all_whitespace(text: &[u8]) -> impl Iterator<Item = u8> + use<'_> {
     text.iter().copied().filter(|b| !b.is_ascii_whitespace())
 }
 
-fn bytes_ignore_whitespace_amount(text: &[u8]) -> impl Iterator<Item = u8> + '_ {
+fn bytes_ignore_whitespace_amount(text: &[u8]) -> impl Iterator<Item = u8> + use<'_> {
     let mut prev_was_space = false;
     text.iter().filter_map(move |&b| {
         let was_space = prev_was_space;
@@ -295,7 +295,8 @@ impl<'input> LocalDiffSource<'input, '_> {
 
     fn hashed_words(
         &self,
-    ) -> impl DoubleEndedIterator<Item = HashedWord<'input>> + ExactSizeIterator + '_ {
+    ) -> impl DoubleEndedIterator<Item = HashedWord<'input>> + ExactSizeIterator + use<'_, 'input>
+    {
         iter::zip(self.ranges, self.hashes).map(|(range, &hash)| {
             let text = &self.text[range.clone()];
             HashedWord { hash, text }
@@ -779,7 +780,10 @@ impl<'input> Diff<'input> {
     }
 
     /// Returns contents at the unchanged `range`.
-    fn hunk_at<'a>(&'a self, range: &'a UnchangedRange) -> impl Iterator<Item = &'input BStr> + 'a {
+    fn hunk_at<'a, 'b>(
+        &'a self,
+        range: &'b UnchangedRange,
+    ) -> impl Iterator<Item = &'input BStr> + use<'a, 'b, 'input> {
         itertools::chain(
             iter::once(&self.base_input[range.base.clone()]),
             iter::zip(&self.other_inputs, &range.others).map(|(input, r)| &input[r.clone()]),
@@ -787,11 +791,11 @@ impl<'input> Diff<'input> {
     }
 
     /// Returns contents between the `previous` ends and the `current` starts.
-    fn hunk_between<'a>(
+    fn hunk_between<'a, 'b>(
         &'a self,
-        previous: &'a UnchangedRange,
-        current: &'a UnchangedRange,
-    ) -> impl Iterator<Item = &'input BStr> + 'a {
+        previous: &'b UnchangedRange,
+        current: &'b UnchangedRange,
+    ) -> impl Iterator<Item = &'input BStr> + use<'a, 'b, 'input> {
         itertools::chain(
             iter::once(&self.base_input[previous.base.end..current.base.start]),
             itertools::izip!(&self.other_inputs, &previous.others, &current.others)
