@@ -9,6 +9,7 @@ simplify-parents = "reachable(@, mutable())"
 # suppress symbol resolution error.
 log = "present(@) | ancestors(immutable_heads().., 2) | present(trunk())"
 sign = "reachable(@, mutable())"
+'push(remote)' = "remote_bookmarks(remote)..@"
 
 [revset-aliases]
 # trunk() can be overridden as '<bookmark>@<remote>'. Use present(trunk()) if

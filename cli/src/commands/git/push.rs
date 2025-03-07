@@ -36,7 +36,12 @@ use jj_lib::refs::BookmarkPushUpdate;
 use jj_lib::refs::LocalAndRemoteRef;
 use jj_lib::refs::RemoteRefSymbol;
 use jj_lib::repo::Repo;
+use jj_lib::revset;
+use jj_lib::revset::RevsetAliasesMap;
+use jj_lib::revset::RevsetDiagnostics;
 use jj_lib::revset::RevsetExpression;
+use jj_lib::revset::RevsetExtensions;
+use jj_lib::revset::RevsetParseContext;
 use jj_lib::settings::UserSettings;
 use jj_lib::signing::SignBehavior;
 use jj_lib::str_util::StringPattern;
@@ -766,15 +771,21 @@ fn find_bookmarks_targeted_by_revisions<'a>(
 ) -> Result<Vec<(&'a str, LocalAndRemoteRef<'a>)>, CommandError> {
     let mut revision_commit_ids = HashSet::new();
     if use_default_revset {
-        // remote_bookmarks(remote=<remote>)..@
-        let workspace_id = workspace_command.workspace_id();
-        let expression = RevsetExpression::remote_bookmarks(
-            StringPattern::everything(),
-            StringPattern::exact(remote_name),
+        let revs = workspace_command.settings().get_string("revsets.push")?;
+        // This is a complete hack, since we have no convenient API for this yet.
+        let mut aliases_map = RevsetAliasesMap::new();
+        aliases_map.insert("remote", remote_name).unwrap();
+        let extensions = RevsetExtensions::default();
+        let context = RevsetParseContext::new(
+            &aliases_map,
+            "TODO",
+            chrono::Utc::now().fixed_offset().into(),
+            &extensions,
             None,
-        )
-        .range(&RevsetExpression::working_copy(workspace_id.clone()))
-        .intersection(&RevsetExpression::bookmarks(StringPattern::everything()));
+        );
+        let mut diags = RevsetDiagnostics::default();
+        let (expression, _) = revset::parse_with_modifier(&mut diags, &revs, &context)?;
+
         let mut commit_ids = workspace_command
             .attach_revset_evaluator(expression)
             .evaluate_to_commit_ids()?
