@@ -104,12 +104,12 @@ smallvec = { version = "1.14.0", features = [
 ] }
 strsim = "0.11.1"
 syn = "2.0.99"
-tempfile = "3.17.1"
+tempfile = "3.18.0"
 test-case = "3.3.1"
 textwrap = "0.16.2"
 thiserror = "2.0.12"
 timeago = { version = "0.4.2", default-features = false }
-tokio = { version = "1.43.0" }
+tokio = { version = "1.44.0" }
 toml_edit = { version = "0.22.24", features = ["serde"] }
 tracing = "0.1.41"
 tracing-chrome = "0.7.2"
