@@ -284,23 +284,6 @@ where
 }
 
 /// Combines the descriptions from the input commits. If only one is non-empty,
-/// then that one is used. Otherwise we concatenate the messages and ask the
-/// user to edit the result in their editor.
-// TODO: this can be removed with the deprecated "unsquash" command
-pub(crate) fn combine_messages(
-    editor: &TextEditor,
-    sources: &[Commit],
-    destination: &Commit,
-) -> Result<String, CommandError> {
-    if let Some(description) = try_combine_messages(sources, destination) {
-        return Ok(description);
-    }
-    let mut combined = "JJ: Enter a description for the combined commit.\n".to_string();
-    combined.push_str(&combine_messages_for_editing(sources, destination));
-    edit_description(editor, &combined)
-}
-
-/// Combines the descriptions from the input commits. If only one is non-empty,
 /// then that one is used.
 pub fn try_combine_messages(sources: &[Commit], destination: &Commit) -> Option<String> {
     let non_empty = sources

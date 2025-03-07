@@ -53,7 +53,6 @@ mod squash;
 mod status;
 mod tag;
 mod unsign;
-mod unsquash;
 mod util;
 mod version;
 mod workspace;
@@ -147,9 +146,6 @@ enum Command {
     /// Undo an operation (shortcut for `jj op undo`)
     Undo(operation::undo::OperationUndoArgs),
     Unsign(unsign::UnsignArgs),
-    // TODO: Delete `unsquash` in jj 0.28+
-    #[command(hide = true)]
-    Unsquash(unsquash::UnsquashArgs),
     // TODO: Delete `untrack` in jj 0.27+
     #[command(hide = true)]
     Untrack(file::untrack::FileUntrackArgs),
@@ -214,7 +210,6 @@ pub fn run_command(ui: &mut Ui, command_helper: &CommandHelper) -> Result<(), Co
         Command::Tag(args) => tag::cmd_tag(ui, command_helper, args),
         Command::Undo(args) => operation::undo::cmd_op_undo(ui, command_helper, args),
         Command::Unsign(args) => unsign::cmd_unsign(ui, command_helper, args),
-        Command::Unsquash(args) => unsquash::cmd_unsquash(ui, command_helper, args),
         Command::Untrack(args) => {
             let cmd = renamed_cmd("untrack", "file untrack", file::untrack::cmd_file_untrack);
             cmd(ui, command_helper, args)

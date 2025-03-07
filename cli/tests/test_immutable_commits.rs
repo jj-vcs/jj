@@ -534,22 +534,6 @@ fn test_rewrite_immutable_commands() {
     [EOF]
     [exit status: 1]
     "#);
-    // unsquash
-    let output = test_env.run_jj_in(&repo_path, ["unsquash", "-r=main"]);
-    insta::assert_snapshot!(output, @r#"
-    ------- stderr -------
-    Warning: `jj unsquash` is deprecated; use `jj diffedit --restore-descendants` or `jj squash` instead
-    Warning: `jj unsquash` will be removed in a future version, and this will be a hard error
-    Error: Commit bcab555fc80e is immutable
-    Hint: Could not modify commit: mzvwutvl bcab555f main | (conflict) merge
-    Hint: Immutable commits are used to protect shared history.
-    Hint: For more information, see:
-          - https://jj-vcs.github.io/jj/latest/config/#set-of-immutable-commits
-          - `jj help -k config`, "Set of immutable commits"
-    Hint: This operation would rewrite 1 immutable commits.
-    [EOF]
-    [exit status: 1]
-    "#);
     // sign
     let output = test_env.run_jj_in(
         &repo_path,

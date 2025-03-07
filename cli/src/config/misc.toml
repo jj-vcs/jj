@@ -4,7 +4,6 @@
 amend = ["squash"]
 b = ["bookmark"]
 ci = ["commit"]
-unamend = ["unsquash"]
 
 [diff.color-words]
 max-inline-alternation = 3
