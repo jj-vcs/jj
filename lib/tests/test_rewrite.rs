@@ -1878,4 +1878,10 @@ fn test_commit_with_selection() {
     };
     assert!(!full_selection.is_empty_selection());
     assert!(full_selection.is_full_selection());
+
+    assert_eq!(empty_selection.clone().invert().unwrap(), full_selection);
+    assert_eq!(
+        empty_selection.clone().invert().unwrap().invert().unwrap(),
+        empty_selection
+    );
 }

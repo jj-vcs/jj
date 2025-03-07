@@ -1029,6 +1029,7 @@ fn compute_commits_heads(
         .collect_vec()
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CommitWithSelection {
     pub commit: Commit,
     pub selected_tree: MergedTree,
@@ -1036,6 +1037,24 @@ pub struct CommitWithSelection {
 }
 
 impl CommitWithSelection {
+    /// Returns a new CommitWithSelection where the selection is inverted (i.e.
+    /// it includes the changes that weren't selected previously, and excludes
+    /// those that were).
+    pub fn invert(self) -> BackendResult<CommitWithSelection> {
+        // Merge the original commit tree with its parent using the tree
+        // containing the selected changes as the base for the merge. This
+        // results in a tree with the changes the user didn't select.
+        let inverted_tree = self
+            .commit
+            .tree()?
+            .merge(&self.selected_tree, &self.parent_tree)?;
+        Ok(CommitWithSelection {
+            commit: self.commit,
+            selected_tree: inverted_tree,
+            parent_tree: self.parent_tree,
+        })
+    }
+
     /// Returns true if the selection contains all changes in the commit.
     pub fn is_full_selection(&self) -> bool {
         &self.selected_tree.id() == self.commit.tree_id()
