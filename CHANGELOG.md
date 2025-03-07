@@ -26,6 +26,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - `branches()`, `remote_branches()`, `tracked_remote_branches()`, and
     `untracked_remote_branches()`, which were renamed to "bookmarks".
   - `file()` and `conflict()`, which were renamed to plural forms.
+  - `files(x, y, ..)` with multiple patterns. Use `files(x|y|..)` instead.
 
 * The following deprecated template functions have been removed:
   - `branches()`, `local_branches()`, and `remote_branches()`, which were

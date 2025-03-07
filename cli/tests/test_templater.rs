@@ -122,6 +122,20 @@ fn test_templater_parse_error() {
     [exit status: 1]
     ");
 
+    // "at least N arguments"
+    insta::assert_snapshot!(render("separate()"), @r"
+    ------- stderr -------
+    Error: Failed to parse template: Function `separate`: Expected at least 1 arguments
+    Caused by:  --> 1:10
+      |
+    1 | separate()
+      |          ^
+      |
+      = Function `separate`: Expected at least 1 arguments
+    [EOF]
+    [exit status: 1]
+    ");
+
     // -Tbuiltin shows the predefined builtin_* aliases. This isn't 100%
     // guaranteed, but is nice.
     insta::assert_snapshot!(render(r#"builtin"#), @r"

@@ -877,18 +877,8 @@ static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, RevsetFunction>> = Lazy:
                 function.args_span, // TODO: better to use name_span?
             )
         })?;
-        // TODO: Drop support for multiple arguments in jj 0.28+
-        let ([arg], args) = function.expect_some_arguments()?;
-        if !args.is_empty() {
-            diagnostics.add_warning(RevsetParseError::expression(
-                "Multi-argument patterns syntax is deprecated; separate them with |",
-                function.args_span,
-            ));
-        }
-        let file_expressions = itertools::chain([arg], args)
-            .map(|arg| expect_fileset_expression(diagnostics, arg, ctx.path_converter))
-            .try_collect()?;
-        let expr = FilesetExpression::union_all(file_expressions);
+        let [arg] = function.expect_exact_arguments()?;
+        let expr = expect_fileset_expression(diagnostics, arg, ctx.path_converter)?;
         Ok(RevsetExpression::filter(RevsetFilterPredicate::File(expr)))
     });
     map.insert("diff_contains", |diagnostics, function, context| {
@@ -3238,20 +3228,6 @@ mod tests {
                             Pattern(PrefixPath("bar")),
                             Pattern(PrefixPath("baz")),
                         ),
-                    ],
-                ),
-            ),
-        )
-        "#);
-        insta::assert_debug_snapshot!(
-            parse_with_workspace("files(foo, bar, baz)", &WorkspaceId::default()).unwrap(), @r#"
-        Filter(
-            File(
-                UnionAll(
-                    [
-                        Pattern(PrefixPath("foo")),
-                        Pattern(PrefixPath("bar")),
-                        Pattern(PrefixPath("baz")),
                     ],
                 ),
             ),

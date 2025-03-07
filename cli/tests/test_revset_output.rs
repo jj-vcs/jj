@@ -157,16 +157,17 @@ fn test_bad_function_call() {
     [exit status: 1]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "files()"]);
+    // "N to M arguments"
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "ancestors()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Failed to parse revset: Function `files`: Expected at least 1 arguments
-    Caused by:  --> 1:7
+    Error: Failed to parse revset: Function `ancestors`: Expected 1 to 2 arguments
+    Caused by:  --> 1:11
       |
-    1 | files()
-      |       ^
+    1 | ancestors()
+      |           ^
       |
-      = Function `files`: Expected at least 1 arguments
+      = Function `ancestors`: Expected 1 to 2 arguments
     [EOF]
     [exit status: 1]
     ");
@@ -215,15 +216,15 @@ fn test_bad_function_call() {
     [exit status: 1]
     "#);
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", r#"files(a, "../out")"#]);
+    let output = test_env.run_jj_in(&repo_path, ["log", "-r", r#"files("../out")"#]);
     insta::assert_snapshot!(output.normalize_backslash(), @r#"
     ------- stderr -------
     Error: Failed to parse revset: In fileset expression
     Caused by:
-    1:  --> 1:10
+    1:  --> 1:7
       |
-    1 | files(a, "../out")
-      |          ^------^
+    1 | files("../out")
+      |       ^------^
       |
       = In fileset expression
     2:  --> 1:1
@@ -347,26 +348,6 @@ fn test_bad_function_call() {
     Hint: See https://jj-vcs.github.io/jj/latest/revsets/ or use `jj help -k revsets` for revsets syntax and how to quote symbols.
     [EOF]
     [exit status: 1]
-    ");
-}
-
-#[test]
-fn test_parse_warning() {
-    let test_env = TestEnvironment::default();
-    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "files(foo, bar)"]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Warning: In revset expression
-     --> 1:7
-      |
-    1 | files(foo, bar)
-      |       ^------^
-      |
-      = Multi-argument patterns syntax is deprecated; separate them with |
-    [EOF]
     ");
 }
 
