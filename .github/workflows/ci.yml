@@ -77,7 +77,7 @@ jobs:
       with:
         toolchain: 1.84
         target: ${{ matrix.target }}
-    - uses: taiki-e/install-action@955a6ff1416eae278c9f833008a9beb4b7f9afe3
+    - uses: taiki-e/install-action@1426bdb9e21b806f1cae604ab3dfc05e174bf885
       with:
         tool: nextest,taplo-cli
     - name: Build
@@ -281,7 +281,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@b56ba49b26e50535fa1e7f7db0f4f7b4bf65d80d
+        uses: github/codeql-action/upload-sarif@6bb031afdd8eb862ea3fc1848194185e076637e5
         with:
           sarif_file: results.sarif
           category: zizmor
