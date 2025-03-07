@@ -142,12 +142,12 @@ pub(crate) fn cmd_split(
     let mut tx = workspace_command.start_transaction();
 
     // Prompt the user to select the changes they want for the first commit.
-    let target = select_diff(ui, &tx, &target_commit, &matcher, &diff_selector)?;
+    let selection = select_diff(ui, &tx, &target_commit, &matcher, &diff_selector)?;
 
     // Create the first commit, which includes the changes selected by the user.
     let first_commit = {
-        let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
-        commit_builder.set_tree_id(target.selected_tree.id());
+        let mut commit_builder = tx.repo_mut().rewrite_commit(&target_commit).detach();
+        commit_builder.set_tree_id(selection.selected_tree.id());
         if commit_builder.description().is_empty() {
             commit_builder.set_description(tx.settings().get_string("ui.default-description")?);
         }
@@ -166,28 +166,25 @@ pub(crate) fn cmd_split(
     // Create the second commit, which includes everything the user didn't
     // select.
     let second_commit = {
-        let target_tree = target.commit.tree()?;
         let new_tree = if args.parallel {
-            // Merge the original commit tree with its parent using the tree
-            // containing the user selected changes as the base for the merge.
-            // This results in a tree with the changes the user didn't select.
-            target_tree.merge(&target.selected_tree, &target.parent_tree)?
+            // The sibling should only keep changes excluded from the first commit.
+            selection.invert()?.selected_tree
         } else {
-            target_tree
+            target_commit.tree()?
         };
         let parents = if parallel {
-            target.commit.parent_ids().to_vec()
+            target_commit.parent_ids().to_vec()
         } else {
             vec![first_commit.id().clone()]
         };
-        let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
+        let mut commit_builder = tx.repo_mut().rewrite_commit(&target_commit).detach();
         commit_builder
             .set_parents(parents)
             .set_tree_id(new_tree.id())
             // Generate a new change id so that the commit being split doesn't
             // become divergent.
             .generate_new_change_id();
-        let description = if target.commit.description().is_empty() {
+        let description = if target_commit.description().is_empty() {
             // If there was no description before, don't ask for one for the
             // second commit.
             "".to_string()
@@ -211,11 +208,11 @@ pub(crate) fn cmd_split(
         // moves any bookmarks pointing to the target commit to the second
         // commit.
         tx.repo_mut()
-            .set_rewritten_commit(target.commit.id().clone(), second_commit.id().clone());
+            .set_rewritten_commit(target_commit.id().clone(), second_commit.id().clone());
     }
     let mut num_rebased = 0;
     tx.repo_mut()
-        .transform_descendants(vec![target.commit.id().clone()], |mut rewriter| {
+        .transform_descendants(vec![target_commit.id().clone()], |mut rewriter| {
             num_rebased += 1;
             if parallel && legacy_bookmark_behavior {
                 // The old_parent is the second commit due to the rewrite above.
@@ -232,7 +229,7 @@ pub(crate) fn cmd_split(
     // Move the working copy commit (@) to the second commit for any workspaces
     // where the target commit is the working copy commit.
     for (workspace_id, working_copy_commit) in tx.base_repo().clone().view().wc_commit_ids() {
-        if working_copy_commit == target.commit.id() {
+        if working_copy_commit == target_commit.id() {
             tx.repo_mut().edit(workspace_id.clone(), &second_commit)?;
         }
     }
@@ -247,7 +244,7 @@ pub(crate) fn cmd_split(
         tx.write_commit_summary(formatter.as_mut(), &second_commit)?;
         writeln!(formatter)?;
     }
-    tx.finish(ui, format!("split commit {}", target.commit.id().hex()))?;
+    tx.finish(ui, format!("split commit {}", target_commit.id().hex()))?;
     Ok(())
 }
 
