@@ -147,58 +147,20 @@ fn test_template_parse_warning() {
 
     let template = indoc! {r#"
         separate(' ',
-          branches,
-          local_branches,
-          remote_branches,
-          self.contained_in('branches()'),
           author.username(),
         )
     "#};
     let output = test_env.run_jj_in(&repo_path, ["log", "-r@", "-T", template]);
     insta::assert_snapshot!(output, @r"
-    @  false test.user
+    @  test.user
     │
     ~
     [EOF]
     ------- stderr -------
     Warning: In template expression
-     --> 2:3
+     --> 2:10
       |
-    2 |   branches,
-      |   ^------^
-      |
-      = branches() is deprecated; use bookmarks() instead
-    Warning: In template expression
-     --> 3:3
-      |
-    3 |   local_branches,
-      |   ^------------^
-      |
-      = local_branches() is deprecated; use local_bookmarks() instead
-    Warning: In template expression
-     --> 4:3
-      |
-    4 |   remote_branches,
-      |   ^-------------^
-      |
-      = remote_branches() is deprecated; use remote_bookmarks() instead
-    Warning: In template expression
-     --> 5:21
-      |
-    5 |   self.contained_in('branches()'),
-      |                     ^----------^
-      |
-      = In revset expression
-     --> 1:1
-      |
-    1 | branches()
-      | ^------^
-      |
-      = branches() is deprecated; use bookmarks() instead
-    Warning: In template expression
-     --> 6:10
-      |
-    6 |   author.username(),
+    2 |   author.username(),
       |          ^------^
       |
       = username() is deprecated; use email().local() instead
@@ -238,7 +200,7 @@ fn test_templater_alias() {
     'recurse2()' = 'recurse'
     'identity(x)' = 'x'
     'coalesce(x, y)' = 'if(x, x, y)'
-    'deprecated()' = 'branches ++ self.contained_in("branches()")'
+    'deprecated()' = 'author.username()'
     'builtin_log_node' = '"#"'
     'builtin_op_log_node' = '"#"'
     "###,
@@ -429,8 +391,8 @@ fn test_templater_alias() {
     ");
 
     let output = test_env.run_jj_in(&repo_path, ["log", "-r@", "-Tdeprecated()"]);
-    insta::assert_snapshot!(output, @r##"
-    #  false
+    insta::assert_snapshot!(output, @r"
+    #  test.user
     │
     ~
     [EOF]
@@ -442,33 +404,14 @@ fn test_templater_alias() {
       | ^----------^
       |
       = In alias `deprecated()`
-     --> 1:1
+     --> 1:8
       |
-    1 | branches ++ self.contained_in("branches()")
-      | ^------^
+    1 | author.username()
+      |        ^------^
       |
-      = branches() is deprecated; use bookmarks() instead
-    Warning: In template expression
-     --> 1:1
-      |
-    1 | deprecated()
-      | ^----------^
-      |
-      = In alias `deprecated()`
-     --> 1:31
-      |
-    1 | branches ++ self.contained_in("branches()")
-      |                               ^----------^
-      |
-      = In revset expression
-     --> 1:1
-      |
-    1 | branches()
-      | ^------^
-      |
-      = branches() is deprecated; use bookmarks() instead
+      = username() is deprecated; use email().local() instead
     [EOF]
-    "##);
+    ");
 }
 
 #[test]

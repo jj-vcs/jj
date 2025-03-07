@@ -356,48 +356,6 @@ fn test_parse_warning() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    let output = test_env.run_jj_in(
-        &repo_path,
-        [
-            "log",
-            "-r",
-            "branches() | remote_branches() | tracked_remote_branches() | \
-             untracked_remote_branches()",
-        ],
-    );
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Warning: In revset expression
-     --> 1:1
-      |
-    1 | branches() | remote_branches() | tracked_remote_branches() | untracked_remote_branches()
-      | ^------^
-      |
-      = branches() is deprecated; use bookmarks() instead
-    Warning: In revset expression
-     --> 1:14
-      |
-    1 | branches() | remote_branches() | tracked_remote_branches() | untracked_remote_branches()
-      |              ^-------------^
-      |
-      = remote_branches() is deprecated; use remote_bookmarks() instead
-    Warning: In revset expression
-     --> 1:34
-      |
-    1 | branches() | remote_branches() | tracked_remote_branches() | untracked_remote_branches()
-      |                                  ^---------------------^
-      |
-      = tracked_remote_branches() is deprecated; use tracked_remote_bookmarks() instead
-    Warning: In revset expression
-     --> 1:62
-      |
-    1 | branches() | remote_branches() | tracked_remote_branches() | untracked_remote_branches()
-      |                                                              ^-----------------------^
-      |
-      = untracked_remote_branches() is deprecated; use untracked_remote_bookmarks() instead
-    [EOF]
-    ");
-
     let output = test_env.run_jj_in(&repo_path, ["log", "-r", "files(foo, bar)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -497,7 +455,6 @@ fn test_alias() {
     'recurse2()' = 'recurse'
     'identity(x)' = 'x'
     'my_author(x)' = 'author(x)'
-    'deprecated()' = 'branches()'
     "###,
     );
 
@@ -607,43 +564,6 @@ fn test_alias() {
       = Alias `recurse` expanded recursively
     [EOF]
     [exit status: 1]
-    ");
-
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "deprecated()"]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Warning: In revset expression
-     --> 1:1
-      |
-    1 | deprecated()
-      | ^----------^
-      |
-      = In alias `deprecated()`
-     --> 1:1
-      |
-    1 | branches()
-      | ^------^
-      |
-      = branches() is deprecated; use bookmarks() instead
-    [EOF]
-    ");
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "all:deprecated()"]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Warning: In revset expression
-     --> 1:5
-      |
-    1 | all:deprecated()
-      |     ^----------^
-      |
-      = In alias `deprecated()`
-     --> 1:1
-      |
-    1 | branches()
-      | ^------^
-      |
-      = branches() is deprecated; use bookmarks() instead
-    [EOF]
     ");
 }
 

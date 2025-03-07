@@ -22,6 +22,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * The `jj untrack` subcommand has been removed in favor of `jj file untrack`.
 
+* The following deprecated revset functions have been removed:
+  - `branches()`, `remote_branches()`, `tracked_remote_branches()`, and
+    `untracked_remote_branches()`, which were renamed to "bookmarks".
+
+* The following deprecated template functions have been removed:
+  - `branches()`, `local_branches()`, and `remote_branches()`, which were
+    renamed to "bookmarks".
+
 ### Deprecations
 
 * `core.watchman.register_snapshot_trigger` has been renamed to `core.watchman.register-snapshot-trigger` for consistency with other configuration options.

@@ -729,13 +729,6 @@ static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, RevsetFunction>> = Lazy:
         Ok(RevsetExpression::root())
     });
     map.insert("bookmarks", |diagnostics, function, _context| {
-        if function.name != "bookmarks" {
-            // TODO: Remove in jj 0.28+
-            diagnostics.add_warning(RevsetParseError::expression(
-                "branches() is deprecated; use bookmarks() instead",
-                function.name_span,
-            ));
-        }
         let ([], [opt_arg]) = function.expect_arguments()?;
         let pattern = if let Some(arg) = opt_arg {
             expect_string_pattern(diagnostics, arg)?
@@ -745,53 +738,20 @@ static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, RevsetFunction>> = Lazy:
         Ok(RevsetExpression::bookmarks(pattern))
     });
     map.insert("remote_bookmarks", |diagnostics, function, _context| {
-        if function.name != "remote_bookmarks" {
-            // TODO: Remove in jj 0.28+
-            diagnostics.add_warning(RevsetParseError::expression(
-                "remote_branches() is deprecated; use remote_bookmarks() instead",
-                function.name_span,
-            ));
-        }
         parse_remote_bookmarks_arguments(diagnostics, function, None)
     });
     map.insert(
         "tracked_remote_bookmarks",
         |diagnostics, function, _context| {
-            if function.name != "tracked_remote_bookmarks" {
-                // TODO: Remove in jj 0.28+
-                diagnostics.add_warning(RevsetParseError::expression(
-                    "tracked_remote_branches() is deprecated; use tracked_remote_bookmarks() \
-                     instead",
-                    function.name_span,
-                ));
-            }
             parse_remote_bookmarks_arguments(diagnostics, function, Some(RemoteRefState::Tracking))
         },
     );
     map.insert(
         "untracked_remote_bookmarks",
         |diagnostics, function, _context| {
-            if function.name != "untracked_remote_bookmarks" {
-                // TODO: Remove in jj 0.28+
-                diagnostics.add_warning(RevsetParseError::expression(
-                    "untracked_remote_branches() is deprecated; use untracked_remote_bookmarks() \
-                     instead",
-                    function.name_span,
-                ));
-            }
             parse_remote_bookmarks_arguments(diagnostics, function, Some(RemoteRefState::New))
         },
     );
-
-    // TODO: Remove in jj 0.28+
-    map.insert("branches", map["bookmarks"]);
-    map.insert("remote_branches", map["remote_bookmarks"]);
-    map.insert("tracked_remote_branches", map["tracked_remote_bookmarks"]);
-    map.insert(
-        "untracked_remote_branches",
-        map["untracked_remote_bookmarks"],
-    );
-
     map.insert("tags", |diagnostics, function, _context| {
         let ([], [opt_arg]) = function.expect_arguments()?;
         let pattern = if let Some(arg) = opt_arg {
