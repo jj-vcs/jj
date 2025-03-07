@@ -20,6 +20,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj unsquash` has been removed in favor of `jj squash` and
   `jj diffedit --restore-descendants`.
 
+* The `jj untrack` subcommand has been removed in favor of `jj file untrack`.
+
 ### Deprecations
 
 * `core.watchman.register_snapshot_trigger` has been renamed to `core.watchman.register-snapshot-trigger` for consistency with other configuration options.

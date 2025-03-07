@@ -17,7 +17,7 @@ mod chmod;
 mod list;
 mod show;
 mod track;
-pub mod untrack;
+mod untrack;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;

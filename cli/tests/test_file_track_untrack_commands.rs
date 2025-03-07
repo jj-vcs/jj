@@ -72,13 +72,8 @@ fn test_track_untrack() {
 
     // Can untrack a single file
     assert!(files_before.stdout.raw().contains("file1.bak\n"));
-    let output = test_env.run_jj_in(&repo_path, ["untrack", "file1.bak"]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Warning: `jj untrack` is deprecated; use `jj file untrack` instead, which is equivalent
-    Warning: `jj untrack` will be removed in a future version, and this will be a hard error
-    [EOF]
-    ");
+    let output = test_env.run_jj_in(&repo_path, ["file", "untrack", "file1.bak"]);
+    insta::assert_snapshot!(output, @r"");
     let files_after = test_env.run_jj_in(&repo_path, ["file", "list"]).success();
     // The file is no longer tracked
     assert!(!files_after.stdout.raw().contains("file1.bak"));
