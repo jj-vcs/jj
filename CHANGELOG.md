@@ -25,6 +25,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The following deprecated revset functions have been removed:
   - `branches()`, `remote_branches()`, `tracked_remote_branches()`, and
     `untracked_remote_branches()`, which were renamed to "bookmarks".
+  - `file()` and `conflict()`, which were renamed to plural forms.
 
 * The following deprecated template functions have been removed:
   - `branches()`, `local_branches()`, and `remote_branches()`, which were
