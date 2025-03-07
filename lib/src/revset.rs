@@ -3219,16 +3219,16 @@ mod tests {
         assert!(parse_with_workspace("empty(foo)", &WorkspaceId::default()).is_err());
         assert!(parse_with_workspace("file()", &WorkspaceId::default()).is_err());
         insta::assert_debug_snapshot!(
-            parse_with_workspace("file(foo)", &WorkspaceId::default()).unwrap(),
+            parse_with_workspace("files(foo)", &WorkspaceId::default()).unwrap(),
             @r#"Filter(File(Pattern(PrefixPath("foo"))))"#);
         insta::assert_debug_snapshot!(
-            parse_with_workspace("file(all())", &WorkspaceId::default()).unwrap(),
+            parse_with_workspace("files(all())", &WorkspaceId::default()).unwrap(),
             @"Filter(File(All))");
         insta::assert_debug_snapshot!(
-            parse_with_workspace(r#"file(file:"foo")"#, &WorkspaceId::default()).unwrap(),
+            parse_with_workspace(r#"files(file:"foo")"#, &WorkspaceId::default()).unwrap(),
             @r#"Filter(File(Pattern(FilePath("foo"))))"#);
         insta::assert_debug_snapshot!(
-            parse_with_workspace("file(foo|bar&baz)", &WorkspaceId::default()).unwrap(), @r#"
+            parse_with_workspace("files(foo|bar&baz)", &WorkspaceId::default()).unwrap(), @r#"
         Filter(
             File(
                 UnionAll(
@@ -3244,7 +3244,7 @@ mod tests {
         )
         "#);
         insta::assert_debug_snapshot!(
-            parse_with_workspace("file(foo, bar, baz)", &WorkspaceId::default()).unwrap(), @r#"
+            parse_with_workspace("files(foo, bar, baz)", &WorkspaceId::default()).unwrap(), @r#"
         Filter(
             File(
                 UnionAll(
@@ -3394,7 +3394,7 @@ mod tests {
 
         // Alias can be substituted to string literal.
         insta::assert_debug_snapshot!(
-            parse_with_aliases_and_workspace("file(A)", [("A", "a")], &WorkspaceId::default())
+            parse_with_aliases_and_workspace("files(A)", [("A", "a")], &WorkspaceId::default())
                 .unwrap(),
             @r#"Filter(File(Pattern(PrefixPath("a"))))"#);
 
@@ -3872,7 +3872,7 @@ mod tests {
         "#);
         insta::assert_debug_snapshot!(
             optimize(parse_with_workspace(
-                "committer_name(foo) & file(bar) & baz",
+                "committer_name(foo) & files(bar) & baz",
                 &WorkspaceId::default()).unwrap(),
             ), @r#"
         Intersection(
@@ -3885,7 +3885,7 @@ mod tests {
         "#);
         insta::assert_debug_snapshot!(
             optimize(parse_with_workspace(
-                "committer_name(foo) & file(bar) & author_name(baz)",
+                "committer_name(foo) & files(bar) & author_name(baz)",
                 &WorkspaceId::default()).unwrap(),
             ), @r#"
         Intersection(
@@ -3896,7 +3896,11 @@ mod tests {
             Filter(AuthorName(Substring("baz"))),
         )
         "#);
-        insta::assert_debug_snapshot!(optimize(parse_with_workspace("foo & file(bar) & baz", &WorkspaceId::default()).unwrap()), @r#"
+        insta::assert_debug_snapshot!(
+            optimize(parse_with_workspace(
+                "foo & files(bar) & baz",
+                &WorkspaceId::default()).unwrap(),
+            ), @r#"
         Intersection(
             Intersection(
                 CommitRef(Symbol("foo")),
