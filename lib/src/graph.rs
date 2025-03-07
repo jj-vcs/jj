@@ -19,6 +19,8 @@ use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::hash::Hash;
 
+use crate::dag_walk::topo_order_forward_ok;
+
 /// Node and edges pair of type `N` and `ID` respectively.
 ///
 /// `ID` uniquely identifies a node within the graph. It's usually cheap to
@@ -99,6 +101,69 @@ pub fn reverse_graph<N, ID: Clone + Eq + Hash, E>(
         items.push((node, edges));
     }
     Ok(items)
+}
+
+/// Constructs a graph in reverse topological order, allowing nodes to be
+/// filtered out.
+#[allow(clippy::type_complexity)]
+pub fn topo_order_reverse_graph_filter_ok<T, ID, E, II, NI>(
+    start: II,
+    id_fn: impl Fn(&T) -> ID,
+    filter_fn: impl Fn(&T) -> Result<bool, E>,
+    mut neighbors_fn: impl FnMut(&T) -> NI,
+) -> Result<Vec<(T, Vec<GraphEdge<ID>>)>, E>
+where
+    ID: Hash + Eq + Clone,
+    II: IntoIterator<Item = Result<T, E>>,
+    NI: IntoIterator<Item = Result<T, E>>,
+{
+    let items = topo_order_forward_ok(start, &id_fn, &mut neighbors_fn)?;
+    let mut result = vec![];
+    let mut kept_map = HashMap::new();
+    let mut indirect_edge_map: HashMap<ID, Vec<ID>> = HashMap::new();
+
+    for item in items.into_iter() {
+        let id = id_fn(&item);
+        let kept = filter_fn(&item)?;
+        kept_map.insert(id.clone(), kept);
+        let neighbors = neighbors_fn(&item);
+
+        if !kept {
+            let mut indirect_edges = vec![];
+            for neighbor in neighbors {
+                let neighbor_id = id_fn(&neighbor?);
+                let neighbor_kept = *kept_map.get(&neighbor_id).unwrap();
+                if neighbor_kept {
+                    indirect_edges.push(neighbor_id.clone());
+                } else if let Some(neighbor_indirect_edges) = indirect_edge_map.get(&neighbor_id) {
+                    indirect_edges.extend(neighbor_indirect_edges.iter().cloned());
+                }
+            }
+            indirect_edge_map.insert(id, indirect_edges);
+        } else {
+            let mut edges = vec![];
+            for neighbor in neighbors {
+                let neighbor_id = id_fn(&neighbor?);
+                let neighbor_kept = *kept_map.get(&neighbor_id).unwrap();
+                if neighbor_kept {
+                    edges.push(GraphEdge::direct(neighbor_id));
+                } else if let Some(indirect_edges) = indirect_edge_map.get(&neighbor_id) {
+                    edges.extend(
+                        indirect_edges
+                            .iter()
+                            .map(|id| GraphEdge::indirect(id.clone())),
+                    );
+                } else {
+                    // I don't think this is possible?
+                    edges.push(GraphEdge::missing(neighbor_id));
+                }
+            }
+
+            result.push((item, edges));
+        }
+    }
+    result.reverse();
+    Ok(result)
 }
 
 /// Graph iterator adapter to group topological branches.
