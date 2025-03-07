@@ -15,7 +15,7 @@ use crate::ui::Ui;
 pub const UPDATE_HZ: u32 = 30;
 pub const INITIAL_DELAY: Duration = Duration::from_millis(250);
 
-pub fn snapshot_progress(ui: &Ui) -> Option<impl Fn(&RepoPath) + '_> {
+pub fn snapshot_progress(ui: &Ui) -> Option<impl Fn(&RepoPath) + use<>> {
     struct State {
         guard: Option<OutputGuard>,
         output: ProgressOutput<std::io::Stderr>,
