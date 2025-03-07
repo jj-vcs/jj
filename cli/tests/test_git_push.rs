@@ -2295,6 +2295,52 @@ fn test_git_push_sign_on_push() {
     ");
 }
 
+#[test]
+fn test_git_push_custom_revset() {
+    let (test_env, workspace_root) = set_up();
+    test_env
+        .run_jj_in(
+            &workspace_root,
+            ["new", "bookmark2", "-m", "commit to be signed 1"],
+        )
+        .success();
+    test_env
+        .run_jj_in(&workspace_root, ["new", "-m", "commit to be signed 2"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_root, ["bookmark", "set", "bookmark2", "-r@"])
+        .success();
+    test_env
+        .run_jj_in(
+            &workspace_root,
+            ["new", "-m", "commit which should not be signed 1"],
+        )
+        .success();
+    test_env
+        .run_jj_in(
+            &workspace_root,
+            ["new", "-m", "commit which should not be signed 2"],
+        )
+        .success();
+    // There should be no signed commits initially
+    let output = test_env.run_jj_in(&workspace_root, ["log", "-T", template]);
+    insta::assert_snapshot!(output, @r"
+    @  commit which should not be signed 2
+    ○  commit which should not be signed 1
+    ○  commit to be signed 2
+    ○  commit to be signed 1
+    ○  description 2
+    │ ○  description 1
+    ├─╯
+    ◆
+    [EOF]
+    ");
+    test_env.add_config(
+        r#"
+    revsets.push = ""
+    "#,
+    );
+}
 #[must_use]
 fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput {
     // --quiet to suppress deleted bookmarks hint
