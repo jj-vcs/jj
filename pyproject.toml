@@ -31,12 +31,11 @@ dev = [
 package = false
 
 [tool.codespell]
-check-filenames=true
-check-hidden=true
+check-filenames = true
+check-hidden = true
 # Codespell does not respect .gitignore. It may be necessary to add to
 # this list by running e.g. `uv run codespell --skip=./rendered-docs`
 # if you have less common ignored files or globally ignored files present.
 # Alternatively, try `uv run codespell $(jj file list)`.
-skip="./target,./.jj,*.lock,./.git,./.venv,./.direnv"
-ignore-words-list="crate,NotIn,Wirth,abd"
-
+skip = "./target,./.jj,*.lock,./.git,./.venv,./.direnv"
+ignore-words-list = "crate,NotIn,Wirth,abd,ratatui"
