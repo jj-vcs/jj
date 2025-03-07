@@ -12,6 +12,7 @@ log = "present(@) | ancestors(immutable_heads().., 2) | present(trunk())"
 # This also helps stabilize output order.
 log-graph-prioritize = "present(@)"
 sign = "reachable(@, mutable())"
+'push(remote)' = "remote_bookmarks(remote=remote)..@"
 
 [revset-aliases]
 # trunk() can be overridden as '<bookmark>@<remote>'. Use present(trunk()) if
