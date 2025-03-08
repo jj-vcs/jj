@@ -3589,23 +3589,13 @@ pub fn expand_args(
     resolve_aliases(ui, config, app, string_args)
 }
 
-fn parse_args(
-    app: &Command,
-    tracing_subscription: &TracingSubscription,
-    string_args: &[String],
-) -> Result<(ArgMatches, Args), CommandError> {
+fn parse_args(app: &Command, string_args: &[String]) -> Result<(ArgMatches, Args), CommandError> {
     let matches = app
         .clone()
         .arg_required_else_help(true)
         .subcommand_required(true)
         .try_get_matches_from(string_args)?;
-
-    let args: Args = Args::from_arg_matches(&matches).unwrap();
-    if args.global_args.debug {
-        // TODO: set up debug logging as early as possible
-        tracing_subscription.enable_debug_logging()?;
-    }
-
+    let args = Args::from_arg_matches(&matches).unwrap();
     Ok((matches, args))
 }
 
@@ -3865,8 +3855,12 @@ impl CliRunner {
             warn_if_args_mismatch(ui, &self.app, &config, &string_args)?;
         }
 
-        let (matches, args) = parse_args(&self.app, &self.tracing_subscription, &string_args)
+        let (matches, args) = parse_args(&self.app, &string_args)
             .map_err(|err| map_clap_cli_error(err, ui, &config))?;
+        if args.global_args.debug {
+            // TODO: set up debug logging as early as possible
+            self.tracing_subscription.enable_debug_logging()?;
+        }
         for process_global_args_fn in self.process_global_args_fns {
             process_global_args_fn(ui, &matches)?;
         }
