@@ -1191,6 +1191,20 @@ as follows:
 backends.ssh.allowed-signers = "/path/to/allowed-signers"
 ```
 
+### Signing behavior
+
+The `signing.behavior` config option can be used to customize whether commits
+are signed when creating new commits or rewriting existing commits. The valid
+options are:
+
+- `drop`: Does not sign new commits and drops all signatures when rewriting an
+  existing signed commit.
+- `keep` (default): Does not sign new commits, but signs commits created by
+  rewriting an existing signed commit.
+- `own`: Signs all commits with author set to the current user email
+  (`user.email`).
+- `force`: Signs all commits.
+
 ### Sign commits only on `jj git push`
 
 Instead of signing all commits during creation when `signing.behavior` is
