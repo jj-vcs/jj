@@ -612,10 +612,7 @@ pub fn move_commits(
                     // `target_heads`, replace them with the target heads since we are "inserting"
                     // the target commits in between the new parents and the new children.
                     for id in old_child_parent_ids {
-                        if new_parent_ids
-                            .iter()
-                            .any(|new_parent_id| *new_parent_id == *id)
-                        {
+                        if new_parent_ids.contains(id) {
                             new_child_parent_ids.extend(target_heads.clone());
                         } else {
                             new_child_parent_ids.insert(id.clone());
