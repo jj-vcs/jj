@@ -1233,32 +1233,55 @@ impl RefName {
         })
     }
 
-    fn is_local(&self) -> bool {
+    /// Local name.
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Remote name if this is a remote or Git-tracking ref.
+    pub fn remote_name(&self) -> Option<&str> {
+        self.remote.as_deref()
+    }
+
+    /// Target commit ids.
+    pub fn target(&self) -> &RefTarget {
+        &self.target
+    }
+
+    /// Returns true if this is a local ref.
+    pub fn is_local(&self) -> bool {
         self.remote.is_none()
     }
 
-    fn is_remote(&self) -> bool {
+    /// Returns true if this is a remote ref.
+    pub fn is_remote(&self) -> bool {
         self.remote.is_some()
     }
 
-    fn is_present(&self) -> bool {
+    /// Returns true if this ref points to no commit.
+    pub fn is_absent(&self) -> bool {
+        self.target.is_absent()
+    }
+
+    /// Returns true if this ref points to any commit.
+    pub fn is_present(&self) -> bool {
         self.target.is_present()
     }
 
     /// Whether the ref target has conflicts.
-    fn has_conflict(&self) -> bool {
+    pub fn has_conflict(&self) -> bool {
         self.target.has_conflict()
     }
 
     /// Returns true if this ref is tracked by a local ref. The local ref might
     /// have been deleted (but not pushed yet.)
-    fn is_tracked(&self) -> bool {
+    pub fn is_tracked(&self) -> bool {
         self.tracking_ref.is_some()
     }
 
     /// Returns true if this ref is tracked by a local ref, and if the local ref
     /// is present.
-    fn is_tracking_present(&self) -> bool {
+    pub fn is_tracking_present(&self) -> bool {
         self.tracking_ref
             .as_ref()
             .is_some_and(|tracking| tracking.target.is_present())
