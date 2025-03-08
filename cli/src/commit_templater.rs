@@ -1067,7 +1067,7 @@ fn extract_working_copies(repo: &dyn Repo, commit: &Commit) -> String {
         return "".to_string();
     }
     let mut names = vec![];
-    for (workspace_id, wc_commit_id) in wc_commit_ids.iter().sorted() {
+    for (workspace_id, wc_commit_id) in wc_commit_ids {
         if wc_commit_id == commit.id() {
             names.push(format!("{}@", workspace_id.as_str()));
         }
