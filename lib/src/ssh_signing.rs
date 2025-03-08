@@ -130,6 +130,13 @@ impl SshBackend {
 
     fn create_command(&self) -> Command {
         let mut command = Command::new(&self.program);
+        // Hide console window on Windows (https://stackoverflow.com/a/60958956)
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
+            command.creation_flags(CREATE_NO_WINDOW);
+        }
 
         command
             .stdin(Stdio::piped())
