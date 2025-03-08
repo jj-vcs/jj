@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::collections::HashSet;
+use std::rc::Rc;
 
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools;
@@ -161,11 +162,10 @@ pub fn cmd_bookmark_list(
             .labeled("bookmark_list")
     };
 
-    ui.request_pager();
-    let mut formatter = ui.stdout_formatter();
-
+    // TODO: calculate found_deleted_* in later pass?
     let mut found_deleted_local_bookmark = false;
     let mut found_deleted_tracking_local_bookmark = false;
+    let mut bookmark_list_items: Vec<RefListItem> = Vec::new();
     let bookmarks_to_list = view.bookmarks().filter(|(name, target)| {
         bookmark_names_to_list
             .as_ref()
@@ -193,17 +193,18 @@ pub fn cmd_bookmark_list(
 
         let include_local_only = !args.tracked && args.remotes.is_none();
         if include_local_only && local_target.is_present() || !tracking_remote_refs.is_empty() {
-            let ref_name = RefName::local(
+            let primary = RefName::local(
                 name,
                 local_target.clone(),
                 remote_refs.iter().map(|&(_, remote_ref)| remote_ref),
             );
-            template.format(&ref_name, formatter.as_mut())?;
-        }
-
-        for &(remote, remote_ref) in &tracking_remote_refs {
-            let ref_name = RefName::remote(name, remote, remote_ref.clone(), local_target);
-            template.format(&ref_name, formatter.as_mut())?;
+            let tracked = tracking_remote_refs
+                .iter()
+                .map(|&(remote, remote_ref)| {
+                    RefName::remote(name, remote, remote_ref.clone(), local_target)
+                })
+                .collect();
+            bookmark_list_items.push(RefListItem { primary, tracked });
         }
 
         if local_target.is_absent() && !tracking_remote_refs.is_empty() {
@@ -214,13 +215,21 @@ pub fn cmd_bookmark_list(
         }
 
         if !args.tracked && (args.all_remotes || args.remotes.is_some()) {
-            for &(remote, remote_ref) in &untracked_remote_refs {
-                let ref_name = RefName::remote_only(name, remote, remote_ref.target.clone());
-                template.format(&ref_name, formatter.as_mut())?;
-            }
+            bookmark_list_items.extend(untracked_remote_refs.iter().map(
+                |&(remote, remote_ref)| RefListItem {
+                    primary: RefName::remote_only(name, remote, remote_ref.target.clone()),
+                    tracked: vec![],
+                },
+            ));
         }
     }
 
+    ui.request_pager();
+    let mut formatter = ui.stdout_formatter();
+    bookmark_list_items
+        .iter()
+        .flat_map(|item| itertools::chain([&item.primary], &item.tracked))
+        .try_for_each(|ref_name| template.format(ref_name, formatter.as_mut()))?;
     drop(formatter);
 
     #[cfg(feature = "git")]
@@ -243,4 +252,12 @@ pub fn cmd_bookmark_list(
     }
 
     Ok(())
+}
+
+#[derive(Clone, Debug)]
+struct RefListItem {
+    /// Local bookmark or untracked remote bookmark.
+    primary: Rc<RefName>,
+    /// Remote bookmarks tracked by the primary (or local) bookmark.
+    tracked: Vec<Rc<RefName>>,
 }
