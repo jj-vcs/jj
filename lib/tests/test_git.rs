@@ -3085,13 +3085,10 @@ fn test_fetch_multiple_branches() {
     assert_eq!(
         fetch_stats
             .import_stats
-            .changed_remote_refs
+            .changed_remote_bookmarks
             .keys()
             .collect_vec(),
-        vec![&(
-            GitRefKind::Bookmark,
-            remote_symbol("main", "origin").to_owned()
-        )]
+        [remote_symbol("main", "origin")]
     );
 }
 

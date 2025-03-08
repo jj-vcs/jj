@@ -106,10 +106,10 @@ pub enum GitRefKind {
 ///
 /// https://users.rust-lang.org/t/unexpected-lifetime-issue-with-hashmap-remove/113961/6
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-struct RemoteRefKey<'a>((GitRefKind, RemoteRefSymbol<'a>));
+struct RemoteRefKey<'a>(RemoteRefSymbol<'a>);
 
-impl<'a: 'b, 'b> Borrow<(GitRefKind, RemoteRefSymbol<'b>)> for RemoteRefKey<'a> {
-    fn borrow(&self) -> &(GitRefKind, RemoteRefSymbol<'b>) {
+impl<'a: 'b, 'b> Borrow<RemoteRefSymbol<'b>> for RemoteRefKey<'a> {
+    fn borrow(&self) -> &RemoteRefSymbol<'b> {
         &self.0
     }
 }
@@ -381,9 +381,12 @@ impl GitImportError {
 pub struct GitImportStats {
     /// Commits superseded by newly imported commits.
     pub abandoned_commits: Vec<CommitId>,
-    /// Remote `((kind, symbol), (old_remote_ref, new_target))`s to be merged in
-    /// to the local refs.
-    pub changed_remote_refs: BTreeMap<(GitRefKind, RemoteRefSymbolBuf), (RemoteRef, RefTarget)>,
+    /// Remote bookmark `(symbol, (old_remote_ref, new_target))`s to be merged
+    /// in to the local bookmarks.
+    pub changed_remote_bookmarks: BTreeMap<RemoteRefSymbolBuf, (RemoteRef, RefTarget)>,
+    /// Remote tag `(symbol, (old_remote_ref, new_target))`s to be merged in to
+    /// the local tags.
+    pub changed_remote_tags: BTreeMap<RemoteRefSymbolBuf, (RemoteRef, RefTarget)>,
     /// Git ref names that couldn't be imported.
     ///
     /// This list doesn't include refs that are supposed to be ignored, such as
@@ -395,9 +398,12 @@ pub struct GitImportStats {
 struct RefsToImport {
     /// Git ref `(full_name, new_target)`s to be copied to the view.
     changed_git_refs: Vec<(String, RefTarget)>,
-    /// Remote `((kind, symbol), (old_remote_ref, new_target))`s to be merged in
-    /// to the local refs.
-    changed_remote_refs: BTreeMap<(GitRefKind, RemoteRefSymbolBuf), (RemoteRef, RefTarget)>,
+    /// Remote bookmark `(symbol, (old_remote_ref, new_target))`s to be merged
+    /// in to the local bookmarks.
+    changed_remote_bookmarks: BTreeMap<RemoteRefSymbolBuf, (RemoteRef, RefTarget)>,
+    /// Remote tag `(symbol, (old_remote_ref, new_target))`s to be merged in to
+    /// the local tags.
+    changed_remote_tags: BTreeMap<RemoteRefSymbolBuf, (RemoteRef, RefTarget)>,
     /// Git ref names that couldn't be imported.
     failed_ref_names: Vec<BString>,
 }
@@ -428,14 +434,15 @@ pub fn import_some_refs(
 
     let RefsToImport {
         changed_git_refs,
-        changed_remote_refs,
+        changed_remote_bookmarks,
+        changed_remote_tags,
         failed_ref_names,
     } = diff_refs_to_import(mut_repo.view(), &git_repo, git_ref_filter)?;
 
     // Bulk-import all reachable Git commits to the backend to reduce overhead
     // of table merging and ref updates.
     //
-    // changed_remote_refs might contain new_targets that are not in
+    // changed_remote_bookmarks/tags might contain new_targets that are not in
     // changed_git_refs, but such targets should have already been imported to
     // the backend.
     let index = mut_repo.index();
@@ -454,7 +461,9 @@ pub fn import_some_refs(
         }
         store.get_commit(id)
     };
-    for ((_, symbol), (_, new_target)) in &changed_remote_refs {
+    for (symbol, (_, new_target)) in
+        itertools::chain(&changed_remote_bookmarks, &changed_remote_tags)
+    {
         for id in new_target.added_ids() {
             let commit = get_commit(id).map_err(|err| GitImportError::MissingRefAncestor {
                 symbol: symbol.clone(),
@@ -473,7 +482,7 @@ pub fn import_some_refs(
     for (full_name, new_target) in changed_git_refs {
         mut_repo.set_git_ref_target(&full_name, new_target);
     }
-    for ((kind, symbol), (old_remote_ref, new_target)) in &changed_remote_refs {
+    for (symbol, (old_remote_ref, new_target)) in &changed_remote_bookmarks {
         let symbol = symbol.as_ref();
         let base_target = old_remote_ref.tracking_target();
         let new_remote_ref = RemoteRef {
@@ -481,36 +490,43 @@ pub fn import_some_refs(
             state: if old_remote_ref.is_present() {
                 old_remote_ref.state
             } else {
-                default_remote_ref_state_for(*kind, symbol, git_settings)
+                default_remote_ref_state_for(GitRefKind::Bookmark, symbol, git_settings)
             },
         };
-        match kind {
-            GitRefKind::Bookmark => {
-                if new_remote_ref.is_tracking() {
-                    mut_repo.merge_local_bookmark(symbol.name, base_target, &new_remote_ref.target);
-                }
-                // Remote-tracking branch is the last known state of the branch in the remote.
-                // It shouldn't diverge even if we had inconsistent view.
-                mut_repo.set_remote_bookmark(symbol, new_remote_ref);
-            }
-            GitRefKind::Tag => {
-                if new_remote_ref.is_tracking() {
-                    mut_repo.merge_tag(symbol.name, base_target, &new_remote_ref.target);
-                }
-                // TODO: If we add Git-tracking tag, it will be updated here.
-            }
+        if new_remote_ref.is_tracking() {
+            mut_repo.merge_local_bookmark(symbol.name, base_target, &new_remote_ref.target);
         }
+        // Remote-tracking branch is the last known state of the branch in the remote.
+        // It shouldn't diverge even if we had inconsistent view.
+        mut_repo.set_remote_bookmark(symbol, new_remote_ref);
+    }
+    for (symbol, (old_remote_ref, new_target)) in &changed_remote_tags {
+        let symbol = symbol.as_ref();
+        let base_target = old_remote_ref.tracking_target();
+        let new_remote_ref = RemoteRef {
+            target: new_target.clone(),
+            state: if old_remote_ref.is_present() {
+                old_remote_ref.state
+            } else {
+                default_remote_ref_state_for(GitRefKind::Tag, symbol, git_settings)
+            },
+        };
+        if new_remote_ref.is_tracking() {
+            mut_repo.merge_tag(symbol.name, base_target, &new_remote_ref.target);
+        }
+        // TODO: If we add Git-tracking tag, it will be updated here.
     }
 
     let abandoned_commits = if git_settings.abandon_unreachable_commits {
-        abandon_unreachable_commits(mut_repo, &changed_remote_refs)
+        abandon_unreachable_commits(mut_repo, &changed_remote_bookmarks, &changed_remote_tags)
             .map_err(GitImportError::InternalBackend)?
     } else {
         vec![]
     };
     let stats = GitImportStats {
         abandoned_commits,
-        changed_remote_refs,
+        changed_remote_bookmarks,
+        changed_remote_tags,
         failed_ref_names,
     };
     Ok(stats)
@@ -520,13 +536,16 @@ pub fn import_some_refs(
 /// Those commits will be recorded as abandoned in the `MutableRepo`.
 fn abandon_unreachable_commits(
     mut_repo: &mut MutableRepo,
-    changed_remote_refs: &BTreeMap<(GitRefKind, RemoteRefSymbolBuf), (RemoteRef, RefTarget)>,
+    changed_remote_bookmarks: &BTreeMap<RemoteRefSymbolBuf, (RemoteRef, RefTarget)>,
+    changed_remote_tags: &BTreeMap<RemoteRefSymbolBuf, (RemoteRef, RefTarget)>,
 ) -> BackendResult<Vec<CommitId>> {
-    let hidable_git_heads = changed_remote_refs
-        .values()
-        .flat_map(|(old_remote_ref, _)| old_remote_ref.target.added_ids())
-        .cloned()
-        .collect_vec();
+    let hidable_git_heads = itertools::chain(
+        changed_remote_bookmarks.values(),
+        changed_remote_tags.values(),
+    )
+    .flat_map(|(old_remote_ref, _)| old_remote_ref.target.added_ids())
+    .cloned()
+    .collect_vec();
     if hidable_git_heads.is_empty() {
         return Ok(vec![]);
     }
@@ -572,74 +591,82 @@ fn diff_refs_to_import(
         })
         .collect();
     // TODO: migrate tags to the remote view, and don't destructure &RemoteRef
-    let mut known_remote_refs = itertools::chain(
-        view.all_remote_bookmarks().map(|(symbol, remote_ref)| {
-            let RemoteRef { target, state } = remote_ref;
-            ((GitRefKind::Bookmark, symbol), (target, *state))
-        }),
-        // TODO: compare to tags stored in the "git" remote view. Since tags should never
-        // be moved locally in jj, we can consider local tags as merge base.
-        view.tags().iter().map(|(name, target)| {
+    let mut known_remote_bookmarks = view
+        .all_remote_bookmarks()
+        .filter(|&(symbol, _)| git_ref_filter(GitRefKind::Bookmark, symbol))
+        .map(|(symbol, remote_ref)| (RemoteRefKey(symbol), (&remote_ref.target, remote_ref.state)))
+        .collect();
+    // TODO: compare to tags stored in the "git" remote view. Since tags should
+    // never be moved locally in jj, we can consider local tags as merge base.
+    let mut known_remote_tags = view
+        .tags()
+        .iter()
+        .map(|(name, target)| {
             let remote = REMOTE_NAME_FOR_LOCAL_GIT_REPO;
             let symbol = RemoteRefSymbol { name, remote };
             let state = RemoteRefState::Tracking;
-            ((GitRefKind::Tag, symbol), (target, state))
-        }),
-    )
-    .filter(|&((kind, symbol), _)| git_ref_filter(kind, symbol))
-    .map(|((kind, symbol), remote_ref)| (RemoteRefKey((kind, symbol)), remote_ref))
-    .collect();
+            (symbol, (target, state))
+        })
+        .filter(|&(symbol, _)| git_ref_filter(GitRefKind::Tag, symbol))
+        .map(|(symbol, remote_ref)| (RemoteRefKey(symbol), remote_ref))
+        .collect();
 
     let mut changed_git_refs = Vec::new();
-    let mut changed_remote_refs = BTreeMap::new();
+    let mut changed_remote_bookmarks = BTreeMap::new();
+    let mut changed_remote_tags = BTreeMap::new();
     let mut failed_ref_names = Vec::new();
     let actual = git_repo.references().map_err(GitImportError::from_git)?;
     collect_changed_refs_to_import(
         actual.local_branches().map_err(GitImportError::from_git)?,
         &mut known_git_refs,
-        &mut known_remote_refs,
+        &mut known_remote_bookmarks,
         &mut changed_git_refs,
-        &mut changed_remote_refs,
+        &mut changed_remote_bookmarks,
         &mut failed_ref_names,
         &git_ref_filter,
     )?;
     collect_changed_refs_to_import(
         actual.remote_branches().map_err(GitImportError::from_git)?,
         &mut known_git_refs,
-        &mut known_remote_refs,
+        &mut known_remote_bookmarks,
         &mut changed_git_refs,
-        &mut changed_remote_refs,
+        &mut changed_remote_bookmarks,
         &mut failed_ref_names,
         &git_ref_filter,
     )?;
     collect_changed_refs_to_import(
         actual.tags().map_err(GitImportError::from_git)?,
         &mut known_git_refs,
-        &mut known_remote_refs,
+        &mut known_remote_tags,
         &mut changed_git_refs,
-        &mut changed_remote_refs,
+        &mut changed_remote_tags,
         &mut failed_ref_names,
         &git_ref_filter,
     )?;
     for full_name in known_git_refs.into_keys() {
         changed_git_refs.push((full_name.to_owned(), RefTarget::absent()));
     }
-    for (RemoteRefKey((kind, symbol)), (old_target, old_state)) in known_remote_refs {
+    for (RemoteRefKey(symbol), (old_target, old_state)) in known_remote_bookmarks {
         let old_remote_ref = RemoteRef {
             target: old_target.clone(),
             state: old_state,
         };
-        changed_remote_refs.insert(
-            (kind, symbol.to_owned()),
-            (old_remote_ref, RefTarget::absent()),
-        );
+        changed_remote_bookmarks.insert(symbol.to_owned(), (old_remote_ref, RefTarget::absent()));
+    }
+    for (RemoteRefKey(symbol), (old_target, old_state)) in known_remote_tags {
+        let old_remote_ref = RemoteRef {
+            target: old_target.clone(),
+            state: old_state,
+        };
+        changed_remote_tags.insert(symbol.to_owned(), (old_remote_ref, RefTarget::absent()));
     }
 
     // Stabilize output
     failed_ref_names.sort_unstable();
     Ok(RefsToImport {
         changed_git_refs,
-        changed_remote_refs,
+        changed_remote_bookmarks,
+        changed_remote_tags,
         failed_ref_names,
     })
 }
@@ -649,7 +676,7 @@ fn collect_changed_refs_to_import(
     known_git_refs: &mut HashMap<&str, &RefTarget>,
     known_remote_refs: &mut HashMap<RemoteRefKey<'_>, (&RefTarget, RemoteRefState)>,
     changed_git_refs: &mut Vec<(String, RefTarget)>,
-    changed_remote_refs: &mut BTreeMap<(GitRefKind, RemoteRefSymbolBuf), (RemoteRef, RefTarget)>,
+    changed_remote_refs: &mut BTreeMap<RemoteRefSymbolBuf, (RemoteRef, RefTarget)>,
     failed_ref_names: &mut Vec<BString>,
     git_ref_filter: impl Fn(GitRefKind, RemoteRefSymbol<'_>) -> bool,
 ) -> Result<(), GitImportError> {
@@ -685,14 +712,14 @@ fn collect_changed_refs_to_import(
         // TODO: Make it configurable which remotes are publishing and update public
         // heads here.
         let (old_remote_target, old_remote_state) = known_remote_refs
-            .remove(&(kind, symbol))
+            .remove(&symbol)
             .unwrap_or_else(|| (RefTarget::absent_ref(), RemoteRefState::New));
         if new_target != *old_remote_target {
             let old_remote_ref = RemoteRef {
                 target: old_remote_target.clone(),
                 state: old_remote_state,
             };
-            changed_remote_refs.insert((kind, symbol.to_owned()), (old_remote_ref, new_target));
+            changed_remote_refs.insert(symbol.to_owned(), (old_remote_ref, new_target));
         }
     }
     Ok(())

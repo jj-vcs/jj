@@ -290,19 +290,22 @@ pub fn print_git_import_stats(
         return Ok(());
     };
     if show_ref_stats {
-        let refs_stats = stats
-            .changed_remote_refs
-            .iter()
-            .map(|((kind, symbol), (remote_ref, ref_target))| {
-                RefStatus::new(*kind, symbol.as_ref(), remote_ref, ref_target, repo)
-            })
-            .collect_vec();
+        let refs_stats = [
+            (GitRefKind::Bookmark, &stats.changed_remote_bookmarks),
+            (GitRefKind::Tag, &stats.changed_remote_tags),
+        ]
+        .into_iter()
+        .flat_map(|(kind, changes)| {
+            changes
+                .iter()
+                .map(move |(symbol, (remote_ref, ref_target))| {
+                    RefStatus::new(kind, symbol.as_ref(), remote_ref, ref_target, repo)
+                })
+        })
+        .collect_vec();
 
-        let has_both_ref_kinds = refs_stats
-            .iter()
-            .any(|x| x.ref_kind == GitRefKind::Bookmark)
-            && refs_stats.iter().any(|x| x.ref_kind == GitRefKind::Tag);
-
+        let has_both_ref_kinds =
+            !stats.changed_remote_bookmarks.is_empty() && !stats.changed_remote_tags.is_empty();
         let max_width = refs_stats.iter().map(|x| x.symbol.width()).max();
         if let Some(max_width) = max_width {
             for status in refs_stats {
