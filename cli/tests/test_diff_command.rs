@@ -15,8 +15,10 @@
 use indoc::indoc;
 use itertools::Itertools;
 
+use crate::common::create_commit;
 use crate::common::fake_diff_editor_path;
 use crate::common::to_toml_value;
+use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 
 #[test]
@@ -2840,6 +2842,93 @@ fn test_diff_binary() {
     file3.png | 3 +++
     file4.png | 1 +
     4 files changed, 6 insertions(+), 6 deletions(-)
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_diff_revisions() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    //
+    //
+    //
+    // E
+    // |\
+    // C D
+    // |/
+    // B
+    // |
+    // A
+    create_commit(&work_dir, "A", &[]);
+    create_commit(&work_dir, "B", &["A"]);
+    create_commit(&work_dir, "C", &["B"]);
+    create_commit(&work_dir, "D", &["B"]);
+    create_commit(&work_dir, "E", &["C", "D"]);
+
+    let diff_revisions = |expression: &str| -> CommandOutput {
+        work_dir.run_jj(["diff", "--name-only", "-r", expression])
+    };
+    // Can diff a single revision
+    insta::assert_snapshot!(diff_revisions("B"), @r"
+    B
+    [EOF]
+    ");
+
+    // Can diff a merge
+    insta::assert_snapshot!(diff_revisions("E"), @r"
+    E
+    [EOF]
+    ");
+
+    // A gap in the range is not allowed (yet at least)
+    insta::assert_snapshot!(diff_revisions("A|C"), @r"
+    ------- stderr -------
+    Error: Cannot diff revsets with gaps in.
+    Hint: Revision 50c75fd767bf would need to be in the set.
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // Can diff a linear chain
+    insta::assert_snapshot!(diff_revisions("A::C"), @r"
+    A
+    B
+    C
+    [EOF]
+    ");
+
+    // Can diff a chain with an internal merge
+    insta::assert_snapshot!(diff_revisions("B::E"), @r"
+    B
+    C
+    D
+    E
+    [EOF]
+    ");
+
+    // Can diff a set with multiple roots
+    insta::assert_snapshot!(diff_revisions("C|D|E"), @r"
+    C
+    D
+    E
+    [EOF]
+    ");
+
+    // Can diff a set with multiple heads
+    insta::assert_snapshot!(diff_revisions("B|C|D"), @r"
+    B
+    C
+    D
+    [EOF]
+    ");
+
+    // Can diff a set with multiple root and multiple heads
+    insta::assert_snapshot!(diff_revisions("B|C"), @r"
+    B
+    C
     [EOF]
     ");
 }

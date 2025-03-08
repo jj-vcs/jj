@@ -38,6 +38,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj diff -r` now allows multiple revisions (as long as there are no gaps in
+  the revset), such as `jj diff -r 'mutable()'`.
+
 * The 'how to resolve conflicts' hint that is shown when conflicts appear can
   be hidden by setting `hints.resolving-conflicts = false`.
 

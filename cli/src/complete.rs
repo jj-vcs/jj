@@ -606,7 +606,7 @@ fn modified_files_from_rev_with_jj_cmd(
         .arg("--summary")
         .arg(current_prefix_to_fileset(current));
     match rev {
-        (rev, None) => cmd.arg("--revision").arg(rev),
+        (rev, None) => cmd.arg("--revisions").arg(rev),
         (from, Some(to)) => cmd.arg("--from").arg(from).arg("--to").arg(to),
     };
     let output = cmd.output().map_err(user_error)?;
