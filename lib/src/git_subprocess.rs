@@ -105,6 +105,14 @@ impl<'a> GitSubprocessContext<'a> {
     /// Create the Git command
     fn create_command(&self) -> Command {
         let mut git_cmd = Command::new(self.git_executable_path);
+        // Hide console window on Windows (https://stackoverflow.com/a/60958956)
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
+            git_cmd.creation_flags(CREATE_NO_WINDOW);
+        }
+
         // TODO: here we are passing the full path to the git_dir, which can lead to UNC
         // bugs in Windows. The ideal way to do this is to pass the workspace
         // root to Command::current_dir and then pass a relative path to the git
