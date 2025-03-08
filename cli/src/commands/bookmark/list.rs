@@ -162,9 +162,6 @@ pub fn cmd_bookmark_list(
             .labeled("bookmark_list")
     };
 
-    // TODO: calculate found_deleted_* in later pass?
-    let mut found_deleted_local_bookmark = false;
-    let mut found_deleted_tracking_local_bookmark = false;
     let mut bookmark_list_items: Vec<RefListItem> = Vec::new();
     let bookmarks_to_list = view.bookmarks().filter(|(name, target)| {
         bookmark_names_to_list
@@ -207,13 +204,6 @@ pub fn cmd_bookmark_list(
             bookmark_list_items.push(RefListItem { primary, tracked });
         }
 
-        if local_target.is_absent() && !tracking_remote_refs.is_empty() {
-            found_deleted_local_bookmark = true;
-            found_deleted_tracking_local_bookmark |= tracking_remote_refs
-                .iter()
-                .any(|&(remote, _)| !jj_lib::git::is_special_git_remote(remote));
-        }
-
         if !args.tracked && (args.all_remotes || args.remotes.is_some()) {
             bookmark_list_items.extend(untracked_remote_refs.iter().map(
                 |&(remote, remote_ref)| RefListItem {
@@ -236,18 +226,32 @@ pub fn cmd_bookmark_list(
     if jj_lib::git::get_git_backend(repo.store()).is_ok() {
         // Print only one of these hints. It's not important to mention unexported
         // bookmarks, but user might wonder why deleted bookmarks are still listed.
-        if found_deleted_tracking_local_bookmark {
-            writeln!(
-                ui.hint_default(),
-                "Bookmarks marked as deleted will be *deleted permanently* on the remote on the \
-                 next `jj git push`. Use `jj bookmark forget` to prevent this."
-            )?;
-        } else if found_deleted_local_bookmark {
-            writeln!(
-                ui.hint_default(),
-                "Bookmarks marked as deleted will be deleted from the underlying Git repo on the \
-                 next `jj git export`."
-            )?;
+        let deleted_tracking = bookmark_list_items
+            .iter()
+            .filter(|item| item.primary.is_local() && item.primary.is_absent())
+            .map(|item| {
+                item.tracked.iter().any(|r| {
+                    let remote = r.remote_name().expect("tracked ref should be remote");
+                    !jj_lib::git::is_special_git_remote(remote)
+                })
+            })
+            .max();
+        match deleted_tracking {
+            Some(true) => {
+                writeln!(
+                    ui.hint_default(),
+                    "Bookmarks marked as deleted will be *deleted permanently* on the remote on \
+                     the next `jj git push`. Use `jj bookmark forget` to prevent this."
+                )?;
+            }
+            Some(false) => {
+                writeln!(
+                    ui.hint_default(),
+                    "Bookmarks marked as deleted will be deleted from the underlying Git repo on \
+                     the next `jj git export`."
+                )?;
+            }
+            None => {}
         }
     }
 
