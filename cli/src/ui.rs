@@ -33,6 +33,7 @@ use std::thread::JoinHandle;
 use itertools::Itertools as _;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::StackedConfig;
+use jj_lib::settings::ignore_executable_bit;
 use os_pipe::PipeWriter;
 use tracing::instrument;
 
@@ -213,6 +214,7 @@ pub struct Ui {
     progress_indicator: bool,
     formatter_factory: FormatterFactory,
     output: UiOutput,
+    pub exec_config: Option<bool>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize, clap::ValueEnum)]
@@ -343,6 +345,7 @@ impl Ui {
             progress_indicator: false,
             formatter_factory: FormatterFactory::plain_text(),
             output: UiOutput::Null,
+            exec_config: None, // TODO (rebase): double check this (maybe depend on OS?).
         }
     }
 
@@ -354,6 +357,7 @@ impl Ui {
             pager: PagerConfig::from_config(config)?,
             progress_indicator: config.get("ui.progress-indicator")?,
             output: UiOutput::new_terminal(),
+            exec_config: ignore_executable_bit(config),
         })
     }
 

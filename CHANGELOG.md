@@ -31,6 +31,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The 'how to resolve conflicts' hint that is shown when conflicts appear can
   be hidden by setting `hints.resolving-conflicts = false`.
 
+* Updated how we handle executable bits in the working copy to allow Unix to
+  ignore executable bit changes when using a nonstandard filesystem. We try to
+  detect the filesystem's behavior on Unix by default, but it can be overridden
+  manually by setting `core.ignore-executable-bit = true`.
+
 ### Fixed bugs
 
 ## [0.27.0] - 2025-03-05
