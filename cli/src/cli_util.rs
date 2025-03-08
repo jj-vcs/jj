@@ -3589,7 +3589,7 @@ pub fn expand_args(
     resolve_aliases(ui, config, app, string_args)
 }
 
-fn parse_args(app: &Command, string_args: &[String]) -> Result<(ArgMatches, Args), CommandError> {
+fn parse_args(app: &Command, string_args: &[String]) -> Result<(ArgMatches, Args), clap::Error> {
     let matches = app
         .clone()
         .arg_required_else_help(true)
@@ -3941,27 +3941,24 @@ impl CliRunner {
     }
 }
 
-fn map_clap_cli_error(mut cmd_err: CommandError, ui: &Ui, config: &StackedConfig) -> CommandError {
-    let Some(err) = cmd_err.error.downcast_ref::<clap::Error>() else {
-        return cmd_err;
-    };
+fn map_clap_cli_error(err: clap::Error, ui: &Ui, config: &StackedConfig) -> CommandError {
     if let Some(ContextValue::String(cmd)) = err.get(ContextKind::InvalidSubcommand) {
         match cmd.as_str() {
             // git commands that a brand-new user might type on their first experiment with
             // `jj`
             "clone" | "init" => {
                 let cmd = cmd.clone();
-                cmd_err.add_hint(format!(
-                    "You probably want `jj git {cmd}`. See also `jj help git`."
-                ));
-                cmd_err.add_hint(format!(
-                    r#"You can configure `aliases.{cmd} = ["git", "{cmd}"]` if you want `jj {cmd}` to work and always use the Git backend."#
-                ));
-                return cmd_err;
+                return CommandError::from(err)
+                    .hinted(format!(
+                        "You probably want `jj git {cmd}`. See also `jj help git`."
+                    ))
+                    .hinted(format!(
+                        r#"You can configure `aliases.{cmd} = ["git", "{cmd}"]` if you want `jj {cmd}` to work and always use the Git backend."#
+                    ));
             }
             "revert" => {
-                cmd_err.add_hint("You probably want `jj backout` or `jj restore`.");
-                return cmd_err;
+                return CommandError::from(err)
+                    .hinted("You probably want `jj backout` or `jj restore`.");
             }
             _ => {}
         }
@@ -3973,11 +3970,12 @@ fn map_clap_cli_error(mut cmd_err: CommandError, ui: &Ui, config: &StackedConfig
         if arg.as_str() == "--template <TEMPLATE>" && value.is_empty() {
             // Suppress the error, it's less important than the original error.
             if let Ok(template_aliases) = load_template_aliases(ui, config) {
-                cmd_err.add_hint(format_template_aliases_hint(&template_aliases));
+                return CommandError::from(err)
+                    .hinted(format_template_aliases_hint(&template_aliases));
             }
         }
     }
-    cmd_err
+    CommandError::from(err)
 }
 
 fn format_template_aliases_hint(template_aliases: &TemplateAliasesMap) -> String {
