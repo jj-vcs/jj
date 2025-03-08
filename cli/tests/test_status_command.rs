@@ -12,35 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::path::Path;
-
+use crate::common::create_commit_with_files;
 use crate::common::TestEnvironment;
-
-fn create_commit(
-    test_env: &TestEnvironment,
-    repo_path: &Path,
-    name: &str,
-    parents: &[&str],
-    files: &[(&str, &str)],
-) {
-    let parents = match parents {
-        [] => &["root()"],
-        parents => parents,
-    };
-    test_env
-        .run_jj_with(|cmd| {
-            cmd.current_dir(repo_path)
-                .args(["new", "-m", name])
-                .args(parents)
-        })
-        .success();
-    for (name, content) in files {
-        std::fs::write(repo_path.join(name), content).unwrap();
-    }
-    test_env
-        .run_jj_in(repo_path, ["bookmark", "create", "-r@", name])
-        .success();
-}
 
 #[test]
 fn test_status_copies() {
@@ -399,20 +372,20 @@ fn test_status_simplify_conflict_sides() {
     // Creates a 4-sided conflict, with fileA and fileB having different conflicts:
     // fileA: A - B + C - B + B - B + B
     // fileB: A - A + A - A + B - C + D
-    create_commit(
+    create_commit_with_files(
         &test_env,
         &repo_path,
         "base",
         &[],
         &[("fileA", "base\n"), ("fileB", "base\n")],
     );
-    create_commit(&test_env, &repo_path, "a1", &["base"], &[("fileA", "1\n")]);
-    create_commit(&test_env, &repo_path, "a2", &["base"], &[("fileA", "2\n")]);
-    create_commit(&test_env, &repo_path, "b1", &["base"], &[("fileB", "1\n")]);
-    create_commit(&test_env, &repo_path, "b2", &["base"], &[("fileB", "2\n")]);
-    create_commit(&test_env, &repo_path, "conflictA", &["a1", "a2"], &[]);
-    create_commit(&test_env, &repo_path, "conflictB", &["b1", "b2"], &[]);
-    create_commit(
+    create_commit_with_files(&test_env, &repo_path, "a1", &["base"], &[("fileA", "1\n")]);
+    create_commit_with_files(&test_env, &repo_path, "a2", &["base"], &[("fileA", "2\n")]);
+    create_commit_with_files(&test_env, &repo_path, "b1", &["base"], &[("fileB", "1\n")]);
+    create_commit_with_files(&test_env, &repo_path, "b2", &["base"], &[("fileB", "2\n")]);
+    create_commit_with_files(&test_env, &repo_path, "conflictA", &["a1", "a2"], &[]);
+    create_commit_with_files(&test_env, &repo_path, "conflictB", &["b1", "b2"], &[]);
+    create_commit_with_files(
         &test_env,
         &repo_path,
         "conflict",

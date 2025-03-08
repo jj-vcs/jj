@@ -14,6 +14,7 @@
 
 use std::path::Path;
 
+use crate::common::create_commit_with_files;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 
@@ -168,10 +169,10 @@ fn test_restore_conflicted_merge() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
-    create_commit(&test_env, &repo_path, "a", &["base"], &[("file", "a\n")]);
-    create_commit(&test_env, &repo_path, "b", &["base"], &[("file", "b\n")]);
-    create_commit(&test_env, &repo_path, "conflict", &["a", "b"], &[]);
+    create_commit_with_files(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
+    create_commit_with_files(&test_env, &repo_path, "a", &["base"], &[("file", "a\n")]);
+    create_commit_with_files(&test_env, &repo_path, "b", &["base"], &[("file", "b\n")]);
+    create_commit_with_files(&test_env, &repo_path, "conflict", &["a", "b"], &[]);
     // Test the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @    conflict
@@ -284,16 +285,16 @@ fn test_restore_restore_descendants() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
-    create_commit(&test_env, &repo_path, "a", &["base"], &[("file", "a\n")]);
-    create_commit(
+    create_commit_with_files(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
+    create_commit_with_files(&test_env, &repo_path, "a", &["base"], &[("file", "a\n")]);
+    create_commit_with_files(
         &test_env,
         &repo_path,
         "b",
         &["base"],
         &[("file", "b\n"), ("file2", "b\n")],
     );
-    create_commit(
+    create_commit_with_files(
         &test_env,
         &repo_path,
         "ab",
@@ -367,14 +368,14 @@ fn test_restore_interactive() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(
+    create_commit_with_files(
         &test_env,
         &repo_path,
         "a",
         &[],
         &[("file1", "a1\n"), ("file2", "a2\n")],
     );
-    create_commit(
+    create_commit_with_files(
         &test_env,
         &repo_path,
         "b",
@@ -471,9 +472,9 @@ fn test_restore_interactive_merge() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "a", &[], &[("file1", "a1\n")]);
-    create_commit(&test_env, &repo_path, "b", &[], &[("file2", "b1\n")]);
-    create_commit(
+    create_commit_with_files(&test_env, &repo_path, "a", &[], &[("file1", "a1\n")]);
+    create_commit_with_files(&test_env, &repo_path, "b", &[], &[("file2", "b1\n")]);
+    create_commit_with_files(
         &test_env,
         &repo_path,
         "c",
@@ -551,14 +552,14 @@ fn test_restore_interactive_with_paths() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(
+    create_commit_with_files(
         &test_env,
         &repo_path,
         "a",
         &[],
         &[("file1", "a1\n"), ("file2", "a2\n")],
     );
-    create_commit(
+    create_commit_with_files(
         &test_env,
         &repo_path,
         "b",
@@ -613,32 +614,6 @@ fn test_restore_interactive_with_paths() {
     ◆  zzzzzzzz root() 00000000
     [EOF]
     ");
-}
-
-fn create_commit(
-    test_env: &TestEnvironment,
-    repo_path: &Path,
-    name: &str,
-    parents: &[&str],
-    files: &[(&str, &str)],
-) {
-    let parents = match parents {
-        [] => &["root()"],
-        parents => parents,
-    };
-    test_env
-        .run_jj_with(|cmd| {
-            cmd.current_dir(repo_path)
-                .args(["new", "-m", name])
-                .args(parents)
-        })
-        .success();
-    for (name, content) in files {
-        std::fs::write(repo_path.join(name), content).unwrap();
-    }
-    test_env
-        .run_jj_in(repo_path, ["bookmark", "create", "-r@", name])
-        .success();
 }
 
 #[must_use]

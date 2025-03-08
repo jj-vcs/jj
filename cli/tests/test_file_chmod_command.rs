@@ -14,34 +14,9 @@
 
 use std::path::Path;
 
+use crate::common::create_commit_with_files;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
-
-fn create_commit(
-    test_env: &TestEnvironment,
-    repo_path: &Path,
-    name: &str,
-    parents: &[&str],
-    files: &[(&str, &str)],
-) {
-    let parents = match parents {
-        [] => &["root()"],
-        parents => parents,
-    };
-    test_env
-        .run_jj_with(|cmd| {
-            cmd.current_dir(repo_path)
-                .args(["new", "-m", name])
-                .args(parents)
-        })
-        .success();
-    for (name, content) in files {
-        std::fs::write(repo_path.join(name), content).unwrap();
-    }
-    test_env
-        .run_jj_in(repo_path, ["bookmark", "create", "-r@", name])
-        .success();
-}
 
 #[must_use]
 fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput {
@@ -54,14 +29,14 @@ fn test_chmod_regular_conflict() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
-    create_commit(&test_env, &repo_path, "n", &["base"], &[("file", "n\n")]);
-    create_commit(&test_env, &repo_path, "x", &["base"], &[("file", "x\n")]);
+    create_commit_with_files(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
+    create_commit_with_files(&test_env, &repo_path, "n", &["base"], &[("file", "n\n")]);
+    create_commit_with_files(&test_env, &repo_path, "x", &["base"], &[("file", "x\n")]);
     // Test chmodding a file. The effect will be visible in the conflict below.
     test_env
         .run_jj_in(&repo_path, ["file", "chmod", "x", "file", "-r=x"])
         .success();
-    create_commit(&test_env, &repo_path, "conflict", &["x", "n"], &[]);
+    create_commit_with_files(&test_env, &repo_path, "conflict", &["x", "n"], &[]);
 
     // Test the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
@@ -155,21 +130,21 @@ fn test_chmod_file_dir_deletion_conflicts() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
-    create_commit(&test_env, &repo_path, "file", &["base"], &[("file", "a\n")]);
+    create_commit_with_files(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
+    create_commit_with_files(&test_env, &repo_path, "file", &["base"], &[("file", "a\n")]);
 
-    create_commit(&test_env, &repo_path, "deletion", &["base"], &[]);
+    create_commit_with_files(&test_env, &repo_path, "deletion", &["base"], &[]);
     std::fs::remove_file(repo_path.join("file")).unwrap();
 
-    create_commit(&test_env, &repo_path, "dir", &["base"], &[]);
+    create_commit_with_files(&test_env, &repo_path, "dir", &["base"], &[]);
     std::fs::remove_file(repo_path.join("file")).unwrap();
     std::fs::create_dir(repo_path.join("file")).unwrap();
     // Without a placeholder file, `jj` ignores an empty directory
     std::fs::write(repo_path.join("file").join("placeholder"), "").unwrap();
 
     // Create a file-dir conflict and a file-deletion conflict
-    create_commit(&test_env, &repo_path, "file_dir", &["file", "dir"], &[]);
-    create_commit(
+    create_commit_with_files(&test_env, &repo_path, "file_dir", &["file", "dir"], &[]);
+    create_commit_with_files(
         &test_env,
         &repo_path,
         "file_deletion",

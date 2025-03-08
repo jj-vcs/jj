@@ -14,26 +14,9 @@
 
 use std::path::Path;
 
+use crate::common::create_commit;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
-
-fn create_commit(test_env: &TestEnvironment, repo_path: &Path, name: &str, parents: &[&str]) {
-    let parents = match parents {
-        [] => &["root()"],
-        parents => parents,
-    };
-    test_env
-        .run_jj_with(|cmd| {
-            cmd.current_dir(repo_path)
-                .args(["new", "-m", name])
-                .args(parents)
-        })
-        .success();
-    std::fs::write(repo_path.join(name), format!("{name}\n")).unwrap();
-    test_env
-        .run_jj_in(repo_path, ["bookmark", "create", "-r@", name])
-        .success();
-}
 
 #[test]
 fn test_basics() {

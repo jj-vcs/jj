@@ -14,34 +14,9 @@
 
 use std::path::Path;
 
+use crate::common::create_commit_with_files;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
-
-fn create_commit(
-    test_env: &TestEnvironment,
-    repo_path: &Path,
-    name: &str,
-    parents: &[&str],
-    files: &[(&str, &str)],
-) {
-    let parents = match parents {
-        [] => &["root()"],
-        parents => parents,
-    };
-    test_env
-        .run_jj_with(|cmd| {
-            cmd.current_dir(repo_path)
-                .args(["new", "-m", name])
-                .args(parents)
-        })
-        .success();
-    for (name, contents) in files {
-        std::fs::write(repo_path.join(name), contents).unwrap();
-    }
-    test_env
-        .run_jj_in(repo_path, ["bookmark", "create", "-r@", name])
-        .success();
-}
 
 #[test]
 fn test_backout() {
@@ -49,7 +24,7 @@ fn test_backout() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "a", &[], &[("a", "a\n")]);
+    create_commit_with_files(&test_env, &repo_path, "a", &[], &[("a", "a\n")]);
     // Test the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  2443ea76b0b1 a
@@ -107,17 +82,17 @@ fn test_backout_multiple() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "a", &[], &[("a", "a\n")]);
-    create_commit(&test_env, &repo_path, "b", &["a"], &[("a", "a\nb\n")]);
-    create_commit(
+    create_commit_with_files(&test_env, &repo_path, "a", &[], &[("a", "a\n")]);
+    create_commit_with_files(&test_env, &repo_path, "b", &["a"], &[("a", "a\nb\n")]);
+    create_commit_with_files(
         &test_env,
         &repo_path,
         "c",
         &["b"],
         &[("a", "a\nb\n"), ("b", "b\n")],
     );
-    create_commit(&test_env, &repo_path, "d", &["c"], &[]);
-    create_commit(&test_env, &repo_path, "e", &["d"], &[("a", "a\nb\nc\n")]);
+    create_commit_with_files(&test_env, &repo_path, "d", &["c"], &[]);
+    create_commit_with_files(&test_env, &repo_path, "e", &["d"], &[("a", "a\nb\nc\n")]);
 
     // Test the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
@@ -219,7 +194,7 @@ fn test_backout_description_template() {
         "#,
     );
     let repo_path = test_env.env_root().join("repo");
-    create_commit(&test_env, &repo_path, "a", &[], &[("a", "a\n")]);
+    create_commit_with_files(&test_env, &repo_path, "a", &[], &[("a", "a\n")]);
 
     // Test the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"

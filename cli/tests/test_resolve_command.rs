@@ -16,34 +16,9 @@ use std::path::Path;
 
 use indoc::indoc;
 
+use crate::common::create_commit_with_files;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
-
-fn create_commit(
-    test_env: &TestEnvironment,
-    repo_path: &Path,
-    name: &str,
-    parents: &[&str],
-    files: &[(&str, &str)],
-) {
-    let parents = match parents {
-        [] => &["root()"],
-        parents => parents,
-    };
-    test_env
-        .run_jj_with(|cmd| {
-            cmd.current_dir(repo_path)
-                .args(["new", "-m", name])
-                .args(parents)
-        })
-        .success();
-    for (name, content) in files {
-        std::fs::write(repo_path.join(name), content).unwrap();
-    }
-    test_env
-        .run_jj_in(repo_path, ["bookmark", "create", "-r@", name])
-        .success();
-}
 
 #[must_use]
 fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput {
@@ -56,10 +31,10 @@ fn test_resolution() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
-    create_commit(&test_env, &repo_path, "a", &["base"], &[("file", "a\n")]);
-    create_commit(&test_env, &repo_path, "b", &["base"], &[("file", "b\n")]);
-    create_commit(&test_env, &repo_path, "conflict", &["a", "b"], &[]);
+    create_commit_with_files(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
+    create_commit_with_files(&test_env, &repo_path, "a", &["base"], &[("file", "a\n")]);
+    create_commit_with_files(&test_env, &repo_path, "b", &["base"], &[("file", "b\n")]);
+    create_commit_with_files(&test_env, &repo_path, "conflict", &["a", "b"], &[]);
     // Test the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @    conflict
@@ -591,10 +566,10 @@ fn test_normal_conflict_input_files() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
-    create_commit(&test_env, &repo_path, "a", &["base"], &[("file", "a\n")]);
-    create_commit(&test_env, &repo_path, "b", &["base"], &[("file", "b\n")]);
-    create_commit(&test_env, &repo_path, "conflict", &["a", "b"], &[]);
+    create_commit_with_files(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
+    create_commit_with_files(&test_env, &repo_path, "a", &["base"], &[("file", "a\n")]);
+    create_commit_with_files(&test_env, &repo_path, "b", &["base"], &[("file", "b\n")]);
+    create_commit_with_files(&test_env, &repo_path, "conflict", &["a", "b"], &[]);
     // Test the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @    conflict
@@ -633,10 +608,10 @@ fn test_baseless_conflict_input_files() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "base", &[], &[]);
-    create_commit(&test_env, &repo_path, "a", &["base"], &[("file", "a\n")]);
-    create_commit(&test_env, &repo_path, "b", &["base"], &[("file", "b\n")]);
-    create_commit(&test_env, &repo_path, "conflict", &["a", "b"], &[]);
+    create_commit_with_files(&test_env, &repo_path, "base", &[], &[]);
+    create_commit_with_files(&test_env, &repo_path, "a", &["base"], &[("file", "a\n")]);
+    create_commit_with_files(&test_env, &repo_path, "b", &["base"], &[("file", "b\n")]);
+    create_commit_with_files(&test_env, &repo_path, "conflict", &["a", "b"], &[]);
     // Test the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @    conflict
@@ -674,11 +649,11 @@ fn test_too_many_parents() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
-    create_commit(&test_env, &repo_path, "a", &["base"], &[("file", "a\n")]);
-    create_commit(&test_env, &repo_path, "b", &["base"], &[("file", "b\n")]);
-    create_commit(&test_env, &repo_path, "c", &["base"], &[("file", "c\n")]);
-    create_commit(&test_env, &repo_path, "conflict", &["a", "b", "c"], &[]);
+    create_commit_with_files(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
+    create_commit_with_files(&test_env, &repo_path, "a", &["base"], &[("file", "a\n")]);
+    create_commit_with_files(&test_env, &repo_path, "b", &["base"], &[("file", "b\n")]);
+    create_commit_with_files(&test_env, &repo_path, "c", &["base"], &[("file", "c\n")]);
+    create_commit_with_files(&test_env, &repo_path, "conflict", &["a", "b", "c"], &[]);
     insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["resolve", "--list"]), @r"
     file    3-sided conflict
     [EOF]
@@ -710,20 +685,20 @@ fn test_simplify_conflict_sides() {
     // Creates a 4-sided conflict, with fileA and fileB having different conflicts:
     // fileA: A - B + C - B + B - B + B
     // fileB: A - A + A - A + B - C + D
-    create_commit(
+    create_commit_with_files(
         &test_env,
         &repo_path,
         "base",
         &[],
         &[("fileA", "base\n"), ("fileB", "base\n")],
     );
-    create_commit(&test_env, &repo_path, "a1", &["base"], &[("fileA", "1\n")]);
-    create_commit(&test_env, &repo_path, "a2", &["base"], &[("fileA", "2\n")]);
-    create_commit(&test_env, &repo_path, "b1", &["base"], &[("fileB", "1\n")]);
-    create_commit(&test_env, &repo_path, "b2", &["base"], &[("fileB", "2\n")]);
-    create_commit(&test_env, &repo_path, "conflictA", &["a1", "a2"], &[]);
-    create_commit(&test_env, &repo_path, "conflictB", &["b1", "b2"], &[]);
-    create_commit(
+    create_commit_with_files(&test_env, &repo_path, "a1", &["base"], &[("fileA", "1\n")]);
+    create_commit_with_files(&test_env, &repo_path, "a2", &["base"], &[("fileA", "2\n")]);
+    create_commit_with_files(&test_env, &repo_path, "b1", &["base"], &[("fileB", "1\n")]);
+    create_commit_with_files(&test_env, &repo_path, "b2", &["base"], &[("fileB", "2\n")]);
+    create_commit_with_files(&test_env, &repo_path, "conflictA", &["a1", "a2"], &[]);
+    create_commit_with_files(&test_env, &repo_path, "conflictB", &["b1", "b2"], &[]);
+    create_commit_with_files(
         &test_env,
         &repo_path,
         "conflict",
@@ -838,11 +813,11 @@ fn test_edit_delete_conflict_input_files() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
-    create_commit(&test_env, &repo_path, "a", &["base"], &[("file", "a\n")]);
-    create_commit(&test_env, &repo_path, "b", &["base"], &[]);
+    create_commit_with_files(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
+    create_commit_with_files(&test_env, &repo_path, "a", &["base"], &[("file", "a\n")]);
+    create_commit_with_files(&test_env, &repo_path, "b", &["base"], &[]);
     std::fs::remove_file(repo_path.join("file")).unwrap();
-    create_commit(&test_env, &repo_path, "conflict", &["a", "b"], &[]);
+    create_commit_with_files(&test_env, &repo_path, "conflict", &["a", "b"], &[]);
     // Test the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @    conflict
@@ -880,14 +855,14 @@ fn test_file_vs_dir() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
-    create_commit(&test_env, &repo_path, "a", &["base"], &[("file", "a\n")]);
-    create_commit(&test_env, &repo_path, "b", &["base"], &[]);
+    create_commit_with_files(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
+    create_commit_with_files(&test_env, &repo_path, "a", &["base"], &[("file", "a\n")]);
+    create_commit_with_files(&test_env, &repo_path, "b", &["base"], &[]);
     std::fs::remove_file(repo_path.join("file")).unwrap();
     std::fs::create_dir(repo_path.join("file")).unwrap();
     // Without a placeholder file, `jj` ignores an empty directory
     std::fs::write(repo_path.join("file").join("placeholder"), "").unwrap();
-    create_commit(&test_env, &repo_path, "conflict", &["a", "b"], &[]);
+    create_commit_with_files(&test_env, &repo_path, "conflict", &["a", "b"], &[]);
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @    conflict
     ├─╮
@@ -925,16 +900,16 @@ fn test_description_with_dir_and_deletion() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
-    create_commit(&test_env, &repo_path, "edit", &["base"], &[("file", "b\n")]);
-    create_commit(&test_env, &repo_path, "dir", &["base"], &[]);
+    create_commit_with_files(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
+    create_commit_with_files(&test_env, &repo_path, "edit", &["base"], &[("file", "b\n")]);
+    create_commit_with_files(&test_env, &repo_path, "dir", &["base"], &[]);
     std::fs::remove_file(repo_path.join("file")).unwrap();
     std::fs::create_dir(repo_path.join("file")).unwrap();
     // Without a placeholder file, `jj` ignores an empty directory
     std::fs::write(repo_path.join("file").join("placeholder"), "").unwrap();
-    create_commit(&test_env, &repo_path, "del", &["base"], &[]);
+    create_commit_with_files(&test_env, &repo_path, "del", &["base"], &[]);
     std::fs::remove_file(repo_path.join("file")).unwrap();
-    create_commit(
+    create_commit_with_files(
         &test_env,
         &repo_path,
         "conflict",
@@ -989,7 +964,7 @@ fn test_resolve_conflicts_with_executable() {
 
     // Create a conflict in "file1" where all 3 terms are executables, and create a
     // conflict in "file2" where one side set the executable bit.
-    create_commit(
+    create_commit_with_files(
         &test_env,
         &repo_path,
         "base",
@@ -999,14 +974,14 @@ fn test_resolve_conflicts_with_executable() {
     test_env
         .run_jj_in(&repo_path, ["file", "chmod", "x", "file1"])
         .success();
-    create_commit(
+    create_commit_with_files(
         &test_env,
         &repo_path,
         "a",
         &["base"],
         &[("file1", "a1\n"), ("file2", "a2\n")],
     );
-    create_commit(
+    create_commit_with_files(
         &test_env,
         &repo_path,
         "b",
@@ -1016,7 +991,7 @@ fn test_resolve_conflicts_with_executable() {
     test_env
         .run_jj_in(&repo_path, ["file", "chmod", "x", "file2"])
         .success();
-    create_commit(&test_env, &repo_path, "conflict", &["a", "b"], &[]);
+    create_commit_with_files(&test_env, &repo_path, "conflict", &["a", "b"], &[]);
     insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["resolve", "--list"]), @r"
     file1    2-sided conflict including an executable
     file2    2-sided conflict including an executable
@@ -1144,28 +1119,28 @@ fn test_resolve_long_conflict_markers() {
     test_env.add_config("ui.conflict-marker-style = 'snapshot'");
 
     // Create a conflict which requires long conflict markers to be materialized
-    create_commit(
+    create_commit_with_files(
         &test_env,
         &repo_path,
         "base",
         &[],
         &[("file", "======= base\n")],
     );
-    create_commit(
+    create_commit_with_files(
         &test_env,
         &repo_path,
         "a",
         &["base"],
         &[("file", "<<<<<<< a\n")],
     );
-    create_commit(
+    create_commit_with_files(
         &test_env,
         &repo_path,
         "b",
         &["base"],
         &[("file", ">>>>>>> b\n")],
     );
-    create_commit(&test_env, &repo_path, "conflict", &["a", "b"], &[]);
+    create_commit_with_files(&test_env, &repo_path, "conflict", &["a", "b"], &[]);
     insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["resolve", "--list"]), @r"
     file    2-sided conflict
     [EOF]
@@ -1406,7 +1381,7 @@ fn test_multiple_conflicts() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(
+    create_commit_with_files(
         &test_env,
         &repo_path,
         "base",
@@ -1419,7 +1394,7 @@ fn test_multiple_conflicts() {
             ("another_file", "second base\n"),
         ],
     );
-    create_commit(
+    create_commit_with_files(
         &test_env,
         &repo_path,
         "a",
@@ -1432,7 +1407,7 @@ fn test_multiple_conflicts() {
             ("another_file", "second a\n"),
         ],
     );
-    create_commit(
+    create_commit_with_files(
         &test_env,
         &repo_path,
         "b",
@@ -1445,7 +1420,7 @@ fn test_multiple_conflicts() {
             ("another_file", "second b\n"),
         ],
     );
-    create_commit(&test_env, &repo_path, "conflict", &["a", "b"], &[]);
+    create_commit_with_files(&test_env, &repo_path, "conflict", &["a", "b"], &[]);
     // Test the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @    conflict
@@ -1608,7 +1583,7 @@ fn test_multiple_conflicts_with_error() {
     let repo_path = test_env.env_root().join("repo");
 
     // Create two conflicted files, and one non-conflicted file
-    create_commit(
+    create_commit_with_files(
         &test_env,
         &repo_path,
         "base",
@@ -1619,21 +1594,21 @@ fn test_multiple_conflicts_with_error() {
             ("file3", "base3\n"),
         ],
     );
-    create_commit(
+    create_commit_with_files(
         &test_env,
         &repo_path,
         "a",
         &["base"],
         &[("file1", "a1\n"), ("file2", "a2\n")],
     );
-    create_commit(
+    create_commit_with_files(
         &test_env,
         &repo_path,
         "b",
         &["base"],
         &[("file1", "b1\n"), ("file2", "b2\n")],
     );
-    create_commit(&test_env, &repo_path, "conflict", &["a", "b"], &[]);
+    create_commit_with_files(&test_env, &repo_path, "conflict", &["a", "b"], &[]);
     insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["resolve", "--list"]), @r"
     file1    2-sided conflict
     file2    2-sided conflict

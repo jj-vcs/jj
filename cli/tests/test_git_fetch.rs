@@ -16,6 +16,7 @@ use std::path::Path;
 use test_case::test_case;
 use testutils::git;
 
+use crate::common::create_commit;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 
@@ -57,25 +58,6 @@ fn add_git_remote(test_env: &TestEnvironment, repo_path: &Path, remote: &str) ->
 fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput {
     // --quiet to suppress deleted bookmarks hint
     test_env.run_jj_in(repo_path, ["bookmark", "list", "--all-remotes", "--quiet"])
-}
-
-fn create_commit(test_env: &TestEnvironment, repo_path: &Path, name: &str, parents: &[&str]) {
-    let descr = format!("{name}");
-    let parents = match parents {
-        [] => &["root()"],
-        parents => parents,
-    };
-    test_env
-        .run_jj_with(|cmd| {
-            cmd.current_dir(repo_path)
-                .args(["new", "-m", &descr])
-                .args(parents)
-        })
-        .success();
-    std::fs::write(repo_path.join(name), format!("{name}\n")).unwrap();
-    test_env
-        .run_jj_in(repo_path, ["bookmark", "create", "-r@", name])
-        .success();
 }
 
 #[must_use]

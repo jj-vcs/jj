@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::path::Path;
 use std::path::PathBuf;
 
 use test_case::test_case;
 
+use crate::common::create_commit;
 use crate::common::TestEnvironment;
 
 fn create_repo() -> (TestEnvironment, PathBuf) {
@@ -25,20 +25,6 @@ fn create_repo() -> (TestEnvironment, PathBuf) {
     let repo_path = test_env.env_root().join("repo");
 
     (test_env, repo_path)
-}
-
-fn create_commit(test_env: &TestEnvironment, repo_path: &Path, name: &str, parents: &[&str]) {
-    test_env
-        .run_jj_with(|cmd| {
-            cmd.current_dir(repo_path)
-                .args(["new", "-m", name])
-                .args(parents)
-        })
-        .success();
-    std::fs::write(repo_path.join(name), format!("{name}\n")).unwrap();
-    test_env
-        .run_jj_in(repo_path, ["bookmark", "create", "-r@", name])
-        .success();
 }
 
 #[test]
