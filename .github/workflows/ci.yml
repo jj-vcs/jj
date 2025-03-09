@@ -23,12 +23,18 @@ jobs:
     strategy:
       fail-fast: ${{ github.event_name == 'merge_group' }}
       matrix:
-        build: [linux-x86_64-gnu, linux-aarch64-gnu, macos-x86_64, macos-aarch64, windows-x86_64]
+        build: [linux-x86_64-gnu, 'linux-x86_64-gnu, no git2', linux-aarch64-gnu, macos-x86_64, macos-aarch64, windows-x86_64]
         include:
         - build: linux-x86_64-gnu
           os: ubuntu-24.04
           target: x86_64-unknown-linux-gnu
           cargo_flags: "--all-features"
+        - build: 'linux-x86_64-gnu, no git2'
+          os: ubuntu-24.04
+          target: x86_64-unknown-linux-gnu
+          cargo_flags: "--no-default-features --features git"
+          # Ensure we don’t link to `libgit2`.
+          LIBGIT2_NO_VENDOR: 1
         - build: linux-aarch64-gnu
           os: ubuntu-24.04-arm
           target: aarch64-unknown-linux-gnu
@@ -82,6 +88,7 @@ jobs:
       env:
         RUST_BACKTRACE: 1
         CARGO_TERM_COLOR: always
+        LIBGIT2_NO_VENDOR: ${{ matrix.LIBGIT2_NO_VENDOR || '0' }}
 
   no-git:
     name: build (no git)
