@@ -28,6 +28,7 @@ use std::time::Instant;
 
 use crossterm::terminal::Clear;
 use crossterm::terminal::ClearType;
+use indoc::writedoc;
 use itertools::Itertools;
 use jj_lib::fmt_util::binary_prefix;
 use jj_lib::git;
@@ -322,6 +323,30 @@ pub fn print_git_import_stats(
             formatter,
             "Abandoned {} commits that are no longer reachable.",
             stats.abandoned_commits.len()
+        )?;
+    }
+
+    if !stats.failed_ref_names.is_empty() {
+        writeln!(ui.warning_default(), "Failed to import some Git refs:")?;
+        let mut formatter = ui.stderr_formatter();
+        for name in &stats.failed_ref_names {
+            write!(formatter, "  ")?;
+            write!(formatter.labeled("git_ref"), "{name}")?;
+            writeln!(formatter)?;
+        }
+    }
+    if stats
+        .failed_ref_names
+        .iter()
+        .any(|name| name.starts_with(git::RESERVED_REMOTE_REF_NAMESPACE.as_bytes()))
+    {
+        writedoc!(
+            ui.hint_default(),
+            "
+            Git remote named '{name}' is reserved for local Git repository.
+            Use `jj git remote rename` to give a different name.
+            ",
+            name = git::REMOTE_NAME_FOR_LOCAL_GIT_REPO,
         )?;
     }
 

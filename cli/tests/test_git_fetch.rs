@@ -527,19 +527,32 @@ fn test_git_fetch_from_remote_named_git(subprocess: bool) {
     // Implicit import shouldn't fail because of the remote ref.
     let output = test_env.run_jj_in(&repo_path, ["bookmark", "list", "--all-remotes"]);
     insta::allow_duplicates! {
-    insta::assert_snapshot!(output, @"");
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: Failed to import some Git refs:
+      refs/remotes/git/git
+    Hint: Git remote named 'git' is reserved for local Git repository.
+    Use `jj git remote rename` to give a different name.
+    [EOF]
+    ");
     }
 
-    // Explicit import is an error.
-    // (This could be warning if we add mechanism to report ignored refs.)
+    // Explicit import also works. Warnings are printed twice because this is a
+    // colocated repo. That should be fine since "jj git import" wouldn't be
+    // used in colocated environment.
     insta::allow_duplicates! {
     insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["git", "import"]), @r"
     ------- stderr -------
-    Error: Failed to import refs from underlying Git repo
-    Caused by: Git remote named 'git' is reserved for local Git repository
-    Hint: Run `jj git remote rename` to give different name.
+    Warning: Failed to import some Git refs:
+      refs/remotes/git/git
+    Hint: Git remote named 'git' is reserved for local Git repository.
+    Use `jj git remote rename` to give a different name.
+    Warning: Failed to import some Git refs:
+      refs/remotes/git/git
+    Hint: Git remote named 'git' is reserved for local Git repository.
+    Use `jj git remote rename` to give a different name.
+    Nothing changed.
     [EOF]
-    [exit status: 1]
     ");
     }
 
