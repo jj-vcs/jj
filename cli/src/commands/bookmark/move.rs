@@ -43,11 +43,8 @@ use crate::ui::Ui;
 #[command(group(clap::ArgGroup::new("source").multiple(true).required(true)))]
 pub struct BookmarkMoveArgs {
     /// Move bookmarks from the given revisions
-    // We intentionally do not support the short `-f` for `--from` since it
-    // could be confused with a shorthand for `--force`, and people might not
-    // realize they need `-B`/`--allow-backwards` instead.
     #[arg(
-        long,
+        long, short,
         group = "source",
         value_name = "REVSETS",
         add = ArgValueCandidates::new(complete::all_revisions),
@@ -56,11 +53,10 @@ pub struct BookmarkMoveArgs {
 
     // TODO(#5374): Make required in jj 0.32+
     /// Move bookmarks to this revision
-    // We intentionally do not support the short `-t` for `--to` since we don't
-    // support `-f` for `--from`. Currently this defaults to the working copy, but in the near
+    // Currently this defaults to the working copy, but in the near
     // future it will be required to explicitly specify it.
     #[arg(
-        long,
+        long, short,
         value_name = "REVSET",
         add = ArgValueCandidates::new(complete::all_revisions),
     )]

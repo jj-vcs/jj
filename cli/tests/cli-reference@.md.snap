@@ -433,8 +433,8 @@ $ jj bookmark move --from 'heads(::@- & bookmarks())' --to @-
 
 ###### **Options:**
 
-* `--from <REVSETS>` — Move bookmarks from the given revisions
-* `--to <REVSET>` — Move bookmarks to this revision
+* `-f`, `--from <REVSETS>` — Move bookmarks from the given revisions
+* `-t`, `--to <REVSET>` — Move bookmarks to this revision
 * `-B`, `--allow-backwards` — Allow moving bookmarks backwards or sideways
 
 
