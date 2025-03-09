@@ -43,6 +43,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj op log -d` now has an alias for `jj op log --op-diff`.
 
+* `jj bookmark move --to/--from` can now be abbreviated to `jj bookmark move -t/-f`
+
 ### Fixed bugs
 
 ## [0.27.0] - 2025-03-05
