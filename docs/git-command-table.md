@@ -79,6 +79,10 @@ parent.
       <td><code>jj diff --from A --to B</code></td>
     </tr>
     <tr>
+      <td>Show all the changes in A..B</td>
+      <td><code>git diff A...B</code></td>
+      <td><code>jj diff -r A..B</code></td>
+    </tr>
     <tr>
       <td>Show description and diff of a change</td>
       <td><code>git show &lt;revision&gt;</code></td>
