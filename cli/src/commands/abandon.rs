@@ -97,6 +97,7 @@ pub(crate) fn cmd_abandon(
     tx.repo_mut().transform_descendants_with_options(
         to_abandon_set.iter().copied().cloned().collect(),
         &options,
+        |_, _| None,
         |rewriter| {
             if to_abandon_set.contains(rewriter.old_commit().id()) {
                 rewriter.abandon();
