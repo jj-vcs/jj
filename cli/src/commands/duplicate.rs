@@ -17,7 +17,6 @@ use std::io::Write;
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools;
 use jj_lib::backend::CommitId;
-use jj_lib::commit::CommitIteratorExt;
 use jj_lib::repo::Repo;
 use jj_lib::rewrite::duplicate_commits;
 use jj_lib::rewrite::duplicate_commits_onto_parents;
@@ -124,18 +123,14 @@ pub(crate) fn cmd_duplicate(
     {
         None
     } else {
-        let (parent_commits, children_commits) = compute_commit_location(
+        Some(compute_commit_location(
             ui,
             &workspace_command,
             args.destination.as_deref(),
             args.insert_after.as_deref(),
             args.insert_before.as_deref(),
             "duplicated commits",
-        )?;
-        let parent_commit_ids = parent_commits.iter().ids().cloned().collect_vec();
-        let children_commit_ids = children_commits.iter().ids().cloned().collect_vec();
-
-        Some((parent_commit_ids, children_commit_ids))
+        )?)
     };
 
     let mut tx = workspace_command.start_transaction();
