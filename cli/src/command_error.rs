@@ -535,6 +535,7 @@ jj currently does not support partial clones. To use jj with this repository, tr
                     "Run `jj git remote rename` to give a different name.",
                 ),
                 GitFetchError::InvalidBranchPattern(_) => user_error(err),
+                #[cfg(feature = "git2")]
                 GitFetchError::InternalGitError(err) => map_git2_error(err),
                 GitFetchError::Subprocess(_) => user_error(err),
             }
@@ -544,7 +545,10 @@ jj currently does not support partial clones. To use jj with this repository, tr
     impl From<GitFetchPrepareError> for CommandError {
         fn from(err: GitFetchPrepareError) -> Self {
             match err {
+                #[cfg(feature = "git2")]
                 GitFetchPrepareError::Git2(err) => map_git2_error(err),
+                #[cfg(not(feature = "git2"))]
+                GitFetchPrepareError::Git2Unsupported => config_error(err),
                 GitFetchPrepareError::UnexpectedBackend(_) => user_error(err),
             }
         }
@@ -568,7 +572,10 @@ jj currently does not support partial clones. To use jj with this repository, tr
                      it to be, and push again.",
                 ),
                 GitPushError::RefUpdateRejected(_) => user_error(err),
+                #[cfg(feature = "git2")]
                 GitPushError::InternalGitError(err) => map_git2_error(err),
+                #[cfg(not(feature = "git2"))]
+                GitPushError::Git2Unsupported => config_error(err),
                 GitPushError::Subprocess(_) => user_error(err),
                 GitPushError::UnexpectedBackend(_) => user_error(err),
             }
@@ -587,6 +594,7 @@ jj currently does not support partial clones. To use jj with this repository, tr
         }
     }
 
+    #[cfg(feature = "git2")]
     fn map_git2_error(err: git2::Error) -> CommandError {
         if err.class() == git2::ErrorClass::Ssh {
             let hint = if err.code() == git2::ErrorCode::Certificate

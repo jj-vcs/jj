@@ -41,6 +41,7 @@ use crate::file_util::PathError;
 use crate::git_backend::GitBackend;
 use crate::git_subprocess::GitSubprocessContext;
 use crate::git_subprocess::GitSubprocessError;
+#[cfg(feature = "git2")]
 use crate::index::Index;
 use crate::merged_tree::MergedTree;
 use crate::object_id::ObjectId;
@@ -48,6 +49,7 @@ use crate::op_store::RefTarget;
 use crate::op_store::RefTargetOptionExt;
 use crate::op_store::RemoteRef;
 use crate::op_store::RemoteRefState;
+#[cfg(feature = "git2")]
 use crate::refs;
 use crate::refs::BookmarkPushUpdate;
 use crate::refs::RemoteRefSymbol;
@@ -1411,6 +1413,7 @@ impl GitRemoteManagementError {
     }
 }
 
+#[cfg(feature = "git2")]
 fn is_remote_not_found_err(err: &git2::Error) -> bool {
     matches!(
         (err.class(), err.code()),
@@ -1875,6 +1878,7 @@ pub enum GitFetchError {
     #[error(transparent)]
     RemoteName(#[from] GitRemoteNameError),
     // TODO: I'm sure there are other errors possible, such as transport-level errors.
+    #[cfg(feature = "git2")]
     #[error("Unexpected git error when fetching")]
     InternalGitError(#[from] git2::Error),
     #[error(transparent)]
@@ -1885,12 +1889,17 @@ pub enum GitFetchError {
 // UnexpectedGitBackendError.
 #[derive(Debug, Error)]
 pub enum GitFetchPrepareError {
+    #[cfg(feature = "git2")]
     #[error(transparent)]
     Git2(#[from] git2::Error),
+    #[cfg(not(feature = "git2"))]
+    #[error("jj was compiled without `git.subprocess = false` support")]
+    Git2Unsupported,
     #[error(transparent)]
     UnexpectedBackend(#[from] UnexpectedGitBackendError),
 }
 
+#[cfg(feature = "git2")]
 fn git2_fetch_options(
     mut callbacks: RemoteCallbacks<'_>,
     depth: Option<NonZeroU32>,
@@ -2035,9 +2044,8 @@ fn expand_fetch_refspecs(
 }
 
 enum GitFetchImpl<'a> {
-    Git2 {
-        git_repo: git2::Repository,
-    },
+    #[cfg(feature = "git2")]
+    Git2 { git_repo: git2::Repository },
     Subprocess {
         git_repo: Box<gix::Repository>,
         git_ctx: GitSubprocessContext<'a>,
@@ -2053,8 +2061,13 @@ impl<'a> GitFetchImpl<'a> {
                 GitSubprocessContext::from_git_backend(git_backend, &git_settings.executable_path);
             Ok(GitFetchImpl::Subprocess { git_repo, git_ctx })
         } else {
-            let git_repo = git2::Repository::open(git_backend.git_repo_path())?;
-            Ok(GitFetchImpl::Git2 { git_repo })
+            #[cfg(feature = "git2")]
+            {
+                let git_repo = git2::Repository::open(git_backend.git_repo_path())?;
+                Ok(GitFetchImpl::Git2 { git_repo })
+            }
+            #[cfg(not(feature = "git2"))]
+            Err(GitFetchPrepareError::Git2Unsupported)
         }
     }
 
@@ -2066,6 +2079,7 @@ impl<'a> GitFetchImpl<'a> {
         depth: Option<NonZeroU32>,
     ) -> Result<(), GitFetchError> {
         match self {
+            #[cfg(feature = "git2")]
             GitFetchImpl::Git2 { git_repo } => {
                 git2_fetch(git_repo, remote_name, branch_names, callbacks, depth)
             }
@@ -2086,6 +2100,7 @@ impl<'a> GitFetchImpl<'a> {
         callbacks: RemoteCallbacks<'_>,
     ) -> Result<Option<String>, GitFetchError> {
         match self {
+            #[cfg(feature = "git2")]
             GitFetchImpl::Git2 { git_repo } => {
                 git2_get_default_branch(git_repo, remote_name, callbacks)
             }
@@ -2096,6 +2111,7 @@ impl<'a> GitFetchImpl<'a> {
     }
 }
 
+#[cfg(feature = "git2")]
 fn git2_fetch(
     git_repo: &git2::Repository,
     remote_name: &str,
@@ -2138,6 +2154,7 @@ fn git2_fetch(
     Ok(())
 }
 
+#[cfg(feature = "git2")]
 fn git2_get_default_branch(
     git_repo: &git2::Repository,
     remote_name: &str,
@@ -2246,8 +2263,12 @@ pub enum GitPushError {
     RefUpdateRejected(Vec<String>),
     // TODO: I'm sure there are other errors possible, such as transport-level errors,
     // and errors caused by the remote rejecting the push.
+    #[cfg(feature = "git2")]
     #[error("Unexpected git error when pushing")]
     InternalGitError(#[from] git2::Error),
+    #[cfg(not(feature = "git2"))]
+    #[error("jj was compiled without `git.subprocess = false` support")]
+    Git2Unsupported,
     #[error(transparent)]
     Subprocess(#[from] GitSubprocessError),
     #[error(transparent)]
@@ -2351,19 +2372,25 @@ pub fn push_updates(
             callbacks,
         )
     } else {
-        let git_repo = git2::Repository::open(git_backend.git_repo_path())?;
-        let refspecs: Vec<String> = refspecs.iter().map(RefSpec::to_git_format).collect();
-        git2_push_refs(
-            repo,
-            &git_repo,
-            remote_name,
-            &qualified_remote_refs_expected_locations,
-            &refspecs,
-            callbacks,
-        )
+        #[cfg(feature = "git2")]
+        {
+            let git_repo = git2::Repository::open(git_backend.git_repo_path())?;
+            let refspecs: Vec<String> = refspecs.iter().map(RefSpec::to_git_format).collect();
+            git2_push_refs(
+                repo,
+                &git_repo,
+                remote_name,
+                &qualified_remote_refs_expected_locations,
+                &refspecs,
+                callbacks,
+            )
+        }
+        #[cfg(not(feature = "git2"))]
+        Err(GitPushError::Git2Unsupported)
     }
 }
 
+#[cfg(feature = "git2")]
 fn git2_push_refs(
     repo: &dyn Repo,
     git_repo: &git2::Repository,
@@ -2524,6 +2551,7 @@ fn subprocess_push_refs(
     }
 }
 
+#[cfg(feature = "git2")]
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum PushAllowReason {
     NormalMatch,
@@ -2531,6 +2559,7 @@ enum PushAllowReason {
     UnexpectedNoop,
 }
 
+#[cfg(feature = "git2")]
 fn allow_push(
     index: &dyn Index,
     actual_remote_location: Option<&CommitId>,
@@ -2593,6 +2622,7 @@ pub struct RemoteCallbacks<'a> {
     pub get_username_password: Option<&'a mut dyn FnMut(&str) -> Option<(String, String)>>,
 }
 
+#[cfg(feature = "git2")]
 impl<'a> RemoteCallbacks<'a> {
     fn into_git(mut self) -> git2::RemoteCallbacks<'a> {
         let mut callbacks = git2::RemoteCallbacks::new();
