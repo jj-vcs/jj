@@ -526,6 +526,83 @@ fn test_resolution() {
     [exit status: 1]
     ");
 
+    // Check that ":ours" merge tool works correctly
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["diff", "--git"]),
+        @"");
+    let output = test_env.run_jj_in(&repo_path, ["resolve", "--tool", ":ours"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Working copy now at: vruxwmqv 882d58d7 conflict | conflict
+    Parent commit      : zsuskuln aa493daf a | a
+    Parent commit      : royxmykx db6a4daf b | b
+    Added 0 files, modified 1 files, removed 0 files
+    [EOF]
+    "#);
+    insta::assert_snapshot!(
+        test_env.run_jj_in(&repo_path, ["diff", "--git", "--config=ui.conflict-marker-style=snapshot"]), 
+        @r##"
+    diff --git a/file b/file
+    index 0000000000..7898192261 100644
+    --- a/file
+    +++ b/file
+    @@ -1,8 +1,1 @@
+    -<<<<<<< Conflict 1 of 1
+    -+++++++ Contents of side #1
+     a
+    -------- Contents of base
+    -base
+    -+++++++ Contents of side #2
+    -b
+    ->>>>>>> Conflict 1 of 1 ends
+    [EOF]
+    "##);
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["resolve", "--list"]),
+    @r#"
+    ------- stderr -------
+    Error: No conflicts found at this revision
+    [EOF]
+    [exit status: 2]
+    "#);
+
+    // Check that ":theirs" merge tool works correctly
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["diff", "--git"]),
+        @"");
+    let output = test_env.run_jj_in(&repo_path, ["resolve", "--tool", ":theirs"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Working copy now at: vruxwmqv b4a0a25b conflict | conflict
+    Parent commit      : zsuskuln aa493daf a | a
+    Parent commit      : royxmykx db6a4daf b | b
+    Added 0 files, modified 1 files, removed 0 files
+    [EOF]
+    "#);
+    insta::assert_snapshot!(
+        test_env.run_jj_in(&repo_path, ["diff", "--git", "--config=ui.conflict-marker-style=snapshot"]), 
+        @r##"
+    diff --git a/file b/file
+    index 0000000000..6178079822 100644
+    --- a/file
+    +++ b/file
+    @@ -1,8 +1,1 @@
+    -<<<<<<< Conflict 1 of 1
+    -+++++++ Contents of side #1
+    -a
+    -------- Contents of base
+    -base
+    -+++++++ Contents of side #2
+     b
+    ->>>>>>> Conflict 1 of 1 ends
+    [EOF]
+    "##);
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["resolve", "--list"]),
+    @r#"
+    ------- stderr -------
+    Error: No conflicts found at this revision
+    [EOF]
+    [exit status: 2]
+    "#);
+
     // TODO: Check that running `jj new` and then `jj resolve -r conflict` works
     // correctly.
 }
