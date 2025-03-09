@@ -76,6 +76,16 @@ impl Default for TestEnvironment {
 }
 
 impl TestEnvironment {
+    /// Returns test helper for the specified directory.
+    ///
+    /// The `root` path usually points to the workspace root, but it may be
+    /// arbitrary path including non-existent directory.
+    #[must_use]
+    pub fn work_dir(&self, root: impl AsRef<Path>) -> TestWorkDir<'_> {
+        let root = self.env_root.join(root);
+        TestWorkDir { env: self, root }
+    }
+
     /// Runs `jj args..` in the `current_dir`, returns the output.
     #[must_use = "either snapshot the output or assert the exit status with .success()"]
     pub fn run_jj_in<I>(&self, current_dir: impl AsRef<Path>, args: I) -> CommandOutput
@@ -83,8 +93,7 @@ impl TestEnvironment {
         I: IntoIterator,
         I::Item: AsRef<OsStr>,
     {
-        let current_dir = self.env_root.join(current_dir);
-        self.run_jj_with(|cmd| cmd.current_dir(current_dir).args(args))
+        self.work_dir(current_dir).run_jj(args)
     }
 
     /// Runs `jj` command with additional configuration, returns the output.
@@ -93,13 +102,7 @@ impl TestEnvironment {
         &self,
         configure: impl FnOnce(&mut assert_cmd::Command) -> &mut assert_cmd::Command,
     ) -> CommandOutput {
-        let mut cmd = self.new_jj_cmd();
-        let output = configure(&mut cmd).output().unwrap();
-        CommandOutput {
-            stdout: self.normalize_output(String::from_utf8(output.stdout).unwrap()),
-            stderr: self.normalize_output(String::from_utf8(output.stderr).unwrap()),
-            status: output.status,
-        }
+        self.work_dir("").run_jj_with(configure)
     }
 
     /// Returns command builder to run `jj` in the test environment.
@@ -252,6 +255,74 @@ impl TestEnvironment {
         assert!(step > 0, "step must be >0, got {step}");
         let mut command_number = self.command_number.borrow_mut();
         *command_number = step * (*command_number / step) + step;
+    }
+}
+
+/// Helper to execute `jj` or file operation in sub directory.
+pub struct TestWorkDir<'a> {
+    env: &'a TestEnvironment,
+    root: PathBuf,
+}
+
+impl TestWorkDir<'_> {
+    /// Path to the working directory.
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+
+    /// Runs `jj args..` in the working directory, returns the output.
+    #[must_use = "either snapshot the output or assert the exit status with .success()"]
+    pub fn run_jj<I>(&self, args: I) -> CommandOutput
+    where
+        I: IntoIterator,
+        I::Item: AsRef<OsStr>,
+    {
+        self.run_jj_with(|cmd| cmd.args(args))
+    }
+
+    /// Runs `jj` command with additional configuration, returns the output.
+    #[must_use = "either snapshot the output or assert the exit status with .success()"]
+    pub fn run_jj_with(
+        &self,
+        configure: impl FnOnce(&mut assert_cmd::Command) -> &mut assert_cmd::Command,
+    ) -> CommandOutput {
+        let env = &self.env;
+        let mut cmd = env.new_jj_cmd();
+        let output = configure(cmd.current_dir(&self.root)).output().unwrap();
+        CommandOutput {
+            stdout: env.normalize_output(String::from_utf8(output.stdout).unwrap()),
+            stderr: env.normalize_output(String::from_utf8(output.stderr).unwrap()),
+            status: output.status,
+        }
+    }
+
+    #[track_caller]
+    pub fn create_dir(&self, path: impl AsRef<Path>) {
+        std::fs::create_dir(self.root.join(path)).unwrap();
+    }
+
+    #[track_caller]
+    pub fn create_dir_all(&self, path: impl AsRef<Path>) {
+        std::fs::create_dir_all(self.root.join(path)).unwrap();
+    }
+
+    #[track_caller]
+    pub fn remove_dir_all(&self, path: impl AsRef<Path>) {
+        std::fs::remove_dir_all(self.root.join(path)).unwrap();
+    }
+
+    #[track_caller]
+    pub fn remove_file(&self, path: impl AsRef<Path>) {
+        std::fs::remove_file(self.root.join(path)).unwrap();
+    }
+
+    #[track_caller]
+    pub fn write_file(&self, path: impl AsRef<Path>, contents: impl AsRef<[u8]>) {
+        let path = path.as_ref();
+        if let Some(dir) = path.parent() {
+            self.create_dir_all(dir);
+        }
+        std::fs::write(self.root.join(path), contents).unwrap();
     }
 }
 

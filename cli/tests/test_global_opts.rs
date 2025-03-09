@@ -13,13 +13,13 @@
 // limitations under the License.
 
 use std::ffi::OsString;
-use std::path::Path;
 
 use indoc::indoc;
 use itertools::Itertools as _;
 use regex::Regex;
 
 use crate::common::TestEnvironment;
+use crate::common::TestWorkDir;
 
 #[test]
 fn test_non_utf8_arg() {
@@ -64,7 +64,7 @@ fn test_version() {
 fn test_no_subcommand() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
     // Outside of a repo.
     let output = test_env.run_jj_in(".", [""; 0]);
@@ -93,30 +93,30 @@ fn test_no_subcommand() {
     insta::assert_snapshot!(output.stderr, @"");
 
     let output = test_env.run_jj_in(".", ["-R", "repo"]).success();
-    assert_eq!(output, test_env.run_jj_in(&repo_path, ["log"]));
+    assert_eq!(output, work_dir.run_jj(["log"]));
 
     // Inside of a repo.
-    let output = test_env.run_jj_in(&repo_path, [""; 0]).success();
-    assert_eq!(output, test_env.run_jj_in(&repo_path, ["log"]));
+    let output = work_dir.run_jj([""; 0]).success();
+    assert_eq!(output, work_dir.run_jj(["log"]));
 
     // Command argument that looks like a command name.
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "help"])
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "help"])
         .success();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "log"])
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "log"])
         .success();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "show"])
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "show"])
         .success();
-    // TODO: test_env.run_jj_in(&repo_path, ["-r", "help"]).success()
-    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["-r", "log"]), @r"
+    // TODO: test_env.run_jj(["-r", "help"]).success()
+    insta::assert_snapshot!(work_dir.run_jj(["-r", "log"]), @r"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 help log show 230dd059
     │  (empty) (no description set)
     ~
     [EOF]
     ");
-    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["-r", "show"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["-r", "show"]), @r"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 help log show 230dd059
     │  (empty) (no description set)
     ~
@@ -125,9 +125,9 @@ fn test_no_subcommand() {
 
     // Multiple default command strings work.
     test_env.add_config(r#"ui.default-command=["commit", "-m", "foo"]"#);
-    test_env.run_jj_in(&repo_path, ["new"]).success();
-    std::fs::write(repo_path.join("file.txt"), "file").unwrap();
-    let output = test_env.run_jj_in(&repo_path, [""; 0]);
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file.txt", "file");
+    let output = work_dir.run_jj([""; 0]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy now at: kxryzmor 89c70edf (empty) (no description set)
@@ -140,11 +140,10 @@ fn test_no_subcommand() {
 fn test_ignore_working_copy() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
 
-    let repo_path = test_env.env_root().join("repo");
-
-    std::fs::write(repo_path.join("file"), "initial").unwrap();
-    let output = test_env.run_jj_in(&repo_path, ["log", "-T", "commit_id"]);
+    work_dir.write_file("file", "initial");
+    let output = work_dir.run_jj(["log", "-T", "commit_id"]);
     insta::assert_snapshot!(output, @r"
     @  b15ef4cdd277d2c63cce6d67c1916f53a36141f7
     ◆  0000000000000000000000000000000000000000
@@ -153,15 +152,12 @@ fn test_ignore_working_copy() {
 
     // Modify the file. With --ignore-working-copy, we still get the same commit
     // ID.
-    std::fs::write(repo_path.join("file"), "modified").unwrap();
-    let output_again = test_env.run_jj_in(
-        &repo_path,
-        ["log", "-T", "commit_id", "--ignore-working-copy"],
-    );
+    work_dir.write_file("file", "modified");
+    let output_again = work_dir.run_jj(["log", "-T", "commit_id", "--ignore-working-copy"]);
     assert_eq!(output_again, output);
 
     // But without --ignore-working-copy, we get a new commit ID.
-    let output = test_env.run_jj_in(&repo_path, ["log", "-T", "commit_id"]);
+    let output = work_dir.run_jj(["log", "-T", "commit_id"]);
     insta::assert_snapshot!(output, @r"
     @  4d2c49a8f8e2f1ba61f48ba79e5f4a5faa6512cf
     ◆  0000000000000000000000000000000000000000
@@ -197,9 +193,9 @@ fn test_repo_arg_with_git_clone() {
 fn test_resolve_workspace_directory() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    let subdir = repo_path.join("dir").join("subdir");
-    std::fs::create_dir_all(&subdir).unwrap();
+    let work_dir = test_env.work_dir("repo");
+    let subdir = work_dir.root().join("dir").join("subdir");
+    work_dir.create_dir_all(&subdir);
 
     // Ancestor of cwd
     let output = test_env.run_jj_in(&subdir, ["status"]);
@@ -241,10 +237,10 @@ fn test_resolve_workspace_directory() {
 #[test]
 fn test_no_workspace_directory() {
     let test_env = TestEnvironment::default();
-    let repo_path = test_env.env_root().join("repo");
-    std::fs::create_dir(&repo_path).unwrap();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.create_dir_all("");
 
-    let output = test_env.run_jj_in(&repo_path, ["status"]);
+    let output = work_dir.run_jj(["status"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: There is no jj repo in "."
@@ -260,8 +256,8 @@ fn test_no_workspace_directory() {
     [exit status: 1]
     "#);
 
-    std::fs::create_dir(repo_path.join(".git")).unwrap();
-    let output = test_env.run_jj_in(&repo_path, ["status"]);
+    work_dir.create_dir_all(".git");
+    let output = work_dir.run_jj(["status"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: There is no jj repo in "."
@@ -276,12 +272,12 @@ fn test_no_workspace_directory() {
 fn test_bad_path() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    let subdir = repo_path.join("dir");
-    std::fs::create_dir_all(&subdir).unwrap();
+    let work_dir = test_env.work_dir("repo");
+    let subdir = work_dir.root().join("dir");
+    work_dir.create_dir_all(&subdir);
 
     // cwd == workspace_root
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "../out"]);
+    let output = work_dir.run_jj(["file", "show", "../out"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r#"
     ------- stderr -------
     Error: Failed to parse fileset: Invalid file pattern
@@ -340,9 +336,9 @@ fn test_bad_path() {
 fn test_invalid_filesets_looking_like_filepaths() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "abc~"]);
+    let output = work_dir.run_jj(["file", "show", "abc~"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Failed to parse fileset: Syntax error
@@ -362,13 +358,13 @@ fn test_invalid_filesets_looking_like_filepaths() {
 fn test_broken_repo_structure() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    let store_path = repo_path.join(".jj").join("repo").join("store");
+    let work_dir = test_env.work_dir("repo");
+    let store_path = work_dir.root().join(".jj").join("repo").join("store");
     let store_type_path = store_path.join("type");
 
     // Test the error message when the git repository can't be located.
-    std::fs::remove_file(store_path.join("git_target")).unwrap();
-    let output = test_env.run_jj_in(&repo_path, ["log"]);
+    work_dir.remove_file(store_path.join("git_target"));
+    let output = work_dir.run_jj(["log"]);
     insta::assert_snapshot!(output.strip_stderr_last_line(), @r"
     ------- stderr -------
     Internal error: The repository appears broken or inaccessible
@@ -379,8 +375,8 @@ fn test_broken_repo_structure() {
     ");
 
     // Test the error message when the commit backend is of unknown type.
-    std::fs::write(&store_type_path, "unknown").unwrap();
-    let output = test_env.run_jj_in(&repo_path, ["log"]);
+    work_dir.write_file(&store_type_path, "unknown");
+    let output = work_dir.run_jj(["log"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Internal error: This version of the jj binary doesn't support this type of repo
@@ -391,9 +387,9 @@ fn test_broken_repo_structure() {
 
     // Test the error message when the file indicating the commit backend type
     // cannot be read.
-    std::fs::remove_file(&store_type_path).unwrap();
-    std::fs::create_dir(&store_type_path).unwrap();
-    let output = test_env.run_jj_in(&repo_path, ["log"]);
+    work_dir.remove_file(&store_type_path);
+    work_dir.create_dir(&store_type_path);
+    let output = work_dir.run_jj(["log"]);
     insta::assert_snapshot!(output.strip_stderr_last_line(), @r"
     ------- stderr -------
     Internal error: The repository appears broken or inaccessible
@@ -406,9 +402,9 @@ fn test_broken_repo_structure() {
 
     // Test when the .jj directory is empty. The error message is identical to
     // the previous one, but writing the default type file would also fail.
-    std::fs::remove_dir_all(repo_path.join(".jj")).unwrap();
-    std::fs::create_dir(repo_path.join(".jj")).unwrap();
-    let output = test_env.run_jj_in(&repo_path, ["log"]);
+    work_dir.remove_dir_all(".jj");
+    work_dir.create_dir(".jj");
+    let output = work_dir.run_jj(["log"]);
     insta::assert_snapshot!(output.strip_stderr_last_line(), @r"
     ------- stderr -------
     Internal error: The repository appears broken or inaccessible
@@ -425,10 +421,10 @@ fn test_color_config() {
     let mut test_env = TestEnvironment::default();
 
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
     // Test that --color=always is respected.
-    let output = test_env.run_jj_in(&repo_path, ["--color=always", "log", "-T", "commit_id"]);
+    let output = work_dir.run_jj(["--color=always", "log", "-T", "commit_id"]);
     insta::assert_snapshot!(output, @r"
     [1m[38;5;2m@[0m  [38;5;4m230dd059e1b059aefc0da06a2e5a7dbf22362f22[39m
     [1m[38;5;14m◆[0m  [38;5;4m0000000000000000000000000000000000000000[39m
@@ -437,7 +433,7 @@ fn test_color_config() {
 
     // Test that color is used if it's requested in the config file
     test_env.add_config(r#"ui.color="always""#);
-    let output = test_env.run_jj_in(&repo_path, ["log", "-T", "commit_id"]);
+    let output = work_dir.run_jj(["log", "-T", "commit_id"]);
     insta::assert_snapshot!(output, @r"
     [1m[38;5;2m@[0m  [38;5;4m230dd059e1b059aefc0da06a2e5a7dbf22362f22[39m
     [1m[38;5;14m◆[0m  [38;5;4m0000000000000000000000000000000000000000[39m
@@ -445,7 +441,7 @@ fn test_color_config() {
     ");
 
     // Test that --color=never overrides the config.
-    let output = test_env.run_jj_in(&repo_path, ["--color=never", "log", "-T", "commit_id"]);
+    let output = work_dir.run_jj(["--color=never", "log", "-T", "commit_id"]);
     insta::assert_snapshot!(output, @r"
     @  230dd059e1b059aefc0da06a2e5a7dbf22362f22
     ◆  0000000000000000000000000000000000000000
@@ -453,7 +449,7 @@ fn test_color_config() {
     ");
 
     // Test that --color=auto overrides the config.
-    let output = test_env.run_jj_in(&repo_path, ["--color=auto", "log", "-T", "commit_id"]);
+    let output = work_dir.run_jj(["--color=auto", "log", "-T", "commit_id"]);
     insta::assert_snapshot!(output, @r"
     @  230dd059e1b059aefc0da06a2e5a7dbf22362f22
     ◆  0000000000000000000000000000000000000000
@@ -461,10 +457,7 @@ fn test_color_config() {
     ");
 
     // Test that --config 'ui.color=never' overrides the config.
-    let output = test_env.run_jj_in(
-        &repo_path,
-        ["--config=ui.color=never", "log", "-T", "commit_id"],
-    );
+    let output = work_dir.run_jj(["--config=ui.color=never", "log", "-T", "commit_id"]);
     insta::assert_snapshot!(output, @r"
     @  230dd059e1b059aefc0da06a2e5a7dbf22362f22
     ◆  0000000000000000000000000000000000000000
@@ -472,17 +465,14 @@ fn test_color_config() {
     ");
 
     // --color overrides --config 'ui.color=...'.
-    let output = test_env.run_jj_in(
-        &repo_path,
-        [
-            "--color",
-            "never",
-            "--config=ui.color=always",
-            "log",
-            "-T",
-            "commit_id",
-        ],
-    );
+    let output = work_dir.run_jj([
+        "--color",
+        "never",
+        "--config=ui.color=always",
+        "log",
+        "-T",
+        "commit_id",
+    ]);
     insta::assert_snapshot!(output, @r"
     @  230dd059e1b059aefc0da06a2e5a7dbf22362f22
     ◆  0000000000000000000000000000000000000000
@@ -491,7 +481,8 @@ fn test_color_config() {
 
     // Test that NO_COLOR does NOT override the request for color in the config file
     test_env.add_env_var("NO_COLOR", "1");
-    let output = test_env.run_jj_in(&repo_path, ["log", "-T", "commit_id"]);
+    let work_dir = test_env.work_dir("repo");
+    let output = work_dir.run_jj(["log", "-T", "commit_id"]);
     insta::assert_snapshot!(output, @r"
     [1m[38;5;2m@[0m  [38;5;4m230dd059e1b059aefc0da06a2e5a7dbf22362f22[39m
     [1m[38;5;14m◆[0m  [38;5;4m0000000000000000000000000000000000000000[39m
@@ -499,12 +490,8 @@ fn test_color_config() {
     ");
 
     // Test that per-repo config overrides the user config.
-    std::fs::write(
-        repo_path.join(".jj/repo/config.toml"),
-        r#"ui.color = "never""#,
-    )
-    .unwrap();
-    let output = test_env.run_jj_in(&repo_path, ["log", "-T", "commit_id"]);
+    work_dir.write_file(".jj/repo/config.toml", r#"ui.color = "never""#);
+    let output = work_dir.run_jj(["log", "-T", "commit_id"]);
     insta::assert_snapshot!(output, @r"
     @  230dd059e1b059aefc0da06a2e5a7dbf22362f22
     ◆  0000000000000000000000000000000000000000
@@ -512,7 +499,7 @@ fn test_color_config() {
     ");
 
     // Invalid --color
-    let output = test_env.run_jj_in(&repo_path, ["log", "--color=foo"]);
+    let output = work_dir.run_jj(["log", "--color=foo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: invalid value 'foo' for '--color <WHEN>'
@@ -523,7 +510,7 @@ fn test_color_config() {
     [exit status: 2]
     ");
     // Invalid ui.color
-    let stderr = test_env.run_jj_in(&repo_path, ["log", "--config=ui.color=true"]);
+    let stderr = work_dir.run_jj(["log", "--config=ui.color=true"]);
     insta::assert_snapshot!(stderr, @r"
     ------- stderr -------
     Config error: Invalid type or value for ui.color
@@ -539,7 +526,7 @@ fn test_color_config() {
 fn test_color_ui_messages() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
     test_env.add_config("ui.color = 'always'");
 
     // hint and error
@@ -554,7 +541,7 @@ fn test_color_ui_messages() {
     "#);
 
     // error source
-    let output = test_env.run_jj_in(&repo_path, ["log", ".."]);
+    let output = work_dir.run_jj(["log", ".."]);
     insta::assert_snapshot!(output.normalize_backslash(), @r#"
     ------- stderr -------
     [1m[38;5;1mError: [39mFailed to parse fileset: Invalid file pattern[0m
@@ -572,7 +559,7 @@ fn test_color_ui_messages() {
     "#);
 
     // warning
-    let output = test_env.run_jj_in(&repo_path, ["log", "@"]);
+    let output = work_dir.run_jj(["log", "@"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     [1m[38;5;3mWarning: [39mThe argument "@" is being interpreted as a fileset expression. To specify a revset, pass -r "@" instead.[0m
@@ -580,16 +567,13 @@ fn test_color_ui_messages() {
     "#);
 
     // error inlined in template output
-    test_env.run_jj_in(&repo_path, ["new"]).success();
-    let output = test_env.run_jj_in(
-        &repo_path,
-        [
-            "log",
-            "-r@|@--",
-            "--config=templates.log_node=commit_id",
-            "-Tdescription",
-        ],
-    );
+    work_dir.run_jj(["new"]).success();
+    let output = work_dir.run_jj([
+        "log",
+        "-r@|@--",
+        "--config=templates.log_node=commit_id",
+        "-Tdescription",
+    ]);
     insta::assert_snapshot!(output, @r"
     [38;5;4m167f90e7600a50f85c4f909b53eaf546faa82879[39m
     [1m[39m<[38;5;1mError: [39mNo Commit available>[0m  [38;5;8m(elided revisions)[39m
@@ -598,7 +582,7 @@ fn test_color_ui_messages() {
     ");
 
     // formatted hint
-    let output = test_env.run_jj_in(&repo_path, ["new", ".."]);
+    let output = work_dir.run_jj(["new", ".."]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     [1m[38;5;1mError: [39mRevset `..` resolved to more than one revision[0m
@@ -611,7 +595,7 @@ fn test_color_ui_messages() {
     ");
 
     // debugging colors
-    let output = test_env.run_jj_in(&repo_path, ["st", "--color", "debug"]);
+    let output = work_dir.run_jj(["st", "--color", "debug"]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
     Working copy : [1m[38;5;13m<<working_copy change_id shortest prefix::m>>[38;5;8m<<working_copy change_id shortest rest::zvwutvl>>[39m<<working_copy:: >>[38;5;12m<<working_copy commit_id shortest prefix::1>>[38;5;8m<<working_copy commit_id shortest rest::67f90e7>>[39m<<working_copy:: >>[38;5;10m<<working_copy empty::(empty)>>[39m<<working_copy:: >>[38;5;10m<<working_copy empty description placeholder::(no description set)>>[0m
@@ -624,11 +608,11 @@ fn test_color_ui_messages() {
 fn test_quiet() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
     // Can skip message about new working copy with `--quiet`
-    std::fs::write(repo_path.join("file1"), "contents").unwrap();
-    let output = test_env.run_jj_in(&repo_path, ["--quiet", "describe", "-m=new description"]);
+    work_dir.write_file("file1", "contents");
+    let output = work_dir.run_jj(["--quiet", "describe", "-m=new description"]);
     insta::assert_snapshot!(output, @"");
 }
 
@@ -821,9 +805,9 @@ fn test_invalid_config_value() {
     // Test that we get a reasonable error if a config value is invalid
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    let output = test_env.run_jj_in(&repo_path, ["status", "--config=snapshot.auto-track=[0]"]);
+    let output = work_dir.run_jj(["status", "--config=snapshot.auto-track=[0]"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Config error: Invalid type or value for snapshot.auto-track
@@ -926,12 +910,12 @@ fn test_default_config() {
         "JJ_USER",
     ]
     "#);
-    let run_jj_in = |current_dir: &Path, args: &[&str]| {
-        test_env.run_jj_with(|cmd| {
+    let run_jj = |work_dir: &TestWorkDir, args: &[&str]| {
+        work_dir.run_jj_with(|cmd| {
             for name in &envs_to_drop {
                 cmd.env_remove(name);
             }
-            cmd.current_dir(current_dir).args(args)
+            cmd.args(args)
         })
     };
 
@@ -952,8 +936,8 @@ fn test_default_config() {
         maskable_re.is_match(&hostname) && maskable_re.is_match(&username)
     };
 
-    let output = run_jj_in(
-        test_env.env_root(),
+    let output = run_jj(
+        &test_env.work_dir(""),
         &["config", "list", r#"-Tname ++ "\n""#],
     );
     insta::assert_snapshot!(output, @r"
@@ -962,15 +946,15 @@ fn test_default_config() {
     [EOF]
     ");
 
-    let repo_path = test_env.env_root().join("repo");
-    let output = run_jj_in(test_env.env_root(), &["git", "init", "repo"]);
+    let output = run_jj(&test_env.work_dir(""), &["git", "init", "repo"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Initialized repo in "repo"
     [EOF]
     "#);
 
-    let output = run_jj_in(&repo_path, &["new"]);
+    let work_dir = test_env.work_dir("repo");
+    let output = run_jj(&work_dir, &["new"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Working copy now at: <change-id> <id> (empty) (no description set)
@@ -981,7 +965,7 @@ fn test_default_config() {
     [EOF]
     "#);
 
-    let output = run_jj_in(&repo_path, &["log"]);
+    let output = run_jj(&work_dir, &["log"]);
     insta::assert_snapshot!(output, @r"
     @  <change-id> (no email set) <date-time> <id>
     │  (empty) (no description set)
@@ -993,7 +977,7 @@ fn test_default_config() {
 
     let time_config =
         "--config=template-aliases.'format_time_range(t)'='format_timestamp(t.end())'";
-    let output = run_jj_in(&repo_path, &["op", "log", time_config]);
+    let output = run_jj(&work_dir, &["op", "log", time_config]);
     if maskable_op_user {
         insta::assert_snapshot!(output, @r"
         @  <id> <user>@<host> <date-time>
@@ -1012,11 +996,10 @@ fn test_no_user_configured() {
     // Test that the user is reminded if they haven't configured their name or email
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    let output = test_env.run_jj_with(|cmd| {
-        cmd.current_dir(&repo_path)
-            .args(["describe", "-m", "without name"])
+    let output = work_dir.run_jj_with(|cmd| {
+        cmd.args(["describe", "-m", "without name"])
             .env_remove("JJ_USER")
     });
     insta::assert_snapshot!(output, @r#"
@@ -1027,9 +1010,8 @@ fn test_no_user_configured() {
       jj config set --user user.name "Some One"
     [EOF]
     "#);
-    let output = test_env.run_jj_with(|cmd| {
-        cmd.current_dir(&repo_path)
-            .args(["describe", "-m", "without email"])
+    let output = work_dir.run_jj_with(|cmd| {
+        cmd.args(["describe", "-m", "without email"])
             .env_remove("JJ_EMAIL")
     });
     insta::assert_snapshot!(output, @r#"
@@ -1040,9 +1022,8 @@ fn test_no_user_configured() {
       jj config set --user user.email "someone@example.com"
     [EOF]
     "#);
-    let output = test_env.run_jj_with(|cmd| {
-        cmd.current_dir(&repo_path)
-            .args(["describe", "-m", "without name and email"])
+    let output = work_dir.run_jj_with(|cmd| {
+        cmd.args(["describe", "-m", "without name and email"])
             .env_remove("JJ_USER")
             .env_remove("JJ_EMAIL")
     });
