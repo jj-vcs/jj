@@ -1191,6 +1191,20 @@ as follows:
 backends.ssh.allowed-signers = "/path/to/allowed-signers"
 ```
 
+### Signing behavior
+
+The `signing.behavior` config option can be used to customize whether commits
+are signed when creating new commits or creating new commits from of existing
+commits. The valid options are:
+
+- `drop`: Does not sign new commits and drops all signatures when creating new
+  commits from an existing signed commit.
+- `keep` (default): Does not sign new commits, but preserve existing signatures
+  when creating new commits from a signed commit.
+- `own`: Signs all commits with author set to the current user email
+  (`user.email`).
+- `force`: Signs all commits.
+
 ### Sign commits only on `jj git push`
 
 Instead of signing all commits during creation when `signing.behavior` is
@@ -1207,8 +1221,9 @@ behavior = "drop"
 backend = "ssh"
 key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGj+J6N6SO+4P8dOZqfR1oiay2yxhhHnagH52avUqw5h"
 
-[git]
-sign-on-push = true
+[git.sign-on-push]
+enabled = true
+behavior = "own"
 ```
 
 ### Manually signing commits

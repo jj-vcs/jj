@@ -26,6 +26,7 @@ use jj_lib::config::ConfigFile;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigLoadError;
+use jj_lib::config::ConfigMigrateLayerError;
 use jj_lib::config::ConfigMigrationRule;
 use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigResolutionContext;
@@ -623,6 +624,43 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
         ConfigMigrationRule::rename_value(
             "core.watchman.register_snapshot_trigger",
             "core.watchman.register-snapshot-trigger",
+        ),
+        // TODO: Delete in jj 0.34+
+        ConfigMigrationRule::custom(
+            |layer| {
+                if let Ok(Some(value)) = layer.look_up_item("git.sign-on-push") {
+                    value.as_bool().is_some()
+                } else {
+                    false
+                }
+            },
+            |layer| match layer.look_up_item("git.sign-on-push") {
+                Ok(Some(value)) => {
+                    let sign_on_push_enabled = value
+                        .as_bool()
+                        .ok_or("git.sign-on-push expects a boolean")
+                        .map_err(|error| ConfigMigrateLayerError::Type {
+                            name: "git.sign-on-push".to_string(),
+                            error: error.into(),
+                        })?;
+                    layer.delete_value("git.sign-on-push")?;
+                    layer.set_value("git.sign-on-push.enabled", sign_on_push_enabled)?;
+                    if sign_on_push_enabled {
+                        layer.set_value("git.sign-on-push.behavior", "own".to_string())?;
+                        Ok(
+                            "git.sign-on-push is updated to git.sign-on-push.enabled = true and \
+                             git.sign-on-push.behavior = 'own'"
+                                .to_string(),
+                        )
+                    } else {
+                        Ok(
+                            "git.sign-on-push is updated to git.sign-on-push.enabled = false"
+                                .to_string(),
+                        )
+                    }
+                }
+                _ => unreachable!(),
+            },
         ),
     ]
 }

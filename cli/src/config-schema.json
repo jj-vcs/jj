@@ -426,9 +426,21 @@
                     "default": "origin"
                 },
                 "sign-on-push": {
-                    "type": "boolean",
-                    "description": "Whether jj should sign commits before pushing",
-                    "default": "false"
+                    "type": "object",
+                    "description": "Settings for signing commits before pushing",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Whether jj should sign commits before pushing",
+                            "default": "false"
+                        },
+                        "behavior": {
+                            "type": "string",
+                            "enum": ["drop", "keep", "own", "force"],
+                            "description": "Which commits to sign before pushing. Values: drop (never sign), keep (preserve existing signatures), own (sign own commits), force (sign all commits)",
+                            "default": "keep"
+                        }
+                    }
                 },
                 "subprocess": {
                     "type": "boolean",

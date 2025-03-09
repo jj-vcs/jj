@@ -16,7 +16,10 @@ context = 3
 private-commits = "none()"
 push-bookmark-prefix = "push-"
 push-new-bookmarks = false
-sign-on-push = false
+
+[git.sign-on-push]
+enabled = false
+behavior = "keep"
 
 [ui]
 always-allow-large-revsets = false
