@@ -2162,7 +2162,7 @@ mod tests {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
         let backend = GitBackend::init_internal(&settings, temp_dir.path()).unwrap();
-        let mut commit1 = Commit {
+        let commit1 = Commit {
             parents: vec![backend.root_commit_id().clone()],
             predecessors: vec![],
             root_tree: MergedTreeId::Legacy(backend.empty_tree_id().clone()),
@@ -2177,10 +2177,6 @@ mod tests {
             backend.write_commit(commit, None).block_on()
         };
 
-        // libgit2 doesn't seem to preserve negative timestamps, so set it to at least 1
-        // second after the epoch, so the timestamp adjustment can remove 1
-        // second and it will still be nonnegative
-        commit1.committer.timestamp.timestamp = MillisSinceEpoch(1000);
         let (commit_id1, mut commit2) = write_commit(commit1).unwrap();
         commit2.predecessors.push(commit_id1.clone());
         // `write_commit` should prevent the ids from being the same by changing the
