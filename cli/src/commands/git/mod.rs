@@ -19,7 +19,6 @@ mod import;
 mod init;
 mod push;
 mod remote;
-mod submodule;
 
 use std::path::Path;
 
@@ -45,8 +44,6 @@ use self::push::cmd_git_push;
 use self::push::GitPushArgs;
 use self::remote::cmd_git_remote;
 use self::remote::RemoteCommand;
-use self::submodule::cmd_git_submodule;
-use self::submodule::GitSubmoduleCommand;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
 use crate::command_error::user_error_with_message;
@@ -72,8 +69,6 @@ pub enum GitCommand {
     Push(GitPushArgs),
     #[command(subcommand)]
     Remote(RemoteCommand),
-    #[command(subcommand, hide = true)]
-    Submodule(GitSubmoduleCommand),
 }
 
 pub fn cmd_git(
@@ -89,7 +84,6 @@ pub fn cmd_git(
         GitCommand::Init(args) => cmd_git_init(ui, command, args),
         GitCommand::Push(args) => cmd_git_push(ui, command, args),
         GitCommand::Remote(args) => cmd_git_remote(ui, command, args),
-        GitCommand::Submodule(args) => cmd_git_submodule(ui, command, args),
     }
 }
 

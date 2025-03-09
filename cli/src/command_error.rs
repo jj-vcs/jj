@@ -480,7 +480,6 @@ impl From<TempTextEditError> for CommandError {
 
 #[cfg(feature = "git")]
 mod git {
-    use jj_lib::git::GitConfigParseError;
     use jj_lib::git::GitExportError;
     use jj_lib::git::GitFetchError;
     use jj_lib::git::GitFetchPrepareError;
@@ -582,12 +581,6 @@ jj currently does not support partial clones. To use jj with this repository, tr
     impl From<GitRemoteManagementError> for CommandError {
         fn from(err: GitRemoteManagementError) -> Self {
             user_error(err)
-        }
-    }
-
-    impl From<GitConfigParseError> for CommandError {
-        fn from(err: GitConfigParseError) -> Self {
-            internal_error_with_message("Failed to parse Git config", err)
         }
     }
 

@@ -46,7 +46,6 @@ use jj_lib::git::GitImportError;
 use jj_lib::git::GitPushError;
 use jj_lib::git::GitRefUpdate;
 use jj_lib::git::RefName;
-use jj_lib::git::SubmoduleConfig;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::object_id::ObjectId;
 use jj_lib::op_store::BookmarkTarget;
@@ -3981,59 +3980,6 @@ fn create_rooted_commit(mut_repo: &mut MutableRepo) -> CommitBuilder<'_> {
         )
         .set_author(signature.clone())
         .set_committer(signature)
-}
-
-#[test]
-fn test_parse_gitmodules() {
-    let result = git::parse_gitmodules(
-        &mut r#"
-[submodule "wellformed"]
-url = https://github.com/jj-vcs/jj
-path = mod
-update = checkout # Extraneous config
-
-[submodule "uppercase"]
-URL = https://github.com/jj-vcs/jj
-PATH = mod2
-
-[submodule "repeated_keys"]
-url = https://github.com/jj-vcs/jj
-path = mod3
-url = https://github.com/chooglen/jj
-path = mod4
-
-# The following entries aren't expected in a well-formed .gitmodules
-[submodule "missing_url"]
-path = mod
-
-[submodule]
-ignoreThisSection = foo
-
-[randomConfig]
-ignoreThisSection = foo
-"#
-        .as_bytes(),
-    )
-    .unwrap();
-    let expected = btreemap! {
-        "wellformed".to_string() => SubmoduleConfig {
-            name: "wellformed".to_string(),
-            url: "https://github.com/jj-vcs/jj".to_string(),
-            path: "mod".to_string(),
-        },
-        "uppercase".to_string() => SubmoduleConfig {
-            name: "uppercase".to_string(),
-            url: "https://github.com/jj-vcs/jj".to_string(),
-            path: "mod2".to_string(),
-        },
-        "repeated_keys".to_string() => SubmoduleConfig {
-            name: "repeated_keys".to_string(),
-            url: "https://github.com/jj-vcs/jj".to_string(),
-            path: "mod3".to_string(),
-        },
-    };
-
-    assert_eq!(result, expected);
 }
 
 #[test]
