@@ -3086,7 +3086,8 @@ fn test_fetch_multiple_branches() {
         fetch_stats
             .import_stats
             .changed_remote_bookmarks
-            .keys()
+            .iter()
+            .map(|(symbol, _)| symbol)
             .collect_vec(),
         [remote_symbol("main", "origin")]
     );
