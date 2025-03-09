@@ -211,7 +211,7 @@ fn test_bad_function_call() {
       | ^-------^
       |
       = Invalid file pattern
-    3: Invalid file pattern kind `foo:`
+    3: Invalid file pattern kind `foo:`. See `jj help -k filesets` or <https://jj-vcs.github.io/jj/latest/filesets/#file-patterns>.
     [EOF]
     [exit status: 1]
     "#);
