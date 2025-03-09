@@ -2762,6 +2762,15 @@ fn test_evaluate_expression_author() {
     );
     // Can match case‐insensitively
     assert_eq!(
+        resolve_commit_ids(mut_repo, "author(sub-i:Name)"),
+        vec![
+            commit3.id().clone(),
+            commit2.id().clone(),
+            commit1.id().clone(),
+        ]
+    );
+    // `substring-i` is an alias for `sub-i`
+    assert_eq!(
         resolve_commit_ids(mut_repo, "author(substring-i:Name)"),
         vec![
             commit3.id().clone(),

@@ -409,8 +409,10 @@ revsets (expressions) as arguments.
 
 Functions that perform string matching support the following pattern syntax:
 
-* `"string"`, or `string` (the quotes are optional), or `substring:"string"`:
-  Matches strings that contain `string`.
+<!-- TODO: Make it clear when `exact:` is the default instead of `sub:` -->
+
+* `"string"`, or `string` (the quotes are optional), or `sub:"string"`, or
+  `substring:"string"`: Matches strings that contain `string`.
 * `exact:"string"`: Matches strings exactly equal to `string`.
 * `glob:"pattern"`: Matches strings with Unix-style shell [wildcard
   `pattern`](https://docs.rs/glob/latest/glob/struct.Pattern.html).

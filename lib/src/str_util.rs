@@ -125,8 +125,8 @@ impl StringPattern {
         match kind {
             "exact" => Ok(StringPattern::exact(src)),
             "exact-i" => Ok(StringPattern::exact_i(src)),
-            "substring" => Ok(StringPattern::substring(src)),
-            "substring-i" => Ok(StringPattern::substring_i(src)),
+            "substring" | "sub" => Ok(StringPattern::substring(src)),
+            "substring-i" | "sub-i" => Ok(StringPattern::substring_i(src)),
             "glob" => StringPattern::glob(src),
             "glob-i" => StringPattern::glob_i(src),
             "regex" => StringPattern::regex(src),
@@ -292,12 +292,20 @@ mod tests {
             Ok(StringPattern::Glob(p)) if p.as_str() == "foo*"
         );
         assert_matches!(
+            StringPattern::parse("sub:foo"),
+            Ok(StringPattern::Substring(s)) if s == "foo"
+        );
+        assert_matches!(
             StringPattern::parse("substring:foo"),
             Ok(StringPattern::Substring(s)) if s == "foo"
         );
         assert_matches!(
             StringPattern::from_str_kind("foo", "substring"),
             Ok(StringPattern::Substring(s)) if s == "foo"
+        );
+        assert_matches!(
+            StringPattern::parse("sub-i:foo"),
+            Ok(StringPattern::SubstringI(s)) if s == "foo"
         );
         assert_matches!(
             StringPattern::parse("substring-i:foo"),
