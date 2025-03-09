@@ -1664,6 +1664,7 @@ impl MutableRepo {
     }
 
     fn merge_view(&mut self, base: &View, other: &View) -> BackendResult<()> {
+        // TODO(ilyagr): It might be possible to use a merge join here
         // Merge working-copy commits. If there's a conflict, we keep the self side.
         for (workspace_id, base_wc_commit) in base.wc_commit_ids() {
             let self_wc_commit = self.view().get_wc_commit_id(workspace_id);

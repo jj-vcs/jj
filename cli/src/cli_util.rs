@@ -2076,9 +2076,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
             writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
         }
 
-        for (workspace_id, wc_commit_id) in tx.repo().view().wc_commit_ids().clone().iter().sorted()
-        //sorting otherwise non deterministic order (bad for tests)
-        {
+        for (workspace_id, wc_commit_id) in &tx.repo().view().wc_commit_ids().clone() {
             if self
                 .env
                 .find_immutable_commit(tx.repo(), [wc_commit_id])?

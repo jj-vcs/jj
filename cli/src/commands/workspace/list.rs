@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use itertools::Itertools;
 use jj_lib::repo::Repo;
 use tracing::instrument;
 
@@ -34,7 +33,7 @@ pub fn cmd_workspace_list(
     let repo = workspace_command.repo();
     let mut formatter = ui.stdout_formatter();
     let template = workspace_command.commit_summary_template();
-    for (workspace_id, wc_commit_id) in repo.view().wc_commit_ids().iter().sorted() {
+    for (workspace_id, wc_commit_id) in repo.view().wc_commit_ids() {
         write!(formatter, "{}: ", workspace_id.as_str())?;
         let commit = repo.store().get_commit(wc_commit_id)?;
         template.format(&commit, formatter.as_mut())?;
