@@ -134,14 +134,6 @@ impl TestEnvironment {
         cmd.env("JJ_TIMESTAMP", timestamp.to_rfc3339());
         cmd.env("JJ_OP_TIMESTAMP", timestamp.to_rfc3339());
 
-        // libgit2 always initializes OpenSSL, and it takes a few tens of milliseconds
-        // to load the system CA certificates in X509_load_cert_crl_file_ex(). As we
-        // don't use HTTPS in our tests, we can disable the cert loading to speed up the
-        // CLI tests. If we migrated to gitoxide, maybe we can remove this hack.
-        if cfg!(unix) {
-            cmd.env("SSL_CERT_FILE", "/dev/null");
-        }
-
         if cfg!(windows) {
             // Windows uses `TEMP` to create temporary directories, which we need for some
             // tests.
