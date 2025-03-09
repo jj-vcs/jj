@@ -35,6 +35,8 @@ use crate::backend::BackendResult;
 use crate::backend::CommitId;
 use crate::backend::TreeValue;
 use crate::commit::Commit;
+use crate::file_util::IoResultExt as _;
+use crate::file_util::PathError;
 use crate::git_backend::GitBackend;
 use crate::git_subprocess::GitSubprocessContext;
 use crate::git_subprocess::GitSubprocessError;
@@ -1147,13 +1149,38 @@ pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), 
     }
 
     // If there is an ongoing operation (merge, rebase, etc.), we need to clean it
-    // up. This function isn't implemented in `gix`, so we need to use `git2`.
+    // up.
+    //
+    // TODO: Polish and upstream this to `gix`.
     if git_repo.state().is_some() {
-        get_git_backend(mut_repo.store())?
-            .open_git_repo()
-            .map_err(GitExportError::from_git)?
-            .cleanup_state()
-            .map_err(GitExportError::from_git)?;
+        // Based on the files `git2::Repository::cleanup_state` deletes; when
+        // upstreaming this logic should probably become more elaborate to match
+        // `git(1)` behaviour.
+        const STATE_FILE_NAMES: &[&str] = &[
+            "MERGE_HEAD",
+            "MERGE_MODE",
+            "MERGE_MSG",
+            "REVERT_HEAD",
+            "CHERRY_PICK_HEAD",
+            "BISECT_LOG",
+        ];
+        const STATE_DIR_NAMES: &[&str] = &["rebase-merge", "rebase-apply", "sequencer"];
+        let handle_err = |err: PathError| match err.error.kind() {
+            std::io::ErrorKind::NotFound => Ok(()),
+            _ => Err(GitExportError::from_git(err)),
+        };
+        for file_name in STATE_FILE_NAMES {
+            let path = git_repo.path().join(file_name);
+            std::fs::remove_file(&path)
+                .context(&path)
+                .or_else(handle_err)?;
+        }
+        for dir_name in STATE_DIR_NAMES {
+            let path = git_repo.path().join(dir_name);
+            std::fs::remove_dir_all(&path)
+                .context(&path)
+                .or_else(handle_err)?;
+        }
     }
 
     let parent_tree = wc_commit.parent_tree(mut_repo)?;
