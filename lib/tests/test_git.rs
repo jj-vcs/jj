@@ -2741,7 +2741,7 @@ fn test_init() {
     assert!(!repo.view().heads().contains(&jj_id(initial_git_commit)));
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_fetch_empty_repo(subprocess: bool) {
     let test_data = GitRepoData::create();
@@ -2762,7 +2762,7 @@ fn test_fetch_empty_repo(subprocess: bool) {
     assert_eq!(tx.repo().view().bookmarks().count(), 0);
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_fetch_initial_commit_head_is_not_set(subprocess: bool) {
     let test_data = GitRepoData::create();
@@ -2811,7 +2811,7 @@ fn test_fetch_initial_commit_head_is_not_set(subprocess: bool) {
     );
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_fetch_initial_commit_head_is_set(subprocess: bool) {
     let test_data = GitRepoData::create();
@@ -2849,7 +2849,7 @@ fn test_fetch_initial_commit_head_is_set(subprocess: bool) {
     assert!(stats.import_stats.abandoned_commits.is_empty());
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_fetch_success(subprocess: bool) {
     let mut test_data = GitRepoData::create();
@@ -2931,7 +2931,7 @@ fn test_fetch_success(subprocess: bool) {
     );
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_fetch_prune_deleted_ref(subprocess: bool) {
     let test_data = GitRepoData::create();
@@ -2978,7 +2978,7 @@ fn test_fetch_prune_deleted_ref(subprocess: bool) {
         .is_absent());
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_fetch_no_default_branch(subprocess: bool) {
     let test_data = GitRepoData::create();
@@ -3018,7 +3018,7 @@ fn test_fetch_no_default_branch(subprocess: bool) {
     assert_eq!(stats.default_branch, None);
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_fetch_empty_refspecs(subprocess: bool) {
     let test_data = GitRepoData::create();
@@ -3040,7 +3040,7 @@ fn test_fetch_empty_refspecs(subprocess: bool) {
         .is_absent());
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_fetch_no_such_remote(subprocess: bool) {
     let test_data = GitRepoData::create();
@@ -3185,7 +3185,7 @@ fn set_up_push_repos(settings: &UserSettings, temp_dir: &TempDir) -> PushTestSet
     }
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_push_bookmarks_success(subprocess: bool) {
     let settings = testutils::user_settings();
@@ -3248,7 +3248,7 @@ fn test_push_bookmarks_success(subprocess: bool) {
     assert!(!tx.repo().has_changes());
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_push_bookmarks_deletion(subprocess: bool) {
     let settings = testutils::user_settings();
@@ -3304,7 +3304,7 @@ fn test_push_bookmarks_deletion(subprocess: bool) {
     assert!(!tx.repo().has_changes());
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_push_bookmarks_mixed_deletion_and_addition(subprocess: bool) {
     let settings = testutils::user_settings();
@@ -3376,7 +3376,7 @@ fn test_push_bookmarks_mixed_deletion_and_addition(subprocess: bool) {
     assert!(!tx.repo().has_changes());
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_push_bookmarks_not_fast_forward(subprocess: bool) {
     let settings = testutils::user_settings();
@@ -3413,7 +3413,7 @@ fn test_push_bookmarks_not_fast_forward(subprocess: bool) {
 // may want to add tests for when a bookmark unexpectedly moved backwards or
 // unexpectedly does not exist for bookmark deletion.
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_push_updates_unexpectedly_moved_sideways_on_remote(subprocess: bool) {
     let settings = testutils::user_settings();
@@ -3480,7 +3480,7 @@ fn test_push_updates_unexpectedly_moved_sideways_on_remote(subprocess: bool) {
     );
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_push_updates_unexpectedly_moved_forward_on_remote(subprocess: bool) {
     let settings = testutils::user_settings();
@@ -3552,7 +3552,7 @@ fn test_push_updates_unexpectedly_moved_forward_on_remote(subprocess: bool) {
     }
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_push_updates_unexpectedly_exists_on_remote(subprocess: bool) {
     let settings = testutils::user_settings();
@@ -3605,7 +3605,7 @@ fn test_push_updates_unexpectedly_exists_on_remote(subprocess: bool) {
     }
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_push_updates_success(subprocess: bool) {
     let settings = testutils::user_settings();
@@ -3641,7 +3641,7 @@ fn test_push_updates_success(subprocess: bool) {
     assert_eq!(new_target.target().id(), new_oid);
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_push_updates_no_such_remote(subprocess: bool) {
     let settings = testutils::user_settings();
@@ -3662,7 +3662,7 @@ fn test_push_updates_no_such_remote(subprocess: bool) {
     assert!(matches!(result, Err(GitPushError::NoSuchRemote(_))));
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_push_updates_invalid_remote(subprocess: bool) {
     let settings = testutils::user_settings();

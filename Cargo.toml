@@ -130,7 +130,7 @@ winreg = "0.52"
 
 jj-lib = { path = "lib", version = "0.27.0", default-features = false }
 jj-lib-proc-macros = { path = "lib/proc-macros", version = "0.27.0" }
-testutils = { path = "lib/testutils" }
+testutils = { path = "lib/testutils", default-features = false }
 
 [workspace.lints.clippy]
 explicit_iter_loop = "warn"
