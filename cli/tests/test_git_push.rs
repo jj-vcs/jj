@@ -63,7 +63,7 @@ fn set_up() -> (TestEnvironment, PathBuf) {
     (test_env, workspace_root)
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_nothing(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
@@ -91,7 +91,7 @@ fn test_git_push_nothing(subprocess: bool) {
     }
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_current_bookmark(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
@@ -203,7 +203,7 @@ fn test_git_push_current_bookmark(subprocess: bool) {
     }
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_parent_bookmark(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
@@ -235,7 +235,7 @@ fn test_git_push_parent_bookmark(subprocess: bool) {
     }
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_no_matching_bookmark(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
@@ -254,7 +254,7 @@ fn test_git_push_no_matching_bookmark(subprocess: bool) {
     }
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_matching_bookmark_unchanged(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
@@ -278,7 +278,7 @@ fn test_git_push_matching_bookmark_unchanged(subprocess: bool) {
 /// Test that `jj git push` without arguments pushes a bookmark to the specified
 /// remote even if it's already up to date on another remote
 /// (`remote_bookmarks(remote=<remote>)..@` vs. `remote_bookmarks()..@`).
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_other_remote_has_bookmark(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
@@ -354,7 +354,7 @@ fn test_git_push_other_remote_has_bookmark(subprocess: bool) {
     }
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_forward_unexpectedly_moved(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
@@ -399,7 +399,7 @@ fn test_git_push_forward_unexpectedly_moved(subprocess: bool) {
     }
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_sideways_unexpectedly_moved(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
@@ -466,7 +466,7 @@ fn test_git_push_sideways_unexpectedly_moved(subprocess: bool) {
 
 // This tests whether the push checks that the remote bookmarks are in expected
 // positions.
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_deletion_unexpectedly_moved(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
@@ -524,7 +524,7 @@ fn test_git_push_deletion_unexpectedly_moved(subprocess: bool) {
     }
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_unexpectedly_deleted(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
@@ -624,7 +624,7 @@ fn test_git_push_unexpectedly_deleted(subprocess: bool) {
     }
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_creation_unexpectedly_already_exists(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
@@ -671,7 +671,7 @@ fn test_git_push_creation_unexpectedly_already_exists(subprocess: bool) {
     }
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_locally_created_and_rewritten(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
@@ -749,7 +749,7 @@ fn test_git_push_locally_created_and_rewritten(subprocess: bool) {
     }
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_multiple(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
@@ -918,7 +918,7 @@ fn test_git_push_multiple(subprocess: bool) {
     }
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_changes(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
@@ -1066,7 +1066,7 @@ fn test_git_push_changes(subprocess: bool) {
     }
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_revisions(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
@@ -1181,7 +1181,7 @@ fn test_git_push_revisions(subprocess: bool) {
     }
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_mixed(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
@@ -1263,7 +1263,7 @@ fn test_git_push_mixed(subprocess: bool) {
     }
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_existing_long_bookmark(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
@@ -1297,7 +1297,7 @@ fn test_git_push_existing_long_bookmark(subprocess: bool) {
     }
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_unsnapshotted_change(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
@@ -1317,7 +1317,7 @@ fn test_git_push_unsnapshotted_change(subprocess: bool) {
         .success();
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_conflict(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
@@ -1357,7 +1357,7 @@ fn test_git_push_conflict(subprocess: bool) {
     }
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_no_description(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
@@ -1401,7 +1401,7 @@ fn test_git_push_no_description(subprocess: bool) {
         .success();
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_no_description_in_immutable(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
@@ -1467,7 +1467,7 @@ fn test_git_push_no_description_in_immutable(subprocess: bool) {
     }
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_missing_author(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
@@ -1511,7 +1511,7 @@ fn test_git_push_missing_author(subprocess: bool) {
     }
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_missing_author_in_immutable(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
@@ -1581,7 +1581,7 @@ fn test_git_push_missing_author_in_immutable(subprocess: bool) {
     }
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_missing_committer(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
@@ -1655,7 +1655,7 @@ fn test_git_push_missing_committer(subprocess: bool) {
     }
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_missing_committer_in_immutable(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
@@ -1726,7 +1726,7 @@ fn test_git_push_missing_committer_in_immutable(subprocess: bool) {
     }
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_deleted(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
@@ -1769,7 +1769,7 @@ fn test_git_push_deleted(subprocess: bool) {
     }
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_conflicting_bookmarks(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
@@ -1878,7 +1878,7 @@ fn test_git_push_conflicting_bookmarks(subprocess: bool) {
     }
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_deleted_untracked(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
@@ -1913,7 +1913,7 @@ fn test_git_push_deleted_untracked(subprocess: bool) {
     }
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_tracked_vs_all(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
@@ -2015,7 +2015,7 @@ fn test_git_push_tracked_vs_all(subprocess: bool) {
     }
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_moved_forward_untracked(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
@@ -2044,7 +2044,7 @@ fn test_git_push_moved_forward_untracked(subprocess: bool) {
     }
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_moved_sideways_untracked(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
@@ -2076,7 +2076,7 @@ fn test_git_push_moved_sideways_untracked(subprocess: bool) {
     }
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_to_remote_named_git(subprocess: bool) {
     let (test_env, workspace_root) = set_up();
@@ -2105,7 +2105,7 @@ fn test_git_push_to_remote_named_git(subprocess: bool) {
     }
 }
 
-#[test_case(false; "use git2 for remote calls")]
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_to_remote_with_slashes(subprocess: bool) {
     let (test_env, workspace_root) = set_up();

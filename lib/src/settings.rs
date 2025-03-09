@@ -61,6 +61,9 @@ struct UserSettingsData {
 pub struct GitSettings {
     pub auto_local_bookmark: bool,
     pub abandon_unreachable_commits: bool,
+    // TODO: Remove this from the configuration schema when dropping
+    // `git2` support.
+    #[cfg(feature = "git2")]
     pub subprocess: bool,
     pub executable_path: PathBuf,
 }
@@ -70,6 +73,7 @@ impl GitSettings {
         Ok(GitSettings {
             auto_local_bookmark: settings.get_bool("git.auto-local-bookmark")?,
             abandon_unreachable_commits: settings.get_bool("git.abandon-unreachable-commits")?,
+            #[cfg(feature = "git2")]
             subprocess: settings.get_bool("git.subprocess")?,
             executable_path: settings.get("git.executable-path")?,
         })
@@ -81,6 +85,7 @@ impl Default for GitSettings {
         GitSettings {
             auto_local_bookmark: false,
             abandon_unreachable_commits: true,
+            #[cfg(feature = "git2")]
             subprocess: true,
             executable_path: PathBuf::from("git"),
         }

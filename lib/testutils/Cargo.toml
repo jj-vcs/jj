@@ -18,7 +18,7 @@ readme = { workspace = true }
 async-trait = { workspace = true }
 bstr = { workspace = true }
 futures = { workspace = true }
-git2 = { workspace = true }
+git2 = { workspace = true, optional = true }
 gix = { workspace = true, features = [
     "status",
     "tree-editor",
@@ -30,6 +30,10 @@ jj-lib = { workspace = true, features = ["testing"] }
 pollster = { workspace = true }
 rand = { workspace = true }
 tempfile = { workspace = true }
+
+[features]
+default = ["git2"]
+git2 = ["jj-lib/git2", "dep:git2"]
 
 [lints]
 workspace = true

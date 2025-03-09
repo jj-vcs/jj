@@ -119,7 +119,7 @@ mod tests {
     use tempfile::TempDir;
 
     /// Unlike `testutils::new_temp_dir()`, this function doesn't set up
-    /// hermetic libgit2 environment.
+    /// hermetic Git environment.
     pub fn new_temp_dir() -> TempDir {
         tempfile::Builder::new()
             .prefix("jj-test-")
