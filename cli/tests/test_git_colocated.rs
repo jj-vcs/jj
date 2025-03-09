@@ -1455,6 +1455,118 @@ fn test_git_colocated_unreachable_commits() {
     ");
 }
 
+#[test]
+fn test_git_colocated_operation_cleanup() {
+    let test_env = TestEnvironment::default();
+    let output = test_env.run_jj_in(".", ["git", "init", "--colocate", "repo"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Initialized repo in "repo"
+    [EOF]
+    "#);
+
+    let workspace_root = test_env.env_root().join("repo");
+
+    std::fs::write(workspace_root.join("file"), "1").unwrap();
+    test_env
+        .run_jj_in(&workspace_root, ["describe", "-m1"])
+        .success();
+    test_env.run_jj_in(&workspace_root, ["new"]).success();
+
+    std::fs::write(workspace_root.join("file"), "2").unwrap();
+    test_env
+        .run_jj_in(&workspace_root, ["describe", "-m2"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_root, ["bookmark", "create", "-r@", "main"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_root, ["new", "root()+"])
+        .success();
+
+    std::fs::write(workspace_root.join("file"), "3").unwrap();
+    test_env
+        .run_jj_in(&workspace_root, ["describe", "-m3"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_root, ["bookmark", "create", "-r@", "feature"])
+        .success();
+    test_env.run_jj_in(&workspace_root, ["new"]).success();
+
+    insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r#"
+    @  e3feb4fda7b5e1d458a460ce76cb840b8f3cae34
+    ○  e810c2ff6f3287a27e5d08aa3f429e284d99fea0 feature git_head() 3
+    │ ○  52fef888179abf5819a0a0d4f7907fcc025cb2a1 main 2
+    ├─╯
+    ○  61c11921948922575504d7b9f2df236543d0cec9 1
+    ◆  0000000000000000000000000000000000000000
+    [EOF]
+    "#);
+
+    // Start a rebase in Git and expect a merge conflict.
+    let output = std::process::Command::new("git")
+        .current_dir(&workspace_root)
+        .args(["rebase", "main"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+
+    // Check that we’re in the middle of a conflicted rebase.
+    assert!(std::fs::exists(workspace_root.join(".git").join("rebase-merge")).unwrap());
+    let output = std::process::Command::new("git")
+        .current_dir(&workspace_root)
+        .args(["status", "--porcelain=v1"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    insta::assert_snapshot!(String::from_utf8(output.stdout).unwrap(), @r#"
+    UU file
+    "#);
+    insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r#"
+    @  fbb4e341d1e7e1d3b87377c075bd8a407305ba3a
+    ○  52fef888179abf5819a0a0d4f7907fcc025cb2a1 main git_head() 2
+    │ ○  e810c2ff6f3287a27e5d08aa3f429e284d99fea0 feature 3
+    ├─╯
+    ○  61c11921948922575504d7b9f2df236543d0cec9 1
+    ◆  0000000000000000000000000000000000000000
+    [EOF]
+    ------- stderr -------
+    Reset the working copy parent to the new Git HEAD.
+    [EOF]
+    "#);
+
+    // Reset the Git HEAD with Jujutsu.
+    let output = test_env.run_jj_in(&workspace_root, ["new", "main"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Working copy now at: kmkuslsw 92667528 (empty) (no description set)
+    Parent commit      : kkmpptxz 52fef888 main | 2
+    Added 0 files, modified 1 files, removed 0 files
+    [EOF]
+    "#);
+    insta::assert_snapshot!(get_log_output(&test_env, &workspace_root), @r#"
+    @  926675286938f585d83b3646a95df96206968e8c
+    │ ○  fbb4e341d1e7e1d3b87377c075bd8a407305ba3a
+    ├─╯
+    ○  52fef888179abf5819a0a0d4f7907fcc025cb2a1 main git_head() 2
+    │ ○  e810c2ff6f3287a27e5d08aa3f429e284d99fea0 feature 3
+    ├─╯
+    ○  61c11921948922575504d7b9f2df236543d0cec9 1
+    ◆  0000000000000000000000000000000000000000
+    [EOF]
+    "#);
+
+    // Check that the operation was correctly aborted.
+    assert!(!std::fs::exists(workspace_root.join(".git").join("rebase-merge")).unwrap());
+    let output = std::process::Command::new("git")
+        .current_dir(&workspace_root)
+        .args(["status", "--porcelain=v1"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    insta::assert_snapshot!(String::from_utf8(output.stdout).unwrap(), @"");
+}
+
 #[must_use]
 fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput {
     // --quiet to suppress deleted bookmarks hint
