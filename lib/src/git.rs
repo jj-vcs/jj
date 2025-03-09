@@ -2053,7 +2053,7 @@ impl<'a> GitFetchImpl<'a> {
                 GitSubprocessContext::from_git_backend(git_backend, &git_settings.executable_path);
             Ok(GitFetchImpl::Subprocess { git_repo, git_ctx })
         } else {
-            let git_repo = git_backend.open_git_repo()?;
+            let git_repo = git2::Repository::open(git_backend.git_repo_path())?;
             Ok(GitFetchImpl::Git2 { git_repo })
         }
     }
@@ -2351,7 +2351,7 @@ pub fn push_updates(
             callbacks,
         )
     } else {
-        let git_repo = git_backend.open_git_repo()?;
+        let git_repo = git2::Repository::open(git_backend.git_repo_path())?;
         let refspecs: Vec<String> = refspecs.iter().map(RefSpec::to_git_format).collect();
         git2_push_refs(
             repo,
