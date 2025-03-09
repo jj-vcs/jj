@@ -781,7 +781,10 @@ fn config_get_error_hint(err: &ConfigGetError) -> Option<String> {
 
 fn file_pattern_parse_error_hint(err: &FilePatternParseError) -> Option<String> {
     match err {
-        FilePatternParseError::InvalidKind(_) => None,
+        FilePatternParseError::InvalidKind(_) => Some(String::from(
+            "See https://jj-vcs.github.io/jj/latest/filesets/#file-patterns or `jj help -k \
+             filesets` for valid prefixes.",
+        )),
         // Suggest root:"<path>" if input can be parsed as repo-relative path
         FilePatternParseError::UiPath(UiPathParseError::Fs(e)) => {
             RepoPathBuf::from_relative_path(&e.input).ok().map(|path| {

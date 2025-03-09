@@ -212,6 +212,7 @@ fn test_bad_function_call() {
       |
       = Invalid file pattern
     3: Invalid file pattern kind `foo:`
+    Hint: See https://jj-vcs.github.io/jj/latest/filesets/#file-patterns or `jj help -k filesets` for valid prefixes.
     [EOF]
     [exit status: 1]
     "#);
