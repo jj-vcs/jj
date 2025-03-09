@@ -4131,3 +4131,90 @@ fn test_shallow_commits_lack_parents() {
     // FIXME: new ancestors should be indexed
     assert!(!repo.index().has_id(&jj_id(a)));
 }
+
+#[test]
+fn test_remote_remove_refs() {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = &test_repo.repo;
+
+    git::add_remote(repo.store(), "foo", "https://example.com/").unwrap();
+    // Reload after Git configuration change.
+    let repo = &test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+
+    let git_repo = get_git_repo(repo);
+    empty_git_commit(&git_repo, "refs/remotes/foo/a", &[]);
+    empty_git_commit(&git_repo, "refs/remotes/foo/x/y", &[]);
+    let commit_foobar_a = empty_git_commit(&git_repo, "refs/remotes/foobar/a", &[]);
+
+    let mut tx = repo.start_transaction();
+    git::remove_remote(tx.repo_mut(), "foo").unwrap();
+    let repo = &tx.commit("remove").unwrap();
+
+    let git_repo = get_git_repo(repo);
+    assert!(git_repo
+        .try_find_reference("refs/remotes/foo/a")
+        .unwrap()
+        .is_none());
+    assert!(git_repo
+        .try_find_reference("refs/remotes/foo/x/y")
+        .unwrap()
+        .is_none());
+    assert_eq!(
+        git_repo
+            .find_reference("refs/remotes/foobar/a")
+            .unwrap()
+            .id(),
+        commit_foobar_a,
+    );
+}
+
+#[test]
+fn test_remote_rename_refs() {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = &test_repo.repo;
+
+    git::add_remote(repo.store(), "foo", "https://example.com/").unwrap();
+    // Reload after Git configuration change.
+    let repo = &test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+
+    let git_repo = get_git_repo(repo);
+    let commit_foo_a = empty_git_commit(&git_repo, "refs/remotes/foo/a", &[]);
+    let commit_foo_x_y = empty_git_commit(&git_repo, "refs/remotes/foo/x/y", &[]);
+    let commit_foobar_a = empty_git_commit(&git_repo, "refs/remotes/foobar/a", &[]);
+
+    let mut tx = repo.start_transaction();
+    git::rename_remote(tx.repo_mut(), "foo", "bar").unwrap();
+    let repo = &tx.commit("rename").unwrap();
+
+    let git_repo = get_git_repo(repo);
+    assert!(git_repo
+        .try_find_reference("refs/remotes/foo/a")
+        .unwrap()
+        .is_none());
+    assert!(git_repo
+        .try_find_reference("refs/remotes/foo/x/y")
+        .unwrap()
+        .is_none());
+    assert_eq!(
+        git_repo.find_reference("refs/remotes/bar/a").unwrap().id(),
+        commit_foo_a,
+    );
+    assert_eq!(
+        git_repo
+            .find_reference("refs/remotes/bar/x/y")
+            .unwrap()
+            .id(),
+        commit_foo_x_y,
+    );
+    assert_eq!(
+        git_repo
+            .find_reference("refs/remotes/foobar/a")
+            .unwrap()
+            .id(),
+        commit_foobar_a,
+    );
+}
