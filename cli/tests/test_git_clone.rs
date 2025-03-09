@@ -1145,3 +1145,29 @@ fn test_git_clone_no_git_executable_with_path() {
 fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput {
     test_env.run_jj_in(repo_path, ["bookmark", "list", "--all-remotes"])
 }
+
+// TODO: Remove with the `git.subprocess` setting.
+#[cfg(not(feature = "git2"))]
+#[test]
+fn test_git_clone_git2_warning() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("git.subprocess = false");
+    test_env.add_config("git.auto-local-bookmark = true");
+    let git_repo_path = test_env.env_root().join("source");
+    let git_repo = git::init(git_repo_path);
+
+    set_up_non_empty_git_repo(&git_repo);
+
+    let output = test_env.run_jj_in(".", ["git", "clone", "source", "clone"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Warning: Deprecated config: jj was compiled without `git.subprocess = false` support
+    Fetching into new repo in "$TEST_ENV/clone"
+    bookmark: main@origin [new] tracked
+    Setting the revset alias `trunk()` to `main@origin`
+    Working copy now at: sqpuoqvx 2ca1c979 (empty) (no description set)
+    Parent commit      : qomsplrm ebeb70d8 main | message
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    "#);
+}

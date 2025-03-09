@@ -2358,3 +2358,25 @@ fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandO
     // --quiet to suppress deleted bookmarks hint
     test_env.run_jj_in(repo_path, &["bookmark", "list", "--all-remotes", "--quiet"])
 }
+
+// TODO: Remove with the `git.subprocess` setting.
+#[cfg(not(feature = "git2"))]
+#[test]
+fn test_git_push_git2_warning() {
+    let (test_env, workspace_root) = set_up();
+    test_env.add_config("git.subprocess = false");
+    test_env
+        .run_jj_in(
+            &workspace_root,
+            ["describe", "bookmark1", "-m", "modified bookmark1 commit"],
+        )
+        .success();
+    let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--all"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Warning: Deprecated config: jj was compiled without `git.subprocess = false` support
+    Changes to push to origin:
+      Move sideways bookmark bookmark1 from d13ecdbda2a2 to 0f8dc6560f32
+    [EOF]
+    "#);
+}
