@@ -217,6 +217,7 @@ fn test_templater_alias() {
     'deprecated()' = 'author.username()'
     'builtin_log_node' = '"#"'
     'builtin_op_log_node' = '"#"'
+    'format_short_change_id_with_hidden_and_divergent_info(commit)' = 'format_short_change_id(commit.change_id())'
     "###,
     );
 

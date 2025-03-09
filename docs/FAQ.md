@@ -510,7 +510,7 @@ by `jj rebase` to rebase the changes in a commit. It's used in `jj log` to
 indicate which commits are empty. It's used in the `files()` revset function
 (and by `jj log <path>`) to find commits that modify a certain path. And so on.
 
-### How do I deal with divergent changes ('??' after the [change ID])?
+### How do I deal with divergent changes ('divergent' after the [change ID])?
 
 A [divergent change][glossary_divergent_change] represents a change that has two
 or more visible commits associated with it. To refer to such commits, you must

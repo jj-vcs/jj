@@ -611,15 +611,15 @@ fn test_workspaces_conflicting_edits() {
     // Since there was an uncommitted change in the working copy, it should
     // have been committed first (causing divergence)
     let output = test_env.run_jj_in(&secondary_path, ["workspace", "update-stale"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
     Rebased 1 descendant commits onto commits rewritten by other operation
-    Working copy now at: pmmvwywv?? e82cd4ee (empty) (no description set)
+    Working copy now at: pmmvwywv divergent e82cd4ee (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
     Updated working copy to fresh commit e82cd4ee8faa
     [EOF]
-    ");
+    "#);
     insta::assert_snapshot!(get_log_output(&test_env, &secondary_path),
     @r"
     @  e82cd4ee8faa secondary@ (divergent)

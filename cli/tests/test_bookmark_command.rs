@@ -1443,15 +1443,15 @@ fn test_bookmark_track_conflict() {
         )
         .success();
     let output = test_env.run_jj_in(&repo_path, ["bookmark", "track", "main@origin"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Started tracking 1 remote bookmarks.
     main (conflicted):
-      + qpvuntsm?? e802c4f8 (empty) b
-      + qpvuntsm?? 427890ea (empty) a
-      @origin (behind by 1 commits): qpvuntsm?? 427890ea (empty) a
+      + qpvuntsm divergent e802c4f8 (empty) b
+      + qpvuntsm divergent 427890ea (empty) a
+      @origin (behind by 1 commits): qpvuntsm divergent 427890ea (empty) a
     [EOF]
-    ");
+    "#);
 }
 
 #[test]
