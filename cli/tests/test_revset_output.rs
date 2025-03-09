@@ -252,7 +252,7 @@ fn test_bad_function_call() {
       |
       = Invalid string pattern
     2: Invalid string pattern kind `bad:`
-    Hint: Try prefixing with one of `exact:`, `glob:`, `regex:`, or `substring:`
+    Hint: Try prefixing with one of `exact:`, `glob:`, `regex:`, `substring:`, or one of these with `-i` suffix added (e.g. `glob-i:`) for case-insensitive matching
     [EOF]
     [exit status: 1]
     ");

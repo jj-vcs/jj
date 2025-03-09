@@ -863,9 +863,11 @@ fn revset_resolution_error_hint(err: &RevsetResolutionError) -> Option<String> {
 
 fn string_pattern_parse_error_hint(err: &StringPatternParseError) -> Option<String> {
     match err {
-        StringPatternParseError::InvalidKind(_) => {
-            Some("Try prefixing with one of `exact:`, `glob:`, `regex:`, or `substring:`".into())
-        }
+        StringPatternParseError::InvalidKind(_) => Some(
+            "Try prefixing with one of `exact:`, `glob:`, `regex:`, `substring:`, or one of these \
+             with `-i` suffix added (e.g. `glob-i:`) for case-insensitive matching"
+                .into(),
+        ),
         StringPatternParseError::GlobPattern(_) | StringPatternParseError::Regex(_) => None,
     }
 }
