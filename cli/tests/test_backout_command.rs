@@ -39,7 +39,12 @@ fn test_backout() {
 
     // Backout the commit
     let output = test_env.run_jj_in(&repo_path, ["backout", "-r", "@"]);
-    insta::assert_snapshot!(output, @"");
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Warning: `jj backout` is deprecated; use `jj revert` instead
+    Warning: `jj backout` will be removed in a future version, and this will be a hard error
+    [EOF]
+    "#);
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r#"
     ○  6d845ed9fb6a Back out "a"
     │
@@ -57,7 +62,12 @@ fn test_backout() {
     // Backout the new backed-out commit
     test_env.run_jj_in(&repo_path, ["edit", "@+"]).success();
     let output = test_env.run_jj_in(&repo_path, ["backout", "-r", "@"]);
-    insta::assert_snapshot!(output, @"");
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Warning: `jj backout` is deprecated; use `jj revert` instead
+    Warning: `jj backout` will be removed in a future version, and this will be a hard error
+    [EOF]
+    "#);
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r#"
     ○  79555ea9040b Back out "Back out "a""
     │
@@ -107,7 +117,12 @@ fn test_backout_multiple() {
 
     // Backout multiple commits
     let output = test_env.run_jj_in(&repo_path, ["backout", "-r", "b", "-r", "c", "-r", "e"]);
-    insta::assert_snapshot!(output, @"");
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Warning: `jj backout` is deprecated; use `jj revert` instead
+    Warning: `jj backout` will be removed in a future version, and this will be a hard error
+    [EOF]
+    "#);
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r#"
     ○  6504c4ded177 Back out "b"
     │
@@ -210,7 +225,12 @@ fn test_backout_description_template() {
 
     // Verify that message of backed out commit follows the template
     let output = test_env.run_jj_in(&repo_path, ["backout", "-r", "a"]);
-    insta::assert_snapshot!(output, @"");
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Warning: `jj backout` is deprecated; use `jj revert` instead
+    Warning: `jj backout` will be removed in a future version, and this will be a hard error
+    [EOF]
+    "#);
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r#"
     ○  1db880a5204e Revert commit 2443ea76b0b1 "a"
     @  2443ea76b0b1 a

@@ -36,12 +36,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `core.watchman.register_snapshot_trigger` has been renamed to `core.watchman.register-snapshot-trigger` for consistency with other configuration options.
 
+* `jj backout` is deprecated in favor of `jj revert`.
+
 ### New features
 
 * The 'how to resolve conflicts' hint that is shown when conflicts appear can
   be hidden by setting `hints.resolving-conflicts = false`.
 
 * `jj op log -d` now has an alias for `jj op log --op-diff`.
+
+* A new command `jj revert` is added, which is similar to `jj backout` but
+  adds the `--destination`, `--insert-after`, and `--insert-before` options to
+  customize the location of reverted commits.
 
 ### Fixed bugs
 

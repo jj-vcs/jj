@@ -3956,10 +3956,6 @@ fn map_clap_cli_error(err: clap::Error, ui: &Ui, config: &StackedConfig) -> Comm
                         r#"You can configure `aliases.{cmd} = ["git", "{cmd}"]` if you want `jj {cmd}` to work and always use the Git backend."#
                     ));
             }
-            "revert" => {
-                return CommandError::from(err)
-                    .hinted("You probably want `jj backout` or `jj restore`.");
-            }
             _ => {}
         }
     }

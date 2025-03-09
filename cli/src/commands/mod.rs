@@ -42,6 +42,7 @@ mod prev;
 mod rebase;
 mod resolve;
 mod restore;
+mod revert;
 mod root;
 mod run;
 mod show;
@@ -87,6 +88,7 @@ const STYLES: Styles = Styles::styled()
 enum Command {
     Abandon(abandon::AbandonArgs),
     Absorb(absorb::AbsorbArgs),
+    // TODO: Remove in jj 0.34+
     Backout(backout::BackoutArgs),
     #[cfg(feature = "bench")]
     #[command(subcommand)]
@@ -127,6 +129,7 @@ enum Command {
     Rebase(rebase::RebaseArgs),
     Resolve(resolve::ResolveArgs),
     Restore(restore::RestoreArgs),
+    Revert(revert::RevertArgs),
     Root(root::RootArgs),
     #[command(hide = true)]
     // TODO: Flesh out.
@@ -161,12 +164,15 @@ pub fn run_command(ui: &mut Ui, command_helper: &CommandHelper) -> Result<(), Co
     match &subcommand {
         Command::Abandon(args) => abandon::cmd_abandon(ui, command_helper, args),
         Command::Absorb(args) => absorb::cmd_absorb(ui, command_helper, args),
-        Command::Backout(args) => backout::cmd_backout(ui, command_helper, args),
+        Command::Backout(args) => {
+            let cmd = renamed_cmd("backout", "revert", false, backout::cmd_backout);
+            cmd(ui, command_helper, args)
+        }
         #[cfg(feature = "bench")]
         Command::Bench(args) => bench::cmd_bench(ui, command_helper, args),
         Command::Bookmark(args) => bookmark::cmd_bookmark(ui, command_helper, args),
         Command::Branch(args) => {
-            let cmd = renamed_cmd("branch", "bookmark", bookmark::cmd_bookmark);
+            let cmd = renamed_cmd("branch", "bookmark", true, bookmark::cmd_bookmark);
             cmd(ui, command_helper, args)
         }
         Command::Commit(args) => commit::cmd_commit(ui, command_helper, args),
@@ -193,6 +199,7 @@ pub fn run_command(ui: &mut Ui, command_helper: &CommandHelper) -> Result<(), Co
         Command::Rebase(args) => rebase::cmd_rebase(ui, command_helper, args),
         Command::Resolve(args) => resolve::cmd_resolve(ui, command_helper, args),
         Command::Restore(args) => restore::cmd_restore(ui, command_helper, args),
+        Command::Revert(args) => revert::cmd_revert(ui, command_helper, args),
         Command::Root(args) => root::cmd_root(ui, command_helper, args),
         Command::Run(args) => run::cmd_run(ui, command_helper, args),
         Command::SimplifyParents(args) => {
@@ -217,13 +224,21 @@ pub fn run_command(ui: &mut Ui, command_helper: &CommandHelper) -> Result<(), Co
 pub(crate) fn renamed_cmd<Args>(
     old_name: &'static str,
     new_name: &'static str,
+    is_equivalent: bool,
     cmd: impl Fn(&mut Ui, &CommandHelper, &Args) -> Result<(), CommandError>,
 ) -> impl Fn(&mut Ui, &CommandHelper, &Args) -> Result<(), CommandError> {
     move |ui: &mut Ui, command: &CommandHelper, args: &Args| -> Result<(), CommandError> {
-        writeln!(
-            ui.warning_default(),
-            "`jj {old_name}` is deprecated; use `jj {new_name}` instead, which is equivalent"
-        )?;
+        if is_equivalent {
+            writeln!(
+                ui.warning_default(),
+                "`jj {old_name}` is deprecated; use `jj {new_name}` instead, which is equivalent"
+            )?;
+        } else {
+            writeln!(
+                ui.warning_default(),
+                "`jj {old_name}` is deprecated; use `jj {new_name}` instead"
+            )?;
+        }
         writeln!(
             ui.warning_default(),
             "`jj {old_name}` will be removed in a future version, and this will be a hard error"
