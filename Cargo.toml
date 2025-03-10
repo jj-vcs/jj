@@ -89,7 +89,7 @@ rayon = "1.10.0"
 ref-cast = "1.0.24"
 regex = "1.11.1"
 rpassword = "7.3.1"
-rustix = { version = "0.38.44", features = ["fs"] }
+rustix = { version = "1.0.1", features = ["fs"] }
 same-file = "1.0.6"
 sapling-renderdag = "0.1.0"
 sapling-streampager = "0.11.0"
@@ -103,7 +103,7 @@ smallvec = { version = "1.14.0", features = [
     "union",
 ] }
 strsim = "0.11.1"
-syn = "2.0.99"
+syn = "2.0.100"
 tempfile = "3.18.0"
 test-case = "3.3.1"
 textwrap = "0.16.2"
