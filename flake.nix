@@ -31,15 +31,6 @@
         ];
       };
 
-      filterSrc = src: regexes:
-        pkgs.lib.cleanSourceWith {
-          inherit src;
-          filter = path: type: let
-            relPath = pkgs.lib.removePrefix (toString src + "/") (toString path);
-          in
-            pkgs.lib.all (re: builtins.match re relPath == null) regexes;
-        };
-
       # When we're running in the shell, we want to use rustc with a bunch
       # of extra junk to ensure that rust-analyzer works, clippy etc are all
       # installed.
@@ -56,7 +47,7 @@
 
       # But, whenever we are running CI builds or checks, we want to use a
       # smaller closure. This reduces the CI impact on fresh clones/VMs, etc.
-      rustMinimalPlatform =
+      minimalPlatform =
         let platform = pkgs.rust-bin.selectLatestNightlyWith (t: t.minimal);
         in pkgs.makeRustPlatform { rustc = platform; cargo = platform; };
 
@@ -101,71 +92,26 @@
         LIBSSH2_SYS_USE_PKG_CONFIG = "1";
         RUST_BACKTRACE = 1;
       };
+
+      jujutsu = pkgs.callPackage ./. {
+        rustPlatform = minimalPlatform;
+        gitRev = self.rev or self.dirtyRev or "dirty";
+      };
     in {
       formatter = pkgs.alejandra;
 
       packages = {
-        jujutsu = rustMinimalPlatform.buildRustPackage {
-          pname = "jujutsu";
-          version = "unstable-${self.shortRev or "dirty"}";
-
-          buildFeatures = ["packaging"];
-          cargoBuildFlags = ["--bin" "jj"]; # don't build and install the fake editors
-          useNextest = true;
-          cargoTestFlags = ["--profile" "ci"];
-          src = filterSrc ./. [
-            ".*\\.nix$"
-            "^.jj/"
-            "^flake\\.lock$"
-            "^target/"
-          ];
-
-          cargoLock.lockFile = ./Cargo.lock;
-          nativeBuildInputs = nativeBuildInputs ++ [pkgs.installShellFiles];
-          inherit buildInputs nativeCheckInputs;
-
-          env =
-            env
-            // {
-              RUSTFLAGS = pkgs.lib.optionalString pkgs.stdenv.isLinux "-C link-arg=-fuse-ld=mold";
-              NIX_JJ_GIT_HASH = self.rev or "";
-              CARGO_INCREMENTAL = "0";
-            };
-
-          postInstall = ''
-            $out/bin/jj util install-man-pages man
-            installManPage ./man/man1/*
-
-            installShellCompletion --cmd jj \
-              --bash <(COMPLETE=bash $out/bin/jj) \
-              --fish <(COMPLETE=fish $out/bin/jj) \
-              --zsh <(COMPLETE=zsh $out/bin/jj)
-          '';
-
-          meta = {
-            description = "Git-compatible DVCS that is both simple and powerful";
-            homepage = "https://github.com/jj-vcs/jj";
-            license = pkgs.lib.licenses.asl20;
-            mainProgram = "jj";
-          };
-        };
+        inherit jujutsu;
         default = self.packages.${system}.jujutsu;
       };
 
-      checks.jujutsu = self.packages.${system}.jujutsu.overrideAttrs ({...}: {
-        # The default Rust infrastructure runs all builds in the release
-        # profile, which is significantly slower. Run this under the `test`
-        # profile instead, which matches all our other CI systems, Cargo, etc.
-        cargoBuildType = "test";
-        cargoCheckType = "test";
-
-        # By default, `flake check` will want to run the install phase, but
-        # because we override the cargoBuildType, it fails to find the proper
-        # binary. But we don't even care about the binary or even the buildPhase
-        # in this case; just remove them both.
+      checks.jujutsu = self.packages.${system}.jujutsu.overrideAttrs {
+        doCheck = true;
+        cargoBuildType = "ci";
+        cargoBuildFeatures = ["test-fakes"];
         buildPhase = "true";
         installPhase = "touch $out";
-      });
+      };
 
       devShells.default = let
         packages = with pkgs; [
