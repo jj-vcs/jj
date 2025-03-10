@@ -12,25 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::path::Path;
-
 use crate::common::create_commit;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
+use crate::common::TestWorkDir;
 
 #[test]
 fn test_basics() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    create_commit(&test_env.work_dir(&repo_path), "a", &[]);
-    create_commit(&test_env.work_dir(&repo_path), "b", &["a"]);
-    create_commit(&test_env.work_dir(&repo_path), "c", &[]);
-    create_commit(&test_env.work_dir(&repo_path), "d", &["c"]);
-    create_commit(&test_env.work_dir(&repo_path), "e", &["a", "d"]);
+    create_commit(&work_dir, "a", &[]);
+    create_commit(&work_dir, "b", &["a"]);
+    create_commit(&work_dir, "c", &[]);
+    create_commit(&work_dir, "d", &["c"]);
+    create_commit(&work_dir, "e", &["a", "d"]);
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @    [znk] e
     ├─╮
     │ ○  [vru] d
@@ -43,7 +42,7 @@ fn test_basics() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["abandon", "--retain-bookmarks", "d"]);
+    let output = work_dir.run_jj(["abandon", "--retain-bookmarks", "d"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned commit vruxwmqv b7c62f28 d | d
@@ -54,7 +53,7 @@ fn test_basics() {
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @    [znk] e
     ├─╮
     │ ○  [roy] c d
@@ -66,11 +65,8 @@ fn test_basics() {
     [EOF]
     ");
 
-    test_env.run_jj_in(&repo_path, ["undo"]).success();
-    let output = test_env.run_jj_in(
-        &repo_path,
-        ["abandon", "--retain-bookmarks"], /* abandons `e` */
-    );
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj(["abandon", "--retain-bookmarks"]); // abandons `e`
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned commit znkkpsqq 5557ece3 e | e
@@ -80,7 +76,7 @@ fn test_basics() {
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @    [nkm]
     ├─╮
     │ ○  [vru] d e??
@@ -93,8 +89,8 @@ fn test_basics() {
     [EOF]
     ");
 
-    test_env.run_jj_in(&repo_path, ["undo"]).success();
-    let output = test_env.run_jj_in(&repo_path, ["abandon", "descendants(d)"]);
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj(["abandon", "descendants(d)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned the following commits:
@@ -107,7 +103,7 @@ fn test_basics() {
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @    [xtn]
     ├─╮
     │ ○  [roy] c
@@ -120,15 +116,15 @@ fn test_basics() {
     ");
 
     // Test abandoning the same commit twice directly
-    test_env.run_jj_in(&repo_path, ["undo"]).success();
-    let output = test_env.run_jj_in(&repo_path, ["abandon", "-rb", "b"]);
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj(["abandon", "-rb", "b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned commit zsuskuln 1394f625 b | b
     Deleted bookmarks: b
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @    [znk] e
     ├─╮
     │ ○  [vru] d
@@ -140,8 +136,8 @@ fn test_basics() {
     ");
 
     // Test abandoning the same commit twice indirectly
-    test_env.run_jj_in(&repo_path, ["undo"]).success();
-    let output = test_env.run_jj_in(&repo_path, ["abandon", "d::", "e"]);
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj(["abandon", "d::", "e"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned the following commits:
@@ -154,7 +150,7 @@ fn test_basics() {
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @    [xlz]
     ├─╮
     │ ○  [roy] c
@@ -166,7 +162,7 @@ fn test_basics() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["abandon", "none()"]);
+    let output = work_dir.run_jj(["abandon", "none()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     No revisions to abandon.
@@ -180,23 +176,19 @@ fn test_basics() {
 fn test_bug_2600() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
     // We will not touch "nottherootcommit". See the
     // `test_bug_2600_rootcommit_special_case` for the one case where base being the
     // child of the root commit changes the expected behavior.
-    create_commit(&test_env.work_dir(&repo_path), "nottherootcommit", &[]);
-    create_commit(
-        &test_env.work_dir(&repo_path),
-        "base",
-        &["nottherootcommit"],
-    );
-    create_commit(&test_env.work_dir(&repo_path), "a", &["base"]);
-    create_commit(&test_env.work_dir(&repo_path), "b", &["base", "a"]);
-    create_commit(&test_env.work_dir(&repo_path), "c", &["b"]);
+    create_commit(&work_dir, "nottherootcommit", &[]);
+    create_commit(&work_dir, "base", &["nottherootcommit"]);
+    create_commit(&work_dir, "a", &["base"]);
+    create_commit(&work_dir, "b", &["base", "a"]);
+    create_commit(&work_dir, "c", &["b"]);
 
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  [znk] c
     ○    [vru] b
     ├─╮
@@ -207,12 +199,10 @@ fn test_bug_2600() {
     ◆  [zzz]
     [EOF]
     ");
-    let setup_opid = test_env.work_dir(&repo_path).current_operation_id();
+    let setup_opid = work_dir.current_operation_id();
 
-    test_env
-        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
-        .success();
-    let output = test_env.run_jj_in(&repo_path, ["abandon", "base"]);
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+    let output = work_dir.run_jj(["abandon", "base"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned commit zsuskuln 73c929fc base | base
@@ -225,7 +215,7 @@ fn test_bug_2600() {
     ");
     // Commits "a" and "b" should both have "nottherootcommit" as parent, and "b"
     // should keep "a" as second parent.
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  [znk] c
     ○    [vru] b
     ├─╮
@@ -236,10 +226,8 @@ fn test_bug_2600() {
     [EOF]
     ");
 
-    test_env
-        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
-        .success();
-    let output = test_env.run_jj_in(&repo_path, ["abandon", "a"]);
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+    let output = work_dir.run_jj(["abandon", "a"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned commit royxmykx 98f3b9ba a | a
@@ -253,7 +241,7 @@ fn test_bug_2600() {
     // Commit "b" should have "base" as parent. It should not have two parent
     // pointers to that commit even though it was a merge commit before we abandoned
     // "a".
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  [znk] c
     ○  [vru] b
     ○  [zsu] base
@@ -262,10 +250,8 @@ fn test_bug_2600() {
     [EOF]
     ");
 
-    test_env
-        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
-        .success();
-    let output = test_env.run_jj_in(&repo_path, ["abandon", "b"]);
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+    let output = work_dir.run_jj(["abandon", "b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned commit vruxwmqv 8c0dced0 b | b
@@ -278,7 +264,7 @@ fn test_bug_2600() {
     [EOF]
     ");
     // Commit "c" should inherit the parents from the abndoned commit "b".
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @    [znk] c
     ├─╮
     │ ○  [roy] a
@@ -289,11 +275,9 @@ fn test_bug_2600() {
     [EOF]
     ");
 
-    test_env
-        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
-        .success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     // ========= Reminder of the setup ===========
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  [znk] c
     ○    [vru] b
     ├─╮
@@ -304,7 +288,7 @@ fn test_bug_2600() {
     ◆  [zzz]
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["abandon", "--retain-bookmarks", "a", "b"]);
+    let output = work_dir.run_jj(["abandon", "--retain-bookmarks", "a", "b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned the following commits:
@@ -318,14 +302,14 @@ fn test_bug_2600() {
     ");
     // Commit "c" should have "base" as parent. As when we abandoned "a", it should
     // not have two parent pointers to the same commit.
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  [znk] c
     ○  [zsu] a b base
     ○  [rlv] nottherootcommit
     ◆  [zzz]
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["bookmark", "list", "b"]);
+    let output = work_dir.run_jj(["bookmark", "list", "b"]);
     insta::assert_snapshot!(output, @r"
     b: zsuskuln 73c929fc base
     [EOF]
@@ -336,16 +320,16 @@ fn test_bug_2600() {
 fn test_bug_2600_rootcommit_special_case() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
     // Set up like `test_bug_2600`, but without the `nottherootcommit` commit.
-    create_commit(&test_env.work_dir(&repo_path), "base", &[]);
-    create_commit(&test_env.work_dir(&repo_path), "a", &["base"]);
-    create_commit(&test_env.work_dir(&repo_path), "b", &["base", "a"]);
-    create_commit(&test_env.work_dir(&repo_path), "c", &["b"]);
+    create_commit(&work_dir, "base", &[]);
+    create_commit(&work_dir, "a", &["base"]);
+    create_commit(&work_dir, "b", &["base", "a"]);
+    create_commit(&work_dir, "c", &["b"]);
 
     // Setup
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  [vru] c
     ○    [roy] b
     ├─╮
@@ -357,7 +341,7 @@ fn test_bug_2600_rootcommit_special_case() {
     ");
 
     // Now, the test
-    let output = test_env.run_jj_in(&repo_path, ["abandon", "base"]);
+    let output = work_dir.run_jj(["abandon", "base"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: The Git backend does not support creating merge commits with the root commit as one of the parents.
@@ -370,27 +354,23 @@ fn test_bug_2600_rootcommit_special_case() {
 fn test_double_abandon() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    create_commit(&test_env.work_dir(&repo_path), "a", &[]);
+    create_commit(&work_dir, "a", &[]);
     // Test the setup
-    insta::assert_snapshot!(
-    test_env.run_jj_in(&repo_path, ["log", "--no-graph", "-r", "a"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["log", "--no-graph", "-r", "a"]), @r"
     rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a 2443ea76
     a
     [EOF]
     ");
 
-    let commit_id = test_env
-        .run_jj_in(
-            &repo_path,
-            ["log", "--no-graph", "--color=never", "-T=commit_id", "-r=a"],
-        )
+    let commit_id = work_dir
+        .run_jj(["log", "--no-graph", "--color=never", "-T=commit_id", "-r=a"])
         .success()
         .stdout
         .into_raw();
 
-    let output = test_env.run_jj_in(&repo_path, ["abandon", &commit_id]);
+    let output = work_dir.run_jj(["abandon", &commit_id]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned commit rlvkpnrz 2443ea76 a | a
@@ -400,7 +380,7 @@ fn test_double_abandon() {
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["abandon", &commit_id]);
+    let output = work_dir.run_jj(["abandon", &commit_id]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned commit rlvkpnrz hidden 2443ea76 a
@@ -413,16 +393,16 @@ fn test_double_abandon() {
 fn test_abandon_restore_descendants() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(repo_path.join("file"), "foo\n").unwrap();
-    test_env.run_jj_in(&repo_path, ["new"]).success();
-    std::fs::write(repo_path.join("file"), "bar\n").unwrap();
-    test_env.run_jj_in(&repo_path, ["new"]).success();
-    std::fs::write(repo_path.join("file"), "baz\n").unwrap();
+    work_dir.write_file("file", "foo\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file", "bar\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file", "baz\n");
 
     // Remove the commit containing "bar"
-    let output = test_env.run_jj_in(&repo_path, ["abandon", "-r@-", "--restore-descendants"]);
+    let output = work_dir.run_jj(["abandon", "-r@-", "--restore-descendants"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned commit rlvkpnrz 225adef1 (no description set)
@@ -431,7 +411,7 @@ fn test_abandon_restore_descendants() {
     Parent commit      : qpvuntsm 485d52a9 (no description set)
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["diff", "--git"]);
+    let output = work_dir.run_jj(["diff", "--git"]);
     insta::assert_snapshot!(output, @r"
     diff --git a/file b/file
     index 257cc5642c..76018072e0 100644
@@ -445,7 +425,7 @@ fn test_abandon_restore_descendants() {
 }
 
 #[must_use]
-fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput {
+fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     let template = r#"separate(" ", "[" ++ change_id.short(3) ++ "]", bookmarks)"#;
-    test_env.run_jj_in(repo_path, ["log", "-T", template])
+    work_dir.run_jj(["log", "-T", template])
 }
