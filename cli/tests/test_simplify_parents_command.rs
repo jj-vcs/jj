@@ -56,8 +56,8 @@ fn test_simplify_parents_immutable() {
 fn test_simplify_parents_no_change() {
     let (test_env, repo_path) = create_repo();
 
-    create_commit(&test_env, &repo_path, "a", &["root()"]);
-    create_commit(&test_env, &repo_path, "b", &["a"]);
+    create_commit(&test_env.work_dir(&repo_path), "a", &["root()"]);
+    create_commit(&test_env.work_dir(&repo_path), "b", &["a"]);
     let output = test_env.run_jj_in(&repo_path, ["log", "-r", "all()", "-T", "description"]);
     insta::assert_snapshot!(output, @r"
     @  b
@@ -86,10 +86,10 @@ fn test_simplify_parents_no_change() {
 fn test_simplify_parents_no_change_diamond() {
     let (test_env, repo_path) = create_repo();
 
-    create_commit(&test_env, &repo_path, "a", &["root()"]);
-    create_commit(&test_env, &repo_path, "b", &["a"]);
-    create_commit(&test_env, &repo_path, "c", &["a"]);
-    create_commit(&test_env, &repo_path, "d", &["b", "c"]);
+    create_commit(&test_env.work_dir(&repo_path), "a", &["root()"]);
+    create_commit(&test_env.work_dir(&repo_path), "b", &["a"]);
+    create_commit(&test_env.work_dir(&repo_path), "c", &["a"]);
+    create_commit(&test_env.work_dir(&repo_path), "d", &["b", "c"]);
     let output = test_env.run_jj_in(&repo_path, ["log", "-r", "all()", "-T", "description"]);
     insta::assert_snapshot!(output, @r"
     @    d
@@ -127,9 +127,9 @@ fn test_simplify_parents_no_change_diamond() {
 fn test_simplify_parents_redundant_parent(args: &[&str]) {
     let (test_env, repo_path) = create_repo();
 
-    create_commit(&test_env, &repo_path, "a", &["root()"]);
-    create_commit(&test_env, &repo_path, "b", &["a"]);
-    create_commit(&test_env, &repo_path, "c", &["a", "b"]);
+    create_commit(&test_env.work_dir(&repo_path), "a", &["root()"]);
+    create_commit(&test_env.work_dir(&repo_path), "b", &["a"]);
+    create_commit(&test_env.work_dir(&repo_path), "c", &["a", "b"]);
     let output = test_env.run_jj_in(&repo_path, ["log", "-r", "all()", "-T", "description"]);
     insta::allow_duplicates! {
         insta::assert_snapshot!(output, @r"
@@ -169,12 +169,12 @@ fn test_simplify_parents_redundant_parent(args: &[&str]) {
 fn test_simplify_parents_multiple_redundant_parents() {
     let (test_env, repo_path) = create_repo();
 
-    create_commit(&test_env, &repo_path, "a", &["root()"]);
-    create_commit(&test_env, &repo_path, "b", &["a"]);
-    create_commit(&test_env, &repo_path, "c", &["a", "b"]);
-    create_commit(&test_env, &repo_path, "d", &["c"]);
-    create_commit(&test_env, &repo_path, "e", &["d"]);
-    create_commit(&test_env, &repo_path, "f", &["d", "e"]);
+    create_commit(&test_env.work_dir(&repo_path), "a", &["root()"]);
+    create_commit(&test_env.work_dir(&repo_path), "b", &["a"]);
+    create_commit(&test_env.work_dir(&repo_path), "c", &["a", "b"]);
+    create_commit(&test_env.work_dir(&repo_path), "d", &["c"]);
+    create_commit(&test_env.work_dir(&repo_path), "e", &["d"]);
+    create_commit(&test_env.work_dir(&repo_path), "f", &["d", "e"]);
     let output = test_env.run_jj_in(&repo_path, ["log", "-r", "all()", "-T", "description"]);
     insta::assert_snapshot!(output, @r"
     @    f
@@ -246,12 +246,12 @@ fn test_simplify_parents_multiple_redundant_parents() {
 fn test_simplify_parents_no_args() {
     let (test_env, repo_path) = create_repo();
 
-    create_commit(&test_env, &repo_path, "a", &["root()"]);
-    create_commit(&test_env, &repo_path, "b", &["a"]);
-    create_commit(&test_env, &repo_path, "c", &["a", "b"]);
-    create_commit(&test_env, &repo_path, "d", &["c"]);
-    create_commit(&test_env, &repo_path, "e", &["d"]);
-    create_commit(&test_env, &repo_path, "f", &["d", "e"]);
+    create_commit(&test_env.work_dir(&repo_path), "a", &["root()"]);
+    create_commit(&test_env.work_dir(&repo_path), "b", &["a"]);
+    create_commit(&test_env.work_dir(&repo_path), "c", &["a", "b"]);
+    create_commit(&test_env.work_dir(&repo_path), "d", &["c"]);
+    create_commit(&test_env.work_dir(&repo_path), "e", &["d"]);
+    create_commit(&test_env.work_dir(&repo_path), "f", &["d", "e"]);
     let output = test_env.run_jj_in(&repo_path, ["log", "-r", "all()", "-T", "description"]);
     insta::assert_snapshot!(output, @r"
     @    f

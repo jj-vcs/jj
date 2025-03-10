@@ -24,11 +24,11 @@ fn test_basics() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "a", &[]);
-    create_commit(&test_env, &repo_path, "b", &["a"]);
-    create_commit(&test_env, &repo_path, "c", &[]);
-    create_commit(&test_env, &repo_path, "d", &["c"]);
-    create_commit(&test_env, &repo_path, "e", &["a", "d"]);
+    create_commit(&test_env.work_dir(&repo_path), "a", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "b", &["a"]);
+    create_commit(&test_env.work_dir(&repo_path), "c", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "d", &["c"]);
+    create_commit(&test_env.work_dir(&repo_path), "e", &["a", "d"]);
     // Test the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @    [znk] e
@@ -185,11 +185,15 @@ fn test_bug_2600() {
     // We will not touch "nottherootcommit". See the
     // `test_bug_2600_rootcommit_special_case` for the one case where base being the
     // child of the root commit changes the expected behavior.
-    create_commit(&test_env, &repo_path, "nottherootcommit", &[]);
-    create_commit(&test_env, &repo_path, "base", &["nottherootcommit"]);
-    create_commit(&test_env, &repo_path, "a", &["base"]);
-    create_commit(&test_env, &repo_path, "b", &["base", "a"]);
-    create_commit(&test_env, &repo_path, "c", &["b"]);
+    create_commit(&test_env.work_dir(&repo_path), "nottherootcommit", &[]);
+    create_commit(
+        &test_env.work_dir(&repo_path),
+        "base",
+        &["nottherootcommit"],
+    );
+    create_commit(&test_env.work_dir(&repo_path), "a", &["base"]);
+    create_commit(&test_env.work_dir(&repo_path), "b", &["base", "a"]);
+    create_commit(&test_env.work_dir(&repo_path), "c", &["b"]);
 
     // Test the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
@@ -335,10 +339,10 @@ fn test_bug_2600_rootcommit_special_case() {
     let repo_path = test_env.env_root().join("repo");
 
     // Set up like `test_bug_2600`, but without the `nottherootcommit` commit.
-    create_commit(&test_env, &repo_path, "base", &[]);
-    create_commit(&test_env, &repo_path, "a", &["base"]);
-    create_commit(&test_env, &repo_path, "b", &["base", "a"]);
-    create_commit(&test_env, &repo_path, "c", &["b"]);
+    create_commit(&test_env.work_dir(&repo_path), "base", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "a", &["base"]);
+    create_commit(&test_env.work_dir(&repo_path), "b", &["base", "a"]);
+    create_commit(&test_env.work_dir(&repo_path), "c", &["b"]);
 
     // Setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
@@ -368,7 +372,7 @@ fn test_double_abandon() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "a", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "a", &[]);
     // Test the setup
     insta::assert_snapshot!(
     test_env.run_jj_in(&repo_path, ["log", "--no-graph", "-r", "a"]), @r"

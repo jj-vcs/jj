@@ -753,10 +753,10 @@ fn create_colocated_repo_and_bookmarks_from_trunk1(
     test_env
         .run_jj_in(repo_path, ["git", "init", "--git-repo", "."])
         .success();
-    create_commit(test_env, repo_path, "trunk1", &[]);
-    create_commit(test_env, repo_path, "a1", &["trunk1"]);
-    create_commit(test_env, repo_path, "a2", &["trunk1"]);
-    create_commit(test_env, repo_path, "b", &["trunk1"]);
+    create_commit(&test_env.work_dir(repo_path), "trunk1", &[]);
+    create_commit(&test_env.work_dir(repo_path), "a1", &["trunk1"]);
+    create_commit(&test_env.work_dir(repo_path), "a2", &["trunk1"]);
+    create_commit(&test_env.work_dir(repo_path), "b", &["trunk1"]);
     format!(
         "   ===== Source git repo contents =====\n{}",
         get_log_output(test_env, repo_path)
@@ -764,7 +764,7 @@ fn create_colocated_repo_and_bookmarks_from_trunk1(
 }
 
 fn create_trunk2_and_rebase_bookmarks(test_env: &TestEnvironment, repo_path: &Path) -> String {
-    create_commit(test_env, repo_path, "trunk2", &["trunk1"]);
+    create_commit(&test_env.work_dir(repo_path), "trunk2", &["trunk1"]);
     for br in ["a1", "a2", "b"] {
         test_env
             .run_jj_in(repo_path, ["rebase", "-b", br, "-d", "trunk2"])

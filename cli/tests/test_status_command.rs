@@ -373,21 +373,49 @@ fn test_status_simplify_conflict_sides() {
     // fileA: A - B + C - B + B - B + B
     // fileB: A - A + A - A + B - C + D
     create_commit_with_files(
-        &test_env,
-        &repo_path,
+        &test_env.work_dir(&repo_path),
         "base",
         &[],
         &[("fileA", "base\n"), ("fileB", "base\n")],
     );
-    create_commit_with_files(&test_env, &repo_path, "a1", &["base"], &[("fileA", "1\n")]);
-    create_commit_with_files(&test_env, &repo_path, "a2", &["base"], &[("fileA", "2\n")]);
-    create_commit_with_files(&test_env, &repo_path, "b1", &["base"], &[("fileB", "1\n")]);
-    create_commit_with_files(&test_env, &repo_path, "b2", &["base"], &[("fileB", "2\n")]);
-    create_commit_with_files(&test_env, &repo_path, "conflictA", &["a1", "a2"], &[]);
-    create_commit_with_files(&test_env, &repo_path, "conflictB", &["b1", "b2"], &[]);
     create_commit_with_files(
-        &test_env,
-        &repo_path,
+        &test_env.work_dir(&repo_path),
+        "a1",
+        &["base"],
+        &[("fileA", "1\n")],
+    );
+    create_commit_with_files(
+        &test_env.work_dir(&repo_path),
+        "a2",
+        &["base"],
+        &[("fileA", "2\n")],
+    );
+    create_commit_with_files(
+        &test_env.work_dir(&repo_path),
+        "b1",
+        &["base"],
+        &[("fileB", "1\n")],
+    );
+    create_commit_with_files(
+        &test_env.work_dir(&repo_path),
+        "b2",
+        &["base"],
+        &[("fileB", "2\n")],
+    );
+    create_commit_with_files(
+        &test_env.work_dir(&repo_path),
+        "conflictA",
+        &["a1", "a2"],
+        &[],
+    );
+    create_commit_with_files(
+        &test_env.work_dir(&repo_path),
+        "conflictB",
+        &["b1", "b2"],
+        &[],
+    );
+    create_commit_with_files(
+        &test_env.work_dir(&repo_path),
         "conflict",
         &["conflictA", "conflictB"],
         &[],

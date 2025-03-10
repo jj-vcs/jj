@@ -24,9 +24,9 @@ fn test_duplicate() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "a", &[]);
-    create_commit(&test_env, &repo_path, "b", &[]);
-    create_commit(&test_env, &repo_path, "c", &["a", "b"]);
+    create_commit(&test_env.work_dir(&repo_path), "a", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "b", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "c", &["a", "b"]);
     // Test the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @    17a00fc21654   c
@@ -102,11 +102,11 @@ fn test_duplicate_many() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "a", &[]);
-    create_commit(&test_env, &repo_path, "b", &["a"]);
-    create_commit(&test_env, &repo_path, "c", &["a"]);
-    create_commit(&test_env, &repo_path, "d", &["c"]);
-    create_commit(&test_env, &repo_path, "e", &["b", "d"]);
+    create_commit(&test_env.work_dir(&repo_path), "a", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "b", &["a"]);
+    create_commit(&test_env.work_dir(&repo_path), "c", &["a"]);
+    create_commit(&test_env.work_dir(&repo_path), "d", &["c"]);
+    create_commit(&test_env.work_dir(&repo_path), "e", &["b", "d"]);
     // Test the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @    921dde6e55c0   e
@@ -271,12 +271,12 @@ fn test_duplicate_destination() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "a1", &[]);
-    create_commit(&test_env, &repo_path, "a2", &["a1"]);
-    create_commit(&test_env, &repo_path, "a3", &["a2"]);
-    create_commit(&test_env, &repo_path, "b", &[]);
-    create_commit(&test_env, &repo_path, "c", &[]);
-    create_commit(&test_env, &repo_path, "d", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "a1", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "a2", &["a1"]);
+    create_commit(&test_env.work_dir(&repo_path), "a3", &["a2"]);
+    create_commit(&test_env.work_dir(&repo_path), "b", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "c", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "d", &[]);
     let setup_opid = test_env.current_operation_id(&repo_path);
 
     // Test the setup
@@ -494,16 +494,16 @@ fn test_duplicate_insert_after() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "a1", &[]);
-    create_commit(&test_env, &repo_path, "a2", &["a1"]);
-    create_commit(&test_env, &repo_path, "a3", &["a2"]);
-    create_commit(&test_env, &repo_path, "a4", &["a3"]);
-    create_commit(&test_env, &repo_path, "b1", &[]);
-    create_commit(&test_env, &repo_path, "b2", &["b1"]);
-    create_commit(&test_env, &repo_path, "c1", &[]);
-    create_commit(&test_env, &repo_path, "c2", &["c1"]);
-    create_commit(&test_env, &repo_path, "d1", &[]);
-    create_commit(&test_env, &repo_path, "d2", &["d1"]);
+    create_commit(&test_env.work_dir(&repo_path), "a1", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "a2", &["a1"]);
+    create_commit(&test_env.work_dir(&repo_path), "a3", &["a2"]);
+    create_commit(&test_env.work_dir(&repo_path), "a4", &["a3"]);
+    create_commit(&test_env.work_dir(&repo_path), "b1", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "b2", &["b1"]);
+    create_commit(&test_env.work_dir(&repo_path), "c1", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "c2", &["c1"]);
+    create_commit(&test_env.work_dir(&repo_path), "d1", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "d2", &["d1"]);
     let setup_opid = test_env.current_operation_id(&repo_path);
 
     // Test the setup
@@ -1190,16 +1190,16 @@ fn test_duplicate_insert_before() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "a1", &[]);
-    create_commit(&test_env, &repo_path, "a2", &["a1"]);
-    create_commit(&test_env, &repo_path, "a3", &["a2"]);
-    create_commit(&test_env, &repo_path, "a4", &["a3"]);
-    create_commit(&test_env, &repo_path, "b1", &[]);
-    create_commit(&test_env, &repo_path, "b2", &["b1"]);
-    create_commit(&test_env, &repo_path, "c1", &[]);
-    create_commit(&test_env, &repo_path, "c2", &["c1"]);
-    create_commit(&test_env, &repo_path, "d1", &[]);
-    create_commit(&test_env, &repo_path, "d2", &["d1"]);
+    create_commit(&test_env.work_dir(&repo_path), "a1", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "a2", &["a1"]);
+    create_commit(&test_env.work_dir(&repo_path), "a3", &["a2"]);
+    create_commit(&test_env.work_dir(&repo_path), "a4", &["a3"]);
+    create_commit(&test_env.work_dir(&repo_path), "b1", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "b2", &["b1"]);
+    create_commit(&test_env.work_dir(&repo_path), "c1", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "c2", &["c1"]);
+    create_commit(&test_env.work_dir(&repo_path), "d1", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "d2", &["d1"]);
     let setup_opid = test_env.current_operation_id(&repo_path);
 
     // Test the setup
@@ -1892,16 +1892,16 @@ fn test_duplicate_insert_after_before() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "a1", &[]);
-    create_commit(&test_env, &repo_path, "a2", &["a1"]);
-    create_commit(&test_env, &repo_path, "a3", &["a2"]);
-    create_commit(&test_env, &repo_path, "a4", &["a3"]);
-    create_commit(&test_env, &repo_path, "b1", &[]);
-    create_commit(&test_env, &repo_path, "b2", &["b1"]);
-    create_commit(&test_env, &repo_path, "c1", &[]);
-    create_commit(&test_env, &repo_path, "c2", &["c1"]);
-    create_commit(&test_env, &repo_path, "d1", &[]);
-    create_commit(&test_env, &repo_path, "d2", &["d1"]);
+    create_commit(&test_env.work_dir(&repo_path), "a1", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "a2", &["a1"]);
+    create_commit(&test_env.work_dir(&repo_path), "a3", &["a2"]);
+    create_commit(&test_env.work_dir(&repo_path), "a4", &["a3"]);
+    create_commit(&test_env.work_dir(&repo_path), "b1", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "b2", &["b1"]);
+    create_commit(&test_env.work_dir(&repo_path), "c1", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "c2", &["c1"]);
+    create_commit(&test_env.work_dir(&repo_path), "d1", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "d2", &["d1"]);
     let setup_opid = test_env.current_operation_id(&repo_path);
 
     // Test the setup
@@ -2556,7 +2556,7 @@ fn test_undo_after_duplicate() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "a", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "a", &[]);
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  2443ea76b0b1   a
     ◆  000000000000
@@ -2597,9 +2597,9 @@ fn test_rebase_duplicates() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "a", &[]);
-    create_commit(&test_env, &repo_path, "b", &["a"]);
-    create_commit(&test_env, &repo_path, "c", &["b"]);
+    create_commit(&test_env.work_dir(&repo_path), "a", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "b", &["a"]);
+    create_commit(&test_env.work_dir(&repo_path), "c", &["b"]);
     // Test the setup
     insta::assert_snapshot!(get_log_output_with_ts(&test_env, &repo_path), @r"
     @  7e4fbf4f2759   c @ 2001-02-03 04:05:13.000 +07:00

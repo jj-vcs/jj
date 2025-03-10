@@ -24,8 +24,8 @@ fn test_rebase_invalid() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "a", &[]);
-    create_commit(&test_env, &repo_path, "b", &["a"]);
+    create_commit(&test_env.work_dir(&repo_path), "a", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "b", &["a"]);
 
     // Missing destination
     let output = test_env.run_jj_in(&repo_path, ["rebase"]);
@@ -130,8 +130,8 @@ fn test_rebase_empty_sets() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "a", &[]);
-    create_commit(&test_env, &repo_path, "b", &["a"]);
+    create_commit(&test_env.work_dir(&repo_path), "a", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "b", &["a"]);
 
     // TODO: Make all of these say "Nothing changed"?
     let output = test_env.run_jj_in(&repo_path, ["rebase", "-r=none()", "-d=b"]);
@@ -169,11 +169,11 @@ fn test_rebase_bookmark() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "a", &[]);
-    create_commit(&test_env, &repo_path, "b", &["a"]);
-    create_commit(&test_env, &repo_path, "c", &["b"]);
-    create_commit(&test_env, &repo_path, "d", &["b"]);
-    create_commit(&test_env, &repo_path, "e", &["a"]);
+    create_commit(&test_env.work_dir(&repo_path), "a", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "b", &["a"]);
+    create_commit(&test_env.work_dir(&repo_path), "c", &["b"]);
+    create_commit(&test_env.work_dir(&repo_path), "d", &["b"]);
+    create_commit(&test_env.work_dir(&repo_path), "e", &["a"]);
     // Test the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  e: a
@@ -270,11 +270,11 @@ fn test_rebase_bookmark_with_merge() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "a", &[]);
-    create_commit(&test_env, &repo_path, "b", &["a"]);
-    create_commit(&test_env, &repo_path, "c", &[]);
-    create_commit(&test_env, &repo_path, "d", &["c"]);
-    create_commit(&test_env, &repo_path, "e", &["a", "d"]);
+    create_commit(&test_env.work_dir(&repo_path), "a", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "b", &["a"]);
+    create_commit(&test_env.work_dir(&repo_path), "c", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "d", &["c"]);
+    create_commit(&test_env.work_dir(&repo_path), "e", &["a", "d"]);
     // Test the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @    e: a d
@@ -341,11 +341,11 @@ fn test_rebase_single_revision() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "a", &[]);
-    create_commit(&test_env, &repo_path, "b", &["a"]);
-    create_commit(&test_env, &repo_path, "c", &["a"]);
-    create_commit(&test_env, &repo_path, "d", &["b", "c"]);
-    create_commit(&test_env, &repo_path, "e", &["d"]);
+    create_commit(&test_env.work_dir(&repo_path), "a", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "b", &["a"]);
+    create_commit(&test_env.work_dir(&repo_path), "c", &["a"]);
+    create_commit(&test_env.work_dir(&repo_path), "d", &["b", "c"]);
+    create_commit(&test_env.work_dir(&repo_path), "e", &["d"]);
     // Test the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  e: d
@@ -418,10 +418,10 @@ fn test_rebase_single_revision_merge_parent() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "a", &[]);
-    create_commit(&test_env, &repo_path, "b", &[]);
-    create_commit(&test_env, &repo_path, "c", &["b"]);
-    create_commit(&test_env, &repo_path, "d", &["a", "c"]);
+    create_commit(&test_env.work_dir(&repo_path), "a", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "b", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "c", &["b"]);
+    create_commit(&test_env.work_dir(&repo_path), "d", &["a", "c"]);
     // Test the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @    d: a c
@@ -466,15 +466,15 @@ fn test_rebase_multiple_revisions() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "a", &[]);
-    create_commit(&test_env, &repo_path, "b", &["a"]);
-    create_commit(&test_env, &repo_path, "c", &["b"]);
-    create_commit(&test_env, &repo_path, "d", &["a"]);
-    create_commit(&test_env, &repo_path, "e", &["d"]);
-    create_commit(&test_env, &repo_path, "f", &["c", "e"]);
-    create_commit(&test_env, &repo_path, "g", &["f"]);
-    create_commit(&test_env, &repo_path, "h", &["g"]);
-    create_commit(&test_env, &repo_path, "i", &["f"]);
+    create_commit(&test_env.work_dir(&repo_path), "a", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "b", &["a"]);
+    create_commit(&test_env.work_dir(&repo_path), "c", &["b"]);
+    create_commit(&test_env.work_dir(&repo_path), "d", &["a"]);
+    create_commit(&test_env.work_dir(&repo_path), "e", &["d"]);
+    create_commit(&test_env.work_dir(&repo_path), "f", &["c", "e"]);
+    create_commit(&test_env.work_dir(&repo_path), "g", &["f"]);
+    create_commit(&test_env.work_dir(&repo_path), "h", &["g"]);
+    create_commit(&test_env.work_dir(&repo_path), "i", &["f"]);
     // Test the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  i: f
@@ -666,10 +666,10 @@ fn test_rebase_revision_onto_descendant() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "base", &[]);
-    create_commit(&test_env, &repo_path, "a", &["base"]);
-    create_commit(&test_env, &repo_path, "b", &["base"]);
-    create_commit(&test_env, &repo_path, "merge", &["b", "a"]);
+    create_commit(&test_env.work_dir(&repo_path), "base", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "a", &["base"]);
+    create_commit(&test_env.work_dir(&repo_path), "b", &["base"]);
+    create_commit(&test_env.work_dir(&repo_path), "merge", &["b", "a"]);
     // Test the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @    merge: b a
@@ -750,9 +750,9 @@ fn test_rebase_multiple_destinations() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "a", &[]);
-    create_commit(&test_env, &repo_path, "b", &[]);
-    create_commit(&test_env, &repo_path, "c", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "a", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "b", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "c", &[]);
     // Test the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  c
@@ -867,10 +867,10 @@ fn test_rebase_with_descendants() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "a", &[]);
-    create_commit(&test_env, &repo_path, "b", &[]);
-    create_commit(&test_env, &repo_path, "c", &["a", "b"]);
-    create_commit(&test_env, &repo_path, "d", &["c"]);
+    create_commit(&test_env.work_dir(&repo_path), "a", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "b", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "c", &["a", "b"]);
+    create_commit(&test_env.work_dir(&repo_path), "d", &["c"]);
     // Test the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  d: c
@@ -1033,11 +1033,11 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "notroot", &[]);
-    create_commit(&test_env, &repo_path, "base", &["notroot"]);
-    create_commit(&test_env, &repo_path, "a", &["base"]);
-    create_commit(&test_env, &repo_path, "b", &["base", "a"]);
-    create_commit(&test_env, &repo_path, "c", &["b"]);
+    create_commit(&test_env.work_dir(&repo_path), "notroot", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "base", &["notroot"]);
+    create_commit(&test_env.work_dir(&repo_path), "a", &["base"]);
+    create_commit(&test_env.work_dir(&repo_path), "b", &["base", "a"]);
+    create_commit(&test_env.work_dir(&repo_path), "c", &["b"]);
     let setup_opid = test_env.current_operation_id(&repo_path);
 
     // Test the setup
@@ -1431,15 +1431,15 @@ fn test_rebase_after() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "a", &[]);
-    create_commit(&test_env, &repo_path, "b1", &["a"]);
-    create_commit(&test_env, &repo_path, "b2", &["b1"]);
-    create_commit(&test_env, &repo_path, "b3", &["a"]);
-    create_commit(&test_env, &repo_path, "b4", &["b3"]);
-    create_commit(&test_env, &repo_path, "c", &["b2", "b4"]);
-    create_commit(&test_env, &repo_path, "d", &["c"]);
-    create_commit(&test_env, &repo_path, "e", &["c"]);
-    create_commit(&test_env, &repo_path, "f", &["e"]);
+    create_commit(&test_env.work_dir(&repo_path), "a", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "b1", &["a"]);
+    create_commit(&test_env.work_dir(&repo_path), "b2", &["b1"]);
+    create_commit(&test_env.work_dir(&repo_path), "b3", &["a"]);
+    create_commit(&test_env.work_dir(&repo_path), "b4", &["b3"]);
+    create_commit(&test_env.work_dir(&repo_path), "c", &["b2", "b4"]);
+    create_commit(&test_env.work_dir(&repo_path), "d", &["c"]);
+    create_commit(&test_env.work_dir(&repo_path), "e", &["c"]);
+    create_commit(&test_env.work_dir(&repo_path), "f", &["e"]);
     // Test the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  f: e
@@ -1986,15 +1986,15 @@ fn test_rebase_before() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "a", &[]);
-    create_commit(&test_env, &repo_path, "b1", &["a"]);
-    create_commit(&test_env, &repo_path, "b2", &["b1"]);
-    create_commit(&test_env, &repo_path, "b3", &["a"]);
-    create_commit(&test_env, &repo_path, "b4", &["b3"]);
-    create_commit(&test_env, &repo_path, "c", &["b2", "b4"]);
-    create_commit(&test_env, &repo_path, "d", &["c"]);
-    create_commit(&test_env, &repo_path, "e", &["c"]);
-    create_commit(&test_env, &repo_path, "f", &["e"]);
+    create_commit(&test_env.work_dir(&repo_path), "a", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "b1", &["a"]);
+    create_commit(&test_env.work_dir(&repo_path), "b2", &["b1"]);
+    create_commit(&test_env.work_dir(&repo_path), "b3", &["a"]);
+    create_commit(&test_env.work_dir(&repo_path), "b4", &["b3"]);
+    create_commit(&test_env.work_dir(&repo_path), "c", &["b2", "b4"]);
+    create_commit(&test_env.work_dir(&repo_path), "d", &["c"]);
+    create_commit(&test_env.work_dir(&repo_path), "e", &["c"]);
+    create_commit(&test_env.work_dir(&repo_path), "f", &["e"]);
     // Test the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  f: e
@@ -2591,16 +2591,16 @@ fn test_rebase_after_before() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "x", &[]);
-    create_commit(&test_env, &repo_path, "y", &["x"]);
-    create_commit(&test_env, &repo_path, "z", &["y"]);
-    create_commit(&test_env, &repo_path, "a", &[]);
-    create_commit(&test_env, &repo_path, "b1", &["a"]);
-    create_commit(&test_env, &repo_path, "b2", &["a"]);
-    create_commit(&test_env, &repo_path, "c", &["b1", "b2"]);
-    create_commit(&test_env, &repo_path, "d", &["c"]);
-    create_commit(&test_env, &repo_path, "e", &["c"]);
-    create_commit(&test_env, &repo_path, "f", &["e"]);
+    create_commit(&test_env.work_dir(&repo_path), "x", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "y", &["x"]);
+    create_commit(&test_env.work_dir(&repo_path), "z", &["y"]);
+    create_commit(&test_env.work_dir(&repo_path), "a", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "b1", &["a"]);
+    create_commit(&test_env.work_dir(&repo_path), "b2", &["a"]);
+    create_commit(&test_env.work_dir(&repo_path), "c", &["b1", "b2"]);
+    create_commit(&test_env.work_dir(&repo_path), "d", &["c"]);
+    create_commit(&test_env.work_dir(&repo_path), "e", &["c"]);
+    create_commit(&test_env.work_dir(&repo_path), "f", &["e"]);
     // Test the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  f: e
@@ -2874,8 +2874,8 @@ fn test_rebase_skip_emptied() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "a", &[]);
-    create_commit(&test_env, &repo_path, "b", &["a"]);
+    create_commit(&test_env.work_dir(&repo_path), "a", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "b", &["a"]);
     test_env
         .run_jj_in(&repo_path, ["new", "a", "-m", "will become empty"])
         .success();
@@ -2976,8 +2976,8 @@ fn test_rebase_skip_emptied_descendants() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "a", &[]);
-    create_commit(&test_env, &repo_path, "b", &["a"]);
+    create_commit(&test_env.work_dir(&repo_path), "a", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "b", &["a"]);
     test_env
         .run_jj_in(&repo_path, ["new", "a", "-m", "c (will become empty)"])
         .success();
@@ -3038,13 +3038,13 @@ fn test_rebase_skip_if_on_destination() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit(&test_env, &repo_path, "a", &[]);
-    create_commit(&test_env, &repo_path, "b1", &["a"]);
-    create_commit(&test_env, &repo_path, "b2", &["a"]);
-    create_commit(&test_env, &repo_path, "c", &["b1", "b2"]);
-    create_commit(&test_env, &repo_path, "d", &["c"]);
-    create_commit(&test_env, &repo_path, "e", &["c"]);
-    create_commit(&test_env, &repo_path, "f", &["e"]);
+    create_commit(&test_env.work_dir(&repo_path), "a", &[]);
+    create_commit(&test_env.work_dir(&repo_path), "b1", &["a"]);
+    create_commit(&test_env.work_dir(&repo_path), "b2", &["a"]);
+    create_commit(&test_env.work_dir(&repo_path), "c", &["b1", "b2"]);
+    create_commit(&test_env.work_dir(&repo_path), "d", &["c"]);
+    create_commit(&test_env.work_dir(&repo_path), "e", &["c"]);
+    create_commit(&test_env.work_dir(&repo_path), "f", &["e"]);
     // Test the setup
     insta::assert_snapshot!(get_long_log_output(&test_env, &repo_path), @r"
     @  f  lylxulpl  88f778c5:  e
