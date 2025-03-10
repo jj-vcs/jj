@@ -2490,11 +2490,11 @@ pub trait Revset: fmt::Debug {
 /// Function that checks if a commit is contained within the revset.
 pub type RevsetContainingFn<'a> = dyn Fn(&CommitId) -> Result<bool, RevsetEvaluationError> + 'a;
 
-pub trait RevsetIteratorExt<'index, I> {
+pub trait RevsetIteratorExt<I> {
     fn commits(self, store: &Arc<Store>) -> RevsetCommitIterator<I>;
 }
 
-impl<I: Iterator<Item = Result<CommitId, RevsetEvaluationError>>> RevsetIteratorExt<'_, I> for I {
+impl<I: Iterator<Item = Result<CommitId, RevsetEvaluationError>>> RevsetIteratorExt<I> for I {
     fn commits(self, store: &Arc<Store>) -> RevsetCommitIterator<I> {
         RevsetCommitIterator {
             iter: self,
