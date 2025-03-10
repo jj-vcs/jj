@@ -1,7 +1,7 @@
 # Jujutsu—a version control system
 
 <figure>
-<img title="jj logo" src="images/jj-logo.png" width=40%>
+<img title="jj logo" src="images/jj-logo.svg" width="320" height="320">
 </figure>
 
 ## Welcome to `jj`'s documentation website!
