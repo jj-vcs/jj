@@ -234,11 +234,8 @@ impl UnresolvedConfigEnv {
             // TODO: We should probably support colon-separated (std::env::split_paths)
             return Ok(ConfigPath::new(Some(PathBuf::from(path))));
         }
-        // TODO: Should we drop the final `/config.toml` and read all files in the
-        // directory?
         let platform_config_path = ConfigPath::new(self.config_dir.map(|mut config_dir| {
             config_dir.push("jj");
-            config_dir.push("config.toml");
             config_dir
         }));
         let home_config_path = ConfigPath::new(self.home_dir.map(|mut home_dir| {
@@ -1246,7 +1243,7 @@ mod tests {
                 config_dir: Some("config".into()),
                 ..Default::default()
             },
-            want: Want::ExistingAndNew("config/jj/config.toml"),
+            want: Want::ExistingAndNew("config/jj"),
         }
         .run()
     }
@@ -1259,7 +1256,7 @@ mod tests {
                 config_dir: Some("config".into()),
                 ..Default::default()
             },
-            want: Want::New("config/jj/config.toml"),
+            want: Want::New("config/jj"),
         }
         .run()
     }
@@ -1273,7 +1270,7 @@ mod tests {
                 home_dir: Some("home".into()),
                 ..Default::default()
             },
-            want: Want::New("config/jj/config.toml"),
+            want: Want::New("config/jj"),
         }
         .run()
     }
@@ -1313,7 +1310,7 @@ mod tests {
                 config_dir: Some("config".into()),
                 ..Default::default()
             },
-            want: Want::ExistingAndNew("config/jj/config.toml"),
+            want: Want::ExistingAndNew("config/jj"),
         }
         .run()
     }

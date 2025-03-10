@@ -1432,9 +1432,9 @@ Setting this value to zero will disable the limit entirely.
 
 ## Ways to specify `jj` config: details
 
-### User config file
+### User config file/directory
 
-An easy way to find the user config file is:
+An easy way to find the user config file/directory is:
 
 ```bash
 jj config path --user
@@ -1454,7 +1454,7 @@ services. It is an error for both of these files to exist.
 | macOS    | `$HOME/Library/Application Support/jj/config.toml` | `/Users/Alice/Library/Application Support/jj/config.toml` |
 | Windows  | `{FOLDERID_RoamingAppData}\jj\config.toml`         | `C:\Users\Alice\AppData\Roaming\jj\config.toml`           |
 
-The location of the `jj` config file can also be overridden with the
+The location of the `jj` config file/directory can also be overridden with the
 `JJ_CONFIG` environment variable. If it is not empty, it will be used instead
 of any configuration file in the default locations. If it is a path to a TOML
 file, then that file will be loaded instead. If it is a path to a directory,
@@ -1563,7 +1563,7 @@ pager = "delta"
 
 #### Using multiple files
 `--when` can also be used on the top level of a TOML file, which is convenient
-when splitting your config across multiple files using [`JJ_CONFIG`](#user-config-file).
+when splitting your config across multiple files.
 The behavior of conditions are the same as when using `[[--scope]]` tables.
 
 Note that the TOML files are read and merged in lexicographical order. This

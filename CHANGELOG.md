@@ -38,6 +38,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* The `platform_config_path` now defaults to the `jj` directory as opposed
+  to the `config.toml` file.
+
 * The 'how to resolve conflicts' hint that is shown when conflicts appear can
   be hidden by setting `hints.resolving-conflicts = false`.
 
