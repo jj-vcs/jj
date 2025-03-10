@@ -35,9 +35,10 @@ use jj_lib::git;
 use jj_lib::git::FailedRefExport;
 use jj_lib::git::FailedRefExportReason;
 use jj_lib::git::GitImportStats;
-use jj_lib::git::RefName;
+use jj_lib::git::GitRefKind;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
+use jj_lib::refs::RemoteRefSymbol;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::workspace::Workspace;
@@ -292,19 +293,17 @@ pub fn print_git_import_stats(
         let refs_stats = stats
             .changed_remote_refs
             .iter()
-            .map(|(ref_name, (remote_ref, ref_target))| {
-                RefStatus::new(ref_name, remote_ref, ref_target, repo)
+            .map(|((kind, symbol), (remote_ref, ref_target))| {
+                RefStatus::new(*kind, symbol.as_ref(), remote_ref, ref_target, repo)
             })
             .collect_vec();
 
         let has_both_ref_kinds = refs_stats
             .iter()
-            .any(|x| matches!(x.ref_kind, RefKind::Branch))
-            && refs_stats
-                .iter()
-                .any(|x| matches!(x.ref_kind, RefKind::Tag));
+            .any(|x| x.ref_kind == GitRefKind::Bookmark)
+            && refs_stats.iter().any(|x| x.ref_kind == GitRefKind::Tag);
 
-        let max_width = refs_stats.iter().map(|x| x.ref_name.width()).max();
+        let max_width = refs_stats.iter().map(|x| x.symbol.width()).max();
         if let Some(max_width) = max_width {
             for status in refs_stats {
                 status.output(max_width, has_both_ref_kinds, &mut *formatter)?;
@@ -496,37 +495,29 @@ impl RateEstimateState {
 }
 
 struct RefStatus {
-    ref_kind: RefKind,
-    ref_name: String,
+    ref_kind: GitRefKind,
+    symbol: String,
     tracking_status: TrackingStatus,
     import_status: ImportStatus,
 }
 
 impl RefStatus {
     fn new(
-        ref_name: &RefName,
+        ref_kind: GitRefKind,
+        symbol: RemoteRefSymbol<'_>,
         remote_ref: &RemoteRef,
         ref_target: &RefTarget,
         repo: &dyn Repo,
     ) -> Self {
-        let (ref_name, ref_kind, tracking_status) = match ref_name {
-            RefName::RemoteBranch(symbol) => (
-                format!("{symbol}"),
-                RefKind::Branch,
-                if repo
-                    .view()
-                    .get_remote_bookmark(symbol.as_ref())
-                    .is_tracking()
-                {
+        let tracking_status = match ref_kind {
+            GitRefKind::Bookmark => {
+                if repo.view().get_remote_bookmark(symbol).is_tracking() {
                     TrackingStatus::Tracked
                 } else {
                     TrackingStatus::Untracked
-                },
-            ),
-            RefName::Tag(tag) => (tag.clone(), RefKind::Tag, TrackingStatus::NotApplicable),
-            RefName::LocalBranch(branch) => {
-                (branch.clone(), RefKind::Branch, TrackingStatus::Tracked)
+                }
             }
+            GitRefKind::Tag => TrackingStatus::NotApplicable,
         };
 
         let import_status = match (remote_ref.target.is_absent(), ref_target.is_absent()) {
@@ -536,7 +527,7 @@ impl RefStatus {
         };
 
         Self {
-            ref_name,
+            symbol: symbol.to_string(),
             tracking_status,
             import_status,
             ref_kind,
@@ -545,7 +536,7 @@ impl RefStatus {
 
     fn output(
         &self,
-        max_ref_name_width: usize,
+        max_symbol_width: usize,
         has_both_ref_kinds: bool,
         out: &mut dyn Formatter,
     ) -> std::io::Result<()> {
@@ -561,25 +552,20 @@ impl RefStatus {
             ImportStatus::Updated => "updated",
         };
 
-        let ref_name_display_width = self.ref_name.width();
-        let pad_width = max_ref_name_width.saturating_sub(ref_name_display_width);
-        let padded_ref_name = format!("{}{:>pad_width$}", self.ref_name, "", pad_width = pad_width);
+        let symbol_width = self.symbol.width();
+        let pad_width = max_symbol_width.saturating_sub(symbol_width);
+        let padded_symbol = format!("{}{:>pad_width$}", self.symbol, "", pad_width = pad_width);
 
         let ref_kind = match self.ref_kind {
-            RefKind::Branch => "bookmark: ",
-            RefKind::Tag if !has_both_ref_kinds => "tag: ",
-            RefKind::Tag => "tag:    ",
+            GitRefKind::Bookmark => "bookmark: ",
+            GitRefKind::Tag if !has_both_ref_kinds => "tag: ",
+            GitRefKind::Tag => "tag:    ",
         };
 
         write!(out, "{ref_kind}")?;
-        write!(out.labeled("bookmark"), "{padded_ref_name}")?;
+        write!(out.labeled("bookmark"), "{padded_symbol}")?;
         writeln!(out, " [{import_status}] {tracking_status}")
     }
-}
-
-enum RefKind {
-    Branch,
-    Tag,
 }
 
 enum TrackingStatus {

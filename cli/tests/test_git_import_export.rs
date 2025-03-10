@@ -181,7 +181,7 @@ fn test_git_import_undo() {
     let output = test_env.run_jj_in(&repo_path, ["git", "import"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    bookmark: a [new] tracked
+    bookmark: a@git [new] tracked
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
@@ -202,7 +202,7 @@ fn test_git_import_undo() {
     let output = test_env.run_jj_in(&repo_path, ["git", "import"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    bookmark: a [new] tracked
+    bookmark: a@git [new] tracked
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
@@ -243,7 +243,7 @@ fn test_git_import_move_export_with_default_undo() {
     let output = test_env.run_jj_in(&repo_path, ["git", "import"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    bookmark: a [new] tracked
+    bookmark: a@git [new] tracked
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
@@ -298,7 +298,7 @@ fn test_git_import_move_export_with_default_undo() {
     let output = test_env.run_jj_in(&repo_path, ["git", "import"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    bookmark: a [new] tracked
+    bookmark: a@git [new] tracked
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
