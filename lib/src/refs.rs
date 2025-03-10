@@ -74,6 +74,22 @@ pub fn iter_named_local_remote_refs<'a, 'b, K: Ord>(
     )
 }
 
+/// Compares `ids1` and `ids2` commit ids, yields entry if they differ.
+///
+/// `ids1` and `ids2` must be sorted by `K`.
+pub fn diff_named_commit_ids<'a, 'b, K: Ord>(
+    ids1: impl IntoIterator<Item = (K, &'a CommitId)>,
+    ids2: impl IntoIterator<Item = (K, &'b CommitId)>,
+) -> impl Iterator<Item = (K, (Option<&'a CommitId>, Option<&'b CommitId>))> {
+    iter_named_pairs(
+        ids1.into_iter().map(|(k, v)| (k, Some(v))),
+        ids2.into_iter().map(|(k, v)| (k, Some(v))),
+        || None,
+        || None,
+    )
+    .filter(|(_, (target1, target2))| target1 != target2)
+}
+
 fn iter_named_pairs<K: Ord, V1, V2>(
     refs1: impl IntoIterator<Item = (K, V1)>,
     refs2: impl IntoIterator<Item = (K, V2)>,
