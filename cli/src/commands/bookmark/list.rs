@@ -12,13 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::cmp;
 use std::collections::HashSet;
 use std::rc::Rc;
+use std::sync::Arc;
 
+use clap::ValueEnum;
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools;
+use jj_lib::backend::Timestamp;
+use jj_lib::op_store::BookmarkTarget;
 use jj_lib::repo::Repo;
 use jj_lib::revset::RevsetExpression;
+use jj_lib::store::Store;
 use jj_lib::str_util::StringPattern;
 
 use crate::cli_util::CommandHelper;
@@ -107,6 +113,13 @@ pub struct BookmarkListArgs {
     ///     https://jj-vcs.github.io/jj/latest/templates/
     #[arg(long, short = 'T', add = ArgValueCandidates::new(complete::template_aliases))]
     template: Option<String>,
+
+    /// Sort bookmarks based on the given key (or multiple keys). Suffix the key
+    /// with `-` to sort in descending order of the value (e.g. `--sort name-`).
+    ///
+    /// Note that when using multiple keys, the first key is the most significant.
+    #[arg(long, value_name = "SORT_KEY", value_enum, value_delimiter = ',')]
+    sort: Vec<SortKey>,
 }
 
 pub fn cmd_bookmark_list(
@@ -162,13 +175,47 @@ pub fn cmd_bookmark_list(
             .labeled("bookmark_list")
     };
 
+    let mut bookmarks_to_list = view
+        .bookmarks()
+        .filter(|(name, target)| {
+            bookmark_names_to_list
+                .as_ref()
+                .is_none_or(|bookmark_names| bookmark_names.contains(name))
+                && (!args.conflicted || target.local_target.has_conflict())
+        })
+        .collect_vec();
+
+    // Multi-pass sorting, the first key is most significant.
+    for (i, sort_key) in args.sort.iter().rev().enumerate() {
+        let is_reversed = sort_key.is_reversed();
+        match SortStrategy::from(*sort_key) {
+            SortStrategy::Name => {
+                if is_reversed {
+                    bookmarks_to_list.sort_by_key(|&(name, _)| cmp::Reverse(name));
+                } else {
+                    // Bookmarks are already sorted by name.
+                    let is_noop = i == 0 && sort_key == &SortKey::Name;
+                    if !is_noop {
+                        bookmarks_to_list.sort_by_key(|&(name, _)| name);
+                    }
+                }
+            }
+            SortStrategy::Commit { key } => {
+                let store = repo.store();
+                if is_reversed {
+                    bookmarks_to_list.sort_by_key(|(_, target)| {
+                        cmp::Reverse(ord_value_for_bookmark_target(target, store, key))
+                    });
+                } else {
+                    bookmarks_to_list.sort_by_key(|(_, target)| {
+                        ord_value_for_bookmark_target(target, store, key)
+                    });
+                }
+            }
+        }
+    }
+
     let mut bookmark_list_items: Vec<RefListItem> = Vec::new();
-    let bookmarks_to_list = view.bookmarks().filter(|(name, target)| {
-        bookmark_names_to_list
-            .as_ref()
-            .is_none_or(|bookmark_names| bookmark_names.contains(name))
-            && (!args.conflicted || target.local_target.has_conflict())
-    });
     for (name, bookmark_target) in bookmarks_to_list {
         let local_target = bookmark_target.local_target;
         let remote_refs = bookmark_target.remote_refs;
@@ -264,4 +311,124 @@ struct RefListItem {
     primary: Rc<RefName>,
     /// Remote bookmarks tracked by the primary (or local) bookmark.
     tracked: Vec<Rc<RefName>>,
+}
+
+/// Sort key for the `--sort` argument option.
+#[derive(Copy, Clone, PartialEq, Debug, ValueEnum)]
+enum SortKey {
+    Name,
+    #[value(name = "name-")]
+    NameReversed,
+    AuthorName,
+    #[value(name = "author-name-")]
+    AuthorNameReversed,
+    AuthorEmail,
+    #[value(name = "author-email-")]
+    AuthorEmailReversed,
+    AuthorDate,
+    #[value(name = "author-date-")]
+    AuthorDateReversed,
+    CommitterName,
+    #[value(name = "committer-name-")]
+    CommitterNameReversed,
+    CommitterEmail,
+    #[value(name = "committer-email-")]
+    CommitterEmailReversed,
+    CommitterDate,
+    #[value(name = "committer-date-")]
+    CommitterDateReversed,
+}
+
+impl SortKey {
+    fn is_reversed(&self) -> bool {
+        match self {
+            SortKey::Name
+            | SortKey::AuthorName
+            | SortKey::AuthorEmail
+            | SortKey::AuthorDate
+            | SortKey::CommitterName
+            | SortKey::CommitterEmail
+            | SortKey::CommitterDate => false,
+            SortKey::NameReversed
+            | SortKey::AuthorNameReversed
+            | SortKey::AuthorEmailReversed
+            | SortKey::AuthorDateReversed
+            | SortKey::CommitterNameReversed
+            | SortKey::CommitterEmailReversed
+            | SortKey::CommitterDateReversed => true,
+        }
+    }
+}
+
+/// Convenience type that helps separate sorting algorithms.
+#[derive(Copy, Clone, Debug)]
+enum SortStrategy {
+    /// Sort strategy based on a bookmark's name.
+    Name,
+    /// Sort strategy based on a commit that relates to a bookmark.
+    Commit { key: CommitSortKey },
+}
+
+/// Sort key to sort bookmarks based on a commit.
+#[derive(Copy, Clone, Debug)]
+enum CommitSortKey {
+    AuthorName,
+    AuthorEmail,
+    AuthorDate,
+    CommitterName,
+    CommitterEmail,
+    CommitterDate,
+}
+
+impl From<SortKey> for SortStrategy {
+    fn from(value: SortKey) -> Self {
+        match value {
+            SortKey::Name | SortKey::NameReversed => Self::Name,
+            SortKey::AuthorName | SortKey::AuthorNameReversed => Self::Commit {
+                key: CommitSortKey::AuthorName,
+            },
+            SortKey::AuthorEmail | SortKey::AuthorEmailReversed => Self::Commit {
+                key: CommitSortKey::AuthorEmail,
+            },
+            SortKey::AuthorDate | SortKey::AuthorDateReversed => Self::Commit {
+                key: CommitSortKey::AuthorDate,
+            },
+            SortKey::CommitterName | SortKey::CommitterNameReversed => Self::Commit {
+                key: CommitSortKey::CommitterName,
+            },
+            SortKey::CommitterEmail | SortKey::CommitterEmailReversed => Self::Commit {
+                key: CommitSortKey::CommitterEmail,
+            },
+            SortKey::CommitterDate | SortKey::CommitterDateReversed => Self::Commit {
+                key: CommitSortKey::CommitterDate,
+            },
+        }
+    }
+}
+
+/// Wrapper type to unify types for Ord.
+#[derive(Clone, Debug, Ord, PartialOrd, Eq, PartialEq)]
+enum CommitOrdValue {
+    Str(String),
+    Timestamp(Timestamp),
+}
+
+fn ord_value_for_bookmark_target(
+    bookmark: &BookmarkTarget<'_>,
+    store: &Arc<Store>,
+    key: CommitSortKey,
+) -> Option<CommitOrdValue> {
+    bookmark
+        .local_target
+        .added_ids()
+        .next()
+        .and_then(|id| store.get_commit(id).ok())
+        .map(|commit| match key {
+            CommitSortKey::AuthorName => CommitOrdValue::Str(commit.author().name.clone()),
+            CommitSortKey::AuthorEmail => CommitOrdValue::Str(commit.author().email.clone()),
+            CommitSortKey::AuthorDate => CommitOrdValue::Timestamp(commit.author().timestamp),
+            CommitSortKey::CommitterName => CommitOrdValue::Str(commit.committer().name.clone()),
+            CommitSortKey::CommitterEmail => CommitOrdValue::Str(commit.committer().email.clone()),
+            CommitSortKey::CommitterDate => CommitOrdValue::Timestamp(commit.committer().timestamp),
+        })
 }
