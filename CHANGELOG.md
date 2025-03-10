@@ -38,6 +38,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj git push` now accepts a `--named NAME=REVISION` argument to create a named
+  bookmark and immediately push it.
+
 * The 'how to resolve conflicts' hint that is shown when conflicts appear can
   be hidden by setting `hints.resolving-conflicts = false`.
 

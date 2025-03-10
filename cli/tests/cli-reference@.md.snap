@@ -1269,6 +1269,9 @@ Before the command actually moves, creates, or deletes a remote bookmark, it mak
 * `-c`, `--change <REVSETS>` — Push this commit by creating a bookmark based on its change ID (can be repeated)
 
    The created bookmark will be tracked automatically. Use the `git.push-bookmark-prefix` setting to change the prefix for generated names.
+* `--named <NAME=REVISION>` — Specify a new bookmark name and a revision to push under that name, e.g. '--named myfeature=@'.
+
+   Does not require --allow-new
 * `--dry-run` — Only display what will change on the remote
 
 
