@@ -1473,7 +1473,7 @@ fn remove_remote_git_config_sections(
     config: &mut gix::config::File,
     remote_name: &str,
 ) -> Result<(), GitRemoteManagementError> {
-    let section_ids_to_remove = config
+    let section_ids_to_remove: Vec<_> = config
         .sections_by_name("remote")
         .into_iter()
         .flatten()
@@ -1488,8 +1488,7 @@ fn remove_remote_git_config_sections(
             }
             Ok(section.id())
         })
-        .collect::<Result<Vec<_>, _>>()?
-        .into_iter();
+        .try_collect()?;
     for id in section_ids_to_remove {
         config
             .remove_section_by_id(id)
