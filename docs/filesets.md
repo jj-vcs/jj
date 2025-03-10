@@ -5,6 +5,8 @@ Expressions in this language are called "filesets" (the idea comes from
 [Mercurial](https://repo.mercurial-scm.org/hg/help/filesets)). The language
 consists of file patterns, operators, and functions.
 
+## Quoting file names
+
 Many `jj` commands accept fileset expressions as positional arguments. File
 names passed to these commands [must be quoted][string-literals] if they contain
 whitespace or meta characters. However, as a special case, quotes can be omitted
@@ -23,12 +25,14 @@ required:
 
 ## File patterns
 
-The following patterns are supported:
+The following patterns are supported. In all cases, we do not mention any shell
+quoting that might be necessary, and the quotes around `"path"` are optional if
+the path [has no special characters](#quoting-file-names).
 
-* `"path"`, `path` (the quotes are optional), or `cwd:"path"`: Matches
-  cwd-relative path prefix (file or files under directory recursively.)
-* `cwd-file:"path"` or `file:"path"`: Matches cwd-relative file (or exact) path.
-* `cwd-glob:"pattern"` or `glob:"pattern"`: Matches file paths with cwd-relative
+* `"path"` or `cwd:"path"`: Matches cwd-relative path prefix (file or files
+  under directory recursively.)
+* `file:"path"` or `cwd-file:"path"`: Matches cwd-relative file (or exact) path.
+* `glob:"pattern"` or `cwd-glob:"pattern"`: Matches file paths with cwd-relative
   Unix-style shell [wildcard `pattern`][glob]. For example, `glob:"*.c"` will
   match all `.c` files in the current working directory non-recursively.
 * `root:"path"`: Matches workspace-relative path prefix (file or files under

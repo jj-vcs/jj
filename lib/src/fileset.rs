@@ -53,7 +53,7 @@ use crate::repo_path::UiPathParseError;
 #[derive(Debug, Error)]
 pub enum FilePatternParseError {
     /// Unknown pattern kind is specified.
-    #[error("Invalid file pattern kind `{0}:`")]
+    #[error("Invalid file pattern kind `{0}:`. See `jj help -k filesets` or <https://jj-vcs.github.io/jj/latest/filesets/#file-patterns>.")]
     InvalidKind(String),
     /// Failed to parse input UI path.
     #[error(transparent)]
