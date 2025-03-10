@@ -29,7 +29,6 @@ use std::str;
 use bstr::BStr;
 use bstr::BString;
 use itertools::Itertools;
-use tempfile::NamedTempFile;
 use thiserror::Error;
 
 use crate::backend::BackendError;
@@ -2645,17 +2644,10 @@ pub struct Progress {
     pub overall: f32,
 }
 
-#[derive(Default)]
-struct PartialSubmoduleConfig {
-    path: Option<String>,
-    url: Option<String>,
-}
-
 /// Represents configuration from a submodule, e.g. in .gitmodules
 /// This doesn't include all possible fields, only the ones we care about
 #[derive(Debug, PartialEq, Eq)]
 pub struct SubmoduleConfig {
-    pub name: String,
     pub path: String,
     pub url: String,
 }
@@ -2664,63 +2656,43 @@ pub struct SubmoduleConfig {
 pub enum GitConfigParseError {
     #[error("Unexpected io error when parsing config")]
     IoError(#[from] std::io::Error),
-    #[error("Unexpected git error when parsing config")]
-    InternalGitError(#[from] git2::Error),
+    #[error("Unexpected Git error when parsing config")]
+    InternalGitError(#[from] Box<dyn std::error::Error + Send + Sync>),
+}
+
+impl GitConfigParseError {
+    fn from_git(source: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
+        GitConfigParseError::InternalGitError(source.into())
+    }
 }
 
 pub fn parse_gitmodules(
     config: &mut dyn Read,
 ) -> Result<BTreeMap<String, SubmoduleConfig>, GitConfigParseError> {
-    // git2 can only read from a path, so set one up
-    let mut temp_file = NamedTempFile::new()?;
-    std::io::copy(config, &mut temp_file)?;
-    let path = temp_file.into_temp_path();
-    let git_config = git2::Config::open(&path)?;
-    // Partial config value for each submodule name
-    let mut partial_configs: BTreeMap<String, PartialSubmoduleConfig> = BTreeMap::new();
+    let mut config_bytes = vec![];
+    config.read_to_end(&mut config_bytes)?;
 
-    let entries = git_config.entries(Some(r"submodule\..+\."))?;
-    entries.for_each(|entry| {
-        let (config_name, config_value) = match (entry.name(), entry.value()) {
-            // Reject non-utf8 entries
-            (Some(name), Some(value)) => (name, value),
-            _ => return,
-        };
+    let global_config = gix::config::File::new(gix::config::file::Metadata::api());
+    let submodule_config = gix::submodule::File::from_bytes(&config_bytes, None, &global_config)
+        .map_err(GitConfigParseError::from_git)?;
 
-        // config_name is of the form submodule.<name>.<variable>
-        let (submod_name, submod_var) = config_name
-            .strip_prefix("submodule.")
-            .unwrap()
-            .split_once('.')
-            .unwrap();
-
-        let map_entry = partial_configs.entry(submod_name.to_string()).or_default();
-
-        match (submod_var.to_ascii_lowercase().as_str(), &map_entry) {
-            // TODO Git warns when a duplicate config entry is found, we should
-            // consider doing the same.
-            ("path", PartialSubmoduleConfig { path: None, .. }) => {
-                map_entry.path = Some(config_value.to_string());
-            }
-            ("url", PartialSubmoduleConfig { url: None, .. }) => {
-                map_entry.url = Some(config_value.to_string());
-            }
-            _ => (),
-        };
-    })?;
-
-    let ret = partial_configs
-        .into_iter()
-        .filter_map(|(name, val)| {
-            Some((
-                name.clone(),
-                SubmoduleConfig {
-                    name,
-                    path: val.path?,
-                    url: val.url?,
-                },
-            ))
+    submodule_config
+        .names()
+        .filter_map(|name| {
+            let path = match submodule_config.path(name) {
+                Ok(path) => String::try_from(path.into_owned()).ok()?,
+                Err(gix::submodule::config::path::Error::Missing { .. }) => return None,
+                Err(err) => return Some(Err(GitConfigParseError::from_git(err))),
+            };
+            let url = match submodule_config.url(name) {
+                Ok(url) => String::try_from(url.to_bstring()).ok()?,
+                Err(gix::submodule::config::url::Error::Missing { .. }) => return None,
+                Err(err) => return Some(Err(GitConfigParseError::from_git(err))),
+            };
+            Some(Ok((
+                String::try_from(name).ok()?,
+                SubmoduleConfig { path, url },
+            )))
         })
-        .collect();
-    Ok(ret)
+        .collect()
 }

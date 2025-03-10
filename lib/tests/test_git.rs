@@ -4007,10 +4007,10 @@ URL = https://github.com/jj-vcs/jj
 PATH = mod2
 
 [submodule "repeated_keys"]
-url = https://github.com/jj-vcs/jj
-path = mod3
 url = https://github.com/chooglen/jj
 path = mod4
+url = https://github.com/jj-vcs/jj
+path = mod3
 
 # The following entries aren't expected in a well-formed .gitmodules
 [submodule "missing_url"]
@@ -4027,17 +4027,14 @@ ignoreThisSection = foo
     .unwrap();
     let expected = btreemap! {
         "wellformed".to_string() => SubmoduleConfig {
-            name: "wellformed".to_string(),
             url: "https://github.com/jj-vcs/jj".to_string(),
             path: "mod".to_string(),
         },
         "uppercase".to_string() => SubmoduleConfig {
-            name: "uppercase".to_string(),
             url: "https://github.com/jj-vcs/jj".to_string(),
             path: "mod2".to_string(),
         },
         "repeated_keys".to_string() => SubmoduleConfig {
-            name: "repeated_keys".to_string(),
             url: "https://github.com/jj-vcs/jj".to_string(),
             path: "mod3".to_string(),
         },
