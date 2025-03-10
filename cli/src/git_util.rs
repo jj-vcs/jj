@@ -549,13 +549,13 @@ impl RefStatus {
         let pad_width = max_symbol_width.saturating_sub(symbol_width);
         let padded_symbol = format!("{}{:>pad_width$}", self.symbol, "", pad_width = pad_width);
 
-        let ref_kind = match self.ref_kind {
+        let label = match self.ref_kind {
             GitRefKind::Bookmark => "bookmark",
             GitRefKind::Tag => "tag",
         };
 
-        write!(out, "{ref_kind}: ")?;
-        write!(out.labeled("bookmark"), "{padded_symbol}")?;
+        write!(out, "{label}: ")?;
+        write!(out.labeled(label), "{padded_symbol}")?;
         writeln!(out, " [{import_status}] {tracking_status}")
     }
 }
