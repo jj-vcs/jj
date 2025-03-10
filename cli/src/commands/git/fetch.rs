@@ -73,7 +73,7 @@ pub struct GitFetchArgs {
     )]
     remotes: Vec<StringPattern>,
     /// Fetch from all remotes
-    #[arg(long, conflicts_with = "remotes")]
+    #[arg(long, short, conflicts_with = "remotes")]
     all_remotes: bool,
 }
 

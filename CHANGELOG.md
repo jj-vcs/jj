@@ -45,6 +45,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj bookmark move --to/--from` can now be abbreviated to `jj bookmark move -t/-f`
 
+* `jj git fetch --all-remotes` can now be abbreviated to `jj git fetch -a`.
+
 ### Fixed bugs
 
 ## [0.27.0] - 2025-03-05
