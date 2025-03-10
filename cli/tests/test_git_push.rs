@@ -2295,6 +2295,55 @@ fn test_git_push_sign_on_push() {
     ");
 }
 
+#[test]
+fn test_git_push_private_commits() {
+    let (test_env, workspace_root) = set_up();
+    test_env.add_config(r#"git.private-commits = "description('private')""#);
+    test_env
+        .run_jj_in(&workspace_root, ["new", "bookmark1", "-m", "public"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_root, ["bookmark", "set", "bookmark1", "-r@"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_root, ["new", "bookmark2", "-m", "private"])
+        .success();
+    test_env
+        .run_jj_in(&workspace_root, ["bookmark", "set", "bookmark2", "-r@"])
+        .success();
+
+    // fails due to private commits on bookmark2
+    let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--all"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Won't push commit f98b6dcb4760 since it is private
+    Hint: Rejected commit: znkkpsqq f98b6dcb bookmark2* | (empty) private
+    Hint: Configured git.private-commits: 'description('private')'
+    Hint: Consider --skip-private to skip pushing bookmarks with private commits
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // succeeds, but skips bookmark2
+    let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--all", "--skip-private"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Changes to push to origin:
+      Move forward bookmark bookmark1 from d13ecdbda2a2 to 8677da72ba01
+      Skipped bookmark bookmark2 with private commits
+    [EOF]
+    ");
+
+    // succeeds, pushing bookmark2 with its private commits
+    let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--all", "--allow-private"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Changes to push to origin:
+      Move forward bookmark bookmark2 from 8476341eb395 to f98b6dcb4760
+    [EOF]
+    ");
+}
+
 #[must_use]
 fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput {
     // --quiet to suppress deleted bookmarks hint

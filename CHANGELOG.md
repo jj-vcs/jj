@@ -43,6 +43,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj op log -d` now has an alias for `jj op log --op-diff`.
 
+* `jj git push` now has a flag `--skip-private` to continue pushing other
+  bookmarks which don't contain private commits.
+
 ### Fixed bugs
 
 ## [0.27.0] - 2025-03-05
