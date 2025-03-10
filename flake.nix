@@ -31,172 +31,79 @@
         ];
       };
 
-      filterSrc = src: regexes:
-        pkgs.lib.cleanSourceWith {
-          inherit src;
-          filter = path: type: let
-            relPath = pkgs.lib.removePrefix (toString src + "/") (toString path);
-          in
-            pkgs.lib.all (re: builtins.match re relPath == null) regexes;
+      minimalPlatform = let
+        toolchain = pkgs.rust-bin.selectLatestNightlyWith (t: t.minimal);
+      in
+        pkgs.makeRustPlatform {
+          rustc = toolchain;
+          cargo = toolchain;
         };
 
-      # When we're running in the shell, we want to use rustc with a bunch
-      # of extra junk to ensure that rust-analyzer works, clippy etc are all
-      # installed.
-      rustShellToolchain = (pkgs.rust-bin.selectLatestNightlyWith (t: t.default)).override {
-        # NOTE (aseipp): explicitly add rust-src to the rustc compiler only in
-        # devShell. this in turn causes a dependency on the rust compiler src,
-        # which bloats the closure size by several GiB. but doing this here and
-        # not by default avoids the default flake install from including that
-        # dependency, so it's worth it
-        #
-        # relevant PR: https://github.com/rust-lang/rust/pull/129687
-        extensions = ["rust-src" "rust-analyzer"];
-      };
-
-      # But, whenever we are running CI builds or checks, we want to use a
-      # smaller closure. This reduces the CI impact on fresh clones/VMs, etc.
-      rustMinimalPlatform =
-        let platform = pkgs.rust-bin.selectLatestNightlyWith (t: t.minimal);
-        in pkgs.makeRustPlatform { rustc = platform; cargo = platform; };
-
-      nativeBuildInputs = with pkgs;
-        [
-          gzip
-          pkg-config
-
-          # for libz-ng-sys (zlib-ng)
-          # TODO: switch to the packaged zlib-ng and drop this dependency
-          cmake
-        ]
-        ++ lib.optionals stdenv.isLinux [
-          mold-wrapped
-        ];
-
-      buildInputs = with pkgs;
-        [
-          openssl
-          libgit2
-          libssh2
-        ]
-        ++ lib.optionals stdenv.isDarwin [
-          darwin.apple_sdk.frameworks.Security
-          darwin.apple_sdk.frameworks.SystemConfiguration
-          libiconv
-        ];
-
-      nativeCheckInputs = with pkgs; [
-        # for signing tests
-        gnupg
-        openssh
-
-        # for git subprocess test
-        git
-
-        # for schema tests
-        taplo
-      ];
-
-      env = {
-        LIBSSH2_SYS_USE_PKG_CONFIG = "1";
-        RUST_BACKTRACE = 1;
+      jujutsu = pkgs.callPackage ./. {
+        rustPlatform = minimalPlatform;
+        gitRev = self.rev or self.dirtyRev or "dirty";
       };
     in {
       formatter = pkgs.alejandra;
 
       packages = {
-        jujutsu = rustMinimalPlatform.buildRustPackage {
-          pname = "jujutsu";
-          version = "unstable-${self.shortRev or "dirty"}";
-
-          buildFeatures = ["packaging"];
-          cargoBuildFlags = ["--bin" "jj"]; # don't build and install the fake editors
-          useNextest = true;
-          cargoTestFlags = ["--profile" "ci"];
-          src = filterSrc ./. [
-            ".*\\.nix$"
-            "^.jj/"
-            "^flake\\.lock$"
-            "^target/"
-          ];
-
-          cargoLock.lockFile = ./Cargo.lock;
-          nativeBuildInputs = nativeBuildInputs ++ [pkgs.installShellFiles];
-          inherit buildInputs nativeCheckInputs;
-
-          env =
-            env
-            // {
-              RUSTFLAGS = pkgs.lib.optionalString pkgs.stdenv.isLinux "-C link-arg=-fuse-ld=mold";
-              NIX_JJ_GIT_HASH = self.rev or "";
-              CARGO_INCREMENTAL = "0";
-            };
-
-          postInstall = ''
-            $out/bin/jj util install-man-pages man
-            installManPage ./man/man1/*
-
-            installShellCompletion --cmd jj \
-              --bash <(COMPLETE=bash $out/bin/jj) \
-              --fish <(COMPLETE=fish $out/bin/jj) \
-              --zsh <(COMPLETE=zsh $out/bin/jj)
-          '';
-
-          meta = {
-            description = "Git-compatible DVCS that is both simple and powerful";
-            homepage = "https://github.com/jj-vcs/jj";
-            license = pkgs.lib.licenses.asl20;
-            mainProgram = "jj";
-          };
-        };
+        jujutsu = jujutsu;
         default = self.packages.${system}.jujutsu;
+
+        windows = pkgs.pkgsCross.mingwW64.callPackage ./. {
+          gitRev = self.rev or self.dirtyRev or "dirty";
+        };
       };
 
-      checks.jujutsu = self.packages.${system}.jujutsu.overrideAttrs ({...}: {
-        # The default Rust infrastructure runs all builds in the release
-        # profile, which is significantly slower. Run this under the `test`
-        # profile instead, which matches all our other CI systems, Cargo, etc.
-        cargoBuildType = "test";
-        cargoCheckType = "test";
-
-        # By default, `flake check` will want to run the install phase, but
-        # because we override the cargoBuildType, it fails to find the proper
-        # binary. But we don't even care about the binary or even the buildPhase
-        # in this case; just remove them both.
+      checks.jujutsu = self.packages.${system}.jujutsu.overrideAttrs {
+        cargoBuildType = "ci";
+        cargoBuildFeatures = ["test-fakes"];
+        doCheck = true;
         buildPhase = "true";
         installPhase = "touch $out";
-      });
+      };
 
       devShells.default = let
-        packages = with pkgs; [
+        packages = let
+          p = pkgs;
+
+          rustShellToolchain = p.rust-bin.selectLatestNightlyWith (t:
+            t.default.override {
+              extensions = ["rust-src" "rust-analyzer"];
+            });
+        in [
           rustShellToolchain
 
           # Additional tools recommended by contributing.md
-          bacon
-          cargo-deny
-          cargo-insta
-          cargo-nextest
+          p.bacon
+          p.cargo-deny
+          p.cargo-insta
+          p.cargo-nextest
 
           # Miscellaneous tools
-          watchman
+          p.watchman
 
           # In case you need to run `cargo run --bin gen-protos`
-          protobuf
+          p.protobuf
 
           # For building the documentation website
-          uv
+          p.uv
           # nixos does not work with uv-installed python
-          python3
+          p.python3
         ];
 
         # on macOS and Linux, use faster parallel linkers that are much more
         # efficient than the defaults. these noticeably improve link time even for
         # medium sized rust projects like jj
-        rustLinkerFlags =
-          if pkgs.stdenv.isLinux
-          then ["-fuse-ld=mold" "-Wl,--compress-debug-sections=zstd"]
-          else if pkgs.stdenv.isDarwin
-          then
+        rustLinkerFlags = let
+          inherit (pkgs.lib) optionals;
+          std = pkgs.stdenv;
+        in
+          optionals std.isLinux [
+            "-fuse-ld=mold"
+            "-Wl,--compress-debug-sections=zstd"
+          ]
+          ++ optionals std.isDarwin [
             # on darwin, /usr/bin/ld actually looks at the environment variable
             # $DEVELOPER_DIR, which is set by the nix stdenv, and if set,
             # automatically uses it to route the `ld` invocation to the binary
@@ -204,8 +111,9 @@
             # functional, but Xcode's linker as of ~v15 (not yet open source)
             # is ultra-fast and very shiny; it is enabled via -ld_new, and on by
             # default as of v16+
-            ["--ld-path=$(unset DEVELOPER_DIR; /usr/bin/xcrun --find ld)" "-ld_new"]
-          else [];
+            "--ld-path=$(unset DEVELOPER_DIR; /usr/bin/xcrun --find ld)"
+            "-ld_new"
+          ];
 
         rustLinkFlagsString =
           pkgs.lib.concatStringsSep " "
@@ -218,9 +126,14 @@
         '';
       in
         pkgs.mkShell {
+          inherit shellHook packages;
           name = "jujutsu";
-          packages = packages ++ nativeBuildInputs ++ buildInputs ++ nativeCheckInputs;
-          inherit env shellHook;
+          inputsFrom = [self.checks.${system}.jujutsu];
+          env = {
+            LIBGIT2_NO_VENDOR = 1;
+            LIBSSH2_SYS_USE_PKG_CONFIG = 1;
+            RUST_BACKTRACE = 1;
+          };
         };
     }));
 }
