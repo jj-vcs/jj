@@ -2020,13 +2020,18 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
         if Some(new_commit) != maybe_old_commit {
             if let Some(mut formatter) = ui.status_formatter() {
                 let template = self.commit_summary_template();
-                write!(formatter, "Working copy now at: ")?;
+                write!(formatter, "Working copy now ")?;
+                formatter.with_label("node", |fmt| write!(fmt.labeled("working_copy"), "@"))?;
+                write!(formatter, "  ")?;
                 formatter.with_label("working_copy", |fmt| template.format(new_commit, fmt))?;
                 writeln!(formatter)?;
                 for parent in new_commit.parents() {
                     let parent = parent?;
-                    //                "Working copy now at: "
-                    write!(formatter, "Parent commit      : ")?;
+                    //                "Working copy now @  "
+                    //                "Parent commit    @- "
+                    write!(formatter, "Parent commit    ")?;
+                    write!(formatter.labeled("node"), "@-")?;
+                    write!(formatter, " ")?;
                     template.format(&parent, formatter.as_mut())?;
                     writeln!(formatter)?;
                 }
