@@ -296,7 +296,8 @@ fn process_commit(
         };
         // If an omitted parent had the file, leave these lines unresolved.
         // TODO: These unresolved lines could be copied to the original_line_map
-        // as Err(commit_id) or something instead of None.
+        // as Err(commit_id) or something instead of None; or the farthest ancestor
+        // commit ID.
         if parent_source.line_map.is_empty() || parent_edge.edge_type == GraphEdgeType::Missing {
             commit_source_map.remove(parent_commit_id);
         }

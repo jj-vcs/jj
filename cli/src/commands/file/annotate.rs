@@ -124,8 +124,13 @@ fn render_file_annotation(
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();
     let mut last_id = None;
+    let default_id = repo.store().root_commit_id();
     for (line_number, (commit_id, content)) in annotation.lines().enumerate() {
-        let commit_id = commit_id.expect("should reached to the empty ancestor");
+        /* At least in cases where the repository was jj-initialized shallowly,
+        then unshallow'd with git, some changes will not have a commit id
+        because jj does not import the unshallow'd commits. So we default
+        to the root commit id for now. */
+        let commit_id = commit_id.unwrap_or(default_id);
         let commit = repo.store().get_commit(commit_id)?;
         let first_line_in_hunk = last_id != Some(commit_id);
         let annotation_line = AnnotationLine {
