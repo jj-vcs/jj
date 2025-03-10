@@ -12,6 +12,7 @@ use jj_lib::gpg_signing::GpgBackend;
 use jj_lib::signing::SigStatus;
 use jj_lib::signing::SignError;
 use jj_lib::signing::SigningBackend;
+use testutils::TestEnvironment;
 
 static PRIVATE_KEY: &str = r#"-----BEGIN PGP PRIVATE KEY BLOCK-----
 
@@ -81,6 +82,7 @@ impl GpgEnvironment {
 macro_rules! gpg_guard {
     () => {
         if Command::new("gpg").arg("--version").status().is_err() {
+            TestEnvironment::ensure_running_outside_ci("`gpg` must be in the PATH");
             eprintln!("Skipping test because gpg is not installed on the system");
             return;
         }

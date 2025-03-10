@@ -1,6 +1,8 @@
 use std::process::Command;
 use std::process::Stdio;
 
+use testutils::TestEnvironment;
+
 fn taplo_check_config(file: &str) {
     if Command::new("taplo")
         .arg("--version")
@@ -8,6 +10,7 @@ fn taplo_check_config(file: &str) {
         .status()
         .is_err()
     {
+        TestEnvironment::ensure_running_outside_ci("`taplo` must be in the PATH");
         eprintln!("Skipping test because taplo is not installed on the system");
         return;
     }
