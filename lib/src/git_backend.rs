@@ -306,11 +306,6 @@ impl GitBackend {
         self.base_repo.to_thread_local()
     }
 
-    /// Creates new owned git repository instance.
-    pub fn open_git_repo(&self) -> Result<git2::Repository, git2::Error> {
-        git2::Repository::open(self.git_repo_path())
-    }
-
     /// Path to the `.git` directory or the repository itself if it's bare.
     pub fn git_repo_path(&self) -> &Path {
         self.base_repo.path()

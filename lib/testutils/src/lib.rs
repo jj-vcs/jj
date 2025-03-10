@@ -21,7 +21,6 @@ use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::sync::Once;
 
 use itertools::Itertools;
 use jj_lib::backend;
@@ -72,23 +71,30 @@ use crate::test_backend::TestBackendFactory;
 pub mod git;
 pub mod test_backend;
 
-pub fn hermetic_libgit2() {
-    // libgit2 respects init.defaultBranch (and possibly other config
-    // variables) in the user's config files. Disable access to them to make
-    // our tests hermetic.
-    //
-    // set_search_path is unsafe because it cannot guarantee thread safety (as
-    // its documentation states). For the same reason, we wrap these invocations
-    // in `call_once`.
-    static CONFIGURE_GIT2: Once = Once::new();
-    CONFIGURE_GIT2.call_once(|| unsafe {
-        git2::opts::set_search_path(git2::ConfigLevel::System, "").unwrap();
-        git2::opts::set_search_path(git2::ConfigLevel::Global, "").unwrap();
-        git2::opts::set_search_path(git2::ConfigLevel::XDG, "").unwrap();
-        git2::opts::set_search_path(git2::ConfigLevel::ProgramData, "").unwrap();
-    });
+// TODO: Make sure `git(1)` calls in tests use an explicit environment and then
+// remove this function. This is somewhat tricky because `GitBackend` calls into
+// `git(1)` for things like garbage collection.
+pub fn hermetic_git() {
+    #[cfg(feature = "git2")]
+    {
+        // libgit2 respects init.defaultBranch (and possibly other config
+        // variables) in the user's config files. Disable access to them to make
+        // our tests hermetic.
+        //
+        // set_search_path is unsafe because it cannot guarantee thread safety (as
+        // its documentation states). For the same reason, we wrap these invocations
+        // in `call_once`.
+        use std::sync::Once;
+        static CONFIGURE_GIT2: Once = Once::new();
+        CONFIGURE_GIT2.call_once(|| unsafe {
+            git2::opts::set_search_path(git2::ConfigLevel::System, "").unwrap();
+            git2::opts::set_search_path(git2::ConfigLevel::Global, "").unwrap();
+            git2::opts::set_search_path(git2::ConfigLevel::XDG, "").unwrap();
+            git2::opts::set_search_path(git2::ConfigLevel::ProgramData, "").unwrap();
+        });
+    }
 
-    // Prevent GitBackend from loading user and system configurations. For
+    // Prevent `git(1)` from loading user and system configurations. For
     // gitoxide API use in tests, Config::isolated() is probably better.
     env::set_var("GIT_CONFIG_SYSTEM", "/dev/null");
     env::set_var("GIT_CONFIG_GLOBAL", "/dev/null");
@@ -100,7 +106,7 @@ pub fn hermetic_libgit2() {
 }
 
 pub fn new_temp_dir() -> TempDir {
-    hermetic_libgit2();
+    hermetic_git();
     tempfile::Builder::new()
         .prefix("jj-test-")
         .tempdir()

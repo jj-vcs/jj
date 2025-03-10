@@ -44,7 +44,7 @@ pub struct TestEnvironment {
 
 impl Default for TestEnvironment {
     fn default() -> Self {
-        testutils::hermetic_libgit2();
+        testutils::hermetic_git();
 
         let tmp_dir = testutils::new_temp_dir();
         let env_root = dunce::canonicalize(tmp_dir.path()).unwrap();
