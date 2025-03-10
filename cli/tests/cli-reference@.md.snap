@@ -741,9 +741,11 @@ With the `--from` and/or `--to` options, shows the difference from/to the given 
 
 ###### **Options:**
 
-* `-r`, `--revision <REVSET>` — Show changes in this revision, compared to its parent(s)
+* `-r`, `--revisions <REVSETS>` — Show changes in these revisions
 
-   If the revision is a merge commit, this shows changes *from* the automatic merge of the contents of all of its parents *to* the contents of the revision itself.
+   If there are multiple revisions, then then total diff for all of them will be shown. For example, if you have a linear chain of revisions A..D, then `jj diff -r B..D` equals `jj diff --from A --to D`. Multiple heads and/or roots are supported, but gaps in the revset is not supported (e.g. `jj diff -r 'A|C'` in a linear chain A..C).
+
+   If a revision is a merge commit, this shows changes *from* the automatic merge of the contents of all of its parents *to* the contents of the revision itself.
 * `-f`, `--from <REVSET>` — Show changes from this revision
 * `-t`, `--to <REVSET>` — Show changes to this revision
 * `-s`, `--summary` — For each path, show only whether it was modified, added, or deleted
