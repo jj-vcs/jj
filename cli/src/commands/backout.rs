@@ -31,6 +31,7 @@ use crate::ui::Ui;
 /// The description of the new revisions can be customized with the
 /// `templates.backout_description` config variable.
 #[derive(clap::Args, Clone, Debug)]
+#[command(hide = true)]
 pub(crate) struct BackoutArgs {
     /// The revision(s) to apply the reverse of
     #[arg(

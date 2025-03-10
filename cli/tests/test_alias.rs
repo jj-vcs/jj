@@ -446,20 +446,6 @@ fn test_aliases_overriding_friendly_errors() {
     [EOF]
     [exit status: 2]
     "#);
-    let output = test_env.run_jj_in(".", ["revert", "-r@-"]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    error: unrecognized subcommand 'revert'
-
-      tip: a similar subcommand exists: 'prev'
-
-    Usage: jj [OPTIONS] <COMMAND>
-
-    For more information, try '--help'.
-    Hint: You probably want `jj backout` or `jj restore`.
-    [EOF]
-    [exit status: 2]
-    ");
     let output = test_env.run_jj_in(".", ["init", "--help"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------

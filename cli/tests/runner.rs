@@ -60,6 +60,7 @@ mod test_rebase_command;
 mod test_repo_change_report;
 mod test_resolve_command;
 mod test_restore_command;
+mod test_revert_command;
 mod test_revset_output;
 mod test_root;
 mod test_shell_completion;
