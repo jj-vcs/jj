@@ -23,10 +23,10 @@ required:
 
 ## File patterns
 
-The following patterns are supported:
+The following patterns are supported (the quotes are optional):
 
-* `"path"`, `path` (the quotes are optional), or `cwd:"path"`: Matches
-  cwd-relative path prefix (file or files under directory recursively.)
+* `"path"` or `cwd:"path"`: Matches cwd-relative path prefix (file or files
+  under directory recursively.)
 * `cwd-file:"path"` or `file:"path"`: Matches cwd-relative file (or exact) path.
 * `cwd-glob:"pattern"` or `glob:"pattern"`: Matches file paths with cwd-relative
   Unix-style shell [wildcard `pattern`][glob]. For example, `glob:"*.c"` will
