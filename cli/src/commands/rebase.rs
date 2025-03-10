@@ -427,7 +427,7 @@ fn rebase_revisions(
         .try_collect()?; // in reverse topological order
     workspace_command.check_rewritable(target_commits.iter().ids())?;
 
-    let (new_parents, new_children) = compute_commit_location(
+    let (new_parent_ids, new_children_ids) = compute_commit_location(
         ui,
         workspace_command,
         rebase_destination.destination.as_deref(),
@@ -435,9 +435,9 @@ fn rebase_revisions(
         rebase_destination.insert_before.as_deref(),
         "rebased commits",
     )?;
-    if rebase_destination.destination.is_some() && new_children.is_empty() {
+    if rebase_destination.destination.is_some() && new_children_ids.is_empty() {
         for commit in &target_commits {
-            if new_parents.contains(commit) {
+            if new_parent_ids.contains(commit.id()) {
                 return Err(user_error(format!(
                     "Cannot rebase {} onto itself",
                     short_commit_hash(commit.id()),
@@ -448,8 +448,8 @@ fn rebase_revisions(
     rebase_revisions_transaction(
         ui,
         workspace_command,
-        &new_parents.iter().ids().cloned().collect_vec(),
-        &new_children,
+        &new_parent_ids,
+        &new_children_ids,
         target_commits,
         rebase_options,
     )
@@ -468,7 +468,7 @@ fn rebase_source(
         .collect_vec();
     workspace_command.check_rewritable(source_commits.iter().ids())?;
 
-    let (new_parents, new_children) = compute_commit_location(
+    let (new_parent_ids, new_children_ids) = compute_commit_location(
         ui,
         workspace_command,
         rebase_destination.destination.as_deref(),
@@ -476,17 +476,17 @@ fn rebase_source(
         rebase_destination.insert_before.as_deref(),
         "rebased commits",
     )?;
-    if rebase_destination.destination.is_some() && new_children.is_empty() {
+    if rebase_destination.destination.is_some() && new_children_ids.is_empty() {
         for commit in &source_commits {
-            check_rebase_destinations(workspace_command.repo(), &new_parents, commit)?;
+            check_rebase_destinations(workspace_command.repo(), &new_parent_ids, commit)?;
         }
     }
 
     rebase_descendants_transaction(
         ui,
         workspace_command,
-        &new_parents.iter().ids().cloned().collect_vec(),
-        &new_children,
+        &new_parent_ids,
+        &new_children_ids,
         source_commits,
         rebase_options,
     )
@@ -509,7 +509,7 @@ fn rebase_branch(
             .collect_vec()
     };
 
-    let (new_parents, new_children) = compute_commit_location(
+    let (new_parent_ids, new_children_ids) = compute_commit_location(
         ui,
         workspace_command,
         rebase_destination.destination.as_deref(),
@@ -517,7 +517,6 @@ fn rebase_branch(
         rebase_destination.insert_before.as_deref(),
         "rebased commits",
     )?;
-    let new_parent_ids = new_parents.iter().ids().cloned().collect_vec();
     let branch_commit_ids = branch_commits.iter().ids().cloned().collect_vec();
     let roots_expression = RevsetExpression::commits(new_parent_ids.clone())
         .range(&RevsetExpression::commits(branch_commit_ids))
@@ -529,9 +528,9 @@ fn rebase_branch(
         .commits(workspace_command.repo().store())
         .try_collect()?;
     workspace_command.check_rewritable(root_commits.iter().ids())?;
-    if rebase_destination.destination.is_some() && new_children.is_empty() {
+    if rebase_destination.destination.is_some() && new_children_ids.is_empty() {
         for commit in &root_commits {
-            check_rebase_destinations(workspace_command.repo(), &new_parents, commit)?;
+            check_rebase_destinations(workspace_command.repo(), &new_parent_ids, commit)?;
         }
     }
 
@@ -539,7 +538,7 @@ fn rebase_branch(
         ui,
         workspace_command,
         &new_parent_ids,
-        &new_children,
+        &new_children_ids,
         root_commits,
         rebase_options,
     )
@@ -549,7 +548,7 @@ fn rebase_descendants_transaction(
     ui: &mut Ui,
     workspace_command: &mut WorkspaceCommandHelper,
     new_parent_ids: &[CommitId],
-    new_children: &[Commit],
+    new_children_ids: &[CommitId],
     target_roots: Vec<Commit>,
     rebase_options: &RebaseOptions,
 ) -> Result<(), CommandError> {
@@ -574,7 +573,7 @@ fn rebase_descendants_transaction(
     let stats = move_commits(
         tx.repo_mut(),
         new_parent_ids,
-        new_children,
+        new_children_ids,
         &MoveCommitsTarget::Roots(target_roots),
         rebase_options,
     )?;
@@ -587,7 +586,7 @@ fn rebase_revisions_transaction(
     ui: &mut Ui,
     workspace_command: &mut WorkspaceCommandHelper,
     new_parent_ids: &[CommitId],
-    new_children: &[Commit],
+    new_children_ids: &[CommitId],
     target_commits: Vec<Commit>,
     rebase_options: &RebaseOptions,
 ) -> Result<(), CommandError> {
@@ -610,7 +609,7 @@ fn rebase_revisions_transaction(
     let stats = move_commits(
         tx.repo_mut(),
         new_parent_ids,
-        new_children,
+        new_children_ids,
         &MoveCommitsTarget::Commits(target_commits),
         rebase_options,
     )?;
@@ -620,15 +619,15 @@ fn rebase_revisions_transaction(
 
 fn check_rebase_destinations(
     repo: &Arc<ReadonlyRepo>,
-    new_parents: &[Commit],
+    new_parents: &[CommitId],
     commit: &Commit,
 ) -> Result<(), CommandError> {
-    for parent in new_parents {
-        if repo.index().is_ancestor(commit.id(), parent.id()) {
+    for parent_id in new_parents {
+        if repo.index().is_ancestor(commit.id(), parent_id) {
             return Err(user_error(format!(
                 "Cannot rebase {} onto descendant {}",
                 short_commit_hash(commit.id()),
-                short_commit_hash(parent.id())
+                short_commit_hash(parent_id)
             )));
         }
     }

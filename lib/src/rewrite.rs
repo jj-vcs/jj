@@ -422,7 +422,7 @@ pub enum MoveCommitsTarget {
 pub fn move_commits(
     mut_repo: &mut MutableRepo,
     new_parent_ids: &[CommitId],
-    new_children: &[Commit],
+    new_children_ids: &[CommitId],
     target: &MoveCommitsTarget,
     options: &RebaseOptions,
 ) -> BackendResult<MoveCommitsStats> {
@@ -519,6 +519,10 @@ pub fn move_commits(
     // If the new children include a commit in the target set, replace it with the
     // commit's descendants which are outside the set.
     // e.g. `jj rebase -r A --after A`
+    let new_children: Vec<_> = new_children_ids
+        .iter()
+        .map(|commit_id| mut_repo.store().get_commit(commit_id))
+        .try_collect()?;
     let new_children: Vec<_> = if new_children
         .iter()
         .any(|child| target_commit_ids.contains(child.id()))
@@ -584,7 +588,7 @@ pub fn move_commits(
             })
             .collect()
     } else {
-        new_children.to_vec()
+        new_children
     };
 
     // Compute the parents of the new children, which will include the heads of the
