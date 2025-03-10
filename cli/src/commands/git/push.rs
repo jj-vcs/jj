@@ -327,20 +327,20 @@ pub fn cmd_git_push(
         return Ok(());
     }
 
-    let sign_behavior = if tx.settings().get_bool("git.sign-on-push")? {
-        Some(SignBehavior::Own)
+    let sign_behavior = if tx.settings().get_bool("git.sign-on-push.enabled")? {
+        Some(tx.settings().get("git.sign-on-push.behavior")?)
     } else {
         None
     };
-    let commits_to_sign =
+    let commits_to_update_signatures =
         validate_commits_ready_to_push(ui, &bookmark_updates, &remote, &tx, args, sign_behavior)?;
-    if !args.dry_run && !commits_to_sign.is_empty() {
+    if !args.dry_run && !commits_to_update_signatures.is_empty() {
         if let Some(sign_behavior) = sign_behavior {
-            let num_updated_signatures = commits_to_sign.len();
+            let num_updated_signatures = commits_to_update_signatures.len();
             let num_rebased_descendants;
-            (num_rebased_descendants, bookmark_updates) = sign_commits_before_push(
+            (num_rebased_descendants, bookmark_updates) = update_commit_signatures_before_push(
                 &mut tx,
-                commits_to_sign,
+                commits_to_update_signatures,
                 sign_behavior,
                 bookmark_updates,
             )?;
@@ -383,7 +383,7 @@ pub fn cmd_git_push(
 /// Validates that the commits that will be pushed are ready (have authorship
 /// information, are not conflicted, etc.).
 ///
-/// Returns the list of commits which need to be signed.
+/// Returns the list of commits which need their signatures updated.
 fn validate_commits_ready_to_push(
     ui: &Ui,
     bookmark_updates: &[(String, BookmarkPushUpdate)],
@@ -421,7 +421,7 @@ fn validate_commits_ready_to_push(
         sign_settings
     });
 
-    let mut commits_to_sign = vec![];
+    let mut commits_to_update_signatures = vec![];
 
     for commit in workspace_helper
         .attach_revset_evaluator(commits_to_push)
@@ -469,25 +469,26 @@ fn validate_commits_ready_to_push(
             return Err(error);
         }
         if let Some(sign_settings) = &sign_settings {
-            if !commit.is_signed() && sign_settings.should_sign(commit.store_commit()) {
-                commits_to_sign.push(commit);
+            if commit.is_signed() != sign_settings.should_sign(commit.store_commit()) {
+                commits_to_update_signatures.push(commit);
             }
         }
     }
-    Ok(commits_to_sign)
+    Ok(commits_to_update_signatures)
 }
 
-/// Signs commits before pushing.
+/// Update commit signatures before pushing.
 ///
 /// Returns the number of commits with rebased descendants and the updated list
 /// of bookmark names and corresponding [`BookmarkPushUpdate`]s.
-fn sign_commits_before_push(
+fn update_commit_signatures_before_push(
     tx: &mut WorkspaceCommandTransaction,
-    commits_to_sign: Vec<Commit>,
+    commits_to_update_signatures: Vec<Commit>,
     sign_behavior: SignBehavior,
     bookmark_updates: Vec<(String, BookmarkPushUpdate)>,
 ) -> Result<(usize, Vec<(String, BookmarkPushUpdate)>), CommandError> {
-    let commit_ids: IndexSet<CommitId> = commits_to_sign.iter().ids().cloned().collect();
+    let commit_ids: IndexSet<CommitId> =
+        commits_to_update_signatures.iter().ids().cloned().collect();
     let mut old_to_new_commits_map: HashMap<CommitId, CommitId> = HashMap::new();
     let mut num_rebased_descendants = 0;
     tx.repo_mut()

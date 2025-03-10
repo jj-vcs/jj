@@ -36,6 +36,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `core.watchman.register_snapshot_trigger` has been renamed to `core.watchman.register-snapshot-trigger` for consistency with other configuration options.
 
+* The `git.sign-on-push` config option has been deprecated in favor of
+  `git.sign-on-push.enabled` and `git.sign-on-push.behavior` options.
+  `git.sign-on-push.behavior` allows customizing the signing behavior similar to
+  `signing.behavior`. Valid options are `drop` (drop all signatures), `keep`
+  (preserve existing signatures), `own` (sign own commits), or `force` (sign all
+  commits). The default value is set to `own` to match the previous behavior.
+
 ### New features
 
 * The 'how to resolve conflicts' hint that is shown when conflicts appear can
