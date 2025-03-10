@@ -169,10 +169,25 @@ fn test_restore_conflicted_merge() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit_with_files(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
-    create_commit_with_files(&test_env, &repo_path, "a", &["base"], &[("file", "a\n")]);
-    create_commit_with_files(&test_env, &repo_path, "b", &["base"], &[("file", "b\n")]);
-    create_commit_with_files(&test_env, &repo_path, "conflict", &["a", "b"], &[]);
+    create_commit_with_files(
+        &test_env.work_dir(&repo_path),
+        "base",
+        &[],
+        &[("file", "base\n")],
+    );
+    create_commit_with_files(
+        &test_env.work_dir(&repo_path),
+        "a",
+        &["base"],
+        &[("file", "a\n")],
+    );
+    create_commit_with_files(
+        &test_env.work_dir(&repo_path),
+        "b",
+        &["base"],
+        &[("file", "b\n")],
+    );
+    create_commit_with_files(&test_env.work_dir(&repo_path), "conflict", &["a", "b"], &[]);
     // Test the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @    conflict
@@ -285,18 +300,26 @@ fn test_restore_restore_descendants() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit_with_files(&test_env, &repo_path, "base", &[], &[("file", "base\n")]);
-    create_commit_with_files(&test_env, &repo_path, "a", &["base"], &[("file", "a\n")]);
     create_commit_with_files(
-        &test_env,
-        &repo_path,
+        &test_env.work_dir(&repo_path),
+        "base",
+        &[],
+        &[("file", "base\n")],
+    );
+    create_commit_with_files(
+        &test_env.work_dir(&repo_path),
+        "a",
+        &["base"],
+        &[("file", "a\n")],
+    );
+    create_commit_with_files(
+        &test_env.work_dir(&repo_path),
         "b",
         &["base"],
         &[("file", "b\n"), ("file2", "b\n")],
     );
     create_commit_with_files(
-        &test_env,
-        &repo_path,
+        &test_env.work_dir(&repo_path),
         "ab",
         &["a", "b"],
         &[("file", "ab\n")],
@@ -369,15 +392,13 @@ fn test_restore_interactive() {
     let repo_path = test_env.env_root().join("repo");
 
     create_commit_with_files(
-        &test_env,
-        &repo_path,
+        &test_env.work_dir(&repo_path),
         "a",
         &[],
         &[("file1", "a1\n"), ("file2", "a2\n")],
     );
     create_commit_with_files(
-        &test_env,
-        &repo_path,
+        &test_env.work_dir(&repo_path),
         "b",
         &["a"],
         &[("file1", "b1\n"), ("file2", "b2\n"), ("file3", "b3\n")],
@@ -472,11 +493,20 @@ fn test_restore_interactive_merge() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit_with_files(&test_env, &repo_path, "a", &[], &[("file1", "a1\n")]);
-    create_commit_with_files(&test_env, &repo_path, "b", &[], &[("file2", "b1\n")]);
     create_commit_with_files(
-        &test_env,
-        &repo_path,
+        &test_env.work_dir(&repo_path),
+        "a",
+        &[],
+        &[("file1", "a1\n")],
+    );
+    create_commit_with_files(
+        &test_env.work_dir(&repo_path),
+        "b",
+        &[],
+        &[("file2", "b1\n")],
+    );
+    create_commit_with_files(
+        &test_env.work_dir(&repo_path),
         "c",
         &["a", "b"],
         &[("file1", "c1\n"), ("file2", "c2\n"), ("file3", "c3\n")],
@@ -553,15 +583,13 @@ fn test_restore_interactive_with_paths() {
     let repo_path = test_env.env_root().join("repo");
 
     create_commit_with_files(
-        &test_env,
-        &repo_path,
+        &test_env.work_dir(&repo_path),
         "a",
         &[],
         &[("file1", "a1\n"), ("file2", "a2\n")],
     );
     create_commit_with_files(
-        &test_env,
-        &repo_path,
+        &test_env.work_dir(&repo_path),
         "b",
         &["a"],
         &[("file1", "b1\n"), ("file2", "b2\n"), ("file3", "b3\n")],

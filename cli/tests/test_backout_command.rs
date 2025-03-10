@@ -24,7 +24,7 @@ fn test_backout() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit_with_files(&test_env, &repo_path, "a", &[], &[("a", "a\n")]);
+    create_commit_with_files(&test_env.work_dir(&repo_path), "a", &[], &[("a", "a\n")]);
     // Test the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
     @  2443ea76b0b1 a
@@ -82,17 +82,26 @@ fn test_backout_multiple() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    create_commit_with_files(&test_env, &repo_path, "a", &[], &[("a", "a\n")]);
-    create_commit_with_files(&test_env, &repo_path, "b", &["a"], &[("a", "a\nb\n")]);
+    create_commit_with_files(&test_env.work_dir(&repo_path), "a", &[], &[("a", "a\n")]);
     create_commit_with_files(
-        &test_env,
-        &repo_path,
+        &test_env.work_dir(&repo_path),
+        "b",
+        &["a"],
+        &[("a", "a\nb\n")],
+    );
+    create_commit_with_files(
+        &test_env.work_dir(&repo_path),
         "c",
         &["b"],
         &[("a", "a\nb\n"), ("b", "b\n")],
     );
-    create_commit_with_files(&test_env, &repo_path, "d", &["c"], &[]);
-    create_commit_with_files(&test_env, &repo_path, "e", &["d"], &[("a", "a\nb\nc\n")]);
+    create_commit_with_files(&test_env.work_dir(&repo_path), "d", &["c"], &[]);
+    create_commit_with_files(
+        &test_env.work_dir(&repo_path),
+        "e",
+        &["d"],
+        &[("a", "a\nb\nc\n")],
+    );
 
     // Test the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
@@ -194,7 +203,7 @@ fn test_backout_description_template() {
         "#,
     );
     let repo_path = test_env.env_root().join("repo");
-    create_commit_with_files(&test_env, &repo_path, "a", &[], &[("a", "a\n")]);
+    create_commit_with_files(&test_env.work_dir(&repo_path), "a", &[], &[("a", "a\n")]);
 
     // Test the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"

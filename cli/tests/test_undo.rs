@@ -96,7 +96,7 @@ fn test_git_push_undo() {
       @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden 2080bdb8 (empty) AA
     [EOF]
     ");
-    let pre_push_opid = test_env.current_operation_id(&repo_path);
+    let pre_push_opid = test_env.work_dir(&repo_path).current_operation_id();
     test_env.run_jj_in(&repo_path, ["git", "push"]).success();
     //                     | jj refs | jj's   | git
     //                     |         | git    | repo
@@ -187,7 +187,7 @@ fn test_git_push_undo_with_import() {
       @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden 2080bdb8 (empty) AA
     [EOF]
     ");
-    let pre_push_opid = test_env.current_operation_id(&repo_path);
+    let pre_push_opid = test_env.work_dir(&repo_path).current_operation_id();
     test_env.run_jj_in(&repo_path, ["git", "push"]).success();
     //                     | jj refs | jj's   | git
     //                     |         | git    | repo
@@ -288,7 +288,7 @@ fn test_git_push_undo_colocated() {
       @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden 2080bdb8 (empty) AA
     [EOF]
     ");
-    let pre_push_opid = test_env.current_operation_id(&repo_path);
+    let pre_push_opid = test_env.work_dir(&repo_path).current_operation_id();
     test_env.run_jj_in(&repo_path, ["git", "push"]).success();
     //                     | jj refs | jj's   | git
     //                     |         | git    | repo
@@ -383,7 +383,7 @@ fn test_git_push_undo_repo_only() {
       @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden 2080bdb8 (empty) AA
     [EOF]
     ");
-    let pre_push_opid = test_env.current_operation_id(&repo_path);
+    let pre_push_opid = test_env.work_dir(&repo_path).current_operation_id();
     test_env.run_jj_in(&repo_path, ["git", "push"]).success();
 
     // Undo the push, but keep both the git_refs and the remote-tracking bookmarks

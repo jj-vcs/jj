@@ -75,7 +75,7 @@ fn test_gc_operation_log() {
     test_env
         .run_jj_in(&repo_path, ["commit", "-m", "a change"])
         .success();
-    let op_to_remove = test_env.current_operation_id(&repo_path);
+    let op_to_remove = test_env.work_dir(&repo_path).current_operation_id();
 
     // Make another operation the head.
     std::fs::write(repo_path.join("file"), "another change\n").unwrap();

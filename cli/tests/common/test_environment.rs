@@ -191,13 +191,6 @@ impl TestEnvironment {
         self.env_vars.insert(key.into(), val.into());
     }
 
-    pub fn current_operation_id(&self, repo_path: &Path) -> String {
-        let output = self
-            .run_jj_in(repo_path, ["debug", "operation", "--display=id"])
-            .success();
-        output.stdout.raw().trim_end().to_owned()
-    }
-
     /// Sets up the fake editor to read an edit script from the returned path
     /// Also sets up the fake editor as a merge tool named "fake-editor"
     pub fn set_up_fake_editor(&mut self) -> PathBuf {
@@ -286,6 +279,14 @@ impl TestWorkDir<'_> {
             stderr: env.normalize_output(String::from_utf8(output.stderr).unwrap()),
             status: output.status,
         }
+    }
+
+    #[track_caller]
+    pub fn current_operation_id(&self) -> String {
+        let output = self
+            .run_jj(["debug", "operation", "--display=id"])
+            .success();
+        output.stdout.raw().trim_end().to_owned()
     }
 
     #[track_caller]

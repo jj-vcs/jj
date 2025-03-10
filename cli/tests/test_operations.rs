@@ -1007,7 +1007,7 @@ fn test_op_corrupted_operation_file() {
     let repo_path = test_env.env_root().join("repo");
     let op_store_path = repo_path.join(PathBuf::from_iter([".jj", "repo", "op_store"]));
 
-    let op_id = test_env.current_operation_id(&repo_path);
+    let op_id = test_env.work_dir(&repo_path).current_operation_id();
     insta::assert_snapshot!(op_id, @"eac759b9ab75793fd3da96e60939fb48f2cd2b2a9c1f13ffe723cf620f3005b8d3e7e923634a07ea39513e4f2f360c87b9ad5d331cf90d7a844864b83b72eba1");
 
     let op_file_path = op_store_path.join("operations").join(&op_id);
