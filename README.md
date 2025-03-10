@@ -2,7 +2,7 @@
 
 # Jujutsu—a version control system
 
-<p><img title="jj logo" src="docs/images/jj-logo.png" width=40%></p>
+<p><img title="jj logo" src="docs/images/jj-logo.svg" width="320" height="320"></p>
 
 [![Release](https://img.shields.io/github/v/release/martinvonz/jj)](https://github.com/jj-vcs/jj/releases)
 [![Release date](https://img.shields.io/github/release-date/martinvonz/jj)](https://github.com/jj-vcs/jj/releases)
