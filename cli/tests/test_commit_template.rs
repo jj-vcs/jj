@@ -570,52 +570,52 @@ fn test_log_evolog_divergence() {
         )
         .success();
     let output = test_env.run_jj_in(&repo_path, ["log"]);
-    insta::assert_snapshot!(output, @r"
-    @  qpvuntsm?? test.user@example.com 2001-02-03 08:05:08 ff309c29
+    insta::assert_snapshot!(output, @r#"
+    @  qpvuntsm divergent test.user@example.com 2001-02-03 08:05:08 ff309c29
     │  description 1
-    │ ○  qpvuntsm?? test.user@example.com 2001-02-03 08:05:10 6ba70e00
+    │ ○  qpvuntsm divergent test.user@example.com 2001-02-03 08:05:10 6ba70e00
     ├─╯  description 2
     ◆  zzzzzzzz root() 00000000
     [EOF]
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
     [EOF]
-    ");
+    "#);
 
     // Color
     let output = test_env.run_jj_in(&repo_path, ["log", "--color=always"]);
-    insta::assert_snapshot!(output, @r"
-    [1m[38;5;2m@[0m  [1m[4m[38;5;1mq[24mpvuntsm[38;5;9m??[39m [38;5;3mtest.user@example.com[39m [38;5;14m2001-02-03 08:05:08[39m [38;5;12mf[38;5;8mf309c29[39m[0m
+    insta::assert_snapshot!(output, @r#"
+    [1m[38;5;2m@[0m  [1m[39mq[38;5;8mpvuntsm[39m divergent [38;5;3mtest.user@example.com[39m [38;5;14m2001-02-03 08:05:08[39m [38;5;12mf[38;5;8mf309c29[39m[0m
     │  [1mdescription 1[0m
-    │ ○  [1m[4m[38;5;1mq[0m[38;5;1mpvuntsm??[39m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:10[39m [1m[38;5;4m6[0m[38;5;8mba70e00[39m
+    │ ○  [1m[39mq[0m[38;5;8mpvuntsm[39m divergent [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:10[39m [1m[38;5;4m6[0m[38;5;8mba70e00[39m
     ├─╯  description 2
     [1m[38;5;14m◆[0m  [1m[38;5;5mz[0m[38;5;8mzzzzzzz[39m [38;5;2mroot()[39m [1m[38;5;4m0[0m[38;5;8m0000000[39m
     [EOF]
-    ");
+    "#);
 
     // Evolog and hidden divergent
     let output = test_env.run_jj_in(&repo_path, ["evolog"]);
-    insta::assert_snapshot!(output, @r"
-    @  qpvuntsm?? test.user@example.com 2001-02-03 08:05:08 ff309c29
+    insta::assert_snapshot!(output, @r#"
+    @  qpvuntsm divergent test.user@example.com 2001-02-03 08:05:08 ff309c29
     │  description 1
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 485d52a9
     │  (no description set)
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 230dd059
        (empty) (no description set)
     [EOF]
-    ");
+    "#);
 
     // Colored evolog
     let output = test_env.run_jj_in(&repo_path, ["evolog", "--color=always"]);
-    insta::assert_snapshot!(output, @r"
-    [1m[38;5;2m@[0m  [1m[4m[38;5;1mq[24mpvuntsm[38;5;9m??[39m [38;5;3mtest.user@example.com[39m [38;5;14m2001-02-03 08:05:08[39m [38;5;12mf[38;5;8mf309c29[39m[0m
+    insta::assert_snapshot!(output, @r#"
+    [1m[38;5;2m@[0m  [1m[39mq[38;5;8mpvuntsm[39m divergent [38;5;3mtest.user@example.com[39m [38;5;14m2001-02-03 08:05:08[39m [38;5;12mf[38;5;8mf309c29[39m[0m
     │  [1mdescription 1[0m
     ○  [1m[39mq[0m[38;5;8mpvuntsm[39m hidden [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:08[39m [1m[38;5;4m4[0m[38;5;8m85d52a9[39m
     │  [38;5;3m(no description set)[39m
     ○  [1m[39mq[0m[38;5;8mpvuntsm[39m hidden [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:07[39m [1m[38;5;4m2[0m[38;5;8m30dd059[39m
        [38;5;2m(empty)[39m [38;5;2m(no description set)[39m
     [EOF]
-    ");
+    "#);
 }
 
 #[test]
