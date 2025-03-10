@@ -279,7 +279,7 @@ pub struct View {
     // The commit that *should be* checked out in the workspace. Note that the working copy
     // (.jj/working_copy/) has the source of truth about which commit *is* checked out (to be
     // precise: the commit to which we most recently completed an update to).
-    pub wc_commit_ids: HashMap<WorkspaceId, CommitId>,
+    pub wc_commit_ids: BTreeMap<WorkspaceId, CommitId>,
 }
 
 impl View {
@@ -295,7 +295,7 @@ impl View {
             remote_views: BTreeMap::new(),
             git_refs: BTreeMap::new(),
             git_head: RefTarget::absent(),
-            wc_commit_ids: HashMap::new(),
+            wc_commit_ids: BTreeMap::new(),
         }
     }
 
@@ -308,7 +308,7 @@ impl View {
             remote_views: BTreeMap::new(),
             git_refs: BTreeMap::new(),
             git_head: RefTarget::absent(),
-            wc_commit_ids: HashMap::new(),
+            wc_commit_ids: BTreeMap::new(),
         }
     }
 }

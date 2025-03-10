@@ -771,7 +771,7 @@ mod tests {
                 "refs/heads/feature".to_string() => git_refs_feature_target,
             },
             git_head: RefTarget::normal(CommitId::from_hex("fff111")),
-            wc_commit_ids: hashmap! {
+            wc_commit_ids: btreemap! {
                 WorkspaceId::default() => default_wc_commit_id,
                 WorkspaceId::new("test".to_string()) => test_wc_commit_id,
             },

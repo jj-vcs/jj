@@ -15,7 +15,6 @@
 #![allow(missing_docs)]
 
 use std::collections::BTreeMap;
-use std::collections::HashMap;
 use std::collections::HashSet;
 
 use itertools::Itertools;
@@ -46,7 +45,7 @@ impl View {
         }
     }
 
-    pub fn wc_commit_ids(&self) -> &HashMap<WorkspaceId, CommitId> {
+    pub fn wc_commit_ids(&self) -> &BTreeMap<WorkspaceId, CommitId> {
         &self.data.wc_commit_ids
     }
 

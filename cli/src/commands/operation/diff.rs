@@ -29,6 +29,7 @@ use jj_lib::matchers::EverythingMatcher;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::op_store::RemoteRefState;
+use jj_lib::op_store::WorkspaceId;
 use jj_lib::refs::diff_named_ref_targets;
 use jj_lib::refs::diff_named_remote_refs;
 use jj_lib::repo::ReadonlyRepo;
@@ -277,6 +278,43 @@ pub fn show_op_diff(
         }
     }
 
+    let from_wc_ref_targets = get_ordered_wc_ref_targets(from_repo);
+    let to_wc_ref_targets = get_ordered_wc_ref_targets(to_repo);
+    let changed_working_copies: Vec<(&WorkspaceId, (&RefTarget, &RefTarget))> =
+        diff_named_ref_targets(
+            from_wc_ref_targets.iter().map(|(k, v)| (k, v)),
+            to_wc_ref_targets.iter().map(|(k, v)| (k, v)),
+        )
+        .collect_vec();
+    if !changed_working_copies.is_empty() {
+        writeln!(formatter)?;
+        for (name, (from_target, to_target)) in changed_working_copies {
+            with_content_format.write(formatter, |formatter| {
+                // Usually, there is at most one working copy changed per commit, so we put the
+                // working copy name in the heading.
+                write!(formatter, "Changed working copy ")?;
+                write!(formatter.labeled("working_copies"), "{}@", name.as_str())?;
+                writeln!(formatter, ":")?;
+                write_ref_target_summary(
+                    formatter,
+                    current_repo,
+                    commit_summary_template,
+                    to_target,
+                    true,
+                    None,
+                )?;
+                write_ref_target_summary(
+                    formatter,
+                    current_repo,
+                    commit_summary_template,
+                    from_target,
+                    false,
+                    None,
+                )
+            })?;
+        }
+    }
+
     let changed_local_bookmarks = diff_named_ref_targets(
         from_repo.view().local_bookmarks(),
         to_repo.view().local_bookmarks(),
@@ -484,6 +522,14 @@ fn get_parent_changes(
             .unique()
             .collect_vec()
     }
+}
+
+fn get_ordered_wc_ref_targets(repo: &ReadonlyRepo) -> Vec<(WorkspaceId, RefTarget)> {
+    repo.view()
+        .wc_commit_ids() // Returns an ordered map
+        .iter()
+        .map(|(k, v)| (k.clone(), RefTarget::normal(v.clone())))
+        .collect_vec()
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
