@@ -47,6 +47,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* The built-in diff editor now correctly handles deleted files.
+  [#3702](https://github.com/jj-vcs/jj/issues/3702)
+
+* The built-in diff editor now correctly retains the executable bit on newly
+  added files when splitting. [#3846](https://github.com/jj-vcs/jj/issues/3846)
+
 ## [0.27.0] - 2025-03-05
 
 ### Release highlights
