@@ -34,6 +34,14 @@ use crate::git::RefToPush;
 use crate::git::RemoteCallbacks;
 use crate::git_backend::GitBackend;
 
+// This is not the minimum required version, that would be 2.29.0, which
+// introduced the `--no-write-fetch-head` option. However, that by itself
+// is quite old and unsupported, so we don't want to encourage users to
+// update to that.
+//
+// 2.40 still receives security patches (latest one was in Jan/2025)
+const MINIMUM_GIT_VERSION: &str = "2.40.4";
+
 /// Error originating by a Git subprocess
 #[derive(Error, Debug)]
 pub enum GitSubprocessError {
@@ -53,6 +61,11 @@ pub enum GitSubprocessError {
     },
     #[error("Failed to wait for the git process")]
     Wait(std::io::Error),
+    #[error(
+        "Git does not recognize required option: {0} (note: supported version is \
+         {MINIMUM_GIT_VERSION})"
+    )]
+    UnsupportedGitOption(String),
     #[error("Git process failed: {0}")]
     External(String),
 }
@@ -317,6 +330,22 @@ fn parse_no_remote_tracking_branch(stderr: &[u8]) -> Option<String> {
         .map(|branch| branch.to_str_lossy().into_owned())
 }
 
+/// Parse unknown options
+///
+/// Return the unknown option
+///
+/// If a user is running a very old git version, our commands may fail
+/// We want to give a good error in this case
+fn parse_unknown_option(stderr: &[u8]) -> Option<String> {
+    let first_line = stderr.lines().next()?;
+    first_line
+        .strip_prefix(b"unknown option: --")
+        .or(first_line
+            .strip_prefix(b"error: unknown option `")
+            .and_then(|s| s.strip_suffix(b"'")))
+        .map(|s| s.to_str_lossy().into())
+}
+
 // return the fully qualified ref that failed to fetch
 //
 // note that git fetch only returns one error at a time
@@ -326,6 +355,10 @@ fn parse_git_fetch_output(output: Output) -> Result<Option<String>, GitSubproces
     }
 
     // There are some git errors we want to parse out
+    if let Some(option) = parse_unknown_option(&output.stderr) {
+        return Err(GitSubprocessError::UnsupportedGitOption(option));
+    }
+
     if let Some(remote) = parse_no_such_remote(&output.stderr) {
         return Err(GitSubprocessError::NoSuchRepository(remote));
     }
@@ -347,6 +380,10 @@ fn parse_git_branch_prune_output(output: Output) -> Result<(), GitSubprocessErro
     }
 
     // There are some git errors we want to parse out
+    if let Some(option) = parse_unknown_option(&output.stderr) {
+        return Err(GitSubprocessError::UnsupportedGitOption(option));
+    }
+
     if parse_no_remote_tracking_branch(&output.stderr).is_some() {
         return Ok(());
     }
@@ -360,6 +397,10 @@ fn parse_git_remote_show_output(output: Output) -> Result<Output, GitSubprocessE
     }
 
     // There are some git errors we want to parse out
+    if let Some(option) = parse_unknown_option(&output.stderr) {
+        return Err(GitSubprocessError::UnsupportedGitOption(option));
+    }
+
     if let Some(remote) = parse_no_such_remote(&output.stderr) {
         return Err(GitSubprocessError::NoSuchRepository(remote));
     }
@@ -478,6 +519,10 @@ fn parse_git_push_output(output: Output) -> Result<GitPushStats, GitSubprocessEr
     if output.status.success() {
         let ref_pushes = parse_ref_pushes(&output.stdout)?;
         return Ok(ref_pushes);
+    }
+
+    if let Some(option) = parse_unknown_option(&output.stderr) {
+        return Err(GitSubprocessError::UnsupportedGitOption(option));
     }
 
     if let Some(remote) = parse_no_such_remote(&output.stderr) {
@@ -865,5 +910,18 @@ Done";
             None
         );
         assert_eq!(read_progress_line(b"fatal: this is a git error\n"), None);
+    }
+
+    #[test]
+    fn test_parse_unknown_option() {
+        assert_eq!(
+            parse_unknown_option(b"unknown option: --abc").unwrap(),
+            "abc".to_string()
+        );
+        assert_eq!(
+            parse_unknown_option(b"error: unknown option `abc'").unwrap(),
+            "abc".to_string()
+        );
+        assert!(parse_unknown_option(b"error: unknown option: 'abc'").is_none());
     }
 }
