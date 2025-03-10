@@ -45,6 +45,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* When jj is used with a repository that was shallowly cloned, and then filled
+  up with `git fetch --unshallow`, do not panic on git annotate anymore.
+
 ## [0.27.0] - 2025-03-05
 
 ### Release highlights
