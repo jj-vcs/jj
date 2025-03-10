@@ -1556,7 +1556,7 @@ fn test_fetch_undo_what(subprocess: bool) {
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @"");
     }
-    let base_operation_id = test_env.current_operation_id(&repo_path);
+    let base_operation_id = test_env.work_dir(&repo_path).current_operation_id();
 
     // Fetch a bookmark
     let output = test_env.run_jj_in(&repo_path, ["git", "fetch", "--branch", "b"]);

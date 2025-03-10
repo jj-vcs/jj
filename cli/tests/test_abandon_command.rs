@@ -207,7 +207,7 @@ fn test_bug_2600() {
     ◆  [zzz]
     [EOF]
     ");
-    let setup_opid = test_env.current_operation_id(&repo_path);
+    let setup_opid = test_env.work_dir(&repo_path).current_operation_id();
 
     test_env
         .run_jj_in(&repo_path, ["op", "restore", &setup_opid])

@@ -176,7 +176,7 @@ fn test_git_import_undo() {
 
     // Initial state we will return to after `undo`. There are no bookmarks.
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @"");
-    let base_operation_id = test_env.current_operation_id(&repo_path);
+    let base_operation_id = test_env.work_dir(&repo_path).current_operation_id();
 
     let output = test_env.run_jj_in(&repo_path, ["git", "import"]);
     insta::assert_snapshot!(output, @r"
@@ -238,7 +238,7 @@ fn test_git_import_move_export_with_default_undo() {
     // Initial state we will try to return to after `op restore`. There are no
     // bookmarks.
     insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @"");
-    let base_operation_id = test_env.current_operation_id(&repo_path);
+    let base_operation_id = test_env.work_dir(&repo_path).current_operation_id();
 
     let output = test_env.run_jj_in(&repo_path, ["git", "import"]);
     insta::assert_snapshot!(output, @r"

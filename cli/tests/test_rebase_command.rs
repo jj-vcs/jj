@@ -681,7 +681,7 @@ fn test_rebase_revision_onto_descendant() {
     ◆
     [EOF]
     ");
-    let setup_opid = test_env.current_operation_id(&repo_path);
+    let setup_opid = test_env.work_dir(&repo_path).current_operation_id();
 
     // Simpler example
     let output = test_env.run_jj_in(&repo_path, ["rebase", "-r", "base", "-d", "a"]);
@@ -1038,7 +1038,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     create_commit(&test_env.work_dir(&repo_path), "a", &["base"]);
     create_commit(&test_env.work_dir(&repo_path), "b", &["base", "a"]);
     create_commit(&test_env.work_dir(&repo_path), "c", &["b"]);
-    let setup_opid = test_env.current_operation_id(&repo_path);
+    let setup_opid = test_env.work_dir(&repo_path).current_operation_id();
 
     // Test the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
@@ -1457,7 +1457,7 @@ fn test_rebase_after() {
     ◆
     [EOF]
     ");
-    let setup_opid = test_env.current_operation_id(&repo_path);
+    let setup_opid = test_env.work_dir(&repo_path).current_operation_id();
 
     // Rebasing a commit after its parents should be a no-op.
     let output = test_env.run_jj_in(
@@ -2012,7 +2012,7 @@ fn test_rebase_before() {
     ◆
     [EOF]
     ");
-    let setup_opid = test_env.current_operation_id(&repo_path);
+    let setup_opid = test_env.work_dir(&repo_path).current_operation_id();
 
     // Rebasing a commit before its children should be a no-op.
     let output = test_env.run_jj_in(
@@ -2620,7 +2620,7 @@ fn test_rebase_after_before() {
     ◆
     [EOF]
     ");
-    let setup_opid = test_env.current_operation_id(&repo_path);
+    let setup_opid = test_env.work_dir(&repo_path).current_operation_id();
 
     // Rebase a commit after another commit and before that commit's child to
     // insert directly between the two commits.
@@ -2888,7 +2888,7 @@ fn test_rebase_skip_emptied() {
     test_env
         .run_jj_in(&repo_path, ["new", "-m", "also already empty"])
         .success();
-    let setup_opid = test_env.current_operation_id(&repo_path);
+    let setup_opid = test_env.work_dir(&repo_path).current_operation_id();
 
     // Test the setup
     insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["log", "-T", "description"]), @r"

@@ -277,7 +277,7 @@ fn test_duplicate_destination() {
     create_commit(&test_env.work_dir(&repo_path), "b", &[]);
     create_commit(&test_env.work_dir(&repo_path), "c", &[]);
     create_commit(&test_env.work_dir(&repo_path), "d", &[]);
-    let setup_opid = test_env.current_operation_id(&repo_path);
+    let setup_opid = test_env.work_dir(&repo_path).current_operation_id();
 
     // Test the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
@@ -504,7 +504,7 @@ fn test_duplicate_insert_after() {
     create_commit(&test_env.work_dir(&repo_path), "c2", &["c1"]);
     create_commit(&test_env.work_dir(&repo_path), "d1", &[]);
     create_commit(&test_env.work_dir(&repo_path), "d2", &["d1"]);
-    let setup_opid = test_env.current_operation_id(&repo_path);
+    let setup_opid = test_env.work_dir(&repo_path).current_operation_id();
 
     // Test the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
@@ -1200,7 +1200,7 @@ fn test_duplicate_insert_before() {
     create_commit(&test_env.work_dir(&repo_path), "c2", &["c1"]);
     create_commit(&test_env.work_dir(&repo_path), "d1", &[]);
     create_commit(&test_env.work_dir(&repo_path), "d2", &["d1"]);
-    let setup_opid = test_env.current_operation_id(&repo_path);
+    let setup_opid = test_env.work_dir(&repo_path).current_operation_id();
 
     // Test the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
@@ -1902,7 +1902,7 @@ fn test_duplicate_insert_after_before() {
     create_commit(&test_env.work_dir(&repo_path), "c2", &["c1"]);
     create_commit(&test_env.work_dir(&repo_path), "d1", &[]);
     create_commit(&test_env.work_dir(&repo_path), "d2", &["d1"]);
-    let setup_opid = test_env.current_operation_id(&repo_path);
+    let setup_opid = test_env.work_dir(&repo_path).current_operation_id();
 
     // Test the setup
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"

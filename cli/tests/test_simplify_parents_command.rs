@@ -190,7 +190,7 @@ fn test_simplify_parents_multiple_redundant_parents() {
     ◆
     [EOF]
     ");
-    let setup_opid = test_env.current_operation_id(&repo_path);
+    let setup_opid = test_env.work_dir(&repo_path).current_operation_id();
 
     // Test with `-r`.
     let output = test_env.run_jj_in(&repo_path, ["simplify-parents", "-r", "c", "-r", "f"]);
@@ -267,7 +267,7 @@ fn test_simplify_parents_no_args() {
     ◆
     [EOF]
     ");
-    let setup_opid = test_env.current_operation_id(&repo_path);
+    let setup_opid = test_env.work_dir(&repo_path).current_operation_id();
 
     let output = test_env.run_jj_in(&repo_path, ["simplify-parents"]);
     insta::assert_snapshot!(output, @r"
