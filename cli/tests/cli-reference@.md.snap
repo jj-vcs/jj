@@ -1178,7 +1178,7 @@ If a working-copy commit gets abandoned, it will be given a new, empty commit. T
    By default, the specified remote names matches exactly. Use a [string pattern], e.g. `--remote 'glob:*'`, to select remotes using patterns.
 
    [string pattern]: https://jj-vcs.github.io/jj/latest/revsets#string-patterns
-* `--all-remotes` — Fetch from all remotes
+* `-a`, `--all-remotes` — Fetch from all remotes
 
 
 
