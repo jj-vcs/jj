@@ -22,11 +22,11 @@ use crate::command_error::user_error;
 use crate::command_error::CommandError;
 use crate::ui::Ui;
 
-/// Print the path to the config file
+/// Print the paths to the config files
 ///
 /// A config file at that path may or may not exist.
 ///
-/// See `jj config edit` if you'd like to immediately edit the file.
+/// See `jj config edit` if you'd like to immediately edit a file.
 #[derive(clap::Args, Clone, Debug)]
 pub struct ConfigPathArgs {
     #[command(flatten)]
@@ -39,13 +39,14 @@ pub fn cmd_config_path(
     command: &CommandHelper,
     args: &ConfigPathArgs,
 ) -> Result<(), CommandError> {
-    let config_path = args.level.config_path(command.config_env())?;
-    writeln!(
-        ui.stdout(),
-        "{}",
-        config_path
-            .to_str()
-            .ok_or_else(|| user_error("The config path is not valid UTF-8"))?
-    )?;
+    for config_path in args.level.config_paths(command.config_env())? {
+        writeln!(
+            ui.stdout(),
+            "{}",
+            config_path
+                .to_str()
+                .ok_or_else(|| user_error("The config path is not valid UTF-8"))?
+        )?;
+    }
     Ok(())
 }

@@ -557,10 +557,10 @@ See [`jj help -k config`] to know more about file locations, supported config op
 
 * `edit` — Start an editor on a jj config file
 * `get` — Get the value of a given config option.
-* `list` — List variables set in config file, along with their values
-* `path` — Print the path to the config file
-* `set` — Update config file to set the given option to a given value
-* `unset` — Update config file to unset the given option
+* `list` — List variables set in config files, along with their values
+* `path` — Print the paths to the config files
+* `set` — Update a config file to set the given option to a given value
+* `unset` — Update a config file to unset the given option
 
 
 
@@ -601,7 +601,7 @@ Martin von Zweigbergk
 
 ## `jj config list`
 
-List variables set in config file, along with their values
+List variables set in config files, along with their values
 
 **Usage:** `jj config list [OPTIONS] [NAME]`
 
@@ -638,11 +638,11 @@ List variables set in config file, along with their values
 
 ## `jj config path`
 
-Print the path to the config file
+Print the paths to the config files
 
 A config file at that path may or may not exist.
 
-See `jj config edit` if you'd like to immediately edit the file.
+See `jj config edit` if you'd like to immediately edit a file.
 
 **Usage:** `jj config path <--user|--repo>`
 
@@ -655,7 +655,7 @@ See `jj config edit` if you'd like to immediately edit the file.
 
 ## `jj config set`
 
-Update config file to set the given option to a given value
+Update a config file to set the given option to a given value
 
 **Usage:** `jj config set <--user|--repo> <NAME> <VALUE>`
 
@@ -677,7 +677,7 @@ Update config file to set the given option to a given value
 
 ## `jj config unset`
 
-Update config file to unset the given option
+Update a config file to unset the given option
 
 **Usage:** `jj config unset <--user|--repo> <NAME>`
 

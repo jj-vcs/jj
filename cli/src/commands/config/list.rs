@@ -29,7 +29,7 @@ use crate::template_builder::TemplateLanguage as _;
 use crate::templater::TemplatePropertyExt as _;
 use crate::ui::Ui;
 
-/// List variables set in config file, along with their values.
+/// List variables set in config files, along with their values.
 #[derive(clap::Args, Clone, Debug)]
 #[command(mut_group("config_level", |g| g.required(false)))]
 pub struct ConfigListArgs {

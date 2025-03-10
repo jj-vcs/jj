@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::env::join_paths;
 use std::path::PathBuf;
 
 use indoc::indoc;
@@ -981,6 +982,22 @@ fn test_config_path() {
     Error: No repo config path found
     [EOF]
     [exit status: 1]
+    ");
+}
+
+#[test]
+fn test_config_path_multiple() {
+    let mut test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let config_path = test_env.config_path().join("config.toml");
+    let work_config_path = test_env.config_path().join("conf.d");
+    let user_config_path = join_paths([config_path, work_config_path]).unwrap();
+    test_env.set_config_path(&user_config_path);
+    let work_dir = test_env.work_dir("repo");
+    insta::assert_snapshot!(work_dir.run_jj(["config", "path", "--user"]), @r"
+    $TEST_ENV/config/config.toml
+    $TEST_ENV/config/conf.d
+    [EOF]
     ");
 }
 

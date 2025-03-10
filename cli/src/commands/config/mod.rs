@@ -21,6 +21,7 @@ mod unset;
 
 use std::path::Path;
 
+use itertools::Itertools as _;
 use jj_lib::config::ConfigFile;
 use jj_lib::config::ConfigSource;
 use tracing::instrument;
@@ -66,14 +67,17 @@ impl ConfigLevelArgs {
         }
     }
 
-    fn config_path<'a>(&self, config_env: &'a ConfigEnv) -> Result<&'a Path, CommandError> {
+    fn config_paths<'a>(&self, config_env: &'a ConfigEnv) -> Result<Vec<&'a Path>, CommandError> {
         if self.user {
-            config_env
-                .user_config_path()
-                .ok_or_else(|| user_error("No user config path found"))
+            let paths = config_env.user_config_paths().collect_vec();
+            if paths.is_empty() {
+                return Err(user_error("No user config path found"));
+            }
+            Ok(paths)
         } else if self.repo {
             config_env
                 .repo_config_path()
+                .map(|p| vec![p])
                 .ok_or_else(|| user_error("No repo config path found"))
         } else {
             panic!("No config_level provided")

@@ -11,7 +11,7 @@ These are the config settings available to jj/Jujutsu.
   `cli/src/config/` directory in `jj`'s source repo.
 
 - The user settings. These can be edited with `jj config edit --user`. User
-settings are located in [the user config file], which can be found with `jj
+settings are located in [the user config files], which can be found with `jj
 config path --user`.
 
 - The repo settings. These can be edited with `jj config edit --repo` and are
@@ -30,7 +30,7 @@ Support] for details.
 See the [TOML site] and the [syntax guide] for a detailed description of the
 syntax. We cover some of the basics below.
 
-[the user config file]: #user-config-file
+[the user config files]: #user-config-files
 [TOML site]: https://toml.io/en/
 [syntax guide]: https://toml.io/en/v1.0.0
 [JSON Schema Support]: #json-schema-support
@@ -1455,21 +1455,29 @@ Setting this value to zero will disable the limit entirely.
 
 ## Ways to specify `jj` config: details
 
-### User config file
+### User config files
 
-An easy way to find the user config file is:
+An easy way to find the user config file/directory is:
 
 ```bash
 jj config path --user
 ```
 
-The rest of this section covers the details of where this file can be located.
+On all platforms, the user's global `jj` configurations are loaded in the following
+precedence order (with later configs overriding earlier ones):
 
-On all platforms, the user's global `jj` configuration file is located at either
-`~/.jjconfig.toml` (where `~` represents `$HOME` on Unix-likes, or
-`%USERPROFILE%` on Windows) or in a platform-specific directory. The
-platform-specific location is recommended for better integration with platform
-services. It is an error for both of these files to exist.
+- `$HOME/.jjconfig.toml`
+- `$XDG_CONFIG_HOME/jj/config.toml` (preferred)
+- `$XDG_CONFIG_HOME/jj/conf.d/*.toml`
+
+where `$HOME` represents the user's home directory (`%USERPROFILE%` on Windows),
+and `$XDG_CONFIG_HOME` represents the platform-specific configuration directory.
+The platform-specific location is recommended for better integration with platform
+services.
+
+The files in the `conf.d` directory are loaded in lexicographic order. This allows
+configs to be split across multiple files and combines well
+with [Conditional Variables](#conditional-variables).
 
 | Platform | Value                                              | Example                                                   |
 | :------- | :------------------------------------------------- | :-------------------------------------------------------- |
@@ -1477,19 +1485,19 @@ services. It is an error for both of these files to exist.
 | macOS    | `$HOME/Library/Application Support/jj/config.toml` | `/Users/Alice/Library/Application Support/jj/config.toml` |
 | Windows  | `{FOLDERID_RoamingAppData}\jj\config.toml`         | `C:\Users\Alice\AppData\Roaming\jj\config.toml`           |
 
-The location of the `jj` config file can also be overridden with the
+The location of the `jj` user config files/directories can also be overridden with the
 `JJ_CONFIG` environment variable. If it is not empty, it will be used instead
-of any configuration file in the default locations. If it is a path to a TOML
+of any configuration files in the default locations. If it is a path to a TOML
 file, then that file will be loaded instead. If it is a path to a directory,
 then all the TOML files in that directory will be loaded in lexicographic order
-and merged. This allows you to split your configuration across multiple files
-and can combine well with [Conditional Variables](#conditional-variables).
+and merged. Multiple paths can be specified by separating them with a
+platform-specific path separator (`:` on Unix-like systems, `;` on Windows).
 
-For example,
-```shell
-env JJ_CONFIG=/dev/null jj log       # Ignores any settings specified in the config file.
+For example, the following could be used to run `jj` without loading any user configs:
+
+```bash
+JJ_CONFIG= jj log       # Ignores any settings specified in the config file.
 ```
-could be used to run jj without loading any user configs.
 
 ### JSON Schema Support
 
@@ -1556,6 +1564,7 @@ jj --config-file=extra-config.toml log
 You can conditionally enable config variables by using `--when`.
 
 #### Using `[[--scope]]` tables
+
 Variables defined in `[[--scope]]` tables are expanded to the root table.
 `--when` specifies the condition to enable the scope table.
 
@@ -1585,24 +1594,20 @@ pager = "delta"
 ```
 
 #### Using multiple files
+
 `--when` can also be used on the top level of a TOML file, which is convenient
-when splitting your config across multiple files using [`JJ_CONFIG`](#user-config-file).
+when splitting your config across multiple files.
 The behavior of conditions are the same as when using `[[--scope]]` tables.
 
-Note that the TOML files are read and merged in lexicographical order. This
-means that in the below example `work.toml` will override `config.toml`, but if
-`work.toml` would be renamed `at_work.toml` the overriding would not work as
-intended.
-
 ```toml
-# In config.toml
+# In $XDG_CONFIG_HOME/jj/config.toml
 [user]
 name = "YOUR NAME"
 email = "YOUR_DEFAULT_EMAIL@example.com"
 ```
 
 ```toml
-# In work.toml
+# In $XDG_CONFIG_HOME/jj/conf.d/work.toml
 --when.repositories = ["~/the/work/repo"]
 
 [user]
