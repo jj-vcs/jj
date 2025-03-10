@@ -24,7 +24,7 @@ use crate::command_error::CommandError;
 use crate::complete;
 use crate::ui::Ui;
 
-/// Update config file to unset the given option.
+/// Update a config file to unset the given option.
 #[derive(clap::Args, Clone, Debug)]
 pub struct ConfigUnsetArgs {
     #[arg(required = true, add = ArgValueCandidates::new(complete::leaf_config_keys))]
