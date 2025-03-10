@@ -1575,13 +1575,12 @@ fn remove_remote_git_refs(
     git_repo: &mut gix::Repository,
     remote_name: &str,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
-    git_repo.edit_references(
-        git_repo
-            .references()?
-            .prefixed(format!("refs/remotes/{remote_name}/"))?
-            .map_ok(remove_ref)
-            .collect::<Result<Vec<_>, _>>()?,
-    )?;
+    let edits: Vec<_> = git_repo
+        .references()?
+        .prefixed(format!("refs/remotes/{remote_name}/"))?
+        .map_ok(remove_ref)
+        .try_collect()?;
+    git_repo.edit_references(edits)?;
     Ok(())
 }
 
@@ -1672,30 +1671,29 @@ fn rename_remote_git_refs(
         "renamed remote {old_remote_name} to {new_remote_name}"
     ));
 
-    git_repo.edit_references(
-        git_repo
-            .references()?
-            .prefixed(old_prefix.clone())?
-            .map_ok(|old_ref| {
-                let new_name = BString::new(
-                    [
-                        new_prefix.as_bytes(),
-                        &old_ref.name().as_bstr()[old_prefix.len()..],
-                    ]
-                    .concat(),
-                );
+    let edits: Vec<_> = git_repo
+        .references()?
+        .prefixed(old_prefix.clone())?
+        .map_ok(|old_ref| {
+            let new_name = BString::new(
                 [
-                    add_ref(
-                        new_name.try_into().expect("new ref name to be valid"),
-                        old_ref.target().into_owned(),
-                        ref_log_message.clone(),
-                    ),
-                    remove_ref(old_ref),
+                    new_prefix.as_bytes(),
+                    &old_ref.name().as_bstr()[old_prefix.len()..],
                 ]
-            })
-            .flatten_ok()
-            .collect::<Result<Vec<_>, _>>()?,
-    )?;
+                .concat(),
+            );
+            [
+                add_ref(
+                    new_name.try_into().expect("new ref name to be valid"),
+                    old_ref.target().into_owned(),
+                    ref_log_message.clone(),
+                ),
+                remove_ref(old_ref),
+            ]
+        })
+        .flatten_ok()
+        .try_collect()?;
+    git_repo.edit_references(edits)?;
     Ok(())
 }
 
