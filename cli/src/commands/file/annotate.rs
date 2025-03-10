@@ -16,6 +16,7 @@ use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use jj_lib::annotate::get_annotation_for_file;
 use jj_lib::annotate::FileAnnotation;
+use jj_lib::backend::CommitId;
 use jj_lib::repo::Repo;
 use jj_lib::revset::RevsetExpression;
 use tracing::instrument;
@@ -124,8 +125,9 @@ fn render_file_annotation(
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();
     let mut last_id = None;
+    let default_id = CommitId::from_hex("0000000000000000000000000000000000000000");
     for (line_number, (commit_id, content)) in annotation.lines().enumerate() {
-        let commit_id = commit_id.expect("should reached to the empty ancestor");
+        let commit_id = commit_id.unwrap_or(&default_id);
         let commit = repo.store().get_commit(commit_id)?;
         let first_line_in_hunk = last_id != Some(commit_id);
         let annotation_line = AnnotationLine {
