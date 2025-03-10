@@ -27,7 +27,10 @@ fn git_config() -> Vec<bstr::BString> {
 }
 
 fn open_options() -> gix::open::Options {
-    gix::open::Options::isolated().config_overrides(git_config())
+    gix::open::Options::isolated()
+        .config_overrides(git_config())
+        .strict_config(true)
+        .lossy_config(false)
 }
 
 pub fn open(directory: impl Into<PathBuf>) -> gix::Repository {
