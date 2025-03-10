@@ -77,7 +77,7 @@ jobs:
       with:
         toolchain: 1.84
         target: ${{ matrix.target }}
-    - uses: taiki-e/install-action@1426bdb9e21b806f1cae604ab3dfc05e174bf885
+    - uses: taiki-e/install-action@87b5304d4e82236718783683826c899da7e5470f
       with:
         tool: nextest,taplo-cli
     - name: Build
@@ -181,7 +181,7 @@ jobs:
     - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       with:
         persist-credentials: false
-    - uses: EmbarkStudios/cargo-deny-action@4de59db63a066737e557c2c4dd3d1f70206de781
+    - uses: EmbarkStudios/cargo-deny-action@34899fc7ba81ca6268d5947a7a16b4649013fea1
       with:
         command: check ${{ matrix.checks }}
 
