@@ -1056,6 +1056,20 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
                 Ok(messages.join(", "))
             },
         ),
+        // TODO: Delete in jj 0.52+
+        ConfigMigrationRule::rename_update_value(
+            "git.sign-on-push",
+            "revsets.git-sign-on-push",
+            |old_value| {
+                let value = old_value.as_bool().ok_or("expected a boolean")?;
+                Ok(if value {
+                    "~signed() & mine()"
+                } else {
+                    "none()"
+                }
+                .into())
+            },
+        ),
     ]
 }
 
