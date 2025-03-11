@@ -2,7 +2,6 @@ name: Enable auto-merge for Dependabot PRs
 
 on:
   pull_request:
-  merge_group:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
