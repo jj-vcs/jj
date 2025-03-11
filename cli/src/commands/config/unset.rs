@@ -35,11 +35,11 @@ pub struct ConfigUnsetArgs {
 
 #[instrument(skip_all)]
 pub fn cmd_config_unset(
-    _ui: &mut Ui,
+    ui: &mut Ui,
     command: &CommandHelper,
     args: &ConfigUnsetArgs,
 ) -> Result<(), CommandError> {
-    let mut file = args.level.edit_config_file(command)?;
+    let mut file = args.level.edit_config_file(ui, command)?;
     let old_value = file
         .delete_value(&args.name)
         .map_err(|err| user_error_with_message(format!("Failed to unset {}", args.name), err))?;

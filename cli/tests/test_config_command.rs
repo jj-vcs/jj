@@ -589,15 +589,30 @@ fn test_config_set_for_user_directory() {
 
     // Add one more config file to the directory
     test_env.add_config("");
-    let output = test_env.run_jj_in(".", ["config", "set", "--user", "test-key", "test-val"]);
+    let output = test_env.run_jj_in(
+        ".",
+        ["config", "set", "--user", "test-key", "test-other-val"],
+    );
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Cannot determine config file to edit:
-      $TEST_ENV/config/config0001.toml
-      $TEST_ENV/config/config0002.toml
+    1: $TEST_ENV/config/config0001.toml
+    2: $TEST_ENV/config/config0002.toml
+    Choose a config file (default 1): 1
     [EOF]
-    [exit status: 1]
     ");
+
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.first_config_file_path()).unwrap(),
+        @r#"
+    test-key = "test-other-val"
+
+    [template-aliases]
+    'format_time_range(time_range)' = 'time_range.start() ++ " - " ++ time_range.end()'
+    "#);
+
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.last_config_file_path()).unwrap(),
+        @"");
 }
 
 #[test]

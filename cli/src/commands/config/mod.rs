@@ -21,7 +21,6 @@ mod unset;
 
 use std::path::Path;
 
-use itertools::Itertools as _;
 use jj_lib::config::ConfigFile;
 use jj_lib::config::ConfigSource;
 use tracing::instrument;
@@ -81,19 +80,25 @@ impl ConfigLevelArgs {
         }
     }
 
-    fn edit_config_file(&self, command: &CommandHelper) -> Result<ConfigFile, CommandError> {
+    fn edit_config_file(
+        &self,
+        ui: &Ui,
+        command: &CommandHelper,
+    ) -> Result<ConfigFile, CommandError> {
         let config_env = command.config_env();
         let config = command.raw_config();
         let pick_one = |mut files: Vec<ConfigFile>, not_found_error: &str| {
             if files.len() > 1 {
-                // TODO: prompt or pick the last?
-                return Err(user_error(format!(
-                    "Cannot determine config file to edit:\n{}",
-                    files
-                        .iter()
-                        .map(|file| format!("  {}", file.path().display()))
-                        .join("\n")
-                )));
+                let mut choices = vec![];
+                let mut formatter = ui.stderr_formatter();
+                for (i, file) in files.iter().enumerate() {
+                    writeln!(formatter, "{}: {}", i + 1, file.path().display())?;
+                    choices.push((i + 1).to_string());
+                }
+                drop(formatter);
+                let choice =
+                    ui.prompt_choice("Choose a config file (default 1)", &choices, Some("1"))?;
+                return Ok(files[choice.parse::<usize>().unwrap() - 1].clone());
             }
             files.pop().ok_or_else(|| user_error(not_found_error))
         };

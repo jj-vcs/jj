@@ -65,7 +65,7 @@ pub fn cmd_config_set(
     command: &CommandHelper,
     args: &ConfigSetArgs,
 ) -> Result<(), CommandError> {
-    let mut file = args.level.edit_config_file(command)?;
+    let mut file = args.level.edit_config_file(ui, command)?;
 
     // If the user is trying to change the author config, we should warn them that
     // it won't affect the working copy author

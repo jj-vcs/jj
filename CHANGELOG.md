@@ -38,6 +38,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj config {edit,set,unset}` now prompt when multiple config files are found.
+
 * `jj diff -r` now allows multiple revisions (as long as there are no gaps in
   the revset), such as `jj diff -r 'mutable()'`.
 

@@ -528,7 +528,7 @@ fn new_implicit_table() -> ConfigItem {
 
 /// Wrapper for file-based [`ConfigLayer`], providing convenient methods for
 /// modification.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ConfigFile {
     layer: Arc<ConfigLayer>,
 }

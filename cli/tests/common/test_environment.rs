@@ -161,6 +161,12 @@ impl TestEnvironment {
         &self.config_path
     }
 
+    pub fn first_config_file_path(&self) -> PathBuf {
+        let config_file_number = 1;
+        self.config_path
+            .join(format!("config{config_file_number:04}.toml"))
+    }
+
     pub fn last_config_file_path(&self) -> PathBuf {
         let config_file_number = self.config_file_number.borrow();
         self.config_path

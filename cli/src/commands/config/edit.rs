@@ -31,12 +31,12 @@ pub struct ConfigEditArgs {
 
 #[instrument(skip_all)]
 pub fn cmd_config_edit(
-    _ui: &mut Ui,
+    ui: &mut Ui,
     command: &CommandHelper,
     args: &ConfigEditArgs,
 ) -> Result<(), CommandError> {
     let editor = command.text_editor()?;
-    let file = args.level.edit_config_file(command)?;
+    let file = args.level.edit_config_file(ui, command)?;
     if !file.path().exists() {
         file.save()?;
     }
