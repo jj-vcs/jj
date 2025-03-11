@@ -21,9 +21,12 @@ options:
 
 Is your commit visible with `jj log -r 'all()'`?
 
-If yes, you should be aware that `jj log` only shows the revisions matching
-`revsets.log` by default. You can change it as described in [config] to show
-more revisions.
+If yes, you should be aware that `jj log` only shows a subset of the commits in
+the repo by default. Most commits that exist on a remote are not shown. Local
+commits and their immediate parents (for context) are shown. The thinking is
+that you are more likely to interact with this set of commits. You can configure
+the set of revisions to show by default by overriding `revsets.log` as described
+in [config].
 
 If not, the revision may have been abandoned (e.g. because you
 used `jj abandon`, or because it's an obsolete version that's been rewritten
