@@ -540,11 +540,6 @@
                     "description": "Whether to generate synthetic predecessors for fetched/imported commits",
                     "default": true
                 },
-                "sign-on-push": {
-                    "type": "boolean",
-                    "description": "Whether jj should sign commits before pushing",
-                    "default": false
-                },
                 "track-default-bookmark-on-clone": {
                     "type": "boolean",
                     "description": "Whether `jj git clone` creates a local bookmark tracking the default remote bookmark",
@@ -736,6 +731,11 @@
                     "type": "string",
                     "description": "Set of revisions for pushing bookmarks and tags (has access to the `remote` name)",
                     "default": "remote_bookmarks(remote=exact:remote)..@"
+                },
+                "git-sign-on-push": {
+                    "type": "string",
+                    "description": "Set of revisions to sign before pushing with jj git push",
+                    "default": "none()"
                 },
                 "log": {
                     "type": "string",
