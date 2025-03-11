@@ -5,8 +5,12 @@ on:
   merge_group:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  group: >-
+    ${{ github.workflow }}-${{
+      github.event.pull_request.number
+      || github.event.merge_queue.head_ref
+    }}
+  cancel-in-progress: true
 
 permissions: {}
 
