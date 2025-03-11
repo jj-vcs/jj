@@ -422,10 +422,6 @@ fn test_aliases_overriding_friendly_errors() {
     ------- stderr -------
     [1m[31merror:[0m unrecognized subcommand '[33minit[0m'
 
-      [32mtip:[0m a similar subcommand exists: '[32mgit[0m'
-
-    [1m[33mUsage:[0m [1m[32mjj[0m [32m[OPTIONS][0m [32m<COMMAND>[0m
-
     For more information, try '[1m[32m--help[0m'.
     [1m[38;5;6mHint: [0m[39mYou probably want `jj git init`. See also `jj help git`.[39m
     [1m[38;5;6mHint: [0m[39mYou can configure `aliases.init = ["git", "init"]` if you want `jj init` to work and always use the Git backend.[39m
@@ -438,10 +434,6 @@ fn test_aliases_overriding_friendly_errors() {
     ------- stderr -------
     error: unrecognized subcommand 'init'
 
-      tip: a similar subcommand exists: 'git'
-
-    Usage: jj [OPTIONS] <COMMAND>
-
     For more information, try '--help'.
     Hint: You probably want `jj git init`. See also `jj help git`.
     Hint: You can configure `aliases.init = ["git", "init"]` if you want `jj init` to work and always use the Git backend.
@@ -452,10 +444,6 @@ fn test_aliases_overriding_friendly_errors() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     error: unrecognized subcommand 'clone'
-
-      tip: a similar subcommand exists: 'config'
-
-    Usage: jj [OPTIONS] <COMMAND>
 
     For more information, try '--help'.
     Hint: You probably want `jj git clone`. See also `jj help git`.
@@ -481,10 +469,6 @@ fn test_aliases_overriding_friendly_errors() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     error: unrecognized subcommand 'init'
-
-      tip: a similar subcommand exists: 'git'
-
-    Usage: jj [OPTIONS] <COMMAND>
 
     For more information, try '--help'.
     Hint: You probably want `jj git init`. See also `jj help git`.

@@ -3941,10 +3941,15 @@ impl CliRunner {
 fn map_clap_cli_error(err: clap::Error, ui: &Ui, config: &StackedConfig) -> CommandError {
     if let Some(ContextValue::String(cmd)) = err.get(ContextKind::InvalidSubcommand) {
         match cmd.as_str() {
-            // git commands that a brand-new user might type on their first experiment with
-            // `jj`
+            // git commands that a brand-new user might type during their first
+            // experiments with `jj`
             "clone" | "init" => {
                 let cmd = cmd.clone();
+                let mut err = err;
+                // Clap suggests an unhelpful subcommand, e.g. `config` for `clone`.
+                err.remove(ContextKind::SuggestedSubcommand);
+                err.remove(ContextKind::Suggested); // Remove an empty line
+                err.remove(ContextKind::Usage);
                 return CommandError::from(err)
                     .hinted(format!(
                         "You probably want `jj git {cmd}`. See also `jj help git`."
