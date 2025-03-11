@@ -2255,11 +2255,13 @@ fn git2_get_default_branch(
     tracing::debug!("remote.default_branch");
     if let Ok(default_ref_buf) = connection.default_branch() {
         if let Some(default_ref) = default_ref_buf.as_str() {
-            // LocalBranch here is the local branch on the remote, so it's really the remote
-            // branch
-            if let Some(RefName::LocalBranch(branch_name)) = parse_git_ref(default_ref) {
+            // Here the ref should point to local branch on the remote
+            if let Some(branch_name) = default_ref
+                .strip_prefix("refs/heads/")
+                .filter(|&name| name != "HEAD")
+            {
                 tracing::debug!(default_branch = branch_name);
-                default_branch = Some(branch_name);
+                default_branch = Some(branch_name.to_owned());
             }
         }
     }
