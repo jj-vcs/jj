@@ -20,25 +20,25 @@ use crate::common::TestEnvironment;
 fn test_diff() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    std::fs::create_dir(repo_path.join("dir")).unwrap();
-    std::fs::write(repo_path.join("a-first"), "foo\n").unwrap();
-    std::fs::write(repo_path.join("deleted-secret"), "foo\n").unwrap();
-    std::fs::write(repo_path.join("dir").join("secret"), "foo\n").unwrap();
-    std::fs::write(repo_path.join("modified-secret"), "foo\n").unwrap();
-    std::fs::write(repo_path.join("z-last"), "foo\n").unwrap();
-    test_env.run_jj_in(&repo_path, ["new"]).success();
-    std::fs::write(repo_path.join("a-first"), "bar\n").unwrap();
-    std::fs::remove_file(repo_path.join("deleted-secret")).unwrap();
-    std::fs::write(repo_path.join("added-secret"), "bar\n").unwrap();
-    std::fs::write(repo_path.join("dir").join("secret"), "bar\n").unwrap();
-    std::fs::write(repo_path.join("modified-secret"), "bar\n").unwrap();
-    std::fs::write(repo_path.join("z-last"), "bar\n").unwrap();
+    work_dir.create_dir("dir");
+    work_dir.write_file("a-first", "foo\n");
+    work_dir.write_file("deleted-secret", "foo\n");
+    work_dir.write_file("dir/secret", "foo\n");
+    work_dir.write_file("modified-secret", "foo\n");
+    work_dir.write_file("z-last", "foo\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("a-first", "bar\n");
+    work_dir.remove_file("deleted-secret");
+    work_dir.write_file("added-secret", "bar\n");
+    work_dir.write_file("dir/secret", "bar\n");
+    work_dir.write_file("modified-secret", "bar\n");
+    work_dir.write_file("z-last", "bar\n");
 
-    SecretBackend::adopt_git_repo(&repo_path);
+    SecretBackend::adopt_git_repo(work_dir.root());
 
-    let output = test_env.run_jj_in(&repo_path, ["diff", "--color-words"]);
+    let output = work_dir.run_jj(["diff", "--color-words"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     Modified regular file a-first:
        1    1: foobar
@@ -50,7 +50,7 @@ fn test_diff() {
        1    1: foobar
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["diff", "--summary"]);
+    let output = work_dir.run_jj(["diff", "--summary"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     M a-first
     C {a-first => added-secret}
@@ -60,7 +60,7 @@ fn test_diff() {
     M z-last
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["diff", "--types"]);
+    let output = work_dir.run_jj(["diff", "--types"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     FF a-first
     FF {a-first => added-secret}
@@ -70,7 +70,7 @@ fn test_diff() {
     FF z-last
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["diff", "--stat"]);
+    let output = work_dir.run_jj(["diff", "--stat"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     a-first                   | 2 +-
     {a-first => added-secret} | 2 +-
@@ -81,7 +81,7 @@ fn test_diff() {
     6 files changed, 3 insertions(+), 4 deletions(-)
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["diff", "--git"]);
+    let output = work_dir.run_jj(["diff", "--git"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     diff --git a/a-first b/a-first
     index 257cc5642c..5716ca5987 100644
@@ -105,16 +105,16 @@ fn test_diff() {
 fn test_file_list_show() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(repo_path.join("a-first"), "foo\n").unwrap();
-    std::fs::write(repo_path.join("secret"), "bar\n").unwrap();
-    std::fs::write(repo_path.join("z-last"), "baz\n").unwrap();
+    work_dir.write_file("a-first", "foo\n");
+    work_dir.write_file("secret", "bar\n");
+    work_dir.write_file("z-last", "baz\n");
 
-    SecretBackend::adopt_git_repo(&repo_path);
+    SecretBackend::adopt_git_repo(work_dir.root());
 
     // "file list" should just work since it doesn't access file content
-    let output = test_env.run_jj_in(&repo_path, ["file", "list"]);
+    let output = work_dir.run_jj(["file", "list"]);
     insta::assert_snapshot!(output, @r"
     a-first
     secret
@@ -122,7 +122,7 @@ fn test_file_list_show() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "."]);
+    let output = work_dir.run_jj(["file", "show", "."]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     foo
     baz
