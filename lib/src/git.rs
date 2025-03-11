@@ -20,7 +20,6 @@ use std::collections::HashMap;
 #[cfg(feature = "git2")]
 use std::collections::HashSet;
 use std::default::Default;
-use std::fmt;
 use std::fs::File;
 use std::num::NonZeroU32;
 use std::path::PathBuf;
@@ -113,24 +112,6 @@ impl<'a: 'b, 'b> Borrow<RemoteRefSymbol<'b>> for RemoteRefKey<'a> {
     }
 }
 
-// TODO: will be replaced with (GitRefKind, RemoteRefSymbol)
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Hash, Debug)]
-pub enum RefName {
-    LocalBranch(String),
-    RemoteBranch(RemoteRefSymbolBuf),
-    Tag(String),
-}
-
-impl fmt::Display for RefName {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            RefName::LocalBranch(name) => write!(f, "{name}"),
-            RefName::RemoteBranch(symbol) => write!(f, "{symbol}"),
-            RefName::Tag(name) => write!(f, "{name}"),
-        }
-    }
-}
-
 /// Representation of a Git refspec
 ///
 /// It is often the case that we need only parts of the refspec,
@@ -215,15 +196,9 @@ impl<'a> RefToPush<'a> {
     }
 }
 
-pub fn parse_git_ref(full_name: &str) -> Option<RefName> {
-    let (kind, symbol) = parse_git_ref_inner(full_name)?;
-    Some(to_legacy_ref_name(kind, symbol))
-}
-
 /// Translates Git ref name to jj's `name@remote` symbol. Returns `None` if the
 /// ref cannot be represented in jj.
-// TODO: replace parse_git_ref()
-fn parse_git_ref_inner(full_name: &str) -> Option<(GitRefKind, RemoteRefSymbol<'_>)> {
+pub fn parse_git_ref(full_name: &str) -> Option<(GitRefKind, RemoteRefSymbol<'_>)> {
     if let Some(name) = full_name.strip_prefix("refs/heads/") {
         let remote = REMOTE_NAME_FOR_LOCAL_GIT_REPO;
         // Git CLI says 'HEAD' is not a valid branch name
@@ -238,22 +213,6 @@ fn parse_git_ref_inner(full_name: &str) -> Option<(GitRefKind, RemoteRefSymbol<'
         Some((GitRefKind::Tag, RemoteRefSymbol { name, remote }))
     } else {
         None
-    }
-}
-
-fn to_legacy_ref_name(kind: GitRefKind, symbol: RemoteRefSymbol<'_>) -> RefName {
-    match kind {
-        GitRefKind::Bookmark => {
-            if symbol.remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO {
-                RefName::LocalBranch(symbol.name.to_owned())
-            } else {
-                RefName::RemoteBranch(symbol.to_owned())
-            }
-        }
-        GitRefKind::Tag => {
-            assert_eq!(symbol.remote, REMOTE_NAME_FOR_LOCAL_GIT_REPO);
-            RefName::Tag(symbol.name.to_owned())
-        }
     }
 }
 
@@ -583,7 +542,7 @@ fn diff_refs_to_import(
         .filter_map(|(full_name, target)| {
             // TODO: or clean up invalid ref in case it was stored due to historical bug?
             let (kind, symbol) =
-                parse_git_ref_inner(full_name).expect("stored git ref should be parsable");
+                parse_git_ref(full_name).expect("stored git ref should be parsable");
             git_ref_filter(kind, symbol).then_some((full_name.as_ref(), target))
         })
         .collect();
@@ -692,7 +651,7 @@ fn collect_changed_refs_to_import(
             failed_ref_names.push(full_name_bytes.to_owned());
             continue;
         }
-        let Some((kind, symbol)) = parse_git_ref_inner(full_name) else {
+        let Some((kind, symbol)) = parse_git_ref(full_name) else {
             // Skip special refs such as refs/remotes/*/HEAD.
             continue;
         };
@@ -928,7 +887,7 @@ pub fn export_some_refs(
         if let Some((GitRefKind::Bookmark, symbol)) = target_name
             .as_ref()
             .and_then(|name| str::from_utf8(name.as_bstr()).ok())
-            .and_then(parse_git_ref_inner)
+            .and_then(parse_git_ref)
         {
             let old_target = head_ref.inner.target.clone();
             let current_oid = match head_ref.into_fully_peeled_id() {
@@ -1057,7 +1016,7 @@ fn diff_refs_to_export(
         .iter()
         .map(|(full_name, target)| {
             let (kind, symbol) =
-                parse_git_ref_inner(full_name).expect("stored git ref should be parsable");
+                parse_git_ref(full_name).expect("stored git ref should be parsable");
             ((kind, symbol), target)
         })
         .filter(|&((kind, symbol), _)| {

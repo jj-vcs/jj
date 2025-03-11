@@ -23,7 +23,7 @@ use itertools::Itertools as _;
 use jj_lib::file_util;
 use jj_lib::git;
 use jj_lib::git::parse_git_ref;
-use jj_lib::git::RefName;
+use jj_lib::git::GitRefKind;
 use jj_lib::refs::RemoteRefSymbol;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
@@ -241,13 +241,13 @@ pub fn maybe_set_repository_level_trunk_alias(
         .map_err(internal_error)?
     {
         if let Some(reference_name) = reference.target().try_name() {
-            if let Some(RefName::RemoteBranch(symbol)) = str::from_utf8(reference_name.as_bstr())
+            if let Some((GitRefKind::Bookmark, symbol)) = str::from_utf8(reference_name.as_bstr())
                 .ok()
                 .and_then(parse_git_ref)
             {
                 // TODO: Can we assume the symbolic target points to the same remote?
                 let symbol = RemoteRefSymbol {
-                    name: &symbol.name,
+                    name: symbol.name,
                     remote: "origin",
                 };
                 write_repository_level_trunk_alias(ui, workspace_command.repo_path(), symbol)?;
