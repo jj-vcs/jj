@@ -12,35 +12,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::path::Path;
-
 use crate::common::create_commit_with_files;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
+use crate::common::TestWorkDir;
 
 #[test]
 fn test_backout() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    create_commit_with_files(&test_env.work_dir(&repo_path), "a", &[], &[("a", "a\n")]);
+    create_commit_with_files(&work_dir, "a", &[], &[("a", "a\n")]);
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  2443ea76b0b1 a
     ◆  000000000000
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    let output = work_dir.run_jj(["diff", "-s"]);
     insta::assert_snapshot!(output, @r"
     A a
     [EOF]
     ");
 
     // Backout the commit
-    let output = test_env.run_jj_in(&repo_path, ["backout", "-r", "@"]);
+    let output = work_dir.run_jj(["backout", "-r", "@"]);
     insta::assert_snapshot!(output, @"");
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r#"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r#"
     ○  6d845ed9fb6a Back out "a"
     │
     │  This backs out commit 2443ea76b0b1c531326908326aab7020abab8e6c.
@@ -48,17 +47,17 @@ fn test_backout() {
     ◆  000000000000
     [EOF]
     "#);
-    let output = test_env.run_jj_in(&repo_path, ["diff", "-s", "-r", "@+"]);
+    let output = work_dir.run_jj(["diff", "-s", "-r", "@+"]);
     insta::assert_snapshot!(output, @r"
     D a
     [EOF]
     ");
 
     // Backout the new backed-out commit
-    test_env.run_jj_in(&repo_path, ["edit", "@+"]).success();
-    let output = test_env.run_jj_in(&repo_path, ["backout", "-r", "@"]);
+    work_dir.run_jj(["edit", "@+"]).success();
+    let output = work_dir.run_jj(["backout", "-r", "@"]);
     insta::assert_snapshot!(output, @"");
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r#"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r#"
     ○  79555ea9040b Back out "Back out "a""
     │
     │  This backs out commit 6d845ed9fb6a3d367e2d7068ef0256b1a10705a9.
@@ -69,7 +68,7 @@ fn test_backout() {
     ◆  000000000000
     [EOF]
     "#);
-    let output = test_env.run_jj_in(&repo_path, ["diff", "-s", "-r", "@+"]);
+    let output = work_dir.run_jj(["diff", "-s", "-r", "@+"]);
     insta::assert_snapshot!(output, @r"
     A a
     [EOF]
@@ -80,31 +79,16 @@ fn test_backout() {
 fn test_backout_multiple() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    create_commit_with_files(&test_env.work_dir(&repo_path), "a", &[], &[("a", "a\n")]);
-    create_commit_with_files(
-        &test_env.work_dir(&repo_path),
-        "b",
-        &["a"],
-        &[("a", "a\nb\n")],
-    );
-    create_commit_with_files(
-        &test_env.work_dir(&repo_path),
-        "c",
-        &["b"],
-        &[("a", "a\nb\n"), ("b", "b\n")],
-    );
-    create_commit_with_files(&test_env.work_dir(&repo_path), "d", &["c"], &[]);
-    create_commit_with_files(
-        &test_env.work_dir(&repo_path),
-        "e",
-        &["d"],
-        &[("a", "a\nb\nc\n")],
-    );
+    create_commit_with_files(&work_dir, "a", &[], &[("a", "a\n")]);
+    create_commit_with_files(&work_dir, "b", &["a"], &[("a", "a\nb\n")]);
+    create_commit_with_files(&work_dir, "c", &["b"], &[("a", "a\nb\n"), ("b", "b\n")]);
+    create_commit_with_files(&work_dir, "d", &["c"], &[]);
+    create_commit_with_files(&work_dir, "e", &["d"], &[("a", "a\nb\nc\n")]);
 
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  208f8612074a e
     ○  ceeec03be46b d
     ○  413337bbd11f c
@@ -115,9 +99,9 @@ fn test_backout_multiple() {
     ");
 
     // Backout multiple commits
-    let output = test_env.run_jj_in(&repo_path, ["backout", "-r", "b", "-r", "c", "-r", "e"]);
+    let output = work_dir.run_jj(["backout", "-r", "b", "-r", "c", "-r", "e"]);
     insta::assert_snapshot!(output, @"");
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r#"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r#"
     ○  6504c4ded177 Back out "b"
     │
     │  This backs out commit 46cc97af6802301d8db381386e8485ff3ff24ae6.
@@ -136,7 +120,7 @@ fn test_backout_multiple() {
     [EOF]
     "#);
     // View the output of each backed out commit
-    let output = test_env.run_jj_in(&repo_path, ["show", "@+"]);
+    let output = work_dir.run_jj(["show", "@+"]);
     insta::assert_snapshot!(output, @r#"
     Commit ID: 8ff3fbc2ccb0d66985f558c461d1643cebb4c7d6
     Change ID: wqnwkozpkustnxypnnntnykwrqrkrpvv
@@ -153,7 +137,7 @@ fn test_backout_multiple() {
        3     : c
     [EOF]
     "#);
-    let output = test_env.run_jj_in(&repo_path, ["show", "@++"]);
+    let output = work_dir.run_jj(["show", "@++"]);
     insta::assert_snapshot!(output, @r#"
     Commit ID: d31d42e0267f6524d445348b1dd00926c62a6b57
     Change ID: mouksmquosnpvwqrpsvvxtxpywpnxlss
@@ -168,7 +152,7 @@ fn test_backout_multiple() {
        1     : b
     [EOF]
     "#);
-    let output = test_env.run_jj_in(&repo_path, ["show", "@+++"]);
+    let output = work_dir.run_jj(["show", "@+++"]);
     insta::assert_snapshot!(output, @r#"
     Commit ID: 6504c4ded177fba2334f76683d1aa643700d5073
     Change ID: tqvpomtpwrqsylrpsxknultrymmqxmxv
@@ -202,25 +186,25 @@ fn test_backout_description_template() {
         '''
         "#,
     );
-    let repo_path = test_env.env_root().join("repo");
-    create_commit_with_files(&test_env.work_dir(&repo_path), "a", &[], &[("a", "a\n")]);
+    let work_dir = test_env.work_dir("repo");
+    create_commit_with_files(&work_dir, "a", &[], &[("a", "a\n")]);
 
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  2443ea76b0b1 a
     ◆  000000000000
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    let output = work_dir.run_jj(["diff", "-s"]);
     insta::assert_snapshot!(output, @r"
     A a
     [EOF]
     ");
 
     // Verify that message of backed out commit follows the template
-    let output = test_env.run_jj_in(&repo_path, ["backout", "-r", "a"]);
+    let output = work_dir.run_jj(["backout", "-r", "a"]);
     insta::assert_snapshot!(output, @"");
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r#"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r#"
     ○  1db880a5204e Revert commit 2443ea76b0b1 "a"
     @  2443ea76b0b1 a
     ◆  000000000000
@@ -229,7 +213,7 @@ fn test_backout_description_template() {
 }
 
 #[must_use]
-fn get_log_output(test_env: &TestEnvironment, cwd: &Path) -> CommandOutput {
+fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     let template = r#"commit_id.short() ++ " " ++ description"#;
-    test_env.run_jj_in(cwd, ["log", "-T", template])
+    work_dir.run_jj(["log", "-T", template])
 }
