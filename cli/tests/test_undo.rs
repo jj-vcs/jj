@@ -138,14 +138,14 @@ fn test_git_push_undo() {
     // One option to solve this would be to have undo not restore remote-tracking
     // bookmarks, but that also has undersired consequences: the second fetch in
     // `jj git fetch && jj undo && jj git fetch` would become a no-op.
-    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r#"
     main (conflicted):
       - qpvuntsm hidden 2080bdb8 (empty) AA
-      + qpvuntsm?? 20b2cc4b (empty) CC
-      + qpvuntsm?? 75e78001 (empty) BB
-      @origin (behind by 1 commits): qpvuntsm?? 75e78001 (empty) BB
+      + qpvuntsm divergent 20b2cc4b (empty) CC
+      + qpvuntsm divergent 75e78001 (empty) BB
+      @origin (behind by 1 commits): qpvuntsm divergent 75e78001 (empty) BB
     [EOF]
-    ");
+    "#);
 }
 
 /// This test is identical to the previous one, except for one additional
@@ -334,15 +334,15 @@ fn test_git_push_undo_colocated() {
     test_env.run_jj_in(&repo_path, ["git", "fetch"]).success();
     // We have the same conflict as `test_git_push_undo`. TODO: why did we get the
     // same result in a seemingly different way?
-    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_bookmark_output(&test_env, &repo_path), @r#"
     main (conflicted):
       - qpvuntsm hidden 2080bdb8 (empty) AA
-      + qpvuntsm?? 20b2cc4b (empty) CC
-      + qpvuntsm?? 75e78001 (empty) BB
-      @git (behind by 1 commits): qpvuntsm?? 20b2cc4b (empty) CC
-      @origin (behind by 1 commits): qpvuntsm?? 75e78001 (empty) BB
+      + qpvuntsm divergent 20b2cc4b (empty) CC
+      + qpvuntsm divergent 75e78001 (empty) BB
+      @git (behind by 1 commits): qpvuntsm divergent 20b2cc4b (empty) CC
+      @origin (behind by 1 commits): qpvuntsm divergent 75e78001 (empty) BB
     [EOF]
-    ");
+    "#);
 }
 
 // This test is currently *identical* to `test_git_push_undo` except

@@ -274,13 +274,19 @@ separate(" ",
 # change id conflicts and is not affected by such conflicts; you have to use the
 # commit id to refer to a hidden revision regardless.
 'format_short_change_id_with_hidden_and_divergent_info(commit)' = '''
-if(commit.hidden(),
-  label("hidden",
-    format_short_change_id(commit.change_id()) ++ " hidden"
+coalesce(
+  if(commit.hidden(), format_short_change_id_with_label(commit, "hidden")),
+  if(commit.divergent(), format_short_change_id_with_label(commit, "divergent")),
+  format_short_change_id(commit.change_id()),
+)
+'''
+
+'format_short_change_id_with_label(commit, label)' = '''
+label(label,
+  separate(" ",
+    format_short_change_id(commit.change_id()),
+    label,
   ),
-  label(if(commit.divergent(), "divergent"),
-    format_short_change_id(commit.change_id()) ++ if(commit.divergent(), "??")
-  )
 )
 '''
 

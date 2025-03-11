@@ -722,16 +722,16 @@ fn test_new_conflicting_change_ids() {
     test_env.run_jj_in(&repo_path, ["st"]).success();
 
     let output = test_env.run_jj_in(&repo_path, ["new", "qpvuntsm"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: Revset `qpvuntsm` resolved to more than one revision
     Hint: The revset `qpvuntsm` resolved to these revisions:
-      qpvuntsm?? 66c6502d (empty) two
-      qpvuntsm?? 876f4b7e (empty) one
+      qpvuntsm divergent 66c6502d (empty) two
+      qpvuntsm divergent 876f4b7e (empty) one
     Hint: Some of these commits have the same change id. Abandon one of them with `jj abandon -r <REVISION>`.
     [EOF]
     [exit status: 1]
-    ");
+    "#);
 }
 
 #[test]

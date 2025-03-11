@@ -138,6 +138,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj undo` now shows a hint when undoing an undo operation that the user may
    be looking for `jj op restore` instead.
 
+* Divergent changes are now displayed more similarly to hidden commits to make
+  it more clear that having a divergent change is not an error.
+
 ### Fixed bugs
 
 * `jj status` now shows untracked files under untracked directories.
