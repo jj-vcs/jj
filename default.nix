@@ -73,6 +73,7 @@ in
 
     doCheck = false;
     useNextest = true;
+    checkType = finalAttrs.cargoBuildType;
 
     src = fs.toSource {
       root = ./.;
