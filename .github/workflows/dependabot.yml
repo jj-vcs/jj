@@ -1,7 +1,8 @@
-name: Enable auto-merge for Dependabot PRs
+name: Automatically merge Dependabot PRs
 
 on:
-  pull_request:
+  pull_request_review:
+    types: [submitted]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
@@ -16,10 +17,14 @@ jobs:
       contents: write
       pull-requests: write
     runs-on: ubuntu-24.04
-    if: ${{ github.actor == 'dependabot[bot]' }}
+    if: >-
+      ${{
+        github.event.review.state == 'approved'
+        && github.event.pull_request.user.name == 'dependabot[bot]'
+      }}
     steps:
-    - name: Enable auto-merge for Dependabot PRs
-      run: gh pr merge --auto --rebase "$PR_URL"
+    - name: Automatically merge Dependabot PRs
+      run: gh pr merge --rebase "$PR_URL"
       env:
         PR_URL: ${{github.event.pull_request.html_url}}
         GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
