@@ -72,9 +72,13 @@
 
 "config_list name" = "green"
 "config_list value" = "yellow"
+"config_list source" = "blue"
+"config_list path" = "magenta"
 "config_list overridden" = "bright black"
 "config_list overridden name" = "bright black"
 "config_list overridden value" = "bright black"
+"config_list overridden source" = "bright black"
+"config_list overridden path" = "bright black"
 
 "diff header" = "yellow"
 "diff empty" = "cyan"

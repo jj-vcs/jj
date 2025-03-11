@@ -622,6 +622,12 @@ List variables set in config file, along with their values
    * `name: String`: Config name.
    * `value: ConfigValue`: Value to be formatted in TOML syntax.
    * `overridden: Boolean`: True if the value is shadowed by other.
+   * `source: String`: Source of the value.
+   * `path: String`: Path to the config file.
+
+   Can be overridden by the `templates.config_list` setting. To
+   see a detailed config list, use the `builtin_config_list_detailed`
+   template.
 
    See [`jj help -k templates`] for more information.
 

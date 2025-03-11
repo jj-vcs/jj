@@ -259,6 +259,75 @@ fn test_config_list_layer() {
 }
 
 #[test]
+fn test_config_list_origin() {
+    let mut test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    // Test with fresh new config file
+    let user_config_path = test_env.config_path().join("config.toml");
+    test_env.set_config_path(&user_config_path);
+    let repo_path = test_env.env_root().join("repo");
+
+    // User
+    test_env
+        .run_jj_in(
+            &repo_path,
+            ["config", "set", "--user", "test-key", "test-val"],
+        )
+        .success();
+
+    test_env
+        .run_jj_in(
+            &repo_path,
+            [
+                "config",
+                "set",
+                "--user",
+                "test-layered-key",
+                "test-original-val",
+            ],
+        )
+        .success();
+
+    // Repo
+    test_env
+        .run_jj_in(
+            &repo_path,
+            [
+                "config",
+                "set",
+                "--repo",
+                "test-layered-key",
+                "test-layered-val",
+            ],
+        )
+        .success();
+
+    let output = test_env.run_jj_in(
+        &repo_path,
+        [
+            "config",
+            "list",
+            "-Tbuiltin_config_list_detailed",
+            "--config",
+            "test-cli-key=test-cli-val",
+        ],
+    );
+    insta::assert_snapshot!(output, @r#"
+    test-key = "test-val" # user $TEST_ENV/config/config.toml
+    test-layered-key = "test-layered-val" # repo $TEST_ENV/repo/.jj/repo/config.toml
+    user.name = "Test User" # env
+    user.email = "test.user@example.com" # env
+    debug.commit-timestamp = "2001-02-03T04:05:11+07:00" # env
+    debug.randomness-seed = 5 # env
+    debug.operation-timestamp = "2001-02-03T04:05:11+07:00" # env
+    operation.hostname = "host.example.com" # env
+    operation.username = "test-username" # env
+    test-cli-key = "test-cli-val" # cli
+    [EOF]
+    "#);
+}
+
+#[test]
 fn test_config_layer_override_default() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();

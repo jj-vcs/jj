@@ -44,7 +44,6 @@ pub struct ConfigListArgs {
     pub include_overridden: bool,
     #[command(flatten)]
     pub level: ConfigLevelArgs,
-    // TODO(#1047): Support --show-origin using StackedConfig.
     /// Render each variable using the given template
     ///
     /// The following keywords are available in the template expression:
@@ -52,6 +51,12 @@ pub struct ConfigListArgs {
     /// * `name: String`: Config name.
     /// * `value: ConfigValue`: Value to be formatted in TOML syntax.
     /// * `overridden: Boolean`: True if the value is shadowed by other.
+    /// * `source: String`: Source of the value.
+    /// * `path: String`: Path to the config file.
+    ///
+    /// Can be overridden by the `templates.config_list` setting. To
+    /// see a detailed config list, use the `builtin_config_list_detailed`
+    /// template.
     ///
     /// See [`jj help -k templates`] for more information.
     ///
@@ -73,12 +78,17 @@ pub fn cmd_config_list(
 ) -> Result<(), CommandError> {
     let template = {
         let language = config_template_language(command.settings());
-        let text = match &args.template {
-            Some(value) => value.to_owned(),
+        let template_string = match &args.template {
+            Some(value) => value.to_string(),
             None => command.settings().get_string("templates.config_list")?,
         };
         command
-            .parse_template(ui, &language, &text, GenericTemplateLanguage::wrap_self)?
+            .parse_template(
+                ui,
+                &language,
+                &template_string,
+                GenericTemplateLanguage::wrap_self,
+            )?
             .labeled("config_list")
     };
 
@@ -128,6 +138,19 @@ fn config_template_language(
         // .decorated("", "") to trim leading/trailing whitespace
         let out_property = self_property.map(|annotated| annotated.value.decorated("", ""));
         Ok(L::wrap_config_value(out_property))
+    });
+    language.add_keyword("source", |self_property| {
+        let out_property = self_property.map(|annotated| annotated.source.to_string());
+        Ok(L::wrap_string(out_property))
+    });
+    language.add_keyword("path", |self_property| {
+        let out_property = self_property.map(|annotated| {
+            annotated
+                .path
+                .as_ref()
+                .map_or_else(String::new, |path| path.to_string_lossy().to_string())
+        });
+        Ok(L::wrap_string(out_property))
     });
     language.add_keyword("overridden", |self_property| {
         let out_property = self_property.map(|annotated| annotated.is_overridden);

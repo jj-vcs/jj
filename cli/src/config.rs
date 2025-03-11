@@ -96,7 +96,8 @@ pub struct AnnotatedValue {
     pub value: ConfigValue,
     /// Source of the configuration value.
     pub source: ConfigSource,
-    // TODO: add source file path
+    /// Path to the source file, if available.
+    pub path: Option<PathBuf>,
     /// True if this value is overridden in higher precedence layers.
     pub is_overridden: bool,
 }
@@ -151,6 +152,7 @@ pub fn resolved_config_values(
                     name,
                     value,
                     source: layer.source,
+                    path: layer.path.clone(),
                     is_overridden,
                 });
             }
@@ -969,6 +971,7 @@ mod tests {
                     },
                 ),
                 source: EnvBase,
+                path: None,
                 is_overridden: false,
             },
             AnnotatedValue {
@@ -996,6 +999,7 @@ mod tests {
                     },
                 ),
                 source: EnvBase,
+                path: None,
                 is_overridden: true,
             },
             AnnotatedValue {
@@ -1023,6 +1027,7 @@ mod tests {
                     },
                 ),
                 source: Repo,
+                path: None,
                 is_overridden: false,
             },
         ]
@@ -1071,6 +1076,7 @@ mod tests {
                     },
                 ),
                 source: User,
+                path: None,
                 is_overridden: false,
             },
             AnnotatedValue {
@@ -1098,6 +1104,7 @@ mod tests {
                     },
                 ),
                 source: Repo,
+                path: None,
                 is_overridden: false,
             },
         ]

@@ -31,12 +31,7 @@ separate(" ",
 ) ++ ": " ++ content
 '''
 
-config_list = '''
-if(overridden,
-  label("overridden", indent("# ", name ++ " = " ++ value)),
-  name ++ " = " ++ value,
-) ++ "\n"
-'''
+config_list = 'builtin_config_list'
 
 draft_commit_description = '''
 concat(
@@ -72,6 +67,23 @@ separate(" ",
 '''
 
 [template-aliases]
+
+builtin_config_item = '''
+if(overridden,
+  label("overridden", indent("# ", name ++ " = " ++ value)),
+  name ++ " = " ++ value,
+)
+'''
+
+builtin_config_list = 'builtin_config_item ++ "\n"'
+
+builtin_config_list_detailed = '''
+if(overridden,
+  label("overridden", builtin_config_item ++ " # " ++ separate(" ", source, path)),
+  builtin_config_item ++ " # " ++ separate(" ", source, path),
+) ++ "\n"
+'''
+
 builtin_log_oneline = '''
 if(root,
   format_root_commit(self),

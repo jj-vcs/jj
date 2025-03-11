@@ -17,6 +17,7 @@
 use std::borrow::Borrow;
 use std::convert::Infallible;
 use std::fmt;
+use std::fmt::Display;
 use std::fs;
 use std::io;
 use std::ops::Range;
@@ -291,6 +292,20 @@ pub enum ConfigSource {
     EnvOverrides,
     /// Command-line arguments (which has the highest precedence.)
     CommandArg,
+}
+
+impl Display for ConfigSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use ConfigSource::*;
+        let c = match self {
+            Default => "default",
+            User => "user",
+            Repo => "repo",
+            CommandArg => "cli",
+            EnvBase | EnvOverrides => "env",
+        };
+        write!(f, "{c}")
+    }
 }
 
 /// Set of configuration variables with source information.

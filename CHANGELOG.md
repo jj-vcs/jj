@@ -38,6 +38,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* The command `jj config list` now supports showing the origin of each variable
+  via the `builtin_config_list_detailed` template.
+
 * `jj config {edit,set,unset}` now prompt when multiple config files are found.
 
 * `jj diff -r` now allows multiple revisions (as long as there are no gaps in

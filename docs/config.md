@@ -368,6 +368,29 @@ edit = true
 You can pass the `--no-edit` flag to `prev` and `next` if you find yourself
 needing the original behavior.
 
+## List
+
+### Default Template
+
+You can configure the template used when no `-T` is specified.
+
+- `templates.config_list` for `jj config list`
+
+```toml
+[templates]
+# Use builtin config list template
+config_list = "builtin_config_list"
+```
+
+If you want to see the config variable origin (type and path) when you do `jj config list`
+you can add this to your config:
+
+```toml
+[templates]
+config_list = "builtin_config_list_detailed"
+```
+
+
 ## Log
 
 ### Default revisions
