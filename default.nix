@@ -74,6 +74,13 @@ in
     doCheck = false;
     useNextest = true;
     checkType = finalAttrs.cargoBuildType;
+    cargoTestFlags = [
+      # Don’t build the `gen-protos` build tool when running tests.
+      "-p"
+      "jj-lib"
+      "-p"
+      "jj-cli"
+    ];
 
     src = fs.toSource {
       root = ./.;
