@@ -12,21 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::fs;
-
 use crate::common::TestEnvironment;
 
 #[test]
 fn test_alias_basic() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
     test_env.add_config(r#"aliases.bk = ["log", "-r", "@", "-T", "bookmarks"]"#);
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "my-bookmark", "-r", "@"])
+    work_dir
+        .run_jj(["bookmark", "create", "my-bookmark", "-r", "@"])
         .success();
-    let output = test_env.run_jj_in(&repo_path, ["bk"]);
+    let output = work_dir.run_jj(["bk"]);
     insta::assert_snapshot!(output, @r"
     @  my-bookmark
     │
@@ -39,9 +37,9 @@ fn test_alias_basic() {
 fn test_alias_bad_name() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    let output = test_env.run_jj_in(&repo_path, ["foo."]);
+    let output = work_dir.run_jj(["foo."]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: unrecognized subcommand 'foo.'
@@ -58,7 +56,7 @@ fn test_alias_bad_name() {
 fn test_alias_calls_empty_command() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
     test_env.add_config(
         r#"
@@ -67,7 +65,7 @@ fn test_alias_calls_empty_command() {
     "#,
     );
 
-    let output = test_env.run_jj_in(&repo_path, ["empty"]);
+    let output = work_dir.run_jj(["empty"]);
     insta::assert_snapshot!(
         output.normalize_stderr_with(|s| s.split_inclusive('\n').take(3).collect()), @r"
     ------- stderr -------
@@ -77,7 +75,7 @@ fn test_alias_calls_empty_command() {
     [EOF]
     [exit status: 2]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["empty", "--no-pager"]);
+    let output = work_dir.run_jj(["empty", "--no-pager"]);
     insta::assert_snapshot!(
         output.normalize_stderr_with(|s| s.split_inclusive('\n').take(1).collect()), @r"
     ------- stderr -------
@@ -85,7 +83,7 @@ fn test_alias_calls_empty_command() {
     [EOF]
     [exit status: 2]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["empty_command_with_opts"]);
+    let output = work_dir.run_jj(["empty_command_with_opts"]);
     insta::assert_snapshot!(
         output.normalize_stderr_with(|s| s.split_inclusive('\n').take(1).collect()), @r"
     ------- stderr -------
@@ -99,10 +97,10 @@ fn test_alias_calls_empty_command() {
 fn test_alias_calls_unknown_command() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
     test_env.add_config(r#"aliases.foo = ["nonexistent"]"#);
-    let output = test_env.run_jj_in(&repo_path, ["foo"]);
+    let output = work_dir.run_jj(["foo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: unrecognized subcommand 'nonexistent'
@@ -121,10 +119,10 @@ fn test_alias_calls_unknown_command() {
 fn test_alias_calls_command_with_invalid_option() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
     test_env.add_config(r#"aliases.foo = ["log", "--nonexistent"]"#);
-    let output = test_env.run_jj_in(&repo_path, ["foo"]);
+    let output = work_dir.run_jj(["foo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: unexpected argument '--nonexistent' found
@@ -143,9 +141,9 @@ fn test_alias_calls_command_with_invalid_option() {
 fn test_alias_calls_help() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
     test_env.add_config(r#"aliases.h = ["--help"]"#);
-    let output = test_env.run_jj_in(&repo_path, &["h"]);
+    let output = work_dir.run_jj(&["h"]);
     insta::assert_snapshot!(
         output.normalize_stdout_with(|s| s.split_inclusive('\n').take(7).collect()), @r"
     Jujutsu (An experimental VCS)
@@ -163,11 +161,11 @@ fn test_alias_calls_help() {
 fn test_alias_cannot_override_builtin() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
     test_env.add_config(r#"aliases.log = ["rebase"]"#);
     // Alias should give a warning
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "root()"]);
+    let output = work_dir.run_jj(["log", "-r", "root()"]);
     insta::assert_snapshot!(output, @r"
     ◆  zzzzzzzz root() 00000000
     [EOF]
@@ -181,7 +179,7 @@ fn test_alias_cannot_override_builtin() {
 fn test_alias_recursive() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
     test_env.add_config(
         r#"[aliases]
@@ -191,7 +189,7 @@ fn test_alias_recursive() {
     "#,
     );
     // Alias should not cause infinite recursion or hang
-    let output = test_env.run_jj_in(&repo_path, ["foo"]);
+    let output = work_dir.run_jj(["foo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Recursive alias definition involving `foo`
@@ -199,7 +197,7 @@ fn test_alias_recursive() {
     [exit status: 1]
     ");
     // Also test with mutual recursion
-    let output = test_env.run_jj_in(&repo_path, ["bar"]);
+    let output = work_dir.run_jj(["bar"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Recursive alias definition involving `bar`
@@ -212,10 +210,10 @@ fn test_alias_recursive() {
 fn test_alias_global_args_before_and_after() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
     test_env.add_config(r#"aliases.l = ["log", "-T", "commit_id", "-r", "all()"]"#);
     // Test the setup
-    let output = test_env.run_jj_in(&repo_path, ["l"]);
+    let output = work_dir.run_jj(["l"]);
     insta::assert_snapshot!(output, @r"
     @  230dd059e1b059aefc0da06a2e5a7dbf22362f22
     ◆  0000000000000000000000000000000000000000
@@ -223,24 +221,24 @@ fn test_alias_global_args_before_and_after() {
     ");
 
     // Can pass global args before
-    let output = test_env.run_jj_in(&repo_path, ["l", "--at-op", "@-"]);
+    let output = work_dir.run_jj(["l", "--at-op", "@-"]);
     insta::assert_snapshot!(output, @r"
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
     // Can pass global args after
-    let output = test_env.run_jj_in(&repo_path, ["--at-op", "@-", "l"]);
+    let output = work_dir.run_jj(["--at-op", "@-", "l"]);
     insta::assert_snapshot!(output, @r"
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
     // Test passing global args both before and after
-    let output = test_env.run_jj_in(&repo_path, ["--at-op", "abc123", "l", "--at-op", "@-"]);
+    let output = work_dir.run_jj(["--at-op", "abc123", "l", "--at-op", "@-"]);
     insta::assert_snapshot!(output, @r"
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["-R", "../nonexistent", "l", "-R", "."]);
+    let output = work_dir.run_jj(["-R", "../nonexistent", "l", "-R", "."]);
     insta::assert_snapshot!(output, @r"
     @  230dd059e1b059aefc0da06a2e5a7dbf22362f22
     ◆  0000000000000000000000000000000000000000
@@ -252,13 +250,13 @@ fn test_alias_global_args_before_and_after() {
 fn test_alias_global_args_in_definition() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
     test_env.add_config(
         r#"aliases.l = ["log", "-T", "commit_id", "--at-op", "@-", "-r", "all()", "--color=always"]"#,
     );
 
     // The global argument in the alias is respected
-    let output = test_env.run_jj_in(&repo_path, ["l"]);
+    let output = work_dir.run_jj(["l"]);
     insta::assert_snapshot!(output, @r"
     [1m[38;5;14m◆[0m  [38;5;4m0000000000000000000000000000000000000000[39m
     [EOF]
@@ -303,35 +301,34 @@ fn test_alias_invalid_definition() {
 fn test_alias_in_repo_config() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo1"]).success();
-    let repo1_path = test_env.env_root().join("repo1");
-    fs::create_dir(repo1_path.join("sub")).unwrap();
+    let work_dir1 = test_env.work_dir("repo1");
+    work_dir1.create_dir("sub");
     test_env.run_jj_in(".", ["git", "init", "repo2"]).success();
-    let repo2_path = test_env.env_root().join("repo2");
-    fs::create_dir(repo2_path.join("sub")).unwrap();
+    let work_dir2 = test_env.work_dir("repo2");
+    work_dir2.create_dir("sub");
 
     test_env.add_config(r#"aliases.l = ['log', '-r@', '--no-graph', '-T"user alias\n"']"#);
-    fs::write(
-        repo1_path.join(".jj/repo/config.toml"),
+    work_dir1.write_file(
+        ".jj/repo/config.toml",
         r#"aliases.l = ['log', '-r@', '--no-graph', '-T"repo1 alias\n"']"#,
-    )
-    .unwrap();
+    );
 
     // In repo1 sub directory, aliases can be loaded from the repo1 config.
-    let output = test_env.run_jj_in(&repo1_path.join("sub"), ["l"]);
+    let output = test_env.run_jj_in(work_dir1.root().join("sub"), ["l"]);
     insta::assert_snapshot!(output, @r"
     repo1 alias
     [EOF]
     ");
 
     // In repo2 directory, no repo-local aliases exist.
-    let output = test_env.run_jj_in(&repo2_path, ["l"]);
+    let output = work_dir2.run_jj(["l"]);
     insta::assert_snapshot!(output, @r"
     user alias
     [EOF]
     ");
 
     // Aliases can't be loaded from the -R path due to chicken and egg problem.
-    let output = test_env.run_jj_in(&repo2_path, ["l", "-R", repo1_path.to_str().unwrap()]);
+    let output = work_dir2.run_jj(["l", "-R", work_dir1.root().to_str().unwrap()]);
     insta::assert_snapshot!(output, @r"
     user alias
     [EOF]
@@ -341,7 +338,7 @@ fn test_alias_in_repo_config() {
     ");
 
     // Aliases are loaded from the cwd-relative workspace even with -R.
-    let output = test_env.run_jj_in(&repo1_path, ["l", "-R", repo2_path.to_str().unwrap()]);
+    let output = work_dir1.run_jj(["l", "-R", work_dir2.root().to_str().unwrap()]);
     insta::assert_snapshot!(output, @r"
     repo1 alias
     [EOF]
@@ -351,24 +348,18 @@ fn test_alias_in_repo_config() {
     ");
 
     // No warning if the expanded command is identical.
-    let output = test_env.run_jj_in(
-        &repo1_path,
-        ["file", "list", "-R", repo2_path.to_str().unwrap()],
-    );
+    let output = work_dir1.run_jj(["file", "list", "-R", work_dir2.root().to_str().unwrap()]);
     insta::assert_snapshot!(output, @"");
 
     // Config loaded from the cwd-relative workspace shouldn't persist. It's
     // used only for command arguments expansion.
-    let output = test_env.run_jj_in(
-        &repo1_path,
-        [
-            "config",
-            "list",
-            "aliases",
-            "-R",
-            repo2_path.to_str().unwrap(),
-        ],
-    );
+    let output = work_dir1.run_jj([
+        "config",
+        "list",
+        "aliases",
+        "-R",
+        work_dir2.root().to_str().unwrap(),
+    ]);
     insta::assert_snapshot!(output, @r#"
     aliases.l = ['log', '-r@', '--no-graph', '-T"user alias\n"']
     [EOF]
@@ -379,17 +370,17 @@ fn test_alias_in_repo_config() {
 fn test_alias_in_config_arg() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
     test_env.add_config(r#"aliases.l = ['log', '-r@', '--no-graph', '-T"user alias\n"']"#);
 
-    let output = test_env.run_jj_in(&repo_path, ["l"]);
+    let output = work_dir.run_jj(["l"]);
     insta::assert_snapshot!(output, @r"
     user alias
     [EOF]
     ");
 
     let alias_arg = r#"--config=aliases.l=['log', '-r@', '--no-graph', '-T"arg alias\n"']"#;
-    let output = test_env.run_jj_in(&repo_path, [alias_arg, "l"]);
+    let output = work_dir.run_jj([alias_arg, "l"]);
     insta::assert_snapshot!(output, @r"
     user alias
     [EOF]
@@ -399,7 +390,7 @@ fn test_alias_in_config_arg() {
     ");
     // should print warning about aliases even if cli parsing fails
     let alias_arg = r#"--config=aliases.this-command-not-exist=['log', '-r@', '--no-graph', '-T"arg alias\n"']"#;
-    let output = test_env.run_jj_in(&repo_path, [alias_arg, "this-command-not-exist"]);
+    let output = work_dir.run_jj([alias_arg, "this-command-not-exist"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Command aliases cannot be loaded from -R/--repository path or --config/--config-file arguments.
