@@ -22,6 +22,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process::ExitStatus;
 
+use bstr::BString;
 use indoc::formatdoc;
 use regex::Captures;
 use regex::Regex;
@@ -307,6 +308,11 @@ impl TestWorkDir<'_> {
     #[track_caller]
     pub fn remove_file(&self, path: impl AsRef<Path>) {
         std::fs::remove_file(self.root.join(path)).unwrap();
+    }
+
+    #[track_caller]
+    pub fn read_file(&self, path: impl AsRef<Path>) -> BString {
+        std::fs::read(self.root.join(path)).unwrap().into()
     }
 
     #[track_caller]
