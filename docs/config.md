@@ -1789,23 +1789,25 @@ to do with signing commits on modification of a change (e.g., rebasing or edits)
   author.
 
 To sign commits only when pushing, set `signing.behavior = "drop"` and
-`git.sign-on-push = true`:
+`git.sign-on-push` to a revset of commits to sign:
 
 ```toml
 # Configure signing backend as before, but lazily signing only on push.
 [signing]
+# Avoid doing any signing on commit creation
 behavior = "drop"
 backend = "ssh"
 key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGj+J6N6SO+4P8dOZqfR1oiay2yxhhHnagH52avUqw5h"
 
 [git]
-sign-on-push = true
+# Sign all non-signed commits on push
+# Could be "~signed() & mine()", or any other revset
+sign-on-push = "~signed() & all()"
 ```
 
 With this setup, commits are not signed when they are created or rewritten. At
-push time, `git.sign-on-push` only signs commits that are not yet signed (that
-are mutable and authored by you, behaving like `own` even though write-time
-signing uses `drop`).
+push time, `git.sign-on-push` is evaluated and all matching mutable commits to
+be pushed will be signed beforehand.
 
 This is useful when the signing backend requires user interaction or is slow,
 because the signing work is deferred to push time. If `signing.behavior` is set
