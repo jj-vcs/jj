@@ -39,6 +39,7 @@ fn test_commit_with_description_from_cli() {
 #[test]
 fn test_commit_with_editor() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
 
@@ -47,7 +48,6 @@ fn test_commit_with_editor() {
     test_env
         .run_jj_in(&workspace_path, ["describe", "-m=initial"])
         .success();
-    let edit_script = test_env.set_up_fake_editor();
     std::fs::write(&edit_script, ["dump editor0", "write\nmodified"].join("\0")).unwrap();
     test_env.run_jj_in(&workspace_path, ["commit"]).success();
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r"
@@ -86,9 +86,9 @@ fn test_commit_with_editor() {
 #[test]
 fn test_commit_with_editor_avoids_unc() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
-    let edit_script = test_env.set_up_fake_editor();
 
     std::fs::write(edit_script, "dump-path path").unwrap();
     test_env.run_jj_in(&workspace_path, ["commit"]).success();
@@ -104,6 +104,8 @@ fn test_commit_with_editor_avoids_unc() {
 #[test]
 fn test_commit_interactive() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    let diff_editor = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
 
@@ -112,10 +114,8 @@ fn test_commit_interactive() {
     test_env
         .run_jj_in(&workspace_path, ["describe", "-m=add files"])
         .success();
-    let edit_script = test_env.set_up_fake_editor();
     std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
 
-    let diff_editor = test_env.set_up_fake_diff_editor();
     let diff_script = ["rm file2", "dump JJ-INSTRUCTIONS instrs"].join("\0");
     std::fs::write(diff_editor, diff_script).unwrap();
 
@@ -182,6 +182,8 @@ fn test_commit_interactive() {
 #[test]
 fn test_commit_interactive_with_paths() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    let diff_editor = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
 
@@ -194,9 +196,7 @@ fn test_commit_interactive_with_paths() {
     std::fs::write(workspace_path.join("file2"), "bar\n").unwrap();
     std::fs::write(workspace_path.join("file3"), "baz\n").unwrap();
 
-    let edit_script = test_env.set_up_fake_editor();
     std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
-    let diff_editor = test_env.set_up_fake_diff_editor();
     let diff_script = [
         "files-before file2",
         "files-after JJ-INSTRUCTIONS file1 file2",
@@ -245,13 +245,13 @@ fn test_commit_interactive_with_paths() {
 #[test]
 fn test_commit_with_default_description() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     test_env.add_config(r#"ui.default-description = "\n\nTESTED=TODO""#);
     let workspace_path = test_env.env_root().join("repo");
 
     std::fs::write(workspace_path.join("file1"), "foo\n").unwrap();
     std::fs::write(workspace_path.join("file2"), "bar\n").unwrap();
-    let edit_script = test_env.set_up_fake_editor();
     std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
     test_env.run_jj_in(&workspace_path, ["commit"]).success();
 
@@ -276,6 +276,7 @@ fn test_commit_with_default_description() {
 #[test]
 fn test_commit_with_description_template() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     test_env.add_config(
         r#"
@@ -299,7 +300,6 @@ fn test_commit_with_description_template() {
     );
     let workspace_path = test_env.env_root().join("repo");
 
-    let edit_script = test_env.set_up_fake_editor();
     std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
 
     std::fs::write(workspace_path.join("file1"), "foo\n").unwrap();
