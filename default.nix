@@ -31,14 +31,26 @@
   #
   gitRev ? "dirty",
 }: let
-  filterSrc = src: regexes:
-    lib.cleanSourceWith {
-      inherit src;
-      filter = path: type: let
-        relPath = lib.removePrefix (toString src + "/") (toString path);
-      in
-        lib.all (re: builtins.match re relPath == null) regexes;
-    };   
+  fs = lib.fileset;
+  files = fs.difference (fs.gitTracked ./.) (fs.unions [
+    ./.github
+    ./.editorconfig
+    ./.envrc.recommended
+    ./.watchmanconfig
+    ./AUTHORS
+    ./README.md
+    ./LICENSE
+    ./GOVERNANCE.md
+    ./SECURITY.md
+    ./deny.toml
+    ./mkdocs.yml
+    ./mkdocs-offline.yml
+    ./pyproject.toml
+    ./uv.lock
+    ./flake.lock
+    (fs.fileFilter (f: f.hasExt "nix") ./.)
+    (fs.fileFilter (f: f.name == "README.md") ./.)
+  ]);
 in
   rustPlatform.buildRustPackage (finalAttrs: {
     strictDeps = true;
@@ -55,12 +67,10 @@ in
     doCheck = false;
     useNextest = true;
 
-    src = filterSrc ./. [
-      ".*\\.nix$"
-      "^.jj/"
-      "^flake\\.lock$"
-      "^target/"
-    ];
+    src = fs.toSource {
+      root = ./.;
+      fileset = files;
+    };
 
     nativeBuildInputs = [
       gzip
@@ -104,15 +114,14 @@ in
 
     postInstall = let
       jj = "$out/bin/jj";
-    in
-      lib.optionalString ''
-        ${jj} util install-man-pages man
-        installManPage ./man/man1/*
+    in ''
+      ${jj} util install-man-pages man
+      installManPage ./man/man1/*
 
-        installShellCompletion --cmd jj \
-          --bash <(${jj} util completion bash) \
-          --fish <(${jj} util completion fish) \
-          --zsh <(${jj} util completion zsh)
+      installShellCompletion --cmd jj \
+        --bash <(${jj} util completion bash) \
+        --fish <(${jj} util completion fish) \
+        --zsh <(${jj} util completion zsh)
       '';
 
     meta = {
