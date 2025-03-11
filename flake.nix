@@ -96,7 +96,6 @@
           std = pkgs.stdenv;
         in
           optionals std.isLinux [
-            "-fuse-ld=mold"
             "-Wl,--compress-debug-sections=zstd"
           ]
           ++ optionals std.isDarwin [
@@ -115,7 +114,12 @@
           pkgs.lib.concatStringsSep " "
           (pkgs.lib.concatMap (x: ["-C" "link-arg=${x}"]) rustLinkerFlags);
       in
-        pkgs.mkShell {
+        pkgs.mkShell.override {
+          stdenv =
+            if pkgs.stdenv.hostPlatform.isElf
+            then pkgs.stdenvAdapters.useMoldLinker pkgs.stdenv
+            else pkgs.stdenv;
+        } {
           inherit packages;
           name = "jujutsu";
           inputsFrom = [self.checks.${system}.jujutsu];

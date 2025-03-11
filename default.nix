@@ -5,6 +5,7 @@
   lib,
   stdenv,
   rustPlatform,
+  stdenvAdapters,
   #
   # nativeBuildInputs
   #
@@ -52,7 +53,13 @@
     (fs.fileFilter (f: f.name == "README.md") ./.)
   ]);
 in
-  rustPlatform.buildRustPackage (finalAttrs: {
+  rustPlatform.buildRustPackage.override {
+    # Mold can run most places, but can only build ELF files.
+    stdenv =
+      if stdenv.hostPlatform.isElf
+      then stdenvAdapters.useMoldLinker stdenv
+      else stdenv;
+  } (finalAttrs: {
     strictDeps = true;
 
     pname = "jujutsu";
