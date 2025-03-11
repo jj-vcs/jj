@@ -285,3 +285,28 @@ jobs:
         with:
           sarif_file: results.sarif
           category: zizmor
+
+  required-checks:
+    name: required checks
+    if: ${{ always() && github.event_name == 'merge_group' }}
+    needs:
+    - test
+    - no-git
+    - build-nix
+    - check-protos
+    - check-rustfmt
+    - check-clippy
+    - check-cargo-deny
+    - check-codespell
+    - check-doctests
+    - check-mkdocs
+    # - check-mkdocs-latest
+    # - check-zizmor
+    runs-on: ubuntu-latest
+    steps:
+    - if: >-
+        ${{
+          contains(needs.*.result, 'failure')
+          || contains(needs.*.result, 'cancelled')
+        }}
+      run: exit 1
