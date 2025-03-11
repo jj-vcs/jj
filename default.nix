@@ -81,6 +81,17 @@ in
       "-p"
       "jj-cli"
     ];
+    checkFlags =
+      lib.optionals (lib.inPureEvalMode) [
+        # Doesn't work in the sandbox
+        "--skip"
+        "test_git::test_push_bookmarks_deletion::use_git2_for_remote_calls"
+      ]
+      ++ lib.optionals (lib.strings.hasInfix "dirty" gitRev) [
+        # Test fails if is marked dirty.
+        "--skip"
+        "test_global_opts::test_version"
+      ];
 
     src = fs.toSource {
       root = ./.;
