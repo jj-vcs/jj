@@ -140,14 +140,15 @@ in
 
     postInstall = let
       jj = "$out/bin/jj";
-    in ''
-      ${jj} util install-man-pages man
-      installManPage ./man/man1/*
+    in
+      lib.optionalString (stdenv.buildPlatform.canExecute stdenv.hostPlatform) ''
+        ${jj} util install-man-pages man
+        installManPage ./man/man1/*
 
-      installShellCompletion --cmd jj \
-        --bash <(${jj} util completion bash) \
-        --fish <(${jj} util completion fish) \
-        --zsh <(${jj} util completion zsh)
+        installShellCompletion --cmd jj \
+          --bash <(${jj} util completion bash) \
+          --fish <(${jj} util completion fish) \
+          --zsh <(${jj} util completion zsh)
       '';
 
     meta = {
