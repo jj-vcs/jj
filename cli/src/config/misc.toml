@@ -28,7 +28,6 @@ disabled-branches = []
 colocate = true
 object-hash = "sha1"
 private-commits = "none()"
-sign-on-push = false
 track-default-bookmark-on-clone = true
 
 [ui]
