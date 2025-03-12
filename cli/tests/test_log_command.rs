@@ -150,6 +150,53 @@ fn test_log_with_or_without_diff() {
     [EOF]
     ");
 
+    // `-p` for default diff output, `--stat` for diff-stat
+    let output = test_env.run_jj_in(&repo_path, ["log", "-T", "description", "-p", "--stat"]);
+    insta::assert_snapshot!(output, @r"
+    @  a new commit
+    │  file1 | 1 +
+    │  1 file changed, 1 insertion(+), 0 deletions(-)
+    │  Modified regular file file1:
+    │     1    1: foo
+    │          2: bar
+    ○  add a file
+    │  file1 | 1 +
+    │  1 file changed, 1 insertion(+), 0 deletions(-)
+    │  Added regular file file1:
+    │          1: foo
+    ◆
+       0 files changed, 0 insertions(+), 0 deletions(-)
+    [EOF]
+    ");
+
+    // `--stat` is short format, which should be printed first
+    let output = test_env.run_jj_in(&repo_path, ["log", "-T", "description", "--git", "--stat"]);
+    insta::assert_snapshot!(output, @r"
+    @  a new commit
+    │  file1 | 1 +
+    │  1 file changed, 1 insertion(+), 0 deletions(-)
+    │  diff --git a/file1 b/file1
+    │  index 257cc5642c..3bd1f0e297 100644
+    │  --- a/file1
+    │  +++ b/file1
+    │  @@ -1,1 +1,2 @@
+    │   foo
+    │  +bar
+    ○  add a file
+    │  file1 | 1 +
+    │  1 file changed, 1 insertion(+), 0 deletions(-)
+    │  diff --git a/file1 b/file1
+    │  new file mode 100644
+    │  index 0000000000..257cc5642c
+    │  --- /dev/null
+    │  +++ b/file1
+    │  @@ -0,0 +1,1 @@
+    │  +foo
+    ◆
+       0 files changed, 0 insertions(+), 0 deletions(-)
+    [EOF]
+    ");
+
     // `-p` enables default "summary" output, so `-s` is noop
     let output = test_env.run_jj_in(
         &repo_path,

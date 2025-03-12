@@ -143,6 +143,18 @@ pub enum DiffFormat {
     Tool(Box<ExternalMergeTool>),
 }
 
+impl DiffFormat {
+    fn is_short(&self) -> bool {
+        match self {
+            DiffFormat::Summary
+            | DiffFormat::Stat(_)
+            | DiffFormat::Types
+            | DiffFormat::NameOnly => true,
+            DiffFormat::Git(_) | DiffFormat::ColorWords(_) | DiffFormat::Tool(_) => false,
+        }
+    }
+}
+
 /// Returns a list of requested diff formats, which will never be empty.
 pub fn diff_formats_for(
     settings: &UserSettings,
@@ -164,8 +176,10 @@ pub fn diff_formats_for_log(
     patch: bool,
 ) -> Result<Vec<DiffFormat>, ConfigGetError> {
     let mut formats = diff_formats_from_args(settings, args)?;
-    // --patch implies default if no format other than --summary is specified
-    if patch && matches!(formats.as_slice(), [] | [DiffFormat::Summary]) {
+    // --patch implies default if no "long" format is specified
+    if patch && formats.iter().all(DiffFormat::is_short) {
+        // TODO: maybe better to error out if the configured default isn't a
+        // "long" format?
         formats.push(default_diff_format(settings, args)?);
         formats.dedup();
     }
@@ -177,8 +191,14 @@ fn diff_formats_from_args(
     args: &DiffFormatArgs,
 ) -> Result<Vec<DiffFormat>, ConfigGetError> {
     let mut formats = Vec::new();
+    // "short" format first:
     if args.summary {
         formats.push(DiffFormat::Summary);
+    }
+    if args.stat {
+        let mut options = DiffStatOptions::default();
+        options.merge_args(args);
+        formats.push(DiffFormat::Stat(Box::new(options)));
     }
     if args.types {
         formats.push(DiffFormat::Types);
@@ -186,6 +206,7 @@ fn diff_formats_from_args(
     if args.name_only {
         formats.push(DiffFormat::NameOnly);
     }
+    // "long" format follows:
     if args.git {
         let mut options = UnifiedDiffOptions::from_settings(settings)?;
         options.merge_args(args);
@@ -195,11 +216,6 @@ fn diff_formats_from_args(
         let mut options = ColorWordsDiffOptions::from_settings(settings)?;
         options.merge_args(args);
         formats.push(DiffFormat::ColorWords(Box::new(options)));
-    }
-    if args.stat {
-        let mut options = DiffStatOptions::default();
-        options.merge_args(args);
-        formats.push(DiffFormat::Stat(Box::new(options)));
     }
     if let Some(name) = &args.tool {
         let tool = merge_tools::get_external_tool_config(settings, name)?
@@ -232,6 +248,11 @@ fn default_diff_format(
     };
     match name.as_ref() {
         "summary" => Ok(DiffFormat::Summary),
+        "stat" => {
+            let mut options = DiffStatOptions::default();
+            options.merge_args(args);
+            Ok(DiffFormat::Stat(Box::new(options)))
+        }
         "types" => Ok(DiffFormat::Types),
         "name-only" => Ok(DiffFormat::NameOnly),
         "git" => {
@@ -243,11 +264,6 @@ fn default_diff_format(
             let mut options = ColorWordsDiffOptions::from_settings(settings)?;
             options.merge_args(args);
             Ok(DiffFormat::ColorWords(Box::new(options)))
-        }
-        "stat" => {
-            let mut options = DiffStatOptions::default();
-            options.merge_args(args);
-            Ok(DiffFormat::Stat(Box::new(options)))
         }
         _ => Err(ConfigGetError::Type {
             name: "ui.diff.format".to_owned(),

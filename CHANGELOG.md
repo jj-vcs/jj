@@ -53,6 +53,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* `jj log -p --stat` now shows diff stats as well as the default color-words/git
+  diff output. [#5986](https://github.com/jj-vcs/jj/issues/5986)
 
 ## [0.27.0] - 2025-03-05
 
