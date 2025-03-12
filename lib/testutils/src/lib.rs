@@ -142,6 +142,12 @@ impl TestEnvironment {
         }
     }
 
+    /// Panic if `CI` environment variable is set to a non-empty value
+    pub fn ensure_running_outside_ci(reason: &str) {
+        let running_in_ci = std::env::var("CI").is_ok_and(|value| !value.is_empty());
+        assert!(!running_in_ci, "Running in CI, {reason}.");
+    }
+
     pub fn root(&self) -> &Path {
         self.temp_dir.path()
     }
