@@ -590,29 +590,35 @@ impl Ui {
     }
 
     /// Repeat the given prompt until the input is one of the specified choices.
+    /// Returns the index of the choice.
     pub fn prompt_choice(
         &self,
         prompt: &str,
         choices: &[impl AsRef<str>],
-        default: Option<&str>,
-    ) -> io::Result<String> {
+        default_index: Option<usize>,
+    ) -> io::Result<usize> {
         if !Self::can_prompt() {
-            if let Some(default) = default {
+            if let Some(index) = default_index {
                 // Choose the default automatically without waiting.
-                writeln!(self.stderr(), "{prompt}: {default}")?;
-                return Ok(default.to_owned());
+                let choice = choices
+                    .get(index)
+                    .expect("default_index should be within range")
+                    .as_ref();
+                writeln!(self.stderr(), "{prompt}: {choice}")?;
+                return Ok(index);
             }
         }
 
         loop {
-            let choice = self.prompt(prompt)?.trim().to_owned();
+            let choice = self.prompt(prompt)?;
+            let choice = choice.trim();
             if choice.is_empty() {
-                if let Some(default) = default {
-                    return Ok(default.to_owned());
+                if let Some(index) = default_index {
+                    return Ok(index);
                 }
             }
-            if choices.iter().any(|c| choice == c.as_ref()) {
-                return Ok(choice);
+            if let Some(index) = choices.iter().position(|c| choice == c.as_ref()) {
+                return Ok(index);
             }
 
             writeln!(self.warning_no_heading(), "unrecognized response")?;
@@ -626,14 +632,14 @@ impl Ui {
             Some(false) => "(yN)",
             None => "(yn)",
         };
-        let default_choice = default.map(|c| if c { "Y" } else { "N" });
+        let default_index = default.map(|c| if c { 0 } else { 1 });
 
-        let choice = self.prompt_choice(
+        let index = self.prompt_choice(
             &format!("{prompt} {default_str}"),
             &["y", "n", "yes", "no", "Yes", "No", "YES", "NO"],
-            default_choice,
+            default_index,
         )?;
-        Ok(choice.starts_with(['y', 'Y']))
+        Ok(index % 2 == 0)
     }
 
     pub fn prompt_password(&self, prompt: &str) -> io::Result<String> {

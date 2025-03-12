@@ -214,16 +214,14 @@ fn choose_commit<'a>(
     choices.push("q".to_string());
     drop(formatter);
 
-    let choice = ui.prompt_choice(
+    let index = ui.prompt_choice(
         "enter the index of the commit you want to target",
         &choices,
         None,
     )?;
-    if choice == "q" {
-        return Err(user_error("ambiguous target commit"));
-    }
-
-    Ok(&commits[choice.parse::<usize>().unwrap() - 1])
+    commits
+        .get(index)
+        .ok_or_else(|| user_error("ambiguous target commit"))
 }
 
 pub(crate) fn move_to_commit(

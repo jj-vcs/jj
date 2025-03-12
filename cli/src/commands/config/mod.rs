@@ -96,9 +96,9 @@ impl ConfigLevelArgs {
                     choices.push((i + 1).to_string());
                 }
                 drop(formatter);
-                let choice =
-                    ui.prompt_choice("Choose a config file (default 1)", &choices, Some("1"))?;
-                return Ok(files[choice.parse::<usize>().unwrap() - 1].clone());
+                let index =
+                    ui.prompt_choice("Choose a config file (default 1)", &choices, Some(0))?;
+                return Ok(files[index].clone());
             }
             files.pop().ok_or_else(|| user_error(not_found_error))
         };
