@@ -87,6 +87,14 @@ existing component, we require an architecture review from  multiple
 stakeholders, which we do with [Design Docs](design_docs.md), see the
 [process here](design_docs.md#process).
 
+## Deprecating and removing commands
+
+Before removing a required argument, or making a optional argument
+required or renaming a command, make yourself familiar with our
+[Deprecation policy](deprecation.md). The deprecation policy is designed to
+allow us to make progress quickly without breaking workflows to users too
+frequently.
+
 ## Contributing to the documentation
 
 We appreciate [bug
@@ -114,7 +122,6 @@ sources, currently from the [`cli/src/commands`
 directory](https://github.com/jj-vcs/jj/tree/main/cli/src/commands). Working
 on them requires setting up a Rust development environment, as described
 below, and may occasionally require adjusting a test.
-
 
 ## Learning Rust
 
