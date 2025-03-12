@@ -286,8 +286,10 @@ jobs:
           sarif_file: results.sarif
           category: zizmor
 
+  # Block the merge if required checks fail, but only in the merge
+  # queue. See also `required-checks-hack.yml`.
   required-checks:
-    name: required checks
+    name: required checks (merge queue)
     if: ${{ always() && github.event_name == 'merge_group' }}
     needs:
     - test
@@ -304,7 +306,8 @@ jobs:
     # - check-zizmor
     runs-on: ubuntu-latest
     steps:
-    - if: >-
+    - name: Block merge if required checks fail
+      if: >-
         ${{
           contains(needs.*.result, 'failure')
           || contains(needs.*.result, 'cancelled')
