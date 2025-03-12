@@ -23,10 +23,9 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_describe() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
-
-    let edit_script = test_env.set_up_fake_editor();
 
     // Set a description using `-m` flag
     let output = test_env.run_jj_in(&repo_path, ["describe", "-m", "description from CLI"]);
@@ -271,10 +270,9 @@ fn test_describe_editor_env() {
 #[test]
 fn test_describe_multiple_commits() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
-
-    let edit_script = test_env.set_up_fake_editor();
 
     // Initial setup
     test_env.run_jj_in(&repo_path, ["new"]).success();
@@ -624,13 +622,13 @@ fn test_multiple_message_args() {
 #[test]
 fn test_describe_default_description() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     test_env.add_config(r#"ui.default-description = "\n\nTESTED=TODO""#);
     let workspace_path = test_env.env_root().join("repo");
 
     std::fs::write(workspace_path.join("file1"), "foo\n").unwrap();
     std::fs::write(workspace_path.join("file2"), "bar\n").unwrap();
-    let edit_script = test_env.set_up_fake_editor();
     std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
     let output = test_env.run_jj_in(&workspace_path, ["describe"]);
     insta::assert_snapshot!(output, @r"
@@ -654,10 +652,10 @@ fn test_describe_default_description() {
 #[test]
 fn test_describe_author() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    let edit_script = test_env.set_up_fake_editor();
     std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
 
     test_env.add_config(indoc! {r#"
@@ -843,9 +841,9 @@ fn test_describe_author() {
 #[test]
 fn test_describe_avoids_unc() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
-    let edit_script = test_env.set_up_fake_editor();
 
     std::fs::write(edit_script, "dump-path path").unwrap();
     test_env.run_jj_in(&workspace_path, ["describe"]).success();
@@ -861,10 +859,10 @@ fn test_describe_avoids_unc() {
 #[test]
 fn test_describe_with_edit_and_message_args_opens_editor() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
 
-    let edit_script = test_env.set_up_fake_editor();
     std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
     let output = test_env.run_jj_in(
         &workspace_path,
@@ -887,6 +885,7 @@ fn test_describe_with_edit_and_message_args_opens_editor() {
 #[test]
 fn test_describe_change_with_existing_message_with_edit_and_message_args_opens_editor() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
 
@@ -894,7 +893,6 @@ fn test_describe_change_with_existing_message_with_edit_and_message_args_opens_e
         .run_jj_in(&workspace_path, ["describe", "-m", "original message"])
         .success();
 
-    let edit_script = test_env.set_up_fake_editor();
     std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
     let output = test_env.run_jj_in(&workspace_path, ["describe", "-m", "new message", "--edit"]);
     insta::assert_snapshot!(output, @r"
