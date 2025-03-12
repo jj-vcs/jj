@@ -239,14 +239,7 @@ fn default_diff_format(
         .unwrap_or_else(|| ExternalMergeTool::with_diff_args(&args));
         return Ok(DiffFormat::Tool(Box::new(tool)));
     }
-    let name = if let Some(name) = settings.get_string("ui.diff.format").optional()? {
-        name
-    } else if let Some(name) = settings.get_string("diff.format").optional()? {
-        name // old config name
-    } else {
-        "color-words".to_owned()
-    };
-    match name.as_ref() {
+    match settings.get_string("ui.diff.format")?.as_ref() {
         "summary" => Ok(DiffFormat::Summary),
         "stat" => {
             let mut options = DiffStatOptions::default();
@@ -265,7 +258,7 @@ fn default_diff_format(
             options.merge_args(args);
             Ok(DiffFormat::ColorWords(Box::new(options)))
         }
-        _ => Err(ConfigGetError::Type {
+        name => Err(ConfigGetError::Type {
             name: "ui.diff.format".to_owned(),
             error: format!("Invalid diff format: {name}").into(),
             source_path: None,
