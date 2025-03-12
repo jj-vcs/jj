@@ -13,76 +13,70 @@
 // limitations under the License.
 
 use crate::common::TestEnvironment;
+use crate::common::TestWorkDir;
 
 #[test]
 fn test_bookmark_names() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
     test_env.run_jj_in(".", ["git", "init", "origin"]).success();
-    let origin_path = test_env.env_root().join("origin");
-    let origin_git_repo_path = origin_path
+    let origin_dir = test_env.work_dir("origin");
+    let origin_git_repo_path = origin_dir
+        .root()
         .join(".jj")
         .join("repo")
         .join("store")
         .join("git");
 
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "aaa-local"])
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "aaa-local"])
         .success();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "bbb-local"])
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "bbb-local"])
         .success();
 
     // add various remote branches
-    test_env
-        .run_jj_in(
-            &repo_path,
-            [
-                "git",
-                "remote",
-                "add",
-                "origin",
-                origin_git_repo_path.to_str().unwrap(),
-            ],
-        )
+    work_dir
+        .run_jj([
+            "git",
+            "remote",
+            "add",
+            "origin",
+            origin_git_repo_path.to_str().unwrap(),
+        ])
         .success();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "aaa-tracked"])
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "aaa-tracked"])
         .success();
-    test_env
-        .run_jj_in(&repo_path, ["desc", "-r", "aaa-tracked", "-m", "x"])
+    work_dir
+        .run_jj(["desc", "-r", "aaa-tracked", "-m", "x"])
         .success();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "bbb-tracked"])
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "bbb-tracked"])
         .success();
-    test_env
-        .run_jj_in(&repo_path, ["desc", "-r", "bbb-tracked", "-m", "x"])
+    work_dir
+        .run_jj(["desc", "-r", "bbb-tracked", "-m", "x"])
         .success();
-    test_env
-        .run_jj_in(
-            &repo_path,
-            ["git", "push", "--allow-new", "--bookmark", "glob:*-tracked"],
-        )
+    work_dir
+        .run_jj(["git", "push", "--allow-new", "--bookmark", "glob:*-tracked"])
         .success();
 
-    test_env
-        .run_jj_in(&origin_path, ["bookmark", "create", "-r@", "aaa-untracked"])
+    origin_dir
+        .run_jj(["bookmark", "create", "-r@", "aaa-untracked"])
         .success();
-    test_env
-        .run_jj_in(&origin_path, ["desc", "-r", "aaa-untracked", "-m", "x"])
+    origin_dir
+        .run_jj(["desc", "-r", "aaa-untracked", "-m", "x"])
         .success();
-    test_env
-        .run_jj_in(&origin_path, ["bookmark", "create", "-r@", "bbb-untracked"])
+    origin_dir
+        .run_jj(["bookmark", "create", "-r@", "bbb-untracked"])
         .success();
-    test_env
-        .run_jj_in(&origin_path, ["desc", "-r", "bbb-untracked", "-m", "x"])
+    origin_dir
+        .run_jj(["desc", "-r", "bbb-untracked", "-m", "x"])
         .success();
-    test_env
-        .run_jj_in(&origin_path, ["git", "export"])
-        .success();
-    test_env.run_jj_in(&repo_path, ["git", "fetch"]).success();
+    origin_dir.run_jj(["git", "export"]).success();
+    work_dir.run_jj(["git", "fetch"]).success();
 
     let mut test_env = test_env;
     // Every shell hook is a little different, e.g. the zsh hooks add some
@@ -90,8 +84,9 @@ fn test_bookmark_names() {
     // of testing our own logic, so it's fine to test a single shell only.
     test_env.add_env_var("COMPLETE", "fish");
     let test_env = test_env;
+    let work_dir = test_env.work_dir("repo");
 
-    let output = test_env.run_jj_in(&repo_path, ["--", "jj", "bookmark", "rename", ""]);
+    let output = work_dir.run_jj(["--", "jj", "bookmark", "rename", ""]);
     insta::assert_snapshot!(output, @r"
     aaa-local	x
     aaa-tracked	x
@@ -111,32 +106,21 @@ fn test_bookmark_names() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["--", "jj", "bookmark", "rename", "a"]);
+    let output = work_dir.run_jj(["--", "jj", "bookmark", "rename", "a"]);
     insta::assert_snapshot!(output, @r"
     aaa-local	x
     aaa-tracked	x
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["--", "jj", "bookmark", "delete", "a"]);
+    let output = work_dir.run_jj(["--", "jj", "bookmark", "delete", "a"]);
     insta::assert_snapshot!(output, @r"
     aaa-local	x
     aaa-tracked	x
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["--", "jj", "bookmark", "forget", "a"]);
-    insta::assert_snapshot!(output, @r"
-    aaa-local	x
-    aaa-tracked	x
-    aaa-untracked
-    [EOF]
-    ");
-
-    let output = test_env.run_jj_in(
-        &repo_path,
-        ["--", "jj", "bookmark", "list", "--bookmark", "a"],
-    );
+    let output = work_dir.run_jj(["--", "jj", "bookmark", "forget", "a"]);
     insta::assert_snapshot!(output, @r"
     aaa-local	x
     aaa-tracked	x
@@ -144,40 +128,48 @@ fn test_bookmark_names() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["--", "jj", "bookmark", "move", "a"]);
+    let output = work_dir.run_jj(["--", "jj", "bookmark", "list", "--bookmark", "a"]);
+    insta::assert_snapshot!(output, @r"
+    aaa-local	x
+    aaa-tracked	x
+    aaa-untracked
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["--", "jj", "bookmark", "move", "a"]);
     insta::assert_snapshot!(output, @r"
     aaa-local	x
     aaa-tracked	x
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["--", "jj", "bookmark", "set", "a"]);
+    let output = work_dir.run_jj(["--", "jj", "bookmark", "set", "a"]);
     insta::assert_snapshot!(output, @r"
     aaa-local	x
     aaa-tracked	x
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["--", "jj", "bookmark", "track", "a"]);
+    let output = work_dir.run_jj(["--", "jj", "bookmark", "track", "a"]);
     insta::assert_snapshot!(output, @r"
     aaa-untracked@origin	x
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["--", "jj", "bookmark", "untrack", "a"]);
+    let output = work_dir.run_jj(["--", "jj", "bookmark", "untrack", "a"]);
     insta::assert_snapshot!(output, @r"
     aaa-tracked@origin	x
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["--", "jj", "git", "push", "-b", "a"]);
+    let output = work_dir.run_jj(["--", "jj", "git", "push", "-b", "a"]);
     insta::assert_snapshot!(output, @r"
     aaa-local	x
     aaa-tracked	x
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["--", "jj", "git", "fetch", "-b", "a"]);
+    let output = work_dir.run_jj(["--", "jj", "git", "fetch", "-b", "a"]);
     insta::assert_snapshot!(output, @r"
     aaa-local	x
     aaa-tracked	x
@@ -190,10 +182,10 @@ fn test_bookmark_names() {
 fn test_global_arg_repository_is_respected() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "aaa"])
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "aaa"])
         .success();
 
     let mut test_env = test_env;
@@ -222,33 +214,31 @@ fn test_global_arg_repository_is_respected() {
 fn test_aliases_are_resolved() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "aaa"])
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "aaa"])
         .success();
 
     // user config alias
     test_env.add_config(r#"aliases.b = ["bookmark"]"#);
     // repo config alias
-    test_env
-        .run_jj_in(
-            &repo_path,
-            ["config", "set", "--repo", "aliases.b2", "['bookmark']"],
-        )
+    work_dir
+        .run_jj(["config", "set", "--repo", "aliases.b2", "['bookmark']"])
         .success();
 
     let mut test_env = test_env;
     test_env.add_env_var("COMPLETE", "fish");
     let test_env = test_env;
+    let work_dir = test_env.work_dir("repo");
 
-    let output = test_env.run_jj_in(&repo_path, ["--", "jj", "b", "rename", "a"]);
+    let output = work_dir.run_jj(["--", "jj", "b", "rename", "a"]);
     insta::assert_snapshot!(output, @r"
     aaa	(no description set)
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["--", "jj", "b2", "rename", "a"]);
+    let output = work_dir.run_jj(["--", "jj", "b2", "rename", "a"]);
     insta::assert_snapshot!(output, @r"
     aaa	(no description set)
     [EOF]
@@ -365,29 +355,27 @@ fn test_remote_names() {
 fn test_aliases_are_completed() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
     // user config alias
     test_env.add_config(r#"aliases.user-alias = ["bookmark"]"#);
     // repo config alias
-    test_env
-        .run_jj_in(
-            &repo_path,
-            [
-                "config",
-                "set",
-                "--repo",
-                "aliases.repo-alias",
-                "['bookmark']",
-            ],
-        )
+    work_dir
+        .run_jj([
+            "config",
+            "set",
+            "--repo",
+            "aliases.repo-alias",
+            "['bookmark']",
+        ])
         .success();
 
     let mut test_env = test_env;
     test_env.add_env_var("COMPLETE", "fish");
     let test_env = test_env;
+    let work_dir = test_env.work_dir("repo");
 
-    let output = test_env.run_jj_in(&repo_path, ["--", "jj", "user-al"]);
+    let output = work_dir.run_jj(["--", "jj", "user-al"]);
     insta::assert_snapshot!(output, @r"
     user-alias
     [EOF]
@@ -400,7 +388,7 @@ fn test_aliases_are_completed() {
             "--",
             "jj",
             "--repository",
-            repo_path.to_str().unwrap(),
+            work_dir.root().to_str().unwrap(),
             "repo-al",
         ],
     );
@@ -426,45 +414,39 @@ fn test_aliases_are_completed() {
 fn test_revisions() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
     // create remote to test remote branches
     test_env.run_jj_in(".", ["git", "init", "origin"]).success();
-    let origin_path = test_env.env_root().join("origin");
-    let origin_git_repo_path = origin_path
+    let origin_dir = test_env.work_dir("origin");
+    let origin_git_repo_path = origin_dir
+        .root()
         .join(".jj")
         .join("repo")
         .join("store")
         .join("git");
-    test_env
-        .run_jj_in(
-            &repo_path,
-            [
-                "git",
-                "remote",
-                "add",
-                "origin",
-                origin_git_repo_path.to_str().unwrap(),
-            ],
-        )
+    work_dir
+        .run_jj([
+            "git",
+            "remote",
+            "add",
+            "origin",
+            origin_git_repo_path.to_str().unwrap(),
+        ])
         .success();
-    test_env
-        .run_jj_in(&origin_path, ["b", "c", "-r@", "remote_bookmark"])
+    origin_dir
+        .run_jj(["b", "c", "-r@", "remote_bookmark"])
         .success();
-    test_env
-        .run_jj_in(&origin_path, ["commit", "-m", "remote_commit"])
+    origin_dir
+        .run_jj(["commit", "-m", "remote_commit"])
         .success();
-    test_env
-        .run_jj_in(&origin_path, ["git", "export"])
-        .success();
-    test_env.run_jj_in(&repo_path, ["git", "fetch"]).success();
+    origin_dir.run_jj(["git", "export"]).success();
+    work_dir.run_jj(["git", "fetch"]).success();
 
-    test_env
-        .run_jj_in(&repo_path, ["b", "c", "-r@", "immutable_bookmark"])
+    work_dir
+        .run_jj(["b", "c", "-r@", "immutable_bookmark"])
         .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "immutable"])
-        .success();
+    work_dir.run_jj(["commit", "-m", "immutable"]).success();
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "immutable_bookmark""#);
     test_env.add_config(r#"revset-aliases."siblings" = "@-+ ~@""#);
     test_env.add_config(
@@ -475,27 +457,26 @@ fn test_revisions() {
     '''"#,
     );
 
-    test_env
-        .run_jj_in(&repo_path, ["b", "c", "-r@", "mutable_bookmark"])
+    work_dir
+        .run_jj(["b", "c", "-r@", "mutable_bookmark"])
         .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "mutable"])
-        .success();
+    work_dir.run_jj(["commit", "-m", "mutable"]).success();
 
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m", "working_copy"])
+    work_dir
+        .run_jj(["describe", "-m", "working_copy"])
         .success();
 
     let mut test_env = test_env;
     test_env.add_env_var("COMPLETE", "fish");
     let test_env = test_env;
+    let work_dir = test_env.work_dir("repo");
 
     // There are _a lot_ of commands and arguments accepting revisions.
     // Let's not test all of them. Having at least one test per variation of
     // completion function should be sufficient.
 
     // complete all revisions
-    let output = test_env.run_jj_in(&repo_path, ["--", "jj", "diff", "--from", ""]);
+    let output = work_dir.run_jj(["--", "jj", "diff", "--from", ""]);
     insta::assert_snapshot!(output, @r"
     immutable_bookmark	immutable
     mutable_bookmark	mutable
@@ -511,7 +492,7 @@ fn test_revisions() {
     ");
 
     // complete only mutable revisions
-    let output = test_env.run_jj_in(&repo_path, ["--", "jj", "squash", "--into", ""]);
+    let output = work_dir.run_jj(["--", "jj", "squash", "--into", ""]);
     insta::assert_snapshot!(output, @r"
     mutable_bookmark	mutable
     k	working_copy
@@ -524,7 +505,7 @@ fn test_revisions() {
 
     // complete args of the default command
     test_env.add_config("ui.default-command = 'log'");
-    let output = test_env.run_jj_in(&repo_path, ["--", "jj", "-r", ""]);
+    let output = work_dir.run_jj(["--", "jj", "-r", ""]);
     insta::assert_snapshot!(output, @r"
     immutable_bookmark	immutable
     mutable_bookmark	mutable
@@ -548,30 +529,29 @@ fn test_operations() {
     test_env.add_config("ui.default-command = 'log'");
 
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m", "description 0"])
+    let work_dir = test_env.work_dir("repo");
+    work_dir
+        .run_jj(["describe", "-m", "description 0"])
         .success();
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m", "description 1"])
+    work_dir
+        .run_jj(["describe", "-m", "description 1"])
         .success();
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m", "description 2"])
+    work_dir
+        .run_jj(["describe", "-m", "description 2"])
         .success();
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m", "description 3"])
+    work_dir
+        .run_jj(["describe", "-m", "description 3"])
         .success();
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m", "description 4"])
+    work_dir
+        .run_jj(["describe", "-m", "description 4"])
         .success();
 
     let mut test_env = test_env;
     test_env.add_env_var("COMPLETE", "fish");
     let test_env = test_env;
+    let work_dir = test_env.work_dir("repo");
 
-    let output = test_env
-        .run_jj_in(&repo_path, ["--", "jj", "op", "show", ""])
-        .success();
+    let output = work_dir.run_jj(["--", "jj", "op", "show", ""]).success();
     let add_workspace_id = output
         .stdout
         .raw()
@@ -583,57 +563,54 @@ fn test_operations() {
         .unwrap();
     insta::assert_snapshot!(add_workspace_id, @"eac759b9ab75");
 
-    let output = test_env.run_jj_in(&repo_path, ["--", "jj", "op", "show", "5"]);
+    let output = work_dir.run_jj(["--", "jj", "op", "show", "5"]);
     insta::assert_snapshot!(output, @r"
     5bbb4ca536a8	(2001-02-03 08:05:12) describe commit 968261075dddabf4b0e333c1cc9a49ce26a3f710
     518b588abbc6	(2001-02-03 08:05:09) describe commit 19611c995a342c01f525583e5fcafdd211f6d009
     [EOF]
     ");
     // make sure global --at-op flag is respected
-    let output = test_env.run_jj_in(
-        &repo_path,
-        ["--", "jj", "--at-op", "518b588abbc6", "op", "show", "5"],
-    );
+    let output = work_dir.run_jj(["--", "jj", "--at-op", "518b588abbc6", "op", "show", "5"]);
     insta::assert_snapshot!(output, @r"
     518b588abbc6	(2001-02-03 08:05:09) describe commit 19611c995a342c01f525583e5fcafdd211f6d009
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["--", "jj", "--at-op", "5b"]);
+    let output = work_dir.run_jj(["--", "jj", "--at-op", "5b"]);
     insta::assert_snapshot!(output, @r"
     5bbb4ca536a8	(2001-02-03 08:05:12) describe commit 968261075dddabf4b0e333c1cc9a49ce26a3f710
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["--", "jj", "op", "abandon", "5b"]);
+    let output = work_dir.run_jj(["--", "jj", "op", "abandon", "5b"]);
     insta::assert_snapshot!(output, @r"
     5bbb4ca536a8	(2001-02-03 08:05:12) describe commit 968261075dddabf4b0e333c1cc9a49ce26a3f710
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["--", "jj", "op", "diff", "--op", "5b"]);
+    let output = work_dir.run_jj(["--", "jj", "op", "diff", "--op", "5b"]);
     insta::assert_snapshot!(output, @r"
     5bbb4ca536a8	(2001-02-03 08:05:12) describe commit 968261075dddabf4b0e333c1cc9a49ce26a3f710
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["--", "jj", "op", "diff", "--from", "5b"]);
+    let output = work_dir.run_jj(["--", "jj", "op", "diff", "--from", "5b"]);
     insta::assert_snapshot!(output, @r"
     5bbb4ca536a8	(2001-02-03 08:05:12) describe commit 968261075dddabf4b0e333c1cc9a49ce26a3f710
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["--", "jj", "op", "diff", "--to", "5b"]);
-    insta::assert_snapshot!(output, @r"
-    5bbb4ca536a8	(2001-02-03 08:05:12) describe commit 968261075dddabf4b0e333c1cc9a49ce26a3f710
-    [EOF]
-    ");
-
-    let output = test_env.run_jj_in(&repo_path, ["--", "jj", "op", "restore", "5b"]);
+    let output = work_dir.run_jj(["--", "jj", "op", "diff", "--to", "5b"]);
     insta::assert_snapshot!(output, @r"
     5bbb4ca536a8	(2001-02-03 08:05:12) describe commit 968261075dddabf4b0e333c1cc9a49ce26a3f710
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["--", "jj", "op", "undo", "5b"]);
+    let output = work_dir.run_jj(["--", "jj", "op", "restore", "5b"]);
+    insta::assert_snapshot!(output, @r"
+    5bbb4ca536a8	(2001-02-03 08:05:12) describe commit 968261075dddabf4b0e333c1cc9a49ce26a3f710
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["--", "jj", "op", "undo", "5b"]);
     insta::assert_snapshot!(output, @r"
     5bbb4ca536a8	(2001-02-03 08:05:12) describe commit 968261075dddabf4b0e333c1cc9a49ce26a3f710
     [EOF]
@@ -644,26 +621,22 @@ fn test_operations() {
 fn test_workspaces() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "main"]).success();
-    let main_path = test_env.env_root().join("main");
+    let main_dir = test_env.work_dir("main");
 
-    std::fs::write(main_path.join("file"), "contents").unwrap();
-    test_env
-        .run_jj_in(&main_path, ["describe", "-m", "initial"])
-        .success();
+    main_dir.write_file("file", "contents");
+    main_dir.run_jj(["describe", "-m", "initial"]).success();
 
-    test_env
-        .run_jj_in(
-            &main_path,
-            // same prefix as "default" workspace
-            ["workspace", "add", "--name", "def-second", "../secondary"],
-        )
+    // same prefix as "default" workspace
+    main_dir
+        .run_jj(["workspace", "add", "--name", "def-second", "../secondary"])
         .success();
 
     let mut test_env = test_env;
     test_env.add_env_var("COMPLETE", "fish");
     let test_env = test_env;
+    let main_dir = test_env.work_dir("main");
 
-    let output = test_env.run_jj_in(&main_path, ["--", "jj", "workspace", "forget", "def"]);
+    let output = main_dir.run_jj(["--", "jj", "workspace", "forget", "def"]);
     insta::assert_snapshot!(output, @r"
     def-second	(no description set)
     default	initial
@@ -766,8 +739,7 @@ fn test_template_alias() {
 }
 
 fn create_commit(
-    test_env: &TestEnvironment,
-    repo_path: &std::path::Path,
+    work_dir: &TestWorkDir,
     name: &str,
     parents: &[&str],
     files: &[(&str, Option<&str>)],
@@ -776,24 +748,20 @@ fn create_commit(
         [] => &["root()"],
         parents => parents,
     };
-    test_env
-        .run_jj_with(|cmd| {
-            cmd.current_dir(repo_path)
-                .args(["new", "-m", name])
-                .args(parents)
-        })
+    work_dir
+        .run_jj_with(|cmd| cmd.args(["new", "-m", name]).args(parents))
         .success();
     for (name, content) in files {
         if let Some((dir, _)) = name.rsplit_once('/') {
-            std::fs::create_dir_all(repo_path.join(dir)).unwrap();
+            work_dir.create_dir_all(dir);
         }
         match content {
-            Some(content) => std::fs::write(repo_path.join(name), content).unwrap(),
-            None => std::fs::remove_file(repo_path.join(name)).unwrap(),
+            Some(content) => work_dir.write_file(name, content),
+            None => work_dir.remove_file(name),
         }
     }
-    test_env
-        .run_jj_in(repo_path, ["bookmark", "create", "-r@", name])
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", name])
         .success();
 }
 
@@ -801,11 +769,10 @@ fn create_commit(
 fn test_files() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
     create_commit(
-        &test_env,
-        &repo_path,
+        &work_dir,
         "first",
         &[],
         &[
@@ -817,8 +784,7 @@ fn test_files() {
         ],
     );
     create_commit(
-        &test_env,
-        &repo_path,
+        &work_dir,
         "second",
         &["first"],
         &[
@@ -835,8 +801,7 @@ fn test_files() {
 
     // create a conflicted commit to check the completions of `jj restore`
     create_commit(
-        &test_env,
-        &repo_path,
+        &work_dir,
         "conflicted",
         &["second"],
         &[
@@ -847,14 +812,11 @@ fn test_files() {
             ("f_dir/dir_file_3", Some("bar\n")),
         ],
     );
-    test_env
-        .run_jj_in(&repo_path, ["rebase", "-r=@", "-d=first"])
-        .success();
+    work_dir.run_jj(["rebase", "-r=@", "-d=first"]).success();
 
     // two commits that are similar but not identical, for `jj interdiff`
     create_commit(
-        &test_env,
-        &repo_path,
+        &work_dir,
         "interdiff_from",
         &[],
         &[
@@ -863,8 +825,7 @@ fn test_files() {
         ],
     );
     create_commit(
-        &test_env,
-        &repo_path,
+        &work_dir,
         "interdiff_to",
         &[],
         &[
@@ -875,8 +836,7 @@ fn test_files() {
 
     // "dirty worktree"
     create_commit(
-        &test_env,
-        &repo_path,
+        &work_dir,
         "working_copy",
         &["second"],
         &[
@@ -885,7 +845,7 @@ fn test_files() {
         ],
     );
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "all()", "--summary"]);
+    let output = work_dir.run_jj(["log", "-r", "all()", "--summary"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     @  wqnwkozp test.user@example.com 2001-02-03 08:05:20 working_copy 45c3a621
     │  working_copy
@@ -928,8 +888,9 @@ fn test_files() {
     let mut test_env = test_env;
     test_env.add_env_var("COMPLETE", "fish");
     let test_env = test_env;
+    let work_dir = test_env.work_dir("repo");
 
-    let output = test_env.run_jj_in(&repo_path, ["--", "jj", "file", "show", "f_"]);
+    let output = work_dir.run_jj(["--", "jj", "file", "show", "f_"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     f_added
     f_added_2
@@ -941,7 +902,7 @@ fn test_files() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["--", "jj", "file", "annotate", "-r@-", "f_"]);
+    let output = work_dir.run_jj(["--", "jj", "file", "annotate", "-r@-", "f_"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     f_added
     f_dir/
@@ -951,7 +912,7 @@ fn test_files() {
     f_unchanged
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["--", "jj", "diff", "-r", "@-", "f_"]);
+    let output = work_dir.run_jj(["--", "jj", "diff", "-r", "@-", "f_"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     f_added	Added
     f_deleted	Deleted
@@ -961,17 +922,14 @@ fn test_files() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(
-        &repo_path,
-        [
-            "--",
-            "jj",
-            "diff",
-            "-r",
-            "@-",
-            &format!("f_dir{}", std::path::MAIN_SEPARATOR),
-        ],
-    );
+    let output = work_dir.run_jj([
+        "--",
+        "jj",
+        "diff",
+        "-r",
+        "@-",
+        &format!("f_dir{}", std::path::MAIN_SEPARATOR),
+    ]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     f_dir/dir_file_1	Added
     f_dir/dir_file_2	Added
@@ -979,10 +937,7 @@ fn test_files() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(
-        &repo_path,
-        ["--", "jj", "diff", "--from", "root()", "--to", "@-", "f_"],
-    );
+    let output = work_dir.run_jj(["--", "jj", "diff", "--from", "root()", "--to", "@-", "f_"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     f_added	Added
     f_dir/
@@ -994,17 +949,14 @@ fn test_files() {
     ");
 
     // interdiff has a different behavior with --from and --to flags
-    let output = test_env.run_jj_in(
-        &repo_path,
-        [
-            "--",
-            "jj",
-            "interdiff",
-            "--to=interdiff_to",
-            "--from=interdiff_from",
-            "f_",
-        ],
-    );
+    let output = work_dir.run_jj([
+        "--",
+        "jj",
+        "interdiff",
+        "--to=interdiff_to",
+        "--from=interdiff_from",
+        "f_",
+    ]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     f_interdiff_only_from	Added
     f_interdiff_same	Added
@@ -1014,7 +966,7 @@ fn test_files() {
     ");
 
     // squash has a different behavior with --from and --to flags
-    let output = test_env.run_jj_in(&repo_path, ["--", "jj", "squash", "-f=first", "f_"]);
+    let output = work_dir.run_jj(["--", "jj", "squash", "-f=first", "f_"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     f_deleted	Added
     f_modified	Added
@@ -1023,14 +975,14 @@ fn test_files() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["--", "jj", "resolve", "-r=conflicted", "f_"]);
+    let output = work_dir.run_jj(["--", "jj", "resolve", "-r=conflicted", "f_"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     f_dir/
     f_modified
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["--", "jj", "log", "f_"]);
+    let output = work_dir.run_jj(["--", "jj", "log", "f_"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     f_added
     f_added_2
@@ -1041,18 +993,15 @@ fn test_files() {
     f_unchanged
     [EOF]
     ");
-    let output = test_env.run_jj_in(
-        &repo_path,
-        [
-            "--",
-            "jj",
-            "log",
-            "-r=first",
-            "--revisions",
-            "conflicted",
-            "f_",
-        ],
-    );
+    let output = work_dir.run_jj([
+        "--",
+        "jj",
+        "log",
+        "-r=first",
+        "--revisions",
+        "conflicted",
+        "f_",
+    ]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     f_added_2
     f_deleted
