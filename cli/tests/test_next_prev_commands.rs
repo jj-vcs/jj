@@ -444,12 +444,11 @@ fn test_next_fails_on_bookmarking_children_no_stdin() {
     // Try to advance the working copy commit.
     let output = test_env.run_jj_in(&repo_path, ["next"]);
     insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     ambiguous next commit, choose one to target:
     1: zsuskuln 5f24490d (empty) third
     2: rlvkpnrz 9ed53a4a (empty) second
     q: quit the prompt
-    [EOF]
-    ------- stderr -------
     Error: Cannot prompt for input since the output is not connected to a terminal
     [EOF]
     [exit status: 1]
@@ -492,12 +491,11 @@ fn test_next_fails_on_bookmarking_children_quit_prompt() {
             .write_stdin("q\n")
     });
     insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     ambiguous next commit, choose one to target:
     1: zsuskuln 5f24490d (empty) third
     2: rlvkpnrz 9ed53a4a (empty) second
     q: quit the prompt
-    [EOF]
-    ------- stderr -------
     enter the index of the commit you want to target: Error: ambiguous target commit
     [EOF]
     [exit status: 1]
@@ -532,13 +530,12 @@ fn test_next_choose_bookmarking_child() {
             .write_stdin("2\n")
     });
     insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     ambiguous next commit, choose one to target:
     1: royxmykx d00fe885 (empty) fourth
     2: zsuskuln 5f24490d (empty) third
     3: rlvkpnrz 9ed53a4a (empty) second
     q: quit the prompt
-    [EOF]
-    ------- stderr -------
     enter the index of the commit you want to target: Working copy now at: yostqsxw 5c8fa96d (empty) (no description set)
     Parent commit      : zsuskuln 5f24490d (empty) third
     [EOF]
@@ -593,12 +590,11 @@ fn test_prev_on_merge_commit() {
             .write_stdin("2\n")
     });
     insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     ambiguous prev commit, choose one to target:
     1: zsuskuln b0d21db3 right | (empty) second
     2: qpvuntsm fa15625b left | (empty) first
     q: quit the prompt
-    [EOF]
-    ------- stderr -------
     enter the index of the commit you want to target: Working copy now at: qpvuntsm fa15625b left | (empty) first
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
@@ -654,13 +650,12 @@ fn test_prev_on_merge_commit_with_parent_merge() {
             .write_stdin("2\n")
     });
     insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     ambiguous prev commit, choose one to target:
     1: kkmpptxz 146d5c67 (empty) y
     2: qpvuntsm 6799aaa2 (empty) x
     3: zzzzzzzz 00000000 (empty) (no description set)
     q: quit the prompt
-    [EOF]
-    ------- stderr -------
     enter the index of the commit you want to target: Working copy now at: vruxwmqv e5a6794c (empty) (no description set)
     Parent commit      : qpvuntsm 6799aaa2 (empty) x
     [EOF]
@@ -674,12 +669,11 @@ fn test_prev_on_merge_commit_with_parent_merge() {
             .write_stdin("2\n")
     });
     insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     ambiguous prev commit, choose one to target:
     1: mzvwutvl 89b8a355 (empty) 1
     2: zsuskuln a83fc061 (empty) z
     q: quit the prompt
-    [EOF]
-    ------- stderr -------
     enter the index of the commit you want to target: Working copy now at: zsuskuln a83fc061 (empty) z
     Parent commit      : qpvuntsm 6799aaa2 (empty) x
     Parent commit      : kkmpptxz 146d5c67 (empty) y
@@ -737,13 +731,12 @@ fn test_prev_prompts_on_multiple_parents() {
             .write_stdin("3\n")
     });
     insta::assert_snapshot!(output, @r"
+    ------- stderr -------
     ambiguous prev commit, choose one to target:
     1: mzvwutvl bc4f4fe3 (empty) third
     2: kkmpptxz b0d21db3 (empty) second
     3: qpvuntsm fa15625b (empty) first
     q: quit the prompt
-    [EOF]
-    ------- stderr -------
     enter the index of the commit you want to target: Working copy now at: kpqxywon ddac00b0 (empty) (no description set)
     Parent commit      : qpvuntsm fa15625b (empty) first
     [EOF]

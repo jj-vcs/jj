@@ -191,17 +191,17 @@ fn get_target_commit(
 }
 
 fn choose_commit<'a>(
-    ui: &mut Ui,
+    ui: &Ui,
     workspace_command: &WorkspaceCommandHelper,
     direction: Direction,
     commits: &'a [Commit],
 ) -> Result<&'a Commit, CommandError> {
     writeln!(
-        ui.stdout(),
+        ui.stderr(),
         "ambiguous {} commit, choose one to target:",
         direction.cmd()
     )?;
-    let mut formatter = ui.stdout_formatter();
+    let mut formatter = ui.stderr_formatter();
     let template = workspace_command.commit_summary_template();
     let mut choices: Vec<String> = Default::default();
     for (i, commit) in commits.iter().enumerate() {
