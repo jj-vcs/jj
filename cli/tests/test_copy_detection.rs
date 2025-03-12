@@ -18,19 +18,17 @@ use crate::common::TestEnvironment;
 fn test_simple_rename() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    test_env.run_jj_in(&repo_path, ["new"]).success();
-    std::fs::write(repo_path.join("original"), "original").unwrap();
-    std::fs::write(repo_path.join("something"), "something").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-mfirst"])
-        .success();
-    std::fs::remove_file(repo_path.join("original")).unwrap();
-    std::fs::write(repo_path.join("modified"), "original").unwrap();
-    std::fs::write(repo_path.join("something"), "changed").unwrap();
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("original", "original");
+    work_dir.write_file("something", "something");
+    work_dir.run_jj(["commit", "-mfirst"]).success();
+    work_dir.remove_file("original");
+    work_dir.write_file("modified", "original");
+    work_dir.write_file("something", "changed");
     insta::assert_snapshot!(
-        test_env.run_jj_in(&repo_path, ["debug", "copy-detection"]).normalize_backslash(), @r"
+        work_dir.run_jj(["debug", "copy-detection"]).normalize_backslash(), @r"
     original -> modified
     [EOF]
     ");
