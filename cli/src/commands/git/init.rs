@@ -259,7 +259,7 @@ pub fn maybe_set_repository_level_trunk_alias(
 }
 
 fn print_trackable_remote_bookmarks(ui: &Ui, view: &View) -> io::Result<()> {
-    let remote_bookmark_names = view
+    let remote_bookmark_symbols = view
         .bookmarks()
         .filter(|(_, bookmark_target)| bookmark_target.local_target.is_present())
         .flat_map(|(name, bookmark_target)| {
@@ -267,10 +267,10 @@ fn print_trackable_remote_bookmarks(ui: &Ui, view: &View) -> io::Result<()> {
                 .remote_refs
                 .into_iter()
                 .filter(|&(_, remote_ref)| !remote_ref.is_tracking())
-                .map(move |(remote, _)| format!("{name}@{remote}"))
+                .map(move |(remote, _)| RemoteRefSymbol { name, remote })
         })
         .collect_vec();
-    if remote_bookmark_names.is_empty() {
+    if remote_bookmark_symbols.is_empty() {
         return Ok(());
     }
 
@@ -279,14 +279,14 @@ fn print_trackable_remote_bookmarks(ui: &Ui, view: &View) -> io::Result<()> {
             formatter.labeled("hint").with_heading("Hint: "),
             "The following remote bookmarks aren't associated with the existing local bookmarks:"
         )?;
-        for full_name in &remote_bookmark_names {
+        for symbol in &remote_bookmark_symbols {
             write!(formatter, "  ")?;
-            writeln!(formatter.labeled("bookmark"), "{full_name}")?;
+            writeln!(formatter.labeled("bookmark"), "{symbol}")?;
         }
         writeln!(
             formatter.labeled("hint").with_heading("Hint: "),
-            "Run `jj bookmark track {names}` to keep local bookmarks updated on future pulls.",
-            names = remote_bookmark_names.join(" "),
+            "Run `jj bookmark track {syms}` to keep local bookmarks updated on future pulls.",
+            syms = remote_bookmark_symbols.iter().join(" "),
         )?;
     }
     Ok(())
