@@ -56,6 +56,15 @@ pub enum GitSubprocessError {
     External(String),
 }
 
+/// Stats from a git push
+#[derive(Debug, Default)]
+pub(crate) struct GitPushStats {
+    /// reference accepted by the remote
+    pub pushed: Vec<String>,
+    /// rejected reference
+    pub rejected: Vec<String>,
+}
+
 /// Context for creating Git subprocesses
 pub(crate) struct GitSubprocessContext<'a> {
     git_dir: PathBuf,
@@ -202,7 +211,7 @@ impl<'a> GitSubprocessContext<'a> {
         remote_name: &str,
         references: &[RefToPush],
         callbacks: &mut RemoteCallbacks<'_>,
-    ) -> Result<(Vec<String>, Vec<String>), GitSubprocessError> {
+    ) -> Result<GitPushStats, GitSubprocessError> {
         let mut command = self.create_command();
         command.stdout(Stdio::piped());
         // Currently jj does not support commit hooks, so we prevent git from running
@@ -387,7 +396,7 @@ fn parse_git_remote_show_default_branch(
 // at times the summary is omitted
 //
 // <reason> is a human-readable explanation
-fn parse_ref_pushes(stdout: &[u8]) -> Result<(Vec<String>, Vec<String>), GitSubprocessError> {
+fn parse_ref_pushes(stdout: &[u8]) -> Result<GitPushStats, GitSubprocessError> {
     if !stdout.starts_with(b"To ") {
         return Err(GitSubprocessError::External(format!(
             "Git push output unfamiliar:\n{}",
@@ -395,8 +404,7 @@ fn parse_ref_pushes(stdout: &[u8]) -> Result<(Vec<String>, Vec<String>), GitSubp
         )));
     }
 
-    let mut pushed_refs = Vec::new();
-    let mut rejected_refs = Vec::new();
+    let mut push_result = GitPushStats::default();
     for (idx, line) in stdout
         .lines()
         .skip(1)
@@ -450,11 +458,11 @@ fn parse_ref_pushes(stdout: &[u8]) -> Result<(Vec<String>, Vec<String>), GitSubp
             //  * for a successfully pushed new ref
             //  =  for a ref that was up to date and did not need pushing.
             b"+" | b"-" | b"*" | b"=" | b" " => {
-                pushed_refs.push(reference);
+                push_result.pushed.push(reference);
             }
             // ! for a ref that was rejected or failed to push; and
             b"!" => {
-                rejected_refs.push(reference);
+                push_result.rejected.push(reference);
             }
             unknown => {
                 return Err(GitSubprocessError::External(format!(
@@ -467,13 +475,13 @@ fn parse_ref_pushes(stdout: &[u8]) -> Result<(Vec<String>, Vec<String>), GitSubp
         }
     }
 
-    Ok((rejected_refs, pushed_refs))
+    Ok(push_result)
 }
 
 // on Ok, return a tuple with
 //  1. list of failed references from test and set
 //  2. list of successful references pushed
-fn parse_git_push_output(output: Output) -> Result<(Vec<String>, Vec<String>), GitSubprocessError> {
+fn parse_git_push_output(output: Output) -> Result<GitPushStats, GitSubprocessError> {
     if output.status.success() {
         let ref_pushes = parse_ref_pushes(&output.stdout)?;
         return Ok(ref_pushes);
@@ -778,10 +786,11 @@ Done";
         assert!(parse_ref_pushes(SAMPLE_NO_SUCH_REMOTE_ERROR).is_err());
         assert!(parse_ref_pushes(SAMPLE_NO_REMOTE_REF_ERROR).is_err());
         assert!(parse_ref_pushes(SAMPLE_NO_REMOTE_TRACKING_BRANCH_ERROR).is_err());
-        let (failed, success) = parse_ref_pushes(SAMPLE_PUSH_REFS_PORCELAIN_OUTPUT).unwrap();
-        assert_eq!(failed, vec!["refs/heads/bookmark6".to_string()]);
+        let GitPushStats { pushed, rejected } =
+            parse_ref_pushes(SAMPLE_PUSH_REFS_PORCELAIN_OUTPUT).unwrap();
+        assert_eq!(rejected, vec!["refs/heads/bookmark6".to_string()]);
         assert_eq!(
-            success,
+            pushed,
             vec![
                 "refs/heads/bookmark1".to_string(),
                 "refs/heads/bookmark2".to_string(),

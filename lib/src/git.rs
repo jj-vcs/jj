@@ -2441,15 +2441,14 @@ fn subprocess_push_refs(
         .map(|full_refspec| RefToPush::new(full_refspec, qualified_remote_refs_expected_locations))
         .collect();
 
-    let (failed_ref_matches, successful_pushes) =
-        git_ctx.spawn_push(remote_name, &refs_to_push, &mut callbacks)?;
+    let push_stats = git_ctx.spawn_push(remote_name, &refs_to_push, &mut callbacks)?;
 
-    for remote_ref in successful_pushes {
+    for remote_ref in push_stats.pushed {
         remaining_remote_refs.remove(remote_ref.as_str());
     }
 
-    if !failed_ref_matches.is_empty() {
-        let mut refs_in_unexpected_locations = failed_ref_matches;
+    if !push_stats.rejected.is_empty() {
+        let mut refs_in_unexpected_locations = push_stats.rejected;
         refs_in_unexpected_locations.sort();
         Err(GitPushError::RefInUnexpectedLocation(
             refs_in_unexpected_locations,
