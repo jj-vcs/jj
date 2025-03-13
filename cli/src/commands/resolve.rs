@@ -59,6 +59,9 @@ pub(crate) struct ResolveArgs {
     #[arg(long, short)]
     list: bool,
     /// Specify 3-way merge tool to be used
+    ///
+    /// The built-in merge tools `:ours` and `:theirs` can be used to choose
+    /// side #1 and side #2 of the conflict respectively.
     #[arg(long, conflicts_with = "list", value_name = "NAME")]
     tool: Option<String>,
     /// Only resolve conflicts in these paths. You can use the `--list` argument

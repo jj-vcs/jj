@@ -146,6 +146,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj undo` now shows a hint when undoing an undo operation that the user may
    be looking for `jj op restore` instead.
 
+* `jj resolve` now accepts new built-in merge tools `:ours` and `:theirs`.
+  These merge tools accept side #1 and side #2 of the conflict respectively.
+
 ### Fixed bugs
 
 * `jj status` now shows untracked files under untracked directories.
