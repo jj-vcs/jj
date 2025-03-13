@@ -2183,6 +2183,7 @@ fn test_diff_leading_trailing_context() {
 #[test]
 fn test_diff_external_tool() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
@@ -2192,8 +2193,6 @@ fn test_diff_external_tool() {
     std::fs::remove_file(repo_path.join("file1")).unwrap();
     std::fs::write(repo_path.join("file2"), "foo\nbar\n").unwrap();
     std::fs::write(repo_path.join("file3"), "foo\n").unwrap();
-
-    let edit_script = test_env.set_up_fake_diff_editor();
 
     // nonzero exit codes should print a warning
     std::fs::write(&edit_script, "fail").unwrap();
@@ -2350,6 +2349,7 @@ fn test_diff_external_tool() {
 #[test]
 fn test_diff_external_file_by_file_tool() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
@@ -2361,7 +2361,6 @@ fn test_diff_external_file_by_file_tool() {
     std::fs::write(repo_path.join("file3"), "file3\n").unwrap();
     std::fs::write(repo_path.join("file4"), "file1\n").unwrap();
 
-    let edit_script = test_env.set_up_fake_diff_editor();
     std::fs::write(
         edit_script,
         "print ==\0print-files-before\0print --\0print-files-after",
@@ -2468,6 +2467,7 @@ fn test_diff_external_file_by_file_tool() {
 #[test]
 fn test_diff_external_tool_symlink() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
@@ -2483,7 +2483,6 @@ fn test_diff_external_tool_symlink() {
     std::fs::remove_file(repo_path.join("file")).unwrap();
     std::fs::write(repo_path.join("file"), "").unwrap();
 
-    let edit_script = test_env.set_up_fake_diff_editor();
     std::fs::write(
         edit_script,
         "print-files-before\0print --\0print-files-after",
@@ -2511,6 +2510,7 @@ fn test_diff_external_tool_symlink() {
 #[test]
 fn test_diff_external_tool_conflict_marker_style() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let file_path = repo_path.join("file");
@@ -2590,7 +2590,6 @@ fn test_diff_external_tool_conflict_marker_style() {
     .unwrap();
 
     // Set up diff editor to use "snapshot" conflict markers
-    let edit_script = test_env.set_up_fake_diff_editor();
     test_env.add_config(r#"merge-tools.fake-diff-editor.conflict-marker-style = "snapshot""#);
 
     // We want to see whether the diff is using the correct conflict markers

@@ -19,6 +19,7 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_diffedit() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
@@ -29,8 +30,6 @@ fn test_diffedit() {
     test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::remove_file(repo_path.join("file1")).unwrap();
     std::fs::write(repo_path.join("file2"), "b\n").unwrap();
-
-    let edit_script = test_env.set_up_fake_diff_editor();
 
     // Test the setup; nothing happens if we make no changes
     std::fs::write(
@@ -186,6 +185,7 @@ fn test_diffedit() {
 #[test]
 fn test_diffedit_new_file() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
@@ -193,8 +193,6 @@ fn test_diffedit_new_file() {
     test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::remove_file(repo_path.join("file1")).unwrap();
     std::fs::write(repo_path.join("file2"), "b\n").unwrap();
-
-    let edit_script = test_env.set_up_fake_diff_editor();
 
     // Test the setup; nothing happens if we make no changes
     std::fs::write(
@@ -258,6 +256,7 @@ fn test_diffedit_new_file() {
 #[test]
 fn test_diffedit_external_tool_conflict_marker_style() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
     let file_path = repo_path.join("file");
@@ -337,7 +336,6 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     .unwrap();
 
     // Set up diff editor to use "snapshot" conflict markers
-    let edit_script = test_env.set_up_fake_diff_editor();
     test_env.add_config(r#"merge-tools.fake-diff-editor.conflict-marker-style = "snapshot""#);
 
     // We want to see whether the diff editor is using the correct conflict markers,
@@ -451,6 +449,7 @@ fn test_diffedit_external_tool_conflict_marker_style() {
 #[test]
 fn test_diffedit_3pane() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
@@ -468,7 +467,6 @@ fn test_diffedit_3pane() {
         "merge-tools.fake-diff-editor.edit-args=['$left', '$right', '--ignore=$output']";
     let config_with_output_as_after =
         "merge-tools.fake-diff-editor.edit-args=['$left', '$output', '--ignore=$right']";
-    let edit_script = test_env.set_up_fake_diff_editor();
     std::fs::write(&edit_script, "").unwrap();
 
     // Nothing happens if we make no changes
@@ -577,6 +575,7 @@ fn test_diffedit_3pane() {
 #[test]
 fn test_diffedit_merge() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
@@ -606,8 +605,6 @@ fn test_diffedit_merge() {
     A file3
     [EOF]
     ");
-
-    let edit_script = test_env.set_up_fake_diff_editor();
 
     // Remove file1. The conflict remains in the working copy on top of the merge.
     std::fs::write(
@@ -650,6 +647,7 @@ fn test_diffedit_merge() {
 #[test]
 fn test_diffedit_old_restore_interactive_tests() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
@@ -659,8 +657,6 @@ fn test_diffedit_old_restore_interactive_tests() {
     std::fs::remove_file(repo_path.join("file1")).unwrap();
     std::fs::write(repo_path.join("file2"), "b\n").unwrap();
     std::fs::write(repo_path.join("file3"), "b\n").unwrap();
-
-    let edit_script = test_env.set_up_fake_diff_editor();
 
     // Nothing happens if we make no changes
     let output = test_env.run_jj_in(&repo_path, ["diffedit", "--from", "@-"]);
@@ -754,6 +750,7 @@ fn test_diffedit_old_restore_interactive_tests() {
 #[test]
 fn test_diffedit_restore_descendants() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
@@ -762,8 +759,6 @@ fn test_diffedit_restore_descendants() {
     std::fs::write(repo_path.join("file"), "println!(\"bar\")\n").unwrap();
     test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file"), "println!(\"baz\");\n").unwrap();
-
-    let edit_script = test_env.set_up_fake_diff_editor();
 
     // Add a ";" after the line with "bar". There should be no conflict.
     std::fs::write(edit_script, "write file\nprintln!(\"bar\");\n").unwrap();
