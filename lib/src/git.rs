@@ -2404,9 +2404,7 @@ fn git2_push_refs(
         if remaining_remote_refs.is_empty() {
             Ok(())
         } else {
-            // TODO: this is probably dead code right now
-            // The only way this would happen is if a push fails from some
-            // other reason other than a lease failing (which our tests don't cover)
+            // remote rejected refs because of remote config (e.g., no push on main)
             Err(GitPushError::RefUpdateRejected(
                 remaining_remote_refs
                     .iter()
@@ -2431,11 +2429,6 @@ fn subprocess_push_refs(
         return Err(GitPushError::NoSuchRemote(remote_name.to_owned()));
     }
 
-    let mut remaining_remote_refs: HashSet<_> = qualified_remote_refs_expected_locations
-        .keys()
-        .copied()
-        .collect();
-
     let refs_to_push: Vec<RefToPush> = refspecs
         .iter()
         .map(|full_refspec| RefToPush::new(full_refspec, qualified_remote_refs_expected_locations))
@@ -2443,29 +2436,19 @@ fn subprocess_push_refs(
 
     let push_stats = git_ctx.spawn_push(remote_name, &refs_to_push, &mut callbacks)?;
 
-    for remote_ref in push_stats.pushed {
-        remaining_remote_refs.remove(remote_ref.as_str());
-    }
-
     if !push_stats.rejected.is_empty() {
         let mut refs_in_unexpected_locations = push_stats.rejected;
         refs_in_unexpected_locations.sort();
         Err(GitPushError::RefInUnexpectedLocation(
             refs_in_unexpected_locations,
         ))
-    } else if remaining_remote_refs.is_empty() {
-        Ok(())
+    } else if !push_stats.remote_rejected.is_empty() {
+        let mut rejected_refs = push_stats.remote_rejected;
+        rejected_refs.sort();
+        // remote rejected refs because of remote config (e.g., no push on main)
+        Err(GitPushError::RefUpdateRejected(rejected_refs))
     } else {
-        // TODO: this is probably dead code right now
-        // The only way this would happen is if a push fails from some
-        // other reason other than a lease failing (which our tests don't cover)
-        Err(GitPushError::RefUpdateRejected(
-            remaining_remote_refs
-                .iter()
-                .sorted()
-                .map(|name| name.to_string())
-                .collect(),
-        ))
+        Ok(())
     }
 }
 

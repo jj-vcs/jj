@@ -62,8 +62,10 @@ pub enum GitSubprocessError {
 pub(crate) struct GitPushStats {
     /// reference accepted by the remote
     pub pushed: Vec<String>,
-    /// rejected reference
+    /// rejected reference, due to lease failure
     pub rejected: Vec<String>,
+    /// reference rejected by the remote
+    pub remote_rejected: Vec<String>,
 }
 
 /// Context for creating Git subprocesses
@@ -411,13 +413,12 @@ fn parse_ref_pushes(stdout: &[u8]) -> Result<GitPushStats, GitSubprocessError> {
         .take_while(|line| line != b"Done")
         .enumerate()
     {
-        let (flag, reference, _summary) =
-            line.split_str("\t").collect_tuple().ok_or_else(|| {
-                GitSubprocessError::External(format!(
-                    "Line #{idx} of git-push has unknown format: {}",
-                    line.to_str_lossy()
-                ))
-            })?;
+        let (flag, reference, summary) = line.split_str("\t").collect_tuple().ok_or_else(|| {
+            GitSubprocessError::External(format!(
+                "Line #{idx} of git-push has unknown format: {}",
+                line.to_str_lossy()
+            ))
+        })?;
         let full_refspec = reference
             .to_str()
             .map_err(|e| {
@@ -450,7 +451,11 @@ fn parse_ref_pushes(stdout: &[u8]) -> Result<GitPushStats, GitSubprocessError> {
             }
             // ! for a ref that was rejected or failed to push; and
             b"!" => {
-                push_result.rejected.push(reference);
+                if summary.starts_with_str("[remote rejected]") {
+                    push_result.remote_rejected.push(reference);
+                } else {
+                    push_result.rejected.push(reference);
+                }
             }
             unknown => {
                 return Err(GitSubprocessError::External(format!(
@@ -775,8 +780,11 @@ Done";
         assert!(parse_ref_pushes(SAMPLE_NO_SUCH_REMOTE_ERROR).is_err());
         assert!(parse_ref_pushes(SAMPLE_NO_REMOTE_REF_ERROR).is_err());
         assert!(parse_ref_pushes(SAMPLE_NO_REMOTE_TRACKING_BRANCH_ERROR).is_err());
-        let GitPushStats { pushed, rejected } =
-            parse_ref_pushes(SAMPLE_PUSH_REFS_PORCELAIN_OUTPUT).unwrap();
+        let GitPushStats {
+            pushed,
+            rejected,
+            remote_rejected,
+        } = parse_ref_pushes(SAMPLE_PUSH_REFS_PORCELAIN_OUTPUT).unwrap();
         assert_eq!(
             pushed,
             vec![
@@ -787,13 +795,8 @@ Done";
                 "refs/heads/bookmark5".to_string(),
             ]
         );
-        assert_eq!(
-            rejected,
-            vec![
-                "refs/heads/bookmark6".to_string(),
-                "refs/heads/bookmark7".to_string()
-            ]
-        );
+        assert_eq!(rejected, vec!["refs/heads/bookmark6".to_string()]);
+        assert_eq!(remote_rejected, vec!["refs/heads/bookmark7".to_string()]);
         assert!(parse_ref_pushes(SAMPLE_OK_STDERR).is_err());
     }
 

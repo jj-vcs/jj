@@ -2295,6 +2295,64 @@ fn test_git_push_sign_on_push() {
     ");
 }
 
+#[test]
+fn test_git_push_rejected_by_remote() {
+    let (test_env, workspace_root) = set_up();
+    // show repo state
+    insta::assert_snapshot!(get_bookmark_output(&test_env, &workspace_root), @r"
+    bookmark1: xtvrqkyv d13ecdbd (empty) description 1
+      @origin: xtvrqkyv d13ecdbd (empty) description 1
+    bookmark2: rlzusymt 8476341e (empty) description 2
+      @origin: rlzusymt 8476341e (empty) description 2
+    [EOF]
+    ");
+
+    // create a hook on the remote that prevents pushing
+    let hook_path = test_env
+        .env_root()
+        .join("origin")
+        .join(".jj")
+        .join("repo")
+        .join("store")
+        .join("git")
+        .join("hooks")
+        .join("update");
+
+    std::fs::write(&hook_path, "#!/bin/sh\nexit 1").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        std::fs::set_permissions(&hook_path, std::fs::Permissions::from_mode(0o700)).unwrap();
+    }
+
+    // create new commit on top of bookmark1
+    test_env
+        .run_jj_in(&workspace_root, ["new", "bookmark1"])
+        .success();
+    std::fs::write(workspace_root.join("file"), "file").unwrap();
+    test_env
+        .run_jj_in(&workspace_root, ["describe", "-m=update"])
+        .success();
+
+    // update bookmark
+    test_env
+        .run_jj_in(&workspace_root, ["bookmark", "move", "bookmark1"])
+        .success();
+
+    // push bookmark
+    let output = test_env.run_jj_in(&workspace_root, ["git", "push"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Changes to push to origin:
+      Move forward bookmark bookmark1 from d13ecdbda2a2 to dd5c09b30f9f
+    remote: error: hook declined to update refs/heads/bookmark1        
+    Error: Remote rejected the update of some refs (do you have permission to push to ["refs/heads/bookmark1"]?)
+    [EOF]
+    [exit status: 1]
+    "#);
+}
+
 #[must_use]
 fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput {
     // --quiet to suppress deleted bookmarks hint
