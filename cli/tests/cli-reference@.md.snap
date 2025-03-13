@@ -401,9 +401,9 @@ See [`jj help -k bookmarks`] for more information.
    Note that `-r deleted_bookmark` will not work since `deleted_bookmark` wouldn't have a local target.
 * `-T`, `--template <TEMPLATE>` — Render each bookmark using the given template
 
-   All 0-argument methods of the [`RefName` type] are available as keywords in the template expression. See [`jj help -k templates`] for more information.
+   All 0-argument methods of the [`CommitRef` type] are available as keywords in the template expression. See [`jj help -k templates`] for more information.
 
-   [`RefName` type]: https://jj-vcs.github.io/jj/latest/templates/#refname-type
+   [`CommitRef` type]: https://jj-vcs.github.io/jj/latest/templates/#commitref-type
 
    [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
 
@@ -2430,9 +2430,9 @@ List tags
 
 * `-T`, `--template <TEMPLATE>` — Render each tag using the given template
 
-   All 0-argument methods of the [`RefName` type] are available as keywords in the template expression. See [`jj help -k templates`] for more information.
+   All 0-argument methods of the [`CommitRef` type] are available as keywords in the template expression. See [`jj help -k templates`] for more information.
 
-   [`RefName` type]: https://jj-vcs.github.io/jj/latest/templates/#refname-type
+   [`CommitRef` type]: https://jj-vcs.github.io/jj/latest/templates/#commitref-type
 
    [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
 

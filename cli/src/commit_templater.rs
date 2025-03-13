@@ -218,14 +218,14 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                     Self::wrap_commit_list,
                 )
             }
-            CommitTemplatePropertyKind::RefName(property) => {
-                let table = &self.build_fn_table.ref_name_methods;
+            CommitTemplatePropertyKind::CommitRef(property) => {
+                let table = &self.build_fn_table.commit_ref_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(self, diagnostics, build_ctx, property, function)
             }
-            CommitTemplatePropertyKind::RefNameOpt(property) => {
-                let type_name = "RefName";
-                let table = &self.build_fn_table.ref_name_methods;
+            CommitTemplatePropertyKind::CommitRefOpt(property) => {
+                let type_name = "CommitRef";
+                let table = &self.build_fn_table.commit_ref_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 let inner_property = property.try_unwrap(type_name);
                 build(
@@ -236,7 +236,7 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                     function,
                 )
             }
-            CommitTemplatePropertyKind::RefNameList(property) => {
+            CommitTemplatePropertyKind::CommitRefList(property) => {
                 // TODO: migrate to table?
                 template_builder::build_formattable_list_method(
                     self,
@@ -244,8 +244,8 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                     build_ctx,
                     property,
                     function,
-                    Self::wrap_ref_name,
-                    Self::wrap_ref_name_list,
+                    Self::wrap_commit_ref,
+                    Self::wrap_commit_ref_list,
                 )
             }
             CommitTemplatePropertyKind::RepoPath(property) => {
@@ -371,22 +371,22 @@ impl<'repo> CommitTemplateLanguage<'repo> {
         CommitTemplatePropertyKind::CommitList(Box::new(property))
     }
 
-    pub fn wrap_ref_name(
-        property: impl TemplateProperty<Output = Rc<RefName>> + 'repo,
+    pub fn wrap_commit_ref(
+        property: impl TemplateProperty<Output = Rc<CommitRef>> + 'repo,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::RefName(Box::new(property))
+        CommitTemplatePropertyKind::CommitRef(Box::new(property))
     }
 
-    pub fn wrap_ref_name_opt(
-        property: impl TemplateProperty<Output = Option<Rc<RefName>>> + 'repo,
+    pub fn wrap_commit_ref_opt(
+        property: impl TemplateProperty<Output = Option<Rc<CommitRef>>> + 'repo,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::RefNameOpt(Box::new(property))
+        CommitTemplatePropertyKind::CommitRefOpt(Box::new(property))
     }
 
-    pub fn wrap_ref_name_list(
-        property: impl TemplateProperty<Output = Vec<Rc<RefName>>> + 'repo,
+    pub fn wrap_commit_ref_list(
+        property: impl TemplateProperty<Output = Vec<Rc<CommitRef>>> + 'repo,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::RefNameList(Box::new(property))
+        CommitTemplatePropertyKind::CommitRefList(Box::new(property))
     }
 
     pub fn wrap_repo_path(
@@ -461,9 +461,9 @@ pub enum CommitTemplatePropertyKind<'repo> {
     Commit(Box<dyn TemplateProperty<Output = Commit> + 'repo>),
     CommitOpt(Box<dyn TemplateProperty<Output = Option<Commit>> + 'repo>),
     CommitList(Box<dyn TemplateProperty<Output = Vec<Commit>> + 'repo>),
-    RefName(Box<dyn TemplateProperty<Output = Rc<RefName>> + 'repo>),
-    RefNameOpt(Box<dyn TemplateProperty<Output = Option<Rc<RefName>>> + 'repo>),
-    RefNameList(Box<dyn TemplateProperty<Output = Vec<Rc<RefName>>> + 'repo>),
+    CommitRef(Box<dyn TemplateProperty<Output = Rc<CommitRef>> + 'repo>),
+    CommitRefOpt(Box<dyn TemplateProperty<Output = Option<Rc<CommitRef>>> + 'repo>),
+    CommitRefList(Box<dyn TemplateProperty<Output = Vec<Rc<CommitRef>>> + 'repo>),
     RepoPath(Box<dyn TemplateProperty<Output = RepoPathBuf> + 'repo>),
     RepoPathOpt(Box<dyn TemplateProperty<Output = Option<RepoPathBuf>> + 'repo>),
     CommitOrChangeId(Box<dyn TemplateProperty<Output = CommitOrChangeId> + 'repo>),
@@ -486,9 +486,9 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             CommitTemplatePropertyKind::Commit(_) => "Commit",
             CommitTemplatePropertyKind::CommitOpt(_) => "Option<Commit>",
             CommitTemplatePropertyKind::CommitList(_) => "List<Commit>",
-            CommitTemplatePropertyKind::RefName(_) => "RefName",
-            CommitTemplatePropertyKind::RefNameOpt(_) => "Option<RefName>",
-            CommitTemplatePropertyKind::RefNameList(_) => "List<RefName>",
+            CommitTemplatePropertyKind::CommitRef(_) => "CommitRef",
+            CommitTemplatePropertyKind::CommitRefOpt(_) => "Option<CommitRef>",
+            CommitTemplatePropertyKind::CommitRefList(_) => "List<CommitRef>",
             CommitTemplatePropertyKind::RepoPath(_) => "RepoPath",
             CommitTemplatePropertyKind::RepoPathOpt(_) => "Option<RepoPath>",
             CommitTemplatePropertyKind::CommitOrChangeId(_) => "CommitOrChangeId",
@@ -515,11 +515,11 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             CommitTemplatePropertyKind::CommitList(property) => {
                 Some(Box::new(property.map(|l| !l.is_empty())))
             }
-            CommitTemplatePropertyKind::RefName(_) => None,
-            CommitTemplatePropertyKind::RefNameOpt(property) => {
+            CommitTemplatePropertyKind::CommitRef(_) => None,
+            CommitTemplatePropertyKind::CommitRefOpt(property) => {
                 Some(Box::new(property.map(|opt| opt.is_some())))
             }
-            CommitTemplatePropertyKind::RefNameList(property) => {
+            CommitTemplatePropertyKind::CommitRefList(property) => {
                 Some(Box::new(property.map(|l| !l.is_empty())))
             }
             CommitTemplatePropertyKind::RepoPath(_) => None,
@@ -567,9 +567,9 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             CommitTemplatePropertyKind::Commit(_) => None,
             CommitTemplatePropertyKind::CommitOpt(_) => None,
             CommitTemplatePropertyKind::CommitList(_) => None,
-            CommitTemplatePropertyKind::RefName(property) => Some(property.into_template()),
-            CommitTemplatePropertyKind::RefNameOpt(property) => Some(property.into_template()),
-            CommitTemplatePropertyKind::RefNameList(property) => Some(property.into_template()),
+            CommitTemplatePropertyKind::CommitRef(property) => Some(property.into_template()),
+            CommitTemplatePropertyKind::CommitRefOpt(property) => Some(property.into_template()),
+            CommitTemplatePropertyKind::CommitRefList(property) => Some(property.into_template()),
             CommitTemplatePropertyKind::RepoPath(property) => Some(property.into_template()),
             CommitTemplatePropertyKind::RepoPathOpt(property) => Some(property.into_template()),
             CommitTemplatePropertyKind::CommitOrChangeId(property) => {
@@ -597,9 +597,9 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             (CommitTemplatePropertyKind::Commit(_), _) => None,
             (CommitTemplatePropertyKind::CommitOpt(_), _) => None,
             (CommitTemplatePropertyKind::CommitList(_), _) => None,
-            (CommitTemplatePropertyKind::RefName(_), _) => None,
-            (CommitTemplatePropertyKind::RefNameOpt(_), _) => None,
-            (CommitTemplatePropertyKind::RefNameList(_), _) => None,
+            (CommitTemplatePropertyKind::CommitRef(_), _) => None,
+            (CommitTemplatePropertyKind::CommitRefOpt(_), _) => None,
+            (CommitTemplatePropertyKind::CommitRefList(_), _) => None,
             (CommitTemplatePropertyKind::RepoPath(_), _) => None,
             (CommitTemplatePropertyKind::RepoPathOpt(_), _) => None,
             (CommitTemplatePropertyKind::CommitOrChangeId(_), _) => None,
@@ -626,9 +626,9 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             (CommitTemplatePropertyKind::Commit(_), _) => None,
             (CommitTemplatePropertyKind::CommitOpt(_), _) => None,
             (CommitTemplatePropertyKind::CommitList(_), _) => None,
-            (CommitTemplatePropertyKind::RefName(_), _) => None,
-            (CommitTemplatePropertyKind::RefNameOpt(_), _) => None,
-            (CommitTemplatePropertyKind::RefNameList(_), _) => None,
+            (CommitTemplatePropertyKind::CommitRef(_), _) => None,
+            (CommitTemplatePropertyKind::CommitRefOpt(_), _) => None,
+            (CommitTemplatePropertyKind::CommitRefList(_), _) => None,
             (CommitTemplatePropertyKind::RepoPath(_), _) => None,
             (CommitTemplatePropertyKind::RepoPathOpt(_), _) => None,
             (CommitTemplatePropertyKind::CommitOrChangeId(_), _) => None,
@@ -652,7 +652,7 @@ pub type CommitTemplateBuildMethodFnMap<'repo, T> =
 pub struct CommitTemplateBuildFnTable<'repo> {
     pub core: CoreTemplateBuildFnTable<'repo, CommitTemplateLanguage<'repo>>,
     pub commit_methods: CommitTemplateBuildMethodFnMap<'repo, Commit>,
-    pub ref_name_methods: CommitTemplateBuildMethodFnMap<'repo, Rc<RefName>>,
+    pub commit_ref_methods: CommitTemplateBuildMethodFnMap<'repo, Rc<CommitRef>>,
     pub repo_path_methods: CommitTemplateBuildMethodFnMap<'repo, RepoPathBuf>,
     pub commit_or_change_id_methods: CommitTemplateBuildMethodFnMap<'repo, CommitOrChangeId>,
     pub shortest_id_prefix_methods: CommitTemplateBuildMethodFnMap<'repo, ShortestIdPrefix>,
@@ -671,7 +671,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
         CommitTemplateBuildFnTable {
             core: CoreTemplateBuildFnTable::builtin(),
             commit_methods: builtin_commit_methods(),
-            ref_name_methods: builtin_ref_name_methods(),
+            commit_ref_methods: builtin_commit_ref_methods(),
             repo_path_methods: builtin_repo_path_methods(),
             commit_or_change_id_methods: builtin_commit_or_change_id_methods(),
             shortest_id_prefix_methods: builtin_shortest_id_prefix_methods(),
@@ -688,7 +688,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
         CommitTemplateBuildFnTable {
             core: CoreTemplateBuildFnTable::empty(),
             commit_methods: HashMap::new(),
-            ref_name_methods: HashMap::new(),
+            commit_ref_methods: HashMap::new(),
             repo_path_methods: HashMap::new(),
             commit_or_change_id_methods: HashMap::new(),
             shortest_id_prefix_methods: HashMap::new(),
@@ -705,7 +705,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
         let CommitTemplateBuildFnTable {
             core,
             commit_methods,
-            ref_name_methods,
+            commit_ref_methods,
             repo_path_methods,
             commit_or_change_id_methods,
             shortest_id_prefix_methods,
@@ -719,7 +719,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
 
         self.core.merge(core);
         merge_fn_map(&mut self.commit_methods, commit_methods);
-        merge_fn_map(&mut self.ref_name_methods, ref_name_methods);
+        merge_fn_map(&mut self.commit_ref_methods, commit_ref_methods);
         merge_fn_map(&mut self.repo_path_methods, repo_path_methods);
         merge_fn_map(
             &mut self.commit_or_change_id_methods,
@@ -744,26 +744,26 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
 #[derive(Default)]
 pub struct CommitKeywordCache<'repo> {
     // Build index lazily, and Rc to get away from &self lifetime.
-    bookmarks_index: OnceCell<Rc<RefNamesIndex>>,
-    tags_index: OnceCell<Rc<RefNamesIndex>>,
-    git_refs_index: OnceCell<Rc<RefNamesIndex>>,
+    bookmarks_index: OnceCell<Rc<CommitRefsIndex>>,
+    tags_index: OnceCell<Rc<CommitRefsIndex>>,
+    git_refs_index: OnceCell<Rc<CommitRefsIndex>>,
     is_immutable_fn: OnceCell<Rc<RevsetContainingFn<'repo>>>,
 }
 
 impl<'repo> CommitKeywordCache<'repo> {
-    pub fn bookmarks_index(&self, repo: &dyn Repo) -> &Rc<RefNamesIndex> {
+    pub fn bookmarks_index(&self, repo: &dyn Repo) -> &Rc<CommitRefsIndex> {
         self.bookmarks_index
             .get_or_init(|| Rc::new(build_bookmarks_index(repo)))
     }
 
-    pub fn tags_index(&self, repo: &dyn Repo) -> &Rc<RefNamesIndex> {
+    pub fn tags_index(&self, repo: &dyn Repo) -> &Rc<CommitRefsIndex> {
         self.tags_index
-            .get_or_init(|| Rc::new(build_ref_names_index(repo.view().tags())))
+            .get_or_init(|| Rc::new(build_commit_refs_index(repo.view().tags())))
     }
 
-    pub fn git_refs_index(&self, repo: &dyn Repo) -> &Rc<RefNamesIndex> {
+    pub fn git_refs_index(&self, repo: &dyn Repo) -> &Rc<CommitRefsIndex> {
         self.git_refs_index
-            .get_or_init(|| Rc::new(build_ref_names_index(repo.view().git_refs())))
+            .get_or_init(|| Rc::new(build_commit_refs_index(repo.view().git_refs())))
     }
 
     pub fn is_immutable_fn(
@@ -889,11 +889,11 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
                 index
                     .get(commit.id())
                     .iter()
-                    .filter(|ref_name| ref_name.is_local() || !ref_name.synced)
+                    .filter(|commit_ref| commit_ref.is_local() || !commit_ref.synced)
                     .cloned()
                     .collect()
             });
-            Ok(L::wrap_ref_name_list(out_property))
+            Ok(L::wrap_commit_ref_list(out_property))
         },
     );
     map.insert(
@@ -908,11 +908,11 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
                 index
                     .get(commit.id())
                     .iter()
-                    .filter(|ref_name| ref_name.is_local())
+                    .filter(|commit_ref| commit_ref.is_local())
                     .cloned()
                     .collect()
             });
-            Ok(L::wrap_ref_name_list(out_property))
+            Ok(L::wrap_commit_ref_list(out_property))
         },
     );
     map.insert(
@@ -927,11 +927,11 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
                 index
                     .get(commit.id())
                     .iter()
-                    .filter(|ref_name| ref_name.is_remote())
+                    .filter(|commit_ref| commit_ref.is_remote())
                     .cloned()
                     .collect()
             });
-            Ok(L::wrap_ref_name_list(out_property))
+            Ok(L::wrap_commit_ref_list(out_property))
         },
     );
     map.insert(
@@ -940,7 +940,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
             function.expect_no_arguments()?;
             let index = language.keyword_cache.tags_index(language.repo).clone();
             let out_property = self_property.map(move |commit| index.get(commit.id()).to_vec());
-            Ok(L::wrap_ref_name_list(out_property))
+            Ok(L::wrap_commit_ref_list(out_property))
         },
     );
     map.insert(
@@ -949,7 +949,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
             function.expect_no_arguments()?;
             let index = language.keyword_cache.git_refs_index(language.repo).clone();
             let out_property = self_property.map(move |commit| index.get(commit.id()).to_vec());
-            Ok(L::wrap_ref_name_list(out_property))
+            Ok(L::wrap_commit_ref_list(out_property))
         },
     );
     map.insert(
@@ -1136,7 +1136,7 @@ fn evaluate_user_revset<'repo>(
 
 /// Bookmark or tag name with metadata.
 #[derive(Debug)]
-pub struct RefName {
+pub struct CommitRef {
     /// Local name.
     name: String,
     /// Remote name if this is a remote or Git-tracking ref.
@@ -1160,8 +1160,8 @@ struct TrackingRef {
     behind_count: OnceCell<SizeHint>,
 }
 
-impl RefName {
-    // RefName is wrapped by Rc<T> to make it cheaply cloned and share
+impl CommitRef {
+    // CommitRef is wrapped by Rc<T> to make it cheaply cloned and share
     // lazy-evaluation results across clones.
 
     /// Creates local ref representation which might track some of the
@@ -1174,7 +1174,7 @@ impl RefName {
         let synced = remote_refs
             .into_iter()
             .all(|remote_ref| !remote_ref.is_tracking() || remote_ref.target == target);
-        Rc::new(RefName {
+        Rc::new(CommitRef {
             name: name.into(),
             remote: None,
             target,
@@ -1209,7 +1209,7 @@ impl RefName {
                 behind_count: count,
             }
         });
-        Rc::new(RefName {
+        Rc::new(CommitRef {
             name: name.into(),
             remote: Some(remote_name.into()),
             target: remote_ref.target,
@@ -1224,7 +1224,7 @@ impl RefName {
         remote_name: impl Into<String>,
         target: RefTarget,
     ) -> Rc<Self> {
-        Rc::new(RefName {
+        Rc::new(CommitRef {
             name: name.into(),
             remote: Some(remote_name.into()),
             target,
@@ -1319,7 +1319,7 @@ impl RefName {
 }
 
 // If wrapping with Rc<T> becomes common, add generic impl for Rc<T>.
-impl Template for Rc<RefName> {
+impl Template for Rc<CommitRef> {
     fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
         write!(formatter.labeled("name"), "{}", self.name)?;
         if let Some(remote) = &self.remote {
@@ -1337,22 +1337,22 @@ impl Template for Rc<RefName> {
     }
 }
 
-impl Template for Vec<Rc<RefName>> {
+impl Template for Vec<Rc<CommitRef>> {
     fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
         templater::format_joined(formatter, self, " ")
     }
 }
 
-fn builtin_ref_name_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Rc<RefName>> {
+fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Rc<CommitRef>> {
     type L<'repo> = CommitTemplateLanguage<'repo>;
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
-    let mut map = CommitTemplateBuildMethodFnMap::<Rc<RefName>>::new();
+    let mut map = CommitTemplateBuildMethodFnMap::<Rc<CommitRef>>::new();
     map.insert(
         "name",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let out_property = self_property.map(|ref_name| ref_name.name.clone());
+            let out_property = self_property.map(|commit_ref| commit_ref.name.clone());
             Ok(L::wrap_string(out_property))
         },
     );
@@ -1361,7 +1361,7 @@ fn builtin_ref_name_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Rc
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property =
-                self_property.map(|ref_name| ref_name.remote.clone().unwrap_or_default());
+                self_property.map(|commit_ref| commit_ref.remote.clone().unwrap_or_default());
             Ok(L::wrap_string(out_property))
         },
     );
@@ -1369,7 +1369,7 @@ fn builtin_ref_name_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Rc
         "present",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let out_property = self_property.map(|ref_name| ref_name.is_present());
+            let out_property = self_property.map(|commit_ref| commit_ref.is_present());
             Ok(L::wrap_boolean(out_property))
         },
     );
@@ -1377,7 +1377,7 @@ fn builtin_ref_name_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Rc
         "conflict",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let out_property = self_property.map(|ref_name| ref_name.has_conflict());
+            let out_property = self_property.map(|commit_ref| commit_ref.has_conflict());
             Ok(L::wrap_boolean(out_property))
         },
     );
@@ -1386,8 +1386,8 @@ fn builtin_ref_name_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Rc
         |language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let repo = language.repo;
-            let out_property = self_property.and_then(|ref_name| {
-                let maybe_id = ref_name.target.as_normal();
+            let out_property = self_property.and_then(|commit_ref| {
+                let maybe_id = commit_ref.target.as_normal();
                 Ok(maybe_id.map(|id| repo.store().get_commit(id)).transpose()?)
             });
             Ok(L::wrap_commit_opt(out_property))
@@ -1398,8 +1398,8 @@ fn builtin_ref_name_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Rc
         |language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let repo = language.repo;
-            let out_property = self_property.and_then(|ref_name| {
-                let ids = ref_name.target.removed_ids();
+            let out_property = self_property.and_then(|commit_ref| {
+                let ids = commit_ref.target.removed_ids();
                 Ok(ids.map(|id| repo.store().get_commit(id)).try_collect()?)
             });
             Ok(L::wrap_commit_list(out_property))
@@ -1410,8 +1410,8 @@ fn builtin_ref_name_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Rc
         |language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let repo = language.repo;
-            let out_property = self_property.and_then(|ref_name| {
-                let ids = ref_name.target.added_ids();
+            let out_property = self_property.and_then(|commit_ref| {
+                let ids = commit_ref.target.added_ids();
                 Ok(ids.map(|id| repo.store().get_commit(id)).try_collect()?)
             });
             Ok(L::wrap_commit_list(out_property))
@@ -1421,7 +1421,7 @@ fn builtin_ref_name_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Rc
         "tracked",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let out_property = self_property.map(|ref_name| ref_name.is_tracked());
+            let out_property = self_property.map(|commit_ref| commit_ref.is_tracked());
             Ok(L::wrap_boolean(out_property))
         },
     );
@@ -1429,7 +1429,7 @@ fn builtin_ref_name_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Rc
         "tracking_present",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let out_property = self_property.map(|ref_name| ref_name.is_tracking_present());
+            let out_property = self_property.map(|commit_ref| commit_ref.is_tracking_present());
             Ok(L::wrap_boolean(out_property))
         },
     );
@@ -1439,7 +1439,7 @@ fn builtin_ref_name_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Rc
             function.expect_no_arguments()?;
             let repo = language.repo;
             let out_property =
-                self_property.and_then(|ref_name| ref_name.tracking_ahead_count(repo));
+                self_property.and_then(|commit_ref| commit_ref.tracking_ahead_count(repo));
             Ok(L::wrap_size_hint(out_property))
         },
     );
@@ -1449,7 +1449,7 @@ fn builtin_ref_name_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Rc
             function.expect_no_arguments()?;
             let repo = language.repo;
             let out_property =
-                self_property.and_then(|ref_name| ref_name.tracking_behind_count(repo));
+                self_property.and_then(|commit_ref| commit_ref.tracking_behind_count(repo));
             Ok(L::wrap_size_hint(out_property))
         },
     );
@@ -1458,52 +1458,52 @@ fn builtin_ref_name_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Rc
 
 /// Cache for reverse lookup refs.
 #[derive(Clone, Debug, Default)]
-pub struct RefNamesIndex {
-    index: HashMap<CommitId, Vec<Rc<RefName>>>,
+pub struct CommitRefsIndex {
+    index: HashMap<CommitId, Vec<Rc<CommitRef>>>,
 }
 
-impl RefNamesIndex {
-    fn insert<'a>(&mut self, ids: impl IntoIterator<Item = &'a CommitId>, name: Rc<RefName>) {
+impl CommitRefsIndex {
+    fn insert<'a>(&mut self, ids: impl IntoIterator<Item = &'a CommitId>, name: Rc<CommitRef>) {
         for id in ids {
-            let ref_names = self.index.entry(id.clone()).or_default();
-            ref_names.push(name.clone());
+            let commit_refs = self.index.entry(id.clone()).or_default();
+            commit_refs.push(name.clone());
         }
     }
 
-    pub fn get(&self, id: &CommitId) -> &[Rc<RefName>] {
-        self.index.get(id).map_or(&[], |names: &Vec<_>| names)
+    pub fn get(&self, id: &CommitId) -> &[Rc<CommitRef>] {
+        self.index.get(id).map_or(&[], |refs: &Vec<_>| refs)
     }
 }
 
-fn build_bookmarks_index(repo: &dyn Repo) -> RefNamesIndex {
-    let mut index = RefNamesIndex::default();
+fn build_bookmarks_index(repo: &dyn Repo) -> CommitRefsIndex {
+    let mut index = CommitRefsIndex::default();
     for (bookmark_name, bookmark_target) in repo.view().bookmarks() {
         let local_target = bookmark_target.local_target;
         let remote_refs = bookmark_target.remote_refs;
         if local_target.is_present() {
-            let ref_name = RefName::local(
+            let commit_ref = CommitRef::local(
                 bookmark_name,
                 local_target.clone(),
                 remote_refs.iter().map(|&(_, remote_ref)| remote_ref),
             );
-            index.insert(local_target.added_ids(), ref_name);
+            index.insert(local_target.added_ids(), commit_ref);
         }
         for &(remote_name, remote_ref) in &remote_refs {
-            let ref_name =
-                RefName::remote(bookmark_name, remote_name, remote_ref.clone(), local_target);
-            index.insert(remote_ref.target.added_ids(), ref_name);
+            let commit_ref =
+                CommitRef::remote(bookmark_name, remote_name, remote_ref.clone(), local_target);
+            index.insert(remote_ref.target.added_ids(), commit_ref);
         }
     }
     index
 }
 
-fn build_ref_names_index<'a>(
+fn build_commit_refs_index<'a>(
     ref_pairs: impl IntoIterator<Item = (&'a String, &'a RefTarget)>,
-) -> RefNamesIndex {
-    let mut index = RefNamesIndex::default();
+) -> CommitRefsIndex {
+    let mut index = CommitRefsIndex::default();
     for (name, target) in ref_pairs {
-        let ref_name = RefName::local_only(name, target.clone());
-        index.insert(target.added_ids(), ref_name);
+        let commit_ref = CommitRef::local_only(name, target.clone());
+        index.insert(target.added_ids(), commit_ref);
     }
     index
 }

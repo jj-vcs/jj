@@ -21,8 +21,8 @@ use super::find_remote_bookmarks;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RemoteBookmarkNamePattern;
 use crate::command_error::CommandError;
+use crate::commit_templater::CommitRef;
 use crate::commit_templater::CommitTemplateLanguage;
-use crate::commit_templater::RefName;
 use crate::complete;
 use crate::ui::Ui;
 
@@ -93,7 +93,12 @@ pub fn cmd_bookmark_track(
                 .settings()
                 .get::<String>("templates.bookmark_list")?;
             workspace_command
-                .parse_template(ui, &language, &text, CommitTemplateLanguage::wrap_ref_name)?
+                .parse_template(
+                    ui,
+                    &language,
+                    &text,
+                    CommitTemplateLanguage::wrap_commit_ref,
+                )?
                 .labeled("bookmark_list")
         };
 
@@ -115,18 +120,18 @@ pub fn cmd_bookmark_track(
 
         for (name, bookmark_target) in bookmarks_to_list {
             let local_target = bookmark_target.local_target;
-            let ref_name = RefName::local(
+            let commit_ref = CommitRef::local(
                 name,
                 local_target.clone(),
                 bookmark_target.remote_refs.iter().map(|x| x.1),
             );
-            template.format(&ref_name, formatter.as_mut())?;
+            template.format(&commit_ref, formatter.as_mut())?;
 
             for (remote_name, remote_ref) in bookmark_target.remote_refs {
                 if remote_per_bookmark[name].contains(&remote_name) {
-                    let ref_name =
-                        RefName::remote(name, remote_name, remote_ref.clone(), local_target);
-                    template.format(&ref_name, formatter.as_mut())?;
+                    let commit_ref =
+                        CommitRef::remote(name, remote_name, remote_ref.clone(), local_target);
+                    template.format(&commit_ref, formatter.as_mut())?;
                 }
             }
         }

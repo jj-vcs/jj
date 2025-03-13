@@ -17,8 +17,8 @@ use jj_lib::str_util::StringPattern;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
+use crate::commit_templater::CommitRef;
 use crate::commit_templater::CommitTemplateLanguage;
-use crate::commit_templater::RefName;
 use crate::complete;
 use crate::ui::Ui;
 
@@ -43,12 +43,12 @@ pub struct TagListArgs {
     pub names: Vec<StringPattern>,
     /// Render each tag using the given template
     ///
-    /// All 0-argument methods of the [`RefName` type] are available as keywords
-    /// in the template expression. See [`jj help -k templates`] for more
-    /// information.
+    /// All 0-argument methods of the [`CommitRef` type] are available as
+    /// keywords in the template expression. See [`jj help -k templates`]
+    /// for more information.
     ///
-    /// [`RefName` type]:
-    ///     https://jj-vcs.github.io/jj/latest/templates/#refname-type
+    /// [`CommitRef` type]:
+    ///     https://jj-vcs.github.io/jj/latest/templates/#commitref-type
     ///
     /// [`jj help -k templates`]:
     ///     https://jj-vcs.github.io/jj/latest/templates/
@@ -82,7 +82,12 @@ fn cmd_tag_list(
             None => workspace_command.settings().get("templates.tag_list")?,
         };
         workspace_command
-            .parse_template(ui, &language, &text, CommitTemplateLanguage::wrap_ref_name)?
+            .parse_template(
+                ui,
+                &language,
+                &text,
+                CommitTemplateLanguage::wrap_commit_ref,
+            )?
             .labeled("tag_list")
     };
 
@@ -93,8 +98,8 @@ fn cmd_tag_list(
         if !args.names.is_empty() && !args.names.iter().any(|pattern| pattern.matches(name)) {
             continue;
         }
-        let ref_name = RefName::local_only(name, target.clone());
-        template.format(&ref_name, formatter.as_mut())?;
+        let commit_ref = CommitRef::local_only(name, target.clone());
+        template.format(&commit_ref, formatter.as_mut())?;
     }
 
     Ok(())

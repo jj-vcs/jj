@@ -24,8 +24,8 @@ use jj_lib::str_util::StringPattern;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::command_error::CommandError;
+use crate::commit_templater::CommitRef;
 use crate::commit_templater::CommitTemplateLanguage;
-use crate::commit_templater::RefName;
 use crate::complete;
 use crate::ui::Ui;
 
@@ -96,12 +96,12 @@ pub struct BookmarkListArgs {
 
     /// Render each bookmark using the given template
     ///
-    /// All 0-argument methods of the [`RefName` type] are available as keywords
-    /// in the template expression. See [`jj help -k templates`] for more
-    /// information.
+    /// All 0-argument methods of the [`CommitRef` type] are available as
+    /// keywords in the template expression. See [`jj help -k templates`]
+    /// for more information.
     ///
-    /// [`RefName` type]:
-    ///     https://jj-vcs.github.io/jj/latest/templates/#refname-type
+    /// [`CommitRef` type]:
+    ///     https://jj-vcs.github.io/jj/latest/templates/#commitref-type
     ///
     /// [`jj help -k templates`]:
     ///     https://jj-vcs.github.io/jj/latest/templates/
@@ -158,7 +158,12 @@ pub fn cmd_bookmark_list(
                 .get("templates.bookmark_list")?,
         };
         workspace_command
-            .parse_template(ui, &language, &text, CommitTemplateLanguage::wrap_ref_name)?
+            .parse_template(
+                ui,
+                &language,
+                &text,
+                CommitTemplateLanguage::wrap_commit_ref,
+            )?
             .labeled("bookmark_list")
     };
 
@@ -190,7 +195,7 @@ pub fn cmd_bookmark_list(
 
         let include_local_only = !args.tracked && args.remotes.is_none();
         if include_local_only && local_target.is_present() || !tracking_remote_refs.is_empty() {
-            let primary = RefName::local(
+            let primary = CommitRef::local(
                 name,
                 local_target.clone(),
                 remote_refs.iter().map(|&(_, remote_ref)| remote_ref),
@@ -198,7 +203,7 @@ pub fn cmd_bookmark_list(
             let tracked = tracking_remote_refs
                 .iter()
                 .map(|&(remote, remote_ref)| {
-                    RefName::remote(name, remote, remote_ref.clone(), local_target)
+                    CommitRef::remote(name, remote, remote_ref.clone(), local_target)
                 })
                 .collect();
             bookmark_list_items.push(RefListItem { primary, tracked });
@@ -207,7 +212,7 @@ pub fn cmd_bookmark_list(
         if !args.tracked && (args.all_remotes || args.remotes.is_some()) {
             bookmark_list_items.extend(untracked_remote_refs.iter().map(
                 |&(remote, remote_ref)| RefListItem {
-                    primary: RefName::remote_only(name, remote, remote_ref.target.clone()),
+                    primary: CommitRef::remote_only(name, remote, remote_ref.target.clone()),
                     tracked: vec![],
                 },
             ));
@@ -219,7 +224,7 @@ pub fn cmd_bookmark_list(
     bookmark_list_items
         .iter()
         .flat_map(|item| itertools::chain([&item.primary], &item.tracked))
-        .try_for_each(|ref_name| template.format(ref_name, formatter.as_mut()))?;
+        .try_for_each(|commit_ref| template.format(commit_ref, formatter.as_mut()))?;
     drop(formatter);
 
     #[cfg(feature = "git")]
@@ -261,7 +266,7 @@ pub fn cmd_bookmark_list(
 #[derive(Clone, Debug)]
 struct RefListItem {
     /// Local bookmark or untracked remote bookmark.
-    primary: Rc<RefName>,
+    primary: Rc<CommitRef>,
     /// Remote bookmarks tracked by the primary (or local) bookmark.
-    tracked: Vec<Rc<RefName>>,
+    tracked: Vec<Rc<CommitRef>>,
 }

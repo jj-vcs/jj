@@ -121,13 +121,15 @@ This type cannot be printed. The following methods are defined.
   working-copy commit as `<workspace name>@`.
 * `current_working_copy() -> Boolean`: True for the working-copy commit of the
   current workspace.
-* `bookmarks() -> List<RefName>`: Local and remote bookmarks pointing to the
+* `bookmarks() -> List<CommitRef>`: Local and remote bookmarks pointing to the
   commit. A tracking remote bookmark will be included only if its target is
   different from the local one.
-* `local_bookmarks() -> List<RefName>`: All local bookmarks pointing to the commit.
-* `remote_bookmarks() -> List<RefName>`: All remote bookmarks pointing to the commit.
-* `tags() -> List<RefName>`
-* `git_refs() -> List<RefName>`
+* `local_bookmarks() -> List<CommitRef>`: All local bookmarks pointing to the
+  commit.
+* `remote_bookmarks() -> List<CommitRef>`: All remote bookmarks pointing to the
+  commit.
+* `tags() -> List<CommitRef>`
+* `git_refs() -> List<CommitRef>`
 * `git_head() -> Boolean`: True for the Git `HEAD` commit.
 * `divergent() -> Boolean`: True if the commit's change id corresponds to multiple
   visible commits.
@@ -150,6 +152,29 @@ The following methods are defined.
   ChangeId, whose canonical hex representation is "reversed" (z-k).
 * `.short([len: Integer]) -> String`
 * `.shortest([min_len: Integer]) -> ShortestIdPrefix`: Shortest unique prefix.
+
+### CommitRef type
+
+The following methods are defined.
+
+* `.name() -> String`: Local bookmark or tag name.
+* `.remote() -> String`: Remote name or empty if this is a local ref.
+* `.present() -> Boolean`: True if the ref points to any commit.
+* `.conflict() -> Boolean`: True if [the bookmark or tag is
+  conflicted](bookmarks.md#conflicts).
+* `.normal_target() -> Option<Commit>`: Target commit if the ref is not
+  conflicted and points to a commit.
+* `.removed_targets() -> List<Commit>`: Old target commits if conflicted.
+* `.added_targets() -> List<Commit>`: New target commits. The list usually
+  contains one "normal" target.
+* `.tracked() -> Boolean`: True if the ref is tracked by a local ref. The local
+  ref might have been deleted (but not pushed yet.)
+* `.tracking_present() -> Boolean`: True if the ref is tracked by a local ref,
+    and if the local ref points to any commit.
+* `.tracking_ahead_count() -> SizeHint`: Number of commits ahead of the tracking
+  local ref.
+* `.tracking_behind_count() -> SizeHint`: Number of commits behind of the
+  tracking local ref.
 
 ### ConfigValue type
 
@@ -252,29 +277,6 @@ The following methods are defined.
 An option can be implicitly converted to `Boolean` denoting whether the
 contained value is set. If set, all methods of the contained value can be
 invoked. If not set, an error will be reported inline on method call.
-
-### RefName type
-
-The following methods are defined.
-
-* `.name() -> String`: Local bookmark or tag name.
-* `.remote() -> String`: Remote name or empty if this is a local ref.
-* `.present() -> Boolean`: True if the ref points to any commit.
-* `.conflict() -> Boolean`: True if [the bookmark or tag is
-  conflicted](bookmarks.md#conflicts).
-* `.normal_target() -> Option<Commit>`: Target commit if the ref is not
-  conflicted and points to a commit.
-* `.removed_targets() -> List<Commit>`: Old target commits if conflicted.
-* `.added_targets() -> List<Commit>`: New target commits. The list usually
-  contains one "normal" target.
-* `.tracked() -> Boolean`: True if the ref is tracked by a local ref. The local
-  ref might have been deleted (but not pushed yet.)
-* `.tracking_present() -> Boolean`: True if the ref is tracked by a local ref,
-    and if the local ref points to any commit.
-* `.tracking_ahead_count() -> SizeHint`: Number of commits ahead of the tracking
-  local ref.
-* `.tracking_behind_count() -> SizeHint`: Number of commits behind of the
-  tracking local ref.
 
 ### RepoPath type
 
