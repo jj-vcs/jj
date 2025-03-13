@@ -1178,32 +1178,33 @@ impl MutableRepo {
     }
 
     /// Find descendants of `root`, unless they've already been rewritten
-    /// (according to `parent_mapping`), and then return them in
-    /// an order they should be rebased in. The result is in reverse order
-    /// so the next value can be removed from the end.
-    fn find_descendants_to_rebase(&self, roots: Vec<CommitId>) -> BackendResult<Vec<Commit>> {
-        let store = self.store();
-        let to_visit_expression =
-            RevsetExpression::commits(roots)
-                .descendants()
-                .minus(&RevsetExpression::commits(
-                    self.parent_mapping.keys().cloned().collect(),
-                ));
-        let to_visit_revset = to_visit_expression
+    /// (according to `parent_mapping`).
+    pub fn find_descendants_for_rebase(&self, roots: Vec<CommitId>) -> BackendResult<Vec<Commit>> {
+        let to_visit_revset = RevsetExpression::commits(roots)
+            .descendants()
+            .minus(&RevsetExpression::commits(
+                self.parent_mapping.keys().cloned().collect(),
+            ))
             .evaluate(self)
             .map_err(|err| err.expect_backend_error())?;
-        let to_visit: Vec<_> = to_visit_revset
+        let to_visit = to_visit_revset
             .iter()
-            .commits(store)
+            .commits(self.store())
             .try_collect()
             // TODO: Return evaluation error to caller
             .map_err(|err| err.expect_backend_error())?;
-        drop(to_visit_revset);
+        Ok(to_visit)
+    }
+
+    /// Order a set of commits in an order they should be rebased in. The result
+    /// is in reverse order so the next value can be removed from the end.
+    fn order_commits_for_rebase(&self, to_visit: Vec<Commit>) -> BackendResult<Vec<Commit>> {
         let to_visit_set: HashSet<CommitId> =
             to_visit.iter().map(|commit| commit.id().clone()).collect();
         let mut visited = HashSet::new();
         // Calculate an order where we rebase parents first, but if the parents were
         // rewritten, make sure we rebase the rewritten parent first.
+        let store = self.store();
         dag_walk::topo_order_reverse_ok(
             to_visit.into_iter().map(Ok),
             |commit| commit.id().clone(),
@@ -1260,7 +1261,8 @@ impl MutableRepo {
         options: &RewriteRefsOptions,
         mut callback: impl FnMut(CommitRewriter) -> BackendResult<()>,
     ) -> BackendResult<()> {
-        let mut to_visit = self.find_descendants_to_rebase(roots)?;
+        let descendants = self.find_descendants_for_rebase(roots)?;
+        let mut to_visit = self.order_commits_for_rebase(descendants)?;
         while let Some(old_commit) = to_visit.pop() {
             let new_parent_ids = self.new_parents(old_commit.parent_ids());
             let rewriter = CommitRewriter::new(self, old_commit, new_parent_ids);
