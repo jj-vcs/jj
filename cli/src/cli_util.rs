@@ -576,7 +576,7 @@ impl CommandHelper {
                             })?;
                             writeln!(formatter)?;
                         }
-                        print_checkout_stats(ui, stats, &desired_wc_commit)?;
+                        print_checkout_stats(ui, &stats, &desired_wc_commit)?;
 
                         writeln!(
                             ui.status(),
@@ -2035,7 +2035,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
                 }
             }
         }
-        print_checkout_stats(ui, stats, new_commit)?;
+        print_checkout_stats(ui, &stats, new_commit)?;
         if Some(new_commit) != maybe_old_commit {
             if let Some(mut formatter) = ui.status_formatter() {
                 if new_commit.has_conflict()? {
@@ -2764,7 +2764,7 @@ pub fn print_snapshot_stats(
 
 pub fn print_checkout_stats(
     ui: &Ui,
-    stats: CheckoutStats,
+    stats: &CheckoutStats,
     new_commit: &Commit,
 ) -> Result<(), std::io::Error> {
     if stats.added_files > 0 || stats.updated_files > 0 || stats.removed_files > 0 {
