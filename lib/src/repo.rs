@@ -1272,10 +1272,27 @@ impl MutableRepo {
         roots: Vec<CommitId>,
         new_parents_map: &HashMap<CommitId, Vec<CommitId>>,
         options: &RewriteRefsOptions,
-        mut callback: impl FnMut(CommitRewriter) -> BackendResult<()>,
+        callback: impl FnMut(CommitRewriter) -> BackendResult<()>,
     ) -> BackendResult<()> {
         let descendants = self.find_descendants_for_rebase(roots)?;
-        let mut to_visit = self.order_commits_for_rebase(descendants, new_parents_map)?;
+        self.transform_commits(descendants, new_parents_map, options, callback)
+    }
+
+    /// Rewrite the given commits in reverse topological order.
+    ///
+    /// `commits` should be a connected range.
+    ///
+    /// This function is similar to
+    /// [`Self::transform_descendants_with_options()`], but only rewrites the
+    /// `commits` provided, and does not rewrite their descendants.
+    pub fn transform_commits(
+        &mut self,
+        commits: Vec<Commit>,
+        new_parents_map: &HashMap<CommitId, Vec<CommitId>>,
+        options: &RewriteRefsOptions,
+        mut callback: impl FnMut(CommitRewriter) -> BackendResult<()>,
+    ) -> BackendResult<()> {
+        let mut to_visit = self.order_commits_for_rebase(commits, new_parents_map)?;
         while let Some(old_commit) = to_visit.pop() {
             let parent_ids = new_parents_map
                 .get(old_commit.id())
