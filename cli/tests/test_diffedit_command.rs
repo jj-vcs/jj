@@ -21,15 +21,15 @@ fn test_diffedit() {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(repo_path.join("file1"), "a\n").unwrap();
-    test_env.run_jj_in(&repo_path, ["new"]).success();
-    std::fs::write(repo_path.join("file2"), "a\n").unwrap();
-    std::fs::write(repo_path.join("file3"), "a\n").unwrap();
-    test_env.run_jj_in(&repo_path, ["new"]).success();
-    std::fs::remove_file(repo_path.join("file1")).unwrap();
-    std::fs::write(repo_path.join("file2"), "b\n").unwrap();
+    work_dir.write_file("file1", "a\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file2", "a\n");
+    work_dir.write_file("file3", "a\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir.remove_file("file1");
+    work_dir.write_file("file2", "b\n");
 
     // Test the setup; nothing happens if we make no changes
     std::fs::write(
@@ -42,7 +42,7 @@ fn test_diffedit() {
         .join("\0"),
     )
     .unwrap();
-    let output = test_env.run_jj_in(&repo_path, ["diffedit"]);
+    let output = work_dir.run_jj(["diffedit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Nothing changed.
@@ -57,7 +57,7 @@ fn test_diffedit() {
     Adjust the right side until it shows the contents you want. If you
     don't make any changes, then the operation will be aborted.
     ");
-    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    let output = work_dir.run_jj(["diff", "-s"]);
     insta::assert_snapshot!(output, @r"
     D file1
     M file2
@@ -66,16 +66,13 @@ fn test_diffedit() {
 
     // Try again with ui.diff-instructions=false
     std::fs::write(&edit_script, "files-before file1 file2\0files-after file2").unwrap();
-    let output = test_env.run_jj_in(
-        &repo_path,
-        ["diffedit", "--config=ui.diff-instructions=false"],
-    );
+    let output = work_dir.run_jj(["diffedit", "--config=ui.diff-instructions=false"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Nothing changed.
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    let output = work_dir.run_jj(["diff", "-s"]);
     insta::assert_snapshot!(output, @r"
     D file1
     M file2
@@ -88,20 +85,17 @@ fn test_diffedit() {
         "files-before file1 file2\0files-after JJ-INSTRUCTIONS file2",
     )
     .unwrap();
-    let output = test_env.run_jj_in(
-        &repo_path,
-        [
-            "diffedit",
-            "--config=ui.diff-editor='false'",
-            "--tool=fake-diff-editor",
-        ],
-    );
+    let output = work_dir.run_jj([
+        "diffedit",
+        "--config=ui.diff-editor='false'",
+        "--tool=fake-diff-editor",
+    ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Nothing changed.
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    let output = work_dir.run_jj(["diff", "-s"]);
     insta::assert_snapshot!(output, @r"
     D file1
     M file2
@@ -110,7 +104,7 @@ fn test_diffedit() {
 
     // Nothing happens if the diff-editor exits with an error
     std::fs::write(&edit_script, "rm file2\0fail").unwrap();
-    let output = test_env.run_jj_in(&repo_path, ["diffedit"]);
+    let output = work_dir.run_jj(["diffedit"]);
     insta::assert_snapshot!(output.normalize_stderr_exit_status(), @r"
     ------- stderr -------
     Error: Failed to edit diff
@@ -118,7 +112,7 @@ fn test_diffedit() {
     [EOF]
     [exit status: 1]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    let output = work_dir.run_jj(["diff", "-s"]);
     insta::assert_snapshot!(output, @r"
     D file1
     M file2
@@ -127,7 +121,7 @@ fn test_diffedit() {
 
     // Can edit changes to individual files
     std::fs::write(&edit_script, "reset file2").unwrap();
-    let output = test_env.run_jj_in(&repo_path, ["diffedit"]);
+    let output = work_dir.run_jj(["diffedit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created kkmpptxz cbc7a725 (no description set)
@@ -136,16 +130,16 @@ fn test_diffedit() {
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    let output = work_dir.run_jj(["diff", "-s"]);
     insta::assert_snapshot!(output, @r"
     D file1
     [EOF]
     ");
 
     // Changes to a commit are propagated to descendants
-    test_env.run_jj_in(&repo_path, ["undo"]).success();
+    work_dir.run_jj(["undo"]).success();
     std::fs::write(&edit_script, "write file3\nmodified\n").unwrap();
-    let output = test_env.run_jj_in(&repo_path, ["diffedit", "-r", "@-"]);
+    let output = work_dir.run_jj(["diffedit", "-r", "@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created rlvkpnrz d4eef3fc (no description set)
@@ -155,17 +149,17 @@ fn test_diffedit() {
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
-    let contents = String::from_utf8(std::fs::read(repo_path.join("file3")).unwrap()).unwrap();
+    let contents = work_dir.read_file("file3");
     insta::assert_snapshot!(contents, @"modified");
 
     // Test diffedit --from @--
-    test_env.run_jj_in(&repo_path, ["undo"]).success();
+    work_dir.run_jj(["undo"]).success();
     std::fs::write(
         &edit_script,
         "files-before file1\0files-after JJ-INSTRUCTIONS file2 file3\0reset file2",
     )
     .unwrap();
-    let output = test_env.run_jj_in(&repo_path, ["diffedit", "--from", "@--"]);
+    let output = work_dir.run_jj(["diffedit", "--from", "@--"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created kkmpptxz 5b585bd1 (no description set)
@@ -174,7 +168,7 @@ fn test_diffedit() {
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    let output = work_dir.run_jj(["diff", "-s"]);
     insta::assert_snapshot!(output, @r"
     D file1
     D file2
@@ -187,12 +181,12 @@ fn test_diffedit_new_file() {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(repo_path.join("file1"), "a\n").unwrap();
-    test_env.run_jj_in(&repo_path, ["new"]).success();
-    std::fs::remove_file(repo_path.join("file1")).unwrap();
-    std::fs::write(repo_path.join("file2"), "b\n").unwrap();
+    work_dir.write_file("file1", "a\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir.remove_file("file1");
+    work_dir.write_file("file2", "b\n");
 
     // Test the setup; nothing happens if we make no changes
     std::fs::write(
@@ -200,13 +194,13 @@ fn test_diffedit_new_file() {
         "files-before file1\0files-after JJ-INSTRUCTIONS file2",
     )
     .unwrap();
-    let output = test_env.run_jj_in(&repo_path, ["diffedit"]);
+    let output = work_dir.run_jj(["diffedit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Nothing changed.
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    let output = work_dir.run_jj(["diff", "-s"]);
     insta::assert_snapshot!(output, @r"
     D file1
     A file2
@@ -215,7 +209,7 @@ fn test_diffedit_new_file() {
 
     // Creating `file1` on the right side is noticed by `jj diffedit`
     std::fs::write(&edit_script, "write file1\nmodified\n").unwrap();
-    let output = test_env.run_jj_in(&repo_path, ["diffedit"]);
+    let output = work_dir.run_jj(["diffedit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created rlvkpnrz b0376e2b (no description set)
@@ -224,7 +218,7 @@ fn test_diffedit_new_file() {
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    let output = work_dir.run_jj(["diff", "-s"]);
     insta::assert_snapshot!(output, @r"
     M file1
     A file2
@@ -237,15 +231,15 @@ fn test_diffedit_new_file() {
     // On one hand, it is unexpected and potentially a minor BUG. On the other
     // hand, this prevents `jj` from loading any backup files the merge tool
     // generates.
-    test_env.run_jj_in(&repo_path, ["undo"]).success();
+    work_dir.run_jj(["undo"]).success();
     std::fs::write(&edit_script, "write new_file\nnew file\n").unwrap();
-    let output = test_env.run_jj_in(&repo_path, ["diffedit"]);
+    let output = work_dir.run_jj(["diffedit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Nothing changed.
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    let output = work_dir.run_jj(["diff", "-s"]);
     insta::assert_snapshot!(output, @r"
     D file1
     A file2
@@ -258,82 +252,71 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    let file_path = repo_path.join("file");
+    let work_dir = test_env.work_dir("repo");
+    let file_path = "file";
 
     // Create a conflict
-    std::fs::write(
-        &file_path,
+    work_dir.write_file(
+        file_path,
         indoc! {"
-        line 1
-        line 2
-        line 3
-        line 4
-        line 5
-    "},
-    )
-    .unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "base"])
-        .success();
-    std::fs::write(
-        &file_path,
+            line 1
+            line 2
+            line 3
+            line 4
+            line 5
+        "},
+    );
+    work_dir.run_jj(["commit", "-m", "base"]).success();
+    work_dir.write_file(
+        file_path,
         indoc! {"
-        line 1
-        line 2.1
-        line 2.2
-        line 3
-        line 4.1
-        line 5
-    "},
-    )
-    .unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m", "side-a"])
+            line 1
+            line 2.1
+            line 2.2
+            line 3
+            line 4.1
+            line 5
+        "},
+    );
+    work_dir.run_jj(["describe", "-m", "side-a"]).success();
+    work_dir
+        .run_jj(["new", "description(base)", "-m", "side-b"])
         .success();
-    test_env
-        .run_jj_in(&repo_path, ["new", "description(base)", "-m", "side-b"])
-        .success();
-    std::fs::write(
-        &file_path,
+    work_dir.write_file(
+        file_path,
         indoc! {"
-        line 1
-        line 2.3
-        line 3
-        line 4.2
-        line 4.3
-        line 5
-    "},
-    )
-    .unwrap();
+            line 1
+            line 2.3
+            line 3
+            line 4.2
+            line 4.3
+            line 5
+        "},
+    );
 
     // Resolve one of the conflicts in the working copy
-    test_env
-        .run_jj_in(
-            &repo_path,
-            ["new", "description(side-a)", "description(side-b)"],
-        )
+    work_dir
+        .run_jj(["new", "description(side-a)", "description(side-b)"])
         .success();
-    std::fs::write(
-        &file_path,
+    work_dir.write_file(
+        file_path,
         indoc! {"
-        line 1
-        line 2.1
-        line 2.2
-        line 2.3
-        line 3
-        <<<<<<<
-        %%%%%%%
-        -line 4
-        +line 4.1
-        +++++++
-        line 4.2
-        line 4.3
-        >>>>>>>
-        line 5
-    "},
-    )
-    .unwrap();
+            line 1
+            line 2.1
+            line 2.2
+            line 2.3
+            line 3
+            <<<<<<<
+            %%%%%%%
+            -line 4
+            +line 4.1
+            +++++++
+            line 4.2
+            line 4.3
+            >>>>>>>
+            line 5
+        "},
+    );
 
     // Set up diff editor to use "snapshot" conflict markers
     test_env.add_config(r#"merge-tools.fake-diff-editor.conflict-marker-style = "snapshot""#);
@@ -352,7 +335,7 @@ fn test_diffedit_external_tool_conflict_marker_style() {
         .join("\0"),
     )
     .unwrap();
-    let output = test_env.run_jj_in(&repo_path, ["diffedit"]);
+    let output = work_dir.run_jj(["diffedit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created mzvwutvl fb39e804 (conflict) (empty) (no description set)
@@ -410,8 +393,7 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     line 5
     ");
     // Conflicts should be materialized using "diff" format in working copy
-    insta::assert_snapshot!(
-        std::fs::read_to_string(&file_path).unwrap(), @r"
+    insta::assert_snapshot!(work_dir.read_file(file_path), @r"
     line 1
     <<<<<<< Conflict 1 of 2
     +++++++ Contents of side #1
@@ -434,7 +416,7 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     ");
 
     // File should be conflicted with no changes
-    let output = test_env.run_jj_in(&repo_path, ["st"]);
+    let output = work_dir.run_jj(["st"]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
     Working copy : mzvwutvl fb39e804 (conflict) (empty) (no description set)
@@ -451,15 +433,15 @@ fn test_diffedit_3pane() {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(repo_path.join("file1"), "a\n").unwrap();
-    test_env.run_jj_in(&repo_path, ["new"]).success();
-    std::fs::write(repo_path.join("file2"), "a\n").unwrap();
-    std::fs::write(repo_path.join("file3"), "a\n").unwrap();
-    test_env.run_jj_in(&repo_path, ["new"]).success();
-    std::fs::remove_file(repo_path.join("file1")).unwrap();
-    std::fs::write(repo_path.join("file2"), "b\n").unwrap();
+    work_dir.write_file("file1", "a\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file2", "a\n");
+    work_dir.write_file("file3", "a\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir.remove_file("file1");
+    work_dir.write_file("file2", "b\n");
 
     // 2 configs for a 3-pane setup. In the first, "$right" is passed to what the
     // fake diff editor considers the "after" state.
@@ -475,32 +457,26 @@ fn test_diffedit_3pane() {
         "files-before file1 file2\0files-after JJ-INSTRUCTIONS file2",
     )
     .unwrap();
-    let output = test_env.run_jj_in(
-        &repo_path,
-        ["diffedit", "--config", config_with_output_as_after],
-    );
+    let output = work_dir.run_jj(["diffedit", "--config", config_with_output_as_after]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Nothing changed.
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    let output = work_dir.run_jj(["diff", "-s"]);
     insta::assert_snapshot!(output, @r"
     D file1
     M file2
     [EOF]
     ");
     // Nothing happens if we make no changes, `config_with_right_as_after` version
-    let output = test_env.run_jj_in(
-        &repo_path,
-        ["diffedit", "--config", config_with_right_as_after],
-    );
+    let output = work_dir.run_jj(["diffedit", "--config", config_with_right_as_after]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Nothing changed.
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    let output = work_dir.run_jj(["diff", "-s"]);
     insta::assert_snapshot!(output, @r"
     D file1
     M file2
@@ -509,10 +485,7 @@ fn test_diffedit_3pane() {
 
     // Can edit changes to individual files
     std::fs::write(&edit_script, "reset file2").unwrap();
-    let output = test_env.run_jj_in(
-        &repo_path,
-        ["diffedit", "--config", config_with_output_as_after],
-    );
+    let output = work_dir.run_jj(["diffedit", "--config", config_with_output_as_after]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created kkmpptxz ed8aada3 (no description set)
@@ -521,19 +494,16 @@ fn test_diffedit_3pane() {
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    let output = work_dir.run_jj(["diff", "-s"]);
     insta::assert_snapshot!(output, @r"
     D file1
     [EOF]
     ");
 
     // Can write something new to `file1`
-    test_env.run_jj_in(&repo_path, ["undo"]).success();
+    work_dir.run_jj(["undo"]).success();
     std::fs::write(&edit_script, "write file1\nnew content").unwrap();
-    let output = test_env.run_jj_in(
-        &repo_path,
-        ["diffedit", "--config", config_with_output_as_after],
-    );
+    let output = work_dir.run_jj(["diffedit", "--config", config_with_output_as_after]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created kkmpptxz 7c19e689 (no description set)
@@ -542,7 +512,7 @@ fn test_diffedit_3pane() {
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    let output = work_dir.run_jj(["diff", "-s"]);
     insta::assert_snapshot!(output, @r"
     M file1
     M file2
@@ -550,18 +520,15 @@ fn test_diffedit_3pane() {
     ");
 
     // But nothing happens if we modify the right side
-    test_env.run_jj_in(&repo_path, ["undo"]).success();
+    work_dir.run_jj(["undo"]).success();
     std::fs::write(&edit_script, "write file1\nnew content").unwrap();
-    let output = test_env.run_jj_in(
-        &repo_path,
-        ["diffedit", "--config", config_with_right_as_after],
-    );
+    let output = work_dir.run_jj(["diffedit", "--config", config_with_right_as_after]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Nothing changed.
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    let output = work_dir.run_jj(["diff", "-s"]);
     insta::assert_snapshot!(output, @r"
     D file1
     M file2
@@ -577,29 +544,27 @@ fn test_diffedit_merge() {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(repo_path.join("file1"), "a\n").unwrap();
-    std::fs::write(repo_path.join("file2"), "a\n").unwrap();
-    test_env.run_jj_in(&repo_path, ["new"]).success();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "b"])
+    work_dir.write_file("file1", "a\n");
+    work_dir.write_file("file2", "a\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "b"])
         .success();
-    std::fs::write(repo_path.join("file1"), "b\n").unwrap();
-    std::fs::write(repo_path.join("file2"), "b\n").unwrap();
-    test_env.run_jj_in(&repo_path, ["new", "@-"]).success();
-    test_env.run_jj_in(&repo_path, ["new"]).success();
-    std::fs::write(repo_path.join("file1"), "c\n").unwrap();
-    std::fs::write(repo_path.join("file2"), "c\n").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["new", "@", "b", "-m", "merge"])
-        .success();
+    work_dir.write_file("file1", "b\n");
+    work_dir.write_file("file2", "b\n");
+    work_dir.run_jj(["new", "@-"]).success();
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file1", "c\n");
+    work_dir.write_file("file2", "c\n");
+    work_dir.run_jj(["new", "@", "b", "-m", "merge"]).success();
     // Resolve the conflict in file1, but leave the conflict in file2
-    std::fs::write(repo_path.join("file1"), "d\n").unwrap();
-    std::fs::write(repo_path.join("file3"), "d\n").unwrap();
-    test_env.run_jj_in(&repo_path, ["new"]).success();
+    work_dir.write_file("file1", "d\n");
+    work_dir.write_file("file3", "d\n");
+    work_dir.run_jj(["new"]).success();
     // Test the setup
-    let output = test_env.run_jj_in(&repo_path, ["diff", "-r", "@-", "-s"]);
+    let output = work_dir.run_jj(["diff", "-r", "@-", "-s"]);
     insta::assert_snapshot!(output, @r"
     M file1
     A file3
@@ -612,7 +577,7 @@ fn test_diffedit_merge() {
         "files-before file1\0files-after JJ-INSTRUCTIONS file1 file3\0rm file1",
     )
     .unwrap();
-    let output = test_env.run_jj_in(&repo_path, ["diffedit", "-r", "@-"]);
+    let output = work_dir.run_jj(["diffedit", "-r", "@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created royxmykx 0105de4a (conflict) merge
@@ -624,14 +589,14 @@ fn test_diffedit_merge() {
     file2    2-sided conflict
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["diff", "-s", "-r", "@-"]);
+    let output = work_dir.run_jj(["diff", "-s", "-r", "@-"]);
     insta::assert_snapshot!(output, @r"
     D file1
     A file3
     [EOF]
     ");
-    assert!(!repo_path.join("file1").exists());
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file2"]);
+    assert!(!work_dir.root().join("file1").exists());
+    let output = work_dir.run_jj(["file", "show", "file2"]);
     insta::assert_snapshot!(output, @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
@@ -649,23 +614,23 @@ fn test_diffedit_old_restore_interactive_tests() {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(repo_path.join("file1"), "a\n").unwrap();
-    std::fs::write(repo_path.join("file2"), "a\n").unwrap();
-    test_env.run_jj_in(&repo_path, ["new"]).success();
-    std::fs::remove_file(repo_path.join("file1")).unwrap();
-    std::fs::write(repo_path.join("file2"), "b\n").unwrap();
-    std::fs::write(repo_path.join("file3"), "b\n").unwrap();
+    work_dir.write_file("file1", "a\n");
+    work_dir.write_file("file2", "a\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir.remove_file("file1");
+    work_dir.write_file("file2", "b\n");
+    work_dir.write_file("file3", "b\n");
 
     // Nothing happens if we make no changes
-    let output = test_env.run_jj_in(&repo_path, ["diffedit", "--from", "@-"]);
+    let output = work_dir.run_jj(["diffedit", "--from", "@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Nothing changed.
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    let output = work_dir.run_jj(["diff", "-s"]);
     insta::assert_snapshot!(output, @r"
     D file1
     M file2
@@ -675,7 +640,7 @@ fn test_diffedit_old_restore_interactive_tests() {
 
     // Nothing happens if the diff-editor exits with an error
     std::fs::write(&edit_script, "rm file2\0fail").unwrap();
-    let output = test_env.run_jj_in(&repo_path, ["diffedit", "--from", "@-"]);
+    let output = work_dir.run_jj(["diffedit", "--from", "@-"]);
     insta::assert_snapshot!(output.normalize_stderr_exit_status(), @r"
     ------- stderr -------
     Error: Failed to edit diff
@@ -683,7 +648,7 @@ fn test_diffedit_old_restore_interactive_tests() {
     [EOF]
     [exit status: 1]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    let output = work_dir.run_jj(["diff", "-s"]);
     insta::assert_snapshot!(output, @r"
     D file1
     M file2
@@ -693,7 +658,7 @@ fn test_diffedit_old_restore_interactive_tests() {
 
     // Can restore changes to individual files
     std::fs::write(&edit_script, "reset file2\0reset file3").unwrap();
-    let output = test_env.run_jj_in(&repo_path, ["diffedit", "--from", "@-"]);
+    let output = work_dir.run_jj(["diffedit", "--from", "@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created rlvkpnrz 69811eda (no description set)
@@ -702,16 +667,16 @@ fn test_diffedit_old_restore_interactive_tests() {
     Added 0 files, modified 1 files, removed 1 files
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    let output = work_dir.run_jj(["diff", "-s"]);
     insta::assert_snapshot!(output, @r"
     D file1
     [EOF]
     ");
 
     // Can make unrelated edits
-    test_env.run_jj_in(&repo_path, ["undo"]).success();
+    work_dir.run_jj(["undo"]).success();
     std::fs::write(&edit_script, "write file3\nunrelated\n").unwrap();
-    let output = test_env.run_jj_in(&repo_path, ["diffedit", "--from", "@-"]);
+    let output = work_dir.run_jj(["diffedit", "--from", "@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created rlvkpnrz 2b76a42e (no description set)
@@ -720,7 +685,7 @@ fn test_diffedit_old_restore_interactive_tests() {
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["diff", "--git"]);
+    let output = work_dir.run_jj(["diff", "--git"]);
     insta::assert_snapshot!(output, @r"
     diff --git a/file1 b/file1
     deleted file mode 100644
@@ -752,20 +717,17 @@ fn test_diffedit_restore_descendants() {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(repo_path.join("file"), "println!(\"foo\")\n").unwrap();
-    test_env.run_jj_in(&repo_path, ["new"]).success();
-    std::fs::write(repo_path.join("file"), "println!(\"bar\")\n").unwrap();
-    test_env.run_jj_in(&repo_path, ["new"]).success();
-    std::fs::write(repo_path.join("file"), "println!(\"baz\");\n").unwrap();
+    work_dir.write_file("file", "println!(\"foo\")\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file", "println!(\"bar\")\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file", "println!(\"baz\");\n");
 
     // Add a ";" after the line with "bar". There should be no conflict.
     std::fs::write(edit_script, "write file\nprintln!(\"bar\");\n").unwrap();
-    let output = test_env.run_jj_in(
-        &repo_path,
-        ["diffedit", "-r", "@-", "--restore-descendants"],
-    );
+    let output = work_dir.run_jj(["diffedit", "-r", "@-", "--restore-descendants"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created rlvkpnrz 62b8c2ce (no description set)
@@ -774,7 +736,7 @@ fn test_diffedit_restore_descendants() {
     Parent commit      : rlvkpnrz 62b8c2ce (no description set)
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["diff", "--git"]);
+    let output = work_dir.run_jj(["diff", "--git"]);
     insta::assert_snapshot!(output, @r#"
     diff --git a/file b/file
     index 1a598a8fc9..7b6a85ab5a 100644
