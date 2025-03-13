@@ -17,6 +17,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The `git.push-branch-prefix` config has been removed in favor of
   `git.push-bookmark-prefix`.
 
+* `jj abandon` no longer supports `--summary` to suppress the list of abandoned
+  commits. The list won't show more than 10 commits to not clutter the console.
+
 * `jj unsquash` has been removed in favor of `jj squash` and
   `jj diffedit --restore-descendants`.
 

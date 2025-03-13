@@ -224,7 +224,6 @@ If a working-copy commit gets abandoned, it will be given a new, empty commit. T
 
 ###### **Options:**
 
-* `-s`, `--summary` — Do not print every abandoned commit on a separate line
 * `--retain-bookmarks` — Do not delete bookmarks pointing to the revisions to abandon
 
    Bookmarks will be moved to the parent revisions instead.

@@ -55,8 +55,8 @@ pub(crate) struct AbandonArgs {
         add = ArgValueCandidates::new(complete::mutable_revisions)
     )]
     revisions_opt: Vec<RevisionArg>,
-    /// Do not print every abandoned commit on a separate line
-    #[arg(long, short)]
+    // TODO: Remove in jj 0.34+
+    #[arg(long, short, hide = true)]
     summary: bool,
     /// Do not delete bookmarks pointing to the revisions to abandon
     ///
@@ -74,6 +74,9 @@ pub(crate) fn cmd_abandon(
     command: &CommandHelper,
     args: &AbandonArgs,
 ) -> Result<(), CommandError> {
+    if args.summary {
+        writeln!(ui.warning_default(), "--summary is no longer supported.")?;
+    }
     let mut workspace_command = command.workspace_helper(ui)?;
     let to_abandon: Vec<_> = if !args.revisions_pos.is_empty() || !args.revisions_opt.is_empty() {
         workspace_command
@@ -113,21 +116,12 @@ pub(crate) fn cmd_abandon(
     )?;
 
     if let Some(mut formatter) = ui.status_formatter() {
-        if to_abandon.len() == 1 {
-            write!(formatter, "Abandoned commit ")?;
-            tx.base_workspace_helper()
-                .write_commit_summary(formatter.as_mut(), &to_abandon[0])?;
-            writeln!(ui.status())?;
-        } else if !args.summary {
-            writeln!(formatter, "Abandoned {} commits:", to_abandon.len())?;
-            print_updated_commits(
-                formatter.as_mut(),
-                &tx.base_workspace_helper().commit_summary_template(),
-                &to_abandon,
-            )?;
-        } else {
-            writeln!(formatter, "Abandoned {} commits.", to_abandon.len())?;
-        }
+        writeln!(formatter, "Abandoned {} commits:", to_abandon.len())?;
+        print_updated_commits(
+            formatter.as_mut(),
+            &tx.base_workspace_helper().commit_summary_template(),
+            &to_abandon,
+        )?;
         let deleted_bookmarks = diff_named_ref_targets(
             tx.base_repo().view().local_bookmarks(),
             tx.repo().view().local_bookmarks(),
