@@ -12,12 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::io;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 use std::str;
 use std::sync::Arc;
 
+use itertools::Itertools as _;
 use jj_lib::file_util;
 use jj_lib::git;
 use jj_lib::git::parse_git_ref;
@@ -25,10 +27,10 @@ use jj_lib::git::RefName;
 use jj_lib::refs::RemoteRefSymbol;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
+use jj_lib::view::View;
 use jj_lib::workspace::Workspace;
 
 use super::write_repository_level_trunk_alias;
-use crate::cli_util::print_trackable_remote_bookmarks;
 use crate::cli_util::start_repo_transaction;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
@@ -253,5 +255,39 @@ pub fn maybe_set_repository_level_trunk_alias(
         };
     };
 
+    Ok(())
+}
+
+fn print_trackable_remote_bookmarks(ui: &Ui, view: &View) -> io::Result<()> {
+    let remote_bookmark_names = view
+        .bookmarks()
+        .filter(|(_, bookmark_target)| bookmark_target.local_target.is_present())
+        .flat_map(|(name, bookmark_target)| {
+            bookmark_target
+                .remote_refs
+                .into_iter()
+                .filter(|&(_, remote_ref)| !remote_ref.is_tracking())
+                .map(move |(remote, _)| format!("{name}@{remote}"))
+        })
+        .collect_vec();
+    if remote_bookmark_names.is_empty() {
+        return Ok(());
+    }
+
+    if let Some(mut formatter) = ui.status_formatter() {
+        writeln!(
+            formatter.labeled("hint").with_heading("Hint: "),
+            "The following remote bookmarks aren't associated with the existing local bookmarks:"
+        )?;
+        for full_name in &remote_bookmark_names {
+            write!(formatter, "  ")?;
+            writeln!(formatter.labeled("bookmark"), "{full_name}")?;
+        }
+        writeln!(
+            formatter.labeled("hint").with_heading("Hint: "),
+            "Run `jj bookmark track {names}` to keep local bookmarks updated on future pulls.",
+            names = remote_bookmark_names.join(" "),
+        )?;
+    }
     Ok(())
 }
