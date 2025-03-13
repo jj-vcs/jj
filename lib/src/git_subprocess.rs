@@ -25,6 +25,7 @@ use std::process::Stdio;
 use std::thread;
 
 use bstr::ByteSlice;
+use itertools::Itertools;
 use thiserror::Error;
 
 use crate::git::Progress;
@@ -380,7 +381,7 @@ fn parse_git_remote_show_default_branch(
 }
 
 // git-push porcelain has the following format (per line)
-// `<flag>\t<from>:<to>\t<summary>\t(<reason>)`
+// `<flag>\t<from>:<to>\t<summary> (<reason>)`
 //
 // <flag> is one of:
 //     ' ' for a successfully pushed fast-forward;
@@ -393,7 +394,6 @@ fn parse_git_remote_show_default_branch(
 // <from>:<to> is the refspec
 //
 // <summary> is extra info (commit ranges or reason for rejected)
-// at times the summary is omitted
 //
 // <reason> is a human-readable explanation
 fn parse_ref_pushes(stdout: &[u8]) -> Result<GitPushStats, GitSubprocessError> {
@@ -411,25 +411,13 @@ fn parse_ref_pushes(stdout: &[u8]) -> Result<GitPushStats, GitSubprocessError> {
         .take_while(|line| line != b"Done")
         .enumerate()
     {
-        // format:
-        // <flag>\t<ref>\t<summary>\t<comment>
-        // sometimes the summary is omitted
-        let create_error = || {
-            GitSubprocessError::External(format!(
-                "Line #{idx} of git-push has unknown format: {}",
-                line.to_str_lossy()
-            ))
-        };
-        let mut it = line.split_str("\t").fuse();
-        let flag = it.next().ok_or_else(create_error)?;
-        let reference = it.next().ok_or_else(create_error)?;
-        // we capture the remaining elements to ensure the line is well formed
-        let _summary_or_comment = it.next().ok_or_else(create_error)?;
-        let _comment_opt = it.next();
-        if it.next().is_some() {
-            return Err(create_error());
-        }
-
+        let (flag, reference, _summary) =
+            line.split_str("\t").collect_tuple().ok_or_else(|| {
+                GitSubprocessError::External(format!(
+                    "Line #{idx} of git-push has unknown format: {}",
+                    line.to_str_lossy()
+                ))
+            })?;
         let full_refspec = reference
             .to_str()
             .map_err(|e| {
@@ -708,12 +696,13 @@ and the repository exists. "###;
     const SAMPLE_NO_REMOTE_TRACKING_BRANCH_ERROR: &[u8] =
         b"error: remote-tracking branch 'bookmark' not found";
     const SAMPLE_PUSH_REFS_PORCELAIN_OUTPUT: &[u8] = b"To origin
-*\tdeadbeef:refs/heads/bookmark1\tdeadbeef\t[new branch]
-+\tdeadbeef:refs/heads/bookmark2\tdeadbeef\t[new branch]
--\tdeadbeef:refs/heads/bookmark3\tdeadbeef\t[new branch]
- \tdeadbeef:refs/heads/bookmark4\tdeadbeef\t[new branch]
-=\tdeadbeef:refs/heads/bookmark5\tdeadbeef\t[new branch]
-!\tdeadbeef:refs/heads/bookmark6\tdeadbeef\t[new branch]
+*\tdeadbeef:refs/heads/bookmark1\t[new branch]
++\tdeadbeef:refs/heads/bookmark2\tabcd..dead
+-\tdeadbeef:refs/heads/bookmark3\t[deleted branch]
+ \tdeadbeef:refs/heads/bookmark4\tabcd..dead
+=\tdeadbeef:refs/heads/bookmark5\tabcd..abcd
+!\tdeadbeef:refs/heads/bookmark6\t[rejected] (failure lease)
+!\tdeadbeef:refs/heads/bookmark7\t[remote rejected] (hook failure)
 Done";
     const SAMPLE_OK_STDERR: &[u8] = b"";
 
@@ -788,7 +777,6 @@ Done";
         assert!(parse_ref_pushes(SAMPLE_NO_REMOTE_TRACKING_BRANCH_ERROR).is_err());
         let GitPushStats { pushed, rejected } =
             parse_ref_pushes(SAMPLE_PUSH_REFS_PORCELAIN_OUTPUT).unwrap();
-        assert_eq!(rejected, vec!["refs/heads/bookmark6".to_string()]);
         assert_eq!(
             pushed,
             vec![
@@ -797,6 +785,13 @@ Done";
                 "refs/heads/bookmark3".to_string(),
                 "refs/heads/bookmark4".to_string(),
                 "refs/heads/bookmark5".to_string(),
+            ]
+        );
+        assert_eq!(
+            rejected,
+            vec![
+                "refs/heads/bookmark6".to_string(),
+                "refs/heads/bookmark7".to_string()
             ]
         );
         assert!(parse_ref_pushes(SAMPLE_OK_STDERR).is_err());
