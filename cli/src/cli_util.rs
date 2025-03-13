@@ -567,17 +567,12 @@ impl CommandHelper {
                             &desired_wc_commit,
                             &checkout_options,
                         )?;
-
-                        // TODO: Share this code with new/checkout somehow.
-                        if let Some(mut formatter) = ui.status_formatter() {
-                            write!(formatter, "Working copy now at: ")?;
-                            formatter.with_label("working_copy", |fmt| {
-                                workspace_command.write_commit_summary(fmt, &desired_wc_commit)
-                            })?;
-                            writeln!(formatter)?;
-                        }
-                        print_checkout_stats(ui, &stats, &desired_wc_commit)?;
-
+                        workspace_command.print_updated_working_copy_stats(
+                            ui,
+                            Some(&stale_wc_commit),
+                            &desired_wc_commit,
+                            &stats,
+                        )?;
                         writeln!(
                             ui.status(),
                             "Updated working copy to fresh commit {}",
@@ -2020,6 +2015,16 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
             new_commit,
             &checkout_options,
         )?;
+        self.print_updated_working_copy_stats(ui, maybe_old_commit, new_commit, &stats)
+    }
+
+    fn print_updated_working_copy_stats(
+        &self,
+        ui: &Ui,
+        maybe_old_commit: Option<&Commit>,
+        new_commit: &Commit,
+        stats: &CheckoutStats,
+    ) -> Result<(), CommandError> {
         if Some(new_commit) != maybe_old_commit {
             if let Some(mut formatter) = ui.status_formatter() {
                 let template = self.commit_summary_template();
@@ -2035,7 +2040,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
                 }
             }
         }
-        print_checkout_stats(ui, &stats, new_commit)?;
+        print_checkout_stats(ui, stats, new_commit)?;
         if Some(new_commit) != maybe_old_commit {
             if let Some(mut formatter) = ui.status_formatter() {
                 if new_commit.has_conflict()? {
