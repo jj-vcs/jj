@@ -2141,25 +2141,27 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
         let missing_user_name = settings.user_name().is_empty();
         let missing_user_mail = settings.user_email().is_empty();
         if missing_user_name || missing_user_mail {
-            let mut writer = ui.warning_default();
             let not_configured_msg = match (missing_user_name, missing_user_mail) {
                 (true, true) => "Name and email not configured.",
                 (true, false) => "Name not configured.",
                 (false, true) => "Email not configured.",
                 _ => unreachable!(),
             };
-            write!(writer, "{not_configured_msg} ")?;
             writeln!(
-                writer,
-                "Until configured, your commits will be created with the empty identity, and \
-                 can't be pushed to remotes. To configure, run:",
+                ui.warning_default(),
+                "{not_configured_msg} Until configured, your commits will be created with the \
+                 empty identity, and can't be pushed to remotes."
             )?;
+            writeln!(ui.hint_default(), "To configure, run:")?;
             if missing_user_name {
-                writeln!(writer, r#"  jj config set --user user.name "Some One""#)?;
+                writeln!(
+                    ui.hint_no_heading(),
+                    r#"  jj config set --user user.name "Some One""#
+                )?;
             }
             if missing_user_mail {
                 writeln!(
-                    writer,
+                    ui.hint_no_heading(),
                     r#"  jj config set --user user.email "someone@example.com""#
                 )?;
             }

@@ -957,7 +957,8 @@ fn test_default_config() {
     ------- stderr -------
     Working copy now at: <change-id> <id> (empty) (no description set)
     Parent commit      : <change-id> <id> (empty) (no description set)
-    Warning: Name and email not configured. Until configured, your commits will be created with the empty identity, and can't be pushed to remotes. To configure, run:
+    Warning: Name and email not configured. Until configured, your commits will be created with the empty identity, and can't be pushed to remotes.
+    Hint: To configure, run:
       jj config set --user user.name "Some One"
       jj config set --user user.email "<user>@<host>"
     [EOF]
@@ -1004,7 +1005,8 @@ fn test_no_user_configured() {
     ------- stderr -------
     Working copy now at: qpvuntsm 7a7d6016 (empty) without name
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
-    Warning: Name not configured. Until configured, your commits will be created with the empty identity, and can't be pushed to remotes. To configure, run:
+    Warning: Name not configured. Until configured, your commits will be created with the empty identity, and can't be pushed to remotes.
+    Hint: To configure, run:
       jj config set --user user.name "Some One"
     [EOF]
     "#);
@@ -1016,7 +1018,8 @@ fn test_no_user_configured() {
     ------- stderr -------
     Working copy now at: qpvuntsm 906f8b89 (empty) without email
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
-    Warning: Email not configured. Until configured, your commits will be created with the empty identity, and can't be pushed to remotes. To configure, run:
+    Warning: Email not configured. Until configured, your commits will be created with the empty identity, and can't be pushed to remotes.
+    Hint: To configure, run:
       jj config set --user user.email "someone@example.com"
     [EOF]
     "#);
@@ -1029,7 +1032,8 @@ fn test_no_user_configured() {
     ------- stderr -------
     Working copy now at: qpvuntsm 57d3a489 (empty) without name and email
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
-    Warning: Name and email not configured. Until configured, your commits will be created with the empty identity, and can't be pushed to remotes. To configure, run:
+    Warning: Name and email not configured. Until configured, your commits will be created with the empty identity, and can't be pushed to remotes.
+    Hint: To configure, run:
       jj config set --user user.name "Some One"
       jj config set --user user.email "someone@example.com"
     [EOF]
