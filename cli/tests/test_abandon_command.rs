@@ -93,7 +93,7 @@ fn test_basics() {
     let output = work_dir.run_jj(["abandon", "descendants(d)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Abandoned the following commits:
+    Abandoned 2 commits:
       znkkpsqq 5557ece3 e | e
       vruxwmqv b7c62f28 d | d
     Deleted bookmarks: d, e
@@ -140,7 +140,7 @@ fn test_basics() {
     let output = work_dir.run_jj(["abandon", "d::", "e"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Abandoned the following commits:
+    Abandoned 2 commits:
       znkkpsqq 5557ece3 e | e
       vruxwmqv b7c62f28 d | d
     Deleted bookmarks: d, e
@@ -166,6 +166,38 @@ fn test_basics() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     No revisions to abandon.
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_abandon_many() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    for i in 0..10 {
+        work_dir.run_jj(["new", &format!("-mcommit{i}")]).success();
+    }
+
+    // The list of commits should be elided.
+    let output = work_dir.run_jj(["abandon", ".."]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Abandoned 11 commits:
+      kpqxywon 0b998aa3 (empty) commit9
+      znkkpsqq c37abefb (empty) commit8
+      yostqsxw 6256698f (empty) commit7
+      vruxwmqv 9350f605 (empty) commit6
+      yqosqzyt 196bd23d (empty) commit5
+      royxmykx bb676781 (empty) commit4
+      mzvwutvl 6f1e55a6 (empty) commit3
+      zsuskuln baf1311c (empty) commit2
+      kkmpptxz 5fc5f374 (empty) commit1
+      rlvkpnrz 9451b4ea (empty) commit0
+      ...
+    Working copy now at: kmkuslsw 822a2cf5 (empty) (no description set)
+    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 }
@@ -291,7 +323,7 @@ fn test_bug_2600() {
     let output = work_dir.run_jj(["abandon", "--retain-bookmarks", "a", "b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Abandoned the following commits:
+    Abandoned 2 commits:
       vruxwmqv 8c0dced0 b | b
       royxmykx 98f3b9ba a | a
     Rebased 1 descendant commits onto parents of abandoned commits

@@ -119,7 +119,7 @@ pub(crate) fn cmd_abandon(
                 .write_commit_summary(formatter.as_mut(), &to_abandon[0])?;
             writeln!(ui.status())?;
         } else if !args.summary {
-            writeln!(formatter, "Abandoned the following commits:")?;
+            writeln!(formatter, "Abandoned {} commits:", to_abandon.len())?;
             print_updated_commits(
                 formatter.as_mut(),
                 &tx.base_workspace_helper().commit_summary_template(),

@@ -98,7 +98,11 @@ pub(crate) fn cmd_absorb(
 
     if let Some(mut formatter) = ui.status_formatter() {
         if !stats.rewritten_destinations.is_empty() {
-            writeln!(formatter, "Absorbed changes into these revisions:")?;
+            writeln!(
+                formatter,
+                "Absorbed changes into {} revisions:",
+                stats.rewritten_destinations.len()
+            )?;
             print_updated_commits(
                 formatter.as_mut(),
                 &tx.commit_summary_template(),
