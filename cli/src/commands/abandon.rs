@@ -25,6 +25,7 @@ use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::RewriteRefsOptions;
 use tracing::instrument;
 
+use crate::cli_util::print_updated_commits;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::command_error::CommandError;
@@ -118,13 +119,12 @@ pub(crate) fn cmd_abandon(
                 .write_commit_summary(formatter.as_mut(), &to_abandon[0])?;
             writeln!(ui.status())?;
         } else if !args.summary {
-            let template = tx.base_workspace_helper().commit_summary_template();
             writeln!(formatter, "Abandoned the following commits:")?;
-            for commit in &to_abandon {
-                write!(formatter, "  ")?;
-                template.format(commit, formatter.as_mut())?;
-                writeln!(formatter)?;
-            }
+            print_updated_commits(
+                formatter.as_mut(),
+                &tx.base_workspace_helper().commit_summary_template(),
+                &to_abandon,
+            )?;
         } else {
             writeln!(formatter, "Abandoned {} commits.", to_abandon.len())?;
         }

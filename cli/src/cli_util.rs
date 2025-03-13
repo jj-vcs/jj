@@ -2595,6 +2595,21 @@ fn update_stale_working_copy(
     Ok(stats)
 }
 
+/// Prints a list of commits by the given summary template. Use this to show
+/// created, rewritten, or abandoned commits.
+pub fn print_updated_commits<'a>(
+    formatter: &mut dyn Formatter,
+    template: &TemplateRenderer<Commit>,
+    commits: impl IntoIterator<Item = &'a Commit>,
+) -> io::Result<()> {
+    for commit in commits {
+        write!(formatter, "  ")?;
+        template.format(commit, formatter)?;
+        writeln!(formatter)?;
+    }
+    Ok(())
+}
+
 #[instrument(skip_all)]
 pub fn print_conflicted_paths(
     conflicts: Vec<(RepoPathBuf, BackendResult<MergedTreeValue>)>,

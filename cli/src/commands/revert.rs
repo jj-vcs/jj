@@ -26,6 +26,7 @@ use jj_lib::rewrite::merge_commit_trees;
 use tracing::instrument;
 
 use crate::cli_util::compute_commit_location;
+use crate::cli_util::print_updated_commits;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::command_error::CommandError;
@@ -189,17 +190,16 @@ pub(crate) fn cmd_revert(
         })?;
 
     if let Some(mut formatter) = ui.status_formatter() {
-        let template = tx.commit_summary_template();
         writeln!(
             formatter,
             "Reverted {} commits as follows:",
             reverted_commits.len()
         )?;
-        for commit in &reverted_commits {
-            write!(formatter, "  ")?;
-            template.format(commit, formatter.as_mut())?;
-            writeln!(formatter)?;
-        }
+        print_updated_commits(
+            formatter.as_mut(),
+            &tx.commit_summary_template(),
+            &reverted_commits,
+        )?;
         if num_rebased > 0 {
             writeln!(formatter, "Rebased {num_rebased} descendant commits")?;
         }

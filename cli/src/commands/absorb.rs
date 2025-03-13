@@ -20,6 +20,7 @@ use jj_lib::matchers::EverythingMatcher;
 use pollster::FutureExt as _;
 use tracing::instrument;
 
+use crate::cli_util::print_updated_commits;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::command_error::CommandError;
@@ -98,12 +99,11 @@ pub(crate) fn cmd_absorb(
     if let Some(mut formatter) = ui.status_formatter() {
         if !stats.rewritten_destinations.is_empty() {
             writeln!(formatter, "Absorbed changes into these revisions:")?;
-            let template = tx.commit_summary_template();
-            for commit in stats.rewritten_destinations.iter().rev() {
-                write!(formatter, "  ")?;
-                template.format(commit, formatter.as_mut())?;
-                writeln!(formatter)?;
-            }
+            print_updated_commits(
+                formatter.as_mut(),
+                &tx.commit_summary_template(),
+                stats.rewritten_destinations.iter().rev(),
+            )?;
         }
         if stats.num_rebased > 0 {
             writeln!(
