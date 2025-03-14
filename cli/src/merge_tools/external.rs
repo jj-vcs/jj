@@ -29,7 +29,7 @@ use super::diff_working_copies::check_out_trees;
 use super::diff_working_copies::new_utf8_temp_dir;
 use super::diff_working_copies::set_readonly_recursively;
 use super::diff_working_copies::DiffEditWorkingCopies;
-use super::diff_working_copies::DiffSide;
+use super::diff_working_copies::DiffType;
 use super::ConflictResolveError;
 use super::DiffEditError;
 use super::DiffGenerateError;
@@ -177,7 +177,7 @@ fn run_mergetool_external_single_file(
     editor: &ExternalMergeTool,
     store: &Store,
     merge_tool_file: &MergeToolFile,
-    default_conflict_marker_style: ConflictMarkerStyle,
+    mut conflict_marker_style: ConflictMarkerStyle,
     tree_builder: &mut MergedTreeBuilder,
 ) -> Result<(), ConflictResolveError> {
     let MergeToolFile {
@@ -186,10 +186,9 @@ fn run_mergetool_external_single_file(
         file_merge,
         content,
     } = merge_tool_file;
-
-    let conflict_marker_style = editor
-        .conflict_marker_style
-        .unwrap_or(default_conflict_marker_style);
+    if let Some(marker_override) = editor.conflict_marker_style {
+        conflict_marker_style = marker_override;
+    }
 
     let uses_marker_length = find_all_variables(&editor.merge_args).contains(&"marker_length");
 
@@ -319,7 +318,7 @@ pub fn run_mergetool_external(
     editor: &ExternalMergeTool,
     tree: &MergedTree,
     merge_tool_files: &[MergeToolFile],
-    default_conflict_marker_style: ConflictMarkerStyle,
+    conflict_marker_style: ConflictMarkerStyle,
 ) -> Result<(MergedTreeId, Option<MergeToolPartialResolutionError>), ConflictResolveError> {
     // TODO: add support for "dir" invocation mode, similar to the
     // "diff-invocation-mode" config option for diffs
@@ -335,7 +334,7 @@ pub fn run_mergetool_external(
             editor,
             tree.store(),
             merge_tool_file,
-            default_conflict_marker_style,
+            conflict_marker_style,
             &mut tree_builder,
         ) {
             Ok(()) => {}
@@ -365,23 +364,25 @@ pub fn edit_diff_external(
     matcher: &dyn Matcher,
     instructions: Option<&str>,
     base_ignores: Arc<GitIgnoreFile>,
-    default_conflict_marker_style: ConflictMarkerStyle,
+    mut options: CheckoutOptions,
 ) -> Result<MergedTreeId, DiffEditError> {
-    let conflict_marker_style = editor
-        .conflict_marker_style
-        .unwrap_or(default_conflict_marker_style);
-    let options = CheckoutOptions {
-        conflict_marker_style,
-    };
+    if let Some(marker_override) = editor.conflict_marker_style {
+        options.conflict_marker_style = marker_override;
+    }
 
     let got_output_field = find_all_variables(&editor.edit_args).contains(&"output");
+    let diff_type = if got_output_field {
+        DiffType::ThreeWay
+    } else {
+        DiffType::TwoWay
+    };
     let store = left_tree.store();
     let diffedit_wc = DiffEditWorkingCopies::check_out(
         store,
         left_tree,
         right_tree,
         matcher,
-        got_output_field.then_some(DiffSide::Right),
+        diff_type,
         instructions,
         &options,
     )?;
@@ -413,20 +414,20 @@ pub fn generate_diff(
     right_tree: &MergedTree,
     matcher: &dyn Matcher,
     tool: &ExternalMergeTool,
-    default_conflict_marker_style: ConflictMarkerStyle,
+    mut options: CheckoutOptions,
 ) -> Result<(), DiffGenerateError> {
-    let conflict_marker_style = tool
-        .conflict_marker_style
-        .unwrap_or(default_conflict_marker_style);
-    let options = CheckoutOptions {
-        conflict_marker_style,
-    };
+    if let Some(marker_override) = tool.conflict_marker_style {
+        options.conflict_marker_style = marker_override;
+    }
     let store = left_tree.store();
-    let diff_wc = check_out_trees(store, left_tree, right_tree, matcher, None, &options)?;
-    set_readonly_recursively(diff_wc.left_working_copy_path())
-        .map_err(ExternalToolError::SetUpDir)?;
-    set_readonly_recursively(diff_wc.right_working_copy_path())
-        .map_err(ExternalToolError::SetUpDir)?;
+    let diff_wc = check_out_trees(
+        store,
+        left_tree,
+        right_tree,
+        matcher,
+        DiffType::TwoWay,
+        &options,
+    )?;
     invoke_external_diff(ui, writer, tool, &diff_wc.to_command_variables())
 }
 

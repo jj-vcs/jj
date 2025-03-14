@@ -63,7 +63,6 @@ use jj_lib::config::ConfigMigrationRule;
 use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigSource;
 use jj_lib::config::StackedConfig;
-use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::fileset;
 use jj_lib::fileset::FilesetDiagnostics;
 use jj_lib::fileset::FilesetExpression;
@@ -538,7 +537,7 @@ impl CommandHelper {
                 let stale_wc_commit = repo.store().get_commit(wc_commit_id)?;
 
                 let mut workspace_command = self.workspace_helper_no_snapshot(ui)?;
-                let checkout_options = workspace_command.checkout_options();
+                let checkout_options = workspace_command.env.settings.checkout_options();
 
                 let repo = workspace_command.repo().clone();
                 let (mut locked_ws, desired_wc_commit) =
@@ -783,7 +782,7 @@ pub struct WorkspaceCommandEnvironment {
     workspace_id: WorkspaceId,
     immutable_heads_expression: Rc<UserRevsetExpression>,
     short_prefixes_expression: Option<Rc<UserRevsetExpression>>,
-    conflict_marker_style: ConflictMarkerStyle,
+    checkout_options: CheckoutOptions,
 }
 
 impl WorkspaceCommandEnvironment {
@@ -805,7 +804,7 @@ impl WorkspaceCommandEnvironment {
             workspace_id: workspace.workspace_id().to_owned(),
             immutable_heads_expression: RevsetExpression::root(),
             short_prefixes_expression: None,
-            conflict_marker_style: settings.get("ui.conflict-marker-style")?,
+            checkout_options: settings.checkout_options(),
         };
         env.immutable_heads_expression = env.load_immutable_heads_expression(ui)?;
         env.short_prefixes_expression = env.load_short_prefixes_expression(ui)?;
@@ -861,11 +860,6 @@ impl WorkspaceCommandEnvironment {
     /// User-configured expression defining the heads of the immutable set.
     pub fn immutable_heads_expression(&self) -> &Rc<UserRevsetExpression> {
         &self.immutable_heads_expression
-    }
-
-    /// User-configured conflict marker style for materializing conflicts
-    pub fn conflict_marker_style(&self) -> ConflictMarkerStyle {
-        self.conflict_marker_style
     }
 
     fn load_immutable_heads_expression(
@@ -993,7 +987,7 @@ impl WorkspaceCommandEnvironment {
             self.revset_parse_context(),
             id_prefix_context,
             self.immutable_expression(),
-            self.conflict_marker_style,
+            self.checkout_options.conflict_marker_style,
             &self.command.data.commit_template_extensions,
         )
     }
@@ -1243,12 +1237,6 @@ impl WorkspaceCommandHelper {
         &self.env
     }
 
-    pub fn checkout_options(&self) -> CheckoutOptions {
-        CheckoutOptions {
-            conflict_marker_style: self.env.conflict_marker_style(),
-        }
-    }
-
     pub fn unchecked_start_working_copy_mutation(
         &mut self,
     ) -> Result<(LockedWorkspace, Commit), CommandError> {
@@ -1392,7 +1380,7 @@ to the current parents may contain changes from multiple commits.
         if max_new_file_size == 0 {
             max_new_file_size = u64::MAX;
         }
-        let conflict_marker_style = self.env.conflict_marker_style();
+        let conflict_marker_style = self.env.settings.get("ui.conflict-marker-style")?;
         Ok(SnapshotOptions {
             base_ignores,
             fsmonitor_settings,
@@ -1457,11 +1445,12 @@ to the current parents may contain changes from multiple commits.
 
     /// Creates textual diff renderer of the specified `formats`.
     pub fn diff_renderer(&self, formats: Vec<DiffFormat>) -> DiffRenderer<'_> {
+        let checkout_options = self.env.settings.checkout_options();
         DiffRenderer::new(
             self.repo().as_ref(),
             self.path_converter(),
-            self.env.conflict_marker_style(),
             formats,
+            checkout_options,
         )
     }
 
@@ -1495,20 +1484,13 @@ to the current parents may contain changes from multiple commits.
         tool_name: Option<&str>,
     ) -> Result<DiffEditor, CommandError> {
         let base_ignores = self.base_ignores()?;
-        let conflict_marker_style = self.env.conflict_marker_style();
         if let Some(name) = tool_name {
-            Ok(DiffEditor::with_name(
-                name,
-                self.settings(),
-                base_ignores,
-                conflict_marker_style,
-            )?)
+            Ok(DiffEditor::with_name(name, self.settings(), base_ignores)?)
         } else {
             Ok(DiffEditor::from_settings(
                 ui,
                 self.settings(),
                 base_ignores,
-                conflict_marker_style,
             )?)
         }
     }
@@ -1537,21 +1519,10 @@ to the current parents may contain changes from multiple commits.
         ui: &Ui,
         tool_name: Option<&str>,
     ) -> Result<MergeEditor, MergeToolConfigError> {
-        let conflict_marker_style = self.env.conflict_marker_style();
         if let Some(name) = tool_name {
-            MergeEditor::with_name(
-                name,
-                self.settings(),
-                self.path_converter().clone(),
-                conflict_marker_style,
-            )
+            MergeEditor::with_name(name, self.settings(), self.path_converter().clone())
         } else {
-            MergeEditor::from_settings(
-                ui,
-                self.settings(),
-                self.path_converter().clone(),
-                conflict_marker_style,
-            )
+            MergeEditor::from_settings(ui, self.settings(), self.path_converter().clone())
         }
     }
 
@@ -2008,7 +1979,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
         new_commit: &Commit,
     ) -> Result<(), CommandError> {
         assert!(self.may_update_working_copy);
-        let checkout_options = self.checkout_options();
+        let checkout_options = self.env.settings.checkout_options();
         let stats = update_working_copy(
             &self.user_repo.repo,
             &mut self.workspace,

@@ -56,6 +56,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj bookmark move --to/--from` can now be abbreviated to `jj bookmark move -t/-f`
 
+* Updated how we handle executable bits in the working copy to allow Unix to
+  ignore executable bit changes when using a nonstandard filesystem. We try to
+  detect the filesystem's behavior on Unix by default, but it can be overridden
+  manually by setting `core.ignore-executable-bit = true`.
+
 ### Fixed bugs
 
 * `jj log -p --stat` now shows diff stats as well as the default color-words/git
