@@ -113,6 +113,7 @@ fn test_git_private_commits_block_pushing() {
     Error: Won't push commit aa3058ff8663 since it is private
     Hint: Rejected commit: yqosqzyt aa3058ff main* | (empty) private 1
     Hint: Configured git.private-commits: 'description(glob:'private*')'
+    Hint: Consider --skip-private to skip pushing bookmarks with private commits
     [EOF]
     [exit status: 1]
     ");
@@ -150,6 +151,7 @@ fn test_git_private_commits_can_be_overridden() {
     Error: Won't push commit aa3058ff8663 since it is private
     Hint: Rejected commit: yqosqzyt aa3058ff main* | (empty) private 1
     Hint: Configured git.private-commits: 'description(glob:'private*')'
+    Hint: Consider --skip-private to skip pushing bookmarks with private commits
     [EOF]
     [exit status: 1]
     ");
@@ -218,6 +220,7 @@ fn test_git_private_commits_not_directly_in_line_block_pushing() {
     Error: Won't push commit f1253a9b1ea9 since it is private
     Hint: Rejected commit: yqosqzyt f1253a9b (empty) private 1
     Hint: Configured git.private-commits: 'description(glob:'private*')'
+    Hint: Consider --skip-private to skip pushing bookmarks with private commits
     [EOF]
     [exit status: 1]
     ");
@@ -360,6 +363,7 @@ fn test_git_private_commits_are_evaluated_separately_for_each_remote() {
     Error: Won't push commit 36b7ecd11ad9 since it is private
     Hint: Rejected commit: znkkpsqq 36b7ecd1 (empty) private 1
     Hint: Configured git.private-commits: 'description(glob:'private*')'
+    Hint: Consider --skip-private to skip pushing bookmarks with private commits
     [EOF]
     [exit status: 1]
     ");

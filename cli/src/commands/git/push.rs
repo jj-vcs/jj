@@ -140,6 +140,16 @@ pub struct GitPushArgs {
     /// commits are eligible to be pushed.
     #[arg(long)]
     allow_private: bool,
+    /// Skip pushing bookmarks that depend on private commits
+    ///
+    /// If this is omitted, the command will error if any of the bookmarks to
+    /// be pushed depend of private commits.
+    ///
+    /// The set of private commits can be configured by the
+    /// `git.private-commits` setting. The default is `none()`, meaning all
+    /// commits are eligible to be pushed.
+    #[arg(long, conflicts_with = "allow_private")]
+    skip_private: bool,
     /// Push bookmarks pointing to these commits (can be repeated)
     #[arg(
         long,
@@ -322,6 +332,13 @@ pub fn cmd_git_push(
             &remote
         );
     }
+
+    let skipped_private_bookmarks = if args.skip_private {
+        retain_bookmarks_without_private_commits(ui, &mut bookmark_updates, &remote, &tx)?
+    } else {
+        vec![]
+    };
+
     if bookmark_updates.is_empty() {
         writeln!(ui.status(), "Nothing changed.")?;
         return Ok(());
@@ -361,7 +378,12 @@ pub fn cmd_git_push(
 
     if let Some(mut formatter) = ui.status_formatter() {
         writeln!(formatter, "Changes to push to {remote}:")?;
-        print_commits_ready_to_push(formatter.as_mut(), tx.repo(), &bookmark_updates)?;
+        print_commits_ready_to_push(
+            formatter.as_mut(),
+            tx.repo(),
+            &bookmark_updates,
+            skipped_private_bookmarks,
+        )?;
     }
 
     if args.dry_run {
@@ -378,6 +400,65 @@ pub fn cmd_git_push(
     })?;
     tx.finish(ui, tx_description)?;
     Ok(())
+}
+
+/// Removes any bookmarks from the `bookmark_updates` if they require private
+/// commits to be pushed.
+///
+/// Returns the list of bookmarks that were removed, for informational logging.
+fn retain_bookmarks_without_private_commits(
+    ui: &Ui,
+    bookmark_updates: &mut Vec<(String, BookmarkPushUpdate)>,
+    remote: &str,
+    tx: &WorkspaceCommandTransaction,
+) -> Result<Vec<String>, CommandError> {
+    let workspace_helper = tx.base_workspace_helper();
+    let repo = workspace_helper.repo();
+    let settings = workspace_helper.settings();
+
+    let old_heads = repo
+        .view()
+        .remote_bookmarks(remote)
+        .flat_map(|(_, old_head)| old_head.target.added_ids())
+        .cloned()
+        .collect_vec();
+
+    let wont_be_pushed_revset = RevsetExpression::commits(old_heads)
+        .union(workspace_helper.env().immutable_heads_expression());
+
+    let private_revset_str = RevisionArg::from(settings.get_string("git.private-commits")?);
+    let is_private = workspace_helper
+        .parse_revset(ui, &private_revset_str)?
+        .evaluate()?
+        .containing_fn();
+
+    let mut remaining_bookmark_updates = Vec::with_capacity(bookmark_updates.len());
+    let mut skipped_bookmarks = vec![];
+
+    'bookmark_loop: for (bookmark, update) in bookmark_updates.drain(..) {
+        let Some(new_head) = update.new_target.clone() else {
+            // bookmark deletion won't lead to private commits being pushed
+            remaining_bookmark_updates.push((bookmark, update));
+            continue;
+        };
+
+        let commits_to_push =
+            wont_be_pushed_revset.range(&RevsetExpression::commits(vec![new_head]));
+
+        for commit in workspace_helper
+            .attach_revset_evaluator(commits_to_push)
+            .evaluate_to_commits()?
+        {
+            if is_private(commit?.id())? {
+                skipped_bookmarks.push(bookmark);
+                continue 'bookmark_loop;
+            }
+        }
+        remaining_bookmark_updates.push((bookmark, update));
+    }
+
+    *bookmark_updates = remaining_bookmark_updates;
+    Ok(skipped_bookmarks)
 }
 
 /// Validates that the commits that will be pushed are ready (have authorship
@@ -465,6 +546,9 @@ fn validate_commits_ready_to_push(
                 error.add_hint(format!(
                     "Configured git.private-commits: '{private_revset_str}'",
                 ));
+                error.add_hint(
+                    "Consider --skip-private to skip pushing bookmarks with private commits",
+                );
             }
             return Err(error);
         }
@@ -529,6 +613,7 @@ fn print_commits_ready_to_push(
     formatter: &mut dyn Formatter,
     repo: &dyn Repo,
     bookmark_updates: &[(String, BookmarkPushUpdate)],
+    skipped_private_bookmarks: Vec<String>,
 ) -> io::Result<()> {
     let to_direction = |old_target: &CommitId, new_target: &CommitId| {
         assert_ne!(old_target, new_target);
@@ -583,6 +668,12 @@ fn print_commits_ready_to_push(
                 panic!("Not pushing any change to bookmark {bookmark_name}");
             }
         }
+    }
+    for bookmark_name in skipped_private_bookmarks {
+        writeln!(
+            formatter,
+            "  Skipped bookmark {bookmark_name} with private commits"
+        )?;
     }
     Ok(())
 }
