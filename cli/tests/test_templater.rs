@@ -147,7 +147,7 @@ fn test_templater_parse_error() {
       | ^-----^
       |
       = Keyword `builtin` doesn't exist
-    Hint: Did you mean `builtin_config_item`, `builtin_config_list`, `builtin_config_list_detailed`, `builtin_log_comfortable`, `builtin_log_compact`, `builtin_log_compact_full_description`, `builtin_log_detailed`, `builtin_log_node`, `builtin_log_node_ascii`, `builtin_log_oneline`, `builtin_op_log_comfortable`, `builtin_op_log_compact`, `builtin_op_log_node`, `builtin_op_log_node_ascii`, `builtin_op_log_oneline`?
+    Hint: Did you mean `builtin_config_list`, `builtin_config_list_detailed`, `builtin_log_comfortable`, `builtin_log_compact`, `builtin_log_compact_full_description`, `builtin_log_detailed`, `builtin_log_node`, `builtin_log_node_ascii`, `builtin_log_oneline`, `builtin_op_log_comfortable`, `builtin_op_log_compact`, `builtin_op_log_node`, `builtin_op_log_node_ascii`, `builtin_op_log_oneline`?
     [EOF]
     [exit status: 1]
     ");

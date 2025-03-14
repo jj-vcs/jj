@@ -718,7 +718,6 @@ fn test_template_alias() {
 
     let output = test_env.run_jj_in(dir, ["--", "jj", "log", "-T", ""]);
     insta::assert_snapshot!(output, @r"
-    builtin_config_item
     builtin_config_list
     builtin_config_list_detailed
     builtin_log_comfortable

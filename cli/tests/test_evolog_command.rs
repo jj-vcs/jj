@@ -365,7 +365,6 @@ fn test_evolog_with_no_template() {
 
     For more information, try '--help'.
     Hint: The following template aliases are defined:
-    - builtin_config_item
     - builtin_config_list
     - builtin_config_list_detailed
     - builtin_log_comfortable

@@ -68,19 +68,19 @@ separate(" ",
 
 [template-aliases]
 
-builtin_config_item = '''
-if(overridden,
-  label("overridden", indent("# ", name ++ " = " ++ value)),
-  name ++ " = " ++ value,
+'format_config_item(x)' = '''
+if(x.overridden(),
+  label("overridden", indent("# ", x.name() ++ " = " ++ x.value())),
+  x.name() ++ " = " ++ x.value(),
 )
 '''
 
-builtin_config_list = 'builtin_config_item ++ "\n"'
+builtin_config_list = 'format_config_item(self) ++ "\n"'
 
 builtin_config_list_detailed = '''
 if(overridden,
-  label("overridden", builtin_config_item ++ " # " ++ separate(" ", source, path)),
-  builtin_config_item ++ " # " ++ separate(" ", source, path),
+  label("overridden", format_config_item(self) ++ " # " ++ separate(" ", source, path)),
+  format_config_item(self) ++ " # " ++ separate(" ", source, path),
 ) ++ "\n"
 '''
 
