@@ -111,6 +111,7 @@ pub struct GpgBackend {
     program: OsString,
     allow_expired_keys: bool,
     extra_args: Vec<OsString>,
+    default_key: String,
 }
 
 #[derive(Debug, Error)]
@@ -131,11 +132,12 @@ impl From<GpgError> for SignError {
 }
 
 impl GpgBackend {
-    pub fn new(program: OsString, allow_expired_keys: bool) -> Self {
+    pub fn new(program: OsString, allow_expired_keys: bool, default_key: String) -> Self {
         Self {
             program,
             allow_expired_keys,
             extra_args: vec![],
+            default_key,
         }
     }
 
@@ -148,7 +150,8 @@ impl GpgBackend {
     pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
         let program = settings.get_string("signing.backends.gpg.program")?;
         let allow_expired_keys = settings.get_bool("signing.backends.gpg.allow-expired-keys")?;
-        Ok(Self::new(program.into(), allow_expired_keys))
+        let default_key = settings.user_email().to_owned();
+        Ok(Self::new(program.into(), allow_expired_keys, default_key))
     }
 
     fn create_command(&self) -> Command {
@@ -171,10 +174,11 @@ impl SigningBackend for GpgBackend {
     }
 
     fn sign(&self, data: &[u8], key: Option<&str>) -> Result<Vec<u8>, SignError> {
-        Ok(match key {
-            Some(key) => run_sign_command(self.create_command().args(["-abu", key]), data)?,
-            None => run_sign_command(self.create_command().arg("-ab"), data)?,
-        })
+        let key = key.unwrap_or(&self.default_key);
+        Ok(run_sign_command(
+            self.create_command().args(["-abu", key]),
+            data,
+        )?)
     }
 
     fn verify(&self, data: &[u8], signature: &[u8]) -> Result<Verification, SignError> {

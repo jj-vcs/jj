@@ -38,6 +38,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj sign` will automatically use the gpg key associated with the author's email
+  in the absence of a `signing.key` configuration.
+
 * Multiple user configs are now supported and are loaded in the following precedence order:
   - `$HOME/.jjconfig.toml`
   - `$XDG_CONFIG_HOME/jj/config.toml`

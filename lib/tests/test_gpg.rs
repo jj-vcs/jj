@@ -90,7 +90,7 @@ macro_rules! gpg_guard {
 fn backend(env: &GpgEnvironment) -> GpgBackend {
     // don't really need faked time for current tests,
     // but probably will need it for end-to-end cli tests
-    GpgBackend::new("gpg".into(), false).with_extra_args(&[
+    GpgBackend::new("gpg".into(), false, "someone@example.com".to_owned()).with_extra_args(&[
         "--homedir".into(),
         env.homedir.path().as_os_str().into(),
         "--faked-system-time=1701042000!".into(),
