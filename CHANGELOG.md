@@ -56,6 +56,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj bookmark move --to/--from` can now be abbreviated to `jj bookmark move -t/-f`
 
+* The `git.sign-on-push` config option has been changed from a boolean to a
+  string containing the revset of commits to be signed when `jj git push` is
+  run. The default value is `none()`. If `git.sign-on-push` was previously set
+  to `true`, it will be set to `mine()`.
+
 ### Fixed bugs
 
 * `jj log -p --stat` now shows diff stats as well as the default color-words/git

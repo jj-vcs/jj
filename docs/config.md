@@ -1214,24 +1214,38 @@ as follows:
 backends.ssh.allowed-signers = "/path/to/allowed-signers"
 ```
 
+### Signing behavior
+
+The `signing.behavior` config option can be used to customize whether commits
+are signed when creating new commits or rewriting existing commits. The valid
+options are:
+
+- `drop`: Does not sign new commits and drops all signatures when rewriting an
+  existing signed commit.
+- `keep` (default): Does not sign new commits, but signs commits created by
+  rewriting an existing signed commit.
+- `own`: Signs all commits with author set to the current user email
+  (`user.email`).
+- `force`: Signs all commits.
+
 ### Sign commits only on `jj git push`
 
-Instead of signing all commits during creation when `signing.behavior` is
-set to `own`, the `git.sign-on-push` configuration can be used to sign
-commits only upon running `jj git push`. All mutable unsigned commits
-being pushed will be signed prior to pushing. This might be preferred if the
-signing backend requires user interaction or is slow, so that signing is
-performed in a single batch operation.
+If the signing backend requires user interaction for every signature, or is
+slow, you might not want to sign each commit at creation time. Instead, the
+`git.sign-on-push` configuration can be set to a revset of commits to sign only
+upon running `jj git push`. All mutable unsigned commits being pushed which
+match the revset will be signed prior to pushing.
 
 ```toml
 # Configure signing backend as before, but lazily signing only on push.
 [signing]
-behavior = "drop"
+behavior = "drop" # Avoid doing any signing on commit creation
 backend = "ssh"
 key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGj+J6N6SO+4P8dOZqfR1oiay2yxhhHnagH52avUqw5h"
 
 [git]
-sign-on-push = true
+sign-on-push = "all()" # Sign all commits on push
+# Could be "mine()", or any other revset
 ```
 
 ### Manually signing commits
