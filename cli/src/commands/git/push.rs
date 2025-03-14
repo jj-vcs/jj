@@ -775,6 +775,11 @@ fn find_bookmarks_targeted_by_revisions<'a>(
         )
         .range(&RevsetExpression::working_copy(workspace_id.clone()))
         .intersection(&RevsetExpression::bookmarks(StringPattern::everything()));
+        // TODO: we cannot expand `remote=<this-remote>` in config yet.
+        let revs = workspace_command.settings().get_string("revsets.push")?;
+        workspace_command
+            .parse_revset(ui, &RevisionArg::from(revs))?
+            .expression();
         let mut commit_ids = workspace_command
             .attach_revset_evaluator(expression)
             .evaluate_to_commit_ids()?
