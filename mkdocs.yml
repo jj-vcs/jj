@@ -20,13 +20,15 @@ theme:
         name: Switch to system preference
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: !ENV [MKDOCS_PRIMARY_COLOR, 'indigo']
+      primary: !ENV [MKDOCS_PRIMARY_COLOR, 'blue']
+      accent: 'blue'
       toggle:
         icon: material/brightness-7
         name: Switch to light mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: !ENV [MKDOCS_PRIMARY_COLOR, 'indigo']
+      primary: !ENV [MKDOCS_PRIMARY_COLOR, 'blue']
+      accent: 'blue'
       toggle:
         icon: material/brightness-4
         name: Switch to dark mode
