@@ -45,9 +45,6 @@ either = { workspace = true }
 futures = { workspace = true }
 git2 = { workspace = true, optional = true }
 gix = { workspace = true, optional = true }
-gix-attributes = "0.24.0"
-gix-glob = "0.18.0"
-gix-path = "0.10.14"
 glob = { workspace = true }
 hashbrown = { workspace = true }
 hex = { workspace = true }

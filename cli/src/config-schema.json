@@ -442,7 +442,7 @@
                 },
                 "ignore-lfs-files": {
                     "type": "boolean",
-                    "description": "Whether jj ignores files handled by git lfs or not",
+                    "description": "Whether jj should ignore files handled by git LFS (i.e. specified in a .gitattributes file)",
                     "default": false
                 }
             }

@@ -1397,9 +1397,10 @@ encouraged to report any issues you experience with the default configuration.
 
 ### Ignore Git LFS Files
 
-By default Git LFS files are **not** handled by `jj`. This will result in `jj` showing
-changes in these files, even if they are unchanged. You can configure `jj` to ignore these
-files by instructing it to parse the relevant `.gitattributes` files
+By default Git LFS files are **not** handled by `jj`. This will result in
+`jj` showing changes in these files, even if they are unchanged. You can
+configure `jj` to ignore these files by instructing it to parse the relevant
+`.gitattributes` files
 
 ```toml
 [git]

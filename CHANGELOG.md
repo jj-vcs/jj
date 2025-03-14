@@ -76,8 +76,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   adds the `--destination`, `--insert-after`, and `--insert-before` options to
   customize the location of reverted commits.
 
-* Add support for just ignoring Git LFS files by parsing `.gitattribute` files and automatically
-  adding the relevant files to the internal ignore list
+* Add support for just ignoring Git LFS files by parsing `.gitattribute` files and automatically adding the relevant files to the internal ignore list
 
 ### Fixed bugs
 
