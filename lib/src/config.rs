@@ -200,7 +200,7 @@ impl AsRef<[toml_edit::Key]> for ConfigNamePathBuf {
     }
 }
 
-impl fmt::Display for ConfigNamePathBuf {
+impl Display for ConfigNamePathBuf {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut components = self.0.iter().fuse();
         if let Some(key) = components.next() {
@@ -295,7 +295,7 @@ pub enum ConfigSource {
 }
 
 impl Display for ConfigSource {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use ConfigSource::*;
         let c = match self {
             Default => "default",

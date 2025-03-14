@@ -78,17 +78,12 @@ pub fn cmd_config_list(
 ) -> Result<(), CommandError> {
     let template = {
         let language = config_template_language(command.settings());
-        let template_string = match &args.template {
-            Some(value) => value.to_string(),
+        let text = match &args.template {
+            Some(value) => value.to_owned(),
             None => command.settings().get_string("templates.config_list")?,
         };
         command
-            .parse_template(
-                ui,
-                &language,
-                &template_string,
-                GenericTemplateLanguage::wrap_self,
-            )?
+            .parse_template(ui, &language, &text, GenericTemplateLanguage::wrap_self)?
             .labeled("config_list")
     };
 
@@ -145,10 +140,11 @@ fn config_template_language(
     });
     language.add_keyword("path", |self_property| {
         let out_property = self_property.map(|annotated| {
+            // TODO: maybe add FilePath(PathBuf) template type?
             annotated
                 .path
                 .as_ref()
-                .map_or_else(String::new, |path| path.to_string_lossy().to_string())
+                .map_or_else(String::new, |path| path.to_string_lossy().into_owned())
         });
         Ok(L::wrap_string(out_property))
     });
