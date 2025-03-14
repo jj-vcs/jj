@@ -29,20 +29,20 @@ fn append_to_file(file_path: &Path, contents: &str) {
 fn test_annotate_linear() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(repo_path.join("file.txt"), "line1\n").unwrap();
-    test_env
-        .run_jj_in(
-            &repo_path,
-            ["describe", "-m=initial", "--author=Foo <foo@example.org>"],
-        )
+    work_dir.write_file("file.txt", "line1\n");
+    work_dir
+        .run_jj(["describe", "-m=initial", "--author=Foo <foo@example.org>"])
         .success();
 
-    test_env.run_jj_in(&repo_path, ["new", "-m=next"]).success();
-    append_to_file(&repo_path.join("file.txt"), "new text from new commit");
+    work_dir.run_jj(["new", "-m=next"]).success();
+    append_to_file(
+        &work_dir.root().join("file.txt"),
+        "new text from new commit",
+    );
 
-    let output = test_env.run_jj_in(&repo_path, ["file", "annotate", "file.txt"]);
+    let output = work_dir.run_jj(["file", "annotate", "file.txt"]);
     insta::assert_snapshot!(output, @r"
     qpvuntsm foo      2001-02-03 08:05:08    1: line1
     kkmpptxz test.use 2001-02-03 08:05:10    2: new text from new commit
@@ -54,44 +54,43 @@ fn test_annotate_linear() {
 fn test_annotate_merge() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(repo_path.join("file.txt"), "line1\n").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m=initial"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["branch", "create", "-r@", "initial"])
+    work_dir.write_file("file.txt", "line1\n");
+    work_dir.run_jj(["describe", "-m=initial"]).success();
+    work_dir
+        .run_jj(["branch", "create", "-r@", "initial"])
         .success();
 
-    test_env
-        .run_jj_in(&repo_path, ["new", "-m=commit1"])
-        .success();
-    append_to_file(&repo_path.join("file.txt"), "new text from new commit 1");
-    test_env
-        .run_jj_in(&repo_path, ["branch", "create", "-r@", "commit1"])
+    work_dir.run_jj(["new", "-m=commit1"]).success();
+    append_to_file(
+        &work_dir.root().join("file.txt"),
+        "new text from new commit 1",
+    );
+    work_dir
+        .run_jj(["branch", "create", "-r@", "commit1"])
         .success();
 
-    test_env
-        .run_jj_in(&repo_path, ["new", "-m=commit2", "initial"])
-        .success();
-    append_to_file(&repo_path.join("file.txt"), "new text from new commit 2");
-    test_env
-        .run_jj_in(&repo_path, ["branch", "create", "-r@", "commit2"])
+    work_dir.run_jj(["new", "-m=commit2", "initial"]).success();
+    append_to_file(
+        &work_dir.root().join("file.txt"),
+        "new text from new commit 2",
+    );
+    work_dir
+        .run_jj(["branch", "create", "-r@", "commit2"])
         .success();
 
     // create a (conflicted) merge
-    test_env
-        .run_jj_in(&repo_path, ["new", "-m=merged", "commit1", "commit2"])
+    work_dir
+        .run_jj(["new", "-m=merged", "commit1", "commit2"])
         .success();
     // resolve conflicts
-    std::fs::write(
-        repo_path.join("file.txt"),
+    work_dir.write_file(
+        "file.txt",
         "line1\nnew text from new commit 1\nnew text from new commit 2\n",
-    )
-    .unwrap();
+    );
 
-    let output = test_env.run_jj_in(&repo_path, ["file", "annotate", "file.txt"]);
+    let output = work_dir.run_jj(["file", "annotate", "file.txt"]);
     insta::assert_snapshot!(output, @r"
     qpvuntsm test.use 2001-02-03 08:05:08    1: line1
     zsuskuln test.use 2001-02-03 08:05:11    2: new text from new commit 1
@@ -104,39 +103,39 @@ fn test_annotate_merge() {
 fn test_annotate_conflicted() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(repo_path.join("file.txt"), "line1\n").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m=initial"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["branch", "create", "-r@", "initial"])
+    work_dir.write_file("file.txt", "line1\n");
+    work_dir.run_jj(["describe", "-m=initial"]).success();
+    work_dir
+        .run_jj(["branch", "create", "-r@", "initial"])
         .success();
 
-    test_env
-        .run_jj_in(&repo_path, ["new", "-m=commit1"])
-        .success();
-    append_to_file(&repo_path.join("file.txt"), "new text from new commit 1");
-    test_env
-        .run_jj_in(&repo_path, ["branch", "create", "-r@", "commit1"])
+    work_dir.run_jj(["new", "-m=commit1"]).success();
+    append_to_file(
+        &work_dir.root().join("file.txt"),
+        "new text from new commit 1",
+    );
+    work_dir
+        .run_jj(["branch", "create", "-r@", "commit1"])
         .success();
 
-    test_env
-        .run_jj_in(&repo_path, ["new", "-m=commit2", "initial"])
-        .success();
-    append_to_file(&repo_path.join("file.txt"), "new text from new commit 2");
-    test_env
-        .run_jj_in(&repo_path, ["branch", "create", "-r@", "commit2"])
+    work_dir.run_jj(["new", "-m=commit2", "initial"]).success();
+    append_to_file(
+        &work_dir.root().join("file.txt"),
+        "new text from new commit 2",
+    );
+    work_dir
+        .run_jj(["branch", "create", "-r@", "commit2"])
         .success();
 
     // create a (conflicted) merge
-    test_env
-        .run_jj_in(&repo_path, ["new", "-m=merged", "commit1", "commit2"])
+    work_dir
+        .run_jj(["new", "-m=merged", "commit1", "commit2"])
         .success();
-    test_env.run_jj_in(&repo_path, ["new"]).success();
+    work_dir.run_jj(["new"]).success();
 
-    let output = test_env.run_jj_in(&repo_path, ["file", "annotate", "file.txt"]);
+    let output = work_dir.run_jj(["file", "annotate", "file.txt"]);
     insta::assert_snapshot!(output, @r"
     qpvuntsm test.use 2001-02-03 08:05:08    1: line1
     yostqsxw test.use 2001-02-03 08:05:15    2: <<<<<<< Conflict 1 of 1
@@ -153,44 +152,40 @@ fn test_annotate_conflicted() {
 fn test_annotate_merge_one_sided_conflict_resolution() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(repo_path.join("file.txt"), "line1\n").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m=initial"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["branch", "create", "-r@", "initial"])
+    work_dir.write_file("file.txt", "line1\n");
+    work_dir.run_jj(["describe", "-m=initial"]).success();
+    work_dir
+        .run_jj(["branch", "create", "-r@", "initial"])
         .success();
 
-    test_env
-        .run_jj_in(&repo_path, ["new", "-m=commit1"])
-        .success();
-    append_to_file(&repo_path.join("file.txt"), "new text from new commit 1");
-    test_env
-        .run_jj_in(&repo_path, ["branch", "create", "-r@", "commit1"])
+    work_dir.run_jj(["new", "-m=commit1"]).success();
+    append_to_file(
+        &work_dir.root().join("file.txt"),
+        "new text from new commit 1",
+    );
+    work_dir
+        .run_jj(["branch", "create", "-r@", "commit1"])
         .success();
 
-    test_env
-        .run_jj_in(&repo_path, ["new", "-m=commit2", "initial"])
-        .success();
-    append_to_file(&repo_path.join("file.txt"), "new text from new commit 2");
-    test_env
-        .run_jj_in(&repo_path, ["branch", "create", "-r@", "commit2"])
+    work_dir.run_jj(["new", "-m=commit2", "initial"]).success();
+    append_to_file(
+        &work_dir.root().join("file.txt"),
+        "new text from new commit 2",
+    );
+    work_dir
+        .run_jj(["branch", "create", "-r@", "commit2"])
         .success();
 
     // create a (conflicted) merge
-    test_env
-        .run_jj_in(&repo_path, ["new", "-m=merged", "commit1", "commit2"])
+    work_dir
+        .run_jj(["new", "-m=merged", "commit1", "commit2"])
         .success();
     // resolve conflicts
-    std::fs::write(
-        repo_path.join("file.txt"),
-        "line1\nnew text from new commit 1\n",
-    )
-    .unwrap();
+    work_dir.write_file("file.txt", "line1\nnew text from new commit 1\n");
 
-    let output = test_env.run_jj_in(&repo_path, ["file", "annotate", "file.txt"]);
+    let output = work_dir.run_jj(["file", "annotate", "file.txt"]);
     insta::assert_snapshot!(output, @r"
     qpvuntsm test.use 2001-02-03 08:05:08    1: line1
     zsuskuln test.use 2001-02-03 08:05:11    2: new text from new commit 1
@@ -202,28 +197,22 @@ fn test_annotate_merge_one_sided_conflict_resolution() {
 fn test_annotate_with_template() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(repo_path.join("file.txt"), "line1\n").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m=initial"])
-        .success();
+    work_dir.write_file("file.txt", "line1\n");
+    work_dir.run_jj(["commit", "-m=initial"]).success();
 
     append_to_file(
-        &repo_path.join("file.txt"),
+        &work_dir.root().join("file.txt"),
         "new text from new commit 1\nthat splits into multiple lines",
     );
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m=commit1"])
-        .success();
+    work_dir.run_jj(["commit", "-m=commit1"]).success();
 
     append_to_file(
-        &repo_path.join("file.txt"),
+        &work_dir.root().join("file.txt"),
         "new text from new commit 2\nalso continuing on a second line\nand a third!",
     );
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m=commit2"])
-        .success();
+    work_dir.run_jj(["describe", "-m=commit2"]).success();
 
     let template = indoc::indoc! {r#"
     if(first_line_in_hunk, "\n" ++ separate("\n",
@@ -236,7 +225,7 @@ fn test_annotate_with_template() {
     ) ++ "\n") ++ pad_start(4, line_number) ++ ": " ++ content
     "#};
 
-    let output = test_env.run_jj_in(&repo_path, ["file", "annotate", "file.txt", "-T", template]);
+    let output = work_dir.run_jj(["file", "annotate", "file.txt", "-T", template]);
     insta::assert_snapshot!(output, @r"
     qpvuntsm initial
     2001-02-03 08:05:08 Test User <test.user@example.com>
