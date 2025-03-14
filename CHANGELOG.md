@@ -36,6 +36,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `core.watchman.register_snapshot_trigger` has been renamed to `core.watchman.register-snapshot-trigger` for consistency with other configuration options.
 
+* `jj backout` is deprecated in favor of `jj revert`.
+
 ### New features
 
 * The command `jj config list` now supports showing the origin of each variable
@@ -55,6 +57,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj op log -d` is now an alias for `jj op log --op-diff`.
 
 * `jj bookmark move --to/--from` can now be abbreviated to `jj bookmark move -t/-f`
+
+* A new command `jj revert` is added, which is similar to `jj backout` but
+  adds the `--destination`, `--insert-after`, and `--insert-before` options to
+  customize the location of reverted commits.
 
 ### Fixed bugs
 

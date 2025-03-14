@@ -42,6 +42,7 @@ mod prev;
 mod rebase;
 mod resolve;
 mod restore;
+mod revert;
 mod root;
 mod run;
 mod show;
@@ -87,6 +88,7 @@ const STYLES: Styles = Styles::styled()
 enum Command {
     Abandon(abandon::AbandonArgs),
     Absorb(absorb::AbsorbArgs),
+    // TODO: Remove in jj 0.34+
     Backout(backout::BackoutArgs),
     #[cfg(feature = "bench")]
     #[command(subcommand)]
@@ -127,6 +129,7 @@ enum Command {
     Rebase(rebase::RebaseArgs),
     Resolve(resolve::ResolveArgs),
     Restore(restore::RestoreArgs),
+    Revert(revert::RevertArgs),
     Root(root::RootArgs),
     #[command(hide = true)]
     // TODO: Flesh out.
@@ -193,6 +196,7 @@ pub fn run_command(ui: &mut Ui, command_helper: &CommandHelper) -> Result<(), Co
         Command::Rebase(args) => rebase::cmd_rebase(ui, command_helper, args),
         Command::Resolve(args) => resolve::cmd_resolve(ui, command_helper, args),
         Command::Restore(args) => restore::cmd_restore(ui, command_helper, args),
+        Command::Revert(args) => revert::cmd_revert(ui, command_helper, args),
         Command::Root(args) => root::cmd_root(ui, command_helper, args),
         Command::Run(args) => run::cmd_run(ui, command_helper, args),
         Command::SimplifyParents(args) => {
