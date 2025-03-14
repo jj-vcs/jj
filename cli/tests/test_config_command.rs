@@ -313,6 +313,22 @@ fn test_config_list_origin() {
     test-cli-key = "test-cli-val" # cli
     [EOF]
     "#);
+
+    let output = work_dir.run_jj([
+        "config",
+        "list",
+        "-Tbuiltin_config_list_detailed",
+        "--color=debug",
+        "--include-defaults",
+        "--include-overridden",
+        "--config=test-key=test-cli-val",
+        "test-key",
+    ]);
+    insta::assert_snapshot!(output, @r#"
+    [38;5;8m<<config_list overridden name::# test-key>><<config_list overridden:: = >><<config_list overridden value::"test-val">><<config_list overridden:: # >><<config_list overridden source::user>><<config_list overridden:: >><<config_list overridden path::$TEST_ENV/config/config.toml>><<config_list overridden::>>[39m
+    [38;5;2m<<config_list name::test-key>>[39m<<config_list:: = >>[38;5;3m<<config_list value::"test-cli-val">>[39m<<config_list:: # >>[38;5;4m<<config_list source::cli>>[39m<<config_list::>>
+    [EOF]
+    "#);
 }
 
 #[test]
