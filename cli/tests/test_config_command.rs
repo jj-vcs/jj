@@ -265,53 +265,41 @@ fn test_config_list_origin() {
     // Test with fresh new config file
     let user_config_path = test_env.config_path().join("config.toml");
     test_env.set_config_path(&user_config_path);
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
     // User
-    test_env
-        .run_jj_in(
-            &repo_path,
-            ["config", "set", "--user", "test-key", "test-val"],
-        )
+    work_dir
+        .run_jj(["config", "set", "--user", "test-key", "test-val"])
         .success();
 
-    test_env
-        .run_jj_in(
-            &repo_path,
-            [
-                "config",
-                "set",
-                "--user",
-                "test-layered-key",
-                "test-original-val",
-            ],
-        )
+    work_dir
+        .run_jj([
+            "config",
+            "set",
+            "--user",
+            "test-layered-key",
+            "test-original-val",
+        ])
         .success();
 
     // Repo
-    test_env
-        .run_jj_in(
-            &repo_path,
-            [
-                "config",
-                "set",
-                "--repo",
-                "test-layered-key",
-                "test-layered-val",
-            ],
-        )
+    work_dir
+        .run_jj([
+            "config",
+            "set",
+            "--repo",
+            "test-layered-key",
+            "test-layered-val",
+        ])
         .success();
 
-    let output = test_env.run_jj_in(
-        &repo_path,
-        [
-            "config",
-            "list",
-            "-Tbuiltin_config_list_detailed",
-            "--config",
-            "test-cli-key=test-cli-val",
-        ],
-    );
+    let output = work_dir.run_jj([
+        "config",
+        "list",
+        "-Tbuiltin_config_list_detailed",
+        "--config",
+        "test-cli-key=test-cli-val",
+    ]);
     insta::assert_snapshot!(output, @r#"
     test-key = "test-val" # user $TEST_ENV/config/config.toml
     test-layered-key = "test-layered-val" # repo $TEST_ENV/repo/.jj/repo/config.toml
