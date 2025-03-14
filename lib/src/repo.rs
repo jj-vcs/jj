@@ -81,7 +81,7 @@ use crate::refs::merge_remote_refs;
 use crate::refs::RemoteRefSymbol;
 use crate::revset;
 use crate::revset::RevsetExpression;
-use crate::revset::RevsetIteratorExt;
+use crate::revset::RevsetIteratorExt as _;
 use crate::rewrite::merge_commit_trees;
 use crate::rewrite::rebase_commit_with_options;
 use crate::rewrite::CommitRewriter;

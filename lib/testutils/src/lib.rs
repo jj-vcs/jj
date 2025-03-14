@@ -64,7 +64,7 @@ use jj_lib::working_copy::SnapshotError;
 use jj_lib::working_copy::SnapshotOptions;
 use jj_lib::working_copy::SnapshotStats;
 use jj_lib::workspace::Workspace;
-use pollster::FutureExt;
+use pollster::FutureExt as _;
 use tempfile::TempDir;
 
 use crate::test_backend::TestBackendFactory;

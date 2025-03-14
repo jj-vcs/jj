@@ -15,9 +15,9 @@
 use std::fs;
 
 use itertools::Itertools;
-use jj_lib::commit::CommitIteratorExt;
+use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::file_util;
-use jj_lib::file_util::IoResultExt;
+use jj_lib::file_util::IoResultExt as _;
 use jj_lib::op_store::WorkspaceId;
 use jj_lib::repo::Repo;
 use jj_lib::rewrite::merge_commit_trees;

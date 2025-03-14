@@ -19,7 +19,7 @@ use std::io::Read;
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools;
 use jj_lib::backend::Signature;
-use jj_lib::commit::CommitIteratorExt;
+use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::object_id::ObjectId;
 use tracing::instrument;
 

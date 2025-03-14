@@ -45,7 +45,7 @@ use crate::index::Index;
 use crate::merged_tree::MergedTree;
 use crate::object_id::ObjectId;
 use crate::op_store::RefTarget;
-use crate::op_store::RefTargetOptionExt;
+use crate::op_store::RefTargetOptionExt as _;
 use crate::op_store::RemoteRef;
 use crate::op_store::RemoteRefState;
 use crate::refs;

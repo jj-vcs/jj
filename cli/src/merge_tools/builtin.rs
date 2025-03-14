@@ -2,9 +2,9 @@ use std::borrow::Cow;
 use std::path::Path;
 use std::sync::Arc;
 
-use futures::StreamExt;
-use futures::TryFutureExt;
-use futures::TryStreamExt;
+use futures::StreamExt as _;
+use futures::TryFutureExt as _;
+use futures::TryStreamExt as _;
 use itertools::Itertools;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::FileId;
@@ -27,7 +27,7 @@ use jj_lib::object_id::ObjectId;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::store::Store;
-use pollster::FutureExt;
+use pollster::FutureExt as _;
 use thiserror::Error;
 
 use super::MergeToolFile;

@@ -103,7 +103,7 @@ use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetExtensions;
 use jj_lib::revset::RevsetFilterPredicate;
 use jj_lib::revset::RevsetFunction;
-use jj_lib::revset::RevsetIteratorExt;
+use jj_lib::revset::RevsetIteratorExt as _;
 use jj_lib::revset::RevsetModifier;
 use jj_lib::revset::RevsetParseContext;
 use jj_lib::revset::RevsetWorkspaceContext;

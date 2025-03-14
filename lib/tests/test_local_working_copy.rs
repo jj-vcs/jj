@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
+use std::os::unix::fs::PermissionsExt as _;
 #[cfg(unix)]
 use std::os::unix::net::UnixListener;
 use std::path::Path;
@@ -52,7 +52,7 @@ use jj_lib::working_copy::WorkingCopy;
 use jj_lib::workspace::default_working_copy_factories;
 use jj_lib::workspace::LockedWorkspace;
 use jj_lib::workspace::Workspace;
-use pollster::FutureExt;
+use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::commit_with_tree;
 use testutils::create_tree;

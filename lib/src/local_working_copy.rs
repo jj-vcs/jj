@@ -31,7 +31,7 @@ use std::iter;
 use std::mem;
 use std::ops::Range;
 #[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
+use std::os::unix::fs::PermissionsExt as _;
 use std::path::Path;
 use std::path::PathBuf;
 use std::slice;
@@ -42,11 +42,11 @@ use std::sync::OnceLock;
 use std::time::UNIX_EPOCH;
 
 use either::Either;
-use futures::StreamExt;
+use futures::StreamExt as _;
 use itertools::EitherOrBoth;
 use itertools::Itertools;
 use once_cell::unsync::OnceCell;
-use pollster::FutureExt;
+use pollster::FutureExt as _;
 use prost::Message;
 use rayon::iter::IntoParallelIterator;
 use rayon::prelude::IndexedParallelIterator;

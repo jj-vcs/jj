@@ -26,7 +26,7 @@ fn test_non_utf8_arg() {
     let test_env = TestEnvironment::default();
     #[cfg(unix)]
     let invalid_utf = {
-        use std::os::unix::ffi::OsStringExt;
+        use std::os::unix::ffi::OsStringExt as _;
         OsString::from_vec(vec![0x66, 0x6f, 0x80, 0x6f])
     };
     #[cfg(windows)]

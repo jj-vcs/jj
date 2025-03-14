@@ -22,7 +22,7 @@ use jj_lib::merged_tree::MergedTreeBuilder;
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::store::Store;
 use jj_lib::working_copy::CheckoutOptions;
-use pollster::FutureExt;
+use pollster::FutureExt as _;
 use thiserror::Error;
 
 use super::diff_working_copies::check_out_trees;

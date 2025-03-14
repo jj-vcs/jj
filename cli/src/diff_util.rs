@@ -66,7 +66,7 @@ use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::rewrite::rebase_to_dest_parent;
 use jj_lib::settings::UserSettings;
 use jj_lib::store::Store;
-use pollster::FutureExt;
+use pollster::FutureExt as _;
 use thiserror::Error;
 use tracing::instrument;
 use unicode_width::UnicodeWidthStr as _;
