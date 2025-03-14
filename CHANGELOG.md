@@ -38,6 +38,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj sign` will automatically use the gpg key associated with the author's email
+  in the absence of a `signing.key` configuration.
+
 * The command `jj config list` now supports showing the origin of each variable
   via the `builtin_config_list_detailed` template.
 

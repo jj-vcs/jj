@@ -1162,8 +1162,9 @@ Setting the backend to `"none"` disables signing.
 [signing]
 behavior = "own"
 backend = "gpg"
-key = "4ED556E9729E000F"
 ## You can set `key` to anything accepted by `gpg -u`
+## If not set then defaults to the key associated with `user.email`
+# key = "4ED556E9729E000F"
 # key = "signing@example.com"
 ```
 
