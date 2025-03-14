@@ -450,7 +450,7 @@ mod tests {
                 name,
                 &settings,
                 GitIgnoreFile::empty(),
-                GitAttributesFile::empty(),
+                Some(GitAttributesFile::empty()),
                 ConflictMarkerStyle::Diff,
             )
             .map(|editor| editor.tool)
@@ -526,7 +526,7 @@ mod tests {
                 &ui,
                 &settings,
                 GitIgnoreFile::empty(),
-                GitAttributesFile::empty(),
+                Some(GitAttributesFile::empty()),
                 ConflictMarkerStyle::Diff,
             )
             .map(|editor| editor.tool)

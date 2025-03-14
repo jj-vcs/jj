@@ -68,16 +68,15 @@ pub struct GitSettings {
 
 impl GitSettings {
     pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
-        let ignore_lfs_files = settings
-            .get_bool("git.ignore-lfs-files")
-            .optional()?
-            .unwrap_or_default();
         Ok(GitSettings {
             auto_local_bookmark: settings.get_bool("git.auto-local-bookmark")?,
             abandon_unreachable_commits: settings.get_bool("git.abandon-unreachable-commits")?,
             subprocess: settings.get_bool("git.subprocess")?,
             executable_path: settings.get("git.executable-path")?,
-            ignore_lfs_files,
+            ignore_lfs_files: settings
+                .get_bool("git.ignore-lfs-files")
+                .optional()?
+                .unwrap_or_default(),
         })
     }
 }

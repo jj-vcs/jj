@@ -56,8 +56,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj bookmark move --to/--from` can now be abbreviated to `jj bookmark move -t/-f`
 
-* Add support for just ignoring Git LFS files by parsing `.gitattribute` files and automatically
-  adding the relevant files to the internal ignore list
+* Add support for just ignoring Git LFS files by parsing `.gitattribute` files
+  and automatically adding the relevant files to the internal ignore list
 
 ### Fixed bugs
 

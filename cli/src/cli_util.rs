@@ -1458,6 +1458,11 @@ to the current parents may contain changes from multiple commits.
         Ok(git_ignores)
     }
 
+    #[cfg(not(feature = "git"))]
+    pub fn base_attributes(&self) -> Result<Option<Arc<GitAttributesFile>>, ConfigGetError> {
+        Ok(GitAttributesFile::empty())
+    }
+
     #[cfg(feature = "git")]
     #[instrument(skip_all)]
     pub fn base_attributes(&self) -> Result<Option<Arc<GitAttributesFile>>, ConfigGetError> {

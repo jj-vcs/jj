@@ -209,7 +209,7 @@ pub struct SnapshotOptions<'a> {
     // because the TreeState may be long-lived if the library is used in a
     // long-lived process.
     pub base_ignores: Arc<GitIgnoreFile>,
-    // Used for ignoring LFS files - if the setting isn't enabled, this is None
+    /// Used for ignoring LFS files - if the setting isn't enabled, this is None
     pub base_attributes: Option<Arc<GitAttributesFile>>,
     /// The fsmonitor (e.g. Watchman) to use, if any.
     // TODO: Should we make this a field on `LocalWorkingCopy` instead since it's quite specific to
