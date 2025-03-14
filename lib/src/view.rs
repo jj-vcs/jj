@@ -17,7 +17,7 @@
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 
-use itertools::Itertools;
+use itertools::Itertools as _;
 use thiserror::Error;
 
 use crate::backend::CommitId;

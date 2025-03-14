@@ -23,7 +23,7 @@ use jj_lib::op_store::RemoteRef;
 use jj_lib::op_store::RemoteRefState;
 use jj_lib::op_store::WorkspaceId;
 use jj_lib::refs::RemoteRefSymbol;
-use jj_lib::repo::Repo;
+use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::rewrite::rebase_commit_with_options;
 use jj_lib::rewrite::restore_tree;

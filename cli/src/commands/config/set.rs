@@ -18,7 +18,7 @@ use clap_complete::ArgValueCandidates;
 use jj_lib::commit::Commit;
 use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigValue;
-use jj_lib::repo::Repo;
+use jj_lib::repo::Repo as _;
 use tracing::instrument;
 
 use super::ConfigLevelArgs;

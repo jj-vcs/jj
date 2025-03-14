@@ -16,14 +16,14 @@ use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::fs::OpenOptions;
-use std::io::Read;
-use std::io::Write;
+use std::io::Read as _;
+use std::io::Write as _;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Once;
 
-use itertools::Itertools;
+use itertools::Itertools as _;
 use jj_lib::backend;
 use jj_lib::backend::Backend;
 use jj_lib::backend::BackendInitError;
@@ -43,7 +43,7 @@ use jj_lib::config::StackedConfig;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::local_backend::LocalBackend;
 use jj_lib::merged_tree::MergedTree;
-use jj_lib::object_id::ObjectId;
+use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
@@ -64,7 +64,7 @@ use jj_lib::working_copy::SnapshotError;
 use jj_lib::working_copy::SnapshotOptions;
 use jj_lib::working_copy::SnapshotStats;
 use jj_lib::workspace::Workspace;
-use pollster::FutureExt;
+use pollster::FutureExt as _;
 use tempfile::TempDir;
 
 use crate::test_backend::TestBackendFactory;
@@ -447,7 +447,7 @@ pub fn commit_with_tree(store: &Arc<Store>, tree_id: MergedTreeId) -> Commit {
 }
 
 pub fn dump_tree(store: &Arc<Store>, tree_id: &MergedTreeId) -> String {
-    use std::fmt::Write;
+    use std::fmt::Write as _;
     let mut buf = String::new();
     writeln!(
         &mut buf,

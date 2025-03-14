@@ -14,7 +14,7 @@
 
 use futures::StreamExt as _;
 use indoc::indoc;
-use itertools::Itertools;
+use itertools::Itertools as _;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::MillisSinceEpoch;
 use jj_lib::backend::Signature;
@@ -24,7 +24,7 @@ use jj_lib::config::ConfigSource;
 use jj_lib::config::StackedConfig;
 use jj_lib::matchers::EverythingMatcher;
 use jj_lib::merged_tree::MergedTree;
-use jj_lib::repo::Repo;
+use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::rewrite::RebaseOptions;

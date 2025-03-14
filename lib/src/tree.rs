@@ -19,11 +19,11 @@ use std::fmt::Error;
 use std::fmt::Formatter;
 use std::hash::Hash;
 use std::hash::Hasher;
-use std::io::Read;
+use std::io::Read as _;
 use std::sync::Arc;
 
 use futures::future::try_join_all;
-use itertools::Itertools;
+use itertools::Itertools as _;
 use tracing::instrument;
 
 use crate::backend;
@@ -40,7 +40,7 @@ use crate::matchers::EverythingMatcher;
 use crate::matchers::Matcher;
 use crate::merge::Merge;
 use crate::merge::MergedTreeVal;
-use crate::object_id::ObjectId;
+use crate::object_id::ObjectId as _;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::repo_path::RepoPathComponent;

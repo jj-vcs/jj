@@ -99,7 +99,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use itertools::Itertools;
+    use itertools::Itertools as _;
 
     use super::*;
 

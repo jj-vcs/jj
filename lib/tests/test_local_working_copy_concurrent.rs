@@ -16,7 +16,7 @@ use std::cmp::max;
 use std::thread;
 
 use assert_matches::assert_matches;
-use jj_lib::repo::Repo;
+use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::working_copy::CheckoutError;

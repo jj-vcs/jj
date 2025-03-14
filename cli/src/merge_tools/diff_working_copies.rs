@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 use std::fs::File;
 use std::io;
-use std::io::Write;
+use std::io::Write as _;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use futures::StreamExt;
+use futures::StreamExt as _;
 use jj_lib::backend::MergedTreeId;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::fsmonitor::FsmonitorSettings;
@@ -22,7 +22,7 @@ use jj_lib::store::Store;
 use jj_lib::working_copy::CheckoutError;
 use jj_lib::working_copy::CheckoutOptions;
 use jj_lib::working_copy::SnapshotOptions;
-use pollster::FutureExt;
+use pollster::FutureExt as _;
 use tempfile::TempDir;
 use thiserror::Error;
 

@@ -14,9 +14,9 @@
 
 use std::io;
 
-use itertools::Itertools;
+use itertools::Itertools as _;
 use jj_lib::copies::CopyRecords;
-use jj_lib::repo::Repo;
+use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetFilterPredicate;
 use tracing::instrument;

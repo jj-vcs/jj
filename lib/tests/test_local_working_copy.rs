@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
+use std::os::unix::fs::PermissionsExt as _;
 #[cfg(unix)]
 use std::os::unix::net::UnixListener;
 use std::path::Path;
@@ -22,7 +22,7 @@ use std::sync::Arc;
 
 use assert_matches::assert_matches;
 use indoc::indoc;
-use itertools::Itertools;
+use itertools::Itertools as _;
 use jj_lib::backend::MergedTreeId;
 use jj_lib::backend::TreeId;
 use jj_lib::backend::TreeValue;
@@ -38,7 +38,7 @@ use jj_lib::merged_tree::MergedTreeBuilder;
 use jj_lib::op_store::OperationId;
 use jj_lib::op_store::WorkspaceId;
 use jj_lib::repo::ReadonlyRepo;
-use jj_lib::repo::Repo;
+use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::repo_path::RepoPathComponent;
@@ -48,11 +48,11 @@ use jj_lib::working_copy::CheckoutOptions;
 use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::SnapshotOptions;
 use jj_lib::working_copy::UntrackedReason;
-use jj_lib::working_copy::WorkingCopy;
+use jj_lib::working_copy::WorkingCopy as _;
 use jj_lib::workspace::default_working_copy_factories;
 use jj_lib::workspace::LockedWorkspace;
 use jj_lib::workspace::Workspace;
-use pollster::FutureExt;
+use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::commit_with_tree;
 use testutils::create_tree;

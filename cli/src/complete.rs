@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::io::BufRead;
+use std::io::BufRead as _;
 
 use clap::builder::StyledStr;
 use clap::FromArgMatches as _;
 use clap_complete::CompletionCandidate;
-use itertools::Itertools;
+use itertools::Itertools as _;
 use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::settings::UserSettings;
 use jj_lib::workspace::DefaultWorkspaceLoaderFactory;

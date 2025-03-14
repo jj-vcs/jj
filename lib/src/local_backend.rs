@@ -19,18 +19,18 @@ use std::fmt::Debug;
 use std::fs;
 use std::fs::File;
 use std::io::Read;
-use std::io::Write;
+use std::io::Write as _;
 use std::path::Path;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
 use blake2::Blake2b512;
-use blake2::Digest;
+use blake2::Digest as _;
 use futures::stream;
 use futures::stream::BoxStream;
-use pollster::FutureExt;
-use prost::Message;
+use pollster::FutureExt as _;
+use prost::Message as _;
 use tempfile::NamedTempFile;
 
 use crate::backend::make_root_commit;
@@ -543,7 +543,7 @@ fn conflict_term_to_proto(part: &ConflictTerm) -> crate::protos::local_store::co
 #[cfg(test)]
 mod tests {
     use assert_matches::assert_matches;
-    use pollster::FutureExt;
+    use pollster::FutureExt as _;
 
     use super::*;
     use crate::tests::new_temp_dir;

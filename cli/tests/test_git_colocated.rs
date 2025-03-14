@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::fmt::Write;
+use std::fmt::Write as _;
 use std::path::Path;
 
 use testutils::git;

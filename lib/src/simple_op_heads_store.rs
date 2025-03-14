@@ -28,7 +28,7 @@ use crate::backend::BackendInitError;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
 use crate::lock::FileLock;
-use crate::object_id::ObjectId;
+use crate::object_id::ObjectId as _;
 use crate::op_heads_store::OpHeadsStore;
 use crate::op_heads_store::OpHeadsStoreError;
 use crate::op_heads_store::OpHeadsStoreLock;

@@ -17,7 +17,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use itertools::Itertools;
+use itertools::Itertools as _;
 use jj_cli::cli_util::CliRunner;
 use jj_cli::cli_util::CommandHelper;
 use jj_cli::command_error::CommandError;

@@ -18,11 +18,11 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use futures::StreamExt;
+use futures::StreamExt as _;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
-use itertools::Itertools;
-use pollster::FutureExt;
+use itertools::Itertools as _;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::backend::BackendError;
@@ -30,7 +30,7 @@ use crate::backend::BackendResult;
 use crate::backend::CommitId;
 use crate::backend::MergedTreeId;
 use crate::commit::Commit;
-use crate::commit::CommitIteratorExt;
+use crate::commit::CommitIteratorExt as _;
 use crate::commit_builder::CommitBuilder;
 use crate::dag_walk;
 use crate::index::Index;
@@ -44,7 +44,7 @@ use crate::repo::MutableRepo;
 use crate::repo::Repo;
 use crate::repo_path::RepoPath;
 use crate::revset::RevsetExpression;
-use crate::revset::RevsetIteratorExt;
+use crate::revset::RevsetIteratorExt as _;
 use crate::store::Store;
 
 /// Merges `commits` and tries to resolve any conflicts recursively.

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use clap_complete::ArgValueCandidates;
-use itertools::Itertools;
+use itertools::Itertools as _;
 
 use super::diff::show_op_diff;
 use crate::cli_util::CommandHelper;

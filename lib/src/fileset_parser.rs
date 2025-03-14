@@ -22,7 +22,7 @@ use pest::iterators::Pair;
 use pest::pratt_parser::Assoc;
 use pest::pratt_parser::Op;
 use pest::pratt_parser::PrattParser;
-use pest::Parser;
+use pest::Parser as _;
 use pest_derive::Parser;
 use thiserror::Error;
 

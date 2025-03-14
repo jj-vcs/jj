@@ -16,7 +16,7 @@
 
 use std::sync::Arc;
 
-use pollster::FutureExt;
+use pollster::FutureExt as _;
 
 use crate::backend;
 use crate::backend::BackendResult;

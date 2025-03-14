@@ -3,7 +3,7 @@ use jj_lib::backend::Signature;
 use jj_lib::backend::Timestamp;
 use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
-use jj_lib::repo::Repo;
+use jj_lib::repo::Repo as _;
 use jj_lib::settings::UserSettings;
 use jj_lib::signing::SigStatus;
 use jj_lib::signing::SignBehavior;

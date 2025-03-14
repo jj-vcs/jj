@@ -15,7 +15,7 @@
 use bstr::ByteVec as _;
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
-use jj_lib::object_id::ObjectId;
+use jj_lib::object_id::ObjectId as _;
 use jj_lib::rewrite::merge_commit_trees;
 use tracing::instrument;
 

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
+use std::os::unix::fs::PermissionsExt as _;
 use std::path::PathBuf;
 
 use indoc::formatdoc;

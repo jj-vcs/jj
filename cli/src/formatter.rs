@@ -28,7 +28,7 @@ use crossterm::style::Color;
 use crossterm::style::SetAttribute;
 use crossterm::style::SetBackgroundColor;
 use crossterm::style::SetForegroundColor;
-use itertools::Itertools;
+use itertools::Itertools as _;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::StackedConfig;
 use serde::de::Deserialize as _;

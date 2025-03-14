@@ -2321,7 +2321,7 @@ fn test_git_push_rejected_by_remote() {
     std::fs::write(&hook_path, "#!/bin/sh\nexit 1").unwrap();
     #[cfg(unix)]
     {
-        use std::os::unix::fs::PermissionsExt;
+        use std::os::unix::fs::PermissionsExt as _;
 
         std::fs::set_permissions(&hook_path, std::fs::Permissions::from_mode(0o700)).unwrap();
     }

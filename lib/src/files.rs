@@ -21,7 +21,7 @@ use std::mem;
 
 use bstr::BStr;
 use bstr::BString;
-use itertools::Itertools;
+use itertools::Itertools as _;
 
 use crate::diff::Diff;
 use crate::diff::DiffHunk;

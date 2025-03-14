@@ -38,10 +38,10 @@ use futures::stream::BoxStream;
 use gix::bstr::BString;
 use gix::objs::CommitRef;
 use gix::objs::CommitRefIter;
-use gix::objs::WriteTo;
-use itertools::Itertools;
-use pollster::FutureExt;
-use prost::Message;
+use gix::objs::WriteTo as _;
+use itertools::Itertools as _;
+use pollster::FutureExt as _;
+use prost::Message as _;
 use smallvec::SmallVec;
 use thiserror::Error;
 
@@ -82,7 +82,7 @@ use crate::repo_path::RepoPathComponentBuf;
 use crate::settings::UserSettings;
 use crate::stacked_table::MutableTable;
 use crate::stacked_table::ReadonlyTable;
-use crate::stacked_table::TableSegment;
+use crate::stacked_table::TableSegment as _;
 use crate::stacked_table::TableStore;
 use crate::stacked_table::TableStoreError;
 
@@ -1535,8 +1535,8 @@ fn bytes_vec_from_json(value: &serde_json::Value) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use assert_matches::assert_matches;
-    use hex::ToHex;
-    use pollster::FutureExt;
+    use hex::ToHex as _;
+    use pollster::FutureExt as _;
     use test_case::test_case;
 
     use super::*;

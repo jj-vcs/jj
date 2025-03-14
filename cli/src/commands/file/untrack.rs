@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::io::Write;
+use std::io::Write as _;
 
 use clap_complete::ArgValueCompleter;
-use itertools::Itertools;
+use itertools::Itertools as _;
 use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTreeBuilder;
-use jj_lib::repo::Repo;
+use jj_lib::repo::Repo as _;
 use tracing::instrument;
 
 use crate::cli_util::print_snapshot_stats;

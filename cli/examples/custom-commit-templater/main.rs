@@ -15,19 +15,19 @@
 use std::any::Any;
 use std::rc::Rc;
 
-use itertools::Itertools;
+use itertools::Itertools as _;
 use jj_cli::cli_util::CliRunner;
 use jj_cli::commit_templater::CommitTemplateBuildFnTable;
 use jj_cli::commit_templater::CommitTemplateLanguage;
 use jj_cli::commit_templater::CommitTemplateLanguageExtension;
-use jj_cli::template_builder::TemplateLanguage;
+use jj_cli::template_builder::TemplateLanguage as _;
 use jj_cli::template_parser;
 use jj_cli::template_parser::TemplateParseError;
 use jj_cli::templater::TemplatePropertyExt as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::extensions_map::ExtensionsMap;
-use jj_lib::object_id::ObjectId;
+use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo;
 use jj_lib::revset::FunctionCallNode;
 use jj_lib::revset::PartialSymbolResolver;

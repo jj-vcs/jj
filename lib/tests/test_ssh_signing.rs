@@ -15,14 +15,14 @@
 use std::fs;
 #[cfg(unix)]
 use std::fs::Permissions;
-use std::io::Write;
+use std::io::Write as _;
 #[cfg(unix)]
-use std::os::unix::prelude::PermissionsExt;
+use std::os::unix::prelude::PermissionsExt as _;
 use std::path::Path;
 use std::path::PathBuf;
 
 use jj_lib::signing::SigStatus;
-use jj_lib::signing::SigningBackend;
+use jj_lib::signing::SigningBackend as _;
 use jj_lib::ssh_signing::SshBackend;
 
 static PRIVATE_KEY: &str = r#"-----BEGIN OPENSSH PRIVATE KEY-----

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::io::Write;
+use std::io::Write as _;
 
 use jj_lib::git;
 use jj_lib::repo::Repo as _;

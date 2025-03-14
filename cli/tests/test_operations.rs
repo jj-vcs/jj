@@ -15,7 +15,7 @@
 use std::path::Path;
 use std::path::PathBuf;
 
-use itertools::Itertools;
+use itertools::Itertools as _;
 use regex::Regex;
 use testutils::git;
 

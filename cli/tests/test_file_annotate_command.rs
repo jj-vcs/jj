@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use std::fs::OpenOptions;
-use std::io::Write;
+use std::io::Write as _;
 use std::path::Path;
 
 use crate::common::TestEnvironment;

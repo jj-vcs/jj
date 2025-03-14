@@ -14,10 +14,10 @@
 
 use clap_complete::ArgValueCandidates;
 use indexmap::IndexSet;
-use itertools::Itertools;
+use itertools::Itertools as _;
 use jj_lib::commit::Commit;
-use jj_lib::commit::CommitIteratorExt;
-use jj_lib::repo::Repo;
+use jj_lib::commit::CommitIteratorExt as _;
+use jj_lib::repo::Repo as _;
 use jj_lib::signing::SignBehavior;
 
 use crate::cli_util::CommandHelper;

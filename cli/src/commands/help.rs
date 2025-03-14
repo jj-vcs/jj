@@ -13,12 +13,12 @@
 // limitations under the License.
 
 use std::fmt::Write as _;
-use std::io::Write;
+use std::io::Write as _;
 
 use clap::builder::PossibleValue;
 use clap::builder::StyledStr;
-use crossterm::style::Stylize;
-use itertools::Itertools;
+use crossterm::style::Stylize as _;
+use itertools::Itertools as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;

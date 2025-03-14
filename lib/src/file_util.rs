@@ -210,7 +210,7 @@ mod platform {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Write;
+    use std::io::Write as _;
 
     use test_case::test_case;
 

@@ -23,7 +23,7 @@ pub trait ContentHash {
 
 /// The 512-bit BLAKE2b content hash
 pub fn blake2b_hash(x: &(impl ContentHash + ?Sized)) -> digest::Output<Blake2b512> {
-    use digest::Digest;
+    use digest::Digest as _;
     let mut hasher = Blake2b512::default();
     x.hash(&mut hasher);
     hasher.finalize()

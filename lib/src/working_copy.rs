@@ -21,7 +21,7 @@ use std::ffi::OsString;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use itertools::Itertools;
+use itertools::Itertools as _;
 use thiserror::Error;
 use tracing::instrument;
 
@@ -41,7 +41,7 @@ use crate::op_store::OperationId;
 use crate::op_store::WorkspaceId;
 use crate::operation::Operation;
 use crate::repo::ReadonlyRepo;
-use crate::repo::Repo;
+use crate::repo::Repo as _;
 use crate::repo::RewriteRootCommit;
 use crate::repo_path::InvalidRepoPathError;
 use crate::repo_path::RepoPath;

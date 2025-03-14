@@ -35,7 +35,7 @@ use crate::content_hash::ContentHash;
 use crate::merge::Merge;
 use crate::object_id::id_type;
 use crate::object_id::HexPrefix;
-use crate::object_id::ObjectId;
+use crate::object_id::ObjectId as _;
 use crate::object_id::PrefixResolution;
 
 #[derive(ContentHash, PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]

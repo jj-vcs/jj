@@ -27,7 +27,7 @@ use std::rc::Rc;
 use bstr::BStr;
 use bstr::BString;
 use itertools::Itertools as _;
-use pollster::FutureExt;
+use pollster::FutureExt as _;
 
 use crate::backend::BackendError;
 use crate::backend::CommitId;

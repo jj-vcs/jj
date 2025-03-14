@@ -4,7 +4,7 @@ use quote::format_ident;
 use quote::quote;
 use quote::quote_spanned;
 use syn::parse_quote;
-use syn::spanned::Spanned;
+use syn::spanned::Spanned as _;
 use syn::Data;
 use syn::Field;
 use syn::Fields;

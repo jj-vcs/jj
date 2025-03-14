@@ -7,7 +7,7 @@ use std::process::Stdio;
 use std::sync::Arc;
 
 use bstr::BString;
-use itertools::Itertools;
+use itertools::Itertools as _;
 use jj_lib::backend::MergedTreeId;
 use jj_lib::conflicts;
 use jj_lib::conflicts::choose_materialized_conflict_marker_len;
@@ -22,7 +22,7 @@ use jj_lib::merged_tree::MergedTreeBuilder;
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::store::Store;
 use jj_lib::working_copy::CheckoutOptions;
-use pollster::FutureExt;
+use pollster::FutureExt as _;
 use thiserror::Error;
 
 use super::diff_working_copies::check_out_trees;

@@ -46,7 +46,7 @@ use jj_lib::backend::SymlinkId;
 use jj_lib::backend::Tree;
 use jj_lib::backend::TreeId;
 use jj_lib::index::Index;
-use jj_lib::object_id::ObjectId;
+use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 

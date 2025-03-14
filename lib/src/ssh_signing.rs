@@ -16,7 +16,7 @@
 
 use std::ffi::OsString;
 use std::fmt::Debug;
-use std::io::Write;
+use std::io::Write as _;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
@@ -278,7 +278,7 @@ impl SigningBackend for SshBackend {
 #[cfg(test)]
 mod tests {
     use std::fs::File;
-    use std::io::Read;
+    use std::io::Read as _;
 
     use super::*;
 

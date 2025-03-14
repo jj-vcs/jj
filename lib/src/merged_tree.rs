@@ -30,12 +30,12 @@ use std::vec;
 use either::Either;
 use futures::future::BoxFuture;
 use futures::stream::BoxStream;
-use futures::stream::StreamExt;
+use futures::stream::StreamExt as _;
 use futures::Stream;
-use futures::TryStreamExt;
+use futures::TryStreamExt as _;
 use itertools::EitherOrBoth;
-use itertools::Itertools;
-use pollster::FutureExt;
+use itertools::Itertools as _;
+use pollster::FutureExt as _;
 
 use crate::backend;
 use crate::backend::BackendResult;

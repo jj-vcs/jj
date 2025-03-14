@@ -14,13 +14,13 @@
 
 use std::collections::HashMap;
 use std::io;
-use std::io::Read;
+use std::io::Read as _;
 
 use clap_complete::ArgValueCandidates;
-use itertools::Itertools;
+use itertools::Itertools as _;
 use jj_lib::backend::Signature;
-use jj_lib::commit::CommitIteratorExt;
-use jj_lib::object_id::ObjectId;
+use jj_lib::commit::CommitIteratorExt as _;
+use jj_lib::object_id::ObjectId as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;

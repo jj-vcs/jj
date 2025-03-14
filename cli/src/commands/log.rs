@@ -22,11 +22,11 @@ use jj_lib::graph::reverse_graph;
 use jj_lib::graph::GraphEdge;
 use jj_lib::graph::GraphEdgeType;
 use jj_lib::graph::TopoGroupedGraphIterator;
-use jj_lib::repo::Repo;
+use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetEvaluationError;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetFilterPredicate;
-use jj_lib::revset::RevsetIteratorExt;
+use jj_lib::revset::RevsetIteratorExt as _;
 use jj_lib::settings::UserSettings;
 use tracing::instrument;
 

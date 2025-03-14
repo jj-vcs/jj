@@ -14,8 +14,8 @@
 
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
-use itertools::Itertools;
-use jj_lib::object_id::ObjectId;
+use itertools::Itertools as _;
+use jj_lib::object_id::ObjectId as _;
 use tracing::instrument;
 
 use crate::cli_util::print_conflicted_paths;

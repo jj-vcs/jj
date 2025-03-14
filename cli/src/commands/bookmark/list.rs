@@ -16,8 +16,8 @@ use std::collections::HashSet;
 use std::rc::Rc;
 
 use clap_complete::ArgValueCandidates;
-use itertools::Itertools;
-use jj_lib::repo::Repo;
+use itertools::Itertools as _;
+use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::str_util::StringPattern;
 

@@ -19,7 +19,7 @@ use std::collections::HashSet;
 use std::fmt::Debug;
 use std::sync::Arc;
 
-use itertools::Itertools;
+use itertools::Itertools as _;
 use thiserror::Error;
 
 use crate::dag_walk;

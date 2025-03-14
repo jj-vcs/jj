@@ -15,7 +15,7 @@
 use jj_lib::backend::MergedTreeId;
 use jj_lib::backend::TreeValue;
 use jj_lib::merge::Merge;
-use jj_lib::repo::Repo;
+use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::rewrite::rebase_commit;
 use testutils::create_tree;

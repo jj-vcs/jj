@@ -23,7 +23,7 @@ use std::ops::Range;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use itertools::Itertools;
+use itertools::Itertools as _;
 use once_cell::sync::Lazy;
 use thiserror::Error;
 

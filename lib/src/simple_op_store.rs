@@ -22,13 +22,13 @@ use std::fmt::Debug;
 use std::fs;
 use std::io;
 use std::io::ErrorKind;
-use std::io::Write;
+use std::io::Write as _;
 use std::path::Path;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
 use itertools::Itertools as _;
-use prost::Message;
+use prost::Message as _;
 use tempfile::NamedTempFile;
 use thiserror::Error;
 

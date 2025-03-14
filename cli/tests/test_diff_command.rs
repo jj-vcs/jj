@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use indoc::indoc;
-use itertools::Itertools;
+use itertools::Itertools as _;
 
 use crate::common::create_commit;
 use crate::common::fake_diff_editor_path;
@@ -447,7 +447,7 @@ fn test_diff_types() {
 
     #[cfg(unix)]
     {
-        use std::os::unix::fs::PermissionsExt;
+        use std::os::unix::fs::PermissionsExt as _;
         use std::path::PathBuf;
 
         // Executable

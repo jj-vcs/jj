@@ -22,7 +22,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 
-use itertools::Itertools;
+use itertools::Itertools as _;
 use jj_lib::config::ConfigFile;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigLayer;
@@ -207,7 +207,7 @@ fn create_dir_all(path: &Path) -> std::io::Result<()> {
     dir.recursive(true);
     #[cfg(unix)]
     {
-        use std::os::unix::fs::DirBuilderExt;
+        use std::os::unix::fs::DirBuilderExt as _;
         dir.mode(0o700);
     }
     dir.create(path)

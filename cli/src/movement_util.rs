@@ -12,17 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::io::Write;
+use std::io::Write as _;
 use std::rc::Rc;
 
-use itertools::Itertools;
+use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
-use jj_lib::repo::Repo;
+use jj_lib::repo::Repo as _;
 use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetFilterPredicate;
-use jj_lib::revset::RevsetIteratorExt;
+use jj_lib::revset::RevsetIteratorExt as _;
 
 use crate::cli_util::short_commit_hash;
 use crate::cli_util::CommandHelper;

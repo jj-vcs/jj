@@ -16,7 +16,7 @@ use std::thread;
 
 use assert_matches::assert_matches;
 use jj_lib::op_store::WorkspaceId;
-use jj_lib::repo::Repo;
+use jj_lib::repo::Repo as _;
 use jj_lib::workspace::default_working_copy_factories;
 use jj_lib::workspace::default_working_copy_factory;
 use jj_lib::workspace::Workspace;

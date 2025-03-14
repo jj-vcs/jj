@@ -17,7 +17,7 @@ use std::io::Write as _;
 
 use futures::executor::block_on_stream;
 use jj_lib::backend::CopyRecord;
-use jj_lib::repo::Repo;
+use jj_lib::repo::Repo as _;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;

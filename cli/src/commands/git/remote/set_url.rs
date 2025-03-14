@@ -14,7 +14,7 @@
 
 use clap_complete::ArgValueCandidates;
 use jj_lib::git;
-use jj_lib::repo::Repo;
+use jj_lib::repo::Repo as _;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;

@@ -29,7 +29,7 @@ use crate::hex_util;
 use crate::index::Index;
 use crate::merge::Merge;
 use crate::object_id::id_type;
-use crate::object_id::ObjectId;
+use crate::object_id::ObjectId as _;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::repo_path::RepoPathComponent;

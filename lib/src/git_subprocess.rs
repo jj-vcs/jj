@@ -24,8 +24,8 @@ use std::process::Output;
 use std::process::Stdio;
 use std::thread;
 
-use bstr::ByteSlice;
-use itertools::Itertools;
+use bstr::ByteSlice as _;
+use itertools::Itertools as _;
 use thiserror::Error;
 
 use crate::git::Progress;

@@ -18,7 +18,7 @@ use std::path::PathBuf;
 use std::process::exit;
 
 use clap::Parser;
-use itertools::Itertools;
+use itertools::Itertools as _;
 
 /// A fake diff-editor, useful for testing
 #[derive(Parser, Debug)]

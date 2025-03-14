@@ -16,8 +16,8 @@
 
 use std::error;
 use std::io;
-use std::io::Read;
-use std::io::Write;
+use std::io::Read as _;
+use std::io::Write as _;
 use std::iter;
 use std::mem;
 use std::path::Path;
@@ -29,7 +29,7 @@ use std::time::Instant;
 use crossterm::terminal::Clear;
 use crossterm::terminal::ClearType;
 use indoc::writedoc;
-use itertools::Itertools;
+use itertools::Itertools as _;
 use jj_lib::fmt_util::binary_prefix;
 use jj_lib::git;
 use jj_lib::git::FailedRefExport;
@@ -42,7 +42,7 @@ use jj_lib::refs::RemoteRefSymbol;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::workspace::Workspace;
-use unicode_width::UnicodeWidthStr;
+use unicode_width::UnicodeWidthStr as _;
 
 use crate::cleanup_guard::CleanupGuard;
 use crate::command_error::cli_error;

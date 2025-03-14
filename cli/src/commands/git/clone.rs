@@ -14,14 +14,14 @@
 
 use std::fs;
 use std::io;
-use std::io::Write;
+use std::io::Write as _;
 use std::num::NonZeroU32;
 use std::path::Path;
 
 use jj_lib::git;
 use jj_lib::git::GitFetch;
 use jj_lib::refs::RemoteRefSymbol;
-use jj_lib::repo::Repo;
+use jj_lib::repo::Repo as _;
 use jj_lib::str_util::StringPattern;
 use jj_lib::workspace::Workspace;
 

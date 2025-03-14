@@ -28,7 +28,7 @@ use crate::op_store::OperationMetadata;
 use crate::operation::Operation;
 use crate::repo::MutableRepo;
 use crate::repo::ReadonlyRepo;
-use crate::repo::Repo;
+use crate::repo::Repo as _;
 use crate::repo::RepoLoader;
 use crate::repo::RepoLoaderError;
 use crate::settings::UserSettings;

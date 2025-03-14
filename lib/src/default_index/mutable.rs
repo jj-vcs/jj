@@ -19,14 +19,14 @@ use std::cmp::max;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::io;
-use std::io::Write;
+use std::io::Write as _;
 use std::ops::Bound;
 use std::path::Path;
 use std::sync::Arc;
 
 use blake2::Blake2b512;
-use digest::Digest;
-use itertools::Itertools;
+use digest::Digest as _;
+use itertools::Itertools as _;
 use smallvec::smallvec;
 use smallvec::SmallVec;
 use tempfile::NamedTempFile;

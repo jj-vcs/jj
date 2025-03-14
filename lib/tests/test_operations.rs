@@ -22,7 +22,7 @@ use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
-use jj_lib::object_id::ObjectId;
+use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_walk;
 use jj_lib::op_walk::OpsetEvaluationError;
 use jj_lib::op_walk::OpsetResolutionError;

@@ -12,20 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::io::Write;
+use std::io::Write as _;
 use std::sync::Arc;
 
 use clap::ArgGroup;
 use clap_complete::ArgValueCandidates;
-use itertools::Itertools;
+use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
-use jj_lib::commit::CommitIteratorExt;
-use jj_lib::object_id::ObjectId;
+use jj_lib::commit::CommitIteratorExt as _;
+use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::ReadonlyRepo;
-use jj_lib::repo::Repo;
+use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
-use jj_lib::revset::RevsetIteratorExt;
+use jj_lib::revset::RevsetIteratorExt as _;
 use jj_lib::rewrite::move_commits;
 use jj_lib::rewrite::EmptyBehaviour;
 use jj_lib::rewrite::MoveCommitsStats;

@@ -20,14 +20,14 @@ use std::io::Write;
 use std::iter::zip;
 
 use bstr::BString;
-use bstr::ByteSlice;
+use bstr::ByteSlice as _;
 use futures::stream::BoxStream;
 use futures::try_join;
 use futures::Stream;
-use futures::StreamExt;
-use futures::TryStreamExt;
-use itertools::Itertools;
-use pollster::FutureExt;
+use futures::StreamExt as _;
+use futures::TryStreamExt as _;
+use itertools::Itertools as _;
+use pollster::FutureExt as _;
 
 use crate::backend::BackendError;
 use crate::backend::BackendResult;

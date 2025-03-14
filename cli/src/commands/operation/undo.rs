@@ -13,11 +13,11 @@
 // limitations under the License.
 
 use clap_complete::ArgValueCandidates;
-use itertools::Itertools;
-use jj_lib::object_id::ObjectId;
+use itertools::Itertools as _;
+use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::OpStoreError;
 use jj_lib::operation::Operation;
-use jj_lib::repo::Repo;
+use jj_lib::repo::Repo as _;
 
 use super::view_with_desired_portions_restored;
 use super::UndoWhatToRestore;

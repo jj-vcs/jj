@@ -15,7 +15,7 @@
 //! Generic APIs to work with cryptographic signatures created and verified by
 //! various backends.
 
-use hex::ToHex;
+use hex::ToHex as _;
 use jj_lib::content_hash::blake2b_hash;
 use jj_lib::signing::SigStatus;
 use jj_lib::signing::SignError;
