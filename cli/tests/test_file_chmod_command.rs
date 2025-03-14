@@ -12,49 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::path::Path;
-
 use crate::common::create_commit_with_files;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
+use crate::common::TestWorkDir;
 
 #[must_use]
-fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput {
-    test_env.run_jj_in(repo_path, ["log", "-T", "bookmarks"])
+fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
+    work_dir.run_jj(["log", "-T", "bookmarks"])
 }
 
 #[test]
 fn test_chmod_regular_conflict() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    create_commit_with_files(
-        &test_env.work_dir(&repo_path),
-        "base",
-        &[],
-        &[("file", "base\n")],
-    );
-    create_commit_with_files(
-        &test_env.work_dir(&repo_path),
-        "n",
-        &["base"],
-        &[("file", "n\n")],
-    );
-    create_commit_with_files(
-        &test_env.work_dir(&repo_path),
-        "x",
-        &["base"],
-        &[("file", "x\n")],
-    );
+    create_commit_with_files(&work_dir, "base", &[], &[("file", "base\n")]);
+    create_commit_with_files(&work_dir, "n", &["base"], &[("file", "n\n")]);
+    create_commit_with_files(&work_dir, "x", &["base"], &[("file", "x\n")]);
     // Test chmodding a file. The effect will be visible in the conflict below.
-    test_env
-        .run_jj_in(&repo_path, ["file", "chmod", "x", "file", "-r=x"])
+    work_dir
+        .run_jj(["file", "chmod", "x", "file", "-r=x"])
         .success();
-    create_commit_with_files(&test_env.work_dir(&repo_path), "conflict", &["x", "n"], &[]);
+    create_commit_with_files(&work_dir, "conflict", &["x", "n"], &[]);
 
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @    conflict
     ├─╮
     │ ○  n
@@ -64,12 +48,12 @@ fn test_chmod_regular_conflict() {
     ◆
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["debug", "tree"]);
+    let output = work_dir.run_jj(["debug", "tree"]);
     insta::assert_snapshot!(output, @r#"
     file: Ok(Conflicted([Some(File { id: FileId("587be6b4c3f93f93c489c0111bba5596147a26cb"), executable: true }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false }), Some(File { id: FileId("8ba3a16384aacc37d01564b28401755ce8053f51"), executable: false })]))
     [EOF]
     "#);
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file"]);
+    let output = work_dir.run_jj(["file", "show", "file"]);
     insta::assert_snapshot!(output, @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
@@ -82,15 +66,13 @@ fn test_chmod_regular_conflict() {
     ");
 
     // Test chmodding a conflict
-    test_env
-        .run_jj_in(&repo_path, ["file", "chmod", "x", "file"])
-        .success();
-    let output = test_env.run_jj_in(&repo_path, ["debug", "tree"]);
+    work_dir.run_jj(["file", "chmod", "x", "file"]).success();
+    let output = work_dir.run_jj(["debug", "tree"]);
     insta::assert_snapshot!(output, @r#"
     file: Ok(Conflicted([Some(File { id: FileId("587be6b4c3f93f93c489c0111bba5596147a26cb"), executable: true }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: true }), Some(File { id: FileId("8ba3a16384aacc37d01564b28401755ce8053f51"), executable: true })]))
     [EOF]
     "#);
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file"]);
+    let output = work_dir.run_jj(["file", "show", "file"]);
     insta::assert_snapshot!(output, @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
@@ -101,15 +83,13 @@ fn test_chmod_regular_conflict() {
     >>>>>>> Conflict 1 of 1 ends
     [EOF]
     ");
-    test_env
-        .run_jj_in(&repo_path, ["file", "chmod", "n", "file"])
-        .success();
-    let output = test_env.run_jj_in(&repo_path, ["debug", "tree"]);
+    work_dir.run_jj(["file", "chmod", "n", "file"]).success();
+    let output = work_dir.run_jj(["debug", "tree"]);
     insta::assert_snapshot!(output, @r#"
     file: Ok(Conflicted([Some(File { id: FileId("587be6b4c3f93f93c489c0111bba5596147a26cb"), executable: false }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false }), Some(File { id: FileId("8ba3a16384aacc37d01564b28401755ce8053f51"), executable: false })]))
     [EOF]
     "#);
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file"]);
+    let output = work_dir.run_jj(["file", "show", "file"]);
     insta::assert_snapshot!(output, @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
@@ -122,7 +102,7 @@ fn test_chmod_regular_conflict() {
     ");
 
     // Unmatched paths should generate warnings
-    let output = test_env.run_jj_in(&repo_path, ["file", "chmod", "x", "nonexistent", "file"]);
+    let output = work_dir.run_jj(["file", "chmod", "x", "nonexistent", "file"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: No matching entries for paths: nonexistent
@@ -143,44 +123,24 @@ fn test_chmod_regular_conflict() {
 fn test_chmod_file_dir_deletion_conflicts() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    create_commit_with_files(
-        &test_env.work_dir(&repo_path),
-        "base",
-        &[],
-        &[("file", "base\n")],
-    );
-    create_commit_with_files(
-        &test_env.work_dir(&repo_path),
-        "file",
-        &["base"],
-        &[("file", "a\n")],
-    );
+    create_commit_with_files(&work_dir, "base", &[], &[("file", "base\n")]);
+    create_commit_with_files(&work_dir, "file", &["base"], &[("file", "a\n")]);
 
-    create_commit_with_files(&test_env.work_dir(&repo_path), "deletion", &["base"], &[]);
-    std::fs::remove_file(repo_path.join("file")).unwrap();
+    create_commit_with_files(&work_dir, "deletion", &["base"], &[]);
+    work_dir.remove_file("file");
 
-    create_commit_with_files(&test_env.work_dir(&repo_path), "dir", &["base"], &[]);
-    std::fs::remove_file(repo_path.join("file")).unwrap();
-    std::fs::create_dir(repo_path.join("file")).unwrap();
+    create_commit_with_files(&work_dir, "dir", &["base"], &[]);
+    work_dir.remove_file("file");
+    work_dir.create_dir("file");
     // Without a placeholder file, `jj` ignores an empty directory
-    std::fs::write(repo_path.join("file").join("placeholder"), "").unwrap();
+    work_dir.write_file("file/placeholder", "");
 
     // Create a file-dir conflict and a file-deletion conflict
-    create_commit_with_files(
-        &test_env.work_dir(&repo_path),
-        "file_dir",
-        &["file", "dir"],
-        &[],
-    );
-    create_commit_with_files(
-        &test_env.work_dir(&repo_path),
-        "file_deletion",
-        &["file", "deletion"],
-        &[],
-    );
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    create_commit_with_files(&work_dir, "file_dir", &["file", "dir"], &[]);
+    create_commit_with_files(&work_dir, "file_deletion", &["file", "deletion"], &[]);
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @    file_deletion
     ├─╮
     │ ○  deletion
@@ -196,12 +156,12 @@ fn test_chmod_file_dir_deletion_conflicts() {
     ");
 
     // The file-dir conflict cannot be chmod-ed
-    let output = test_env.run_jj_in(&repo_path, ["debug", "tree", "-r=file_dir"]);
+    let output = work_dir.run_jj(["debug", "tree", "-r=file_dir"]);
     insta::assert_snapshot!(output, @r#"
     file: Ok(Conflicted([Some(File { id: FileId("78981922613b2afb6025042ff6bd878ac1994e85"), executable: false }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false }), Some(Tree(TreeId("133bb38fc4e4bf6b551f1f04db7e48f04cac2877")))]))
     [EOF]
     "#);
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "-r=file_dir", "file"]);
+    let output = work_dir.run_jj(["file", "show", "-r=file_dir", "file"]);
     insta::assert_snapshot!(output, @r"
     Conflict:
       Removing file with id df967b96a579e45a18b8251732d16804b2e56a55
@@ -209,7 +169,7 @@ fn test_chmod_file_dir_deletion_conflicts() {
       Adding tree with id 133bb38fc4e4bf6b551f1f04db7e48f04cac2877
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "chmod", "x", "file", "-r=file_dir"]);
+    let output = work_dir.run_jj(["file", "chmod", "x", "file", "-r=file_dir"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Some of the sides of the conflict are not files at 'file'.
@@ -218,12 +178,12 @@ fn test_chmod_file_dir_deletion_conflicts() {
     ");
 
     // The file_deletion conflict can be chmod-ed
-    let output = test_env.run_jj_in(&repo_path, ["debug", "tree", "-r=file_deletion"]);
+    let output = work_dir.run_jj(["debug", "tree", "-r=file_deletion"]);
     insta::assert_snapshot!(output, @r#"
     file: Ok(Conflicted([Some(File { id: FileId("78981922613b2afb6025042ff6bd878ac1994e85"), executable: false }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false }), None]))
     [EOF]
     "#);
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "-r=file_deletion", "file"]);
+    let output = work_dir.run_jj(["file", "show", "-r=file_deletion", "file"]);
     insta::assert_snapshot!(output, @r"
     <<<<<<< Conflict 1 of 1
     +++++++ Contents of side #1
@@ -233,10 +193,7 @@ fn test_chmod_file_dir_deletion_conflicts() {
     >>>>>>> Conflict 1 of 1 ends
     [EOF]
     ");
-    let output = test_env.run_jj_in(
-        &repo_path,
-        ["file", "chmod", "x", "file", "-r=file_deletion"],
-    );
+    let output = work_dir.run_jj(["file", "chmod", "x", "file", "-r=file_deletion"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy now at: kmkuslsw 139dee15 file_deletion | (conflict) file_deletion
@@ -254,12 +211,12 @@ fn test_chmod_file_dir_deletion_conflicts() {
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["debug", "tree", "-r=file_deletion"]);
+    let output = work_dir.run_jj(["debug", "tree", "-r=file_deletion"]);
     insta::assert_snapshot!(output, @r#"
     file: Ok(Conflicted([Some(File { id: FileId("78981922613b2afb6025042ff6bd878ac1994e85"), executable: true }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: true }), None]))
     [EOF]
     "#);
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "-r=file_deletion", "file"]);
+    let output = work_dir.run_jj(["file", "show", "-r=file_deletion", "file"]);
     insta::assert_snapshot!(output, @r"
     <<<<<<< Conflict 1 of 1
     +++++++ Contents of side #1
