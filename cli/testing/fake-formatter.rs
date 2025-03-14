@@ -13,13 +13,13 @@
 // limitations under the License.
 
 use std::fs::OpenOptions;
-use std::io::Write;
+use std::io::Write as _;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::arg;
 use clap::Parser;
-use itertools::Itertools;
+use itertools::Itertools as _;
 
 /// A fake code formatter, useful for testing
 ///

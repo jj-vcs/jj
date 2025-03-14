@@ -15,7 +15,7 @@
 use std::convert::Infallible;
 
 use clap_complete::ArgValueCandidates;
-use itertools::Itertools;
+use itertools::Itertools as _;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;

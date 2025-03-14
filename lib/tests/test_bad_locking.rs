@@ -14,8 +14,8 @@
 
 use std::path::Path;
 
-use itertools::Itertools;
-use jj_lib::repo::Repo;
+use itertools::Itertools as _;
+use jj_lib::repo::Repo as _;
 use jj_lib::repo::StoreFactories;
 use jj_lib::workspace::default_working_copy_factories;
 use jj_lib::workspace::Workspace;

@@ -17,7 +17,7 @@
 use std::ffi::OsString;
 use std::fmt::Debug;
 use std::io;
-use std::io::Write;
+use std::io::Write as _;
 use std::process::Command;
 use std::process::ExitStatus;
 use std::process::Stdio;

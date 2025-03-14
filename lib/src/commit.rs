@@ -22,7 +22,7 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::Arc;
 
-use itertools::Itertools;
+use itertools::Itertools as _;
 
 use crate::backend;
 use crate::backend::BackendResult;

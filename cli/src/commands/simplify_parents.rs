@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use clap_complete::ArgValueCandidates;
-use itertools::Itertools;
+use itertools::Itertools as _;
 use jj_lib::backend::BackendError;
 use jj_lib::revset::RevsetExpression;
 

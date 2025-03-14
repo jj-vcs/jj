@@ -14,14 +14,14 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::io::Write;
+use std::io::Write as _;
 use std::path::Path;
 use std::process::Stdio;
 use std::sync::mpsc::channel;
 
 use clap_complete::ArgValueCandidates;
-use futures::StreamExt;
-use itertools::Itertools;
+use futures::StreamExt as _;
+use itertools::Itertools as _;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::FileId;
@@ -33,17 +33,17 @@ use jj_lib::matchers::Matcher;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree::MergedTreeBuilder;
 use jj_lib::merged_tree::TreeDiffEntry;
-use jj_lib::repo::Repo;
+use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::revset::RevsetExpression;
-use jj_lib::revset::RevsetIteratorExt;
+use jj_lib::revset::RevsetIteratorExt as _;
 use jj_lib::settings::UserSettings;
 use jj_lib::store::Store;
 use jj_lib::tree::Tree;
-use pollster::FutureExt;
-use rayon::iter::IntoParallelIterator;
-use rayon::prelude::ParallelIterator;
+use pollster::FutureExt as _;
+use rayon::iter::IntoParallelIterator as _;
+use rayon::prelude::ParallelIterator as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;

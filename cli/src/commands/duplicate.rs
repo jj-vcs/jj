@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::io::Write;
+use std::io::Write as _;
 
 use clap_complete::ArgValueCandidates;
-use itertools::Itertools;
+use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
-use jj_lib::repo::Repo;
+use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::duplicate_commits;
 use jj_lib::rewrite::duplicate_commits_onto_parents;
 use jj_lib::rewrite::DuplicateCommitsStats;

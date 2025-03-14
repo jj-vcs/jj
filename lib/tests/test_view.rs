@@ -20,7 +20,7 @@ use jj_lib::op_store::RemoteRef;
 use jj_lib::op_store::RemoteRefState;
 use jj_lib::op_store::WorkspaceId;
 use jj_lib::refs::RemoteRefSymbol;
-use jj_lib::repo::Repo;
+use jj_lib::repo::Repo as _;
 use maplit::btreemap;
 use maplit::hashset;
 use test_case::test_case;

@@ -47,12 +47,12 @@ pub use self::store::DefaultIndexStoreInitError;
 mod tests {
     use std::sync::Arc;
 
-    use itertools::Itertools;
+    use itertools::Itertools as _;
     use smallvec::smallvec_inline;
     use test_case::test_case;
 
     use super::composite::DynIndexSegment;
-    use super::composite::IndexSegment;
+    use super::composite::IndexSegment as _;
     use super::entry::SmallIndexPositionsVec;
     use super::mutable::MutableIndexSegment;
     use super::*;
@@ -60,9 +60,9 @@ mod tests {
     use crate::backend::CommitId;
     use crate::default_index::entry::LocalPosition;
     use crate::default_index::entry::SmallLocalPositionsVec;
-    use crate::index::Index;
+    use crate::index::Index as _;
     use crate::object_id::HexPrefix;
-    use crate::object_id::ObjectId;
+    use crate::object_id::ObjectId as _;
     use crate::object_id::PrefixResolution;
     use crate::tests::new_temp_dir;
 

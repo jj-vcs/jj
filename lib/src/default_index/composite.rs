@@ -24,7 +24,7 @@ use std::iter;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use itertools::Itertools;
+use itertools::Itertools as _;
 use ref_cast::ref_cast_custom;
 use ref_cast::RefCastCustom;
 
@@ -45,7 +45,7 @@ use crate::index::ChangeIdIndex;
 use crate::index::Index;
 use crate::index::IndexError;
 use crate::object_id::HexPrefix;
-use crate::object_id::ObjectId;
+use crate::object_id::ObjectId as _;
 use crate::object_id::PrefixResolution;
 use crate::revset::ResolvedExpression;
 use crate::revset::Revset;

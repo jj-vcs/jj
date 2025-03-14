@@ -28,13 +28,13 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io;
 use std::io::Read;
-use std::io::Write;
+use std::io::Write as _;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::RwLock;
 
 use blake2::Blake2b512;
-use blake2::Digest;
+use blake2::Digest as _;
 use tempfile::NamedTempFile;
 use thiserror::Error;
 

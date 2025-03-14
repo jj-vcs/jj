@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use clap_complete::ArgValueCandidates;
-use itertools::Itertools;
+use itertools::Itertools as _;
 use jj_lib::op_store::WorkspaceId;
 use tracing::instrument;
 

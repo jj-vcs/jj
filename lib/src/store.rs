@@ -24,7 +24,7 @@ use std::time::SystemTime;
 
 use clru::CLruCache;
 use futures::stream::BoxStream;
-use pollster::FutureExt;
+use pollster::FutureExt as _;
 
 use crate::backend;
 use crate::backend::Backend;

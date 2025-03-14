@@ -61,9 +61,9 @@ use std::fmt::Debug;
 
 use clap::builder::styling::AnsiColor;
 use clap::builder::Styles;
-use clap::CommandFactory;
-use clap::FromArgMatches;
-use clap::Subcommand;
+use clap::CommandFactory as _;
+use clap::FromArgMatches as _;
+use clap::Subcommand as _;
 use clap_complete::engine::SubcommandCandidates;
 use tracing::instrument;
 

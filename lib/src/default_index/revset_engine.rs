@@ -28,7 +28,7 @@ use std::str;
 use std::sync::Arc;
 
 use futures::StreamExt as _;
-use itertools::Itertools;
+use itertools::Itertools as _;
 use pollster::FutureExt as _;
 
 use super::rev_walk::EagerRevWalk;

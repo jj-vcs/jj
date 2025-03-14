@@ -36,7 +36,7 @@ use jj_lib::op_store::RemoteRef;
 use jj_lib::refs::RemoteRefSymbol;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
-use jj_lib::repo::Repo;
+use jj_lib::repo::Repo as _;
 use jj_lib::revset::ResolvedExpression;
 use jj_lib::revset::GENERATION_RANGE_FULL;
 use maplit::hashset;

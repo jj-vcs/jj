@@ -25,7 +25,7 @@ use std::iter::zip;
 use std::slice;
 use std::sync::Arc;
 
-use itertools::Itertools;
+use itertools::Itertools as _;
 use smallvec::smallvec_inline;
 use smallvec::SmallVec;
 

@@ -15,7 +15,7 @@
 use std::fmt::Debug;
 use std::io::Write as _;
 
-use jj_lib::working_copy::WorkingCopy;
+use jj_lib::working_copy::WorkingCopy as _;
 
 use super::check_local_disk_wc;
 use crate::cli_util::CommandHelper;

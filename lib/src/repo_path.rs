@@ -25,7 +25,7 @@ use std::path::Component;
 use std::path::Path;
 use std::path::PathBuf;
 
-use itertools::Itertools;
+use itertools::Itertools as _;
 use ref_cast::ref_cast_custom;
 use ref_cast::RefCastCustom;
 use thiserror::Error;
