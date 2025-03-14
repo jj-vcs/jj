@@ -24,7 +24,6 @@ use std::sync::Arc;
 
 use futures::future::try_join_all;
 use itertools::Itertools;
-use pollster::FutureExt;
 use tracing::instrument;
 
 use crate::backend;
@@ -39,7 +38,6 @@ use crate::files;
 use crate::files::MergeResult;
 use crate::matchers::EverythingMatcher;
 use crate::matchers::Matcher;
-use crate::merge::trivial_merge;
 use crate::merge::Merge;
 use crate::merge::MergedTreeVal;
 use crate::object_id::ObjectId;
@@ -266,150 +264,6 @@ impl Iterator for TreeEntriesIterator<'_> {
         }
         None
     }
-}
-
-struct TreeEntryDiffIterator<'trees> {
-    tree1: &'trees Tree,
-    tree2: &'trees Tree,
-    basename_iter: Box<dyn Iterator<Item = &'trees RepoPathComponent> + 'trees>,
-}
-
-impl<'trees> TreeEntryDiffIterator<'trees> {
-    fn new(tree1: &'trees Tree, tree2: &'trees Tree) -> Self {
-        let basename_iter = Box::new(tree1.data.names().merge(tree2.data.names()).dedup());
-        TreeEntryDiffIterator {
-            tree1,
-            tree2,
-            basename_iter,
-        }
-    }
-}
-
-impl<'trees> Iterator for TreeEntryDiffIterator<'trees> {
-    type Item = (
-        &'trees RepoPathComponent,
-        Option<&'trees TreeValue>,
-        Option<&'trees TreeValue>,
-    );
-
-    fn next(&mut self) -> Option<Self::Item> {
-        for basename in self.basename_iter.by_ref() {
-            let value1 = self.tree1.value(basename);
-            let value2 = self.tree2.value(basename);
-            if value1 != value2 {
-                return Some((basename, value1, value2));
-            }
-        }
-        None
-    }
-}
-
-pub fn merge_trees(side1_tree: &Tree, base_tree: &Tree, side2_tree: &Tree) -> BackendResult<Tree> {
-    let store = base_tree.store();
-    let dir = base_tree.dir();
-    assert_eq!(side1_tree.dir(), dir);
-    assert_eq!(side2_tree.dir(), dir);
-
-    if let Some(resolved) = trivial_merge(&[side1_tree, base_tree, side2_tree]) {
-        return Ok((*resolved).clone());
-    }
-
-    // Start with a tree identical to side 1 and modify based on changes from base
-    // to side 2.
-    let mut new_tree = side1_tree.data().clone();
-    for (basename, maybe_base, maybe_side2) in TreeEntryDiffIterator::new(base_tree, side2_tree) {
-        let maybe_side1 = side1_tree.value(basename);
-        if maybe_side1 == maybe_base {
-            // side 1 is unchanged: use the value from side 2
-            new_tree.set_or_remove(basename, maybe_side2.cloned());
-        } else if maybe_side1 == maybe_side2 {
-            // Both sides changed in the same way: new_tree already has the
-            // value
-        } else {
-            // The two sides changed in different ways
-            let new_value =
-                merge_tree_value(store, dir, basename, maybe_base, maybe_side1, maybe_side2)?;
-            new_tree.set_or_remove(basename, new_value);
-        }
-    }
-    store.write_tree(dir, new_tree).block_on()
-}
-
-/// Returns `Some(TreeId)` if this is a directory or missing. If it's missing,
-/// we treat it as an empty tree.
-fn maybe_tree_id<'id>(
-    value: Option<&'id TreeValue>,
-    empty_tree_id: &'id TreeId,
-) -> Option<&'id TreeId> {
-    match value {
-        Some(TreeValue::Tree(id)) => Some(id),
-        None => Some(empty_tree_id),
-        _ => None,
-    }
-}
-
-fn merge_tree_value(
-    store: &Arc<Store>,
-    dir: &RepoPath,
-    basename: &RepoPathComponent,
-    maybe_base: Option<&TreeValue>,
-    maybe_side1: Option<&TreeValue>,
-    maybe_side2: Option<&TreeValue>,
-) -> BackendResult<Option<TreeValue>> {
-    // Resolve non-trivial conflicts:
-    //   * resolve tree conflicts by recursing
-    //   * try to resolve file conflicts by merging the file contents
-    //   * leave other conflicts (e.g. file/dir conflicts, remove/modify conflicts)
-    //     unresolved
-
-    let empty_tree_id = store.empty_tree_id();
-    let base_tree_id = maybe_tree_id(maybe_base, empty_tree_id);
-    let side1_tree_id = maybe_tree_id(maybe_side1, empty_tree_id);
-    let side2_tree_id = maybe_tree_id(maybe_side2, empty_tree_id);
-    Ok(match (base_tree_id, side1_tree_id, side2_tree_id) {
-        (Some(base_id), Some(side1_id), Some(side2_id)) => {
-            let subdir = dir.join(basename);
-            let base_tree = store.get_tree(subdir.clone(), base_id)?;
-            let side1_tree = store.get_tree(subdir.clone(), side1_id)?;
-            let side2_tree = store.get_tree(subdir, side2_id)?;
-            let merged_tree = merge_trees(&side1_tree, &base_tree, &side2_tree)?;
-            if merged_tree.id() == empty_tree_id {
-                None
-            } else {
-                Some(TreeValue::Tree(merged_tree.id().clone()))
-            }
-        }
-        _ => {
-            // Start by creating a Merge object. Merges can cleanly represent a single
-            // resolved state, the absence of a state, or a conflicted state.
-            let conflict = Merge::from_vec(vec![
-                maybe_side1.cloned(),
-                maybe_base.cloned(),
-                maybe_side2.cloned(),
-            ]);
-            let filename = dir.join(basename);
-            let expanded = conflict.try_map(|term| match term {
-                Some(TreeValue::Conflict(id)) => store.read_conflict(&filename, id),
-                _ => Ok(Merge::resolved(term.clone())),
-            })?;
-            let merge = expanded.flatten().simplify();
-            match merge.into_resolved() {
-                Ok(value) => value,
-                Err(conflict) => {
-                    let conflict_borrowed = conflict.map(|value| value.as_ref());
-                    if let Some(tree_value) =
-                        try_resolve_file_conflict(store, &filename, &conflict_borrowed)
-                            .block_on()?
-                    {
-                        Some(tree_value)
-                    } else {
-                        let conflict_id = store.write_conflict(&filename, &conflict)?;
-                        Some(TreeValue::Conflict(conflict_id))
-                    }
-                }
-            }
-        }
-    })
 }
 
 /// Resolves file-level conflict by merging content hunks.
