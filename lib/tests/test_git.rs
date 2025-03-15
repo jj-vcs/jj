@@ -135,13 +135,6 @@ fn get_git_repo(repo: &Arc<ReadonlyRepo>) -> gix::Repository {
     get_git_backend(repo).git_repo()
 }
 
-fn get_git_settings(subprocess: bool) -> GitSettings {
-    assert!(subprocess);
-    GitSettings {
-        ..Default::default()
-    }
-}
-
 fn git_fetch(
     mut_repo: &mut MutableRepo,
     remote_name: &RemoteName,
@@ -2851,7 +2844,7 @@ fn test_init() {
 #[test]
 fn test_fetch_empty_repo() {
     let test_data = GitRepoData::create();
-    let git_settings = get_git_settings(true);
+    let git_settings = GitSettings::default();
 
     let mut tx = test_data.repo.start_transaction();
     let stats = git_fetch(
@@ -2873,7 +2866,7 @@ fn test_fetch_initial_commit_head_is_not_set() {
     let test_data = GitRepoData::create();
     let git_settings = GitSettings {
         auto_local_bookmark: true,
-        ..get_git_settings(true)
+        ..GitSettings::default()
     };
     let initial_git_commit = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
 
@@ -2921,7 +2914,7 @@ fn test_fetch_initial_commit_head_is_set() {
     let test_data = GitRepoData::create();
     let git_settings = GitSettings {
         auto_local_bookmark: true,
-        ..get_git_settings(true)
+        ..GitSettings::default()
     };
     let initial_git_commit = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
     testutils::git::set_symbolic_reference(&test_data.origin_repo, "HEAD", "refs/heads/main");
@@ -2958,7 +2951,7 @@ fn test_fetch_success() {
     let mut test_data = GitRepoData::create();
     let git_settings = GitSettings {
         auto_local_bookmark: true,
-        ..get_git_settings(true)
+        ..GitSettings::default()
     };
     let initial_git_commit = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
 
@@ -3039,7 +3032,7 @@ fn test_fetch_prune_deleted_ref() {
     let test_data = GitRepoData::create();
     let git_settings = GitSettings {
         auto_local_bookmark: true,
-        ..get_git_settings(true)
+        ..GitSettings::default()
     };
     let commit = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
 
@@ -3085,7 +3078,7 @@ fn test_fetch_no_default_branch() {
     let test_data = GitRepoData::create();
     let git_settings = GitSettings {
         auto_local_bookmark: true,
-        ..get_git_settings(true)
+        ..GitSettings::default()
     };
     let initial_git_commit = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
 
@@ -3122,7 +3115,7 @@ fn test_fetch_no_default_branch() {
 #[test]
 fn test_fetch_empty_refspecs() {
     let test_data = GitRepoData::create();
-    let git_settings = get_git_settings(true);
+    let git_settings = GitSettings::default();
     empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
 
     // Base refspecs shouldn't be respected
@@ -3143,7 +3136,7 @@ fn test_fetch_empty_refspecs() {
 #[test]
 fn test_fetch_no_such_remote() {
     let test_data = GitRepoData::create();
-    let git_settings = get_git_settings(true);
+    let git_settings = GitSettings::default();
     let mut tx = test_data.repo.start_transaction();
     let result = git_fetch(
         tx.repo_mut(),
@@ -3286,7 +3279,7 @@ fn test_push_bookmarks_success() {
     let mut setup = set_up_push_repos(&settings, &temp_dir);
     let clone_repo = get_git_repo(&setup.jj_repo);
     let mut tx = setup.jj_repo.start_transaction();
-    let git_settings = get_git_settings(true);
+    let git_settings = GitSettings::default();
 
     let targets = GitBranchPushTargets {
         branch_updates: vec![(
@@ -3354,7 +3347,7 @@ fn test_push_bookmarks_deletion() {
     let mut setup = set_up_push_repos(&settings, &temp_dir);
     let clone_repo = get_git_repo(&setup.jj_repo);
     let mut tx = setup.jj_repo.start_transaction();
-    let git_settings = get_git_settings(true);
+    let git_settings = GitSettings::default();
 
     let source_repo = testutils::git::open(&setup.source_repo_dir);
     // Test the setup
@@ -3416,7 +3409,7 @@ fn test_push_bookmarks_mixed_deletion_and_addition() {
     let temp_dir = testutils::new_temp_dir();
     let mut setup = set_up_push_repos(&settings, &temp_dir);
     let mut tx = setup.jj_repo.start_transaction();
-    let git_settings = get_git_settings(true);
+    let git_settings = GitSettings::default();
 
     let targets = GitBranchPushTargets {
         branch_updates: vec![
@@ -3495,7 +3488,7 @@ fn test_push_bookmarks_not_fast_forward() {
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
     let mut tx = setup.jj_repo.start_transaction();
-    let git_settings = get_git_settings(true);
+    let git_settings = GitSettings::default();
 
     let targets = GitBranchPushTargets {
         branch_updates: vec![(
@@ -3536,7 +3529,7 @@ fn test_push_updates_unexpectedly_moved_sideways_on_remote() {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
-    let git_settings = get_git_settings(true);
+    let git_settings = GitSettings::default();
 
     // The main bookmark is actually at `main_commit` on the remote. If we expect
     // it to be at `sideways_commit`, it unexpectedly moved sideways from our
@@ -3612,7 +3605,7 @@ fn test_push_updates_unexpectedly_moved_forward_on_remote() {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
-    let git_settings = get_git_settings(true);
+    let git_settings = GitSettings::default();
 
     // The main bookmark is actually at `main_commit` on the remote. If we
     // expected it to be at `parent_of_commit`, it unexpectedly moved forward
@@ -3693,7 +3686,7 @@ fn test_push_updates_unexpectedly_exists_on_remote() {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
-    let git_settings = get_git_settings(true);
+    let git_settings = GitSettings::default();
 
     // The main bookmark is actually at `main_commit` on the remote. In this test,
     // we expect it to not exist on the remote at all.
@@ -3753,7 +3746,7 @@ fn test_push_updates_success() {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
-    let git_settings = get_git_settings(true);
+    let git_settings = GitSettings::default();
     let clone_repo = get_git_repo(&setup.jj_repo);
     let result = git::push_updates(
         setup.jj_repo.as_ref(),
@@ -3794,7 +3787,7 @@ fn test_push_updates_no_such_remote() {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
-    let git_settings = get_git_settings(true);
+    let git_settings = GitSettings::default();
     let result = git::push_updates(
         setup.jj_repo.as_ref(),
         &git_settings,
@@ -3814,7 +3807,7 @@ fn test_push_updates_invalid_remote() {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
-    let git_settings = get_git_settings(true);
+    let git_settings = GitSettings::default();
     let result = git::push_updates(
         setup.jj_repo.as_ref(),
         &git_settings,
