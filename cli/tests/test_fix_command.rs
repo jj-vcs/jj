@@ -29,6 +29,11 @@ fn init_with_fake_formatter(args: &[&str]) -> (TestEnvironment, PathBuf) {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
+    set_up_fake_formatter(&test_env, args);
+    (test_env, repo_path)
+}
+
+fn set_up_fake_formatter(test_env: &TestEnvironment, args: &[&str]) {
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     assert!(formatter_path.is_file());
     test_env.add_config(formatdoc! {"
@@ -43,7 +48,6 @@ fn init_with_fake_formatter(args: &[&str]) -> (TestEnvironment, PathBuf) {
                 .copied()
         )
     });
-    (test_env, repo_path)
 }
 
 #[test]
