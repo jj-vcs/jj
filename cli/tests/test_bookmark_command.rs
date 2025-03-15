@@ -850,7 +850,7 @@ fn test_bookmark_delete_glob() {
     error: invalid value 'whatever:bookmark' for '<NAMES>...': Invalid string pattern kind `whatever:`
 
     For more information, try '--help'.
-    Hint: Try prefixing with one of `exact:`, `glob:`, `regex:`, `substring:`, or one of these with `-i` suffix added (e.g. `glob-i:`) for case-insensitive matching
+    Hint: Try prefixing with one of `exact:`, `glob:`, `regex:`, `substr:`, or one of these with `-i` suffix added (e.g. `glob-i:`) for case-insensitive matching
     [EOF]
     [exit status: 2]
     ");

@@ -56,6 +56,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj bookmark move --to/--from` can now be abbreviated to `jj bookmark move -t/-f`
 
+* In string patterns for revsets or bookmarks, `substr:` is now a shortcut for
+  `substring:`.
+
 ### Fixed bugs
 
 * `jj log -p --stat` now shows diff stats as well as the default color-words/git
