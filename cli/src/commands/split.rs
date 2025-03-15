@@ -15,10 +15,12 @@ use std::io::Write;
 
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
+use itertools::Itertools;
 use jj_lib::commit::Commit;
 use jj_lib::matchers::Matcher;
 use jj_lib::object_id::ObjectId;
 use jj_lib::repo::Repo;
+use jj_lib::rewrite::rebase_commit;
 use jj_lib::rewrite::CommitWithSelection;
 use tracing::instrument;
 
@@ -163,27 +165,12 @@ pub(crate) fn cmd_split(
         commit_builder.write(tx.repo_mut())?
     };
 
-    // Create the second commit, which includes everything the user didn't
-    // select.
+    // Create the second commit, which uses the target commit's tree.
     let second_commit = {
-        let target_tree = target.commit.tree()?;
-        let new_tree = if args.parallel {
-            // Merge the original commit tree with its parent using the tree
-            // containing the user selected changes as the base for the merge.
-            // This results in a tree with the changes the user didn't select.
-            target_tree.merge(&target.selected_tree, &target.parent_tree)?
-        } else {
-            target_tree
-        };
-        let parents = if parallel {
-            target.commit.parent_ids().to_vec()
-        } else {
-            vec![first_commit.id().clone()]
-        };
         let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
         commit_builder
-            .set_parents(parents)
-            .set_tree_id(new_tree.id())
+            .set_parents(vec![first_commit.id().clone()])
+            .set_tree_id(target.commit.tree()?.id())
             // Generate a new change id so that the commit being split doesn't
             // become divergent.
             .generate_new_change_id();
@@ -202,7 +189,16 @@ pub(crate) fn cmd_split(
             edit_description(&text_editor, &template)?
         };
         commit_builder.set_description(description);
-        commit_builder.write(tx.repo_mut())?
+        let commit = commit_builder.write(tx.repo_mut())?;
+        if parallel {
+            rebase_commit(
+                tx.repo_mut(),
+                commit,
+                target_commit.parent_ids().iter().cloned().collect_vec(),
+            )?
+        } else {
+            commit
+        }
     };
 
     let legacy_bookmark_behavior = tx.settings().get_bool("split.legacy-bookmark-behavior")?;
