@@ -81,17 +81,6 @@ pub mod test_backend;
 // somewhat tricky because `gix` looks at system and user configuration, and
 // `GitBackend` also calls into `git(1)` for things like garbage collection.
 pub fn hermetic_git() {
-    // TODO: Remove these with `git2` support.
-    {
-        env::set_var("JJ_DEBUG_HERMETIC_GIT2", "1");
-        if cfg!(target_os = "windows") {
-            env::set_var("PROGRAMDATA", "\\jj-test-nonexistent-xdg-config-home");
-            env::set_var("XDG_CONFIG_HOME", "\\jj-test-nonexistent-xdg-config-home");
-        } else {
-            env::set_var("XDG_CONFIG_HOME", "/jj-test-nonexistent-xdg-config-home");
-        }
-    }
-
     // Prevent GitBackend from loading user and system configurations. For
     // gitoxide API use in tests, Config::isolated() is probably better.
     env::set_var("GIT_CONFIG_SYSTEM", "/dev/null");
