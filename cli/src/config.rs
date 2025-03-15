@@ -714,27 +714,6 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
         ),
         // TODO: Delete in jj 0.34+
         ConfigMigrationRule::rename_value("diff.format", "ui.diff.format"),
-        // TODO: Delete with the `git.subprocess` setting.
-        #[cfg(not(feature = "git2"))]
-        ConfigMigrationRule::custom(
-            |layer| {
-                let Ok(Some(subprocess)) = layer.look_up_item("git.subprocess") else {
-                    return false;
-                };
-                subprocess.as_bool() == Some(false)
-            },
-            |_| Ok("jj was compiled without `git.subprocess = false` support".into()),
-        ),
-        // TODO: Delete with the `git.subprocess` setting.
-        ConfigMigrationRule::custom(
-            |layer| {
-                let Ok(Some(subprocess)) = layer.look_up_item("git.subprocess") else {
-                    return false;
-                };
-                subprocess.as_bool() == Some(true) && layer.source != ConfigSource::Default
-            },
-            |_| Ok("`git.subprocess = true` is now the default".into()),
-        ),
         // TODO: Delete in jj 0.35.0+
         ConfigMigrationRule::rename_update_value(
             "ui.default-description",

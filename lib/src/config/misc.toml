@@ -12,7 +12,6 @@ register-snapshot-trigger = false
 [git]
 abandon-unreachable-commits = true
 auto-local-bookmark = false
-subprocess = true
 executable-path = "git"
 write-change-id-header = false
 

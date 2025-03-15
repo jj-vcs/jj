@@ -200,14 +200,6 @@ impl TestEnvironment {
 
     // TODO: Remove with the `git.subprocess` setting.
     pub fn with_git_subprocess(self, subprocess: bool) -> Self {
-        #[cfg(feature = "git2")]
-        if !subprocess {
-            self.add_config(formatdoc! {"
-                git.subprocess = false
-                debug.suppress-git2-deprecation-warning = true
-            "});
-            return self;
-        }
         assert!(subprocess);
         self
     }

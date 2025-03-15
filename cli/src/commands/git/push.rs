@@ -62,8 +62,6 @@ use crate::command_error::CommandError;
 use crate::commands::git::get_single_remote;
 use crate::complete;
 use crate::formatter::Formatter;
-#[cfg(feature = "git2")]
-use crate::git_util::print_git2_deprecation_warning;
 use crate::git_util::with_remote_git_callbacks;
 use crate::revset_util::parse_bookmark_name;
 use crate::ui::Ui;
@@ -225,9 +223,6 @@ pub fn cmd_git_push(
         default_remote = get_default_push_remote(ui, &workspace_command)?;
         &default_remote
     };
-
-    #[cfg(feature = "git2")]
-    print_git2_deprecation_warning(ui, workspace_command.settings())?;
 
     let mut tx = workspace_command.start_transaction();
     let view = tx.repo().view();

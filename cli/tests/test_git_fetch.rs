@@ -97,7 +97,6 @@ fn clone_git_remote_into(
     fork_repo
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_with_default_config(subprocess: bool) {
     let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
@@ -114,7 +113,6 @@ fn test_git_fetch_with_default_config(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_default_remote(subprocess: bool) {
     let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
@@ -133,7 +131,6 @@ fn test_git_fetch_default_remote(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_single_remote(subprocess: bool) {
     let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
@@ -160,7 +157,6 @@ fn test_git_fetch_single_remote(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_single_remote_all_remotes_flag(subprocess: bool) {
     let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
@@ -179,7 +175,6 @@ fn test_git_fetch_single_remote_all_remotes_flag(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_single_remote_from_arg(subprocess: bool) {
     let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
@@ -200,7 +195,6 @@ fn test_git_fetch_single_remote_from_arg(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_single_remote_from_config(subprocess: bool) {
     let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
@@ -220,7 +214,6 @@ fn test_git_fetch_single_remote_from_config(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_multiple_remotes(subprocess: bool) {
     let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
@@ -244,7 +237,6 @@ fn test_git_fetch_multiple_remotes(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_with_glob(subprocess: bool) {
     let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
@@ -264,7 +256,6 @@ fn test_git_fetch_with_glob(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_with_glob_and_exact_match(subprocess: bool) {
     let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
@@ -288,7 +279,6 @@ fn test_git_fetch_with_glob_and_exact_match(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_with_glob_from_config(subprocess: bool) {
     let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
@@ -310,7 +300,6 @@ fn test_git_fetch_with_glob_from_config(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_with_glob_with_no_matching_remotes(subprocess: bool) {
     let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
@@ -334,7 +323,6 @@ fn test_git_fetch_with_glob_with_no_matching_remotes(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_all_remotes(subprocess: bool) {
     let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
@@ -364,7 +352,6 @@ fn test_git_fetch_all_remotes(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_multiple_remotes_from_config(subprocess: bool) {
     let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
@@ -387,7 +374,6 @@ fn test_git_fetch_multiple_remotes_from_config(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_no_matching_remote(subprocess: bool) {
     let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
@@ -409,7 +395,6 @@ fn test_git_fetch_no_matching_remote(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_nonexistent_remote(subprocess: bool) {
     let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
@@ -434,7 +419,6 @@ fn test_git_fetch_nonexistent_remote(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_nonexistent_remote_from_config(subprocess: bool) {
     let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
@@ -460,7 +444,6 @@ fn test_git_fetch_nonexistent_remote_from_config(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_from_remote_named_git(subprocess: bool) {
     let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
@@ -539,7 +522,6 @@ fn test_git_fetch_from_remote_named_git(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_from_remote_with_slashes(subprocess: bool) {
     let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
@@ -566,7 +548,6 @@ fn test_git_fetch_from_remote_with_slashes(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_prune_before_updating_tips(subprocess: bool) {
     let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
@@ -606,7 +587,6 @@ fn test_git_fetch_prune_before_updating_tips(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_conflicting_bookmarks(subprocess: bool) {
     let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
@@ -642,7 +622,6 @@ fn test_git_fetch_conflicting_bookmarks(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_conflicting_bookmarks_colocated(subprocess: bool) {
     let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
@@ -718,7 +697,6 @@ fn create_trunk2_and_rebase_bookmarks(work_dir: &TestWorkDir) -> String {
     )
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_all(subprocess: bool) {
     let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
@@ -903,7 +881,6 @@ fn test_git_fetch_all(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_some_of_many_bookmarks(subprocess: bool) {
     let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
@@ -1167,7 +1144,6 @@ fn test_git_fetch_some_of_many_bookmarks(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_bookmarks_some_missing(subprocess: bool) {
     let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
@@ -1312,7 +1288,6 @@ fn test_git_fetch_bookmarks_missing_with_subprocess_localized_message() {
 
 // See `test_undo_restore_commands.rs` for fetch-undo-push and fetch-undo-fetch
 // of the same bookmarks for various kinds of undo.
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_undo(subprocess: bool) {
     let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
@@ -1408,7 +1383,6 @@ fn test_git_fetch_undo(subprocess: bool) {
 
 // Compare to `test_git_import_undo` in test_git_import_export
 // TODO: Explain why these behaviors are useful
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_fetch_undo_what(subprocess: bool) {
     let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
@@ -1532,7 +1506,6 @@ fn test_fetch_undo_what(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_remove_fetch(subprocess: bool) {
     let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
@@ -1598,7 +1571,6 @@ fn test_git_fetch_remove_fetch(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_rename_fetch(subprocess: bool) {
     let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
@@ -1652,7 +1624,6 @@ fn test_git_fetch_rename_fetch(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_removed_bookmark(subprocess: bool) {
     let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
@@ -1767,7 +1738,6 @@ fn test_git_fetch_removed_bookmark(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_removed_parent_bookmark(subprocess: bool) {
     let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
@@ -1864,7 +1834,6 @@ fn test_git_fetch_removed_parent_bookmark(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_remote_only_bookmark(subprocess: bool) {
     let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
@@ -1933,7 +1902,6 @@ fn test_git_fetch_remote_only_bookmark(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_preserve_commits_across_repos(subprocess: bool) {
     let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
@@ -2037,33 +2005,5 @@ fn test_git_fetch_preserve_commits_across_repos(subprocess: bool) {
       @upstream: trrkvuqr f3e9250b merge
     [EOF]
     ");
-    }
-}
-
-// TODO: Remove with the `git.subprocess` setting.
-#[test]
-fn test_git_fetch_git2_warning() {
-    let test_env = TestEnvironment::default();
-    test_env.add_config("git.subprocess = false");
-    test_env.add_config("git.auto-local-bookmark = true");
-    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let work_dir = test_env.work_dir("repo");
-    add_git_remote(&test_env, &work_dir, "origin");
-
-    let output = work_dir.run_jj(["git", "fetch"]);
-    if cfg!(feature = "git2") {
-        insta::assert_snapshot!(output, @r"
-        ------- stderr -------
-        Warning: `git.subprocess = false` will be removed in 0.30; please report any issues you have with the default.
-        bookmark: origin@origin [new] tracked
-        [EOF]
-        ");
-    } else {
-        insta::assert_snapshot!(output, @r#"
-        ------- stderr -------
-        Warning: Deprecated config: jj was compiled without `git.subprocess = false` support
-        bookmark: origin@origin [new] tracked
-        [EOF]
-        "#);
     }
 }

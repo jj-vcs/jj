@@ -1501,7 +1501,7 @@ would require pushing the private commit as well.
 
 ### Git subprocessing behaviour
 
-By default, Git remote interactions are handled by spawning a `git` subprocess.
+Git remote interactions are handled by spawning a `git` subprocess.
 If `git` is not on your OS path, or you want to specify a particular binary,
 you can:
 
@@ -1509,21 +1509,6 @@ you can:
 [git]
 executable-path = "/path/to/git"
 ```
-
-Previously, remote interactions were handled by
-[`libgit2`](https://github.com/libgit2/libgit2) by default, which sometimes
-caused [SSH problems](https://github.com/jj-vcs/jj/issues/4979) that could not
-be solved by `jj` directly. If you have any issues with the `git`
-subprocessing, you can switch back to `libgit2` with:
-
-```toml
-[git]
-subprocess = false
-```
-
-Note that `libgit2` support will be removed in 0.30, so you are encouraged to
-[report any issues](https://github.com/jj-vcs/jj/issues) you experience with
-the default configuration.
 
 ## Filesystem monitor
 

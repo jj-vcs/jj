@@ -31,8 +31,6 @@ use crate::command_error::user_error;
 use crate::command_error::CommandError;
 use crate::commands::git::get_single_remote;
 use crate::complete;
-#[cfg(feature = "git2")]
-use crate::git_util::print_git2_deprecation_warning;
 use crate::git_util::print_git_import_stats;
 use crate::git_util::with_remote_git_callbacks;
 use crate::ui::Ui;
@@ -119,9 +117,6 @@ pub fn cmd_git_fetch(
         .map(|r| r.as_ref())
         .sorted()
         .collect_vec();
-
-    #[cfg(feature = "git2")]
-    print_git2_deprecation_warning(ui, workspace_command.settings())?;
 
     let mut tx = workspace_command.start_transaction();
     do_git_fetch(ui, &mut tx, &remotes, &args.branch)?;
