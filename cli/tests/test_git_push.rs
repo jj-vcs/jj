@@ -335,31 +335,17 @@ fn test_git_push_forward_unexpectedly_moved() {
 
     // Pushing should fail
     let output = work_dir.run_jj(["git", "push"]);
-    if true {
-        insta::assert_snapshot!(output, @r"
-        ------- stderr -------
-        Changes to push to origin:
-          Move forward bookmark bookmark1 from d13ecdbda2a2 to 6750425ff51c
-        Error: Failed to push some bookmarks
-        Hint: The following references unexpectedly moved on the remote:
-          refs/heads/bookmark1 (reason: stale info)
-        Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
-        [EOF]
-        [exit status: 1]
-        ");
-    } else {
-        insta::assert_snapshot!(output, @r"
-        ------- stderr -------
-        Changes to push to origin:
-          Move forward bookmark bookmark1 from d13ecdbda2a2 to 6750425ff51c
-        Error: Failed to push some bookmarks
-        Hint: The following references unexpectedly moved on the remote:
-          refs/heads/bookmark1
-        Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
-        [EOF]
-        [exit status: 1]
-        ");
-    }
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Changes to push to origin:
+      Move forward bookmark bookmark1 from d13ecdbda2a2 to 6750425ff51c
+    Error: Failed to push some bookmarks
+    Hint: The following references unexpectedly moved on the remote:
+      refs/heads/bookmark1 (reason: stale info)
+    Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
+    [EOF]
+    [exit status: 1]
+    ");
 }
 
 #[test]
@@ -405,31 +391,17 @@ fn test_git_push_sideways_unexpectedly_moved() {
     }
 
     let output = work_dir.run_jj(["git", "push"]);
-    if true {
-        insta::assert_snapshot!(output, @r"
-        ------- stderr -------
-        Changes to push to origin:
-          Move sideways bookmark bookmark1 from d13ecdbda2a2 to 0f8bf988588e
-        Error: Failed to push some bookmarks
-        Hint: The following references unexpectedly moved on the remote:
-          refs/heads/bookmark1 (reason: stale info)
-        Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
-        [EOF]
-        [exit status: 1]
-        ");
-    } else {
-        insta::assert_snapshot!(output, @r"
-        ------- stderr -------
-        Changes to push to origin:
-          Move sideways bookmark bookmark1 from d13ecdbda2a2 to 0f8bf988588e
-        Error: Failed to push some bookmarks
-        Hint: The following references unexpectedly moved on the remote:
-          refs/heads/bookmark1
-        Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
-        [EOF]
-        [exit status: 1]
-        ");
-    }
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Changes to push to origin:
+      Move sideways bookmark bookmark1 from d13ecdbda2a2 to 0f8bf988588e
+    Error: Failed to push some bookmarks
+    Hint: The following references unexpectedly moved on the remote:
+      refs/heads/bookmark1 (reason: stale info)
+    Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
+    [EOF]
+    [exit status: 1]
+    ");
 }
 
 // This tests whether the push checks that the remote bookmarks are in expected
@@ -475,31 +447,17 @@ fn test_git_push_deletion_unexpectedly_moved() {
     }
 
     let output = work_dir.run_jj(["git", "push", "--bookmark", "bookmark1"]);
-    if true {
-        insta::assert_snapshot!(output, @r"
-        ------- stderr -------
-        Changes to push to origin:
-          Delete bookmark bookmark1 from d13ecdbda2a2
-        Error: Failed to push some bookmarks
-        Hint: The following references unexpectedly moved on the remote:
-          refs/heads/bookmark1 (reason: stale info)
-        Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
-        [EOF]
-        [exit status: 1]
-        ");
-    } else {
-        insta::assert_snapshot!(output, @r"
-        ------- stderr -------
-        Changes to push to origin:
-          Delete bookmark bookmark1 from d13ecdbda2a2
-        Error: Failed to push some bookmarks
-        Hint: The following references unexpectedly moved on the remote:
-          refs/heads/bookmark1
-        Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
-        [EOF]
-        [exit status: 1]
-        ");
-    }
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Changes to push to origin:
+      Delete bookmark bookmark1 from d13ecdbda2a2
+    Error: Failed to push some bookmarks
+    Hint: The following references unexpectedly moved on the remote:
+      refs/heads/bookmark1 (reason: stale info)
+    Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
+    [EOF]
+    [exit status: 1]
+    ");
 }
 
 #[test]
@@ -542,31 +500,17 @@ fn test_git_push_unexpectedly_deleted() {
 
     // Pushing a moved bookmark fails if deleted on remote
     let output = work_dir.run_jj(["git", "push"]);
-    if true {
-        insta::assert_snapshot!(output, @r"
-        ------- stderr -------
-        Changes to push to origin:
-          Move sideways bookmark bookmark1 from d13ecdbda2a2 to 1ebe27ba04bf
-        Error: Failed to push some bookmarks
-        Hint: The following references unexpectedly moved on the remote:
-          refs/heads/bookmark1 (reason: stale info)
-        Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
-        [EOF]
-        [exit status: 1]
-        ");
-    } else {
-        insta::assert_snapshot!(output, @r"
-        ------- stderr -------
-        Changes to push to origin:
-          Move sideways bookmark bookmark1 from d13ecdbda2a2 to 1ebe27ba04bf
-        Error: Failed to push some bookmarks
-        Hint: The following references unexpectedly moved on the remote:
-          refs/heads/bookmark1
-        Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
-        [EOF]
-        [exit status: 1]
-        ");
-    }
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Changes to push to origin:
+      Move sideways bookmark bookmark1 from d13ecdbda2a2 to 1ebe27ba04bf
+    Error: Failed to push some bookmarks
+    Hint: The following references unexpectedly moved on the remote:
+      refs/heads/bookmark1 (reason: stale info)
+    Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
+    [EOF]
+    [exit status: 1]
+    ");
 
     work_dir
         .run_jj(["bookmark", "delete", "bookmark1"])
@@ -581,32 +525,20 @@ fn test_git_push_unexpectedly_deleted() {
     ");
     }
 
-    if true {
-        // git does not allow to push a deleted bookmark if we expect it to exist even
-        // though it was already deleted
-        let output = work_dir.run_jj(["git", "push", "-bbookmark1"]);
-        insta::assert_snapshot!(output, @r"
-        ------- stderr -------
-        Changes to push to origin:
-          Delete bookmark bookmark1 from d13ecdbda2a2
-        Error: Failed to push some bookmarks
-        Hint: The following references unexpectedly moved on the remote:
-          refs/heads/bookmark1 (reason: stale info)
-        Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
-        [EOF]
-        [exit status: 1]
-        ");
-    } else {
-        // Pushing a *deleted* bookmark succeeds if deleted on remote, even if we expect
-        // bookmark1@origin to exist and point somewhere.
-        let output = work_dir.run_jj(["git", "push", "-bbookmark1"]);
-        insta::assert_snapshot!(output, @r"
-        ------- stderr -------
-        Changes to push to origin:
-          Delete bookmark bookmark1 from d13ecdbda2a2
-        [EOF]
-        ");
-    }
+    // git does not allow to push a deleted bookmark if we expect it to exist even
+    // though it was already deleted
+    let output = work_dir.run_jj(["git", "push", "-bbookmark1"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Changes to push to origin:
+      Delete bookmark bookmark1 from d13ecdbda2a2
+    Error: Failed to push some bookmarks
+    Hint: The following references unexpectedly moved on the remote:
+      refs/heads/bookmark1 (reason: stale info)
+    Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
+    [EOF]
+    [exit status: 1]
+    ");
 }
 
 #[test]
@@ -638,31 +570,17 @@ fn test_git_push_creation_unexpectedly_already_exists() {
     }
 
     let output = work_dir.run_jj(["git", "push", "--allow-new"]);
-    if true {
-        insta::assert_snapshot!(output, @r"
-        ------- stderr -------
-        Changes to push to origin:
-          Add bookmark bookmark1 to cb17dcdc74d5
-        Error: Failed to push some bookmarks
-        Hint: The following references unexpectedly moved on the remote:
-          refs/heads/bookmark1 (reason: stale info)
-        Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
-        [EOF]
-        [exit status: 1]
-        ");
-    } else {
-        insta::assert_snapshot!(output, @r"
-        ------- stderr -------
-        Changes to push to origin:
-          Add bookmark bookmark1 to cb17dcdc74d5
-        Error: Failed to push some bookmarks
-        Hint: The following references unexpectedly moved on the remote:
-          refs/heads/bookmark1
-        Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
-        [EOF]
-        [exit status: 1]
-        ");
-    }
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Changes to push to origin:
+      Add bookmark bookmark1 to cb17dcdc74d5
+    Error: Failed to push some bookmarks
+    Hint: The following references unexpectedly moved on the remote:
+      refs/heads/bookmark1 (reason: stale info)
+    Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
+    [EOF]
+    [exit status: 1]
+    ");
 }
 
 #[test]
@@ -1372,75 +1290,46 @@ fn test_git_push_changes_with_name_untracked_or_forgotten() {
     // Make sure push still errors if we try to push a bookmark with the same name
     // to a different location.
     let output = work_dir.run_jj(["git", "push", "--named", "b1=@-"]);
-    if true {
-        insta::assert_snapshot!(output, @r"
-        ------- stderr -------
-        Changes to push to origin:
-          Add bookmark b1 to 57ec90f54125
-        Error: Failed to push some bookmarks
-        Hint: The following references unexpectedly moved on the remote:
-          refs/heads/b1 (reason: stale info)
-        Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
-        [EOF]
-        [exit status: 1]
-        ");
-    } else {
-        // For libgit2, the error is the same but missing the "reason: stale info"
-        insta::assert_snapshot!(output, @r"
-        ------- stderr -------
-        Changes to push to origin:
-          Add bookmark b1 to 57ec90f54125
-        Error: Failed to push some bookmarks
-        Hint: The following references unexpectedly moved on the remote:
-          refs/heads/b1
-        Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
-        [EOF]
-        [exit status: 1]
-        ");
-    }
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Changes to push to origin:
+      Add bookmark b1 to 57ec90f54125
+    Error: Failed to push some bookmarks
+    Hint: The following references unexpectedly moved on the remote:
+      refs/heads/b1 (reason: stale info)
+    Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
+    [EOF]
+    [exit status: 1]
+    ");
 
     // The bookmark is still forgotten
     let output = work_dir.run_jj(["bookmark", "list", "--all", "b1"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @"");
     }
-    // This command behaves differently. In libgit2 flow, a conflict between a
-    // revision and its descendant is resolved in favor of the latter, like in `jj
-    // git fetch`. In subprocess flow, this logic is not implemented. As far as `jj
-    // git push --named` goes, the stricter behavior of the subprocess flow is
-    // probably slightly better.
     let output = work_dir.run_jj(["git", "push", "--named", "b1=@+"]);
-    if true {
-        insta::assert_snapshot!(output, @r"
-        ------- stderr -------
-        Changes to push to origin:
-          Add bookmark b1 to 08fcdf4055ae
-        Error: Failed to push some bookmarks
-        Hint: The following references unexpectedly moved on the remote:
-          refs/heads/b1 (reason: stale info)
-        Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
-        [EOF]
-        [exit status: 1]
-        ");
-        // In this case, pushing the bookmark to the same location where it already is
-        // succeeds. TODO: This seems pretty safe, but perhaps it should still show
-        // an error or some sort of warning?
-        let output = work_dir.run_jj(["git", "push", "--named", "b1=@"]);
-        insta::allow_duplicates! {
-        insta::assert_snapshot!(output, @r"
-        ------- stderr -------
-        Changes to push to origin:
-          Add bookmark b1 to ec992a1a9381
-        [EOF]
-        ");
-        }
-    } else {
-        insta::assert_snapshot!(output, @r"
-        ------- stderr -------
-        Changes to push to origin:
-          Add bookmark b1 to 08fcdf4055ae
-        [EOF]
-        ");
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Changes to push to origin:
+      Add bookmark b1 to 08fcdf4055ae
+    Error: Failed to push some bookmarks
+    Hint: The following references unexpectedly moved on the remote:
+      refs/heads/b1 (reason: stale info)
+    Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
+    [EOF]
+    [exit status: 1]
+    ");
+    // In this case, pushing the bookmark to the same location where it already is
+    // succeeds. TODO: This seems pretty safe, but perhaps it should still show
+    // an error or some sort of warning?
+    let output = work_dir.run_jj(["git", "push", "--named", "b1=@"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Changes to push to origin:
+      Add bookmark b1 to ec992a1a9381
+    [EOF]
+    ");
     }
 }
 

@@ -3647,26 +3647,13 @@ fn test_push_updates_unexpectedly_moved_forward_on_remote() {
         ["refs/heads/main"].map(GitRefNameBuf::from)
     );
 
-    if true {
-        // git is strict about honouring the expected location on --force-with-lease
-        assert_eq!(
-            push_status_rejected_references(
-                attempt_push_expecting_parent(Some(setup.child_of_main_commit.id().clone()))
-                    .unwrap()
-            ),
-            ["refs/heads/main"].map(GitRefNameBuf::from)
-        );
-    } else {
-        // Moving the bookmark *forwards* is OK, as an exception matching our bookmark
-        // conflict resolution rules
-        assert_eq!(
-            attempt_push_expecting_parent(Some(setup.child_of_main_commit.id().clone())).unwrap(),
-            GitPushStats {
-                pushed: vec!["refs/heads/main".into()],
-                ..Default::default()
-            }
-        );
-    }
+    // git is strict about honouring the expected location on --force-with-lease
+    assert_eq!(
+        push_status_rejected_references(
+            attempt_push_expecting_parent(Some(setup.child_of_main_commit.id().clone())).unwrap()
+        ),
+        ["refs/heads/main"].map(GitRefNameBuf::from)
+    );
 }
 
 #[test]
@@ -3707,26 +3694,13 @@ fn test_push_updates_unexpectedly_exists_on_remote() {
         ["refs/heads/main"].map(GitRefNameBuf::from)
     );
 
-    if true {
-        // Git is strict with enforcing the expected location
-        assert_eq!(
-            push_status_rejected_references(
-                attempt_push_expecting_absence(Some(setup.child_of_main_commit.id().clone()))
-                    .unwrap()
-            ),
-            ["refs/heads/main"].map(GitRefNameBuf::from)
-        );
-    } else {
-        // In git2: We *can* move the bookmark forward even if we didn't expect it to
-        // exist
-        assert_eq!(
-            attempt_push_expecting_absence(Some(setup.child_of_main_commit.id().clone())).unwrap(),
-            GitPushStats {
-                pushed: vec!["refs/heads/main".into()],
-                ..Default::default()
-            }
-        );
-    }
+    // Git is strict with enforcing the expected location
+    assert_eq!(
+        push_status_rejected_references(
+            attempt_push_expecting_absence(Some(setup.child_of_main_commit.id().clone())).unwrap()
+        ),
+        ["refs/heads/main"].map(GitRefNameBuf::from)
+    );
 }
 
 #[test]
