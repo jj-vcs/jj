@@ -108,16 +108,25 @@ pub fn cmd_git_fetch(
         }
     }
 
-    match &unmatched_patterns[..] {
-        [] => {} // Everything matched, all good
-        [pattern] if pattern.is_exact() => {
-            return Err(user_error(format!("No git remote named '{pattern}'")))
-        }
-        patterns => {
-            return Err(user_error(format!(
-                "No matching git remotes for patterns: {}",
-                patterns.iter().join(", ")
-            )))
+    match (!matching_remotes.is_empty(), &unmatched_patterns[..]) {
+        (_, []) => {} // Everything matched, all good
+        (has_matches, patterns) => {
+            let msg = match patterns {
+                [pattern] if pattern.is_exact() => {
+                    format!("No git remote named '{pattern}'")
+                }
+                patterns => {
+                    format!(
+                        "No matching git remotes for patterns: '{}'",
+                        patterns.iter().join("', '")
+                    )
+                }
+            };
+            if has_matches {
+                writeln!(ui.warning_default(), "{msg}; continuing with other remotes")?;
+            } else {
+                return Err(user_error(msg));
+            }
         }
     }
 
