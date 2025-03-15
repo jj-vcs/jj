@@ -49,20 +49,17 @@ fn test_git_clone() {
 
     // Clone an empty repo
     let output = root_dir.run_jj(["git", "clone", "source", "empty"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/empty"
     Nothing changed.
     [EOF]
     "#);
-    }
 
     set_up_non_empty_git_repo(&git_repo);
 
     // Clone with relative source path
     let output = root_dir.run_jj(["git", "clone", "source", "clone"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
@@ -73,19 +70,16 @@ fn test_git_clone() {
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
-    }
     let clone_dir = test_env.work_dir("clone");
     assert!(clone_dir.root().join("file").exists());
 
     // Subsequent fetch should just work even if the source path was relative
     let output = clone_dir.run_jj(["git", "fetch"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Nothing changed.
     [EOF]
     ");
-    }
 
     // Failed clone should clean up the destination directory
     root_dir.create_dir("bad");
@@ -114,54 +108,45 @@ fn test_git_clone() {
 
     // Failed clone (if attempted) shouldn't remove the existing workspace
     let output = root_dir.run_jj(["git", "clone", "bad", "clone"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Destination path exists and is not an empty directory
     [EOF]
     [exit status: 1]
     ");
-    }
     assert!(clone_dir.root().join(".jj").exists());
 
     // Try cloning into an existing workspace
     let output = root_dir.run_jj(["git", "clone", "source", "clone"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Destination path exists and is not an empty directory
     [EOF]
     [exit status: 1]
     ");
-    }
 
     // Try cloning into an existing file
     root_dir.write_file("file", "contents");
     let output = root_dir.run_jj(["git", "clone", "source", "file"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Destination path exists and is not an empty directory
     [EOF]
     [exit status: 1]
     ");
-    }
 
     // Try cloning into non-empty, non-workspace directory
     clone_dir.remove_dir_all(".jj");
     let output = root_dir.run_jj(["git", "clone", "source", "clone"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Destination path exists and is not an empty directory
     [EOF]
     [exit status: 1]
     ");
-    }
 
     // Clone into a nested path
     let output = root_dir.run_jj(["git", "clone", "source", "nested/path/to/repo"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/nested/path/to/repo"
@@ -172,7 +157,6 @@ fn test_git_clone() {
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
-    }
 }
 
 #[test]
@@ -181,18 +165,15 @@ fn test_git_clone_bad_source() {
     let root_dir = test_env.work_dir("");
 
     let output = root_dir.run_jj(["git", "clone", "", "dest"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: local path "" does not specify a path to a repository
     [EOF]
     [exit status: 2]
     "#);
-    }
 
     // Invalid port number
     let output = root_dir.run_jj(["git", "clone", "https://example.net:bad-port/bar", "dest"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: URL "https://example.net:bad-port/bar" can not be parsed as valid URL
@@ -200,7 +181,6 @@ fn test_git_clone_bad_source() {
     [EOF]
     [exit status: 2]
     "#);
-    }
 }
 
 #[test]
@@ -213,30 +193,25 @@ fn test_git_clone_colocate() {
 
     // Clone an empty repo
     let output = root_dir.run_jj(["git", "clone", "source", "empty", "--colocate"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/empty"
     Nothing changed.
     [EOF]
     "#);
-    }
 
     // git_target path should be relative to the store
     let empty_dir = test_env.work_dir("empty");
     let git_target_file_contents =
         String::from_utf8(empty_dir.read_file(".jj/repo/store/git_target").into()).unwrap();
-    insta::allow_duplicates! {
     insta::assert_snapshot!(
         git_target_file_contents.replace(path::MAIN_SEPARATOR, "/"),
         @"../../../.git");
-    }
 
     set_up_non_empty_git_repo(&git_repo);
 
     // Clone with relative source path
     let output = root_dir.run_jj(["git", "clone", "source", "clone", "--colocate"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
@@ -247,7 +222,6 @@ fn test_git_clone_colocate() {
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
-    }
     let clone_dir = test_env.work_dir("clone");
     assert!(clone_dir.root().join("file").exists());
     assert!(clone_dir.root().join(".git").exists());
@@ -270,7 +244,6 @@ fn test_git_clone_colocate() {
     );
     // ".jj" directory should be ignored at Git side.
     let git_statuses = git::status(&jj_git_repo);
-    insta::allow_duplicates! {
     insta::assert_debug_snapshot!(git_statuses, @r#"
     [
         GitStatus {
@@ -293,27 +266,22 @@ fn test_git_clone_colocate() {
         },
     ]
     "#);
-    }
 
     // The old default bookmark "master" shouldn't exist.
-    insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&clone_dir), @r"
     main: qomsplrm ebeb70d8 message
       @git: qomsplrm ebeb70d8 message
       @origin: qomsplrm ebeb70d8 message
     [EOF]
     ");
-    }
 
     // Subsequent fetch should just work even if the source path was relative
     let output = clone_dir.run_jj(["git", "fetch"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Nothing changed.
     [EOF]
     ");
-    }
 
     // Failed clone should clean up the destination directory
     root_dir.create_dir("bad");
@@ -343,51 +311,43 @@ fn test_git_clone_colocate() {
 
     // Failed clone (if attempted) shouldn't remove the existing workspace
     let output = root_dir.run_jj(["git", "clone", "--colocate", "bad", "clone"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Destination path exists and is not an empty directory
     [EOF]
     [exit status: 1]
     ");
-    }
     assert!(clone_dir.root().join(".git").exists());
     assert!(clone_dir.root().join(".jj").exists());
 
     // Try cloning into an existing workspace
     let output = root_dir.run_jj(["git", "clone", "source", "clone", "--colocate"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Destination path exists and is not an empty directory
     [EOF]
     [exit status: 1]
     ");
-    }
 
     // Try cloning into an existing file
     root_dir.write_file("file", "contents");
     let output = root_dir.run_jj(["git", "clone", "source", "file", "--colocate"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Destination path exists and is not an empty directory
     [EOF]
     [exit status: 1]
     ");
-    }
 
     // Try cloning into non-empty, non-workspace directory
     clone_dir.remove_dir_all(".jj");
     let output = root_dir.run_jj(["git", "clone", "source", "clone", "--colocate"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Destination path exists and is not an empty directory
     [EOF]
     [exit status: 1]
     ");
-    }
 
     // Clone into a nested path
     let output = root_dir.run_jj([
@@ -397,7 +357,6 @@ fn test_git_clone_colocate() {
         "nested/path/to/repo",
         "--colocate",
     ]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/nested/path/to/repo"
@@ -408,7 +367,6 @@ fn test_git_clone_colocate() {
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
-    }
 }
 
 #[test]
@@ -434,7 +392,6 @@ fn test_git_clone_remote_default_bookmark() {
     // All fetched bookmarks will be imported if auto-local-bookmark is on
     test_env.add_config("git.auto-local-bookmark = true");
     let output = root_dir.run_jj(["git", "clone", "source", "clone1"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone1"
@@ -446,9 +403,7 @@ fn test_git_clone_remote_default_bookmark() {
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
-    }
     let clone_dir1 = test_env.work_dir("clone1");
-    insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&clone_dir1), @r"
     feature1: qomsplrm ebeb70d8 message
       @origin: qomsplrm ebeb70d8 message
@@ -456,21 +411,17 @@ fn test_git_clone_remote_default_bookmark() {
       @origin: qomsplrm ebeb70d8 message
     [EOF]
     ");
-    }
 
     // "trunk()" alias should be set to default bookmark "main"
     let output = clone_dir1.run_jj(["config", "list", "--repo", "revset-aliases.'trunk()'"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     revset-aliases.'trunk()' = "main@origin"
     [EOF]
     "#);
-    }
 
     // Only the default bookmark will be imported if auto-local-bookmark is off
     test_env.add_config("git.auto-local-bookmark = false");
     let output = root_dir.run_jj(["git", "clone", "source", "clone2"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone2"
@@ -482,21 +433,17 @@ fn test_git_clone_remote_default_bookmark() {
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
-    }
     let clone_dir2 = test_env.work_dir("clone2");
-    insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&clone_dir2), @r"
     feature1@origin: qomsplrm ebeb70d8 message
     main: qomsplrm ebeb70d8 message
       @origin: qomsplrm ebeb70d8 message
     [EOF]
     ");
-    }
 
     // Change the default bookmark in remote
     git::set_symbolic_reference(&git_repo, "HEAD", "refs/heads/feature1");
     let output = root_dir.run_jj(["git", "clone", "source", "clone3"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone3"
@@ -508,25 +455,20 @@ fn test_git_clone_remote_default_bookmark() {
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
-    }
     let clone_dir3 = test_env.work_dir("clone3");
-    insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&clone_dir3), @r"
     feature1: qomsplrm ebeb70d8 message
       @origin: qomsplrm ebeb70d8 message
     main@origin: qomsplrm ebeb70d8 message
     [EOF]
     ");
-    }
 
     // "trunk()" alias should be set to new default bookmark "feature1"
     let output = clone_dir3.run_jj(["config", "list", "--repo", "revset-aliases.'trunk()'"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     revset-aliases.'trunk()' = "feature1@origin"
     [EOF]
     "#);
-    }
 }
 
 // A branch with a strange name should get quoted in the config. Windows doesn't
@@ -551,7 +493,6 @@ fn test_git_clone_remote_default_bookmark_with_escape() {
     git::set_head_to_id(&git_repo, commit_id);
 
     let output = root_dir.run_jj(["git", "clone", "source", "clone"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
@@ -562,17 +503,14 @@ fn test_git_clone_remote_default_bookmark_with_escape() {
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
-    }
 
     // "trunk()" alias should be escaped and quoted
     let clone_dir = test_env.work_dir("clone");
     let output = clone_dir.run_jj(["config", "list", "--repo", "revset-aliases.'trunk()'"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     revset-aliases.'trunk()' = '"\""@origin'
     [EOF]
     "#);
-    }
 }
 
 #[test]
@@ -585,7 +523,6 @@ fn test_git_clone_ignore_working_copy() {
 
     // Should not update working-copy files
     let output = root_dir.run_jj(["git", "clone", "--ignore-working-copy", "source", "clone"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
@@ -593,22 +530,18 @@ fn test_git_clone_ignore_working_copy() {
     Setting the revset alias `trunk()` to `main@origin`
     [EOF]
     "#);
-    }
     let clone_dir = test_env.work_dir("clone");
 
     let output = clone_dir.run_jj(["status", "--ignore-working-copy"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
     Working copy  (@) : sqpuoqvx 2ca1c979 (empty) (no description set)
     Parent commit (@-): qomsplrm ebeb70d8 main | message
     [EOF]
     ");
-    }
 
     // TODO: Correct, but might be better to check out the root commit?
     let output = clone_dir.run_jj(["status"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: The working copy is stale (not updated since operation eac759b9ab75).
@@ -617,7 +550,6 @@ fn test_git_clone_ignore_working_copy() {
     [EOF]
     [exit status: 1]
     ");
-    }
 }
 
 #[test]
@@ -629,14 +561,12 @@ fn test_git_clone_at_operation() {
     set_up_non_empty_git_repo(&git_repo);
 
     let output = root_dir.run_jj(["git", "clone", "--at-op=@-", "source", "clone"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: --at-op is not respected
     [EOF]
     [exit status: 2]
     ");
-    }
 }
 
 #[test]
@@ -650,7 +580,6 @@ fn test_git_clone_with_remote_name() {
 
     // Clone with relative source path and a non-default remote name
     let output = root_dir.run_jj(["git", "clone", "source", "clone", "--remote", "upstream"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
@@ -661,7 +590,6 @@ fn test_git_clone_with_remote_name() {
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
-    }
 }
 
 #[test]
@@ -672,14 +600,12 @@ fn test_git_clone_with_remote_named_git() {
     git::init(git_repo_path);
 
     let output = root_dir.run_jj(["git", "clone", "--remote=git", "source", "dest"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Git remote named 'git' is reserved for local Git repository
     [EOF]
     [exit status: 1]
     ");
-    }
 }
 
 #[test]
@@ -690,14 +616,12 @@ fn test_git_clone_with_remote_with_slashes() {
     git::init(git_repo_path);
 
     let output = root_dir.run_jj(["git", "clone", "--remote=slash/origin", "source", "dest"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Git remotes with slashes are incompatible with jj: slash/origin
     [EOF]
     [exit status: 1]
     ");
-    }
 }
 
 #[test]
@@ -710,7 +634,6 @@ fn test_git_clone_trunk_deleted() {
     let clone_dir = test_env.work_dir("clone");
 
     let output = root_dir.run_jj(["git", "clone", "source", "clone"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
@@ -721,10 +644,8 @@ fn test_git_clone_trunk_deleted() {
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
-    }
 
     let output = clone_dir.run_jj(["bookmark", "forget", "--include-remotes", "main"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Forgot 1 local bookmarks.
@@ -733,10 +654,8 @@ fn test_git_clone_trunk_deleted() {
     Hint: Use `jj config edit --repo` to adjust the `trunk()` alias.
     [EOF]
     ");
-    }
 
     let output = clone_dir.run_jj(["log"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     @  sqpuoqvx test.user@example.com 2001-02-03 08:05:07 2ca1c979
     │  (empty) (no description set)
@@ -749,7 +668,6 @@ fn test_git_clone_trunk_deleted() {
     Hint: Use `jj config edit --repo` to adjust the `trunk()` alias.
     [EOF]
     ");
-    }
 }
 
 #[test]
@@ -886,7 +804,6 @@ fn test_git_clone_invalid_immutable_heads() {
     // The error shouldn't be counted as an immutable working-copy commit. It
     // should be reported.
     let output = root_dir.run_jj(["git", "clone", "source", "clone"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
@@ -897,7 +814,6 @@ fn test_git_clone_invalid_immutable_heads() {
     [EOF]
     [exit status: 1]
     "#);
-    }
 }
 
 #[test]
@@ -912,7 +828,6 @@ fn test_git_clone_malformed() {
 
     // TODO: Perhaps, this should be a user error, not an internal error.
     let output = root_dir.run_jj(["git", "clone", "source", "clone"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
@@ -923,11 +838,9 @@ fn test_git_clone_malformed() {
     [EOF]
     [exit status: 255]
     "#);
-    }
 
     // The cloned workspace isn't usable.
     let output = clone_dir.run_jj(["status"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: The working copy is stale (not updated since operation 57e024eb3edf).
@@ -936,12 +849,10 @@ fn test_git_clone_malformed() {
     [EOF]
     [exit status: 1]
     ");
-    }
 
     // The error can be somehow recovered.
     // TODO: add an update-stale flag to reset the working-copy?
     let output = clone_dir.run_jj(["workspace", "update-stale"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Internal error: Failed to check out commit 0a09cb41583450703459a2310d63da61456364ce
@@ -949,20 +860,15 @@ fn test_git_clone_malformed() {
     [EOF]
     [exit status: 255]
     ");
-    }
     let output = clone_dir.run_jj(["new", "root()", "--ignore-working-copy"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @"");
-    }
     let output = clone_dir.run_jj(["status"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
     Working copy  (@) : zsuskuln f652c321 (empty) (no description set)
     Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
-    }
 }
 
 #[test]
@@ -986,7 +892,6 @@ fn test_git_clone_with_global_git_remote_config() {
     set_up_non_empty_git_repo(&git_repo);
 
     let output = root_dir.run_jj(["git", "clone", "source", "clone"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
@@ -997,7 +902,6 @@ fn test_git_clone_with_global_git_remote_config() {
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
-    }
 }
 
 #[test]
