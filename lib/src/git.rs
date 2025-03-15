@@ -1904,14 +1904,6 @@ pub enum GitFetchError {
     Subprocess(#[from] GitSubprocessError),
 }
 
-// TODO: If Git2 implementation is removed, this can be replaced with
-// UnexpectedGitBackendError.
-#[derive(Debug, Error)]
-pub enum GitFetchPrepareError {
-    #[error(transparent)]
-    UnexpectedBackend(#[from] UnexpectedGitBackendError),
-}
-
 struct FetchedBranches {
     remote: String,
     branches: Vec<StringPattern>,
@@ -1929,7 +1921,7 @@ impl<'a> GitFetch<'a> {
     pub fn new(
         mut_repo: &'a mut MutableRepo,
         git_settings: &'a GitSettings,
-    ) -> Result<Self, GitFetchPrepareError> {
+    ) -> Result<Self, UnexpectedGitBackendError> {
         let fetch_impl = GitFetchImpl::new(mut_repo.store(), git_settings)?;
         Ok(GitFetch {
             mut_repo,
@@ -2040,7 +2032,10 @@ enum GitFetchImpl<'a> {
 }
 
 impl<'a> GitFetchImpl<'a> {
-    fn new(store: &Store, git_settings: &'a GitSettings) -> Result<Self, GitFetchPrepareError> {
+    fn new(
+        store: &Store,
+        git_settings: &'a GitSettings,
+    ) -> Result<Self, UnexpectedGitBackendError> {
         let git_backend = get_git_backend(store)?;
         let git_repo = Box::new(git_backend.git_repo());
         let git_ctx =
