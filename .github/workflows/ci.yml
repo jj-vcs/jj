@@ -42,7 +42,7 @@ jobs:
         - build: macos-x86_64
           os: macos-14
           target: x86_64-apple-darwin
-          cargo_flags: "--features vendored-openssl"
+          cargo_flags: ""
         - build: macos-aarch64
           os: macos-14
           target: aarch64-apple-darwin

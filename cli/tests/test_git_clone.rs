@@ -40,7 +40,6 @@ fn set_up_git_repo_with_file(git_repo: &gix::Repository, filename: &str) {
     git::set_symbolic_reference(git_repo, "HEAD", "refs/heads/main");
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_clone(subprocess: bool) {
     let test_env = TestEnvironment::with_git_subprocess(subprocess);
@@ -197,7 +196,6 @@ fn test_git_clone(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_clone_bad_source(subprocess: bool) {
     let test_env = TestEnvironment::with_git_subprocess(subprocess);
@@ -228,7 +226,6 @@ fn test_git_clone_bad_source(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_clone_colocate(subprocess: bool) {
     let test_env = TestEnvironment::with_git_subprocess(subprocess);
@@ -462,7 +459,6 @@ fn test_git_clone_colocate(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_clone_remote_default_bookmark(subprocess: bool) {
     let test_env = TestEnvironment::with_git_subprocess(subprocess);
@@ -589,7 +585,6 @@ fn test_git_clone_remote_default_bookmark(subprocess: bool) {
 // A branch with a strange name should get quoted in the config. Windows doesn't
 // like the strange name, so we don't run the test there.
 #[cfg(unix)]
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_clone_remote_default_bookmark_with_escape(subprocess: bool) {
     let test_env = TestEnvironment::with_git_subprocess(subprocess);
@@ -634,7 +629,6 @@ fn test_git_clone_remote_default_bookmark_with_escape(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_clone_ignore_working_copy(subprocess: bool) {
     let test_env = TestEnvironment::with_git_subprocess(subprocess);
@@ -682,7 +676,6 @@ fn test_git_clone_ignore_working_copy(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_clone_at_operation(subprocess: bool) {
     let test_env = TestEnvironment::with_git_subprocess(subprocess);
@@ -701,7 +694,6 @@ fn test_git_clone_at_operation(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_clone_with_remote_name(subprocess: bool) {
     let test_env = TestEnvironment::with_git_subprocess(subprocess);
@@ -729,7 +721,6 @@ fn test_git_clone_with_remote_name(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_clone_with_remote_named_git(subprocess: bool) {
     let test_env = TestEnvironment::with_git_subprocess(subprocess);
@@ -747,7 +738,6 @@ fn test_git_clone_with_remote_named_git(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_clone_with_remote_with_slashes(subprocess: bool) {
     let test_env = TestEnvironment::with_git_subprocess(subprocess);
@@ -768,7 +758,6 @@ fn test_git_clone_with_remote_with_slashes(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_clone_trunk_deleted(subprocess: bool) {
     let test_env = TestEnvironment::with_git_subprocess(subprocess);
@@ -910,29 +899,6 @@ fn test_git_clone_conditional_config() {
     ");
 }
 
-#[cfg(feature = "git2")]
-#[test]
-fn test_git_clone_with_depth_git2() {
-    let test_env = TestEnvironment::with_git_subprocess(false);
-    test_env.add_config("git.auto-local-bookmark = true");
-    let git_repo_path = test_env.env_root().join("source");
-    let git_repo = git::init(git_repo_path);
-    set_up_non_empty_git_repo(&git_repo);
-
-    // git does support shallow clones on the local transport, so it will work
-    // (we cannot replicate git2's erroneous behaviour wrt git)
-    // local transport does not support shallow clones so we just test that the
-    // depth arg is passed on here
-    let output = test_env.run_jj_in(".", ["git", "clone", "--depth", "1", "source", "clone"]);
-    insta::assert_snapshot!(output, @r#"
-    ------- stderr -------
-    Fetching into new repo in "$TEST_ENV/clone"
-    Error: shallow fetch is not supported by the local transport; class=Net (12)
-    [EOF]
-    [exit status: 1]
-    "#);
-}
-
 #[test]
 fn test_git_clone_with_depth_subprocess() {
     let test_env = TestEnvironment::default();
@@ -967,7 +933,6 @@ fn test_git_clone_with_depth_subprocess() {
     ");
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_clone_invalid_immutable_heads(subprocess: bool) {
     let test_env = TestEnvironment::with_git_subprocess(subprocess);
@@ -996,7 +961,6 @@ fn test_git_clone_invalid_immutable_heads(subprocess: bool) {
     }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_clone_malformed(subprocess: bool) {
     let test_env = TestEnvironment::with_git_subprocess(subprocess);
