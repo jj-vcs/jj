@@ -1954,12 +1954,8 @@ impl<'a> GitFetch<'a> {
     }
 
     /// Queries remote for the default branch name.
-    #[tracing::instrument(skip(self, _callbacks))]
-    pub fn get_default_branch(
-        &self,
-        remote_name: &str,
-        _callbacks: RemoteCallbacks<'_>,
-    ) -> Result<Option<String>, GitFetchError> {
+    #[tracing::instrument(skip(self))]
+    pub fn get_default_branch(&self, remote_name: &str) -> Result<Option<String>, GitFetchError> {
         if self.git_repo.try_find_remote(remote_name).is_none() {
             return Err(GitFetchError::NoSuchRemote(remote_name.to_owned()));
         }
