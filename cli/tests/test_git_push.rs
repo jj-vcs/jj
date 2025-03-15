@@ -557,30 +557,18 @@ fn test_git_push_unexpectedly_deleted() {
     ");
     }
 
-    if true {
-        // git does not allow to push a deleted bookmark if we expect it to exist even
-        // though it was already deleted
-        let output = test_env.run_jj_in(&workspace_root, ["git", "push", "-bbookmark1"]);
-        insta::assert_snapshot!(output, @r"
-        ------- stderr -------
-        Changes to push to origin:
-          Delete bookmark bookmark1 from d13ecdbda2a2
-        Error: Refusing to push a bookmark that unexpectedly moved on the remote. Affected refs: refs/heads/bookmark1
-        Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
-        [EOF]
-        [exit status: 1]
-        ");
-    } else {
-        // Pushing a *deleted* bookmark succeeds if deleted on remote, even if we expect
-        // bookmark1@origin to exist and point somewhere.
-        let output = test_env.run_jj_in(&workspace_root, ["git", "push", "-bbookmark1"]);
-        insta::assert_snapshot!(output, @r"
-        ------- stderr -------
-        Changes to push to origin:
-          Delete bookmark bookmark1 from d13ecdbda2a2
-        [EOF]
-        ");
-    }
+    // git does not allow to push a deleted bookmark if we expect it to exist even
+    // though it was already deleted
+    let output = test_env.run_jj_in(&workspace_root, ["git", "push", "-bbookmark1"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Changes to push to origin:
+      Delete bookmark bookmark1 from d13ecdbda2a2
+    Error: Refusing to push a bookmark that unexpectedly moved on the remote. Affected refs: refs/heads/bookmark1
+    Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
+    [EOF]
+    [exit status: 1]
+    ");
 }
 
 #[test]

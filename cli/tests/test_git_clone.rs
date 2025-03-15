@@ -88,47 +88,25 @@ fn test_git_clone() {
     // Failed clone should clean up the destination directory
     std::fs::create_dir(test_env.env_root().join("bad")).unwrap();
     let output = test_env.run_jj_in(".", ["git", "clone", "bad", "failed"]);
-    // git2's internal error is slightly different
-    if true {
-        insta::assert_snapshot!(output, @r#"
-        ------- stderr -------
-        Fetching into new repo in "$TEST_ENV/failed"
-        Error: Could not find repository at '$TEST_ENV/bad'
-        [EOF]
-        [exit status: 1]
-        "#);
-    } else {
-        insta::assert_snapshot!(output, @r#"
-        ------- stderr -------
-        Fetching into new repo in "$TEST_ENV/failed"
-        Error: could not find repository at '$TEST_ENV/bad'; class=Repository (6)
-        [EOF]
-        [exit status: 1]
-        "#);
-    }
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/failed"
+    Error: Could not find repository at '$TEST_ENV/bad'
+    [EOF]
+    [exit status: 1]
+    "#);
     assert!(!test_env.env_root().join("failed").exists());
 
     // Failed clone shouldn't remove the existing destination directory
     std::fs::create_dir(test_env.env_root().join("failed")).unwrap();
     let output = test_env.run_jj_in(".", ["git", "clone", "bad", "failed"]);
-    // git2's internal error is slightly different
-    if true {
-        insta::assert_snapshot!(output, @r#"
-        ------- stderr -------
-        Fetching into new repo in "$TEST_ENV/failed"
-        Error: Could not find repository at '$TEST_ENV/bad'
-        [EOF]
-        [exit status: 1]
-        "#);
-    } else {
-        insta::assert_snapshot!(output, @r#"
-        ------- stderr -------
-        Fetching into new repo in "$TEST_ENV/failed"
-        Error: could not find repository at '$TEST_ENV/bad'; class=Repository (6)
-        [EOF]
-        [exit status: 1]
-        "#);
-    }
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/failed"
+    Error: Could not find repository at '$TEST_ENV/bad'
+    [EOF]
+    [exit status: 1]
+    "#);
     assert!(test_env.env_root().join("failed").exists());
     assert!(!test_env.env_root().join("failed").join(".jj").exists());
 
@@ -340,47 +318,25 @@ fn test_git_clone_colocate() {
     // Failed clone should clean up the destination directory
     std::fs::create_dir(test_env.env_root().join("bad")).unwrap();
     let output = test_env.run_jj_in(".", ["git", "clone", "--colocate", "bad", "failed"]);
-    // git2's internal error is slightly different
-    if true {
-        insta::assert_snapshot!(output, @r#"
-        ------- stderr -------
-        Fetching into new repo in "$TEST_ENV/failed"
-        Error: Could not find repository at '$TEST_ENV/bad'
-        [EOF]
-        [exit status: 1]
-        "#);
-    } else {
-        insta::assert_snapshot!(output, @r#"
-        ------- stderr -------
-        Fetching into new repo in "$TEST_ENV/failed"
-        Error: could not find repository at '$TEST_ENV/bad'; class=Repository (6)
-        [EOF]
-        [exit status: 1]
-        "#);
-    }
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/failed"
+    Error: Could not find repository at '$TEST_ENV/bad'
+    [EOF]
+    [exit status: 1]
+    "#);
     assert!(!test_env.env_root().join("failed").exists());
 
     // Failed clone shouldn't remove the existing destination directory
     std::fs::create_dir(test_env.env_root().join("failed")).unwrap();
     let output = test_env.run_jj_in(".", ["git", "clone", "--colocate", "bad", "failed"]);
-    // git2's internal error is slightly different
-    if true {
-        insta::assert_snapshot!(output, @r#"
-        ------- stderr -------
-        Fetching into new repo in "$TEST_ENV/failed"
-        Error: Could not find repository at '$TEST_ENV/bad'
-        [EOF]
-        [exit status: 1]
-        "#);
-    } else {
-        insta::assert_snapshot!(output, @r#"
-        ------- stderr -------
-        Fetching into new repo in "$TEST_ENV/failed"
-        Error: could not find repository at '$TEST_ENV/bad'; class=Repository (6)
-        [EOF]
-        [exit status: 1]
-        "#);
-    }
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/failed"
+    Error: Could not find repository at '$TEST_ENV/bad'
+    [EOF]
+    [exit status: 1]
+    "#);
     assert!(test_env.env_root().join("failed").exists());
     assert!(!test_env.env_root().join("failed").join(".git").exists());
     assert!(!test_env.env_root().join("failed").join(".jj").exists());
