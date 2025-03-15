@@ -63,7 +63,7 @@ fn to_owned_path_vec(paths: &[&RepoPath]) -> Vec<RepoPathBuf> {
     paths.iter().map(|&path| path.to_owned()).collect()
 }
 
-#[test_case(TestRepoBackend::Local ; "local backend")]
+#[test_case(TestRepoBackend::Simple ; "simple backend")]
 #[test_case(TestRepoBackend::Git ; "git backend")]
 fn test_initial(backend: TestRepoBackend) {
     let test_repo = TestRepo::init_with_backend(backend);
@@ -129,7 +129,7 @@ fn test_initial(backend: TestRepoBackend) {
     );
 }
 
-#[test_case(TestRepoBackend::Local ; "local backend")]
+#[test_case(TestRepoBackend::Simple ; "simple backend")]
 #[test_case(TestRepoBackend::Git ; "git backend")]
 fn test_rewrite(backend: TestRepoBackend) {
     let settings = testutils::user_settings();
@@ -219,7 +219,7 @@ fn test_rewrite(backend: TestRepoBackend) {
 }
 
 // An author field with an empty name/email should get filled in on rewrite
-#[test_case(TestRepoBackend::Local ; "local backend")]
+#[test_case(TestRepoBackend::Simple ; "simple backend")]
 #[test_case(TestRepoBackend::Git ; "git backend")]
 fn test_rewrite_update_missing_user(backend: TestRepoBackend) {
     let missing_user_settings = UserSettings::from_config(StackedConfig::with_defaults()).unwrap();
@@ -275,7 +275,7 @@ fn test_rewrite_update_missing_user(backend: TestRepoBackend) {
     );
 }
 
-#[test_case(TestRepoBackend::Local ; "local backend")]
+#[test_case(TestRepoBackend::Simple ; "simple backend")]
 #[test_case(TestRepoBackend::Git ; "git backend")]
 fn test_rewrite_resets_author_timestamp(backend: TestRepoBackend) {
     let test_repo = TestRepo::init_with_backend(backend);
@@ -350,7 +350,7 @@ fn test_rewrite_resets_author_timestamp(backend: TestRepoBackend) {
     assert_eq!(rewritten_commit_2.committer().timestamp, new_timestamp_2);
 }
 
-#[test_case(TestRepoBackend::Local ; "local backend")]
+#[test_case(TestRepoBackend::Simple ; "simple backend")]
 // #[test_case(TestRepoBackend::Git ; "git backend")]
 fn test_commit_builder_descendants(backend: TestRepoBackend) {
     let test_repo = TestRepo::init_with_backend(backend);

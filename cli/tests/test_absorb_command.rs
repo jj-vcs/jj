@@ -45,7 +45,7 @@ fn test_absorb_simple() {
     let output = work_dir.run_jj(["absorb"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Absorbed changes into these revisions:
+    Absorbed changes into 2 revisions:
       zsuskuln 3027ca7a 2
       kkmpptxz d0f1e8dd 1
     Working copy now at: yqosqzyt 277bed24 (empty) (no description set)
@@ -58,7 +58,7 @@ fn test_absorb_simple() {
     let output = work_dir.run_jj(["absorb"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Absorbed changes into these revisions:
+    Absorbed changes into 1 revisions:
       kkmpptxz d366d92c 1
     Rebased 1 descendant commits.
     Working copy now at: vruxwmqv 32eb72fe (empty) (no description set)
@@ -71,7 +71,7 @@ fn test_absorb_simple() {
     let output = work_dir.run_jj(["absorb"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Absorbed changes into these revisions:
+    Absorbed changes into 1 revisions:
       zsuskuln 6e2c4777 2
     Working copy now at: yostqsxw 4a48490c (empty) (no description set)
     Parent commit      : zsuskuln 6e2c4777 2
@@ -175,7 +175,7 @@ fn test_absorb_replace_single_line_hunk() {
     let output = work_dir.run_jj(["absorb"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Absorbed changes into these revisions:
+    Absorbed changes into 1 revisions:
       qpvuntsm 7e885236 (conflict) 1
     Rebased 1 descendant commits.
     Working copy now at: mzvwutvl e9c3b95b (empty) (no description set)
@@ -259,7 +259,7 @@ fn test_absorb_merge() {
     let output = work_dir.run_jj(["absorb"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Absorbed changes into these revisions:
+    Absorbed changes into 2 revisions:
       zsuskuln 71d1ee56 2
       kkmpptxz 4d379399 1
     Rebased 1 descendant commits.
@@ -278,7 +278,7 @@ fn test_absorb_merge() {
     let output = work_dir.run_jj(["absorb"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Absorbed changes into these revisions:
+    Absorbed changes into 1 revisions:
       mzvwutvl e93c0210 3
     Working copy now at: vruxwmqv 1b10dfa4 (empty) (no description set)
     Parent commit      : mzvwutvl e93c0210 3
@@ -359,7 +359,7 @@ fn test_absorb_discardable_merge_with_descendant() {
     let output = work_dir.run_jj(["absorb", "--from=@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Absorbed changes into these revisions:
+    Absorbed changes into 2 revisions:
       zsuskuln 02668cf6 2
       kkmpptxz fcabe394 1
     Rebased 1 descendant commits.
@@ -511,7 +511,7 @@ fn test_absorb_file_mode() {
     let output = work_dir.run_jj(["absorb"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Absorbed changes into these revisions:
+    Absorbed changes into 1 revisions:
       qpvuntsm 991365da 1
     Rebased 1 descendant commits.
     Working copy now at: zsuskuln 77de368e (no description set)
@@ -557,7 +557,7 @@ fn test_absorb_from_into() {
     let output = work_dir.run_jj(["absorb", "--into=@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Absorbed changes into these revisions:
+    Absorbed changes into 1 revisions:
       kkmpptxz 91df4543 2
     Rebased 1 descendant commits.
     Working copy now at: zsuskuln d5424357 (no description set)
@@ -602,7 +602,7 @@ fn test_absorb_from_into() {
     let output = work_dir.run_jj(["absorb", "--from=@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Absorbed changes into these revisions:
+    Absorbed changes into 1 revisions:
       rlvkpnrz 3a5fd02e 1
     Rebased 2 descendant commits.
     Working copy now at: zsuskuln 53ce490b (no description set)
@@ -671,7 +671,7 @@ fn test_absorb_paths() {
     let output = work_dir.run_jj(["absorb", "file1"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Absorbed changes into these revisions:
+    Absorbed changes into 1 revisions:
       qpvuntsm ae044adb 1
     Rebased 1 descendant commits.
     Working copy now at: kkmpptxz c6f31836 (no description set)
@@ -732,7 +732,7 @@ fn test_absorb_immutable() {
     let output = work_dir.run_jj(["absorb"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Absorbed changes into these revisions:
+    Absorbed changes into 1 revisions:
       kkmpptxz d80e3c2a 2
     Rebased 1 descendant commits.
     Working copy now at: mzvwutvl 3021153d (no description set)

@@ -14,10 +14,6 @@ concurrency:
 
 permissions: {}
 
-env:
-  CARGO_INCREMENTAL: 0
-  CARGO_PROFILE_DEV_DEBUG: 0
-
 jobs:
   test:
     strategy:
@@ -27,29 +23,23 @@ jobs:
         include:
         - build: linux-x86_64-gnu
           os: ubuntu-24.04
-          target: x86_64-unknown-linux-gnu
           cargo_flags: "--all-features"
         - build: 'linux-x86_64-gnu, no git2'
           os: ubuntu-24.04
-          target: x86_64-unknown-linux-gnu
           cargo_flags: "--no-default-features --features git"
           # Ensure we don’t link to `libgit2`.
           LIBGIT2_NO_VENDOR: 1
         - build: linux-aarch64-gnu
           os: ubuntu-24.04-arm
-          target: aarch64-unknown-linux-gnu
           cargo_flags: "--all-features"
         - build: macos-x86_64
-          os: macos-14
-          target: x86_64-apple-darwin
-          cargo_flags: "--features vendored-openssl"
+          os: macos-13
+          cargo_flags: ""
         - build: macos-aarch64
           os: macos-14
-          target: aarch64-apple-darwin
           cargo_flags: ""
         - build: windows-x86_64
           os: windows-2022
-          target: x86_64-pc-windows-msvc
           cargo_flags: ""
     runs-on: ${{ matrix.os }}
 
@@ -63,28 +53,45 @@ jobs:
     # is a problem we should fix. in the mean time, this will make these flakes
     # less harmful, as it won't cause builds to spin for multiple hours, requiring
     # manual cancellation.
-    #
-    # FIXME (aseipp, 2025-02-06): bumped to 20min.
-    timeout-minutes: 20
+    timeout-minutes: 15
 
     steps:
     - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       with:
         persist-credentials: false
     - name: Set up Windows Builders
+      if: startswith(matrix.os, 'windows')
       uses: ./.github/actions/setup-windows
     - name: Install Rust
-      uses: dtolnay/rust-toolchain@a54c7afa936fefeb4456b2dd8068152669aa8203
+      uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
       with:
         toolchain: 1.84
-        target: ${{ matrix.target }}
-    - uses: taiki-e/install-action@0f58b6a196e0d71c72fd459ab8fd8b228f85f669
+    - uses: taiki-e/install-action@351cce3d3afa3dbd66bbe6d30df1d481b1448522
       with:
         tool: nextest,taplo-cli
+    - name: Install mold
+      uses: rui314/setup-mold@f80524ca6eeaa76759b57fb78ddce5d87a20c720
+      with:
+        make-default: false
     - name: Build
-      run: cargo build --target ${{ matrix.target }} --workspace --all-targets --verbose ${{ matrix.cargo_flags }}
+      run: >-
+        cargo build
+        --config .cargo/config-ci.toml
+        --workspace
+        --all-targets
+        --verbose
+        ${{ matrix.cargo_flags }}
+      env:
+        LIBGIT2_NO_VENDOR: ${{ matrix.LIBGIT2_NO_VENDOR || '0' }}
     - name: Test
-      run: cargo nextest run --target ${{ matrix.target }} --workspace --profile ci --all-targets --verbose ${{ matrix.cargo_flags }}
+      run: >-
+        cargo nextest run
+        --config .cargo/config-ci.toml
+        --workspace
+        --all-targets
+        --verbose
+        --profile ci
+        ${{ matrix.cargo_flags }}
       env:
         RUST_BACKTRACE: 1
         CARGO_TERM_COLOR: always
@@ -98,7 +105,7 @@ jobs:
       with:
         persist-credentials: false
     - name: Install Rust
-      uses: dtolnay/rust-toolchain@a54c7afa936fefeb4456b2dd8068152669aa8203
+      uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
       with:
         toolchain: 1.84
     - name: Build
@@ -111,7 +118,7 @@ jobs:
       matrix:
         os: [ubuntu-24.04, ubuntu-24.04-arm, macos-14]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -128,7 +135,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@a54c7afa936fefeb4456b2dd8068152669aa8203
+      - uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
         with:
           toolchain: stable
       - run: sudo apt update && sudo apt-get -y install protobuf-compiler
@@ -144,7 +151,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@a54c7afa936fefeb4456b2dd8068152669aa8203
+      - uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
         with:
           toolchain: nightly
           components: rustfmt
@@ -159,7 +166,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@a54c7afa936fefeb4456b2dd8068152669aa8203
+      - uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
         with:
           toolchain: stable
           components: clippy
@@ -213,7 +220,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@1482605bfc5719782e1267fd0c0cc350fe7646b8
+      - uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
         with:
           toolchain: 1.84
       # NOTE: We need to run `cargo test --doc` separately from normal tests:
@@ -283,7 +290,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@6bb031afdd8eb862ea3fc1848194185e076637e5
+        uses: github/codeql-action/upload-sarif@5f8171a638ada777af81d42b55959a643bb29017
         with:
           sarif_file: results.sarif
           category: zizmor

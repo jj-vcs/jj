@@ -57,14 +57,14 @@ _This diagram was created with [Excalidraw]. You can get a copy of it [at this
 location][types-drawing], and Right Click > "Copy to Clipboard as SVG"._
 
 [Excalidraw]: https://excalidraw.com/
-[types-drawing]: https://excalidraw.com/#json=wuOSusqzm6MjoXatFk1kn,aCySj27AVmQMf7aJdMzMCw
+[types-drawing]: https://excalidraw.com/#json=X081PJVRW2h4iW12qZxc1,H2Yg3qnycVG0Vpq5Z90Miw
 
 ### Backend
 
 The `Backend` trait defines the interface each
 commit backend needs to implement. The current in-tree commit backends
 are `GitBackend`
-and `LocalBackend`.
+and `SimpleBackend`.
 
 Since there are non-commit backends, the `Backend` trait should probably be
 renamed to `CommitBackend`.
@@ -88,9 +88,9 @@ Because we use the Git Object ID as commit ID, two commits that differ only in
 their change ID, for example, will get the same commit ID, so we error out when
 trying to write the second one of them.
 
-### LocalBackend
+### SimpleBackend
 
-The `LocalBackend` is just a proof of concept. It stores objects addressed by
+The `SimpleBackend` is just a proof of concept. It stores objects addressed by
 their hash, with one file per object.
 
 ### Store

@@ -1107,7 +1107,6 @@ fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandO
 }
 
 // TODO: Remove with the `git.subprocess` setting.
-#[cfg(not(feature = "git2"))]
 #[test]
 fn test_git_clone_git2_warning() {
     let test_env = TestEnvironment::default();
@@ -1119,15 +1118,29 @@ fn test_git_clone_git2_warning() {
     set_up_non_empty_git_repo(&git_repo);
 
     let output = test_env.run_jj_in(".", ["git", "clone", "source", "clone"]);
-    insta::assert_snapshot!(output, @r#"
-    ------- stderr -------
-    Warning: Deprecated config: jj was compiled without `git.subprocess = false` support
-    Fetching into new repo in "$TEST_ENV/clone"
-    bookmark: main@origin [new] tracked
-    Setting the revset alias `trunk()` to `main@origin`
-    Working copy now at: sqpuoqvx 2ca1c979 (empty) (no description set)
-    Parent commit      : qomsplrm ebeb70d8 main | message
-    Added 1 files, modified 0 files, removed 0 files
-    [EOF]
-    "#);
+    if cfg!(feature = "git2") {
+        insta::assert_snapshot!(output, @r#"
+        ------- stderr -------
+        Fetching into new repo in "$TEST_ENV/clone"
+        Warning: `git.subprocess = false` will be removed in 0.XX; please report any issues you have with the default.
+        bookmark: main@origin [new] tracked
+        Setting the revset alias `trunk()` to `main@origin`
+        Working copy now at: sqpuoqvx 2ca1c979 (empty) (no description set)
+        Parent commit      : qomsplrm ebeb70d8 main | message
+        Added 1 files, modified 0 files, removed 0 files
+        [EOF]
+        "#);
+    } else {
+        insta::assert_snapshot!(output, @r#"
+        ------- stderr -------
+        Warning: Deprecated config: jj was compiled without `git.subprocess = false` support
+        Fetching into new repo in "$TEST_ENV/clone"
+        bookmark: main@origin [new] tracked
+        Setting the revset alias `trunk()` to `main@origin`
+        Working copy now at: sqpuoqvx 2ca1c979 (empty) (no description set)
+        Parent commit      : qomsplrm ebeb70d8 main | message
+        Added 1 files, modified 0 files, removed 0 files
+        [EOF]
+        "#);
+    }
 }

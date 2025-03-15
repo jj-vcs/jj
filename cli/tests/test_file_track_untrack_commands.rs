@@ -18,24 +18,23 @@ use crate::common::TestEnvironment;
 fn test_track_untrack() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(repo_path.join("file1"), "initial").unwrap();
-    std::fs::write(repo_path.join("file1.bak"), "initial").unwrap();
-    std::fs::write(repo_path.join("file2.bak"), "initial").unwrap();
-    let target_dir = repo_path.join("target");
-    std::fs::create_dir(&target_dir).unwrap();
-    std::fs::write(target_dir.join("file2"), "initial").unwrap();
-    std::fs::write(target_dir.join("file3"), "initial").unwrap();
+    work_dir.write_file("file1", "initial");
+    work_dir.write_file("file1.bak", "initial");
+    work_dir.write_file("file2.bak", "initial");
+    let target_dir = work_dir.create_dir("target");
+    target_dir.write_file("file2", "initial");
+    target_dir.write_file("file3", "initial");
 
     // Run a command so all the files get tracked, then add "*.bak" to the ignore
     // patterns
-    test_env.run_jj_in(&repo_path, ["st"]).success();
-    std::fs::write(repo_path.join(".gitignore"), "*.bak\n").unwrap();
-    let files_before = test_env.run_jj_in(&repo_path, ["file", "list"]).success();
+    work_dir.run_jj(["st"]).success();
+    work_dir.write_file(".gitignore", "*.bak\n");
+    let files_before = work_dir.run_jj(["file", "list"]).success();
 
     // Errors out when not run at the head operation
-    let output = test_env.run_jj_in(&repo_path, ["file", "untrack", "file1", "--at-op", "@-"]);
+    let output = work_dir.run_jj(["file", "untrack", "file1", "--at-op", "@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: This command must be able to update the working copy.
@@ -44,7 +43,7 @@ fn test_track_untrack() {
     [exit status: 1]
     ");
     // Errors out when no path is specified
-    let output = test_env.run_jj_in(&repo_path, ["file", "untrack"]);
+    let output = work_dir.run_jj(["file", "untrack"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: the following required arguments were not provided:
@@ -57,7 +56,7 @@ fn test_track_untrack() {
     [exit status: 2]
     ");
     // Errors out when a specified file is not ignored
-    let output = test_env.run_jj_in(&repo_path, ["file", "untrack", "file1", "file1.bak"]);
+    let output = work_dir.run_jj(["file", "untrack", "file1", "file1.bak"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: 'file1' is not ignored.
@@ -66,25 +65,25 @@ fn test_track_untrack() {
     [EOF]
     [exit status: 1]
     ");
-    let files_after = test_env.run_jj_in(&repo_path, ["file", "list"]).success();
+    let files_after = work_dir.run_jj(["file", "list"]).success();
     // There should be no changes to the state when there was an error
     assert_eq!(files_after, files_before);
 
     // Can untrack a single file
     assert!(files_before.stdout.raw().contains("file1.bak\n"));
-    let output = test_env.run_jj_in(&repo_path, ["file", "untrack", "file1.bak"]);
+    let output = work_dir.run_jj(["file", "untrack", "file1.bak"]);
     insta::assert_snapshot!(output, @r"");
-    let files_after = test_env.run_jj_in(&repo_path, ["file", "list"]).success();
+    let files_after = work_dir.run_jj(["file", "list"]).success();
     // The file is no longer tracked
     assert!(!files_after.stdout.raw().contains("file1.bak"));
     // Other files that match the ignore pattern are not untracked
     assert!(files_after.stdout.raw().contains("file2.bak"));
     // The files still exist on disk
-    assert!(repo_path.join("file1.bak").exists());
-    assert!(repo_path.join("file2.bak").exists());
+    assert!(work_dir.root().join("file1.bak").exists());
+    assert!(work_dir.root().join("file2.bak").exists());
 
     // Errors out when multiple specified files are not ignored
-    let output = test_env.run_jj_in(&repo_path, ["file", "untrack", "target"]);
+    let output = work_dir.run_jj(["file", "untrack", "target"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     ------- stderr -------
     Error: 'target/file2' and 1 other files are not ignored.
@@ -95,10 +94,10 @@ fn test_track_untrack() {
     ");
 
     // Can untrack after adding to ignore patterns
-    std::fs::write(repo_path.join(".gitignore"), ".bak\ntarget/\n").unwrap();
-    let output = test_env.run_jj_in(&repo_path, ["file", "untrack", "target"]);
+    work_dir.write_file(".gitignore", ".bak\ntarget/\n");
+    let output = work_dir.run_jj(["file", "untrack", "target"]);
     insta::assert_snapshot!(output, @"");
-    let files_after = test_env.run_jj_in(&repo_path, ["file", "list"]).success();
+    let files_after = work_dir.run_jj(["file", "list"]).success();
     assert!(!files_after.stdout.raw().contains("target"));
 }
 
@@ -106,35 +105,35 @@ fn test_track_untrack() {
 fn test_track_untrack_sparse() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(repo_path.join("file1"), "contents").unwrap();
-    std::fs::write(repo_path.join("file2"), "contents").unwrap();
+    work_dir.write_file("file1", "contents");
+    work_dir.write_file("file2", "contents");
 
     // When untracking a file that's not included in the sparse working copy, it
     // doesn't need to be ignored (because it won't be automatically added
     // back).
-    let output = test_env.run_jj_in(&repo_path, ["file", "list"]);
+    let output = work_dir.run_jj(["file", "list"]);
     insta::assert_snapshot!(output, @r"
     file1
     file2
     [EOF]
     ");
-    test_env
-        .run_jj_in(&repo_path, ["sparse", "set", "--clear", "--add", "file1"])
+    work_dir
+        .run_jj(["sparse", "set", "--clear", "--add", "file1"])
         .success();
-    let output = test_env.run_jj_in(&repo_path, ["file", "untrack", "file2"]);
+    let output = work_dir.run_jj(["file", "untrack", "file2"]);
     insta::assert_snapshot!(output, @"");
-    let output = test_env.run_jj_in(&repo_path, ["file", "list"]);
+    let output = work_dir.run_jj(["file", "list"]);
     insta::assert_snapshot!(output, @r"
     file1
     [EOF]
     ");
     // Trying to manually track a file that's not included in the sparse working has
     // no effect. TODO: At least a warning would be useful
-    let output = test_env.run_jj_in(&repo_path, ["file", "track", "file2"]);
+    let output = work_dir.run_jj(["file", "track", "file2"]);
     insta::assert_snapshot!(output, @"");
-    let output = test_env.run_jj_in(&repo_path, ["file", "list"]);
+    let output = work_dir.run_jj(["file", "list"]);
     insta::assert_snapshot!(output, @r"
     file1
     [EOF]
@@ -146,23 +145,23 @@ fn test_auto_track() {
     let test_env = TestEnvironment::default();
     test_env.add_config(r#"snapshot.auto-track = 'glob:*.rs'"#);
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(repo_path.join("file1.rs"), "initial").unwrap();
-    std::fs::write(repo_path.join("file2.md"), "initial").unwrap();
-    std::fs::write(repo_path.join("file3.md"), "initial").unwrap();
+    work_dir.write_file("file1.rs", "initial");
+    work_dir.write_file("file2.md", "initial");
+    work_dir.write_file("file3.md", "initial");
 
     // Only configured paths get auto-tracked
-    let output = test_env.run_jj_in(&repo_path, ["file", "list"]);
+    let output = work_dir.run_jj(["file", "list"]);
     insta::assert_snapshot!(output, @r"
     file1.rs
     [EOF]
     ");
 
     // Can manually track paths
-    let output = test_env.run_jj_in(&repo_path, ["file", "track", "file3.md"]);
+    let output = work_dir.run_jj(["file", "track", "file3.md"]);
     insta::assert_snapshot!(output, @"");
-    let output = test_env.run_jj_in(&repo_path, ["file", "list"]);
+    let output = work_dir.run_jj(["file", "list"]);
     insta::assert_snapshot!(output, @r"
     file1.rs
     file3.md
@@ -170,28 +169,27 @@ fn test_auto_track() {
     ");
 
     // Can manually untrack paths
-    let output = test_env.run_jj_in(&repo_path, ["file", "untrack", "file3.md"]);
+    let output = work_dir.run_jj(["file", "untrack", "file3.md"]);
     insta::assert_snapshot!(output, @"");
-    let output = test_env.run_jj_in(&repo_path, ["file", "list"]);
+    let output = work_dir.run_jj(["file", "list"]);
     insta::assert_snapshot!(output, @r"
     file1.rs
     [EOF]
     ");
 
     // CWD-relative paths in `snapshot.auto-track` are evaluated from the repo root
-    let subdir = repo_path.join("sub");
-    std::fs::create_dir(&subdir).unwrap();
-    std::fs::write(subdir.join("file1.rs"), "initial").unwrap();
-    let output = test_env.run_jj_in(&subdir, ["file", "list"]);
+    let sub_dir = work_dir.create_dir("sub");
+    sub_dir.write_file("file1.rs", "initial");
+    let output = sub_dir.run_jj(["file", "list"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     ../file1.rs
     [EOF]
     ");
 
     // But `jj file track` wants CWD-relative paths
-    let output = test_env.run_jj_in(&subdir, ["file", "track", "file1.rs"]);
+    let output = sub_dir.run_jj(["file", "track", "file1.rs"]);
     insta::assert_snapshot!(output, @"");
-    let output = test_env.run_jj_in(&subdir, ["file", "list"]);
+    let output = sub_dir.run_jj(["file", "list"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     ../file1.rs
     file1.rs
@@ -204,26 +202,26 @@ fn test_track_ignored() {
     let test_env = TestEnvironment::default();
     test_env.add_config(r#"snapshot.auto-track = 'none()'"#);
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(repo_path.join(".gitignore"), "*.bak\n").unwrap();
-    std::fs::write(repo_path.join("file1"), "initial").unwrap();
-    std::fs::write(repo_path.join("file1.bak"), "initial").unwrap();
+    work_dir.write_file(".gitignore", "*.bak\n");
+    work_dir.write_file("file1", "initial");
+    work_dir.write_file("file1.bak", "initial");
 
     // Track an unignored path
-    let output = test_env.run_jj_in(&repo_path, ["file", "track", "file1"]);
+    let output = work_dir.run_jj(["file", "track", "file1"]);
     insta::assert_snapshot!(output, @"");
-    let output = test_env.run_jj_in(&repo_path, ["file", "list"]);
+    let output = work_dir.run_jj(["file", "list"]);
     insta::assert_snapshot!(output, @r"
     file1
     [EOF]
     ");
     // Track an ignored path
-    let output = test_env.run_jj_in(&repo_path, ["file", "track", "file1.bak"]);
+    let output = work_dir.run_jj(["file", "track", "file1.bak"]);
     insta::assert_snapshot!(output, @"");
     // TODO: We should teach `jj file track` to track ignored paths (possibly
     // requiring a flag)
-    let output = test_env.run_jj_in(&repo_path, ["file", "list"]);
+    let output = work_dir.run_jj(["file", "list"]);
     insta::assert_snapshot!(output, @r"
     file1
     [EOF]

@@ -194,11 +194,10 @@ fn test_resolve_workspace_directory() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
-    let subdir = work_dir.root().join("dir").join("subdir");
-    work_dir.create_dir_all(&subdir);
+    let sub_dir = work_dir.create_dir_all("dir/subdir");
 
     // Ancestor of cwd
-    let output = test_env.run_jj_in(&subdir, ["status"]);
+    let output = sub_dir.run_jj(["status"]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
     Working copy : qpvuntsm 230dd059 (empty) (no description set)
@@ -207,7 +206,7 @@ fn test_resolve_workspace_directory() {
     ");
 
     // Explicit subdirectory path
-    let output = test_env.run_jj_in(&subdir, ["status", "-R", "."]);
+    let output = sub_dir.run_jj(["status", "-R", "."]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: There is no jj repo in "."
@@ -216,7 +215,7 @@ fn test_resolve_workspace_directory() {
     "#);
 
     // Valid explicit path
-    let output = test_env.run_jj_in(&subdir, ["status", "-R", "../.."]);
+    let output = sub_dir.run_jj(["status", "-R", "../.."]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
     Working copy : qpvuntsm 230dd059 (empty) (no description set)
@@ -225,7 +224,7 @@ fn test_resolve_workspace_directory() {
     ");
 
     // "../../..".ancestors() contains "../..", but it should never be looked up.
-    let output = test_env.run_jj_in(&subdir, ["status", "-R", "../../.."]);
+    let output = sub_dir.run_jj(["status", "-R", "../../.."]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: There is no jj repo in "../../.."
@@ -273,8 +272,7 @@ fn test_bad_path() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
-    let subdir = work_dir.root().join("dir");
-    work_dir.create_dir_all(&subdir);
+    let sub_dir = work_dir.create_dir_all("dir");
 
     // cwd == workspace_root
     let output = work_dir.run_jj(["file", "show", "../out"]);
@@ -295,7 +293,7 @@ fn test_bad_path() {
     "#);
 
     // cwd != workspace_root, can't be parsed as repo-relative path
-    let output = test_env.run_jj_in(&subdir, ["file", "show", "../.."]);
+    let output = sub_dir.run_jj(["file", "show", "../.."]);
     insta::assert_snapshot!(output.normalize_backslash(), @r#"
     ------- stderr -------
     Error: Failed to parse fileset: Invalid file pattern
@@ -959,7 +957,8 @@ fn test_default_config() {
     ------- stderr -------
     Working copy now at: <change-id> <id> (empty) (no description set)
     Parent commit      : <change-id> <id> (empty) (no description set)
-    Warning: Name and email not configured. Until configured, your commits will be created with the empty identity, and can't be pushed to remotes. To configure, run:
+    Warning: Name and email not configured. Until configured, your commits will be created with the empty identity, and can't be pushed to remotes.
+    Hint: To configure, run:
       jj config set --user user.name "Some One"
       jj config set --user user.email "<user>@<host>"
     [EOF]
@@ -1006,7 +1005,8 @@ fn test_no_user_configured() {
     ------- stderr -------
     Working copy now at: qpvuntsm 7a7d6016 (empty) without name
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
-    Warning: Name not configured. Until configured, your commits will be created with the empty identity, and can't be pushed to remotes. To configure, run:
+    Warning: Name not configured. Until configured, your commits will be created with the empty identity, and can't be pushed to remotes.
+    Hint: To configure, run:
       jj config set --user user.name "Some One"
     [EOF]
     "#);
@@ -1018,7 +1018,8 @@ fn test_no_user_configured() {
     ------- stderr -------
     Working copy now at: qpvuntsm 906f8b89 (empty) without email
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
-    Warning: Email not configured. Until configured, your commits will be created with the empty identity, and can't be pushed to remotes. To configure, run:
+    Warning: Email not configured. Until configured, your commits will be created with the empty identity, and can't be pushed to remotes.
+    Hint: To configure, run:
       jj config set --user user.email "someone@example.com"
     [EOF]
     "#);
@@ -1031,7 +1032,8 @@ fn test_no_user_configured() {
     ------- stderr -------
     Working copy now at: qpvuntsm 57d3a489 (empty) without name and email
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
-    Warning: Name and email not configured. Until configured, your commits will be created with the empty identity, and can't be pushed to remotes. To configure, run:
+    Warning: Name and email not configured. Until configured, your commits will be created with the empty identity, and can't be pushed to remotes.
+    Hint: To configure, run:
       jj config set --user user.name "Some One"
       jj config set --user user.email "someone@example.com"
     [EOF]

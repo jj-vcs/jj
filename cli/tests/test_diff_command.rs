@@ -578,7 +578,7 @@ fn test_diff_relative_paths() {
     work_dir.write_file("dir1/subdir1/file3", "bar3\n");
     work_dir.write_file("dir2/file4", "bar4\n");
 
-    let sub_dir1 = test_env.work_dir("repo/dir1");
+    let sub_dir1 = work_dir.dir("dir1");
     let output = sub_dir1.run_jj(["diff"]);
     #[cfg(unix)]
     insta::assert_snapshot!(output, @r"

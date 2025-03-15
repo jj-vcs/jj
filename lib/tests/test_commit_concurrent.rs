@@ -41,7 +41,7 @@ fn count_non_merge_operations(repo: &Arc<ReadonlyRepo>) -> usize {
     num_ops
 }
 
-#[test_case(TestRepoBackend::Local ; "local backend")]
+#[test_case(TestRepoBackend::Simple ; "simple backend")]
 #[test_case(TestRepoBackend::Git ; "git backend")]
 fn test_commit_parallel(backend: TestRepoBackend) {
     // This loads a Repo instance and creates and commits many concurrent
@@ -71,7 +71,7 @@ fn test_commit_parallel(backend: TestRepoBackend) {
     assert_eq!(count_non_merge_operations(&repo), num_threads + 2);
 }
 
-#[test_case(TestRepoBackend::Local ; "local backend")]
+#[test_case(TestRepoBackend::Simple ; "simple backend")]
 #[test_case(TestRepoBackend::Git ; "git backend")]
 fn test_commit_parallel_instances(backend: TestRepoBackend) {
     // Like the test above but creates a new repo instance for every thread, which

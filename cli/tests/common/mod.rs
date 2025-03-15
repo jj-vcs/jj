@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod command_output;
 mod test_environment;
 
-pub use self::test_environment::CommandOutput;
+pub use self::command_output::CommandOutput;
 pub use self::test_environment::TestEnvironment;
 pub use self::test_environment::TestWorkDir;
 
@@ -38,16 +39,6 @@ pub fn force_interactive(cmd: &mut assert_cmd::Command) -> &mut assert_cmd::Comm
 /// Coerces the value type to serialize it as TOML.
 pub fn to_toml_value(value: impl Into<toml_edit::Value>) -> toml_edit::Value {
     value.into()
-}
-
-/// Returns a string with the last line removed.
-///
-/// Use this to remove the root error message containing platform-specific
-/// content for example.
-pub fn strip_last_line(s: &str) -> &str {
-    s.trim_end_matches('\n')
-        .rsplit_once('\n')
-        .map_or(s, |(h, _)| &s[..h.len() + 1])
 }
 
 pub fn create_commit(work_dir: &TestWorkDir, name: &str, parents: &[&str]) {

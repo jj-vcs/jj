@@ -619,7 +619,7 @@
             "properties": {
                 "backend": {
                     "type": "string",
-                    "enum": ["gpg", "none", "ssh"],
+                    "enum": ["gpg", "gpgsm", "none", "ssh"],
                     "description": "The backend to use for signing commits. The string `none` disables signing.",
                     "default": "none"
                 },
@@ -646,8 +646,23 @@
                                 },
                                 "allow-expired-keys": {
                                     "type": "boolean",
-                                    "description": "Whether to consider signatures generated with an expired key as invalid",
-                                    "default": true
+                                    "description": "Whether to consider signatures generated with an expired key as valid",
+                                    "default": false
+                                }
+                            }
+                        },
+                        "gpgsm": {
+                            "type": "object",
+                            "properties": {
+                                "program": {
+                                    "type": "string",
+                                    "description": "Path to the gpgsm program to be called",
+                                    "default": "gpgsm"
+                                },
+                                "allow-expired-keys": {
+                                    "type": "boolean",
+                                    "description": "Whether to consider signatures generated with an expired key as valid",
+                                    "default": false
                                 }
                             }
                         },

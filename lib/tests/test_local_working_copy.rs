@@ -122,7 +122,7 @@ fn test_root() {
     assert_eq!(new_tree.id(), repo.store().empty_merged_tree_id());
 }
 
-#[test_case(TestRepoBackend::Local ; "local backend")]
+#[test_case(TestRepoBackend::Simple ; "simple backend")]
 #[test_case(TestRepoBackend::Git ; "git backend")]
 fn test_checkout_file_transitions(backend: TestRepoBackend) {
     // Tests switching between commits where a certain path is of one type in one

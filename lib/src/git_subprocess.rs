@@ -105,6 +105,14 @@ impl<'a> GitSubprocessContext<'a> {
     /// Create the Git command
     fn create_command(&self) -> Command {
         let mut git_cmd = Command::new(self.git_executable_path);
+        // Hide console window on Windows (https://stackoverflow.com/a/60958956)
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
+            git_cmd.creation_flags(CREATE_NO_WINDOW);
+        }
+
         // TODO: here we are passing the full path to the git_dir, which can lead to UNC
         // bugs in Windows. The ideal way to do this is to pass the workspace
         // root to Command::current_dir and then pass a relative path to the git
@@ -180,6 +188,7 @@ impl<'a> GitSubprocessContext<'a> {
         if branches_to_prune.is_empty() {
             return Ok(());
         }
+        tracing::debug!(?branches_to_prune, "pruning branches");
         let mut command = self.create_command();
         command.stdout(Stdio::null());
         command.args(["branch", "--remotes", "--delete", "--"]);
@@ -415,6 +424,7 @@ fn parse_git_remote_show_default_branch(
         .lines()
         .map(|x| x.trim())
         .find(|x| x.starts_with_str("HEAD branch:"))
+        .inspect(|x| tracing::debug!(line = ?x.to_str_lossy(), "default branch"))
         .and_then(|x| x.split_str(" ").last().map(|y| y.trim()))
         .filter(|branch_name| branch_name != b"(unknown)")
         .map(|branch_name| branch_name.to_str())
@@ -454,6 +464,7 @@ fn parse_ref_pushes(stdout: &[u8]) -> Result<GitPushStats, GitSubprocessError> {
         .take_while(|line| line != b"Done")
         .enumerate()
     {
+        tracing::debug!("response #{idx}: {}", line.to_str_lossy());
         let (flag, reference, summary) = line.split_str("\t").collect_tuple().ok_or_else(|| {
             GitSubprocessError::External(format!(
                 "Line #{idx} of git-push has unknown format: {}",

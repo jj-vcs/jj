@@ -28,6 +28,10 @@ behavior = "keep"
 allow-expired-keys = false
 program = "gpg"
 
+[signing.backends.gpgsm]
+allow-expired-keys = false
+program = "gpgsm"
+
 [signing.backends.ssh]
 # allowed-signers = <unknown>
 program = "ssh-keygen"

@@ -1176,12 +1176,42 @@ to change the program used or specify a path to `gpg` explicitly you can set:
 backends.gpg.program = "gpg2"
 ```
 
-Also by default the gpg backend will ignore key expiry when verifying commit signatures.
-To consider expired keys as invalid you can set:
+Also by default the gpg backend will consider key expiry when verifying commit signatures.
+To consider expired keys as valid you can set:
 
 ```toml
 [signing]
-backends.gpg.allow-expired-keys = false
+backends.gpg.allow-expired-keys = true
+```
+
+#### PKCS#12 Certificates
+
+PKCS#12 certificates can be used to sign commits using the `gpgsm` backend.
+
+```toml
+[signing]
+behavior = "own"
+backend = "gpgsm"
+## You can set `key` to anything accepted by `gpgsm -u`
+## If not set then defaults to the key associated with `user.email`
+# key = "4ED556E9729E000F"
+# key = "signing@example.com"
+```
+
+By default the gpgsm backend will look for a `gpgsm` binary on your path. If you want
+to change the program used or specify a path to `gpgsm` explicitly you can set:
+
+```toml
+[signing]
+backends.gpgsm.program = "gpgsm"
+```
+
+Also by default the gpgsm backend will consider key expiry when verifying commit signatures.
+To consider expired keys as valid you can set:
+
+```toml
+[signing]
+backends.gpgsm.allow-expired-keys = true
 ```
 
 ### SSH Signing

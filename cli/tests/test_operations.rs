@@ -1701,7 +1701,8 @@ fn test_op_diff_patch() {
     let output = test_env.run_jj_in(&repo_path, ["abandon"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Abandoned commit mzvwutvl 9f4fb57f (empty) (no description set)
+    Abandoned 1 commits:
+      mzvwutvl 9f4fb57f (empty) (no description set)
     Working copy now at: yqosqzyt 33f321c4 (empty) (no description set)
     Parent commit      : qpvuntsm 2ac85fd1 (no description set)
     [EOF]
@@ -2454,7 +2455,8 @@ fn test_op_show_patch() {
     let output = test_env.run_jj_in(&repo_path, ["abandon"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Abandoned commit mzvwutvl 9f4fb57f (empty) (no description set)
+    Abandoned 1 commits:
+      mzvwutvl 9f4fb57f (empty) (no description set)
     Working copy now at: yqosqzyt 33f321c4 (empty) (no description set)
     Parent commit      : qpvuntsm 2ac85fd1 (no description set)
     [EOF]

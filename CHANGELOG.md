@@ -17,6 +17,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The `git.push-branch-prefix` config has been removed in favor of
   `git.push-bookmark-prefix`.
 
+* `jj abandon` no longer supports `--summary` to suppress the list of abandoned
+  commits. The list won't show more than 10 commits to not clutter the console.
+
 * `jj unsquash` has been removed in favor of `jj squash` and
   `jj diffedit --restore-descendants`.
 
@@ -34,9 +37,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Deprecations
 
+* `git.subprocess = false` has been deprecated, and the old `libgit2`
+  code path for fetches and pushes will be removed entirely in 0.XX.
+  Please report any remaining issues you have with the Git
+  subprocessing path.
+
 * `core.watchman.register_snapshot_trigger` has been renamed to `core.watchman.register-snapshot-trigger` for consistency with other configuration options.
 
+* `jj backout` is deprecated in favor of `jj revert`.
+
 ### New features
+
+* `jj sign` can now sign with PKCS#12 certificates through the `gpgsm` backend.
 
 * `jj sign` will automatically use the gpg key associated with the author's email
   in the absence of a `signing.key` configuration.
@@ -67,10 +79,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj bookmark move --to/--from` can now be abbreviated to `jj bookmark move -t/-f`
 
+* A new command `jj revert` is added, which is similar to `jj backout` but
+  adds the `--destination`, `--insert-after`, and `--insert-before` options to
+  customize the location of reverted commits.
+
 ### Fixed bugs
 
 * `jj log -p --stat` now shows diff stats as well as the default color-words/git
   diff output. [#5986](https://github.com/jj-vcs/jj/issues/5986)
+
+* The built-in diff editor now correctly handles deleted files.
+  [#3702](https://github.com/jj-vcs/jj/issues/3702)
+
+* The built-in diff editor now correctly retains the executable bit on newly
+  added files when splitting. [#3846](https://github.com/jj-vcs/jj/issues/3846)
 
 ## [0.27.0] - 2025-03-05
 

@@ -567,17 +567,12 @@ impl CommandHelper {
                             &desired_wc_commit,
                             &checkout_options,
                         )?;
-
-                        // TODO: Share this code with new/checkout somehow.
-                        if let Some(mut formatter) = ui.status_formatter() {
-                            write!(formatter, "Working copy now at: ")?;
-                            formatter.with_label("working_copy", |fmt| {
-                                workspace_command.write_commit_summary(fmt, &desired_wc_commit)
-                            })?;
-                            writeln!(formatter)?;
-                        }
-                        print_checkout_stats(ui, stats, &desired_wc_commit)?;
-
+                        workspace_command.print_updated_working_copy_stats(
+                            ui,
+                            Some(&stale_wc_commit),
+                            &desired_wc_commit,
+                            &stats,
+                        )?;
                         writeln!(
                             ui.status(),
                             "Updated working copy to fresh commit {}",
@@ -2020,6 +2015,16 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
             new_commit,
             &checkout_options,
         )?;
+        self.print_updated_working_copy_stats(ui, maybe_old_commit, new_commit, &stats)
+    }
+
+    fn print_updated_working_copy_stats(
+        &self,
+        ui: &Ui,
+        maybe_old_commit: Option<&Commit>,
+        new_commit: &Commit,
+        stats: &CheckoutStats,
+    ) -> Result<(), CommandError> {
         if Some(new_commit) != maybe_old_commit {
             if let Some(mut formatter) = ui.status_formatter() {
                 let template = self.commit_summary_template();
@@ -2136,25 +2141,27 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
         let missing_user_name = settings.user_name().is_empty();
         let missing_user_mail = settings.user_email().is_empty();
         if missing_user_name || missing_user_mail {
-            let mut writer = ui.warning_default();
             let not_configured_msg = match (missing_user_name, missing_user_mail) {
                 (true, true) => "Name and email not configured.",
                 (true, false) => "Name not configured.",
                 (false, true) => "Email not configured.",
                 _ => unreachable!(),
             };
-            write!(writer, "{not_configured_msg} ")?;
             writeln!(
-                writer,
-                "Until configured, your commits will be created with the empty identity, and \
-                 can't be pushed to remotes. To configure, run:",
+                ui.warning_default(),
+                "{not_configured_msg} Until configured, your commits will be created with the \
+                 empty identity, and can't be pushed to remotes."
             )?;
+            writeln!(ui.hint_default(), "To configure, run:")?;
             if missing_user_name {
-                writeln!(writer, r#"  jj config set --user user.name "Some One""#)?;
+                writeln!(
+                    ui.hint_no_heading(),
+                    r#"  jj config set --user user.name "Some One""#
+                )?;
             }
             if missing_user_mail {
                 writeln!(
-                    writer,
+                    ui.hint_no_heading(),
                     r#"  jj config set --user user.email "someone@example.com""#
                 )?;
             }
@@ -2595,6 +2602,25 @@ fn update_stale_working_copy(
     Ok(stats)
 }
 
+/// Prints a list of commits by the given summary template. The list may be
+/// elided. Use this to show created, rewritten, or abandoned commits.
+pub fn print_updated_commits<'a>(
+    formatter: &mut dyn Formatter,
+    template: &TemplateRenderer<Commit>,
+    commits: impl IntoIterator<Item = &'a Commit>,
+) -> io::Result<()> {
+    let mut commits = commits.into_iter().fuse();
+    for commit in commits.by_ref().take(10) {
+        write!(formatter, "  ")?;
+        template.format(commit, formatter)?;
+        writeln!(formatter)?;
+    }
+    if commits.next().is_some() {
+        writeln!(formatter, "  ...")?;
+    }
+    Ok(())
+}
+
 #[instrument(skip_all)]
 pub fn print_conflicted_paths(
     conflicts: Vec<(RepoPathBuf, BackendResult<MergedTreeValue>)>,
@@ -2764,7 +2790,7 @@ pub fn print_snapshot_stats(
 
 pub fn print_checkout_stats(
     ui: &Ui,
-    stats: CheckoutStats,
+    stats: &CheckoutStats,
     new_commit: &Commit,
 ) -> Result<(), std::io::Error> {
     if stats.added_files > 0 || stats.updated_files > 0 || stats.removed_files > 0 {
@@ -3928,10 +3954,6 @@ fn map_clap_cli_error(err: clap::Error, ui: &Ui, config: &StackedConfig) -> Comm
                     .hinted(format!(
                         r#"You can configure `aliases.{cmd} = ["git", "{cmd}"]` if you want `jj {cmd}` to work and always use the Git backend."#
                     ));
-            }
-            "revert" => {
-                return CommandError::from(err)
-                    .hinted("You probably want `jj backout` or `jj restore`.");
             }
             _ => {}
         }

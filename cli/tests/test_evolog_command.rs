@@ -19,20 +19,18 @@ use crate::common::TestEnvironment;
 fn test_evolog_with_or_without_diff() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(repo_path.join("file1"), "foo\n").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["new", "-m", "my description"])
+    work_dir.write_file("file1", "foo\n");
+    work_dir.run_jj(["new", "-m", "my description"]).success();
+    work_dir.write_file("file1", "foo\nbar\n");
+    work_dir.write_file("file2", "foo\n");
+    work_dir
+        .run_jj(["rebase", "-r", "@", "-d", "root()"])
         .success();
-    std::fs::write(repo_path.join("file1"), "foo\nbar\n").unwrap();
-    std::fs::write(repo_path.join("file2"), "foo\n").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["rebase", "-r", "@", "-d", "root()"])
-        .success();
-    std::fs::write(repo_path.join("file1"), "resolved\n").unwrap();
+    work_dir.write_file("file1", "resolved\n");
 
-    let output = test_env.run_jj_in(&repo_path, ["evolog"]);
+    let output = work_dir.run_jj(["evolog"]);
     insta::assert_snapshot!(output, @r"
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:10 66b42ad3
     │  my description
@@ -46,7 +44,7 @@ fn test_evolog_with_or_without_diff() {
     ");
 
     // Color
-    let output = test_env.run_jj_in(&repo_path, ["--color=always", "evolog"]);
+    let output = work_dir.run_jj(["--color=always", "evolog"]);
     insta::assert_snapshot!(output, @r"
     [1m[38;5;2m@[0m  [1m[38;5;13mr[38;5;8mlvkpnrz[39m [38;5;3mtest.user@example.com[39m [38;5;14m2001-02-03 08:05:10[39m [38;5;12m6[38;5;8m6b42ad3[39m[0m
     │  [1mmy description[0m
@@ -61,7 +59,7 @@ fn test_evolog_with_or_without_diff() {
 
     // There should be no diff caused by the rebase because it was a pure rebase
     // (even even though it resulted in a conflict).
-    let output = test_env.run_jj_in(&repo_path, ["evolog", "-p"]);
+    let output = work_dir.run_jj(["evolog", "-p"]);
     insta::assert_snapshot!(output, @r"
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:10 66b42ad3
     │  my description
@@ -88,7 +86,7 @@ fn test_evolog_with_or_without_diff() {
     ");
 
     // Test `--limit`
-    let output = test_env.run_jj_in(&repo_path, ["evolog", "--limit=2"]);
+    let output = work_dir.run_jj(["evolog", "--limit=2"]);
     insta::assert_snapshot!(output, @r"
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:10 66b42ad3
     │  my description
@@ -98,7 +96,7 @@ fn test_evolog_with_or_without_diff() {
     ");
 
     // Test `--no-graph`
-    let output = test_env.run_jj_in(&repo_path, ["evolog", "--no-graph"]);
+    let output = work_dir.run_jj(["evolog", "--no-graph"]);
     insta::assert_snapshot!(output, @r"
     rlvkpnrz test.user@example.com 2001-02-03 08:05:10 66b42ad3
     my description
@@ -112,7 +110,7 @@ fn test_evolog_with_or_without_diff() {
     ");
 
     // Test `--git` format, and that it implies `-p`
-    let output = test_env.run_jj_in(&repo_path, ["evolog", "--no-graph", "--git"]);
+    let output = work_dir.run_jj(["evolog", "--no-graph", "--git"]);
     insta::assert_snapshot!(output, @r"
     rlvkpnrz test.user@example.com 2001-02-03 08:05:10 66b42ad3
     my description
@@ -157,21 +155,19 @@ fn test_evolog_with_or_without_diff() {
 fn test_evolog_with_custom_symbols() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(repo_path.join("file1"), "foo\n").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["new", "-m", "my description"])
+    work_dir.write_file("file1", "foo\n");
+    work_dir.run_jj(["new", "-m", "my description"]).success();
+    work_dir.write_file("file1", "foo\nbar\n");
+    work_dir.write_file("file2", "foo\n");
+    work_dir
+        .run_jj(["rebase", "-r", "@", "-d", "root()"])
         .success();
-    std::fs::write(repo_path.join("file1"), "foo\nbar\n").unwrap();
-    std::fs::write(repo_path.join("file2"), "foo\n").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["rebase", "-r", "@", "-d", "root()"])
-        .success();
-    std::fs::write(repo_path.join("file1"), "resolved\n").unwrap();
+    work_dir.write_file("file1", "resolved\n");
 
     let config = "templates.log_node='if(current_working_copy, \"$\", \"┝\")'";
-    let output = test_env.run_jj_in(&repo_path, ["evolog", "--config", config]);
+    let output = work_dir.run_jj(["evolog", "--config", config]);
 
     insta::assert_snapshot!(output, @r"
     $  rlvkpnrz test.user@example.com 2001-02-03 08:05:10 66b42ad3
@@ -190,20 +186,17 @@ fn test_evolog_with_custom_symbols() {
 fn test_evolog_word_wrap() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
     let render = |args: &[&str], columns: u32, word_wrap: bool| {
         let word_wrap = to_toml_value(word_wrap);
-        test_env.run_jj_with(|cmd| {
-            cmd.current_dir(&repo_path)
-                .args(args)
+        work_dir.run_jj_with(|cmd| {
+            cmd.args(args)
                 .arg(format!("--config=ui.log-word-wrap={word_wrap}"))
                 .env("COLUMNS", columns.to_string())
         })
     };
 
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m", "first"])
-        .success();
+    work_dir.run_jj(["describe", "-m", "first"]).success();
 
     // ui.log-word-wrap option applies to both graph/no-graph outputs
     insta::assert_snapshot!(render(&["evolog"], 40, false), @r"
@@ -244,58 +237,43 @@ fn test_evolog_word_wrap() {
 fn test_evolog_squash() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m", "first"])
-        .success();
-    std::fs::write(repo_path.join("file1"), "foo\n").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["new", "-m", "second"])
-        .success();
-    std::fs::write(repo_path.join("file1"), "foo\nbar\n").unwrap();
+    work_dir.run_jj(["describe", "-m", "first"]).success();
+    work_dir.write_file("file1", "foo\n");
+    work_dir.run_jj(["new", "-m", "second"]).success();
+    work_dir.write_file("file1", "foo\nbar\n");
 
     // not partial
-    test_env
-        .run_jj_in(&repo_path, ["squash", "-m", "squashed 1"])
-        .success();
+    work_dir.run_jj(["squash", "-m", "squashed 1"]).success();
 
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m", "third"])
-        .success();
-    std::fs::write(repo_path.join("file1"), "foo\nbar\nbaz\n").unwrap();
-    std::fs::write(repo_path.join("file2"), "foo2\n").unwrap();
-    std::fs::write(repo_path.join("file3"), "foo3\n").unwrap();
+    work_dir.run_jj(["describe", "-m", "third"]).success();
+    work_dir.write_file("file1", "foo\nbar\nbaz\n");
+    work_dir.write_file("file2", "foo2\n");
+    work_dir.write_file("file3", "foo3\n");
 
     // partial
-    test_env
-        .run_jj_in(&repo_path, ["squash", "-m", "squashed 2", "file1"])
+    work_dir
+        .run_jj(["squash", "-m", "squashed 2", "file1"])
         .success();
 
-    test_env
-        .run_jj_in(&repo_path, ["new", "-m", "fourth"])
-        .success();
-    std::fs::write(repo_path.join("file4"), "foo4\n").unwrap();
+    work_dir.run_jj(["new", "-m", "fourth"]).success();
+    work_dir.write_file("file4", "foo4\n");
 
-    test_env
-        .run_jj_in(&repo_path, ["new", "-m", "fifth"])
-        .success();
-    std::fs::write(repo_path.join("file5"), "foo5\n").unwrap();
+    work_dir.run_jj(["new", "-m", "fifth"]).success();
+    work_dir.write_file("file5", "foo5\n");
 
     // multiple sources
-    test_env
-        .run_jj_in(
-            &repo_path,
-            [
-                "squash",
-                "-msquashed 3",
-                "--from=description('fourth')|description('fifth')",
-                "--into=description('squash')",
-            ],
-        )
+    work_dir
+        .run_jj([
+            "squash",
+            "-msquashed 3",
+            "--from=description('fourth')|description('fifth')",
+            "--into=description('squash')",
+        ])
         .success();
 
-    let output = test_env.run_jj_in(&repo_path, ["evolog", "-p", "-r", "description('squash')"]);
+    let output = work_dir.run_jj(["evolog", "-p", "-r", "description('squash')"]);
     insta::assert_snapshot!(output, @r"
     ○      qpvuntsm test.user@example.com 2001-02-03 08:05:15 d49749bf
     ├─┬─╮  squashed 3
@@ -356,9 +334,9 @@ fn test_evolog_squash() {
 fn test_evolog_with_no_template() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    let output = test_env.run_jj_in(&repo_path, ["evolog", "-T"]);
+    let output = work_dir.run_jj(["evolog", "-T"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: a value is required for '--template <TEMPLATE>' but none was supplied
@@ -392,18 +370,12 @@ fn test_evolog_with_no_template() {
 fn test_evolog_reversed_no_graph() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m", "a"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m", "b"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m", "c"])
-        .success();
-    let output = test_env.run_jj_in(&repo_path, ["evolog", "--reversed", "--no-graph"]);
+    work_dir.run_jj(["describe", "-m", "a"]).success();
+    work_dir.run_jj(["describe", "-m", "b"]).success();
+    work_dir.run_jj(["describe", "-m", "c"]).success();
+    let output = work_dir.run_jj(["evolog", "--reversed", "--no-graph"]);
     insta::assert_snapshot!(output, @r"
     qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 230dd059
     (empty) (no description set)
@@ -416,10 +388,7 @@ fn test_evolog_reversed_no_graph() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(
-        &repo_path,
-        ["evolog", "--limit=2", "--reversed", "--no-graph"],
-    );
+    let output = work_dir.run_jj(["evolog", "--limit=2", "--reversed", "--no-graph"]);
     insta::assert_snapshot!(output, @r"
     qpvuntsm hidden test.user@example.com 2001-02-03 08:05:09 b4584f54
     (empty) b
@@ -433,41 +402,29 @@ fn test_evolog_reversed_no_graph() {
 fn test_evolog_reverse_with_graph() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m", "a"])
+    work_dir.run_jj(["describe", "-m", "a"]).success();
+    work_dir.run_jj(["describe", "-m", "b"]).success();
+    work_dir.run_jj(["describe", "-m", "c"]).success();
+    work_dir
+        .run_jj(["new", "-r", "description(c)", "-m", "d"])
         .success();
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m", "b"])
+    work_dir
+        .run_jj(["new", "-r", "description(c)", "-m", "e"])
         .success();
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m", "c"])
+    work_dir
+        .run_jj([
+            "squash",
+            "--from",
+            "description(d)|description(e)",
+            "--to",
+            "description(c)",
+            "-m",
+            "c+d+e",
+        ])
         .success();
-    test_env
-        .run_jj_in(&repo_path, ["new", "-r", "description(c)", "-m", "d"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["new", "-r", "description(c)", "-m", "e"])
-        .success();
-    test_env
-        .run_jj_in(
-            &repo_path,
-            [
-                "squash",
-                "--from",
-                "description(d)|description(e)",
-                "--to",
-                "description(c)",
-                "-m",
-                "c+d+e",
-            ],
-        )
-        .success();
-    let output = test_env.run_jj_in(
-        &repo_path,
-        ["evolog", "-r", "description(c+d+e)", "--reversed"],
-    );
+    let output = work_dir.run_jj(["evolog", "-r", "description(c+d+e)", "--reversed"]);
     insta::assert_snapshot!(output, @r"
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 230dd059
     │  (empty) (no description set)
@@ -486,10 +443,7 @@ fn test_evolog_reverse_with_graph() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(
-        &repo_path,
-        ["evolog", "-rdescription(c+d+e)", "--limit=3", "--reversed"],
-    );
+    let output = work_dir.run_jj(["evolog", "-rdescription(c+d+e)", "--limit=3", "--reversed"]);
     insta::assert_snapshot!(output, @r"
     ○  mzvwutvl hidden test.user@example.com 2001-02-03 08:05:11 280cbb6e
     │  (empty) d

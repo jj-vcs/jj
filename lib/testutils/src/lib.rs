@@ -40,7 +40,6 @@ use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
 use jj_lib::config::StackedConfig;
 use jj_lib::git_backend::GitBackend;
-use jj_lib::local_backend::LocalBackend;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::MutableRepo;
@@ -55,6 +54,7 @@ use jj_lib::rewrite::RebasedCommit;
 use jj_lib::secret_backend::SecretBackend;
 use jj_lib::settings::UserSettings;
 use jj_lib::signing::Signer;
+use jj_lib::simple_backend::SimpleBackend;
 use jj_lib::store::Store;
 use jj_lib::transaction::Transaction;
 use jj_lib::tree::Tree;
@@ -135,6 +135,16 @@ pub fn user_settings() -> UserSettings {
     UserSettings::from_config(base_user_config()).unwrap()
 }
 
+/// Panic if `CI` environment variable is set to a non-empty value
+///
+/// Most CI environments set this variable automatically. See e.g.
+/// <https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/store-information-in-variables#default-environment-variables>
+#[track_caller]
+pub fn ensure_running_outside_ci(reason: &str) {
+    let running_in_ci = std::env::var("CI").is_ok_and(|value| !value.is_empty());
+    assert!(!running_in_ci, "Running in CI, {reason}.");
+}
+
 #[derive(Debug)]
 pub struct TestEnvironment {
     temp_dir: TempDir,
@@ -189,7 +199,7 @@ pub struct TestRepo {
 #[derive(PartialEq, Eq, Copy, Clone)]
 pub enum TestRepoBackend {
     Git,
-    Local,
+    Simple,
     Test,
 }
 
@@ -202,7 +212,7 @@ impl TestRepoBackend {
     ) -> Result<Box<dyn Backend>, BackendInitError> {
         match self {
             TestRepoBackend::Git => Ok(Box::new(GitBackend::init_internal(settings, store_path)?)),
-            TestRepoBackend::Local => Ok(Box::new(LocalBackend::init(store_path))),
+            TestRepoBackend::Simple => Ok(Box::new(SimpleBackend::init(store_path))),
             TestRepoBackend::Test => Ok(Box::new(env.test_backend_factory.init(store_path))),
         }
     }

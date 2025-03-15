@@ -14,7 +14,7 @@
 
 syntax = "proto3";
 
-package local_store;
+package simple_store;
 
 message TreeValue {
   message File {

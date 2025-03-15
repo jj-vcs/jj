@@ -102,7 +102,6 @@ testutils = { workspace = true, optional = true }
 libc = { workspace = true }
 
 [dev-dependencies]
-anyhow = { workspace = true }
 assert_cmd = { workspace = true }
 assert_matches = { workspace = true }
 async-trait = { workspace = true }

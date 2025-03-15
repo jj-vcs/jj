@@ -616,6 +616,7 @@ fn test_workspaces_conflicting_edits() {
     Concurrent modification detected, resolving automatically.
     Rebased 1 descendant commits onto commits rewritten by other operation
     Working copy now at: pmmvwywv?? e82cd4ee (empty) (no description set)
+    Parent commit      : qpvuntsm d4124476 (no description set)
     Added 0 files, modified 1 files, removed 0 files
     Updated working copy to fresh commit e82cd4ee8faa
     [EOF]
@@ -703,6 +704,7 @@ fn test_workspaces_updated_by_other() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy now at: pmmvwywv e82cd4ee (empty) (no description set)
+    Parent commit      : qpvuntsm d4124476 (no description set)
     Added 0 files, modified 1 files, removed 0 files
     Updated working copy to fresh commit e82cd4ee8faa
     [EOF]
@@ -774,6 +776,7 @@ fn test_workspaces_updated_by_other_automatic() {
     [EOF]
     ------- stderr -------
     Working copy now at: pmmvwywv e82cd4ee (empty) (no description set)
+    Parent commit      : qpvuntsm d4124476 (no description set)
     Added 0 files, modified 1 files, removed 0 files
     Updated working copy to fresh commit e82cd4ee8faa
     [EOF]

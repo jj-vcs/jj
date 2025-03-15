@@ -18,7 +18,7 @@ use std::path::Path;
 fn main() -> Result<()> {
     let input = [
         "git_store.proto",
-        "local_store.proto",
+        "simple_store.proto",
         "op_store.proto",
         "working_copy.proto",
     ];

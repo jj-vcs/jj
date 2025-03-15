@@ -23,12 +23,7 @@ use jj_lib::file_util::try_symlink;
 use crate::common::to_toml_value;
 use crate::common::TestEnvironment;
 
-/// Set up a repo where the `jj fix` command uses the fake editor with the given
-/// flags.
-fn init_with_fake_formatter(args: &[&str]) -> (TestEnvironment, PathBuf) {
-    let test_env = TestEnvironment::default();
-    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+fn set_up_fake_formatter(test_env: &TestEnvironment, args: &[&str]) {
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     assert!(formatter_path.is_file());
     test_env.add_config(formatdoc! {"
@@ -43,17 +38,16 @@ fn init_with_fake_formatter(args: &[&str]) -> (TestEnvironment, PathBuf) {
                 .copied()
         )
     });
-    (test_env, repo_path)
 }
 
 #[test]
 fn test_config_no_tools() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(repo_path.join("file"), "content\n").unwrap();
-    let output = test_env.run_jj_in(&repo_path, ["fix"]);
+    work_dir.write_file("file", "content\n");
+    let output = work_dir.run_jj(["fix"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Config error: No `fix.tools` are configured
@@ -62,7 +56,7 @@ fn test_config_no_tools() {
     [exit status: 1]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     content
     [EOF]
@@ -73,7 +67,7 @@ fn test_config_no_tools() {
 fn test_config_multiple_tools() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     assert!(formatter_path.is_file());
     let formatter = to_toml_value(formatter_path.to_str().unwrap());
@@ -89,23 +83,23 @@ fn test_config_multiple_tools() {
         "###,
     ));
 
-    std::fs::write(repo_path.join("foo"), "Foo\n").unwrap();
-    std::fs::write(repo_path.join("bar"), "Bar\n").unwrap();
-    std::fs::write(repo_path.join("baz"), "Baz\n").unwrap();
+    work_dir.write_file("foo", "Foo\n");
+    work_dir.write_file("bar", "Bar\n");
+    work_dir.write_file("baz", "Baz\n");
 
-    test_env.run_jj_in(&repo_path, ["fix"]).success();
+    work_dir.run_jj(["fix"]).success();
 
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "foo", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "foo", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     FOO
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "bar", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "bar", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     bar
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "baz", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "baz", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     Baz
     [EOF]
@@ -116,7 +110,7 @@ fn test_config_multiple_tools() {
 fn test_config_multiple_tools_with_same_name() {
     let mut test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     assert!(formatter_path.is_file());
     let formatter = to_toml_value(formatter_path.to_str().unwrap());
@@ -135,10 +129,10 @@ fn test_config_multiple_tools_with_same_name() {
         "###,
     ));
 
-    std::fs::write(repo_path.join("foo"), "Foo\n").unwrap();
-    std::fs::write(repo_path.join("bar"), "Bar\n").unwrap();
+    work_dir.write_file("foo", "Foo\n");
+    work_dir.write_file("bar", "Bar\n");
 
-    let output = test_env.run_jj_in(&repo_path, ["fix"]);
+    let output = work_dir.run_jj(["fix"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Config error: Configuration cannot be parsed as TOML document
@@ -156,12 +150,13 @@ fn test_config_multiple_tools_with_same_name() {
     ");
 
     test_env.set_config_path("/dev/null");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "foo", "-r", "@"]);
+    let work_dir = test_env.work_dir("repo");
+    let output = work_dir.run_jj(["file", "show", "foo", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     Foo
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "bar", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "bar", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     Bar
     [EOF]
@@ -172,7 +167,7 @@ fn test_config_multiple_tools_with_same_name() {
 fn test_config_disabled_tools() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     assert!(formatter_path.is_file());
     let formatter = to_toml_value(formatter_path.to_str().unwrap());
@@ -195,23 +190,23 @@ fn test_config_disabled_tools() {
         "###
     ));
 
-    std::fs::write(repo_path.join("foo"), "Foo\n").unwrap();
-    std::fs::write(repo_path.join("bar"), "Bar\n").unwrap();
-    std::fs::write(repo_path.join("baz"), "Baz\n").unwrap();
+    work_dir.write_file("foo", "Foo\n");
+    work_dir.write_file("bar", "Bar\n");
+    work_dir.write_file("baz", "Baz\n");
 
-    test_env.run_jj_in(&repo_path, ["fix"]).success();
+    work_dir.run_jj(["fix"]).success();
 
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "foo", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "foo", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     FOO
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "bar", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "bar", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     bar
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "baz", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "baz", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     Baz
     [EOF]
@@ -222,7 +217,7 @@ fn test_config_disabled_tools() {
 fn test_config_disabled_tools_warning_when_all_tools_are_disabled() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     assert!(formatter_path.is_file());
     let formatter = to_toml_value(formatter_path.to_str().unwrap());
@@ -235,9 +230,9 @@ fn test_config_disabled_tools_warning_when_all_tools_are_disabled() {
         "###
     ));
 
-    std::fs::write(repo_path.join("bar"), "Bar\n").unwrap();
+    work_dir.write_file("bar", "Bar\n");
 
-    let output = test_env.run_jj_in(&repo_path, ["fix"]);
+    let output = work_dir.run_jj(["fix"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Config error: At least one entry of `fix.tools` must be enabled.
@@ -251,7 +246,7 @@ fn test_config_disabled_tools_warning_when_all_tools_are_disabled() {
 fn test_config_tables_overlapping_patterns() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     assert!(formatter_path.is_file());
     let formatter = to_toml_value(formatter_path.to_str().unwrap());
@@ -268,24 +263,24 @@ fn test_config_tables_overlapping_patterns() {
         "###,
     ));
 
-    std::fs::write(repo_path.join("foo"), "foo\n").unwrap();
-    std::fs::write(repo_path.join("bar"), "bar\n").unwrap();
-    std::fs::write(repo_path.join("baz"), "baz\n").unwrap();
+    work_dir.write_file("foo", "foo\n");
+    work_dir.write_file("bar", "bar\n");
+    work_dir.write_file("baz", "baz\n");
 
-    test_env.run_jj_in(&repo_path, ["fix"]).success();
+    work_dir.run_jj(["fix"]).success();
 
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "foo", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "foo", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     foo
     tool-1[EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "bar", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "bar", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     bar
     tool-1
     tool-2[EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "baz", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "baz", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     baz
     tool-2[EOF]
@@ -296,7 +291,7 @@ fn test_config_tables_overlapping_patterns() {
 fn test_config_tables_all_commands_missing() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
     test_env.add_config(
         r###"
         [fix.tools.my-tool-missing-command-1]
@@ -307,9 +302,9 @@ fn test_config_tables_all_commands_missing() {
         "###,
     );
 
-    std::fs::write(repo_path.join("foo"), "foo\n").unwrap();
+    work_dir.write_file("foo", "foo\n");
 
-    let output = test_env.run_jj_in(&repo_path, ["fix"]);
+    let output = work_dir.run_jj(["fix"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     ------- stderr -------
     Config error: Invalid type or value for fix.tools.my-tool-missing-command-1
@@ -321,7 +316,7 @@ fn test_config_tables_all_commands_missing() {
     [exit status: 1]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "foo", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "foo", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     foo
     [EOF]
@@ -332,7 +327,7 @@ fn test_config_tables_all_commands_missing() {
 fn test_config_tables_some_commands_missing() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     assert!(formatter_path.is_file());
     let formatter = to_toml_value(formatter_path.to_str().unwrap());
@@ -347,9 +342,9 @@ fn test_config_tables_some_commands_missing() {
         "###,
     ));
 
-    std::fs::write(repo_path.join("foo"), "foo\n").unwrap();
+    work_dir.write_file("foo", "foo\n");
 
-    let output = test_env.run_jj_in(&repo_path, ["fix"]);
+    let output = work_dir.run_jj(["fix"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     ------- stderr -------
     Config error: Invalid type or value for fix.tools.my-tool-missing-command
@@ -361,7 +356,7 @@ fn test_config_tables_some_commands_missing() {
     [exit status: 1]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "foo", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "foo", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     foo
     [EOF]
@@ -372,7 +367,7 @@ fn test_config_tables_some_commands_missing() {
 fn test_config_tables_empty_patterns_list() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     assert!(formatter_path.is_file());
     let formatter = to_toml_value(formatter_path.to_str().unwrap());
@@ -384,9 +379,9 @@ fn test_config_tables_empty_patterns_list() {
         "###,
     ));
 
-    std::fs::write(repo_path.join("foo"), "foo\n").unwrap();
+    work_dir.write_file("foo", "foo\n");
 
-    let output = test_env.run_jj_in(&repo_path, ["fix"]);
+    let output = work_dir.run_jj(["fix"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 0 commits of 1 checked.
@@ -394,7 +389,7 @@ fn test_config_tables_empty_patterns_list() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "foo", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "foo", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     foo
     [EOF]
@@ -405,7 +400,7 @@ fn test_config_tables_empty_patterns_list() {
 fn test_config_filesets() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     assert!(formatter_path.is_file());
     let formatter = to_toml_value(formatter_path.to_str().unwrap());
@@ -425,23 +420,23 @@ fn test_config_filesets() {
         "###,
     ));
 
-    std::fs::write(repo_path.join("a1"), "a1\n").unwrap();
-    std::fs::write(repo_path.join("b1"), "b1\n").unwrap();
-    std::fs::write(repo_path.join("b2"), "b2\n").unwrap();
+    work_dir.write_file("a1", "a1\n");
+    work_dir.write_file("b1", "b1\n");
+    work_dir.write_file("b2", "b2\n");
 
-    test_env.run_jj_in(&repo_path, ["fix"]).success();
+    work_dir.run_jj(["fix"]).success();
 
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "a1", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "a1", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     A1
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "b1", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "b1", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     1b
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "b2", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "b2", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     2b
     [EOF]
@@ -452,7 +447,7 @@ fn test_config_filesets() {
 fn test_relative_paths() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     assert!(formatter_path.is_file());
     let formatter = to_toml_value(formatter_path.to_str().unwrap());
@@ -464,45 +459,41 @@ fn test_relative_paths() {
         "###,
     ));
 
-    std::fs::create_dir(repo_path.join("dir")).unwrap();
-    std::fs::write(repo_path.join("foo1"), "unfixed\n").unwrap();
-    std::fs::write(repo_path.join("foo2"), "unfixed\n").unwrap();
-    std::fs::write(repo_path.join("dir/foo3"), "unfixed\n").unwrap();
+    let sub_dir = work_dir.create_dir("dir");
+    work_dir.write_file("foo1", "unfixed\n");
+    work_dir.write_file("foo2", "unfixed\n");
+    work_dir.write_file("dir/foo3", "unfixed\n");
 
     // Positional arguments are cwd-relative, but the configured patterns are
     // repo-relative, so this command fixes the empty intersection of those
     // filesets.
-    test_env
-        .run_jj_in(&repo_path.join("dir"), ["fix", "foo3"])
-        .success();
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "foo1", "-r", "@"]);
+    sub_dir.run_jj(["fix", "foo3"]).success();
+    let output = work_dir.run_jj(["file", "show", "foo1", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     unfixed
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "foo2", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "foo2", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     unfixed
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "dir/foo3", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "dir/foo3", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     unfixed
     [EOF]
     ");
 
     // Positional arguments can specify a subset of the configured fileset.
-    test_env
-        .run_jj_in(&repo_path.join("dir"), ["fix", "../foo1"])
-        .success();
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "foo1", "-r", "@"]);
+    sub_dir.run_jj(["fix", "../foo1"]).success();
+    let output = work_dir.run_jj(["file", "show", "foo1", "-r", "@"]);
     insta::assert_snapshot!(output, @"Fixed![EOF]");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "foo2", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "foo2", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     unfixed
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "dir/foo3", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "dir/foo3", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     unfixed
     [EOF]
@@ -510,14 +501,12 @@ fn test_relative_paths() {
 
     // The current directory does not change the interpretation of the config, so
     // foo2 is fixed but not dir/foo3.
-    test_env
-        .run_jj_in(&repo_path.join("dir"), ["fix"])
-        .success();
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "foo1", "-r", "@"]);
+    sub_dir.run_jj(["fix"]).success();
+    let output = work_dir.run_jj(["file", "show", "foo1", "-r", "@"]);
     insta::assert_snapshot!(output, @"Fixed![EOF]");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "foo2", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "foo2", "-r", "@"]);
     insta::assert_snapshot!(output, @"Fixed![EOF]");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "dir/foo3", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "dir/foo3", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     unfixed
     [EOF]
@@ -526,8 +515,11 @@ fn test_relative_paths() {
 
 #[test]
 fn test_fix_empty_commit() {
-    let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
-    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "@"]);
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    set_up_fake_formatter(&test_env, &["--uppercase"]);
+    let output = work_dir.run_jj(["fix", "-s", "@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 0 commits of 1 checked.
@@ -538,12 +530,15 @@ fn test_fix_empty_commit() {
 
 #[test]
 fn test_fix_leaf_commit() {
-    let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
-    std::fs::write(repo_path.join("file"), "unaffected").unwrap();
-    test_env.run_jj_in(&repo_path, ["new"]).success();
-    std::fs::write(repo_path.join("file"), "affected").unwrap();
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    set_up_fake_formatter(&test_env, &["--uppercase"]);
+    work_dir.write_file("file", "unaffected");
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file", "affected");
 
-    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "@"]);
+    let output = work_dir.run_jj(["fix", "-s", "@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 1 commits of 1 checked.
@@ -552,9 +547,9 @@ fn test_fix_leaf_commit() {
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "@-"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "@-"]);
     insta::assert_snapshot!(output, @"unaffected[EOF]");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     AFFECTED
     [EOF]
@@ -563,26 +558,27 @@ fn test_fix_leaf_commit() {
 
 #[test]
 fn test_fix_parent_commit() {
-    let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    set_up_fake_formatter(&test_env, &["--uppercase"]);
     // Using one file name for all commits adds coverage of some possible bugs.
-    std::fs::write(repo_path.join("file"), "parent").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "parent"])
+    work_dir.write_file("file", "parent");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "parent"])
         .success();
-    test_env.run_jj_in(&repo_path, ["new"]).success();
-    std::fs::write(repo_path.join("file"), "child1").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "child1"])
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file", "child1");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "child1"])
         .success();
-    test_env
-        .run_jj_in(&repo_path, ["new", "-r", "parent"])
-        .success();
-    std::fs::write(repo_path.join("file"), "child2").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "child2"])
+    work_dir.run_jj(["new", "-r", "parent"]).success();
+    work_dir.write_file("file", "child2");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "child2"])
         .success();
 
-    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "parent"]);
+    let output = work_dir.run_jj(["fix", "-s", "parent"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 3 commits of 3 checked.
@@ -591,17 +587,17 @@ fn test_fix_parent_commit() {
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "parent"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "parent"]);
     insta::assert_snapshot!(output, @r"
     PARENT
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "child1"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "child1"]);
     insta::assert_snapshot!(output, @r"
     CHILD1
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "child2"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "child2"]);
     insta::assert_snapshot!(output, @r"
     CHILD2
     [EOF]
@@ -610,80 +606,84 @@ fn test_fix_parent_commit() {
 
 #[test]
 fn test_fix_sibling_commit() {
-    let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
-    std::fs::write(repo_path.join("file"), "parent").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "parent"])
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    set_up_fake_formatter(&test_env, &["--uppercase"]);
+    work_dir.write_file("file", "parent");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "parent"])
         .success();
-    test_env.run_jj_in(&repo_path, ["new"]).success();
-    std::fs::write(repo_path.join("file"), "child1").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "child1"])
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file", "child1");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "child1"])
         .success();
-    test_env
-        .run_jj_in(&repo_path, ["new", "-r", "parent"])
-        .success();
-    std::fs::write(repo_path.join("file"), "child2").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "child2"])
+    work_dir.run_jj(["new", "-r", "parent"]).success();
+    work_dir.write_file("file", "child2");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "child2"])
         .success();
 
-    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "child1"]);
+    let output = work_dir.run_jj(["fix", "-s", "child1"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 1 commits of 1 checked.
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "parent"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "parent"]);
     insta::assert_snapshot!(output, @"parent[EOF]");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "child1"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "child1"]);
     insta::assert_snapshot!(output, @r"
     CHILD1
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "child2"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "child2"]);
     insta::assert_snapshot!(output, @"child2[EOF]");
 }
 
 #[test]
 fn test_default_revset() {
-    let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
-    std::fs::write(repo_path.join("file"), "trunk1").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "trunk1"])
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    set_up_fake_formatter(&test_env, &["--uppercase"]);
+    work_dir.write_file("file", "trunk1");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "trunk1"])
         .success();
-    test_env.run_jj_in(&repo_path, ["new"]).success();
-    std::fs::write(repo_path.join("file"), "trunk2").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "trunk2"])
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file", "trunk2");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "trunk2"])
         .success();
-    test_env.run_jj_in(&repo_path, ["new", "trunk1"]).success();
-    std::fs::write(repo_path.join("file"), "foo").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "foo"])
+    work_dir.run_jj(["new", "trunk1"]).success();
+    work_dir.write_file("file", "foo");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "foo"])
         .success();
-    test_env.run_jj_in(&repo_path, ["new", "trunk1"]).success();
-    std::fs::write(repo_path.join("file"), "bar1").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "bar1"])
+    work_dir.run_jj(["new", "trunk1"]).success();
+    work_dir.write_file("file", "bar1");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "bar1"])
         .success();
-    test_env.run_jj_in(&repo_path, ["new"]).success();
-    std::fs::write(repo_path.join("file"), "bar2").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "bar2"])
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file", "bar2");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "bar2"])
         .success();
-    test_env.run_jj_in(&repo_path, ["new"]).success();
-    std::fs::write(repo_path.join("file"), "bar3").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "bar3"])
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file", "bar3");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "bar3"])
         .success();
-    test_env.run_jj_in(&repo_path, ["edit", "bar2"]).success();
+    work_dir.run_jj(["edit", "bar2"]).success();
 
     // With no args and no revset configuration, we fix `reachable(@, mutable())`,
     // which includes bar{1,2,3} and excludes trunk{1,2} (which is immutable) and
     // foo (which is mutable but not reachable).
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "trunk2""#);
-    let output = test_env.run_jj_in(&repo_path, ["fix"]);
+    let output = work_dir.run_jj(["fix"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 3 commits of 3 checked.
@@ -692,23 +692,23 @@ fn test_default_revset() {
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "trunk1"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "trunk1"]);
     insta::assert_snapshot!(output, @"trunk1[EOF]");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "trunk2"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "trunk2"]);
     insta::assert_snapshot!(output, @"trunk2[EOF]");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "foo"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "foo"]);
     insta::assert_snapshot!(output, @"foo[EOF]");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "bar1"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "bar1"]);
     insta::assert_snapshot!(output, @r"
     BAR1
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "bar2"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "bar2"]);
     insta::assert_snapshot!(output, @r"
     BAR2
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "bar3"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "bar3"]);
     insta::assert_snapshot!(output, @r"
     BAR3
     [EOF]
@@ -717,34 +717,35 @@ fn test_default_revset() {
 
 #[test]
 fn test_custom_default_revset() {
-    let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    set_up_fake_formatter(&test_env, &["--uppercase"]);
 
-    std::fs::write(repo_path.join("file"), "foo").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "foo"])
+    work_dir.write_file("file", "foo");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "foo"])
         .success();
-    test_env.run_jj_in(&repo_path, ["new"]).success();
-    std::fs::write(repo_path.join("file"), "bar").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "bar"])
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file", "bar");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "bar"])
         .success();
 
     // Check out a different commit so that the schema default `reachable(@,
     // mutable())` would behave differently from our customized default.
-    test_env
-        .run_jj_in(&repo_path, ["new", "-r", "foo"])
-        .success();
+    work_dir.run_jj(["new", "-r", "foo"]).success();
     test_env.add_config(r#"revsets.fix = "bar""#);
 
-    let output = test_env.run_jj_in(&repo_path, ["fix"]);
+    let output = work_dir.run_jj(["fix"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 1 commits of 1 checked.
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "foo"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "foo"]);
     insta::assert_snapshot!(output, @"foo[EOF]");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "bar"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "bar"]);
     insta::assert_snapshot!(output, @r"
     BAR
     [EOF]
@@ -753,19 +754,22 @@ fn test_custom_default_revset() {
 
 #[test]
 fn test_fix_immutable_commit() {
-    let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
-    std::fs::write(repo_path.join("file"), "immutable").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "immutable"])
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    set_up_fake_formatter(&test_env, &["--uppercase"]);
+    work_dir.write_file("file", "immutable");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "immutable"])
         .success();
-    test_env.run_jj_in(&repo_path, ["new"]).success();
-    std::fs::write(repo_path.join("file"), "mutable").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "mutable"])
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file", "mutable");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "mutable"])
         .success();
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "immutable""#);
 
-    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "immutable"]);
+    let output = work_dir.run_jj(["fix", "-s", "immutable"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: Commit e4b41a3ce243 is immutable
@@ -778,35 +782,41 @@ fn test_fix_immutable_commit() {
     [EOF]
     [exit status: 1]
     "#);
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "immutable"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "immutable"]);
     insta::assert_snapshot!(output, @"immutable[EOF]");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "mutable"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "mutable"]);
     insta::assert_snapshot!(output, @"mutable[EOF]");
 }
 
 #[test]
 fn test_fix_empty_file() {
-    let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
-    std::fs::write(repo_path.join("file"), "").unwrap();
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    set_up_fake_formatter(&test_env, &["--uppercase"]);
+    work_dir.write_file("file", "");
 
-    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "@"]);
+    let output = work_dir.run_jj(["fix", "-s", "@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 0 commits of 1 checked.
     Nothing changed.
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "@"]);
     insta::assert_snapshot!(output, @"");
 }
 
 #[test]
 fn test_fix_some_paths() {
-    let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
-    std::fs::write(repo_path.join("file1"), "foo").unwrap();
-    std::fs::write(repo_path.join("file2"), "bar").unwrap();
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    set_up_fake_formatter(&test_env, &["--uppercase"]);
+    work_dir.write_file("file1", "foo");
+    work_dir.write_file("file2", "bar");
 
-    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "@", "file1"]);
+    let output = work_dir.run_jj(["fix", "-s", "@", "file1"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 1 commits of 1 checked.
@@ -815,21 +825,24 @@ fn test_fix_some_paths() {
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file1"]);
+    let output = work_dir.run_jj(["file", "show", "file1"]);
     insta::assert_snapshot!(output, @r"
     FOO
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file2"]);
+    let output = work_dir.run_jj(["file", "show", "file2"]);
     insta::assert_snapshot!(output, @"bar[EOF]");
 }
 
 #[test]
 fn test_fix_cyclic() {
-    let (test_env, repo_path) = init_with_fake_formatter(&["--reverse"]);
-    std::fs::write(repo_path.join("file"), "content\n").unwrap();
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    set_up_fake_formatter(&test_env, &["--reverse"]);
+    work_dir.write_file("file", "content\n");
 
-    let output = test_env.run_jj_in(&repo_path, ["fix"]);
+    let output = work_dir.run_jj(["fix"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 1 commits of 1 checked.
@@ -838,13 +851,13 @@ fn test_fix_cyclic() {
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     tnetnoc
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["fix"]);
+    let output = work_dir.run_jj(["fix"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 1 commits of 1 checked.
@@ -853,7 +866,7 @@ fn test_fix_cyclic() {
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     content
     [EOF]
@@ -864,31 +877,34 @@ fn test_fix_cyclic() {
 fn test_deduplication() {
     // Append all fixed content to a log file. Note that fix tools are always run
     // from the workspace root, so this will always write to $root/$path-fixlog.
-    let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase", "--tee", "$path-fixlog"]);
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    set_up_fake_formatter(&test_env, &["--uppercase", "--tee", "$path-fixlog"]);
 
     // There are at least two interesting cases: the content is repeated immediately
     // in the child commit, or later in another descendant.
-    std::fs::write(repo_path.join("file"), "foo\n").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "a"])
+    work_dir.write_file("file", "foo\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "a"])
         .success();
-    test_env.run_jj_in(&repo_path, ["new"]).success();
-    std::fs::write(repo_path.join("file"), "bar\n").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "b"])
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file", "bar\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "b"])
         .success();
-    test_env.run_jj_in(&repo_path, ["new"]).success();
-    std::fs::write(repo_path.join("file"), "bar\n").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "c"])
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file", "bar\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "c"])
         .success();
-    test_env.run_jj_in(&repo_path, ["new"]).success();
-    std::fs::write(repo_path.join("file"), "foo\n").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "d"])
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file", "foo\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "d"])
         .success();
 
-    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "a"]);
+    let output = work_dir.run_jj(["fix", "-s", "a"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 4 commits of 4 checked.
@@ -897,22 +913,22 @@ fn test_deduplication() {
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "a"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "a"]);
     insta::assert_snapshot!(output, @r"
     FOO
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "b"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "b"]);
     insta::assert_snapshot!(output, @r"
     BAR
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "c"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "c"]);
     insta::assert_snapshot!(output, @r"
     BAR
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "d"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "d"]);
     insta::assert_snapshot!(output, @r"
     FOO
     [EOF]
@@ -921,7 +937,7 @@ fn test_deduplication() {
     // Each new content string only appears once in the log, because all the other
     // inputs (like file name) were identical, and so the results were reused. We
     // sort the log because the order of execution inside `jj fix` is undefined.
-    insta::assert_snapshot!(sorted_lines(repo_path.join("file-fixlog")), @r"
+    insta::assert_snapshot!(sorted_lines(work_dir.root().join("file-fixlog")), @r"
     BAR
     FOO
     ");
@@ -941,28 +957,31 @@ fn sorted_lines(path: PathBuf) -> String {
 fn test_executed_but_nothing_changed() {
     // Show that the tool ran by causing a side effect with --tee, and test that we
     // do the right thing when the tool's output is exactly equal to its input.
-    let (test_env, repo_path) = init_with_fake_formatter(&["--tee", "$path-copy"]);
-    std::fs::write(repo_path.join("file"), "content\n").unwrap();
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    set_up_fake_formatter(&test_env, &["--tee", "$path-copy"]);
+    work_dir.write_file("file", "content\n");
 
-    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "@"]);
+    let output = work_dir.run_jj(["fix", "-s", "@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 0 commits of 1 checked.
     Nothing changed.
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     content
     [EOF]
     ");
-    let copy_content = std::fs::read_to_string(repo_path.join("file-copy").as_os_str()).unwrap();
+    let copy_content = work_dir.read_file("file-copy");
     insta::assert_snapshot!(copy_content, @"content");
 
     // fix tools are always run from the workspace root, regardless of working
     // directory at time of invocation.
-    std::fs::create_dir(repo_path.join("dir")).unwrap();
-    let output = test_env.run_jj_in(&repo_path.join("dir"), ["fix"]);
+    let sub_dir = work_dir.create_dir("dir");
+    let output = sub_dir.run_jj(["fix"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 0 commits of 1 checked.
@@ -970,39 +989,44 @@ fn test_executed_but_nothing_changed() {
     [EOF]
     ");
 
-    let copy_content = std::fs::read_to_string(repo_path.join("file-copy").as_os_str()).unwrap();
+    let copy_content = work_dir.read_file("file-copy");
     insta::assert_snapshot!(copy_content, @r"
     content
     content
     ");
-    assert!(!repo_path.join("dir").join("file-copy").exists());
+    assert!(!sub_dir.root().join("file-copy").exists());
 }
 
 #[test]
 fn test_failure() {
-    let (test_env, repo_path) = init_with_fake_formatter(&["--fail"]);
-    std::fs::write(repo_path.join("file"), "content").unwrap();
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    set_up_fake_formatter(&test_env, &["--fail"]);
+    work_dir.write_file("file", "content");
 
-    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "@"]);
+    let output = work_dir.run_jj(["fix", "-s", "@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 0 commits of 1 checked.
     Nothing changed.
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "@"]);
     insta::assert_snapshot!(output, @"content[EOF]");
 }
 
 #[test]
 fn test_stderr_success() {
-    let (test_env, repo_path) =
-        init_with_fake_formatter(&["--stderr", "error", "--stdout", "new content"]);
-    std::fs::write(repo_path.join("file"), "old content").unwrap();
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    set_up_fake_formatter(&test_env, &["--stderr", "error", "--stdout", "new content"]);
+    work_dir.write_file("file", "old content");
 
     // TODO: Associate the stderr lines with the relevant tool/file/commit instead
     // of passing it through directly.
-    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "@"]);
+    let output = work_dir.run_jj(["fix", "-s", "@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     errorFixed 1 commits of 1 checked.
@@ -1011,24 +1035,29 @@ fn test_stderr_success() {
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "@"]);
     insta::assert_snapshot!(output, @"new content[EOF]");
 }
 
 #[test]
 fn test_stderr_failure() {
-    let (test_env, repo_path) =
-        init_with_fake_formatter(&["--stderr", "error", "--stdout", "new content", "--fail"]);
-    std::fs::write(repo_path.join("file"), "old content").unwrap();
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    set_up_fake_formatter(
+        &test_env,
+        &["--stderr", "error", "--stdout", "new content", "--fail"],
+    );
+    work_dir.write_file("file", "old content");
 
-    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "@"]);
+    let output = work_dir.run_jj(["fix", "-s", "@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     errorFixed 0 commits of 1 checked.
     Nothing changed.
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "@"]);
     insta::assert_snapshot!(output, @"old content[EOF]");
 }
 
@@ -1036,7 +1065,7 @@ fn test_stderr_failure() {
 fn test_missing_command() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
     test_env.add_config(indoc! {"
         [fix.tools.bad-tool]
         command = ['this_executable_shouldnt_exist']
@@ -1045,7 +1074,7 @@ fn test_missing_command() {
     // TODO: We should display a warning about invalid tool configurations. When we
     // support multiple tools, we should also keep going to see if any of the other
     // executions succeed.
-    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "@"]);
+    let output = work_dir.run_jj(["fix", "-s", "@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 0 commits of 1 checked.
@@ -1056,12 +1085,15 @@ fn test_missing_command() {
 
 #[test]
 fn test_fix_file_types() {
-    let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
-    std::fs::write(repo_path.join("file"), "content").unwrap();
-    std::fs::create_dir(repo_path.join("dir")).unwrap();
-    try_symlink("file", repo_path.join("link")).unwrap();
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    set_up_fake_formatter(&test_env, &["--uppercase"]);
+    work_dir.write_file("file", "content");
+    work_dir.create_dir("dir");
+    try_symlink("file", work_dir.root().join("link")).unwrap();
 
-    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "@"]);
+    let output = work_dir.run_jj(["fix", "-s", "@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 1 commits of 1 checked.
@@ -1070,7 +1102,7 @@ fn test_fix_file_types() {
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     CONTENT
     [EOF]
@@ -1080,14 +1112,17 @@ fn test_fix_file_types() {
 #[cfg(unix)]
 #[test]
 fn test_fix_executable() {
-    let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
-    let path = repo_path.join("file");
-    std::fs::write(&path, "content").unwrap();
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    set_up_fake_formatter(&test_env, &["--uppercase"]);
+    let path = work_dir.root().join("file");
+    work_dir.write_file("file", "content");
     let mut permissions = std::fs::metadata(&path).unwrap().permissions();
     permissions.set_mode(permissions.mode() | 0o111);
     std::fs::set_permissions(&path, permissions).unwrap();
 
-    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "@"]);
+    let output = work_dir.run_jj(["fix", "-s", "@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 1 commits of 1 checked.
@@ -1096,7 +1131,7 @@ fn test_fix_executable() {
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     CONTENT
     [EOF]
@@ -1109,32 +1144,35 @@ fn test_fix_executable() {
 fn test_fix_trivial_merge_commit() {
     // All the changes are attributable to a parent, so none are fixed (in the same
     // way that none would be shown in `jj diff -r @`).
-    let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
-    std::fs::write(repo_path.join("file_a"), "content a").unwrap();
-    std::fs::write(repo_path.join("file_c"), "content c").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "a"])
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    set_up_fake_formatter(&test_env, &["--uppercase"]);
+    work_dir.write_file("file_a", "content a");
+    work_dir.write_file("file_c", "content c");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "a"])
         .success();
-    test_env.run_jj_in(&repo_path, ["new", "@-"]).success();
-    std::fs::write(repo_path.join("file_b"), "content b").unwrap();
-    std::fs::write(repo_path.join("file_c"), "content c").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "b"])
+    work_dir.run_jj(["new", "@-"]).success();
+    work_dir.write_file("file_b", "content b");
+    work_dir.write_file("file_c", "content c");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "b"])
         .success();
-    test_env.run_jj_in(&repo_path, ["new", "a", "b"]).success();
+    work_dir.run_jj(["new", "a", "b"]).success();
 
-    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "@"]);
+    let output = work_dir.run_jj(["fix", "-s", "@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 0 commits of 1 checked.
     Nothing changed.
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file_a", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "file_a", "-r", "@"]);
     insta::assert_snapshot!(output, @"content a[EOF]");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file_b", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "file_b", "-r", "@"]);
     insta::assert_snapshot!(output, @"content b[EOF]");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file_c", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "file_c", "-r", "@"]);
     insta::assert_snapshot!(output, @"content c[EOF]");
 }
 
@@ -1142,25 +1180,28 @@ fn test_fix_trivial_merge_commit() {
 fn test_fix_adding_merge_commit() {
     // None of the changes are attributable to a parent, so they are all fixed (in
     // the same way that they would be shown in `jj diff -r @`).
-    let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
-    std::fs::write(repo_path.join("file_a"), "content a").unwrap();
-    std::fs::write(repo_path.join("file_c"), "content c").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "a"])
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    set_up_fake_formatter(&test_env, &["--uppercase"]);
+    work_dir.write_file("file_a", "content a");
+    work_dir.write_file("file_c", "content c");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "a"])
         .success();
-    test_env.run_jj_in(&repo_path, ["new", "@-"]).success();
-    std::fs::write(repo_path.join("file_b"), "content b").unwrap();
-    std::fs::write(repo_path.join("file_c"), "content c").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "b"])
+    work_dir.run_jj(["new", "@-"]).success();
+    work_dir.write_file("file_b", "content b");
+    work_dir.write_file("file_c", "content c");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "b"])
         .success();
-    test_env.run_jj_in(&repo_path, ["new", "a", "b"]).success();
-    std::fs::write(repo_path.join("file_a"), "change a").unwrap();
-    std::fs::write(repo_path.join("file_b"), "change b").unwrap();
-    std::fs::write(repo_path.join("file_c"), "change c").unwrap();
-    std::fs::write(repo_path.join("file_d"), "change d").unwrap();
+    work_dir.run_jj(["new", "a", "b"]).success();
+    work_dir.write_file("file_a", "change a");
+    work_dir.write_file("file_b", "change b");
+    work_dir.write_file("file_c", "change c");
+    work_dir.write_file("file_d", "change d");
 
-    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "@"]);
+    let output = work_dir.run_jj(["fix", "-s", "@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 1 commits of 1 checked.
@@ -1170,22 +1211,22 @@ fn test_fix_adding_merge_commit() {
     Added 0 files, modified 4 files, removed 0 files
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file_a", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "file_a", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     CHANGE A
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file_b", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "file_b", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     CHANGE B
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file_c", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "file_c", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     CHANGE C
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file_d", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "file_d", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     CHANGE D
     [EOF]
@@ -1194,21 +1235,24 @@ fn test_fix_adding_merge_commit() {
 
 #[test]
 fn test_fix_both_sides_of_conflict() {
-    let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
-    std::fs::write(repo_path.join("file"), "content a\n").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "a"])
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    set_up_fake_formatter(&test_env, &["--uppercase"]);
+    work_dir.write_file("file", "content a\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "a"])
         .success();
-    test_env.run_jj_in(&repo_path, ["new", "@-"]).success();
-    std::fs::write(repo_path.join("file"), "content b\n").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "b"])
+    work_dir.run_jj(["new", "@-"]).success();
+    work_dir.write_file("file", "content b\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "b"])
         .success();
-    test_env.run_jj_in(&repo_path, ["new", "a", "b"]).success();
+    work_dir.run_jj(["new", "a", "b"]).success();
 
     // The conflicts are not different from the merged parent, so they would not be
     // fixed if we didn't fix the parents also.
-    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "a", "-s", "b"]);
+    let output = work_dir.run_jj(["fix", "-s", "a", "-s", "b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 3 commits of 3 checked.
@@ -1220,17 +1264,17 @@ fn test_fix_both_sides_of_conflict() {
     file    2-sided conflict
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "a"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "a"]);
     insta::assert_snapshot!(output, @r"
     CONTENT A
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "b"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "b"]);
     insta::assert_snapshot!(output, @r"
     CONTENT B
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
@@ -1246,21 +1290,24 @@ fn test_fix_both_sides_of_conflict() {
 fn test_fix_resolve_conflict() {
     // If both sides of the conflict look the same after being fixed, the conflict
     // will be resolved.
-    let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
-    std::fs::write(repo_path.join("file"), "Content\n").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "a"])
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    set_up_fake_formatter(&test_env, &["--uppercase"]);
+    work_dir.write_file("file", "Content\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "a"])
         .success();
-    test_env.run_jj_in(&repo_path, ["new", "@-"]).success();
-    std::fs::write(repo_path.join("file"), "cOnTeNt\n").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "b"])
+    work_dir.run_jj(["new", "@-"]).success();
+    work_dir.write_file("file", "cOnTeNt\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "b"])
         .success();
-    test_env.run_jj_in(&repo_path, ["new", "a", "b"]).success();
+    work_dir.run_jj(["new", "a", "b"]).success();
 
     // The conflicts are not different from the merged parent, so they would not be
     // fixed if we didn't fix the parents also.
-    let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "a", "-s", "b"]);
+    let output = work_dir.run_jj(["fix", "-s", "a", "-s", "b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 3 commits of 3 checked.
@@ -1270,7 +1317,7 @@ fn test_fix_resolve_conflict() {
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "file", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     CONTENT
     [EOF]
@@ -1281,7 +1328,7 @@ fn test_fix_resolve_conflict() {
 fn test_all_files() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     assert!(formatter_path.is_file());
     let formatter = to_toml_value(formatter_path.to_str().unwrap());
@@ -1301,37 +1348,30 @@ fn test_all_files() {
         "###,
     ));
 
-    std::fs::create_dir(repo_path.join("a")).unwrap();
-    std::fs::create_dir(repo_path.join("b")).unwrap();
-    std::fs::create_dir(repo_path.join("c")).unwrap();
-    std::fs::write(repo_path.join("a/a"), "parent aaa\n").unwrap();
-    std::fs::write(repo_path.join("b/b"), "parent bbb\n").unwrap();
-    std::fs::write(repo_path.join("c/c"), "parent ccc\n").unwrap();
-    std::fs::write(repo_path.join("ddd"), "parent ddd\n").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "parent"])
-        .success();
+    work_dir.create_dir("a");
+    work_dir.create_dir("b");
+    work_dir.create_dir("c");
+    work_dir.write_file("a/a", "parent aaa\n");
+    work_dir.write_file("b/b", "parent bbb\n");
+    work_dir.write_file("c/c", "parent ccc\n");
+    work_dir.write_file("ddd", "parent ddd\n");
+    work_dir.run_jj(["commit", "-m", "parent"]).success();
 
-    std::fs::write(repo_path.join("a/a"), "child aaa\n").unwrap();
-    std::fs::write(repo_path.join("ddd"), "child ddd\n").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m", "child"])
-        .success();
+    work_dir.write_file("a/a", "child aaa\n");
+    work_dir.write_file("ddd", "child ddd\n");
+    work_dir.run_jj(["describe", "-m", "child"]).success();
 
     // Specifying files means exactly those files will be fixed in each revision,
     // although some like file C won't have any tools configured to make changes to
     // them. Specified but unfixed files are silently skipped, whether they lack
     // configuration, are ignored, don't exist, aren't normal files, etc.
-    let output = test_env.run_jj_in(
-        &repo_path,
-        [
-            "fix",
-            "--include-unchanged-files",
-            "b/b",
-            "c/c",
-            "does_not.exist",
-        ],
-    );
+    let output = work_dir.run_jj([
+        "fix",
+        "--include-unchanged-files",
+        "b/b",
+        "c/c",
+        "does_not.exist",
+    ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 2 commits of 2 checked.
@@ -1341,50 +1381,50 @@ fn test_all_files() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "a/a", "-r", "@-"]);
+    let output = work_dir.run_jj(["file", "show", "a/a", "-r", "@-"]);
     insta::assert_snapshot!(output, @r"
     parent aaa
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "b/b", "-r", "@-"]);
+    let output = work_dir.run_jj(["file", "show", "b/b", "-r", "@-"]);
     insta::assert_snapshot!(output, @r"
     parent bbb
     fixed[EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "c/c", "-r", "@-"]);
+    let output = work_dir.run_jj(["file", "show", "c/c", "-r", "@-"]);
     insta::assert_snapshot!(output, @r"
     parent ccc
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "ddd", "-r", "@-"]);
+    let output = work_dir.run_jj(["file", "show", "ddd", "-r", "@-"]);
     insta::assert_snapshot!(output, @r"
     parent ddd
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "a/a", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "a/a", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     child aaa
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "b/b", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "b/b", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     parent bbb
     fixed[EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "c/c", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "c/c", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     parent ccc
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "ddd", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "ddd", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     child ddd
     [EOF]
     ");
 
     // Not specifying files means all files will be fixed in each revision.
-    let output = test_env.run_jj_in(&repo_path, ["fix", "--include-unchanged-files"]);
+    let output = work_dir.run_jj(["fix", "--include-unchanged-files"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 2 commits of 2 checked.
@@ -1394,45 +1434,45 @@ fn test_all_files() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "a/a", "-r", "@-"]);
+    let output = work_dir.run_jj(["file", "show", "a/a", "-r", "@-"]);
     insta::assert_snapshot!(output, @r"
     parent aaa
     fixed[EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "b/b", "-r", "@-"]);
+    let output = work_dir.run_jj(["file", "show", "b/b", "-r", "@-"]);
     insta::assert_snapshot!(output, @r"
     parent bbb
     fixed
     fixed[EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "c/c", "-r", "@-"]);
+    let output = work_dir.run_jj(["file", "show", "c/c", "-r", "@-"]);
     insta::assert_snapshot!(output, @r"
     parent ccc
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "ddd", "-r", "@-"]);
+    let output = work_dir.run_jj(["file", "show", "ddd", "-r", "@-"]);
     insta::assert_snapshot!(output, @r"
     parent ddd
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "a/a", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "a/a", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     child aaa
     fixed[EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "b/b", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "b/b", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     parent bbb
     fixed
     fixed[EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "c/c", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "c/c", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     parent ccc
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["file", "show", "ddd", "-r", "@"]);
+    let output = work_dir.run_jj(["file", "show", "ddd", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     child ddd
     [EOF]

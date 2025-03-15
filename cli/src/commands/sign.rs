@@ -20,6 +20,7 @@ use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::repo::Repo as _;
 use jj_lib::signing::SignBehavior;
 
+use crate::cli_util::print_updated_commits;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::command_error::user_error_with_hint;
@@ -113,13 +114,12 @@ pub fn cmd_sign(ui: &mut Ui, command: &CommandHelper, args: &SignArgs) -> Result
 
     if let Some(mut formatter) = ui.status_formatter() {
         if !signed_commits.is_empty() {
-            let template = tx.commit_summary_template();
             writeln!(formatter, "Signed {} commits:", signed_commits.len())?;
-            for commit in &signed_commits {
-                write!(formatter, "  ")?;
-                template.format(commit, formatter.as_mut())?;
-                writeln!(formatter)?;
-            }
+            print_updated_commits(
+                formatter.as_mut(),
+                &tx.commit_summary_template(),
+                &signed_commits,
+            )?;
         }
     }
 

@@ -2109,9 +2109,13 @@ fn git2_fetch(
     git_repo: &git2::Repository,
     remote_name: &str,
     branch_names: &[StringPattern],
-    callbacks: RemoteCallbacks<'_>,
+    mut callbacks: RemoteCallbacks<'_>,
     depth: Option<NonZeroU32>,
 ) -> Result<(), GitFetchError> {
+    if let Some(cb) = callbacks.git2_deprecation_warning.as_mut() {
+        cb();
+    }
+
     let mut remote = git_repo.find_remote(remote_name).map_err(|err| {
         if is_remote_not_found_err(&err) {
             GitFetchError::NoSuchRemote(remote_name.to_string())
@@ -2151,8 +2155,12 @@ fn git2_fetch(
 fn git2_get_default_branch(
     git_repo: &git2::Repository,
     remote_name: &str,
-    callbacks: RemoteCallbacks<'_>,
+    mut callbacks: RemoteCallbacks<'_>,
 ) -> Result<Option<String>, GitFetchError> {
+    if let Some(cb) = callbacks.git2_deprecation_warning.as_mut() {
+        cb();
+    }
+
     let mut remote = git_repo.find_remote(remote_name).map_err(|err| {
         if is_remote_not_found_err(&err) {
             GitFetchError::NoSuchRemote(remote_name.to_string())
@@ -2217,6 +2225,7 @@ fn subprocess_fetch(
     while let Some(failing_refspec) =
         git_ctx.spawn_fetch(remote_name, &remaining_refspecs, &mut callbacks, depth)?
     {
+        tracing::debug!(failing_refspec, "failed to fetch ref");
         remaining_refspecs.retain(|r| r.source.as_ref() != Some(&failing_refspec));
 
         if let Some(branch_name) = failing_refspec.strip_prefix("refs/heads/") {
@@ -2382,8 +2391,12 @@ fn git2_push_refs(
     remote_name: &str,
     qualified_remote_refs_expected_locations: &HashMap<&str, Option<&CommitId>>,
     refspecs: &[String],
-    callbacks: RemoteCallbacks<'_>,
+    mut callbacks: RemoteCallbacks<'_>,
 ) -> Result<(), GitPushError> {
+    if let Some(cb) = callbacks.git2_deprecation_warning.as_mut() {
+        cb();
+    }
+
     let mut remote = git_repo.find_remote(remote_name).map_err(|err| {
         if is_remote_not_found_err(&err) {
             GitPushError::NoSuchRemote(remote_name.to_string())
@@ -2519,6 +2532,7 @@ fn subprocess_push_refs(
         .collect();
 
     let push_stats = git_ctx.spawn_push(remote_name, &refs_to_push, &mut callbacks)?;
+    tracing::debug!(?push_stats);
 
     if !push_stats.rejected.is_empty() {
         let mut refs_in_unexpected_locations = push_stats.rejected;
@@ -2605,6 +2619,8 @@ pub struct RemoteCallbacks<'a> {
     pub get_ssh_keys: Option<&'a mut dyn FnMut(&str) -> Vec<PathBuf>>,
     pub get_password: Option<&'a mut dyn FnMut(&str, &str) -> Option<String>>,
     pub get_username_password: Option<&'a mut dyn FnMut(&str) -> Option<(String, String)>>,
+    #[cfg(feature = "git2")]
+    pub git2_deprecation_warning: Option<&'a mut dyn FnMut()>,
 }
 
 #[cfg(feature = "git2")]

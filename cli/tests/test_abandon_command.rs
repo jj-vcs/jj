@@ -45,7 +45,8 @@ fn test_basics() {
     let output = work_dir.run_jj(["abandon", "--retain-bookmarks", "d"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Abandoned commit vruxwmqv b7c62f28 d | d
+    Abandoned 1 commits:
+      vruxwmqv b7c62f28 d | d
     Rebased 1 descendant commits onto parents of abandoned commits
     Working copy now at: znkkpsqq 11a2e10e e | e
     Parent commit      : rlvkpnrz 2443ea76 a | a
@@ -69,7 +70,8 @@ fn test_basics() {
     let output = work_dir.run_jj(["abandon", "--retain-bookmarks"]); // abandons `e`
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Abandoned commit znkkpsqq 5557ece3 e | e
+    Abandoned 1 commits:
+      znkkpsqq 5557ece3 e | e
     Working copy now at: nkmrtpmo d4f8ea73 (empty) (no description set)
     Parent commit      : rlvkpnrz 2443ea76 a e?? | a
     Parent commit      : vruxwmqv b7c62f28 d e?? | d
@@ -93,7 +95,7 @@ fn test_basics() {
     let output = work_dir.run_jj(["abandon", "descendants(d)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Abandoned the following commits:
+    Abandoned 2 commits:
       znkkpsqq 5557ece3 e | e
       vruxwmqv b7c62f28 d | d
     Deleted bookmarks: d, e
@@ -120,7 +122,8 @@ fn test_basics() {
     let output = work_dir.run_jj(["abandon", "-rb", "b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Abandoned commit zsuskuln 1394f625 b | b
+    Abandoned 1 commits:
+      zsuskuln 1394f625 b | b
     Deleted bookmarks: b
     [EOF]
     ");
@@ -140,7 +143,7 @@ fn test_basics() {
     let output = work_dir.run_jj(["abandon", "d::", "e"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Abandoned the following commits:
+    Abandoned 2 commits:
       znkkpsqq 5557ece3 e | e
       vruxwmqv b7c62f28 d | d
     Deleted bookmarks: d, e
@@ -166,6 +169,38 @@ fn test_basics() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     No revisions to abandon.
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_abandon_many() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    for i in 0..10 {
+        work_dir.run_jj(["new", &format!("-mcommit{i}")]).success();
+    }
+
+    // The list of commits should be elided.
+    let output = work_dir.run_jj(["abandon", ".."]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Abandoned 11 commits:
+      kpqxywon 0b998aa3 (empty) commit9
+      znkkpsqq c37abefb (empty) commit8
+      yostqsxw 6256698f (empty) commit7
+      vruxwmqv 9350f605 (empty) commit6
+      yqosqzyt 196bd23d (empty) commit5
+      royxmykx bb676781 (empty) commit4
+      mzvwutvl 6f1e55a6 (empty) commit3
+      zsuskuln baf1311c (empty) commit2
+      kkmpptxz 5fc5f374 (empty) commit1
+      rlvkpnrz 9451b4ea (empty) commit0
+      ...
+    Working copy now at: kmkuslsw 822a2cf5 (empty) (no description set)
+    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 }
@@ -205,7 +240,8 @@ fn test_bug_2600() {
     let output = work_dir.run_jj(["abandon", "base"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Abandoned commit zsuskuln 73c929fc base | base
+    Abandoned 1 commits:
+      zsuskuln 73c929fc base | base
     Deleted bookmarks: base
     Rebased 3 descendant commits onto parents of abandoned commits
     Working copy now at: znkkpsqq 86e31bec c | c
@@ -230,7 +266,8 @@ fn test_bug_2600() {
     let output = work_dir.run_jj(["abandon", "a"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Abandoned commit royxmykx 98f3b9ba a | a
+    Abandoned 1 commits:
+      royxmykx 98f3b9ba a | a
     Deleted bookmarks: a
     Rebased 2 descendant commits onto parents of abandoned commits
     Working copy now at: znkkpsqq 683b9435 c | c
@@ -254,7 +291,8 @@ fn test_bug_2600() {
     let output = work_dir.run_jj(["abandon", "b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Abandoned commit vruxwmqv 8c0dced0 b | b
+    Abandoned 1 commits:
+      vruxwmqv 8c0dced0 b | b
     Deleted bookmarks: b
     Rebased 1 descendant commits onto parents of abandoned commits
     Working copy now at: znkkpsqq 33a94991 c | c
@@ -291,7 +329,7 @@ fn test_bug_2600() {
     let output = work_dir.run_jj(["abandon", "--retain-bookmarks", "a", "b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Abandoned the following commits:
+    Abandoned 2 commits:
       vruxwmqv 8c0dced0 b | b
       royxmykx 98f3b9ba a | a
     Rebased 1 descendant commits onto parents of abandoned commits
@@ -373,7 +411,8 @@ fn test_double_abandon() {
     let output = work_dir.run_jj(["abandon", &commit_id]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Abandoned commit rlvkpnrz 2443ea76 a | a
+    Abandoned 1 commits:
+      rlvkpnrz 2443ea76 a | a
     Deleted bookmarks: a
     Working copy now at: royxmykx f37b4afd (empty) (no description set)
     Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
@@ -383,7 +422,8 @@ fn test_double_abandon() {
     let output = work_dir.run_jj(["abandon", &commit_id]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Abandoned commit rlvkpnrz hidden 2443ea76 a
+    Abandoned 1 commits:
+      rlvkpnrz hidden 2443ea76 a
     Nothing changed.
     [EOF]
     ");
@@ -405,7 +445,8 @@ fn test_abandon_restore_descendants() {
     let output = work_dir.run_jj(["abandon", "-r@-", "--restore-descendants"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Abandoned commit rlvkpnrz 225adef1 (no description set)
+    Abandoned 1 commits:
+      rlvkpnrz 225adef1 (no description set)
     Rebased 1 descendant commits (while preserving their content) onto parents of abandoned commits
     Working copy now at: kkmpptxz a734deb0 (no description set)
     Parent commit      : qpvuntsm 485d52a9 (no description set)

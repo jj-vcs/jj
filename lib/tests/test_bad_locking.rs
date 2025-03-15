@@ -99,7 +99,7 @@ fn merge_directories(left: &Path, base: &Path, right: &Path, output: &Path) {
     }
 }
 
-#[test_case(TestRepoBackend::Local; "local backend")]
+#[test_case(TestRepoBackend::Simple; "simple backend")]
 #[test_case(TestRepoBackend::Git; "git backend")]
 fn test_bad_locking_children(backend: TestRepoBackend) {
     // Test that two new commits created on separate machines are both visible (not
@@ -171,7 +171,7 @@ fn test_bad_locking_children(backend: TestRepoBackend) {
     assert_eq!(op.parents.len(), 2);
 }
 
-#[test_case(TestRepoBackend::Local ; "local backend")]
+#[test_case(TestRepoBackend::Simple ; "simple backend")]
 #[test_case(TestRepoBackend::Git ; "git backend")]
 fn test_bad_locking_interrupted(backend: TestRepoBackend) {
     // Test that an interrupted update of the op-heads resulting in on op-head
