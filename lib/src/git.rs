@@ -42,8 +42,6 @@ use crate::file_util::PathError;
 use crate::git_backend::GitBackend;
 use crate::git_subprocess::GitSubprocessContext;
 use crate::git_subprocess::GitSubprocessError;
-#[cfg(feature = "git2")]
-use crate::index::Index;
 use crate::matchers::EverythingMatcher;
 use crate::merged_tree::MergedTree;
 use crate::merged_tree::TreeDiffEntry;
@@ -60,8 +58,6 @@ use crate::ref_name::RemoteName;
 use crate::ref_name::RemoteNameBuf;
 use crate::ref_name::RemoteRefSymbol;
 use crate::ref_name::RemoteRefSymbolBuf;
-#[cfg(feature = "git2")]
-use crate::refs;
 use crate::refs::BookmarkPushUpdate;
 use crate::repo::MutableRepo;
 use crate::repo::Repo;
@@ -1598,17 +1594,6 @@ impl GitRemoteManagementError {
     }
 }
 
-#[cfg(feature = "git2")]
-fn is_remote_not_found_err(err: &git2::Error) -> bool {
-    matches!(
-        (err.class(), err.code()),
-        (
-            git2::ErrorClass::Config,
-            git2::ErrorCode::NotFound | git2::ErrorCode::InvalidSpec
-        )
-    )
-}
-
 /// Determine, by its name, if a remote refers to the special local-only "git"
 /// remote that is used in the Git backend.
 ///
@@ -2082,19 +2067,6 @@ fn rename_remote_refs(
     }
 }
 
-#[cfg(feature = "git2")]
-fn open_git2_repo(git_backend: &GitBackend) -> Result<git2::Repository, git2::Error> {
-    let mut flags = git2::RepositoryOpenFlags::NO_SEARCH;
-    if std::env::var("JJ_DEBUG_HERMETIC_GIT2").as_deref() == Ok("1") {
-        flags.insert(git2::RepositoryOpenFlags::FROM_ENV);
-    }
-    git2::Repository::open_ext(
-        git_backend.git_repo_path(),
-        flags,
-        &[] as &[&std::ffi::OsStr],
-    )
-}
-
 const INVALID_REFSPEC_CHARS: [char; 5] = [':', '^', '?', '[', ']'];
 
 #[derive(Error, Debug)]
@@ -2108,9 +2080,6 @@ pub enum GitFetchError {
     InvalidBranchPattern(StringPattern),
     #[error(transparent)]
     RemoteName(#[from] GitRemoteNameError),
-    #[cfg(feature = "git2")]
-    #[error(transparent)]
-    Git2(#[from] git2::Error),
     #[error(transparent)]
     Subprocess(#[from] GitSubprocessError),
 }
@@ -2119,35 +2088,8 @@ pub enum GitFetchError {
 // UnexpectedGitBackendError.
 #[derive(Debug, Error)]
 pub enum GitFetchPrepareError {
-    #[cfg(feature = "git2")]
-    #[error(transparent)]
-    Git2(#[from] git2::Error),
     #[error(transparent)]
     UnexpectedBackend(#[from] UnexpectedGitBackendError),
-}
-
-#[cfg(feature = "git2")]
-fn git2_fetch_options(
-    mut callbacks: RemoteCallbacks<'_>,
-    depth: Option<NonZeroU32>,
-) -> git2::FetchOptions<'_> {
-    let mut proxy_options = git2::ProxyOptions::new();
-    proxy_options.auto();
-
-    let mut fetch_options = git2::FetchOptions::new();
-    fetch_options.proxy_options(proxy_options);
-    // git2 doesn't provide API to set "no-progress" protocol option. If
-    // sideband callback were enabled, remote progress messages would be written
-    // no matter if the process was attached to a tty or not.
-    if callbacks.progress.is_none() {
-        callbacks.sideband_progress = None;
-    }
-    fetch_options.remote_callbacks(callbacks.into_git());
-    if let Some(depth) = depth {
-        fetch_options.depth(depth.get().try_into().unwrap_or(i32::MAX));
-    }
-
-    fetch_options
 }
 
 struct FetchedBranches {
@@ -2271,8 +2213,6 @@ fn expand_fetch_refspecs(
 }
 
 enum GitFetchImpl<'a> {
-    #[cfg(feature = "git2")]
-    Git2 { git_repo: git2::Repository },
     Subprocess {
         git_repo: Box<gix::Repository>,
         git_ctx: GitSubprocessContext<'a>,
@@ -2282,11 +2222,6 @@ enum GitFetchImpl<'a> {
 impl<'a> GitFetchImpl<'a> {
     fn new(store: &Store, git_settings: &'a GitSettings) -> Result<Self, GitFetchPrepareError> {
         let git_backend = get_git_backend(store)?;
-        #[cfg(feature = "git2")]
-        if false {
-            let git_repo = open_git2_repo(git_backend)?;
-            return Ok(GitFetchImpl::Git2 { git_repo });
-        }
         let git_repo = Box::new(git_backend.git_repo());
         let git_ctx =
             GitSubprocessContext::from_git_backend(git_backend, &git_settings.executable_path);
@@ -2301,10 +2236,6 @@ impl<'a> GitFetchImpl<'a> {
         depth: Option<NonZeroU32>,
     ) -> Result<(), GitFetchError> {
         match self {
-            #[cfg(feature = "git2")]
-            GitFetchImpl::Git2 { git_repo } => {
-                git2_fetch(git_repo, remote_name, branch_names, callbacks, depth)
-            }
             GitFetchImpl::Subprocess { git_repo, git_ctx } => subprocess_fetch(
                 git_repo,
                 git_ctx,
@@ -2322,99 +2253,11 @@ impl<'a> GitFetchImpl<'a> {
         callbacks: RemoteCallbacks<'_>,
     ) -> Result<Option<RefNameBuf>, GitFetchError> {
         match self {
-            #[cfg(feature = "git2")]
-            GitFetchImpl::Git2 { git_repo } => {
-                git2_get_default_branch(git_repo, remote_name, callbacks)
-            }
             GitFetchImpl::Subprocess { git_repo, git_ctx } => {
                 subprocess_get_default_branch(git_repo, git_ctx, remote_name, callbacks)
             }
         }
     }
-}
-
-#[cfg(feature = "git2")]
-fn git2_fetch(
-    git_repo: &git2::Repository,
-    remote_name: &RemoteName,
-    branch_names: &[StringPattern],
-    callbacks: RemoteCallbacks<'_>,
-    depth: Option<NonZeroU32>,
-) -> Result<(), GitFetchError> {
-    let mut remote = git_repo.find_remote(remote_name.as_str()).map_err(|err| {
-        if is_remote_not_found_err(&err) {
-            GitFetchError::NoSuchRemote(remote_name.to_owned())
-        } else {
-            GitFetchError::Git2(err)
-        }
-    })?;
-    // At this point, we are only updating Git's remote tracking branches, not the
-    // local branches.
-    let refspecs: Vec<String> = expand_fetch_refspecs(remote_name, branch_names)?
-        .iter()
-        .map(|refspec| refspec.to_git_format())
-        .collect();
-
-    if refspecs.is_empty() {
-        // Don't fall back to the base refspecs.
-        return Ok(());
-    }
-
-    tracing::debug!("remote.download");
-    remote.download(&refspecs, Some(&mut git2_fetch_options(callbacks, depth)))?;
-    tracing::debug!("remote.prune");
-    remote.prune(None)?;
-    tracing::debug!("remote.update_tips");
-    remote.update_tips(
-        None,
-        git2::RemoteUpdateFlags::empty(),
-        git2::AutotagOption::Unspecified,
-        None,
-    )?;
-    tracing::debug!("remote.disconnect");
-    remote.disconnect()?;
-    Ok(())
-}
-
-#[cfg(feature = "git2")]
-fn git2_get_default_branch(
-    git_repo: &git2::Repository,
-    remote_name: &RemoteName,
-    callbacks: RemoteCallbacks<'_>,
-) -> Result<Option<RefNameBuf>, GitFetchError> {
-    let mut remote = git_repo.find_remote(remote_name.as_str()).map_err(|err| {
-        if is_remote_not_found_err(&err) {
-            GitFetchError::NoSuchRemote(remote_name.to_owned())
-        } else {
-            GitFetchError::Git2(err)
-        }
-    })?;
-    // Unlike .download(), connect_auth() returns RAII object.
-    tracing::debug!("remote.connect");
-    let connection = {
-        let mut proxy_options = git2::ProxyOptions::new();
-        proxy_options.auto();
-        remote.connect_auth(
-            git2::Direction::Fetch,
-            Some(callbacks.into_git()),
-            Some(proxy_options),
-        )?
-    };
-    let mut default_branch = None;
-    tracing::debug!("remote.default_branch");
-    if let Ok(default_ref_buf) = connection.default_branch() {
-        if let Some(default_ref) = default_ref_buf.as_str() {
-            // Here the ref should point to local branch on the remote
-            if let Some(branch_name) = default_ref
-                .strip_prefix("refs/heads/")
-                .filter(|&name| name != "HEAD")
-            {
-                tracing::debug!(default_branch = branch_name);
-                default_branch = Some(branch_name.into());
-            }
-        }
-    }
-    Ok(default_branch)
 }
 
 fn subprocess_fetch(
@@ -2485,9 +2328,6 @@ pub enum GitPushError {
     NoSuchRemote(RemoteNameBuf),
     #[error(transparent)]
     RemoteName(#[from] GitRemoteNameError),
-    #[cfg(feature = "git2")]
-    #[error(transparent)]
-    Git2(#[from] git2::Error),
     #[error(transparent)]
     Subprocess(#[from] GitSubprocessError),
     #[error(transparent)]
@@ -2586,19 +2426,6 @@ pub fn push_updates(
     // requires adjusting some tests.
 
     let git_backend = get_git_backend(repo.store())?;
-    #[cfg(feature = "git2")]
-    if false {
-        let git_repo = open_git2_repo(git_backend)?;
-        let refspecs: Vec<String> = refspecs.iter().map(RefSpec::to_git_format).collect();
-        return git2_push_refs(
-            repo,
-            &git_repo,
-            remote_name,
-            &qualified_remote_refs_expected_locations,
-            &refspecs,
-            callbacks,
-        );
-    }
     let git_repo = git_backend.git_repo();
     let git_ctx =
         GitSubprocessContext::from_git_backend(git_backend, &git_settings.executable_path);
@@ -2610,151 +2437,6 @@ pub fn push_updates(
         &refspecs,
         callbacks,
     )
-}
-
-#[cfg(feature = "git2")]
-fn git2_push_refs(
-    repo: &dyn Repo,
-    git_repo: &git2::Repository,
-    remote_name: &RemoteName,
-    qualified_remote_refs_expected_locations: &HashMap<&GitRefName, Option<&CommitId>>,
-    refspecs: &[String],
-    callbacks: RemoteCallbacks<'_>,
-) -> Result<GitPushStats, GitPushError> {
-    let mut remote = git_repo.find_remote(remote_name.as_str()).map_err(|err| {
-        if is_remote_not_found_err(&err) {
-            GitPushError::NoSuchRemote(remote_name.to_owned())
-        } else {
-            GitPushError::Git2(err)
-        }
-    })?;
-
-    let mut remaining_remote_refs: HashSet<_> = qualified_remote_refs_expected_locations
-        .keys()
-        .copied()
-        .collect();
-    let mut failed_push_negotiations = vec![];
-    let mut pushed_refs = vec![];
-
-    let push_result = {
-        let mut push_options = git2::PushOptions::new();
-        let mut proxy_options = git2::ProxyOptions::new();
-        proxy_options.auto();
-        push_options.proxy_options(proxy_options);
-        let mut callbacks = callbacks.into_git();
-        callbacks.push_negotiation(|updates| {
-            for update in updates {
-                let dst_refname: &GitRefName = update
-                    .dst_refname()
-                    .expect("Expect reference name to be valid UTF-8")
-                    .as_ref();
-                let expected_remote_location = *qualified_remote_refs_expected_locations
-                    .get(dst_refname)
-                    .expect("Push is trying to move a ref it wasn't asked to move");
-                let oid_to_maybe_commitid =
-                    |oid: git2::Oid| (!oid.is_zero()).then(|| CommitId::from_bytes(oid.as_bytes()));
-                let actual_remote_location = oid_to_maybe_commitid(update.src());
-                let local_location = oid_to_maybe_commitid(update.dst());
-
-                match allow_push(
-                    repo.index(),
-                    actual_remote_location.as_ref(),
-                    expected_remote_location,
-                    local_location.as_ref(),
-                ) {
-                    Ok(PushAllowReason::NormalMatch) => {}
-                    Ok(PushAllowReason::UnexpectedNoop) => {
-                        tracing::info!(
-                            "The push of {dst_refname:?} is unexpectedly a no-op, the remote \
-                             branch is already at {actual_remote_location:?}. We expected it to \
-                             be at {expected_remote_location:?}. We don't consider this an error.",
-                        );
-                    }
-                    Ok(PushAllowReason::ExceptionalFastforward) => {
-                        // TODO(ilyagr): We could consider printing a user-facing message at
-                        // this point.
-                        tracing::info!(
-                            "We allow the push of {dst_refname:?} to {local_location:?}, even \
-                             though it is unexpectedly at {actual_remote_location:?} on the \
-                             server rather than the expected {expected_remote_location:?}. The \
-                             desired location is a descendant of the actual location, and the \
-                             actual location is a descendant of the expected location.",
-                        );
-                    }
-                    Err(()) => {
-                        // While we show debug info in the message with `--debug`,
-                        // there's probably no need to show the detailed commit
-                        // locations to the user normally. They should do a `jj git
-                        // fetch`, and the resulting branch conflicts should contain
-                        // all the information they need.
-                        tracing::info!(
-                            "Cannot push {dst_refname:?} to {local_location:?}; it is at \
-                             unexpectedly at {actual_remote_location:?} on the server as opposed \
-                             to the expected {expected_remote_location:?}",
-                        );
-                        failed_push_negotiations.push(dst_refname.to_owned());
-                    }
-                }
-            }
-
-            if failed_push_negotiations.is_empty() {
-                Ok(())
-            } else {
-                Err(git2::Error::from_str("failed push negotiation"))
-            }
-        });
-        callbacks.push_update_reference(|refname, status| {
-            let refname = GitRefName::new(refname);
-            // The status is Some if the ref update was rejected by the remote
-            if status.is_none() {
-                remaining_remote_refs.remove(refname);
-                pushed_refs.push(refname.to_owned());
-            }
-            Ok(())
-        });
-        push_options.remote_callbacks(callbacks);
-        remote.push(refspecs, Some(&mut push_options))
-    };
-
-    for failed_update in &failed_push_negotiations {
-        remaining_remote_refs.remove(&**failed_update);
-    }
-    let rejected: Vec<_> = failed_push_negotiations
-        .into_iter()
-        .sorted()
-        .map(|name| (name, None))
-        .collect();
-    let remote_rejected: Vec<_> = remaining_remote_refs
-        .into_iter()
-        .sorted()
-        .map(|name| (name.to_owned(), None))
-        .collect();
-    pushed_refs.sort();
-
-    let push_stats = if !rejected.is_empty() {
-        // If the push negotiation returned an error, `remote.push` would not
-        // have pushed anything and would have returned an error, as expected.
-        // However, the error it returns is not necessarily the error we'd
-        // expect. It also depends on the exact versions of `libgit2` and
-        // `git2.rs`. So, we cannot rely on it containing any useful
-        // information. See https://github.com/rust-lang/git2-rs/issues/1042.
-
-        assert!(push_result.is_err());
-        GitPushStats {
-            rejected,
-            remote_rejected,
-            ..Default::default()
-        }
-    } else {
-        push_result?;
-        GitPushStats {
-            pushed: pushed_refs,
-            remote_rejected,
-            ..Default::default()
-        }
-    };
-
-    Ok(push_stats)
 }
 
 fn subprocess_push_refs(
@@ -2782,66 +2464,6 @@ fn subprocess_push_refs(
     Ok(push_stats)
 }
 
-#[cfg(feature = "git2")]
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum PushAllowReason {
-    NormalMatch,
-    ExceptionalFastforward,
-    UnexpectedNoop,
-}
-
-#[cfg(feature = "git2")]
-fn allow_push(
-    index: &dyn Index,
-    actual_remote_location: Option<&CommitId>,
-    expected_remote_location: Option<&CommitId>,
-    destination_location: Option<&CommitId>,
-) -> Result<PushAllowReason, ()> {
-    if actual_remote_location == expected_remote_location {
-        return Ok(PushAllowReason::NormalMatch);
-    }
-
-    // If the remote ref is in an unexpected location, we still allow some
-    // pushes, based on whether `jj git fetch` would result in a conflicted ref.
-    //
-    // For `merge_ref_targets` to work correctly, `actual_remote_location` must
-    // be a commit that we locally know about.
-    //
-    // This does not lose any generality since for `merge_ref_targets` to
-    // resolve to `local_target` below, it is conceptually necessary (but not
-    // sufficient) for the destination_location to be either a descendant of
-    // actual_remote_location or equal to it. Either way, we would know about that
-    // commit locally.
-    if !actual_remote_location.is_none_or(|id| index.has_id(id)) {
-        return Err(());
-    }
-    let remote_target = RefTarget::resolved(actual_remote_location.cloned());
-    let base_target = RefTarget::resolved(expected_remote_location.cloned());
-    // The push destination is the local position of the ref
-    let local_target = RefTarget::resolved(destination_location.cloned());
-    if refs::merge_ref_targets(index, &remote_target, &base_target, &local_target) == local_target {
-        // Fetch would not change the local branch, so the push is OK in spite of
-        // the discrepancy with the expected location. We return some debug info and
-        // verify some invariants before OKing the push.
-        Ok(if actual_remote_location == destination_location {
-            // This is the situation of what we call "A - B + A = A"
-            // conflicts, see also test_refs.rs and
-            // https://github.com/jj-vcs/jj/blob/c9b44f382824301e6c0fdd6f4cbc52bb00c50995/lib/src/merge.rs#L92.
-            PushAllowReason::UnexpectedNoop
-        } else {
-            // Due to our ref merge rules, this case should happen if an only
-            // if:
-            //
-            // 1. This is a fast-forward.
-            // 2. The expected location is an ancestor of both the actual location and the
-            //    destination (local position).
-            PushAllowReason::ExceptionalFastforward
-        })
-    } else {
-        Err(())
-    }
-}
-
 #[non_exhaustive]
 #[derive(Default)]
 #[expect(clippy::type_complexity)]
@@ -2851,104 +2473,6 @@ pub struct RemoteCallbacks<'a> {
     pub get_ssh_keys: Option<&'a mut dyn FnMut(&str) -> Vec<PathBuf>>,
     pub get_password: Option<&'a mut dyn FnMut(&str, &str) -> Option<String>>,
     pub get_username_password: Option<&'a mut dyn FnMut(&str) -> Option<(String, String)>>,
-}
-
-#[cfg(feature = "git2")]
-impl<'a> RemoteCallbacks<'a> {
-    fn into_git(mut self) -> git2::RemoteCallbacks<'a> {
-        let mut callbacks = git2::RemoteCallbacks::new();
-        if let Some(progress_cb) = self.progress {
-            callbacks.transfer_progress(move |progress| {
-                progress_cb(&Progress {
-                    bytes_downloaded: (progress.received_objects() < progress.total_objects())
-                        .then(|| progress.received_bytes() as u64),
-                    overall: (progress.indexed_objects() + progress.indexed_deltas()) as f32
-                        / (progress.total_objects() + progress.total_deltas()) as f32,
-                });
-                true
-            });
-        }
-        if let Some(sideband_progress_cb) = self.sideband_progress {
-            callbacks.sideband_progress(move |data| {
-                sideband_progress_cb(data);
-                true
-            });
-        }
-        // TODO: We should expose the callbacks to the caller instead -- the library
-        // crate shouldn't read environment variables.
-        let mut tried_ssh_agent = false;
-        let mut ssh_key_paths_to_try: Option<Vec<PathBuf>> = None;
-        callbacks.credentials(move |url, username_from_url, allowed_types| {
-            let span = tracing::debug_span!("RemoteCallbacks.credentials");
-            let _ = span.enter();
-
-            let git_config = git2::Config::open_default();
-            let credential_helper = git_config
-                .and_then(|conf| git2::Cred::credential_helper(&conf, url, username_from_url));
-            if let Ok(creds) = credential_helper {
-                tracing::info!("using credential_helper");
-                return Ok(creds);
-            } else if let Some(username) = username_from_url {
-                if allowed_types.contains(git2::CredentialType::SSH_KEY) {
-                    // Try to get the SSH key from the agent once. We don't even check if
-                    // $SSH_AUTH_SOCK is set because Windows uses another mechanism.
-                    if !tried_ssh_agent {
-                        tracing::info!(username, "trying ssh_key_from_agent");
-                        tried_ssh_agent = true;
-                        return git2::Cred::ssh_key_from_agent(username).map_err(|err| {
-                            tracing::error!(err = %err);
-                            err
-                        });
-                    }
-
-                    let paths = ssh_key_paths_to_try.get_or_insert_with(|| {
-                        if let Some(ref mut cb) = self.get_ssh_keys {
-                            let mut paths = cb(username);
-                            paths.reverse();
-                            paths
-                        } else {
-                            vec![]
-                        }
-                    });
-
-                    if let Some(path) = paths.pop() {
-                        tracing::info!(username, path = ?path, "trying ssh_key");
-                        return git2::Cred::ssh_key(username, None, &path, None).map_err(|err| {
-                            tracing::error!(err = %err);
-                            err
-                        });
-                    }
-                }
-                if allowed_types.contains(git2::CredentialType::USER_PASS_PLAINTEXT) {
-                    if let Some(ref mut cb) = self.get_password {
-                        if let Some(pw) = cb(url, username) {
-                            tracing::info!(
-                                username,
-                                "using userpass_plaintext with username from url"
-                            );
-                            return git2::Cred::userpass_plaintext(username, &pw).map_err(|err| {
-                                tracing::error!(err = %err);
-                                err
-                            });
-                        }
-                    }
-                }
-            } else if allowed_types.contains(git2::CredentialType::USER_PASS_PLAINTEXT) {
-                if let Some(ref mut cb) = self.get_username_password {
-                    if let Some((username, pw)) = cb(url) {
-                        tracing::info!(username, "using userpass_plaintext");
-                        return git2::Cred::userpass_plaintext(&username, &pw).map_err(|err| {
-                            tracing::error!(err = %err);
-                            err
-                        });
-                    }
-                }
-            }
-            tracing::info!("using default");
-            git2::Cred::default()
-        });
-        callbacks
-    }
 }
 
 #[derive(Clone, Debug)]

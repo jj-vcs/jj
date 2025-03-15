@@ -65,7 +65,6 @@ crossterm = { workspace = true }
 dunce = { workspace = true }
 etcetera = { workspace = true }
 futures = { workspace = true }
-git2 = { workspace = true, optional = true }
 gix = { workspace = true, optional = true }
 glob = { workspace = true }
 indexmap = { workspace = true }
@@ -114,12 +113,10 @@ testutils = { workspace = true }
 jj-cli = { path = ".", features = ["test-fakes"], default-features = false }
 
 [features]
-default = ["watchman", "git", "git2"]
+default = ["watchman", "git"]
 bench = ["dep:criterion"]
 git = ["jj-lib/git", "dep:gix"]
-git2 = ["git", "jj-lib/git2", "dep:git2"]
 test-fakes = ["jj-lib/testing"]
-vendored-openssl = ["git2/vendored-openssl", "jj-lib/vendored-openssl"]
 watchman = ["jj-lib/watchman"]
 
 [package.metadata.binstall]

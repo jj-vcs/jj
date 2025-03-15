@@ -23,6 +23,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Packaging changes
 
+* Due to the removal of the `libgit2` code path, packagers should
+  remove any dependencies on `libgit2`, `libssh2`, Zlib, OpenSSL, and
+  `pkg-config`, and ensure they are not setting the Cargo `git2` or
+  `vendored-openssl` features.
+
 ## [0.29.0] - 2025-05-07
 
 ### Release highlights

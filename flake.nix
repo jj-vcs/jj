@@ -61,20 +61,13 @@
         in pkgs.makeRustPlatform { rustc = platform; cargo = platform; };
 
       nativeBuildInputs = with pkgs;
-        [
-          gzip
-          pkg-config
-        ]
+        [ ]
         ++ lib.optionals stdenv.isLinux [
           mold-wrapped
         ];
 
       buildInputs = with pkgs;
-        [
-          openssl
-          libgit2
-          libssh2
-        ]
+        [ ]
         ++ lib.optionals stdenv.isDarwin [
           darwin.apple_sdk.frameworks.Security
           darwin.apple_sdk.frameworks.SystemConfiguration
@@ -94,7 +87,6 @@
       ];
 
       env = {
-        LIBSSH2_SYS_USE_PKG_CONFIG = "1";
         RUST_BACKTRACE = 1;
         CARGO_INCREMENTAL = "0"; # https://github.com/rust-lang/rust/issues/139110
       };

@@ -42,7 +42,6 @@ digest = { workspace = true }
 dunce = { workspace = true }
 either = { workspace = true }
 futures = { workspace = true }
-git2 = { workspace = true, optional = true }
 gix = { workspace = true, optional = true }
 glob = { workspace = true }
 hashbrown = { workspace = true }
@@ -94,10 +93,8 @@ testutils = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 
 [features]
-default = ["git", "git2"]
+default = ["git"]
 git = ["dep:gix"]
-git2 = ["git", "dep:git2"]
-vendored-openssl = ["git2/vendored-openssl"]
 watchman = ["dep:tokio", "dep:watchman_client"]
 testing = ["git"]
 

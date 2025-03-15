@@ -562,8 +562,6 @@ jj currently does not support partial clones. To use jj with this repository, tr
                     "Run `jj git remote rename` to give a different name.",
                 ),
                 GitFetchError::InvalidBranchPattern(_) => user_error(err),
-                #[cfg(feature = "git2")]
-                GitFetchError::Git2(err) => map_git2_error(err),
                 GitFetchError::Subprocess(_) => user_error(err),
             }
         }
@@ -572,8 +570,6 @@ jj currently does not support partial clones. To use jj with this repository, tr
     impl From<GitFetchPrepareError> for CommandError {
         fn from(err: GitFetchPrepareError) -> Self {
             match err {
-                #[cfg(feature = "git2")]
-                GitFetchPrepareError::Git2(err) => map_git2_error(err),
                 GitFetchPrepareError::UnexpectedBackend(_) => user_error(err),
             }
         }
@@ -587,8 +583,6 @@ jj currently does not support partial clones. To use jj with this repository, tr
                     err,
                     "Run `jj git remote rename` to give a different name.",
                 ),
-                #[cfg(feature = "git2")]
-                GitPushError::Git2(err) => map_git2_error(err),
                 GitPushError::Subprocess(_) => user_error(err),
                 GitPushError::UnexpectedBackend(_) => user_error(err),
             }
@@ -609,26 +603,6 @@ jj currently does not support partial clones. To use jj with this repository, tr
 
     impl From<UnexpectedGitBackendError> for CommandError {
         fn from(err: UnexpectedGitBackendError) -> Self {
-            user_error(err)
-        }
-    }
-
-    #[cfg(feature = "git2")]
-    fn map_git2_error(err: git2::Error) -> CommandError {
-        if err.class() == git2::ErrorClass::Ssh {
-            let hint = if err.code() == git2::ErrorCode::Certificate
-                && std::env::var_os("HOME").is_none()
-            {
-                "The HOME environment variable is not set, and might be required for Git to \
-                 successfully load certificates. Try setting it to the path of a directory that \
-                 contains a `.ssh` directory."
-            } else {
-                "Jujutsu uses libssh2, which doesn't respect ~/.ssh/config. Does `ssh -F \
-                 /dev/null` to the host work?"
-            };
-
-            user_error_with_hint(err, hint)
-        } else {
             user_error(err)
         }
     }

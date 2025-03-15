@@ -30,12 +30,11 @@ be compiled from the same source code.
 
 #### From Source
 
-First make sure that you have a Rust version >= 1.84 and that the `libssl-dev`,
-`openssl`, `pkg-config`, and `build-essential` packages are installed by running
-something like this:
+First make sure that you have a Rust version >= 1.84 and that the
+`build-essential` package is installed by running something like this:
 
 ```shell
-sudo apt-get install libssl-dev openssl pkg-config build-essential
+sudo apt-get install build-essential
 ```
 
 Now run either:
@@ -115,7 +114,7 @@ zypper install jujutsu
 
 ### Mac
 
-#### From Source, Vendored OpenSSL
+#### From Source
 
 First make sure that you have a Rust version >= 1.84. You may also need to run:
 
@@ -128,34 +127,7 @@ Now run either:
 ```shell
 # To install the *prerelease* version from the main branch
 cargo install --git https://github.com/jj-vcs/jj.git \
-     --features vendored-openssl --locked --bin jj jj-cli
-```
-
-or:
-
-```shell
-# To install the latest release
-cargo install --features vendored-openssl --locked --bin jj jj-cli
-```
-
-#### From Source, Homebrew OpenSSL
-
-First make sure that you have a Rust version >= 1.84. You will also need
-[Homebrew] installed. You may then need to run some or all of
-these:
-
-```shell
-xcode-select --install
-brew install openssl
-brew install pkg-config
-export PKG_CONFIG_PATH="$(brew --prefix)/opt/openssl@3/lib/pkgconfig"
-```
-
-Now run either:
-
-```shell
-# To install the *prerelease* version from the main branch
-cargo install --git https://github.com/jj-vcs/jj.git --locked --bin jj jj-cli
+     --locked --bin jj jj-cli
 ```
 
 or:
@@ -164,7 +136,6 @@ or:
 # To install the latest release
 cargo install --locked --bin jj jj-cli
 ```
-
 
 #### Homebrew
 
@@ -191,14 +162,14 @@ First make sure that you have a Rust version >= 1.84. Now run either:
 
 ```shell
 # To install the *prerelease* version from the main branch
-cargo install --git https://github.com/jj-vcs/jj.git --locked --bin jj jj-cli --features vendored-openssl
+cargo install --git https://github.com/jj-vcs/jj.git --locked --bin jj jj-cli
 ```
 
 or:
 
 ```shell
 # To install the latest release
-cargo install --locked --bin jj jj-cli --features vendored-openssl
+cargo install --locked --bin jj jj-cli
 ```
 
 
