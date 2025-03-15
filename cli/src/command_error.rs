@@ -508,7 +508,6 @@ impl From<TrailerParseError> for CommandError {
 mod git {
     use jj_lib::git::GitExportError;
     use jj_lib::git::GitFetchError;
-    use jj_lib::git::GitFetchPrepareError;
     use jj_lib::git::GitImportError;
     use jj_lib::git::GitPushError;
     use jj_lib::git::GitRemoteManagementError;
@@ -563,14 +562,6 @@ jj currently does not support partial clones. To use jj with this repository, tr
                 ),
                 GitFetchError::InvalidBranchPattern(_) => user_error(err),
                 GitFetchError::Subprocess(_) => user_error(err),
-            }
-        }
-    }
-
-    impl From<GitFetchPrepareError> for CommandError {
-        fn from(err: GitFetchPrepareError) -> Self {
-            match err {
-                GitFetchPrepareError::UnexpectedBackend(_) => user_error(err),
             }
         }
     }
