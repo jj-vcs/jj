@@ -2101,31 +2101,3 @@ fn test_git_fetch_preserve_commits_across_repos(subprocess: bool) {
     ");
     }
 }
-
-// TODO: Remove with the `git.subprocess` setting.
-#[test]
-fn test_git_fetch_git2_warning() {
-    let test_env = TestEnvironment::default();
-    test_env.add_config("git.subprocess = false");
-    test_env.add_config("git.auto-local-bookmark = true");
-    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    add_git_remote(&test_env, &repo_path, "origin");
-
-    let output = test_env.run_jj_in(&repo_path, ["git", "fetch"]);
-    if cfg!(feature = "git2") {
-        insta::assert_snapshot!(output, @r#"
-        ------- stderr -------
-        Warning: `git.subprocess = false` will be removed in 0.XX; please report any issues you have with the default.
-        bookmark: origin@origin [new] tracked
-        [EOF]
-        "#);
-    } else {
-        insta::assert_snapshot!(output, @r#"
-        ------- stderr -------
-        Warning: Deprecated config: jj was compiled without `git.subprocess = false` support
-        bookmark: origin@origin [new] tracked
-        [EOF]
-        "#);
-    }
-}

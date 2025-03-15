@@ -2054,7 +2054,7 @@ impl<'a> GitFetchImpl<'a> {
     fn new(store: &Store, git_settings: &'a GitSettings) -> Result<Self, GitFetchPrepareError> {
         let git_backend = get_git_backend(store)?;
         #[cfg(feature = "git2")]
-        if !git_settings.subprocess {
+        if false {
             let git_repo = git2::Repository::open(git_backend.git_repo_path())?;
             return Ok(GitFetchImpl::Git2 { git_repo });
         }
@@ -2358,7 +2358,7 @@ pub fn push_updates(
 
     let git_backend = get_git_backend(repo.store())?;
     #[cfg(feature = "git2")]
-    if !git_settings.subprocess {
+    if false {
         let git_repo = git2::Repository::open(git_backend.git_repo_path())?;
         let refspecs: Vec<String> = refspecs.iter().map(RefSpec::to_git_format).collect();
         return git2_push_refs(
