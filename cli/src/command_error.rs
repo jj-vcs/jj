@@ -59,7 +59,6 @@ use jj_lib::workspace::WorkspaceInitError;
 use thiserror::Error;
 
 use crate::cli_util::short_operation_hash;
-use crate::config::ConfigEnvError;
 use crate::description_util::ParseBulkEditMessageError;
 use crate::description_util::TempTextEditError;
 use crate::description_util::TextEditError;
@@ -239,12 +238,6 @@ impl From<io::Error> for CommandError {
 impl From<jj_lib::file_util::PathError> for CommandError {
     fn from(err: jj_lib::file_util::PathError) -> Self {
         user_error(err)
-    }
-}
-
-impl From<ConfigEnvError> for CommandError {
-    fn from(err: ConfigEnvError) -> Self {
-        config_error(err)
     }
 }
 

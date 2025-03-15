@@ -38,6 +38,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* Multiple user configs are now supported and are loaded in the following precedence order:
+  - `$HOME/.jjconfig.toml`
+  - `$XDG_CONFIG_HOME/jj/config.toml`
+  - `$XDG_CONFIG_HOME/jj/conf.d/*.toml`
+
+* The `JJ_CONFIG` environment variable can now contain multiple paths separated
+  by a colon (or semicolon on Windows).
+
 * The command `jj config list` now supports showing the origin of each variable
   via the `builtin_config_list_detailed` template.
 
