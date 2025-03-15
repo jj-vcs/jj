@@ -74,12 +74,6 @@ impl Default for TestEnvironment {
 }
 
 impl TestEnvironment {
-    // TODO: Remove with the `git.subprocess` setting.
-    pub fn with_git_subprocess(subprocess: bool) -> Self {
-        assert!(subprocess);
-        Self::default()
-    }
-
     /// Returns test helper for the specified directory.
     ///
     /// The `root` path usually points to the workspace root, but it may be
