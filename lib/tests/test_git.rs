@@ -148,8 +148,7 @@ fn git_fetch(
         git::RemoteCallbacks::default(),
         None,
     )?;
-    let default_branch =
-        git_fetch.get_default_branch(remote_name, git::RemoteCallbacks::default())?;
+    let default_branch = git_fetch.get_default_branch(remote_name)?;
 
     let import_stats = git_fetch.import_refs().unwrap();
     let stats = GitFetchStats {
