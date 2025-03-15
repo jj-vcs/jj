@@ -52,7 +52,7 @@ jobs:
         target: ${{ matrix.target }}
     - name: Build release binary
       shell: bash
-      run: cargo build --target ${{ matrix.target }} --verbose --release --features vendored-openssl
+      run: cargo build --target ${{ matrix.target }} --verbose --release
     - name: Build archive
       shell: bash
       run: |

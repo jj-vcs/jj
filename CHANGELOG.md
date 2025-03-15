@@ -15,6 +15,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The old `libgit2` code path for fetches and pushes has been removed,
   and the `git.subprocess` setting along with it.
 
+  Packagers should remove any dependencies on `libgit2`, `libssh2`,
+  Zlib, OpenSSL, and `pkg-config`, and ensure they are not setting the
+  Cargo `git2` or `vendored-openssl` features.
+
 ### Deprecations
 
 ### New features
