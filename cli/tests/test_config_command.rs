@@ -1006,6 +1006,20 @@ fn test_config_path_multiple() {
 }
 
 #[test]
+fn test_config_only_loads_toml_files() {
+    let mut test_env = TestEnvironment::default();
+    test_env.set_up_fake_editor();
+    std::fs::File::create(test_env.config_path().join("is-not.loaded")).unwrap();
+    insta::assert_snapshot!(test_env.run_jj_in(".", ["config", "edit", "--user"]), @r"
+    ------- stderr -------
+    1: $TEST_ENV/config/config0001.toml
+    2: $TEST_ENV/config/config0002.toml
+    Choose a config file (default 1): 1
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_config_edit_repo_outside_repo() {
     let test_env = TestEnvironment::default();
     let output = test_env.run_jj_in(".", ["config", "edit", "--repo"]);

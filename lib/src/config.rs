@@ -366,8 +366,7 @@ impl ConfigLayer {
             .and_then(|dir_entries| {
                 dir_entries
                     .map(|entry| Ok(entry?.path()))
-                    // TODO: Accept only certain file extensions?
-                    .filter_ok(|path| path.is_file())
+                    .filter_ok(|path| path.is_file() && path.extension() == Some("toml".as_ref()))
                     .try_collect()
             })
             .context(path)
