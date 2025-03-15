@@ -124,11 +124,8 @@ fn get_git_repo(repo: &Arc<ReadonlyRepo>) -> gix::Repository {
 }
 
 fn get_git_settings(subprocess: bool) -> GitSettings {
-    #[cfg(not(feature = "git2"))]
     assert!(subprocess);
     GitSettings {
-        #[cfg(feature = "git2")]
-        subprocess,
         ..Default::default()
     }
 }

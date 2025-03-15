@@ -2060,33 +2060,3 @@ fn get_bookmark_output(work_dir: &TestWorkDir) -> CommandOutput {
     // --quiet to suppress deleted bookmarks hint
     work_dir.run_jj(["bookmark", "list", "--all-remotes", "--quiet"])
 }
-
-// TODO: Remove with the `git.subprocess` setting.
-#[test]
-fn test_git_push_git2_warning() {
-    let test_env = TestEnvironment::default();
-    set_up(&test_env);
-    let work_dir = test_env.work_dir("local");
-    test_env.add_config("git.subprocess = false");
-    work_dir
-        .run_jj(["describe", "bookmark1", "-m", "modified bookmark1 commit"])
-        .success();
-    let output = work_dir.run_jj(["git", "push", "--all"]);
-    if cfg!(feature = "git2") {
-        insta::assert_snapshot!(output, @r#"
-        ------- stderr -------
-        Changes to push to origin:
-          Move sideways bookmark bookmark1 from d13ecdbda2a2 to 0f8dc6560f32
-        Warning: `git.subprocess = false` will be removed in 0.XX; please report any issues you have with the default.
-        [EOF]
-        "#);
-    } else {
-        insta::assert_snapshot!(output, @r#"
-        ------- stderr -------
-        Warning: Deprecated config: jj was compiled without `git.subprocess = false` support
-        Changes to push to origin:
-          Move sideways bookmark bookmark1 from d13ecdbda2a2 to 0f8dc6560f32
-        [EOF]
-        "#);
-    }
-}
