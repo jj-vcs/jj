@@ -20,8 +20,8 @@ use testutils::git;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 
-fn set_up(subprocess: bool) -> (TestEnvironment, PathBuf) {
-    let test_env = TestEnvironment::with_git_subprocess(subprocess);
+fn set_up() -> (TestEnvironment, PathBuf) {
+    let test_env = TestEnvironment::with_git_subprocess(true);
     test_env.run_jj_in(".", ["git", "init", "origin"]).success();
     let origin_path = test_env.env_root().join("origin");
     let origin_git_repo_path = origin_path
@@ -64,7 +64,7 @@ fn set_up(subprocess: bool) -> (TestEnvironment, PathBuf) {
 
 #[test]
 fn test_git_push_nothing() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
     // Show the setup. `insta` has trouble if this is done inside `set_up()`
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &workspace_root), @r"
@@ -88,7 +88,7 @@ fn test_git_push_nothing() {
 
 #[test]
 fn test_git_push_current_bookmark() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
     // Update some bookmarks. `bookmark1` is not a current bookmark, but
     // `bookmark2` and `my-bookmark` are.
@@ -196,7 +196,7 @@ fn test_git_push_current_bookmark() {
 
 #[test]
 fn test_git_push_parent_bookmark() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
     test_env
         .run_jj_in(&workspace_root, ["edit", "bookmark1"])
@@ -224,7 +224,7 @@ fn test_git_push_parent_bookmark() {
 
 #[test]
 fn test_git_push_no_matching_bookmark() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
     test_env.run_jj_in(&workspace_root, ["new"]).success();
     let output = test_env.run_jj_in(&workspace_root, ["git", "push"]);
     insta::allow_duplicates! {
@@ -239,7 +239,7 @@ fn test_git_push_no_matching_bookmark() {
 
 #[test]
 fn test_git_push_matching_bookmark_unchanged() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
     test_env
         .run_jj_in(&workspace_root, ["new", "bookmark1"])
         .success();
@@ -259,7 +259,7 @@ fn test_git_push_matching_bookmark_unchanged() {
 /// (`remote_bookmarks(remote=<remote>)..@` vs. `remote_bookmarks()..@`).
 #[test]
 fn test_git_push_other_remote_has_bookmark() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
     // Create another remote (but actually the same)
     let other_remote_path = test_env
@@ -331,7 +331,7 @@ fn test_git_push_other_remote_has_bookmark() {
 
 #[test]
 fn test_git_push_forward_unexpectedly_moved() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
 
     // Move bookmark1 forward on the remote
     let origin_path = test_env.env_root().join("origin");
@@ -372,7 +372,7 @@ fn test_git_push_forward_unexpectedly_moved() {
 
 #[test]
 fn test_git_push_sideways_unexpectedly_moved() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
 
     // Move bookmark1 forward on the remote
     let origin_path = test_env.env_root().join("origin");
@@ -435,7 +435,7 @@ fn test_git_push_sideways_unexpectedly_moved() {
 // positions.
 #[test]
 fn test_git_push_deletion_unexpectedly_moved() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
 
     // Move bookmark1 forward on the remote
     let origin_path = test_env.env_root().join("origin");
@@ -489,7 +489,7 @@ fn test_git_push_deletion_unexpectedly_moved() {
 
 #[test]
 fn test_git_push_unexpectedly_deleted() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
 
     // Delete bookmark1 forward on the remote
     let origin_path = test_env.env_root().join("origin");
@@ -585,7 +585,7 @@ fn test_git_push_unexpectedly_deleted() {
 
 #[test]
 fn test_git_push_creation_unexpectedly_already_exists() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
 
     // Forget bookmark1 locally
     test_env
@@ -628,7 +628,7 @@ fn test_git_push_creation_unexpectedly_already_exists() {
 
 #[test]
 fn test_git_push_locally_created_and_rewritten() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
     // Ensure that remote bookmarks aren't tracked automatically
     test_env.add_config("git.auto-local-bookmark = false");
 
@@ -702,7 +702,7 @@ fn test_git_push_locally_created_and_rewritten() {
 
 #[test]
 fn test_git_push_multiple() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
     test_env
         .run_jj_in(&workspace_root, ["bookmark", "delete", "bookmark1"])
         .success();
@@ -867,7 +867,7 @@ fn test_git_push_multiple() {
 
 #[test]
 fn test_git_push_changes() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
     test_env
         .run_jj_in(&workspace_root, ["describe", "-m", "foo"])
         .success();
@@ -1011,7 +1011,7 @@ fn test_git_push_changes() {
 
 #[test]
 fn test_git_push_revisions() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
     test_env
         .run_jj_in(&workspace_root, ["describe", "-m", "foo"])
         .success();
@@ -1122,7 +1122,7 @@ fn test_git_push_revisions() {
 
 #[test]
 fn test_git_push_mixed() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
     test_env
         .run_jj_in(&workspace_root, ["describe", "-m", "foo"])
         .success();
@@ -1200,7 +1200,7 @@ fn test_git_push_mixed() {
 
 #[test]
 fn test_git_push_existing_long_bookmark() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
     test_env
         .run_jj_in(&workspace_root, ["describe", "-m", "foo"])
         .success();
@@ -1230,7 +1230,7 @@ fn test_git_push_existing_long_bookmark() {
 
 #[test]
 fn test_git_push_unsnapshotted_change() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
     test_env
         .run_jj_in(&workspace_root, ["describe", "-m", "foo"])
         .success();
@@ -1246,7 +1246,7 @@ fn test_git_push_unsnapshotted_change() {
 
 #[test]
 fn test_git_push_conflict() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
     std::fs::write(workspace_root.join("file"), "first").unwrap();
     test_env
         .run_jj_in(&workspace_root, ["commit", "-m", "first"])
@@ -1282,7 +1282,7 @@ fn test_git_push_conflict() {
 
 #[test]
 fn test_git_push_no_description() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
     test_env
         .run_jj_in(
             &workspace_root,
@@ -1322,7 +1322,7 @@ fn test_git_push_no_description() {
 
 #[test]
 fn test_git_push_no_description_in_immutable() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
     test_env
         .run_jj_in(&workspace_root, ["bookmark", "create", "-r@", "imm"])
         .success();
@@ -1384,7 +1384,7 @@ fn test_git_push_no_description_in_immutable() {
 
 #[test]
 fn test_git_push_missing_author() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
     let run_without_var = |var: &str, args: &[&str]| {
         test_env
             .run_jj_with(|cmd| cmd.current_dir(&workspace_root).args(args).env_remove(var))
@@ -1424,7 +1424,7 @@ fn test_git_push_missing_author() {
 
 #[test]
 fn test_git_push_missing_author_in_immutable() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
     let run_without_var = |var: &str, args: &[&str]| {
         test_env
             .run_jj_with(|cmd| cmd.current_dir(&workspace_root).args(args).env_remove(var))
@@ -1490,7 +1490,7 @@ fn test_git_push_missing_author_in_immutable() {
 
 #[test]
 fn test_git_push_missing_committer() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
     let run_without_var = |var: &str, args: &[&str]| {
         test_env
             .run_jj_with(|cmd| cmd.current_dir(&workspace_root).args(args).env_remove(var))
@@ -1560,7 +1560,7 @@ fn test_git_push_missing_committer() {
 
 #[test]
 fn test_git_push_missing_committer_in_immutable() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
     let run_without_var = |var: &str, args: &[&str]| {
         test_env
             .run_jj_with(|cmd| cmd.current_dir(&workspace_root).args(args).env_remove(var))
@@ -1627,7 +1627,7 @@ fn test_git_push_missing_committer_in_immutable() {
 
 #[test]
 fn test_git_push_deleted() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
 
     test_env
         .run_jj_in(&workspace_root, ["bookmark", "delete", "bookmark1"])
@@ -1666,7 +1666,7 @@ fn test_git_push_deleted() {
 
 #[test]
 fn test_git_push_conflicting_bookmarks() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
     test_env.add_config("git.auto-local-bookmark = true");
     let git_repo = {
         let mut git_repo_path = workspace_root.clone();
@@ -1771,7 +1771,7 @@ fn test_git_push_conflicting_bookmarks() {
 
 #[test]
 fn test_git_push_deleted_untracked() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
 
     // Absent local bookmark shouldn't be considered "deleted" compared to
     // non-tracking remote bookmark.
@@ -1802,7 +1802,7 @@ fn test_git_push_deleted_untracked() {
 
 #[test]
 fn test_git_push_tracked_vs_all() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
     test_env
         .run_jj_in(&workspace_root, ["new", "bookmark1", "-mmoved bookmark1"])
         .success();
@@ -1900,7 +1900,7 @@ fn test_git_push_tracked_vs_all() {
 
 #[test]
 fn test_git_push_moved_forward_untracked() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
 
     test_env
         .run_jj_in(&workspace_root, ["new", "bookmark1", "-mmoved bookmark1"])
@@ -1925,7 +1925,7 @@ fn test_git_push_moved_forward_untracked() {
 
 #[test]
 fn test_git_push_moved_sideways_untracked() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
 
     test_env
         .run_jj_in(&workspace_root, ["new", "root()", "-mmoved bookmark1"])
@@ -1953,7 +1953,7 @@ fn test_git_push_moved_sideways_untracked() {
 
 #[test]
 fn test_git_push_to_remote_named_git() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
     let git_repo_path = {
         let mut git_repo_path = workspace_root.clone();
         git_repo_path.extend([".jj", "repo", "store", "git"]);
@@ -1978,7 +1978,7 @@ fn test_git_push_to_remote_named_git() {
 
 #[test]
 fn test_git_push_to_remote_with_slashes() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
     let git_repo_path = {
         let mut git_repo_path = workspace_root.clone();
         git_repo_path.extend([".jj", "repo", "store", "git"]);
@@ -2006,7 +2006,7 @@ fn test_git_push_to_remote_with_slashes() {
 
 #[test]
 fn test_git_push_sign_on_push() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
     let template = r#"
     separate("\n",
       description.first_line(),
@@ -2164,7 +2164,7 @@ fn test_git_push_sign_on_push() {
 
 #[test]
 fn test_git_push_rejected_by_remote() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
     // show repo state
     insta::assert_snapshot!(get_bookmark_output(&test_env, &workspace_root), @r"
     bookmark1: xtvrqkyv d13ecdbd (empty) description 1
