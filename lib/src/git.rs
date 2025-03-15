@@ -2207,6 +2207,7 @@ fn subprocess_fetch(
     while let Some(failing_refspec) =
         git_ctx.spawn_fetch(remote_name, &remaining_refspecs, &mut callbacks, depth)?
     {
+        tracing::debug!(failing_refspec, "failed to fetch ref");
         remaining_refspecs.retain(|r| r.source.as_ref() != Some(&failing_refspec));
 
         if let Some(branch_name) = failing_refspec.strip_prefix("refs/heads/") {
@@ -2507,6 +2508,7 @@ fn subprocess_push_refs(
         .collect();
 
     let push_stats = git_ctx.spawn_push(remote_name, &refs_to_push, &mut callbacks)?;
+    tracing::debug!(?push_stats);
 
     if !push_stats.rejected.is_empty() {
         let mut refs_in_unexpected_locations = push_stats.rejected;

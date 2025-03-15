@@ -180,6 +180,7 @@ impl<'a> GitSubprocessContext<'a> {
         if branches_to_prune.is_empty() {
             return Ok(());
         }
+        tracing::debug!(?branches_to_prune, "pruning branches");
         let mut command = self.create_command();
         command.stdout(Stdio::null());
         command.args(["branch", "--remotes", "--delete", "--"]);
@@ -415,6 +416,7 @@ fn parse_git_remote_show_default_branch(
         .lines()
         .map(|x| x.trim())
         .find(|x| x.starts_with_str("HEAD branch:"))
+        .inspect(|x| tracing::debug!(line = ?x.to_str_lossy(), "default branch"))
         .and_then(|x| x.split_str(" ").last().map(|y| y.trim()))
         .filter(|branch_name| branch_name != b"(unknown)")
         .map(|branch_name| branch_name.to_str())
@@ -454,6 +456,7 @@ fn parse_ref_pushes(stdout: &[u8]) -> Result<GitPushStats, GitSubprocessError> {
         .take_while(|line| line != b"Done")
         .enumerate()
     {
+        tracing::debug!("response #{idx}: {}", line.to_str_lossy());
         let (flag, reference, summary) = line.split_str("\t").collect_tuple().ok_or_else(|| {
             GitSubprocessError::External(format!(
                 "Line #{idx} of git-push has unknown format: {}",
