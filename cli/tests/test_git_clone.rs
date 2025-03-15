@@ -755,7 +755,7 @@ fn test_git_clone_conditional_config() {
 }
 
 #[test]
-fn test_git_clone_with_depth_subprocess() {
+fn test_git_clone_with_depth() {
     let test_env = TestEnvironment::default();
     let root_dir = test_env.work_dir("");
     test_env.add_config("git.auto-local-bookmark = true");
@@ -764,8 +764,6 @@ fn test_git_clone_with_depth_subprocess() {
     let git_repo = git::init(git_repo_path);
     set_up_non_empty_git_repo(&git_repo);
 
-    // git does support shallow clones on the local transport, so it will work
-    // (we cannot replicate git2's erroneous behaviour wrt git)
     let output = root_dir.run_jj(["git", "clone", "--depth", "1", "source", "clone"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
