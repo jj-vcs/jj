@@ -61,6 +61,8 @@ struct UserSettingsData {
 pub struct GitSettings {
     pub auto_local_bookmark: bool,
     pub abandon_unreachable_commits: bool,
+    // TODO: Drop this after `git2` support has been fully removed and
+    // `git.subprocess` has had a deprecation error for long enough.
     pub subprocess: bool,
     pub executable_path: PathBuf,
 }
