@@ -12,6 +12,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Deprecations
 
+* `git.subprocess = false` has been deprecated, and the old `libgit2`
+  code path for fetches and pushes will be removed entirely in 0.30.
+  Please report any remaining issues you have with the Git
+  subprocessing path.
+
 ### New features
 
 ### Fixed bugs

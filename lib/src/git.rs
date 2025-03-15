@@ -2321,9 +2321,13 @@ fn git2_fetch(
     git_repo: &git2::Repository,
     remote_name: &RemoteName,
     branch_names: &[StringPattern],
-    callbacks: RemoteCallbacks<'_>,
+    mut callbacks: RemoteCallbacks<'_>,
     depth: Option<NonZeroU32>,
 ) -> Result<(), GitFetchError> {
+    if let Some(cb) = callbacks.git2_deprecation_warning.as_mut() {
+        cb();
+    }
+
     let mut remote = git_repo.find_remote(remote_name.as_str()).map_err(|err| {
         if is_remote_not_found_err(&err) {
             GitFetchError::NoSuchRemote(remote_name.to_owned())
@@ -2363,8 +2367,12 @@ fn git2_fetch(
 fn git2_get_default_branch(
     git_repo: &git2::Repository,
     remote_name: &RemoteName,
-    callbacks: RemoteCallbacks<'_>,
+    mut callbacks: RemoteCallbacks<'_>,
 ) -> Result<Option<RefNameBuf>, GitFetchError> {
+    if let Some(cb) = callbacks.git2_deprecation_warning.as_mut() {
+        cb();
+    }
+
     let mut remote = git_repo.find_remote(remote_name.as_str()).map_err(|err| {
         if is_remote_not_found_err(&err) {
             GitFetchError::NoSuchRemote(remote_name.to_owned())
@@ -2602,8 +2610,12 @@ fn git2_push_refs(
     remote_name: &RemoteName,
     qualified_remote_refs_expected_locations: &HashMap<&GitRefName, Option<&CommitId>>,
     refspecs: &[String],
-    callbacks: RemoteCallbacks<'_>,
+    mut callbacks: RemoteCallbacks<'_>,
 ) -> Result<GitPushStats, GitPushError> {
+    if let Some(cb) = callbacks.git2_deprecation_warning.as_mut() {
+        cb();
+    }
+
     let mut remote = git_repo.find_remote(remote_name.as_str()).map_err(|err| {
         if is_remote_not_found_err(&err) {
             GitPushError::NoSuchRemote(remote_name.to_owned())
@@ -2834,6 +2846,8 @@ pub struct RemoteCallbacks<'a> {
     pub get_ssh_keys: Option<&'a mut dyn FnMut(&str) -> Vec<PathBuf>>,
     pub get_password: Option<&'a mut dyn FnMut(&str, &str) -> Option<String>>,
     pub get_username_password: Option<&'a mut dyn FnMut(&str) -> Option<(String, String)>>,
+    #[cfg(feature = "git2")]
+    pub git2_deprecation_warning: Option<&'a mut dyn FnMut()>,
 }
 
 #[cfg(feature = "git2")]

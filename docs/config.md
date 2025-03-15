@@ -1426,8 +1426,9 @@ subprocessing, you can switch back to `libgit2` with:
 subprocess = false
 ```
 
-Note that `libgit2` support will likely be removed in the future, so you are
-encouraged to report any issues you experience with the default configuration.
+Note that `libgit2` support will be removed in 0.30, so you are encouraged to
+[report any issues](https://github.com/jj-vcs/jj/issues) you experience with
+the default configuration.
 
 ## Filesystem monitor
 
