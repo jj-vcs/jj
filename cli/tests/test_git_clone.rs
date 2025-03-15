@@ -41,7 +41,7 @@ fn set_up_git_repo_with_file(git_repo: &gix::Repository, filename: &str) {
 
 #[test]
 fn test_git_clone() {
-    let test_env = TestEnvironment::with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     test_env.add_config("git.auto-local-bookmark = true");
     let git_repo_path = test_env.env_root().join("source");
     let git_repo = git::init(git_repo_path);
@@ -197,7 +197,7 @@ fn test_git_clone() {
 
 #[test]
 fn test_git_clone_bad_source() {
-    let test_env = TestEnvironment::with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
 
     let output = test_env.run_jj_in(".", ["git", "clone", "", "dest"]);
     insta::allow_duplicates! {
@@ -227,7 +227,7 @@ fn test_git_clone_bad_source() {
 
 #[test]
 fn test_git_clone_colocate() {
-    let test_env = TestEnvironment::with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     test_env.add_config("git.auto-local-bookmark = true");
     let git_repo_path = test_env.env_root().join("source");
     let git_repo = git::init(git_repo_path);
@@ -460,7 +460,7 @@ fn test_git_clone_colocate() {
 
 #[test]
 fn test_git_clone_remote_default_bookmark() {
-    let test_env = TestEnvironment::with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     let git_repo_path = test_env.env_root().join("source");
     let git_repo = git::init(git_repo_path.clone());
 
@@ -586,7 +586,7 @@ fn test_git_clone_remote_default_bookmark() {
 #[cfg(unix)]
 #[test]
 fn test_git_clone_remote_default_bookmark_with_escape() {
-    let test_env = TestEnvironment::with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     let git_repo_path = test_env.env_root().join("source");
     let git_repo = git::init(git_repo_path);
     // Create a branch to something that needs to be escaped
@@ -630,7 +630,7 @@ fn test_git_clone_remote_default_bookmark_with_escape() {
 
 #[test]
 fn test_git_clone_ignore_working_copy() {
-    let test_env = TestEnvironment::with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     let git_repo_path = test_env.env_root().join("source");
     let git_repo = git::init(git_repo_path);
     set_up_non_empty_git_repo(&git_repo);
@@ -677,7 +677,7 @@ fn test_git_clone_ignore_working_copy() {
 
 #[test]
 fn test_git_clone_at_operation() {
-    let test_env = TestEnvironment::with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     let git_repo_path = test_env.env_root().join("source");
     let git_repo = git::init(git_repo_path);
     set_up_non_empty_git_repo(&git_repo);
@@ -695,7 +695,7 @@ fn test_git_clone_at_operation() {
 
 #[test]
 fn test_git_clone_with_remote_name() {
-    let test_env = TestEnvironment::with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     test_env.add_config("git.auto-local-bookmark = true");
     let git_repo_path = test_env.env_root().join("source");
     let git_repo = git::init(git_repo_path);
@@ -722,7 +722,7 @@ fn test_git_clone_with_remote_name() {
 
 #[test]
 fn test_git_clone_with_remote_named_git() {
-    let test_env = TestEnvironment::with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     let git_repo_path = test_env.env_root().join("source");
     git::init(git_repo_path);
 
@@ -739,7 +739,7 @@ fn test_git_clone_with_remote_named_git() {
 
 #[test]
 fn test_git_clone_with_remote_with_slashes() {
-    let test_env = TestEnvironment::with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     let git_repo_path = test_env.env_root().join("source");
     git::init(git_repo_path);
 
@@ -759,7 +759,7 @@ fn test_git_clone_with_remote_with_slashes() {
 
 #[test]
 fn test_git_clone_trunk_deleted() {
-    let test_env = TestEnvironment::with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     let git_repo_path = test_env.env_root().join("source");
     let git_repo = git::init(git_repo_path);
     set_up_non_empty_git_repo(&git_repo);
@@ -934,7 +934,7 @@ fn test_git_clone_with_depth_subprocess() {
 
 #[test]
 fn test_git_clone_invalid_immutable_heads() {
-    let test_env = TestEnvironment::with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     let git_repo_path = test_env.env_root().join("source");
     let git_repo = git::init(git_repo_path);
     set_up_non_empty_git_repo(&git_repo);
@@ -962,7 +962,7 @@ fn test_git_clone_invalid_immutable_heads() {
 
 #[test]
 fn test_git_clone_malformed() {
-    let test_env = TestEnvironment::with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     let git_repo_path = test_env.env_root().join("source");
     let git_repo = git::init(git_repo_path);
     let clone_path = test_env.env_root().join("clone");

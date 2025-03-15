@@ -21,7 +21,7 @@ use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 
 fn set_up() -> (TestEnvironment, PathBuf) {
-    let test_env = TestEnvironment::with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "origin"]).success();
     let origin_path = test_env.env_root().join("origin");
     let origin_git_repo_path = origin_path
