@@ -85,7 +85,7 @@ pub fn hermetic_git() {
     // gitoxide API use in tests, Config::isolated() is probably better.
     env::set_var("GIT_CONFIG_SYSTEM", "/dev/null");
     env::set_var("GIT_CONFIG_GLOBAL", "/dev/null");
-    // gitoxide uses "main" as the default branch name, whereas git and libgit2
+    // gitoxide uses "main" as the default branch name, whereas git
     // uses "master".
     env::set_var("GIT_CONFIG_KEY_0", "init.defaultBranch");
     env::set_var("GIT_CONFIG_VALUE_0", "master");
