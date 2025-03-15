@@ -30,8 +30,6 @@ use crossterm::terminal::Clear;
 use crossterm::terminal::ClearType;
 use indoc::writedoc;
 use itertools::Itertools as _;
-#[cfg(feature = "git2")]
-use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::fmt_util::binary_prefix;
 use jj_lib::git;
 use jj_lib::git::FailedRefExportReason;
@@ -43,8 +41,6 @@ use jj_lib::op_store::RemoteRef;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
-#[cfg(feature = "git2")]
-use jj_lib::settings::UserSettings;
 use jj_lib::workspace::Workspace;
 use unicode_width::UnicodeWidthStr as _;
 
@@ -612,26 +608,6 @@ another (e.g. `foo` and `foo/bar`). Try to rename the bookmarks that failed to
 export or their "parent" bookmarks."#,
             )?;
         }
-    }
-    Ok(())
-}
-
-#[cfg(feature = "git2")]
-pub fn print_git2_deprecation_warning(
-    ui: &Ui,
-    settings: &UserSettings,
-) -> Result<(), CommandError> {
-    if !settings.git_settings()?.subprocess
-        && !settings
-            .get("debug.suppress-git2-deprecation-warning")
-            .optional()?
-            .unwrap_or(false)
-    {
-        writeln!(
-            ui.warning_default(),
-            "`git.subprocess = false` will be removed in 0.30; please report any issues you have \
-             with the default.",
-        )?;
     }
     Ok(())
 }

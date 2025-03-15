@@ -36,8 +36,6 @@ use crate::command_error::user_error_with_message;
 use crate::command_error::CommandError;
 use crate::commands::git::maybe_add_gitignore;
 use crate::git_util::absolute_git_url;
-#[cfg(feature = "git2")]
-use crate::git_util::print_git2_deprecation_warning;
 use crate::git_util::print_git_import_stats;
 use crate::git_util::with_remote_git_callbacks;
 use crate::ui::Ui;
@@ -120,8 +118,6 @@ pub fn cmd_git_clone(
 
     let clone_result = (|| -> Result<_, CommandError> {
         let workspace_command = init_workspace(ui, command, &canonical_wc_path, args.colocate)?;
-        #[cfg(feature = "git2")]
-        print_git2_deprecation_warning(ui, workspace_command.settings())?;
         let mut workspace_command =
             configure_remote(ui, command, workspace_command, remote_name, &source)?;
         let default_branch = fetch_new_remote(ui, &mut workspace_command, remote_name, args.depth)?;
