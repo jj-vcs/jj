@@ -199,13 +199,7 @@ impl TestEnvironment {
     }
 
     // TODO: Remove with the `git.subprocess` setting.
-    pub fn with_git_subprocess(mut self, subprocess: bool) -> Self {
-        #[cfg(feature = "git2")]
-        if !subprocess {
-            self.add_config("git.subprocess = false");
-            self.add_env_var("JJ_DEBUG_SUPPRESS_GIT2_DEPRECATION_WARNING", "1");
-            return self;
-        }
+    pub fn with_git_subprocess(self, subprocess: bool) -> Self {
         assert!(subprocess);
         self
     }

@@ -8,6 +8,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Release highlights
+
+### Breaking changes
+
+* The old `libgit2` code path for fetches and pushes has been removed,
+  and the `git.subprocess` setting along with it.
+
+### Deprecations
+
+### New features
+
+### Fixed bugs
+
+## [Unreleased]
+
 ### Breaking changes
 
 ### Deprecations
