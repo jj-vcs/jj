@@ -283,6 +283,11 @@ jobs:
 
   # Block the merge if required checks fail, but only in the merge
   # queue. See also `required-checks-hack.yml`.
+  check-broken:
+    runs-on: ubuntu-latest
+    steps:
+    - run: exit 1
+
   required-checks:
     name: required checks (merge queue)
     if: ${{ always() && github.event_name == 'merge_group' }}
@@ -299,6 +304,7 @@ jobs:
     - check-mkdocs
     # - check-mkdocs-latest
     # - check-zizmor
+    - check-broken
     runs-on: ubuntu-latest
     steps:
     - name: Block merge if required checks fail
