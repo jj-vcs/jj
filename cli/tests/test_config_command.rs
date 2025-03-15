@@ -1262,8 +1262,9 @@ fn test_config_conditional() {
         "},
     )
     .unwrap();
-    let work_dir1 = test_env.work_dir(test_env.home_dir().join("repo1"));
-    let work_dir2 = test_env.work_dir(test_env.home_dir().join("repo2"));
+    let home_dir = test_env.work_dir(test_env.home_dir());
+    let work_dir1 = home_dir.dir("repo1");
+    let work_dir2 = home_dir.dir("repo2");
 
     // get and list should refer to the resolved config
     let output = test_env.run_jj_in(".", ["config", "get", "foo"]);

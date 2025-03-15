@@ -293,14 +293,26 @@ impl TestWorkDir<'_> {
         output.stdout.raw().trim_end().to_owned()
     }
 
-    #[track_caller]
-    pub fn create_dir(&self, path: impl AsRef<Path>) {
-        std::fs::create_dir(self.root.join(path)).unwrap();
+    /// Returns test helper for the specified sub directory.
+    #[must_use]
+    pub fn dir(&self, path: impl AsRef<Path>) -> Self {
+        let env = self.env;
+        let root = self.root.join(path);
+        TestWorkDir { env, root }
     }
 
     #[track_caller]
-    pub fn create_dir_all(&self, path: impl AsRef<Path>) {
-        std::fs::create_dir_all(self.root.join(path)).unwrap();
+    pub fn create_dir(&self, path: impl AsRef<Path>) -> Self {
+        let dir = self.dir(path);
+        std::fs::create_dir(&dir.root).unwrap();
+        dir
+    }
+
+    #[track_caller]
+    pub fn create_dir_all(&self, path: impl AsRef<Path>) -> Self {
+        let dir = self.dir(path);
+        std::fs::create_dir_all(&dir.root).unwrap();
+        dir
     }
 
     #[track_caller]

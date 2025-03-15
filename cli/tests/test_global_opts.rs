@@ -194,11 +194,10 @@ fn test_resolve_workspace_directory() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
-    let subdir = work_dir.root().join("dir").join("subdir");
-    work_dir.create_dir_all(&subdir);
+    let sub_dir = work_dir.create_dir_all("dir/subdir");
 
     // Ancestor of cwd
-    let output = test_env.run_jj_in(&subdir, ["status"]);
+    let output = sub_dir.run_jj(["status"]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
     Working copy : qpvuntsm 230dd059 (empty) (no description set)
@@ -207,7 +206,7 @@ fn test_resolve_workspace_directory() {
     ");
 
     // Explicit subdirectory path
-    let output = test_env.run_jj_in(&subdir, ["status", "-R", "."]);
+    let output = sub_dir.run_jj(["status", "-R", "."]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: There is no jj repo in "."
@@ -216,7 +215,7 @@ fn test_resolve_workspace_directory() {
     "#);
 
     // Valid explicit path
-    let output = test_env.run_jj_in(&subdir, ["status", "-R", "../.."]);
+    let output = sub_dir.run_jj(["status", "-R", "../.."]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
     Working copy : qpvuntsm 230dd059 (empty) (no description set)
@@ -225,7 +224,7 @@ fn test_resolve_workspace_directory() {
     ");
 
     // "../../..".ancestors() contains "../..", but it should never be looked up.
-    let output = test_env.run_jj_in(&subdir, ["status", "-R", "../../.."]);
+    let output = sub_dir.run_jj(["status", "-R", "../../.."]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: There is no jj repo in "../../.."
@@ -273,8 +272,7 @@ fn test_bad_path() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
-    let subdir = work_dir.root().join("dir");
-    work_dir.create_dir_all(&subdir);
+    let sub_dir = work_dir.create_dir_all("dir");
 
     // cwd == workspace_root
     let output = work_dir.run_jj(["file", "show", "../out"]);
@@ -295,7 +293,7 @@ fn test_bad_path() {
     "#);
 
     // cwd != workspace_root, can't be parsed as repo-relative path
-    let output = test_env.run_jj_in(&subdir, ["file", "show", "../.."]);
+    let output = sub_dir.run_jj(["file", "show", "../.."]);
     insta::assert_snapshot!(output.normalize_backslash(), @r#"
     ------- stderr -------
     Error: Failed to parse fileset: Invalid file pattern

@@ -158,8 +158,7 @@ fn test_debug_tree() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
-    let sub_dir = test_env.work_dir(work_dir.root().join("dir").join("subdir"));
-    sub_dir.create_dir_all("");
+    let sub_dir = work_dir.create_dir_all("dir/subdir");
     sub_dir.write_file("file1", "contents 1");
     work_dir.run_jj(["new"]).success();
     sub_dir.write_file("file2", "contents 2");
