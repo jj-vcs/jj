@@ -73,7 +73,6 @@ pub mod graph;
 pub mod hex_util;
 pub mod id_prefix;
 pub mod index;
-pub mod local_backend;
 pub mod local_working_copy;
 pub mod lock;
 pub mod matchers;
@@ -96,6 +95,9 @@ pub mod rewrite;
 pub mod secret_backend;
 pub mod settings;
 pub mod signing;
+// Allow this file to be outside the normal crate.
+#[path = "../../cli/examples/simple-backend/simple_backend.rs"]
+pub mod simple_backend;
 pub mod simple_op_heads_store;
 pub mod simple_op_store;
 pub mod ssh_signing;
