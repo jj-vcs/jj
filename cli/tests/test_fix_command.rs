@@ -23,16 +23,6 @@ use jj_lib::file_util::try_symlink;
 use crate::common::to_toml_value;
 use crate::common::TestEnvironment;
 
-/// Set up a repo where the `jj fix` command uses the fake editor with the given
-/// flags.
-fn init_with_fake_formatter(args: &[&str]) -> (TestEnvironment, PathBuf) {
-    let test_env = TestEnvironment::default();
-    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    set_up_fake_formatter(&test_env, args);
-    (test_env, repo_path)
-}
-
 fn set_up_fake_formatter(test_env: &TestEnvironment, args: &[&str]) {
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
     assert!(formatter_path.is_file());
@@ -530,7 +520,10 @@ fn test_relative_paths() {
 
 #[test]
 fn test_fix_empty_commit() {
-    let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    set_up_fake_formatter(&test_env, &["--uppercase"]);
     let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -542,7 +535,10 @@ fn test_fix_empty_commit() {
 
 #[test]
 fn test_fix_leaf_commit() {
-    let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    set_up_fake_formatter(&test_env, &["--uppercase"]);
     std::fs::write(repo_path.join("file"), "unaffected").unwrap();
     test_env.run_jj_in(&repo_path, ["new"]).success();
     std::fs::write(repo_path.join("file"), "affected").unwrap();
@@ -567,7 +563,10 @@ fn test_fix_leaf_commit() {
 
 #[test]
 fn test_fix_parent_commit() {
-    let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    set_up_fake_formatter(&test_env, &["--uppercase"]);
     // Using one file name for all commits adds coverage of some possible bugs.
     std::fs::write(repo_path.join("file"), "parent").unwrap();
     test_env
@@ -614,7 +613,10 @@ fn test_fix_parent_commit() {
 
 #[test]
 fn test_fix_sibling_commit() {
-    let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    set_up_fake_formatter(&test_env, &["--uppercase"]);
     std::fs::write(repo_path.join("file"), "parent").unwrap();
     test_env
         .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "parent"])
@@ -651,7 +653,10 @@ fn test_fix_sibling_commit() {
 
 #[test]
 fn test_default_revset() {
-    let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    set_up_fake_formatter(&test_env, &["--uppercase"]);
     std::fs::write(repo_path.join("file"), "trunk1").unwrap();
     test_env
         .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "trunk1"])
@@ -721,7 +726,10 @@ fn test_default_revset() {
 
 #[test]
 fn test_custom_default_revset() {
-    let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    set_up_fake_formatter(&test_env, &["--uppercase"]);
 
     std::fs::write(repo_path.join("file"), "foo").unwrap();
     test_env
@@ -757,7 +765,10 @@ fn test_custom_default_revset() {
 
 #[test]
 fn test_fix_immutable_commit() {
-    let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    set_up_fake_formatter(&test_env, &["--uppercase"]);
     std::fs::write(repo_path.join("file"), "immutable").unwrap();
     test_env
         .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "immutable"])
@@ -790,7 +801,10 @@ fn test_fix_immutable_commit() {
 
 #[test]
 fn test_fix_empty_file() {
-    let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    set_up_fake_formatter(&test_env, &["--uppercase"]);
     std::fs::write(repo_path.join("file"), "").unwrap();
 
     let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "@"]);
@@ -806,7 +820,10 @@ fn test_fix_empty_file() {
 
 #[test]
 fn test_fix_some_paths() {
-    let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    set_up_fake_formatter(&test_env, &["--uppercase"]);
     std::fs::write(repo_path.join("file1"), "foo").unwrap();
     std::fs::write(repo_path.join("file2"), "bar").unwrap();
 
@@ -830,7 +847,10 @@ fn test_fix_some_paths() {
 
 #[test]
 fn test_fix_cyclic() {
-    let (test_env, repo_path) = init_with_fake_formatter(&["--reverse"]);
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    set_up_fake_formatter(&test_env, &["--reverse"]);
     std::fs::write(repo_path.join("file"), "content\n").unwrap();
 
     let output = test_env.run_jj_in(&repo_path, ["fix"]);
@@ -868,7 +888,10 @@ fn test_fix_cyclic() {
 fn test_deduplication() {
     // Append all fixed content to a log file. Note that fix tools are always run
     // from the workspace root, so this will always write to $root/$path-fixlog.
-    let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase", "--tee", "$path-fixlog"]);
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    set_up_fake_formatter(&test_env, &["--uppercase", "--tee", "$path-fixlog"]);
 
     // There are at least two interesting cases: the content is repeated immediately
     // in the child commit, or later in another descendant.
@@ -945,7 +968,10 @@ fn sorted_lines(path: PathBuf) -> String {
 fn test_executed_but_nothing_changed() {
     // Show that the tool ran by causing a side effect with --tee, and test that we
     // do the right thing when the tool's output is exactly equal to its input.
-    let (test_env, repo_path) = init_with_fake_formatter(&["--tee", "$path-copy"]);
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    set_up_fake_formatter(&test_env, &["--tee", "$path-copy"]);
     std::fs::write(repo_path.join("file"), "content\n").unwrap();
 
     let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "@"]);
@@ -984,7 +1010,10 @@ fn test_executed_but_nothing_changed() {
 
 #[test]
 fn test_failure() {
-    let (test_env, repo_path) = init_with_fake_formatter(&["--fail"]);
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    set_up_fake_formatter(&test_env, &["--fail"]);
     std::fs::write(repo_path.join("file"), "content").unwrap();
 
     let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "@"]);
@@ -1000,8 +1029,10 @@ fn test_failure() {
 
 #[test]
 fn test_stderr_success() {
-    let (test_env, repo_path) =
-        init_with_fake_formatter(&["--stderr", "error", "--stdout", "new content"]);
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    set_up_fake_formatter(&test_env, &["--stderr", "error", "--stdout", "new content"]);
     std::fs::write(repo_path.join("file"), "old content").unwrap();
 
     // TODO: Associate the stderr lines with the relevant tool/file/commit instead
@@ -1021,8 +1052,13 @@ fn test_stderr_success() {
 
 #[test]
 fn test_stderr_failure() {
-    let (test_env, repo_path) =
-        init_with_fake_formatter(&["--stderr", "error", "--stdout", "new content", "--fail"]);
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    set_up_fake_formatter(
+        &test_env,
+        &["--stderr", "error", "--stdout", "new content", "--fail"],
+    );
     std::fs::write(repo_path.join("file"), "old content").unwrap();
 
     let output = test_env.run_jj_in(&repo_path, ["fix", "-s", "@"]);
@@ -1060,7 +1096,10 @@ fn test_missing_command() {
 
 #[test]
 fn test_fix_file_types() {
-    let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    set_up_fake_formatter(&test_env, &["--uppercase"]);
     std::fs::write(repo_path.join("file"), "content").unwrap();
     std::fs::create_dir(repo_path.join("dir")).unwrap();
     try_symlink("file", repo_path.join("link")).unwrap();
@@ -1084,7 +1123,10 @@ fn test_fix_file_types() {
 #[cfg(unix)]
 #[test]
 fn test_fix_executable() {
-    let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    set_up_fake_formatter(&test_env, &["--uppercase"]);
     let path = repo_path.join("file");
     std::fs::write(&path, "content").unwrap();
     let mut permissions = std::fs::metadata(&path).unwrap().permissions();
@@ -1113,7 +1155,10 @@ fn test_fix_executable() {
 fn test_fix_trivial_merge_commit() {
     // All the changes are attributable to a parent, so none are fixed (in the same
     // way that none would be shown in `jj diff -r @`).
-    let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    set_up_fake_formatter(&test_env, &["--uppercase"]);
     std::fs::write(repo_path.join("file_a"), "content a").unwrap();
     std::fs::write(repo_path.join("file_c"), "content c").unwrap();
     test_env
@@ -1146,7 +1191,10 @@ fn test_fix_trivial_merge_commit() {
 fn test_fix_adding_merge_commit() {
     // None of the changes are attributable to a parent, so they are all fixed (in
     // the same way that they would be shown in `jj diff -r @`).
-    let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    set_up_fake_formatter(&test_env, &["--uppercase"]);
     std::fs::write(repo_path.join("file_a"), "content a").unwrap();
     std::fs::write(repo_path.join("file_c"), "content c").unwrap();
     test_env
@@ -1198,7 +1246,10 @@ fn test_fix_adding_merge_commit() {
 
 #[test]
 fn test_fix_both_sides_of_conflict() {
-    let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    set_up_fake_formatter(&test_env, &["--uppercase"]);
     std::fs::write(repo_path.join("file"), "content a\n").unwrap();
     test_env
         .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "a"])
@@ -1250,7 +1301,10 @@ fn test_fix_both_sides_of_conflict() {
 fn test_fix_resolve_conflict() {
     // If both sides of the conflict look the same after being fixed, the conflict
     // will be resolved.
-    let (test_env, repo_path) = init_with_fake_formatter(&["--uppercase"]);
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    set_up_fake_formatter(&test_env, &["--uppercase"]);
     std::fs::write(repo_path.join("file"), "Content\n").unwrap();
     test_env
         .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "a"])
