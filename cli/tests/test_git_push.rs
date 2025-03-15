@@ -62,7 +62,7 @@ fn set_up(test_env: &TestEnvironment) {
 
 #[test]
 fn test_git_push_nothing() {
-    let test_env = TestEnvironment::default().with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     // Show the setup. `insta` has trouble if this is done inside `set_up()`
@@ -88,7 +88,7 @@ fn test_git_push_nothing() {
 
 #[test]
 fn test_git_push_current_bookmark() {
-    let test_env = TestEnvironment::default().with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
@@ -185,7 +185,7 @@ fn test_git_push_current_bookmark() {
 
 #[test]
 fn test_git_push_parent_bookmark() {
-    let test_env = TestEnvironment::default().with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
@@ -210,7 +210,7 @@ fn test_git_push_parent_bookmark() {
 
 #[test]
 fn test_git_push_no_matching_bookmark() {
-    let test_env = TestEnvironment::default().with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     work_dir.run_jj(["new"]).success();
@@ -227,7 +227,7 @@ fn test_git_push_no_matching_bookmark() {
 
 #[test]
 fn test_git_push_matching_bookmark_unchanged() {
-    let test_env = TestEnvironment::default().with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     work_dir.run_jj(["new", "bookmark1"]).success();
@@ -247,7 +247,7 @@ fn test_git_push_matching_bookmark_unchanged() {
 /// (`remote_bookmarks(remote=<remote>)..@` vs. `remote_bookmarks()..@`).
 #[test]
 fn test_git_push_other_remote_has_bookmark() {
-    let test_env = TestEnvironment::default().with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
@@ -311,7 +311,7 @@ fn test_git_push_other_remote_has_bookmark() {
 
 #[test]
 fn test_git_push_forward_unexpectedly_moved() {
-    let test_env = TestEnvironment::default().with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
 
@@ -364,7 +364,7 @@ fn test_git_push_forward_unexpectedly_moved() {
 
 #[test]
 fn test_git_push_sideways_unexpectedly_moved() {
-    let test_env = TestEnvironment::default().with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
 
@@ -436,7 +436,7 @@ fn test_git_push_sideways_unexpectedly_moved() {
 // positions.
 #[test]
 fn test_git_push_deletion_unexpectedly_moved() {
-    let test_env = TestEnvironment::default().with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
 
@@ -504,7 +504,7 @@ fn test_git_push_deletion_unexpectedly_moved() {
 
 #[test]
 fn test_git_push_unexpectedly_deleted() {
-    let test_env = TestEnvironment::default().with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
 
@@ -611,7 +611,7 @@ fn test_git_push_unexpectedly_deleted() {
 
 #[test]
 fn test_git_push_creation_unexpectedly_already_exists() {
-    let test_env = TestEnvironment::default().with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
 
@@ -667,7 +667,7 @@ fn test_git_push_creation_unexpectedly_already_exists() {
 
 #[test]
 fn test_git_push_locally_created_and_rewritten() {
-    let test_env = TestEnvironment::default().with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     // Ensure that remote bookmarks aren't tracked automatically
@@ -736,7 +736,7 @@ fn test_git_push_locally_created_and_rewritten() {
 
 #[test]
 fn test_git_push_multiple() {
-    let test_env = TestEnvironment::default().with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     work_dir
@@ -910,7 +910,7 @@ fn test_git_push_multiple() {
 
 #[test]
 fn test_git_push_changes() {
-    let test_env = TestEnvironment::default().with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     work_dir.run_jj(["describe", "-m", "foo"]).success();
@@ -1041,7 +1041,7 @@ fn test_git_push_changes() {
 
 #[test]
 fn test_git_push_changes_with_name() {
-    let test_env = TestEnvironment::default().with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     work_dir.run_jj(["describe", "-m", "foo"]).success();
@@ -1173,7 +1173,7 @@ fn test_git_push_changes_with_name() {
 
 #[test]
 fn test_git_push_changes_with_name_deleted_tracked() {
-    let test_env = TestEnvironment::default().with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     set_up(&test_env);
     // Unset immutable_heads so that untracking branches does not move the working
     // copy
@@ -1286,7 +1286,7 @@ fn test_git_push_changes_with_name_deleted_tracked() {
 
 #[test]
 fn test_git_push_changes_with_name_untracked_or_forgotten() {
-    let test_env = TestEnvironment::default().with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     // Unset immutable_heads so that untracking branches does not move the working
@@ -1446,7 +1446,7 @@ fn test_git_push_changes_with_name_untracked_or_forgotten() {
 
 #[test]
 fn test_git_push_revisions() {
-    let test_env = TestEnvironment::default().with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     work_dir.run_jj(["describe", "-m", "foo"]).success();
@@ -1535,7 +1535,7 @@ fn test_git_push_revisions() {
 
 #[test]
 fn test_git_push_mixed() {
-    let test_env = TestEnvironment::default().with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     work_dir.run_jj(["describe", "-m", "foo"]).success();
@@ -1597,7 +1597,7 @@ fn test_git_push_mixed() {
 
 #[test]
 fn test_git_push_unsnapshotted_change() {
-    let test_env = TestEnvironment::default().with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     work_dir.run_jj(["describe", "-m", "foo"]).success();
@@ -1609,7 +1609,7 @@ fn test_git_push_unsnapshotted_change() {
 
 #[test]
 fn test_git_push_conflict() {
-    let test_env = TestEnvironment::default().with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     work_dir.write_file("file", "first");
@@ -1638,7 +1638,7 @@ fn test_git_push_conflict() {
 
 #[test]
 fn test_git_push_no_description() {
-    let test_env = TestEnvironment::default().with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     work_dir
@@ -1669,7 +1669,7 @@ fn test_git_push_no_description() {
 
 #[test]
 fn test_git_push_no_description_in_immutable() {
-    let test_env = TestEnvironment::default().with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     work_dir
@@ -1720,7 +1720,7 @@ fn test_git_push_no_description_in_immutable() {
 
 #[test]
 fn test_git_push_missing_author() {
-    let test_env = TestEnvironment::default().with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     let run_without_var = |var: &str, args: &[&str]| {
@@ -1756,7 +1756,7 @@ fn test_git_push_missing_author() {
 
 #[test]
 fn test_git_push_missing_author_in_immutable() {
-    let test_env = TestEnvironment::default().with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     let run_without_var = |var: &str, args: &[&str]| {
@@ -1813,7 +1813,7 @@ fn test_git_push_missing_author_in_immutable() {
 
 #[test]
 fn test_git_push_missing_committer() {
-    let test_env = TestEnvironment::default().with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     let run_without_var = |var: &str, args: &[&str]| {
@@ -1868,7 +1868,7 @@ fn test_git_push_missing_committer() {
 
 #[test]
 fn test_git_push_missing_committer_in_immutable() {
-    let test_env = TestEnvironment::default().with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     let run_without_var = |var: &str, args: &[&str]| {
@@ -1926,7 +1926,7 @@ fn test_git_push_missing_committer_in_immutable() {
 
 #[test]
 fn test_git_push_deleted() {
-    let test_env = TestEnvironment::default().with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
 
@@ -1967,7 +1967,7 @@ fn test_git_push_deleted() {
 
 #[test]
 fn test_git_push_conflicting_bookmarks() {
-    let test_env = TestEnvironment::default().with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     test_env.add_config("git.auto-local-bookmark = true");
@@ -2065,7 +2065,7 @@ fn test_git_push_conflicting_bookmarks() {
 
 #[test]
 fn test_git_push_deleted_untracked() {
-    let test_env = TestEnvironment::default().with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
 
@@ -2098,7 +2098,7 @@ fn test_git_push_deleted_untracked() {
 
 #[test]
 fn test_git_push_tracked_vs_all() {
-    let test_env = TestEnvironment::default().with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     work_dir
@@ -2209,7 +2209,7 @@ fn test_git_push_tracked_vs_all() {
 
 #[test]
 fn test_git_push_moved_forward_untracked() {
-    let test_env = TestEnvironment::default().with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
 
@@ -2236,7 +2236,7 @@ fn test_git_push_moved_forward_untracked() {
 
 #[test]
 fn test_git_push_moved_sideways_untracked() {
-    let test_env = TestEnvironment::default().with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
 
@@ -2263,7 +2263,7 @@ fn test_git_push_moved_sideways_untracked() {
 
 #[test]
 fn test_git_push_to_remote_named_git() {
-    let test_env = TestEnvironment::default().with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     let git_repo_path = {
@@ -2290,7 +2290,7 @@ fn test_git_push_to_remote_named_git() {
 
 #[test]
 fn test_git_push_to_remote_with_slashes() {
-    let test_env = TestEnvironment::default().with_git_subprocess(true);
+    let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     let git_repo_path = {
