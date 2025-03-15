@@ -2,10 +2,10 @@ use std::borrow::Cow;
 use std::path::Path;
 use std::sync::Arc;
 
-use futures::StreamExt;
-use futures::TryFutureExt;
-use futures::TryStreamExt;
-use itertools::Itertools;
+use futures::StreamExt as _;
+use futures::TryFutureExt as _;
+use futures::TryStreamExt as _;
+use itertools::Itertools as _;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::FileId;
 use jj_lib::backend::MergedTreeId;
@@ -23,11 +23,11 @@ use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree::MergedTreeBuilder;
 use jj_lib::merged_tree::TreeDiffEntry;
-use jj_lib::object_id::ObjectId;
+use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::store::Store;
-use pollster::FutureExt;
+use pollster::FutureExt as _;
 use thiserror::Error;
 
 use super::MergeToolFile;
@@ -683,7 +683,7 @@ pub fn edit_merge_builtin(
 mod tests {
     use jj_lib::conflicts::extract_as_single_hunk;
     use jj_lib::merge::MergedTreeValue;
-    use jj_lib::repo::Repo;
+    use jj_lib::repo::Repo as _;
     use testutils::TestRepo;
 
     use super::*;

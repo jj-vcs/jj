@@ -13,12 +13,12 @@
 // limitations under the License.
 
 use std::collections::HashSet;
-use std::io::Write;
+use std::io::Write as _;
 
 use clap_complete::ArgValueCandidates;
-use itertools::Itertools;
+use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
-use jj_lib::repo::Repo;
+use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::merge_commit_trees;
 use jj_lib::rewrite::rebase_commit;
 use tracing::instrument;

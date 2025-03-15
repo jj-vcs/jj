@@ -10,7 +10,7 @@ use bstr::ByteVec as _;
 use indexmap::IndexMap;
 use indoc::indoc;
 use itertools::FoldWhile;
-use itertools::Itertools;
+use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::config::ConfigGetError;

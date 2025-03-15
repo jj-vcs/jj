@@ -85,7 +85,7 @@ pub mod watchman {
     use std::path::Path;
     use std::path::PathBuf;
 
-    use itertools::Itertools;
+    use itertools::Itertools as _;
     use thiserror::Error;
     use tracing::info;
     use tracing::instrument;

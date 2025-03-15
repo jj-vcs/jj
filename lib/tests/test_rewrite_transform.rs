@@ -14,7 +14,7 @@
 
 use std::collections::HashMap;
 
-use jj_lib::repo::Repo;
+use jj_lib::repo::Repo as _;
 use maplit::hashset;
 use testutils::CommitGraphBuilder;
 use testutils::TestRepo;

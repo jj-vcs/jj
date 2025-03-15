@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::io::Write;
+use std::io::Write as _;
 
 use clap_complete::ArgValueCandidates;
-use jj_lib::object_id::ObjectId;
+use jj_lib::object_id::ObjectId as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;

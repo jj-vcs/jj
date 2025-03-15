@@ -17,7 +17,7 @@ use std::io::Write as _;
 
 use jj_lib::backend::TreeId;
 use jj_lib::merged_tree::MergedTree;
-use jj_lib::repo::Repo;
+use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPathBuf;
 
 use crate::cli_util::CommandHelper;

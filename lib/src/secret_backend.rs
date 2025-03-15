@@ -39,7 +39,7 @@ use crate::backend::Tree;
 use crate::backend::TreeId;
 use crate::git_backend::GitBackend;
 use crate::index::Index;
-use crate::object_id::ObjectId;
+use crate::object_id::ObjectId as _;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::settings::UserSettings;

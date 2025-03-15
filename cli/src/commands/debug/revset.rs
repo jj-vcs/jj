@@ -15,7 +15,7 @@
 use std::fmt::Debug;
 use std::io::Write as _;
 
-use jj_lib::object_id::ObjectId;
+use jj_lib::object_id::ObjectId as _;
 use jj_lib::revset;
 use jj_lib::revset::RevsetDiagnostics;
 

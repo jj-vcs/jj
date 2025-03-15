@@ -18,7 +18,7 @@ use std::sync::Arc;
 
 use clap_complete::ArgValueCandidates;
 use indexmap::IndexMap;
-use itertools::Itertools;
+use itertools::Itertools as _;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;

@@ -19,7 +19,7 @@ mod external;
 use std::sync::Arc;
 
 use bstr::BString;
-use itertools::Itertools;
+use itertools::Itertools as _;
 use jj_lib::backend::FileId;
 use jj_lib::backend::MergedTreeId;
 use jj_lib::config::ConfigGetError;
@@ -38,7 +38,7 @@ use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::settings::UserSettings;
 use jj_lib::working_copy::SnapshotError;
-use pollster::FutureExt;
+use pollster::FutureExt as _;
 use thiserror::Error;
 
 use self::builtin::edit_diff_builtin;

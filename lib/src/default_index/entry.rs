@@ -25,7 +25,7 @@ use super::composite::CompositeIndex;
 use super::composite::DynIndexSegment;
 use crate::backend::ChangeId;
 use crate::backend::CommitId;
-use crate::object_id::ObjectId;
+use crate::object_id::ObjectId as _;
 
 /// Global index position.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]

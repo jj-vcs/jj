@@ -25,7 +25,7 @@ use std::slice;
 
 use bstr::BStr;
 use hashbrown::HashTable;
-use itertools::Itertools;
+use itertools::Itertools as _;
 use smallvec::smallvec;
 use smallvec::SmallVec;
 

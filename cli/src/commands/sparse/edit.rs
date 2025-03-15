@@ -15,7 +15,7 @@
 use std::fmt::Write as _;
 use std::path::Path;
 
-use itertools::Itertools;
+use itertools::Itertools as _;
 use jj_lib::repo_path::RepoPathBuf;
 use tracing::instrument;
 

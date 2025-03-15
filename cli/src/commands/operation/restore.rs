@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use clap_complete::ArgValueCandidates;
-use jj_lib::object_id::ObjectId;
+use jj_lib::object_id::ObjectId as _;
 
 use super::view_with_desired_portions_restored;
 use super::UndoWhatToRestore;

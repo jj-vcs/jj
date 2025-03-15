@@ -1,8 +1,8 @@
 #[cfg(unix)]
 use std::fs::Permissions;
-use std::io::Write;
+use std::io::Write as _;
 #[cfg(unix)]
-use std::os::unix::prelude::PermissionsExt;
+use std::os::unix::prelude::PermissionsExt as _;
 use std::process::Command;
 use std::process::Stdio;
 
@@ -11,7 +11,7 @@ use insta::assert_debug_snapshot;
 use jj_lib::gpg_signing::GpgBackend;
 use jj_lib::signing::SigStatus;
 use jj_lib::signing::SignError;
-use jj_lib::signing::SigningBackend;
+use jj_lib::signing::SigningBackend as _;
 
 static PRIVATE_KEY: &str = r#"-----BEGIN PGP PRIVATE KEY BLOCK-----
 

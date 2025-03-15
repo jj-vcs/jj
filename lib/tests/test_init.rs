@@ -18,7 +18,7 @@ use std::path::PathBuf;
 use jj_lib::config::StackedConfig;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::op_store::WorkspaceId;
-use jj_lib::repo::Repo;
+use jj_lib::repo::Repo as _;
 use jj_lib::settings::UserSettings;
 use jj_lib::workspace::Workspace;
 use test_case::test_case;

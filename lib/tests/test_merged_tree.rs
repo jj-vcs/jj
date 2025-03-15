@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use futures::StreamExt;
-use itertools::Itertools;
+use futures::StreamExt as _;
+use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::CopyRecord;
 use jj_lib::backend::FileId;
@@ -35,7 +35,7 @@ use jj_lib::merged_tree::MergedTreeBuilder;
 use jj_lib::merged_tree::TreeDiffEntry;
 use jj_lib::merged_tree::TreeDiffIterator;
 use jj_lib::merged_tree::TreeDiffStreamImpl;
-use jj_lib::repo::Repo;
+use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::repo_path::RepoPathComponent;

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use std::io;
-use std::io::Write;
+use std::io::Write as _;
 use std::path::Path;
 use std::path::PathBuf;
 use std::str;
@@ -26,7 +26,7 @@ use jj_lib::git::parse_git_ref;
 use jj_lib::git::RefName;
 use jj_lib::refs::RemoteRefSymbol;
 use jj_lib::repo::ReadonlyRepo;
-use jj_lib::repo::Repo;
+use jj_lib::repo::Repo as _;
 use jj_lib::view::View;
 use jj_lib::workspace::Workspace;
 

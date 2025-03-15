@@ -18,7 +18,7 @@ use std::path::PathBuf;
 use std::process::exit;
 
 use clap::Parser;
-use itertools::Itertools;
+use itertools::Itertools as _;
 
 /// A fake editor, useful for testing
 // It's overkill to use clap for a single argument, but we already use it in many other places...

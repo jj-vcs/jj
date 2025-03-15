@@ -13,10 +13,10 @@
 // limitations under the License.
 
 use std::io;
-use std::io::Write;
+use std::io::Write as _;
 
 use indoc::writedoc;
-use itertools::Itertools;
+use itertools::Itertools as _;
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::working_copy::SnapshotStats;
 use jj_lib::working_copy::UntrackedReason;

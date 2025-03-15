@@ -2,7 +2,7 @@ use chrono::format::StrftimeItems;
 use chrono::DateTime;
 use chrono::FixedOffset;
 use chrono::LocalResult;
-use chrono::TimeZone;
+use chrono::TimeZone as _;
 use chrono::Utc;
 use jj_lib::backend::Timestamp;
 use once_cell::sync::Lazy;

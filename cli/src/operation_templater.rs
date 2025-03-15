@@ -19,7 +19,7 @@ use std::io;
 
 use itertools::Itertools as _;
 use jj_lib::extensions_map::ExtensionsMap;
-use jj_lib::object_id::ObjectId;
+use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::OperationId;
 use jj_lib::operation::Operation;
 use jj_lib::repo::RepoLoader;

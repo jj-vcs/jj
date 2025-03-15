@@ -16,7 +16,7 @@ use std::fmt::Debug;
 use std::io::Write as _;
 
 use clap_complete::ArgValueCandidates;
-use jj_lib::object_id::ObjectId;
+use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_walk;
 
 use crate::cli_util::CommandHelper;
