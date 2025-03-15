@@ -240,10 +240,15 @@ impl UserSettings {
     }
 
     pub fn sign_settings(&self) -> SignSettings {
+        let backend = self.signing_backend().unwrap_or(None);
+        let key = self.data.signing_key.clone();
         SignSettings {
             behavior: self.data.signing_behavior,
             user_email: self.data.user_email.clone(),
-            key: self.data.signing_key.clone(),
+            key: key.or_else(|| match backend.as_deref() {
+                Some("gpg") => Some(self.data.user_email.clone()),
+                _ => None,
+            }),
         }
     }
 }
