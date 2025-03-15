@@ -2089,10 +2089,36 @@ struct FetchedBranches {
     branches: Vec<StringPattern>,
 }
 
+fn expand_fetch_refspecs(
+    remote: &RemoteName,
+    branch_names: &[StringPattern],
+) -> Result<Vec<RefSpec>, GitFetchError> {
+    branch_names
+        .iter()
+        .map(|pattern| {
+            pattern
+                .to_glob()
+                .filter(
+                    /* This triggered by non-glob `*`s in addition to INVALID_REFSPEC_CHARS
+                     * because `to_glob()` escapes such `*`s as `[*]`. */
+                    |glob| !glob.contains(INVALID_REFSPEC_CHARS),
+                )
+                .map(|glob| {
+                    RefSpec::forced(
+                        format!("refs/heads/{glob}"),
+                        format!("refs/remotes/{remote}/{glob}", remote = remote.as_str()),
+                    )
+                })
+                .ok_or_else(|| GitFetchError::InvalidBranchPattern(pattern.clone()))
+        })
+        .collect()
+}
+
 /// Helper struct to execute multiple `git fetch` operations
 pub struct GitFetch<'a> {
     mut_repo: &'a mut MutableRepo,
-    fetch_impl: GitFetchImpl<'a>,
+    git_repo: Box<gix::Repository>,
+    git_ctx: GitSubprocessContext<'a>,
     git_settings: &'a GitSettings,
     fetched: Vec<FetchedBranches>,
 }
@@ -2102,10 +2128,14 @@ impl<'a> GitFetch<'a> {
         mut_repo: &'a mut MutableRepo,
         git_settings: &'a GitSettings,
     ) -> Result<Self, UnexpectedGitBackendError> {
-        let fetch_impl = GitFetchImpl::new(mut_repo.store(), git_settings)?;
+        let git_backend = get_git_backend(mut_repo.store())?;
+        let git_repo = Box::new(git_backend.git_repo());
+        let git_ctx =
+            GitSubprocessContext::from_git_backend(git_backend, &git_settings.executable_path);
         Ok(GitFetch {
             mut_repo,
-            fetch_impl,
+            git_repo,
+            git_ctx,
             git_settings,
             fetched: vec![],
         })
@@ -2121,12 +2151,54 @@ impl<'a> GitFetch<'a> {
         &mut self,
         remote_name: &RemoteName,
         branch_names: &[StringPattern],
-        callbacks: RemoteCallbacks<'_>,
+        mut callbacks: RemoteCallbacks<'_>,
         depth: Option<NonZeroU32>,
     ) -> Result<(), GitFetchError> {
         validate_remote_name(remote_name)?;
-        self.fetch_impl
-            .fetch(remote_name, branch_names, callbacks, depth)?;
+
+        // check the remote exists
+        if self
+            .git_repo
+            .try_find_remote(remote_name.as_str())
+            .is_none()
+        {
+            return Err(GitFetchError::NoSuchRemote(remote_name.to_owned()));
+        }
+        // At this point, we are only updating Git's remote tracking branches, not the
+        // local branches.
+        let mut remaining_refspecs: Vec<_> = expand_fetch_refspecs(remote_name, branch_names)?;
+        if remaining_refspecs.is_empty() {
+            // Don't fall back to the base refspecs.
+            return Ok(());
+        }
+
+        let mut branches_to_prune = Vec::new();
+        // git unfortunately errors out if one of the many refspecs is not found
+        //
+        // our approach is to filter out failures and retry,
+        // until either all have failed or an attempt has succeeded
+        //
+        // even more unfortunately, git errors out one refspec at a time,
+        // meaning that the below cycle runs in O(#failed refspecs)
+        while let Some(failing_refspec) =
+            self.git_ctx
+                .spawn_fetch(remote_name, &remaining_refspecs, &mut callbacks, depth)?
+        {
+            tracing::debug!(failing_refspec, "failed to fetch ref");
+            remaining_refspecs.retain(|r| r.source.as_ref() != Some(&failing_refspec));
+
+            if let Some(branch_name) = failing_refspec.strip_prefix("refs/heads/") {
+                branches_to_prune.push(format!(
+                    "{remote_name}/{branch_name}",
+                    remote_name = remote_name.as_str()
+                ));
+            }
+        }
+
+        // Even if git fetch has --prune, if a branch is not found it will not be
+        // pruned on fetch
+        self.git_ctx.spawn_branch_prune(&branches_to_prune)?;
+
         self.fetched.push(FetchedBranches {
             remote: remote_name.to_owned(),
             branches: branch_names.to_vec(),
@@ -2135,13 +2207,22 @@ impl<'a> GitFetch<'a> {
     }
 
     /// Queries remote for the default branch name.
-    #[tracing::instrument(skip(self, callbacks))]
+    #[tracing::instrument(skip(self, _callbacks))]
     pub fn get_default_branch(
         &self,
         remote_name: &RemoteName,
-        callbacks: RemoteCallbacks<'_>,
+        _callbacks: RemoteCallbacks<'_>,
     ) -> Result<Option<RefNameBuf>, GitFetchError> {
-        self.fetch_impl.get_default_branch(remote_name, callbacks)
+        if self
+            .git_repo
+            .try_find_remote(remote_name.as_str())
+            .is_none()
+        {
+            return Err(GitFetchError::NoSuchRemote(remote_name.to_owned()));
+        }
+        let default_branch = self.git_ctx.spawn_remote_show(remote_name)?;
+        tracing::debug!(?default_branch);
+        Ok(default_branch)
     }
 
     /// Import the previously fetched remote-tracking branches into the jj repo
@@ -2177,144 +2258,6 @@ impl<'a> GitFetch<'a> {
 
         Ok(import_stats)
     }
-}
-
-fn expand_fetch_refspecs(
-    remote: &RemoteName,
-    branch_names: &[StringPattern],
-) -> Result<Vec<RefSpec>, GitFetchError> {
-    branch_names
-        .iter()
-        .map(|pattern| {
-            pattern
-                .to_glob()
-                .filter(
-                    /* This triggered by non-glob `*`s in addition to INVALID_REFSPEC_CHARS
-                     * because `to_glob()` escapes such `*`s as `[*]`. */
-                    |glob| !glob.contains(INVALID_REFSPEC_CHARS),
-                )
-                .map(|glob| {
-                    RefSpec::forced(
-                        format!("refs/heads/{glob}"),
-                        format!("refs/remotes/{remote}/{glob}", remote = remote.as_str()),
-                    )
-                })
-                .ok_or_else(|| GitFetchError::InvalidBranchPattern(pattern.clone()))
-        })
-        .collect()
-}
-
-enum GitFetchImpl<'a> {
-    Subprocess {
-        git_repo: Box<gix::Repository>,
-        git_ctx: GitSubprocessContext<'a>,
-    },
-}
-
-impl<'a> GitFetchImpl<'a> {
-    fn new(
-        store: &Store,
-        git_settings: &'a GitSettings,
-    ) -> Result<Self, UnexpectedGitBackendError> {
-        let git_backend = get_git_backend(store)?;
-        let git_repo = Box::new(git_backend.git_repo());
-        let git_ctx =
-            GitSubprocessContext::from_git_backend(git_backend, &git_settings.executable_path);
-        Ok(GitFetchImpl::Subprocess { git_repo, git_ctx })
-    }
-
-    fn fetch(
-        &self,
-        remote_name: &RemoteName,
-        branch_names: &[StringPattern],
-        callbacks: RemoteCallbacks<'_>,
-        depth: Option<NonZeroU32>,
-    ) -> Result<(), GitFetchError> {
-        match self {
-            GitFetchImpl::Subprocess { git_repo, git_ctx } => subprocess_fetch(
-                git_repo,
-                git_ctx,
-                remote_name,
-                branch_names,
-                callbacks,
-                depth,
-            ),
-        }
-    }
-
-    fn get_default_branch(
-        &self,
-        remote_name: &RemoteName,
-        callbacks: RemoteCallbacks<'_>,
-    ) -> Result<Option<RefNameBuf>, GitFetchError> {
-        match self {
-            GitFetchImpl::Subprocess { git_repo, git_ctx } => {
-                subprocess_get_default_branch(git_repo, git_ctx, remote_name, callbacks)
-            }
-        }
-    }
-}
-
-fn subprocess_fetch(
-    git_repo: &gix::Repository,
-    git_ctx: &GitSubprocessContext,
-    remote_name: &RemoteName,
-    branch_names: &[StringPattern],
-    mut callbacks: RemoteCallbacks<'_>,
-    depth: Option<NonZeroU32>,
-) -> Result<(), GitFetchError> {
-    // check the remote exists
-    if git_repo.try_find_remote(remote_name.as_str()).is_none() {
-        return Err(GitFetchError::NoSuchRemote(remote_name.to_owned()));
-    }
-    // At this point, we are only updating Git's remote tracking branches, not the
-    // local branches.
-    let mut remaining_refspecs: Vec<_> = expand_fetch_refspecs(remote_name, branch_names)?;
-    if remaining_refspecs.is_empty() {
-        // Don't fall back to the base refspecs.
-        return Ok(());
-    }
-
-    let mut branches_to_prune = Vec::new();
-    // git unfortunately errors out if one of the many refspecs is not found
-    //
-    // our approach is to filter out failures and retry,
-    // until either all have failed or an attempt has succeeded
-    //
-    // even more unfortunately, git errors out one refspec at a time,
-    // meaning that the below cycle runs in O(#failed refspecs)
-    while let Some(failing_refspec) =
-        git_ctx.spawn_fetch(remote_name, &remaining_refspecs, &mut callbacks, depth)?
-    {
-        tracing::debug!(failing_refspec, "failed to fetch ref");
-        remaining_refspecs.retain(|r| r.source.as_ref() != Some(&failing_refspec));
-
-        if let Some(branch_name) = failing_refspec.strip_prefix("refs/heads/") {
-            branches_to_prune.push(format!(
-                "{remote_name}/{branch_name}",
-                remote_name = remote_name.as_str()
-            ));
-        }
-    }
-
-    // Even if git fetch has --prune, if a branch is not found it will not be
-    // pruned on fetch
-    git_ctx.spawn_branch_prune(&branches_to_prune)?;
-    Ok(())
-}
-
-fn subprocess_get_default_branch(
-    git_repo: &gix::Repository,
-    git_ctx: &GitSubprocessContext,
-    remote_name: &RemoteName,
-    _callbacks: RemoteCallbacks<'_>,
-) -> Result<Option<RefNameBuf>, GitFetchError> {
-    if git_repo.try_find_remote(remote_name.as_str()).is_none() {
-        return Err(GitFetchError::NoSuchRemote(remote_name.to_owned()));
-    }
-    let default_branch = git_ctx.spawn_remote_show(remote_name)?;
-    tracing::debug!(?default_branch);
-    Ok(default_branch)
 }
 
 #[derive(Error, Debug)]
