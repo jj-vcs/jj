@@ -470,9 +470,9 @@ want to adjust the `site_url` to something like `https://jjfan.github.io/jj`.
 
 You can print internal jj logs using `JJ_LOG`. It acts like the `RUST_LOG`
 environment variable, frequent in Rust codebases, and accepts one or more
-[directives]. You can also use the `--debug` global option that sets
-`debug` log level for all targets by default. `JJ_LOG` is still respected when
-using `--debug`.
+[directives]. You can also run `JJ_LOG=debug jj` to get `debug` level logs
+enabled for all targets. You can also use the `--debug` global option, which
+turns on `debug` log level for `jj-lib` and `jj-cli` only.
 
 [directives]: https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#directives
 
