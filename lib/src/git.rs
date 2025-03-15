@@ -2207,11 +2207,10 @@ impl<'a> GitFetch<'a> {
     }
 
     /// Queries remote for the default branch name.
-    #[tracing::instrument(skip(self, _callbacks))]
+    #[tracing::instrument(skip(self))]
     pub fn get_default_branch(
         &self,
         remote_name: &RemoteName,
-        _callbacks: RemoteCallbacks<'_>,
     ) -> Result<Option<RefNameBuf>, GitFetchError> {
         if self
             .git_repo
