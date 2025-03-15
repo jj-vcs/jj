@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use test_case::test_case;
 use testutils::git;
 
 use crate::common::CommandOutput;
@@ -61,9 +60,9 @@ fn set_up(test_env: &TestEnvironment) {
         .success();
 }
 
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_nothing(subprocess: bool) {
-    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+#[test]
+fn test_git_push_nothing() {
+    let test_env = TestEnvironment::default().with_git_subprocess(true);
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     // Show the setup. `insta` has trouble if this is done inside `set_up()`
@@ -87,9 +86,9 @@ fn test_git_push_nothing(subprocess: bool) {
     }
 }
 
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_current_bookmark(subprocess: bool) {
-    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+#[test]
+fn test_git_push_current_bookmark() {
+    let test_env = TestEnvironment::default().with_git_subprocess(true);
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
@@ -184,9 +183,9 @@ fn test_git_push_current_bookmark(subprocess: bool) {
     }
 }
 
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_parent_bookmark(subprocess: bool) {
-    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+#[test]
+fn test_git_push_parent_bookmark() {
+    let test_env = TestEnvironment::default().with_git_subprocess(true);
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
@@ -209,9 +208,9 @@ fn test_git_push_parent_bookmark(subprocess: bool) {
     }
 }
 
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_no_matching_bookmark(subprocess: bool) {
-    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+#[test]
+fn test_git_push_no_matching_bookmark() {
+    let test_env = TestEnvironment::default().with_git_subprocess(true);
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     work_dir.run_jj(["new"]).success();
@@ -226,9 +225,9 @@ fn test_git_push_no_matching_bookmark(subprocess: bool) {
     }
 }
 
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_matching_bookmark_unchanged(subprocess: bool) {
-    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+#[test]
+fn test_git_push_matching_bookmark_unchanged() {
+    let test_env = TestEnvironment::default().with_git_subprocess(true);
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     work_dir.run_jj(["new", "bookmark1"]).success();
@@ -246,9 +245,9 @@ fn test_git_push_matching_bookmark_unchanged(subprocess: bool) {
 /// Test that `jj git push` without arguments pushes a bookmark to the specified
 /// remote even if it's already up to date on another remote
 /// (`remote_bookmarks(remote=<remote>)..@` vs. `remote_bookmarks()..@`).
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_other_remote_has_bookmark(subprocess: bool) {
-    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+#[test]
+fn test_git_push_other_remote_has_bookmark() {
+    let test_env = TestEnvironment::default().with_git_subprocess(true);
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
@@ -310,9 +309,9 @@ fn test_git_push_other_remote_has_bookmark(subprocess: bool) {
     }
 }
 
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_forward_unexpectedly_moved(subprocess: bool) {
-    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+#[test]
+fn test_git_push_forward_unexpectedly_moved() {
+    let test_env = TestEnvironment::default().with_git_subprocess(true);
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
 
@@ -336,7 +335,7 @@ fn test_git_push_forward_unexpectedly_moved(subprocess: bool) {
 
     // Pushing should fail
     let output = work_dir.run_jj(["git", "push"]);
-    if subprocess {
+    if true {
         insta::assert_snapshot!(output, @r"
         ------- stderr -------
         Changes to push to origin:
@@ -363,9 +362,9 @@ fn test_git_push_forward_unexpectedly_moved(subprocess: bool) {
     }
 }
 
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_sideways_unexpectedly_moved(subprocess: bool) {
-    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+#[test]
+fn test_git_push_sideways_unexpectedly_moved() {
+    let test_env = TestEnvironment::default().with_git_subprocess(true);
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
 
@@ -406,7 +405,7 @@ fn test_git_push_sideways_unexpectedly_moved(subprocess: bool) {
     }
 
     let output = work_dir.run_jj(["git", "push"]);
-    if subprocess {
+    if true {
         insta::assert_snapshot!(output, @r"
         ------- stderr -------
         Changes to push to origin:
@@ -435,9 +434,9 @@ fn test_git_push_sideways_unexpectedly_moved(subprocess: bool) {
 
 // This tests whether the push checks that the remote bookmarks are in expected
 // positions.
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_deletion_unexpectedly_moved(subprocess: bool) {
-    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+#[test]
+fn test_git_push_deletion_unexpectedly_moved() {
+    let test_env = TestEnvironment::default().with_git_subprocess(true);
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
 
@@ -476,7 +475,7 @@ fn test_git_push_deletion_unexpectedly_moved(subprocess: bool) {
     }
 
     let output = work_dir.run_jj(["git", "push", "--bookmark", "bookmark1"]);
-    if subprocess {
+    if true {
         insta::assert_snapshot!(output, @r"
         ------- stderr -------
         Changes to push to origin:
@@ -503,9 +502,9 @@ fn test_git_push_deletion_unexpectedly_moved(subprocess: bool) {
     }
 }
 
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_unexpectedly_deleted(subprocess: bool) {
-    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+#[test]
+fn test_git_push_unexpectedly_deleted() {
+    let test_env = TestEnvironment::default().with_git_subprocess(true);
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
 
@@ -543,7 +542,7 @@ fn test_git_push_unexpectedly_deleted(subprocess: bool) {
 
     // Pushing a moved bookmark fails if deleted on remote
     let output = work_dir.run_jj(["git", "push"]);
-    if subprocess {
+    if true {
         insta::assert_snapshot!(output, @r"
         ------- stderr -------
         Changes to push to origin:
@@ -582,7 +581,7 @@ fn test_git_push_unexpectedly_deleted(subprocess: bool) {
     ");
     }
 
-    if subprocess {
+    if true {
         // git does not allow to push a deleted bookmark if we expect it to exist even
         // though it was already deleted
         let output = work_dir.run_jj(["git", "push", "-bbookmark1"]);
@@ -610,9 +609,9 @@ fn test_git_push_unexpectedly_deleted(subprocess: bool) {
     }
 }
 
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_creation_unexpectedly_already_exists(subprocess: bool) {
-    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+#[test]
+fn test_git_push_creation_unexpectedly_already_exists() {
+    let test_env = TestEnvironment::default().with_git_subprocess(true);
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
 
@@ -639,7 +638,7 @@ fn test_git_push_creation_unexpectedly_already_exists(subprocess: bool) {
     }
 
     let output = work_dir.run_jj(["git", "push", "--allow-new"]);
-    if subprocess {
+    if true {
         insta::assert_snapshot!(output, @r"
         ------- stderr -------
         Changes to push to origin:
@@ -666,9 +665,9 @@ fn test_git_push_creation_unexpectedly_already_exists(subprocess: bool) {
     }
 }
 
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_locally_created_and_rewritten(subprocess: bool) {
-    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+#[test]
+fn test_git_push_locally_created_and_rewritten() {
+    let test_env = TestEnvironment::default().with_git_subprocess(true);
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     // Ensure that remote bookmarks aren't tracked automatically
@@ -735,9 +734,9 @@ fn test_git_push_locally_created_and_rewritten(subprocess: bool) {
     }
 }
 
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_multiple(subprocess: bool) {
-    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+#[test]
+fn test_git_push_multiple() {
+    let test_env = TestEnvironment::default().with_git_subprocess(true);
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     work_dir
@@ -909,9 +908,9 @@ fn test_git_push_multiple(subprocess: bool) {
     }
 }
 
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_changes(subprocess: bool) {
-    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+#[test]
+fn test_git_push_changes() {
+    let test_env = TestEnvironment::default().with_git_subprocess(true);
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     work_dir.run_jj(["describe", "-m", "foo"]).success();
@@ -1040,9 +1039,9 @@ fn test_git_push_changes(subprocess: bool) {
     }
 }
 
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_changes_with_name(subprocess: bool) {
-    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+#[test]
+fn test_git_push_changes_with_name() {
+    let test_env = TestEnvironment::default().with_git_subprocess(true);
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     work_dir.run_jj(["describe", "-m", "foo"]).success();
@@ -1172,9 +1171,9 @@ fn test_git_push_changes_with_name(subprocess: bool) {
     }
 }
 
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_changes_with_name_deleted_tracked(subprocess: bool) {
-    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+#[test]
+fn test_git_push_changes_with_name_deleted_tracked() {
+    let test_env = TestEnvironment::default().with_git_subprocess(true);
     set_up(&test_env);
     // Unset immutable_heads so that untracking branches does not move the working
     // copy
@@ -1285,9 +1284,9 @@ fn test_git_push_changes_with_name_deleted_tracked(subprocess: bool) {
     }
 }
 
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_changes_with_name_untracked_or_forgotten(subprocess: bool) {
-    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+#[test]
+fn test_git_push_changes_with_name_untracked_or_forgotten() {
+    let test_env = TestEnvironment::default().with_git_subprocess(true);
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     // Unset immutable_heads so that untracking branches does not move the working
@@ -1373,7 +1372,7 @@ fn test_git_push_changes_with_name_untracked_or_forgotten(subprocess: bool) {
     // Make sure push still errors if we try to push a bookmark with the same name
     // to a different location.
     let output = work_dir.run_jj(["git", "push", "--named", "b1=@-"]);
-    if subprocess {
+    if true {
         insta::assert_snapshot!(output, @r"
         ------- stderr -------
         Changes to push to origin:
@@ -1411,7 +1410,7 @@ fn test_git_push_changes_with_name_untracked_or_forgotten(subprocess: bool) {
     // git push --named` goes, the stricter behavior of the subprocess flow is
     // probably slightly better.
     let output = work_dir.run_jj(["git", "push", "--named", "b1=@+"]);
-    if subprocess {
+    if true {
         insta::assert_snapshot!(output, @r"
         ------- stderr -------
         Changes to push to origin:
@@ -1445,9 +1444,9 @@ fn test_git_push_changes_with_name_untracked_or_forgotten(subprocess: bool) {
     }
 }
 
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_revisions(subprocess: bool) {
-    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+#[test]
+fn test_git_push_revisions() {
+    let test_env = TestEnvironment::default().with_git_subprocess(true);
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     work_dir.run_jj(["describe", "-m", "foo"]).success();
@@ -1534,9 +1533,9 @@ fn test_git_push_revisions(subprocess: bool) {
     }
 }
 
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_mixed(subprocess: bool) {
-    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+#[test]
+fn test_git_push_mixed() {
+    let test_env = TestEnvironment::default().with_git_subprocess(true);
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     work_dir.run_jj(["describe", "-m", "foo"]).success();
@@ -1596,9 +1595,9 @@ fn test_git_push_mixed(subprocess: bool) {
     }
 }
 
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_unsnapshotted_change(subprocess: bool) {
-    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+#[test]
+fn test_git_push_unsnapshotted_change() {
+    let test_env = TestEnvironment::default().with_git_subprocess(true);
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     work_dir.run_jj(["describe", "-m", "foo"]).success();
@@ -1608,9 +1607,9 @@ fn test_git_push_unsnapshotted_change(subprocess: bool) {
     work_dir.run_jj(["git", "push", "--change", "@"]).success();
 }
 
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_conflict(subprocess: bool) {
-    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+#[test]
+fn test_git_push_conflict() {
+    let test_env = TestEnvironment::default().with_git_subprocess(true);
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     work_dir.write_file("file", "first");
@@ -1637,9 +1636,9 @@ fn test_git_push_conflict(subprocess: bool) {
     }
 }
 
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_no_description(subprocess: bool) {
-    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+#[test]
+fn test_git_push_no_description() {
+    let test_env = TestEnvironment::default().with_git_subprocess(true);
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     work_dir
@@ -1668,9 +1667,9 @@ fn test_git_push_no_description(subprocess: bool) {
         .success();
 }
 
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_no_description_in_immutable(subprocess: bool) {
-    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+#[test]
+fn test_git_push_no_description_in_immutable() {
+    let test_env = TestEnvironment::default().with_git_subprocess(true);
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     work_dir
@@ -1719,9 +1718,9 @@ fn test_git_push_no_description_in_immutable(subprocess: bool) {
     }
 }
 
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_missing_author(subprocess: bool) {
-    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+#[test]
+fn test_git_push_missing_author() {
+    let test_env = TestEnvironment::default().with_git_subprocess(true);
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     let run_without_var = |var: &str, args: &[&str]| {
@@ -1755,9 +1754,9 @@ fn test_git_push_missing_author(subprocess: bool) {
     }
 }
 
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_missing_author_in_immutable(subprocess: bool) {
-    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+#[test]
+fn test_git_push_missing_author_in_immutable() {
+    let test_env = TestEnvironment::default().with_git_subprocess(true);
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     let run_without_var = |var: &str, args: &[&str]| {
@@ -1812,9 +1811,9 @@ fn test_git_push_missing_author_in_immutable(subprocess: bool) {
     }
 }
 
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_missing_committer(subprocess: bool) {
-    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+#[test]
+fn test_git_push_missing_committer() {
+    let test_env = TestEnvironment::default().with_git_subprocess(true);
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     let run_without_var = |var: &str, args: &[&str]| {
@@ -1867,9 +1866,9 @@ fn test_git_push_missing_committer(subprocess: bool) {
     }
 }
 
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_missing_committer_in_immutable(subprocess: bool) {
-    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+#[test]
+fn test_git_push_missing_committer_in_immutable() {
+    let test_env = TestEnvironment::default().with_git_subprocess(true);
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     let run_without_var = |var: &str, args: &[&str]| {
@@ -1925,9 +1924,9 @@ fn test_git_push_missing_committer_in_immutable(subprocess: bool) {
     }
 }
 
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_deleted(subprocess: bool) {
-    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+#[test]
+fn test_git_push_deleted() {
+    let test_env = TestEnvironment::default().with_git_subprocess(true);
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
 
@@ -1966,9 +1965,9 @@ fn test_git_push_deleted(subprocess: bool) {
     }
 }
 
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_conflicting_bookmarks(subprocess: bool) {
-    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+#[test]
+fn test_git_push_conflicting_bookmarks() {
+    let test_env = TestEnvironment::default().with_git_subprocess(true);
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     test_env.add_config("git.auto-local-bookmark = true");
@@ -2064,9 +2063,9 @@ fn test_git_push_conflicting_bookmarks(subprocess: bool) {
     }
 }
 
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_deleted_untracked(subprocess: bool) {
-    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+#[test]
+fn test_git_push_deleted_untracked() {
+    let test_env = TestEnvironment::default().with_git_subprocess(true);
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
 
@@ -2097,9 +2096,9 @@ fn test_git_push_deleted_untracked(subprocess: bool) {
     }
 }
 
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_tracked_vs_all(subprocess: bool) {
-    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+#[test]
+fn test_git_push_tracked_vs_all() {
+    let test_env = TestEnvironment::default().with_git_subprocess(true);
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     work_dir
@@ -2208,9 +2207,9 @@ fn test_git_push_tracked_vs_all(subprocess: bool) {
     }
 }
 
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_moved_forward_untracked(subprocess: bool) {
-    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+#[test]
+fn test_git_push_moved_forward_untracked() {
+    let test_env = TestEnvironment::default().with_git_subprocess(true);
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
 
@@ -2235,9 +2234,9 @@ fn test_git_push_moved_forward_untracked(subprocess: bool) {
     }
 }
 
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_moved_sideways_untracked(subprocess: bool) {
-    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+#[test]
+fn test_git_push_moved_sideways_untracked() {
+    let test_env = TestEnvironment::default().with_git_subprocess(true);
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
 
@@ -2262,9 +2261,9 @@ fn test_git_push_moved_sideways_untracked(subprocess: bool) {
     }
 }
 
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_to_remote_named_git(subprocess: bool) {
-    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+#[test]
+fn test_git_push_to_remote_named_git() {
+    let test_env = TestEnvironment::default().with_git_subprocess(true);
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     let git_repo_path = {
@@ -2289,9 +2288,9 @@ fn test_git_push_to_remote_named_git(subprocess: bool) {
     }
 }
 
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_to_remote_with_slashes(subprocess: bool) {
-    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+#[test]
+fn test_git_push_to_remote_with_slashes() {
+    let test_env = TestEnvironment::default().with_git_subprocess(true);
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     let git_repo_path = {
