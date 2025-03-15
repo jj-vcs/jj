@@ -10,6 +10,7 @@ use futures::StreamExt;
 use jj_lib::backend::MergedTreeId;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::fsmonitor::FsmonitorSettings;
+use jj_lib::gitattributes::GitAttributesFile;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::local_working_copy::TreeState;
 use jj_lib::local_working_copy::TreeStateError;
@@ -281,6 +282,7 @@ diff editing in mind and be a little inaccurate.
     pub fn snapshot_results(
         self,
         base_ignores: Arc<GitIgnoreFile>,
+        base_attributes: Option<Arc<GitAttributesFile>>,
         conflict_marker_style: ConflictMarkerStyle,
     ) -> Result<MergedTreeId, DiffEditError> {
         if let Some(path) = self.instructions_path_to_cleanup {
@@ -294,6 +296,7 @@ diff editing in mind and be a little inaccurate.
             .unwrap_or(diff_wc.right_tree_state);
         output_tree_state.snapshot(&SnapshotOptions {
             base_ignores,
+            base_attributes,
             fsmonitor_settings: FsmonitorSettings::None,
             progress: None,
             start_tracking_matcher: &EverythingMatcher,
