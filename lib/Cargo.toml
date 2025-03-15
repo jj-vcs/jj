@@ -82,6 +82,7 @@ rustix = { workspace = true }
 winreg = { workspace = true }
 
 [dev-dependencies]
+anyhow = { workspace = true }
 assert_matches = { workspace = true }
 criterion = { workspace = true }
 indoc = { workspace = true }
