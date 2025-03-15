@@ -2572,7 +2572,6 @@ fn get_bookmark_output(work_dir: &TestWorkDir) -> CommandOutput {
 }
 
 // TODO: Remove with the `git.subprocess` setting.
-#[cfg(not(feature = "git2"))]
 #[test]
 fn test_git_push_git2_warning() {
     let test_env = TestEnvironment::default();
@@ -2583,11 +2582,21 @@ fn test_git_push_git2_warning() {
         .run_jj(["describe", "bookmark1", "-m", "modified bookmark1 commit"])
         .success();
     let output = work_dir.run_jj(["git", "push", "--all"]);
-    insta::assert_snapshot!(output, @r#"
-    ------- stderr -------
-    Warning: Deprecated config: jj was compiled without `git.subprocess = false` support
-    Changes to push to origin:
-      Move sideways bookmark bookmark1 from d13ecdbda2a2 to 0f8dc6560f32
-    [EOF]
-    "#);
+    if cfg!(feature = "git2") {
+        insta::assert_snapshot!(output, @r"
+        ------- stderr -------
+        Warning: `git.subprocess = false` will be removed in 0.30; please report any issues you have with the default.
+        Changes to push to origin:
+          Move sideways bookmark bookmark1 from d13ecdbda2a2 to 0f8dc6560f32
+        [EOF]
+        ");
+    } else {
+        insta::assert_snapshot!(output, @r#"
+        ------- stderr -------
+        Warning: Deprecated config: jj was compiled without `git.subprocess = false` support
+        Changes to push to origin:
+          Move sideways bookmark bookmark1 from d13ecdbda2a2 to 0f8dc6560f32
+        [EOF]
+        "#);
+    }
 }

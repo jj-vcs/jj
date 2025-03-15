@@ -2014,7 +2014,6 @@ fn test_git_fetch_preserve_commits_across_repos(subprocess: bool) {
 }
 
 // TODO: Remove with the `git.subprocess` setting.
-#[cfg(not(feature = "git2"))]
 #[test]
 fn test_git_fetch_git2_warning() {
     let test_env = TestEnvironment::default();
@@ -2025,10 +2024,19 @@ fn test_git_fetch_git2_warning() {
     add_git_remote(&test_env, &work_dir, "origin");
 
     let output = work_dir.run_jj(["git", "fetch"]);
-    insta::assert_snapshot!(output, @r#"
-    ------- stderr -------
-    Warning: Deprecated config: jj was compiled without `git.subprocess = false` support
-    bookmark: origin@origin [new] tracked
-    [EOF]
-    "#);
+    if cfg!(feature = "git2") {
+        insta::assert_snapshot!(output, @r"
+        ------- stderr -------
+        Warning: `git.subprocess = false` will be removed in 0.30; please report any issues you have with the default.
+        bookmark: origin@origin [new] tracked
+        [EOF]
+        ");
+    } else {
+        insta::assert_snapshot!(output, @r#"
+        ------- stderr -------
+        Warning: Deprecated config: jj was compiled without `git.subprocess = false` support
+        bookmark: origin@origin [new] tracked
+        [EOF]
+        "#);
+    }
 }
