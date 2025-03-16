@@ -12,6 +12,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+* The old `libgit2` code path for fetches and pushes has been removed,
+  and the `git.subprocess` setting along with it.
+
+  Packagers should remove any dependencies on `libgit2`, `libssh2`, and
+  OpenSSL, and ensure they are not adjusting the Cargo `git2` or
+  `vendored-openssl` features.
+
+### Deprecations
+
+### New features
+
+## [Unreleased]
+
+### Release highlights
+
+### Breaking changes
+
 * The minimum supported Rust version (MSRV) is now 1.84.0.
 
 * The `git.push-branch-prefix` config has been removed in favor of

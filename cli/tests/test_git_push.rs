@@ -15,14 +15,13 @@
 use std::path::Path;
 use std::path::PathBuf;
 
-use test_case::test_case;
 use testutils::git;
 
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 
-fn set_up(subprocess: bool) -> (TestEnvironment, PathBuf) {
-    let test_env = TestEnvironment::with_git_subprocess(subprocess);
+fn set_up() -> (TestEnvironment, PathBuf) {
+    let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "origin"]).success();
     let origin_path = test_env.env_root().join("origin");
     let origin_git_repo_path = origin_path
@@ -63,12 +62,10 @@ fn set_up(subprocess: bool) -> (TestEnvironment, PathBuf) {
     (test_env, workspace_root)
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_nothing(subprocess: bool) {
-    let (test_env, workspace_root) = set_up(subprocess);
+#[test]
+fn test_git_push_nothing() {
+    let (test_env, workspace_root) = set_up();
     // Show the setup. `insta` has trouble if this is done inside `set_up()`
-    insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &workspace_root), @r"
     bookmark1: xtvrqkyv d13ecdbd (empty) description 1
       @origin: xtvrqkyv d13ecdbd (empty) description 1
@@ -76,22 +73,18 @@ fn test_git_push_nothing(subprocess: bool) {
       @origin: rlzusymt 8476341e (empty) description 2
     [EOF]
     ");
-    }
     // No bookmarks to push yet
     let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--all"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Nothing changed.
     [EOF]
     ");
-    }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_current_bookmark(subprocess: bool) {
-    let (test_env, workspace_root) = set_up(subprocess);
+#[test]
+fn test_git_push_current_bookmark() {
+    let (test_env, workspace_root) = set_up();
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
     // Update some bookmarks. `bookmark1` is not a current bookmark, but
     // `bookmark2` and `my-bookmark` are.
@@ -117,7 +110,6 @@ fn test_git_push_current_bookmark(subprocess: bool) {
         .run_jj_in(&workspace_root, ["describe", "-m", "foo"])
         .success();
     // Check the setup
-    insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &workspace_root), @r"
     bookmark1: xtvrqkyv 0f8dc656 (empty) modified bookmark1 commit
       @origin (ahead by 1 commits, behind by 1 commits): xtvrqkyv hidden d13ecdbd (empty) description 1
@@ -126,10 +118,8 @@ fn test_git_push_current_bookmark(subprocess: bool) {
     my-bookmark: yostqsxw bc7610b6 (empty) foo
     [EOF]
     ");
-    }
     // First dry-run. `bookmark1` should not get pushed.
     let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--allow-new", "--dry-run"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -138,9 +128,7 @@ fn test_git_push_current_bookmark(subprocess: bool) {
     Dry-run requested, not pushing.
     [EOF]
     ");
-    }
     let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--allow-new"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -148,8 +136,6 @@ fn test_git_push_current_bookmark(subprocess: bool) {
       Add bookmark my-bookmark to bc7610b65a91
     [EOF]
     ");
-    }
-    insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &workspace_root), @r"
     bookmark1: xtvrqkyv 0f8dc656 (empty) modified bookmark1 commit
       @origin (ahead by 1 commits, behind by 1 commits): xtvrqkyv hidden d13ecdbd (empty) description 1
@@ -159,7 +145,6 @@ fn test_git_push_current_bookmark(subprocess: bool) {
       @origin: yostqsxw bc7610b6 (empty) foo
     [EOF]
     ");
-    }
 
     // Try pushing backwards
     test_env
@@ -177,30 +162,25 @@ fn test_git_push_current_bookmark(subprocess: bool) {
     // This behavior is a strangeness of our definition of the default push revset.
     // We could consider changing it.
     let output = test_env.run_jj_in(&workspace_root, ["git", "push"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: No bookmarks found in the default push revset: remote_bookmarks(remote=origin)..@
     Nothing changed.
     [EOF]
     ");
-    }
     // We can move a bookmark backwards
     let output = test_env.run_jj_in(&workspace_root, ["git", "push", "-bbookmark2"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
       Move backward bookmark bookmark2 from bc7610b65a91 to 8476341eb395
     [EOF]
     ");
-    }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_parent_bookmark(subprocess: bool) {
-    let (test_env, workspace_root) = set_up(subprocess);
+#[test]
+fn test_git_push_parent_bookmark() {
+    let (test_env, workspace_root) = set_up();
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
     test_env
         .run_jj_in(&workspace_root, ["edit", "bookmark1"])
@@ -216,57 +196,48 @@ fn test_git_push_parent_bookmark(subprocess: bool) {
         .success();
     std::fs::write(workspace_root.join("file"), "file").unwrap();
     let output = test_env.run_jj_in(&workspace_root, ["git", "push"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
       Move sideways bookmark bookmark1 from d13ecdbda2a2 to e612d524a5c6
     [EOF]
     ");
-    }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_no_matching_bookmark(subprocess: bool) {
-    let (test_env, workspace_root) = set_up(subprocess);
+#[test]
+fn test_git_push_no_matching_bookmark() {
+    let (test_env, workspace_root) = set_up();
     test_env.run_jj_in(&workspace_root, ["new"]).success();
     let output = test_env.run_jj_in(&workspace_root, ["git", "push"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: No bookmarks found in the default push revset: remote_bookmarks(remote=origin)..@
     Nothing changed.
     [EOF]
     ");
-    }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_matching_bookmark_unchanged(subprocess: bool) {
-    let (test_env, workspace_root) = set_up(subprocess);
+#[test]
+fn test_git_push_matching_bookmark_unchanged() {
+    let (test_env, workspace_root) = set_up();
     test_env
         .run_jj_in(&workspace_root, ["new", "bookmark1"])
         .success();
     let output = test_env.run_jj_in(&workspace_root, ["git", "push"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: No bookmarks found in the default push revset: remote_bookmarks(remote=origin)..@
     Nothing changed.
     [EOF]
     ");
-    }
 }
 
 /// Test that `jj git push` without arguments pushes a bookmark to the specified
 /// remote even if it's already up to date on another remote
 /// (`remote_bookmarks(remote=<remote>)..@` vs. `remote_bookmarks()..@`).
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_other_remote_has_bookmark(subprocess: bool) {
-    let (test_env, workspace_root) = set_up(subprocess);
+#[test]
+fn test_git_push_other_remote_has_bookmark() {
+    let (test_env, workspace_root) = set_up();
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
     // Create another remote (but actually the same)
     let other_remote_path = test_env
@@ -296,24 +267,20 @@ fn test_git_push_other_remote_has_bookmark(subprocess: bool) {
         .run_jj_in(&workspace_root, ["describe", "-m=modified"])
         .success();
     let output = test_env.run_jj_in(&workspace_root, ["git", "push"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
       Move sideways bookmark bookmark1 from d13ecdbda2a2 to a657f1b61b94
     [EOF]
     ");
-    }
     // Since it's already pushed to origin, nothing will happen if push again
     let output = test_env.run_jj_in(&workspace_root, ["git", "push"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: No bookmarks found in the default push revset: remote_bookmarks(remote=origin)..@
     Nothing changed.
     [EOF]
     ");
-    }
     // The bookmark was moved on the "other" remote as well (since it's actually the
     // same remote), but `jj` is not aware of that since it thinks this is a
     // different remote. So, the push should fail.
@@ -326,20 +293,17 @@ fn test_git_push_other_remote_has_bookmark(subprocess: bool) {
         &workspace_root,
         ["git", "push", "--allow-new", "--remote=other"],
     );
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to other:
       Add bookmark bookmark1 to a657f1b61b94
     [EOF]
     ");
-    }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_forward_unexpectedly_moved(subprocess: bool) {
-    let (test_env, workspace_root) = set_up(subprocess);
+#[test]
+fn test_git_push_forward_unexpectedly_moved() {
+    let (test_env, workspace_root) = set_up();
 
     // Move bookmark1 forward on the remote
     let origin_path = test_env.env_root().join("origin");
@@ -365,7 +329,6 @@ fn test_git_push_forward_unexpectedly_moved(subprocess: bool) {
 
     // Pushing should fail
     let output = test_env.run_jj_in(&workspace_root, ["git", "push"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -375,13 +338,11 @@ fn test_git_push_forward_unexpectedly_moved(subprocess: bool) {
     [EOF]
     [exit status: 1]
     ");
-    }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_sideways_unexpectedly_moved(subprocess: bool) {
-    let (test_env, workspace_root) = set_up(subprocess);
+#[test]
+fn test_git_push_sideways_unexpectedly_moved() {
+    let (test_env, workspace_root) = set_up();
 
     // Move bookmark1 forward on the remote
     let origin_path = test_env.env_root().join("origin");
@@ -392,7 +353,6 @@ fn test_git_push_sideways_unexpectedly_moved(subprocess: bool) {
     test_env
         .run_jj_in(&origin_path, ["bookmark", "set", "bookmark1", "-r@"])
         .success();
-    insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &origin_path), @r"
     bookmark1: vruxwmqv 80284bec remote
       @git (behind by 1 commits): qpvuntsm d13ecdbd (empty) description 1
@@ -400,7 +360,6 @@ fn test_git_push_sideways_unexpectedly_moved(subprocess: bool) {
       @git: zsuskuln 8476341e (empty) description 2
     [EOF]
     ");
-    }
     test_env
         .run_jj_in(&origin_path, ["git", "export"])
         .success();
@@ -416,7 +375,6 @@ fn test_git_push_sideways_unexpectedly_moved(subprocess: bool) {
             ["bookmark", "set", "bookmark1", "--allow-backwards", "-r@"],
         )
         .success();
-    insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &workspace_root), @r"
     bookmark1: kmkuslsw 0f8bf988 local
       @origin (ahead by 1 commits, behind by 1 commits): xtvrqkyv d13ecdbd (empty) description 1
@@ -424,10 +382,8 @@ fn test_git_push_sideways_unexpectedly_moved(subprocess: bool) {
       @origin: rlzusymt 8476341e (empty) description 2
     [EOF]
     ");
-    }
 
     let output = test_env.run_jj_in(&workspace_root, ["git", "push"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -437,15 +393,13 @@ fn test_git_push_sideways_unexpectedly_moved(subprocess: bool) {
     [EOF]
     [exit status: 1]
     ");
-    }
 }
 
 // This tests whether the push checks that the remote bookmarks are in expected
 // positions.
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_deletion_unexpectedly_moved(subprocess: bool) {
-    let (test_env, workspace_root) = set_up(subprocess);
+#[test]
+fn test_git_push_deletion_unexpectedly_moved() {
+    let (test_env, workspace_root) = set_up();
 
     // Move bookmark1 forward on the remote
     let origin_path = test_env.env_root().join("origin");
@@ -456,7 +410,6 @@ fn test_git_push_deletion_unexpectedly_moved(subprocess: bool) {
     test_env
         .run_jj_in(&origin_path, ["bookmark", "set", "bookmark1", "-r@"])
         .success();
-    insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &origin_path), @r"
     bookmark1: vruxwmqv 80284bec remote
       @git (behind by 1 commits): qpvuntsm d13ecdbd (empty) description 1
@@ -464,7 +417,6 @@ fn test_git_push_deletion_unexpectedly_moved(subprocess: bool) {
       @git: zsuskuln 8476341e (empty) description 2
     [EOF]
     ");
-    }
     test_env
         .run_jj_in(&origin_path, ["git", "export"])
         .success();
@@ -473,7 +425,6 @@ fn test_git_push_deletion_unexpectedly_moved(subprocess: bool) {
     test_env
         .run_jj_in(&workspace_root, ["bookmark", "delete", "bookmark1"])
         .success();
-    insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &workspace_root), @r"
     bookmark1 (deleted)
       @origin: xtvrqkyv d13ecdbd (empty) description 1
@@ -481,10 +432,8 @@ fn test_git_push_deletion_unexpectedly_moved(subprocess: bool) {
       @origin: rlzusymt 8476341e (empty) description 2
     [EOF]
     ");
-    }
 
     let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--bookmark", "bookmark1"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -494,20 +443,17 @@ fn test_git_push_deletion_unexpectedly_moved(subprocess: bool) {
     [EOF]
     [exit status: 1]
     ");
-    }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_unexpectedly_deleted(subprocess: bool) {
-    let (test_env, workspace_root) = set_up(subprocess);
+#[test]
+fn test_git_push_unexpectedly_deleted() {
+    let (test_env, workspace_root) = set_up();
 
     // Delete bookmark1 forward on the remote
     let origin_path = test_env.env_root().join("origin");
     test_env
         .run_jj_in(&origin_path, ["bookmark", "delete", "bookmark1"])
         .success();
-    insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &origin_path), @r"
     bookmark1 (deleted)
       @git: qpvuntsm d13ecdbd (empty) description 1
@@ -515,7 +461,6 @@ fn test_git_push_unexpectedly_deleted(subprocess: bool) {
       @git: zsuskuln 8476341e (empty) description 2
     [EOF]
     ");
-    }
     test_env
         .run_jj_in(&origin_path, ["git", "export"])
         .success();
@@ -531,7 +476,6 @@ fn test_git_push_unexpectedly_deleted(subprocess: bool) {
             ["bookmark", "set", "bookmark1", "--allow-backwards", "-r@"],
         )
         .success();
-    insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &workspace_root), @r"
     bookmark1: kpqxywon 1ebe27ba local
       @origin (ahead by 1 commits, behind by 1 commits): xtvrqkyv d13ecdbd (empty) description 1
@@ -539,11 +483,9 @@ fn test_git_push_unexpectedly_deleted(subprocess: bool) {
       @origin: rlzusymt 8476341e (empty) description 2
     [EOF]
     ");
-    }
 
     // Pushing a moved bookmark fails if deleted on remote
     let output = test_env.run_jj_in(&workspace_root, ["git", "push"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -553,12 +495,10 @@ fn test_git_push_unexpectedly_deleted(subprocess: bool) {
     [EOF]
     [exit status: 1]
     ");
-    }
 
     test_env
         .run_jj_in(&workspace_root, ["bookmark", "delete", "bookmark1"])
         .success();
-    insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &workspace_root), @r"
     bookmark1 (deleted)
       @origin: xtvrqkyv d13ecdbd (empty) description 1
@@ -566,38 +506,24 @@ fn test_git_push_unexpectedly_deleted(subprocess: bool) {
       @origin: rlzusymt 8476341e (empty) description 2
     [EOF]
     ");
-    }
 
-    if subprocess {
-        // git does not allow to push a deleted bookmark if we expect it to exist even
-        // though it was already deleted
-        let output = test_env.run_jj_in(&workspace_root, ["git", "push", "-bbookmark1"]);
-        insta::assert_snapshot!(output, @r"
-        ------- stderr -------
-        Changes to push to origin:
-          Delete bookmark bookmark1 from d13ecdbda2a2
-        Error: Refusing to push a bookmark that unexpectedly moved on the remote. Affected refs: refs/heads/bookmark1
-        Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
-        [EOF]
-        [exit status: 1]
-        ");
-    } else {
-        // Pushing a *deleted* bookmark succeeds if deleted on remote, even if we expect
-        // bookmark1@origin to exist and point somewhere.
-        let output = test_env.run_jj_in(&workspace_root, ["git", "push", "-bbookmark1"]);
-        insta::assert_snapshot!(output, @r"
-        ------- stderr -------
-        Changes to push to origin:
-          Delete bookmark bookmark1 from d13ecdbda2a2
-        [EOF]
-        ");
-    }
+    // git does not allow to push a deleted bookmark if we expect it to exist even
+    // though it was already deleted
+    let output = test_env.run_jj_in(&workspace_root, ["git", "push", "-bbookmark1"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Changes to push to origin:
+      Delete bookmark bookmark1 from d13ecdbda2a2
+    Error: Refusing to push a bookmark that unexpectedly moved on the remote. Affected refs: refs/heads/bookmark1
+    Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
+    [EOF]
+    [exit status: 1]
+    ");
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_creation_unexpectedly_already_exists(subprocess: bool) {
-    let (test_env, workspace_root) = set_up(subprocess);
+#[test]
+fn test_git_push_creation_unexpectedly_already_exists() {
+    let (test_env, workspace_root) = set_up();
 
     // Forget bookmark1 locally
     test_env
@@ -615,17 +541,14 @@ fn test_git_push_creation_unexpectedly_already_exists(subprocess: bool) {
     test_env
         .run_jj_in(&workspace_root, ["bookmark", "create", "-r@", "bookmark1"])
         .success();
-    insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &workspace_root), @r"
     bookmark1: yostqsxw cb17dcdc new bookmark1
     bookmark2: rlzusymt 8476341e (empty) description 2
       @origin: rlzusymt 8476341e (empty) description 2
     [EOF]
     ");
-    }
 
     let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--allow-new"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -635,13 +558,11 @@ fn test_git_push_creation_unexpectedly_already_exists(subprocess: bool) {
     [EOF]
     [exit status: 1]
     ");
-    }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_locally_created_and_rewritten(subprocess: bool) {
-    let (test_env, workspace_root) = set_up(subprocess);
+#[test]
+fn test_git_push_locally_created_and_rewritten() {
+    let (test_env, workspace_root) = set_up();
     // Ensure that remote bookmarks aren't tracked automatically
     test_env.add_config("git.auto-local-bookmark = false");
 
@@ -653,7 +574,6 @@ fn test_git_push_locally_created_and_rewritten(subprocess: bool) {
         .run_jj_in(&workspace_root, ["bookmark", "create", "-r@", "my"])
         .success();
     let output = test_env.run_jj_in(&workspace_root, ["git", "push"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Refusing to create new remote bookmark my@origin
@@ -661,10 +581,8 @@ fn test_git_push_locally_created_and_rewritten(subprocess: bool) {
     Nothing changed.
     [EOF]
     ");
-    }
     // Either --allow-new or git.push-new-bookmarks=true should work
     let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--allow-new", "--dry-run"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -672,26 +590,22 @@ fn test_git_push_locally_created_and_rewritten(subprocess: bool) {
     Dry-run requested, not pushing.
     [EOF]
     ");
-    }
     let output = test_env.run_jj_in(
         &workspace_root,
         ["git", "push", "--config=git.push-new-bookmarks=true"],
     );
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
       Add bookmark my to fcc999921ce9
     [EOF]
     ");
-    }
 
     // Rewrite it and push again, which would fail if the pushed bookmark weren't
     // set to "tracking"
     test_env
         .run_jj_in(&workspace_root, ["describe", "-mlocal 2"])
         .success();
-    insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &workspace_root), @r"
     bookmark1: xtvrqkyv d13ecdbd (empty) description 1
       @origin: xtvrqkyv d13ecdbd (empty) description 1
@@ -701,22 +615,18 @@ fn test_git_push_locally_created_and_rewritten(subprocess: bool) {
       @origin (ahead by 1 commits, behind by 1 commits): vruxwmqv hidden fcc99992 (empty) local 1
     [EOF]
     ");
-    }
     let output = test_env.run_jj_in(&workspace_root, ["git", "push"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
       Move sideways bookmark my from fcc999921ce9 to 423bb66069e7
     [EOF]
     ");
-    }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_multiple(subprocess: bool) {
-    let (test_env, workspace_root) = set_up(subprocess);
+#[test]
+fn test_git_push_multiple() {
+    let (test_env, workspace_root) = set_up();
     test_env
         .run_jj_in(&workspace_root, ["bookmark", "delete", "bookmark1"])
         .success();
@@ -736,7 +646,6 @@ fn test_git_push_multiple(subprocess: bool) {
         .run_jj_in(&workspace_root, ["describe", "-m", "foo"])
         .success();
     // Check the setup
-    insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &workspace_root), @r"
     bookmark1 (deleted)
       @origin: xtvrqkyv d13ecdbd (empty) description 1
@@ -745,10 +654,8 @@ fn test_git_push_multiple(subprocess: bool) {
     my-bookmark: yqosqzyt c4a3c310 (empty) foo
     [EOF]
     ");
-    }
     // First dry-run
     let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--all", "--dry-run"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -758,7 +665,6 @@ fn test_git_push_multiple(subprocess: bool) {
     Dry-run requested, not pushing.
     [EOF]
     ");
-    }
     // Dry run requesting two specific bookmarks
     let output = test_env.run_jj_in(
         &workspace_root,
@@ -771,7 +677,6 @@ fn test_git_push_multiple(subprocess: bool) {
             "--dry-run",
         ],
     );
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -780,7 +685,6 @@ fn test_git_push_multiple(subprocess: bool) {
     Dry-run requested, not pushing.
     [EOF]
     ");
-    }
     // Dry run requesting two specific bookmarks twice
     let output = test_env.run_jj_in(
         &workspace_root,
@@ -795,7 +699,6 @@ fn test_git_push_multiple(subprocess: bool) {
             "--dry-run",
         ],
     );
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -804,13 +707,11 @@ fn test_git_push_multiple(subprocess: bool) {
     Dry-run requested, not pushing.
     [EOF]
     ");
-    }
     // Dry run with glob pattern
     let output = test_env.run_jj_in(
         &workspace_root,
         ["git", "push", "-b=glob:bookmark?", "--dry-run"],
     );
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -819,33 +720,27 @@ fn test_git_push_multiple(subprocess: bool) {
     Dry-run requested, not pushing.
     [EOF]
     ");
-    }
 
     // Unmatched bookmark name is error
     let output = test_env.run_jj_in(&workspace_root, ["git", "push", "-b=foo"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: No such bookmark: foo
     [EOF]
     [exit status: 1]
     ");
-    }
     let output = test_env.run_jj_in(
         &workspace_root,
         ["git", "push", "-b=foo", "-b=glob:?bookmark"],
     );
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: No matching bookmarks for patterns: foo, ?bookmark
     [EOF]
     [exit status: 1]
     ");
-    }
 
     let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--all"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -854,8 +749,6 @@ fn test_git_push_multiple(subprocess: bool) {
       Add bookmark my-bookmark to c4a3c3105d92
     [EOF]
     ");
-    }
-    insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &workspace_root), @r"
     bookmark2: yqosqzyt c4a3c310 (empty) foo
       @origin: yqosqzyt c4a3c310 (empty) foo
@@ -863,9 +756,7 @@ fn test_git_push_multiple(subprocess: bool) {
       @origin: yqosqzyt c4a3c310 (empty) foo
     [EOF]
     ");
-    }
     let output = test_env.run_jj_in(&workspace_root, ["log", "-rall()"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     @  yqosqzyt test.user@example.com 2001-02-03 08:05:17 bookmark2 my-bookmark c4a3c310
     │  (empty) foo
@@ -876,13 +767,11 @@ fn test_git_push_multiple(subprocess: bool) {
     ◆  zzzzzzzz root() 00000000
     [EOF]
     ");
-    }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_changes(subprocess: bool) {
-    let (test_env, workspace_root) = set_up(subprocess);
+#[test]
+fn test_git_push_changes() {
+    let (test_env, workspace_root) = set_up();
     test_env
         .run_jj_in(&workspace_root, ["describe", "-m", "foo"])
         .success();
@@ -893,7 +782,6 @@ fn test_git_push_changes(subprocess: bool) {
     std::fs::write(workspace_root.join("file"), "modified").unwrap();
 
     let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--change", "@"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Creating bookmark push-yostqsxwqrlt for revision yostqsxwqrlt
@@ -901,11 +789,9 @@ fn test_git_push_changes(subprocess: bool) {
       Add bookmark push-yostqsxwqrlt to cf1a53a8800a
     [EOF]
     ");
-    }
     // test pushing two changes at once
     std::fs::write(workspace_root.join("file"), "modified2").unwrap();
     let output = test_env.run_jj_in(&workspace_root, ["git", "push", "-c=(@|@-)"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Revset `(@|@-)` resolved to more than one revision
@@ -916,10 +802,8 @@ fn test_git_push_changes(subprocess: bool) {
     [EOF]
     [exit status: 1]
     ");
-    }
     // test pushing two changes at once, part 2
     let output = test_env.run_jj_in(&workspace_root, ["git", "push", "-c=all:(@|@-)"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Creating bookmark push-yqosqzytrlsw for revision yqosqzytrlsw
@@ -928,18 +812,15 @@ fn test_git_push_changes(subprocess: bool) {
       Add bookmark push-yqosqzytrlsw to a050abf4ff07
     [EOF]
     ");
-    }
     // specifying the same change twice doesn't break things
     std::fs::write(workspace_root.join("file"), "modified3").unwrap();
     let output = test_env.run_jj_in(&workspace_root, ["git", "push", "-c=all:(@|@)"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
       Move sideways bookmark push-yostqsxwqrlt from 16c169664e9f to ef6313d50ac1
     [EOF]
     ");
-    }
 
     // specifying the same bookmark with --change/--bookmark doesn't break things
     std::fs::write(workspace_root.join("file"), "modified4").unwrap();
@@ -947,14 +828,12 @@ fn test_git_push_changes(subprocess: bool) {
         &workspace_root,
         ["git", "push", "-c=@", "-b=push-yostqsxwqrlt"],
     );
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
       Move sideways bookmark push-yostqsxwqrlt from ef6313d50ac1 to c1e65d3a64ce
     [EOF]
     ");
-    }
 
     // try again with --change that moves the bookmark forward
     std::fs::write(workspace_root.join("file"), "modified5").unwrap();
@@ -971,7 +850,6 @@ fn test_git_push_changes(subprocess: bool) {
         )
         .success();
     let output = test_env.run_jj_in(&workspace_root, ["status"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     Working copy changes:
     M file
@@ -979,21 +857,17 @@ fn test_git_push_changes(subprocess: bool) {
     Parent commit: yqosqzyt a050abf4 push-yostqsxwqrlt* push-yqosqzytrlsw | foo
     [EOF]
     ");
-    }
     let output = test_env.run_jj_in(
         &workspace_root,
         ["git", "push", "-c=@", "-b=push-yostqsxwqrlt"],
     );
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
       Move sideways bookmark push-yostqsxwqrlt from c1e65d3a64ce to 38cb417ce3a6
     [EOF]
     ");
-    }
     let output = test_env.run_jj_in(&workspace_root, ["status"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     Working copy changes:
     M file
@@ -1001,7 +875,6 @@ fn test_git_push_changes(subprocess: bool) {
     Parent commit: yqosqzyt a050abf4 push-yqosqzytrlsw | foo
     [EOF]
     ");
-    }
 
     // Test changing `git.push-bookmark-prefix`. It causes us to push again.
     let output = test_env.run_jj_in(
@@ -1013,7 +886,6 @@ fn test_git_push_changes(subprocess: bool) {
             "--change=@",
         ],
     );
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Creating bookmark test-yostqsxwqrlt for revision yostqsxwqrlt
@@ -1021,13 +893,11 @@ fn test_git_push_changes(subprocess: bool) {
       Add bookmark test-yostqsxwqrlt to 38cb417ce3a6
     [EOF]
     ");
-    }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_revisions(subprocess: bool) {
-    let (test_env, workspace_root) = set_up(subprocess);
+#[test]
+fn test_git_push_revisions() {
+    let (test_env, workspace_root) = set_up();
     test_env
         .run_jj_in(&workspace_root, ["describe", "-m", "foo"])
         .success();
@@ -1058,30 +928,25 @@ fn test_git_push_revisions(subprocess: bool) {
 
     // Push an empty set
     let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--allow-new", "-r=none()"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: No bookmarks point to the specified revisions: none()
     Nothing changed.
     [EOF]
     ");
-    }
     // Push a revision with no bookmarks
     let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--allow-new", "-r=@--"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: No bookmarks point to the specified revisions: @--
     Nothing changed.
     [EOF]
     ");
-    }
     // Push a revision with a single bookmark
     let output = test_env.run_jj_in(
         &workspace_root,
         ["git", "push", "--allow-new", "-r=@-", "--dry-run"],
     );
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -1089,13 +954,11 @@ fn test_git_push_revisions(subprocess: bool) {
     Dry-run requested, not pushing.
     [EOF]
     ");
-    }
     // Push multiple revisions of which some have bookmarks
     let output = test_env.run_jj_in(
         &workspace_root,
         ["git", "push", "--allow-new", "-r=@--", "-r=@-", "--dry-run"],
     );
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: No bookmarks point to the specified revisions: @--
@@ -1104,13 +967,11 @@ fn test_git_push_revisions(subprocess: bool) {
     Dry-run requested, not pushing.
     [EOF]
     ");
-    }
     // Push a revision with a multiple bookmarks
     let output = test_env.run_jj_in(
         &workspace_root,
         ["git", "push", "--allow-new", "-r=@", "--dry-run"],
     );
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -1119,13 +980,11 @@ fn test_git_push_revisions(subprocess: bool) {
     Dry-run requested, not pushing.
     [EOF]
     ");
-    }
     // Repeating a commit doesn't result in repeated messages about the bookmark
     let output = test_env.run_jj_in(
         &workspace_root,
         ["git", "push", "--allow-new", "-r=@-", "-r=@-", "--dry-run"],
     );
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -1133,13 +992,11 @@ fn test_git_push_revisions(subprocess: bool) {
     Dry-run requested, not pushing.
     [EOF]
     ");
-    }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_mixed(subprocess: bool) {
-    let (test_env, workspace_root) = set_up(subprocess);
+#[test]
+fn test_git_push_mixed() {
+    let (test_env, workspace_root) = set_up();
     test_env
         .run_jj_in(&workspace_root, ["describe", "-m", "foo"])
         .success();
@@ -1179,7 +1036,6 @@ fn test_git_push_mixed(subprocess: bool) {
             "-r=@",
         ],
     );
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Creating bookmark push-yqosqzytrlsw for revision yqosqzytrlsw
@@ -1188,7 +1044,6 @@ fn test_git_push_mixed(subprocess: bool) {
     [EOF]
     [exit status: 1]
     ");
-    }
 
     let output = test_env.run_jj_in(
         &workspace_root,
@@ -1201,7 +1056,6 @@ fn test_git_push_mixed(subprocess: bool) {
             "-r=@",
         ],
     );
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Creating bookmark push-yqosqzytrlsw for revision yqosqzytrlsw
@@ -1212,13 +1066,11 @@ fn test_git_push_mixed(subprocess: bool) {
       Add bookmark bookmark-2b to 84f499037f5c
     [EOF]
     ");
-    }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_existing_long_bookmark(subprocess: bool) {
-    let (test_env, workspace_root) = set_up(subprocess);
+#[test]
+fn test_git_push_existing_long_bookmark() {
+    let (test_env, workspace_root) = set_up();
     test_env
         .run_jj_in(&workspace_root, ["describe", "-m", "foo"])
         .success();
@@ -1236,20 +1088,17 @@ fn test_git_push_existing_long_bookmark(subprocess: bool) {
         .success();
 
     let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--change=@"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
       Add bookmark push-19b790168e73f7a73a98deae21e807c0 to a050abf4ff07
     [EOF]
     ");
-    }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_unsnapshotted_change(subprocess: bool) {
-    let (test_env, workspace_root) = set_up(subprocess);
+#[test]
+fn test_git_push_unsnapshotted_change() {
+    let (test_env, workspace_root) = set_up();
     test_env
         .run_jj_in(&workspace_root, ["describe", "-m", "foo"])
         .success();
@@ -1263,10 +1112,9 @@ fn test_git_push_unsnapshotted_change(subprocess: bool) {
         .success();
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_conflict(subprocess: bool) {
-    let (test_env, workspace_root) = set_up(subprocess);
+#[test]
+fn test_git_push_conflict() {
+    let (test_env, workspace_root) = set_up();
     std::fs::write(workspace_root.join("file"), "first").unwrap();
     test_env
         .run_jj_in(&workspace_root, ["commit", "-m", "first"])
@@ -1289,7 +1137,6 @@ fn test_git_push_conflict(subprocess: bool) {
         .run_jj_in(&workspace_root, ["describe", "-m", "third"])
         .success();
     let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--all"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Won't push commit e2221a796300 since it has conflicts
@@ -1297,13 +1144,11 @@ fn test_git_push_conflict(subprocess: bool) {
     [EOF]
     [exit status: 1]
     ");
-    }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_no_description(subprocess: bool) {
-    let (test_env, workspace_root) = set_up(subprocess);
+#[test]
+fn test_git_push_no_description() {
+    let (test_env, workspace_root) = set_up();
     test_env
         .run_jj_in(
             &workspace_root,
@@ -1317,7 +1162,6 @@ fn test_git_push_no_description(subprocess: bool) {
         &workspace_root,
         ["git", "push", "--allow-new", "--bookmark", "my-bookmark"],
     );
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Won't push commit 5b36783cd11c since it has no description
@@ -1325,7 +1169,6 @@ fn test_git_push_no_description(subprocess: bool) {
     [EOF]
     [exit status: 1]
     ");
-    }
     test_env
         .run_jj_in(
             &workspace_root,
@@ -1341,10 +1184,9 @@ fn test_git_push_no_description(subprocess: bool) {
         .success();
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_no_description_in_immutable(subprocess: bool) {
-    let (test_env, workspace_root) = set_up(subprocess);
+#[test]
+fn test_git_push_no_description_in_immutable() {
+    let (test_env, workspace_root) = set_up();
     test_env
         .run_jj_in(&workspace_root, ["bookmark", "create", "-r@", "imm"])
         .success();
@@ -1372,7 +1214,6 @@ fn test_git_push_no_description_in_immutable(subprocess: bool) {
             "--dry-run",
         ],
     );
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Won't push commit 5b36783cd11c since it has no description
@@ -1380,7 +1221,6 @@ fn test_git_push_no_description_in_immutable(subprocess: bool) {
     [EOF]
     [exit status: 1]
     ");
-    }
 
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "imm""#);
     let output = test_env.run_jj_in(
@@ -1393,7 +1233,6 @@ fn test_git_push_no_description_in_immutable(subprocess: bool) {
             "--dry-run",
         ],
     );
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -1401,13 +1240,11 @@ fn test_git_push_no_description_in_immutable(subprocess: bool) {
     Dry-run requested, not pushing.
     [EOF]
     ");
-    }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_missing_author(subprocess: bool) {
-    let (test_env, workspace_root) = set_up(subprocess);
+#[test]
+fn test_git_push_missing_author() {
+    let (test_env, workspace_root) = set_up();
     let run_without_var = |var: &str, args: &[&str]| {
         test_env
             .run_jj_with(|cmd| cmd.current_dir(&workspace_root).args(args).env_remove(var))
@@ -1419,7 +1256,6 @@ fn test_git_push_missing_author(subprocess: bool) {
         &workspace_root,
         ["git", "push", "--allow-new", "--bookmark", "missing-name"],
     );
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Won't push commit 944313939bbd since it has no author and/or committer set
@@ -1427,14 +1263,12 @@ fn test_git_push_missing_author(subprocess: bool) {
     [EOF]
     [exit status: 1]
     ");
-    }
     run_without_var("JJ_EMAIL", &["new", "root()", "-m=initial"]);
     run_without_var("JJ_EMAIL", &["bookmark", "create", "-r@", "missing-email"]);
     let output = test_env.run_jj_in(
         &workspace_root,
         ["git", "push", "--allow-new", "--bookmark=missing-email"],
     );
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Won't push commit 59354714f789 since it has no author and/or committer set
@@ -1442,13 +1276,11 @@ fn test_git_push_missing_author(subprocess: bool) {
     [EOF]
     [exit status: 1]
     ");
-    }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_missing_author_in_immutable(subprocess: bool) {
-    let (test_env, workspace_root) = set_up(subprocess);
+#[test]
+fn test_git_push_missing_author_in_immutable() {
+    let (test_env, workspace_root) = set_up();
     let run_without_var = |var: &str, args: &[&str]| {
         test_env
             .run_jj_with(|cmd| cmd.current_dir(&workspace_root).args(args).env_remove(var))
@@ -1480,7 +1312,6 @@ fn test_git_push_missing_author_in_immutable(subprocess: bool) {
             "--dry-run",
         ],
     );
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Won't push commit 011f740bf8b5 since it has no author and/or committer set
@@ -1488,7 +1319,6 @@ fn test_git_push_missing_author_in_immutable(subprocess: bool) {
     [EOF]
     [exit status: 1]
     ");
-    }
 
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "imm""#);
     let output = test_env.run_jj_in(
@@ -1501,7 +1331,6 @@ fn test_git_push_missing_author_in_immutable(subprocess: bool) {
             "--dry-run",
         ],
     );
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -1509,13 +1338,11 @@ fn test_git_push_missing_author_in_immutable(subprocess: bool) {
     Dry-run requested, not pushing.
     [EOF]
     ");
-    }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_missing_committer(subprocess: bool) {
-    let (test_env, workspace_root) = set_up(subprocess);
+#[test]
+fn test_git_push_missing_committer() {
+    let (test_env, workspace_root) = set_up();
     let run_without_var = |var: &str, args: &[&str]| {
         test_env
             .run_jj_with(|cmd| cmd.current_dir(&workspace_root).args(args).env_remove(var))
@@ -1532,7 +1359,6 @@ fn test_git_push_missing_committer(subprocess: bool) {
         &workspace_root,
         ["git", "push", "--allow-new", "--bookmark=missing-name"],
     );
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Won't push commit 4fd190283d1a since it has no author and/or committer set
@@ -1540,7 +1366,6 @@ fn test_git_push_missing_committer(subprocess: bool) {
     [EOF]
     [exit status: 1]
     ");
-    }
     test_env
         .run_jj_in(&workspace_root, ["new", "root()"])
         .success();
@@ -1555,7 +1380,6 @@ fn test_git_push_missing_committer(subprocess: bool) {
         &workspace_root,
         ["git", "push", "--allow-new", "--bookmark=missing-email"],
     );
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Won't push commit eab97428a6ec since it has no author and/or committer set
@@ -1563,7 +1387,6 @@ fn test_git_push_missing_committer(subprocess: bool) {
     [EOF]
     [exit status: 1]
     ");
-    }
 
     // Test message when there are multiple reasons (missing committer and
     // description)
@@ -1572,7 +1395,6 @@ fn test_git_push_missing_committer(subprocess: bool) {
         &workspace_root,
         ["git", "push", "--allow-new", "--bookmark=missing-email"],
     );
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Won't push commit 1143ed607f54 since it has no description and it has no author and/or committer set
@@ -1580,13 +1402,11 @@ fn test_git_push_missing_committer(subprocess: bool) {
     [EOF]
     [exit status: 1]
     ");
-    }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_missing_committer_in_immutable(subprocess: bool) {
-    let (test_env, workspace_root) = set_up(subprocess);
+#[test]
+fn test_git_push_missing_committer_in_immutable() {
+    let (test_env, workspace_root) = set_up();
     let run_without_var = |var: &str, args: &[&str]| {
         test_env
             .run_jj_with(|cmd| cmd.current_dir(&workspace_root).args(args).env_remove(var))
@@ -1619,7 +1439,6 @@ fn test_git_push_missing_committer_in_immutable(subprocess: bool) {
             "--dry-run",
         ],
     );
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Won't push commit 7e61dc727a8f since it has no author and/or committer set
@@ -1627,7 +1446,6 @@ fn test_git_push_missing_committer_in_immutable(subprocess: bool) {
     [EOF]
     [exit status: 1]
     ");
-    }
 
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "imm""#);
     let output = test_env.run_jj_in(
@@ -1640,7 +1458,6 @@ fn test_git_push_missing_committer_in_immutable(subprocess: bool) {
             "--dry-run",
         ],
     );
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -1648,28 +1465,23 @@ fn test_git_push_missing_committer_in_immutable(subprocess: bool) {
     Dry-run requested, not pushing.
     [EOF]
     ");
-    }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_deleted(subprocess: bool) {
-    let (test_env, workspace_root) = set_up(subprocess);
+#[test]
+fn test_git_push_deleted() {
+    let (test_env, workspace_root) = set_up();
 
     test_env
         .run_jj_in(&workspace_root, ["bookmark", "delete", "bookmark1"])
         .success();
     let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--deleted"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
       Delete bookmark bookmark1 from d13ecdbda2a2
     [EOF]
     ");
-    }
     let output = test_env.run_jj_in(&workspace_root, ["log", "-rall()"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     @  yqosqzyt test.user@example.com 2001-02-03 08:05:13 5b36783c
     │  (empty) (no description set)
@@ -1680,21 +1492,17 @@ fn test_git_push_deleted(subprocess: bool) {
     ◆  zzzzzzzz root() 00000000
     [EOF]
     ");
-    }
     let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--deleted"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Nothing changed.
     [EOF]
     ");
-    }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_conflicting_bookmarks(subprocess: bool) {
-    let (test_env, workspace_root) = set_up(subprocess);
+#[test]
+fn test_git_push_conflicting_bookmarks() {
+    let (test_env, workspace_root) = set_up();
     test_env.add_config("git.auto-local-bookmark = true");
     let git_repo = {
         let mut git_repo_path = workspace_root.clone();
@@ -1720,7 +1528,6 @@ fn test_git_push_conflicting_bookmarks(subprocess: bool) {
     test_env
         .run_jj_in(&workspace_root, ["git", "fetch"])
         .success();
-    insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &workspace_root), @r"
     bookmark1: xtvrqkyv d13ecdbd (empty) description 1
       @origin: xtvrqkyv d13ecdbd (empty) description 1
@@ -1730,7 +1537,6 @@ fn test_git_push_conflicting_bookmarks(subprocess: bool) {
       @origin (behind by 1 commits): rlzusymt 8476341e (empty) description 2
     [EOF]
     ");
-    }
 
     let bump_bookmark1 = || {
         test_env
@@ -1743,7 +1549,6 @@ fn test_git_push_conflicting_bookmarks(subprocess: bool) {
 
     // Conflicting bookmark at @
     let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--allow-new"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Bookmark bookmark2 is conflicted
@@ -1751,14 +1556,12 @@ fn test_git_push_conflicting_bookmarks(subprocess: bool) {
     Nothing changed.
     [EOF]
     ");
-    }
 
     // --bookmark should be blocked by conflicting bookmark
     let output = test_env.run_jj_in(
         &workspace_root,
         ["git", "push", "--allow-new", "--bookmark", "bookmark2"],
     );
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Bookmark bookmark2 is conflicted
@@ -1766,12 +1569,10 @@ fn test_git_push_conflicting_bookmarks(subprocess: bool) {
     [EOF]
     [exit status: 1]
     ");
-    }
 
     // --all shouldn't be blocked by conflicting bookmark
     bump_bookmark1();
     let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--all"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Bookmark bookmark2 is conflicted
@@ -1780,12 +1581,10 @@ fn test_git_push_conflicting_bookmarks(subprocess: bool) {
       Move forward bookmark bookmark1 from d13ecdbda2a2 to 8df52121b022
     [EOF]
     ");
-    }
 
     // --revisions shouldn't be blocked by conflicting bookmark
     bump_bookmark1();
     let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--allow-new", "-rall()"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Bookmark bookmark2 is conflicted
@@ -1794,13 +1593,11 @@ fn test_git_push_conflicting_bookmarks(subprocess: bool) {
       Move forward bookmark bookmark1 from 8df52121b022 to 345e1f64a64d
     [EOF]
     ");
-    }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_deleted_untracked(subprocess: bool) {
-    let (test_env, workspace_root) = set_up(subprocess);
+#[test]
+fn test_git_push_deleted_untracked() {
+    let (test_env, workspace_root) = set_up();
 
     // Absent local bookmark shouldn't be considered "deleted" compared to
     // non-tracking remote bookmark.
@@ -1811,28 +1608,23 @@ fn test_git_push_deleted_untracked(subprocess: bool) {
         .run_jj_in(&workspace_root, ["bookmark", "untrack", "bookmark1@origin"])
         .success();
     let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--deleted"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Nothing changed.
     [EOF]
     ");
-    }
     let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--bookmark=bookmark1"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: No such bookmark: bookmark1
     [EOF]
     [exit status: 1]
     ");
-    }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_tracked_vs_all(subprocess: bool) {
-    let (test_env, workspace_root) = set_up(subprocess);
+#[test]
+fn test_git_push_tracked_vs_all() {
+    let (test_env, workspace_root) = set_up();
     test_env
         .run_jj_in(&workspace_root, ["new", "bookmark1", "-mmoved bookmark1"])
         .success();
@@ -1851,7 +1643,6 @@ fn test_git_push_tracked_vs_all(subprocess: bool) {
     test_env
         .run_jj_in(&workspace_root, ["bookmark", "create", "-r@", "bookmark3"])
         .success();
-    insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &workspace_root), @r"
     bookmark1: vruxwmqv db059e3f (empty) moved bookmark1
     bookmark1@origin: xtvrqkyv d13ecdbd (empty) description 1
@@ -1860,12 +1651,10 @@ fn test_git_push_tracked_vs_all(subprocess: bool) {
     bookmark3: znkkpsqq 1aa4f1f2 (empty) moved bookmark2
     [EOF]
     ");
-    }
 
     // At this point, only bookmark2 is still tracked. `jj git push --tracked` would
     // try to push it and no other bookmarks.
     let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--tracked", "--dry-run"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -1873,13 +1662,11 @@ fn test_git_push_tracked_vs_all(subprocess: bool) {
     Dry-run requested, not pushing.
     [EOF]
     ");
-    }
 
     // Untrack the last remaining tracked bookmark.
     test_env
         .run_jj_in(&workspace_root, ["bookmark", "untrack", "bookmark2@origin"])
         .success();
-    insta::allow_duplicates! {
     insta::assert_snapshot!(get_bookmark_output(&test_env, &workspace_root), @r"
     bookmark1: vruxwmqv db059e3f (empty) moved bookmark1
     bookmark1@origin: xtvrqkyv d13ecdbd (empty) description 1
@@ -1887,17 +1674,14 @@ fn test_git_push_tracked_vs_all(subprocess: bool) {
     bookmark3: znkkpsqq 1aa4f1f2 (empty) moved bookmark2
     [EOF]
     ");
-    }
 
     // Now, no bookmarks are tracked. --tracked does not push anything
     let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--tracked"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Nothing changed.
     [EOF]
     ");
-    }
 
     // All bookmarks are still untracked.
     // - --all tries to push bookmark1, but fails because a bookmark with the same
@@ -1916,7 +1700,6 @@ fn test_git_push_tracked_vs_all(subprocess: bool) {
     // - We could consider showing some hint on `jj bookmark untrack
     //   bookmark2@origin` instead of showing an error here.
     let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--all"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Non-tracking remote bookmark bookmark1@origin exists
@@ -1925,13 +1708,11 @@ fn test_git_push_tracked_vs_all(subprocess: bool) {
       Add bookmark bookmark3 to 1aa4f1f2ef7f
     [EOF]
     ");
-    }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_moved_forward_untracked(subprocess: bool) {
-    let (test_env, workspace_root) = set_up(subprocess);
+#[test]
+fn test_git_push_moved_forward_untracked() {
+    let (test_env, workspace_root) = set_up();
 
     test_env
         .run_jj_in(&workspace_root, ["new", "bookmark1", "-mmoved bookmark1"])
@@ -1943,7 +1724,6 @@ fn test_git_push_moved_forward_untracked(subprocess: bool) {
         .run_jj_in(&workspace_root, ["bookmark", "untrack", "bookmark1@origin"])
         .success();
     let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--allow-new"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Non-tracking remote bookmark bookmark1@origin exists
@@ -1951,13 +1731,11 @@ fn test_git_push_moved_forward_untracked(subprocess: bool) {
     Nothing changed.
     [EOF]
     ");
-    }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_moved_sideways_untracked(subprocess: bool) {
-    let (test_env, workspace_root) = set_up(subprocess);
+#[test]
+fn test_git_push_moved_sideways_untracked() {
+    let (test_env, workspace_root) = set_up();
 
     test_env
         .run_jj_in(&workspace_root, ["new", "root()", "-mmoved bookmark1"])
@@ -1972,7 +1750,6 @@ fn test_git_push_moved_sideways_untracked(subprocess: bool) {
         .run_jj_in(&workspace_root, ["bookmark", "untrack", "bookmark1@origin"])
         .success();
     let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--allow-new"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Non-tracking remote bookmark bookmark1@origin exists
@@ -1980,13 +1757,11 @@ fn test_git_push_moved_sideways_untracked(subprocess: bool) {
     Nothing changed.
     [EOF]
     ");
-    }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_to_remote_named_git(subprocess: bool) {
-    let (test_env, workspace_root) = set_up(subprocess);
+#[test]
+fn test_git_push_to_remote_named_git() {
+    let (test_env, workspace_root) = set_up();
     let git_repo_path = {
         let mut git_repo_path = workspace_root.clone();
         git_repo_path.extend([".jj", "repo", "store", "git"]);
@@ -1995,7 +1770,6 @@ fn test_git_push_to_remote_named_git(subprocess: bool) {
     git::rename_remote(&git_repo_path, "origin", "git");
 
     let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--all", "--remote=git"]);
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to git:
@@ -2006,13 +1780,11 @@ fn test_git_push_to_remote_named_git(subprocess: bool) {
     [EOF]
     [exit status: 1]
     ");
-    }
 }
 
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
-#[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_to_remote_with_slashes(subprocess: bool) {
-    let (test_env, workspace_root) = set_up(subprocess);
+#[test]
+fn test_git_push_to_remote_with_slashes() {
+    let (test_env, workspace_root) = set_up();
     let git_repo_path = {
         let mut git_repo_path = workspace_root.clone();
         git_repo_path.extend([".jj", "repo", "store", "git"]);
@@ -2024,7 +1796,6 @@ fn test_git_push_to_remote_with_slashes(subprocess: bool) {
         &workspace_root,
         ["git", "push", "--all", "--remote=slash/origin"],
     );
-    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to slash/origin:
@@ -2035,12 +1806,11 @@ fn test_git_push_to_remote_with_slashes(subprocess: bool) {
     [EOF]
     [exit status: 1]
     ");
-    }
 }
 
 #[test]
 fn test_git_push_sign_on_push() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
     let template = r#"
     separate("\n",
       description.first_line(),
@@ -2198,7 +1968,7 @@ fn test_git_push_sign_on_push() {
 
 #[test]
 fn test_git_push_rejected_by_remote() {
-    let (test_env, workspace_root) = set_up(true);
+    let (test_env, workspace_root) = set_up();
     // show repo state
     insta::assert_snapshot!(get_bookmark_output(&test_env, &workspace_root), @r"
     bookmark1: xtvrqkyv d13ecdbd (empty) description 1
@@ -2258,35 +2028,4 @@ fn test_git_push_rejected_by_remote() {
 fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput {
     // --quiet to suppress deleted bookmarks hint
     test_env.run_jj_in(repo_path, &["bookmark", "list", "--all-remotes", "--quiet"])
-}
-
-// TODO: Remove with the `git.subprocess` setting.
-#[test]
-fn test_git_push_git2_warning() {
-    let (test_env, workspace_root) = set_up(true);
-    test_env.add_config("git.subprocess = false");
-    test_env
-        .run_jj_in(
-            &workspace_root,
-            ["describe", "bookmark1", "-m", "modified bookmark1 commit"],
-        )
-        .success();
-    let output = test_env.run_jj_in(&workspace_root, ["git", "push", "--all"]);
-    if cfg!(feature = "git2") {
-        insta::assert_snapshot!(output, @r#"
-        ------- stderr -------
-        Changes to push to origin:
-          Move sideways bookmark bookmark1 from d13ecdbda2a2 to 0f8dc6560f32
-        Warning: `git.subprocess = false` will be removed in 0.XX; please report any issues you have with the default.
-        [EOF]
-        "#);
-    } else {
-        insta::assert_snapshot!(output, @r#"
-        ------- stderr -------
-        Warning: Deprecated config: jj was compiled without `git.subprocess = false` support
-        Changes to push to origin:
-          Move sideways bookmark bookmark1 from d13ecdbda2a2 to 0f8dc6560f32
-        [EOF]
-        "#);
-    }
 }

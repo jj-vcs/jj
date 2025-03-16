@@ -74,11 +74,7 @@
         ];
 
       buildInputs = with pkgs;
-        [
-          openssl
-          libgit2
-          libssh2
-        ]
+        [ ]
         ++ lib.optionals stdenv.isDarwin [
           darwin.apple_sdk.frameworks.Security
           darwin.apple_sdk.frameworks.SystemConfiguration
@@ -98,7 +94,6 @@
       ];
 
       env = {
-        LIBSSH2_SYS_USE_PKG_CONFIG = "1";
         RUST_BACKTRACE = 1;
       };
     in {
