@@ -69,6 +69,7 @@ jobs:
       with:
         persist-credentials: false
     - name: Set up Windows Builders
+      if: startswith(matrix.os, 'windows')
       uses: ./.github/actions/setup-windows
     - name: Install Rust
       uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
