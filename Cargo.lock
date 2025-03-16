@@ -2268,7 +2268,6 @@ dependencies = [
 name = "jj-cli"
 version = "0.27.0"
 dependencies = [
- "anyhow",
  "assert_cmd",
  "assert_matches",
  "async-trait",
