@@ -148,7 +148,7 @@ pub async fn split_hunks_to_trees(
         )?;
         let annotation_ranges = annotation
             .compact_line_ranges()
-            .filter_map(|(commit_id, range)| Some((commit_id?, range)))
+            .filter_map(|(commit_id, range)| Some((commit_id.ok()?, range)))
             .collect_vec();
         let diff = Diff::by_line([&left_text, &right_text]);
         let selected_ranges = split_file_hunks(&annotation_ranges, &diff);
