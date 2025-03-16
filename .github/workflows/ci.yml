@@ -80,6 +80,10 @@ jobs:
     - uses: taiki-e/install-action@0f58b6a196e0d71c72fd459ab8fd8b228f85f669
       with:
         tool: nextest,taplo-cli
+    - name: Install mold
+      uses: rui314/setup-mold@f80524ca6eeaa76759b57fb78ddce5d87a20c720
+      with:
+        make-default: false
     - name: Build
       run: >-
         cargo build
