@@ -777,7 +777,6 @@ mod tests {
     use std::env::join_paths;
     use std::fmt::Write as _;
 
-    use anyhow::anyhow;
     use indoc::indoc;
     use maplit::hashmap;
     use test_case::test_case;
@@ -1487,20 +1486,71 @@ mod tests {
     #[test_case(config_path_platform_existing_conf_dir_existing())]
     #[test_case(config_path_all_existing())]
     #[test_case(config_path_none())]
-    fn test_config_path(case: TestCase) -> anyhow::Result<()> {
-        case.run()
+    fn test_config_path(case: TestCase) {
+        let tmp = setup_config_fs(case.files);
+        let env = resolve_config_env(&case.env, tmp.path());
+
+        let expected_existing: Vec<PathBuf> = case
+            .wants
+            .iter()
+            .filter_map(|want| match want {
+                Want::Existing(path) => Some(tmp.path().join(path)),
+                _ => None,
+            })
+            .collect();
+        let existing: Vec<PathBuf> = env
+            .existing_user_config_paths()
+            .map(|p| p.to_path_buf())
+            .collect();
+        assert_eq!(existing, expected_existing);
+
+        let expected_paths: Vec<PathBuf> = case
+            .wants
+            .iter()
+            .map(|want| match want {
+                Want::New(path) | Want::Existing(path) => tmp.path().join(path),
+            })
+            .collect();
+        let paths: Vec<PathBuf> = env.user_config_paths().map(|p| p.to_path_buf()).collect();
+        assert_eq!(paths, expected_paths);
     }
 
-    fn setup_config_fs(files: &[&str]) -> anyhow::Result<tempfile::TempDir> {
+    fn setup_config_fs(files: &[&str]) -> tempfile::TempDir {
         let tmp = testutils::new_temp_dir();
         for file in files {
             let path = tmp.path().join(file);
             if let Some(parent) = path.parent() {
-                std::fs::create_dir_all(parent)?;
+                std::fs::create_dir_all(parent).unwrap();
             }
-            std::fs::File::create(path)?;
+            std::fs::File::create(path).unwrap();
         }
-        Ok(tmp)
+        tmp
+    }
+
+    fn resolve_config_env(env: &UnresolvedConfigEnv, root: &Path) -> ConfigEnv {
+        let home_dir = env.home_dir.as_ref().map(|p| root.join(p));
+        let env = UnresolvedConfigEnv {
+            config_dir: env.config_dir.as_ref().map(|p| root.join(p)),
+            home_dir: home_dir.clone(),
+            jj_config: env.jj_config.as_ref().map(|p| {
+                join_paths(split_paths(p).map(|p| {
+                    if p.as_os_str().is_empty() {
+                        return p;
+                    }
+                    root.join(p)
+                }))
+                .unwrap()
+                .into_string()
+                .unwrap()
+            }),
+        };
+        ConfigEnv {
+            home_dir,
+            repo_path: None,
+            user_config_paths: env.resolve(),
+            repo_config_path: None,
+            command: None,
+        }
     }
 
     enum Want {
@@ -1512,80 +1562,5 @@ mod tests {
         files: &'static [&'static str],
         env: UnresolvedConfigEnv,
         wants: &'static [Want],
-    }
-
-    impl TestCase {
-        fn resolve(&self, root: &Path) -> ConfigEnv {
-            let home_dir = self.env.home_dir.as_ref().map(|p| root.join(p));
-            let env = UnresolvedConfigEnv {
-                config_dir: self.env.config_dir.as_ref().map(|p| root.join(p)),
-                home_dir: home_dir.clone(),
-                jj_config: self.env.jj_config.as_ref().map(|p| {
-                    join_paths(split_paths(p).map(|p| {
-                        if p.as_os_str().is_empty() {
-                            return p;
-                        }
-                        root.join(p)
-                    }))
-                    .unwrap()
-                    .into_string()
-                    .unwrap()
-                }),
-            };
-            ConfigEnv {
-                home_dir,
-                repo_path: None,
-                user_config_paths: env.resolve(),
-                repo_config_path: None,
-                command: None,
-            }
-        }
-
-        fn run(&self) -> anyhow::Result<()> {
-            let tmp = setup_config_fs(self.files)?;
-            self.check_existing_paths(&tmp)?;
-            self.check_paths(&tmp)?;
-            Ok(())
-        }
-
-        fn check_existing_paths(&self, tmp: &tempfile::TempDir) -> anyhow::Result<()> {
-            let env = self.resolve(tmp.path());
-            let expected: Vec<PathBuf> = self
-                .wants
-                .iter()
-                .filter_map(|want| match want {
-                    Want::Existing(path) => Some(tmp.path().join(path)),
-                    _ => None,
-                })
-                .collect();
-            let existing: Vec<PathBuf> = env
-                .existing_user_config_paths()
-                .map(|p| p.to_path_buf())
-                .collect();
-            if existing != expected {
-                return Err(anyhow!(
-                    "existing_config_path mismatch: got {existing:?}, expected {expected:?}",
-                ));
-            }
-            Ok(())
-        }
-
-        fn check_paths(&self, tmp: &tempfile::TempDir) -> anyhow::Result<()> {
-            let env = self.resolve(tmp.path());
-            let expected: Vec<PathBuf> = self
-                .wants
-                .iter()
-                .map(|want| match want {
-                    Want::New(path) | Want::Existing(path) => tmp.path().join(path),
-                })
-                .collect();
-            let paths: Vec<PathBuf> = env.user_config_paths().map(|p| p.to_path_buf()).collect();
-            if paths != expected {
-                return Err(anyhow!(
-                    "new_config_path mismatch: got {paths:?}, expected {expected:?}"
-                ));
-            }
-            Ok(())
-        }
     }
 }
