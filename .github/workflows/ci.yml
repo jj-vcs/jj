@@ -78,7 +78,7 @@ jobs:
         target: ${{ matrix.targets }}
     - uses: taiki-e/install-action@37bdc826eaedac215f638a96472df572feab0f9b
       with:
-        tool: nextest,taplo-cli
+        tool: nextest
     - name: Install mold
       uses: rui314/setup-mold@f80524ca6eeaa76759b57fb78ddce5d87a20c720
       with:

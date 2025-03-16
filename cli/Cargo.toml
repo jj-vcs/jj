@@ -106,6 +106,7 @@ assert_cmd = { workspace = true }
 assert_matches = { workspace = true }
 async-trait = { workspace = true }
 insta = { workspace = true }
+jsonschema = { workspace = true }
 test-case = { workspace = true }
 testutils = { workspace = true }
 # https://github.com/rust-lang/cargo/issues/2911#issuecomment-1483256987

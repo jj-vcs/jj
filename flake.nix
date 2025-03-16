@@ -92,9 +92,6 @@
 
         # for git subprocess test
         git
-
-        # for schema tests
-        taplo
       ];
 
       env = {
