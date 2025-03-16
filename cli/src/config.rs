@@ -1498,11 +1498,10 @@ mod tests {
                 _ => None,
             })
             .collect();
-        let existing: Vec<PathBuf> = env
-            .existing_user_config_paths()
-            .map(|p| p.to_path_buf())
-            .collect();
-        assert_eq!(existing, expected_existing);
+        assert_eq!(
+            env.existing_user_config_paths().collect_vec(),
+            expected_existing
+        );
 
         let expected_paths: Vec<PathBuf> = case
             .wants
@@ -1511,8 +1510,7 @@ mod tests {
                 Want::New(path) | Want::Existing(path) => tmp.path().join(path),
             })
             .collect();
-        let paths: Vec<PathBuf> = env.user_config_paths().map(|p| p.to_path_buf()).collect();
-        assert_eq!(paths, expected_paths);
+        assert_eq!(env.user_config_paths().collect_vec(), expected_paths);
     }
 
     fn setup_config_fs(files: &[&str]) -> tempfile::TempDir {
