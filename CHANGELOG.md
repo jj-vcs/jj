@@ -78,6 +78,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   adds the `--destination`, `--insert-after`, and `--insert-before` options to
   customize the location of reverted commits.
 
+* A new command `jj git root` is added, which prints the location of the Git
+  directory of a repository using the Git backend.
+
 ### Fixed bugs
 
 * `jj log -p --stat` now shows diff stats as well as the default color-words/git
