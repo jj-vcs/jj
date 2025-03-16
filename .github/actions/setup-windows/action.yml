@@ -21,13 +21,3 @@ runs:
         [Environment]::SetEnvironmentVariable("Path", $env:PATH, "Machine")
         choco install --yes gpg4win
         echo "C:\Program Files (x86)\Gpg4win\..\GnuPG\bin" >> $env:GITHUB_PATH
-
-    # The default version of openssh on windows server is quite old (8.1) and doesn't have
-    # all the necessary signing/verification commands available (such as -Y find-principals)
-    - name: Set up ssh-agent [windows]
-      if: startsWith(matrix.os, 'windows')
-      shell: pwsh
-      run: |
-        Remove-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
-        Remove-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0
-        choco install openssh --pre
