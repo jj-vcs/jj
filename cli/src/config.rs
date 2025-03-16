@@ -1226,6 +1226,17 @@ mod tests {
         insta::assert_snapshot!(list(&layers, "a.b.c"), @r#"!a.b.c.f = "0.1""#);
     }
 
+    struct TestCase {
+        files: &'static [&'static str],
+        env: UnresolvedConfigEnv,
+        wants: &'static [Want],
+    }
+
+    enum Want {
+        New(&'static str),
+        Existing(&'static str),
+    }
+
     fn config_path_home_existing() -> TestCase {
         TestCase {
             files: &["home/.jjconfig.toml"],
@@ -1549,16 +1560,5 @@ mod tests {
             repo_config_path: None,
             command: None,
         }
-    }
-
-    enum Want {
-        New(&'static str),
-        Existing(&'static str),
-    }
-
-    struct TestCase {
-        files: &'static [&'static str],
-        env: UnresolvedConfigEnv,
-        wants: &'static [Want],
     }
 }
