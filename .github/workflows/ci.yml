@@ -14,10 +14,6 @@ concurrency:
 
 permissions: {}
 
-env:
-  CARGO_INCREMENTAL: 0
-  CARGO_PROFILE_DEV_DEBUG: 0
-
 jobs:
   test:
     strategy:

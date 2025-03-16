@@ -1,3 +1,7 @@
+[profile.dev]
+debug = "none"
+incremental = false
+
 # NOTE: on Windows, build with the static CRT, so that produced .exe files don't
 # depend on vcruntime140.dll; otherwise the user requires visual studio if they
 # download a raw .exe
