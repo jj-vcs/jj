@@ -597,23 +597,28 @@ impl Ui {
         choices: &[impl AsRef<str>],
         default_index: Option<usize>,
     ) -> io::Result<usize> {
+        let default_choice = default_index.and_then(|i| choices.get(i));
+        let default_txt = default_choice
+            .map(|c| format!(" (default {})", c.as_ref()))
+            .unwrap_or_default();
+
         if !Self::can_prompt() {
             if let Some(index) = default_index {
                 // Choose the default automatically without waiting.
-                let choice = choices
-                    .get(index)
+                let choice = default_choice
                     .expect("default_index should be within range")
                     .as_ref();
-                writeln!(self.stderr(), "{prompt}: {choice}")?;
+                writeln!(self.stderr(), "{prompt}{default_txt}: {choice}")?;
                 return Ok(index);
             }
         }
 
         loop {
-            let choice = self.prompt(prompt)?;
+            let choice = self.prompt(format!("{prompt}{default_txt}").as_ref())?;
             let choice = choice.trim();
             if choice.is_empty() {
                 if let Some(index) = default_index {
+                    default_choice.expect("default_index should be within range");
                     return Ok(index);
                 }
             }
@@ -625,17 +630,38 @@ impl Ui {
         }
     }
 
+    /// Displays the enumerated choices and repeats the given prompt until the
+    /// input is an index of the specified choices.
+    /// Returns the index of the choice.
+    pub fn prompt_choice_with(
+        &self,
+        prompt: &str,
+        choices: &[impl AsRef<str>],
+        default_index: Option<usize>,
+    ) -> io::Result<usize> {
+        let choices: Vec<(usize, &str)> = choices
+            .iter()
+            .enumerate()
+            .map(|(i, c)| (i, c.as_ref()))
+            .collect_vec();
+        for (i, choice) in &choices {
+            writeln!(self.stderr(), "{}: {}", i + 1, choice)?;
+        }
+        self.prompt_choice(
+            prompt,
+            &choices
+                .iter()
+                .map(|(i, _)| (i + 1).to_string())
+                .collect_vec(),
+            default_index,
+        )
+    }
+
     /// Prompts for a yes-or-no response, with yes = true and no = false.
     pub fn prompt_yes_no(&self, prompt: &str, default: Option<bool>) -> io::Result<bool> {
-        let default_str = match &default {
-            Some(true) => "(Yn)",
-            Some(false) => "(yN)",
-            None => "(yn)",
-        };
         let default_index = default.map(|c| if c { 0 } else { 1 });
-
         let index = self.prompt_choice(
-            &format!("{prompt} {default_str}"),
+            &format!("{prompt} (yn)"),
             &["y", "n", "yes", "no", "Yes", "No", "YES", "NO"],
             default_index,
         )?;

@@ -93,15 +93,11 @@ impl ConfigLevelArgs {
         let config = command.raw_config();
         let pick_one = |mut files: Vec<ConfigFile>, not_found_error: &str| {
             if files.len() > 1 {
-                let mut choices = vec![];
-                let mut formatter = ui.stderr_formatter();
-                for (i, file) in files.iter().enumerate() {
-                    writeln!(formatter, "{}: {}", i + 1, file.path().display())?;
-                    choices.push((i + 1).to_string());
-                }
-                drop(formatter);
-                let index =
-                    ui.prompt_choice("Choose a config file (default 1)", &choices, Some(0))?;
+                let choices = files
+                    .iter()
+                    .map(|file| file.path().display().to_string())
+                    .collect_vec();
+                let index = ui.prompt_choice_with("Choose a config file", &choices, Some(0))?;
                 return Ok(files[index].clone());
             }
             files.pop().ok_or_else(|| user_error(not_found_error))
