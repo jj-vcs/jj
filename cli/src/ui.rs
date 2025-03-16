@@ -621,14 +621,19 @@ impl Ui {
             Some(false) => "(yN)",
             None => "(yn)",
         };
-        let default_index = default.map(|c| if c { 0 } else { 1 });
-
-        let index = self.prompt_choice(
+        self.prompt_choice_with(
             &format!("{prompt} {default_str}"),
-            &["y", "n", "yes", "no", "Yes", "No", "YES", "NO"],
-            default_index,
-        )?;
-        Ok(index % 2 == 0)
+            default.map(|v| if v { "y" } else { "n" }),
+            |input| {
+                if input.eq_ignore_ascii_case("y") || input.eq_ignore_ascii_case("yes") {
+                    Ok(true)
+                } else if input.eq_ignore_ascii_case("n") || input.eq_ignore_ascii_case("no") {
+                    Ok(false)
+                } else {
+                    Err("unrecognized response")
+                }
+            },
+        )
     }
 
     /// Repeats the given prompt until `parse(input)` returns a value.
