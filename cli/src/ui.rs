@@ -597,32 +597,21 @@ impl Ui {
         choices: &[impl AsRef<str>],
         default_index: Option<usize>,
     ) -> io::Result<usize> {
-        if !Self::can_prompt() {
-            if let Some(index) = default_index {
-                // Choose the default automatically without waiting.
-                let choice = choices
+        self.prompt_choice_with(
+            prompt,
+            default_index.map(|index| {
+                choices
                     .get(index)
                     .expect("default_index should be within range")
-                    .as_ref();
-                writeln!(self.stderr(), "{prompt}: {choice}")?;
-                return Ok(index);
-            }
-        }
-
-        loop {
-            let choice = self.prompt(prompt)?;
-            let choice = choice.trim();
-            if choice.is_empty() {
-                if let Some(index) = default_index {
-                    return Ok(index);
-                }
-            }
-            if let Some(index) = choices.iter().position(|c| choice == c.as_ref()) {
-                return Ok(index);
-            }
-
-            writeln!(self.warning_no_heading(), "unrecognized response")?;
-        }
+                    .as_ref()
+            }),
+            |input| {
+                choices
+                    .iter()
+                    .position(|c| input == c.as_ref())
+                    .ok_or("unrecognized response")
+            },
+        )
     }
 
     /// Prompts for a yes-or-no response, with yes = true and no = false.
@@ -640,6 +629,44 @@ impl Ui {
             default_index,
         )?;
         Ok(index % 2 == 0)
+    }
+
+    /// Repeats the given prompt until `parse(input)` returns a value.
+    ///
+    /// If the default `text` is given, an empty input will be mapped to it. It
+    /// will also be used in non-interactive session. The default `text` must
+    /// be parsable. If no default is given, this function will fail in
+    /// non-interactive session.
+    pub fn prompt_choice_with<T, E: fmt::Debug + fmt::Display>(
+        &self,
+        prompt: &str,
+        default: Option<&str>,
+        mut parse: impl FnMut(&str) -> Result<T, E>,
+    ) -> io::Result<T> {
+        // Parse the default to ensure that the text is valid.
+        let default = default.map(|text| (parse(text).expect("default should be valid"), text));
+
+        if !Self::can_prompt() {
+            if let Some((value, text)) = default {
+                // Choose the default automatically without waiting.
+                writeln!(self.stderr(), "{prompt}: {text}")?;
+                return Ok(value);
+            }
+        }
+
+        loop {
+            let input = self.prompt(prompt)?;
+            let input = input.trim();
+            if input.is_empty() {
+                if let Some((value, _)) = default {
+                    return Ok(value);
+                }
+            }
+            match parse(input) {
+                Ok(value) => return Ok(value),
+                Err(err) => writeln!(self.warning_no_heading(), "{err}")?,
+            }
+        }
     }
 
     pub fn prompt_password(&self, prompt: &str) -> io::Result<String> {
