@@ -67,6 +67,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj bookmark move --to/--from` can now be abbreviated to `jj bookmark move -t/-f`
 
+* `jj git fetch` now warns instead of erroring for unknown `git.fetch` remotes
+  if other remotes are available.
+
 ### Fixed bugs
 
 * `jj log -p --stat` now shows diff stats as well as the default color-words/git
