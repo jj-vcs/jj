@@ -2213,6 +2213,484 @@ fn test_bookmark_list_conflicted() {
 }
 
 #[test]
+fn test_bookmark_list_sort_unknown_key_error() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["bookmark", "list", "--sort", "date"]), @r"
+    ------- stderr -------
+    error: invalid value 'date' for '--sort <SORT_KEY>'
+      [possible values: name, name-, author-name, author-name-, author-email, author-email-, author-date, author-date-, committer-name, committer-name-, committer-email, committer-email-, committer-date, committer-date-]
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+}
+
+#[test]
+fn test_bookmark_list_sort_name() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    for bookmark in ["a", "c", "b", "d"] {
+        test_env
+            .run_jj_in(&repo_path, ["new", "root()", "-m", "fix"])
+            .success();
+        test_env
+            .run_jj_in(&repo_path, ["bookmark", "create", "-r@", bookmark])
+            .success();
+    }
+
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["bookmark", "list", "--sort", "name"]), @r"
+    a: rlvkpnrz 3f1dd4c4 (empty) fix
+    b: royxmykx 0d66ca8a (empty) fix
+    c: zsuskuln 0ebcfa79 (empty) fix
+    d: vruxwmqv 8daa0917 (empty) fix
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_bookmark_list_sort_name_reversed() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    for bookmark in ["a", "c", "b", "d"] {
+        test_env
+            .run_jj_in(&repo_path, ["new", "root()", "-m", "fix"])
+            .success();
+        test_env
+            .run_jj_in(&repo_path, ["bookmark", "create", "-r@", bookmark])
+            .success();
+    }
+
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["bookmark", "list", "--sort", "name-"]), @r"
+    d: vruxwmqv 8daa0917 (empty) fix
+    c: zsuskuln 0ebcfa79 (empty) fix
+    b: royxmykx 0d66ca8a (empty) fix
+    a: rlvkpnrz 3f1dd4c4 (empty) fix
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_bookmark_list_sort_author_name() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    for (bookmark, authorname) in [("a", "bob"), ("c", "alice"), ("b", "eve")] {
+        test_env
+            .run_jj_in(
+                &repo_path,
+                [
+                    &format!("--config=user.name={authorname}"),
+                    "new",
+                    "root()",
+                    "-m",
+                    "fix",
+                ],
+            )
+            .success();
+        test_env
+            .run_jj_in(&repo_path, ["bookmark", "create", "-r@", bookmark])
+            .success();
+    }
+
+    let template = r#"name ++ ": " ++ if(normal_target, normal_target.author().name()) ++ "\n""#;
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["bookmark", "list", "-T", template, "--sort", "author-name"]), @r"
+    c: alice
+    a: bob
+    b: eve
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_bookmark_list_sort_author_name_reversed() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    for (bookmark, authorname) in [("a", "bob"), ("c", "alice"), ("b", "eve")] {
+        test_env
+            .run_jj_in(
+                &repo_path,
+                [
+                    &format!("--config=user.name={authorname}"),
+                    "new",
+                    "root()",
+                    "-m",
+                    "fix",
+                ],
+            )
+            .success();
+        test_env
+            .run_jj_in(&repo_path, ["bookmark", "create", "-r@", bookmark])
+            .success();
+    }
+
+    let template = r#"name ++ ": " ++ if(normal_target, normal_target.author().name()) ++ "\n""#;
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["bookmark", "list", "-T", template, "--sort", "author-name-"]), @r"
+    b: eve
+    a: bob
+    c: alice
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_bookmark_list_sort_author_email() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    for (bookmark, authoremail) in [("a", "bob@g.c"), ("c", "alice@g.c"), ("b", "eve@g.c")] {
+        test_env
+            .run_jj_in(
+                &repo_path,
+                [
+                    &format!("--config=user.email={authoremail}"),
+                    "new",
+                    "root()",
+                    "-m",
+                    "fix",
+                ],
+            )
+            .success();
+        test_env
+            .run_jj_in(&repo_path, ["bookmark", "create", "-r@", bookmark])
+            .success();
+    }
+
+    let template = r#"name ++ ": " ++ if(normal_target, normal_target.author().email()) ++ "\n""#;
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["bookmark", "list", "-T", template, "--sort", "author-email"]), @r"
+    c: alice@g.c
+    a: bob@g.c
+    b: eve@g.c
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_bookmark_list_sort_author_email_reversed() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    for (bookmark, authoremail) in [("a", "bob@g.c"), ("c", "alice@g.c"), ("b", "eve@g.c")] {
+        test_env
+            .run_jj_in(
+                &repo_path,
+                [
+                    &format!("--config=user.email={authoremail}"),
+                    "new",
+                    "root()",
+                    "-m",
+                    "fix",
+                ],
+            )
+            .success();
+        test_env
+            .run_jj_in(&repo_path, ["bookmark", "create", "-r@", bookmark])
+            .success();
+    }
+
+    let template = r#"name ++ ": " ++ if(normal_target, normal_target.author().email()) ++ "\n""#;
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["bookmark", "list", "-T", template, "--sort", "author-email-"]), @r"
+    b: eve@g.c
+    a: bob@g.c
+    c: alice@g.c
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_bookmark_list_sort_author_date() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    for bookmark in ["feature-a", "feature-b"] {
+        test_env
+            .run_jj_in(
+                &repo_path,
+                ["new", "root()", "-m", &format!("initial commit {bookmark}")],
+            )
+            .success();
+        test_env
+            .run_jj_in(&repo_path, ["bookmark", "create", "-r@", bookmark])
+            .success();
+    }
+
+    test_env
+        .run_jj_in(&repo_path, ["new", "feature-a", "-m", "latest fix"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "set", "feature-a"])
+        .success();
+
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["bookmark", "list", "--sort", "author-date"]), @r"
+    feature-b: zsuskuln e5ba714a (empty) initial commit feature-b
+    feature-a: royxmykx 26ee7b63 (empty) latest fix
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_bookmark_list_sort_author_date_reversed() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    for bookmark in ["feature-a", "feature-b"] {
+        test_env
+            .run_jj_in(
+                &repo_path,
+                ["new", "root()", "-m", &format!("initial commit {bookmark}")],
+            )
+            .success();
+        test_env
+            .run_jj_in(&repo_path, ["bookmark", "create", "-r@", bookmark])
+            .success();
+    }
+
+    test_env
+        .run_jj_in(&repo_path, ["new", "feature-a", "-m", "latest fix"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "set", "feature-a"])
+        .success();
+
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["bookmark", "list", "--sort", "author-date-"]), @r"
+    feature-a: royxmykx 26ee7b63 (empty) latest fix
+    feature-b: zsuskuln e5ba714a (empty) initial commit feature-b
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_bookmark_list_sort_committer_name() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    for (bookmark, committername) in [("a", "bob"), ("c", "alice"), ("b", "eve")] {
+        test_env
+            .run_jj_in(
+                &repo_path,
+                [
+                    &format!("--config=user.name={committername}"),
+                    "new",
+                    "root()",
+                    "-m",
+                    "fix",
+                ],
+            )
+            .success();
+        test_env
+            .run_jj_in(&repo_path, ["bookmark", "create", "-r@", bookmark])
+            .success();
+    }
+
+    let template = r#"name ++ ": " ++ if(normal_target, normal_target.committer().name()) ++ "\n""#;
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["bookmark", "list", "-T", template, "--sort", "committer-name"]), @r"
+    c: alice
+    a: bob
+    b: eve
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_bookmark_list_sort_committer_name_reversed() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    for (bookmark, committername) in [("a", "bob"), ("c", "alice"), ("b", "eve")] {
+        test_env
+            .run_jj_in(
+                &repo_path,
+                [
+                    &format!("--config=user.name={committername}"),
+                    "new",
+                    "root()",
+                    "-m",
+                    "fix",
+                ],
+            )
+            .success();
+        test_env
+            .run_jj_in(&repo_path, ["bookmark", "create", "-r@", bookmark])
+            .success();
+    }
+
+    let template = r#"name ++ ": " ++ if(normal_target, normal_target.committer().name()) ++ "\n""#;
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["bookmark", "list", "-T", template, "--sort", "committer-name-"]), @r"
+    b: eve
+    a: bob
+    c: alice
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_bookmark_list_sort_committer_email() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    for (bookmark, committeremail) in [("a", "bob@g.c"), ("c", "alice@g.c"), ("b", "eve@g.c")] {
+        test_env
+            .run_jj_in(
+                &repo_path,
+                [
+                    &format!("--config=user.email={committeremail}"),
+                    "new",
+                    "root()",
+                    "-m",
+                    "fix",
+                ],
+            )
+            .success();
+        test_env
+            .run_jj_in(&repo_path, ["bookmark", "create", "-r@", bookmark])
+            .success();
+    }
+
+    let template =
+        r#"name ++ ": " ++ if(normal_target, normal_target.committer().email()) ++ "\n""#;
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["bookmark", "list", "-T", template, "--sort", "committer-email"]), @r"
+    c: alice@g.c
+    a: bob@g.c
+    b: eve@g.c
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_bookmark_list_sort_committer_email_reversed() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    for (bookmark, committeremail) in [("a", "bob@g.c"), ("c", "alice@g.c"), ("b", "eve@g.c")] {
+        test_env
+            .run_jj_in(
+                &repo_path,
+                [
+                    &format!("--config=user.email={committeremail}"),
+                    "new",
+                    "root()",
+                    "-m",
+                    "fix",
+                ],
+            )
+            .success();
+        test_env
+            .run_jj_in(&repo_path, ["bookmark", "create", "-r@", bookmark])
+            .success();
+    }
+
+    let template =
+        r#"name ++ ": " ++ if(normal_target, normal_target.committer().email()) ++ "\n""#;
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["bookmark", "list", "-T", template, "--sort", "committer-email-"]), @r"
+    b: eve@g.c
+    a: bob@g.c
+    c: alice@g.c
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_bookmark_list_sort_committer_date() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    for bookmark in ["feature-a", "feature-b"] {
+        test_env
+            .run_jj_in(
+                &repo_path,
+                ["new", "root()", "-m", &format!("initial commit {bookmark}")],
+            )
+            .success();
+        test_env
+            .run_jj_in(&repo_path, ["bookmark", "create", "-r@", bookmark])
+            .success();
+    }
+
+    test_env
+        .run_jj_in(&repo_path, ["new", "feature-a", "-m", "latest fix"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "set", "feature-a"])
+        .success();
+
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["bookmark", "list", "--sort", "committer-date"]), @r"
+    feature-b: zsuskuln e5ba714a (empty) initial commit feature-b
+    feature-a: royxmykx 26ee7b63 (empty) latest fix
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_bookmark_list_sort_committer_date_reversed() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    for bookmark in ["feature-a", "feature-b"] {
+        test_env
+            .run_jj_in(
+                &repo_path,
+                ["new", "root()", "-m", &format!("initial commit {bookmark}")],
+            )
+            .success();
+        test_env
+            .run_jj_in(&repo_path, ["bookmark", "create", "-r@", bookmark])
+            .success();
+    }
+
+    test_env
+        .run_jj_in(&repo_path, ["new", "feature-a", "-m", "latest fix"])
+        .success();
+    test_env
+        .run_jj_in(&repo_path, ["bookmark", "set", "feature-a"])
+        .success();
+
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["bookmark", "list", "--sort", "committer-date-"]), @r"
+    feature-a: royxmykx 26ee7b63 (empty) latest fix
+    feature-b: zsuskuln e5ba714a (empty) initial commit feature-b
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_bookmark_list_sort_multiple_keys() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    for (bookmark, committeremail) in [("c", "bob@g.c"), ("b", "alice@g.c"), ("a", "bob@g.c")] {
+        test_env
+            .run_jj_in(
+                &repo_path,
+                [
+                    &format!("--config=user.email={committeremail}"),
+                    "new",
+                    "root()",
+                    "-m",
+                    "fix",
+                ],
+            )
+            .success();
+        test_env
+            .run_jj_in(&repo_path, ["bookmark", "create", "-r@", bookmark])
+            .success();
+    }
+
+    let template =
+        r#"name ++ ": " ++ if(normal_target, normal_target.committer().email()) ++ "\n""#;
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["bookmark", "list", "-T", template, "--sort", "committer-email", "--sort", "committer-date-"]), @r"
+    b: alice@g.c
+    a: bob@g.c
+    c: bob@g.c
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_bookmark_create_with_default_target_revision() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();

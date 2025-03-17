@@ -67,6 +67,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj bookmark move --to/--from` can now be abbreviated to `jj bookmark move -t/-f`
 
+* `jj bookmark list` now supports `--sort` option. Similar to `git branch --sort`.
+  See `jj bookmark list --help` for more details.
+
 ### Fixed bugs
 
 * `jj log -p --stat` now shows diff stats as well as the default color-words/git
