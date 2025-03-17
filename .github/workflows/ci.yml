@@ -23,29 +23,32 @@ jobs:
         include:
         - build: linux-x86_64-gnu
           os: ubuntu-24.04
-          target: x86_64-unknown-linux-gnu
           cargo_flags: "--all-features"
         - build: 'linux-x86_64-gnu, no git2'
           os: ubuntu-24.04
-          target: x86_64-unknown-linux-gnu
           cargo_flags: "--no-default-features --features git"
           # Ensure we don’t link to `libgit2`.
           LIBGIT2_NO_VENDOR: 1
         - build: linux-aarch64-gnu
           os: ubuntu-24.04-arm
-          target: aarch64-unknown-linux-gnu
           cargo_flags: "--all-features"
         - build: macos-x86_64
           os: macos-14
-          target: x86_64-apple-darwin
-          cargo_flags: "--features vendored-openssl"
+          targets: x86_64-apple-darwin
+          # We pass `--target` here rather than unconditionally for all
+          # platforms because otherwise Rust flag settings are ignored
+          # for build scripts and the like, preventing us from getting
+          # the full benefit from faster linkers.
+          #
+          # See:
+          # * <https://doc.rust-lang.org/1.84.1/cargo/reference/config.html#buildrustflags>
+          # * <https://github.com/rust-lang/cargo/issues/4423>
+          cargo_flags: "--target x86_64-apple-darwin --features vendored-openssl"
         - build: macos-aarch64
           os: macos-14
-          target: aarch64-apple-darwin
           cargo_flags: ""
         - build: windows-x86_64
           os: windows-2022
-          target: x86_64-pc-windows-msvc
           cargo_flags: ""
     runs-on: ${{ matrix.os }}
 
@@ -73,7 +76,7 @@ jobs:
       uses: dtolnay/rust-toolchain@a54c7afa936fefeb4456b2dd8068152669aa8203
       with:
         toolchain: 1.84
-        target: ${{ matrix.target }}
+        target: ${{ matrix.targets }}
     - uses: taiki-e/install-action@0f58b6a196e0d71c72fd459ab8fd8b228f85f669
       with:
         tool: nextest,taplo-cli
@@ -81,7 +84,6 @@ jobs:
       run: >-
         cargo build
         --config .cargo/config-ci.toml
-        --target ${{ matrix.target }}
         --workspace
         --all-targets
         --verbose
@@ -92,7 +94,6 @@ jobs:
       run: >-
         cargo nextest run
         --config .cargo/config-ci.toml
-        --target ${{ matrix.target }}
         --workspace
         --all-targets
         --verbose
