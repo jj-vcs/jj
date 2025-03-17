@@ -83,6 +83,8 @@ jobs:
         tool: nextest,taplo-cli
     - name: Build
       run: cargo build --target ${{ matrix.target }} --workspace --all-targets --verbose ${{ matrix.cargo_flags }}
+      env:
+        LIBGIT2_NO_VENDOR: ${{ matrix.LIBGIT2_NO_VENDOR || '0' }}
     - name: Test
       run: cargo nextest run --target ${{ matrix.target }} --workspace --profile ci --all-targets --verbose ${{ matrix.cargo_flags }}
       env:
