@@ -77,7 +77,7 @@ pub struct GitFetchArgs {
     all_remotes: bool,
 }
 
-#[tracing::instrument(skip(ui, command))]
+#[tracing::instrument(skip_all)]
 pub fn cmd_git_fetch(
     ui: &mut Ui,
     command: &CommandHelper,
