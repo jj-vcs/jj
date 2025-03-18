@@ -57,7 +57,7 @@ _This diagram was created with [Excalidraw]. You can get a copy of it [at this
 location][types-drawing], and Right Click > "Copy to Clipboard as SVG"._
 
 [Excalidraw]: https://excalidraw.com/
-[types-drawing]: https://excalidraw.com/#json=wuOSusqzm6MjoXatFk1kn,aCySj27AVmQMf7aJdMzMCw
+[types-drawing]: https://excalidraw.com/#json=X081PJVRW2h4iW12qZxc1,H2Yg3qnycVG0Vpq5Z90Miw
 
 ### Backend
 
