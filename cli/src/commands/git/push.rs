@@ -393,9 +393,12 @@ fn process_push_stats(push_stats: &GitPushStats) -> Result<(), CommandError> {
                     formatter,
                     "The following references unexpectedly moved on the remote:"
                 )?;
-                for reference in &push_stats.rejected {
+                for (reference, reason) in &push_stats.rejected {
                     write!(formatter, "  ")?;
                     write!(formatter.labeled("git_ref"), "{reference}")?;
+                    if let Some(r) = reason {
+                        write!(formatter, " (reason: {r})")?;
+                    }
                     writeln!(formatter)?;
                 }
                 Ok(())
@@ -408,9 +411,12 @@ fn process_push_stats(push_stats: &GitPushStats) -> Result<(), CommandError> {
         if !push_stats.remote_rejected.is_empty() {
             error.add_formatted_hint_with(|formatter| {
                 writeln!(formatter, "The remote rejected the following updates:")?;
-                for reference in &push_stats.remote_rejected {
+                for (reference, reason) in &push_stats.remote_rejected {
                     write!(formatter, "  ")?;
                     write!(formatter.labeled("git_ref"), "{reference}")?;
+                    if let Some(r) = reason {
+                        write!(formatter, " (reason: {r})")?;
+                    }
                     writeln!(formatter)?;
                 }
                 Ok(())

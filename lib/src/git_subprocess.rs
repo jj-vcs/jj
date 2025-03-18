@@ -493,10 +493,19 @@ fn parse_ref_pushes(stdout: &[u8]) -> Result<GitPushStats, GitSubprocessError> {
             }
             // ! for a ref that was rejected or failed to push; and
             b"!" => {
-                if summary.starts_with_str("[remote rejected]") {
-                    push_stats.remote_rejected.push(reference);
+                if let Some(reason) = summary.strip_prefix(b"[remote rejected]") {
+                    let reason = reason
+                        .strip_prefix(b" (")
+                        .and_then(|r| r.strip_suffix(b")"))
+                        .map(|x| x.to_str_lossy().into_owned());
+                    push_stats.remote_rejected.push((reference, reason));
                 } else {
-                    push_stats.rejected.push(reference);
+                    let reason = summary
+                        .split_once_str("]")
+                        .and_then(|(_, reason)| reason.strip_prefix(b" ("))
+                        .and_then(|r| r.strip_suffix(b")"))
+                        .map(|x| x.to_str_lossy().into_owned());
+                    push_stats.rejected.push((reference, reason));
                 }
             }
             unknown => {
@@ -753,7 +762,9 @@ and the repository exists. "###;
  \tdeadbeef:refs/heads/bookmark4\tabcd..dead
 =\tdeadbeef:refs/heads/bookmark5\tabcd..abcd
 !\tdeadbeef:refs/heads/bookmark6\t[rejected] (failure lease)
-!\tdeadbeef:refs/heads/bookmark7\t[remote rejected] (hook failure)
+!\tdeadbeef:refs/heads/bookmark7\t[rejected]
+!\tdeadbeef:refs/heads/bookmark8\t[remote rejected] (hook failure)
+!\tdeadbeef:refs/heads/bookmark9\t[remote rejected]
 Done";
     const SAMPLE_OK_STDERR: &[u8] = b"";
 
@@ -841,8 +852,26 @@ Done";
                 "refs/heads/bookmark5".to_string(),
             ]
         );
-        assert_eq!(rejected, vec!["refs/heads/bookmark6".to_string()]);
-        assert_eq!(remote_rejected, vec!["refs/heads/bookmark7".to_string()]);
+        assert_eq!(
+            rejected,
+            vec![
+                (
+                    "refs/heads/bookmark6".to_string(),
+                    Some("failure lease".to_string())
+                ),
+                ("refs/heads/bookmark7".to_string(), None),
+            ]
+        );
+        assert_eq!(
+            remote_rejected,
+            vec![
+                (
+                    "refs/heads/bookmark8".to_string(),
+                    Some("hook failure".to_string())
+                ),
+                ("refs/heads/bookmark9".to_string(), None)
+            ]
+        );
         assert!(parse_ref_pushes(SAMPLE_OK_STDERR).is_err());
     }
 
