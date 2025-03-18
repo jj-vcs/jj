@@ -119,7 +119,7 @@ type FileExecutableFlag = bool;
 #[cfg(windows)]
 type FileExecutableFlag = ();
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, Clone)]
 pub enum FileType {
     Normal { executable: FileExecutableFlag },
     Symlink,
@@ -131,7 +131,7 @@ pub struct MaterializedConflictData {
     pub conflict_marker_len: u32,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, Clone)]
 pub struct FileState {
     pub file_type: FileType,
     pub mtime: MillisSinceEpoch,
@@ -143,12 +143,16 @@ pub struct FileState {
 }
 
 impl FileState {
-    /// Check whether a file state appears clean compared to a previous file
-    /// state, ignoring materialized conflict data.
-    pub fn is_clean(&self, old_file_state: &Self) -> bool {
-        self.file_type == old_file_state.file_type
-            && self.mtime == old_file_state.mtime
-            && self.size == old_file_state.size
+    /// Whether this file state appears clean compared to a previous file state.
+    /// Ignores materialized conflict data, but not executable bits.
+    pub fn matches(&self, other: &Self) -> bool {
+        use FileType as FT;
+        let file_types_match = match (&self.file_type, &other.file_type) {
+            (FT::GitSubmodule, FT::GitSubmodule) | (FT::Symlink, FT::Symlink) => true,
+            (FT::Normal { executable: lhs }, FT::Normal { executable: rhs }) => lhs == rhs,
+            (_, _) => false,
+        };
+        file_types_match && self.mtime == other.mtime && self.size == other.size
     }
 
     /// Indicates that a file exists in the tree but that it needs to be
@@ -1228,7 +1232,7 @@ impl FileSnapshotter<'_> {
         let path = dir.join(name);
         let maybe_current_file_state = file_states.get_at(dir, name);
         if let Some(file_state) = &maybe_current_file_state {
-            if file_state.file_type == FileType::GitSubmodule {
+            if let FileType::GitSubmodule = file_state.file_type {
                 return Ok(None);
             }
         }
@@ -1308,7 +1312,7 @@ impl FileSnapshotter<'_> {
     /// Visits only paths we're already tracking.
     fn visit_tracked_files(&self, file_states: FileStates<'_>) -> Result<(), SnapshotError> {
         for (tracked_path, current_file_state) in file_states.iter() {
-            if current_file_state.file_type == FileType::GitSubmodule {
+            if let FileType::GitSubmodule = current_file_state.file_type {
                 continue;
             }
             if !self.matcher.matches(tracked_path) {
@@ -1362,7 +1366,7 @@ impl FileSnapshotter<'_> {
         if let Some(tree_value) = update {
             self.tree_entries_tx.send((path.clone(), tree_value)).ok();
         }
-        if Some(&new_file_state) != maybe_current_file_state {
+        if !maybe_current_file_state.is_some_and(|current| new_file_state.matches(current)) {
             self.file_states_tx.send((path, new_file_state)).ok();
         }
         Ok(())
@@ -1395,7 +1399,7 @@ impl FileSnapshotter<'_> {
             })
             .flat_map(|(_, chunk)| chunk)
             // Whether or not the entry exists, submodule should be ignored
-            .filter(|(_, state)| state.file_type != FileType::GitSubmodule)
+            .filter(|(_, state)| !matches!(state.file_type, FileType::GitSubmodule))
             .filter(|(path, _)| self.matcher.matches(path))
             .try_for_each(|(path, _)| self.deleted_files_tx.send(path.to_owned()))
             .ok();
@@ -1416,7 +1420,7 @@ impl FileSnapshotter<'_> {
             Some(current_file_state) => {
                 // If the file's mtime was set at the same time as this state file's own mtime,
                 // then we don't know if the file was modified before or after this state file.
-                new_file_state.is_clean(current_file_state)
+                new_file_state.matches(current_file_state)
                     && current_file_state.mtime < self.wc.state.own_mtime
             }
         };
@@ -1907,11 +1911,16 @@ impl WcTreeMutator<'_> {
                             panic!("unexpected tree entry in diff at {path:?}");
                         }
                     },
-                    Err(_values) => {
-                        // TODO: Try to set the executable bit based on the conflict
-                        FileType::Normal {
-                            executable: FileExecutableFlag::default(),
+                    Err(values) => {
+                        let mut exec = Default::default();
+                        // Use the most recently added executable bit.
+                        #[cfg(unix)]
+                        for value in values.adds().flatten() {
+                            if let TreeValue::File { id: _, executable } = value {
+                                exec = *executable;
+                            }
                         }
+                        FileType::Normal { executable: exec }
                     }
                 };
                 let file_state = FileState {
@@ -2360,6 +2369,14 @@ mod tests {
 
     fn repo_path_component(value: &str) -> &RepoPathComponent {
         RepoPathComponent::new(value).unwrap()
+    }
+
+    // Only for convenience in these tests. FileStates are *not* transitively
+    // equal (due to ExecFlag), so we should not implement PartialEq generally.
+    impl PartialEq for FileState {
+        fn eq(&self, other: &Self) -> bool {
+            self.matches(other)
+        }
     }
 
     #[test]
