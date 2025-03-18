@@ -64,7 +64,7 @@ location][types-drawing], and Right Click > "Copy to Clipboard as SVG"._
 The `Backend` trait defines the interface each
 commit backend needs to implement. The current in-tree commit backends
 are `GitBackend`
-and `LocalBackend`.
+and `SimpleBackend`.
 
 Since there are non-commit backends, the `Backend` trait should probably be
 renamed to `CommitBackend`.
