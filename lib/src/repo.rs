@@ -396,7 +396,6 @@ impl Default for StoreFactories {
         let mut factories = StoreFactories::empty();
 
         // Backends
-        #[cfg(feature = "testing")]
         factories.add_backend(
             SimpleBackend::name(),
             Box::new(|_settings, store_path| Ok(Box::new(SimpleBackend::load(store_path)))),
