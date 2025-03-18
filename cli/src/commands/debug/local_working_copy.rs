@@ -37,7 +37,7 @@ pub fn cmd_debug_local_working_copy(
     let wc = check_local_disk_wc(workspace_command.working_copy().as_any())?;
     writeln!(ui.stdout(), "Current operation: {:?}", wc.operation_id())?;
     writeln!(ui.stdout(), "Current tree: {:?}", wc.tree_id()?)?;
-    for (file, state) in wc.file_states()? {
+    for (file, state) in wc.file_states()?.iter() {
         writeln!(
             ui.stdout(),
             "{:?} {:13?} {:10?} {:?} {:?}",

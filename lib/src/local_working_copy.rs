@@ -27,14 +27,12 @@ use std::fs::OpenOptions;
 use std::io;
 use std::io::Read;
 use std::io::Write as _;
-use std::iter;
 use std::mem;
 use std::ops::Range;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt as _;
 use std::path::Path;
 use std::path::PathBuf;
-use std::slice;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
@@ -391,7 +389,7 @@ impl<'a> FileStates<'a> {
     }
 
     /// Iterates file state entries sorted by path.
-    pub fn iter(&self) -> FileStatesIter<'a> {
+    pub fn iter(&self) -> impl Iterator<Item = (&'_ RepoPath, FileState)> {
         self.data.iter().map(file_state_entry_from_proto)
     }
 
@@ -400,20 +398,6 @@ impl<'a> FileStates<'a> {
         self.data
             .iter()
             .map(|entry| RepoPath::from_internal_string(&entry.path).unwrap())
-    }
-}
-
-type FileStatesIter<'a> = iter::Map<
-    slice::Iter<'a, crate::protos::working_copy::FileStateEntry>,
-    fn(&crate::protos::working_copy::FileStateEntry) -> (&RepoPath, FileState),
->;
-
-impl<'a> IntoIterator for FileStates<'a> {
-    type Item = (&'a RepoPath, FileState);
-    type IntoIter = FileStatesIter<'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
     }
 }
 
@@ -1323,7 +1307,7 @@ impl FileSnapshotter<'_> {
 
     /// Visits only paths we're already tracking.
     fn visit_tracked_files(&self, file_states: FileStates<'_>) -> Result<(), SnapshotError> {
-        for (tracked_path, current_file_state) in file_states {
+        for (tracked_path, current_file_state) in file_states.iter() {
             if current_file_state.file_type == FileType::GitSubmodule {
                 continue;
             }
