@@ -1,0 +1,93 @@
+#:schema https://mise.jdx.dev/schema/mise.json
+
+# Mise support is experimental.
+# See https://jj-vcs.github.io/jj/latest/contributing/#alternative-development-setup-with-mise
+
+[vars]
+bacon_version = "3.16.0"
+cargo_insta_version = "1.43.1"
+cargo_nextest_version = "0.9.103"
+rust_version = "1.85"
+uv_version = "0.8.13"
+
+[tools]
+# We need cargo-binstall so that Mise would download "cargo:" tools instead of building them.
+"cargo-binstall" = "latest"
+
+[tasks."build:cli-reference"]
+description = "Build the command line reference (cli/tests/cli-reference@.md.snap)"
+tools.rust = "{{vars.rust_version}}"
+tools."cargo:cargo-insta" = "{{vars.cargo_insta_version}}"
+run = "cargo insta test --accept --workspace -- test_generate_md_cli_help"
+
+[tasks."build:debug"]
+alias = "build"
+description = "Build jj in debug mode"
+tools.rust = "{{vars.rust_version}}"
+run = "cargo build"
+
+[tasks."build:docs"]
+description = "Build documentation into rendered-docs/ for offline use"
+tools.uv = "{{vars.uv_version}}"
+run = "uv run mkdocs build"
+
+[tasks."build:release"]
+description = "Build jj in release mode"
+tools.rust = "{{vars.rust_version}}"
+run = "cargo build --release"
+
+
+[tasks."check:clippy"]
+description = "Lint the code with Clippy"
+tools.rust = "{{vars.rust_version}}"
+run = "cargo clippy --workspace --all-targets"
+
+[tasks."check:format"]
+description = "Check the code format"
+tools.rust = "nightly"
+run = "cargo fmt --check"
+
+[tasks."check:test"]
+alias = "test"
+description = "Run the tests"
+tools.rust = "{{vars.rust_version}}"
+tools."cargo:cargo-insta" = "{{vars.cargo_insta_version}}"
+tools."cargo:cargo-nextest" = "{{vars.cargo_nextest_version}}"
+run = "cargo insta test --workspace --test-runner nextest --"
+
+[tasks."check:zizmor"]
+description = "Check GitHub workflows with Zizmor"
+tools."cargo:zizmor" = "latest"
+run = "zizmor ."
+
+
+[tasks."fix:clippy"]
+description = "Fix the clippy alerts"
+tools.rust = "{{vars.rust_version}}"
+run = "cargo clippy --fix"
+
+[tasks."fix:format"]
+description = "Format the code"
+tools.rust = "nightly"
+run = "cargo fmt"
+
+
+[tasks."serve:docs"]
+description = "Preview documentation with live reloading"
+tools.uv = "{{vars.uv_version}}"
+run = "uv run mkdocs serve"
+
+
+# not sure how to name these
+[tasks."clippy:live"]
+description = "Lint the code with Clippy when the code changes"
+tools.rust = "{{vars.rust_version}}"
+tools."cargo:bacon" = "{{vars.bacon_version}}"
+run = "bacon clippy -- --workspace --all-targets"
+
+[tasks."test:live"]
+description = "Run tests when the code changes"
+tools.rust = "{{vars.rust_version}}"
+tools."cargo:bacon" = "{{vars.bacon_version}}"
+tools."cargo:cargo-nextest" = "{{vars.cargo_nextest_version}}"
+run = "bacon nextest -- --nff --workspace"

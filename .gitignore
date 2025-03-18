@@ -11,6 +11,8 @@ result
 # Per user insta settings.
 # See https://insta.rs/docs/settings/#tool-config-file for details.
 .config/insta.yaml
+# Per user mise config
+mise.local.toml
 
 # mkdocs
 /.venv

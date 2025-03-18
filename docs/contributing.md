@@ -291,6 +291,36 @@ We recommend at least these settings:
 }
 ```
 
+### Alternative development setup with `mise`
+
+An experimental development setup is available using
+[`mise`](https://mise.jdx.dev/). If you try it, file bugs,
+PRs, or tell us on Discord/IRC/discussions if you experience problems
+or if this config is too inflexible. If we can make it work for most
+platforms and most people's needs, including people previously unfamiliar
+with `mise`, we may make `mise` the recommended way to set up a development
+environment.
+
+This tool manages the necessary dependencies for you, eliminating the need for
+a separate setup process. `mise` automatically installs the required tools when
+they are needed.
+
+Here are some of the commands you may find yourself using frequently during
+development:
+
+  * `mise test`: Runs all tests.
+  * `mise test <string>`: Runs tests that contain a specific string. For
+    example, `mise test squash` would run tests with "squash" in their name.
+  * `mise build`: Compiles `jj`.
+  * `mise build:release`: Compiles `jj` in release mode.
+  * `mise build:docs`: Builds the documentation for `jj`.
+
+For a complete list of all available tasks, you can run `mise tasks` or review
+the configuration file at `.config/mise.toml`.
+
+You can customize this configuration using
+[a `mise.local.toml` file](https://mise.jdx.dev/configuration.html#mise-toml).
+
 ## Previewing the HTML documentation
 
 The documentation for `jj` is automatically published online at
