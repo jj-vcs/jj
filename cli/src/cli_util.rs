@@ -2223,24 +2223,21 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
             .retain(|change_id, _commits| !removed_conflicts_by_change_id.contains_key(change_id));
 
         // TODO: Also report new divergence and maybe resolved divergence
-        let template = self.commit_summary_template();
         if !resolved_conflicts_by_change_id.is_empty() {
+            // TODO: Report resolved and abandoned numbers separately. However,
+            // that involves resolving the change_id among the visible commits in the new
+            // repo, which isn't currently supported by Google's revset engine.
+            let num_resolved: usize = resolved_conflicts_by_change_id
+                .values()
+                .map(|commits| commits.len())
+                .sum();
             writeln!(
                 fmt,
-                "Existing conflicts were resolved or abandoned from these commits:"
+                "Existing conflicts were resolved or abandoned from {num_resolved} commits."
             )?;
-            for (_, old_commits) in &resolved_conflicts_by_change_id {
-                // TODO: Report which ones were resolved and which ones were abandoned. However,
-                // that involves resolving the change_id among the visible commits in the new
-                // repo, which isn't currently supported by Google's revset engine.
-                for commit in old_commits {
-                    write!(fmt, "  ")?;
-                    template.format(commit, fmt.as_mut())?;
-                    writeln!(fmt)?;
-                }
-            }
         }
         if !new_conflicts_by_change_id.is_empty() {
+            let template = self.commit_summary_template();
             writeln!(fmt, "New conflicts appeared in these commits:")?;
             for (_, new_commits) in &new_conflicts_by_change_id {
                 for commit in new_commits {
