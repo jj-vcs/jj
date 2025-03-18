@@ -11,8 +11,10 @@ use jj_lib::backend::MergedTreeId;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::fsmonitor::FsmonitorSettings;
 use jj_lib::gitignore::GitIgnoreFile;
+use jj_lib::local_working_copy::ExecConfig;
 use jj_lib::local_working_copy::TreeState;
 use jj_lib::local_working_copy::TreeStateError;
+use jj_lib::local_working_copy::WcTreeConfig;
 use jj_lib::local_working_copy::WcTreeMutator;
 use jj_lib::matchers::EverythingMatcher;
 use jj_lib::matchers::Matcher;
@@ -286,5 +288,9 @@ fn wc_mut<'a>(
         state,
         store,
         working_copy_path,
+        cfg: WcTreeConfig {
+            // Merge tools generally don't care about executable bit state.
+            exec_config: ExecConfig::Ignore,
+        },
     }
 }

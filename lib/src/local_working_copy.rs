@@ -126,13 +126,25 @@ pub enum ExecConfig {
     Ignore,
 }
 
-#[cfg(unix)]
-const EXEC_CONFIG: ExecConfig = ExecConfig::Respect;
-#[cfg(windows)]
-const EXEC_CONFIG: ExecConfig = ExecConfig::Ignore;
-
 #[cfg_attr(windows, expect(unused_variables))]
 impl ExecConfig {
+    /// Prepare a default executable configuration state for the given path.
+    ///
+    /// On Windows we always ignore executable bit changes. On Unix, we check
+    /// whether executable bits are supported in the working copy to determine
+    /// respect/ignorance, but we default to respect.
+    pub fn default_for_path(wc_path: &Path) -> Self {
+        #[cfg(unix)]
+        let exec_config = match crate::file_util::check_executable_bit_support(wc_path) {
+            Ok(false) => ExecConfig::Ignore,
+            Ok(true) => ExecConfig::Respect,
+            Err(_) => ExecConfig::Respect,
+        };
+        #[cfg(windows)]
+        let exec_config = ExecConfig::Ignore;
+        exec_config
+    }
+
     /// The default executable flag given this configuration.
     pub fn default_flag(self) -> ExecFlag {
         match self {
@@ -225,10 +237,10 @@ impl FileState {
 
     /// Indicates that a file exists in the tree but that it needs to be
     /// re-stat'ed on the next snapshot.
-    fn placeholder() -> Self {
+    fn placeholder(exec_config: ExecConfig) -> Self {
         FileState {
             file_type: FileType::Normal {
-                exec_flag: EXEC_CONFIG.default_flag(),
+                exec_flag: exec_config.default_flag(),
             },
             mtime: MillisSinceEpoch(0),
             size: 0,
@@ -343,8 +355,8 @@ impl FileStatesMap {
     }
 
     /// Returns read-only map containing all file states.
-    fn all(&self) -> FileStates<'_> {
-        FileStates::from_sorted(&self.data)
+    fn all(&self, exec_config: ExecConfig) -> FileStates<'_> {
+        FileStates::from_sorted(&self.data, exec_config)
     }
 }
 
@@ -352,25 +364,29 @@ impl FileStatesMap {
 #[derive(Clone, Copy, Debug)]
 pub struct FileStates<'a> {
     data: &'a [crate::protos::working_copy::FileStateEntry],
+    exec_config: ExecConfig,
 }
 
 impl<'a> FileStates<'a> {
-    fn from_sorted(data: &'a [crate::protos::working_copy::FileStateEntry]) -> Self {
+    fn from_sorted(
+        data: &'a [crate::protos::working_copy::FileStateEntry],
+        exec_config: ExecConfig,
+    ) -> Self {
         debug_assert!(is_file_state_entries_proto_unique_and_sorted(data));
-        FileStates { data }
+        FileStates { data, exec_config }
     }
 
     /// Returns file states under the given directory path.
     pub fn prefixed(&self, base: &RepoPath) -> Self {
         let range = self.prefixed_range(base);
-        Self::from_sorted(&self.data[range])
+        Self::from_sorted(&self.data[range], self.exec_config)
     }
 
     /// Faster version of `prefixed("<dir>/<base>")`. Requires that all entries
     /// share the same prefix `dir`.
     fn prefixed_at(&self, dir: &RepoPath, base: &RepoPathComponent) -> Self {
         let range = self.prefixed_range_at(dir, base);
-        Self::from_sorted(&self.data[range])
+        Self::from_sorted(&self.data[range], self.exec_config)
     }
 
     /// Returns true if this contains no entries.
@@ -386,7 +402,7 @@ impl<'a> FileStates<'a> {
     /// Returns file state for the given `path`.
     pub fn get(&self, path: &RepoPath) -> Option<FileState> {
         let pos = self.exact_position(path)?;
-        let (_, state) = file_state_entry_from_proto(&self.data[pos]);
+        let (_, state) = file_state_entry_from_proto(&self.data[pos], self.exec_config);
         Some(state)
     }
 
@@ -394,7 +410,7 @@ impl<'a> FileStates<'a> {
     /// the same prefix `dir`.
     fn get_at(&self, dir: &RepoPath, name: &RepoPathComponent) -> Option<FileState> {
         let pos = self.exact_position_at(dir, name)?;
-        let (_, state) = file_state_entry_from_proto(&self.data[pos]);
+        let (_, state) = file_state_entry_from_proto(&self.data[pos], self.exec_config);
         Some(state)
     }
 
@@ -455,7 +471,9 @@ impl<'a> FileStates<'a> {
 
     /// Iterates file state entries sorted by path.
     pub fn iter(&self) -> impl Iterator<Item = (&'_ RepoPath, FileState)> {
-        self.data.iter().map(file_state_entry_from_proto)
+        self.data
+            .iter()
+            .map(move |proto| file_state_entry_from_proto(proto, self.exec_config))
     }
 
     /// Iterates sorted file paths.
@@ -466,14 +484,17 @@ impl<'a> FileStates<'a> {
     }
 }
 
-fn file_state_from_proto(proto: &crate::protos::working_copy::FileState) -> FileState {
+fn file_state_from_proto(
+    proto: &crate::protos::working_copy::FileState,
+    exec_config: ExecConfig,
+) -> FileState {
     let file_type = match proto.file_type() {
         crate::protos::working_copy::FileType::Normal
         | crate::protos::working_copy::FileType::Conflict => FileType::Normal {
-            exec_flag: EXEC_CONFIG.default_flag(),
+            exec_flag: exec_config.default_flag(),
         },
         crate::protos::working_copy::FileType::Executable => FileType::Normal {
-            exec_flag: EXEC_CONFIG.flag(true),
+            exec_flag: exec_config.flag(true),
         },
         crate::protos::working_copy::FileType::Symlink => FileType::Symlink,
         crate::protos::working_copy::FileType::GitSubmodule => FileType::GitSubmodule,
@@ -516,9 +537,13 @@ fn file_state_to_proto(file_state: &FileState) -> crate::protos::working_copy::F
 
 fn file_state_entry_from_proto(
     proto: &crate::protos::working_copy::FileStateEntry,
+    exec_config: ExecConfig,
 ) -> (&RepoPath, FileState) {
     let path = RepoPath::from_internal_string(&proto.path).unwrap();
-    (path, file_state_from_proto(proto.state.as_ref().unwrap()))
+    (
+        path,
+        file_state_from_proto(proto.state.as_ref().unwrap(), exec_config),
+    )
 }
 
 fn file_state_entry_to_proto(
@@ -725,14 +750,14 @@ fn mtime_from_metadata(metadata: &Metadata) -> MillisSinceEpoch {
     )
 }
 
-fn file_state(metadata: &Metadata) -> Option<FileState> {
+fn file_state(metadata: &Metadata, exec_config: ExecConfig) -> Option<FileState> {
     let metadata_file_type = metadata.file_type();
     let file_type = if metadata_file_type.is_dir() {
         None
     } else if metadata_file_type.is_symlink() {
         Some(FileType::Symlink)
     } else if metadata_file_type.is_file() {
-        let exec_flag = match EXEC_CONFIG {
+        let exec_flag = match exec_config {
             #[cfg(unix)]
             ExecConfig::Respect => ExecFlag::Exec(metadata.permissions().mode() & 0o111 != 0),
             ExecConfig::Ignore => ExecFlag::NotDefined,
@@ -793,10 +818,6 @@ pub enum TreeStateError {
 impl TreeState {
     pub fn current_tree_id(&self) -> &MergedTreeId {
         &self.tree_id
-    }
-
-    pub fn file_states(&self) -> FileStates<'_> {
-        self.file_states.all()
     }
 
     pub fn sparse_patterns(&self) -> &Vec<RepoPathBuf> {
@@ -983,6 +1004,12 @@ pub struct WcTreeMutator<'a> {
     pub state: &'a mut TreeState,
     pub store: &'a Arc<Store>,
     pub working_copy_path: &'a Path,
+    pub cfg: WcTreeConfig,
+}
+
+#[derive(Clone)]
+pub struct WcTreeConfig {
+    pub exec_config: ExecConfig,
 }
 
 impl WcTreeMutator<'_> {
@@ -1039,7 +1066,7 @@ impl WcTreeMutator<'_> {
                 dir: RepoPathBuf::root(),
                 disk_dir: self.working_copy_path.to_owned(),
                 git_ignore: base_ignores.clone(),
-                file_states: self.state.file_states.all(),
+                file_states: self.state.file_states.all(self.cfg.exec_config),
             };
             let snapshotter = FileSnapshotter {
                 wc: self,
@@ -1102,7 +1129,7 @@ impl WcTreeMutator<'_> {
                 .entries_matching(sparse_matcher.as_ref())
                 .filter_map(|(path, result)| result.is_ok().then_some(path))
                 .collect();
-            let file_states = self.state.file_states.all();
+            let file_states = self.state.file_states.all(self.cfg.exec_config);
             let state_paths: HashSet<_> = file_states.paths().map(|path| path.to_owned()).collect();
             assert_eq!(state_paths, tree_paths);
         }
@@ -1347,7 +1374,8 @@ impl FileSnapshotter<'_> {
                     };
                     self.untracked_paths_tx.send((path, reason)).ok();
                     Ok(None)
-                } else if let Some(new_file_state) = file_state(&metadata) {
+                } else if let Some(new_file_state) = file_state(&metadata, self.wc.cfg.exec_config)
+                {
                     self.process_present_file(
                         path,
                         &entry.path(),
@@ -1385,7 +1413,9 @@ impl FileSnapshotter<'_> {
                     });
                 }
             };
-            if let Some(new_file_state) = metadata.as_ref().and_then(file_state) {
+            if let Some(new_file_state) =
+                metadata.and_then(|metadata| file_state(&metadata, self.wc.cfg.exec_config))
+            {
                 self.process_present_file(
                     tracked_path.to_owned(),
                     &disk_path,
@@ -1531,7 +1561,7 @@ impl FileSnapshotter<'_> {
     ) -> Result<MergedTreeValue, SnapshotError> {
         if let Some(current_tree_value) = current_tree_values.as_resolved() {
             let id = self.write_file_to_store(repo_path, disk_path).await?;
-            let executable = exec_flag.get_or_else_fallback(EXEC_CONFIG, || {
+            let executable = exec_flag.get_or_else_fallback(self.wc.cfg.exec_config, || {
                 // Fallback to the executable bit from the current tree.
                 match current_tree_value {
                     Some(TreeValue::File { id: _, executable }) => Some(*executable),
@@ -1560,13 +1590,14 @@ impl FileSnapshotter<'_> {
             .await?;
             match new_file_ids.into_resolved() {
                 Ok(file_id) => {
-                    let executable = exec_flag.get_or_else_fallback(EXEC_CONFIG, || {
-                        // Fallback to the executable bit from the merged trees.
-                        current_tree_values
-                            .to_executable_merge()
-                            .as_ref()
-                            .and_then(conflicts::resolve_file_executable)
-                    });
+                    let executable =
+                        exec_flag.get_or_else_fallback(self.wc.cfg.exec_config, || {
+                            // Fallback to the executable bit from the merged trees.
+                            current_tree_values
+                                .to_executable_merge()
+                                .as_ref()
+                                .and_then(conflicts::resolve_file_executable)
+                        });
                     Ok(Merge::normal(TreeValue::File {
                         id: file_id.unwrap(),
                         executable,
@@ -1862,7 +1893,7 @@ impl WcTreeMutator<'_> {
             // Create parent directories no matter if after.is_present(). This
             // ensures that the path never traverses symlinks.
             let Some(disk_path) = create_parent_dirs(self.working_copy_path, &path)? else {
-                changed_file_states.push((path, FileState::placeholder()));
+                changed_file_states.push((path, FileState::placeholder(self.cfg.exec_config)));
                 stats.skipped_files += 1;
                 continue;
             };
@@ -1870,7 +1901,7 @@ impl WcTreeMutator<'_> {
             let present_file_deleted = before.is_present() && remove_old_file(&disk_path)?;
             // If not, create temporary file to test the path validity.
             if !present_file_deleted && !can_create_new_file(&disk_path)? {
-                changed_file_states.push((path, FileState::placeholder()));
+                changed_file_states.push((path, FileState::placeholder(self.cfg.exec_config)));
                 stats.skipped_files += 1;
                 continue;
             }
@@ -1879,7 +1910,7 @@ impl WcTreeMutator<'_> {
             // bit, then we need to preserve its previous bit since we delete
             // and re-create all checked-out files.
             let mut prev_exec_bit = None;
-            if cfg!(unix) && EXEC_CONFIG == ExecConfig::Ignore {
+            if cfg!(unix) && self.cfg.exec_config == ExecConfig::Ignore {
                 prev_exec_bit = before
                     .to_executable_merge()
                     .and_then(|merge| merge.into_resolved().ok())
@@ -1900,14 +1931,14 @@ impl WcTreeMutator<'_> {
                     continue;
                 }
                 MaterializedTreeValue::File(mut file) => {
-                    let exec_flag = EXEC_CONFIG.flag(file.executable);
+                    let exec_flag = self.cfg.exec_config.flag(file.executable);
                     self.write_file(&disk_path, &mut file.reader, exec_flag, prev_exec_bit)?
                 }
                 MaterializedTreeValue::Symlink { id: _, target } => {
                     if self.state.symlink_support {
                         self.write_symlink(&disk_path, target)?
                     } else {
-                        let exec_flag = EXEC_CONFIG.default_flag();
+                        let exec_flag = self.cfg.exec_config.default_flag();
                         self.write_file(
                             &disk_path,
                             &mut target.as_bytes(),
@@ -1937,8 +1968,8 @@ impl WcTreeMutator<'_> {
                     };
                     let exec_flag = file
                         .executable
-                        .map(|e| EXEC_CONFIG.flag(e))
-                        .unwrap_or(EXEC_CONFIG.default_flag());
+                        .map(|e| self.cfg.exec_config.flag(e))
+                        .unwrap_or(self.cfg.exec_config.default_flag());
                     self.write_conflict(
                         &disk_path,
                         data,
@@ -1951,7 +1982,7 @@ impl WcTreeMutator<'_> {
                     // Unless all terms are regular files, we can't do much
                     // better than trying to describe the merge.
                     let data = id.describe().into_bytes();
-                    let exec_flag = EXEC_CONFIG.default_flag();
+                    let exec_flag = self.cfg.exec_config.default_flag();
                     self.write_conflict(&disk_path, data, exec_flag, None, None)?
                 }
             };
@@ -1983,7 +2014,7 @@ impl WcTreeMutator<'_> {
                 let file_type = match after.into_resolved() {
                     Ok(value) => match value.unwrap() {
                         TreeValue::File { id: _, executable } => FileType::Normal {
-                            exec_flag: EXEC_CONFIG.flag(executable),
+                            exec_flag: self.cfg.exec_config.flag(executable),
                         },
                         TreeValue::Symlink(_id) => FileType::Symlink,
                         TreeValue::Conflict(_id) => {
@@ -1998,11 +2029,11 @@ impl WcTreeMutator<'_> {
                         }
                     },
                     Err(values) => {
-                        let mut exec_flag = EXEC_CONFIG.default_flag();
+                        let mut exec_flag = self.cfg.exec_config.default_flag();
                         // Use the most recently added executable bit.
                         for value in values.adds().flatten() {
                             if let TreeValue::File { id: _, executable } = value {
-                                exec_flag = EXEC_CONFIG.flag(*executable);
+                                exec_flag = self.cfg.exec_config.flag(*executable);
                             }
                         }
                         FileType::Normal { exec_flag }
@@ -2082,6 +2113,7 @@ pub struct LocalWorkingCopy {
     store: Arc<Store>,
     working_copy_path: PathBuf,
     state_path: PathBuf,
+    default_exec_config: ExecConfig,
     checkout_state: OnceCell<CheckoutState>,
     tree_state: OnceCell<TreeState>,
 }
@@ -2122,6 +2154,7 @@ impl WorkingCopy for LocalWorkingCopy {
             store: self.store.clone(),
             working_copy_path: self.working_copy_path.clone(),
             state_path: self.state_path.clone(),
+            default_exec_config: self.default_exec_config,
             // Empty so we re-read the state after taking the lock
             checkout_state: OnceCell::new(),
             // TODO: It's expensive to reload the whole tree. We should copy it from `self` if it
@@ -2130,8 +2163,12 @@ impl WorkingCopy for LocalWorkingCopy {
         };
         let old_operation_id = wc.operation_id().clone();
         let old_tree_id = wc.tree_id()?.clone();
+        let wc_config = WcTreeConfig {
+            exec_config: self.default_exec_config,
+        };
         Ok(Box::new(LockedLocalWorkingCopy {
             wc,
+            wc_config,
             lock,
             old_operation_id,
             old_tree_id,
@@ -2171,10 +2208,12 @@ impl LocalWorkingCopy {
                 message: "Failed to initialize working copy state".to_string(),
                 err: err.into(),
             })?;
+        let default_exec_config = ExecConfig::default_for_path(&working_copy_path);
         Ok(LocalWorkingCopy {
             store,
             working_copy_path,
             state_path,
+            default_exec_config,
             checkout_state: OnceCell::new(),
             tree_state: OnceCell::with_value(tree_state),
         })
@@ -2187,10 +2226,12 @@ impl LocalWorkingCopy {
         working_copy_path: PathBuf,
         state_path: PathBuf,
     ) -> LocalWorkingCopy {
+        let default_exec_config = ExecConfig::default_for_path(&working_copy_path);
         LocalWorkingCopy {
             store,
             working_copy_path,
             state_path,
+            default_exec_config,
             checkout_state: OnceCell::new(),
             tree_state: OnceCell::new(),
         }
@@ -2216,7 +2257,8 @@ impl LocalWorkingCopy {
     }
 
     pub fn file_states(&self) -> Result<FileStates<'_>, WorkingCopyStateError> {
-        Ok(self.tree_state()?.file_states())
+        let exec_config = ExecConfig::default_for_path(&self.working_copy_path);
+        Ok(self.tree_state()?.file_states.all(exec_config))
     }
 
     #[cfg(feature = "watchman")]
@@ -2284,6 +2326,7 @@ impl WorkingCopyFactory for LocalWorkingCopyFactory {
 /// `finish()` or `discard()`.
 pub struct LockedLocalWorkingCopy {
     wc: LocalWorkingCopy,
+    wc_config: WcTreeConfig,
     #[expect(dead_code)]
     lock: FileLock,
     old_operation_id: OperationId,
@@ -2301,6 +2344,7 @@ impl LockedLocalWorkingCopy {
             state: self.wc.tree_state.get_mut().unwrap(),
             store: &self.wc.store,
             working_copy_path: &self.wc.working_copy_path,
+            cfg: self.wc_config.clone(),
         })
     }
 }
@@ -2464,6 +2508,12 @@ mod tests {
         }
     }
 
+    // Convenience value for testing.
+    #[cfg(unix)]
+    const EXEC_CONFIG: ExecConfig = ExecConfig::Respect;
+    #[cfg(windows)]
+    const EXEC_CONFIG: ExecConfig = ExecConfig::Ignore;
+
     fn new_state(size: u64) -> FileState {
         FileState {
             file_type: FileType::Normal {
@@ -2504,7 +2554,7 @@ mod tests {
         };
         file_states.merge_in(changed_file_states, &deleted_files);
         assert_eq!(
-            file_states.all().iter().collect_vec(),
+            file_states.all(EXEC_CONFIG).iter().collect_vec(),
             vec![
                 new_static_entry("aa", 10),
                 new_static_entry("b/d/e", 2),
@@ -2529,7 +2579,7 @@ mod tests {
             new_proto_entry("b#", 4), // '#' < '/'
             new_proto_entry("bc", 5),
         ];
-        let file_states = FileStates::from_sorted(&data);
+        let file_states = FileStates::from_sorted(&data, EXEC_CONFIG);
 
         assert_eq!(
             file_states.prefixed(repo_path("")).paths().collect_vec(),
@@ -2585,7 +2635,7 @@ mod tests {
             new_proto_entry("b/e", 3),
             new_proto_entry("b#", 4), // '#' < '/'
         ];
-        let file_states = FileStates::from_sorted(&data);
+        let file_states = FileStates::from_sorted(&data, EXEC_CONFIG);
 
         // At root
         assert_eq!(

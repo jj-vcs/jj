@@ -166,15 +166,60 @@ pub fn persist_content_addressed_temp_file<P: AsRef<Path>>(
 mod platform {
     use std::io;
     use std::os::unix::fs::symlink;
+    use std::os::unix::fs::PermissionsExt;
     use std::path::Path;
 
-    /// Symlinks are always available on UNIX
+    /// Whether changing executable bits is permitted on the filesystem of this
+    /// directory, and whether attempting to flip one has an observable effect.
+    pub fn check_executable_bit_support(dir: impl AsRef<Path>) -> io::Result<bool> {
+        // Get current permissions and try to flip just the user's executable bit.
+        let temp_file = tempfile::tempfile_in(dir)?;
+        let old_mode = temp_file.metadata()?.permissions().mode();
+        let new_mode = old_mode ^ 0o100;
+        let result = temp_file.set_permissions(PermissionsExt::from_mode(new_mode));
+        match result {
+            // If permission was denied, we do not have executable bit support.
+            Err(err) if err.kind() == io::ErrorKind::PermissionDenied => return Ok(false),
+            Err(err) => return Err(err),
+            Ok(()) => {}
+        }
+        // Verify that the permission change was not silently ignored.
+        let mode = temp_file.metadata()?.permissions().mode();
+        Ok(mode == new_mode)
+    }
+
+    /// Symlinks are always available on Unix.
     pub fn check_symlink_support() -> io::Result<bool> {
         Ok(true)
     }
 
     pub fn try_symlink<P: AsRef<Path>, Q: AsRef<Path>>(original: P, link: Q) -> io::Result<()> {
         symlink(original, link)
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn exec_bit_support_in_tmp() {
+            // Should always succeed when creating in the default temp dir.
+            let dir = tempfile::tempdir().unwrap();
+            let supported = check_executable_bit_support(dir.path()).unwrap();
+            assert!(supported);
+        }
+
+        #[test]
+        #[ignore = "success/failure depends on dev environment; see comment"]
+        fn exec_bit_support_in_current_repo() {
+            // This test will succeed when run from a normal Unix environment,
+            // but fail when run where executable bits are not supported, e.g.
+            // if it is run under WSL, the underlying NTFS filesystem will
+            // silently ignore attempts to change the executable bit.
+            let dir = tempfile::tempdir_in(".").unwrap();
+            let supported = check_executable_bit_support(dir.path()).unwrap();
+            assert!(supported);
+        }
     }
 }
 
