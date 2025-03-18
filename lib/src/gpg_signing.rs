@@ -59,6 +59,10 @@ fn parse_gpg_verify_output(
                 }
                 b"NO_PUBKEY" => SigStatus::Unknown,
                 b"BADSIG" => SigStatus::Bad,
+                b"ERROR" => match parts.next()? {
+                    b"verify.findkey" => return Some(Verification::unknown()),
+                    _ => return None,
+                },
                 _ => return None,
             };
             let key = parts
@@ -211,6 +215,94 @@ impl SigningBackend for GpgBackend {
     }
 }
 
+#[derive(Debug)]
+pub struct GpgsmBackend {
+    program: OsString,
+    allow_expired_keys: bool,
+    extra_args: Vec<OsString>,
+    default_key: String,
+}
+
+impl GpgsmBackend {
+    pub fn new(program: OsString, allow_expired_keys: bool, default_key: String) -> Self {
+        Self {
+            program,
+            allow_expired_keys,
+            extra_args: vec![],
+            default_key,
+        }
+    }
+
+    /// Primarily intended for testing
+    pub fn with_extra_args(mut self, args: &[OsString]) -> Self {
+        self.extra_args.extend_from_slice(args);
+        self
+    }
+
+    pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
+        let program = settings.get_string("signing.backends.gpgsm.program")?;
+        let allow_expired_keys = settings.get_bool("signing.backends.gpgsm.allow-expired-keys")?;
+        let default_key = settings.user_email().to_owned();
+        Ok(Self::new(program.into(), allow_expired_keys, default_key))
+    }
+
+    fn create_command(&self) -> Command {
+        let mut command = Command::new(&self.program);
+        // Hide console window on Windows (https://stackoverflow.com/a/60958956)
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
+            command.creation_flags(CREATE_NO_WINDOW);
+        }
+
+        command
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .args(&self.extra_args);
+        command
+    }
+}
+
+impl SigningBackend for GpgsmBackend {
+    fn name(&self) -> &str {
+        "gpgsm"
+    }
+
+    fn can_read(&self, signature: &[u8]) -> bool {
+        signature.starts_with(b"-----BEGIN SIGNED MESSAGE-----")
+    }
+
+    fn sign(&self, data: &[u8], key: Option<&str>) -> Result<Vec<u8>, SignError> {
+        let key = key.unwrap_or(&self.default_key);
+        Ok(run_sign_command(
+            self.create_command().args(["-abu", key]),
+            data,
+        )?)
+    }
+
+    fn verify(&self, data: &[u8], signature: &[u8]) -> Result<Verification, SignError> {
+        let mut signature_file = tempfile::Builder::new()
+            .prefix(".jj-gpgsm-sig-tmp-")
+            .tempfile()
+            .map_err(GpgError::Io)?;
+        signature_file.write_all(signature).map_err(GpgError::Io)?;
+        signature_file.flush().map_err(GpgError::Io)?;
+
+        let sig_path = signature_file.into_temp_path();
+
+        let output = run_verify_command(
+            self.create_command()
+                .args(["--status-fd=1", "--verify"])
+                .arg(&sig_path)
+                .arg("-"),
+            data,
+        )?;
+
+        parse_gpg_verify_output(&output, self.allow_expired_keys)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -258,6 +350,23 @@ mod tests {
         assert_eq!(
             parse_gpg_verify_output(b"[GNUPG:] EXPKEYSIG 123 456", false).unwrap(),
             Verification::new(SigStatus::Bad, Some("123".into()), Some("456".into()))
+        );
+    }
+
+    #[test]
+    fn gpgsm_verify_unknown_signature() {
+        assert_eq!(
+            parse_gpg_verify_output(b"[GNUPG:] ERROR verify.findkey 50331657", true).unwrap(),
+            Verification::unknown(),
+        );
+    }
+
+    #[test]
+    fn gpgsm_verify_invalid_signature_format() {
+        use assert_matches::assert_matches;
+        assert_matches!(
+            parse_gpg_verify_output(b"[GNUPG:] ERROR verify.leave 150995087", true),
+            Err(SignError::InvalidSignatureFormat)
         );
     }
 }
