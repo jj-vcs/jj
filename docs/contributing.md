@@ -291,6 +291,10 @@ We recommend at least these settings:
 }
 ```
 
+### Alternative development setup
+
+An experimental configuration is available for [`mise`](https://mise.jdx.dev/).
+
 ## Previewing the HTML documentation
 
 The documentation for `jj` is automatically published online at
