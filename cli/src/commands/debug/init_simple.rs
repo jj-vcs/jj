@@ -27,6 +27,8 @@ use crate::ui::Ui;
 /// Create a new repo in the given directory using the proof-of-concept simple
 /// backend
 ///
+/// The simple backend does not support cloning, fetching, or pushing.
+///
 /// This command is otherwise analogous to `jj git init`. If the given directory
 /// does not exist, it will be created. If no directory is given, the current
 /// directory is used.
