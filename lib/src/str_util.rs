@@ -18,6 +18,7 @@ use std::borrow::Borrow;
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::fmt;
+use std::fmt::Debug;
 
 use either::Either;
 use thiserror::Error;
@@ -36,8 +37,26 @@ pub enum StringPatternParseError {
     Regex(regex::Error),
 }
 
-fn parse_glob(src: &str) -> Result<glob::Pattern, StringPatternParseError> {
-    glob::Pattern::new(src).map_err(StringPatternParseError::GlobPattern)
+/// A wrapper for [`glob::Pattern`] with a more concise Debug impl
+#[derive(Clone)]
+pub struct GlobPattern(pub glob::Pattern);
+
+impl GlobPattern {
+    fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
+impl Debug for GlobPattern {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("GlobPattern").field(&self.as_str()).finish()
+    }
+}
+
+fn parse_glob(src: &str) -> Result<GlobPattern, StringPatternParseError> {
+    glob::Pattern::new(src)
+        .map(GlobPattern)
+        .map_err(StringPatternParseError::GlobPattern)
 }
 
 /// Pattern to be tested against string property like commit description or
@@ -53,9 +72,9 @@ pub enum StringPattern {
     /// Matches strings that case‐insensitively contain a substring.
     SubstringI(String),
     /// Matches with a Unix‐style shell wildcard pattern.
-    Glob(glob::Pattern),
+    Glob(GlobPattern),
     /// Matches with a case‐insensitive Unix‐style shell wildcard pattern.
-    GlobI(glob::Pattern),
+    GlobI(GlobPattern),
     /// Matches substrings with a regular expression.
     Regex(regex::Regex),
     // TODO: Should we add RegexI and "regex-i" prefix?
@@ -215,8 +234,8 @@ impl StringPattern {
             StringPattern::SubstringI(needle) => haystack
                 .to_ascii_lowercase()
                 .contains(&needle.to_ascii_lowercase()),
-            StringPattern::Glob(pattern) => pattern.matches(haystack),
-            StringPattern::GlobI(pattern) => pattern.matches_with(
+            StringPattern::Glob(pattern) => pattern.0.matches(haystack),
+            StringPattern::GlobI(pattern) => pattern.0.matches_with(
                 haystack,
                 glob::MatchOptions {
                     case_sensitive: false,
