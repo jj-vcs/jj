@@ -28,6 +28,7 @@ use bstr::ByteSlice as _;
 use itertools::Itertools as _;
 use thiserror::Error;
 
+use crate::git::GitPushStats;
 use crate::git::Progress;
 use crate::git::RefSpec;
 use crate::git::RefToPush;
@@ -68,17 +69,6 @@ pub enum GitSubprocessError {
     UnsupportedGitOption(String),
     #[error("Git process failed: {0}")]
     External(String),
-}
-
-/// Stats from a git push
-#[derive(Debug, Default)]
-pub(crate) struct GitPushStats {
-    /// reference accepted by the remote
-    pub pushed: Vec<String>,
-    /// rejected reference, due to lease failure
-    pub rejected: Vec<String>,
-    /// reference rejected by the remote
-    pub remote_rejected: Vec<String>,
 }
 
 /// Context for creating Git subprocesses
@@ -457,7 +447,7 @@ fn parse_ref_pushes(stdout: &[u8]) -> Result<GitPushStats, GitSubprocessError> {
         )));
     }
 
-    let mut push_result = GitPushStats::default();
+    let mut push_stats = GitPushStats::default();
     for (idx, line) in stdout
         .lines()
         .skip(1)
@@ -499,14 +489,14 @@ fn parse_ref_pushes(stdout: &[u8]) -> Result<GitPushStats, GitSubprocessError> {
             //  * for a successfully pushed new ref
             //  =  for a ref that was up to date and did not need pushing.
             b"+" | b"-" | b"*" | b"=" | b" " => {
-                push_result.pushed.push(reference);
+                push_stats.pushed.push(reference);
             }
             // ! for a ref that was rejected or failed to push; and
             b"!" => {
                 if summary.starts_with_str("[remote rejected]") {
-                    push_result.remote_rejected.push(reference);
+                    push_stats.remote_rejected.push(reference);
                 } else {
-                    push_result.rejected.push(reference);
+                    push_stats.rejected.push(reference);
                 }
             }
             unknown => {
@@ -520,7 +510,7 @@ fn parse_ref_pushes(stdout: &[u8]) -> Result<GitPushStats, GitSubprocessError> {
         }
     }
 
-    Ok(push_result)
+    Ok(push_stats)
 }
 
 // on Ok, return a tuple with

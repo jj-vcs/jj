@@ -100,6 +100,23 @@ pub enum GitRefKind {
     Tag,
 }
 
+/// Stats from a git push
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct GitPushStats {
+    /// reference accepted by the remote
+    pub pushed: Vec<String>,
+    /// rejected reference, due to lease failure, with an optional reason
+    pub rejected: Vec<String>,
+    /// reference rejected by the remote, with an optional reason
+    pub remote_rejected: Vec<String>,
+}
+
+impl GitPushStats {
+    pub fn all_ok(&self) -> bool {
+        self.rejected.is_empty() && self.remote_rejected.is_empty()
+    }
+}
+
 /// Newtype to look up `HashMap` entry by key of shorter lifetime.
 ///
 /// https://users.rust-lang.org/t/unexpected-lifetime-issue-with-hashmap-remove/113961/6
@@ -2287,10 +2304,6 @@ pub enum GitPushError {
     NoSuchRemote(String),
     #[error(transparent)]
     RemoteName(#[from] GitRemoteNameError),
-    #[error("Refs in unexpected location: {0:?}")]
-    RefInUnexpectedLocation(Vec<String>),
-    #[error("Remote rejected the update of some refs (do you have permission to push to {0:?}?)")]
-    RefUpdateRejected(Vec<String>),
     // TODO: I'm sure there are other errors possible, such as transport-level errors,
     // and errors caused by the remote rejecting the push.
     #[cfg(feature = "git2")]
@@ -2324,7 +2337,7 @@ pub fn push_branches(
     remote: &str,
     targets: &GitBranchPushTargets,
     callbacks: RemoteCallbacks<'_>,
-) -> Result<(), GitPushError> {
+) -> Result<GitPushStats, GitPushError> {
     validate_remote_name(remote)?;
 
     let ref_updates = targets
@@ -2336,23 +2349,27 @@ pub fn push_branches(
             new_target: update.new_target.clone(),
         })
         .collect_vec();
-    push_updates(mut_repo, git_settings, remote, &ref_updates, callbacks)?;
+
+    let push_stats = push_updates(mut_repo, git_settings, remote, &ref_updates, callbacks)?;
+    tracing::debug!(?push_stats);
 
     // TODO: add support for partially pushed refs? we could update the view
     // excluding rejected refs, but the transaction would be aborted anyway
     // if we returned an Err.
-    for (name, update) in &targets.branch_updates {
-        let remote_symbol = RemoteRefSymbol { name, remote };
-        let git_ref_name = format!("refs/remotes/{remote}/{name}");
-        let new_remote_ref = RemoteRef {
-            target: RefTarget::resolved(update.new_target.clone()),
-            state: RemoteRefState::Tracking,
-        };
-        mut_repo.set_git_ref_target(&git_ref_name, new_remote_ref.target.clone());
-        mut_repo.set_remote_bookmark(remote_symbol, new_remote_ref);
+    if push_stats.all_ok() {
+        for (name, update) in &targets.branch_updates {
+            let remote_symbol = RemoteRefSymbol { name, remote };
+            let git_ref_name = format!("refs/remotes/{remote}/{name}");
+            let new_remote_ref = RemoteRef {
+                target: RefTarget::resolved(update.new_target.clone()),
+                state: RemoteRefState::Tracking,
+            };
+            mut_repo.set_git_ref_target(&git_ref_name, new_remote_ref.target.clone());
+            mut_repo.set_remote_bookmark(remote_symbol, new_remote_ref);
+        }
     }
 
-    Ok(())
+    Ok(push_stats)
 }
 
 /// Pushes the specified Git refs without updating the repo view.
@@ -2362,7 +2379,7 @@ pub fn push_updates(
     remote_name: &str,
     updates: &[GitRefUpdate],
     callbacks: RemoteCallbacks<'_>,
-) -> Result<(), GitPushError> {
+) -> Result<GitPushStats, GitPushError> {
     let mut qualified_remote_refs_expected_locations = HashMap::new();
     let mut refspecs = vec![];
     for update in updates {
@@ -2420,7 +2437,7 @@ fn git2_push_refs(
     qualified_remote_refs_expected_locations: &HashMap<&str, Option<&CommitId>>,
     refspecs: &[String],
     callbacks: RemoteCallbacks<'_>,
-) -> Result<(), GitPushError> {
+) -> Result<GitPushStats, GitPushError> {
     let mut remote = git_repo.find_remote(remote_name).map_err(|err| {
         if is_remote_not_found_err(&err) {
             GitPushError::NoSuchRemote(remote_name.to_string())
@@ -2428,11 +2445,14 @@ fn git2_push_refs(
             GitPushError::InternalGitError(err)
         }
     })?;
+
     let mut remaining_remote_refs: HashSet<_> = qualified_remote_refs_expected_locations
         .keys()
         .copied()
         .collect();
     let mut failed_push_negotiations = vec![];
+    let mut pushed_refs = vec![];
+
     let push_result = {
         let mut push_options = git2::PushOptions::new();
         let mut proxy_options = git2::ProxyOptions::new();
@@ -2492,6 +2512,7 @@ fn git2_push_refs(
                     }
                 }
             }
+
             if failed_push_negotiations.is_empty() {
                 Ok(())
             } else {
@@ -2499,42 +2520,52 @@ fn git2_push_refs(
             }
         });
         callbacks.push_update_reference(|refname, status| {
-            // The status is Some if the ref update was rejected
+            // The status is Some if the ref update was rejected by the remote
             if status.is_none() {
                 remaining_remote_refs.remove(refname);
+                pushed_refs.push(refname.to_owned());
             }
             Ok(())
         });
         push_options.remote_callbacks(callbacks);
         remote.push(refspecs, Some(&mut push_options))
     };
-    if !failed_push_negotiations.is_empty() {
+
+    for failed_update in &failed_push_negotiations {
+        remaining_remote_refs.remove(failed_update.as_str());
+    }
+    let rejected: Vec<_> = failed_push_negotiations.into_iter().sorted().collect();
+    let remote_rejected: Vec<_> = remaining_remote_refs
+        .into_iter()
+        .sorted()
+        .map(str::to_owned)
+        .collect();
+    pushed_refs.sort();
+
+    let push_stats = if !rejected.is_empty() {
         // If the push negotiation returned an error, `remote.push` would not
         // have pushed anything and would have returned an error, as expected.
         // However, the error it returns is not necessarily the error we'd
         // expect. It also depends on the exact versions of `libgit2` and
         // `git2.rs`. So, we cannot rely on it containing any useful
         // information. See https://github.com/rust-lang/git2-rs/issues/1042.
+
         assert!(push_result.is_err());
-        failed_push_negotiations.sort();
-        Err(GitPushError::RefInUnexpectedLocation(
-            failed_push_negotiations,
-        ))
+        GitPushStats {
+            rejected,
+            remote_rejected,
+            ..Default::default()
+        }
     } else {
         push_result?;
-        if remaining_remote_refs.is_empty() {
-            Ok(())
-        } else {
-            // remote rejected refs because of remote config (e.g., no push on main)
-            Err(GitPushError::RefUpdateRejected(
-                remaining_remote_refs
-                    .iter()
-                    .sorted()
-                    .map(|name| name.to_string())
-                    .collect(),
-            ))
+        GitPushStats {
+            pushed: pushed_refs,
+            remote_rejected,
+            ..Default::default()
         }
-    }
+    };
+
+    Ok(push_stats)
 }
 
 fn subprocess_push_refs(
@@ -2544,7 +2575,7 @@ fn subprocess_push_refs(
     qualified_remote_refs_expected_locations: &HashMap<&str, Option<&CommitId>>,
     refspecs: &[RefSpec],
     mut callbacks: RemoteCallbacks<'_>,
-) -> Result<(), GitPushError> {
+) -> Result<GitPushStats, GitPushError> {
     // check the remote exists
     if git_repo.try_find_remote(remote_name).is_none() {
         return Err(GitPushError::NoSuchRemote(remote_name.to_owned()));
@@ -2555,23 +2586,11 @@ fn subprocess_push_refs(
         .map(|full_refspec| RefToPush::new(full_refspec, qualified_remote_refs_expected_locations))
         .collect();
 
-    let push_stats = git_ctx.spawn_push(remote_name, &refs_to_push, &mut callbacks)?;
-    tracing::debug!(?push_stats);
-
-    if !push_stats.rejected.is_empty() {
-        let mut refs_in_unexpected_locations = push_stats.rejected;
-        refs_in_unexpected_locations.sort();
-        Err(GitPushError::RefInUnexpectedLocation(
-            refs_in_unexpected_locations,
-        ))
-    } else if !push_stats.remote_rejected.is_empty() {
-        let mut rejected_refs = push_stats.remote_rejected;
-        rejected_refs.sort();
-        // remote rejected refs because of remote config (e.g., no push on main)
-        Err(GitPushError::RefUpdateRejected(rejected_refs))
-    } else {
-        Ok(())
-    }
+    let mut push_stats = git_ctx.spawn_push(remote_name, &refs_to_push, &mut callbacks)?;
+    push_stats.pushed.sort();
+    push_stats.rejected.sort();
+    push_stats.remote_rejected.sort();
+    Ok(push_stats)
 }
 
 #[cfg(feature = "git2")]

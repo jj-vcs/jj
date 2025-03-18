@@ -28,6 +28,7 @@ use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::git;
 use jj_lib::git::GitBranchPushTargets;
+use jj_lib::git::GitPushStats;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::RefTarget;
 use jj_lib::refs::classify_bookmark_push_action;
@@ -375,11 +376,51 @@ pub fn cmd_git_push(
         branch_updates: bookmark_updates,
     };
     let git_settings = tx.settings().git_settings()?;
-    with_remote_git_callbacks(ui, |cb| {
+    let push_stats = with_remote_git_callbacks(ui, |cb| {
         git::push_branches(tx.repo_mut(), &git_settings, remote, &targets, cb)
     })?;
+    process_push_stats(&push_stats)?;
     tx.finish(ui, tx_description)?;
     Ok(())
+}
+
+fn process_push_stats(push_stats: &GitPushStats) -> Result<(), CommandError> {
+    if !push_stats.all_ok() {
+        let mut error = user_error("Failed to push some bookmarks");
+        if !push_stats.rejected.is_empty() {
+            error.add_formatted_hint_with(|formatter| {
+                writeln!(
+                    formatter,
+                    "The following references unexpectedly moved on the remote:"
+                )?;
+                for reference in &push_stats.rejected {
+                    write!(formatter, "  ")?;
+                    write!(formatter.labeled("git_ref"), "{reference}")?;
+                    writeln!(formatter)?;
+                }
+                Ok(())
+            });
+            error.add_hint(
+                "Try fetching from the remote, then make the bookmark point to where you want it \
+                 to be, and push again.",
+            );
+        }
+        if !push_stats.remote_rejected.is_empty() {
+            error.add_formatted_hint_with(|formatter| {
+                writeln!(formatter, "The remote rejected the following updates:")?;
+                for reference in &push_stats.remote_rejected {
+                    write!(formatter, "  ")?;
+                    write!(formatter.labeled("git_ref"), "{reference}")?;
+                    writeln!(formatter)?;
+                }
+                Ok(())
+            });
+            error.add_hint("Try checking if you have permission to push to all the bookmarks.");
+        }
+        Err(error)
+    } else {
+        Ok(())
+    }
 }
 
 /// Validates that the commits that will be pushed are ready (have authorship
