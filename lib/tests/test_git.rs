@@ -159,6 +159,16 @@ fn git_fetch(
     Ok(stats)
 }
 
+fn push_status_rejected_references(push_stats: GitPushStats) -> Vec<String> {
+    assert!(push_stats.pushed.is_empty());
+    assert!(push_stats.remote_rejected.is_empty());
+    push_stats
+        .rejected
+        .into_iter()
+        .map(|(reference, _)| reference)
+        .collect()
+}
+
 #[test]
 fn test_import_refs() {
     let git_settings = GitSettings {
@@ -3476,19 +3486,15 @@ fn test_push_updates_unexpectedly_moved_sideways_on_remote(subprocess: bool) {
     };
 
     assert_eq!(
-        attempt_push_expecting_sideways(None).unwrap(),
-        GitPushStats {
-            rejected: vec!["refs/heads/main".to_owned()],
-            ..Default::default()
-        }
+        push_status_rejected_references(attempt_push_expecting_sideways(None).unwrap()),
+        vec!["refs/heads/main".to_owned()],
     );
 
     assert_eq!(
-        attempt_push_expecting_sideways(Some(setup.child_of_main_commit.id().clone())).unwrap(),
-        GitPushStats {
-            rejected: vec!["refs/heads/main".to_owned()],
-            ..Default::default()
-        }
+        push_status_rejected_references(
+            attempt_push_expecting_sideways(Some(setup.child_of_main_commit.id().clone())).unwrap()
+        ),
+        vec!["refs/heads/main".to_owned()]
     );
 
     // Here, the local bookmark hasn't moved from `sideways_commit` from our
@@ -3498,19 +3504,18 @@ fn test_push_updates_unexpectedly_moved_sideways_on_remote(subprocess: bool) {
     // `jj` should not actually attempt a push in this case, but if it did, the
     // push should fail.
     assert_eq!(
-        attempt_push_expecting_sideways(Some(setup.sideways_commit.id().clone())).unwrap(),
-        GitPushStats {
-            rejected: vec!["refs/heads/main".to_owned()],
-            ..Default::default()
-        }
+        push_status_rejected_references(
+            attempt_push_expecting_sideways(Some(setup.sideways_commit.id().clone())).unwrap()
+        ),
+        vec!["refs/heads/main".to_owned()]
     );
 
     assert_eq!(
-        attempt_push_expecting_sideways(Some(setup.parent_of_main_commit.id().clone())).unwrap(),
-        GitPushStats {
-            rejected: vec!["refs/heads/main".to_owned()],
-            ..Default::default()
-        }
+        push_status_rejected_references(
+            attempt_push_expecting_sideways(Some(setup.parent_of_main_commit.id().clone()))
+                .unwrap()
+        ),
+        vec!["refs/heads/main".to_owned()]
     );
 
     // Moving the bookmark to the same place it already is is OK.
@@ -3560,19 +3565,15 @@ fn test_push_updates_unexpectedly_moved_forward_on_remote(subprocess: bool) {
     };
 
     assert_eq!(
-        attempt_push_expecting_parent(None).unwrap(),
-        GitPushStats {
-            rejected: vec!["refs/heads/main".to_owned()],
-            ..Default::default()
-        }
+        push_status_rejected_references(attempt_push_expecting_parent(None).unwrap()),
+        vec!["refs/heads/main".to_owned()]
     );
 
     assert_eq!(
-        attempt_push_expecting_parent(Some(setup.sideways_commit.id().clone())).unwrap(),
-        GitPushStats {
-            rejected: vec!["refs/heads/main".to_owned()],
-            ..Default::default()
-        }
+        push_status_rejected_references(
+            attempt_push_expecting_parent(Some(setup.sideways_commit.id().clone())).unwrap()
+        ),
+        vec!["refs/heads/main".to_owned()]
     );
 
     // Here, the local bookmark hasn't moved from `parent_of_main_commit`, but it
@@ -3581,21 +3582,20 @@ fn test_push_updates_unexpectedly_moved_forward_on_remote(subprocess: bool) {
     // `jj` should not actually attempt a push in this case, but if it did, the push
     // should fail.
     assert_eq!(
-        attempt_push_expecting_parent(Some(setup.parent_of_main_commit.id().clone())).unwrap(),
-        GitPushStats {
-            rejected: vec!["refs/heads/main".to_owned()],
-            ..Default::default()
-        }
+        push_status_rejected_references(
+            attempt_push_expecting_parent(Some(setup.parent_of_main_commit.id().clone())).unwrap()
+        ),
+        vec!["refs/heads/main".to_owned()]
     );
 
     if subprocess {
         // git is strict about honouring the expected location on --force-with-lease
         assert_eq!(
-            attempt_push_expecting_parent(Some(setup.child_of_main_commit.id().clone())).unwrap(),
-            GitPushStats {
-                rejected: vec!["refs/heads/main".to_owned()],
-                ..Default::default()
-            }
+            push_status_rejected_references(
+                attempt_push_expecting_parent(Some(setup.child_of_main_commit.id().clone()))
+                    .unwrap()
+            ),
+            vec!["refs/heads/main".to_owned()]
         );
     } else {
         // Moving the bookmark *forwards* is OK, as an exception matching our bookmark
@@ -3643,21 +3643,20 @@ fn test_push_updates_unexpectedly_exists_on_remote(subprocess: bool) {
     };
 
     assert_eq!(
-        attempt_push_expecting_absence(Some(setup.parent_of_main_commit.id().clone())).unwrap(),
-        GitPushStats {
-            rejected: vec!["refs/heads/main".to_owned()],
-            ..Default::default()
-        }
+        push_status_rejected_references(
+            attempt_push_expecting_absence(Some(setup.parent_of_main_commit.id().clone())).unwrap()
+        ),
+        vec!["refs/heads/main".to_owned()]
     );
 
     if subprocess {
         // Git is strict with enforcing the expected location
         assert_eq!(
-            attempt_push_expecting_absence(Some(setup.child_of_main_commit.id().clone())).unwrap(),
-            GitPushStats {
-                rejected: vec!["refs/heads/main".to_owned()],
-                ..Default::default()
-            }
+            push_status_rejected_references(
+                attempt_push_expecting_absence(Some(setup.child_of_main_commit.id().clone()))
+                    .unwrap()
+            ),
+            vec!["refs/heads/main".to_owned()]
         );
     } else {
         // In git2: We *can* move the bookmark forward even if we didn't expect it to

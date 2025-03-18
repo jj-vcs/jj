@@ -392,7 +392,7 @@ fn test_git_push_forward_unexpectedly_moved(subprocess: bool) {
     Changes to push to origin:
       Move forward bookmark bookmark1 from d13ecdbda2a2 to 6750425ff51c
     Error: Failed to push some bookmarks:
-    Hint: refs/heads/bookmark1: unexpectedly moved on the remote
+    Hint: refs/heads/bookmark1: unexpectedly moved on the remote (reason: stale info)
     Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
     [EOF]
     [exit status: 1]
@@ -458,7 +458,7 @@ fn test_git_push_sideways_unexpectedly_moved(subprocess: bool) {
     Changes to push to origin:
       Move sideways bookmark bookmark1 from d13ecdbda2a2 to 0f8bf988588e
     Error: Failed to push some bookmarks:
-    Hint: refs/heads/bookmark1: unexpectedly moved on the remote
+    Hint: refs/heads/bookmark1: unexpectedly moved on the remote (reason: stale info)
     Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
     [EOF]
     [exit status: 1]
@@ -519,7 +519,7 @@ fn test_git_push_deletion_unexpectedly_moved(subprocess: bool) {
     Changes to push to origin:
       Delete bookmark bookmark1 from d13ecdbda2a2
     Error: Failed to push some bookmarks:
-    Hint: refs/heads/bookmark1: unexpectedly moved on the remote
+    Hint: refs/heads/bookmark1: unexpectedly moved on the remote (reason: stale info)
     Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
     [EOF]
     [exit status: 1]
@@ -582,7 +582,7 @@ fn test_git_push_unexpectedly_deleted(subprocess: bool) {
     Changes to push to origin:
       Move sideways bookmark bookmark1 from d13ecdbda2a2 to 1ebe27ba04bf
     Error: Failed to push some bookmarks:
-    Hint: refs/heads/bookmark1: unexpectedly moved on the remote
+    Hint: refs/heads/bookmark1: unexpectedly moved on the remote (reason: stale info)
     Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
     [EOF]
     [exit status: 1]
@@ -611,7 +611,7 @@ fn test_git_push_unexpectedly_deleted(subprocess: bool) {
         Changes to push to origin:
           Delete bookmark bookmark1 from d13ecdbda2a2
         Error: Failed to push some bookmarks:
-        Hint: refs/heads/bookmark1: unexpectedly moved on the remote
+        Hint: refs/heads/bookmark1: unexpectedly moved on the remote (reason: stale info)
         Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
         [EOF]
         [exit status: 1]
@@ -2354,7 +2354,7 @@ fn test_git_push_rejected_by_remote() {
       Move forward bookmark bookmark1 from d13ecdbda2a2 to dd5c09b30f9f
     remote: error: hook declined to update refs/heads/bookmark1        
     Error: Failed to push some bookmarks:
-    Hint: refs/heads/bookmark1: remote rejected the update
+    Hint: refs/heads/bookmark1: remote rejected the update (reason: hook declined)
     Hint: Try checking if you have permission to push to all the bookmarks
     [EOF]
     [exit status: 1]

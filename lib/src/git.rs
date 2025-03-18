@@ -107,10 +107,10 @@ pub enum GitRefKind {
 pub struct GitPushStats {
     /// reference accepted by the remote
     pub pushed: Vec<String>,
-    /// rejected reference, due to lease failure
-    pub rejected: Vec<String>,
-    /// reference rejected by the remote
-    pub remote_rejected: Vec<String>,
+    /// rejected reference, due to lease failure, with an optional reason
+    pub rejected: Vec<(String, Option<String>)>,
+    /// reference rejected by the remote, with an optional reason
+    pub remote_rejected: Vec<(String, Option<String>)>,
 }
 
 impl GitPushStats {
@@ -2494,14 +2494,18 @@ fn git2_push_refs(
     for failed_update in &failed_push_negotiations {
         remaining_remote_refs.remove(failed_update.as_str());
     }
-    let mut remote_rejected: Vec<_> = remaining_remote_refs
+    let rejected: Vec<_> = failed_push_negotiations
         .into_iter()
         .sorted()
-        .map(|x| x.to_string())
+        .map(|name| (name, None))
         .collect();
-    remote_rejected.sort();
+    let remote_rejected: Vec<_> = remaining_remote_refs
+        .into_iter()
+        .sorted()
+        .map(|name| (name.to_string(), None))
+        .collect();
 
-    let push_stats = if !failed_push_negotiations.is_empty() {
+    let push_stats = if !rejected.is_empty() {
         // If the push negotiation returned an error, `remote.push` would not
         // have pushed anything and would have returned an error, as expected.
         // However, the error it returns is not necessarily the error we'd
@@ -2510,9 +2514,8 @@ fn git2_push_refs(
         // information. See https://github.com/rust-lang/git2-rs/issues/1042.
 
         assert!(push_result.is_err());
-        failed_push_negotiations.sort();
         GitPushStats {
-            rejected: failed_push_negotiations,
+            rejected,
             remote_rejected,
             ..Default::default()
         }

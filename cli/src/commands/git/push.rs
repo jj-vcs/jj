@@ -389,9 +389,13 @@ fn process_push_stats(push_stats: &GitPushStats) -> Result<(), CommandError> {
         let mut error = user_error("Failed to push some bookmarks:");
         if !push_stats.rejected.is_empty() {
             error.add_formatted_hint_with(|formatter| {
-                for reference in &push_stats.rejected {
+                for (reference, reason) in &push_stats.rejected {
                     write!(formatter.labeled("reference"), "{reference}")?;
-                    writeln!(formatter, ": unexpectedly moved on the remote")?;
+                    write!(formatter, ": unexpectedly moved on the remote")?;
+                    if let Some(r) = reason {
+                        write!(formatter, " (reason: {r})")?;
+                    }
+                    writeln!(formatter)?;
                 }
                 Ok(())
             });
@@ -402,9 +406,13 @@ fn process_push_stats(push_stats: &GitPushStats) -> Result<(), CommandError> {
         }
         if !push_stats.remote_rejected.is_empty() {
             error.add_formatted_hint_with(|formatter| {
-                for reference in &push_stats.remote_rejected {
+                for (reference, reason) in &push_stats.remote_rejected {
                     write!(formatter.labeled("reference"), "{reference}")?;
-                    writeln!(formatter, ": remote rejected the update")?;
+                    write!(formatter, ": remote rejected the update")?;
+                    if let Some(r) = reason {
+                        write!(formatter, " (reason: {r})")?;
+                    }
+                    writeln!(formatter)?;
                 }
                 Ok(())
             });
