@@ -114,14 +114,78 @@ use crate::working_copy::WorkingCopy;
 use crate::working_copy::WorkingCopyFactory;
 use crate::working_copy::WorkingCopyStateError;
 
+/// How to handle file executable bit changes when managing file metadata.
+///
+/// Executable bits are always ignored on Windows, however on Unix they are
+/// respected by default, but may be ignored if we find that the filesystem
+/// doesn't support executable bits or by user configuration.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExecConfig {
+    #[cfg(unix)]
+    Respect, // We only respect executable bit changes through files on Unix.
+    Ignore,
+}
+
 #[cfg(unix)]
-type FileExecutableFlag = bool;
+const EXEC_CONFIG: ExecConfig = ExecConfig::Respect;
 #[cfg(windows)]
-type FileExecutableFlag = ();
+const EXEC_CONFIG: ExecConfig = ExecConfig::Ignore;
+
+#[cfg_attr(windows, expect(unused_variables))]
+impl ExecConfig {
+    /// The default executable flag given this configuration.
+    pub fn default_flag(self) -> ExecFlag {
+        match self {
+            #[cfg(unix)]
+            ExecConfig::Respect => ExecFlag::Exec(false),
+            ExecConfig::Ignore => ExecFlag::NotDefined,
+        }
+    }
+
+    /// Resolve an executable bit into a flag, potentially ignoring it.
+    pub fn flag(self, executable: bool) -> ExecFlag {
+        match self {
+            #[cfg(unix)]
+            ExecConfig::Respect => ExecFlag::Exec(executable),
+            ExecConfig::Ignore => ExecFlag::NotDefined,
+        }
+    }
+}
+
+/// The executable bit state for a normal file.
+///
+/// On Windows there is no executable bit, so this will always be `NotDefined`.
+/// On Unix it will usually be `Exec(true|false)`, but may be `NotDefined` due
+/// to user configuration or if we determine that the current filesystem doesn't
+/// respect the executable bit.
+#[derive(Debug, Clone, Copy)]
+pub enum ExecFlag {
+    #[cfg(unix)]
+    Exec(bool),
+    NotDefined,
+}
+// Note: cannot derive `PartialEq` since `a == b == c` does not imply `a == c`.
+// E.g. Exec(true) == NotDefined == Exec(false) but Exec(true) != Exec(false)
+
+impl ExecFlag {
+    /// Convert a flag into the executable bit to write with a closure for a
+    /// fallback value if undefined.
+    pub fn get_or_else_fallback(
+        self,
+        exec_config: ExecConfig,
+        fallback: impl Fn() -> Option<bool>,
+    ) -> bool {
+        match (exec_config, self) {
+            #[cfg(unix)]
+            (ExecConfig::Respect, ExecFlag::Exec(executable)) => executable,
+            (_, _) => fallback().unwrap_or(false),
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum FileType {
-    Normal { executable: FileExecutableFlag },
+    Normal { exec_flag: ExecFlag },
     Symlink,
     GitSubmodule,
 }
@@ -149,7 +213,11 @@ impl FileState {
         use FileType as FT;
         let file_types_match = match (&self.file_type, &other.file_type) {
             (FT::GitSubmodule, FT::GitSubmodule) | (FT::Symlink, FT::Symlink) => true,
-            (FT::Normal { executable: lhs }, FT::Normal { executable: rhs }) => lhs == rhs,
+            (FT::Normal { exec_flag: lhs }, FT::Normal { exec_flag: rhs }) => match (lhs, rhs) {
+                #[cfg(unix)]
+                (ExecFlag::Exec(lhs), ExecFlag::Exec(rhs)) => lhs == rhs,
+                (_, _) => true, // Either is `NotDefined`
+            },
             (_, _) => false,
         };
         file_types_match && self.mtime == other.mtime && self.size == other.size
@@ -158,12 +226,10 @@ impl FileState {
     /// Indicates that a file exists in the tree but that it needs to be
     /// re-stat'ed on the next snapshot.
     fn placeholder() -> Self {
-        #[cfg(unix)]
-        let executable = false;
-        #[cfg(windows)]
-        let executable = ();
         FileState {
-            file_type: FileType::Normal { executable },
+            file_type: FileType::Normal {
+                exec_flag: EXEC_CONFIG.default_flag(),
+            },
             mtime: MillisSinceEpoch(0),
             size: 0,
             materialized_conflict_data: None,
@@ -171,18 +237,13 @@ impl FileState {
     }
 
     fn for_file(
-        executable: bool,
+        exec_flag: ExecFlag,
         size: u64,
         metadata: &Metadata,
         materialized_conflict_data: Option<MaterializedConflictData>,
     ) -> Self {
-        #[cfg(windows)]
-        let executable = {
-            // Windows doesn't support executable bit.
-            let _ = executable;
-        };
         FileState {
-            file_type: FileType::Normal { executable },
+            file_type: FileType::Normal { exec_flag },
             mtime: mtime_from_metadata(metadata),
             size,
             materialized_conflict_data,
@@ -407,18 +468,14 @@ impl<'a> FileStates<'a> {
 
 fn file_state_from_proto(proto: &crate::protos::working_copy::FileState) -> FileState {
     let file_type = match proto.file_type() {
-        crate::protos::working_copy::FileType::Normal => FileType::Normal {
-            executable: FileExecutableFlag::default(),
+        crate::protos::working_copy::FileType::Normal
+        | crate::protos::working_copy::FileType::Conflict => FileType::Normal {
+            exec_flag: EXEC_CONFIG.default_flag(),
         },
-        #[cfg(unix)]
-        crate::protos::working_copy::FileType::Executable => FileType::Normal { executable: true },
-        // can exist in files written by older versions of jj
-        #[cfg(windows)]
-        crate::protos::working_copy::FileType::Executable => FileType::Normal { executable: () },
+        crate::protos::working_copy::FileType::Executable => FileType::Normal {
+            exec_flag: EXEC_CONFIG.flag(true),
+        },
         crate::protos::working_copy::FileType::Symlink => FileType::Symlink,
-        crate::protos::working_copy::FileType::Conflict => FileType::Normal {
-            executable: FileExecutableFlag::default(),
-        },
         crate::protos::working_copy::FileType::GitSubmodule => FileType::GitSubmodule,
     };
     FileState {
@@ -436,12 +493,13 @@ fn file_state_from_proto(proto: &crate::protos::working_copy::FileState) -> File
 fn file_state_to_proto(file_state: &FileState) -> crate::protos::working_copy::FileState {
     let mut proto = crate::protos::working_copy::FileState::default();
     let file_type = match &file_state.file_type {
-        #[cfg(unix)]
-        FileType::Normal { executable: false } => crate::protos::working_copy::FileType::Normal,
-        #[cfg(unix)]
-        FileType::Normal { executable: true } => crate::protos::working_copy::FileType::Executable,
-        #[cfg(windows)]
-        FileType::Normal { executable: () } => crate::protos::working_copy::FileType::Normal,
+        FileType::Normal { exec_flag } => match exec_flag {
+            #[cfg(unix)]
+            ExecFlag::Exec(true) => crate::protos::working_copy::FileType::Executable,
+            #[cfg(unix)]
+            ExecFlag::Exec(false) => crate::protos::working_copy::FileType::Normal,
+            ExecFlag::NotDefined => crate::protos::working_copy::FileType::Normal,
+        },
         FileType::Symlink => crate::protos::working_copy::FileType::Symlink,
         FileType::GitSubmodule => crate::protos::working_copy::FileType::GitSubmodule,
     };
@@ -674,14 +732,12 @@ fn file_state(metadata: &Metadata) -> Option<FileState> {
     } else if metadata_file_type.is_symlink() {
         Some(FileType::Symlink)
     } else if metadata_file_type.is_file() {
-        #[cfg(unix)]
-        if metadata.permissions().mode() & 0o111 != 0 {
-            Some(FileType::Normal { executable: true })
-        } else {
-            Some(FileType::Normal { executable: false })
-        }
-        #[cfg(windows)]
-        Some(FileType::Normal { executable: () })
+        let exec_flag = match EXEC_CONFIG {
+            #[cfg(unix)]
+            ExecConfig::Respect => ExecFlag::Exec(metadata.permissions().mode() & 0o111 != 0),
+            ExecConfig::Ignore => ExecFlag::NotDefined,
+        };
+        Some(FileType::Normal { exec_flag })
     } else {
         None
     };
@@ -1440,12 +1496,12 @@ impl FileSnapshotter<'_> {
                 new_file_state.file_type.clone()
             };
             let new_tree_values = match new_file_type {
-                FileType::Normal { executable } => self
+                FileType::Normal { exec_flag } => self
                     .write_path_to_store(
                         repo_path,
                         disk_path,
                         &current_tree_values,
-                        executable,
+                        exec_flag,
                         maybe_current_file_state.and_then(|state| state.materialized_conflict_data),
                     )
                     .block_on()?,
@@ -1470,23 +1526,18 @@ impl FileSnapshotter<'_> {
         repo_path: &RepoPath,
         disk_path: &Path,
         current_tree_values: &MergedTreeValue,
-        executable: FileExecutableFlag,
+        exec_flag: ExecFlag,
         materialized_conflict_data: Option<MaterializedConflictData>,
     ) -> Result<MergedTreeValue, SnapshotError> {
         if let Some(current_tree_value) = current_tree_values.as_resolved() {
-            #[cfg(unix)]
-            let _ = current_tree_value; // use the variable
             let id = self.write_file_to_store(repo_path, disk_path).await?;
-            // On Windows, we preserve the executable bit from the current tree.
-            #[cfg(windows)]
-            let executable = {
-                let () = executable; // use the variable
-                if let Some(TreeValue::File { id: _, executable }) = current_tree_value {
-                    *executable
-                } else {
-                    false
+            let executable = exec_flag.get_or_else_fallback(EXEC_CONFIG, || {
+                // Fallback to the executable bit from the current tree.
+                match current_tree_value {
+                    Some(TreeValue::File { id: _, executable }) => Some(*executable),
+                    _ => None,
                 }
-            };
+            });
             Ok(Merge::normal(TreeValue::File { id, executable }))
         } else if let Some(old_file_ids) = current_tree_values.to_file_merge() {
             // If the file contained a conflict before and is a normal file on
@@ -1509,16 +1560,13 @@ impl FileSnapshotter<'_> {
             .await?;
             match new_file_ids.into_resolved() {
                 Ok(file_id) => {
-                    // On Windows, we preserve the executable bit from the merged trees.
-                    #[cfg(windows)]
-                    let executable = {
-                        let () = executable; // use the variable
-                        if let Some(merge) = current_tree_values.to_executable_merge() {
-                            conflicts::resolve_file_executable(&merge).unwrap_or(false)
-                        } else {
-                            false
-                        }
-                    };
+                    let executable = exec_flag.get_or_else_fallback(EXEC_CONFIG, || {
+                        // Fallback to the executable bit from the merged trees.
+                        current_tree_values
+                            .to_executable_merge()
+                            .as_ref()
+                            .and_then(conflicts::resolve_file_executable)
+                    });
                     Ok(Merge::normal(TreeValue::File {
                         id: file_id.unwrap(),
                         executable,
@@ -1586,7 +1634,8 @@ impl WcTreeMutator<'_> {
         &self,
         disk_path: &Path,
         contents: &mut dyn Read,
-        executable: bool,
+        exec_flag: ExecFlag,
+        prev_exec_bit: Option<bool>,
     ) -> Result<FileState, CheckoutError> {
         let mut file = OpenOptions::new()
             .write(true)
@@ -1600,7 +1649,7 @@ impl WcTreeMutator<'_> {
             message: format!("Failed to write file {}", disk_path.display()),
             err: err.into(),
         })?;
-        self.set_executable(disk_path, executable)?;
+        self.set_executable(disk_path, exec_flag, prev_exec_bit)?;
         // Read the file state from the file descriptor. That way, know that the file
         // exists and is of the expected type, and the stat information is most likely
         // accurate, except for other processes modifying the file concurrently (The
@@ -1608,7 +1657,7 @@ impl WcTreeMutator<'_> {
         let metadata = file
             .metadata()
             .map_err(|err| checkout_error_for_stat_error(err, disk_path))?;
-        Ok(FileState::for_file(executable, size, &metadata, None))
+        Ok(FileState::for_file(exec_flag, size, &metadata, None))
     }
 
     fn write_symlink(&self, disk_path: &Path, target: String) -> Result<FileState, CheckoutError> {
@@ -1631,7 +1680,8 @@ impl WcTreeMutator<'_> {
         &self,
         disk_path: &Path,
         conflict_data: Vec<u8>,
-        executable: bool,
+        exec_flag: ExecFlag,
+        prev_exec_bit: Option<bool>,
         materialized_conflict_data: Option<MaterializedConflictData>,
     ) -> Result<FileState, CheckoutError> {
         let mut file = OpenOptions::new()
@@ -1648,27 +1698,41 @@ impl WcTreeMutator<'_> {
                 err: err.into(),
             })?;
         let size = conflict_data.len() as u64;
-        self.set_executable(disk_path, executable)?;
+        self.set_executable(disk_path, exec_flag, prev_exec_bit)?;
         let metadata = file
             .metadata()
             .map_err(|err| checkout_error_for_stat_error(err, disk_path))?;
         Ok(FileState::for_file(
-            executable,
+            exec_flag,
             size,
             &metadata,
             materialized_conflict_data,
         ))
     }
 
-    #[cfg_attr(windows, allow(unused_variables))]
-    fn set_executable(&self, disk_path: &Path, executable: bool) -> Result<(), CheckoutError> {
-        #[cfg(unix)]
-        {
-            let mode = if executable { 0o755 } else { 0o644 };
-            fs::set_permissions(disk_path, fs::Permissions::from_mode(mode))
-                .map_err(|err| checkout_error_for_stat_error(err, disk_path))?;
+    /// Set the executable bit of a file on disk. This is a no-op on Windows.
+    ///
+    /// On Unix, if the executable bit is undefined, then we set the executable
+    /// bit to the previous value on the filesystem. This is necessary because
+    /// we write all files by creating them new, so files don't preserve their
+    /// permissions naturally.
+    fn set_executable(
+        &self,
+        disk_path: &Path,
+        exec_flag: ExecFlag,
+        prev_exec_bit: Option<bool>,
+    ) -> Result<(), CheckoutError> {
+        #[cfg(windows)]
+        let _ = disk_path;
+        match (exec_flag, prev_exec_bit) {
+            #[cfg(unix)]
+            (ExecFlag::Exec(true), _) | (ExecFlag::NotDefined, Some(true)) => {
+                let mode = 0o755;
+                fs::set_permissions(disk_path, fs::Permissions::from_mode(mode))
+                    .map_err(|err| checkout_error_for_stat_error(err, disk_path))
+            }
+            (_, _) => Ok(()),
         }
-        Ok(())
     }
 
     pub fn check_out(
@@ -1811,6 +1875,17 @@ impl WcTreeMutator<'_> {
                 continue;
             }
 
+            // If this file already exists and we're ignoring the executable
+            // bit, then we need to preserve its previous bit since we delete
+            // and re-create all checked-out files.
+            let mut prev_exec_bit = None;
+            if cfg!(unix) && EXEC_CONFIG == ExecConfig::Ignore {
+                prev_exec_bit = before
+                    .to_executable_merge()
+                    .and_then(|merge| merge.into_resolved().ok())
+                    .flatten();
+            }
+
             // TODO: Check that the file has not changed before overwriting/removing it.
             let file_state = match after {
                 MaterializedTreeValue::Absent | MaterializedTreeValue::AccessDenied(_) => {
@@ -1825,13 +1900,20 @@ impl WcTreeMutator<'_> {
                     continue;
                 }
                 MaterializedTreeValue::File(mut file) => {
-                    self.write_file(&disk_path, &mut file.reader, file.executable)?
+                    let exec_flag = EXEC_CONFIG.flag(file.executable);
+                    self.write_file(&disk_path, &mut file.reader, exec_flag, prev_exec_bit)?
                 }
                 MaterializedTreeValue::Symlink { id: _, target } => {
                     if self.state.symlink_support {
                         self.write_symlink(&disk_path, target)?
                     } else {
-                        self.write_file(&disk_path, &mut target.as_bytes(), false)?
+                        let exec_flag = EXEC_CONFIG.default_flag();
+                        self.write_file(
+                            &disk_path,
+                            &mut target.as_bytes(),
+                            exec_flag,
+                            prev_exec_bit,
+                        )?
                     }
                 }
                 MaterializedTreeValue::GitSubmodule(_) => {
@@ -1853,10 +1935,15 @@ impl WcTreeMutator<'_> {
                     let materialized_conflict_data = MaterializedConflictData {
                         conflict_marker_len: conflict_marker_len.try_into().unwrap_or(u32::MAX),
                     };
+                    let exec_flag = file
+                        .executable
+                        .map(|e| EXEC_CONFIG.flag(e))
+                        .unwrap_or(EXEC_CONFIG.default_flag());
                     self.write_conflict(
                         &disk_path,
                         data,
-                        file.executable.unwrap_or(false),
+                        exec_flag,
+                        prev_exec_bit,
                         Some(materialized_conflict_data),
                     )?
                 }
@@ -1864,8 +1951,8 @@ impl WcTreeMutator<'_> {
                     // Unless all terms are regular files, we can't do much
                     // better than trying to describe the merge.
                     let data = id.describe().into_bytes();
-                    let executable = false;
-                    self.write_conflict(&disk_path, data, executable, None)?
+                    let exec_flag = EXEC_CONFIG.default_flag();
+                    self.write_conflict(&disk_path, data, exec_flag, None, None)?
                 }
             };
             changed_file_states.push((path, file_state));
@@ -1895,10 +1982,9 @@ impl WcTreeMutator<'_> {
             } else {
                 let file_type = match after.into_resolved() {
                     Ok(value) => match value.unwrap() {
-                        #[cfg(unix)]
-                        TreeValue::File { id: _, executable } => FileType::Normal { executable },
-                        #[cfg(windows)]
-                        TreeValue::File { .. } => FileType::Normal { executable: () },
+                        TreeValue::File { id: _, executable } => FileType::Normal {
+                            exec_flag: EXEC_CONFIG.flag(executable),
+                        },
                         TreeValue::Symlink(_id) => FileType::Symlink,
                         TreeValue::Conflict(_id) => {
                             panic!("unexpected conflict entry in diff at {path:?}");
@@ -1912,15 +1998,14 @@ impl WcTreeMutator<'_> {
                         }
                     },
                     Err(values) => {
-                        let mut exec = Default::default();
+                        let mut exec_flag = EXEC_CONFIG.default_flag();
                         // Use the most recently added executable bit.
-                        #[cfg(unix)]
                         for value in values.adds().flatten() {
                             if let TreeValue::File { id: _, executable } = value {
-                                exec = *executable;
+                                exec_flag = EXEC_CONFIG.flag(*executable);
                             }
                         }
-                        FileType::Normal { executable: exec }
+                        FileType::Normal { exec_flag }
                     }
                 };
                 let file_state = FileState {
@@ -2379,16 +2464,19 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_file_states_merge() {
-        let new_state = |size| FileState {
+    fn new_state(size: u64) -> FileState {
+        FileState {
             file_type: FileType::Normal {
-                executable: FileExecutableFlag::default(),
+                exec_flag: EXEC_CONFIG.default_flag(),
             },
             mtime: MillisSinceEpoch(0),
             size,
             materialized_conflict_data: None,
-        };
+        }
+    }
+
+    #[test]
+    fn test_file_states_merge() {
         let new_static_entry = |path: &'static str, size| (repo_path(path), new_state(size));
         let new_owned_entry = |path: &str, size| (repo_path(path).to_owned(), new_state(size));
         let new_proto_entry = |path: &str, size| {
@@ -2430,14 +2518,6 @@ mod tests {
 
     #[test]
     fn test_file_states_lookup() {
-        let new_state = |size| FileState {
-            file_type: FileType::Normal {
-                executable: FileExecutableFlag::default(),
-            },
-            mtime: MillisSinceEpoch(0),
-            size,
-            materialized_conflict_data: None,
-        };
         let new_proto_entry = |path: &str, size| {
             file_state_entry_to_proto(repo_path(path).to_owned(), &new_state(size))
         };
@@ -2495,14 +2575,6 @@ mod tests {
 
     #[test]
     fn test_file_states_lookup_at() {
-        let new_state = |size| FileState {
-            file_type: FileType::Normal {
-                executable: FileExecutableFlag::default(),
-            },
-            mtime: MillisSinceEpoch(0),
-            size,
-            materialized_conflict_data: None,
-        };
         let new_proto_entry = |path: &str, size| {
             file_state_entry_to_proto(repo_path(path).to_owned(), &new_state(size))
         };
