@@ -19,7 +19,7 @@ keywords = ["VCS", "DVCS", "SCM", "Git", "Mercurial"]
 [workspace.dependencies]
 assert_cmd = "2.0.8"
 assert_matches = "1.5.0"
-async-trait = "0.1.87"
+async-trait = "0.1.88"
 blake2 = "0.10.6"
 bstr = "1.11.3"
 clap = { version = "4.5.32", features = [
@@ -45,7 +45,7 @@ dirs = "6.0.0"
 dunce = "1.0.5"
 either = "1.15.0"
 futures = "0.3.31"
-git2 = { version = "0.20.0", features = [
+git2 = { version = "0.20.1", features = [
     # Do *not* disable this feature even if you'd like dynamic linking. Instead,
     # set the environment variable `LIBGIT2_NO_VENDOR=1` if dynamic linking must
     # be used (this will override the Cargo feature), and allow static linking
@@ -88,7 +88,7 @@ rayon = "1.10.0"
 ref-cast = "1.0.24"
 regex = "1.11.1"
 rpassword = "7.3.1"
-rustix = { version = "1.0.2", features = ["fs"] }
+rustix = { version = "1.0.3", features = ["fs"] }
 same-file = "1.0.6"
 sapling-renderdag = "0.1.0"
 sapling-streampager = "0.11.0"
