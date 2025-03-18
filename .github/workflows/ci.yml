@@ -71,11 +71,11 @@ jobs:
     - name: Set up Windows Builders
       uses: ./.github/actions/setup-windows
     - name: Install Rust
-      uses: dtolnay/rust-toolchain@a54c7afa936fefeb4456b2dd8068152669aa8203
+      uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
       with:
         toolchain: 1.84
         target: ${{ matrix.targets }}
-    - uses: taiki-e/install-action@0f58b6a196e0d71c72fd459ab8fd8b228f85f669
+    - uses: taiki-e/install-action@37bdc826eaedac215f638a96472df572feab0f9b
       with:
         tool: nextest,taplo-cli
     - name: Install mold
@@ -114,7 +114,7 @@ jobs:
       with:
         persist-credentials: false
     - name: Install Rust
-      uses: dtolnay/rust-toolchain@a54c7afa936fefeb4456b2dd8068152669aa8203
+      uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
       with:
         toolchain: 1.84
     - name: Build
@@ -144,7 +144,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@a54c7afa936fefeb4456b2dd8068152669aa8203
+      - uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
         with:
           toolchain: stable
       - run: sudo apt update && sudo apt-get -y install protobuf-compiler
@@ -160,7 +160,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@a54c7afa936fefeb4456b2dd8068152669aa8203
+      - uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
         with:
           toolchain: nightly
           components: rustfmt
@@ -175,7 +175,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@a54c7afa936fefeb4456b2dd8068152669aa8203
+      - uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
         with:
           toolchain: stable
           components: clippy
@@ -229,7 +229,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@1482605bfc5719782e1267fd0c0cc350fe7646b8
+      - uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
         with:
           toolchain: 1.84
       # NOTE: We need to run `cargo test --doc` separately from normal tests:
