@@ -908,6 +908,222 @@ fn test_edit_cannot_be_used_with_no_edit() {
     ");
 }
 
+#[test]
+fn test_add_trailer() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Set a description using `-m` flag
+    let output = work_dir.run_jj([
+        "describe",
+        "-m",
+        "Message from CLI",
+        "--config",
+        r#"templates.commit_trailers='"Signed-off-by: " ++ committer'"#,
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: qpvuntsm f576838d (empty) Message from CLI
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
+    insta::assert_snapshot!(output, @r"
+    Message from CLI
+
+    Signed-off-by: Test User <test.user@example.com>
+    [EOF]
+    ");
+
+    // multiple trailers may be used, and work with --no-edit
+    let output = work_dir.run_jj([
+        "describe",
+        "--no-edit",
+        "--config",
+        r#"templates.commit_trailers='"CC: alice@example.com\nChange-Id: I6a6a6964" ++ self.change_id().normal_hex()'"#,
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: qpvuntsm 2d3438dc (empty) Message from CLI
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
+    insta::assert_snapshot!(output, @r"
+    Message from CLI
+
+    Signed-off-by: Test User <test.user@example.com>
+    CC: alice@example.com
+    Change-Id: I6a6a69649a45c67d3e96a7e5007c110ede34dec5
+    [EOF]
+    ");
+
+    // it won't create a duplicate entry
+    let output = work_dir.run_jj([
+        "describe",
+        "--no-edit",
+        "--config",
+        r#"templates.commit_trailers='"CC: alice@example.com"'"#,
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
+    insta::assert_snapshot!(output, @r"
+    Message from CLI
+
+    Signed-off-by: Test User <test.user@example.com>
+    CC: alice@example.com
+    Change-Id: I6a6a69649a45c67d3e96a7e5007c110ede34dec5
+    [EOF]
+    ");
+
+    // invalid generated trailers generate an error
+    let output = work_dir.run_jj([
+        "describe",
+        "--no-edit",
+        "--config",
+        r#"templates.commit_trailers='"this is an invalid trailer"'"#,
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Invalid trailer line: this is an invalid trailer
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // it doesn't modify a commit with an empty description
+    let output = work_dir.run_jj(["new"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: yostqsxw 5a8ea7e1 (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 2d3438dc (empty) Message from CLI
+    [EOF]
+    ");
+    let output = work_dir.run_jj([
+        "describe",
+        "--no-edit",
+        "--config",
+        r#"templates.commit_trailers='"CC: alice@example.com"'"#,
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_add_trailer_committer() {
+    let mut test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let edit_script = test_env.set_up_fake_editor();
+    let work_dir = test_env.work_dir("repo");
+    test_env.add_config(
+        r#"[templates]
+        commit_trailers = '''"Signed-off-by: " ++ committer.email()'''"#,
+    );
+
+    let output = work_dir.run_jj(["describe", "-m", "Message from CLI"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: qpvuntsm 500b5e31 (empty) Message from CLI
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
+    insta::assert_snapshot!(output, @r"
+    Message from CLI
+
+    Signed-off-by: test.user@example.com
+    [EOF]
+    ");
+
+    // committer is properly set in the trailer
+    let output = work_dir.run_jj([
+        "describe",
+        "--no-edit",
+        "--config",
+        "user.email=foo@bar.org",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: qpvuntsm b71fc9e2 (empty) Message from CLI
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
+    insta::assert_snapshot!(output, @r"
+    Message from CLI
+
+    Signed-off-by: test.user@example.com
+    Signed-off-by: foo@bar.org
+    [EOF]
+    ");
+
+    // trailer is added with the expected committer in the editor
+    std::fs::write(&edit_script, "dump editor0").unwrap();
+    let output = work_dir.run_jj(["describe", "--config", "user.email=foo@bar.net"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: qpvuntsm d430eef5 (empty) Message from CLI
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r#"
+    Message from CLI
+
+    Signed-off-by: test.user@example.com
+    Signed-off-by: foo@bar.org
+    Signed-off-by: foo@bar.net
+
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "#);
+
+    let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
+    insta::assert_snapshot!(output, @r"
+    Message from CLI
+
+    Signed-off-by: test.user@example.com
+    Signed-off-by: foo@bar.org
+    Signed-off-by: foo@bar.net
+    [EOF]
+    ");
+
+    // trailer is added added when editing an empty description
+    work_dir.run_jj(["new"]).success();
+    std::fs::write(&edit_script, "dump editor0").unwrap();
+    let output = work_dir.run_jj(["describe"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: vruxwmqv bc9e914e (empty) Signed-off-by: test.user@example.com
+    Parent commit (@-)      : qpvuntsm d430eef5 (empty) Message from CLI
+    [EOF]
+    ");
+
+    let editor0 = std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap();
+    insta::assert_snapshot!(
+        format!("-----\n{editor0}-----\n"), @r#"
+    -----
+
+    
+    Signed-off-by: test.user@example.com
+
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    -----
+    "#);
+}
+
 #[must_use]
 fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     let template = r#"commit_id.short() ++ " " ++ description"#;

@@ -38,6 +38,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * New `signed` revset function to filter for cryptographically signed commits.
 
+* `jj describe` adds the commit trailers, configured in the `commit_trailers`
+  template, to the commit description. Use cases include DCO Sign Off and
+  Gerrit Change Id.
+
 ### Fixed bugs
 
 * Fixed crash on change-delete conflict resolution.

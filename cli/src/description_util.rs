@@ -17,13 +17,17 @@ use jj_lib::config::ConfigGetError;
 use jj_lib::file_util::IoResultExt as _;
 use jj_lib::file_util::PathError;
 use jj_lib::settings::UserSettings;
+use jj_lib::trailer::parse_description_trailers;
+use jj_lib::trailer::parse_trailers;
 use thiserror::Error;
 
 use crate::cli_util::short_commit_hash;
 use crate::cli_util::WorkspaceCommandTransaction;
+use crate::command_error::user_error;
 use crate::command_error::CommandError;
 use crate::config::CommandNameAndArgs;
 use crate::formatter::PlainTextFormatter;
+use crate::templater::TemplateRenderer;
 use crate::text_util;
 use crate::ui::Ui;
 
@@ -335,6 +339,71 @@ pub fn join_message_paragraphs(paragraphs: &[String]) -> String {
         .iter()
         .map(|p| text_util::complete_newline(p.as_str()))
         .join("\n")
+}
+
+/// Parse the commit trailers template from the configuration
+///
+/// Returns None if the commit trailers template is empty.
+pub fn parse_trailers_template<'a>(
+    ui: &Ui,
+    tx: &'a WorkspaceCommandTransaction,
+) -> Result<Option<TemplateRenderer<'a, Commit>>, CommandError> {
+    let trailer_template = tx.settings().get_string("templates.commit_trailers")?;
+    if trailer_template.is_empty() {
+        Ok(None)
+    } else {
+        tx.parse_commit_template(ui, &trailer_template).map(Some)
+    }
+}
+
+/// Add the trailers from the given `template` in the last paragraph of
+/// the description
+///
+/// It just lets the description untouched if the trailers are already there.
+pub fn add_trailers_with_template(
+    template: &TemplateRenderer<'_, Commit>,
+    commit: &Commit,
+) -> Result<String, CommandError> {
+    let trailers = parse_description_trailers(commit.description());
+    let mut output = Vec::new();
+    template
+        .format(commit, &mut PlainTextFormatter::new(&mut output))
+        .expect("write() to vec backed formatter should never fail");
+    let trailer_lines = output
+        .into_string()
+        .map_err(|_| user_error("Trailers should be valid utf-8"))?;
+    let new_trailers = parse_trailers(&trailer_lines)?;
+    let mut description = commit.description().to_owned();
+    if trailers.is_empty() && !new_trailers.is_empty() {
+        if description.is_empty() {
+            // a first empty line where the user will edit the commit summary
+            description.push('\n');
+        }
+        // create a new paragraph for the trailer
+        description.push('\n');
+    }
+    for new_trailer in new_trailers {
+        if !trailers.contains(&new_trailer) {
+            description.push_str(&format!("{}: {}\n", new_trailer.key, new_trailer.value));
+        }
+    }
+    Ok(description)
+}
+
+/// Add the trailers from `templates.commit_trailers` in the last paragraph of
+/// the description
+///
+/// It just lets the description untouched if the trailers are already there.
+pub fn add_trailers(
+    ui: &Ui,
+    tx: &WorkspaceCommandTransaction,
+    commit: &Commit,
+) -> Result<String, CommandError> {
+    if let Some(renderer) = parse_trailers_template(ui, tx)? {
+        add_trailers_with_template(&renderer, commit)
+    } else {
+        Ok(commit.description().to_owned())
+    }
 }
 
 /// Renders commit description template, which will be edited by user.

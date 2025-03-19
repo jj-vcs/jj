@@ -217,6 +217,18 @@ keys can be supplied here, the first key is the most significant.
 When the `--sort` option is used with `jj bookmark list`, the configuration
 is ignored.
 
+### Commit trailers
+
+Trailers may be automatically added to the commit description with the
+`commit_trailers` template.
+
+```toml
+[templates]
+commit_trailers = '''
+"Signed-off-by: " ++ committer ++ "\n"
+'''
+```
+
 ### Diff colors and styles
 
 In color-words and git diffs, word-level hunks are rendered with underline. You
