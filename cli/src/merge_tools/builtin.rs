@@ -11,6 +11,7 @@ use jj_lib::backend::MergedTreeId;
 use jj_lib::backend::TreeValue;
 use jj_lib::conflicts;
 use jj_lib::conflicts::ConflictMarkerStyle;
+use jj_lib::conflicts::ConflictMaterializeOptions;
 use jj_lib::conflicts::MIN_CONFLICT_MARKER_LEN;
 use jj_lib::conflicts::MaterializedTreeValue;
 use jj_lib::conflicts::materialize_merge_result_to_bytes;
@@ -122,7 +123,7 @@ fn buf_to_file_contents(hash: Option<String>, buf: Vec<u8>) -> FileContents {
 fn read_file_contents(
     materialized_value: MaterializedTreeValue,
     path: &RepoPath,
-    conflict_marker_style: ConflictMarkerStyle,
+    materialize_options: &ConflictMaterializeOptions,
 ) -> Result<FileInfo, BuiltinToolError> {
     match materialized_value {
         MaterializedTreeValue::Absent => Ok(FileInfo {
@@ -176,8 +177,7 @@ fn read_file_contents(
             // Since scm_record doesn't support diffs of conflicts, file
             // conflicts are compared in materialized form. The UI would look
             // scary, but it can at least allow squashing resolved hunks.
-            let buf =
-                materialize_merge_result_to_bytes(&file.contents, conflict_marker_style).into();
+            let buf = materialize_merge_result_to_bytes(&file.contents, materialize_options).into();
             // TODO: Render the ID somehow?
             let contents = buf_to_file_contents(None, buf);
             Ok(FileInfo {
@@ -263,8 +263,12 @@ fn make_diff_sections(
 async fn make_diff_files(
     store: &Arc<Store>,
     tree_diff: BoxStream<'_, CopiesTreeDiffEntry>,
-    conflict_marker_style: ConflictMarkerStyle,
+    marker_style: ConflictMarkerStyle,
 ) -> Result<(Vec<RepoPathBuf>, Vec<scm_record::File<'static>>), BuiltinToolError> {
+    let materialize_options = ConflictMaterializeOptions {
+        marker_style,
+        marker_len: None,
+    };
     let mut diff_stream = materialized_diff_stream(store, tree_diff);
     let mut changed_files = Vec::new();
     let mut files = Vec::new();
@@ -272,8 +276,8 @@ async fn make_diff_files(
         let left_path = entry.path.source();
         let right_path = entry.path.target();
         let (left_value, right_value) = entry.values?;
-        let left_info = read_file_contents(left_value, left_path, conflict_marker_style)?;
-        let right_info = read_file_contents(right_value, right_path, conflict_marker_style)?;
+        let left_info = read_file_contents(left_value, left_path, &materialize_options)?;
+        let right_info = read_file_contents(right_value, right_path, &materialize_options)?;
         let mut sections = Vec::new();
 
         if left_info.file_mode != right_info.file_mode {

@@ -14,9 +14,10 @@ use jj_lib::backend::MergedTreeId;
 use jj_lib::backend::TreeValue;
 use jj_lib::conflicts;
 use jj_lib::conflicts::ConflictMarkerStyle;
+use jj_lib::conflicts::ConflictMaterializeOptions;
 use jj_lib::conflicts::MIN_CONFLICT_MARKER_LEN;
 use jj_lib::conflicts::choose_materialized_conflict_marker_len;
-use jj_lib::conflicts::materialize_merge_result_to_bytes_with_marker_len;
+use jj_lib::conflicts::materialize_merge_result_to_bytes;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::matchers::Matcher;
 use jj_lib::merge::Merge;
@@ -207,11 +208,11 @@ fn run_mergetool_external_single_file(
         MIN_CONFLICT_MARKER_LEN
     };
     let initial_output_content = if editor.merge_tool_edits_conflict_markers {
-        materialize_merge_result_to_bytes_with_marker_len(
-            &file.contents,
-            conflict_marker_style,
-            conflict_marker_len,
-        )
+        let options = ConflictMaterializeOptions {
+            marker_style: conflict_marker_style,
+            marker_len: Some(conflict_marker_len),
+        };
+        materialize_merge_result_to_bytes(&file.contents, &options)
     } else {
         BString::default()
     };

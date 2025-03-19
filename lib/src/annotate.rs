@@ -33,7 +33,7 @@ use crate::backend::BackendError;
 use crate::backend::BackendResult;
 use crate::backend::CommitId;
 use crate::commit::Commit;
-use crate::conflicts::ConflictMarkerStyle;
+use crate::conflicts::ConflictMaterializeOptions;
 use crate::conflicts::MaterializedTreeValue;
 use crate::conflicts::materialize_merge_result_to_bytes;
 use crate::conflicts::materialize_tree_value;
@@ -442,7 +442,7 @@ async fn get_file_contents(
         MaterializedTreeValue::File(mut file) => Ok(file.read_all(path).await?.into()),
         MaterializedTreeValue::FileConflict(file) => Ok(materialize_merge_result_to_bytes(
             &file.contents,
-            ConflictMarkerStyle::default(),
+            &ConflictMaterializeOptions::default(),
         )),
         _ => Ok(BString::default()),
     }

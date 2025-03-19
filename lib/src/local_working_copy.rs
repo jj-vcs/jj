@@ -71,10 +71,11 @@ use crate::commit::Commit;
 use crate::config::ConfigGetError;
 use crate::conflicts;
 use crate::conflicts::ConflictMarkerStyle;
+use crate::conflicts::ConflictMaterializeOptions;
 use crate::conflicts::MIN_CONFLICT_MARKER_LEN;
 use crate::conflicts::MaterializedTreeValue;
 use crate::conflicts::choose_materialized_conflict_marker_len;
-use crate::conflicts::materialize_merge_result_to_bytes_with_marker_len;
+use crate::conflicts::materialize_merge_result_to_bytes;
 use crate::conflicts::materialize_tree_value;
 pub use crate::eol::EolConversionMode;
 use crate::eol::TargetEolStrategy;
@@ -1955,11 +1956,11 @@ impl TreeState {
                 MaterializedTreeValue::FileConflict(file) => {
                     let conflict_marker_len =
                         choose_materialized_conflict_marker_len(&file.contents);
-                    let contents = materialize_merge_result_to_bytes_with_marker_len(
-                        &file.contents,
-                        self.conflict_marker_style,
-                        conflict_marker_len,
-                    );
+                    let options = ConflictMaterializeOptions {
+                        marker_style: self.conflict_marker_style,
+                        marker_len: Some(conflict_marker_len),
+                    };
+                    let contents = materialize_merge_result_to_bytes(&file.contents, &options);
                     let mut file_state = self
                         .write_conflict(&disk_path, &contents, file.executable.unwrap_or(false))
                         .await?;

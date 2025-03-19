@@ -16,6 +16,7 @@ use indoc::indoc;
 use itertools::Itertools as _;
 use jj_lib::backend::FileId;
 use jj_lib::conflicts::ConflictMarkerStyle;
+use jj_lib::conflicts::ConflictMaterializeOptions;
 use jj_lib::conflicts::MIN_CONFLICT_MARKER_LEN;
 use jj_lib::conflicts::choose_materialized_conflict_marker_len;
 use jj_lib::conflicts::extract_as_single_hunk;
@@ -2439,11 +2440,14 @@ fn materialize_conflict_string(
     store: &Store,
     path: &RepoPath,
     conflict: &Merge<Option<FileId>>,
-    conflict_marker_style: ConflictMarkerStyle,
+    marker_style: ConflictMarkerStyle,
 ) -> String {
     let contents = extract_as_single_hunk(conflict, store, path)
         .block_on()
         .unwrap();
-    String::from_utf8(materialize_merge_result_to_bytes(&contents, conflict_marker_style).into())
-        .unwrap()
+    let options = ConflictMaterializeOptions {
+        marker_style,
+        marker_len: None,
+    };
+    String::from_utf8(materialize_merge_result_to_bytes(&contents, &options).into()).unwrap()
 }
