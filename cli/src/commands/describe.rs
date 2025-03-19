@@ -28,6 +28,7 @@ use crate::cli_util::RevisionArg;
 use crate::command_error::user_error;
 use crate::command_error::CommandError;
 use crate::complete;
+use crate::description_util::add_trailers;
 use crate::description_util::description_template;
 use crate::description_util::edit_description;
 use crate::description_util::edit_multiple_descriptions;
@@ -157,26 +158,42 @@ pub(crate) fn cmd_describe(
     let commit_descriptions: Vec<(_, _)> = if !use_editor {
         commits
             .iter()
-            .map(|commit| {
-                let new_description = shared_description
+            .map(|commit| -> Result<_, CommandError> {
+                let mut new_description = shared_description
                     .as_deref()
-                    .unwrap_or_else(|| commit.description());
-                (commit, new_description.to_owned())
+                    .unwrap_or_else(|| commit.description())
+                    .to_owned();
+                if !new_description.is_empty() {
+                    // The first trailer would become the first line of the description.
+                    // Also, a commit with no description is treated in a special way in jujutsu: it
+                    // can be discarded as soon as it's no longer the working copy. Adding a
+                    // trailer to an empty description would break that logic.
+                    let commit_builder = tx.repo_mut().rewrite_commit(commit).detach();
+                    let temp_commit = commit_builder.write_hidden()?;
+                    new_description = add_trailers(ui, &tx, &temp_commit, &new_description)?;
+                }
+                Ok((commit, new_description))
             })
-            .collect()
+            .try_collect()?
     } else {
+        let ui_default_description = tx.settings().get_string("ui.default-description")?;
         let temp_commits: Vec<(_, _)> = commits
             .iter()
             // Edit descriptions in topological order
             .rev()
             .map(|commit| -> Result<_, CommandError> {
                 let mut commit_builder = tx.repo_mut().rewrite_commit(commit).detach();
-                if let Some(description) = &shared_description {
-                    commit_builder.set_description(description);
-                } else if commit_builder.description().is_empty() {
-                    commit_builder
-                        .set_description(tx.settings().get_string("ui.default-description")?);
-                }
+                let description = if let Some(description) = &shared_description {
+                    description
+                } else if !commit_builder.description().is_empty() {
+                    commit_builder.description()
+                } else {
+                    &ui_default_description
+                };
+                let temp_commit = commit_builder.write_hidden()?;
+                let description = add_trailers(ui, &tx, &temp_commit, description)?;
+                commit_builder.set_description(description);
+
                 if args.reset_author {
                     let new_author = commit_builder.committer().clone();
                     commit_builder.set_author(new_author);
