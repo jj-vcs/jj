@@ -73,6 +73,7 @@ use crate::op_store::RemoteRefState;
 use crate::op_store::RootOperationData;
 use crate::op_store::WorkspaceId;
 use crate::operation::Operation;
+use crate::refs::diff_named_commit_ids;
 use crate::refs::diff_named_ref_targets;
 use crate::refs::diff_named_remote_refs;
 use crate::refs::merge_ref_targets;
@@ -1664,34 +1665,29 @@ impl MutableRepo {
     }
 
     fn merge_view(&mut self, base: &View, other: &View) -> BackendResult<()> {
-        // TODO: Use `diff_named_commit_ids` to simplify this.
-        // Merge working-copy commits. If there's a conflict, we keep the self side.
-        for (workspace_id, base_wc_commit) in base.wc_commit_ids() {
-            let self_wc_commit = self.view().get_wc_commit_id(workspace_id);
-            let other_wc_commit = other.get_wc_commit_id(workspace_id);
-            if other_wc_commit == Some(base_wc_commit) || other_wc_commit == self_wc_commit {
-                // The other side didn't change or both sides changed in the
-                // same way.
-            } else if let Some(other_wc_commit) = other_wc_commit {
-                if self_wc_commit == Some(base_wc_commit) {
+        // In cases when base_target would equal to other_target, or neither would
+        // exist, the conflict resolves to the `self` position and there is nothing we
+        // need to do. So, it's fine that `diff_named_commit_ids`` does not return such
+        // pairs
+        let changed_wc_commits = diff_named_commit_ids(base.wc_commit_ids(), other.wc_commit_ids());
+        for (workspace_id, (base_target, other_target)) in changed_wc_commits {
+            let self_target = self.view().get_wc_commit_id(workspace_id);
+            if let Some(other_target) = other_target {
+                if base_target == self_target {
                     self.view_mut()
-                        .set_wc_commit(workspace_id.clone(), other_wc_commit.clone());
+                        .set_wc_commit(workspace_id.clone(), other_target.clone());
+                } else {
+                    // If there's a conflict, we keep the `self` side unchanged
                 }
             } else {
-                // The other side removed the workspace. We want to remove it even if the self
-                // side changed the working-copy commit.
+                // The other side removed the workspace. We want to remove it
+                // even in the conflicted case (if the self side also changed
+                // the working-copy commit). TODO(ilyagr): I'm not sure why
+                // doing this in the conflicted case makes sense.
                 self.view_mut().remove_wc_commit(workspace_id);
             }
         }
-        for (workspace_id, other_wc_commit) in other.wc_commit_ids() {
-            if self.view().get_wc_commit_id(workspace_id).is_none()
-                && base.get_wc_commit_id(workspace_id).is_none()
-            {
-                // The other side added the workspace.
-                self.view_mut()
-                    .set_wc_commit(workspace_id.clone(), other_wc_commit.clone());
-            }
-        }
+
         let base_heads = base.heads().iter().cloned().collect_vec();
         let own_heads = self.view().heads().iter().cloned().collect_vec();
         let other_heads = other.heads().iter().cloned().collect_vec();
