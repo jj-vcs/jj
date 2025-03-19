@@ -33,17 +33,8 @@ jobs:
           os: ubuntu-24.04-arm
           cargo_flags: "--all-features"
         - build: macos-x86_64
-          os: macos-14
-          targets: x86_64-apple-darwin
-          # We pass `--target` here rather than unconditionally for all
-          # platforms because otherwise Rust flag settings are ignored
-          # for build scripts and the like, preventing us from getting
-          # the full benefit from faster linkers.
-          #
-          # See:
-          # * <https://doc.rust-lang.org/1.84.1/cargo/reference/config.html#buildrustflags>
-          # * <https://github.com/rust-lang/cargo/issues/4423>
-          cargo_flags: "--target x86_64-apple-darwin --features vendored-openssl"
+          os: macos-13
+          cargo_flags: ""
         - build: macos-aarch64
           os: macos-14
           cargo_flags: ""
@@ -75,7 +66,6 @@ jobs:
       uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
       with:
         toolchain: 1.84
-        target: ${{ matrix.targets }}
     - uses: taiki-e/install-action@37bdc826eaedac215f638a96472df572feab0f9b
       with:
         tool: nextest,taplo-cli
