@@ -135,20 +135,9 @@ pub enum MaterializedTreeValue {
     Absent,
     AccessDenied(Box<dyn std::error::Error + Send + Sync>),
     File(MaterializedFileValue),
-    Symlink {
-        id: SymlinkId,
-        target: String,
-    },
-    FileConflict {
-        id: Merge<Option<FileId>>,
-        // TODO: or Vec<(FileId, Box<dyn Read>)> so that caller can stop reading
-        // when null bytes found?
-        contents: Merge<BString>,
-        executable: bool,
-    },
-    OtherConflict {
-        id: MergedTreeValue,
-    },
+    Symlink { id: SymlinkId, target: String },
+    FileConflict(MaterializedFileConflictValue),
+    OtherConflict { id: MergedTreeValue },
     GitSubmodule(CommitId),
     Tree(TreeId),
 }
@@ -184,6 +173,17 @@ impl MaterializedFileValue {
             })?;
         Ok(buf)
     }
+}
+
+/// Conflicted [`TreeValue::File`]s with file contents.
+pub struct MaterializedFileConflictValue {
+    /// Simplified file ids, in which redundant id pairs are dropped.
+    pub ids: Merge<Option<FileId>>,
+    /// File contents corresponding to the simplified `ids`.
+    // TODO: or Vec<(FileId, Box<dyn Read>)> so that caller can stop reading
+    // when null bytes found?
+    pub contents: Merge<BString>,
+    pub executable: bool,
 }
 
 /// Reads the data associated with a `MergedTreeValue` so it can be written to
@@ -236,11 +236,13 @@ async fn materialize_tree_value_no_access_denied(
             } else {
                 false
             };
-            Ok(MaterializedTreeValue::FileConflict {
-                id: file_merge,
-                contents,
-                executable,
-            })
+            Ok(MaterializedTreeValue::FileConflict(
+                MaterializedFileConflictValue {
+                    ids: file_merge,
+                    contents,
+                    executable,
+                },
+            ))
         }
     }
 }

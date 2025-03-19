@@ -1848,14 +1848,11 @@ impl TreeState {
                 MaterializedTreeValue::Tree(_) => {
                     panic!("unexpected tree entry in diff at {path:?}");
                 }
-                MaterializedTreeValue::FileConflict {
-                    id: _,
-                    contents,
-                    executable,
-                } => {
-                    let conflict_marker_len = choose_materialized_conflict_marker_len(&contents);
+                MaterializedTreeValue::FileConflict(file) => {
+                    let conflict_marker_len =
+                        choose_materialized_conflict_marker_len(&file.contents);
                     let data = materialize_merge_result_to_bytes_with_marker_len(
-                        &contents,
+                        &file.contents,
                         conflict_marker_style,
                         conflict_marker_len,
                     )
@@ -1866,7 +1863,7 @@ impl TreeState {
                     self.write_conflict(
                         &disk_path,
                         data,
-                        executable,
+                        file.executable,
                         Some(materialized_conflict_data),
                     )?
                 }

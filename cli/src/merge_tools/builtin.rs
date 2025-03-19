@@ -165,12 +165,9 @@ fn read_file_contents(
             item: "git submodule",
             id: id.hex(),
         }),
-        MaterializedTreeValue::FileConflict {
-            id: _,
-            contents,
-            executable: _,
-        } => {
-            let buf = materialize_merge_result_to_bytes(&contents, conflict_marker_style).into();
+        MaterializedTreeValue::FileConflict(file) => {
+            let buf =
+                materialize_merge_result_to_bytes(&file.contents, conflict_marker_style).into();
             // TODO: Render the ID somehow?
             let contents = buf_to_file_contents(None, buf);
             Ok(FileInfo {
