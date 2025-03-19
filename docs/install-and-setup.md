@@ -65,9 +65,9 @@ Or install from the [AUR repository](https://aur.archlinux.org/packages/jujutsu-
 yay -S jujutsu-git
 ```
 
-#### Nix OS
+#### NixOS
 
-If you're on Nix OS you can install a **released** version of `jj` using the
+If you're on NixOS you can install a **released** version of `jj` using the
 [nixpkgs `jujutsu` package](https://search.nixos.org/packages?channel=unstable&show=jujutsu).
 
 To install a **prerelease** version, you can use the flake for this repository.
