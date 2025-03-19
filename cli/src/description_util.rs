@@ -17,6 +17,7 @@ use jj_lib::config::ConfigGetError;
 use jj_lib::file_util::IoResultExt as _;
 use jj_lib::file_util::PathError;
 use jj_lib::settings::UserSettings;
+use regex::Regex;
 use thiserror::Error;
 
 use crate::cli_util::short_commit_hash;
@@ -325,6 +326,64 @@ pub fn join_message_paragraphs(paragraphs: &[String]) -> String {
         .iter()
         .map(|p| text_util::complete_newline(p.as_str()))
         .join("\n")
+}
+
+/// Add the footer lines in the last paragraph of the description
+///
+/// It just lets the description untouched if they are already there
+pub fn add_footer_lines(
+    ui: &Ui,
+    tx: &WorkspaceCommandTransaction,
+    commit: &Commit,
+    description: &str,
+    footer_lines: &[String],
+) -> Result<String, CommandError> {
+    if footer_lines.is_empty() {
+        return Ok(description.to_owned());
+    }
+    let mut paragraphs = split_paragraphs(description);
+    let (description_no_footer, mut footer) =
+        if paragraphs.len() >= 2 && paragraph_is_footer(paragraphs.last().unwrap()) {
+            let footer = paragraphs.pop().unwrap();
+            let footer_start = footer.as_ptr() as usize - description.as_ptr() as usize;
+            (&description[..footer_start], footer.to_string())
+        } else {
+            (description, "\n".to_owned())
+        };
+    for template_text in footer_lines {
+        let template = tx.parse_commit_template(ui, template_text)?;
+        let mut output = Vec::new();
+        template
+            .format(commit, &mut PlainTextFormatter::new(&mut output))
+            .expect("write() to vec backed formatter should never fail");
+        // Template output is usually UTF-8, but it can contain file content.
+        let mut footer_line = output.into_string_lossy();
+        // add a newline if the template doesn't have one
+        if !footer_line.ends_with('\n') {
+            footer_line.push('\n');
+        }
+        if !footer.contains(&footer_line) {
+            footer.push_str(&footer_line);
+        }
+    }
+    Ok(format!("{description_no_footer}{footer}"))
+}
+
+/// Split the description in paragraphs
+pub fn split_paragraphs(description: &str) -> Vec<&str> {
+    let split_re = Regex::new(r"\n{2,}").expect("split regex should be valid");
+    split_re.split(description).collect()
+}
+
+/// Check if the provided paragraph is a footer
+///
+/// Each line of the footer must respect the format
+///
+///     A-label-with-dashes: any value up to the end of the line
+pub fn paragraph_is_footer(paragraph: &str) -> bool {
+    let footer_line_re =
+        Regex::new(r"^[a-zA-Z0-9-]+: .+$").expect("footer line regex should be valid");
+    paragraph.lines().all(|l| footer_line_re.is_match(l))
 }
 
 /// Renders commit description template, which will be edited by user.
