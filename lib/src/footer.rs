@@ -39,25 +39,36 @@ pub struct FooterEntry(pub String, pub String);
 ///
 /// In this case, there are four footer lines: two `Co-authored-by` lines, one
 /// `Reviewed-by` line, and one `Change-Id` line.
-pub fn get_footer_lines(body: &str) -> Vec<FooterEntry> {
+pub fn parse_description_footer(body: &str) -> Vec<FooterEntry> {
+    let (footer, blank) = parse_footer_and_blank(body);
+    if blank {
+        footer
+    } else {
+        // no blank found, this means there was a single paragraph, so whatever
+        // was found can't come from the footer
+        vec![]
+    }
+}
+
+/// Parse the footer lines from a footer paragraph. This function behaves like
+/// `parse_description_footer`, except that it doesn't expect the body to
+/// contain several paragraphs.
+pub fn parse_footer(body: &str) -> Vec<FooterEntry> {
+    let (footer, _) = parse_footer_and_blank(body);
+    footer
+}
+
+fn parse_footer_and_blank(body: &str) -> (Vec<FooterEntry>, bool) {
     // a footer always comes at the end of a message; we can split the message
     // by newline, but we need to immediately reverse the order of the lines
     // to ensure we parse the footer in an unambiguous manner; this avoids cases
     // where a colon in the body of the message is mistaken for a footer line
-
-    let lines = body.trim().lines().rev().collect::<Vec<&str>>();
-
-    // short-circuit if there is only 1 line; this avoids a case where a commit
-    // with a single-line description like 'cli: fix bug' does not have a
-    // footer, but would otherwise be mistaken for a footer line
-    if lines.len() <= 1 {
-        return vec![];
-    }
-
+    let lines = body.trim().lines().rev();
     let footer_entry_re = regex::Regex::new(r"^([a-zA-Z0-9-]+) *: +(.+) *$")
         .expect("footer entry regex should be valid");
     let mut footer: Vec<FooterEntry> = Vec::new();
     let mut multiline_value: Vec<&str> = Vec::new();
+    let mut found_blank = false;
     for line in lines {
         if line.starts_with(' ') {
             multiline_value.push(line.trim());
@@ -69,6 +80,7 @@ pub fn get_footer_lines(body: &str) -> Vec<FooterEntry> {
             footer.push(FooterEntry(key, value));
         } else if line.trim().is_empty() {
             // end of the footer
+            found_blank = true;
             break;
         } else {
             // a non footer entry in the footer
@@ -77,15 +89,9 @@ pub fn get_footer_lines(body: &str) -> Vec<FooterEntry> {
             multiline_value.clear();
         }
     }
-
     // reverse the insert order, since we parsed the footer in reverse
     footer.reverse();
-
-    if footer.is_empty() {
-        vec![]
-    } else {
-        footer
-    }
+    (footer, found_blank)
 }
 
 #[cfg(test)]
@@ -104,7 +110,7 @@ Reviewed-by: Yuya Nishihara <yuya@tcha.org>
 Reviewed-by: Martin von Zweigbergk <martinvonz@gmail.com>
 Change-Id: I1234567890abcdef1234567890abcdef12345678"#;
 
-        let footer = get_footer_lines(body);
+        let footer = parse_description_footer(body);
         assert_eq!(footer.len(), 4);
 
         assert_eq!(footer.first().unwrap().1, "Austin Seipp <aseipp@pobox.com>");
@@ -128,7 +134,7 @@ tempor incididunt ut labore et dolore magna aliqua.
 
 Change-Id: I1234567890abcdef1234567890abcdef12345678"#;
 
-        let footer = get_footer_lines(body);
+        let footer = parse_description_footer(body);
 
         // should only have Change-Id
         assert_eq!(footer.len(), 1);
@@ -142,7 +148,7 @@ Change-Id: I1234567890abcdef1234567890abcdef12345678"#;
 key: This is a very long value, with spaces and
   newlines in it."#;
 
-        let footer = get_footer_lines(body);
+        let footer = parse_description_footer(body);
 
         // should only have Change-Id
         assert_eq!(footer.len(), 1);
@@ -160,14 +166,14 @@ Signed-off-by: Random J Developer <random@developer.example.org>
 Signed-off-by: Lucky K Maintainer <lucky@maintainer.example.org>
 "#;
 
-        let footer = get_footer_lines(body);
+        let footer = parse_description_footer(body);
         assert_eq!(footer.len(), 2);
     }
 
     #[test]
     fn test_footer_lines_with_single_line_description() {
         let body = r#"chore: fix bug 1234"#;
-        let footer = get_footer_lines(body);
+        let footer = parse_description_footer(body);
         assert_eq!(footer.len(), 0);
     }
 }

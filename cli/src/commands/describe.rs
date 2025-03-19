@@ -28,6 +28,7 @@ use crate::cli_util::RevisionArg;
 use crate::command_error::user_error;
 use crate::command_error::CommandError;
 use crate::complete;
+use crate::description_util::add_footer_lines;
 use crate::description_util::description_template;
 use crate::description_util::edit_description;
 use crate::description_util::edit_multiple_descriptions;
@@ -67,6 +68,12 @@ pub(crate) struct DescribeArgs {
         conflicts_with = "stdin"
     )]
     message_paragraphs: Vec<String>,
+    /// Add a footer line
+    ///
+    /// If multiple revisions are specified, the same footer line will be used
+    /// for all of them.
+    #[arg(long = "add-footer", value_name = "LINE")]
+    footer_lines: Vec<String>,
     /// Read the change description from stdin
     ///
     /// If multiple revisions are specified, the same description will be used
@@ -237,6 +244,16 @@ pub(crate) fn cmd_describe(
             commit_descriptions
         }
     };
+
+    // Add the footer lines are to the description
+    let commit_descriptions: Vec<(_, _)> = commit_descriptions
+        .iter()
+        .map(|(commit, description)| {
+            let new_description =
+                add_footer_lines(ui, &tx, commit, description.as_str(), &args.footer_lines)?;
+            Ok((commit, new_description))
+        })
+        .collect::<Result<Vec<(_, _)>, CommandError>>()?;
 
     // Filter out unchanged commits to avoid rebasing descendants in
     // `transform_descendants` below unnecessarily.

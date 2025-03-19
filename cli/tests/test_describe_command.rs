@@ -897,6 +897,117 @@ fn test_edit_cannot_be_used_with_no_edit() {
     ");
 }
 
+#[test]
+fn test_add_footer() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Set a description using `-m` flag
+    let output = work_dir.run_jj([
+        "describe",
+        "-m",
+        "Message from CLI",
+        "--add-footer",
+        r#""Signed-off-by: " ++ self.author().name() ++ " <" ++ self.author().email() ++ ">""#,
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy now at: qpvuntsm f576838d (empty) Message from CLI
+    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
+    insta::assert_snapshot!(output, @r"
+    Message from CLI
+
+    Signed-off-by: Test User <test.user@example.com>
+    [EOF]
+    ");
+
+    // --add-footer may be used multiple times, and with --no-edit
+    let output = work_dir.run_jj([
+        "describe",
+        "--no-edit",
+        "--add-footer",
+        r#""CC: alice@example.com""#,
+        "--add-footer",
+        r#""Change-Id: I6a6a6964" ++ self.change_id().normal_hex()"#,
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy now at: qpvuntsm 2d3438dc (empty) Message from CLI
+    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
+    insta::assert_snapshot!(output, @r"
+    Message from CLI
+
+    Signed-off-by: Test User <test.user@example.com>
+    CC: alice@example.com
+    Change-Id: I6a6a69649a45c67d3e96a7e5007c110ede34dec5
+    [EOF]
+    ");
+
+    // --add-footer won't create a duplicate entry
+    let output = work_dir.run_jj([
+        "describe",
+        "--no-edit",
+        "--add-footer",
+        r#""CC: alice@example.com""#,
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
+    insta::assert_snapshot!(output, @r"
+    Message from CLI
+
+    Signed-off-by: Test User <test.user@example.com>
+    CC: alice@example.com
+    Change-Id: I6a6a69649a45c67d3e96a7e5007c110ede34dec5
+    [EOF]
+    ");
+
+    // FIXME: --add-footer fails in the template doesn't produce a footer entry
+    // let output = work_dir.run_jj([
+    //     "describe",
+    //     "--no-edit",
+    //     "--add-footer",
+    //     r#""this is an invalid footer entry""#,
+    // ]);
+    // insta::assert_snapshot!(output, @r"
+    // ------- stderr -------
+    // [EOF]
+    // ");
+
+    // --add-footer doesn't modify a commit with an empty description
+    let output = work_dir.run_jj(["new"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy now at: vruxwmqv 5f8c2f04 (empty) (no description set)
+    Parent commit      : qpvuntsm 2d3438dc (empty) Message from CLI
+    [EOF]
+    ");
+    let output = work_dir.run_jj([
+        "describe",
+        "--no-edit",
+        "--add-footer",
+        r#""CC: alice@example.com""#,
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    ");
+}
+
 #[must_use]
 fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     let template = r#"commit_id.short() ++ " " ++ description"#;
