@@ -21,6 +21,7 @@ use jj_lib::copies::CopyRecords;
 use jj_lib::diff::Diff;
 use jj_lib::diff::DiffHunkKind;
 use jj_lib::files;
+use jj_lib::files::FileMergeOptions;
 use jj_lib::files::MergeResult;
 use jj_lib::matchers::Matcher;
 use jj_lib::merge::Merge;
@@ -268,6 +269,7 @@ async fn make_diff_files(
     let materialize_options = ConflictMaterializeOptions {
         marker_style,
         marker_len: None,
+        merge: store.file_merge_options().clone(),
     };
     let mut diff_stream = materialized_diff_stream(store, tree_diff);
     let mut changed_files = Vec::new();
@@ -645,6 +647,7 @@ fn make_merge_sections(
 
 fn make_merge_file(
     merge_tool_file: &MergeToolFile,
+    options: &FileMergeOptions,
 ) -> Result<scm_record::File<'static>, BuiltinToolError> {
     let file = &merge_tool_file.file;
     let file_mode = if file.executable.expect("should have been resolved") {
@@ -654,7 +657,7 @@ fn make_merge_file(
     };
     // TODO: Maybe we should test binary contents here, and generate per-file
     // Binary section to select either "our" or "their" file.
-    let merge_result = files::merge_hunks(&file.contents);
+    let merge_result = files::merge_hunks(&file.contents, options);
     let sections = make_merge_sections(merge_result)?;
     Ok(scm_record::File {
         old_path: None,
@@ -673,18 +676,21 @@ pub fn edit_merge_builtin(
     tree: &MergedTree,
     merge_tool_files: &[MergeToolFile],
 ) -> Result<MergedTreeId, BuiltinToolError> {
+    let store = tree.store();
     let mut input = scm_record::helpers::CrosstermInput;
     let recorder = scm_record::Recorder::new(
         scm_record::RecordState {
             is_read_only: false,
-            files: merge_tool_files.iter().map(make_merge_file).try_collect()?,
+            files: merge_tool_files
+                .iter()
+                .map(|f| make_merge_file(f, store.file_merge_options()))
+                .try_collect()?,
             commits: Default::default(),
         },
         &mut input,
     );
     let state = recorder.run()?;
 
-    let store = tree.store();
     let mut tree_builder = MergedTreeBuilder::new(tree.id().clone());
     apply_changes(
         &mut tree_builder,
@@ -1846,7 +1852,7 @@ mod tests {
         let content = extract_as_single_hunk(&merge, store, path)
             .block_on()
             .unwrap();
-        let merge_result = files::merge_hunks(&content);
+        let merge_result = files::merge_hunks(&content, store.file_merge_options());
         let sections = make_merge_sections(merge_result).unwrap();
         insta::assert_debug_snapshot!(sections, @r#"
         [

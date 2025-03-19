@@ -39,6 +39,7 @@ use crate::backend::SigningFn;
 use crate::backend::SymlinkId;
 use crate::backend::TreeId;
 use crate::commit::Commit;
+use crate::files::FileMergeOptions;
 use crate::index::Index;
 use crate::merged_tree::MergedTree;
 use crate::repo_path::RepoPath;
@@ -58,6 +59,7 @@ pub struct Store {
     signer: Signer,
     commit_cache: Mutex<CLruCache<CommitId, Arc<backend::Commit>>>,
     tree_cache: Mutex<CLruCache<(RepoPathBuf, TreeId), Arc<backend::Tree>>>,
+    file_merge_options: FileMergeOptions,
 }
 
 impl Debug for Store {
@@ -69,12 +71,17 @@ impl Debug for Store {
 }
 
 impl Store {
-    pub fn new(backend: Box<dyn Backend>, signer: Signer) -> Arc<Self> {
+    pub fn new(
+        backend: Box<dyn Backend>,
+        signer: Signer,
+        file_merge_options: FileMergeOptions,
+    ) -> Arc<Self> {
         Arc::new(Self {
             backend,
             signer,
             commit_cache: Mutex::new(CLruCache::new(COMMIT_CACHE_CAPACITY.try_into().unwrap())),
             tree_cache: Mutex::new(CLruCache::new(TREE_CACHE_CAPACITY.try_into().unwrap())),
+            file_merge_options,
         })
     }
 
@@ -88,6 +95,11 @@ impl Store {
 
     pub fn signer(&self) -> &Signer {
         &self.signer
+    }
+
+    /// Default file-level merge options to be used when resolving parent trees.
+    pub fn file_merge_options(&self) -> &FileMergeOptions {
+        &self.file_merge_options
     }
 
     pub fn get_copy_records(

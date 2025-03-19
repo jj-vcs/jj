@@ -44,6 +44,7 @@ use crate::diff::Diff;
 use crate::diff::DiffHunk;
 use crate::diff::DiffHunkKind;
 use crate::files;
+use crate::files::FileMergeOptions;
 use crate::files::MergeResult;
 use crate::merge::Merge;
 use crate::merge::MergedTreeValue;
@@ -298,6 +299,7 @@ pub enum ConflictMarkerStyle {
 pub struct ConflictMaterializeOptions {
     pub marker_style: ConflictMarkerStyle,
     pub marker_len: Option<usize>,
+    pub merge: FileMergeOptions,
 }
 
 /// Characters which can be repeated to form a conflict marker line when
@@ -404,7 +406,7 @@ pub fn materialize_merge_result<T: AsRef<[u8]>>(
     output: &mut dyn Write,
     options: &ConflictMaterializeOptions,
 ) -> io::Result<()> {
-    let merge_result = files::merge_hunks(single_hunk);
+    let merge_result = files::merge_hunks(single_hunk, &options.merge);
     match &merge_result {
         MergeResult::Resolved(content) => output.write_all(content),
         MergeResult::Conflict(hunks) => {
@@ -420,7 +422,7 @@ pub fn materialize_merge_result_to_bytes<T: AsRef<[u8]>>(
     single_hunk: &Merge<T>,
     options: &ConflictMaterializeOptions,
 ) -> BString {
-    let merge_result = files::merge_hunks(single_hunk);
+    let merge_result = files::merge_hunks(single_hunk, &options.merge);
     match merge_result {
         MergeResult::Resolved(content) => content,
         MergeResult::Conflict(hunks) => {
@@ -925,7 +927,7 @@ pub async fn update_from_content(
     let simplified_file_ids = file_ids.simplify();
 
     let old_contents = extract_as_single_hunk(&simplified_file_ids, store, path).await?;
-    let old_hunks = files::merge_hunks(&old_contents);
+    let old_hunks = files::merge_hunks(&old_contents, store.file_merge_options());
 
     // Parse conflicts from the new content using the arity of the simplified
     // conflicts.

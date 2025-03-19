@@ -550,6 +550,7 @@ impl<'a> DiffRenderer<'a> {
         let materialize_options = ConflictMaterializeOptions {
             marker_style: self.conflict_marker_style,
             marker_len: None,
+            merge: self.repo.store().file_merge_options().clone(),
         };
         for format in &self.formats {
             match format {
@@ -790,8 +791,8 @@ fn show_color_words_diff_hunks<T: AsRef<[u8]>>(
             show_color_words_resolved_hunks(formatter, contents, line_number, labels, options)?;
         }
         ConflictDiffMethod::Pair => {
-            let lefts = files::merge(lefts);
-            let rights = files::merge(rights);
+            let lefts = files::merge(lefts, &materialize_options.merge);
+            let rights = files::merge(rights, &materialize_options.merge);
             let contents = [&lefts, &rights];
             show_color_words_conflict_hunks(formatter, contents, line_number, labels, options)?;
         }
@@ -1337,6 +1338,7 @@ pub async fn show_color_words_diff(
     let materialize_options = ConflictMaterializeOptions {
         marker_style,
         marker_len: None,
+        merge: store.file_merge_options().clone(),
     };
     let empty_content = || Merge::resolved(BString::default());
     let mut diff_stream = materialized_diff_stream(store, tree_diff);
@@ -1488,6 +1490,7 @@ pub async fn show_file_by_file_diff(
     let materialize_options = ConflictMaterializeOptions {
         marker_style,
         marker_len: None,
+        merge: store.file_merge_options().clone(),
     };
     let create_file = |path: &RepoPath,
                        wc_dir: &Path,
@@ -1889,6 +1892,7 @@ pub async fn show_git_diff(
     let materialize_options = ConflictMaterializeOptions {
         marker_style,
         marker_len: None,
+        merge: store.file_merge_options().clone(),
     };
     let mut diff_stream = materialized_diff_stream(store, tree_diff);
     while let Some(MaterializedTreeDiffEntry { path, values }) = diff_stream.next().await {
@@ -2064,6 +2068,7 @@ impl DiffStats {
         let materialize_options = ConflictMaterializeOptions {
             marker_style,
             marker_len: None,
+            merge: store.file_merge_options().clone(),
         };
         let entries = materialized_diff_stream(store, tree_diff)
             .map(|MaterializedTreeDiffEntry { path, values }| {

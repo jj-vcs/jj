@@ -23,6 +23,7 @@ use jj_lib::conflicts::extract_as_single_hunk;
 use jj_lib::conflicts::materialize_merge_result_to_bytes;
 use jj_lib::conflicts::parse_conflict;
 use jj_lib::conflicts::update_from_content;
+use jj_lib::files::FileMergeOptions;
 use jj_lib::merge::Merge;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
@@ -2386,6 +2387,7 @@ fn materialize_conflict_string(
     let options = ConflictMaterializeOptions {
         marker_style,
         marker_len: None,
+        merge: FileMergeOptions {},
     };
     String::from_utf8(materialize_merge_result_to_bytes(&contents, &options).into()).unwrap()
 }

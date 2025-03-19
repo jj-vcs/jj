@@ -23,10 +23,12 @@ use bstr::BStr;
 use bstr::BString;
 use itertools::Itertools as _;
 
+use crate::config::ConfigGetError;
 use crate::diff::Diff;
 use crate::diff::DiffHunk;
 use crate::diff::DiffHunkKind;
 use crate::merge::Merge;
+use crate::settings::UserSettings;
 
 /// A diff line which may contain small hunks originating from both sides.
 #[derive(PartialEq, Eq, Clone, Debug)]
@@ -259,6 +261,18 @@ where
     })
 }
 
+/// Options for file-level merging.
+#[derive(Clone, Debug, Default)]
+pub struct FileMergeOptions {
+    // TODO: add word-by-word merge option
+}
+
+impl FileMergeOptions {
+    pub fn from_settings(_settings: &UserSettings) -> Result<Self, ConfigGetError> {
+        Ok(Self {})
+    }
+}
+
 /// Merge result in either fully-resolved or conflicts form, akin to
 /// `Result<BString, Vec<Merge<BString>>>`.
 #[derive(PartialEq, Eq, Clone, Debug)]
@@ -272,8 +286,8 @@ pub enum MergeResult {
 /// Splits `inputs` into hunks, resolves trivial merge conflicts for each.
 ///
 /// Returns either fully-resolved content or list of partially-resolved hunks.
-pub fn merge_hunks<T: AsRef<[u8]>>(inputs: &Merge<T>) -> MergeResult {
-    merge_inner(inputs)
+pub fn merge_hunks<T: AsRef<[u8]>>(inputs: &Merge<T>, options: &FileMergeOptions) -> MergeResult {
+    merge_inner(inputs, options)
 }
 
 /// Splits `inputs` into hunks, resolves trivial merge conflicts for each, then
@@ -281,19 +295,23 @@ pub fn merge_hunks<T: AsRef<[u8]>>(inputs: &Merge<T>) -> MergeResult {
 ///
 /// The returned merge object is either fully resolved or conflict having the
 /// same number of terms as the `inputs`.
-pub fn merge<T: AsRef<[u8]>>(inputs: &Merge<T>) -> Merge<BString> {
-    merge_inner(inputs)
+pub fn merge<T: AsRef<[u8]>>(inputs: &Merge<T>, options: &FileMergeOptions) -> Merge<BString> {
+    merge_inner(inputs, options)
 }
 
 /// Splits `inputs` into hunks, attempts to resolve trivial merge conflicts for
 /// each.
 ///
 /// If all input hunks can be merged successfully, returns the merged content.
-pub fn try_merge<T: AsRef<[u8]>>(inputs: &Merge<T>) -> Option<BString> {
-    merge_inner(inputs)
+pub fn try_merge<T: AsRef<[u8]>>(inputs: &Merge<T>, options: &FileMergeOptions) -> Option<BString> {
+    merge_inner(inputs, options)
 }
 
-fn merge_inner<'input, T: AsRef<[u8]>, B: FromMergeHunks<'input>>(inputs: &'input Merge<T>) -> B {
+fn merge_inner<'input, T, B>(inputs: &'input Merge<T>, _options: &FileMergeOptions) -> B
+where
+    T: AsRef<[u8]>,
+    B: FromMergeHunks<'input>,
+{
     // TODO: Using the first remove as base (first in the inputs) is how it's
     // usually done for 3-way conflicts. Are there better heuristics when there are
     // more than 3 parts?
@@ -774,6 +792,8 @@ mod tests {
 
     #[test]
     fn test_merge_single_hunk() {
+        let options = FileMergeOptions::default();
+        let merge_hunks = |inputs: &_| merge_hunks(inputs, &options);
         // Unchanged and empty on all sides
         assert_eq!(
             merge_hunks(&conflict([b"", b"", b""])),
@@ -885,6 +905,10 @@ mod tests {
 
     #[test]
     fn test_merge_multi_hunk() {
+        let options = FileMergeOptions::default();
+        let merge_hunks = |inputs: &_| merge_hunks(inputs, &options);
+        let merge = |inputs: &_| merge(inputs, &options);
+        let try_merge = |inputs: &_| try_merge(inputs, &options);
         // Two sides left one line unchanged, and added conflicting additional lines
         let inputs = conflict([b"a\nb\n", b"a\n", b"a\nc\n"]);
         assert_eq!(

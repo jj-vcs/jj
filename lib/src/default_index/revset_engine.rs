@@ -49,6 +49,7 @@ use crate::conflicts::materialize_tree_value;
 use crate::diff::Diff;
 use crate::diff::DiffHunkKind;
 use crate::files;
+use crate::files::FileMergeOptions;
 use crate::graph::GraphNode;
 use crate::matchers::FilesMatcher;
 use crate::matchers::Matcher;
@@ -1419,7 +1420,8 @@ async fn matches_diff_from_parent(
         let (left_value, right_value) = futures::try_join!(left_future, right_future)?;
         let left_contents = to_file_content(&entry.path, left_value).await?;
         let right_contents = to_file_content(&entry.path, right_value).await?;
-        if diff_match_lines(&left_contents, &right_contents, text_pattern)? {
+        let merge_options = store.file_merge_options();
+        if diff_match_lines(&left_contents, &right_contents, text_pattern, merge_options)? {
             return Ok(true);
         }
     }
@@ -1430,6 +1432,7 @@ fn diff_match_lines(
     lefts: &Merge<BString>,
     rights: &Merge<BString>,
     pattern: &StringPattern,
+    merge_options: &FileMergeOptions,
 ) -> BackendResult<bool> {
     // Filter lines prior to comparison. This might produce inferior hunks due
     // to lack of contexts, but is way faster than full diff.
@@ -1440,8 +1443,8 @@ fn diff_match_lines(
     } else {
         let lefts: Merge<BString> = lefts.map(|text| match_lines(text, pattern).collect());
         let rights: Merge<BString> = rights.map(|text| match_lines(text, pattern).collect());
-        let lefts = files::merge(&lefts);
-        let rights = files::merge(&rights);
+        let lefts = files::merge(&lefts, merge_options);
+        let rights = files::merge(&rights, merge_options);
         let diff = Diff::by_line(lefts.iter().chain(rights.iter()));
         let different = files::conflict_diff_hunks(diff.hunks(), lefts.as_slice().len())
             .any(|hunk| hunk.kind == DiffHunkKind::Different);
@@ -1880,7 +1883,8 @@ mod tests {
         let left2 = Merge::resolved(conflict2.first().clone());
         let diff = |needle: &str| {
             let pattern = StringPattern::substring(needle);
-            diff_match_lines(&left1, &left2, &pattern).unwrap()
+            let options = FileMergeOptions::default();
+            diff_match_lines(&left1, &left2, &pattern, &options).unwrap()
         };
 
         assert!(diff(""));
@@ -1901,7 +1905,8 @@ mod tests {
         let (conflict1, conflict2) = diff_match_lines_samples();
         let diff = |needle: &str| {
             let pattern = StringPattern::substring(needle);
-            diff_match_lines(&conflict1, &conflict2, &pattern).unwrap()
+            let options = FileMergeOptions::default();
+            diff_match_lines(&conflict1, &conflict2, &pattern, &options).unwrap()
         };
 
         assert!(diff(""));
@@ -1926,7 +1931,8 @@ mod tests {
         let base = Merge::resolved(conflict2.get_remove(0).unwrap().clone());
         let diff = |needle: &str| {
             let pattern = StringPattern::substring(needle);
-            diff_match_lines(&base, &conflict2, &pattern).unwrap()
+            let options = FileMergeOptions::default();
+            diff_match_lines(&base, &conflict2, &pattern, &options).unwrap()
         };
 
         assert!(diff(""));
