@@ -28,7 +28,7 @@ clap = { version = "4.5.32", features = [
     "wrap_help",
     "string",
 ] }
-clap_complete = { version = "4.5.46", features = ["unstable-dynamic"] }
+clap_complete = { version = "4.5.47", features = ["unstable-dynamic"] }
 clap_complete_nushell = "4.5.5"
 clap-markdown = "0.1.4"
 clap_mangen = "0.2.25"
@@ -103,7 +103,7 @@ smallvec = { version = "1.14.0", features = [
 ] }
 strsim = "0.11.1"
 syn = "2.0.100"
-tempfile = "3.19.0"
+tempfile = "3.19.1"
 test-case = "3.3.1"
 textwrap = "0.16.2"
 thiserror = "2.0.12"
