@@ -91,6 +91,7 @@ This document contains the help content for the `jj` command-line program.
 * [`jj tag`↴](#jj-tag)
 * [`jj tag list`↴](#jj-tag-list)
 * [`jj util`↴](#jj-util)
+* [`jj util clear-predecessors`↴](#jj-util-clear-predecessors)
 * [`jj util completion`↴](#jj-util-completion)
 * [`jj util config-schema`↴](#jj-util-config-schema)
 * [`jj util exec`↴](#jj-util-exec)
@@ -2445,12 +2446,29 @@ Infrequently used commands such as for generating shell completions
 
 ###### **Subcommands:**
 
+* `clear-predecessors` — Clears predecessors for the given revisions
 * `completion` — Print a command-line-completion script
 * `config-schema` — Print the JSON schema for the jj TOML config format
 * `exec` — Execute an external command via jj
 * `gc` — Run backend-dependent garbage collection
 * `install-man-pages` — Install Jujutsu's manpages to the provided path
 * `markdown-help` — Print the CLI help for all subcommands in Markdown
+
+
+
+## `jj util clear-predecessors`
+
+Clears predecessors for the given revisions
+
+This command creates new versions of the given revisions, with no predecessors set. Older versions of the revisions will no longer be visible in `jj evolog`.
+
+It will also allow older versions of the revisions to be completely removed from the repository after the operation introducing it is deleted and the repository is garbage collected.
+
+**Usage:** `jj util clear-predecessors [OPTIONS]`
+
+###### **Options:**
+
+* `-r`, `--revisions <REVSETS>` — The revisions to clear predecessors for
 
 
 
