@@ -2338,7 +2338,7 @@ pub fn push_updates(
     git_settings: &GitSettings,
     remote_name: &RemoteName,
     updates: &[GitRefUpdate],
-    callbacks: RemoteCallbacks<'_>,
+    mut callbacks: RemoteCallbacks<'_>,
 ) -> Result<GitPushStats, GitPushError> {
     let mut qualified_remote_refs_expected_locations = HashMap::new();
     let mut refspecs = vec![];
@@ -2359,31 +2359,12 @@ pub fn push_updates(
             refspecs.push(RefSpec::delete(&update.qualified_name));
         }
     }
-    // TODO(ilyagr): `push_refs`, or parts of it, should probably be inlined. This
-    // requires adjusting some tests.
 
     let git_backend = get_git_backend(repo.store())?;
     let git_repo = git_backend.git_repo();
     let git_ctx =
         GitSubprocessContext::from_git_backend(git_backend, &git_settings.executable_path);
-    subprocess_push_refs(
-        &git_repo,
-        &git_ctx,
-        remote_name,
-        &qualified_remote_refs_expected_locations,
-        &refspecs,
-        callbacks,
-    )
-}
 
-fn subprocess_push_refs(
-    git_repo: &gix::Repository,
-    git_ctx: &GitSubprocessContext,
-    remote_name: &RemoteName,
-    qualified_remote_refs_expected_locations: &HashMap<&GitRefName, Option<&CommitId>>,
-    refspecs: &[RefSpec],
-    mut callbacks: RemoteCallbacks<'_>,
-) -> Result<GitPushStats, GitPushError> {
     // check the remote exists
     if git_repo.try_find_remote(remote_name.as_str()).is_none() {
         return Err(GitPushError::NoSuchRemote(remote_name.to_owned()));
@@ -2391,7 +2372,7 @@ fn subprocess_push_refs(
 
     let refs_to_push: Vec<RefToPush> = refspecs
         .iter()
-        .map(|full_refspec| RefToPush::new(full_refspec, qualified_remote_refs_expected_locations))
+        .map(|full_refspec| RefToPush::new(full_refspec, &qualified_remote_refs_expected_locations))
         .collect();
 
     let mut push_stats = git_ctx.spawn_push(remote_name, &refs_to_push, &mut callbacks)?;
