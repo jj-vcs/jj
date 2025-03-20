@@ -67,6 +67,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The 'how to resolve conflicts' hint that is shown when conflicts appear can
   be hidden by setting `hints.resolving-conflicts = false`.
 
+* `jj squash` now has a `--restore-descendants` option to preserve the snapshots
+  of the children of the modified commits.
+
 * `jj op diff` and `jj op log --op-diff` now show changes to which commits
   correspond to working copies.
 
