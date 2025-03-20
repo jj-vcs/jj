@@ -43,17 +43,17 @@ jobs:
           cargo_flags: ""
     runs-on: ${{ matrix.os }}
 
-    # TODO FIXME (aseipp): keep the timeout limit to ~15 minutes. this is long
+    # TODO FIXME (aseipp): keep the timeout limit to ~20 minutes. this is long
     # enough to give us runway for the future, but also once we hit it, we're at
     # the "builds are taking too long" stage and we should start looking at ways
-    # to optimize the CI.
+    # to optimize the CI, or the CI is flaking out on some weird spiked machine
     #
     # at the same time, this avoids some issues where some flaky, bugged tests
     # seem to be causing multi-hour runs on Windows (GPG signing issues), which
     # is a problem we should fix. in the mean time, this will make these flakes
     # less harmful, as it won't cause builds to spin for multiple hours, requiring
     # manual cancellation.
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
     - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
