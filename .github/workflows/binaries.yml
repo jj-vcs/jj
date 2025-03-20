@@ -37,7 +37,7 @@ jobs:
           os: windows-2022
           target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15 # NOTE (aseipp): should be safe, because tests aren't run
+    timeout-minutes: 20 # NOTE (aseipp): tests aren't run but sometimes builds take a while
 
     name: Build binary artifacts
     steps:
