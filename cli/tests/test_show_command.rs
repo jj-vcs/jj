@@ -272,6 +272,7 @@ fn test_show_with_no_template() {
     Hint: The following template aliases are defined:
     - builtin_config_list
     - builtin_config_list_detailed
+    - builtin_draft_commit_description
     - builtin_log_comfortable
     - builtin_log_compact
     - builtin_log_compact_full_description
