@@ -14,17 +14,17 @@ theme:
   # automatic/light/dark palette.
   # taken from https://squidfunk.github.io/mkdocs-material/setup/changing-the-colors/#system-preference
   palette:
-    - media: "(prefers-color-scheme)"
+    - media: '(prefers-color-scheme)'
       toggle:
         icon: material/brightness-auto
         name: Switch to system preference
-    - media: "(prefers-color-scheme: light)"
+    - media: '(prefers-color-scheme: light)'
       scheme: default
       primary: !ENV [MKDOCS_PRIMARY_COLOR, 'indigo']
       toggle:
         icon: material/brightness-7
         name: Switch to light mode
-    - media: "(prefers-color-scheme: dark)"
+    - media: '(prefers-color-scheme: dark)'
       scheme: slate
       primary: !ENV [MKDOCS_PRIMARY_COLOR, 'indigo']
       toggle:
@@ -146,7 +146,7 @@ nav: # This lists all the files that become part of the documentation
       - 'Tracking branches': 'design/tracking-branches.md'
       - 'Copy tracking and tracing': 'design/copy-tracking.md'
 
-  - 'Development Roadmap': "roadmap.md"
+  - 'Development Roadmap': 'roadmap.md'
 
 # The following follow .gitignore syntax, relative
 # to the docs dir.
