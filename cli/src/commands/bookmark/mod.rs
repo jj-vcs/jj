@@ -82,6 +82,7 @@ pub enum BookmarkCommand {
     Set(BookmarkSetArgs),
     #[command(visible_alias("t"))]
     Track(BookmarkTrackArgs),
+    #[command(visible_alias("u"))]
     Untrack(BookmarkUntrackArgs),
 }
 
