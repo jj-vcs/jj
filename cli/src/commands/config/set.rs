@@ -38,12 +38,12 @@ pub struct ConfigSetArgs {
     /// New value to set
     ///
     /// The value should be specified as a TOML expression. If string value
-    /// doesn't contain any TOML constructs (such as apostrophes or array
+    /// isn't enclosed by any TOML constructs (such as apostrophes or array
     /// notation), quotes can be omitted. Note that the value may also need
     /// shell quoting. TOML multi-line strings can be useful if the value
     /// contains apostrophes. For example, to set `foo.bar` to the string
-    /// "don't" use `jj config set --user foo.bar "'''don't'''"`. This
-    /// is valid in both Bash and Fish.
+    /// "{don't}" use `jj config set --user foo.bar "'''{don't}'''"`. This is
+    /// valid in both Bash and Fish.
     ///
     /// Alternative, e.g. to avoid dealing with shell quoting, use `jj config
     /// edit` to edit the TOML file directly.

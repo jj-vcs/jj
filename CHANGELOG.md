@@ -89,6 +89,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The built-in diff editor now correctly retains the executable bit on newly
   added files when splitting. [#3846](https://github.com/jj-vcs/jj/issues/3846)
 
+* `jj config set`/`--config` value parsing rule is relaxed in a way that
+  unquoted apostrophes are allowed.
+  [#5748](https://github.com/jj-vcs/jj/issues/5748)
+
 ## [0.27.0] - 2025-03-05
 
 ### Release highlights

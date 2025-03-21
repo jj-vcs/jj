@@ -1573,8 +1573,8 @@ config files or environment variables. For example,
 jj --config ui.color=always --config ui.diff-editor=meld split
 ```
 
-Config value should be specified as a TOML expression. If string value doesn't
-contain any TOML constructs (such as array notation), quotes can be omitted.
+Config value should be specified as a TOML expression. If string value isn't
+enclosed by any TOML constructs (such as array notation), quotes can be omitted.
 Here is an example with more advanced TOML constructs:
 
 ```shell

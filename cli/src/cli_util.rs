@@ -3267,8 +3267,8 @@ pub struct EarlyArgs {
     /// Additional configuration options (can be repeated)
     ///
     /// The name should be specified as TOML dotted keys. The value should be
-    /// specified as a TOML expression. If string value doesn't contain any TOML
-    /// constructs (such as array notation), quotes can be omitted.
+    /// specified as a TOML expression. If string value isn't enclosed by any
+    /// TOML constructs (such as array notation), quotes can be omitted.
     #[arg(long, value_name = "NAME=VALUE", global = true, add = ArgValueCompleter::new(complete::leaf_config_key_value))]
     pub config: Vec<String>,
     /// Additional configuration options (can be repeated) (DEPRECATED)

@@ -49,35 +49,20 @@ pub const CONFIG_SCHEMA: &str = include_str!("config-schema.json");
 pub fn parse_value_or_bare_string(value_str: &str) -> Result<ConfigValue, toml_edit::TomlError> {
     match value_str.parse() {
         Ok(value) => Ok(value),
-        Err(_) if value_str.as_bytes().iter().copied().all(is_bare_char) => Ok(value_str.into()),
+        Err(_) if is_bare_string(value_str) => Ok(value_str.into()),
         Err(err) => Err(err),
     }
 }
 
-const fn is_bare_char(b: u8) -> bool {
-    match b {
-        // control chars (including tabs and newlines), which are unlikely to
-        // appear in command-line arguments
-        b'\x00'..=b'\x1f' | b'\x7f' => false,
-        // space and symbols that don't construct a TOML value
-        b' ' | b'!' | b'#' | b'$' | b'%' | b'&' | b'(' | b')' | b'*' | b'/' | b';' | b'<'
-        | b'>' | b'?' | b'@' | b'\\' | b'^' | b'_' | b'`' | b'|' | b'~' => true,
-        // there may be an error in integer, float, or date-time, but that's rare
-        b'+' | b'-' | b'.' | b':' => true,
-        // comma doesn't construct a compound value by itself, and it might be
-        // used in real name #5233
-        b',' => true,
-        // equal doesn't construct a compound value by itself, but it suggest
-        // that the value is an inline table
-        b'=' => false,
-        // unpaired quotes are often typo
-        b'"' | b'\'' => false,
-        // symbols that construct an inline array or table
-        b'[' | b']' | b'{' | b'}' => false,
-        // ASCII alphanumeric
-        b'0'..=b'9' | b'A'..=b'Z' | b'a'..=b'z' => true,
-        // non-ASCII
-        b'\x80'..=b'\xff' => true,
+fn is_bare_string(value_str: &str) -> bool {
+    // leading whitespace isn't ignored when parsing TOML value expression, but
+    // "\n[]" doesn't look like a bare string.
+    let trimmed = value_str.trim_ascii().as_bytes();
+    if let (Some(&first), Some(&last)) = (trimmed.first(), trimmed.last()) {
+        // string, array, or table constructs?
+        !matches!(first, b'"' | b'\'' | b'[' | b'{') && !matches!(last, b'"' | b'\'' | b']' | b'}')
+    } else {
+        true // empty or whitespace only
     }
 }
 
@@ -817,6 +802,7 @@ mod tests {
         assert_eq!(parse("").unwrap().as_str(), Some(""));
         assert_eq!(parse("John Doe").unwrap().as_str(), Some("John Doe"));
         assert_eq!(parse("Doe, John").unwrap().as_str(), Some("Doe, John"));
+        assert_eq!(parse("It's okay").unwrap().as_str(), Some("It's okay"));
         assert_eq!(
             parse("<foo+bar@example.org>").unwrap().as_str(),
             Some("<foo+bar@example.org>")
@@ -828,9 +814,11 @@ mod tests {
 
         // Error in TOML value
         assert!(parse("'foo").is_err());
+        assert!(parse(r#" bar" "#).is_err());
         assert!(parse("[0 1]").is_err());
         assert!(parse("{ x = }").is_err());
-        assert!(parse("key = 'value'").is_err());
+        assert!(parse("\n { x").is_err());
+        assert!(parse(" x ] ").is_err());
         assert!(parse("[table]\nkey = 'value'").is_err());
     }
 
@@ -839,7 +827,6 @@ mod tests {
         assert!(parse_config_arg_item("").is_err());
         assert!(parse_config_arg_item("a").is_err());
         assert!(parse_config_arg_item("=").is_err());
-        assert!(parse_config_arg_item("a=b=c").is_err());
         // The value parser is sensitive to leading whitespaces, which seems
         // good because the parsing falls back to a bare string.
         assert!(parse_config_arg_item("a = 'b'").is_err());
@@ -855,6 +842,11 @@ mod tests {
         let (name, value) = parse_config_arg_item("a= ").unwrap();
         assert_eq!(name, ConfigNamePathBuf::from_iter(["a"]));
         assert_eq!(value.as_str(), Some(" "));
+
+        // This one is a bit cryptic, but b=c can be a bare string.
+        let (name, value) = parse_config_arg_item("a=b=c").unwrap();
+        assert_eq!(name, ConfigNamePathBuf::from_iter(["a"]));
+        assert_eq!(value.as_str(), Some("b=c"));
 
         let (name, value) = parse_config_arg_item("a.b=true").unwrap();
         assert_eq!(name, ConfigNamePathBuf::from_iter(["a", "b"]));
