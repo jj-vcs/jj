@@ -38,13 +38,6 @@ pub struct GitAttributesFile {
 }
 
 impl GitAttributesFile {
-    pub fn empty() -> Arc<GitAttributesFile> {
-        Arc::new(GitAttributesFile {
-            search: gix_attrs::Search::default(),
-            collection: gix_attrs::search::MetadataCollection::default(),
-        })
-    }
-
     pub fn chain(
         self: &Arc<GitAttributesFile>,
         prefix: PathBuf,
@@ -149,6 +142,15 @@ impl Default for GitAttributesFile {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    impl GitAttributesFile {
+        fn empty() -> Arc<GitAttributesFile> {
+            Arc::new(GitAttributesFile {
+                search: gix_attrs::Search::default(),
+                collection: gix_attrs::search::MetadataCollection::default(),
+            })
+        }
+    }
 
     #[test]
     fn test_gitattributes_empty_file() {
