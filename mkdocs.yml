@@ -91,24 +91,24 @@ nav: # This lists all the files that become part of the documentation
   - Home: 'index.md'
 
   - Getting started:
-      - Installation and Setup: 'install-and-setup.md'
-      - Tutorial and Birds-Eye View: 'tutorial.md'
+      - Installation and setup: 'install-and-setup.md'
+      - Tutorial and bird's eye view: 'tutorial.md'
       - Working with GitHub: 'github.md'
       - Working on Windows: 'windows.md'
 
   - FAQ: 'FAQ.md'
 
-  - CLI Reference: 'cli-reference.md'
+  - CLI reference: 'cli-reference.md'
 
   - Testimonials: 'testimonials.md'
 
   - Community-built tools: 'community_tools.md'
 
   - Concepts:
-      - Working Copy: 'working-copy.md'
+      - Working copy: 'working-copy.md'
       - Bookmarks: 'bookmarks.md'
       - Conflicts: 'conflicts.md'
-      - Operation Log: 'operation-log.md'
+      - Operation log: 'operation-log.md'
       - Glossary: 'glossary.md'
 
   - Configuration:
@@ -132,21 +132,21 @@ nav: # This lists all the files that become part of the documentation
   - Contributing:
       - Guidelines and "How to...?": 'contributing.md'
       - Code of conduct: 'code-of-conduct.md'
-      - Design Docs: 'design_docs.md'
-      - Design Doc Blueprint: 'design_doc_blueprint.md'
+      - Design docs: 'design_docs.md'
+      - Design doc blueprint: 'design_doc_blueprint.md'
       - Releasing: 'releasing.md'
-      - Temporary Voting for Governance: 'governance/temporary-voting.md'
+      - Temporary voting for governance: 'governance/temporary-voting.md'
       - Governance: 'governance/GOVERNANCE.md'
 
   - Design docs:
       - git-submodules: 'design/git-submodules.md'
       - git-submodule-storage: 'design/git-submodule-storage.md'
       - JJ run: 'design/run.md'
-      - Sparse Patterns v2: 'design/sparse-v2.md'
+      - Sparse patterns v2: 'design/sparse-v2.md'
       - Tracking branches: 'design/tracking-branches.md'
       - Copy tracking and tracing: 'design/copy-tracking.md'
 
-  - Development Roadmap: 'roadmap.md'
+  - Development roadmap: 'roadmap.md'
 
 # The following follow .gitignore syntax, relative
 # to the docs dir.
