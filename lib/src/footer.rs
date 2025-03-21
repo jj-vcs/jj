@@ -14,6 +14,8 @@
 
 //! Parsing footer lines from commit messages.
 
+use itertools::Itertools as _;
+
 /// A key-value pair representing a footer line in a commit message, of the
 /// form `Key: Value`.
 #[derive(Debug, PartialEq, Clone)]
@@ -52,17 +54,27 @@ pub fn get_footer_lines(body: &str) -> Vec<FooterEntry> {
         return vec![];
     }
 
+    let footer_entry_re = regex::Regex::new(r"^([a-zA-Z0-9-]+) *: +(.+) *$")
+        .expect("footer entry regex should be valid");
     let mut footer: Vec<FooterEntry> = Vec::new();
+    let mut multiline_value: Vec<&str> = Vec::new();
     for line in lines {
-        if line.is_empty() {
+        if line.starts_with(' ') {
+            multiline_value.push(line.trim());
+        } else if let Some(caps) = footer_entry_re.captures(line) {
+            let key = caps[1].trim().to_string();
+            multiline_value.push(caps.get(2).unwrap().as_str());
+            let value = multiline_value.iter().rev().join(" ");
+            multiline_value.clear();
+            footer.push(FooterEntry(key, value));
+        } else if line.trim().is_empty() {
+            // end of the footer
             break;
-        }
-        if let Some((key, value)) = line.split_once(": ") {
-            let key = key.trim();
-            let value = value.trim();
-            footer.push(FooterEntry(key.to_string(), value.to_string()));
         } else {
-            break;
+            // a non footer entry in the footer
+            // the line is ignored, as well as the multiline value that may
+            // have previously been accumulated
+            multiline_value.clear();
         }
     }
 
@@ -121,6 +133,35 @@ Change-Id: I1234567890abcdef1234567890abcdef12345678"#;
         // should only have Change-Id
         assert_eq!(footer.len(), 1);
         assert_eq!(footer.first().unwrap().0, "Change-Id");
+    }
+
+    #[test]
+    fn test_multiline_footer_entry() {
+        let body = r#"chore: fix bug 1234
+
+key: This is a very long value, with spaces and
+  newlines in it."#;
+
+        let footer = get_footer_lines(body);
+
+        // should only have Change-Id
+        assert_eq!(footer.len(), 1);
+        assert_eq!(footer.first().unwrap().0, "key");
+        assert!(footer.first().unwrap().1.starts_with("This is"));
+        assert!(footer.first().unwrap().1.ends_with("in it."));
+    }
+
+    #[test]
+    fn test_ignore_line_in_footer() {
+        let body = r#"chore: fix bug 1234
+
+Signed-off-by: Random J Developer <random@developer.example.org>
+[lucky@maintainer.example.org: struct foo moved from foo.c to foo.h]
+Signed-off-by: Lucky K Maintainer <lucky@maintainer.example.org>
+"#;
+
+        let footer = get_footer_lines(body);
+        assert_eq!(footer.len(), 2);
     }
 
     #[test]
