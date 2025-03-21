@@ -212,16 +212,11 @@ the header of the website when you scroll to the top of any page.
 ### Compatible with Git
 
 Jujutsu is designed so that the underlying data and storage model is abstract.
-Today, it features two [backends]—one of them uses a Git repository for storage,
-while the other is a native storage backend[^native-backend]. The Git backend
-uses the [libgit2](https://libgit2.org/) C library and the
+Today, only the Git backend is production-ready. The Git backend uses the
+[libgit2](https://libgit2.org/) C library and the
 [gitoxide](https://github.com/Byron/gitoxide) Rust library.
 
 [backends]: https://jj-vcs.github.io/jj/latest/glossary#backend
-
-[^native-backend]: At this time, there's practically no reason to use the native
-backend. The backend exists mainly to make sure that it's possible to eventually
-add functionality that cannot easily be added to the Git backend.
 
 The Git backend is fully featured and maintained, and allows you to use Jujutsu
 with any Git remote. The commits you create will look like regular Git commits.

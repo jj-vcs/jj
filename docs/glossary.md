@@ -10,11 +10,10 @@ stores a list of [heads](#head) of such branches.
 
 ## Backend
 
-A backend is an implementation of the storage layer. There are currently two
-builtin commit backends: the Git backend and the native backend. The Git backend
-stores commits in a Git repository. The native backend is used for testing
-purposes only. Alternative backends could be used, for example, if somebody
-wanted to use jj with a humongous monorepo (as Google does).
+A backend is an implementation of the storage layer. There is currently only one
+production-ready builtin commit backend: the Git backend. The Git backend stores
+commits in a Git repository. There are several backends used for testing. Google
+also has its own cloud-based backend.
 
 There are also pluggable backends for storing other information than commits,
 such as the "operation store backend" for storing

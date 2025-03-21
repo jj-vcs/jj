@@ -34,13 +34,13 @@ the git-hook model, there was consensus about not repeating their mistakes.
 
 For `jj run` there is prior art in Mercurial, git branchless and Google's
 internal Mercurial. Currently git-branchless `git test` and `hg fix` implement
-some kind of command runner. The Google internal `hg run` works in
-conjunction with CitC (Clients in the Cloud) which allows it to lazily apply
-the current command to any affected file. Currently no Jujutsu backend
-(Git, Native) has a fancy virtual filesystem supporting it, so we
-can't apply this optimization. We could do the same once we have an
-implementation of the working copy based on a virtual file system. Until then,
-we have to run the commands in regular local-disk working copies.
+some kind of command runner. The Google internal `hg run` works in conjunction
+with CitC (Clients in the Cloud) which allows it to lazily apply the current
+command to any affected file. Currently no open-source Jujutsu backend (Git,
+Simple) has a fancy virtual filesystem supporting it, so we can't apply this
+optimization. We could do the same once we have an implementation of the working
+copy based on a virtual file system. Until then, we have to run the commands in
+regular local-disk working copies.
 
 ## Goals and Non-Goals
 
