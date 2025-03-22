@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use std::path::Path;
-use std::path::PathBuf;
 
 use test_case::test_case;
 use testutils::git;
@@ -21,8 +20,7 @@ use testutils::git;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 
-fn set_up() -> (TestEnvironment, PathBuf) {
-    let test_env = TestEnvironment::default();
+fn set_up(test_env: &TestEnvironment) {
     test_env.run_jj_in(".", ["git", "init", "origin"]).success();
     let origin_path = test_env.env_root().join("origin");
     let origin_git_repo_path = origin_path
@@ -59,14 +57,14 @@ fn set_up() -> (TestEnvironment, PathBuf) {
             ],
         )
         .success();
-    let workspace_root = test_env.env_root().join("local");
-    (test_env, workspace_root)
 }
 
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_nothing(subprocess: bool) {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
@@ -94,7 +92,9 @@ fn test_git_push_nothing(subprocess: bool) {
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_current_bookmark(subprocess: bool) {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
@@ -206,7 +206,9 @@ fn test_git_push_current_bookmark(subprocess: bool) {
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_parent_bookmark(subprocess: bool) {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
@@ -238,7 +240,9 @@ fn test_git_push_parent_bookmark(subprocess: bool) {
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_no_matching_bookmark(subprocess: bool) {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
@@ -257,7 +261,9 @@ fn test_git_push_no_matching_bookmark(subprocess: bool) {
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_matching_bookmark_unchanged(subprocess: bool) {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
@@ -281,7 +287,9 @@ fn test_git_push_matching_bookmark_unchanged(subprocess: bool) {
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_other_remote_has_bookmark(subprocess: bool) {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
@@ -357,7 +365,9 @@ fn test_git_push_other_remote_has_bookmark(subprocess: bool) {
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_forward_unexpectedly_moved(subprocess: bool) {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
@@ -402,7 +412,9 @@ fn test_git_push_forward_unexpectedly_moved(subprocess: bool) {
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_sideways_unexpectedly_moved(subprocess: bool) {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
@@ -469,7 +481,9 @@ fn test_git_push_sideways_unexpectedly_moved(subprocess: bool) {
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_deletion_unexpectedly_moved(subprocess: bool) {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
@@ -527,7 +541,9 @@ fn test_git_push_deletion_unexpectedly_moved(subprocess: bool) {
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_unexpectedly_deleted(subprocess: bool) {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
@@ -627,7 +643,9 @@ fn test_git_push_unexpectedly_deleted(subprocess: bool) {
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_creation_unexpectedly_already_exists(subprocess: bool) {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
@@ -674,7 +692,9 @@ fn test_git_push_creation_unexpectedly_already_exists(subprocess: bool) {
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_locally_created_and_rewritten(subprocess: bool) {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
@@ -752,7 +772,9 @@ fn test_git_push_locally_created_and_rewritten(subprocess: bool) {
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_multiple(subprocess: bool) {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
@@ -921,7 +943,9 @@ fn test_git_push_multiple(subprocess: bool) {
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_changes(subprocess: bool) {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
@@ -1069,7 +1093,9 @@ fn test_git_push_changes(subprocess: bool) {
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_revisions(subprocess: bool) {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
@@ -1184,7 +1210,9 @@ fn test_git_push_revisions(subprocess: bool) {
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_mixed(subprocess: bool) {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
@@ -1266,7 +1294,9 @@ fn test_git_push_mixed(subprocess: bool) {
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_existing_long_bookmark(subprocess: bool) {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
@@ -1300,7 +1330,9 @@ fn test_git_push_existing_long_bookmark(subprocess: bool) {
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_unsnapshotted_change(subprocess: bool) {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
@@ -1320,7 +1352,9 @@ fn test_git_push_unsnapshotted_change(subprocess: bool) {
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_conflict(subprocess: bool) {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
@@ -1360,7 +1394,9 @@ fn test_git_push_conflict(subprocess: bool) {
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_no_description(subprocess: bool) {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
@@ -1404,7 +1440,9 @@ fn test_git_push_no_description(subprocess: bool) {
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_no_description_in_immutable(subprocess: bool) {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
@@ -1470,7 +1508,9 @@ fn test_git_push_no_description_in_immutable(subprocess: bool) {
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_missing_author(subprocess: bool) {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
@@ -1514,7 +1554,9 @@ fn test_git_push_missing_author(subprocess: bool) {
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_missing_author_in_immutable(subprocess: bool) {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
@@ -1584,7 +1626,9 @@ fn test_git_push_missing_author_in_immutable(subprocess: bool) {
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_missing_committer(subprocess: bool) {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
@@ -1658,7 +1702,9 @@ fn test_git_push_missing_committer(subprocess: bool) {
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_missing_committer_in_immutable(subprocess: bool) {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
@@ -1729,7 +1775,9 @@ fn test_git_push_missing_committer_in_immutable(subprocess: bool) {
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_deleted(subprocess: bool) {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
@@ -1772,7 +1820,9 @@ fn test_git_push_deleted(subprocess: bool) {
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_conflicting_bookmarks(subprocess: bool) {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
@@ -1881,7 +1931,9 @@ fn test_git_push_conflicting_bookmarks(subprocess: bool) {
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_deleted_untracked(subprocess: bool) {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
@@ -1916,7 +1968,9 @@ fn test_git_push_deleted_untracked(subprocess: bool) {
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_tracked_vs_all(subprocess: bool) {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
@@ -2018,7 +2072,9 @@ fn test_git_push_tracked_vs_all(subprocess: bool) {
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_moved_forward_untracked(subprocess: bool) {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
@@ -2047,7 +2103,9 @@ fn test_git_push_moved_forward_untracked(subprocess: bool) {
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_moved_sideways_untracked(subprocess: bool) {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
@@ -2079,7 +2137,9 @@ fn test_git_push_moved_sideways_untracked(subprocess: bool) {
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_to_remote_named_git(subprocess: bool) {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
@@ -2108,7 +2168,9 @@ fn test_git_push_to_remote_named_git(subprocess: bool) {
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_to_remote_with_slashes(subprocess: bool) {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     if !subprocess {
         test_env.add_config("git.subprocess = false");
     }
@@ -2139,7 +2201,9 @@ fn test_git_push_to_remote_with_slashes(subprocess: bool) {
 
 #[test]
 fn test_git_push_sign_on_push() {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     let template = r#"
     separate("\n",
       description.first_line(),
@@ -2297,7 +2361,9 @@ fn test_git_push_sign_on_push() {
 
 #[test]
 fn test_git_push_rejected_by_remote() {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     // show repo state
     insta::assert_snapshot!(get_bookmark_output(&test_env, &workspace_root), @r"
     bookmark1: xtvrqkyv d13ecdbd (empty) description 1
@@ -2363,7 +2429,9 @@ fn get_bookmark_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandO
 #[cfg(not(feature = "git2"))]
 #[test]
 fn test_git_push_git2_warning() {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     test_env.add_config("git.subprocess = false");
     test_env
         .run_jj_in(

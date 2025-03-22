@@ -13,12 +13,10 @@
 // limitations under the License.
 
 use std::path::Path;
-use std::path::PathBuf;
 
 use crate::common::TestEnvironment;
 
-fn set_up() -> (TestEnvironment, PathBuf) {
-    let test_env = TestEnvironment::default();
+fn set_up(test_env: &TestEnvironment) {
     test_env.run_jj_in(".", ["git", "init", "origin"]).success();
     let origin_path = test_env.env_root().join("origin");
     let origin_git_repo_path = origin_path
@@ -52,9 +50,6 @@ fn set_up() -> (TestEnvironment, PathBuf) {
             ],
         )
         .success();
-    let workspace_root = test_env.env_root().join("local");
-
-    (test_env, workspace_root)
 }
 
 fn set_up_remote_at_main(test_env: &TestEnvironment, workspace_root: &Path, remote_name: &str) {
@@ -96,7 +91,9 @@ fn set_up_remote_at_main(test_env: &TestEnvironment, workspace_root: &Path, remo
 
 #[test]
 fn test_git_private_commits_block_pushing() {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
 
     test_env
         .run_jj_in(&workspace_root, ["new", "main", "-m=private 1"])
@@ -133,7 +130,9 @@ fn test_git_private_commits_block_pushing() {
 
 #[test]
 fn test_git_private_commits_can_be_overridden() {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
 
     test_env
         .run_jj_in(&workspace_root, ["new", "main", "-m=private 1"])
@@ -169,7 +168,9 @@ fn test_git_private_commits_can_be_overridden() {
 
 #[test]
 fn test_git_private_commits_are_not_checked_if_immutable() {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
 
     test_env
         .run_jj_in(&workspace_root, ["new", "main", "-m=private 1"])
@@ -194,7 +195,9 @@ fn test_git_private_commits_are_not_checked_if_immutable() {
 
 #[test]
 fn test_git_private_commits_not_directly_in_line_block_pushing() {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
 
     // New private commit descended from root()
     test_env
@@ -225,7 +228,9 @@ fn test_git_private_commits_not_directly_in_line_block_pushing() {
 
 #[test]
 fn test_git_private_commits_descending_from_commits_pushed_do_not_block_pushing() {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
 
     test_env
         .run_jj_in(&workspace_root, ["new", "main", "-m=public 3"])
@@ -249,7 +254,9 @@ fn test_git_private_commits_descending_from_commits_pushed_do_not_block_pushing(
 
 #[test]
 fn test_git_private_commits_already_on_the_remote_do_not_block_push() {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
 
     // Start a bookmark before a "private" commit lands in main
     test_env
@@ -324,7 +331,9 @@ fn test_git_private_commits_already_on_the_remote_do_not_block_push() {
 
 #[test]
 fn test_git_private_commits_are_evaluated_separately_for_each_remote() {
-    let (test_env, workspace_root) = set_up();
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let workspace_root = test_env.env_root().join("local");
     set_up_remote_at_main(&test_env, &workspace_root, "other");
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
 
