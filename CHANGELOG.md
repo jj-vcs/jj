@@ -181,6 +181,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj undo` now shows a hint when undoing an undo operation that the user may
    be looking for `jj op restore` instead.
 
+* Added `revsets.log-graph-prioritize`, which can be used to configure
+  which branch in the `jj log` graph is displayed on the left instead of `@`
+  (e.g. `coalesce(description("megamerge\n"), trunk())`)
+
 ### Fixed bugs
 
 * `jj status` now shows untracked files under untracked directories.
