@@ -1292,46 +1292,57 @@ pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), 
 
     // If there is an ongoing operation (merge, rebase, etc.), we need to clean it
     // up.
-    //
-    // TODO: Polish and upstream this to `gix`.
     if git_repo.state().is_some() {
-        // Based on the files `git2::Repository::cleanup_state` deletes; when
-        // upstreaming this logic should probably become more elaborate to match
-        // `git(1)` behavior.
-        const STATE_FILE_NAMES: &[&str] = &[
-            "MERGE_HEAD",
-            "MERGE_MODE",
-            "MERGE_MSG",
-            "REVERT_HEAD",
-            "CHERRY_PICK_HEAD",
-            "BISECT_LOG",
-        ];
-        const STATE_DIR_NAMES: &[&str] = &["rebase-merge", "rebase-apply", "sequencer"];
-        let handle_err = |err: PathError| match err.source.kind() {
-            std::io::ErrorKind::NotFound => Ok(()),
-            _ => Err(GitResetHeadError::from_git(err)),
-        };
-        for file_name in STATE_FILE_NAMES {
-            let path = git_repo.path().join(file_name);
-            std::fs::remove_file(&path)
-                .context(&path)
-                .or_else(handle_err)?;
-        }
-        for dir_name in STATE_DIR_NAMES {
-            let path = git_repo.path().join(dir_name);
-            std::fs::remove_dir_all(&path)
-                .context(&path)
-                .or_else(handle_err)?;
-        }
+        clear_operation_state(&git_repo)?;
     }
 
-    let parent_tree = wc_commit.parent_tree(mut_repo)?;
+    reset_index(mut_repo, &git_repo, wc_commit)
+}
 
+// TODO: Polish and upstream this to `gix`.
+fn clear_operation_state(git_repo: &gix::Repository) -> Result<(), GitResetHeadError> {
+    // Based on the files `git2::Repository::cleanup_state` deletes; when
+    // upstreaming this logic should probably become more elaborate to match
+    // `git(1)` behavior.
+    const STATE_FILE_NAMES: &[&str] = &[
+        "MERGE_HEAD",
+        "MERGE_MODE",
+        "MERGE_MSG",
+        "REVERT_HEAD",
+        "CHERRY_PICK_HEAD",
+        "BISECT_LOG",
+    ];
+    const STATE_DIR_NAMES: &[&str] = &["rebase-merge", "rebase-apply", "sequencer"];
+    let handle_err = |err: PathError| match err.source.kind() {
+        std::io::ErrorKind::NotFound => Ok(()),
+        _ => Err(GitResetHeadError::from_git(err)),
+    };
+    for file_name in STATE_FILE_NAMES {
+        let path = git_repo.path().join(file_name);
+        std::fs::remove_file(&path)
+            .context(&path)
+            .or_else(handle_err)?;
+    }
+    for dir_name in STATE_DIR_NAMES {
+        let path = git_repo.path().join(dir_name);
+        std::fs::remove_dir_all(&path)
+            .context(&path)
+            .or_else(handle_err)?;
+    }
+    Ok(())
+}
+
+fn reset_index(
+    repo: &dyn Repo,
+    git_repo: &gix::Repository,
+    wc_commit: &Commit,
+) -> Result<(), GitResetHeadError> {
+    let parent_tree = wc_commit.parent_tree(repo)?;
     // Use the merged parent tree as the Git index, allowing `git diff` to show the
     // same changes as `jj diff`. If the merged parent tree has conflicts, then the
     // Git index will also be conflicted.
     let mut index = if let Some(tree) = parent_tree.as_merge().as_resolved() {
-        if tree.id() == mut_repo.store().empty_tree_id() {
+        if tree.id() == repo.store().empty_tree_id() {
             // If the tree is empty, gix can fail to load the object (since Git doesn't
             // require the empty tree to actually be present in the object database), so we
             // just use an empty index directly.
@@ -1347,11 +1358,11 @@ pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), 
                 .map_err(GitResetHeadError::from_git)?
         }
     } else {
-        build_index_from_merged_tree(&git_repo, &parent_tree)?
+        build_index_from_merged_tree(git_repo, &parent_tree)?
     };
 
     let wc_tree = wc_commit.tree()?;
-    update_intent_to_add_impl(&git_repo, &mut index, &parent_tree, &wc_tree).block_on()?;
+    update_intent_to_add_impl(git_repo, &mut index, &parent_tree, &wc_tree).block_on()?;
 
     // Match entries in the new index with entries in the old index, and copy stat
     // information if the entry didn't change.
@@ -1372,9 +1383,7 @@ pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), 
 
     index
         .write(gix::index::write::Options::default())
-        .map_err(GitResetHeadError::from_git)?;
-
-    Ok(())
+        .map_err(GitResetHeadError::from_git)
 }
 
 fn build_index_from_merged_tree(
