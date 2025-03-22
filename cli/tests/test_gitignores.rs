@@ -21,16 +21,16 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_gitignores() {
     let test_env = TestEnvironment::default();
-    let workspace_root = test_env.env_root().join("repo");
-    git::init(&workspace_root);
-    test_env
-        .run_jj_in(&workspace_root, ["git", "init", "--git-repo", "."])
+    let work_dir = test_env.work_dir("repo");
+    git::init(work_dir.root());
+    work_dir
+        .run_jj(["git", "init", "--git-repo", "."])
         .success();
 
     // Say in core.excludesFiles that we don't want file1, file2, or file3
     let mut file = std::fs::OpenOptions::new()
         .append(true)
-        .open(workspace_root.join(".git").join("config"))
+        .open(work_dir.root().join(".git").join("config"))
         .unwrap();
     // Put the file in "~/my-ignores" so we also test that "~" expands to "$HOME"
     file.write_all(b"[core]\nexcludesFile=~/my-ignores\n")
@@ -45,22 +45,22 @@ fn test_gitignores() {
     // Say in .git/info/exclude that we actually do want file2 and file3
     let mut file = std::fs::OpenOptions::new()
         .append(true)
-        .open(workspace_root.join(".git").join("info").join("exclude"))
+        .open(work_dir.root().join(".git").join("info").join("exclude"))
         .unwrap();
     file.write_all(b"!file2\n!file3").unwrap();
     drop(file);
 
     // Say in .gitignore (in the working copy) that we actually do not want file2
     // (again)
-    std::fs::write(workspace_root.join(".gitignore"), "file2").unwrap();
+    work_dir.write_file(".gitignore", "file2");
 
     // Writes some files to the working copy
-    std::fs::write(workspace_root.join("file0"), "contents").unwrap();
-    std::fs::write(workspace_root.join("file1"), "contents").unwrap();
-    std::fs::write(workspace_root.join("file2"), "contents").unwrap();
-    std::fs::write(workspace_root.join("file3"), "contents").unwrap();
+    work_dir.write_file("file0", "contents");
+    work_dir.write_file("file1", "contents");
+    work_dir.write_file("file2", "contents");
+    work_dir.write_file("file3", "contents");
 
-    let output = test_env.run_jj_in(&workspace_root, ["diff", "-s"]);
+    let output = work_dir.run_jj(["diff", "-s"]);
     insta::assert_snapshot!(output, @r"
     A .gitignore
     A file0
@@ -72,27 +72,27 @@ fn test_gitignores() {
 #[test]
 fn test_gitignores_relative_excludes_file_path() {
     let test_env = TestEnvironment::default();
-    let workspace_root = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
     test_env
         .run_jj_in(".", ["git", "init", "--colocate", "repo"])
         .success();
 
     let mut file = std::fs::OpenOptions::new()
         .append(true)
-        .open(workspace_root.join(".git").join("config"))
+        .open(work_dir.root().join(".git").join("config"))
         .unwrap();
     file.write_all(b"[core]\nexcludesFile=../my-ignores\n")
         .unwrap();
     drop(file);
     std::fs::write(test_env.env_root().join("my-ignores"), "ignored\n").unwrap();
 
-    std::fs::write(workspace_root.join("ignored"), "").unwrap();
-    std::fs::write(workspace_root.join("not-ignored"), "").unwrap();
+    work_dir.write_file("ignored", "");
+    work_dir.write_file("not-ignored", "");
 
     // core.excludesFile should be resolved relative to the workspace root, not
     // to the cwd.
-    std::fs::create_dir(workspace_root.join("sub")).unwrap();
-    let output = test_env.run_jj_in(&workspace_root.join("sub"), ["diff", "-s"]);
+    let sub_dir = work_dir.create_dir("sub");
+    let output = sub_dir.run_jj(["diff", "-s"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     A ../not-ignored
     [EOF]
@@ -107,35 +107,30 @@ fn test_gitignores_relative_excludes_file_path() {
 #[test]
 fn test_gitignores_ignored_file_in_target_commit() {
     let test_env = TestEnvironment::default();
-    let workspace_root = test_env.env_root().join("repo");
-    git::init(&workspace_root);
-    test_env
-        .run_jj_in(&workspace_root, ["git", "init", "--git-repo", "."])
+    let work_dir = test_env.work_dir("repo");
+    git::init(work_dir.root());
+    work_dir
+        .run_jj(["git", "init", "--git-repo", "."])
         .success();
 
     // Create a commit with file "ignored" in it
-    std::fs::write(workspace_root.join("ignored"), "committed contents\n").unwrap();
-    test_env
-        .run_jj_in(&workspace_root, ["bookmark", "create", "-r@", "with-file"])
+    work_dir.write_file("ignored", "committed contents\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "with-file"])
         .success();
-    let target_commit_id = test_env
-        .run_jj_in(
-            &workspace_root,
-            ["log", "--no-graph", "-T=commit_id", "-r=@"],
-        )
+    let target_commit_id = work_dir
+        .run_jj(["log", "--no-graph", "-T=commit_id", "-r=@"])
         .success()
         .stdout
         .into_raw();
 
     // Create another commit where we ignore that path
-    test_env
-        .run_jj_in(&workspace_root, ["new", "root()"])
-        .success();
-    std::fs::write(workspace_root.join("ignored"), "contents in working copy\n").unwrap();
-    std::fs::write(workspace_root.join(".gitignore"), ".gitignore\nignored\n").unwrap();
+    work_dir.run_jj(["new", "root()"]).success();
+    work_dir.write_file("ignored", "contents in working copy\n");
+    work_dir.write_file(".gitignore", ".gitignore\nignored\n");
 
     // Update to the commit with the "ignored" file
-    let output = test_env.run_jj_in(&workspace_root, ["edit", "with-file"]);
+    let output = work_dir.run_jj(["edit", "with-file"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy now at: qpvuntsm 5ada929e with-file | (no description set)
@@ -146,10 +141,7 @@ fn test_gitignores_ignored_file_in_target_commit() {
     Discard the conflicting changes with `jj restore --from 5ada929e5d2e`.
     [EOF]
     ");
-    let output = test_env.run_jj_in(
-        &workspace_root,
-        ["diff", "--git", "--from", &target_commit_id],
-    );
+    let output = work_dir.run_jj(["diff", "--git", "--from", &target_commit_id]);
     insta::assert_snapshot!(output, @r"
     diff --git a/ignored b/ignored
     index 8a69467466..4d9be5127b 100644
