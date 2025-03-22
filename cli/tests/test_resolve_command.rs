@@ -245,7 +245,7 @@ fn test_resolution() {
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
-    New conflicts appeared in these commits:
+    New conflicts appeared in 1 commits:
       vruxwmqv 608a2310 conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by updating to it:
       jj new vruxwmqv
@@ -391,7 +391,7 @@ fn test_resolution() {
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
-    New conflicts appeared in these commits:
+    New conflicts appeared in 1 commits:
       vruxwmqv 8e03fefa conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by updating to it:
       jj new vruxwmqv
@@ -472,7 +472,7 @@ fn test_resolution() {
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
-    New conflicts appeared in these commits:
+    New conflicts appeared in 1 commits:
       vruxwmqv a786ac2f conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by updating to it:
       jj new vruxwmqv
@@ -875,7 +875,7 @@ fn test_simplify_conflict_sides() {
     Warning: There are unresolved conflicts at these paths:
     fileA    2-sided conflict
     fileB    2-sided conflict
-    New conflicts appeared in these commits:
+    New conflicts appeared in 1 commits:
       nkmrtpmo 69cc0c2d conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by updating to it:
       jj new nkmrtpmo
@@ -1152,7 +1152,7 @@ fn test_resolve_conflicts_with_executable() {
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file2    2-sided conflict including an executable
-    New conflicts appeared in these commits:
+    New conflicts appeared in 1 commits:
       znkkpsqq eb159d56 conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by updating to it:
       jj new znkkpsqq
@@ -1196,7 +1196,7 @@ fn test_resolve_conflicts_with_executable() {
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file1    2-sided conflict including an executable
-    New conflicts appeared in these commits:
+    New conflicts appeared in 1 commits:
       znkkpsqq 4dccbb3c conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by updating to it:
       jj new znkkpsqq
@@ -1305,7 +1305,7 @@ fn test_resolve_long_conflict_markers() {
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
-    New conflicts appeared in these commits:
+    New conflicts appeared in 1 commits:
       vruxwmqv 2b985546 conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by updating to it:
       jj new vruxwmqv
@@ -1378,7 +1378,7 @@ fn test_resolve_long_conflict_markers() {
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
-    New conflicts appeared in these commits:
+    New conflicts appeared in 1 commits:
       vruxwmqv fac9406d conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by updating to it:
       jj new vruxwmqv
@@ -1457,7 +1457,7 @@ fn test_resolve_long_conflict_markers() {
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
-    New conflicts appeared in these commits:
+    New conflicts appeared in 1 commits:
       vruxwmqv 1b29631a conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by updating to it:
       jj new vruxwmqv
@@ -1593,7 +1593,7 @@ fn test_multiple_conflicts() {
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     this_file_has_a_very_long_name_to_test_padding 2-sided conflict
-    New conflicts appeared in these commits:
+    New conflicts appeared in 1 commits:
       vruxwmqv 309e981c conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by updating to it:
       jj new vruxwmqv
@@ -1765,7 +1765,7 @@ fn test_multiple_conflicts_with_error() {
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file2    2-sided conflict
-    New conflicts appeared in these commits:
+    New conflicts appeared in 1 commits:
       vruxwmqv d2f3f858 conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by updating to it:
       jj new vruxwmqv
@@ -1817,7 +1817,7 @@ fn test_multiple_conflicts_with_error() {
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file2    2-sided conflict
-    New conflicts appeared in these commits:
+    New conflicts appeared in 1 commits:
       vruxwmqv 0a54e8ed conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by updating to it:
       jj new vruxwmqv

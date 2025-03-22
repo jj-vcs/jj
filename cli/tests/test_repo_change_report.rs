@@ -36,7 +36,7 @@ fn test_report_conflicts() {
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including 1 deletion
-    New conflicts appeared in these commits:
+    New conflicts appeared in 2 commits:
       kkmpptxz 2271a49e (conflict) C
       rlvkpnrz b7d83633 (conflict) B
     Hint: To resolve the conflicts, start by updating to the first one:
@@ -69,7 +69,7 @@ fn test_report_conflicts() {
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
-    New conflicts appeared in these commits:
+    New conflicts appeared in 2 commits:
       kkmpptxz 331a2fce (conflict) C
       rlvkpnrz b42f84eb (conflict) B
     Hint: To resolve the conflicts, start by updating to one of the first ones:
@@ -134,7 +134,7 @@ fn test_report_conflicts_with_divergent_commits() {
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including 1 deletion
-    New conflicts appeared in these commits:
+    New conflicts appeared in 3 commits:
       zsuskuln?? 1db43f23 (conflict) C3
       zsuskuln?? 4ca807ad (conflict) C2
       kkmpptxz b42f84eb (conflict) B
@@ -167,7 +167,7 @@ fn test_report_conflicts_with_divergent_commits() {
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including 1 deletion
-    New conflicts appeared in these commits:
+    New conflicts appeared in 1 commits:
       zsuskuln?? 3c36afc9 (conflict) C2
     Hint: To resolve the conflicts, start by updating to it:
       jj new zsuskuln
@@ -181,7 +181,7 @@ fn test_report_conflicts_with_divergent_commits() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits onto destination
-    New conflicts appeared in these commits:
+    New conflicts appeared in 1 commits:
       zsuskuln?? e3ff827e (conflict) C3
     Hint: To resolve the conflicts, start by updating to it:
       jj new zsuskuln
@@ -247,7 +247,7 @@ fn test_report_conflicts_with_resolving_conflicts_hint_disabled() {
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including 1 deletion
-    New conflicts appeared in these commits:
+    New conflicts appeared in 2 commits:
       kkmpptxz 2271a49e (conflict) C
       rlvkpnrz b7d83633 (conflict) B
     [EOF]

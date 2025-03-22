@@ -2237,15 +2237,16 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
             )?;
         }
         if !new_conflicts_by_change_id.is_empty() {
-            let template = self.commit_summary_template();
-            writeln!(fmt, "New conflicts appeared in these commits:")?;
-            for (_, new_commits) in &new_conflicts_by_change_id {
-                for commit in new_commits {
-                    write!(fmt, "  ")?;
-                    template.format(commit, fmt.as_mut())?;
-                    writeln!(fmt)?;
-                }
-            }
+            let num_conflicted: usize = new_conflicts_by_change_id
+                .values()
+                .map(|commits| commits.len())
+                .sum();
+            writeln!(fmt, "New conflicts appeared in {num_conflicted} commits:")?;
+            print_updated_commits(
+                fmt.as_mut(),
+                &self.commit_summary_template(),
+                new_conflicts_by_change_id.values().flatten().copied(),
+            )?;
         }
 
         // Hint that the user might want to `jj new` to the first conflict commit to

@@ -180,7 +180,7 @@ fn test_absorb_replace_single_line_hunk() {
     Rebased 1 descendant commits.
     Working copy now at: mzvwutvl e9c3b95b (empty) (no description set)
     Parent commit      : kkmpptxz 7c36845c 2
-    New conflicts appeared in these commits:
+    New conflicts appeared in 1 commits:
       qpvuntsm 7e885236 (conflict) 1
     Hint: To resolve the conflicts, start by updating to it:
       jj new qpvuntsm
@@ -428,7 +428,7 @@ fn test_absorb_conflict() {
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file1    2-sided conflict
-    New conflicts appeared in these commits:
+    New conflicts appeared in 1 commits:
       kkmpptxz 74405a07 (conflict) (no description set)
     Hint: To resolve the conflicts, start by updating to it:
       jj new kkmpptxz
