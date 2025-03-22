@@ -87,6 +87,7 @@ pub trait WorkingCopyFactory {
         state_path: PathBuf,
         operation_id: OperationId,
         workspace_id: WorkspaceId,
+        options: CheckoutOptions,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError>;
 
     /// Load an existing working copy.
@@ -95,6 +96,7 @@ pub trait WorkingCopyFactory {
         store: Arc<Store>,
         working_copy_path: PathBuf,
         state_path: PathBuf,
+        options: CheckoutOptions,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError>;
 }
 
@@ -262,8 +264,13 @@ pub enum UntrackedReason {
 }
 
 /// Options used when checking out a tree in the working copy.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct CheckoutOptions {
+    /// Whether to ignore changes to the executable bit for files on Unix. On
+    /// Windows there is no executable bit and this config is unused.
+    ///
+    /// `None` if unset, `Some(true)` to care, `Some(false)` to ignore.
+    pub ignore_exec: Option<bool>,
     /// Conflict marker style to use when materializing files
     pub conflict_marker_style: ConflictMarkerStyle,
 }
@@ -272,6 +279,7 @@ impl CheckoutOptions {
     /// Create an instance for use in tests.
     pub fn empty_for_test() -> Self {
         CheckoutOptions {
+            ignore_exec: None,
             conflict_marker_style: ConflictMarkerStyle::default(),
         }
     }

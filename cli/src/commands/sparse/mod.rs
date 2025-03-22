@@ -65,7 +65,7 @@ fn update_sparse_patterns_with(
     workspace_command: &mut WorkspaceCommandHelper,
     f: impl FnOnce(&mut Ui, &[RepoPathBuf]) -> Result<Vec<RepoPathBuf>, CommandError>,
 ) -> Result<(), CommandError> {
-    let checkout_options = workspace_command.checkout_options();
+    let checkout_options = workspace_command.settings().checkout_options();
     let (mut locked_ws, wc_commit) = workspace_command.start_working_copy_mutation()?;
     let new_patterns = f(ui, locked_ws.locked_wc().sparse_patterns()?)?;
     let stats = locked_ws

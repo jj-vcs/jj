@@ -26,7 +26,6 @@ use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::conflicts::extract_as_single_hunk;
-use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::matchers::Matcher;
 use jj_lib::merge::Merge;
@@ -37,6 +36,7 @@ use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::settings::UserSettings;
+use jj_lib::working_copy::CheckoutOptions;
 use jj_lib::working_copy::SnapshotError;
 use pollster::FutureExt as _;
 use thiserror::Error;
@@ -193,7 +193,7 @@ pub struct DiffEditor {
     tool: MergeTool,
     base_ignores: Arc<GitIgnoreFile>,
     use_instructions: bool,
-    conflict_marker_style: ConflictMarkerStyle,
+    checkout_options: CheckoutOptions,
 }
 
 impl DiffEditor {
@@ -203,11 +203,10 @@ impl DiffEditor {
         name: &str,
         settings: &UserSettings,
         base_ignores: Arc<GitIgnoreFile>,
-        conflict_marker_style: ConflictMarkerStyle,
     ) -> Result<Self, MergeToolConfigError> {
         let tool = get_tool_config(settings, name)?
             .unwrap_or_else(|| MergeTool::external(ExternalMergeTool::with_program(name)));
-        Self::new_inner(tool, settings, base_ignores, conflict_marker_style)
+        Self::new_inner(tool, settings, base_ignores)
     }
 
     /// Loads the default diff editor from the settings.
@@ -215,7 +214,6 @@ impl DiffEditor {
         ui: &Ui,
         settings: &UserSettings,
         base_ignores: Arc<GitIgnoreFile>,
-        conflict_marker_style: ConflictMarkerStyle,
     ) -> Result<Self, MergeToolConfigError> {
         let args = editor_args_from_settings(ui, settings, "ui.diff-editor")?;
         let tool = if let CommandNameAndArgs::String(name) = &args {
@@ -224,20 +222,19 @@ impl DiffEditor {
             None
         }
         .unwrap_or_else(|| MergeTool::external(ExternalMergeTool::with_edit_args(&args)));
-        Self::new_inner(tool, settings, base_ignores, conflict_marker_style)
+        Self::new_inner(tool, settings, base_ignores)
     }
 
     fn new_inner(
         tool: MergeTool,
         settings: &UserSettings,
         base_ignores: Arc<GitIgnoreFile>,
-        conflict_marker_style: ConflictMarkerStyle,
     ) -> Result<Self, MergeToolConfigError> {
         Ok(DiffEditor {
             tool,
             base_ignores,
             use_instructions: settings.get_bool("ui.diff-instructions")?,
-            conflict_marker_style,
+            checkout_options: settings.checkout_options(),
         })
     }
 
@@ -257,12 +254,13 @@ impl DiffEditor {
         format_instructions: impl FnOnce() -> String,
     ) -> Result<MergedTreeId, DiffEditError> {
         match &self.tool {
-            MergeTool::Builtin => {
-                Ok(
-                    edit_diff_builtin(left_tree, right_tree, matcher, self.conflict_marker_style)
-                        .map_err(Box::new)?,
-                )
-            }
+            MergeTool::Builtin => Ok(edit_diff_builtin(
+                left_tree,
+                right_tree,
+                matcher,
+                self.checkout_options.conflict_marker_style,
+            )
+            .map_err(Box::new)?),
             MergeTool::External(editor) => {
                 let instructions = self.use_instructions.then(format_instructions);
                 edit_diff_external(
@@ -272,7 +270,7 @@ impl DiffEditor {
                     matcher,
                     instructions.as_deref(),
                     self.base_ignores.clone(),
-                    self.conflict_marker_style,
+                    self.checkout_options.clone(),
                 )
             }
         }
@@ -325,7 +323,9 @@ impl MergeToolFile {
 pub struct MergeEditor {
     tool: MergeTool,
     path_converter: RepoPathUiConverter,
-    conflict_marker_style: ConflictMarkerStyle,
+    // Using `CheckoutOptions` for symmetry with `DiffEditor`, but not all
+    // options are used as the file editing functions differ.
+    checkout_options: CheckoutOptions,
 }
 
 impl MergeEditor {
@@ -335,11 +335,10 @@ impl MergeEditor {
         name: &str,
         settings: &UserSettings,
         path_converter: RepoPathUiConverter,
-        conflict_marker_style: ConflictMarkerStyle,
     ) -> Result<Self, MergeToolConfigError> {
         let tool = get_tool_config(settings, name)?
             .unwrap_or_else(|| MergeTool::external(ExternalMergeTool::with_program(name)));
-        Self::new_inner(name, tool, path_converter, conflict_marker_style)
+        Self::new_inner(name, tool, path_converter, settings.checkout_options())
     }
 
     /// Loads the default 3-way merge editor from the settings.
@@ -347,7 +346,6 @@ impl MergeEditor {
         ui: &Ui,
         settings: &UserSettings,
         path_converter: RepoPathUiConverter,
-        conflict_marker_style: ConflictMarkerStyle,
     ) -> Result<Self, MergeToolConfigError> {
         let args = editor_args_from_settings(ui, settings, "ui.merge-editor")?;
         let tool = if let CommandNameAndArgs::String(name) = &args {
@@ -356,14 +354,14 @@ impl MergeEditor {
             None
         }
         .unwrap_or_else(|| MergeTool::external(ExternalMergeTool::with_merge_args(&args)));
-        Self::new_inner(&args, tool, path_converter, conflict_marker_style)
+        Self::new_inner(&args, tool, path_converter, settings.checkout_options())
     }
 
     fn new_inner(
         name: impl ToString,
         tool: MergeTool,
         path_converter: RepoPathUiConverter,
-        conflict_marker_style: ConflictMarkerStyle,
+        checkout_options: CheckoutOptions,
     ) -> Result<Self, MergeToolConfigError> {
         if matches!(&tool, MergeTool::External(mergetool) if mergetool.merge_args.is_empty()) {
             return Err(MergeToolConfigError::MergeArgsNotConfigured {
@@ -373,7 +371,7 @@ impl MergeEditor {
         Ok(MergeEditor {
             tool,
             path_converter,
-            conflict_marker_style,
+            checkout_options,
         })
     }
 
@@ -400,7 +398,7 @@ impl MergeEditor {
                 editor,
                 tree,
                 &merge_tool_files,
-                self.conflict_marker_style,
+                self.checkout_options.conflict_marker_style,
             ),
         }
     }
@@ -427,13 +425,7 @@ mod tests {
         let get = |name, config_text| {
             let config = config_from_string(config_text);
             let settings = UserSettings::from_config(config).unwrap();
-            DiffEditor::with_name(
-                name,
-                &settings,
-                GitIgnoreFile::empty(),
-                ConflictMarkerStyle::Diff,
-            )
-            .map(|editor| editor.tool)
+            DiffEditor::with_name(name, &settings, GitIgnoreFile::empty()).map(|editor| editor.tool)
         };
 
         insta::assert_debug_snapshot!(get(":builtin", "").unwrap(), @"Builtin");
@@ -502,13 +494,8 @@ mod tests {
             let config = config_from_string(text);
             let ui = Ui::with_config(&config).unwrap();
             let settings = UserSettings::from_config(config).unwrap();
-            DiffEditor::from_settings(
-                &ui,
-                &settings,
-                GitIgnoreFile::empty(),
-                ConflictMarkerStyle::Diff,
-            )
-            .map(|editor| editor.tool)
+            DiffEditor::from_settings(&ui, &settings, GitIgnoreFile::empty())
+                .map(|editor| editor.tool)
         };
 
         // Default
@@ -696,8 +683,7 @@ mod tests {
                 cwd: "".into(),
                 base: "".into(),
             };
-            MergeEditor::with_name(name, &settings, path_converter, ConflictMarkerStyle::Diff)
-                .map(|editor| editor.tool)
+            MergeEditor::with_name(name, &settings, path_converter).map(|editor| editor.tool)
         };
 
         insta::assert_debug_snapshot!(get(":builtin", "").unwrap(), @"Builtin");
@@ -755,8 +741,7 @@ mod tests {
                 cwd: "".into(),
                 base: "".into(),
             };
-            MergeEditor::from_settings(&ui, &settings, path_converter, ConflictMarkerStyle::Diff)
-                .map(|editor| editor.tool)
+            MergeEditor::from_settings(&ui, &settings, path_converter).map(|editor| editor.tool)
         };
 
         // Default

@@ -177,13 +177,12 @@ fn do_op_log(
                 )?
             };
             let path_converter = workspace_env.path_converter();
-            let conflict_marker_style = workspace_env.conflict_marker_style();
             let diff_renderer = (!diff_formats.is_empty()).then(|| {
                 DiffRenderer::new(
                     repo.as_ref(),
                     path_converter,
-                    conflict_marker_style,
                     diff_formats.clone(),
+                    settings.checkout_options(),
                 )
             });
 
