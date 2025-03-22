@@ -345,8 +345,7 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
-    Existing conflicts were resolved or abandoned from these commits:
-      mzvwutvl hidden a813239f (conflict) (no description set)
+    Existing conflicts were resolved or abandoned from 1 commits.
     [EOF]
     ");
     // Conflicts should render using "snapshot" format in diff editor

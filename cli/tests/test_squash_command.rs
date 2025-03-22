@@ -817,7 +817,7 @@ fn test_squash_from_multiple() {
     Rebased 2 descendant commits
     Working copy now at: kpqxywon 7ea39167 f | (no description set)
     Parent commit      : yostqsxw acfbf2a0 e | (no description set)
-    New conflicts appeared in these commits:
+    New conflicts appeared in 1 commits:
       yqosqzyt 4df3b215 d | (conflict) (no description set)
     Hint: To resolve the conflicts, start by updating to it:
       jj new yqosqzyt
@@ -963,7 +963,7 @@ fn test_squash_from_multiple_partial() {
     Rebased 2 descendant commits
     Working copy now at: kpqxywon a8530305 f | (no description set)
     Parent commit      : yostqsxw 0a3637fc e | (no description set)
-    New conflicts appeared in these commits:
+    New conflicts appeared in 1 commits:
       yqosqzyt 05a3ab3d d | (conflict) (no description set)
     Hint: To resolve the conflicts, start by updating to it:
       jj new yqosqzyt

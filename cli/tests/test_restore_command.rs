@@ -73,7 +73,7 @@ fn test_restore() {
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file2    2-sided conflict including 1 deletion
-    New conflicts appeared in these commits:
+    New conflicts appeared in 1 commits:
       kkmpptxz 5b361547 (conflict) (no description set)
     Hint: To resolve the conflicts, start by updating to it:
       jj new kkmpptxz

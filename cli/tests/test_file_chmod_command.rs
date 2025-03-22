@@ -202,7 +202,7 @@ fn test_chmod_file_dir_deletion_conflicts() {
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including 1 deletion and an executable
-    New conflicts appeared in these commits:
+    New conflicts appeared in 1 commits:
       kmkuslsw 139dee15 file_deletion | (conflict) file_deletion
     Hint: To resolve the conflicts, start by updating to it:
       jj new kmkuslsw
