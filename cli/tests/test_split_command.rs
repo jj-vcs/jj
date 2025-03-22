@@ -352,7 +352,7 @@ fn test_split_with_merge_child() {
 #[test]
 // Split a commit with no descendants into siblings. Also tests that the default
 // description is set correctly on the first commit.
-fn test_split_siblings_no_descendants() {
+fn test_split_parallel_no_descendants() {
     let mut test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     test_env.add_config(r#"ui.default-description = "\n\nTESTED=TODO""#);
@@ -411,7 +411,7 @@ fn test_split_siblings_no_descendants() {
 }
 
 #[test]
-fn test_split_siblings_with_descendants() {
+fn test_split_parallel_with_descendants() {
     // Configure the environment and make the initial commits.
     let mut test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -513,7 +513,7 @@ fn test_split_siblings_with_descendants() {
 // This test makes sure that the children of the commit being split retain any
 // other parents which weren't involved in the split.
 #[test]
-fn test_split_siblings_with_merge_child() {
+fn test_split_parallel_with_merge_child() {
     let mut test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
