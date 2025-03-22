@@ -2346,7 +2346,7 @@ fn test_git_push_rejected_by_remote() {
     ------- stderr -------
     Changes to push to origin:
       Move forward bookmark bookmark1 from d13ecdbda2a2 to dd5c09b30f9f
-    remote: error: hook declined to update refs/heads/bookmark1        
+    remote: error: hook declined to update refs/heads/bookmark1
     Error: Remote rejected the update of some refs (do you have permission to push to ["refs/heads/bookmark1"]?)
     [EOF]
     [exit status: 1]

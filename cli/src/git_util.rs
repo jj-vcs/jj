@@ -178,7 +178,8 @@ impl GitSidebandProgressMessageWriter {
 
         GitSidebandProgressMessageWriter {
             display_prefix: "remote: ".as_bytes(),
-            suffix: if is_terminal { "\x1B[K" } else { "        " }.as_bytes(),
+            // \x1B[K is a terminal code to clear the terminal
+            suffix: if is_terminal { "\x1B[K" } else { "" }.as_bytes(),
             scratch: Vec::new(),
         }
     }
