@@ -374,6 +374,39 @@ fn test_split_with_descendants() {
 
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "###);
+
+    // Check the evolog for the first commit. It shows four entries:
+    // - The initial empty commit.
+    // - The rewritten commit from the snapshot after the files were added.
+    // - The rewritten commit once the description is added during `jj commit`.
+    // - The rewritten commit after the split.
+    let evolog_1 = test_env.run_jj_in(&workspace_path, ["evolog", "-r", "qpvun"]);
+    insta::assert_snapshot!(evolog_1, @r###"
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:12 34dd141b
+    │  Add file1
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 764d46f1
+    │  Add file1 & file2
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 44af2155
+    │  (no description set)
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 230dd059
+       (empty) (no description set)
+    [EOF]
+    "###);
+
+    // The evolog for the second commit is the same, except that the change id
+    // changes after the split.
+    let evolog_2 = test_env.run_jj_in(&workspace_path, ["evolog", "-r", "royxm"]);
+    insta::assert_snapshot!(evolog_2, @r###"
+    ○  royxmykx test.user@example.com 2001-02-03 08:05:12 465e03d0
+    │  Add file2
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 764d46f1
+    │  Add file1 & file2
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 44af2155
+    │  (no description set)
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 230dd059
+       (empty) (no description set)
+    [EOF]
+    "###);
 }
 
 // This test makes sure that the children of the commit being split retain any
@@ -496,6 +529,34 @@ fn test_split_parallel_no_descendants() {
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
     assert!(!test_env.env_root().join("editor2").exists());
+
+    // Check the evolog for the first commit. It shows three entries:
+    // - The initial empty commit.
+    // - The rewritten commit from the snapshot after the files were added.
+    // - The rewritten commit after the split.
+    let evolog_1 = test_env.run_jj_in(&workspace_path, ["evolog", "-r", "qpvun"]);
+    insta::assert_snapshot!(evolog_1, @r###"
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:09 48018df6
+    │  TESTED=TODO
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 44af2155
+    │  (no description set)
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 230dd059
+       (empty) (no description set)
+    [EOF]
+    "###);
+
+    // The evolog for the second commit is the same, except that the change id
+    // changes after the split.
+    let evolog_2 = test_env.run_jj_in(&workspace_path, ["evolog", "-r", "kkmpp"]);
+    insta::assert_snapshot!(evolog_2, @r###"
+    @  kkmpptxz test.user@example.com 2001-02-03 08:05:09 7eddbf93
+    │  (no description set)
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 44af2155
+    │  (no description set)
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 230dd059
+       (empty) (no description set)
+    [EOF]
+    "###);
 }
 
 #[test]
