@@ -180,6 +180,16 @@ function `root()`. Note that our definition of "root commit" is different from
 Git's; Git's "root commits" are the first commit(s) in the repository, i.e. the
 commits `jj log -r 'root()+'` will show.
 
+## same-change rule
+
+The same-change rule is a pragmatic hack on the conflict algebra, which allows
+us to consider a conflict as automatically resolved when two sides are the same.
+This is similar to Git and Mercurial (hg) and not like Darcs and its
+descendants which would consider it a conflict. It also has some unfortunate
+consequences like when you rebase a commit to upstream and the upstream rebased
+it  to where it was before, you may lose changes (any that overlapped with
+upstream's changes).
+
 ## Tree
 
 A tree object represents a snapshot of a directory in the repository. Tree
