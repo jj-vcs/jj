@@ -362,17 +362,7 @@ fn get_file_contents(
     let file_value = tree.path_value(path)?;
     let effective_file_value = materialize_tree_value(store, path, file_value).block_on()?;
     match effective_file_value {
-        MaterializedTreeValue::File { mut reader, id, .. } => {
-            let mut file_contents = Vec::new();
-            reader
-                .read_to_end(&mut file_contents)
-                .map_err(|e| BackendError::ReadFile {
-                    path: path.to_owned(),
-                    id,
-                    source: Box::new(e),
-                })?;
-            Ok(file_contents.into())
-        }
+        MaterializedTreeValue::File(mut file) => Ok(file.read_all(path)?.into()),
         MaterializedTreeValue::FileConflict { contents, .. } => Ok(
             materialize_merge_result_to_bytes(&contents, ConflictMarkerStyle::default()),
         ),

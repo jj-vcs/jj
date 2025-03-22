@@ -130,8 +130,8 @@ fn write_tree_entries<P: AsRef<RepoPath>>(
                     "Path '{ui_path}' exists but access is denied: {err}"
                 )?;
             }
-            MaterializedTreeValue::File { mut reader, .. } => {
-                io::copy(&mut reader, &mut ui.stdout_formatter().as_mut())?;
+            MaterializedTreeValue::File(mut file) => {
+                io::copy(&mut file.reader, &mut ui.stdout_formatter().as_mut())?;
             }
             MaterializedTreeValue::FileConflict { contents, .. } => {
                 materialize_merge_result(

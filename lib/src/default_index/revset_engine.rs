@@ -36,7 +36,6 @@ use super::rev_walk::PeekableRevWalk;
 use super::rev_walk::RevWalk;
 use super::rev_walk::RevWalkBuilder;
 use super::revset_graph_iterator::RevsetGraphWalk;
-use crate::backend::BackendError;
 use crate::backend::BackendResult;
 use crate::backend::ChangeId;
 use crate::backend::CommitId;
@@ -1355,17 +1354,7 @@ fn to_file_content(path: &RepoPath, value: MaterializedTreeValue) -> BackendResu
     match value {
         MaterializedTreeValue::Absent => Ok(vec![]),
         MaterializedTreeValue::AccessDenied(_) => Ok(vec![]),
-        MaterializedTreeValue::File { id, mut reader, .. } => {
-            let mut content = vec![];
-            reader
-                .read_to_end(&mut content)
-                .map_err(|err| BackendError::ReadFile {
-                    path: path.to_owned(),
-                    id: id.clone(),
-                    source: err.into(),
-                })?;
-            Ok(content)
-        }
+        MaterializedTreeValue::File(mut file) => file.read_all(path),
         MaterializedTreeValue::Symlink { id: _, target } => Ok(target.into_bytes()),
         MaterializedTreeValue::GitSubmodule(_) => Ok(vec![]),
         MaterializedTreeValue::FileConflict { contents, .. } => {
