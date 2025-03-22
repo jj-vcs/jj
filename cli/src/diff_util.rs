@@ -51,7 +51,6 @@ use jj_lib::diff::CompareBytesIgnoreAllWhitespace;
 use jj_lib::diff::CompareBytesIgnoreWhitespaceAmount;
 use jj_lib::diff::Diff;
 use jj_lib::diff::DiffHunk;
-use jj_lib::diff::DiffHunkContentVec;
 use jj_lib::diff::DiffHunkKind;
 use jj_lib::files::DiffLineHunkSide;
 use jj_lib::files::DiffLineIterator;
@@ -585,11 +584,10 @@ impl ColorWordsDiffOptions {
 
 fn show_color_words_diff_hunks(
     formatter: &mut dyn Formatter,
-    left: &[u8],
-    right: &[u8],
+    contents: [&[u8]; 2],
     options: &ColorWordsDiffOptions,
 ) -> io::Result<()> {
-    let line_diff = diff_by_line([left, right], &options.line_diff);
+    let line_diff = diff_by_line(contents, &options.line_diff);
     let mut line_number = DiffLineNumber { left: 1, right: 1 };
     // Matching entries shouldn't appear consecutively in diff of two inputs.
     // However, if the inputs have conflicts, there may be a hunk that can be
@@ -598,8 +596,9 @@ fn show_color_words_diff_hunks(
     let mut emitted = false;
 
     for hunk in line_diff.hunks() {
+        let hunk_contents: [&BStr; 2] = hunk.contents[..].try_into().unwrap();
         match hunk.kind {
-            DiffHunkKind::Matching => contexts.push(hunk.contents),
+            DiffHunkKind::Matching => contexts.push(hunk_contents),
             DiffHunkKind::Different => {
                 let num_after = if emitted { options.context } else { 0 };
                 line_number = show_color_words_context_lines(
@@ -613,7 +612,7 @@ fn show_color_words_diff_hunks(
                 contexts.clear();
                 emitted = true;
                 line_number =
-                    show_color_words_diff_lines(formatter, &hunk.contents, line_number, options)?;
+                    show_color_words_diff_lines(formatter, hunk_contents, line_number, options)?;
             }
         }
     }
@@ -634,7 +633,7 @@ fn show_color_words_diff_hunks(
 /// Prints `num_after` lines, ellipsis, and `num_before` lines.
 fn show_color_words_context_lines(
     formatter: &mut dyn Formatter,
-    contexts: &[DiffHunkContentVec],
+    contexts: &[[&BStr; 2]],
     mut line_number: DiffLineNumber,
     options: &ColorWordsDiffOptions,
     num_after: usize,
@@ -652,15 +651,13 @@ fn show_color_words_context_lines(
         (after_lines, before_lines, num_skipped)
     };
     let show = |formatter: &mut dyn Formatter,
-                left_lines: &[&[u8]],
-                right_lines: &[&[u8]],
+                [left_lines, right_lines]: [&[&[u8]]; 2],
                 mut line_number: DiffLineNumber| {
         if left_lines == right_lines {
             for line in left_lines {
                 show_color_words_line_number(
                     formatter,
-                    Some(line_number.left),
-                    Some(line_number.right),
+                    [Some(line_number.left), Some(line_number.right)],
                 )?;
                 show_color_words_inline_hunks(
                     formatter,
@@ -675,7 +672,7 @@ fn show_color_words_context_lines(
             let right = right_lines.concat();
             show_color_words_diff_lines(
                 formatter,
-                &[BStr::new(&left), BStr::new(&right)],
+                [&left, &right].map(BStr::new),
                 line_number,
                 options,
             )
@@ -684,7 +681,7 @@ fn show_color_words_context_lines(
 
     let (left_after, mut left_before, num_left_skipped) = extract(0);
     let (right_after, mut right_before, num_right_skipped) = extract(1);
-    line_number = show(formatter, &left_after, &right_after, line_number)?;
+    line_number = show(formatter, [&left_after, &right_after], line_number)?;
     if num_left_skipped > 0 || num_right_skipped > 0 {
         write!(formatter, "{SKIPPED_CONTEXT_LINE}")?;
         line_number.left += num_left_skipped;
@@ -700,13 +697,13 @@ fn show_color_words_context_lines(
     }
     left_before.reverse();
     right_before.reverse();
-    line_number = show(formatter, &left_before, &right_before, line_number)?;
+    line_number = show(formatter, [&left_before, &right_before], line_number)?;
     Ok(line_number)
 }
 
 fn show_color_words_diff_lines(
     formatter: &mut dyn Formatter,
-    contents: &[&BStr],
+    contents: [&BStr; 2],
     mut line_number: DiffLineNumber,
     options: &ColorWordsDiffOptions,
 ) -> io::Result<DiffLineNumber> {
@@ -725,25 +722,27 @@ fn show_color_words_diff_lines(
         for diff_line in diff_line_iter.by_ref() {
             show_color_words_line_number(
                 formatter,
-                diff_line
-                    .has_left_content()
-                    .then_some(diff_line.line_number.left),
-                diff_line
-                    .has_right_content()
-                    .then_some(diff_line.line_number.right),
+                [
+                    diff_line
+                        .has_left_content()
+                        .then_some(diff_line.line_number.left),
+                    diff_line
+                        .has_right_content()
+                        .then_some(diff_line.line_number.right),
+                ],
             )?;
             show_color_words_inline_hunks(formatter, &diff_line.hunks)?;
         }
         line_number = diff_line_iter.next_line_number();
     } else {
-        let (left_lines, right_lines) = unzip_diff_hunks_to_lines(&word_diff_hunks);
+        let [left_lines, right_lines] = unzip_diff_hunks_to_lines(&word_diff_hunks);
         for tokens in &left_lines {
-            show_color_words_line_number(formatter, Some(line_number.left), None)?;
+            show_color_words_line_number(formatter, [Some(line_number.left), None])?;
             show_color_words_single_sided_line(formatter, tokens, "removed")?;
             line_number.left += 1;
         }
         for tokens in &right_lines {
-            show_color_words_line_number(formatter, None, Some(line_number.right))?;
+            show_color_words_line_number(formatter, [None, Some(line_number.right)])?;
             show_color_words_single_sided_line(formatter, tokens, "added")?;
             line_number.right += 1;
         }
@@ -753,8 +752,7 @@ fn show_color_words_diff_lines(
 
 fn show_color_words_line_number(
     formatter: &mut dyn Formatter,
-    left_line_number: Option<u32>,
-    right_line_number: Option<u32>,
+    [left_line_number, right_line_number]: [Option<u32>; 2],
 ) -> io::Result<()> {
     if let Some(line_number) = left_line_number {
         formatter.with_label("removed", |formatter| {
@@ -998,7 +996,11 @@ pub fn show_color_words_diff(
                 } else if right_content.is_binary {
                     writeln!(formatter.labeled("binary"), "    (binary)")?;
                 } else {
-                    show_color_words_diff_hunks(formatter, &[], &right_content.contents, options)?;
+                    show_color_words_diff_hunks(
+                        formatter,
+                        [&[], &right_content.contents],
+                        options,
+                    )?;
                 }
             } else if right_value.is_present() {
                 let description = match (&left_value, &right_value) {
@@ -1063,8 +1065,7 @@ pub fn show_color_words_diff(
                 } else {
                     show_color_words_diff_hunks(
                         formatter,
-                        &left_content.contents,
-                        &right_content.contents,
+                        [&left_content.contents, &right_content.contents],
                         options,
                     )?;
                 }
@@ -1080,7 +1081,7 @@ pub fn show_color_words_diff(
                 } else if left_content.is_binary {
                     writeln!(formatter.labeled("binary"), "    (binary)")?;
                 } else {
-                    show_color_words_diff_hunks(formatter, &left_content.contents, &[], options)?;
+                    show_color_words_diff_hunks(formatter, [&left_content.contents, &[]], options)?;
                 }
             }
         }
@@ -1315,8 +1316,7 @@ impl<'content> UnifiedDiffHunk<'content> {
 }
 
 fn unified_diff_hunks<'content>(
-    left_content: &'content [u8],
-    right_content: &'content [u8],
+    contents: [&'content [u8]; 2],
     options: &UnifiedDiffOptions,
 ) -> Vec<UnifiedDiffHunk<'content>> {
     let mut hunks = vec![];
@@ -1325,7 +1325,7 @@ fn unified_diff_hunks<'content>(
         right_line_range: 0..0,
         lines: vec![],
     };
-    let diff = diff_by_line([left_content, right_content], &options.line_diff);
+    let diff = diff_by_line(contents, &options.line_diff);
     let mut diff_hunks = diff.hunks().peekable();
     while let Some(hunk) = diff_hunks.next() {
         match hunk.kind {
@@ -1361,7 +1361,7 @@ fn unified_diff_hunks<'content>(
                 current_hunk.extend_context_lines(before_lines.into_iter().rev());
             }
             DiffHunkKind::Different => {
-                let (left_lines, right_lines) =
+                let [left_lines, right_lines] =
                     unzip_diff_hunks_to_lines(Diff::by_word(hunk.contents).hunks());
                 current_hunk.extend_removed_lines(left_lines);
                 current_hunk.extend_added_lines(right_lines);
@@ -1374,10 +1374,8 @@ fn unified_diff_hunks<'content>(
     hunks
 }
 
-/// Splits `(left, right)` hunk pairs into `(left_lines, right_lines)`.
-fn unzip_diff_hunks_to_lines<'content, I>(
-    diff_hunks: I,
-) -> (Vec<DiffTokenVec<'content>>, Vec<DiffTokenVec<'content>>)
+/// Splits `[left, right]` hunk pairs into `[left_lines, right_lines]`.
+fn unzip_diff_hunks_to_lines<'content, I>(diff_hunks: I) -> [Vec<DiffTokenVec<'content>>; 2]
 where
     I: IntoIterator,
     I::Item: Borrow<DiffHunk<'content>>,
@@ -1428,13 +1426,12 @@ where
     if !right_tokens.is_empty() {
         right_lines.push(right_tokens);
     }
-    (left_lines, right_lines)
+    [left_lines, right_lines]
 }
 
 fn show_unified_diff_hunks(
     formatter: &mut dyn Formatter,
-    left_content: &[u8],
-    right_content: &[u8],
+    contents: [&[u8]; 2],
     options: &UnifiedDiffOptions,
 ) -> io::Result<()> {
     // "If the chunk size is 0, the first number is one lower than one would
@@ -1452,7 +1449,7 @@ fn show_unified_diff_hunks(
         }
     }
 
-    for hunk in unified_diff_hunks(left_content, right_content, options) {
+    for hunk in unified_diff_hunks(contents, options) {
         writeln!(
             formatter.labeled("hunk_header"),
             "@@ -{},{} +{},{} @@",
@@ -1581,8 +1578,7 @@ pub fn show_git_diff(
                 })?;
                 show_unified_diff_hunks(
                     formatter,
-                    &left_part.content.contents,
-                    &right_part.content.contents,
+                    [&left_part.content.contents, &right_part.content.contents],
                     options,
                 )?;
             }
@@ -1664,7 +1660,11 @@ impl DiffStats {
                 let (left, right) = values?;
                 let left_content = diff_content(path.source(), left, conflict_marker_style)?;
                 let right_content = diff_content(path.target(), right, conflict_marker_style)?;
-                let stat = get_diff_stat_entry(path, &left_content, &right_content, options);
+                let stat = get_diff_stat_entry(
+                    path,
+                    [&left_content.contents, &right_content.contents],
+                    options,
+                );
                 BackendResult::Ok(stat)
             })
             .try_collect()
@@ -1697,17 +1697,13 @@ pub struct DiffStatEntry {
 
 fn get_diff_stat_entry(
     path: CopiesTreeDiffEntryPath,
-    left_content: &FileContent,
-    right_content: &FileContent,
+    contents: [&[u8]; 2],
     options: &DiffStatOptions,
 ) -> DiffStatEntry {
     // TODO: this matches git's behavior, which is to count the number of newlines
     // in the file. but that behavior seems unhelpful; no one really cares how
     // many `0x0a` characters are in an image.
-    let diff = diff_by_line(
-        [&left_content.contents, &right_content.contents],
-        &options.line_diff,
-    );
+    let diff = diff_by_line(contents, &options.line_diff);
     let mut added = 0;
     let mut removed = 0;
     for hunk in diff.hunks() {
