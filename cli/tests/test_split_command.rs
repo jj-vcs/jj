@@ -692,6 +692,11 @@ fn test_split_interactive_with_paths() {
     let edit_script = test_env.set_up_fake_editor();
     std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
     let diff_editor = test_env.set_up_fake_diff_editor();
+    // On the before side, file2 is empty. On the after side, it contains "bar".
+    // The "reset file2" copies the empty version from the before side to the
+    // after side, effectively "unselecting" the changes and leaving only the
+    // changes made to file1. file3 doesn't appear on either side since it isn't
+    // in the filesets passed to `jj split`.
     let diff_script = [
         "files-before file2",
         "files-after JJ-INSTRUCTIONS file1 file2",
@@ -700,7 +705,8 @@ fn test_split_interactive_with_paths() {
     .join("\0");
     std::fs::write(diff_editor, diff_script).unwrap();
 
-    // Select file1 and file2 by args, then select file1 interactively
+    // Select file1 and file2 by args, then select file1 interactively via the diff
+    // script.
     let output = test_env.run_jj_in(&workspace_path, ["split", "-i", "file1", "file2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
