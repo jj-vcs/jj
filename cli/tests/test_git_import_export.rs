@@ -79,7 +79,7 @@ fn test_git_export_conflicting_git_refs() {
         insta::assert_snapshot!(output, @r#"
         ------- stderr -------
         Warning: Failed to export some bookmarks:
-          main/sub: Failed to set: ...
+          main/sub@git: Failed to set: ...
         Hint: Git doesn't allow a branch name that looks like a parent directory of
         another (e.g. `foo` and `foo/bar`). Try to rename the bookmarks that failed to
         export or their "parent" bookmarks.

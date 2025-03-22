@@ -462,7 +462,7 @@ fn test_git_colocated_bookmark_at_root() {
     ------- stderr -------
     Created 1 bookmarks pointing to zzzzzzzz 00000000 foo | (empty) (no description set)
     Warning: Failed to export some bookmarks:
-      foo: Ref cannot point to the root commit in Git
+      foo@git: Ref cannot point to the root commit in Git
     [EOF]
     ");
 
@@ -484,7 +484,7 @@ fn test_git_colocated_bookmark_at_root() {
     ------- stderr -------
     Moved 1 bookmarks to zzzzzzzz 00000000 foo* | (empty) (no description set)
     Warning: Failed to export some bookmarks:
-      foo: Ref cannot point to the root commit in Git
+      foo@git: Ref cannot point to the root commit in Git
     [EOF]
     ");
 }
@@ -506,7 +506,7 @@ fn test_git_colocated_conflicting_git_refs() {
         ------- stderr -------
         Created 1 bookmarks pointing to qpvuntsm 230dd059 main main/sub | (empty) (no description set)
         Warning: Failed to export some bookmarks:
-          main/sub: Failed to set: ...
+          main/sub@git: Failed to set: ...
         Hint: Git doesn't allow a branch name that looks like a parent directory of
         another (e.g. `foo` and `foo/bar`). Try to rename the bookmarks that failed to
         export or their "parent" bookmarks.
@@ -667,7 +667,7 @@ fn test_git_colocated_rebase_dirty_working_copy() {
     [EOF]
     ------- stderr -------
     Warning: Failed to export some bookmarks:
-      feature: Modified ref had been deleted in Git
+      feature@git: Modified ref had been deleted in Git
     Done importing changes from the underlying Git repo.
     [EOF]
     ");
