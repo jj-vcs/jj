@@ -689,6 +689,9 @@ Starts an editor to let you edit the description of changes. The editor will be 
 * `-m`, `--message <MESSAGE>` — The change description to use (don't open editor)
 
    If multiple revisions are specified, the same description will be used for all of them.
+* `--add-footer <LINE>` — Add a footer line
+
+   If multiple revisions are specified, the same footer line will be used for all of them.
 * `--stdin` — Read the change description from stdin
 
    If multiple revisions are specified, the same description will be used for all of them.
