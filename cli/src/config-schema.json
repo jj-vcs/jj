@@ -439,6 +439,11 @@
                     "type": "string",
                     "description": "Path to the git executable",
                     "default": "git"
+                },
+                "ignore-lfs-files": {
+                    "type": "boolean",
+                    "description": "Whether jj should ignore files handled by git LFS (i.e. specified in a .gitattributes file)",
+                    "default": false
                 }
             }
         },
