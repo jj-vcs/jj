@@ -16,7 +16,7 @@ use jj_lib::git;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
-use crate::git_util::print_failed_git_export;
+use crate::git_util::print_git_export_stats;
 use crate::ui::Ui;
 
 /// Update the underlying Git repo with changes made in the repo
@@ -30,8 +30,8 @@ pub fn cmd_git_export(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
     let mut tx = workspace_command.start_transaction();
-    let failed_refs = git::export_refs(tx.repo_mut())?;
+    let stats = git::export_refs(tx.repo_mut())?;
     tx.finish(ui, "export git refs")?;
-    print_failed_git_export(ui, &failed_refs)?;
+    print_git_export_stats(ui, &stats)?;
     Ok(())
 }

@@ -792,13 +792,6 @@ impl GitExportError {
     }
 }
 
-/// A ref we failed to export to Git, along with the reason it failed.
-#[derive(Debug)]
-pub struct FailedRefExport {
-    pub symbol: RemoteRefSymbolBuf,
-    pub reason: FailedRefExportReason,
-}
-
 /// The reason we failed to export a ref to Git.
 #[derive(Debug, Error)]
 pub enum FailedRefExportReason {
@@ -829,6 +822,13 @@ pub enum FailedRefExportReason {
     FailedToSet(#[source] Box<gix::reference::edit::Error>),
 }
 
+/// Describes changes made by [`export_refs()`].
+#[derive(Debug)]
+pub struct GitExportStats {
+    /// Remote bookmarks that couldn't be exported, sorted by `symbol`.
+    pub failed_bookmarks: Vec<(RemoteRefSymbolBuf, FailedRefExportReason)>,
+}
+
 #[derive(Debug)]
 struct RefsToExport {
     /// Remote bookmark `(symbol, (old_oid, new_oid))`s to update, sorted by
@@ -844,8 +844,7 @@ struct RefsToExport {
 }
 
 /// Export changes to bookmarks made in the Jujutsu repo compared to our last
-/// seen view of the Git repo in `mut_repo.view().git_refs()`. Returns a list of
-/// refs that failed to export.
+/// seen view of the Git repo in `mut_repo.view().git_refs()`.
 ///
 /// We ignore changed bookmarks that are conflicted (were also changed in the
 /// Git repo compared to our last remembered view of the Git repo). These will
@@ -854,14 +853,14 @@ struct RefsToExport {
 /// We do not export tags and other refs at the moment, since these aren't
 /// supposed to be modified by JJ. For them, the Git state is considered
 /// authoritative.
-pub fn export_refs(mut_repo: &mut MutableRepo) -> Result<Vec<FailedRefExport>, GitExportError> {
+pub fn export_refs(mut_repo: &mut MutableRepo) -> Result<GitExportStats, GitExportError> {
     export_some_refs(mut_repo, |_, _| true)
 }
 
 pub fn export_some_refs(
     mut_repo: &mut MutableRepo,
     git_ref_filter: impl Fn(GitRefKind, RemoteRefSymbol<'_>) -> bool,
-) -> Result<Vec<FailedRefExport>, GitExportError> {
+) -> Result<GitExportStats, GitExportError> {
     fn get<'a, V>(map: &'a [(RemoteRefSymbolBuf, V)], key: RemoteRefSymbol<'_>) -> Option<&'a V> {
         debug_assert!(map.is_sorted_by_key(|(k, _)| k));
         let index = map.binary_search_by_key(&key, |(k, _)| k.as_ref()).ok()?;
@@ -955,11 +954,7 @@ pub fn export_some_refs(
         },
     );
 
-    let failed_bookmarks = failed_bookmarks
-        .into_iter()
-        .map(|(symbol, reason)| FailedRefExport { symbol, reason })
-        .collect();
-    Ok(failed_bookmarks)
+    Ok(GitExportStats { failed_bookmarks })
 }
 
 fn copy_exportable_local_bookmarks_to_remote_view(

@@ -32,8 +32,8 @@ use indoc::writedoc;
 use itertools::Itertools as _;
 use jj_lib::fmt_util::binary_prefix;
 use jj_lib::git;
-use jj_lib::git::FailedRefExport;
 use jj_lib::git::FailedRefExportReason;
+use jj_lib::git::GitExportStats;
 use jj_lib::git::GitImportStats;
 use jj_lib::git::GitRefKind;
 use jj_lib::op_store::RefTarget;
@@ -583,14 +583,11 @@ enum ImportStatus {
     Updated,
 }
 
-pub fn print_failed_git_export(
-    ui: &Ui,
-    failed_refs: &[FailedRefExport],
-) -> Result<(), std::io::Error> {
-    if !failed_refs.is_empty() {
+pub fn print_git_export_stats(ui: &Ui, stats: &GitExportStats) -> Result<(), std::io::Error> {
+    if !stats.failed_bookmarks.is_empty() {
         writeln!(ui.warning_default(), "Failed to export some bookmarks:")?;
         let mut formatter = ui.stderr_formatter();
-        for FailedRefExport { symbol, reason } in failed_refs {
+        for (symbol, reason) in &stats.failed_bookmarks {
             write!(formatter, "  ")?;
             write!(formatter.labeled("bookmark"), "{symbol}")?;
             for err in iter::successors(Some(reason as &dyn error::Error), |err| err.source()) {
@@ -599,9 +596,10 @@ pub fn print_failed_git_export(
             writeln!(formatter)?;
         }
         drop(formatter);
-        if failed_refs
+        if stats
+            .failed_bookmarks
             .iter()
-            .any(|failed| matches!(failed.reason, FailedRefExportReason::FailedToSet(_)))
+            .any(|(_, reason)| matches!(reason, FailedRefExportReason::FailedToSet(_)))
         {
             writeln!(
                 ui.hint_default(),

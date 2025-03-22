@@ -41,7 +41,7 @@ use crate::command_error::user_error_with_message;
 use crate::command_error::CommandError;
 use crate::commands::git::maybe_add_gitignore;
 use crate::git_util::is_colocated_git_workspace;
-use crate::git_util::print_failed_git_export;
+use crate::git_util::print_git_export_stats;
 use crate::git_util::print_git_import_stats;
 use crate::ui::Ui;
 
@@ -219,8 +219,8 @@ fn init_git_refs(
     if colocated {
         // If git.auto-local-bookmark = true, local bookmarks could be created for
         // the imported remote branches.
-        let failed_refs = git::export_refs(tx.repo_mut())?;
-        print_failed_git_export(ui, &failed_refs)?;
+        let stats = git::export_refs(tx.repo_mut())?;
+        print_git_export_stats(ui, &stats)?;
     }
     let repo = tx.commit("import git refs")?;
     writeln!(

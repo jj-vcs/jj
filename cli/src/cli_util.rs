@@ -1984,8 +1984,8 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
 
             #[cfg(feature = "git")]
             if self.working_copy_shared_with_git {
-                let refs = jj_lib::git::export_refs(mut_repo).map_err(snapshot_command_error)?;
-                crate::git_util::print_failed_git_export(ui, &refs)
+                let stats = jj_lib::git::export_refs(mut_repo).map_err(snapshot_command_error)?;
+                crate::git_util::print_git_export_stats(ui, &stats)
                     .map_err(snapshot_command_error)?;
             }
 
@@ -2117,8 +2117,8 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
             if let Some(wc_commit) = &maybe_new_wc_commit {
                 jj_lib::git::reset_head(tx.repo_mut(), wc_commit)?;
             }
-            let refs = jj_lib::git::export_refs(tx.repo_mut())?;
-            crate::git_util::print_failed_git_export(ui, &refs)?;
+            let stats = jj_lib::git::export_refs(tx.repo_mut())?;
+            crate::git_util::print_git_export_stats(ui, &stats)?;
         }
 
         self.user_repo = ReadonlyUserRepo::new(tx.commit(description)?);
