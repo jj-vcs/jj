@@ -114,7 +114,7 @@ enum Command {
     File(file::FileCommand),
     Fix(fix::FixArgs),
     #[cfg(feature = "git")]
-    #[command(subcommand)]
+    #[command(subcommand, visible_alias = "g")]
     Git(git::GitCommand),
     Help(help::HelpArgs),
     Interdiff(interdiff::InterdiffArgs),
