@@ -363,14 +363,6 @@ impl GitBackend {
         &self,
         head_ids: impl IntoIterator<Item = &'a CommitId>,
     ) -> BackendResult<()> {
-        self.import_head_commits_with_tree_conflicts(head_ids, true)
-    }
-
-    fn import_head_commits_with_tree_conflicts<'a>(
-        &self,
-        head_ids: impl IntoIterator<Item = &'a CommitId>,
-        uses_tree_conflict_format: bool,
-    ) -> BackendResult<()> {
         let head_ids: HashSet<&CommitId> = head_ids
             .into_iter()
             .filter(|&id| *id != self.root_commit_id)
@@ -399,7 +391,6 @@ impl GitBackend {
             &mut mut_table,
             &table_lock,
             &head_ids,
-            uses_tree_conflict_format,
         )?;
         self.save_extra_metadata_table(mut_table, &table_lock)
     }
@@ -864,7 +855,6 @@ fn import_extra_metadata_entries_from_heads(
     mut_table: &mut MutableTable,
     _table_lock: &FileLock,
     head_ids: &HashSet<&CommitId>,
-    uses_tree_conflict_format: bool,
 ) -> BackendResult<()> {
     let shallow_commits = git_repo
         .shallow_commits()
@@ -885,12 +875,7 @@ fn import_extra_metadata_entries_from_heads(
         // TODO(#1624): Should we read the root tree here and check if it has a
         // `.jjconflict-...` entries? That could happen if the user used `git` to e.g.
         // change the description of a commit with tree-level conflicts.
-        let commit = commit_from_git_without_root_parent(
-            &id,
-            &git_object,
-            uses_tree_conflict_format,
-            is_shallow,
-        )?;
+        let commit = commit_from_git_without_root_parent(&id, &git_object, true, is_shallow)?;
         mut_table.add_entry(id.to_bytes(), serialize_extras(&commit));
         work_ids.extend(
             commit
@@ -1532,7 +1517,6 @@ mod tests {
     use assert_matches::assert_matches;
     use hex::ToHex as _;
     use pollster::FutureExt as _;
-    use test_case::test_case;
 
     use super::*;
     use crate::config::StackedConfig;
@@ -1568,9 +1552,8 @@ mod tests {
         .to_thread_local()
     }
 
-    #[test_case(false; "legacy tree format")]
-    #[test_case(true; "tree-level conflict format")]
-    fn read_plain_git_commit(uses_tree_conflict_format: bool) {
+    #[test]
+    fn read_plain_git_commit() {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
         let store_path = temp_dir.path();
@@ -1651,9 +1634,7 @@ mod tests {
         let backend = GitBackend::init_external(&settings, store_path, git_repo.path()).unwrap();
 
         // Import the head commit and its ancestors
-        backend
-            .import_head_commits_with_tree_conflicts([&commit_id2], uses_tree_conflict_format)
-            .unwrap();
+        backend.import_head_commits([&commit_id2]).unwrap();
         // Ref should be created only for the head commit
         let git_refs = backend
             .git_repo()
@@ -1673,11 +1654,7 @@ mod tests {
             commit.root_tree.to_merge(),
             Merge::resolved(TreeId::from_bytes(root_tree_id.as_bytes()))
         );
-        if uses_tree_conflict_format {
-            assert_matches!(commit.root_tree, MergedTreeId::Merge(_));
-        } else {
-            assert_matches!(commit.root_tree, MergedTreeId::Legacy(_));
-        }
+        assert_matches!(commit.root_tree, MergedTreeId::Merge(_));
         assert_eq!(commit.description, "git commit message");
         assert_eq!(commit.author.name, "git author");
         assert_eq!(commit.author.email, "git.author@example.com");
@@ -1742,11 +1719,7 @@ mod tests {
             commit.root_tree.to_merge(),
             Merge::resolved(TreeId::from_bytes(root_tree_id.as_bytes()))
         );
-        if uses_tree_conflict_format {
-            assert_matches!(commit.root_tree, MergedTreeId::Merge(_));
-        } else {
-            assert_matches!(commit.root_tree, MergedTreeId::Legacy(_));
-        }
+        assert_matches!(commit.root_tree, MergedTreeId::Merge(_));
     }
 
     #[test]
