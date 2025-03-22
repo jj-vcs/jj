@@ -22,6 +22,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use bstr::BStr;
+use bstr::BString;
 use futures::executor::block_on_stream;
 use futures::stream::BoxStream;
 use futures::StreamExt as _;
@@ -584,7 +585,7 @@ impl ColorWordsDiffOptions {
 
 fn show_color_words_diff_hunks(
     formatter: &mut dyn Formatter,
-    contents: [&[u8]; 2],
+    contents: [&BStr; 2],
     options: &ColorWordsDiffOptions,
 ) -> io::Result<()> {
     let line_diff = diff_by_line(contents, &options.line_diff);
@@ -852,14 +853,14 @@ fn split_diff_hunks_by_matching_newline<'a, 'b>(
 struct FileContent {
     /// false if this file is likely text; true if it is likely binary.
     is_binary: bool,
-    contents: Vec<u8>,
+    contents: BString,
 }
 
 impl FileContent {
     fn empty() -> Self {
         Self {
             is_binary: false,
-            contents: vec![],
+            contents: BString::default(),
         }
     }
 
@@ -879,7 +880,7 @@ fn file_content_for_diff(
     // TODO: currently we look at the whole file, even though for binary files we
     // only need to know the file size. To change that we'd have to extend all
     // the data backends to support getting the length.
-    let contents = file.read_all(path)?;
+    let contents = BString::new(file.read_all(path)?);
     let start = &contents[..PEEK_SIZE.min(contents.len())];
     Ok(FileContent {
         is_binary: start.contains(&b'\0'),
@@ -896,17 +897,17 @@ fn diff_content(
         MaterializedTreeValue::Absent => Ok(FileContent::empty()),
         MaterializedTreeValue::AccessDenied(err) => Ok(FileContent {
             is_binary: false,
-            contents: format!("Access denied: {err}").into_bytes(),
+            contents: format!("Access denied: {err}").into(),
         }),
         MaterializedTreeValue::File(mut file) => file_content_for_diff(path, &mut file),
         MaterializedTreeValue::Symlink { id: _, target } => Ok(FileContent {
             // Unix file paths can't contain null bytes.
             is_binary: false,
-            contents: target.into_bytes(),
+            contents: target.into(),
         }),
         MaterializedTreeValue::GitSubmodule(id) => Ok(FileContent {
             is_binary: false,
-            contents: format!("Git submodule checked out at {id}").into_bytes(),
+            contents: format!("Git submodule checked out at {id}").into(),
         }),
         // TODO: are we sure this is never binary?
         MaterializedTreeValue::FileConflict {
@@ -915,11 +916,11 @@ fn diff_content(
             executable: _,
         } => Ok(FileContent {
             is_binary: false,
-            contents: materialize_merge_result_to_bytes(&contents, conflict_marker_style).into(),
+            contents: materialize_merge_result_to_bytes(&contents, conflict_marker_style),
         }),
         MaterializedTreeValue::OtherConflict { id } => Ok(FileContent {
             is_binary: false,
-            contents: id.describe().into_bytes(),
+            contents: id.describe().into(),
         }),
         MaterializedTreeValue::Tree(id) => {
             panic!("Unexpected tree with id {id:?} in diff at path {path:?}");
@@ -998,7 +999,7 @@ pub fn show_color_words_diff(
                 } else {
                     show_color_words_diff_hunks(
                         formatter,
-                        [&[], &right_content.contents],
+                        [BStr::new(""), right_content.contents.as_ref()],
                         options,
                     )?;
                 }
@@ -1065,7 +1066,7 @@ pub fn show_color_words_diff(
                 } else {
                     show_color_words_diff_hunks(
                         formatter,
-                        [&left_content.contents, &right_content.contents],
+                        [&left_content.contents, &right_content.contents].map(BStr::new),
                         options,
                     )?;
                 }
@@ -1081,7 +1082,11 @@ pub fn show_color_words_diff(
                 } else if left_content.is_binary {
                     writeln!(formatter.labeled("binary"), "    (binary)")?;
                 } else {
-                    show_color_words_diff_hunks(formatter, [&left_content.contents, &[]], options)?;
+                    show_color_words_diff_hunks(
+                        formatter,
+                        [left_content.contents.as_ref(), BStr::new("")],
+                        options,
+                    )?;
                 }
             }
         }
@@ -1202,7 +1207,7 @@ fn git_diff_part(
             content = FileContent {
                 // Unix file paths can't contain null bytes.
                 is_binary: false,
-                contents: target.into_bytes(),
+                contents: target.into(),
             };
         }
         MaterializedTreeValue::GitSubmodule(id) => {
@@ -1220,8 +1225,7 @@ fn git_diff_part(
             hash = DUMMY_HASH.to_owned();
             content = FileContent {
                 is_binary: false, // TODO: are we sure this is never binary?
-                contents: materialize_merge_result_to_bytes(&contents, conflict_marker_style)
-                    .into(),
+                contents: materialize_merge_result_to_bytes(&contents, conflict_marker_style),
             };
         }
         MaterializedTreeValue::OtherConflict { id } => {
@@ -1229,7 +1233,7 @@ fn git_diff_part(
             hash = DUMMY_HASH.to_owned();
             content = FileContent {
                 is_binary: false,
-                contents: id.describe().into_bytes(),
+                contents: id.describe().into(),
             };
         }
         MaterializedTreeValue::Tree(_) => {
@@ -1316,7 +1320,7 @@ impl<'content> UnifiedDiffHunk<'content> {
 }
 
 fn unified_diff_hunks<'content>(
-    contents: [&'content [u8]; 2],
+    contents: [&'content BStr; 2],
     options: &UnifiedDiffOptions,
 ) -> Vec<UnifiedDiffHunk<'content>> {
     let mut hunks = vec![];
@@ -1431,7 +1435,7 @@ where
 
 fn show_unified_diff_hunks(
     formatter: &mut dyn Formatter,
-    contents: [&[u8]; 2],
+    contents: [&BStr; 2],
     options: &UnifiedDiffOptions,
 ) -> io::Result<()> {
     // "If the chunk size is 0, the first number is one lower than one would
@@ -1578,7 +1582,7 @@ pub fn show_git_diff(
                 })?;
                 show_unified_diff_hunks(
                     formatter,
-                    [&left_part.content.contents, &right_part.content.contents],
+                    [&left_part.content.contents, &right_part.content.contents].map(BStr::new),
                     options,
                 )?;
             }
@@ -1662,7 +1666,7 @@ impl DiffStats {
                 let right_content = diff_content(path.target(), right, conflict_marker_style)?;
                 let stat = get_diff_stat_entry(
                     path,
-                    [&left_content.contents, &right_content.contents],
+                    [&left_content.contents, &right_content.contents].map(BStr::new),
                     options,
                 );
                 BackendResult::Ok(stat)
@@ -1697,7 +1701,7 @@ pub struct DiffStatEntry {
 
 fn get_diff_stat_entry(
     path: CopiesTreeDiffEntryPath,
-    contents: [&[u8]; 2],
+    contents: [&BStr; 2],
     options: &DiffStatOptions,
 ) -> DiffStatEntry {
     // TODO: this matches git's behavior, which is to count the number of newlines
