@@ -320,17 +320,16 @@ fn test_jj_trees_header_with_one_tree() {
     let new_commit_id = git_repo.write_object(&new_commit).unwrap();
     let new_commit_id = CommitId::from_bytes(new_commit_id.as_bytes());
 
-    // Import new commit into `jj` repo
-    git_backend
-        .import_head_commits(&[new_commit_id.clone()])
-        .unwrap();
-
-    // The commit isn't conflicted, but the `jj:trees` header is still used instead
-    // of the Git commit tree.
-    // TODO: this should not be allowed
-    let new_commit_jj = repo.store().get_commit(&new_commit_id).unwrap();
-    let new_commit_jj_merged_tree = new_commit_jj.tree().unwrap();
-    let new_commit_jj_tree = new_commit_jj_merged_tree.as_merge().as_resolved().unwrap();
-    assert_ne!(new_commit_jj_tree.id().as_bytes(), tree_1.id().as_bytes());
-    assert_eq!(new_commit_jj_tree.id().as_bytes(), tree_2.id().as_bytes());
+    // Import new commit into `jj` repo. This should fail, because allowing a
+    // non-conflicted commit to have a different tree in `jj` than in Git could be
+    // used to hide malicious code.
+    insta::assert_debug_snapshot!(git_backend.import_head_commits(&[new_commit_id.clone()]), @r#"
+    Err(
+        ReadObject {
+            object_type: "commit",
+            hash: "87df728a30166ce1de0bf883948dd66b74cf25a0",
+            source: "Invalid jj:trees header",
+        },
+    )
+    "#);
 }

@@ -496,7 +496,10 @@ fn root_tree_from_header(git_commit: &CommitRef) -> Result<Option<MergedTreeId>,
                 }
                 tree_ids.push(tree_id);
             }
-            if tree_ids.len() % 2 == 0 {
+            // It is invalid to use `jj:trees` with a non-conflicted tree. If this were
+            // allowed, it would be possible to construct a commit which appears to have
+            // different contents depending on whether it is viewed using `jj` or `git`.
+            if tree_ids.len() == 1 || tree_ids.len() % 2 == 0 {
                 return Err(());
             }
             return Ok(Some(MergedTreeId::Merge(Merge::from_vec(tree_ids))));
