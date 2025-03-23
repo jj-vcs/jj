@@ -204,7 +204,7 @@ impl DetachedCommitBuilder {
         predecessor: &Commit,
     ) -> Self {
         let store = repo.store().clone();
-        let mut commit = predecessor.store_commit().clone();
+        let mut commit = backend::Commit::clone(predecessor.store_commit());
         commit.predecessors = vec![predecessor.id().clone()];
         commit.committer = settings.signature();
         // If the user had not configured a name and email before but now they have,
