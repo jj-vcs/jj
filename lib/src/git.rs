@@ -221,14 +221,19 @@ impl<'a> RefToPush<'a> {
 /// ref cannot be represented in jj.
 pub fn parse_git_ref(full_name: &str) -> Option<(GitRefKind, RemoteRefSymbol<'_>)> {
     if let Some(name) = full_name.strip_prefix("refs/heads/") {
-        let remote = REMOTE_NAME_FOR_LOCAL_GIT_REPO;
         // Git CLI says 'HEAD' is not a valid branch name
-        (name != "HEAD").then_some((GitRefKind::Bookmark, RemoteRefSymbol { name, remote }))
+        if name == "HEAD" {
+            return None;
+        }
+        let remote = REMOTE_NAME_FOR_LOCAL_GIT_REPO;
+        Some((GitRefKind::Bookmark, RemoteRefSymbol { name, remote }))
     } else if let Some(remote_and_name) = full_name.strip_prefix("refs/remotes/") {
         let (remote, name) = remote_and_name.split_once('/')?;
         // "refs/remotes/origin/HEAD" isn't a real remote-tracking branch
-        (remote != REMOTE_NAME_FOR_LOCAL_GIT_REPO && name != "HEAD")
-            .then_some((GitRefKind::Bookmark, RemoteRefSymbol { name, remote }))
+        if remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO || name == "HEAD" {
+            return None;
+        }
+        Some((GitRefKind::Bookmark, RemoteRefSymbol { name, remote }))
     } else if let Some(name) = full_name.strip_prefix("refs/tags/") {
         let remote = REMOTE_NAME_FOR_LOCAL_GIT_REPO;
         Some((GitRefKind::Tag, RemoteRefSymbol { name, remote }))
