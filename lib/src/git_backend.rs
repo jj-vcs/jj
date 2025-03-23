@@ -92,7 +92,7 @@ const CHANGE_ID_LENGTH: usize = 16;
 const NO_GC_REF_NAMESPACE: &str = "refs/jj/keep/";
 const CONFLICT_SUFFIX: &str = ".jjconflict";
 
-const JJ_TREES_COMMIT_HEADER: &[u8] = b"jj:trees";
+pub const JJ_TREES_COMMIT_HEADER: &[u8] = b"jj:trees";
 
 #[derive(Debug, Error)]
 pub enum GitBackendInitError {

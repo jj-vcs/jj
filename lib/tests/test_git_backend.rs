@@ -25,6 +25,8 @@ use jj_lib::backend::CommitId;
 use jj_lib::backend::CopyRecord;
 use jj_lib::commit::Commit;
 use jj_lib::git_backend::GitBackend;
+use jj_lib::git_backend::JJ_TREES_COMMIT_HEADER;
+use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
@@ -32,7 +34,9 @@ use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::store::Store;
 use jj_lib::transaction::Transaction;
 use maplit::hashset;
+use testutils::commit_with_tree;
 use testutils::create_random_commit;
+use testutils::create_single_tree;
 use testutils::create_tree;
 use testutils::CommitGraphBuilder;
 use testutils::TestRepo;
@@ -287,4 +291,46 @@ fn test_copy_detection() {
         get_copy_records(store, Some(paths), &commit_c, &commit_c),
         HashMap::default(),
     );
+}
+
+#[test]
+fn test_jj_trees_header_with_one_tree() {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = test_repo.repo;
+    let git_backend = get_git_backend(&repo);
+    let git_repo = git_backend.git_repo();
+
+    let tree_1 = create_single_tree(&repo, &[(RepoPath::from_internal_string("file"), "aaa")]);
+    let tree_2 = create_single_tree(&repo, &[(RepoPath::from_internal_string("file"), "bbb")]);
+
+    // Create a normal commit with tree 1
+    let commit = commit_with_tree(
+        repo.store(),
+        jj_lib::backend::MergedTreeId::resolved(tree_1.id().clone()),
+    );
+    let git_commit_id = gix::ObjectId::from_bytes_or_panic(commit.id().as_bytes());
+    let git_commit = git_repo.find_commit(git_commit_id).unwrap();
+
+    // Add `jj:trees` with a single tree which is different from the Git commit tree
+    let mut new_commit: gix::objs::Commit = git_commit.decode().unwrap().into();
+    new_commit.extra_headers = vec![(
+        JJ_TREES_COMMIT_HEADER.into(),
+        tree_2.id().to_string().into(),
+    )];
+    let new_commit_id = git_repo.write_object(&new_commit).unwrap();
+    let new_commit_id = CommitId::from_bytes(new_commit_id.as_bytes());
+
+    // Import new commit into `jj` repo
+    git_backend
+        .import_head_commits(&[new_commit_id.clone()])
+        .unwrap();
+
+    // The commit isn't conflicted, but the `jj:trees` header is still used instead
+    // of the Git commit tree.
+    // TODO: this should not be allowed
+    let new_commit_jj = repo.store().get_commit(&new_commit_id).unwrap();
+    let new_commit_jj_merged_tree = new_commit_jj.tree().unwrap();
+    let new_commit_jj_tree = new_commit_jj_merged_tree.as_merge().as_resolved().unwrap();
+    assert_ne!(new_commit_jj_tree.id().as_bytes(), tree_1.id().as_bytes());
+    assert_eq!(new_commit_jj_tree.id().as_bytes(), tree_2.id().as_bytes());
 }
