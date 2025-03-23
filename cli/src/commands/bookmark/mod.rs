@@ -26,7 +26,7 @@ use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
-use jj_lib::refs::RemoteRefSymbol;
+use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::repo::Repo;
 use jj_lib::str_util::StringPattern;
 use jj_lib::view::View;

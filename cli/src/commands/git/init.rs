@@ -24,7 +24,7 @@ use jj_lib::file_util;
 use jj_lib::git;
 use jj_lib::git::parse_git_ref;
 use jj_lib::git::GitRefKind;
-use jj_lib::refs::RemoteRefSymbol;
+use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::view::View;

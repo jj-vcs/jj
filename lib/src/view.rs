@@ -27,9 +27,9 @@ use crate::op_store::RefTarget;
 use crate::op_store::RefTargetOptionExt as _;
 use crate::op_store::RemoteRef;
 use crate::op_store::WorkspaceId;
+use crate::ref_name::RemoteRefSymbol;
 use crate::refs;
 use crate::refs::LocalAndRemoteRef;
-use crate::refs::RemoteRefSymbol;
 use crate::str_util::StringPattern;
 
 /// A wrapper around [`op_store::View`] that defines additional methods.

@@ -45,7 +45,7 @@ use crate::dsl_util::FoldableExpression;
 use crate::dsl_util::FunctionCallParser;
 use crate::dsl_util::InvalidArguments;
 use crate::dsl_util::StringLiteralParser;
-use crate::refs::RemoteRefSymbolBuf;
+use crate::ref_name::RemoteRefSymbolBuf;
 
 #[derive(Parser)]
 #[grammar = "revset.pest"]

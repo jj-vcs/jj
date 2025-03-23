@@ -20,7 +20,7 @@ use std::path::Path;
 
 use jj_lib::git;
 use jj_lib::git::GitFetch;
-use jj_lib::refs::RemoteRefSymbol;
+use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::repo::Repo as _;
 use jj_lib::str_util::StringPattern;
 use jj_lib::workspace::Workspace;

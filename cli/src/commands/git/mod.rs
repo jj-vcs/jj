@@ -28,7 +28,7 @@ use jj_lib::config::ConfigFile;
 use jj_lib::config::ConfigSource;
 use jj_lib::git;
 use jj_lib::git::UnexpectedGitBackendError;
-use jj_lib::refs::RemoteRefSymbol;
+use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::store::Store;
 
 use self::clone::cmd_git_clone;

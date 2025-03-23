@@ -33,7 +33,7 @@ use jj_lib::object_id::ObjectId as _;
 use jj_lib::object_id::PrefixResolution;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
-use jj_lib::refs::RemoteRefSymbol;
+use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;

@@ -52,11 +52,11 @@ use crate::op_store::RefTarget;
 use crate::op_store::RefTargetOptionExt as _;
 use crate::op_store::RemoteRef;
 use crate::op_store::RemoteRefState;
+use crate::ref_name::RemoteRefSymbol;
+use crate::ref_name::RemoteRefSymbolBuf;
 #[cfg(feature = "git2")]
 use crate::refs;
 use crate::refs::BookmarkPushUpdate;
-use crate::refs::RemoteRefSymbol;
-use crate::refs::RemoteRefSymbolBuf;
 use crate::repo::MutableRepo;
 use crate::repo::Repo;
 use crate::repo_path::RepoPath;
