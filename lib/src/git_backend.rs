@@ -646,11 +646,8 @@ fn serialize_extras(commit: &Commit) -> Vec<u8> {
         change_id: commit.change_id.to_bytes(),
         ..Default::default()
     };
-    if let MergedTreeId::Merge(tree_ids) = &commit.root_tree {
+    if matches!(commit.root_tree, MergedTreeId::Merge(_)) {
         proto.uses_tree_conflict_format = true;
-        if !tree_ids.is_resolved() {
-            proto.root_tree = tree_ids.iter().map(|r| r.to_bytes()).collect();
-        }
     }
     for predecessor in &commit.predecessors {
         proto.predecessors.push(predecessor.to_bytes());
