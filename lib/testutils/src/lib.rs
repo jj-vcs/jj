@@ -76,30 +76,11 @@ pub mod test_backend;
 // somewhat tricky because `gix` looks at system and user configuration, and
 // `GitBackend` also calls into `git(1)` for things like garbage collection.
 pub fn hermetic_git() {
-    #[cfg(feature = "git2")]
-    {
-        // libgit2 respects init.defaultBranch (and possibly other config
-        // variables) in the user's config files. Disable access to them to make
-        // our tests hermetic.
-        //
-        // set_search_path is unsafe because it cannot guarantee thread safety (as
-        // its documentation states). For the same reason, we wrap these invocations
-        // in `call_once`.
-        use std::sync::Once;
-        static CONFIGURE_GIT2: Once = Once::new();
-        CONFIGURE_GIT2.call_once(|| unsafe {
-            git2::opts::set_search_path(git2::ConfigLevel::System, "").unwrap();
-            git2::opts::set_search_path(git2::ConfigLevel::Global, "").unwrap();
-            git2::opts::set_search_path(git2::ConfigLevel::XDG, "").unwrap();
-            git2::opts::set_search_path(git2::ConfigLevel::ProgramData, "").unwrap();
-        });
-    }
-
     // Prevent GitBackend from loading user and system configurations. For
     // gitoxide API use in tests, Config::isolated() is probably better.
     env::set_var("GIT_CONFIG_SYSTEM", "/dev/null");
     env::set_var("GIT_CONFIG_GLOBAL", "/dev/null");
-    // gitoxide uses "main" as the default branch name, whereas git and libgit2
+    // gitoxide uses "main" as the default branch name, whereas git
     // uses "master".
     env::set_var("GIT_CONFIG_KEY_0", "init.defaultBranch");
     env::set_var("GIT_CONFIG_VALUE_0", "master");
