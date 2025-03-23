@@ -2124,8 +2124,18 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
 
         #[cfg(feature = "git")]
         if self.working_copy_shared_with_git {
+            use std::error::Error as _;
             if let Some(wc_commit) = &maybe_new_wc_commit {
-                jj_lib::git::reset_head(tx.repo_mut(), wc_commit)?;
+                // This can fail if HEAD was updated concurrently. In that case,
+                // the actual state will be imported on the next snapshot.
+                match jj_lib::git::reset_head(tx.repo_mut(), wc_commit) {
+                    Ok(()) => {}
+                    Err(err @ jj_lib::git::GitResetHeadError::UpdateHeadRef(_)) => {
+                        writeln!(ui.warning_default(), "{err}")?;
+                        crate::command_error::print_error_sources(ui, err.source())?;
+                    }
+                    Err(err) => return Err(err.into()),
+                }
             }
             let stats = jj_lib::git::export_refs(tx.repo_mut())?;
             crate::git_util::print_git_export_stats(ui, &stats)?;

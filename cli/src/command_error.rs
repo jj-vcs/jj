@@ -957,7 +957,8 @@ fn print_error(
     Ok(())
 }
 
-fn print_error_sources(ui: &Ui, source: Option<&dyn error::Error>) -> io::Result<()> {
+/// Prints error sources one by one from the given `source` inclusive.
+pub fn print_error_sources(ui: &Ui, source: Option<&dyn error::Error>) -> io::Result<()> {
     let Some(err) = source else {
         return Ok(());
     };

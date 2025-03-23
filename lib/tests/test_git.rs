@@ -2472,6 +2472,11 @@ fn test_reset_head_detached_out_of_sync() {
         git::reset_head(tx.repo_mut(), &commit4),
         Err(GitResetHeadError::UpdateHeadRef(_))
     );
+    assert_eq!(
+        tx.repo().git_head(),
+        RefTarget::normal(commit1.id().clone()),
+        "view shouldn't be updated on failed export"
+    );
 
     // Import the HEAD moved by external process
     git::import_head(tx.repo_mut()).unwrap();
