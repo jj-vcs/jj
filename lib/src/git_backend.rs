@@ -661,28 +661,21 @@ fn serialize_extras(commit: &Commit) -> Vec<u8> {
 fn deserialize_extras(commit: &mut Commit, bytes: &[u8]) {
     let proto = crate::protos::git_store::Commit::decode(bytes).unwrap();
     commit.change_id = ChangeId::new(proto.change_id);
-    if proto.uses_tree_conflict_format {
-        if !proto.root_tree.is_empty() {
-            let merge_builder: MergeBuilder<_> = proto
-                .root_tree
-                .iter()
-                .map(|id_bytes| TreeId::from_bytes(id_bytes))
-                .collect();
-            let merge = merge_builder.build();
-            // Check that the trees from the extras match the one we found in the jj:trees
-            // header
-            if let MergedTreeId::Merge(existing_merge) = &commit.root_tree {
-                assert!(existing_merge.is_resolved() || *existing_merge == merge);
+    if let MergedTreeId::Legacy(legacy_tree_id) = &commit.root_tree {
+        if proto.uses_tree_conflict_format {
+            if !proto.root_tree.is_empty() {
+                let merge_builder: MergeBuilder<_> = proto
+                    .root_tree
+                    .iter()
+                    .map(|id_bytes| TreeId::from_bytes(id_bytes))
+                    .collect();
+                commit.root_tree = MergedTreeId::Merge(merge_builder.build());
+            } else {
+                // uses_tree_conflict_format was set but there was no root_tree override in the
+                // proto, which means we should just promote the tree id from the
+                // git commit to be a known-conflict-free tree
+                commit.root_tree = MergedTreeId::resolved(legacy_tree_id.clone());
             }
-            commit.root_tree = MergedTreeId::Merge(merge);
-        } else {
-            // uses_tree_conflict_format was set but there was no root_tree override in the
-            // proto, which means we should just promote the tree id from the
-            // git commit to be a known-conflict-free tree
-            let MergedTreeId::Legacy(legacy_tree_id) = &commit.root_tree else {
-                panic!("root tree should have been initialized to a legacy id");
-            };
-            commit.root_tree = MergedTreeId::resolved(legacy_tree_id.clone());
         }
     }
     for predecessor in &proto.predecessors {
