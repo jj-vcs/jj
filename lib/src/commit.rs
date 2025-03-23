@@ -141,7 +141,7 @@ impl Commit {
         &self.data.change_id
     }
 
-    pub fn store_commit(&self) -> &backend::Commit {
+    pub fn store_commit(&self) -> &Arc<backend::Commit> {
         &self.data
     }
 
