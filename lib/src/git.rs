@@ -17,17 +17,19 @@
 use std::borrow::Borrow;
 use std::borrow::Cow;
 use std::collections::HashMap;
-#[cfg(feature = "git2")]
 use std::collections::HashSet;
 use std::default::Default;
 use std::fs::File;
 use std::num::NonZeroU32;
 use std::path::PathBuf;
 use std::str;
+use std::sync::Arc;
 
 use bstr::BStr;
 use bstr::BString;
+use futures::StreamExt as _;
 use itertools::Itertools as _;
+use pollster::FutureExt as _;
 use thiserror::Error;
 
 use crate::backend::BackendError;
@@ -42,7 +44,9 @@ use crate::git_subprocess::GitSubprocessContext;
 use crate::git_subprocess::GitSubprocessError;
 #[cfg(feature = "git2")]
 use crate::index::Index;
+use crate::matchers::EverythingMatcher;
 use crate::merged_tree::MergedTree;
+use crate::merged_tree::TreeDiffEntry;
 use crate::object_id::ObjectId as _;
 use crate::op_store::RefTarget;
 use crate::op_store::RefTargetOptionExt as _;
@@ -1286,8 +1290,12 @@ pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), 
                 .map_err(GitExportError::from_git)?
         }
     } else {
-        build_index_from_merged_tree(&git_repo, parent_tree)?
+        build_index_from_merged_tree(&git_repo, parent_tree.clone())?
     };
+
+    let wc_tree = wc_commit.tree()?;
+    update_intent_to_add_impl(&mut index, &parent_tree, &wc_tree, git_repo.object_hash())
+        .block_on()?;
 
     // Match entries in the new index with entries in the old index, and copy stat
     // information if the entry didn't change.
@@ -1422,6 +1430,93 @@ fn build_index_from_merged_tree(
     }
 
     Ok(index)
+}
+
+/// Diff `old_tree` to `new_tree` and mark added files as intent-to-add in the
+/// Git index. Also removes current intent-to-add entries in the index if they
+/// were removed in the diff.
+///
+/// Should be called when the diff between the working-copy commit and its
+/// parent(s) has changed.
+pub fn update_intent_to_add(
+    repo: &dyn Repo,
+    old_tree: &MergedTree,
+    new_tree: &MergedTree,
+) -> Result<(), GitExportError> {
+    let git_repo = get_git_repo(repo.store())?;
+    let mut index = git_repo
+        .index_or_empty()
+        .map_err(GitExportError::from_git)?;
+    let mut_index = Arc::make_mut(&mut index);
+    update_intent_to_add_impl(mut_index, old_tree, new_tree, git_repo.object_hash()).block_on()?;
+    debug_assert!(mut_index.verify_entries().is_ok());
+    mut_index
+        .write(gix::index::write::Options::default())
+        .map_err(GitExportError::from_git)?;
+
+    Ok(())
+}
+
+async fn update_intent_to_add_impl(
+    index: &mut gix::index::File,
+    old_tree: &MergedTree,
+    new_tree: &MergedTree,
+    hash_kind: gix::hash::Kind,
+) -> BackendResult<()> {
+    let mut diff_stream = old_tree.diff_stream(new_tree, &EverythingMatcher);
+    let mut added_paths = vec![];
+    let mut removed_paths = HashSet::new();
+    while let Some(TreeDiffEntry { path, values }) = diff_stream.next().await {
+        let (before, after) = values?;
+        if before.is_absent() {
+            let executable = match after.as_normal() {
+                Some(TreeValue::File { id: _, executable }) => *executable,
+                Some(TreeValue::Symlink(_)) => false,
+                _ => {
+                    continue;
+                }
+            };
+            if index
+                .entry_index_by_path(BStr::new(path.as_internal_file_string()))
+                .is_err()
+            {
+                added_paths.push((BString::from(path.into_internal_string()), executable));
+            }
+        } else if after.is_absent() {
+            removed_paths.insert(BString::from(path.into_internal_string()));
+        }
+    }
+
+    if added_paths.is_empty() && removed_paths.is_empty() {
+        return Ok(());
+    }
+
+    for (path, executable) in added_paths {
+        // We have checked that the index doesn't have this entry
+        index.dangerously_push_entry(
+            gix::index::entry::Stat::default(),
+            gix::ObjectId::empty_blob(hash_kind),
+            gix::index::entry::Flags::INTENT_TO_ADD | gix::index::entry::Flags::EXTENDED,
+            if executable {
+                gix::index::entry::Mode::FILE_EXECUTABLE
+            } else {
+                gix::index::entry::Mode::FILE
+            },
+            path.as_ref(),
+        );
+    }
+    if !removed_paths.is_empty() {
+        index.remove_entries(|_size, path, entry| {
+            entry
+                .flags
+                .contains(gix::index::entry::Flags::INTENT_TO_ADD)
+                && removed_paths.contains(path)
+        });
+    }
+
+    index.sort_entries();
+
+    Ok(())
 }
 
 #[derive(Debug, Error)]

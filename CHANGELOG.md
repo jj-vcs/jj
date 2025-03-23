@@ -81,6 +81,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * A new command `jj git root` is added, which prints the location of the Git
   directory of a repository using the Git backend.
 
+* In colocated repos, any files that jj considers added in the working copy will
+  now show up in `git diff` (as if you had run `git add --intent-to-add` on
+  them).
+
 ### Fixed bugs
 
 * `jj log -p --stat` now shows diff stats as well as the default color-words/git

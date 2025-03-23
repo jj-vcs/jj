@@ -693,7 +693,7 @@ fn test_git_init_colocated_dirty_working_copy() {
         GitStatus {
             path: "unstaged-file",
             status: Worktree(
-                Added,
+                IntentToAdd,
             ),
         },
     ]

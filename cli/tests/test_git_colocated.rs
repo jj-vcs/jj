@@ -90,6 +90,54 @@ fn test_git_colocated() {
 }
 
 #[test]
+fn test_git_colocated_intent_to_add() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+
+    // A file added directly on top of the root commit should be marked as
+    // intent-to-add
+    work_dir.write_file("file1.txt", "contents");
+    work_dir.run_jj(["status"]).success();
+    insta::assert_snapshot!(get_index_state(work_dir.root()), @"Unconflicted Mode(FILE) e69de29bb2d1 ctime=0:0 mtime=0:0 size=0 flags=20004000 file1.txt");
+
+    // Another new file should be marked as intent-to-add
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file2.txt", "contents");
+    work_dir.run_jj(["status"]).success();
+    insta::assert_snapshot!(get_index_state(work_dir.root()), @r"
+    Unconflicted Mode(FILE) 0839b2e9412b ctime=0:0 mtime=0:0 size=0 flags=0 file1.txt
+    Unconflicted Mode(FILE) e69de29bb2d1 ctime=0:0 mtime=0:0 size=0 flags=20004000 file2.txt
+    ");
+
+    // After creating a new commit, it should not longer be marked as intent-to-add
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file2.txt", "contents");
+    work_dir.run_jj(["status"]).success();
+    insta::assert_snapshot!(get_index_state(work_dir.root()), @r"
+    Unconflicted Mode(FILE) 0839b2e9412b ctime=0:0 mtime=0:0 size=0 flags=0 file1.txt
+    Unconflicted Mode(FILE) 0839b2e9412b ctime=0:0 mtime=0:0 size=0 flags=0 file2.txt
+    ");
+
+    // If we edit an existing commit, new files are marked as intent-to-add
+    work_dir.run_jj(["edit", "@-"]).success();
+    work_dir.run_jj(["status"]).success();
+    insta::assert_snapshot!(get_index_state(work_dir.root()), @r"
+    Unconflicted Mode(FILE) 0839b2e9412b ctime=0:0 mtime=0:0 size=0 flags=0 file1.txt
+    Unconflicted Mode(FILE) e69de29bb2d1 ctime=0:0 mtime=0:0 size=0 flags=20004000 file2.txt
+    ");
+
+    // If we remove the added file, it's removed from the index
+    work_dir.remove_file("file2.txt");
+    work_dir.run_jj(["status"]).success();
+    insta::assert_snapshot!(get_index_state(work_dir.root()), @r"
+    Unconflicted Mode(FILE) 0839b2e9412b ctime=0:0 mtime=0:0 size=0 flags=0 file1.txt
+    ");
+}
+
+#[test]
 fn test_git_colocated_unborn_bookmark() {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");
@@ -929,6 +977,7 @@ fn test_git_colocated_update_index_preserves_timestamps() {
     Unconflicted Mode(FILE) ed48318d9bf4 ctime=[nonzero] mtime=[nonzero] size=18 flags=0 file1.txt
     Unconflicted Mode(FILE) 28d2718c947b ctime=0:0 mtime=0:0 size=0 flags=0 file2.txt
     Unconflicted Mode(FILE) 528557ab3a42 ctime=0:0 mtime=0:0 size=0 flags=0 file3.txt
+    Unconflicted Mode(FILE) e69de29bb2d1 ctime=0:0 mtime=0:0 size=0 flags=20004000 file4.txt
     ");
 
     // Create sibling commit, causing working copy to match index
@@ -983,6 +1032,7 @@ fn test_git_colocated_update_index_merge_conflict() {
     insta::assert_snapshot!(get_index_state(work_dir.root()), @r"
     Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 flags=0 base.txt
     Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 flags=0 conflict.txt
+    Unconflicted Mode(FILE) e69de29bb2d1 ctime=0:0 mtime=0:0 size=0 flags=20004000 right.txt
     ");
 
     // Update index with stat for base.txt
@@ -991,6 +1041,7 @@ fn test_git_colocated_update_index_merge_conflict() {
     insta::assert_snapshot!(get_index_state(work_dir.root()), @r"
     Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 flags=0 base.txt
     Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 flags=0 conflict.txt
+    Unconflicted Mode(FILE) e69de29bb2d1 ctime=0:0 mtime=0:0 size=0 flags=20004000 right.txt
     ");
 
     // Create merge conflict
@@ -1086,6 +1137,7 @@ fn test_git_colocated_update_index_rebase_conflict() {
     insta::assert_snapshot!(get_index_state(work_dir.root()), @r"
     Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 flags=0 base.txt
     Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 flags=0 conflict.txt
+    Unconflicted Mode(FILE) e69de29bb2d1 ctime=0:0 mtime=0:0 size=0 flags=20004000 left.txt
     ");
 
     // Update index with stat for base.txt
@@ -1094,6 +1146,7 @@ fn test_git_colocated_update_index_rebase_conflict() {
     insta::assert_snapshot!(get_index_state(work_dir.root()), @r"
     Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 flags=0 base.txt
     Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 flags=0 conflict.txt
+    Unconflicted Mode(FILE) e69de29bb2d1 ctime=0:0 mtime=0:0 size=0 flags=20004000 left.txt
     ");
 
     // Create rebase conflict
@@ -1114,6 +1167,7 @@ fn test_git_colocated_update_index_rebase_conflict() {
     insta::assert_snapshot!(get_index_state(work_dir.root()), @r"
     Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 flags=0 base.txt
     Unconflicted Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 flags=0 conflict.txt
+    Unconflicted Mode(FILE) e69de29bb2d1 ctime=0:0 mtime=0:0 size=0 flags=20004000 left.txt
     Unconflicted Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 flags=0 right.txt
     ");
 
@@ -1179,6 +1233,7 @@ fn test_git_colocated_update_index_3_sided_conflict() {
     insta::assert_snapshot!(get_index_state(work_dir.root()), @r"
     Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 flags=0 base.txt
     Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 flags=0 conflict.txt
+    Unconflicted Mode(FILE) e69de29bb2d1 ctime=0:0 mtime=0:0 size=0 flags=20004000 side-3.txt
     ");
 
     // Update index with stat for base.txt
@@ -1187,6 +1242,7 @@ fn test_git_colocated_update_index_3_sided_conflict() {
     insta::assert_snapshot!(get_index_state(work_dir.root()), @r"
     Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 flags=0 base.txt
     Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 flags=0 conflict.txt
+    Unconflicted Mode(FILE) e69de29bb2d1 ctime=0:0 mtime=0:0 size=0 flags=20004000 side-3.txt
     ");
 
     // Create 3-sided merge conflict

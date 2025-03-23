@@ -1984,6 +1984,15 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
 
             #[cfg(feature = "git")]
             if self.working_copy_shared_with_git {
+                let old_tree = wc_commit.tree().map_err(snapshot_command_error)?;
+                let new_tree = commit.tree().map_err(snapshot_command_error)?;
+                jj_lib::git::update_intent_to_add(
+                    self.user_repo.repo.as_ref(),
+                    &old_tree,
+                    &new_tree,
+                )
+                .map_err(snapshot_command_error)?;
+
                 let stats = jj_lib::git::export_refs(mut_repo).map_err(snapshot_command_error)?;
                 crate::git_util::print_git_export_stats(ui, &stats)
                     .map_err(snapshot_command_error)?;
