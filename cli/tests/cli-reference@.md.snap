@@ -1709,7 +1709,7 @@ To discard old operation history, use `jj op abandon ..<operation ID>`. It will 
 
 To discard recent operations, use `jj op restore <operation ID>` followed by `jj op abandon <operation ID>..@-`.
 
-The abandoned operations, commits, and other unreachable objects can later be garbage collected by using `jj util gc` command.
+Previous versions of a change (or predecessors) are also discarded if they become unreachable from the operation history. The abandoned operations, commits, and other unreachable objects can later be garbage collected by using `jj util gc` command.
 
 **Usage:** `jj operation abandon <OPERATION>`
 
@@ -2762,8 +2762,6 @@ echo "args: $@"
 Run backend-dependent garbage collection.
 
 To garbage-collect old operations and the commits/objects referenced by them, run `jj op abandon ..<some old operation>` before `jj util gc`.
-
-Previous versions of a change that are reachable via the evolution log are not garbage-collected.
 
 **Usage:** `jj util gc [OPTIONS]`
 

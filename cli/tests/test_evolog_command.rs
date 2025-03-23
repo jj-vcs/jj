@@ -410,6 +410,55 @@ fn test_evolog_squash() {
 }
 
 #[test]
+fn test_evolog_abandoned_op() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "");
+    work_dir.run_jj(["describe", "-mfile1"]).success();
+    work_dir.write_file("file2", "");
+    work_dir.run_jj(["describe", "-mfile2"]).success();
+
+    insta::assert_snapshot!(work_dir.run_jj(["evolog", "--summary"]), @r"
+    @  qpvuntsm test.user@example.com 2001-02-03 08:05:09 e1869e5d
+    │  file2
+    │  -- operation 043c31d6dd84 (2001-02-03 08:05:09) describe commit 32cabcfa05c604a36074d74ae59964e4e5eb18e9
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:09 32cabcfa
+    │  file1
+    │  -- operation baef907e5b55 (2001-02-03 08:05:09) snapshot working copy
+    │  A file2
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 cb5ebdc6
+    │  file1
+    │  -- operation c4cf439c43a8 (2001-02-03 08:05:08) describe commit 093c3c9624b6cfe22b310586f5638792aa80e6d7
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 093c3c96
+    │  (no description set)
+    │  -- operation f41b80dc73b6 (2001-02-03 08:05:08) snapshot working copy
+    │  A file1
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
+       (empty) (no description set)
+       -- operation 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
+    [EOF]
+    ");
+
+    // Truncate up to the last "describe -mfile2" operation
+    work_dir.run_jj(["op", "abandon", "..@-"]).success();
+
+    // Unreachable predecessors are omitted, therefore the bottom commit shows
+    // diffs from the empty tree.
+    insta::assert_snapshot!(work_dir.run_jj(["evolog", "--summary"]), @r"
+    @  qpvuntsm test.user@example.com 2001-02-03 08:05:09 e1869e5d
+    │  file2
+    │  -- operation ab2192a635be (2001-02-03 08:05:09) describe commit 32cabcfa05c604a36074d74ae59964e4e5eb18e9
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:09 32cabcfa
+       file1
+       A file1
+       A file2
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_evolog_with_no_template() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();

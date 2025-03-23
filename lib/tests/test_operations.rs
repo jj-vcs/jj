@@ -22,6 +22,7 @@ use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
+use jj_lib::evolution::walk_predecessors;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::OperationId;
 use jj_lib::op_walk;
@@ -31,9 +32,21 @@ use jj_lib::operation::Operation;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::settings::UserSettings;
+use test_case::test_case;
 use testutils::create_random_commit;
 use testutils::write_random_commit;
+use testutils::CommitGraphBuilder;
 use testutils::TestRepo;
+
+fn get_predecessors(repo: &ReadonlyRepo, id: &CommitId) -> Vec<CommitId> {
+    let entries: Vec<_> = walk_predecessors(repo, slice::from_ref(id))
+        .try_collect()
+        .expect("unreachable predecessors shouldn't be visited");
+    let first = entries
+        .first()
+        .expect("specified commit should be reachable");
+    first.predecessor_ids().to_vec()
+}
 
 fn list_dir(dir: &Path) -> Vec<String> {
     std::fs::read_dir(dir)
@@ -447,6 +460,185 @@ fn test_reparent_range_branchy() {
     assert_eq!(new_op_f.metadata(), op_f.metadata());
     assert_eq!(new_op_f.view_id(), op_f.view_id());
     assert_eq!(new_op_f.parent_ids(), slice::from_ref(repo_d.op_id()));
+}
+
+#[test_case(false; "legacy commit.predecessors")]
+#[test_case(true; "op.commit_predecessors")]
+fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) {
+    let test_repo = TestRepo::init();
+    let repo_0 = test_repo.repo;
+    let loader = repo_0.loader();
+    let op_store = repo_0.op_store();
+
+    let repo_at = |id: &OperationId| {
+        let op = loader.load_operation(id).unwrap();
+        loader.load_at(&op).unwrap()
+    };
+    let head_commits = |repo: &dyn Repo| {
+        repo.view()
+            .heads()
+            .iter()
+            .map(|id| repo.store().get_commit(id).unwrap())
+            .collect_vec()
+    };
+
+    // Set up rewriting as follows:
+    //
+    //   op1     op2     op3     op4
+    //   B0      B0 B1      B1
+    //   |       |  |       |
+    //   A0      A0 A1   A0 A1   A2
+    let mut tx = repo_0.start_transaction();
+    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
+    let commit_a0 = graph_builder.initial_commit();
+    let commit_b0 = graph_builder.commit_with_parents(&[&commit_a0]);
+    let repo_1 = tx.commit("op1").unwrap();
+
+    let mut tx = repo_1.start_transaction();
+    let commit_a1 = tx
+        .repo_mut()
+        .rewrite_commit(&commit_a0)
+        .set_description("a1")
+        .write()
+        .unwrap();
+    tx.repo_mut().rebase_descendants().unwrap();
+    let [commit_b1] = head_commits(tx.repo()).try_into().unwrap();
+    tx.repo_mut().add_head(&commit_b0).unwrap(); // resurrect rewritten commits
+    let repo_2 = tx.commit("op2").unwrap();
+
+    let mut tx = repo_2.start_transaction();
+    tx.repo_mut().record_abandoned_commit(&commit_b0);
+    tx.repo_mut().rebase_descendants().unwrap();
+    let repo_3 = tx.commit("op3").unwrap();
+
+    let mut tx = repo_3.start_transaction();
+    tx.repo_mut().record_abandoned_commit(&commit_a0);
+    tx.repo_mut().record_abandoned_commit(&commit_b1);
+    let commit_a2 = tx
+        .repo_mut()
+        .rewrite_commit(&commit_a1)
+        .set_description("a2")
+        .write()
+        .unwrap();
+    tx.repo_mut().rebase_descendants().unwrap();
+    let repo_4 = tx.commit("op4").unwrap();
+
+    let repo_4 = if op_stores_commit_predecessors {
+        repo_4
+    } else {
+        // Save operation without the predecessors as old jj would do. We only
+        // need to rewrite the head operation since walk_predecessors() will
+        // fall back to the legacy code path immediately.
+        let mut data = repo_4.operation().store_operation().clone();
+        data.commit_predecessors = None;
+        let op_id = op_store.write_operation(&data).unwrap();
+        repo_at(&op_id)
+    };
+
+    // Sanity check for the setup
+    assert_eq!(repo_1.view().heads().len(), 1);
+    assert_eq!(repo_2.view().heads().len(), 2);
+    assert_eq!(repo_3.view().heads().len(), 2);
+    assert_eq!(repo_4.view().heads().len(), 1);
+    assert_eq!(repo_4.index().all_heads_for_gc().unwrap().count(), 3);
+    assert_eq!(
+        repo_4.operation().stores_commit_predecessors(),
+        op_stores_commit_predecessors
+    );
+    assert_eq!(
+        get_predecessors(&repo_4, commit_a1.id()),
+        [commit_a0.id().clone()]
+    );
+    assert_eq!(
+        get_predecessors(&repo_4, commit_a2.id()),
+        [commit_a1.id().clone()]
+    );
+    assert_eq!(
+        get_predecessors(&repo_4, commit_b1.id()),
+        [commit_b0.id().clone()]
+    );
+
+    // Abandon op1
+    let stats = op_walk::reparent_range(
+        op_store.as_ref(),
+        slice::from_ref(repo_1.operation()),
+        slice::from_ref(repo_4.operation()),
+        repo_0.operation(),
+    )
+    .unwrap();
+    assert_eq!(stats.new_head_ids.len(), 1);
+    assert_eq!(stats.rewritten_count, 3);
+    assert_eq!(stats.unreachable_count, 1);
+    let repo = repo_at(&stats.new_head_ids[0]);
+    // A0 - B0 are still reachable
+    assert!(repo.index().has_id(commit_a0.id()));
+    assert!(repo.index().has_id(commit_b0.id()));
+    assert_eq!(
+        get_predecessors(&repo, commit_a1.id()),
+        [commit_a0.id().clone()]
+    );
+    assert_eq!(
+        get_predecessors(&repo, commit_b1.id()),
+        [commit_b0.id().clone()]
+    );
+    assert_eq!(get_predecessors(&repo, commit_a0.id()), []);
+    assert_eq!(get_predecessors(&repo, commit_b0.id()), []);
+
+    // Abandon op1 and op2
+    let stats = op_walk::reparent_range(
+        op_store.as_ref(),
+        slice::from_ref(repo_2.operation()),
+        slice::from_ref(repo_4.operation()),
+        repo_0.operation(),
+    )
+    .unwrap();
+    assert_eq!(stats.new_head_ids.len(), 1);
+    assert_eq!(stats.rewritten_count, 2);
+    assert_eq!(stats.unreachable_count, 2);
+    let repo = repo_at(&stats.new_head_ids[0]);
+    // A0 is still reachable
+    assert!(repo.index().has_id(commit_a0.id()));
+    if op_stores_commit_predecessors {
+        // B0 is no longer reachable
+        assert!(!repo.index().has_id(commit_b0.id()));
+        // the predecessor record `A1: A0` no longer exists
+        assert_eq!(get_predecessors(&repo, commit_a1.id()), []);
+        // Unreachable predecessors should be excluded
+        assert_eq!(get_predecessors(&repo, commit_b1.id()), []);
+    } else {
+        // B0 is retained because it is immediate predecessor of B1
+        assert!(repo.index().has_id(commit_b0.id()));
+        assert_eq!(
+            get_predecessors(&repo, commit_a1.id()),
+            [commit_a0.id().clone()]
+        );
+        assert_eq!(
+            get_predecessors(&repo, commit_b1.id()),
+            [commit_b0.id().clone()]
+        );
+    }
+
+    // Abandon op1, op2, and op3
+    let stats = op_walk::reparent_range(
+        op_store.as_ref(),
+        slice::from_ref(repo_3.operation()),
+        slice::from_ref(repo_4.operation()),
+        repo_0.operation(),
+    )
+    .unwrap();
+    assert_eq!(stats.new_head_ids.len(), 1);
+    assert_eq!(stats.rewritten_count, 1);
+    assert_eq!(stats.unreachable_count, 3);
+    let repo = repo_at(&stats.new_head_ids[0]);
+    // A0 is no longer reachable
+    assert!(!repo.index().has_id(commit_a0.id()));
+    // A1 is still reachable through A2
+    assert!(repo.index().has_id(commit_a1.id()));
+    assert_eq!(
+        get_predecessors(&repo, commit_a2.id()),
+        [commit_a1.id().clone()]
+    );
+    assert_eq!(get_predecessors(&repo, commit_a1.id()), []);
 }
 
 fn stable_op_id_settings() -> UserSettings {

@@ -12,6 +12,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+* `jj op abandon` now discards previous versions of a change (or predecessors)
+  if they become unreachable from the operation history. The evolution history
+  is truncated accordingly.
+
+  Once `jj op abandon` and `jj util gc` are run in a repository, old versions of
+  `jj` might get "commit not found" error on `jj evolog`.
+
 ### Deprecations
 
 ### New features
