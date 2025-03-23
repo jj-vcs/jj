@@ -359,9 +359,9 @@ impl View {
     /// Iterates all commit ids referenced by this view.
     ///
     /// This can include hidden commits referenced by remote bookmarks, previous
-    /// positions of conflicted bookmarks, etc. The ancestors and predecessors
-    /// of the returned commits should be considered reachable from the
-    /// view. Use this to build commit index from scratch.
+    /// positions of conflicted bookmarks, etc. The ancestors of the returned
+    /// commits should be considered reachable from the view. Use this to build
+    /// commit index from scratch.
     ///
     /// The iteration order is unspecified, and may include duplicated entries.
     pub fn all_referenced_commit_ids(&self) -> impl Iterator<Item = &CommitId> {
