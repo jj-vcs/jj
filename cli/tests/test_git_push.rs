@@ -2143,15 +2143,28 @@ fn test_git_push_rejected_by_remote() {
 
     // push bookmark
     let output = work_dir.run_jj(["git", "push"]);
-    insta::assert_snapshot!(output, @r#"
-    ------- stderr -------
-    Changes to push to origin:
-      Move forward bookmark bookmark1 from d13ecdbda2a2 to dd5c09b30f9f
-    remote: error: hook declined to update refs/heads/bookmark1        
-    Error: Remote rejected the update of some refs (do you have permission to push to ["refs/heads/bookmark1"]?)
-    [EOF]
-    [exit status: 1]
-    "#);
+
+    // The git remote sideband adds a dummy suffix of 8 spaces to attempt to clear
+    // any leftover data. This is done to help with cases where the line is
+    // rewritten.
+    //
+    // However, a common option in a lot of editors removes trailing whitespace.
+    // This means that anyone with that option that opens this file would make the
+    // following snapshot fail. Using the insta filter here normalizes the
+    // output.
+    let mut settings = insta::Settings::clone_current();
+    settings.add_filter(r"\s*\n", "\n");
+    settings.bind(|| {
+        insta::assert_snapshot!(output, @r#"
+        ------- stderr -------
+        Changes to push to origin:
+          Move forward bookmark bookmark1 from d13ecdbda2a2 to dd5c09b30f9f
+        remote: error: hook declined to update refs/heads/bookmark1
+        Error: Remote rejected the update of some refs (do you have permission to push to ["refs/heads/bookmark1"]?)
+        [EOF]
+        [exit status: 1]
+        "#);
+    });
 }
 
 #[must_use]
