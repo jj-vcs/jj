@@ -33,6 +33,8 @@ use jj_lib::object_id::ObjectId as _;
 use jj_lib::object_id::PrefixResolution;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
+use jj_lib::ref_name::RefName;
+use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
@@ -56,8 +58,15 @@ fn generation_number(index: &CompositeIndex, commit_id: &CommitId) -> u32 {
     index.entry_by_id(commit_id).unwrap().generation_number()
 }
 
-fn remote_symbol<'a>(name: &'a str, remote: &'a str) -> RemoteRefSymbol<'a> {
-    RemoteRefSymbol { name, remote }
+fn remote_symbol<'a, N, M>(name: &'a N, remote: &'a M) -> RemoteRefSymbol<'a>
+where
+    N: AsRef<RefName> + ?Sized,
+    M: AsRef<RemoteName> + ?Sized,
+{
+    RemoteRefSymbol {
+        name: name.as_ref(),
+        remote: remote.as_ref(),
+    }
 }
 
 #[test]

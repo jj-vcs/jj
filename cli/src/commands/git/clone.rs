@@ -20,6 +20,8 @@ use std::path::Path;
 
 use jj_lib::git;
 use jj_lib::git::GitFetch;
+use jj_lib::ref_name::RefNameBuf;
+use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::repo::Repo as _;
 use jj_lib::str_util::StringPattern;
@@ -56,7 +58,7 @@ pub struct GitCloneArgs {
     destination: Option<String>,
     /// Name of the newly created remote
     #[arg(long = "remote", default_value = "origin")]
-    remote_name: String,
+    remote_name: String, // TODO: RemoteNameBuf
     /// Whether or not to colocate the Jujutsu repo with the git repo
     #[arg(long)]
     colocate: bool,
@@ -145,10 +147,8 @@ pub fn cmd_git_clone(
 
     let (mut workspace_command, default_branch) = clone_result?;
     if let Some(name) = &default_branch {
-        let default_symbol = RemoteRefSymbol {
-            name,
-            remote: remote_name,
-        };
+        let remote = RemoteName::new(remote_name); // TODO: use newtype globally
+        let default_symbol = RemoteRefSymbol { name, remote };
         write_repository_level_trunk_alias(ui, workspace_command.repo_path(), default_symbol)?;
 
         let default_branch_remote_ref = workspace_command
@@ -211,7 +211,7 @@ fn fetch_new_remote(
     workspace_command: &mut WorkspaceCommandHelper,
     remote_name: &str,
     depth: Option<NonZeroU32>,
-) -> Result<Option<String>, CommandError> {
+) -> Result<Option<RefNameBuf>, CommandError> {
     writeln!(
         ui.status(),
         r#"Fetching into new repo in "{}""#,
@@ -228,5 +228,5 @@ fn fetch_new_remote(
     let import_stats = git_fetch.import_refs()?;
     print_git_import_stats(ui, fetch_tx.repo(), &import_stats, true)?;
     fetch_tx.finish(ui, "fetch from git remote into empty repo")?;
-    Ok(default_branch)
+    Ok(default_branch.map(Into::into))
 }

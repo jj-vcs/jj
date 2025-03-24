@@ -342,7 +342,7 @@ pub fn print_git_import_stats(
             Git remote named '{name}' is reserved for local Git repository.
             Use `jj git remote rename` to give a different name.
             ",
-            name = git::REMOTE_NAME_FOR_LOCAL_GIT_REPO,
+            name = git::REMOTE_NAME_FOR_LOCAL_GIT_REPO.as_symbol(),
         )?;
     }
 

@@ -73,6 +73,8 @@ use crate::op_store::RemoteRefState;
 use crate::op_store::RootOperationData;
 use crate::op_store::WorkspaceId;
 use crate::operation::Operation;
+use crate::ref_name::RefName;
+use crate::ref_name::RemoteName;
 use crate::ref_name::RemoteRefSymbol;
 use crate::refs::diff_named_ref_targets;
 use crate::refs::diff_named_remote_refs;
@@ -1524,11 +1526,11 @@ impl MutableRepo {
         self.view.mark_dirty();
     }
 
-    pub fn get_local_bookmark(&self, name: &str) -> RefTarget {
+    pub fn get_local_bookmark(&self, name: &RefName) -> RefTarget {
         self.view.with_ref(|v| v.get_local_bookmark(name).clone())
     }
 
-    pub fn set_local_bookmark_target(&mut self, name: &str, target: RefTarget) {
+    pub fn set_local_bookmark_target(&mut self, name: &RefName, target: RefTarget) {
         let view = self.view_mut();
         for id in target.added_ids() {
             view.add_head(id);
@@ -1538,7 +1540,7 @@ impl MutableRepo {
 
     pub fn merge_local_bookmark(
         &mut self,
-        name: &str,
+        name: &RefName,
         base_target: &RefTarget,
         other_target: &RefTarget,
     ) {
@@ -1588,23 +1590,23 @@ impl MutableRepo {
         self.set_remote_bookmark(symbol, remote_ref);
     }
 
-    pub fn remove_remote(&mut self, remote_name: &str) {
+    pub fn remove_remote(&mut self, remote_name: &RemoteName) {
         self.view_mut().remove_remote(remote_name);
     }
 
-    pub fn rename_remote(&mut self, old: &str, new: &str) {
+    pub fn rename_remote(&mut self, old: &RemoteName, new: &RemoteName) {
         self.view_mut().rename_remote(old, new);
     }
 
-    pub fn get_tag(&self, name: &str) -> RefTarget {
+    pub fn get_tag(&self, name: &RefName) -> RefTarget {
         self.view.with_ref(|v| v.get_tag(name).clone())
     }
 
-    pub fn set_tag_target(&mut self, name: &str, target: RefTarget) {
+    pub fn set_tag_target(&mut self, name: &RefName, target: RefTarget) {
         self.view_mut().set_tag_target(name, target);
     }
 
-    pub fn merge_tag(&mut self, name: &str, base_target: &RefTarget, other_target: &RefTarget) {
+    pub fn merge_tag(&mut self, name: &RefName, base_target: &RefTarget, other_target: &RefTarget) {
         let view = self.view.get_mut();
         let index = self.index.as_index();
         let self_target = view.get_tag(name);

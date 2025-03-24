@@ -294,9 +294,9 @@ impl Display for RefSymbol {
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct RemoteRefSymbolBuf {
     /// Local name.
-    pub name: String,
+    pub name: RefNameBuf,
     /// Remote name.
-    pub remote: String,
+    pub remote: RemoteNameBuf,
 }
 
 impl RemoteRefSymbolBuf {
@@ -316,9 +316,9 @@ impl RemoteRefSymbolBuf {
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct RemoteRefSymbol<'a> {
     /// Local name.
-    pub name: &'a str,
+    pub name: &'a RefName,
     /// Remote name.
-    pub remote: &'a str,
+    pub remote: &'a RemoteName,
 }
 
 impl RemoteRefSymbol<'_> {
@@ -370,6 +370,6 @@ impl Display for RemoteRefSymbolBuf {
 impl Display for RemoteRefSymbol<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let RemoteRefSymbol { name, remote } = self;
-        f.pad(&revset::format_remote_symbol(name, remote))
+        f.pad(&revset::format_remote_symbol(&name.0, &remote.0))
     }
 }

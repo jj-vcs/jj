@@ -26,6 +26,7 @@ use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
+use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::repo::Repo;
 use jj_lib::str_util::StringPattern;
@@ -106,7 +107,7 @@ pub fn cmd_bookmark(
 fn find_local_bookmarks<'a>(
     view: &'a View,
     name_patterns: &[StringPattern],
-) -> Result<Vec<(&'a str, &'a RefTarget)>, CommandError> {
+) -> Result<Vec<(&'a RefName, &'a RefTarget)>, CommandError> {
     find_bookmarks_with(name_patterns, |pattern| {
         view.local_bookmarks_matching(pattern).map(Ok)
     })
@@ -115,11 +116,11 @@ fn find_local_bookmarks<'a>(
 fn find_bookmarks_with<'a, 'b, V, I>(
     name_patterns: &'b [StringPattern],
     mut find_matches: impl FnMut(&'b StringPattern) -> I,
-) -> Result<Vec<(&'a str, V)>, CommandError>
+) -> Result<Vec<(&'a RefName, V)>, CommandError>
 where
-    I: Iterator<Item = Result<(&'a str, V), CommandError>>,
+    I: Iterator<Item = Result<(&'a RefName, V), CommandError>>,
 {
-    let mut matching_bookmarks: Vec<(&'a str, V)> = vec![];
+    let mut matching_bookmarks: Vec<(&'a RefName, V)> = vec![];
     let mut unmatched_patterns = vec![];
     for pattern in name_patterns {
         let mut matches = find_matches(pattern).peekable();
@@ -175,7 +176,7 @@ fn find_remote_bookmarks<'a>(
 
 /// Whether or not the `bookmark` has any tracked remotes (i.e. is a tracking
 /// local bookmark.)
-fn has_tracked_remote_bookmarks(view: &View, bookmark: &str) -> bool {
+fn has_tracked_remote_bookmarks(view: &View, bookmark: &RefName) -> bool {
     view.remote_bookmarks_matching(
         &StringPattern::exact(bookmark),
         &StringPattern::everything(),

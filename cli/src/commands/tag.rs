@@ -95,7 +95,12 @@ fn cmd_tag_list(
     let mut formatter = ui.stdout_formatter();
 
     for (name, target) in view.tags() {
-        if !args.names.is_empty() && !args.names.iter().any(|pattern| pattern.matches(name)) {
+        if !args.names.is_empty()
+            && !args
+                .names
+                .iter()
+                .any(|pattern| pattern.matches(name.as_str()))
+        {
             continue;
         }
         let commit_ref = CommitRef::local_only(name, target.clone());

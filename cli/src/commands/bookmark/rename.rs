@@ -14,6 +14,7 @@
 
 use clap_complete::ArgValueCandidates;
 use jj_lib::op_store::RefTarget;
+use jj_lib::ref_name::RefNameBuf;
 
 use super::has_tracked_remote_bookmarks;
 use crate::cli_util::CommandHelper;
@@ -33,11 +34,11 @@ pub struct BookmarkRenameArgs {
         value_parser = revset_util::parse_bookmark_name,
         add = ArgValueCandidates::new(complete::local_bookmarks),
     )]
-    old: String,
+    old: RefNameBuf,
 
     /// The new name of the bookmark
     #[arg(value_parser = revset_util::parse_bookmark_name)]
-    new: String,
+    new: RefNameBuf,
 }
 
 pub fn cmd_bookmark_rename(
@@ -50,13 +51,17 @@ pub fn cmd_bookmark_rename(
     let old_bookmark = &args.old;
     let ref_target = view.get_local_bookmark(old_bookmark).clone();
     if ref_target.is_absent() {
-        return Err(user_error(format!("No such bookmark: {old_bookmark}")));
+        return Err(user_error(format!(
+            "No such bookmark: {old_bookmark}",
+            old_bookmark = old_bookmark.as_symbol()
+        )));
     }
 
     let new_bookmark = &args.new;
     if view.get_local_bookmark(new_bookmark).is_present() {
         return Err(user_error(format!(
-            "Bookmark already exists: {new_bookmark}"
+            "Bookmark already exists: {new_bookmark}",
+            new_bookmark = new_bookmark.as_symbol()
         )));
     }
 
@@ -67,7 +72,11 @@ pub fn cmd_bookmark_rename(
         .set_local_bookmark_target(old_bookmark, RefTarget::absent());
     tx.finish(
         ui,
-        format!("rename bookmark {old_bookmark} to {new_bookmark}"),
+        format!(
+            "rename bookmark {old_bookmark} to {new_bookmark}",
+            old_bookmark = old_bookmark.as_symbol(),
+            new_bookmark = new_bookmark.as_symbol()
+        ),
     )?;
 
     let view = workspace_command.repo().view();
@@ -75,12 +84,15 @@ pub fn cmd_bookmark_rename(
         writeln!(
             ui.warning_default(),
             "Tracked remote bookmarks for bookmark {old_bookmark} were not renamed.",
+            old_bookmark = old_bookmark.as_symbol(),
         )?;
         writeln!(
             ui.hint_default(),
             "To rename the bookmark on the remote, you can `jj git push --bookmark \
              {old_bookmark}` first (to delete it on the remote), and then `jj git push --bookmark \
-             {new_bookmark}`. `jj git push --all` would also be sufficient."
+             {new_bookmark}`. `jj git push --all` would also be sufficient.",
+            old_bookmark = old_bookmark.as_symbol(),
+            new_bookmark = new_bookmark.as_symbol()
         )?;
     }
     if has_tracked_remote_bookmarks(view, new_bookmark) {
@@ -89,11 +101,14 @@ pub fn cmd_bookmark_rename(
         // allowed even if the original old bookmark had tracked remotes.
         writeln!(
             ui.warning_default(),
-            "Tracked remote bookmarks for bookmark {new_bookmark} exist."
+            "Tracked remote bookmarks for bookmark {new_bookmark} exist.",
+            new_bookmark = new_bookmark.as_symbol()
         )?;
         writeln!(
             ui.hint_default(),
-            "Run `jj bookmark untrack 'glob:{new_bookmark}@*'` to disassociate them."
+            "Run `jj bookmark untrack 'glob:{new_bookmark}@*'` to disassociate them.",
+            // TODO: use .as_symbol() if pattern parser is ported to revset
+            new_bookmark = new_bookmark.as_str()
         )?;
     }
 

@@ -248,7 +248,7 @@ pub fn maybe_set_repository_level_trunk_alias(
                 // TODO: Can we assume the symbolic target points to the same remote?
                 let symbol = RemoteRefSymbol {
                     name: symbol.name,
-                    remote: "origin",
+                    remote: "origin".as_ref(),
                 };
                 write_repository_level_trunk_alias(ui, workspace_command.repo_path(), symbol)?;
             }

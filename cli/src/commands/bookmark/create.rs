@@ -13,8 +13,10 @@
 // limitations under the License.
 
 use clap_complete::ArgValueCandidates;
+use itertools::Itertools as _;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::RefTarget;
+use jj_lib::ref_name::RefNameBuf;
 
 use super::has_tracked_remote_bookmarks;
 use crate::cli_util::CommandHelper;
@@ -45,7 +47,7 @@ pub struct BookmarkCreateArgs {
 
     /// The bookmarks to create
     #[arg(required = true, value_parser = revset_util::parse_bookmark_name)]
-    names: Vec<String>,
+    names: Vec<RefNameBuf>,
 }
 
 pub fn cmd_bookmark_create(
@@ -68,27 +70,29 @@ pub fn cmd_bookmark_create(
     for name in bookmark_names {
         if view.get_local_bookmark(name).is_present() {
             return Err(user_error_with_hint(
-                format!("Bookmark already exists: {name}"),
+                format!("Bookmark already exists: {name}", name = name.as_symbol()),
                 "Use `jj bookmark set` to update it.",
             ));
         }
         if has_tracked_remote_bookmarks(view, name) {
             return Err(user_error_with_hint(
-                format!("Tracked remote bookmarks exist for deleted bookmark: {name}"),
+                format!(
+                    "Tracked remote bookmarks exist for deleted bookmark: {name}",
+                    name = name.as_symbol()
+                ),
                 format!(
                     "Use `jj bookmark set` to recreate the local bookmark. Run `jj bookmark \
-                     untrack 'glob:{name}@*'` to disassociate them."
+                     untrack 'glob:{name}@*'` to disassociate them.",
+                    name = name.as_symbol()
                 ),
             ));
         }
     }
 
     let mut tx = workspace_command.start_transaction();
-    for bookmark_name in bookmark_names {
-        tx.repo_mut().set_local_bookmark_target(
-            bookmark_name,
-            RefTarget::normal(target_commit.id().clone()),
-        );
+    for name in bookmark_names {
+        tx.repo_mut()
+            .set_local_bookmark_target(name, RefTarget::normal(target_commit.id().clone()));
     }
 
     if let Some(mut formatter) = ui.status_formatter() {
@@ -104,7 +108,7 @@ pub fn cmd_bookmark_create(
         ui,
         format!(
             "create bookmark {names} pointing to commit {id}",
-            names = bookmark_names.join(", "),
+            names = bookmark_names.iter().map(|n| n.as_symbol()).join(", "),
             id = target_commit.id().hex()
         ),
     )?;

@@ -60,6 +60,8 @@ use crate::op_store::RootOperationData;
 use crate::op_store::View;
 use crate::op_store::ViewId;
 use crate::op_store::WorkspaceId;
+use crate::ref_name::RefNameBuf;
+use crate::ref_name::RemoteNameBuf;
 
 // BLAKE2b-512 hash length in bytes
 const OPERATION_ID_LENGTH: usize = 64;
@@ -489,7 +491,7 @@ fn view_to_proto(view: &View) -> crate::protos::op_store::View {
 
     for (name, target) in &view.tags {
         proto.tags.push(crate::protos::op_store::Tag {
-            name: name.clone(),
+            name: name.into(),
             target: ref_target_to_proto(target),
         });
     }
@@ -530,8 +532,9 @@ fn view_from_proto(proto: crate::protos::op_store::View) -> View {
     view.remote_views = remote_views;
 
     for tag_proto in proto.tags {
+        let name: RefNameBuf = tag_proto.name.into();
         view.tags
-            .insert(tag_proto.name, ref_target_from_proto(tag_proto.target));
+            .insert(name, ref_target_from_proto(tag_proto.target));
     }
 
     for git_ref in proto.git_refs {
@@ -555,8 +558,8 @@ fn view_from_proto(proto: crate::protos::op_store::View) -> View {
 }
 
 fn bookmark_views_to_proto_legacy(
-    local_bookmarks: &BTreeMap<String, RefTarget>,
-    remote_views: &BTreeMap<String, RemoteView>,
+    local_bookmarks: &BTreeMap<RefNameBuf, RefTarget>,
+    remote_views: &BTreeMap<RemoteNameBuf, RemoteView>,
 ) -> Vec<crate::protos::op_store::Bookmark> {
     op_store::merge_join_bookmark_views(local_bookmarks, remote_views)
         .map(|(name, bookmark_target)| {
@@ -566,14 +569,14 @@ fn bookmark_views_to_proto_legacy(
                 .iter()
                 .map(
                     |&(remote_name, remote_ref)| crate::protos::op_store::RemoteBookmark {
-                        remote_name: remote_name.to_owned(),
+                        remote_name: remote_name.into(),
                         target: ref_target_to_proto(&remote_ref.target),
                         state: remote_ref_state_to_proto(remote_ref.state),
                     },
                 )
                 .collect();
             crate::protos::op_store::Bookmark {
-                name: name.to_owned(),
+                name: name.into(),
                 local_target,
                 remote_bookmarks,
             }
@@ -583,12 +586,17 @@ fn bookmark_views_to_proto_legacy(
 
 fn bookmark_views_from_proto_legacy(
     bookmarks_legacy: Vec<crate::protos::op_store::Bookmark>,
-) -> (BTreeMap<String, RefTarget>, BTreeMap<String, RemoteView>) {
-    let mut local_bookmarks: BTreeMap<String, RefTarget> = BTreeMap::new();
-    let mut remote_views: BTreeMap<String, RemoteView> = BTreeMap::new();
+) -> (
+    BTreeMap<RefNameBuf, RefTarget>,
+    BTreeMap<RemoteNameBuf, RemoteView>,
+) {
+    let mut local_bookmarks: BTreeMap<RefNameBuf, RefTarget> = BTreeMap::new();
+    let mut remote_views: BTreeMap<RemoteNameBuf, RemoteView> = BTreeMap::new();
     for bookmark_proto in bookmarks_legacy {
+        let bookmark_name: RefNameBuf = bookmark_proto.name.into();
         let local_target = ref_target_from_proto(bookmark_proto.local_target);
         for remote_bookmark in bookmark_proto.remote_bookmarks {
+            let remote_name: RemoteNameBuf = remote_bookmark.remote_name.into();
             let state = remote_ref_state_from_proto(remote_bookmark.state).unwrap_or_else(|| {
                 // If local bookmark doesn't exist, we assume that the remote bookmark hasn't
                 // been merged because git.auto-local-bookmark was off. That's
@@ -596,32 +604,31 @@ fn bookmark_views_from_proto_legacy(
                 // bookmark. Alternatively, we could read
                 // git.auto-local-bookmark setting here, but that wouldn't always work since the
                 // setting could be toggled after the bookmark got merged.
-                let is_git_tracking =
-                    crate::git::is_special_git_remote(&remote_bookmark.remote_name);
+                let is_git_tracking = crate::git::is_special_git_remote(&remote_name);
                 let default_state = if is_git_tracking || local_target.is_present() {
                     RemoteRefState::Tracking
                 } else {
                     RemoteRefState::New
                 };
                 tracing::trace!(
-                    ?bookmark_proto.name,
-                    ?remote_bookmark.remote_name,
+                    ?bookmark_name,
+                    ?remote_name,
                     ?default_state,
                     "generated tracking state",
                 );
                 default_state
             });
-            let remote_view = remote_views.entry(remote_bookmark.remote_name).or_default();
+            let remote_view = remote_views.entry(remote_name).or_default();
             let remote_ref = RemoteRef {
                 target: ref_target_from_proto(remote_bookmark.target),
                 state,
             };
             remote_view
                 .bookmarks
-                .insert(bookmark_proto.name.clone(), remote_ref);
+                .insert(bookmark_name.clone(), remote_ref);
         }
         if local_target.is_present() {
-            local_bookmarks.insert(bookmark_proto.name, local_target);
+            local_bookmarks.insert(bookmark_name, local_target);
         }
     }
     (local_bookmarks, remote_views)
@@ -753,16 +760,16 @@ mod tests {
         View {
             head_ids: hashset! {head_id1, head_id2},
             local_bookmarks: btreemap! {
-                "main".to_string() => bookmark_main_local_target,
+                "main".into() => bookmark_main_local_target,
             },
             tags: btreemap! {
-                "v1.0".to_string() => tag_v1_target,
+                "v1.0".into() => tag_v1_target,
             },
             remote_views: btreemap! {
-                "origin".to_string() => RemoteView {
+                "origin".into() => RemoteView {
                     bookmarks: btreemap! {
-                        "main".to_string() => tracking_remote_ref(&bookmark_main_origin_target),
-                        "deleted".to_string() => new_remote_ref(&bookmark_deleted_origin_target),
+                        "main".into() => tracking_remote_ref(&bookmark_main_origin_target),
+                        "deleted".into() => new_remote_ref(&bookmark_deleted_origin_target),
                     },
                 },
             },
@@ -872,25 +879,25 @@ mod tests {
         let remote2_bookmark2_target = RefTarget::normal(CommitId::from_hex("555555"));
         let remote2_bookmark4_target = RefTarget::normal(CommitId::from_hex("666666"));
         let local_bookmarks = btreemap! {
-            "bookmark1".to_owned() => local_bookmark1_target.clone(),
-            "bookmark3".to_owned() => local_bookmark3_target.clone(),
+            "bookmark1".into() => local_bookmark1_target.clone(),
+            "bookmark3".into() => local_bookmark3_target.clone(),
         };
         let remote_views = btreemap! {
-            "git".to_owned() => RemoteView {
+            "git".into() => RemoteView {
                 bookmarks: btreemap! {
-                    "bookmark1".to_owned() => tracking_remote_ref(&git_bookmark1_target),
+                    "bookmark1".into() => tracking_remote_ref(&git_bookmark1_target),
                 },
             },
-            "remote1".to_owned() => RemoteView {
+            "remote1".into() => RemoteView {
                 bookmarks: btreemap! {
-                    "bookmark1".to_owned() => tracking_remote_ref(&remote1_bookmark1_target),
+                    "bookmark1".into() => tracking_remote_ref(&remote1_bookmark1_target),
                 },
             },
-            "remote2".to_owned() => RemoteView {
+            "remote2".into() => RemoteView {
                 bookmarks: btreemap! {
                     // "bookmark2" is non-tracking. "bookmark4" is tracking, but locally deleted.
-                    "bookmark2".to_owned() => new_remote_ref(&remote2_bookmark2_target),
-                    "bookmark4".to_owned() => tracking_remote_ref(&remote2_bookmark4_target),
+                    "bookmark2".into() => new_remote_ref(&remote2_bookmark2_target),
+                    "bookmark4".into() => tracking_remote_ref(&remote2_bookmark4_target),
                 },
             },
         };

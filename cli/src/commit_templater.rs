@@ -1497,8 +1497,8 @@ fn build_bookmarks_index(repo: &dyn Repo) -> CommitRefsIndex {
     index
 }
 
-fn build_commit_refs_index<'a>(
-    ref_pairs: impl IntoIterator<Item = (&'a String, &'a RefTarget)>,
+fn build_commit_refs_index<'a, K: Into<String>>(
+    ref_pairs: impl IntoIterator<Item = (K, &'a RefTarget)>,
 ) -> CommitRefsIndex {
     let mut index = CommitRefsIndex::default();
     for (name, target) in ref_pairs {

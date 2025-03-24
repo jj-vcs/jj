@@ -82,6 +82,8 @@ use jj_lib::op_store::WorkspaceId;
 use jj_lib::op_walk;
 use jj_lib::op_walk::OpsetEvaluationError;
 use jj_lib::operation::Operation;
+use jj_lib::ref_name::RefName;
+use jj_lib::ref_name::RefNameBuf;
 use jj_lib::repo::merge_factories_map;
 use jj_lib::repo::CheckOutCommitError;
 use jj_lib::repo::EditCommitError;
@@ -710,7 +712,7 @@ impl ReadonlyUserRepo {
 /// identify eligible bookmarks without actually moving them and
 /// return config errors to the user early.
 pub struct AdvanceableBookmark {
-    name: String,
+    name: RefNameBuf,
     old_commit_id: CommitId,
 }
 
@@ -752,17 +754,17 @@ impl AdvanceBookmarksSettings {
 
     /// Returns true if the advance-bookmarks feature is enabled for
     /// `bookmark_name`.
-    fn bookmark_is_eligible(&self, bookmark_name: &str) -> bool {
+    fn bookmark_is_eligible(&self, bookmark_name: &RefName) -> bool {
         if self
             .disabled_bookmarks
             .iter()
-            .any(|d| d.matches(bookmark_name))
+            .any(|d| d.matches(bookmark_name.as_str()))
         {
             return false;
         }
         self.enabled_bookmarks
             .iter()
-            .any(|e| e.matches(bookmark_name))
+            .any(|e| e.matches(bookmark_name.as_str()))
     }
 
     /// Returns true if the config includes at least one "enabled-branches"

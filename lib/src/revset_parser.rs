@@ -45,6 +45,8 @@ use crate::dsl_util::FoldableExpression;
 use crate::dsl_util::FunctionCallParser;
 use crate::dsl_util::InvalidArguments;
 use crate::dsl_util::StringLiteralParser;
+use crate::ref_name::RefNameBuf;
+use crate::ref_name::RemoteNameBuf;
 use crate::ref_name::RemoteRefSymbolBuf;
 
 #[derive(Parser)]
@@ -651,7 +653,8 @@ fn parse_primary_node(pair: Pair<Rule>) -> Result<ExpressionNode, RevsetParseErr
                         None => ExpressionKind::AtWorkspace(name),
                         // infix "<name>@<remote>"
                         Some(second) => {
-                            let remote = parse_as_string_literal(second);
+                            let name: RefNameBuf = name.into();
+                            let remote: RemoteNameBuf = parse_as_string_literal(second).into();
                             ExpressionKind::RemoteSymbol(RemoteRefSymbolBuf { name, remote })
                         }
                     }
@@ -1337,8 +1340,8 @@ mod tests {
         assert_eq!(
             parse_into_kind("main@origin"),
             Ok(ExpressionKind::RemoteSymbol(RemoteRefSymbolBuf {
-                name: "main".to_owned(),
-                remote: "origin".to_owned()
+                name: "main".into(),
+                remote: "origin".into()
             }))
         );
 
@@ -1350,22 +1353,22 @@ mod tests {
         assert_eq!(
             parse_into_kind(r#""foo bar"@origin"#),
             Ok(ExpressionKind::RemoteSymbol(RemoteRefSymbolBuf {
-                name: "foo bar".to_owned(),
-                remote: "origin".to_owned()
+                name: "foo bar".into(),
+                remote: "origin".into()
             }))
         );
         assert_eq!(
             parse_into_kind(r#"main@"foo bar""#),
             Ok(ExpressionKind::RemoteSymbol(RemoteRefSymbolBuf {
-                name: "main".to_owned(),
-                remote: "foo bar".to_owned()
+                name: "main".into(),
+                remote: "foo bar".into()
             }))
         );
         assert_eq!(
             parse_into_kind(r#"'foo bar'@'bar baz'"#),
             Ok(ExpressionKind::RemoteSymbol(RemoteRefSymbolBuf {
-                name: "foo bar".to_owned(),
-                remote: "bar baz".to_owned()
+                name: "foo bar".into(),
+                remote: "bar baz".into()
             }))
         );
 
@@ -1391,8 +1394,8 @@ mod tests {
         assert_eq!(
             parse_into_kind("柔@術"),
             Ok(ExpressionKind::RemoteSymbol(RemoteRefSymbolBuf {
-                name: "柔".to_owned(),
-                remote: "術".to_owned()
+                name: "柔".into(),
+                remote: "術".into()
             }))
         );
     }

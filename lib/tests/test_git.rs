@@ -53,6 +53,8 @@ use jj_lib::op_store::BookmarkTarget;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::op_store::RemoteRefState;
+use jj_lib::ref_name::RefName;
+use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::refs::BookmarkPushUpdate;
 use jj_lib::repo::MutableRepo;
@@ -109,8 +111,15 @@ fn git_id(commit: &Commit) -> gix::ObjectId {
     gix::ObjectId::from_bytes_or_panic(commit.id().as_bytes())
 }
 
-fn remote_symbol<'a>(name: &'a str, remote: &'a str) -> RemoteRefSymbol<'a> {
-    RemoteRefSymbol { name, remote }
+fn remote_symbol<'a, N, M>(name: &'a N, remote: &'a M) -> RemoteRefSymbol<'a>
+where
+    N: AsRef<RefName> + ?Sized,
+    M: AsRef<RemoteName> + ?Sized,
+{
+    RemoteRefSymbol {
+        name: name.as_ref(),
+        remote: remote.as_ref(),
+    }
 }
 
 fn get_git_backend(repo: &Arc<ReadonlyRepo>) -> &GitBackend {
@@ -209,7 +218,7 @@ fn test_import_refs() {
 
     assert_eq!(view.bookmarks().count(), 4);
     assert_eq!(
-        view.get_local_bookmark("main"),
+        view.get_local_bookmark("main".as_ref()),
         &RefTarget::normal(jj_id(commit2))
     );
     assert_eq!(
@@ -227,7 +236,7 @@ fn test_import_refs() {
         },
     );
     assert_eq!(
-        view.get_local_bookmark("feature1"),
+        view.get_local_bookmark("feature1".as_ref()),
         &RefTarget::normal(jj_id(commit3))
     );
     assert_eq!(
@@ -241,7 +250,7 @@ fn test_import_refs() {
         .get_remote_bookmark(remote_symbol("feature1", "origin"))
         .is_absent());
     assert_eq!(
-        view.get_local_bookmark("feature2"),
+        view.get_local_bookmark("feature2".as_ref()),
         &RefTarget::normal(jj_id(commit4))
     );
     assert_eq!(
@@ -255,7 +264,7 @@ fn test_import_refs() {
         .get_remote_bookmark(remote_symbol("feature2", "origin"))
         .is_absent());
     assert_eq!(
-        view.get_local_bookmark("feature3"),
+        view.get_local_bookmark("feature3".as_ref()),
         &RefTarget::normal(jj_id(commit6))
     );
     assert!(view
@@ -269,7 +278,10 @@ fn test_import_refs() {
         },
     );
 
-    assert_eq!(view.get_tag("v1.0"), &RefTarget::normal(jj_id(commit5)));
+    assert_eq!(
+        view.get_tag("v1.0".as_ref()),
+        &RefTarget::normal(jj_id(commit5))
+    );
 
     assert_eq!(view.git_refs().len(), 6);
     assert_eq!(
@@ -349,7 +361,7 @@ fn test_import_refs_reimport() {
         .write()
         .unwrap();
     tx.repo_mut()
-        .set_local_bookmark_target("feature2", RefTarget::normal(commit6.id().clone()));
+        .set_local_bookmark_target("feature2".as_ref(), RefTarget::normal(commit6.id().clone()));
     let repo = tx.commit("test").unwrap();
 
     let mut tx = repo.start_transaction();
@@ -376,7 +388,7 @@ fn test_import_refs_reimport() {
     let commit1_target = RefTarget::normal(jj_id(commit1));
     let commit2_target = RefTarget::normal(jj_id(commit2));
     assert_eq!(
-        view.get_local_bookmark("main"),
+        view.get_local_bookmark("main".as_ref()),
         &RefTarget::normal(jj_id(commit2))
     );
     assert_eq!(
@@ -394,7 +406,7 @@ fn test_import_refs_reimport() {
         },
     );
     assert_eq!(
-        view.get_local_bookmark("feature2"),
+        view.get_local_bookmark("feature2".as_ref()),
         &RefTarget::from_legacy_form([jj_id(commit4)], [commit6.id().clone(), jj_id(commit5)])
     );
     assert_eq!(
@@ -607,7 +619,7 @@ fn test_import_refs_reimport_with_deleted_remote_ref() {
     // `feature-remote-only`, jj creates one. This follows the model explained
     // in docs/bookmarks.md.
     assert_eq!(
-        view.get_local_bookmark("feature-remote-only"),
+        view.get_local_bookmark("feature-remote-only".as_ref()),
         &RefTarget::normal(jj_id(commit_remote_only))
     );
     assert!(view
@@ -621,7 +633,7 @@ fn test_import_refs_reimport_with_deleted_remote_ref() {
         },
     );
     assert_eq!(
-        view.get_local_bookmark("feature-remote-and-local"),
+        view.get_local_bookmark("feature-remote-and-local".as_ref()),
         &RefTarget::normal(jj_id(commit_remote_and_local))
     );
     assert_eq!(
@@ -638,7 +650,7 @@ fn test_import_refs_reimport_with_deleted_remote_ref() {
             state: RemoteRefState::Tracking,
         },
     );
-    assert!(view.get_local_bookmark("main").is_present()); // bookmark #3 of 3
+    assert!(view.get_local_bookmark("main".as_ref()).is_present()); // bookmark #3 of 3
 
     // Simulate fetching from a remote where feature-remote-only and
     // feature-remote-and-local bookmarks were deleted. This leads to the
@@ -654,13 +666,15 @@ fn test_import_refs_reimport_with_deleted_remote_ref() {
     let view = repo.view();
     // The local bookmarks were indeed deleted
     assert_eq!(view.bookmarks().count(), 2);
-    assert!(view.get_local_bookmark("main").is_present());
-    assert!(view.get_local_bookmark("feature-remote-only").is_absent());
+    assert!(view.get_local_bookmark("main".as_ref()).is_present());
+    assert!(view
+        .get_local_bookmark("feature-remote-only".as_ref())
+        .is_absent());
     assert!(view
         .get_remote_bookmark(remote_symbol("feature-remote-only", "origin"))
         .is_absent());
     assert!(view
-        .get_local_bookmark("feature-remote-and-local")
+        .get_local_bookmark("feature-remote-and-local".as_ref())
         .is_absent());
     assert_eq!(
         view.get_remote_bookmark(remote_symbol("feature-remote-and-local", "git")),
@@ -728,7 +742,7 @@ fn test_import_refs_reimport_with_moved_remote_ref() {
     // `feature-remote-only`, jj creates one. This follows the model explained
     // in docs/bookmarks.md.
     assert_eq!(
-        view.get_local_bookmark("feature-remote-only"),
+        view.get_local_bookmark("feature-remote-only".as_ref()),
         &RefTarget::normal(jj_id(commit_remote_only))
     );
     assert!(view
@@ -742,7 +756,7 @@ fn test_import_refs_reimport_with_moved_remote_ref() {
         },
     );
     assert_eq!(
-        view.get_local_bookmark("feature-remote-and-local"),
+        view.get_local_bookmark("feature-remote-and-local".as_ref()),
         &RefTarget::normal(jj_id(commit_remote_and_local))
     );
     assert_eq!(
@@ -759,7 +773,7 @@ fn test_import_refs_reimport_with_moved_remote_ref() {
             state: RemoteRefState::Tracking,
         },
     );
-    assert!(view.get_local_bookmark("main").is_present()); // bookmark #3 of 3
+    assert!(view.get_local_bookmark("main".as_ref()).is_present()); // bookmark #3 of 3
 
     // Simulate fetching from a remote where feature-remote-only and
     // feature-remote-and-local bookmarks were moved. This leads to the
@@ -786,7 +800,7 @@ fn test_import_refs_reimport_with_moved_remote_ref() {
     assert_eq!(view.bookmarks().count(), 3);
     // The local bookmarks are moved
     assert_eq!(
-        view.get_local_bookmark("feature-remote-only"),
+        view.get_local_bookmark("feature-remote-only".as_ref()),
         &RefTarget::normal(jj_id(new_commit_remote_only))
     );
     assert!(view
@@ -800,7 +814,7 @@ fn test_import_refs_reimport_with_moved_remote_ref() {
         },
     );
     assert_eq!(
-        view.get_local_bookmark("feature-remote-and-local"),
+        view.get_local_bookmark("feature-remote-and-local".as_ref()),
         &RefTarget::normal(jj_id(new_commit_remote_and_local))
     );
     assert_eq!(
@@ -817,7 +831,7 @@ fn test_import_refs_reimport_with_moved_remote_ref() {
             state: RemoteRefState::Tracking,
         },
     );
-    assert!(view.get_local_bookmark("main").is_present()); // bookmark #3 of 3
+    assert!(view.get_local_bookmark("main".as_ref()).is_present()); // bookmark #3 of 3
     let expected_heads = hashset! {
             jj_id(commit_main),
             jj_id(new_commit_remote_and_local),
@@ -1228,7 +1242,7 @@ fn test_import_some_refs() {
     git::import_some_refs(tx.repo_mut(), &git_settings, |kind, symbol| {
         kind == GitRefKind::Bookmark
             && symbol.remote == "origin"
-            && symbol.name.starts_with("feature")
+            && symbol.name.as_str().starts_with("feature")
     })
     .unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
@@ -1262,7 +1276,7 @@ fn test_import_some_refs() {
         state: RemoteRefState::Tracking,
     };
     assert_eq!(
-        view.get_local_bookmark("feature1"),
+        view.get_local_bookmark("feature1".as_ref()),
         &RefTarget::normal(jj_id(commit_feat1))
     );
     assert_eq!(
@@ -1270,7 +1284,7 @@ fn test_import_some_refs() {
         &commit_feat1_remote_ref
     );
     assert_eq!(
-        view.get_local_bookmark("feature2"),
+        view.get_local_bookmark("feature2".as_ref()),
         &RefTarget::normal(jj_id(commit_feat2))
     );
     assert_eq!(
@@ -1278,7 +1292,7 @@ fn test_import_some_refs() {
         &commit_feat2_remote_ref
     );
     assert_eq!(
-        view.get_local_bookmark("feature3"),
+        view.get_local_bookmark("feature3".as_ref()),
         &RefTarget::normal(jj_id(commit_feat3))
     );
     assert_eq!(
@@ -1286,14 +1300,14 @@ fn test_import_some_refs() {
         &commit_feat3_remote_ref
     );
     assert_eq!(
-        view.get_local_bookmark("feature4"),
+        view.get_local_bookmark("feature4".as_ref()),
         &RefTarget::normal(jj_id(commit_feat4))
     );
     assert_eq!(
         view.get_remote_bookmark(remote_symbol("feature4", "origin")),
         &commit_feat4_remote_ref
     );
-    assert!(view.get_local_bookmark("main").is_absent());
+    assert!(view.get_local_bookmark("main".as_ref()).is_absent());
     assert!(view
         .get_remote_bookmark(remote_symbol("main", "git"))
         .is_absent());
@@ -1301,7 +1315,7 @@ fn test_import_some_refs() {
         .get_remote_bookmark(remote_symbol("main", "origin"))
         .is_absent());
     assert!(!view.heads().contains(&jj_id(commit_main)));
-    assert!(view.get_local_bookmark("ignored").is_absent());
+    assert!(view.get_local_bookmark("ignored".as_ref()).is_absent());
     assert!(view
         .get_remote_bookmark(remote_symbol("ignored", "git"))
         .is_absent());
@@ -1622,7 +1636,7 @@ fn test_export_refs_bookmark_changed() {
         .set_parents(vec![jj_id(commit)])
         .write()
         .unwrap();
-    mut_repo.set_local_bookmark_target("main", RefTarget::normal(new_commit.id().clone()));
+    mut_repo.set_local_bookmark_target("main".as_ref(), RefTarget::normal(new_commit.id().clone()));
     let stats = git::export_refs(mut_repo).unwrap();
     assert!(stats.failed_bookmarks.is_empty());
     assert_eq!(
@@ -1666,7 +1680,7 @@ fn test_export_refs_current_bookmark_changed() {
         .set_parents(vec![jj_id(commit1)])
         .write()
         .unwrap();
-    mut_repo.set_local_bookmark_target("main", RefTarget::normal(new_commit.id().clone()));
+    mut_repo.set_local_bookmark_target("main".as_ref(), RefTarget::normal(new_commit.id().clone()));
     let stats = git::export_refs(mut_repo).unwrap();
     assert!(stats.failed_bookmarks.is_empty());
     assert_eq!(
@@ -1704,7 +1718,7 @@ fn test_export_refs_unborn_git_bookmark(move_placeholder_ref: bool) {
     assert!(git_repo.head().unwrap().is_unborn(), "HEAD is unborn");
 
     let new_commit = write_random_commit(mut_repo);
-    mut_repo.set_local_bookmark_target("main", RefTarget::normal(new_commit.id().clone()));
+    mut_repo.set_local_bookmark_target("main".as_ref(), RefTarget::normal(new_commit.id().clone()));
     if move_placeholder_ref {
         git_repo
             .reference(
@@ -1766,7 +1780,7 @@ fn test_export_import_sequence() {
     );
 
     // Modify the bookmark in jj to point to B
-    mut_repo.set_local_bookmark_target("main", RefTarget::normal(commit_b.id().clone()));
+    mut_repo.set_local_bookmark_target("main".as_ref(), RefTarget::normal(commit_b.id().clone()));
 
     // Export the bookmark to git
     let stats = git::export_refs(mut_repo).unwrap();
@@ -1793,7 +1807,7 @@ fn test_export_import_sequence() {
         RefTarget::normal(commit_c.id().clone())
     );
     assert_eq!(
-        mut_repo.view().get_local_bookmark("main"),
+        mut_repo.view().get_local_bookmark("main".as_ref()),
         &RefTarget::normal(commit_c.id().clone())
     );
 }
@@ -1815,7 +1829,10 @@ fn test_import_export_non_tracking_bookmark() {
 
     git::import_refs(mut_repo, &git_settings).unwrap();
 
-    assert!(mut_repo.view().get_local_bookmark("main").is_absent());
+    assert!(mut_repo
+        .view()
+        .get_local_bookmark("main".as_ref())
+        .is_absent());
     assert_eq!(
         mut_repo
             .view()
@@ -1841,9 +1858,12 @@ fn test_import_export_non_tracking_bookmark() {
     let commit_feat_t1 = empty_git_commit(&git_repo, "refs/remotes/origin/feat", &[]);
     git_settings.auto_local_bookmark = true;
     git::import_refs(mut_repo, &git_settings).unwrap();
-    assert!(mut_repo.view().get_local_bookmark("main").is_absent());
+    assert!(mut_repo
+        .view()
+        .get_local_bookmark("main".as_ref())
+        .is_absent());
     assert_eq!(
-        mut_repo.view().get_local_bookmark("feat"),
+        mut_repo.view().get_local_bookmark("feat".as_ref()),
         &RefTarget::normal(jj_id(commit_feat_t1))
     );
     assert_eq!(
@@ -1870,9 +1890,12 @@ fn test_import_export_non_tracking_bookmark() {
     let commit_feat_t2 = empty_git_commit(&git_repo, "refs/remotes/origin/feat", &[commit_feat_t1]);
     git_settings.auto_local_bookmark = false;
     git::import_refs(mut_repo, &git_settings).unwrap();
-    assert!(mut_repo.view().get_local_bookmark("main").is_absent());
+    assert!(mut_repo
+        .view()
+        .get_local_bookmark("main".as_ref())
+        .is_absent());
     assert_eq!(
-        mut_repo.view().get_local_bookmark("feat"),
+        mut_repo.view().get_local_bookmark("feat".as_ref()),
         &RefTarget::normal(jj_id(commit_feat_t2))
     );
     assert_eq!(
@@ -1905,16 +1928,17 @@ fn test_export_conflicts() {
     let commit_a = write_random_commit(mut_repo);
     let commit_b = write_random_commit(mut_repo);
     let commit_c = write_random_commit(mut_repo);
-    mut_repo.set_local_bookmark_target("main", RefTarget::normal(commit_a.id().clone()));
-    mut_repo.set_local_bookmark_target("feature", RefTarget::normal(commit_a.id().clone()));
+    mut_repo.set_local_bookmark_target("main".as_ref(), RefTarget::normal(commit_a.id().clone()));
+    mut_repo
+        .set_local_bookmark_target("feature".as_ref(), RefTarget::normal(commit_a.id().clone()));
     let stats = git::export_refs(mut_repo).unwrap();
     assert!(stats.failed_bookmarks.is_empty());
 
     // Create a conflict and export. It should not be exported, but other changes
     // should be.
-    mut_repo.set_local_bookmark_target("main", RefTarget::normal(commit_b.id().clone()));
+    mut_repo.set_local_bookmark_target("main".as_ref(), RefTarget::normal(commit_b.id().clone()));
     mut_repo.set_local_bookmark_target(
-        "feature",
+        "feature".as_ref(),
         RefTarget::from_legacy_form(
             [commit_a.id().clone()],
             [commit_b.id().clone(), commit_c.id().clone()],
@@ -1963,7 +1987,7 @@ fn test_export_bookmark_on_root_commit() {
     let mut tx = test_data.repo.start_transaction();
     let mut_repo = tx.repo_mut();
     mut_repo.set_local_bookmark_target(
-        "on_root",
+        "on_root".as_ref(),
         RefTarget::normal(mut_repo.store().root_commit_id().clone()),
     );
     let stats = git::export_refs(mut_repo).unwrap();
@@ -1988,13 +2012,13 @@ fn test_export_partial_failure() {
     let commit_a = write_random_commit(mut_repo);
     let target = RefTarget::normal(commit_a.id().clone());
     // Empty string is disallowed by Git
-    mut_repo.set_local_bookmark_target("", target.clone());
+    mut_repo.set_local_bookmark_target("".as_ref(), target.clone());
     // Branch named HEAD is disallowed by Git CLI
-    mut_repo.set_local_bookmark_target("HEAD", target.clone());
-    mut_repo.set_local_bookmark_target("main", target.clone());
+    mut_repo.set_local_bookmark_target("HEAD".as_ref(), target.clone());
+    mut_repo.set_local_bookmark_target("main".as_ref(), target.clone());
     // `main/sub` will conflict with `main` in Git, at least when using loose ref
     // storage
-    mut_repo.set_local_bookmark_target("main/sub", target.clone());
+    mut_repo.set_local_bookmark_target("main/sub".as_ref(), target.clone());
     let stats = git::export_refs(mut_repo).unwrap();
     assert_eq!(stats.failed_bookmarks.len(), 3);
     assert_eq!(
@@ -2055,7 +2079,7 @@ fn test_export_partial_failure() {
 
     // Now remove the `main` bookmark and make sure that the `main/sub` gets
     // exported even though it didn't change
-    mut_repo.set_local_bookmark_target("main", RefTarget::absent());
+    mut_repo.set_local_bookmark_target("main".as_ref(), RefTarget::absent());
     let stats = git::export_refs(mut_repo).unwrap();
     assert_eq!(stats.failed_bookmarks.len(), 2);
     assert_eq!(
@@ -2139,20 +2163,23 @@ fn test_export_reexport_transitions() {
     for bookmark in [
         "AAB", "AAX", "ABA", "ABB", "ABC", "ABX", "AXA", "AXB", "AXX",
     ] {
-        mut_repo.set_local_bookmark_target(bookmark, RefTarget::normal(commit_a.id().clone()));
+        mut_repo
+            .set_local_bookmark_target(bookmark.as_ref(), RefTarget::normal(commit_a.id().clone()));
     }
     let stats = git::export_refs(mut_repo).unwrap();
     assert!(stats.failed_bookmarks.is_empty());
 
     // Make changes on the jj side
     for bookmark in ["AXA", "AXB", "AXX"] {
-        mut_repo.set_local_bookmark_target(bookmark, RefTarget::absent());
+        mut_repo.set_local_bookmark_target(bookmark.as_ref(), RefTarget::absent());
     }
     for bookmark in ["XAA", "XAB", "XAX"] {
-        mut_repo.set_local_bookmark_target(bookmark, RefTarget::normal(commit_a.id().clone()));
+        mut_repo
+            .set_local_bookmark_target(bookmark.as_ref(), RefTarget::normal(commit_a.id().clone()));
     }
     for bookmark in ["ABA", "ABB", "ABC", "ABX"] {
-        mut_repo.set_local_bookmark_target(bookmark, RefTarget::normal(commit_b.id().clone()));
+        mut_repo
+            .set_local_bookmark_target(bookmark.as_ref(), RefTarget::normal(commit_b.id().clone()));
     }
 
     // Make changes on the git side
@@ -2274,7 +2301,7 @@ fn test_export_undo_reexport() {
     // Initial export
     let commit_a = write_random_commit(mut_repo);
     let target_a = RefTarget::normal(commit_a.id().clone());
-    mut_repo.set_local_bookmark_target("main", target_a.clone());
+    mut_repo.set_local_bookmark_target("main".as_ref(), target_a.clone());
     let stats = git::export_refs(mut_repo).unwrap();
     assert!(stats.failed_bookmarks.is_empty());
     assert_eq!(
@@ -2868,10 +2895,10 @@ fn test_fetch_initial_commit_head_is_not_set(subprocess: bool) {
     assert_eq!(
         view.bookmarks().collect::<BTreeMap<_, _>>(),
         btreemap! {
-            "main" => BookmarkTarget {
+            "main".as_ref() => BookmarkTarget {
                 local_target: &initial_commit_target,
                 remote_refs: vec![
-                    ("origin", &initial_commit_remote_ref),
+                    ("origin".as_ref(), &initial_commit_remote_ref),
                 ],
             },
         }
@@ -2982,10 +3009,10 @@ fn test_fetch_success(subprocess: bool) {
     assert_eq!(
         view.bookmarks().collect::<BTreeMap<_, _>>(),
         btreemap! {
-            "main" => BookmarkTarget {
+            "main".as_ref() => BookmarkTarget {
                 local_target: &new_commit_target,
                 remote_refs: vec![
-                    ("origin", &new_commit_remote_ref),
+                    ("origin".as_ref(), &new_commit_remote_ref),
                 ],
             },
         }
@@ -2993,7 +3020,7 @@ fn test_fetch_success(subprocess: bool) {
     assert_eq!(
         *view.tags(),
         btreemap! {
-            "v1.0".to_string() => new_commit_target.clone(),
+            "v1.0".into() => new_commit_target.clone(),
         }
     );
 }
@@ -3017,7 +3044,7 @@ fn test_fetch_prune_deleted_ref(subprocess: bool) {
     )
     .unwrap();
     // Test the setup
-    assert!(tx.repo().get_local_bookmark("main").is_present());
+    assert!(tx.repo().get_local_bookmark("main".as_ref()).is_present());
     assert!(tx
         .repo()
         .get_remote_bookmark(remote_symbol("main", "origin"))
@@ -3038,7 +3065,7 @@ fn test_fetch_prune_deleted_ref(subprocess: bool) {
     )
     .unwrap();
     assert_eq!(stats.import_stats.abandoned_commits, vec![jj_id(commit)]);
-    assert!(tx.repo().get_local_bookmark("main").is_absent());
+    assert!(tx.repo().get_local_bookmark("main".as_ref()).is_absent());
     assert!(tx
         .repo_mut()
         .get_remote_bookmark(remote_symbol("main", "origin"))
@@ -3259,7 +3286,7 @@ fn test_push_bookmarks_success(subprocess: bool) {
 
     let targets = GitBranchPushTargets {
         branch_updates: vec![(
-            "main".to_owned(),
+            "main".into(),
             BookmarkPushUpdate {
                 old_target: Some(setup.main_commit.id().clone()),
                 new_target: Some(setup.child_of_main_commit.id().clone()),
@@ -3269,7 +3296,7 @@ fn test_push_bookmarks_success(subprocess: bool) {
     let result = git::push_branches(
         tx.repo_mut(),
         &git_settings,
-        "origin",
+        "origin".as_ref(),
         &targets,
         git::RemoteCallbacks::default(),
     );
@@ -3332,7 +3359,7 @@ fn test_push_bookmarks_deletion(subprocess: bool) {
 
     let targets = GitBranchPushTargets {
         branch_updates: vec![(
-            "main".to_owned(),
+            "main".into(),
             BookmarkPushUpdate {
                 old_target: Some(setup.main_commit.id().clone()),
                 new_target: None,
@@ -3342,7 +3369,7 @@ fn test_push_bookmarks_deletion(subprocess: bool) {
     let result = git::push_branches(
         tx.repo_mut(),
         &git_settings,
-        "origin",
+        "origin".as_ref(),
         &targets,
         git::RemoteCallbacks::default(),
     );
@@ -3390,14 +3417,14 @@ fn test_push_bookmarks_mixed_deletion_and_addition(subprocess: bool) {
     let targets = GitBranchPushTargets {
         branch_updates: vec![
             (
-                "main".to_owned(),
+                "main".into(),
                 BookmarkPushUpdate {
                     old_target: Some(setup.main_commit.id().clone()),
                     new_target: None,
                 },
             ),
             (
-                "topic".to_owned(),
+                "topic".into(),
                 BookmarkPushUpdate {
                     old_target: None,
                     new_target: Some(setup.child_of_main_commit.id().clone()),
@@ -3408,7 +3435,7 @@ fn test_push_bookmarks_mixed_deletion_and_addition(subprocess: bool) {
     let result = git::push_branches(
         tx.repo_mut(),
         &git_settings,
-        "origin",
+        "origin".as_ref(),
         &targets,
         git::RemoteCallbacks::default(),
     );
@@ -3467,7 +3494,7 @@ fn test_push_bookmarks_not_fast_forward(subprocess: bool) {
 
     let targets = GitBranchPushTargets {
         branch_updates: vec![(
-            "main".to_owned(),
+            "main".into(),
             BookmarkPushUpdate {
                 old_target: Some(setup.main_commit.id().clone()),
                 new_target: Some(setup.sideways_commit.id().clone()),
@@ -3477,7 +3504,7 @@ fn test_push_bookmarks_not_fast_forward(subprocess: bool) {
     let result = git::push_branches(
         tx.repo_mut(),
         &git_settings,
-        "origin",
+        "origin".as_ref(),
         &targets,
         git::RemoteCallbacks::default(),
     );
@@ -3527,7 +3554,7 @@ fn test_push_updates_unexpectedly_moved_sideways_on_remote(subprocess: bool) {
         git::push_updates(
             setup.jj_repo.as_ref(),
             &git_settings,
-            "origin",
+            "origin".as_ref(),
             &targets,
             git::RemoteCallbacks::default(),
         )
@@ -3606,7 +3633,7 @@ fn test_push_updates_unexpectedly_moved_forward_on_remote(subprocess: bool) {
         git::push_updates(
             setup.jj_repo.as_ref(),
             &git_settings,
-            "origin",
+            "origin".as_ref(),
             &targets,
             git::RemoteCallbacks::default(),
         )
@@ -3684,7 +3711,7 @@ fn test_push_updates_unexpectedly_exists_on_remote(subprocess: bool) {
         git::push_updates(
             setup.jj_repo.as_ref(),
             &git_settings,
-            "origin",
+            "origin".as_ref(),
             &targets,
             git::RemoteCallbacks::default(),
         )
@@ -3730,7 +3757,7 @@ fn test_push_updates_success(subprocess: bool) {
     let result = git::push_updates(
         setup.jj_repo.as_ref(),
         &git_settings,
-        "origin",
+        "origin".as_ref(),
         &[GitRefUpdate {
             qualified_name: "refs/heads/main".to_string(),
             expected_current_target: Some(setup.main_commit.id().clone()),
@@ -3771,7 +3798,7 @@ fn test_push_updates_no_such_remote(subprocess: bool) {
     let result = git::push_updates(
         setup.jj_repo.as_ref(),
         &git_settings,
-        "invalid-remote",
+        "invalid-remote".as_ref(),
         &[GitRefUpdate {
             qualified_name: "refs/heads/main".to_string(),
             expected_current_target: Some(setup.main_commit.id().clone()),
@@ -3792,7 +3819,7 @@ fn test_push_updates_invalid_remote(subprocess: bool) {
     let result = git::push_updates(
         setup.jj_repo.as_ref(),
         &git_settings,
-        "http://invalid-remote",
+        "http://invalid-remote".as_ref(),
         &[GitRefUpdate {
             qualified_name: "refs/heads/main".to_string(),
             expected_current_target: Some(setup.main_commit.id().clone()),

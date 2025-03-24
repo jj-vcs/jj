@@ -72,7 +72,10 @@ pub fn cmd_bookmark_delete(
         ui,
         format!(
             "delete bookmark {}",
-            matched_bookmarks.iter().map(|(name, _)| name).join(", ")
+            matched_bookmarks
+                .iter()
+                .map(|(name, _)| name.as_symbol())
+                .join(", ")
         ),
     )?;
     Ok(())

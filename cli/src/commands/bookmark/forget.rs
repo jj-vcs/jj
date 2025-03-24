@@ -17,6 +17,7 @@ use itertools::Itertools as _;
 use jj_lib::op_store::BookmarkTarget;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
+use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::str_util::StringPattern;
 use jj_lib::view::View;
@@ -96,7 +97,10 @@ pub fn cmd_bookmark_forget(
     if forgotten_remote != 0 {
         writeln!(ui.status(), "Forgot {forgotten_remote} remote bookmarks.")?;
     }
-    let forgotten_bookmarks = matched_bookmarks.iter().map(|(name, _)| name).join(", ");
+    let forgotten_bookmarks = matched_bookmarks
+        .iter()
+        .map(|(name, _)| name.as_symbol())
+        .join(", ");
     tx.finish(ui, format!("forget bookmark {forgotten_bookmarks}"))?;
     Ok(())
 }
@@ -104,10 +108,10 @@ pub fn cmd_bookmark_forget(
 fn find_forgettable_bookmarks<'a>(
     view: &'a View,
     name_patterns: &[StringPattern],
-) -> Result<Vec<(&'a str, BookmarkTarget<'a>)>, CommandError> {
+) -> Result<Vec<(&'a RefName, BookmarkTarget<'a>)>, CommandError> {
     find_bookmarks_with(name_patterns, |pattern| {
         view.bookmarks()
-            .filter(|(name, _)| pattern.matches(name))
+            .filter(|(name, _)| pattern.matches(name.as_str()))
             .map(Ok)
     })
 }

@@ -102,7 +102,7 @@ pub fn cmd_bookmark_track(
                 .labeled("bookmark_list")
         };
 
-        let mut remote_per_bookmark: HashMap<&str, Vec<&str>> = HashMap::new();
+        let mut remote_per_bookmark: HashMap<_, Vec<_>> = HashMap::new();
         for symbol in &symbols {
             remote_per_bookmark
                 .entry(symbol.name)

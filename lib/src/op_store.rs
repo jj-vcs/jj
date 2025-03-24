@@ -37,6 +37,10 @@ use crate::object_id::id_type;
 use crate::object_id::HexPrefix;
 use crate::object_id::ObjectId as _;
 use crate::object_id::PrefixResolution;
+use crate::ref_name::RefName;
+use crate::ref_name::RefNameBuf;
+use crate::ref_name::RemoteName;
+use crate::ref_name::RemoteNameBuf;
 use crate::ref_name::RemoteRefSymbol;
 
 #[derive(ContentHash, PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
@@ -260,7 +264,7 @@ pub struct BookmarkTarget<'a> {
     /// The commit the bookmark points to locally.
     pub local_target: &'a RefTarget,
     /// `(remote_name, remote_ref)` pairs in lexicographical order.
-    pub remote_refs: Vec<(&'a str, &'a RemoteRef)>,
+    pub remote_refs: Vec<(&'a RemoteName, &'a RemoteRef)>,
 }
 
 /// Represents the way the repo looks at a given time, just like how a Tree
@@ -269,9 +273,9 @@ pub struct BookmarkTarget<'a> {
 pub struct View {
     /// All head commits
     pub head_ids: HashSet<CommitId>,
-    pub local_bookmarks: BTreeMap<String, RefTarget>,
-    pub tags: BTreeMap<String, RefTarget>,
-    pub remote_views: BTreeMap<String, RemoteView>,
+    pub local_bookmarks: BTreeMap<RefNameBuf, RefTarget>,
+    pub tags: BTreeMap<RefNameBuf, RefTarget>,
+    pub remote_views: BTreeMap<RemoteNameBuf, RemoteView>,
     pub git_refs: BTreeMap<String, RefTarget>,
     /// The commit the Git HEAD points to.
     // TODO: Support multiple Git worktrees?
@@ -321,18 +325,18 @@ pub struct RemoteView {
     // has been deleted locally and you pull from a remote, maybe it should make a difference
     // whether the bookmark is known to have existed on the remote. We may not want to resurrect
     // the bookmark if the bookmark's state on the remote was just not known.
-    pub bookmarks: BTreeMap<String, RemoteRef>,
-    // TODO: pub tags: BTreeMap<String, RemoteRef>,
+    pub bookmarks: BTreeMap<RefNameBuf, RemoteRef>,
+    // TODO: pub tags: BTreeMap<RefNameBuf, RemoteRef>,
 }
 
 /// Iterates pair of local and remote bookmarks by bookmark name.
 pub(crate) fn merge_join_bookmark_views<'a>(
-    local_bookmarks: &'a BTreeMap<String, RefTarget>,
-    remote_views: &'a BTreeMap<String, RemoteView>,
-) -> impl Iterator<Item = (&'a str, BookmarkTarget<'a>)> {
+    local_bookmarks: &'a BTreeMap<RefNameBuf, RefTarget>,
+    remote_views: &'a BTreeMap<RemoteNameBuf, RemoteView>,
+) -> impl Iterator<Item = (&'a RefName, BookmarkTarget<'a>)> {
     let mut local_bookmarks_iter = local_bookmarks
         .iter()
-        .map(|(bookmark_name, target)| (bookmark_name.as_str(), target))
+        .map(|(bookmark_name, target)| (&**bookmark_name, target))
         .peekable();
     let mut remote_bookmarks_iter = flatten_remote_bookmarks(remote_views).peekable();
 
@@ -360,7 +364,7 @@ pub(crate) fn merge_join_bookmark_views<'a>(
 
 /// Iterates bookmark `(symbol, remote_ref)`s in lexicographical order.
 pub(crate) fn flatten_remote_bookmarks(
-    remote_views: &BTreeMap<String, RemoteView>,
+    remote_views: &BTreeMap<RemoteNameBuf, RemoteView>,
 ) -> impl Iterator<Item = (RemoteRefSymbol<'_>, &RemoteRef)> {
     remote_views
         .iter()
@@ -514,24 +518,24 @@ mod tests {
             remote_ref(&RefTarget::normal(CommitId::from_hex("666666")));
 
         let local_bookmarks = btreemap! {
-            "bookmark1".to_owned() => local_bookmark1_target.clone(),
-            "bookmark2".to_owned() => local_bookmark2_target.clone(),
+            "bookmark1".into() => local_bookmark1_target.clone(),
+            "bookmark2".into() => local_bookmark2_target.clone(),
         };
         let remote_views = btreemap! {
-            "git".to_owned() => RemoteView {
+            "git".into() => RemoteView {
                 bookmarks: btreemap! {
-                    "bookmark1".to_owned() => git_bookmark1_remote_ref.clone(),
-                    "bookmark2".to_owned() => git_bookmark2_remote_ref.clone(),
+                    "bookmark1".into() => git_bookmark1_remote_ref.clone(),
+                    "bookmark2".into() => git_bookmark2_remote_ref.clone(),
                 },
             },
-            "remote1".to_owned() => RemoteView {
+            "remote1".into() => RemoteView {
                 bookmarks: btreemap! {
-                    "bookmark1".to_owned() => remote1_bookmark1_remote_ref.clone(),
+                    "bookmark1".into() => remote1_bookmark1_remote_ref.clone(),
                 },
             },
-            "remote2".to_owned() => RemoteView {
+            "remote2".into() => RemoteView {
                 bookmarks: btreemap! {
-                    "bookmark2".to_owned() => remote2_bookmark2_remote_ref.clone(),
+                    "bookmark2".into() => remote2_bookmark2_remote_ref.clone(),
                 },
             },
         };
@@ -539,22 +543,22 @@ mod tests {
             merge_join_bookmark_views(&local_bookmarks, &remote_views).collect_vec(),
             vec![
                 (
-                    "bookmark1",
+                    "bookmark1".as_ref(),
                     BookmarkTarget {
                         local_target: &local_bookmark1_target,
                         remote_refs: vec![
-                            ("git", &git_bookmark1_remote_ref),
-                            ("remote1", &remote1_bookmark1_remote_ref),
+                            ("git".as_ref(), &git_bookmark1_remote_ref),
+                            ("remote1".as_ref(), &remote1_bookmark1_remote_ref),
                         ],
                     },
                 ),
                 (
-                    "bookmark2",
+                    "bookmark2".as_ref(),
                     BookmarkTarget {
                         local_target: &local_bookmark2_target.clone(),
                         remote_refs: vec![
-                            ("git", &git_bookmark2_remote_ref),
-                            ("remote2", &remote2_bookmark2_remote_ref),
+                            ("git".as_ref(), &git_bookmark2_remote_ref),
+                            ("remote2".as_ref(), &remote2_bookmark2_remote_ref),
                         ],
                     },
                 ),
@@ -563,13 +567,13 @@ mod tests {
 
         // Local only
         let local_bookmarks = btreemap! {
-            "bookmark1".to_owned() => local_bookmark1_target.clone(),
+            "bookmark1".into() => local_bookmark1_target.clone(),
         };
         let remote_views = btreemap! {};
         assert_eq!(
             merge_join_bookmark_views(&local_bookmarks, &remote_views).collect_vec(),
             vec![(
-                "bookmark1",
+                "bookmark1".as_ref(),
                 BookmarkTarget {
                     local_target: &local_bookmark1_target,
                     remote_refs: vec![],
@@ -580,19 +584,19 @@ mod tests {
         // Remote only
         let local_bookmarks = btreemap! {};
         let remote_views = btreemap! {
-            "remote1".to_owned() => RemoteView {
+            "remote1".into() => RemoteView {
                 bookmarks: btreemap! {
-                    "bookmark1".to_owned() => remote1_bookmark1_remote_ref.clone(),
+                    "bookmark1".into() => remote1_bookmark1_remote_ref.clone(),
                 },
             },
         };
         assert_eq!(
             merge_join_bookmark_views(&local_bookmarks, &remote_views).collect_vec(),
             vec![(
-                "bookmark1",
+                "bookmark1".as_ref(),
                 BookmarkTarget {
                     local_target: RefTarget::absent_ref(),
-                    remote_refs: vec![("remote1", &remote1_bookmark1_remote_ref)],
+                    remote_refs: vec![("remote1".as_ref(), &remote1_bookmark1_remote_ref)],
                 },
             )],
         );

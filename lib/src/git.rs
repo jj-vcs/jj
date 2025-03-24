@@ -52,6 +52,9 @@ use crate::op_store::RefTarget;
 use crate::op_store::RefTargetOptionExt as _;
 use crate::op_store::RemoteRef;
 use crate::op_store::RemoteRefState;
+use crate::ref_name::RefName;
+use crate::ref_name::RefNameBuf;
+use crate::ref_name::RemoteName;
 use crate::ref_name::RemoteRefSymbol;
 use crate::ref_name::RemoteRefSymbolBuf;
 #[cfg(feature = "git2")]
@@ -67,7 +70,7 @@ use crate::str_util::StringPattern;
 use crate::view::View;
 
 /// Reserved remote name for the backing Git repo.
-pub const REMOTE_NAME_FOR_LOCAL_GIT_REPO: &str = "git";
+pub const REMOTE_NAME_FOR_LOCAL_GIT_REPO: &RemoteName = RemoteName::new("git");
 /// Git ref prefix that would conflict with the reserved "git" remote.
 pub const RESERVED_REMOTE_REF_NAMESPACE: &str = "refs/remotes/git/";
 /// Ref name used as a placeholder to unset HEAD without a commit.
@@ -80,7 +83,7 @@ const INDEX_DUMMY_CONFLICT_FILE: &str = ".jj-do-not-resolve-this-conflict";
 pub enum GitRemoteNameError {
     #[error(
         "Git remote named '{name}' is reserved for local Git repository",
-        name = REMOTE_NAME_FOR_LOCAL_GIT_REPO
+        name = REMOTE_NAME_FOR_LOCAL_GIT_REPO.as_symbol()
     )]
     ReservedForLocalGitRepo,
     #[error("Git remotes with slashes are incompatible with jj: {0}")]
@@ -225,6 +228,7 @@ pub fn parse_git_ref(full_name: &str) -> Option<(GitRefKind, RemoteRefSymbol<'_>
         if name == "HEAD" {
             return None;
         }
+        let name = RefName::new(name);
         let remote = REMOTE_NAME_FOR_LOCAL_GIT_REPO;
         Some((GitRefKind::Bookmark, RemoteRefSymbol { name, remote }))
     } else if let Some(remote_and_name) = full_name.strip_prefix("refs/remotes/") {
@@ -233,8 +237,11 @@ pub fn parse_git_ref(full_name: &str) -> Option<(GitRefKind, RemoteRefSymbol<'_>
         if remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO || name == "HEAD" {
             return None;
         }
+        let name = RefName::new(name);
+        let remote = RemoteName::new(remote);
         Some((GitRefKind::Bookmark, RemoteRefSymbol { name, remote }))
     } else if let Some(name) = full_name.strip_prefix("refs/tags/") {
+        let name = RefName::new(name);
         let remote = REMOTE_NAME_FOR_LOCAL_GIT_REPO;
         Some((GitRefKind::Tag, RemoteRefSymbol { name, remote }))
     } else {
@@ -244,6 +251,8 @@ pub fn parse_git_ref(full_name: &str) -> Option<(GitRefKind, RemoteRefSymbol<'_>
 
 fn to_git_ref_name(kind: GitRefKind, symbol: RemoteRefSymbol<'_>) -> Option<String> {
     let RemoteRefSymbol { name, remote } = symbol;
+    let name = name.as_str();
+    let remote = remote.as_str();
     if name.is_empty() || remote.is_empty() {
         return None;
     }
@@ -985,8 +994,8 @@ pub fn export_some_refs(
 
 fn copy_exportable_local_bookmarks_to_remote_view(
     mut_repo: &mut MutableRepo,
-    remote: &str,
-    name_filter: impl Fn(&str) -> bool,
+    remote: &RemoteName,
+    name_filter: impl Fn(&RefName) -> bool,
 ) {
     let new_local_bookmarks = mut_repo
         .view()
@@ -1580,7 +1589,7 @@ fn is_remote_not_found_err(err: &git2::Error) -> bool {
 /// remote that is used in the Git backend.
 ///
 /// This function always returns false if the "git" feature is not enabled.
-pub fn is_special_git_remote(remote: &str) -> bool {
+pub fn is_special_git_remote(remote: &RemoteName) -> bool {
     remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO
 }
 
@@ -1736,12 +1745,12 @@ pub fn get_all_remote_names(store: &Store) -> Result<Vec<String>, UnexpectedGitB
         // ignore non-UTF-8 remote names which we don't support
         .filter_map(|name| String::from_utf8(name.into_owned().into()).ok())
         .collect();
-    Ok(names)
+    Ok(names) // TODO: RemoteNameBuf
 }
 
 pub fn add_remote(
     store: &Store,
-    remote_name: &str,
+    remote_name: &str, // TODO: &RemoteName
     url: &str,
 ) -> Result<(), GitRemoteManagementError> {
     let git_repo = get_git_repo(store)?;
@@ -1774,7 +1783,7 @@ pub fn add_remote(
 
 pub fn remove_remote(
     mut_repo: &mut MutableRepo,
-    remote_name: &str,
+    remote_name: &str, // TODO: &RemoteName
 ) -> Result<(), GitRemoteManagementError> {
     let mut git_repo = get_git_repo(mut_repo.store())?;
 
@@ -1813,7 +1822,7 @@ fn remove_remote_git_refs(
 }
 
 fn remove_remote_refs(mut_repo: &mut MutableRepo, remote_name: &str) {
-    mut_repo.remove_remote(remote_name);
+    mut_repo.remove_remote(remote_name.as_ref());
     let prefix = format!("refs/remotes/{remote_name}/");
     let git_refs_to_delete = mut_repo
         .view()
@@ -1829,8 +1838,8 @@ fn remove_remote_refs(mut_repo: &mut MutableRepo, remote_name: &str) {
 
 pub fn rename_remote(
     mut_repo: &mut MutableRepo,
-    old_remote_name: &str,
-    new_remote_name: &str,
+    old_remote_name: &str, // TODO: &RemoteName
+    new_remote_name: &str, // TODO: &RemoteName
 ) -> Result<(), GitRemoteManagementError> {
     let mut git_repo = get_git_repo(mut_repo.store())?;
 
@@ -1961,7 +1970,7 @@ where
 
 pub fn set_remote_url(
     store: &Store,
-    remote_name: &str,
+    remote_name: &str, // TODO: &RemoteName
     new_remote_url: &str,
 ) -> Result<(), GitRemoteManagementError> {
     let git_repo = get_git_repo(store)?;
@@ -1994,7 +2003,7 @@ pub fn set_remote_url(
 }
 
 fn rename_remote_refs(mut_repo: &mut MutableRepo, old_remote_name: &str, new_remote_name: &str) {
-    mut_repo.rename_remote(old_remote_name, new_remote_name);
+    mut_repo.rename_remote(old_remote_name.as_ref(), new_remote_name.as_ref());
     let prefix = format!("refs/remotes/{old_remote_name}/");
     let git_refs = mut_repo
         .view()
@@ -2107,7 +2116,7 @@ impl<'a> GitFetch<'a> {
     #[tracing::instrument(skip(self, callbacks))]
     pub fn fetch(
         &mut self,
-        remote_name: &str,
+        remote_name: &str, // TODO: &RemoteName
         branch_names: &[StringPattern],
         callbacks: RemoteCallbacks<'_>,
         depth: Option<NonZeroU32>,
@@ -2126,9 +2135,10 @@ impl<'a> GitFetch<'a> {
     #[tracing::instrument(skip(self, callbacks))]
     pub fn get_default_branch(
         &self,
-        remote_name: &str,
+        remote_name: &str, // TODO: &RemoteName
         callbacks: RemoteCallbacks<'_>,
     ) -> Result<Option<String>, GitFetchError> {
+        // TODO: return Option<RefNameBuf>
         self.fetch_impl.get_default_branch(remote_name, callbacks)
     }
 
@@ -2155,7 +2165,7 @@ impl<'a> GitFetch<'a> {
                             fetched
                                 .branches
                                 .iter()
-                                .any(|pattern| pattern.matches(symbol.name))
+                                .any(|pattern| pattern.matches(symbol.name.as_str()))
                         }),
                     GitRefKind::Tag => true,
                 },
@@ -2417,7 +2427,7 @@ pub enum GitPushError {
 
 #[derive(Clone, Debug)]
 pub struct GitBranchPushTargets {
-    pub branch_updates: Vec<(String, BookmarkPushUpdate)>,
+    pub branch_updates: Vec<(RefNameBuf, BookmarkPushUpdate)>,
 }
 
 pub struct GitRefUpdate {
@@ -2434,17 +2444,17 @@ pub struct GitRefUpdate {
 pub fn push_branches(
     mut_repo: &mut MutableRepo,
     git_settings: &GitSettings,
-    remote: &str,
+    remote: &RemoteName,
     targets: &GitBranchPushTargets,
     callbacks: RemoteCallbacks<'_>,
 ) -> Result<GitPushStats, GitPushError> {
-    validate_remote_name(remote)?;
+    validate_remote_name(remote.as_str())?;
 
     let ref_updates = targets
         .branch_updates
         .iter()
         .map(|(name, update)| GitRefUpdate {
-            qualified_name: format!("refs/heads/{name}"),
+            qualified_name: format!("refs/heads/{name}", name = name.as_str()),
             expected_current_target: update.old_target.clone(),
             new_target: update.new_target.clone(),
         })
@@ -2459,7 +2469,11 @@ pub fn push_branches(
     if push_stats.all_ok() {
         for (name, update) in &targets.branch_updates {
             let remote_symbol = RemoteRefSymbol { name, remote };
-            let git_ref_name = format!("refs/remotes/{remote}/{name}");
+            let git_ref_name = format!(
+                "refs/remotes/{remote}/{name}",
+                remote = remote.as_str(),
+                name = name.as_str()
+            );
             let new_remote_ref = RemoteRef {
                 target: RefTarget::resolved(update.new_target.clone()),
                 state: RemoteRefState::Tracking,
@@ -2476,7 +2490,7 @@ pub fn push_branches(
 pub fn push_updates(
     repo: &dyn Repo,
     git_settings: &GitSettings,
-    remote_name: &str,
+    remote_name: &RemoteName,
     updates: &[GitRefUpdate],
     callbacks: RemoteCallbacks<'_>,
 ) -> Result<GitPushStats, GitPushError> {
@@ -2510,7 +2524,7 @@ pub fn push_updates(
         return git2_push_refs(
             repo,
             &git_repo,
-            remote_name,
+            remote_name.as_str(),
             &qualified_remote_refs_expected_locations,
             &refspecs,
             callbacks,
@@ -2522,7 +2536,7 @@ pub fn push_updates(
     subprocess_push_refs(
         &git_repo,
         &git_ctx,
-        remote_name,
+        remote_name.as_str(),
         &qualified_remote_refs_expected_locations,
         &refspecs,
         callbacks,
@@ -2533,7 +2547,7 @@ pub fn push_updates(
 fn git2_push_refs(
     repo: &dyn Repo,
     git_repo: &git2::Repository,
-    remote_name: &str,
+    remote_name: &str, // TODO: &RemoteName
     qualified_remote_refs_expected_locations: &HashMap<&str, Option<&CommitId>>,
     refspecs: &[String],
     callbacks: RemoteCallbacks<'_>,
@@ -2675,7 +2689,7 @@ fn git2_push_refs(
 fn subprocess_push_refs(
     git_repo: &gix::Repository,
     git_ctx: &GitSubprocessContext,
-    remote_name: &str,
+    remote_name: &str, // TODO: &RemoteName
     qualified_remote_refs_expected_locations: &HashMap<&str, Option<&CommitId>>,
     refspecs: &[RefSpec],
     mut callbacks: RemoteCallbacks<'_>,

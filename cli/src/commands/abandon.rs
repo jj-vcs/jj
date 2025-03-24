@@ -133,7 +133,7 @@ pub(crate) fn cmd_abandon(
             writeln!(
                 formatter,
                 "Deleted bookmarks: {}",
-                deleted_bookmarks.iter().join(", ")
+                deleted_bookmarks.iter().map(|n| n.as_symbol()).join(", ")
             )?;
         }
         if num_rebased > 0 {

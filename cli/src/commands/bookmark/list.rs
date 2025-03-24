@@ -17,6 +17,7 @@ use std::rc::Rc;
 
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
+use jj_lib::ref_name::RefName;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::str_util::StringPattern;
@@ -120,11 +121,15 @@ pub fn cmd_bookmark_list(
 
     // Like cmd_git_push(), names and revisions are OR-ed.
     let bookmark_names_to_list = if args.names.is_some() || args.revisions.is_some() {
-        let mut bookmark_names: HashSet<&str> = HashSet::new();
+        let mut bookmark_names: HashSet<&RefName> = HashSet::new();
         if let Some(patterns) = &args.names {
             bookmark_names.extend(
                 view.bookmarks()
-                    .filter(|&(name, _)| patterns.iter().any(|pattern| pattern.matches(name)))
+                    .filter(|(name, _)| {
+                        patterns
+                            .iter()
+                            .any(|pattern| pattern.matches(name.as_str()))
+                    })
                     .map(|(name, _)| name),
             );
         }
@@ -180,9 +185,11 @@ pub fn cmd_bookmark_list(
         let (mut tracking_remote_refs, untracked_remote_refs) = remote_refs
             .iter()
             .copied()
-            .filter(|&(remote_name, _)| {
+            .filter(|(remote_name, _)| {
                 args.remotes.as_ref().is_none_or(|patterns| {
-                    patterns.iter().any(|pattern| pattern.matches(remote_name))
+                    patterns
+                        .iter()
+                        .any(|pattern| pattern.matches(remote_name.as_str()))
                 })
             })
             .partition::<Vec<_>, _>(|&(_, remote_ref)| remote_ref.is_tracking());
@@ -237,7 +244,7 @@ pub fn cmd_bookmark_list(
             .map(|item| {
                 item.tracked.iter().any(|r| {
                     let remote = r.remote_name().expect("tracked ref should be remote");
-                    !jj_lib::git::is_special_git_remote(remote)
+                    !jj_lib::git::is_special_git_remote(remote.as_ref())
                 })
             })
             .max();

@@ -17,6 +17,8 @@ use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::op_store::RemoteRefState;
 use jj_lib::op_store::WorkspaceId;
+use jj_lib::ref_name::RefName;
+use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::RebaseOptions;
@@ -29,8 +31,15 @@ use testutils::write_random_commit;
 use testutils::CommitGraphBuilder;
 use testutils::TestRepo;
 
-fn remote_symbol<'a>(name: &'a str, remote: &'a str) -> RemoteRefSymbol<'a> {
-    RemoteRefSymbol { name, remote }
+fn remote_symbol<'a, N, M>(name: &'a N, remote: &'a M) -> RemoteRefSymbol<'a>
+where
+    N: AsRef<RefName> + ?Sized,
+    M: AsRef<RemoteName> + ?Sized,
+{
+    RemoteRefSymbol {
+        name: name.as_ref(),
+        remote: remote.as_ref(),
+    }
 }
 
 #[test]
@@ -205,7 +214,7 @@ fn test_edit_previous_empty_with_local_bookmark() {
         )
         .write()
         .unwrap();
-    mut_repo.set_local_bookmark_target("b", RefTarget::normal(old_wc_commit.id().clone()));
+    mut_repo.set_local_bookmark_target("b".as_ref(), RefTarget::normal(old_wc_commit.id().clone()));
     let ws_id = WorkspaceId::default();
     mut_repo.edit(ws_id.clone(), &old_wc_commit).unwrap();
     let repo = tx.commit("test").unwrap();
@@ -471,7 +480,7 @@ fn test_has_changed() {
     mut_repo
         .set_wc_commit(ws_id.clone(), commit1.id().clone())
         .unwrap();
-    mut_repo.set_local_bookmark_target("main", RefTarget::normal(commit1.id().clone()));
+    mut_repo.set_local_bookmark_target("main".as_ref(), RefTarget::normal(commit1.id().clone()));
     mut_repo.set_remote_bookmark(
         remote_symbol("main", "origin"),
         normal_remote_ref(commit1.id()),
@@ -487,7 +496,7 @@ fn test_has_changed() {
     mut_repo
         .set_wc_commit(ws_id.clone(), commit1.id().clone())
         .unwrap();
-    mut_repo.set_local_bookmark_target("main", RefTarget::normal(commit1.id().clone()));
+    mut_repo.set_local_bookmark_target("main".as_ref(), RefTarget::normal(commit1.id().clone()));
     mut_repo.set_remote_bookmark(
         remote_symbol("main", "origin"),
         normal_remote_ref(commit1.id()),
@@ -495,7 +504,7 @@ fn test_has_changed() {
     assert!(!mut_repo.has_changes());
 
     mut_repo.remove_head(commit2.id());
-    mut_repo.set_local_bookmark_target("stable", RefTarget::absent());
+    mut_repo.set_local_bookmark_target("stable".as_ref(), RefTarget::absent());
     mut_repo.set_remote_bookmark(remote_symbol("stable", "origin"), RemoteRef::absent());
     assert!(!mut_repo.has_changes());
 
@@ -511,9 +520,9 @@ fn test_has_changed() {
     mut_repo.set_wc_commit(ws_id, commit1.id().clone()).unwrap();
     assert!(!mut_repo.has_changes());
 
-    mut_repo.set_local_bookmark_target("main", RefTarget::normal(commit2.id().clone()));
+    mut_repo.set_local_bookmark_target("main".as_ref(), RefTarget::normal(commit2.id().clone()));
     assert!(mut_repo.has_changes());
-    mut_repo.set_local_bookmark_target("main", RefTarget::normal(commit1.id().clone()));
+    mut_repo.set_local_bookmark_target("main".as_ref(), RefTarget::normal(commit1.id().clone()));
     mut_repo.remove_head(commit2.id());
     assert!(!mut_repo.has_changes());
 
@@ -607,7 +616,7 @@ fn test_rename_remote() {
         state: RemoteRefState::Tracking, // doesn't matter
     };
     mut_repo.set_remote_bookmark(remote_symbol("main", "origin"), remote_ref.clone());
-    mut_repo.rename_remote("origin", "upstream");
+    mut_repo.rename_remote("origin".as_ref(), "upstream".as_ref());
     assert_eq!(
         mut_repo.get_remote_bookmark(remote_symbol("main", "upstream")),
         remote_ref
@@ -689,7 +698,8 @@ fn test_reparent_descendants() {
         ("child_a", &commit_child_a),
         ("child_b", &commit_child_b),
     ] {
-        mut_repo.set_local_bookmark_target(bookmark, RefTarget::normal(commit.id().clone()));
+        mut_repo
+            .set_local_bookmark_target(bookmark.as_ref(), RefTarget::normal(commit.id().clone()));
     }
     let repo = tx.commit("test").unwrap();
 
@@ -716,7 +726,7 @@ fn test_reparent_descendants() {
     ] {
         let rewritten_id = repo
             .view()
-            .get_local_bookmark(bookmark)
+            .get_local_bookmark(bookmark.as_ref())
             .as_normal()
             .unwrap()
             .clone();
@@ -753,7 +763,7 @@ fn test_bookmark_hidden_commit() {
 
     let mut tx = repo.start_transaction();
     tx.repo_mut()
-        .set_local_bookmark_target("b", RefTarget::normal(wc_commit.id().clone()));
+        .set_local_bookmark_target("b".as_ref(), RefTarget::normal(wc_commit.id().clone()));
     let repo = tx.commit("test").unwrap();
     assert_eq!(
         *repo.view().heads(),

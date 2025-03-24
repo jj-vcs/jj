@@ -150,7 +150,10 @@ pub fn cmd_bookmark_move(
             .find(|(_, old_target)| !is_fast_forward(repo.as_ref(), old_target, target_commit.id()))
         {
             return Err(user_error_with_hint(
-                format!("Refusing to move bookmark backwards or sideways: {name}"),
+                format!(
+                    "Refusing to move bookmark backwards or sideways: {name}",
+                    name = name.as_symbol()
+                ),
                 "Use --allow-backwards to allow it.",
             ));
         }
@@ -178,7 +181,10 @@ pub fn cmd_bookmark_move(
         ui,
         format!(
             "point bookmark {names} to commit {id}",
-            names = matched_bookmarks.iter().map(|(name, _)| name).join(", "),
+            names = matched_bookmarks
+                .iter()
+                .map(|(name, _)| name.as_symbol())
+                .join(", "),
             id = target_commit.id().hex()
         ),
     )?;

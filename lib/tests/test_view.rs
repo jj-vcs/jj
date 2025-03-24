@@ -19,6 +19,8 @@ use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::op_store::RemoteRefState;
 use jj_lib::op_store::WorkspaceId;
+use jj_lib::ref_name::RefName;
+use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::repo::Repo as _;
 use maplit::btreemap;
@@ -30,8 +32,15 @@ use testutils::write_random_commit;
 use testutils::CommitGraphBuilder;
 use testutils::TestRepo;
 
-fn remote_symbol<'a>(name: &'a str, remote: &'a str) -> RemoteRefSymbol<'a> {
-    RemoteRefSymbol { name, remote }
+fn remote_symbol<'a, N, M>(name: &'a N, remote: &'a M) -> RemoteRefSymbol<'a>
+where
+    N: AsRef<RefName> + ?Sized,
+    M: AsRef<RemoteName> + ?Sized,
+{
+    RemoteRefSymbol {
+        name: name.as_ref(),
+        remote: remote.as_ref(),
+    }
 }
 
 #[test]
@@ -223,7 +232,7 @@ fn test_merge_views_bookmarks() {
         state: RemoteRefState::Tracking,
     };
     mut_repo.set_local_bookmark_target(
-        "main",
+        "main".as_ref(),
         RefTarget::normal(main_bookmark_local_tx0.id().clone()),
     );
     mut_repo.set_remote_bookmark(
@@ -236,7 +245,7 @@ fn test_merge_views_bookmarks() {
     );
     let feature_bookmark_local_tx0 = write_random_commit(mut_repo);
     mut_repo.set_local_bookmark_target(
-        "feature",
+        "feature".as_ref(),
         RefTarget::normal(feature_bookmark_local_tx0.id().clone()),
     );
     let repo = tx.commit("test").unwrap();
@@ -244,12 +253,12 @@ fn test_merge_views_bookmarks() {
     let mut tx1 = repo.start_transaction();
     let main_bookmark_local_tx1 = write_random_commit(tx1.repo_mut());
     tx1.repo_mut().set_local_bookmark_target(
-        "main",
+        "main".as_ref(),
         RefTarget::normal(main_bookmark_local_tx1.id().clone()),
     );
     let feature_bookmark_tx1 = write_random_commit(tx1.repo_mut());
     tx1.repo_mut().set_local_bookmark_target(
-        "feature",
+        "feature".as_ref(),
         RefTarget::normal(feature_bookmark_tx1.id().clone()),
     );
 
@@ -261,7 +270,7 @@ fn test_merge_views_bookmarks() {
         state: RemoteRefState::Tracking,
     };
     tx2.repo_mut().set_local_bookmark_target(
-        "main",
+        "main".as_ref(),
         RefTarget::normal(main_bookmark_local_tx2.id().clone()),
     );
     tx2.repo_mut().set_remote_bookmark(
@@ -279,9 +288,12 @@ fn test_merge_views_bookmarks() {
             ],
         ),
         remote_refs: vec![
-            ("alternate", &main_bookmark_alternate_tx0_remote_ref),
+            (
+                "alternate".as_ref(),
+                &main_bookmark_alternate_tx0_remote_ref,
+            ),
             // tx1: unchanged, tx2: new -> tracking
-            ("origin", &main_bookmark_origin_tx2_remote_ref),
+            ("origin".as_ref(), &main_bookmark_origin_tx2_remote_ref),
         ],
     };
     let expected_feature_bookmark = BookmarkTarget {
@@ -291,8 +303,8 @@ fn test_merge_views_bookmarks() {
     assert_eq!(
         repo.view().bookmarks().collect::<BTreeMap<_, _>>(),
         btreemap! {
-            "main" => expected_main_bookmark,
-            "feature" => expected_feature_bookmark,
+            "main".as_ref() => expected_main_bookmark,
+            "feature".as_ref() => expected_feature_bookmark,
         }
     );
 }
@@ -307,23 +319,23 @@ fn test_merge_views_tags() {
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     let v1_tx0 = write_random_commit(mut_repo);
-    mut_repo.set_tag_target("v1.0", RefTarget::normal(v1_tx0.id().clone()));
+    mut_repo.set_tag_target("v1.0".as_ref(), RefTarget::normal(v1_tx0.id().clone()));
     let v2_tx0 = write_random_commit(mut_repo);
-    mut_repo.set_tag_target("v2.0", RefTarget::normal(v2_tx0.id().clone()));
+    mut_repo.set_tag_target("v2.0".as_ref(), RefTarget::normal(v2_tx0.id().clone()));
     let repo = tx.commit("test").unwrap();
 
     let mut tx1 = repo.start_transaction();
     let v1_tx1 = write_random_commit(tx1.repo_mut());
     tx1.repo_mut()
-        .set_tag_target("v1.0", RefTarget::normal(v1_tx1.id().clone()));
+        .set_tag_target("v1.0".as_ref(), RefTarget::normal(v1_tx1.id().clone()));
     let v2_tx1 = write_random_commit(tx1.repo_mut());
     tx1.repo_mut()
-        .set_tag_target("v2.0", RefTarget::normal(v2_tx1.id().clone()));
+        .set_tag_target("v2.0".as_ref(), RefTarget::normal(v2_tx1.id().clone()));
 
     let mut tx2 = repo.start_transaction();
     let v1_tx2 = write_random_commit(tx2.repo_mut());
     tx2.repo_mut()
-        .set_tag_target("v1.0", RefTarget::normal(v1_tx2.id().clone()));
+        .set_tag_target("v1.0".as_ref(), RefTarget::normal(v1_tx2.id().clone()));
 
     let repo = commit_transactions(vec![tx1, tx2]);
     let expected_v1 = RefTarget::from_legacy_form(
@@ -334,8 +346,8 @@ fn test_merge_views_tags() {
     assert_eq!(
         repo.view().tags(),
         &btreemap! {
-            "v1.0".to_string() => expected_v1,
-            "v2.0".to_string() => expected_v2,
+            "v1.0".into() => expected_v1,
+            "v2.0".into() => expected_v2,
         }
     );
 }

@@ -22,6 +22,8 @@ use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::op_store::RemoteRefState;
 use jj_lib::op_store::WorkspaceId;
+use jj_lib::ref_name::RefName;
+use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
@@ -44,8 +46,15 @@ use testutils::write_random_commit;
 use testutils::CommitGraphBuilder;
 use testutils::TestRepo;
 
-fn remote_symbol<'a>(name: &'a str, remote: &'a str) -> RemoteRefSymbol<'a> {
-    RemoteRefSymbol { name, remote }
+fn remote_symbol<'a, N, M>(name: &'a N, remote: &'a M) -> RemoteRefSymbol<'a>
+where
+    N: AsRef<RefName> + ?Sized,
+    M: AsRef<RemoteName> + ?Sized,
+{
+    RemoteRefSymbol {
+        name: name.as_ref(),
+        remote: remote.as_ref(),
+    }
 }
 
 #[test]
@@ -931,14 +940,14 @@ fn test_rebase_descendants_basic_bookmark_update() {
     let commit_a = graph_builder.initial_commit();
     let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
     tx.repo_mut()
-        .set_local_bookmark_target("main", RefTarget::normal(commit_b.id().clone()));
+        .set_local_bookmark_target("main".as_ref(), RefTarget::normal(commit_b.id().clone()));
     let repo = tx.commit("test").unwrap();
 
     let mut tx = repo.start_transaction();
     let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).write().unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
     assert_eq!(
-        tx.repo().get_local_bookmark("main"),
+        tx.repo().get_local_bookmark("main".as_ref()),
         RefTarget::normal(commit_b2.id().clone())
     );
 
@@ -966,7 +975,7 @@ fn test_rebase_descendants_bookmark_move_two_steps() {
     let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
     let commit_c = graph_builder.commit_with_parents(&[&commit_b]);
     tx.repo_mut()
-        .set_local_bookmark_target("main", RefTarget::normal(commit_c.id().clone()));
+        .set_local_bookmark_target("main".as_ref(), RefTarget::normal(commit_c.id().clone()));
     let repo = tx.commit("test").unwrap();
 
     let mut tx = repo.start_transaction();
@@ -990,7 +999,7 @@ fn test_rebase_descendants_bookmark_move_two_steps() {
     assert_ne!(commit_c3.id(), commit_c2.id());
     assert_eq!(commit_c3.parent_ids(), vec![commit_b2.id().clone()]);
     assert_eq!(
-        tx.repo().get_local_bookmark("main"),
+        tx.repo().get_local_bookmark("main".as_ref()),
         RefTarget::normal(commit_c3.id().clone())
     );
 }
@@ -1017,18 +1026,18 @@ fn test_rebase_descendants_basic_bookmark_update_with_non_local_bookmark() {
         state: RemoteRefState::Tracking,
     };
     tx.repo_mut()
-        .set_local_bookmark_target("main", RefTarget::normal(commit_b.id().clone()));
+        .set_local_bookmark_target("main".as_ref(), RefTarget::normal(commit_b.id().clone()));
     tx.repo_mut()
         .set_remote_bookmark(remote_symbol("main", "origin"), commit_b_remote_ref.clone());
     tx.repo_mut()
-        .set_tag_target("v1", RefTarget::normal(commit_b.id().clone()));
+        .set_tag_target("v1".as_ref(), RefTarget::normal(commit_b.id().clone()));
     let repo = tx.commit("test").unwrap();
 
     let mut tx = repo.start_transaction();
     let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).write().unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
     assert_eq!(
-        tx.repo().get_local_bookmark("main"),
+        tx.repo().get_local_bookmark("main".as_ref()),
         RefTarget::normal(commit_b2.id().clone())
     );
     // The remote bookmark and tag should not get updated
@@ -1038,7 +1047,7 @@ fn test_rebase_descendants_basic_bookmark_update_with_non_local_bookmark() {
         commit_b_remote_ref
     );
     assert_eq!(
-        tx.repo().get_tag("v1"),
+        tx.repo().get_tag("v1".as_ref()),
         RefTarget::normal(commit_b.id().clone())
     );
 
@@ -1071,11 +1080,11 @@ fn test_rebase_descendants_update_bookmark_after_abandon(delete_abandoned_bookma
         state: RemoteRefState::Tracking,
     };
     tx.repo_mut()
-        .set_local_bookmark_target("main", RefTarget::normal(commit_b.id().clone()));
+        .set_local_bookmark_target("main".as_ref(), RefTarget::normal(commit_b.id().clone()));
     tx.repo_mut()
         .set_remote_bookmark(remote_symbol("main", "origin"), commit_b_remote_ref.clone());
     tx.repo_mut()
-        .set_local_bookmark_target("other", RefTarget::normal(commit_c.id().clone()));
+        .set_local_bookmark_target("other".as_ref(), RefTarget::normal(commit_c.id().clone()));
     let repo = tx.commit("test").unwrap();
 
     let mut tx = repo.start_transaction();
@@ -1088,7 +1097,7 @@ fn test_rebase_descendants_update_bookmark_after_abandon(delete_abandoned_bookma
     };
     let rebase_map = rebase_descendants_with_options_return_map(tx.repo_mut(), &options);
     assert_eq!(
-        tx.repo().get_local_bookmark("main"),
+        tx.repo().get_local_bookmark("main".as_ref()),
         if delete_abandoned_bookmarks {
             RefTarget::absent()
         } else {
@@ -1102,7 +1111,7 @@ fn test_rebase_descendants_update_bookmark_after_abandon(delete_abandoned_bookma
         RefTarget::normal(commit_b.id().clone())
     );
     assert_eq!(
-        tx.repo().get_local_bookmark("other"),
+        tx.repo().get_local_bookmark("other".as_ref()),
         RefTarget::normal(rebase_map[commit_c.id()].clone())
     );
 
@@ -1134,9 +1143,9 @@ fn test_rebase_descendants_update_bookmarks_after_divergent_rewrite() {
     let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
     let commit_c = graph_builder.commit_with_parents(&[&commit_b]);
     tx.repo_mut()
-        .set_local_bookmark_target("main", RefTarget::normal(commit_b.id().clone()));
+        .set_local_bookmark_target("main".as_ref(), RefTarget::normal(commit_b.id().clone()));
     tx.repo_mut()
-        .set_local_bookmark_target("other", RefTarget::normal(commit_c.id().clone()));
+        .set_local_bookmark_target("other".as_ref(), RefTarget::normal(commit_c.id().clone()));
     let repo = tx.commit("test").unwrap();
 
     let mut tx = repo.start_transaction();
@@ -1176,7 +1185,7 @@ fn test_rebase_descendants_update_bookmarks_after_divergent_rewrite() {
     );
     tx.repo_mut().rebase_descendants().unwrap();
 
-    let main_target = tx.repo().get_local_bookmark("main");
+    let main_target = tx.repo().get_local_bookmark("main".as_ref());
     assert!(main_target.has_conflict());
     // If the bookmark were moved at each rewrite point, there would be separate
     // negative terms: { commit_b => 2, commit_b4 => 1 }. Since we flatten
@@ -1195,7 +1204,7 @@ fn test_rebase_descendants_update_bookmarks_after_divergent_rewrite() {
         },
     );
 
-    let other_target = tx.repo().get_local_bookmark("other");
+    let other_target = tx.repo().get_local_bookmark("other".as_ref());
     assert_eq!(other_target.as_normal(), Some(commit_c.id()));
 
     assert_eq!(
@@ -1224,7 +1233,7 @@ fn test_rebase_descendants_rewrite_updates_bookmark_conflict() {
     let commit_b = graph_builder.initial_commit();
     let commit_c = graph_builder.initial_commit();
     tx.repo_mut().set_local_bookmark_target(
-        "main",
+        "main".as_ref(),
         RefTarget::from_legacy_form(
             [commit_a.id().clone()],
             [commit_b.id().clone(), commit_c.id().clone()],
@@ -1259,7 +1268,7 @@ fn test_rebase_descendants_rewrite_updates_bookmark_conflict() {
     );
     tx.repo_mut().rebase_descendants().unwrap();
 
-    let target = tx.repo().get_local_bookmark("main");
+    let target = tx.repo().get_local_bookmark("main".as_ref());
     assert!(target.has_conflict());
     assert_eq!(
         target.removed_ids().counts(),
@@ -1304,7 +1313,7 @@ fn test_rebase_descendants_rewrite_resolves_bookmark_conflict() {
     let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
     let commit_c = graph_builder.commit_with_parents(&[&commit_a]);
     tx.repo_mut().set_local_bookmark_target(
-        "main",
+        "main".as_ref(),
         RefTarget::from_legacy_form(
             [commit_a.id().clone()],
             [commit_b.id().clone(), commit_c.id().clone()],
@@ -1321,7 +1330,7 @@ fn test_rebase_descendants_rewrite_resolves_bookmark_conflict() {
         .unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
     assert_eq!(
-        tx.repo().get_local_bookmark("main"),
+        tx.repo().get_local_bookmark("main".as_ref()),
         RefTarget::normal(commit_b2.id().clone())
     );
 
@@ -1352,7 +1361,7 @@ fn test_rebase_descendants_bookmark_delete_modify_abandon(delete_abandoned_bookm
     let commit_a = graph_builder.initial_commit();
     let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
     tx.repo_mut().set_local_bookmark_target(
-        "main",
+        "main".as_ref(),
         RefTarget::from_legacy_form([commit_a.id().clone()], [commit_b.id().clone()]),
     );
     let repo = tx.commit("test").unwrap();
@@ -1366,7 +1375,10 @@ fn test_rebase_descendants_bookmark_delete_modify_abandon(delete_abandoned_bookm
         ..Default::default()
     };
     let _rebase_map = rebase_descendants_with_options_return_map(tx.repo_mut(), &options);
-    assert_eq!(tx.repo().get_local_bookmark("main"), RefTarget::absent());
+    assert_eq!(
+        tx.repo().get_local_bookmark("main".as_ref()),
+        RefTarget::absent()
+    );
 }
 
 #[test_case(false; "slide down abandoned")]
@@ -1389,7 +1401,7 @@ fn test_rebase_descendants_bookmark_move_forward_abandon(delete_abandoned_bookma
     let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
     let commit_c = graph_builder.commit_with_parents(&[&commit_a]);
     tx.repo_mut().set_local_bookmark_target(
-        "main",
+        "main".as_ref(),
         RefTarget::from_merge(Merge::from_vec(vec![
             Some(commit_b.id().clone()),
             Some(commit_a.id().clone()),
@@ -1408,7 +1420,7 @@ fn test_rebase_descendants_bookmark_move_forward_abandon(delete_abandoned_bookma
     };
     let _rebase_map = rebase_descendants_with_options_return_map(tx.repo_mut(), &options);
     assert_eq!(
-        tx.repo().get_local_bookmark("main"),
+        tx.repo().get_local_bookmark("main".as_ref()),
         if delete_abandoned_bookmarks {
             RefTarget::from_merge(Merge::from_vec(vec![
                 None,
@@ -1441,7 +1453,7 @@ fn test_rebase_descendants_bookmark_move_sideways_abandon(delete_abandoned_bookm
     let commit_b = graph_builder.initial_commit();
     let commit_c = graph_builder.initial_commit();
     tx.repo_mut().set_local_bookmark_target(
-        "main",
+        "main".as_ref(),
         RefTarget::from_merge(Merge::from_vec(vec![
             Some(commit_b.id().clone()),
             Some(commit_a.id().clone()),
@@ -1460,7 +1472,7 @@ fn test_rebase_descendants_bookmark_move_sideways_abandon(delete_abandoned_bookm
     };
     let _rebase_map = rebase_descendants_with_options_return_map(tx.repo_mut(), &options);
     assert_eq!(
-        tx.repo().get_local_bookmark("main"),
+        tx.repo().get_local_bookmark("main".as_ref()),
         if delete_abandoned_bookmarks {
             RefTarget::from_merge(Merge::from_vec(vec![
                 None,

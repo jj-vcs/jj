@@ -13,8 +13,10 @@
 // limitations under the License.
 
 use clap_complete::ArgValueCandidates;
+use itertools::Itertools as _;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::RefTarget;
+use jj_lib::ref_name::RefNameBuf;
 
 use super::has_tracked_remote_bookmarks;
 use super::is_fast_forward;
@@ -52,7 +54,7 @@ pub struct BookmarkSetArgs {
         value_parser = revset_util::parse_bookmark_name,
         add = ArgValueCandidates::new(complete::local_bookmarks),
     )]
-    names: Vec<String>,
+    names: Vec<RefNameBuf>,
 }
 
 pub fn cmd_bookmark_set(
@@ -85,7 +87,10 @@ pub fn cmd_bookmark_set(
         }
         if !args.allow_backwards && !is_fast_forward(repo, old_target, target_commit.id()) {
             return Err(user_error_with_hint(
-                format!("Refusing to move bookmark backwards or sideways: {name}"),
+                format!(
+                    "Refusing to move bookmark backwards or sideways: {name}",
+                    name = name.as_symbol()
+                ),
                 "Use --allow-backwards to allow it.",
             ));
         }
@@ -122,7 +127,7 @@ pub fn cmd_bookmark_set(
         ui,
         format!(
             "point bookmark {names} to commit {id}",
-            names = bookmark_names.join(", "),
+            names = bookmark_names.iter().map(|n| n.as_symbol()).join(", "),
             id = target_commit.id().hex()
         ),
     )?;

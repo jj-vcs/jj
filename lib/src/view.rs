@@ -27,6 +27,9 @@ use crate::op_store::RefTarget;
 use crate::op_store::RefTargetOptionExt as _;
 use crate::op_store::RemoteRef;
 use crate::op_store::WorkspaceId;
+use crate::ref_name::RefName;
+use crate::ref_name::RefNameBuf;
+use crate::ref_name::RemoteName;
 use crate::ref_name::RemoteRefSymbol;
 use crate::refs;
 use crate::refs::LocalAndRemoteRef;
@@ -72,11 +75,11 @@ impl View {
     }
 
     /// Iterates pair of local and remote bookmarks by bookmark name.
-    pub fn bookmarks(&self) -> impl Iterator<Item = (&str, BookmarkTarget<'_>)> {
+    pub fn bookmarks(&self) -> impl Iterator<Item = (&RefName, BookmarkTarget<'_>)> {
         op_store::merge_join_bookmark_views(&self.data.local_bookmarks, &self.data.remote_views)
     }
 
-    pub fn tags(&self) -> &BTreeMap<String, RefTarget> {
+    pub fn tags(&self) -> &BTreeMap<RefNameBuf, RefTarget> {
         &self.data.tags
     }
 
@@ -128,7 +131,7 @@ impl View {
     }
 
     /// Iterates local bookmark `(name, target)`s in lexicographical order.
-    pub fn local_bookmarks(&self) -> impl Iterator<Item = (&str, &RefTarget)> {
+    pub fn local_bookmarks(&self) -> impl Iterator<Item = (&RefName, &RefTarget)> {
         self.data
             .local_bookmarks
             .iter()
@@ -140,7 +143,7 @@ impl View {
     pub fn local_bookmarks_for_commit<'a, 'b>(
         &'a self,
         commit_id: &'b CommitId,
-    ) -> impl Iterator<Item = (&'a str, &'a RefTarget)> + use<'a, 'b> {
+    ) -> impl Iterator<Item = (&'a RefName, &'a RefTarget)> + use<'a, 'b> {
         self.local_bookmarks()
             .filter(|(_, target)| target.added_ids().contains(commit_id))
     }
@@ -150,20 +153,20 @@ impl View {
     pub fn local_bookmarks_matching<'a, 'b>(
         &'a self,
         pattern: &'b StringPattern,
-    ) -> impl Iterator<Item = (&'a str, &'a RefTarget)> + use<'a, 'b> {
+    ) -> impl Iterator<Item = (&'a RefName, &'a RefTarget)> + use<'a, 'b> {
         pattern
-            .filter_btree_map(&self.data.local_bookmarks)
+            .filter_btree_map_as_deref(&self.data.local_bookmarks)
             .map(|(name, target)| (name.as_ref(), target))
     }
 
-    pub fn get_local_bookmark(&self, name: &str) -> &RefTarget {
+    pub fn get_local_bookmark(&self, name: &RefName) -> &RefTarget {
         self.data.local_bookmarks.get(name).flatten()
     }
 
     /// Sets local bookmark to point to the given target. If the target is
     /// absent, and if no associated remote bookmarks exist, the bookmark
     /// will be removed.
-    pub fn set_local_bookmark_target(&mut self, name: &str, target: RefTarget) {
+    pub fn set_local_bookmark_target(&mut self, name: &RefName, target: RefTarget) {
         if target.is_present() {
             self.data.local_bookmarks.insert(name.to_owned(), target);
         } else {
@@ -181,8 +184,8 @@ impl View {
     /// specified remote in lexicographical order.
     pub fn remote_bookmarks(
         &self,
-        remote_name: &str,
-    ) -> impl Iterator<Item = (&str, &RemoteRef)> + use<'_> {
+        remote_name: &RemoteName,
+    ) -> impl Iterator<Item = (&RefName, &RemoteRef)> + use<'_> {
         let maybe_remote_view = self.data.remote_views.get(remote_name);
         maybe_remote_view
             .map(|remote_view| {
@@ -206,10 +209,10 @@ impl View {
     ) -> impl Iterator<Item = (RemoteRefSymbol<'a>, &'a RemoteRef)> + use<'a, 'b> {
         // Use kmerge instead of flat_map for consistency with all_remote_bookmarks().
         remote_pattern
-            .filter_btree_map(&self.data.remote_views)
+            .filter_btree_map_as_deref(&self.data.remote_views)
             .map(|(remote, remote_view)| {
                 bookmark_pattern
-                    .filter_btree_map(&remote_view.bookmarks)
+                    .filter_btree_map_as_deref(&remote_view.bookmarks)
                     .map(|(name, remote_ref)| {
                         let symbol = RemoteRefSymbol { name, remote };
                         (symbol, remote_ref)
@@ -252,8 +255,8 @@ impl View {
     /// RefTarget::absent_ref() or RemoteRef::absent_ref().
     pub fn local_remote_bookmarks(
         &self,
-        remote_name: &str,
-    ) -> impl Iterator<Item = (&str, LocalAndRemoteRef<'_>)> + use<'_> {
+        remote_name: &RemoteName,
+    ) -> impl Iterator<Item = (&RefName, LocalAndRemoteRef<'_>)> + use<'_> {
         refs::iter_named_local_remote_refs(
             self.local_bookmarks(),
             self.remote_bookmarks(remote_name),
@@ -279,15 +282,17 @@ impl View {
     pub fn local_remote_bookmarks_matching<'a, 'b>(
         &'a self,
         bookmark_pattern: &'b StringPattern,
-        remote_name: &str,
-    ) -> impl Iterator<Item = (&'a str, LocalAndRemoteRef<'a>)> + use<'a, 'b> {
+        remote_name: &RemoteName,
+    ) -> impl Iterator<Item = (&'a RefName, LocalAndRemoteRef<'a>)> + use<'a, 'b> {
         // Change remote_name to StringPattern if needed, but merge-join adapter won't
         // be usable.
         let maybe_remote_view = self.data.remote_views.get(remote_name);
         refs::iter_named_local_remote_refs(
-            bookmark_pattern.filter_btree_map(&self.data.local_bookmarks),
+            bookmark_pattern.filter_btree_map_as_deref(&self.data.local_bookmarks),
             maybe_remote_view
-                .map(|remote_view| bookmark_pattern.filter_btree_map(&remote_view.bookmarks))
+                .map(|remote_view| {
+                    bookmark_pattern.filter_btree_map_as_deref(&remote_view.bookmarks)
+                })
                 .into_iter()
                 .flatten(),
         )
@@ -300,17 +305,17 @@ impl View {
         })
     }
 
-    pub fn remove_remote(&mut self, remote_name: &str) {
+    pub fn remove_remote(&mut self, remote_name: &RemoteName) {
         self.data.remote_views.remove(remote_name);
     }
 
-    pub fn rename_remote(&mut self, old: &str, new: &str) {
+    pub fn rename_remote(&mut self, old: &RemoteName, new: &RemoteName) {
         if let Some(remote_view) = self.data.remote_views.remove(old) {
             self.data.remote_views.insert(new.to_owned(), remote_view);
         }
     }
 
-    pub fn get_tag(&self, name: &str) -> &RefTarget {
+    pub fn get_tag(&self, name: &RefName) -> &RefTarget {
         self.data.tags.get(name).flatten()
     }
 
@@ -319,15 +324,15 @@ impl View {
     pub fn tags_matching<'a, 'b>(
         &'a self,
         pattern: &'b StringPattern,
-    ) -> impl Iterator<Item = (&'a str, &'a RefTarget)> + use<'a, 'b> {
+    ) -> impl Iterator<Item = (&'a RefName, &'a RefTarget)> + use<'a, 'b> {
         pattern
-            .filter_btree_map(&self.data.tags)
+            .filter_btree_map_as_deref(&self.data.tags)
             .map(|(name, target)| (name.as_ref(), target))
     }
 
     /// Sets tag to point to the given target. If the target is absent, the tag
     /// will be removed.
-    pub fn set_tag_target(&mut self, name: &str, target: RefTarget) {
+    pub fn set_tag_target(&mut self, name: &RefName, target: RefTarget) {
         if target.is_present() {
             self.data.tags.insert(name.to_owned(), target);
         } else {

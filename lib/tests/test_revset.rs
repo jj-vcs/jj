@@ -34,6 +34,8 @@ use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::op_store::RemoteRefState;
 use jj_lib::op_store::WorkspaceId;
+use jj_lib::ref_name::RefName;
+use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::repo::Repo;
 use jj_lib::repo_path::RepoPath;
@@ -62,8 +64,15 @@ use testutils::TestRepo;
 use testutils::TestRepoBackend;
 use testutils::TestWorkspace;
 
-fn remote_symbol<'a>(name: &'a str, remote: &'a str) -> RemoteRefSymbol<'a> {
-    RemoteRefSymbol { name, remote }
+fn remote_symbol<'a, N, M>(name: &'a N, remote: &'a M) -> RemoteRefSymbol<'a>
+where
+    N: AsRef<RefName> + ?Sized,
+    M: AsRef<RemoteName> + ?Sized,
+{
+    RemoteRefSymbol {
+        name: name.as_ref(),
+        remote: remote.as_ref(),
+    }
 }
 
 fn resolve_symbol_with_extensions(
@@ -526,35 +535,38 @@ fn test_resolve_symbol_bookmarks() {
     let commit4 = write_random_commit(mut_repo);
     let commit5 = write_random_commit(mut_repo);
 
-    mut_repo.set_local_bookmark_target("local", RefTarget::normal(commit1.id().clone()));
+    mut_repo.set_local_bookmark_target("local".as_ref(), RefTarget::normal(commit1.id().clone()));
     mut_repo.set_remote_bookmark(
         remote_symbol("remote", "origin"),
         normal_tracking_remote_ref(commit2.id()),
     );
-    mut_repo.set_local_bookmark_target("local-remote", RefTarget::normal(commit3.id().clone()));
+    mut_repo.set_local_bookmark_target(
+        "local-remote".as_ref(),
+        RefTarget::normal(commit3.id().clone()),
+    );
     mut_repo.set_remote_bookmark(
         remote_symbol("local-remote", "origin"),
         normal_tracking_remote_ref(commit4.id()),
     );
     mut_repo.set_local_bookmark_target(
-        "local-remote@origin", // not a remote bookmark
+        "local-remote@origin".as_ref(), // not a remote bookmark
         RefTarget::normal(commit5.id().clone()),
     );
     mut_repo.set_remote_bookmark(
         remote_symbol("local-remote", "mirror"),
-        tracking_remote_ref(mut_repo.get_local_bookmark("local-remote")),
+        tracking_remote_ref(mut_repo.get_local_bookmark("local-remote".as_ref())),
     );
     mut_repo.set_remote_bookmark(
         remote_symbol("local-remote", "untracked"),
-        new_remote_ref(mut_repo.get_local_bookmark("local-remote")),
+        new_remote_ref(mut_repo.get_local_bookmark("local-remote".as_ref())),
     );
     mut_repo.set_remote_bookmark(
         remote_symbol("local-remote", git::REMOTE_NAME_FOR_LOCAL_GIT_REPO),
-        tracking_remote_ref(mut_repo.get_local_bookmark("local-remote")),
+        tracking_remote_ref(mut_repo.get_local_bookmark("local-remote".as_ref())),
     );
 
     mut_repo.set_local_bookmark_target(
-        "local-conflicted",
+        "local-conflicted".as_ref(),
         RefTarget::from_legacy_form(
             [commit1.id().clone()],
             [commit3.id().clone(), commit2.id().clone()],
@@ -750,8 +762,14 @@ fn test_resolve_symbol_tags() {
     let commit2 = write_random_commit(mut_repo);
     let commit3 = write_random_commit(mut_repo);
 
-    mut_repo.set_tag_target("tag-bookmark", RefTarget::normal(commit1.id().clone()));
-    mut_repo.set_local_bookmark_target("tag-bookmark", RefTarget::normal(commit2.id().clone()));
+    mut_repo.set_tag_target(
+        "tag-bookmark".as_ref(),
+        RefTarget::normal(commit1.id().clone()),
+    );
+    mut_repo.set_local_bookmark_target(
+        "tag-bookmark".as_ref(),
+        RefTarget::normal(commit2.id().clone()),
+    );
     mut_repo.set_git_ref_target(
         "refs/tags/unimported",
         RefTarget::normal(commit3.id().clone()),
@@ -773,8 +791,8 @@ fn test_resolve_symbol_tags() {
     mut_repo
         .set_wc_commit(ws_id.clone(), commit1.id().clone())
         .unwrap();
-    mut_repo.set_tag_target("@", RefTarget::normal(commit2.id().clone()));
-    mut_repo.set_tag_target("root", RefTarget::normal(commit3.id().clone()));
+    mut_repo.set_tag_target("@".as_ref(), RefTarget::normal(commit2.id().clone()));
+    mut_repo.set_tag_target("root".as_ref(), RefTarget::normal(commit3.id().clone()));
     assert_eq!(
         resolve_symbol(mut_repo, r#""@""#).unwrap(),
         vec![commit2.id().clone()]
@@ -2006,8 +2024,14 @@ fn test_evaluate_expression_bookmarks() {
     // Can get bookmarks when there are none
     assert_eq!(resolve_commit_ids(mut_repo, "bookmarks()"), vec![]);
     // Can get a few bookmarks
-    mut_repo.set_local_bookmark_target("bookmark1", RefTarget::normal(commit1.id().clone()));
-    mut_repo.set_local_bookmark_target("bookmark2", RefTarget::normal(commit2.id().clone()));
+    mut_repo.set_local_bookmark_target(
+        "bookmark1".as_ref(),
+        RefTarget::normal(commit1.id().clone()),
+    );
+    mut_repo.set_local_bookmark_target(
+        "bookmark2".as_ref(),
+        RefTarget::normal(commit2.id().clone()),
+    );
     assert_eq!(
         resolve_commit_ids(mut_repo, "bookmarks()"),
         vec![commit2.id().clone(), commit1.id().clone()]
@@ -2049,27 +2073,30 @@ fn test_evaluate_expression_bookmarks() {
     );
     // Two bookmarks pointing to the same commit does not result in a duplicate in
     // the revset
-    mut_repo.set_local_bookmark_target("bookmark3", RefTarget::normal(commit2.id().clone()));
+    mut_repo.set_local_bookmark_target(
+        "bookmark3".as_ref(),
+        RefTarget::normal(commit2.id().clone()),
+    );
     assert_eq!(
         resolve_commit_ids(mut_repo, "bookmarks()"),
         vec![commit2.id().clone(), commit1.id().clone()]
     );
     // Can get bookmarks when there are conflicted refs
     mut_repo.set_local_bookmark_target(
-        "bookmark1",
+        "bookmark1".as_ref(),
         RefTarget::from_legacy_form(
             [commit1.id().clone()],
             [commit2.id().clone(), commit3.id().clone()],
         ),
     );
     mut_repo.set_local_bookmark_target(
-        "bookmark2",
+        "bookmark2".as_ref(),
         RefTarget::from_legacy_form(
             [commit2.id().clone()],
             [commit3.id().clone(), commit4.id().clone()],
         ),
     );
-    mut_repo.set_local_bookmark_target("bookmark3", RefTarget::absent());
+    mut_repo.set_local_bookmark_target("bookmark3".as_ref(), RefTarget::absent());
     assert_eq!(
         resolve_commit_ids(mut_repo, "bookmarks()"),
         vec![
@@ -2271,8 +2298,8 @@ fn test_evaluate_expression_tags() {
     // Can get tags when there are none
     assert_eq!(resolve_commit_ids(mut_repo, "tags()"), vec![]);
     // Can get a few tags
-    mut_repo.set_tag_target("tag1", RefTarget::normal(commit1.id().clone()));
-    mut_repo.set_tag_target("tag2", RefTarget::normal(commit2.id().clone()));
+    mut_repo.set_tag_target("tag1".as_ref(), RefTarget::normal(commit1.id().clone()));
+    mut_repo.set_tag_target("tag2".as_ref(), RefTarget::normal(commit2.id().clone()));
     assert_eq!(
         resolve_commit_ids(mut_repo, "tags()"),
         vec![commit2.id().clone(), commit1.id().clone()]
@@ -2308,27 +2335,27 @@ fn test_evaluate_expression_tags() {
     assert_eq!(resolve_commit_ids(mut_repo, "tags(exact:ag1)"), vec![]);
     // Two tags pointing to the same commit does not result in a duplicate in
     // the revset
-    mut_repo.set_tag_target("tag3", RefTarget::normal(commit2.id().clone()));
+    mut_repo.set_tag_target("tag3".as_ref(), RefTarget::normal(commit2.id().clone()));
     assert_eq!(
         resolve_commit_ids(mut_repo, "tags()"),
         vec![commit2.id().clone(), commit1.id().clone()]
     );
     // Can get tags when there are conflicted refs
     mut_repo.set_tag_target(
-        "tag1",
+        "tag1".as_ref(),
         RefTarget::from_legacy_form(
             [commit1.id().clone()],
             [commit2.id().clone(), commit3.id().clone()],
         ),
     );
     mut_repo.set_tag_target(
-        "tag2",
+        "tag2".as_ref(),
         RefTarget::from_legacy_form(
             [commit2.id().clone()],
             [commit3.id().clone(), commit4.id().clone()],
         ),
     );
-    mut_repo.set_tag_target("tag3", RefTarget::absent());
+    mut_repo.set_tag_target("tag3".as_ref(), RefTarget::absent());
     assert_eq!(
         resolve_commit_ids(mut_repo, "tags()"),
         vec![
@@ -3113,8 +3140,10 @@ fn test_evaluate_expression_at_operation() {
         .set_description("commit2@op1")
         .write()
         .unwrap();
-    tx.repo_mut()
-        .set_local_bookmark_target("commit1_ref", RefTarget::normal(commit1_op1.id().clone()));
+    tx.repo_mut().set_local_bookmark_target(
+        "commit1_ref".as_ref(),
+        RefTarget::normal(commit1_op1.id().clone()),
+    );
     let repo1 = tx.commit("test").unwrap();
 
     let mut tx = repo1.start_transaction();
@@ -3242,8 +3271,8 @@ fn test_evaluate_expression_coalesce() {
     let mut graph_builder = CommitGraphBuilder::new(mut_repo);
     let commit1 = graph_builder.initial_commit();
     let commit2 = graph_builder.commit_with_parents(&[&commit1]);
-    mut_repo.set_local_bookmark_target("commit1", RefTarget::normal(commit1.id().clone()));
-    mut_repo.set_local_bookmark_target("commit2", RefTarget::normal(commit2.id().clone()));
+    mut_repo.set_local_bookmark_target("commit1".as_ref(), RefTarget::normal(commit1.id().clone()));
+    mut_repo.set_local_bookmark_target("commit2".as_ref(), RefTarget::normal(commit2.id().clone()));
 
     assert_eq!(resolve_commit_ids(mut_repo, "coalesce()"), vec![]);
     assert_eq!(resolve_commit_ids(mut_repo, "coalesce(none())"), vec![]);
@@ -3993,7 +4022,10 @@ fn test_no_such_revision_suggestion() {
     let commit = write_random_commit(mut_repo);
 
     for bookmark_name in ["foo", "bar", "baz"] {
-        mut_repo.set_local_bookmark_target(bookmark_name, RefTarget::normal(commit.id().clone()));
+        mut_repo.set_local_bookmark_target(
+            bookmark_name.as_ref(),
+            RefTarget::normal(commit.id().clone()),
+        );
     }
 
     assert_matches!(resolve_symbol(mut_repo, "bar"), Ok(_));

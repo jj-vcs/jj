@@ -181,9 +181,9 @@ pub(crate) fn cmd_status(
             formatter.labeled("warning").with_heading("Warning: "),
             "These bookmarks have conflicts:"
         )?;
-        for bookmark_name in conflicted_local_bookmarks {
+        for name in conflicted_local_bookmarks {
             write!(formatter, "  ")?;
-            write!(formatter.labeled("bookmark"), "{bookmark_name}")?;
+            write!(formatter.labeled("bookmark"), "{}", name.as_symbol())?;
             writeln!(formatter)?;
         }
         writeln!(

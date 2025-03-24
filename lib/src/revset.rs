@@ -1822,7 +1822,9 @@ fn all_formatted_bookmark_symbols(
     let view = repo.view();
     view.bookmarks().flat_map(move |(name, bookmark_target)| {
         let local_target = bookmark_target.local_target;
-        let local_symbol = local_target.is_present().then(|| format_symbol(name));
+        let local_symbol = local_target
+            .is_present()
+            .then(|| format_symbol(name.as_str()));
         let remote_symbols = bookmark_target
             .remote_refs
             .into_iter()
@@ -1831,7 +1833,7 @@ fn all_formatted_bookmark_symbols(
                     || !remote_ref.is_tracking()
                     || remote_ref.target != *local_target
             })
-            .map(move |(remote_name, _)| format_remote_symbol(name, remote_name));
+            .map(move |(remote, _)| format_remote_symbol(name.as_str(), remote.as_str()));
         local_symbol.into_iter().chain(remote_symbols)
     })
 }
@@ -1890,7 +1892,7 @@ impl PartialSymbolResolver for TagResolver {
         repo: &dyn Repo,
         symbol: &str,
     ) -> Result<Option<Vec<CommitId>>, RevsetResolutionError> {
-        let target = repo.view().get_tag(symbol);
+        let target = repo.view().get_tag(symbol.as_ref());
         Ok(target
             .is_present()
             .then(|| target.added_ids().cloned().collect()))
@@ -1905,7 +1907,7 @@ impl PartialSymbolResolver for BookmarkResolver {
         repo: &dyn Repo,
         symbol: &str,
     ) -> Result<Option<Vec<CommitId>>, RevsetResolutionError> {
-        let target = repo.view().get_local_bookmark(symbol);
+        let target = repo.view().get_local_bookmark(symbol.as_ref());
         Ok(target
             .is_present()
             .then(|| target.added_ids().cloned().collect()))

@@ -324,7 +324,7 @@ pub fn show_op_diff(
         })?;
         for (name, (from_target, to_target)) in changed_local_bookmarks {
             with_content_format.write(formatter, |formatter| {
-                writeln!(formatter, "{name}:")?;
+                writeln!(formatter, "{name}:", name = name.as_symbol())?;
                 write_ref_target_summary(
                     formatter,
                     current_repo,
@@ -352,7 +352,7 @@ pub fn show_op_diff(
         with_content_format.write(formatter, |formatter| writeln!(formatter, "Changed tags:"))?;
         for (name, (from_target, to_target)) in changed_tags {
             with_content_format.write(formatter, |formatter| {
-                writeln!(formatter, "{name}:")?;
+                writeln!(formatter, "{name}:", name = name.as_symbol())?;
                 write_ref_target_summary(
                     formatter,
                     current_repo,

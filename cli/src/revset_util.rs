@@ -26,6 +26,7 @@ use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigSource;
 use jj_lib::config::StackedConfig;
 use jj_lib::id_prefix::IdPrefixContext;
+use jj_lib::ref_name::RefNameBuf;
 use jj_lib::repo::Repo;
 use jj_lib::revset;
 use jj_lib::revset::DefaultSymbolResolver;
@@ -361,9 +362,11 @@ pub struct BookmarkNameParseError {
 }
 
 /// Parses bookmark name specified in revset syntax.
-pub fn parse_bookmark_name(text: &str) -> Result<String, BookmarkNameParseError> {
-    revset::parse_symbol(text).map_err(|source| BookmarkNameParseError {
-        input: text.to_owned(),
-        source,
-    })
+pub fn parse_bookmark_name(text: &str) -> Result<RefNameBuf, BookmarkNameParseError> {
+    revset::parse_symbol(text)
+        .map(Into::into)
+        .map_err(|source| BookmarkNameParseError {
+            input: text.to_owned(),
+            source,
+        })
 }
