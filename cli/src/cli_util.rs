@@ -3936,8 +3936,25 @@ impl CliRunner {
         let mut ui = Ui::with_config(config.as_ref())
             .expect("default config should be valid, env vars are stringly typed");
         let result = self.run_internal(&mut ui, config);
+
+        let mut is_broken_pipe = false;
+        if result.as_ref().is_err_and(|err| {
+            matches!(err.kind, crate::command_error::CommandErrorKind::BrokenPipe)
+        }) {
+            is_broken_pipe = true;
+        }
+
         let exit_code = handle_command_result(&mut ui, result);
         ui.finalize_pager();
+
+        // TODO: cfg(unix)-ification since libc does not support windows
+        if is_broken_pipe {
+            // Restore the default SIGPIPE handler that Rust ignores by default
+            unsafe { libc::signal(libc::SIGPIPE, libc::SIG_DFL) };
+            // Raise the SIGPIPE signal so that we exit with the proper status
+            unsafe { libc::raise(libc::SIGPIPE) };
+        }
+
         exit_code
     }
 }
