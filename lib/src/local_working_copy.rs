@@ -79,6 +79,7 @@ use crate::fsmonitor::watchman;
 use crate::fsmonitor::FsmonitorSettings;
 #[cfg(feature = "watchman")]
 use crate::fsmonitor::WatchmanConfig;
+use crate::gitattributes::GitAttributesFile;
 use crate::gitignore::GitIgnoreFile;
 use crate::lock::FileLock;
 use crate::matchers::DifferenceMatcher;
@@ -950,6 +951,7 @@ impl TreeState {
     ) -> Result<(bool, SnapshotStats), SnapshotError> {
         let &SnapshotOptions {
             ref base_ignores,
+            ref base_attributes,
             ref fsmonitor_settings,
             progress,
             start_tracking_matcher,
@@ -1002,6 +1004,7 @@ impl TreeState {
                 dir: RepoPathBuf::root(),
                 disk_dir: self.working_copy_path.clone(),
                 git_ignore: base_ignores.clone(),
+                git_attributes: base_attributes.clone(),
                 file_states: self.file_states.all(),
             };
             // Here we use scope as a queue of per-directory jobs.
@@ -1115,6 +1118,7 @@ struct DirectoryToVisit<'a> {
     dir: RepoPathBuf,
     disk_dir: PathBuf,
     git_ignore: Arc<GitIgnoreFile>,
+    git_attributes: Option<Arc<GitAttributesFile>>,
     file_states: FileStates<'a>,
 }
 
@@ -1181,11 +1185,20 @@ impl FileSnapshotter<'_> {
             dir,
             disk_dir,
             git_ignore,
+            git_attributes,
             file_states,
         } = directory_to_visit;
 
         let git_ignore = git_ignore
             .chain_with_file(&dir.to_internal_dir_string(), disk_dir.join(".gitignore"))?;
+        let git_attributes = git_attributes
+            .map(|ga| {
+                ga.chain_with_file(
+                    &&dir.to_internal_dir_string(),
+                    disk_dir.join(".gitattributes"),
+                )
+            })
+            .transpose()?;
         let dir_entries: Vec<_> = disk_dir
             .read_dir()
             .and_then(|entries| entries.try_collect())
@@ -1199,8 +1212,15 @@ impl FileSnapshotter<'_> {
             // sequential scan should be fast enough.
             .with_min_len(100)
             .filter_map(|entry| {
-                self.process_dir_entry(&dir, &git_ignore, file_states, &entry, scope)
-                    .transpose()
+                self.process_dir_entry(
+                    &dir,
+                    &git_ignore,
+                    &git_attributes,
+                    file_states,
+                    &entry,
+                    scope,
+                )
+                .transpose()
             })
             .map(|item| match item {
                 Ok((PresentDirEntryKind::Dir, name)) => Ok(Either::Left(name)),
@@ -1209,7 +1229,7 @@ impl FileSnapshotter<'_> {
             })
             .collect::<Result<_, _>>()?;
         let present_entries = PresentDirEntries { dirs, files };
-        self.emit_deleted_files(&dir, file_states, &present_entries);
+        self.emit_deleted_files(&dir, file_states, &present_entries, &git_attributes);
         Ok(())
     }
 
@@ -1217,6 +1237,7 @@ impl FileSnapshotter<'_> {
         &'scope self,
         dir: &RepoPath,
         git_ignore: &Arc<GitIgnoreFile>,
+        git_attributes: &Option<Arc<GitAttributesFile>>,
         file_states: FileStates<'scope>,
         entry: &DirEntry,
         scope: &rayon::Scope<'scope>,
@@ -1253,6 +1274,7 @@ impl FileSnapshotter<'_> {
                     dir: path,
                     disk_dir: entry.path(),
                     git_ignore: git_ignore.clone(),
+                    git_attributes: git_attributes.clone(),
                     file_states,
                 };
                 self.spawn_ok(scope, |scope| {
@@ -1261,52 +1283,64 @@ impl FileSnapshotter<'_> {
             }
             // Whether or not the directory path matches, any child file entries
             // shouldn't be touched within the current recursion step.
-            Ok(Some((PresentDirEntryKind::Dir, name_string)))
-        } else if self.matcher.matches(&path) {
-            if let Some(progress) = self.progress {
-                progress(&path);
-            }
-            if maybe_current_file_state.is_none()
-                && git_ignore.matches(path.as_internal_file_string())
-            {
-                // If it wasn't already tracked and it matches
-                // the ignored paths, then ignore it.
-                Ok(None)
-            } else if maybe_current_file_state.is_none()
-                && !self.start_tracking_matcher.matches(&path)
-            {
+            return Ok(Some((PresentDirEntryKind::Dir, name_string)));
+        }
+
+        if !self.matcher.matches(&path) {
+            return Ok(None);
+        }
+
+        if let Some(progress) = self.progress {
+            progress(&path);
+        }
+
+        let metadata = entry.metadata().map_err(|err| SnapshotError::Other {
+            message: format!("Failed to stat file {}", entry.path().display()),
+            err: err.into(),
+        })?;
+
+        if maybe_current_file_state.is_none() {
+            if git_ignore.matches(path.as_internal_file_string()) {
+                // If it wasn't already tracked and it matches the ignored paths then ignore it.
+                return Ok(None);
+            } else if !self.start_tracking_matcher.matches(&path) {
                 // Leave the file untracked
                 self.untracked_paths_tx
                     .send((path, UntrackedReason::FileNotAutoTracked))
                     .ok();
-                Ok(None)
-            } else {
-                let metadata = entry.metadata().map_err(|err| SnapshotError::Other {
-                    message: format!("Failed to stat file {}", entry.path().display()),
-                    err: err.into(),
-                })?;
-                if maybe_current_file_state.is_none() && metadata.len() > self.max_new_file_size {
-                    // Leave the large file untracked
-                    let reason = UntrackedReason::FileTooLarge {
-                        size: metadata.len(),
-                        max_size: self.max_new_file_size,
-                    };
-                    self.untracked_paths_tx.send((path, reason)).ok();
-                    Ok(None)
-                } else if let Some(new_file_state) = file_state(&metadata) {
-                    self.process_present_file(
-                        path,
-                        &entry.path(),
-                        maybe_current_file_state.as_ref(),
-                        new_file_state,
-                    )?;
-                    Ok(Some((PresentDirEntryKind::File, name_string)))
-                } else {
-                    // Special file is not considered present
-                    Ok(None)
-                }
+                return Ok(None);
+            } else if metadata.len() > self.max_new_file_size {
+                // Leave the large file untracked
+                let reason = UntrackedReason::FileTooLarge {
+                    size: metadata.len(),
+                    max_size: self.max_new_file_size,
+                };
+                self.untracked_paths_tx.send((path, reason)).ok();
+                return Ok(None);
             }
+        }
+
+        // We want to ignore these regardless of whether or not they're new files
+        if git_attributes
+            .as_ref()
+            .map(|ga| ga.matches(path.as_internal_file_string()))
+            .unwrap_or(false)
+        {
+            // git_attributes only exists if we want to ignore LFS files, so if it matches,
+            // then ignore it.
+            return Ok(None);
+        }
+
+        if let Some(new_file_state) = file_state(&metadata) {
+            self.process_present_file(
+                path,
+                &entry.path(),
+                maybe_current_file_state.as_ref(),
+                new_file_state,
+            )?;
+            Ok(Some((PresentDirEntryKind::File, name_string)))
         } else {
+            // Special file is not considered present
             Ok(None)
         }
     }
@@ -1380,6 +1414,7 @@ impl FileSnapshotter<'_> {
         dir: &RepoPath,
         file_states: FileStates<'_>,
         present_entries: &PresentDirEntries,
+        git_attributes: &Option<Arc<GitAttributesFile>>,
     ) {
         let file_state_chunks = file_states.iter().chunk_by(|(path, _state)| {
             // Extract <name> from <dir>, <dir>/<name>, or <dir>/<name>/**.
@@ -1402,6 +1437,13 @@ impl FileSnapshotter<'_> {
             .flat_map(|(_, chunk)| chunk)
             // Whether or not the entry exists, submodule should be ignored
             .filter(|(_, state)| state.file_type != FileType::GitSubmodule)
+            // Ignore LFS entries
+            .filter(|(path, _)| {
+                !git_attributes
+                    .as_ref()
+                    .map(|ga| ga.matches(path.as_internal_file_string()))
+                    .unwrap_or(false)
+            })
             .filter(|(path, _)| self.matcher.matches(path))
             .try_for_each(|(path, _)| self.deleted_files_tx.send(path.to_owned()))
             .ok();

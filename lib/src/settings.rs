@@ -66,6 +66,7 @@ pub struct GitSettings {
     #[cfg(feature = "git2")]
     pub subprocess: bool,
     pub executable_path: PathBuf,
+    pub ignore_lfs_files: bool,
 }
 
 impl GitSettings {
@@ -76,6 +77,10 @@ impl GitSettings {
             #[cfg(feature = "git2")]
             subprocess: settings.get_bool("git.subprocess")?,
             executable_path: settings.get("git.executable-path")?,
+            ignore_lfs_files: settings
+                .get_bool("git.ignore-lfs-files")
+                .optional()?
+                .unwrap_or_default(),
         })
     }
 }
@@ -88,6 +93,7 @@ impl Default for GitSettings {
             #[cfg(feature = "git2")]
             subprocess: true,
             executable_path: PathBuf::from("git"),
+            ignore_lfs_files: false,
         }
     }
 }
