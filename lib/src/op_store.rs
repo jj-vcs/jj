@@ -37,6 +37,7 @@ use crate::object_id::id_type;
 use crate::object_id::HexPrefix;
 use crate::object_id::ObjectId as _;
 use crate::object_id::PrefixResolution;
+use crate::ref_name::RemoteRefSymbol;
 
 #[derive(ContentHash, PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
 pub struct WorkspaceId(String);
@@ -337,20 +338,17 @@ pub(crate) fn merge_join_bookmark_views<'a>(
 
     iter::from_fn(move || {
         // Pick earlier bookmark name
-        let (bookmark_name, local_target) = if let Some(&((remote_bookmark_name, _), _)) =
-            remote_bookmarks_iter.peek()
+        let (bookmark_name, local_target) = if let Some((symbol, _)) = remote_bookmarks_iter.peek()
         {
             local_bookmarks_iter
-                .next_if(|&(local_bookmark_name, _)| local_bookmark_name <= remote_bookmark_name)
-                .unwrap_or((remote_bookmark_name, RefTarget::absent_ref()))
+                .next_if(|&(local_bookmark_name, _)| local_bookmark_name <= symbol.name)
+                .unwrap_or((symbol.name, RefTarget::absent_ref()))
         } else {
             local_bookmarks_iter.next()?
         };
         let remote_refs = remote_bookmarks_iter
-            .peeking_take_while(|&((remote_bookmark_name, _), _)| {
-                remote_bookmark_name == bookmark_name
-            })
-            .map(|((_, remote_name), remote_ref)| (remote_name, remote_ref))
+            .peeking_take_while(|(symbol, _)| symbol.name == bookmark_name)
+            .map(|(symbol, remote_ref)| (symbol.remote, remote_ref))
             .collect();
         let bookmark_target = BookmarkTarget {
             local_target,
@@ -360,23 +358,19 @@ pub(crate) fn merge_join_bookmark_views<'a>(
     })
 }
 
-/// Iterates bookmark `((name, remote_name), remote_ref)`s in lexicographical
-/// order.
+/// Iterates bookmark `(symbol, remote_ref)`s in lexicographical order.
 pub(crate) fn flatten_remote_bookmarks(
     remote_views: &BTreeMap<String, RemoteView>,
-) -> impl Iterator<Item = ((&str, &str), &RemoteRef)> {
+) -> impl Iterator<Item = (RemoteRefSymbol<'_>, &RemoteRef)> {
     remote_views
         .iter()
-        .map(|(remote_name, remote_view)| {
-            remote_view
-                .bookmarks
-                .iter()
-                .map(move |(bookmark_name, remote_ref)| {
-                    let full_name = (bookmark_name.as_str(), remote_name.as_str());
-                    (full_name, remote_ref)
-                })
+        .map(|(remote, remote_view)| {
+            remote_view.bookmarks.iter().map(move |(name, remote_ref)| {
+                let symbol = RemoteRefSymbol { name, remote };
+                (symbol, remote_ref)
+            })
         })
-        .kmerge_by(|(full_name1, _), (full_name2, _)| full_name1 < full_name2)
+        .kmerge_by(|(symbol1, _), (symbol2, _)| symbol1 < symbol2)
 }
 
 /// Represents an operation (transaction) on the repo view, just like how a

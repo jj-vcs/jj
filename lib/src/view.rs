@@ -175,7 +175,6 @@ impl View {
     /// lexicographical order.
     pub fn all_remote_bookmarks(&self) -> impl Iterator<Item = (RemoteRefSymbol<'_>, &RemoteRef)> {
         op_store::flatten_remote_bookmarks(&self.data.remote_views)
-            .map(|((name, remote), remote_ref)| (RemoteRefSymbol { name, remote }, remote_ref))
     }
 
     /// Iterates over `(name, remote_ref)`s for all remote bookmarks of the
