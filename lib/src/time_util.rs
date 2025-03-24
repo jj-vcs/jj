@@ -18,9 +18,9 @@ use chrono::DateTime;
 use chrono::FixedOffset;
 use chrono::Local;
 use chrono::TimeZone;
-use chrono_english::parse_date_string;
-use chrono_english::DateError;
-use chrono_english::Dialect;
+use interim::parse_date_string;
+use interim::DateError;
+use interim::Dialect;
 use thiserror::Error;
 
 use crate::backend::MillisSinceEpoch;

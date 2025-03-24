@@ -210,7 +210,7 @@ fn test_log_author_timestamp_after_before() {
       |                          ^------------^
       |
       = Invalid date pattern
-    2: expected week day or month name
+    2: expected unsupported identifier as position 0..7
     [EOF]
     [exit status: 1]
     "#);
