@@ -266,6 +266,7 @@ pub struct Style {
     pub bold: Option<bool>,
     pub italic: Option<bool>,
     pub underline: Option<bool>,
+    pub reverse: Option<bool>,
 }
 
 impl Style {
@@ -275,6 +276,7 @@ impl Style {
         self.bold = other.bold.or(self.bold);
         self.italic = other.italic.or(self.italic);
         self.underline = other.underline.or(self.underline);
+        self.reverse = other.reverse.or(self.reverse);
     }
 }
 
@@ -396,6 +398,13 @@ impl<W: Write> ColorFormatter<W> {
                     queue!(self.output, SetAttribute(Attribute::NoUnderline))?;
                 }
             }
+            if new_style.reverse != self.current_style.reverse {
+                if new_style.reverse.unwrap_or_default() {
+                    queue!(self.output, SetAttribute(Attribute::Reverse))?;
+                } else {
+                    queue!(self.output, SetAttribute(Attribute::NoReverse))?;
+                }
+            }
             if new_style.fg != self.current_style.fg {
                 queue!(
                     self.output,
@@ -436,6 +445,7 @@ fn rules_from_config(config: &StackedConfig) -> Result<Rules, ConfigGetError> {
                         bold: None,
                         italic: None,
                         underline: None,
+                        reverse: None,
                     })
                 } else if value.is_inline_table() {
                     Style::deserialize(value.into_deserializer())
@@ -884,7 +894,8 @@ mod tests {
         colors.bold_font = { bold = true }
         colors.italic_text = { italic = true }
         colors.underlined_text = { underline = true }
-        colors.multiple = { fg = "green", bg = "yellow", bold = true, italic = true, underline = true }
+        colors.reversed_colors = { reverse = true }
+        colors.multiple = { fg = "green", bg = "yellow", bold = true, italic = true, underline = true, reverse = true }
         "#,
         );
         let mut output: Vec<u8> = vec![];
@@ -909,6 +920,10 @@ mod tests {
         write!(formatter, " underlined only ").unwrap();
         formatter.pop_label().unwrap();
         writeln!(formatter).unwrap();
+        formatter.push_label("reversed_colors").unwrap();
+        write!(formatter, " reverse only ").unwrap();
+        formatter.pop_label().unwrap();
+        writeln!(formatter).unwrap();
         formatter.push_label("multiple").unwrap();
         write!(formatter, " single rule ").unwrap();
         formatter.pop_label().unwrap();
@@ -926,7 +941,8 @@ mod tests {
         [1m bold only [0m
         [3m italic only [23m
         [4m underlined only [24m
-        [1m[3m[4m[38;5;2m[48;5;3m single rule [0m
+        [7m reverse only [27m
+        [1m[3m[4m[7m[38;5;2m[48;5;3m single rule [0m
         [38;5;1m[48;5;4m two rules [39m[49m
         [EOF]
         ");

@@ -85,6 +85,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   now show up in `git diff` (as if you had run `git add --intent-to-add` on
   them).
 
+* Reversing colors is now supported. For example, to highlight words by
+  reversing colors rather than underlining, you can set
+  `colors."diff token"={ underline = false, reverse = true }` in your config.
+
 ### Fixed bugs
 
 * `jj log -p --stat` now shows diff stats as well as the default color-words/git
