@@ -1591,6 +1591,10 @@ pub fn is_special_git_remote(remote: &RemoteName) -> bool {
     remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO
 }
 
+fn default_fetch_refspec(remote: &str) -> String {
+    format!("+refs/heads/*:refs/remotes/{remote}/*")
+}
+
 fn add_ref(
     name: gix::refs::FullName,
     target: gix::refs::Target,
@@ -1768,7 +1772,7 @@ pub fn add_remote(
         .remote_at(url)
         .map_err(GitRemoteManagementError::from_git)?
         .with_refspecs(
-            [format!("+refs/heads/*:refs/remotes/{remote_name}/*").as_bytes()],
+            [default_fetch_refspec(remote_name).as_bytes()],
             gix::remote::Direction::Fetch,
         )
         .expect("default refspec to be valid");
@@ -1865,7 +1869,7 @@ pub fn rename_remote(
     ) {
         ([refspec], [])
             if refspec.to_ref().to_bstring()
-                == format!("+refs/heads/*:refs/remotes/{old_remote_name}/*").as_bytes() => {}
+                == default_fetch_refspec(old_remote_name).as_bytes() => {}
         _ => {
             return Err(GitRemoteManagementError::NonstandardConfiguration(
                 old_remote_name.to_owned(),
@@ -1875,7 +1879,7 @@ pub fn rename_remote(
 
     remote
         .replace_refspecs(
-            [format!("+refs/heads/*:refs/remotes/{new_remote_name}/*").as_bytes()],
+            [default_fetch_refspec(new_remote_name).as_bytes()],
             gix::remote::Direction::Fetch,
         )
         .expect("default refspec to be valid");
