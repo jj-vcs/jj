@@ -14,6 +14,7 @@
 
 use clap_complete::ArgValueCandidates;
 use jj_lib::git;
+use jj_lib::ref_name::RemoteNameBuf;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
@@ -25,7 +26,7 @@ use crate::ui::Ui;
 pub struct GitRemoteRemoveArgs {
     /// The remote's name
     #[arg(add = ArgValueCandidates::new(complete::git_remotes))]
-    remote: String,
+    remote: RemoteNameBuf,
 }
 
 pub fn cmd_git_remote_remove(
@@ -37,7 +38,7 @@ pub fn cmd_git_remote_remove(
     let mut tx = workspace_command.start_transaction();
     git::remove_remote(tx.repo_mut(), &args.remote)?;
     if tx.repo().has_changes() {
-        tx.finish(ui, format!("remove git remote {}", &args.remote))
+        tx.finish(ui, format!("remove git remote {}", args.remote.as_symbol()))
     } else {
         Ok(()) // Do not print "Nothing changed."
     }

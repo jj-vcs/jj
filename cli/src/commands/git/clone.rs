@@ -191,11 +191,7 @@ fn configure_remote(
     remote_name: &RemoteName,
     source: &str,
 ) -> Result<WorkspaceCommandHelper, CommandError> {
-    git::add_remote(
-        workspace_command.repo().store(),
-        remote_name.as_str(),
-        source,
-    )?;
+    git::add_remote(workspace_command.repo().store(), remote_name, source)?;
     // Reload workspace to apply new remote configuration to
     // gix::ThreadSafeRepository behind the store.
     let workspace = command.load_workspace_at(

@@ -14,6 +14,7 @@
 
 use clap_complete::ArgValueCandidates;
 use jj_lib::git;
+use jj_lib::ref_name::RemoteNameBuf;
 use jj_lib::repo::Repo as _;
 
 use crate::cli_util::CommandHelper;
@@ -27,7 +28,7 @@ use crate::ui::Ui;
 pub struct GitRemoteSetUrlArgs {
     /// The remote's name
     #[arg(add = ArgValueCandidates::new(complete::git_remotes))]
-    remote: String,
+    remote: RemoteNameBuf,
     /// The desired URL or path for `remote`
     ///
     /// Local path will be resolved to absolute form.

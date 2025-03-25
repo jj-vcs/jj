@@ -14,6 +14,7 @@
 
 use clap_complete::ArgValueCandidates;
 use jj_lib::git;
+use jj_lib::ref_name::RemoteNameBuf;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
@@ -25,9 +26,9 @@ use crate::ui::Ui;
 pub struct GitRemoteRenameArgs {
     /// The name of an existing remote
     #[arg(add = ArgValueCandidates::new(complete::git_remotes))]
-    old: String,
+    old: RemoteNameBuf,
     /// The desired name for `old`
-    new: String,
+    new: RemoteNameBuf,
 }
 
 pub fn cmd_git_remote_rename(
@@ -41,7 +42,11 @@ pub fn cmd_git_remote_rename(
     if tx.repo().has_changes() {
         tx.finish(
             ui,
-            format!("rename git remote {} to {}", &args.old, &args.new),
+            format!(
+                "rename git remote {old} to {new}",
+                old = args.old.as_symbol(),
+                new = args.new.as_symbol()
+            ),
         )
     } else {
         Ok(()) // Do not print "Nothing changed."

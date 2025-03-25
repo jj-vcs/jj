@@ -4232,7 +4232,7 @@ fn test_remote_remove_refs() {
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_repo.repo;
 
-    git::add_remote(repo.store(), "foo", "https://example.com/").unwrap();
+    git::add_remote(repo.store(), "foo".as_ref(), "https://example.com/").unwrap();
     // Reload after Git configuration change.
     let repo = &test_repo
         .env
@@ -4244,7 +4244,7 @@ fn test_remote_remove_refs() {
     let commit_foobar_a = empty_git_commit(&git_repo, "refs/remotes/foobar/a", &[]);
 
     let mut tx = repo.start_transaction();
-    git::remove_remote(tx.repo_mut(), "foo").unwrap();
+    git::remove_remote(tx.repo_mut(), "foo".as_ref()).unwrap();
     let repo = &tx.commit("remove").unwrap();
 
     let git_repo = get_git_repo(repo);
@@ -4270,7 +4270,7 @@ fn test_remote_rename_refs() {
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_repo.repo;
 
-    git::add_remote(repo.store(), "foo", "https://example.com/").unwrap();
+    git::add_remote(repo.store(), "foo".as_ref(), "https://example.com/").unwrap();
     // Reload after Git configuration change.
     let repo = &test_repo
         .env
@@ -4282,7 +4282,7 @@ fn test_remote_rename_refs() {
     let commit_foobar_a = empty_git_commit(&git_repo, "refs/remotes/foobar/a", &[]);
 
     let mut tx = repo.start_transaction();
-    git::rename_remote(tx.repo_mut(), "foo", "bar").unwrap();
+    git::rename_remote(tx.repo_mut(), "foo".as_ref(), "bar".as_ref()).unwrap();
     let repo = &tx.commit("rename").unwrap();
 
     let git_repo = get_git_repo(repo);

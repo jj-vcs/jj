@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use jj_lib::git;
+use jj_lib::ref_name::RemoteNameBuf;
 use jj_lib::repo::Repo as _;
 
 use crate::cli_util::CommandHelper;
@@ -24,7 +25,7 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 pub struct GitRemoteAddArgs {
     /// The remote's name
-    remote: String,
+    remote: RemoteNameBuf,
     /// The remote's URL or path
     ///
     /// Local path will be resolved to absolute form.

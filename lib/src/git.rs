@@ -87,14 +87,14 @@ pub enum GitRemoteNameError {
         name = REMOTE_NAME_FOR_LOCAL_GIT_REPO.as_symbol()
     )]
     ReservedForLocalGitRepo,
-    #[error("Git remotes with slashes are incompatible with jj: {0}")]
-    WithSlash(String),
+    #[error("Git remotes with slashes are incompatible with jj: {}", .0.as_symbol())]
+    WithSlash(RemoteNameBuf),
 }
 
-fn validate_remote_name(name: &str) -> Result<(), GitRemoteNameError> {
+fn validate_remote_name(name: &RemoteName) -> Result<(), GitRemoteNameError> {
     if name == REMOTE_NAME_FOR_LOCAL_GIT_REPO {
         Err(GitRemoteNameError::ReservedForLocalGitRepo)
-    } else if name.contains("/") {
+    } else if name.as_str().contains("/") {
         Err(GitRemoteNameError::WithSlash(name.to_owned()))
     } else {
         Ok(())
@@ -1550,14 +1550,14 @@ async fn update_intent_to_add_impl(
 
 #[derive(Debug, Error)]
 pub enum GitRemoteManagementError {
-    #[error("No git remote named '{0}'")]
-    NoSuchRemote(String),
-    #[error("Git remote named '{0}' already exists")]
-    RemoteAlreadyExists(String),
+    #[error("No git remote named '{}'", .0.as_symbol())]
+    NoSuchRemote(RemoteNameBuf),
+    #[error("Git remote named '{}' already exists", .0.as_symbol())]
+    RemoteAlreadyExists(RemoteNameBuf),
     #[error(transparent)]
     RemoteName(#[from] GitRemoteNameError),
-    #[error("Git remote named '{0}' has nonstandard configuration")]
-    NonstandardConfiguration(String),
+    #[error("Git remote named '{}' has nonstandard configuration", .0.as_symbol())]
+    NonstandardConfiguration(RemoteNameBuf),
     #[error("Error saving Git configuration")]
     GitConfigSaveError(#[source] std::io::Error),
     #[error("Unexpected Git error when managing remotes")]
@@ -1591,8 +1591,11 @@ pub fn is_special_git_remote(remote: &RemoteName) -> bool {
     remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO
 }
 
-fn default_fetch_refspec(remote: &str) -> String {
-    format!("+refs/heads/*:refs/remotes/{remote}/*")
+fn default_fetch_refspec(remote: &RemoteName) -> String {
+    format!(
+        "+refs/heads/*:refs/remotes/{remote}/*",
+        remote = remote.as_str()
+    )
 }
 
 fn add_ref(
@@ -1646,7 +1649,7 @@ fn save_git_config(config: &gix::config::File) -> std::io::Result<()> {
 
 fn git_config_branch_section_ids_by_remote(
     config: &gix::config::File,
-    remote_name: &str,
+    remote_name: &RemoteName,
 ) -> Result<Vec<gix::config::file::SectionId>, GitRemoteManagementError> {
     config
         .sections_by_name("branch")
@@ -1658,7 +1661,7 @@ fn git_config_branch_section_ids_by_remote(
             if !remote_values
                 .iter()
                 .chain(push_remote_values.iter())
-                .any(|branch_remote_name| **branch_remote_name == remote_name.as_bytes())
+                .any(|branch_remote_name| **branch_remote_name == remote_name.as_str())
             {
                 return None;
             }
@@ -1679,8 +1682,8 @@ fn git_config_branch_section_ids_by_remote(
 
 fn rename_remote_in_git_branch_config_sections(
     config: &mut gix::config::File,
-    old_remote_name: &str,
-    new_remote_name: &str,
+    old_remote_name: &RemoteName,
+    new_remote_name: &RemoteName,
 ) -> Result<(), GitRemoteManagementError> {
     for id in git_config_branch_section_ids_by_remote(config, old_remote_name)? {
         config
@@ -1690,7 +1693,7 @@ fn rename_remote_in_git_branch_config_sections(
                 "remote"
                     .try_into()
                     .expect("'remote' to be a valid value name"),
-                BStr::new(new_remote_name),
+                BStr::new(new_remote_name.as_str()),
             );
     }
     Ok(())
@@ -1698,7 +1701,7 @@ fn rename_remote_in_git_branch_config_sections(
 
 fn remove_remote_git_branch_config_sections(
     config: &mut gix::config::File,
-    remote_name: &str,
+    remote_name: &RemoteName,
 ) -> Result<(), GitRemoteManagementError> {
     for id in git_config_branch_section_ids_by_remote(config, remote_name)? {
         config
@@ -1710,13 +1713,15 @@ fn remove_remote_git_branch_config_sections(
 
 fn remove_remote_git_config_sections(
     config: &mut gix::config::File,
-    remote_name: &str,
+    remote_name: &RemoteName,
 ) -> Result<(), GitRemoteManagementError> {
     let section_ids_to_remove: Vec<_> = config
         .sections_by_name("remote")
         .into_iter()
         .flatten()
-        .filter(|section| section.header().subsection_name() == Some(BStr::new(remote_name)))
+        .filter(|section| {
+            section.header().subsection_name() == Some(BStr::new(remote_name.as_str()))
+        })
         .map(|section| {
             if section.value_names().any(|name| {
                 !name.eq_ignore_ascii_case(b"url") && !name.eq_ignore_ascii_case(b"fetch")
@@ -1755,14 +1760,14 @@ pub fn get_all_remote_names(
 
 pub fn add_remote(
     store: &Store,
-    remote_name: &str, // TODO: &RemoteName
+    remote_name: &RemoteName,
     url: &str,
 ) -> Result<(), GitRemoteManagementError> {
     let git_repo = get_git_repo(store)?;
 
     validate_remote_name(remote_name)?;
 
-    if git_repo.try_find_remote(remote_name).is_some() {
+    if git_repo.try_find_remote(remote_name.as_str()).is_some() {
         return Err(GitRemoteManagementError::RemoteAlreadyExists(
             remote_name.to_owned(),
         ));
@@ -1779,7 +1784,7 @@ pub fn add_remote(
 
     let mut config = git_repo.config_snapshot().clone();
     remote
-        .save_as_to(remote_name, &mut config)
+        .save_as_to(remote_name.as_str(), &mut config)
         .map_err(GitRemoteManagementError::from_git)?;
     save_git_config(&config).map_err(GitRemoteManagementError::GitConfigSaveError)?;
 
@@ -1788,11 +1793,11 @@ pub fn add_remote(
 
 pub fn remove_remote(
     mut_repo: &mut MutableRepo,
-    remote_name: &str, // TODO: &RemoteName
+    remote_name: &RemoteName,
 ) -> Result<(), GitRemoteManagementError> {
     let mut git_repo = get_git_repo(mut_repo.store())?;
 
-    if git_repo.try_find_remote(remote_name).is_none() {
+    if git_repo.try_find_remote(remote_name.as_str()).is_none() {
         return Err(GitRemoteManagementError::NoSuchRemote(
             remote_name.to_owned(),
         ));
@@ -1815,20 +1820,20 @@ pub fn remove_remote(
 
 fn remove_remote_git_refs(
     git_repo: &mut gix::Repository,
-    remote_name: &str,
+    remote: &RemoteName,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
     let edits: Vec<_> = git_repo
         .references()?
-        .prefixed(format!("refs/remotes/{remote_name}/"))?
+        .prefixed(format!("refs/remotes/{remote}/", remote = remote.as_str()))?
         .map_ok(remove_ref)
         .try_collect()?;
     git_repo.edit_references(edits)?;
     Ok(())
 }
 
-fn remove_remote_refs(mut_repo: &mut MutableRepo, remote_name: &str) {
-    mut_repo.remove_remote(remote_name.as_ref());
-    let prefix = format!("refs/remotes/{remote_name}/");
+fn remove_remote_refs(mut_repo: &mut MutableRepo, remote: &RemoteName) {
+    mut_repo.remove_remote(remote);
+    let prefix = format!("refs/remotes/{remote}/", remote = remote.as_str());
     let git_refs_to_delete = mut_repo
         .view()
         .git_refs()
@@ -1843,21 +1848,21 @@ fn remove_remote_refs(mut_repo: &mut MutableRepo, remote_name: &str) {
 
 pub fn rename_remote(
     mut_repo: &mut MutableRepo,
-    old_remote_name: &str, // TODO: &RemoteName
-    new_remote_name: &str, // TODO: &RemoteName
+    old_remote_name: &RemoteName,
+    new_remote_name: &RemoteName,
 ) -> Result<(), GitRemoteManagementError> {
     let mut git_repo = get_git_repo(mut_repo.store())?;
 
     validate_remote_name(new_remote_name)?;
 
-    let Some(result) = git_repo.try_find_remote(old_remote_name) else {
+    let Some(result) = git_repo.try_find_remote(old_remote_name.as_str()) else {
         return Err(GitRemoteManagementError::NoSuchRemote(
             old_remote_name.to_owned(),
         ));
     };
     let mut remote = result.map_err(GitRemoteManagementError::from_git)?;
 
-    if git_repo.try_find_remote(new_remote_name).is_some() {
+    if git_repo.try_find_remote(new_remote_name.as_str()).is_some() {
         return Err(GitRemoteManagementError::RemoteAlreadyExists(
             new_remote_name.to_owned(),
         ));
@@ -1886,7 +1891,7 @@ pub fn rename_remote(
 
     let mut config = git_repo.config_snapshot().clone();
     remote
-        .save_as_to(new_remote_name, &mut config)
+        .save_as_to(new_remote_name.as_str(), &mut config)
         .map_err(GitRemoteManagementError::from_git)?;
     rename_remote_in_git_branch_config_sections(&mut config, old_remote_name, new_remote_name)?;
     remove_remote_git_config_sections(&mut config, old_remote_name)?;
@@ -1904,13 +1909,15 @@ pub fn rename_remote(
 
 fn rename_remote_git_refs(
     git_repo: &mut gix::Repository,
-    old_remote_name: &str,
-    new_remote_name: &str,
+    old_remote_name: &RemoteName,
+    new_remote_name: &RemoteName,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
-    let old_prefix = format!("refs/remotes/{old_remote_name}/");
-    let new_prefix = format!("refs/remotes/{new_remote_name}/");
+    let old_prefix = format!("refs/remotes/{}/", old_remote_name.as_str());
+    let new_prefix = format!("refs/remotes/{}/", new_remote_name.as_str());
     let ref_log_message = BString::from(format!(
-        "renamed remote {old_remote_name} to {new_remote_name}"
+        "renamed remote {old_remote_name} to {new_remote_name}",
+        old_remote_name = old_remote_name.as_symbol(),
+        new_remote_name = new_remote_name.as_symbol(),
     ));
 
     let edits: Vec<_> = git_repo
@@ -1975,14 +1982,14 @@ where
 
 pub fn set_remote_url(
     store: &Store,
-    remote_name: &str, // TODO: &RemoteName
+    remote_name: &RemoteName,
     new_remote_url: &str,
 ) -> Result<(), GitRemoteManagementError> {
     let git_repo = get_git_repo(store)?;
 
     validate_remote_name(remote_name)?;
 
-    let Some(result) = git_repo.try_find_remote_without_url_rewrite(remote_name) else {
+    let Some(result) = git_repo.try_find_remote_without_url_rewrite(remote_name.as_str()) else {
         return Err(GitRemoteManagementError::NoSuchRemote(
             remote_name.to_owned(),
         ));
@@ -2000,27 +2007,28 @@ pub fn set_remote_url(
 
     let mut config = git_repo.config_snapshot().clone();
     remote
-        .save_as_to(remote_name, &mut config)
+        .save_as_to(remote_name.as_str(), &mut config)
         .map_err(GitRemoteManagementError::from_git)?;
     save_git_config(&config).map_err(GitRemoteManagementError::GitConfigSaveError)?;
 
     Ok(())
 }
 
-fn rename_remote_refs(mut_repo: &mut MutableRepo, old_remote_name: &str, new_remote_name: &str) {
+fn rename_remote_refs(
+    mut_repo: &mut MutableRepo,
+    old_remote_name: &RemoteName,
+    new_remote_name: &RemoteName,
+) {
     mut_repo.rename_remote(old_remote_name.as_ref(), new_remote_name.as_ref());
-    let prefix = format!("refs/remotes/{old_remote_name}/");
+    let prefix = format!("refs/remotes/{}/", old_remote_name.as_str());
     let git_refs = mut_repo
         .view()
         .git_refs()
         .iter()
-        .filter_map(|(r, target)| {
-            r.strip_prefix(&prefix).map(|p| {
-                (
-                    r.clone(),
-                    format!("refs/remotes/{new_remote_name}/{p}"),
-                    target.clone(),
-                )
+        .filter_map(|(old, target)| {
+            old.strip_prefix(&prefix).map(|p| {
+                let new = format!("refs/remotes/{}/{p}", new_remote_name.as_str());
+                (old.clone(), new, target.clone())
             })
         })
         .collect_vec();
@@ -2126,7 +2134,7 @@ impl<'a> GitFetch<'a> {
         callbacks: RemoteCallbacks<'_>,
         depth: Option<NonZeroU32>,
     ) -> Result<(), GitFetchError> {
-        validate_remote_name(remote_name.as_str())?;
+        validate_remote_name(remote_name)?;
         self.fetch_impl
             .fetch(remote_name, branch_names, callbacks, depth)?;
         self.fetched.push(FetchedBranches {
@@ -2455,7 +2463,7 @@ pub fn push_branches(
     targets: &GitBranchPushTargets,
     callbacks: RemoteCallbacks<'_>,
 ) -> Result<GitPushStats, GitPushError> {
-    validate_remote_name(remote.as_str())?;
+    validate_remote_name(remote)?;
 
     let ref_updates = targets
         .branch_updates
