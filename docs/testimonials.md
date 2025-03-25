@@ -73,6 +73,32 @@ Jujutsu exists)
 
 &mdash; gul banana, computer programmer
 
+> haha, I have corrupted my cofounder and now 100% of brontosource dev is on JJ.
+> (yes, 100% is two of us)
+
+&mdash; kfm, (what to write here)
+
+> jj is genuinely the first tool since Rust that has me excited.
+
+&mdash; David Barsky, rust-analyzer and `tokio-rs/tracing` developer
+
+> Today I did some complex surgery on a legacy repo that has been committed to
+> for years by a number of individuals with varying hygienic habits. [..]
+>
+> Now, this still took me about two hours using jj. But at no point did I
+> seriously consider physical violence to humans or inanimate objects.
+> Everything progressed calmly and methodically. I was able to introspect
+> changes before I made them, and when I did screw up… `jj undo` to the
+> rescue.
+
+&mdash; An unknown scientist, who couldn't have done it with Git.
+
+> jj was my first exposure to revsets and at first I was
+> "why would I ever need that", but now after exercising that math part of my
+> brain that's been stale since high school, they're indispensable
+
+&mdash; Marijan Smetko, who previously only knew Git.
+
 ## What the developers have to say
 
 > I've been a FOSS contributor using Git for over 16 years, and Jujutsu
