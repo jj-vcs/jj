@@ -226,7 +226,7 @@ impl<'a> GitSubprocessContext<'a> {
     ///     2. refs that succeeded to push
     pub(crate) fn spawn_push(
         &self,
-        remote_name: &str,
+        remote_name: &RemoteName,
         references: &[RefToPush],
         callbacks: &mut RemoteCallbacks<'_>,
     ) -> Result<GitPushStats, GitSubprocessError> {
@@ -246,7 +246,7 @@ impl<'a> GitSubprocessContext<'a> {
                 .iter()
                 .map(|reference| format!("--force-with-lease={}", reference.to_git_lease())),
         );
-        command.args(["--", remote_name]);
+        command.args(["--", remote_name.as_str()]);
         // with --force-with-lease we cannot have the forced refspec,
         // as it ignores the lease
         command.args(

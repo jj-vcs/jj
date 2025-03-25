@@ -2413,8 +2413,8 @@ fn subprocess_get_default_branch(
 
 #[derive(Error, Debug)]
 pub enum GitPushError {
-    #[error("No git remote named '{0}'")]
-    NoSuchRemote(String),
+    #[error("No git remote named '{}'", .0.as_symbol())]
+    NoSuchRemote(RemoteNameBuf),
     #[error(transparent)]
     RemoteName(#[from] GitRemoteNameError),
     // TODO: I'm sure there are other errors possible, such as transport-level errors,
@@ -2526,7 +2526,7 @@ pub fn push_updates(
         return git2_push_refs(
             repo,
             &git_repo,
-            remote_name.as_str(),
+            remote_name,
             &qualified_remote_refs_expected_locations,
             &refspecs,
             callbacks,
@@ -2538,7 +2538,7 @@ pub fn push_updates(
     subprocess_push_refs(
         &git_repo,
         &git_ctx,
-        remote_name.as_str(),
+        remote_name,
         &qualified_remote_refs_expected_locations,
         &refspecs,
         callbacks,
@@ -2549,14 +2549,14 @@ pub fn push_updates(
 fn git2_push_refs(
     repo: &dyn Repo,
     git_repo: &git2::Repository,
-    remote_name: &str, // TODO: &RemoteName
+    remote_name: &RemoteName,
     qualified_remote_refs_expected_locations: &HashMap<&str, Option<&CommitId>>,
     refspecs: &[String],
     callbacks: RemoteCallbacks<'_>,
 ) -> Result<GitPushStats, GitPushError> {
-    let mut remote = git_repo.find_remote(remote_name).map_err(|err| {
+    let mut remote = git_repo.find_remote(remote_name.as_str()).map_err(|err| {
         if is_remote_not_found_err(&err) {
-            GitPushError::NoSuchRemote(remote_name.to_string())
+            GitPushError::NoSuchRemote(remote_name.to_owned())
         } else {
             GitPushError::InternalGitError(err)
         }
@@ -2691,13 +2691,13 @@ fn git2_push_refs(
 fn subprocess_push_refs(
     git_repo: &gix::Repository,
     git_ctx: &GitSubprocessContext,
-    remote_name: &str, // TODO: &RemoteName
+    remote_name: &RemoteName,
     qualified_remote_refs_expected_locations: &HashMap<&str, Option<&CommitId>>,
     refspecs: &[RefSpec],
     mut callbacks: RemoteCallbacks<'_>,
 ) -> Result<GitPushStats, GitPushError> {
     // check the remote exists
-    if git_repo.try_find_remote(remote_name).is_none() {
+    if git_repo.try_find_remote(remote_name.as_str()).is_none() {
         return Err(GitPushError::NoSuchRemote(remote_name.to_owned()));
     }
 
