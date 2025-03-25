@@ -124,6 +124,7 @@ fn test_sparse_checkout() {
         repo.store().clone(),
         ws.workspace_root().to_path_buf(),
         wc.state_path().to_path_buf(),
+        CheckoutOptions::empty_for_test(),
     );
     assert_eq!(
         wc.file_states().unwrap().paths().collect_vec(),

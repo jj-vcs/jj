@@ -124,9 +124,9 @@ pub fn cmd_op_diff(
     let diff_renderer = {
         let formats = diff_formats_for_log(settings, &args.diff_format, args.patch)?;
         let path_converter = workspace_env.path_converter();
-        let conflict_marker_style = workspace_env.conflict_marker_style();
+        let checkout_options = settings.checkout_options();
         (!formats.is_empty())
-            .then(|| DiffRenderer::new(merged_repo, path_converter, conflict_marker_style, formats))
+            .then(|| DiffRenderer::new(merged_repo, path_converter, formats, checkout_options))
     };
     let id_prefix_context = workspace_env.new_id_prefix_context();
     let commit_summary_template = {

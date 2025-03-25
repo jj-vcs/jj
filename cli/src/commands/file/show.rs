@@ -134,9 +134,10 @@ fn write_tree_entries<P: AsRef<RepoPath>>(
                 io::copy(&mut file.reader, &mut ui.stdout_formatter().as_mut())?;
             }
             MaterializedTreeValue::FileConflict { contents, .. } => {
+                let checkout_options = workspace_command.settings().checkout_options();
                 materialize_merge_result(
                     &contents,
-                    workspace_command.env().conflict_marker_style(),
+                    checkout_options.conflict_marker_style,
                     &mut ui.stdout_formatter(),
                 )?;
             }

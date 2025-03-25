@@ -67,6 +67,7 @@ use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::rewrite::rebase_to_dest_parent;
 use jj_lib::settings::UserSettings;
 use jj_lib::store::Store;
+use jj_lib::working_copy::CheckoutOptions;
 use pollster::FutureExt as _;
 use thiserror::Error;
 use tracing::instrument;
@@ -288,23 +289,28 @@ pub enum DiffRenderError {
 pub struct DiffRenderer<'a> {
     repo: &'a dyn Repo,
     path_converter: &'a RepoPathUiConverter,
-    conflict_marker_style: ConflictMarkerStyle,
     formats: Vec<DiffFormat>,
+    checkout_opts: CheckoutOptions,
 }
 
 impl<'a> DiffRenderer<'a> {
     pub fn new(
         repo: &'a dyn Repo,
         path_converter: &'a RepoPathUiConverter,
-        conflict_marker_style: ConflictMarkerStyle,
         formats: Vec<DiffFormat>,
+        checkout_opts: CheckoutOptions,
     ) -> Self {
         DiffRenderer {
             repo,
             path_converter,
-            conflict_marker_style,
             formats,
+            checkout_opts,
         }
+    }
+
+    /// Convenience accessor.
+    fn marker_style(&self) -> ConflictMarkerStyle {
+        self.checkout_opts.conflict_marker_style
     }
 
     /// Generates diff between `from_tree` and `to_tree`.
@@ -356,7 +362,7 @@ impl<'a> DiffRenderer<'a> {
                     let tree_diff =
                         from_tree.diff_stream_with_copies(to_tree, matcher, copy_records);
                     let stats =
-                        DiffStats::calculate(store, tree_diff, options, self.conflict_marker_style)
+                        DiffStats::calculate(store, tree_diff, options, self.marker_style())
                             .block_on()?;
                     show_diff_stats(formatter, &stats, path_converter, width)?;
                 }
@@ -373,13 +379,7 @@ impl<'a> DiffRenderer<'a> {
                 DiffFormat::Git(options) => {
                     let tree_diff =
                         from_tree.diff_stream_with_copies(to_tree, matcher, copy_records);
-                    show_git_diff(
-                        formatter,
-                        store,
-                        tree_diff,
-                        options,
-                        self.conflict_marker_style,
-                    )?;
+                    show_git_diff(formatter, store, tree_diff, options, self.marker_style())?;
                 }
                 DiffFormat::ColorWords(options) => {
                     let tree_diff =
@@ -390,7 +390,7 @@ impl<'a> DiffRenderer<'a> {
                         tree_diff,
                         path_converter,
                         options,
-                        self.conflict_marker_style,
+                        self.marker_style(),
                     )?;
                 }
                 DiffFormat::Tool(tool) => {
@@ -405,7 +405,7 @@ impl<'a> DiffRenderer<'a> {
                                 tree_diff,
                                 path_converter,
                                 tool,
-                                self.conflict_marker_style,
+                                self.marker_style(),
                             )
                         }
                         DiffToolMode::Dir => {
@@ -417,7 +417,7 @@ impl<'a> DiffRenderer<'a> {
                                 to_tree,
                                 matcher,
                                 tool,
-                                self.conflict_marker_style,
+                                self.checkout_opts.clone(),
                             )
                             .map_err(DiffRenderError::DiffGenerate)
                         }
