@@ -629,6 +629,16 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
             },
             |_| Ok("jj was compiled without `git.subprocess = false` support".into()),
         ),
+        // TODO: Delete with the `git.subprocess` setting.
+        ConfigMigrationRule::custom(
+            |layer| {
+                let Ok(Some(subprocess)) = layer.look_up_item("git.subprocess") else {
+                    return false;
+                };
+                subprocess.as_bool() == Some(true) && layer.source != ConfigSource::Default
+            },
+            |_| Ok("`git.subprocess = true` is now the default".into()),
+        ),
     ]
 }
 
