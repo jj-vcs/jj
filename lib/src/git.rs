@@ -55,6 +55,7 @@ use crate::op_store::RemoteRefState;
 use crate::ref_name::RefName;
 use crate::ref_name::RefNameBuf;
 use crate::ref_name::RemoteName;
+use crate::ref_name::RemoteNameBuf;
 use crate::ref_name::RemoteRefSymbol;
 use crate::ref_name::RemoteRefSymbolBuf;
 #[cfg(feature = "git2")]
@@ -1732,7 +1733,9 @@ fn remove_remote_git_config_sections(
 }
 
 /// Returns a sorted list of configured remote names.
-pub fn get_all_remote_names(store: &Store) -> Result<Vec<String>, UnexpectedGitBackendError> {
+pub fn get_all_remote_names(
+    store: &Store,
+) -> Result<Vec<RemoteNameBuf>, UnexpectedGitBackendError> {
     let git_repo = get_git_repo(store)?;
     let names = git_repo
         .remote_names()
@@ -1741,8 +1744,9 @@ pub fn get_all_remote_names(store: &Store) -> Result<Vec<String>, UnexpectedGitB
         .filter(|name| git_repo.try_find_remote(name.as_ref()).is_some())
         // ignore non-UTF-8 remote names which we don't support
         .filter_map(|name| String::from_utf8(name.into_owned().into()).ok())
+        .map(RemoteNameBuf::from)
         .collect();
-    Ok(names) // TODO: RemoteNameBuf
+    Ok(names)
 }
 
 pub fn add_remote(
@@ -2026,8 +2030,8 @@ const INVALID_REFSPEC_CHARS: [char; 5] = [':', '^', '?', '[', ']'];
 
 #[derive(Error, Debug)]
 pub enum GitFetchError {
-    #[error("No git remote named '{0}'")]
-    NoSuchRemote(String),
+    #[error("No git remote named '{}'", .0.as_symbol())]
+    NoSuchRemote(RemoteNameBuf),
     #[error(
         "Invalid branch pattern provided. When fetching, branch names and globs may not contain the characters `{chars}`",
         chars = INVALID_REFSPEC_CHARS.iter().join("`, `")
@@ -2079,7 +2083,7 @@ fn git2_fetch_options(
 }
 
 struct FetchedBranches {
-    remote: String,
+    remote: RemoteNameBuf,
     branches: Vec<StringPattern>,
 }
 
@@ -2113,16 +2117,16 @@ impl<'a> GitFetch<'a> {
     #[tracing::instrument(skip(self, callbacks))]
     pub fn fetch(
         &mut self,
-        remote_name: &str, // TODO: &RemoteName
+        remote_name: &RemoteName,
         branch_names: &[StringPattern],
         callbacks: RemoteCallbacks<'_>,
         depth: Option<NonZeroU32>,
     ) -> Result<(), GitFetchError> {
-        validate_remote_name(remote_name)?;
+        validate_remote_name(remote_name.as_str())?;
         self.fetch_impl
             .fetch(remote_name, branch_names, callbacks, depth)?;
         self.fetched.push(FetchedBranches {
-            remote: remote_name.to_string(),
+            remote: remote_name.to_owned(),
             branches: branch_names.to_vec(),
         });
         Ok(())
@@ -2132,10 +2136,9 @@ impl<'a> GitFetch<'a> {
     #[tracing::instrument(skip(self, callbacks))]
     pub fn get_default_branch(
         &self,
-        remote_name: &str, // TODO: &RemoteName
+        remote_name: &RemoteName,
         callbacks: RemoteCallbacks<'_>,
-    ) -> Result<Option<String>, GitFetchError> {
-        // TODO: return Option<RefNameBuf>
+    ) -> Result<Option<RefNameBuf>, GitFetchError> {
         self.fetch_impl.get_default_branch(remote_name, callbacks)
     }
 
@@ -2175,7 +2178,7 @@ impl<'a> GitFetch<'a> {
 }
 
 fn expand_fetch_refspecs(
-    remote_name: &str,
+    remote: &RemoteName,
     branch_names: &[StringPattern],
 ) -> Result<Vec<RefSpec>, GitFetchError> {
     branch_names
@@ -2191,7 +2194,7 @@ fn expand_fetch_refspecs(
                 .map(|glob| {
                     RefSpec::forced(
                         format!("refs/heads/{glob}"),
-                        format!("refs/remotes/{remote_name}/{glob}"),
+                        format!("refs/remotes/{remote}/{glob}", remote = remote.as_str()),
                     )
                 })
                 .ok_or_else(|| GitFetchError::InvalidBranchPattern(pattern.clone()))
@@ -2224,7 +2227,7 @@ impl<'a> GitFetchImpl<'a> {
 
     fn fetch(
         &self,
-        remote_name: &str,
+        remote_name: &RemoteName,
         branch_names: &[StringPattern],
         callbacks: RemoteCallbacks<'_>,
         depth: Option<NonZeroU32>,
@@ -2247,9 +2250,9 @@ impl<'a> GitFetchImpl<'a> {
 
     fn get_default_branch(
         &self,
-        remote_name: &str,
+        remote_name: &RemoteName,
         callbacks: RemoteCallbacks<'_>,
-    ) -> Result<Option<String>, GitFetchError> {
+    ) -> Result<Option<RefNameBuf>, GitFetchError> {
         match self {
             #[cfg(feature = "git2")]
             GitFetchImpl::Git2 { git_repo } => {
@@ -2265,14 +2268,14 @@ impl<'a> GitFetchImpl<'a> {
 #[cfg(feature = "git2")]
 fn git2_fetch(
     git_repo: &git2::Repository,
-    remote_name: &str,
+    remote_name: &RemoteName,
     branch_names: &[StringPattern],
     callbacks: RemoteCallbacks<'_>,
     depth: Option<NonZeroU32>,
 ) -> Result<(), GitFetchError> {
-    let mut remote = git_repo.find_remote(remote_name).map_err(|err| {
+    let mut remote = git_repo.find_remote(remote_name.as_str()).map_err(|err| {
         if is_remote_not_found_err(&err) {
-            GitFetchError::NoSuchRemote(remote_name.to_string())
+            GitFetchError::NoSuchRemote(remote_name.to_owned())
         } else {
             GitFetchError::InternalGitError(err)
         }
@@ -2308,12 +2311,12 @@ fn git2_fetch(
 #[cfg(feature = "git2")]
 fn git2_get_default_branch(
     git_repo: &git2::Repository,
-    remote_name: &str,
+    remote_name: &RemoteName,
     callbacks: RemoteCallbacks<'_>,
-) -> Result<Option<String>, GitFetchError> {
-    let mut remote = git_repo.find_remote(remote_name).map_err(|err| {
+) -> Result<Option<RefNameBuf>, GitFetchError> {
+    let mut remote = git_repo.find_remote(remote_name.as_str()).map_err(|err| {
         if is_remote_not_found_err(&err) {
-            GitFetchError::NoSuchRemote(remote_name.to_string())
+            GitFetchError::NoSuchRemote(remote_name.to_owned())
         } else {
             GitFetchError::InternalGitError(err)
         }
@@ -2339,7 +2342,7 @@ fn git2_get_default_branch(
                 .filter(|&name| name != "HEAD")
             {
                 tracing::debug!(default_branch = branch_name);
-                default_branch = Some(branch_name.to_owned());
+                default_branch = Some(branch_name.into());
             }
         }
     }
@@ -2349,13 +2352,13 @@ fn git2_get_default_branch(
 fn subprocess_fetch(
     git_repo: &gix::Repository,
     git_ctx: &GitSubprocessContext,
-    remote_name: &str,
+    remote_name: &RemoteName,
     branch_names: &[StringPattern],
     mut callbacks: RemoteCallbacks<'_>,
     depth: Option<NonZeroU32>,
 ) -> Result<(), GitFetchError> {
     // check the remote exists
-    if git_repo.try_find_remote(remote_name).is_none() {
+    if git_repo.try_find_remote(remote_name.as_str()).is_none() {
         return Err(GitFetchError::NoSuchRemote(remote_name.to_owned()));
     }
     // At this point, we are only updating Git's remote tracking branches, not the
@@ -2381,7 +2384,10 @@ fn subprocess_fetch(
         remaining_refspecs.retain(|r| r.source.as_ref() != Some(&failing_refspec));
 
         if let Some(branch_name) = failing_refspec.strip_prefix("refs/heads/") {
-            branches_to_prune.push(format!("{remote_name}/{branch_name}"));
+            branches_to_prune.push(format!(
+                "{remote_name}/{branch_name}",
+                remote_name = remote_name.as_str()
+            ));
         }
     }
 
@@ -2394,14 +2400,14 @@ fn subprocess_fetch(
 fn subprocess_get_default_branch(
     git_repo: &gix::Repository,
     git_ctx: &GitSubprocessContext,
-    remote_name: &str,
+    remote_name: &RemoteName,
     _callbacks: RemoteCallbacks<'_>,
-) -> Result<Option<String>, GitFetchError> {
-    if git_repo.try_find_remote(remote_name).is_none() {
+) -> Result<Option<RefNameBuf>, GitFetchError> {
+    if git_repo.try_find_remote(remote_name.as_str()).is_none() {
         return Err(GitFetchError::NoSuchRemote(remote_name.to_owned()));
     }
     let default_branch = git_ctx.spawn_remote_show(remote_name)?;
-    tracing::debug!(default_branch = default_branch);
+    tracing::debug!(?default_branch);
     Ok(default_branch)
 }
 

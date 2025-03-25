@@ -666,7 +666,6 @@ fn get_default_push_remote(
     if let Some(remote) = settings.get_string("git.push").optional()? {
         Ok(remote.into())
     } else if let Some(remote) = get_single_remote(workspace_command.repo().store())? {
-        let remote: RemoteNameBuf = remote.into();
         // similar to get_default_fetch_remotes
         if remote != DEFAULT_REMOTE {
             writeln!(

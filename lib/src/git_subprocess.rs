@@ -34,6 +34,8 @@ use crate::git::RefSpec;
 use crate::git::RefToPush;
 use crate::git::RemoteCallbacks;
 use crate::git_backend::GitBackend;
+use crate::ref_name::RefNameBuf;
+use crate::ref_name::RemoteName;
 
 // This is not the minimum required version, that would be 2.29.0, which
 // introduced the `--no-write-fetch-head` option. However, that by itself
@@ -143,7 +145,7 @@ impl<'a> GitSubprocessContext<'a> {
     /// Note that git only returns one failed ref at a time
     pub(crate) fn spawn_fetch(
         &self,
-        remote_name: &str,
+        remote_name: &RemoteName,
         refspecs: &[RefSpec],
         callbacks: &mut RemoteCallbacks<'_>,
         depth: Option<NonZeroU32>,
@@ -162,7 +164,7 @@ impl<'a> GitSubprocessContext<'a> {
         if let Some(d) = depth {
             command.arg(format!("--depth={d}"));
         }
-        command.arg("--").arg(remote_name);
+        command.arg("--").arg(remote_name.as_str());
         command.args(refspecs.iter().map(|x| x.to_git_format()));
 
         let output = wait_with_progress(self.spawn_cmd(command)?, callbacks)?;
@@ -200,17 +202,18 @@ impl<'a> GitSubprocessContext<'a> {
     /// `  HEAD branch: <default_branch>`
     pub(crate) fn spawn_remote_show(
         &self,
-        remote_name: &str,
-    ) -> Result<Option<String>, GitSubprocessError> {
+        remote_name: &RemoteName,
+    ) -> Result<Option<RefNameBuf>, GitSubprocessError> {
         let mut command = self.create_command();
         command.stdout(Stdio::piped());
-        command.args(["remote", "show", "--", remote_name]);
+        command.args(["remote", "show", "--", remote_name.as_str()]);
         let output = wait_with_output(self.spawn_cmd(command)?)?;
 
         let output = parse_git_remote_show_output(output)?;
 
         // find the HEAD branch line in the output
-        parse_git_remote_show_default_branch(&output.stdout)
+        let maybe_branch = parse_git_remote_show_default_branch(&output.stdout)?;
+        Ok(maybe_branch.map(Into::into))
     }
 
     /// Push references to git

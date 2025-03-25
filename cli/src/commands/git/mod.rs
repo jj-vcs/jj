@@ -28,6 +28,7 @@ use jj_lib::config::ConfigFile;
 use jj_lib::config::ConfigSource;
 use jj_lib::git;
 use jj_lib::git::UnexpectedGitBackendError;
+use jj_lib::ref_name::RemoteNameBuf;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::store::Store;
 
@@ -107,7 +108,7 @@ pub fn maybe_add_gitignore(workspace_command: &WorkspaceCommandHelper) -> Result
     }
 }
 
-fn get_single_remote(store: &Store) -> Result<Option<String>, UnexpectedGitBackendError> {
+fn get_single_remote(store: &Store) -> Result<Option<RemoteNameBuf>, UnexpectedGitBackendError> {
     let mut names = git::get_all_remote_names(store)?;
     Ok(match names.len() {
         1 => names.pop(),

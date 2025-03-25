@@ -21,6 +21,8 @@ use std::path::Path;
 use jj_lib::git;
 use jj_lib::git::GitFetch;
 use jj_lib::ref_name::RefNameBuf;
+use jj_lib::ref_name::RemoteName;
+use jj_lib::ref_name::RemoteNameBuf;
 use jj_lib::repo::Repo as _;
 use jj_lib::str_util::StringPattern;
 use jj_lib::workspace::Workspace;
@@ -56,7 +58,7 @@ pub struct GitCloneArgs {
     destination: Option<String>,
     /// Name of the newly created remote
     #[arg(long = "remote", default_value = "origin")]
-    remote_name: String, // TODO: RemoteNameBuf
+    remote_name: RemoteNameBuf,
     /// Whether or not to colocate the Jujutsu repo with the git repo
     #[arg(long)]
     colocate: bool,
@@ -145,7 +147,7 @@ pub fn cmd_git_clone(
 
     let (mut workspace_command, default_branch) = clone_result?;
     if let Some(name) = &default_branch {
-        let default_symbol = name.to_remote_symbol(remote_name.as_ref());
+        let default_symbol = name.to_remote_symbol(remote_name);
         write_repository_level_trunk_alias(ui, workspace_command.repo_path(), default_symbol)?;
 
         let default_branch_remote_ref = workspace_command
@@ -186,10 +188,14 @@ fn configure_remote(
     ui: &Ui,
     command: &CommandHelper,
     workspace_command: WorkspaceCommandHelper,
-    remote_name: &str,
+    remote_name: &RemoteName,
     source: &str,
 ) -> Result<WorkspaceCommandHelper, CommandError> {
-    git::add_remote(workspace_command.repo().store(), remote_name, source)?;
+    git::add_remote(
+        workspace_command.repo().store(),
+        remote_name.as_str(),
+        source,
+    )?;
     // Reload workspace to apply new remote configuration to
     // gix::ThreadSafeRepository behind the store.
     let workspace = command.load_workspace_at(
@@ -206,7 +212,7 @@ fn configure_remote(
 fn fetch_new_remote(
     ui: &Ui,
     workspace_command: &mut WorkspaceCommandHelper,
-    remote_name: &str,
+    remote_name: &RemoteName,
     depth: Option<NonZeroU32>,
 ) -> Result<Option<RefNameBuf>, CommandError> {
     writeln!(
@@ -225,5 +231,5 @@ fn fetch_new_remote(
     let import_stats = git_fetch.import_refs()?;
     print_git_import_stats(ui, fetch_tx.repo(), &import_stats, true)?;
     fetch_tx.finish(ui, "fetch from git remote into empty repo")?;
-    Ok(default_branch.map(Into::into))
+    Ok(default_branch)
 }

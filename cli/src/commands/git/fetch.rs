@@ -19,6 +19,7 @@ use itertools::Itertools as _;
 use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::git;
 use jj_lib::git::GitFetch;
+use jj_lib::ref_name::RemoteName;
 use jj_lib::repo::Repo as _;
 use jj_lib::str_util::StringPattern;
 
@@ -99,7 +100,7 @@ pub fn cmd_git_fetch(
     for pattern in remote_patterns {
         let remotes = all_remotes
             .iter()
-            .filter(|r| pattern.matches(r))
+            .filter(|r| pattern.matches(r.as_str()))
             .collect_vec();
         if remotes.is_empty() {
             unmatched_patterns.push(pattern);
@@ -124,19 +125,22 @@ pub fn cmd_git_fetch(
     let remotes = all_remotes
         .iter()
         .filter(|r| matching_remotes.contains(r))
-        .map(|r| r.as_str())
+        .map(|r| r.as_ref())
         .collect_vec();
 
     let mut tx = workspace_command.start_transaction();
     do_git_fetch(ui, &mut tx, &remotes, &args.branch)?;
     tx.finish(
         ui,
-        format!("fetch from git remote(s) {}", remotes.iter().join(",")),
+        format!(
+            "fetch from git remote(s) {}",
+            remotes.iter().map(|n| n.as_symbol()).join(",")
+        ),
     )?;
     Ok(())
 }
 
-const DEFAULT_REMOTE: &str = "origin";
+const DEFAULT_REMOTE: &RemoteName = RemoteName::new("origin");
 
 fn get_default_fetch_remotes(
     ui: &Ui,
@@ -156,7 +160,8 @@ fn get_default_fetch_remotes(
         if remote != DEFAULT_REMOTE {
             writeln!(
                 ui.hint_default(),
-                "Fetching from the only existing remote: {remote}"
+                "Fetching from the only existing remote: {remote}",
+                remote = remote.as_symbol()
             )?;
         }
         Ok(vec![StringPattern::exact(remote)])
@@ -172,7 +177,7 @@ fn parse_remote_pattern(remote: &str) -> Result<StringPattern, CommandError> {
 fn do_git_fetch(
     ui: &mut Ui,
     tx: &mut WorkspaceCommandTransaction,
-    remotes: &[&str],
+    remotes: &[&RemoteName],
     branch_names: &[StringPattern],
 ) -> Result<(), CommandError> {
     let git_settings = tx.settings().git_settings()?;
@@ -192,11 +197,11 @@ fn warn_if_branches_not_found(
     ui: &mut Ui,
     tx: &WorkspaceCommandTransaction,
     branches: &[StringPattern],
-    remotes: &[&str],
+    remotes: &[&RemoteName],
 ) -> Result<(), CommandError> {
     for branch in branches {
-        let matches = remotes.iter().any(|remote| {
-            let remote = StringPattern::exact(*remote);
+        let matches = remotes.iter().any(|&remote| {
+            let remote = StringPattern::exact(remote);
             tx.repo()
                 .view()
                 .remote_bookmarks_matching(branch, &remote)
