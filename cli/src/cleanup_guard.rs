@@ -57,6 +57,7 @@ mod platform {
 
     use libc::c_int;
     use libc::SIGINT;
+    use libc::SIGPIPE;
     use libc::SIGTERM;
 
     use super::*;
@@ -89,6 +90,7 @@ mod platform {
         SIGNAL_SEND = send.into_raw_fd();
         libc::signal(SIGINT, handler as libc::sighandler_t);
         libc::signal(SIGTERM, handler as libc::sighandler_t);
+        libc::signal(SIGPIPE, handler as libc::sighandler_t);
         Ok(())
     }
 
