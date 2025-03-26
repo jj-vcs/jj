@@ -269,7 +269,7 @@ change very frequently.
 
 ```rust
 // Before:
-pub wc_commit_ids: HashMap<WorkspaceId, CommitId>,
+pub wc_commit_ids: HashMap<WorkspaceIdBuf, CommitId>,
 
 // After:
 pub struct WorkingCopyInfo {
@@ -277,7 +277,7 @@ pub struct WorkingCopyInfo {
     pub wc_patterns_id: WorkingCopyPatternsId,
 }
 ...
-pub wc_info: HashMap<WorkspaceId, WorkingCopyInfo>,
+pub wc_info: HashMap<WorkspaceIdBuf, WorkingCopyInfo>,
 ```
 
 A View object with no stored working copy patterns will be modified at read

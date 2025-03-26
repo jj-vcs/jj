@@ -14,7 +14,7 @@
 
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
-use jj_lib::op_store::WorkspaceId;
+use jj_lib::ref_name::WorkspaceIdBuf;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -32,7 +32,7 @@ pub struct WorkspaceForgetArgs {
     /// Names of the workspaces to forget. By default, forgets only the current
     /// workspace.
     #[arg(add = ArgValueCandidates::new(complete::workspaces))]
-    workspaces: Vec<String>,
+    workspaces: Vec<WorkspaceIdBuf>,
 }
 
 #[instrument(skip_all)]
@@ -43,13 +43,10 @@ pub fn cmd_workspace_forget(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
 
-    let wss: Vec<WorkspaceId> = if args.workspaces.is_empty() {
-        vec![workspace_command.workspace_id().clone()]
+    let wss = if args.workspaces.is_empty() {
+        vec![workspace_command.workspace_id().to_owned()]
     } else {
-        args.workspaces
-            .iter()
-            .map(|ws| WorkspaceId::new(ws.to_string()))
-            .collect()
+        args.workspaces.clone()
     };
 
     for ws in &wss {
@@ -59,7 +56,7 @@ pub fn cmd_workspace_forget(
             .get_wc_commit_id(ws)
             .is_none()
         {
-            return Err(user_error(format!("No such workspace: {}", ws.as_str())));
+            return Err(user_error(format!("No such workspace: {}", ws.as_symbol())));
         }
     }
 
@@ -69,11 +66,11 @@ pub fn cmd_workspace_forget(
     wss.iter()
         .try_for_each(|ws| tx.repo_mut().remove_wc_commit(ws))?;
     let description = if let [ws] = wss.as_slice() {
-        format!("forget workspace {}", ws.as_str())
+        format!("forget workspace {}", ws.as_symbol())
     } else {
         format!(
             "forget workspaces {}",
-            wss.iter().map(|ws| ws.as_str()).join(", ")
+            wss.iter().map(|ws| ws.as_symbol()).join(", ")
         )
     };
 

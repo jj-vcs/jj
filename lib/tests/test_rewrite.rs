@@ -21,10 +21,11 @@ use jj_lib::merged_tree::MergedTree;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::op_store::RemoteRefState;
-use jj_lib::op_store::WorkspaceId;
 use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteRefSymbol;
+use jj_lib::ref_name::WorkspaceId;
+use jj_lib::ref_name::WorkspaceIdBuf;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::rewrite::rebase_commit_with_options;
@@ -1506,9 +1507,9 @@ fn test_rebase_descendants_update_checkout() {
         .set_parents(vec![commit_a.id().clone()])
         .write()
         .unwrap();
-    let ws1_id = WorkspaceId::new("ws1".to_string());
-    let ws2_id = WorkspaceId::new("ws2".to_string());
-    let ws3_id = WorkspaceId::new("ws3".to_string());
+    let ws1_id = WorkspaceIdBuf::from("ws1");
+    let ws2_id = WorkspaceIdBuf::from("ws2");
+    let ws3_id = WorkspaceIdBuf::from("ws3");
     tx.repo_mut()
         .set_wc_commit(ws1_id.clone(), commit_b.id().clone())
         .unwrap();
@@ -1554,9 +1555,9 @@ fn test_rebase_descendants_update_checkout_abandoned() {
         .set_parents(vec![commit_a.id().clone()])
         .write()
         .unwrap();
-    let ws1_id = WorkspaceId::new("ws1".to_string());
-    let ws2_id = WorkspaceId::new("ws2".to_string());
-    let ws3_id = WorkspaceId::new("ws3".to_string());
+    let ws1_id = WorkspaceIdBuf::from("ws1");
+    let ws2_id = WorkspaceIdBuf::from("ws2");
+    let ws3_id = WorkspaceIdBuf::from("ws3");
     tx.repo_mut()
         .set_wc_commit(ws1_id.clone(), commit_b.id().clone())
         .unwrap();
@@ -1614,7 +1615,7 @@ fn test_rebase_descendants_update_checkout_abandoned_merge() {
         .set_parents(vec![commit_b.id().clone(), commit_c.id().clone()])
         .write()
         .unwrap();
-    let workspace_id = WorkspaceId::default();
+    let workspace_id = WorkspaceId::DEFAULT.to_owned();
     tx.repo_mut()
         .set_wc_commit(workspace_id.clone(), commit_d.id().clone())
         .unwrap();
@@ -1829,7 +1830,7 @@ fn test_rebase_abandoning_empty() {
         .write()
         .unwrap();
 
-    let workspace = WorkspaceId::new("ws".to_string());
+    let workspace = WorkspaceIdBuf::from("ws");
     tx.repo_mut()
         .set_wc_commit(workspace.clone(), commit_e.id().clone())
         .unwrap();

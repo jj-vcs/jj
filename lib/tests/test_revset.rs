@@ -34,10 +34,11 @@ use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::op_store::RemoteRefState;
-use jj_lib::op_store::WorkspaceId;
 use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteRefSymbol;
+use jj_lib::ref_name::WorkspaceId;
+use jj_lib::ref_name::WorkspaceIdBuf;
 use jj_lib::repo::Repo;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathUiConverter;
@@ -431,8 +432,8 @@ fn test_resolve_working_copy() {
     let commit1 = write_random_commit(mut_repo);
     let commit2 = write_random_commit(mut_repo);
 
-    let ws1 = WorkspaceId::new("ws1".to_string());
-    let ws2 = WorkspaceId::new("ws2".to_string());
+    let ws1 = WorkspaceIdBuf::from("ws1");
+    let ws2 = WorkspaceIdBuf::from("ws2");
 
     // Cannot resolve a working-copy commit for an unknown workspace
     assert_matches!(
@@ -462,7 +463,7 @@ fn test_resolve_working_copy() {
     mut_repo
         .set_wc_commit(ws2.clone(), commit2.id().clone())
         .unwrap();
-    let resolve = |ws_id: WorkspaceId| -> Vec<CommitId> {
+    let resolve = |ws_id: WorkspaceIdBuf| -> Vec<CommitId> {
         RevsetExpression::working_copy(ws_id)
             .resolve_user_expression(mut_repo, &FailingSymbolResolver)
             .unwrap()
@@ -491,8 +492,8 @@ fn test_resolve_working_copies() {
     let commit2 = write_random_commit(mut_repo);
 
     // Add some workspaces
-    let ws1 = WorkspaceId::new("ws1".to_string());
-    let ws2 = WorkspaceId::new("ws2".to_string());
+    let ws1 = WorkspaceIdBuf::from("ws1");
+    let ws2 = WorkspaceIdBuf::from("ws2");
 
     // add one commit to each working copy
     mut_repo
@@ -792,7 +793,7 @@ fn test_resolve_symbol_tags() {
     );
 
     // "@" (quoted) can be resolved, and root is a normal symbol.
-    let ws_id = WorkspaceId::default();
+    let ws_id = WorkspaceId::DEFAULT.to_owned();
     mut_repo
         .set_wc_commit(ws_id.clone(), commit1.id().clone())
         .unwrap();
@@ -1006,7 +1007,7 @@ fn test_evaluate_expression_root_and_checkout() {
 
     // Can find the current working-copy commit
     mut_repo
-        .set_wc_commit(WorkspaceId::default(), commit1.id().clone())
+        .set_wc_commit(WorkspaceId::DEFAULT.to_owned(), commit1.id().clone())
         .unwrap();
     assert_eq!(
         resolve_commit_ids_in_workspace(mut_repo, "@", &test_workspace.workspace, None),
@@ -1158,7 +1159,7 @@ fn test_evaluate_expression_parents() {
 
     // Can find parents of the current working-copy commit
     mut_repo
-        .set_wc_commit(WorkspaceId::default(), commit2.id().clone())
+        .set_wc_commit(WorkspaceId::DEFAULT.to_owned(), commit2.id().clone())
         .unwrap();
     assert_eq!(
         resolve_commit_ids_in_workspace(mut_repo, "@-", &test_workspace.workspace, None,),

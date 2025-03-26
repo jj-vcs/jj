@@ -59,10 +59,11 @@ use crate::op_store::RemoteView;
 use crate::op_store::RootOperationData;
 use crate::op_store::View;
 use crate::op_store::ViewId;
-use crate::op_store::WorkspaceId;
 use crate::ref_name::GitRefNameBuf;
 use crate::ref_name::RefNameBuf;
 use crate::ref_name::RemoteNameBuf;
+use crate::ref_name::WorkspaceId;
+use crate::ref_name::WorkspaceIdBuf;
 
 // BLAKE2b-512 hash length in bytes
 const OPERATION_ID_LENGTH: usize = 64;
@@ -482,7 +483,7 @@ fn view_to_proto(view: &View) -> crate::protos::op_store::View {
     for (workspace_id, commit_id) in &view.wc_commit_ids {
         proto
             .wc_commit_ids
-            .insert(workspace_id.as_str().to_string(), commit_id.to_bytes());
+            .insert(workspace_id.into(), commit_id.to_bytes());
     }
     for head_id in &view.head_ids {
         proto.head_ids.push(head_id.to_bytes());
@@ -517,12 +518,14 @@ fn view_from_proto(proto: crate::protos::op_store::View) -> View {
     // copies
     #[expect(deprecated)]
     if !proto.wc_commit_id.is_empty() {
-        view.wc_commit_ids
-            .insert(WorkspaceId::default(), CommitId::new(proto.wc_commit_id));
+        view.wc_commit_ids.insert(
+            WorkspaceId::DEFAULT.to_owned(),
+            CommitId::new(proto.wc_commit_id),
+        );
     }
     for (workspace_id, commit_id) in proto.wc_commit_ids {
         view.wc_commit_ids
-            .insert(WorkspaceId::new(workspace_id), CommitId::new(commit_id));
+            .insert(WorkspaceIdBuf::from(workspace_id), CommitId::new(commit_id));
     }
     for head_id_bytes in proto.head_ids {
         view.head_ids.insert(CommitId::new(head_id_bytes));
@@ -781,8 +784,8 @@ mod tests {
             },
             git_head: RefTarget::normal(CommitId::from_hex("fff111")),
             wc_commit_ids: btreemap! {
-                WorkspaceId::default() => default_wc_commit_id,
-                WorkspaceId::new("test".to_string()) => test_wc_commit_id,
+                WorkspaceId::DEFAULT.to_owned() => default_wc_commit_id,
+                "test".into() => test_wc_commit_id,
             },
         }
     }

@@ -832,7 +832,7 @@ fn find_bookmarks_targeted_by_revisions<'a>(
             StringPattern::exact(remote),
             None,
         )
-        .range(&RevsetExpression::working_copy(workspace_id.clone()))
+        .range(&RevsetExpression::working_copy(workspace_id.to_owned()))
         .intersection(&RevsetExpression::bookmarks(StringPattern::everything()));
         let mut commit_ids = workspace_command
             .attach_revset_evaluator(expression)

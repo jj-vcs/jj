@@ -34,7 +34,7 @@ pub fn cmd_workspace_list(
     let mut formatter = ui.stdout_formatter();
     let template = workspace_command.commit_summary_template();
     for (workspace_id, wc_commit_id) in repo.view().wc_commit_ids() {
-        write!(formatter, "{}: ", workspace_id.as_str())?;
+        write!(formatter, "{}: ", workspace_id.as_symbol())?;
         let commit = repo.store().get_commit(wc_commit_id)?;
         template.format(&commit, formatter.as_mut())?;
         writeln!(formatter)?;

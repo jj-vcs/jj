@@ -28,7 +28,8 @@ use jj_lib::commit::Commit;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::local_working_copy::LocalWorkingCopy;
 use jj_lib::op_store::OperationId;
-use jj_lib::op_store::WorkspaceId;
+use jj_lib::ref_name::WorkspaceId;
+use jj_lib::ref_name::WorkspaceIdBuf;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::settings::UserSettings;
@@ -79,7 +80,7 @@ fn run_custom_command(
                 &ReadonlyRepo::default_index_store_initializer(),
                 &ReadonlyRepo::default_submodule_store_initializer(),
                 &ConflictsWorkingCopyFactory {},
-                WorkspaceId::default(),
+                WorkspaceId::DEFAULT.to_owned(),
             )?;
             Ok(())
         }
@@ -120,7 +121,7 @@ impl ConflictsWorkingCopy {
         working_copy_path: PathBuf,
         state_path: PathBuf,
         operation_id: OperationId,
-        workspace_id: WorkspaceId,
+        workspace_id: WorkspaceIdBuf,
     ) -> Result<Self, WorkingCopyStateError> {
         let inner = LocalWorkingCopy::init(
             store,
@@ -187,7 +188,7 @@ impl WorkingCopyFactory for ConflictsWorkingCopyFactory {
         working_copy_path: PathBuf,
         state_path: PathBuf,
         operation_id: OperationId,
-        workspace_id: WorkspaceId,
+        workspace_id: WorkspaceIdBuf,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError> {
         Ok(Box::new(ConflictsWorkingCopy::init(
             store,
@@ -263,7 +264,7 @@ impl LockedWorkingCopy for LockedConflictsWorkingCopy {
         self.inner.check_out(commit, options)
     }
 
-    fn rename_workspace(&mut self, new_workspace_id: WorkspaceId) {
+    fn rename_workspace(&mut self, new_workspace_id: WorkspaceIdBuf) {
         self.inner.rename_workspace(new_workspace_id);
     }
 

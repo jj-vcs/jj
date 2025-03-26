@@ -38,8 +38,9 @@ use crate::matchers::Matcher;
 use crate::op_heads_store::OpHeadsStoreError;
 use crate::op_store::OpStoreError;
 use crate::op_store::OperationId;
-use crate::op_store::WorkspaceId;
 use crate::operation::Operation;
+use crate::ref_name::WorkspaceId;
+use crate::ref_name::WorkspaceIdBuf;
 use crate::repo::ReadonlyRepo;
 use crate::repo::Repo as _;
 use crate::repo::RewriteRootCommit;
@@ -86,7 +87,7 @@ pub trait WorkingCopyFactory {
         working_copy_path: PathBuf,
         state_path: PathBuf,
         operation_id: OperationId,
-        workspace_id: WorkspaceId,
+        workspace_id: WorkspaceIdBuf,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError>;
 
     /// Load an existing working copy.
@@ -126,7 +127,7 @@ pub trait LockedWorkingCopy {
     ) -> Result<CheckoutStats, CheckoutError>;
 
     /// Update the workspace name.
-    fn rename_workspace(&mut self, new_workspace_name: WorkspaceId);
+    fn rename_workspace(&mut self, new_workspace_name: WorkspaceIdBuf);
 
     /// Update to another commit without touching the files in the working copy.
     fn reset(&mut self, commit: &Commit) -> Result<(), ResetError>;
@@ -426,15 +427,15 @@ pub enum RecoverWorkspaceError {
     #[error(transparent)]
     RewriteRootCommit(#[from] RewriteRootCommit),
     /// Working copy commit is missing.
-    #[error("\"{0:?}\" doesn't have a working-copy commit")]
-    WorkspaceMissingWorkingCopy(WorkspaceId),
+    #[error(r#""{}" doesn't have a working-copy commit"#, .0.as_symbol())]
+    WorkspaceMissingWorkingCopy(WorkspaceIdBuf),
 }
 
 /// Recover this workspace to its last known checkout.
 pub fn create_and_check_out_recovery_commit(
     locked_wc: &mut dyn LockedWorkingCopy,
     repo: &Arc<ReadonlyRepo>,
-    workspace_id: WorkspaceId,
+    workspace_id: WorkspaceIdBuf,
     description: &str,
 ) -> Result<(Arc<ReadonlyRepo>, Commit), RecoverWorkspaceError> {
     let mut tx = repo.start_transaction();

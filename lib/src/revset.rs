@@ -44,10 +44,11 @@ use crate::id_prefix::IdPrefixIndex;
 use crate::object_id::HexPrefix;
 use crate::object_id::PrefixResolution;
 use crate::op_store::RemoteRefState;
-use crate::op_store::WorkspaceId;
 use crate::op_walk;
 use crate::ref_name::RemoteRefSymbol;
 use crate::ref_name::RemoteRefSymbolBuf;
+use crate::ref_name::WorkspaceId;
+use crate::ref_name::WorkspaceIdBuf;
 use crate::repo::ReadonlyRepo;
 use crate::repo::Repo;
 use crate::repo::RepoLoaderError;
@@ -78,8 +79,8 @@ pub enum RevsetResolutionError {
         name: String,
         candidates: Vec<String>,
     },
-    #[error("Workspace `{name}` doesn't have a working-copy commit")]
-    WorkspaceMissingWorkingCopy { name: String },
+    #[error("Workspace `{}` doesn't have a working-copy commit", name.as_symbol())]
+    WorkspaceMissingWorkingCopy { name: WorkspaceIdBuf },
     #[error("An empty string is not a valid revision")]
     EmptyString,
     #[error("Commit ID prefix `{0}` is ambiguous")]
@@ -128,7 +129,7 @@ pub enum RevsetModifier {
 /// Symbol or function to be resolved to `CommitId`s.
 #[derive(Clone, Debug)]
 pub enum RevsetCommitRef {
-    WorkingCopy(WorkspaceId),
+    WorkingCopy(WorkspaceIdBuf),
     WorkingCopies,
     Symbol(String),
     RemoteSymbol(RemoteRefSymbolBuf),
@@ -322,7 +323,7 @@ impl<St: ExpressionState> RevsetExpression<St> {
 
 // Leaf expression that represents unresolved commit refs
 impl<St: ExpressionState<CommitRef = RevsetCommitRef>> RevsetExpression<St> {
-    pub fn working_copy(workspace_id: WorkspaceId) -> Rc<Self> {
+    pub fn working_copy(workspace_id: WorkspaceIdBuf) -> Rc<Self> {
         Rc::new(Self::CommitRef(RevsetCommitRef::WorkingCopy(workspace_id)))
     }
 
@@ -1052,9 +1053,7 @@ pub fn lower_expression(
             node.span,
         )),
         ExpressionKind::RemoteSymbol(symbol) => Ok(RevsetExpression::remote_symbol(symbol.clone())),
-        ExpressionKind::AtWorkspace(name) => Ok(RevsetExpression::working_copy(WorkspaceId::new(
-            name.to_owned(),
-        ))),
+        ExpressionKind::AtWorkspace(name) => Ok(RevsetExpression::working_copy(name.into())),
         ExpressionKind::AtCurrentWorkspace => {
             let ctx = context.workspace.as_ref().ok_or_else(|| {
                 RevsetParseError::with_span(
@@ -1062,7 +1061,7 @@ pub fn lower_expression(
                     node.span,
                 )
             })?;
-            Ok(RevsetExpression::working_copy(ctx.workspace_id.clone()))
+            Ok(RevsetExpression::working_copy(ctx.workspace_id.to_owned()))
         }
         ExpressionKind::DagRangeAll => Ok(RevsetExpression::all()),
         ExpressionKind::RangeAll => {
@@ -2100,7 +2099,7 @@ fn resolve_commit_ref(
                 Ok(vec![commit_id.clone()])
             } else {
                 Err(RevsetResolutionError::WorkspaceMissingWorkingCopy {
-                    name: workspace_id.as_str().to_string(),
+                    name: workspace_id.clone(),
                 })
             }
         }
@@ -2763,31 +2762,31 @@ mod tests {
     fn test_revset_expression_building() {
         let settings = insta_settings();
         let _guard = settings.bind_to_scope();
-        let current_wc = UserRevsetExpression::working_copy(WorkspaceId::default());
+        let current_wc = UserRevsetExpression::working_copy(WorkspaceId::DEFAULT.to_owned());
         let foo_symbol = UserRevsetExpression::symbol("foo".to_string());
         let bar_symbol = UserRevsetExpression::symbol("bar".to_string());
         let baz_symbol = UserRevsetExpression::symbol("baz".to_string());
 
         insta::assert_debug_snapshot!(
             current_wc,
-            @r#"CommitRef(WorkingCopy(WorkspaceId("default")))"#);
+            @r#"CommitRef(WorkingCopy(WorkspaceIdBuf("default")))"#);
         insta::assert_debug_snapshot!(
             current_wc.heads(),
-            @r#"Heads(CommitRef(WorkingCopy(WorkspaceId("default"))))"#);
+            @r#"Heads(CommitRef(WorkingCopy(WorkspaceIdBuf("default"))))"#);
         insta::assert_debug_snapshot!(
             current_wc.roots(),
-            @r#"Roots(CommitRef(WorkingCopy(WorkspaceId("default"))))"#);
+            @r#"Roots(CommitRef(WorkingCopy(WorkspaceIdBuf("default"))))"#);
         insta::assert_debug_snapshot!(
             current_wc.parents(), @r#"
         Ancestors {
-            heads: CommitRef(WorkingCopy(WorkspaceId("default"))),
+            heads: CommitRef(WorkingCopy(WorkspaceIdBuf("default"))),
             generation: 1..2,
         }
         "#);
         insta::assert_debug_snapshot!(
             current_wc.ancestors(), @r#"
         Ancestors {
-            heads: CommitRef(WorkingCopy(WorkspaceId("default"))),
+            heads: CommitRef(WorkingCopy(WorkspaceIdBuf("default"))),
             generation: 0..18446744073709551615,
         }
         "#);
@@ -2809,7 +2808,7 @@ mod tests {
             foo_symbol.dag_range_to(&current_wc), @r#"
         DagRange {
             roots: CommitRef(Symbol("foo")),
-            heads: CommitRef(WorkingCopy(WorkspaceId("default"))),
+            heads: CommitRef(WorkingCopy(WorkspaceIdBuf("default"))),
         }
         "#);
         insta::assert_debug_snapshot!(
@@ -2823,7 +2822,7 @@ mod tests {
             foo_symbol.range(&current_wc), @r#"
         Range {
             roots: CommitRef(Symbol("foo")),
-            heads: CommitRef(WorkingCopy(WorkspaceId("default"))),
+            heads: CommitRef(WorkingCopy(WorkspaceIdBuf("default"))),
             generation: 0..18446744073709551615,
         }
         "#);
@@ -2834,7 +2833,7 @@ mod tests {
             foo_symbol.union(&current_wc), @r#"
         Union(
             CommitRef(Symbol("foo")),
-            CommitRef(WorkingCopy(WorkspaceId("default"))),
+            CommitRef(WorkingCopy(WorkspaceIdBuf("default"))),
         )
         "#);
         insta::assert_debug_snapshot!(
@@ -2842,12 +2841,12 @@ mod tests {
             @"None");
         insta::assert_debug_snapshot!(
             RevsetExpression::union_all(&[current_wc.clone()]),
-            @r#"CommitRef(WorkingCopy(WorkspaceId("default")))"#);
+            @r#"CommitRef(WorkingCopy(WorkspaceIdBuf("default")))"#);
         insta::assert_debug_snapshot!(
             RevsetExpression::union_all(&[current_wc.clone(), foo_symbol.clone()]),
             @r#"
         Union(
-            CommitRef(WorkingCopy(WorkspaceId("default"))),
+            CommitRef(WorkingCopy(WorkspaceIdBuf("default"))),
             CommitRef(Symbol("foo")),
         )
         "#);
@@ -2859,7 +2858,7 @@ mod tests {
             ]),
             @r#"
         Union(
-            CommitRef(WorkingCopy(WorkspaceId("default"))),
+            CommitRef(WorkingCopy(WorkspaceIdBuf("default"))),
             Union(
                 CommitRef(Symbol("foo")),
                 CommitRef(Symbol("bar")),
@@ -2876,7 +2875,7 @@ mod tests {
             @r#"
         Union(
             Union(
-                CommitRef(WorkingCopy(WorkspaceId("default"))),
+                CommitRef(WorkingCopy(WorkspaceIdBuf("default"))),
                 CommitRef(Symbol("foo")),
             ),
             Union(
@@ -2889,14 +2888,14 @@ mod tests {
             foo_symbol.intersection(&current_wc), @r#"
         Intersection(
             CommitRef(Symbol("foo")),
-            CommitRef(WorkingCopy(WorkspaceId("default"))),
+            CommitRef(WorkingCopy(WorkspaceIdBuf("default"))),
         )
         "#);
         insta::assert_debug_snapshot!(
             foo_symbol.minus(&current_wc), @r#"
         Difference(
             CommitRef(Symbol("foo")),
-            CommitRef(WorkingCopy(WorkspaceId("default"))),
+            CommitRef(WorkingCopy(WorkspaceIdBuf("default"))),
         )
         "#);
         insta::assert_debug_snapshot!(
@@ -2904,12 +2903,12 @@ mod tests {
             @"None");
         insta::assert_debug_snapshot!(
             RevsetExpression::coalesce(&[current_wc.clone()]),
-            @r#"CommitRef(WorkingCopy(WorkspaceId("default")))"#);
+            @r#"CommitRef(WorkingCopy(WorkspaceIdBuf("default")))"#);
         insta::assert_debug_snapshot!(
             RevsetExpression::coalesce(&[current_wc.clone(), foo_symbol.clone()]),
             @r#"
         Coalesce(
-            CommitRef(WorkingCopy(WorkspaceId("default"))),
+            CommitRef(WorkingCopy(WorkspaceIdBuf("default"))),
             CommitRef(Symbol("foo")),
         )
         "#);
@@ -2921,7 +2920,7 @@ mod tests {
             ]),
             @r#"
         Coalesce(
-            CommitRef(WorkingCopy(WorkspaceId("default"))),
+            CommitRef(WorkingCopy(WorkspaceIdBuf("default"))),
             Coalesce(
                 CommitRef(Symbol("foo")),
                 CommitRef(Symbol("bar")),
@@ -2934,8 +2933,8 @@ mod tests {
     fn test_parse_revset() {
         let settings = insta_settings();
         let _guard = settings.bind_to_scope();
-        let main_workspace_id = WorkspaceId::new("main".to_string());
-        let other_workspace_id = WorkspaceId::new("other".to_string());
+        let main_workspace_id = WorkspaceIdBuf::from("main");
+        let other_workspace_id = WorkspaceIdBuf::from("other");
 
         // Parse "@" (the current working copy)
         insta::assert_debug_snapshot!(
@@ -2943,13 +2942,13 @@ mod tests {
             @"WorkingCopyWithoutWorkspace");
         insta::assert_debug_snapshot!(
             parse("main@").unwrap(),
-            @r#"CommitRef(WorkingCopy(WorkspaceId("main")))"#);
+            @r#"CommitRef(WorkingCopy(WorkspaceIdBuf("main")))"#);
         insta::assert_debug_snapshot!(
             parse_with_workspace("@", &main_workspace_id).unwrap(),
-            @r#"CommitRef(WorkingCopy(WorkspaceId("main")))"#);
+            @r#"CommitRef(WorkingCopy(WorkspaceIdBuf("main")))"#);
         insta::assert_debug_snapshot!(
             parse_with_workspace("main@", &other_workspace_id).unwrap(),
-            @r#"CommitRef(WorkingCopy(WorkspaceId("main")))"#);
+            @r#"CommitRef(WorkingCopy(WorkspaceIdBuf("main")))"#);
         // "@" in function argument must be quoted
         insta::assert_debug_snapshot!(
             parse("author_name(foo@)").unwrap_err().kind(),
@@ -3217,21 +3216,21 @@ mod tests {
             @r#"Filter(Description(Substring("(foo)")))"#);
         assert!(parse("mine(foo)").is_err());
         insta::assert_debug_snapshot!(
-            parse_with_workspace("empty()", &WorkspaceId::default()).unwrap(),
+            parse_with_workspace("empty()", WorkspaceId::DEFAULT).unwrap(),
             @"NotIn(Filter(File(All)))");
-        assert!(parse_with_workspace("empty(foo)", &WorkspaceId::default()).is_err());
-        assert!(parse_with_workspace("file()", &WorkspaceId::default()).is_err());
+        assert!(parse_with_workspace("empty(foo)", WorkspaceId::DEFAULT).is_err());
+        assert!(parse_with_workspace("file()", WorkspaceId::DEFAULT).is_err());
         insta::assert_debug_snapshot!(
-            parse_with_workspace("files(foo)", &WorkspaceId::default()).unwrap(),
+            parse_with_workspace("files(foo)", WorkspaceId::DEFAULT).unwrap(),
             @r#"Filter(File(Pattern(PrefixPath("foo"))))"#);
         insta::assert_debug_snapshot!(
-            parse_with_workspace("files(all())", &WorkspaceId::default()).unwrap(),
+            parse_with_workspace("files(all())", WorkspaceId::DEFAULT).unwrap(),
             @"Filter(File(All))");
         insta::assert_debug_snapshot!(
-            parse_with_workspace(r#"files(file:"foo")"#, &WorkspaceId::default()).unwrap(),
+            parse_with_workspace(r#"files(file:"foo")"#, WorkspaceId::DEFAULT).unwrap(),
             @r#"Filter(File(Pattern(FilePath("foo"))))"#);
         insta::assert_debug_snapshot!(
-            parse_with_workspace("files(foo|bar&baz)", &WorkspaceId::default()).unwrap(), @r#"
+            parse_with_workspace("files(foo|bar&baz)", WorkspaceId::DEFAULT).unwrap(), @r#"
         Filter(
             File(
                 UnionAll(
@@ -3383,7 +3382,7 @@ mod tests {
 
         // Alias can be substituted to string literal.
         insta::assert_debug_snapshot!(
-            parse_with_aliases_and_workspace("files(A)", [("A", "a")], &WorkspaceId::default())
+            parse_with_aliases_and_workspace("files(A)", [("A", "a")], WorkspaceId::DEFAULT)
                 .unwrap(),
             @r#"Filter(File(Pattern(PrefixPath("a"))))"#);
 
@@ -3862,7 +3861,7 @@ mod tests {
         insta::assert_debug_snapshot!(
             optimize(parse_with_workspace(
                 "committer_name(foo) & files(bar) & baz",
-                &WorkspaceId::default()).unwrap(),
+                WorkspaceId::DEFAULT).unwrap(),
             ), @r#"
         Intersection(
             Intersection(
@@ -3875,7 +3874,7 @@ mod tests {
         insta::assert_debug_snapshot!(
             optimize(parse_with_workspace(
                 "committer_name(foo) & files(bar) & author_name(baz)",
-                &WorkspaceId::default()).unwrap(),
+                WorkspaceId::DEFAULT).unwrap(),
             ), @r#"
         Intersection(
             Intersection(
@@ -3888,7 +3887,7 @@ mod tests {
         insta::assert_debug_snapshot!(
             optimize(parse_with_workspace(
                 "foo & files(bar) & baz",
-                &WorkspaceId::default()).unwrap(),
+                WorkspaceId::DEFAULT).unwrap(),
             ), @r#"
         Intersection(
             Intersection(

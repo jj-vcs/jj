@@ -34,7 +34,8 @@ use crate::local_working_copy::LocalWorkingCopy;
 use crate::local_working_copy::LocalWorkingCopyFactory;
 use crate::op_heads_store::OpHeadsStoreError;
 use crate::op_store::OperationId;
-use crate::op_store::WorkspaceId;
+use crate::ref_name::WorkspaceId;
+use crate::ref_name::WorkspaceIdBuf;
 use crate::repo::read_store_type;
 use crate::repo::BackendInitializer;
 use crate::repo::CheckOutCommitError;
@@ -128,7 +129,7 @@ fn init_working_copy(
     workspace_root: &Path,
     jj_dir: &Path,
     working_copy_factory: &dyn WorkingCopyFactory,
-    workspace_id: WorkspaceId,
+    workspace_id: WorkspaceIdBuf,
 ) -> Result<(Box<dyn WorkingCopy>, Arc<ReadonlyRepo>), WorkspaceInitError> {
     let working_copy_state_path = jj_dir.join("working_copy");
     std::fs::create_dir(&working_copy_state_path).context(&working_copy_state_path)?;
@@ -136,7 +137,7 @@ fn init_working_copy(
     let mut tx = repo.start_transaction();
     tx.repo_mut()
         .check_out(workspace_id.clone(), &repo.store().root_commit())?;
-    let repo = tx.commit(format!("add workspace '{}'", workspace_id.as_str()))?;
+    let repo = tx.commit(format!("add workspace '{}'", workspace_id.as_symbol()))?;
 
     let working_copy = working_copy_factory.init_working_copy(
         repo.store().clone(),
@@ -287,7 +288,7 @@ impl Workspace {
         index_store_initializer: &IndexStoreInitializer,
         submodule_store_initializer: &SubmoduleStoreInitializer,
         working_copy_factory: &dyn WorkingCopyFactory,
-        workspace_id: WorkspaceId,
+        workspace_id: WorkspaceIdBuf,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let jj_dir = create_jj_dir(workspace_root)?;
         (|| {
@@ -340,7 +341,7 @@ impl Workspace {
             ReadonlyRepo::default_index_store_initializer(),
             ReadonlyRepo::default_submodule_store_initializer(),
             &*default_working_copy_factory(),
-            WorkspaceId::default(),
+            WorkspaceId::DEFAULT.to_owned(),
         )
     }
 
@@ -349,7 +350,7 @@ impl Workspace {
         repo_path: &Path,
         repo: &Arc<ReadonlyRepo>,
         working_copy_factory: &dyn WorkingCopyFactory,
-        workspace_id: WorkspaceId,
+        workspace_id: WorkspaceIdBuf,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let jj_dir = create_jj_dir(workspace_root)?;
 

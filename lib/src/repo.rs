@@ -71,12 +71,13 @@ use crate::op_store::RefTarget;
 use crate::op_store::RemoteRef;
 use crate::op_store::RemoteRefState;
 use crate::op_store::RootOperationData;
-use crate::op_store::WorkspaceId;
 use crate::operation::Operation;
 use crate::ref_name::GitRefName;
 use crate::ref_name::RefName;
 use crate::ref_name::RemoteName;
 use crate::ref_name::RemoteRefSymbol;
+use crate::ref_name::WorkspaceId;
+use crate::ref_name::WorkspaceIdBuf;
 use crate::refs::diff_named_ref_targets;
 use crate::refs::diff_named_remote_refs;
 use crate::refs::merge_ref_targets;
@@ -1352,7 +1353,7 @@ impl MutableRepo {
 
     pub fn set_wc_commit(
         &mut self,
-        workspace_id: WorkspaceId,
+        workspace_id: WorkspaceIdBuf,
         commit_id: CommitId,
     ) -> Result<(), RewriteRootCommit> {
         if &commit_id == self.store().root_commit_id() {
@@ -1371,7 +1372,7 @@ impl MutableRepo {
     pub fn rename_workspace(
         &mut self,
         old_workspace_id: &WorkspaceId,
-        new_workspace_id: WorkspaceId,
+        new_workspace_id: WorkspaceIdBuf,
     ) -> Result<(), RenameWorkspaceError> {
         self.view_mut()
             .rename_workspace(old_workspace_id, new_workspace_id)
@@ -1379,7 +1380,7 @@ impl MutableRepo {
 
     pub fn check_out(
         &mut self,
-        workspace_id: WorkspaceId,
+        workspace_id: WorkspaceIdBuf,
         commit: &Commit,
     ) -> Result<Commit, CheckOutCommitError> {
         let wc_commit = self
@@ -1391,7 +1392,7 @@ impl MutableRepo {
 
     pub fn edit(
         &mut self,
-        workspace_id: WorkspaceId,
+        workspace_id: WorkspaceIdBuf,
         commit: &Commit,
     ) -> Result<(), EditCommitError> {
         self.maybe_abandon_wc_commit(&workspace_id)?;

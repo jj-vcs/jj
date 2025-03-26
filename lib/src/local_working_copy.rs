@@ -95,7 +95,8 @@ use crate::merged_tree::MergedTreeBuilder;
 use crate::merged_tree::TreeDiffEntry;
 use crate::object_id::ObjectId as _;
 use crate::op_store::OperationId;
-use crate::op_store::WorkspaceId;
+use crate::ref_name::WorkspaceId;
+use crate::ref_name::WorkspaceIdBuf;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::repo_path::RepoPathComponent;
@@ -1959,7 +1960,7 @@ fn checkout_error_for_stat_error(err: io::Error, path: &Path) -> CheckoutError {
 #[derive(Clone, Debug)]
 struct CheckoutState {
     operation_id: OperationId,
-    workspace_id: WorkspaceId,
+    workspace_id: WorkspaceIdBuf,
 }
 
 pub struct LocalWorkingCopy {
@@ -2038,11 +2039,11 @@ impl LocalWorkingCopy {
         working_copy_path: PathBuf,
         state_path: PathBuf,
         operation_id: OperationId,
-        workspace_id: WorkspaceId,
+        workspace_id: WorkspaceIdBuf,
     ) -> Result<LocalWorkingCopy, WorkingCopyStateError> {
         let proto = crate::protos::working_copy::Checkout {
             operation_id: operation_id.to_bytes(),
-            workspace_id: workspace_id.as_str().to_string(),
+            workspace_id: workspace_id.into(),
         };
         let mut file = OpenOptions::new()
             .create_new(true)
@@ -2104,9 +2105,9 @@ impl LocalWorkingCopy {
                 workspace_id: if proto.workspace_id.is_empty() {
                     // For compatibility with old working copies.
                     // TODO: Delete in mid 2022 or so
-                    WorkspaceId::default()
+                    WorkspaceId::DEFAULT.to_owned()
                 } else {
-                    WorkspaceId::new(proto.workspace_id)
+                    proto.workspace_id.into()
                 },
             }
         })
@@ -2146,7 +2147,7 @@ impl LocalWorkingCopy {
     fn save(&mut self) {
         self.write_proto(crate::protos::working_copy::Checkout {
             operation_id: self.operation_id().to_bytes(),
-            workspace_id: self.workspace_id().as_str().to_string(),
+            workspace_id: self.workspace_id().into(),
         });
     }
 
@@ -2186,7 +2187,7 @@ impl WorkingCopyFactory for LocalWorkingCopyFactory {
         working_copy_path: PathBuf,
         state_path: PathBuf,
         operation_id: OperationId,
-        workspace_id: WorkspaceId,
+        workspace_id: WorkspaceIdBuf,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError> {
         Ok(Box::new(LocalWorkingCopy::init(
             store,
@@ -2220,7 +2221,7 @@ pub struct LockedLocalWorkingCopy {
     old_operation_id: OperationId,
     old_tree_id: MergedTreeId,
     tree_state_dirty: bool,
-    new_workspace_id: Option<WorkspaceId>,
+    new_workspace_id: Option<WorkspaceIdBuf>,
 }
 
 impl LockedWorkingCopy for LockedLocalWorkingCopy {
@@ -2280,7 +2281,7 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
         }
     }
 
-    fn rename_workspace(&mut self, new_workspace_id: WorkspaceId) {
+    fn rename_workspace(&mut self, new_workspace_id: WorkspaceIdBuf) {
         self.new_workspace_id = Some(new_workspace_id);
     }
 

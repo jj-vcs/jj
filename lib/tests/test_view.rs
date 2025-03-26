@@ -18,10 +18,10 @@ use jj_lib::op_store::BookmarkTarget;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::op_store::RemoteRefState;
-use jj_lib::op_store::WorkspaceId;
 use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteRefSymbol;
+use jj_lib::ref_name::WorkspaceIdBuf;
 use jj_lib::repo::Repo as _;
 use maplit::btreemap;
 use maplit::hashset;
@@ -139,13 +139,13 @@ fn test_merge_views_checkout() {
     let commit1 = write_random_commit(initial_tx.repo_mut());
     let commit2 = write_random_commit(initial_tx.repo_mut());
     let commit3 = write_random_commit(initial_tx.repo_mut());
-    let ws1_id = WorkspaceId::new("ws1".to_string());
-    let ws2_id = WorkspaceId::new("ws2".to_string());
-    let ws3_id = WorkspaceId::new("ws3".to_string());
-    let ws4_id = WorkspaceId::new("ws4".to_string());
-    let ws5_id = WorkspaceId::new("ws5".to_string());
-    let ws6_id = WorkspaceId::new("ws6".to_string());
-    let ws7_id = WorkspaceId::new("ws7".to_string());
+    let ws1_id = WorkspaceIdBuf::from("ws1");
+    let ws2_id = WorkspaceIdBuf::from("ws2");
+    let ws3_id = WorkspaceIdBuf::from("ws3");
+    let ws4_id = WorkspaceIdBuf::from("ws4");
+    let ws5_id = WorkspaceIdBuf::from("ws5");
+    let ws6_id = WorkspaceIdBuf::from("ws6");
+    let ws7_id = WorkspaceIdBuf::from("ws7");
     initial_tx
         .repo_mut()
         .set_wc_commit(ws1_id.clone(), commit1.id().clone())

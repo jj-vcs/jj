@@ -36,7 +36,7 @@ use jj_lib::merge::MergedTreeValue;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree::MergedTreeBuilder;
 use jj_lib::op_store::OperationId;
-use jj_lib::op_store::WorkspaceId;
+use jj_lib::ref_name::WorkspaceId;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
@@ -113,10 +113,7 @@ fn test_root() {
     assert_eq!(wc.sparse_patterns().unwrap(), vec![RepoPathBuf::root()]);
     let new_tree = test_workspace.snapshot().unwrap();
     let repo = &test_workspace.repo;
-    let wc_commit_id = repo
-        .view()
-        .get_wc_commit_id(&WorkspaceId::default())
-        .unwrap();
+    let wc_commit_id = repo.view().get_wc_commit_id(WorkspaceId::DEFAULT).unwrap();
     let wc_commit = repo.store().get_commit(wc_commit_id).unwrap();
     assert_eq!(new_tree.id(), *wc_commit.tree_id());
     assert_eq!(new_tree.id(), repo.store().empty_merged_tree_id());

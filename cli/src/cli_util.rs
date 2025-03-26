@@ -79,12 +79,13 @@ use jj_lib::op_heads_store;
 use jj_lib::op_store::OpStoreError;
 use jj_lib::op_store::OperationId;
 use jj_lib::op_store::RefTarget;
-use jj_lib::op_store::WorkspaceId;
 use jj_lib::op_walk;
 use jj_lib::op_walk::OpsetEvaluationError;
 use jj_lib::operation::Operation;
 use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RefNameBuf;
+use jj_lib::ref_name::WorkspaceId;
+use jj_lib::ref_name::WorkspaceIdBuf;
 use jj_lib::repo::merge_factories_map;
 use jj_lib::repo::CheckOutCommitError;
 use jj_lib::repo::EditCommitError;
@@ -783,7 +784,7 @@ pub struct WorkspaceCommandEnvironment {
     revset_aliases_map: RevsetAliasesMap,
     template_aliases_map: TemplateAliasesMap,
     path_converter: RepoPathUiConverter,
-    workspace_id: WorkspaceId,
+    workspace_id: WorkspaceIdBuf,
     immutable_heads_expression: Rc<UserRevsetExpression>,
     short_prefixes_expression: Option<Rc<UserRevsetExpression>>,
     conflict_marker_style: ConflictMarkerStyle,
@@ -1288,7 +1289,7 @@ impl WorkspaceCommandHelper {
     ) -> Result<SnapshotStats, CommandError> {
         self.check_working_copy_writable()?;
 
-        let workspace_id = self.workspace_id().clone();
+        let workspace_id = self.workspace_id().to_owned();
         let mut locked_ws = self.workspace.start_working_copy_mutation()?;
         let (repo, new_commit) = working_copy::create_and_check_out_recovery_commit(
             locked_ws.locked_wc(),
@@ -2103,7 +2104,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
                     ui.warning_default(),
                     "The working-copy commit in workspace '{}' became immutable, so a new commit \
                      has been created on top of it.",
-                    workspace_id.as_str()
+                    workspace_id.as_symbol()
                 )?;
             }
         }

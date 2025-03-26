@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use jj_lib::op_store::WorkspaceId;
+use jj_lib::ref_name::WorkspaceIdBuf;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -24,7 +24,7 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 pub struct WorkspaceRenameArgs {
     /// The name of the workspace to update to.
-    new_workspace_name: String,
+    new_workspace_name: WorkspaceIdBuf,
 }
 
 #[instrument(skip_all)]
@@ -33,14 +33,14 @@ pub fn cmd_workspace_rename(
     command: &CommandHelper,
     args: &WorkspaceRenameArgs,
 ) -> Result<(), CommandError> {
-    if args.new_workspace_name.is_empty() {
+    if args.new_workspace_name.as_str().is_empty() {
         return Err(user_error("New workspace name cannot be empty"));
     }
 
     let mut workspace_command = command.workspace_helper(ui)?;
 
-    let old_workspace_id = workspace_command.working_copy().workspace_id().clone();
-    let new_workspace_id = WorkspaceId::new(args.new_workspace_name.clone());
+    let old_workspace_id = workspace_command.working_copy().workspace_id().to_owned();
+    let new_workspace_id = &*args.new_workspace_name;
     if new_workspace_id == old_workspace_id {
         writeln!(ui.status(), "Nothing changed.")?;
         return Ok(());
@@ -54,7 +54,7 @@ pub fn cmd_workspace_rename(
     {
         return Err(user_error(format!(
             "The current workspace '{}' is not tracked in the repo.",
-            old_workspace_id.as_str()
+            old_workspace_id.as_symbol()
         )));
     }
 
@@ -63,14 +63,14 @@ pub fn cmd_workspace_rename(
 
     locked_ws
         .locked_wc()
-        .rename_workspace(new_workspace_id.clone());
+        .rename_workspace(new_workspace_id.to_owned());
 
     tx.repo_mut()
-        .rename_workspace(&old_workspace_id, new_workspace_id)?;
+        .rename_workspace(&old_workspace_id, new_workspace_id.to_owned())?;
     let repo = tx.commit(format!(
-        "Renamed workspace '{}' to '{}'",
-        old_workspace_id.as_str(),
-        args.new_workspace_name
+        "Renamed workspace '{old}' to '{new}'",
+        old = old_workspace_id.as_symbol(),
+        new = new_workspace_id.as_symbol()
     ))?;
     locked_ws.finish(repo.op_id().clone())?;
 

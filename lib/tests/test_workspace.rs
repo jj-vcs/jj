@@ -15,7 +15,7 @@
 use std::thread;
 
 use assert_matches::assert_matches;
-use jj_lib::op_store::WorkspaceId;
+use jj_lib::ref_name::WorkspaceIdBuf;
 use jj_lib::repo::Repo as _;
 use jj_lib::workspace::default_working_copy_factories;
 use jj_lib::workspace::default_working_copy_factory;
@@ -48,7 +48,7 @@ fn test_init_additional_workspace() {
     let test_workspace = TestWorkspace::init_with_settings(&settings);
     let workspace = &test_workspace.workspace;
 
-    let ws2_id = WorkspaceId::new("ws2".to_string());
+    let ws2_id = WorkspaceIdBuf::from("ws2");
     let ws2_root = test_workspace.root_dir().join("ws2_root");
     std::fs::create_dir(&ws2_root).unwrap();
     let (ws2, repo) = Workspace::init_workspace_with_existing_repo(

@@ -19,8 +19,6 @@ use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Debug;
-use std::fmt::Error;
-use std::fmt::Formatter;
 use std::iter;
 use std::time::SystemTime;
 
@@ -43,31 +41,7 @@ use crate::ref_name::RefNameBuf;
 use crate::ref_name::RemoteName;
 use crate::ref_name::RemoteNameBuf;
 use crate::ref_name::RemoteRefSymbol;
-
-#[derive(ContentHash, PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
-pub struct WorkspaceId(String);
-
-impl Debug for WorkspaceId {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        f.debug_tuple("WorkspaceId").field(&self.0).finish()
-    }
-}
-
-impl Default for WorkspaceId {
-    fn default() -> Self {
-        Self("default".to_string())
-    }
-}
-
-impl WorkspaceId {
-    pub fn new(value: String) -> Self {
-        Self(value)
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
+use crate::ref_name::WorkspaceIdBuf;
 
 id_type!(pub ViewId { hex() });
 id_type!(pub OperationId { hex() });
@@ -285,7 +259,7 @@ pub struct View {
     // The commit that *should be* checked out in the workspace. Note that the working copy
     // (.jj/working_copy/) has the source of truth about which commit *is* checked out (to be
     // precise: the commit to which we most recently completed an update to).
-    pub wc_commit_ids: BTreeMap<WorkspaceId, CommitId>,
+    pub wc_commit_ids: BTreeMap<WorkspaceIdBuf, CommitId>,
 }
 
 impl View {
