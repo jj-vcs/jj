@@ -242,7 +242,7 @@ pub fn maybe_set_repository_level_trunk_alias(
         if let Some(reference_name) = reference.target().try_name() {
             if let Some((GitRefKind::Bookmark, symbol)) = str::from_utf8(reference_name.as_bstr())
                 .ok()
-                .and_then(parse_git_ref)
+                .and_then(|name| parse_git_ref(name.as_ref()))
             {
                 // TODO: Can we assume the symbolic target points to the same remote?
                 let symbol = symbol.name.to_remote_symbol("origin".as_ref());

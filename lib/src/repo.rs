@@ -73,6 +73,7 @@ use crate::op_store::RemoteRefState;
 use crate::op_store::RootOperationData;
 use crate::op_store::WorkspaceId;
 use crate::operation::Operation;
+use crate::ref_name::GitRefName;
 use crate::ref_name::RefName;
 use crate::ref_name::RemoteName;
 use crate::ref_name::RemoteRefSymbol;
@@ -1614,15 +1615,20 @@ impl MutableRepo {
         view.set_tag_target(name, new_target);
     }
 
-    pub fn get_git_ref(&self, name: &str) -> RefTarget {
+    pub fn get_git_ref(&self, name: &GitRefName) -> RefTarget {
         self.view.with_ref(|v| v.get_git_ref(name).clone())
     }
 
-    pub fn set_git_ref_target(&mut self, name: &str, target: RefTarget) {
+    pub fn set_git_ref_target(&mut self, name: &GitRefName, target: RefTarget) {
         self.view_mut().set_git_ref_target(name, target);
     }
 
-    fn merge_git_ref(&mut self, name: &str, base_target: &RefTarget, other_target: &RefTarget) {
+    fn merge_git_ref(
+        &mut self,
+        name: &GitRefName,
+        base_target: &RefTarget,
+        other_target: &RefTarget,
+    ) {
         let view = self.view.get_mut();
         let index = self.index.as_index();
         let self_target = view.get_git_ref(name);

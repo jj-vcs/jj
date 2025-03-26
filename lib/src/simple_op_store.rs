@@ -60,6 +60,7 @@ use crate::op_store::RootOperationData;
 use crate::op_store::View;
 use crate::op_store::ViewId;
 use crate::op_store::WorkspaceId;
+use crate::ref_name::GitRefNameBuf;
 use crate::ref_name::RefNameBuf;
 use crate::ref_name::RemoteNameBuf;
 
@@ -498,7 +499,7 @@ fn view_to_proto(view: &View) -> crate::protos::op_store::View {
 
     for (git_ref_name, target) in &view.git_refs {
         proto.git_refs.push(crate::protos::op_store::GitRef {
-            name: git_ref_name.clone(),
+            name: git_ref_name.into(),
             target: ref_target_to_proto(target),
             ..Default::default()
         });
@@ -538,13 +539,14 @@ fn view_from_proto(proto: crate::protos::op_store::View) -> View {
     }
 
     for git_ref in proto.git_refs {
+        let name: GitRefNameBuf = git_ref.name.into();
         let target = if git_ref.target.is_some() {
             ref_target_from_proto(git_ref.target)
         } else {
             // Legacy format
             RefTarget::normal(CommitId::new(git_ref.commit_id))
         };
-        view.git_refs.insert(git_ref.name, target);
+        view.git_refs.insert(name, target);
     }
 
     #[expect(deprecated)]
@@ -774,8 +776,8 @@ mod tests {
                 },
             },
             git_refs: btreemap! {
-                "refs/heads/main".to_string() => git_refs_main_target,
-                "refs/heads/feature".to_string() => git_refs_feature_target,
+                "refs/heads/main".into() => git_refs_main_target,
+                "refs/heads/feature".into() => git_refs_feature_target,
             },
             git_head: RefTarget::normal(CommitId::from_hex("fff111")),
             wc_commit_ids: btreemap! {

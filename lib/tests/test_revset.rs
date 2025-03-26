@@ -776,7 +776,7 @@ fn test_resolve_symbol_tags() {
         RefTarget::normal(commit2.id().clone()),
     );
     mut_repo.set_git_ref_target(
-        "refs/tags/unimported",
+        "refs/tags/unimported".as_ref(),
         RefTarget::normal(commit3.id().clone()),
     );
 
@@ -823,23 +823,26 @@ fn test_resolve_symbol_git_refs() {
     let commit4 = write_random_commit(mut_repo);
     let commit5 = write_random_commit(mut_repo);
     mut_repo.set_git_ref_target(
-        "refs/heads/bookmark1",
+        "refs/heads/bookmark1".as_ref(),
         RefTarget::normal(commit1.id().clone()),
     );
     mut_repo.set_git_ref_target(
-        "refs/heads/bookmark2",
+        "refs/heads/bookmark2".as_ref(),
         RefTarget::normal(commit2.id().clone()),
     );
     mut_repo.set_git_ref_target(
-        "refs/heads/conflicted",
+        "refs/heads/conflicted".as_ref(),
         RefTarget::from_legacy_form(
             [commit2.id().clone()],
             [commit1.id().clone(), commit3.id().clone()],
         ),
     );
-    mut_repo.set_git_ref_target("refs/tags/tag1", RefTarget::normal(commit2.id().clone()));
     mut_repo.set_git_ref_target(
-        "refs/tags/remotes/origin/bookmark1",
+        "refs/tags/tag1".as_ref(),
+        RefTarget::normal(commit2.id().clone()),
+    );
+    mut_repo.set_git_ref_target(
+        "refs/tags/remotes/origin/bookmark1".as_ref(),
         RefTarget::normal(commit3.id().clone()),
     );
 
@@ -852,7 +855,7 @@ fn test_resolve_symbol_git_refs() {
 
     // Full ref
     mut_repo.set_git_ref_target(
-        "refs/heads/bookmark",
+        "refs/heads/bookmark".as_ref(),
         RefTarget::normal(commit4.id().clone()),
     );
     assert_eq!(
@@ -862,11 +865,11 @@ fn test_resolve_symbol_git_refs() {
 
     // Qualified with only heads/
     mut_repo.set_git_ref_target(
-        "refs/heads/bookmark",
+        "refs/heads/bookmark".as_ref(),
         RefTarget::normal(commit5.id().clone()),
     );
     mut_repo.set_git_ref_target(
-        "refs/tags/bookmark",
+        "refs/tags/bookmark".as_ref(),
         RefTarget::normal(commit4.id().clone()),
     );
     // bookmark alone is not recognized
@@ -884,7 +887,10 @@ fn test_resolve_symbol_git_refs() {
     );
 
     // Unqualified tag name
-    mut_repo.set_git_ref_target("refs/tags/tag", RefTarget::normal(commit4.id().clone()));
+    mut_repo.set_git_ref_target(
+        "refs/tags/tag".as_ref(),
+        RefTarget::normal(commit4.id().clone()),
+    );
     assert_matches!(
         resolve_symbol(mut_repo, "tag"),
         Err(RevsetResolutionError::NoSuchRevision { .. })
@@ -892,7 +898,7 @@ fn test_resolve_symbol_git_refs() {
 
     // Unqualified remote-tracking bookmark name
     mut_repo.set_git_ref_target(
-        "refs/remotes/origin/remote-bookmark",
+        "refs/remotes/origin/remote-bookmark".as_ref(),
         RefTarget::normal(commit2.id().clone()),
     );
     assert_matches!(
@@ -1951,37 +1957,43 @@ fn test_evaluate_expression_git_refs() {
     assert_eq!(resolve_commit_ids(mut_repo, "git_refs()"), vec![]);
     // Can get a mix of git refs
     mut_repo.set_git_ref_target(
-        "refs/heads/bookmark1",
+        "refs/heads/bookmark1".as_ref(),
         RefTarget::normal(commit1.id().clone()),
     );
-    mut_repo.set_git_ref_target("refs/tags/tag1", RefTarget::normal(commit2.id().clone()));
+    mut_repo.set_git_ref_target(
+        "refs/tags/tag1".as_ref(),
+        RefTarget::normal(commit2.id().clone()),
+    );
     assert_eq!(
         resolve_commit_ids(mut_repo, "git_refs()"),
         vec![commit2.id().clone(), commit1.id().clone()]
     );
     // Two refs pointing to the same commit does not result in a duplicate in the
     // revset
-    mut_repo.set_git_ref_target("refs/tags/tag2", RefTarget::normal(commit2.id().clone()));
+    mut_repo.set_git_ref_target(
+        "refs/tags/tag2".as_ref(),
+        RefTarget::normal(commit2.id().clone()),
+    );
     assert_eq!(
         resolve_commit_ids(mut_repo, "git_refs()"),
         vec![commit2.id().clone(), commit1.id().clone()]
     );
     // Can get git refs when there are conflicted refs
     mut_repo.set_git_ref_target(
-        "refs/heads/bookmark1",
+        "refs/heads/bookmark1".as_ref(),
         RefTarget::from_legacy_form(
             [commit1.id().clone()],
             [commit2.id().clone(), commit3.id().clone()],
         ),
     );
     mut_repo.set_git_ref_target(
-        "refs/tags/tag1",
+        "refs/tags/tag1".as_ref(),
         RefTarget::from_legacy_form(
             [commit2.id().clone()],
             [commit3.id().clone(), commit4.id().clone()],
         ),
     );
-    mut_repo.set_git_ref_target("refs/tags/tag2", RefTarget::absent());
+    mut_repo.set_git_ref_target("refs/tags/tag2".as_ref(), RefTarget::absent());
     assert_eq!(
         resolve_commit_ids(mut_repo, "git_refs()"),
         vec![

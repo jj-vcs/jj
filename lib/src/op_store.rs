@@ -37,6 +37,7 @@ use crate::object_id::id_type;
 use crate::object_id::HexPrefix;
 use crate::object_id::ObjectId as _;
 use crate::object_id::PrefixResolution;
+use crate::ref_name::GitRefNameBuf;
 use crate::ref_name::RefName;
 use crate::ref_name::RefNameBuf;
 use crate::ref_name::RemoteName;
@@ -276,7 +277,7 @@ pub struct View {
     pub local_bookmarks: BTreeMap<RefNameBuf, RefTarget>,
     pub tags: BTreeMap<RefNameBuf, RefTarget>,
     pub remote_views: BTreeMap<RemoteNameBuf, RemoteView>,
-    pub git_refs: BTreeMap<String, RefTarget>,
+    pub git_refs: BTreeMap<GitRefNameBuf, RefTarget>,
     /// The commit the Git HEAD points to.
     // TODO: Support multiple Git worktrees?
     // TODO: Do we want to store the current bookmark name too?

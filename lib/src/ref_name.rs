@@ -42,6 +42,22 @@ use ref_cast::RefCastCustom;
 use crate::content_hash::ContentHash;
 use crate::revset;
 
+/// Owned Git ref name in fully-qualified form (e.g. `refs/heads/main`.)
+///
+/// Use `.as_str()` or `.as_symbol()` for displaying. Other than that, this can
+/// be considered an immutable `String`.
+// Eq, Hash, and Ord must be compatible with GitRefName.
+#[derive(Clone, ContentHash, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct GitRefNameBuf(String);
+
+/// Borrowed Git ref name in fully-qualified form (e.g. `refs/heads/main`.)
+///
+/// Use `.as_str()` or `.as_symbol()` for displaying. Other than that, this can
+/// be considered an immutable `str`.
+#[derive(ContentHash, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, RefCastCustom)]
+#[repr(transparent)]
+pub struct GitRefName(str);
+
 /// Owned local (or local part of remote) bookmark or tag name.
 ///
 /// Use `.as_str()` or `.as_symbol()` for displaying. Other than that, this can
@@ -263,6 +279,7 @@ macro_rules! impl_name_type {
     };
 }
 
+impl_name_type!(GitRefNameBuf, GitRefName);
 // TODO: split RefName into BookmarkName and TagName? That will make sense at
 // repo/view API surface, but we'll need generic RemoteRefSymbol type, etc.
 impl_name_type!(RefNameBuf, RefName);

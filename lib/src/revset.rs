@@ -1926,7 +1926,7 @@ impl PartialSymbolResolver for GitRefResolver {
     ) -> Result<Option<Vec<CommitId>>, RevsetResolutionError> {
         let view = repo.view();
         for git_ref_prefix in &["", "refs/"] {
-            let target = view.get_git_ref(&(git_ref_prefix.to_string() + symbol));
+            let target = view.get_git_ref([git_ref_prefix, symbol].concat().as_ref());
             if target.is_present() {
                 return Ok(Some(target.added_ids().cloned().collect()));
             }

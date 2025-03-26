@@ -286,27 +286,27 @@ fn test_import_refs() {
 
     assert_eq!(view.git_refs().len(), 6);
     assert_eq!(
-        view.get_git_ref("refs/heads/main"),
+        view.get_git_ref("refs/heads/main".as_ref()),
         &RefTarget::normal(jj_id(commit2))
     );
     assert_eq!(
-        view.get_git_ref("refs/heads/feature1"),
+        view.get_git_ref("refs/heads/feature1".as_ref()),
         &RefTarget::normal(jj_id(commit3))
     );
     assert_eq!(
-        view.get_git_ref("refs/heads/feature2"),
+        view.get_git_ref("refs/heads/feature2".as_ref()),
         &RefTarget::normal(jj_id(commit4))
     );
     assert_eq!(
-        view.get_git_ref("refs/remotes/origin/main"),
+        view.get_git_ref("refs/remotes/origin/main".as_ref()),
         &RefTarget::normal(jj_id(commit1))
     );
     assert_eq!(
-        view.get_git_ref("refs/remotes/origin/feature3"),
+        view.get_git_ref("refs/remotes/origin/feature3".as_ref()),
         &RefTarget::normal(jj_id(commit6))
     );
     assert_eq!(
-        view.get_git_ref("refs/tags/v1.0"),
+        view.get_git_ref("refs/tags/v1.0".as_ref()),
         &RefTarget::normal(jj_id(commit5))
     );
     assert_eq!(view.git_head(), &RefTarget::normal(jj_id(commit2)));
@@ -424,13 +424,19 @@ fn test_import_refs_reimport() {
     assert!(view.tags().is_empty());
 
     assert_eq!(view.git_refs().len(), 3);
-    assert_eq!(view.get_git_ref("refs/heads/main"), &commit2_target);
     assert_eq!(
-        view.get_git_ref("refs/remotes/origin/main"),
+        view.get_git_ref("refs/heads/main".as_ref()),
+        &commit2_target
+    );
+    assert_eq!(
+        view.get_git_ref("refs/remotes/origin/main".as_ref()),
         &commit1_target
     );
     let commit5_target = RefTarget::normal(jj_id(commit5));
-    assert_eq!(view.get_git_ref("refs/heads/feature2"), &commit5_target);
+    assert_eq!(
+        view.get_git_ref("refs/heads/feature2".as_ref()),
+        &commit5_target
+    );
 }
 
 #[test]
@@ -1165,7 +1171,7 @@ fn test_import_refs_reimport_conflicted_remote_bookmark() {
     // Remote bookmark can diverge by divergent operations (like `jj git fetch`)
     let repo = commit_transactions(vec![tx1, tx2]);
     assert_eq!(
-        repo.view().get_git_ref("refs/remotes/origin/main"),
+        repo.view().get_git_ref("refs/remotes/origin/main".as_ref()),
         &RefTarget::from_legacy_form([], [jj_id(commit1), jj_id(commit2)]),
     );
     assert_eq!(
@@ -1182,7 +1188,7 @@ fn test_import_refs_reimport_conflicted_remote_bookmark() {
     git::import_refs(tx.repo_mut(), &git_settings).unwrap();
     let repo = tx.commit("test").unwrap();
     assert_eq!(
-        repo.view().get_git_ref("refs/remotes/origin/main"),
+        repo.view().get_git_ref("refs/remotes/origin/main".as_ref()),
         &RefTarget::normal(jj_id(commit2)),
     );
     assert_eq!(
@@ -1591,7 +1597,7 @@ fn test_export_refs_no_detach() {
     let stats = git::export_refs(mut_repo).unwrap();
     assert!(stats.failed_bookmarks.is_empty());
     assert_eq!(
-        mut_repo.get_git_ref("refs/heads/main"),
+        mut_repo.get_git_ref("refs/heads/main".as_ref()),
         RefTarget::normal(jj_id(commit1))
     );
     assert_eq!(
@@ -1641,7 +1647,7 @@ fn test_export_refs_bookmark_changed() {
     let stats = git::export_refs(mut_repo).unwrap();
     assert!(stats.failed_bookmarks.is_empty());
     assert_eq!(
-        mut_repo.get_git_ref("refs/heads/main"),
+        mut_repo.get_git_ref("refs/heads/main".as_ref()),
         RefTarget::normal(new_commit.id().clone())
     );
     assert_eq!(
@@ -1685,7 +1691,7 @@ fn test_export_refs_current_bookmark_changed() {
     let stats = git::export_refs(mut_repo).unwrap();
     assert!(stats.failed_bookmarks.is_empty());
     assert_eq!(
-        mut_repo.get_git_ref("refs/heads/main"),
+        mut_repo.get_git_ref("refs/heads/main".as_ref()),
         RefTarget::normal(new_commit.id().clone())
     );
     assert_eq!(
@@ -1733,7 +1739,7 @@ fn test_export_refs_unborn_git_bookmark(move_placeholder_ref: bool) {
     let stats = git::export_refs(mut_repo).unwrap();
     assert!(stats.failed_bookmarks.is_empty());
     assert_eq!(
-        mut_repo.get_git_ref("refs/heads/main"),
+        mut_repo.get_git_ref("refs/heads/main".as_ref()),
         RefTarget::normal(new_commit.id().clone())
     );
     assert_eq!(
@@ -1776,7 +1782,7 @@ fn test_export_import_sequence() {
         .unwrap();
     git::import_refs(mut_repo, &git_settings).unwrap();
     assert_eq!(
-        mut_repo.get_git_ref("refs/heads/main"),
+        mut_repo.get_git_ref("refs/heads/main".as_ref()),
         RefTarget::normal(commit_a.id().clone())
     );
 
@@ -1787,7 +1793,7 @@ fn test_export_import_sequence() {
     let stats = git::export_refs(mut_repo).unwrap();
     assert!(stats.failed_bookmarks.is_empty());
     assert_eq!(
-        mut_repo.get_git_ref("refs/heads/main"),
+        mut_repo.get_git_ref("refs/heads/main".as_ref()),
         RefTarget::normal(commit_b.id().clone())
     );
 
@@ -1804,7 +1810,7 @@ fn test_export_import_sequence() {
     // Import from git
     git::import_refs(mut_repo, &git_settings).unwrap();
     assert_eq!(
-        mut_repo.get_git_ref("refs/heads/main"),
+        mut_repo.get_git_ref("refs/heads/main".as_ref()),
         RefTarget::normal(commit_c.id().clone())
     );
     assert_eq!(
@@ -1844,14 +1850,17 @@ fn test_import_export_non_tracking_bookmark() {
         },
     );
     assert_eq!(
-        mut_repo.get_git_ref("refs/remotes/origin/main"),
+        mut_repo.get_git_ref("refs/remotes/origin/main".as_ref()),
         RefTarget::normal(jj_id(commit_main_t0))
     );
 
     // Export the bookmark to git
     let stats = git::export_refs(mut_repo).unwrap();
     assert!(stats.failed_bookmarks.is_empty());
-    assert_eq!(mut_repo.get_git_ref("refs/heads/main"), RefTarget::absent());
+    assert_eq!(
+        mut_repo.get_git_ref("refs/heads/main".as_ref()),
+        RefTarget::absent()
+    );
 
     // Reimport with auto-local-bookmark on. Local bookmark shouldn't be created for
     // the known bookmark "main".
@@ -2279,15 +2288,15 @@ fn test_export_reexport_transitions() {
     assert_eq!(
         *mut_repo.view().git_refs(),
         btreemap! {
-            "refs/heads/AAX".to_string() => RefTarget::normal(commit_a.id().clone()),
-            "refs/heads/AAB".to_string() => RefTarget::normal(commit_a.id().clone()),
-            "refs/heads/ABA".to_string() => RefTarget::normal(commit_b.id().clone()),
-            "refs/heads/ABB".to_string() => RefTarget::normal(commit_b.id().clone()),
-            "refs/heads/ABC".to_string() => RefTarget::normal(commit_a.id().clone()),
-            "refs/heads/ABX".to_string() => RefTarget::normal(commit_a.id().clone()),
-            "refs/heads/AXB".to_string() => RefTarget::normal(commit_a.id().clone()),
-            "refs/heads/XAA".to_string() => RefTarget::normal(commit_a.id().clone()),
-            "refs/heads/XAX".to_string() => RefTarget::normal(commit_a.id().clone()),
+            "refs/heads/AAX".into() => RefTarget::normal(commit_a.id().clone()),
+            "refs/heads/AAB".into() => RefTarget::normal(commit_a.id().clone()),
+            "refs/heads/ABA".into() => RefTarget::normal(commit_b.id().clone()),
+            "refs/heads/ABB".into() => RefTarget::normal(commit_b.id().clone()),
+            "refs/heads/ABC".into() => RefTarget::normal(commit_a.id().clone()),
+            "refs/heads/ABX".into() => RefTarget::normal(commit_a.id().clone()),
+            "refs/heads/AXB".into() => RefTarget::normal(commit_a.id().clone()),
+            "refs/heads/XAA".into() => RefTarget::normal(commit_a.id().clone()),
+            "refs/heads/XAX".into() => RefTarget::normal(commit_a.id().clone()),
         }
     );
 }
@@ -2313,7 +2322,7 @@ fn test_export_undo_reexport() {
             .id(),
         git_id(&commit_a)
     );
-    assert_eq!(mut_repo.get_git_ref("refs/heads/main"), target_a);
+    assert_eq!(mut_repo.get_git_ref("refs/heads/main".as_ref()), target_a);
     assert_eq!(
         mut_repo.get_remote_bookmark(remote_symbol("main", "git")),
         RemoteRef {
@@ -2336,7 +2345,7 @@ fn test_export_undo_reexport() {
             .id(),
         git_id(&commit_a)
     );
-    assert_eq!(mut_repo.get_git_ref("refs/heads/main"), target_a);
+    assert_eq!(mut_repo.get_git_ref("refs/heads/main".as_ref()), target_a);
     assert_eq!(
         mut_repo.get_remote_bookmark(remote_symbol("main", "git")),
         RemoteRef {
@@ -2890,7 +2899,7 @@ fn test_fetch_initial_commit_head_is_not_set(subprocess: bool) {
     assert_eq!(
         *view.git_refs(),
         btreemap! {
-            "refs/remotes/origin/main".to_string() => initial_commit_target.clone(),
+            "refs/remotes/origin/main".into() => initial_commit_target.clone(),
         }
     );
     assert_eq!(
@@ -3003,8 +3012,8 @@ fn test_fetch_success(subprocess: bool) {
     assert_eq!(
         *view.git_refs(),
         btreemap! {
-            "refs/remotes/origin/main".to_string() => new_commit_target.clone(),
-            "refs/tags/v1.0".to_string() => new_commit_target.clone(),
+            "refs/remotes/origin/main".into() => new_commit_target.clone(),
+            "refs/tags/v1.0".into() => new_commit_target.clone(),
         }
     );
     assert_eq!(
@@ -3252,7 +3261,7 @@ fn set_up_push_repos(settings: &UserSettings, temp_dir: &TempDir) -> PushTestSet
         .write()
         .unwrap();
     tx.repo_mut().set_git_ref_target(
-        "refs/remotes/origin/main",
+        "refs/remotes/origin/main".as_ref(),
         RefTarget::normal(main_commit.id().clone()),
     );
     tx.repo_mut().set_remote_bookmark(
@@ -3326,7 +3335,7 @@ fn test_push_bookmarks_success(subprocess: bool) {
     // Check that the repo view got updated
     let view = tx.repo().view();
     assert_eq!(
-        *view.get_git_ref("refs/remotes/origin/main"),
+        *view.get_git_ref("refs/remotes/origin/main".as_ref()),
         RefTarget::normal(setup.child_of_main_commit.id().clone()),
     );
     assert_eq!(
@@ -3394,7 +3403,9 @@ fn test_push_bookmarks_deletion(subprocess: bool) {
 
     // Check that the repo view got updated
     let view = tx.repo().view();
-    assert!(view.get_git_ref("refs/remotes/origin/main").is_absent());
+    assert!(view
+        .get_git_ref("refs/remotes/origin/main".as_ref())
+        .is_absent());
     assert!(view
         .get_remote_bookmark(remote_symbol("main", "origin"))
         .is_absent());
@@ -3461,12 +3472,14 @@ fn test_push_bookmarks_mixed_deletion_and_addition(subprocess: bool) {
 
     // Check that the repo view got updated
     let view = tx.repo().view();
-    assert!(view.get_git_ref("refs/remotes/origin/main").is_absent());
+    assert!(view
+        .get_git_ref("refs/remotes/origin/main".as_ref())
+        .is_absent());
     assert!(view
         .get_remote_bookmark(remote_symbol("main", "origin"))
         .is_absent());
     assert_eq!(
-        *view.get_git_ref("refs/remotes/origin/topic"),
+        *view.get_git_ref("refs/remotes/origin/topic".as_ref()),
         RefTarget::normal(setup.child_of_main_commit.id().clone()),
     );
     assert_eq!(

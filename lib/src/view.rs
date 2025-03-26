@@ -27,6 +27,8 @@ use crate::op_store::RefTarget;
 use crate::op_store::RefTargetOptionExt as _;
 use crate::op_store::RemoteRef;
 use crate::op_store::WorkspaceId;
+use crate::ref_name::GitRefName;
+use crate::ref_name::GitRefNameBuf;
 use crate::ref_name::RefName;
 use crate::ref_name::RefNameBuf;
 use crate::ref_name::RemoteName;
@@ -83,7 +85,7 @@ impl View {
         &self.data.tags
     }
 
-    pub fn git_refs(&self) -> &BTreeMap<String, RefTarget> {
+    pub fn git_refs(&self) -> &BTreeMap<GitRefNameBuf, RefTarget> {
         &self.data.git_refs
     }
 
@@ -337,13 +339,13 @@ impl View {
         }
     }
 
-    pub fn get_git_ref(&self, name: &str) -> &RefTarget {
+    pub fn get_git_ref(&self, name: &GitRefName) -> &RefTarget {
         self.data.git_refs.get(name).flatten()
     }
 
     /// Sets the last imported Git ref to point to the given target. If the
     /// target is absent, the reference will be removed.
-    pub fn set_git_ref_target(&mut self, name: &str, target: RefTarget) {
+    pub fn set_git_ref_target(&mut self, name: &GitRefName, target: RefTarget) {
         if target.is_present() {
             self.data.git_refs.insert(name.to_owned(), target);
         } else {

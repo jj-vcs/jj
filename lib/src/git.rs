@@ -52,6 +52,8 @@ use crate::op_store::RefTarget;
 use crate::op_store::RefTargetOptionExt as _;
 use crate::op_store::RemoteRef;
 use crate::op_store::RemoteRefState;
+use crate::ref_name::GitRefName;
+use crate::ref_name::GitRefNameBuf;
 use crate::ref_name::RefName;
 use crate::ref_name::RefNameBuf;
 use crate::ref_name::RemoteName;
@@ -223,8 +225,8 @@ impl<'a> RefToPush<'a> {
 
 /// Translates Git ref name to jj's `name@remote` symbol. Returns `None` if the
 /// ref cannot be represented in jj.
-pub fn parse_git_ref(full_name: &str) -> Option<(GitRefKind, RemoteRefSymbol<'_>)> {
-    if let Some(name) = full_name.strip_prefix("refs/heads/") {
+pub fn parse_git_ref(full_name: &GitRefName) -> Option<(GitRefKind, RemoteRefSymbol<'_>)> {
+    if let Some(name) = full_name.as_str().strip_prefix("refs/heads/") {
         // Git CLI says 'HEAD' is not a valid branch name
         if name == "HEAD" {
             return None;
@@ -232,7 +234,7 @@ pub fn parse_git_ref(full_name: &str) -> Option<(GitRefKind, RemoteRefSymbol<'_>
         let name = RefName::new(name);
         let remote = REMOTE_NAME_FOR_LOCAL_GIT_REPO;
         Some((GitRefKind::Bookmark, RemoteRefSymbol { name, remote }))
-    } else if let Some(remote_and_name) = full_name.strip_prefix("refs/remotes/") {
+    } else if let Some(remote_and_name) = full_name.as_str().strip_prefix("refs/remotes/") {
         let (remote, name) = remote_and_name.split_once('/')?;
         // "refs/remotes/origin/HEAD" isn't a real remote-tracking branch
         if remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO || name == "HEAD" {
@@ -241,7 +243,7 @@ pub fn parse_git_ref(full_name: &str) -> Option<(GitRefKind, RemoteRefSymbol<'_>
         let name = RefName::new(name);
         let remote = RemoteName::new(remote);
         Some((GitRefKind::Bookmark, RemoteRefSymbol { name, remote }))
-    } else if let Some(name) = full_name.strip_prefix("refs/tags/") {
+    } else if let Some(name) = full_name.as_str().strip_prefix("refs/tags/") {
         let name = RefName::new(name);
         let remote = REMOTE_NAME_FOR_LOCAL_GIT_REPO;
         Some((GitRefKind::Tag, RemoteRefSymbol { name, remote }))
@@ -250,7 +252,7 @@ pub fn parse_git_ref(full_name: &str) -> Option<(GitRefKind, RemoteRefSymbol<'_>
     }
 }
 
-fn to_git_ref_name(kind: GitRefKind, symbol: RemoteRefSymbol<'_>) -> Option<String> {
+fn to_git_ref_name(kind: GitRefKind, symbol: RemoteRefSymbol<'_>) -> Option<GitRefNameBuf> {
     let RemoteRefSymbol { name, remote } = symbol;
     let name = name.as_str();
     let remote = remote.as_str();
@@ -263,13 +265,13 @@ fn to_git_ref_name(kind: GitRefKind, symbol: RemoteRefSymbol<'_>) -> Option<Stri
                 return None;
             }
             if remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO {
-                Some(format!("refs/heads/{name}"))
+                Some(format!("refs/heads/{name}").into())
             } else {
-                Some(format!("refs/remotes/{remote}/{name}"))
+                Some(format!("refs/remotes/{remote}/{name}").into())
             }
         }
         GitRefKind::Tag => {
-            (remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO).then(|| format!("refs/tags/{name}"))
+            (remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO).then(|| format!("refs/tags/{name}").into())
         }
     }
 }
@@ -392,7 +394,7 @@ pub struct GitImportStats {
 struct RefsToImport {
     /// Git ref `(full_name, new_target)`s to be copied to the view, sorted by
     /// `full_name`.
-    changed_git_refs: Vec<(String, RefTarget)>,
+    changed_git_refs: Vec<(GitRefNameBuf, RefTarget)>,
     /// Remote bookmark `(symbol, (old_remote_ref, new_target))`s to be merged
     /// in to the local bookmarks, sorted by `symbol`.
     changed_remote_bookmarks: Vec<(RemoteRefSymbolBuf, (RemoteRef, RefTarget))>,
@@ -667,9 +669,9 @@ fn diff_refs_to_import(
 
 fn collect_changed_refs_to_import(
     actual_git_refs: gix::reference::iter::Iter<'_>,
-    known_git_refs: &mut HashMap<&str, &RefTarget>,
+    known_git_refs: &mut HashMap<&GitRefName, &RefTarget>,
     known_remote_refs: &mut HashMap<RemoteRefKey<'_>, (&RefTarget, RemoteRefState)>,
-    changed_git_refs: &mut Vec<(String, RefTarget)>,
+    changed_git_refs: &mut Vec<(GitRefNameBuf, RefTarget)>,
     changed_remote_refs: &mut Vec<(RemoteRefSymbolBuf, (RemoteRef, RefTarget))>,
     failed_ref_names: &mut Vec<BString>,
     git_ref_filter: impl Fn(GitRefKind, RemoteRefSymbol<'_>) -> bool,
@@ -686,6 +688,7 @@ fn collect_changed_refs_to_import(
             failed_ref_names.push(full_name_bytes.to_owned());
             continue;
         }
+        let full_name = GitRefName::new(full_name);
         let Some((kind, symbol)) = parse_git_ref(full_name) else {
             // Skip special refs such as refs/remotes/*/HEAD.
             continue;
@@ -921,7 +924,7 @@ pub fn export_some_refs(
         if let Some((GitRefKind::Bookmark, symbol)) = target_name
             .as_ref()
             .and_then(|name| str::from_utf8(name.as_bstr()).ok())
-            .and_then(parse_git_ref)
+            .and_then(|name| parse_git_ref(name.as_ref()))
         {
             let old_target = head_ref.inner.target.clone();
             let current_oid = match head_ref.into_fully_peeled_id() {
@@ -1109,10 +1112,10 @@ fn diff_refs_to_export(
 
 fn delete_git_ref(
     git_repo: &gix::Repository,
-    git_ref_name: &str,
+    git_ref_name: &GitRefName,
     old_oid: &gix::oid,
 ) -> Result<(), FailedRefExportReason> {
-    if let Ok(git_ref) = git_repo.find_reference(git_ref_name) {
+    if let Ok(git_ref) = git_repo.find_reference(git_ref_name.as_str()) {
         if git_ref.inner.target.try_id() == Some(old_oid) {
             // The ref has not been updated by git, so go ahead and delete it
             git_ref
@@ -1130,13 +1133,13 @@ fn delete_git_ref(
 
 fn update_git_ref(
     git_repo: &gix::Repository,
-    git_ref_name: &str,
+    git_ref_name: &GitRefName,
     old_oid: Option<gix::ObjectId>,
     new_oid: gix::ObjectId,
 ) -> Result<(), FailedRefExportReason> {
     match old_oid {
         None => {
-            if let Ok(git_repo_ref) = git_repo.find_reference(git_ref_name) {
+            if let Ok(git_repo_ref) = git_repo.find_reference(git_ref_name.as_str()) {
                 // The ref was added in jj and in git. We're good if and only if git
                 // pointed it to our desired target.
                 if git_repo_ref.inner.target.try_id() != Some(&new_oid) {
@@ -1146,7 +1149,7 @@ fn update_git_ref(
                 // The ref was added in jj but still doesn't exist in git, so add it
                 git_repo
                     .reference(
-                        git_ref_name,
+                        git_ref_name.as_str(),
                         new_oid,
                         gix::refs::transaction::PreviousValue::MustNotExist,
                         "export from jj",
@@ -1157,13 +1160,13 @@ fn update_git_ref(
         Some(old_oid) => {
             // The ref was modified in jj. We can use gix API for updating under a lock.
             if let Err(err) = git_repo.reference(
-                git_ref_name,
+                git_ref_name.as_str(),
                 new_oid,
                 gix::refs::transaction::PreviousValue::MustExistAndMatch(old_oid.into()),
                 "export from jj",
             ) {
                 // The reference was probably updated in git
-                if let Ok(git_repo_ref) = git_repo.find_reference(git_ref_name) {
+                if let Ok(git_repo_ref) = git_repo.find_reference(git_ref_name.as_str()) {
                     // We still consider this a success if it was updated to our desired target
                     if git_repo_ref.inner.target.try_id() != Some(&new_oid) {
                         return Err(FailedRefExportReason::FailedToSet(err.into()));
@@ -1838,7 +1841,7 @@ fn remove_remote_refs(mut_repo: &mut MutableRepo, remote: &RemoteName) {
         .view()
         .git_refs()
         .keys()
-        .filter(|&r| r.starts_with(&prefix))
+        .filter(|&r| r.as_str().starts_with(&prefix))
         .cloned()
         .collect_vec();
     for git_ref in git_refs_to_delete {
@@ -2026,8 +2029,9 @@ fn rename_remote_refs(
         .git_refs()
         .iter()
         .filter_map(|(old, target)| {
-            old.strip_prefix(&prefix).map(|p| {
-                let new = format!("refs/remotes/{}/{p}", new_remote_name.as_str());
+            old.as_str().strip_prefix(&prefix).map(|p| {
+                let new: GitRefNameBuf =
+                    format!("refs/remotes/{}/{p}", new_remote_name.as_str()).into();
                 (old.clone(), new, target.clone())
             })
         })
@@ -2483,11 +2487,12 @@ pub fn push_branches(
     // if we returned an Err.
     if push_stats.all_ok() {
         for (name, update) in &targets.branch_updates {
-            let git_ref_name = format!(
+            let git_ref_name: GitRefNameBuf = format!(
                 "refs/remotes/{remote}/{name}",
                 remote = remote.as_str(),
                 name = name.as_str()
-            );
+            )
+            .into();
             let new_remote_ref = RemoteRef {
                 target: RefTarget::resolved(update.new_target.clone()),
                 state: RemoteRefState::Tracking,
