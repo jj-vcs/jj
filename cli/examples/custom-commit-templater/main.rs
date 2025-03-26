@@ -30,12 +30,12 @@ use jj_lib::extensions_map::ExtensionsMap;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo;
 use jj_lib::revset::FunctionCallNode;
+use jj_lib::revset::LoweringContext;
 use jj_lib::revset::PartialSymbolResolver;
 use jj_lib::revset::RevsetDiagnostics;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetFilterExtension;
 use jj_lib::revset::RevsetFilterPredicate;
-use jj_lib::revset::RevsetParseContext;
 use jj_lib::revset::RevsetParseError;
 use jj_lib::revset::RevsetResolutionError;
 use jj_lib::revset::SymbolResolverExtension;
@@ -191,7 +191,7 @@ impl RevsetFilterExtension for EvenDigitsFilter {
 fn even_digits(
     _diagnostics: &mut RevsetDiagnostics,
     function: &FunctionCallNode,
-    _context: &RevsetParseContext,
+    _context: &LoweringContext,
 ) -> Result<Rc<UserRevsetExpression>, RevsetParseError> {
     function.expect_no_arguments()?;
     Ok(RevsetExpression::filter(RevsetFilterPredicate::Extension(

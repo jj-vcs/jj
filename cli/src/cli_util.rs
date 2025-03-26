@@ -831,13 +831,13 @@ impl WorkspaceCommandEnvironment {
         } else {
             chrono::Local::now()
         };
-        RevsetParseContext::new(
-            &self.revset_aliases_map,
-            self.settings.user_email(),
-            now.into(),
-            self.command.revset_extensions(),
-            Some(workspace_context),
-        )
+        RevsetParseContext {
+            aliases_map: &self.revset_aliases_map,
+            user_email: self.settings.user_email(),
+            date_pattern_context: now.into(),
+            extensions: self.command.revset_extensions(),
+            workspace: Some(workspace_context),
+        }
     }
 
     /// Creates fresh new context which manages cache of short commit/change ID

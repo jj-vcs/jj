@@ -71,9 +71,13 @@ fn resolve_symbol_with_extensions(
     extensions: &RevsetExtensions,
     symbol: &str,
 ) -> Result<Vec<CommitId>, RevsetResolutionError> {
-    let aliases_map = RevsetAliasesMap::default();
-    let now = chrono::Local::now();
-    let context = RevsetParseContext::new(&aliases_map, "", now.into(), extensions, None);
+    let context = RevsetParseContext {
+        aliases_map: &RevsetAliasesMap::default(),
+        user_email: "",
+        date_pattern_context: chrono::Local::now().into(),
+        extensions,
+        workspace: None,
+    };
     let expression = parse(&mut RevsetDiagnostics::new(), symbol, &context).unwrap();
     assert_matches!(*expression, RevsetExpression::CommitRef(_));
     let symbol_resolver = DefaultSymbolResolver::new(repo, extensions.symbol_resolvers());
@@ -207,15 +211,13 @@ fn test_resolve_symbol_commit_id() {
         repo.as_ref(),
         &([] as [&Box<dyn SymbolResolverExtension>; 0]),
     );
-    let aliases_map = RevsetAliasesMap::default();
-    let extensions = RevsetExtensions::default();
-    let context = RevsetParseContext::new(
-        &aliases_map,
-        settings.user_email(),
-        chrono::Utc::now().fixed_offset().into(),
-        &extensions,
-        None,
-    );
+    let context = RevsetParseContext {
+        aliases_map: &RevsetAliasesMap::default(),
+        user_email: settings.user_email(),
+        date_pattern_context: chrono::Utc::now().fixed_offset().into(),
+        extensions: &RevsetExtensions::default(),
+        workspace: None,
+    };
     assert_matches!(
         parse(&mut RevsetDiagnostics::new(), "present(04)", &context).unwrap()
             .resolve_user_expression(repo.as_ref(), &symbol_resolver),
@@ -893,17 +895,15 @@ fn try_resolve_commit_ids(
     revset_str: &str,
 ) -> Result<Vec<CommitId>, RevsetResolutionError> {
     let settings = testutils::user_settings();
-    let aliases_map = RevsetAliasesMap::default();
-    let revset_extensions = RevsetExtensions::default();
-    let context = RevsetParseContext::new(
-        &aliases_map,
-        settings.user_email(),
-        chrono::Utc::now().fixed_offset().into(),
-        &revset_extensions,
-        None,
-    );
+    let context = RevsetParseContext {
+        aliases_map: &RevsetAliasesMap::default(),
+        user_email: settings.user_email(),
+        date_pattern_context: chrono::Utc::now().fixed_offset().into(),
+        extensions: &RevsetExtensions::default(),
+        workspace: None,
+    };
     let expression = parse(&mut RevsetDiagnostics::new(), revset_str, &context).unwrap();
-    let symbol_resolver = DefaultSymbolResolver::new(repo, revset_extensions.symbol_resolvers());
+    let symbol_resolver = DefaultSymbolResolver::new(repo, context.extensions.symbol_resolvers());
     let expression = expression.resolve_user_expression(repo, &symbol_resolver)?;
     Ok(expression
         .evaluate(repo)
@@ -928,15 +928,13 @@ fn resolve_commit_ids_in_workspace(
         path_converter: &path_converter,
         workspace_id: workspace.workspace_id(),
     };
-    let aliases_map = RevsetAliasesMap::default();
-    let extensions = RevsetExtensions::default();
-    let context = RevsetParseContext::new(
-        &aliases_map,
-        settings.user_email(),
-        chrono::Utc::now().fixed_offset().into(),
-        &extensions,
-        Some(workspace_ctx),
-    );
+    let context = RevsetParseContext {
+        aliases_map: &RevsetAliasesMap::default(),
+        user_email: settings.user_email(),
+        date_pattern_context: chrono::Utc::now().fixed_offset().into(),
+        extensions: &RevsetExtensions::default(),
+        workspace: Some(workspace_ctx),
+    };
     let expression = parse(&mut RevsetDiagnostics::new(), revset_str, &context).unwrap();
     let symbol_resolver =
         DefaultSymbolResolver::new(repo, &([] as [&Box<dyn SymbolResolverExtension>; 0]));

@@ -219,7 +219,7 @@ pub fn parse_immutable_heads_expression(
     context: &RevsetParseContext,
 ) -> Result<Rc<UserRevsetExpression>, RevsetParseError> {
     let (_, _, immutable_heads_str) = context
-        .aliases_map()
+        .aliases_map
         .get_function(USER_IMMUTABLE_HEADS, 0)
         .unwrap();
     let heads = revset::parse(diagnostics, immutable_heads_str, context)?;
@@ -234,7 +234,7 @@ pub(super) fn warn_unresolvable_trunk(
     context: &RevsetParseContext,
 ) -> io::Result<()> {
     let (_, _, revset_str) = context
-        .aliases_map()
+        .aliases_map
         .get_function("trunk", 0)
         .expect("trunk() should be defined by default");
     let Ok(expression) = revset::parse(&mut RevsetDiagnostics::new(), revset_str, context) else {
@@ -243,7 +243,7 @@ pub(super) fn warn_unresolvable_trunk(
     };
     // Not using IdPrefixContext since trunk() revset shouldn't contain short
     // prefixes.
-    let symbol_resolver = DefaultSymbolResolver::new(repo, context.symbol_resolvers());
+    let symbol_resolver = DefaultSymbolResolver::new(repo, context.extensions.symbol_resolvers());
     if let Err(err) = expression.resolve_user_expression(repo, &symbol_resolver) {
         writeln!(
             ui.warning_default(),

@@ -843,7 +843,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
         "mine",
         |language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let user_email = language.revset_parse_context.user_email().to_owned();
+            let user_email = language.revset_parse_context.user_email.to_owned();
             let out_property = self_property.map(move |commit| commit.author().email == user_email);
             Ok(L::wrap_boolean(out_property))
         },
@@ -1102,7 +1102,7 @@ fn evaluate_revset_expression<'repo>(
     let repo = language.repo;
     let symbol_resolver = revset_util::default_symbol_resolver(
         repo,
-        language.revset_parse_context.symbol_resolvers(),
+        language.revset_parse_context.extensions.symbol_resolvers(),
         language.id_prefix_context,
     );
     let revset = expression

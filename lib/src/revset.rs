@@ -648,7 +648,7 @@ pub enum ResolvedExpression {
 pub type RevsetFunction = fn(
     &mut RevsetDiagnostics,
     &FunctionCallNode,
-    &RevsetParseContext,
+    &LoweringContext,
 ) -> Result<Rc<UserRevsetExpression>, RevsetParseError>;
 
 static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, RevsetFunction>> = Lazy::new(|| {
@@ -1017,7 +1017,7 @@ fn parse_remote_bookmarks_arguments(
 fn lower_function_call(
     diagnostics: &mut RevsetDiagnostics,
     function: &FunctionCallNode,
-    context: &RevsetParseContext,
+    context: &LoweringContext,
 ) -> Result<Rc<UserRevsetExpression>, RevsetParseError> {
     let function_map = &context.extensions.function_map;
     if let Some(func) = function_map.get(function.name) {
@@ -1038,7 +1038,7 @@ fn lower_function_call(
 pub fn lower_expression(
     diagnostics: &mut RevsetDiagnostics,
     node: &ExpressionNode,
-    context: &RevsetParseContext,
+    context: &LoweringContext,
 ) -> Result<Rc<UserRevsetExpression>, RevsetParseError> {
     match &node.kind {
         ExpressionKind::Identifier(name) => Ok(RevsetExpression::symbol((*name).to_owned())),
@@ -1126,7 +1126,7 @@ pub fn parse(
 ) -> Result<Rc<UserRevsetExpression>, RevsetParseError> {
     let node = parse_program(revset_str)?;
     let node = dsl_util::expand_aliases(node, context.aliases_map)?;
-    lower_expression(diagnostics, &node, context)
+    lower_expression(diagnostics, &node, &context.to_lowering_context())
         .map_err(|err| err.extend_function_candidates(context.aliases_map.function_names()))
 }
 
@@ -1140,7 +1140,7 @@ pub fn parse_with_modifier(
     revset_parser::expect_program_with(
         diagnostics,
         &node,
-        |diagnostics, node| lower_expression(diagnostics, node, context),
+        |diagnostics, node| lower_expression(diagnostics, node, &context.to_lowering_context()),
         |_diagnostics, name, span| match name {
             "all" => Ok(RevsetModifier::All),
             _ => Err(RevsetParseError::with_span(
@@ -2564,34 +2564,41 @@ impl RevsetExtensions {
 /// Information needed to parse revset expression.
 #[derive(Clone)]
 pub struct RevsetParseContext<'a> {
-    aliases_map: &'a RevsetAliasesMap,
-    user_email: &'a str,
-    date_pattern_context: DatePatternContext,
-    extensions: &'a RevsetExtensions,
-    workspace: Option<RevsetWorkspaceContext<'a>>,
+    pub aliases_map: &'a RevsetAliasesMap,
+    pub user_email: &'a str,
+    pub date_pattern_context: DatePatternContext,
+    pub extensions: &'a RevsetExtensions,
+    pub workspace: Option<RevsetWorkspaceContext<'a>>,
 }
 
 impl<'a> RevsetParseContext<'a> {
-    pub fn new(
-        aliases_map: &'a RevsetAliasesMap,
-        user_email: &'a str,
-        date_pattern_context: DatePatternContext,
-        extensions: &'a RevsetExtensions,
-        workspace: Option<RevsetWorkspaceContext<'a>>,
-    ) -> Self {
-        Self {
-            aliases_map,
+    fn to_lowering_context(&self) -> LoweringContext<'a> {
+        let RevsetParseContext {
+            aliases_map: _,
+            user_email,
+            date_pattern_context,
+            extensions,
+            workspace,
+        } = *self;
+        LoweringContext {
             user_email,
             date_pattern_context,
             extensions,
             workspace,
         }
     }
+}
 
-    pub fn aliases_map(&self) -> &'a RevsetAliasesMap {
-        self.aliases_map
-    }
+/// Information needed to transform revset AST into `UserRevsetExpression`.
+#[derive(Clone)]
+pub struct LoweringContext<'a> {
+    user_email: &'a str,
+    date_pattern_context: DatePatternContext,
+    extensions: &'a RevsetExtensions,
+    workspace: Option<RevsetWorkspaceContext<'a>>,
+}
 
+impl<'a> LoweringContext<'a> {
     pub fn user_email(&self) -> &'a str {
         self.user_email
     }
@@ -2606,7 +2613,7 @@ impl<'a> RevsetParseContext<'a> {
 }
 
 /// Workspace information needed to parse revset expression.
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct RevsetWorkspaceContext<'a> {
     pub path_converter: &'a RepoPathUiConverter,
     pub workspace_id: &'a WorkspaceId,
@@ -2664,14 +2671,13 @@ mod tests {
         for (decl, defn) in aliases {
             aliases_map.insert(decl, defn).unwrap();
         }
-        let extensions = RevsetExtensions::default();
-        let context = RevsetParseContext::new(
-            &aliases_map,
-            "test.user@example.com",
-            chrono::Utc::now().fixed_offset().into(),
-            &extensions,
-            None,
-        );
+        let context = RevsetParseContext {
+            aliases_map: &aliases_map,
+            user_email: "test.user@example.com",
+            date_pattern_context: chrono::Utc::now().fixed_offset().into(),
+            extensions: &RevsetExtensions::default(),
+            workspace: None,
+        };
         super::parse(&mut RevsetDiagnostics::new(), revset_str, &context)
     }
 
@@ -2693,14 +2699,13 @@ mod tests {
         for (decl, defn) in aliases {
             aliases_map.insert(decl, defn).unwrap();
         }
-        let extensions = RevsetExtensions::default();
-        let context = RevsetParseContext::new(
-            &aliases_map,
-            "test.user@example.com",
-            chrono::Utc::now().fixed_offset().into(),
-            &extensions,
-            Some(workspace_ctx),
-        );
+        let context = RevsetParseContext {
+            aliases_map: &aliases_map,
+            user_email: "test.user@example.com",
+            date_pattern_context: chrono::Utc::now().fixed_offset().into(),
+            extensions: &RevsetExtensions::default(),
+            workspace: Some(workspace_ctx),
+        };
         super::parse(&mut RevsetDiagnostics::new(), revset_str, &context)
     }
 
@@ -2718,14 +2723,13 @@ mod tests {
         for (decl, defn) in aliases {
             aliases_map.insert(decl, defn).unwrap();
         }
-        let extensions = RevsetExtensions::default();
-        let context = RevsetParseContext::new(
-            &aliases_map,
-            "test.user@example.com",
-            chrono::Utc::now().fixed_offset().into(),
-            &extensions,
-            None,
-        );
+        let context = RevsetParseContext {
+            aliases_map: &aliases_map,
+            user_email: "test.user@example.com",
+            date_pattern_context: chrono::Utc::now().fixed_offset().into(),
+            extensions: &RevsetExtensions::default(),
+            workspace: None,
+        };
         super::parse_with_modifier(&mut RevsetDiagnostics::new(), revset_str, &context)
     }
 
