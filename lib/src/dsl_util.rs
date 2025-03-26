@@ -712,9 +712,11 @@ pub trait AliasExpandError: Sized {
 
 /// Expands aliases recursively in tree of `T`.
 #[derive(Debug)]
-struct AliasExpander<'i, T, P> {
+struct AliasExpander<'i, 'a, T, P> {
     /// Alias symbols and functions that are globally available.
     aliases_map: &'i AliasesMap<P, String>,
+    /// Local variables set in the outermost scope.
+    locals: &'a HashMap<&'i str, ExpressionNode<'i, T>>,
     /// Stack of aliases and local parameters currently expanding.
     states: Vec<AliasExpandingState<'i, T>>,
 }
@@ -725,12 +727,17 @@ struct AliasExpandingState<'i, T> {
     locals: HashMap<&'i str, ExpressionNode<'i, T>>,
 }
 
-impl<'i, T, P, E> AliasExpander<'i, T, P>
+impl<'i, T, P, E> AliasExpander<'i, '_, T, P>
 where
     T: AliasExpandableExpression<'i> + Clone,
     P: AliasDefinitionParser<Output<'i> = T, Error = E>,
     E: AliasExpandError,
 {
+    /// Local variables available to the current scope.
+    fn current_locals(&self) -> &HashMap<&'i str, ExpressionNode<'i, T>> {
+        self.states.last().map_or(self.locals, |s| &s.locals)
+    }
+
     fn expand_defn(
         &mut self,
         id: AliasId<'i>,
@@ -756,7 +763,7 @@ where
     }
 }
 
-impl<'i, T, P, E> ExpressionFolder<'i, T> for AliasExpander<'i, T, P>
+impl<'i, T, P, E> ExpressionFolder<'i, T> for AliasExpander<'i, '_, T, P>
 where
     T: AliasExpandableExpression<'i> + Clone,
     P: AliasDefinitionParser<Output<'i> = T, Error = E>,
@@ -765,7 +772,7 @@ where
     type Error = E;
 
     fn fold_identifier(&mut self, name: &'i str, span: pest::Span<'i>) -> Result<T, Self::Error> {
-        if let Some(subst) = self.states.last().and_then(|s| s.locals.get(name)) {
+        if let Some(subst) = self.current_locals().get(name) {
             let id = AliasId::Parameter(name);
             Ok(T::alias_expanded(id, Box::new(subst.clone())))
         } else if let Some((id, defn)) = self.aliases_map.get_symbol(name) {
@@ -820,8 +827,26 @@ where
     P: AliasDefinitionParser<Output<'i> = T>,
     P::Error: AliasExpandError,
 {
+    expand_aliases_with_locals(node, aliases_map, &HashMap::new())
+}
+
+/// Expands aliases recursively with the outermost local variables.
+///
+/// Local variables are similar to alias symbols, but are scoped. Alias symbols
+/// are globally accessible from alias expressions, but local variables aren't.
+pub fn expand_aliases_with_locals<'i, T, P>(
+    node: ExpressionNode<'i, T>,
+    aliases_map: &'i AliasesMap<P, String>,
+    locals: &HashMap<&'i str, ExpressionNode<'i, T>>,
+) -> Result<ExpressionNode<'i, T>, P::Error>
+where
+    T: AliasExpandableExpression<'i> + Clone,
+    P: AliasDefinitionParser<Output<'i> = T>,
+    P::Error: AliasExpandError,
+{
     let mut expander = AliasExpander {
         aliases_map,
+        locals,
         states: Vec::new(),
     };
     expander.fold_expression(node)

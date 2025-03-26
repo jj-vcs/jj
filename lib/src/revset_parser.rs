@@ -843,33 +843,46 @@ pub(super) fn expect_expression_with<T>(
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use assert_matches::assert_matches;
 
     use super::*;
     use crate::dsl_util::KeywordArgument;
 
     #[derive(Debug)]
-    struct WithRevsetAliasesMap(RevsetAliasesMap);
+    struct WithRevsetAliasesMap<'i> {
+        aliases_map: RevsetAliasesMap,
+        locals: HashMap<&'i str, ExpressionNode<'i>>,
+    }
 
-    impl WithRevsetAliasesMap {
-        fn parse<'i>(&'i self, text: &'i str) -> Result<ExpressionNode<'i>, RevsetParseError> {
-            let node = parse_program(text)?;
-            dsl_util::expand_aliases(node, &self.0)
+    impl<'i> WithRevsetAliasesMap<'i> {
+        fn set_local(mut self, name: &'i str, value: &'i str) -> Self {
+            self.locals.insert(name, parse_program(value).unwrap());
+            self
         }
 
-        fn parse_normalized<'i>(&'i self, text: &'i str) -> ExpressionNode<'i> {
+        fn parse(&'i self, text: &'i str) -> Result<ExpressionNode<'i>, RevsetParseError> {
+            let node = parse_program(text)?;
+            dsl_util::expand_aliases_with_locals(node, &self.aliases_map, &self.locals)
+        }
+
+        fn parse_normalized(&'i self, text: &'i str) -> ExpressionNode<'i> {
             normalize_tree(self.parse(text).unwrap())
         }
     }
 
-    fn with_aliases(
+    fn with_aliases<'i>(
         aliases: impl IntoIterator<Item = (impl AsRef<str>, impl Into<String>)>,
-    ) -> WithRevsetAliasesMap {
+    ) -> WithRevsetAliasesMap<'i> {
         let mut aliases_map = RevsetAliasesMap::new();
         for (decl, defn) in aliases {
             aliases_map.insert(decl, defn).unwrap();
         }
-        WithRevsetAliasesMap(aliases_map)
+        WithRevsetAliasesMap {
+            aliases_map,
+            locals: HashMap::new(),
+        }
     }
 
     fn parse_into_kind(text: &str) -> Result<ExpressionKind, RevsetParseErrorKind> {
@@ -1836,6 +1849,25 @@ mod tests {
                 .unwrap_err()
                 .kind,
             RevsetParseErrorKind::InAliasExpansion("F(x)".to_owned())
+        );
+    }
+
+    #[test]
+    fn test_expand_with_locals() {
+        // Local variable should precede the symbol alias.
+        assert_eq!(
+            with_aliases([("A", "symbol")])
+                .set_local("A", "local")
+                .parse_normalized("A"),
+            parse_normalized("local")
+        );
+
+        // Local variable shouldn't be expanded within aliases.
+        assert_eq!(
+            with_aliases([("B", "A"), ("F(x)", "x&A")])
+                .set_local("A", "a")
+                .parse_normalized("A|B|F(A)"),
+            parse_normalized("a|A|(a&A)")
         );
     }
 }
