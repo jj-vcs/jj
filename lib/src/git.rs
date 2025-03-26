@@ -512,6 +512,29 @@ pub fn import_some_refs(
     Ok(stats)
 }
 
+/// Import a single commit in the underlying Git repo into the Jujutsu repo.
+pub fn import_commit(
+    mut_repo: &mut MutableRepo,
+    commit_id: CommitId,
+) -> Result<(bool, Commit), GitImportError> {
+    let store = mut_repo.store();
+    let git_backend = get_git_backend(store)?;
+    let index = mut_repo.index();
+    let already_imported = index.has_id(&commit_id);
+    if !already_imported {
+        git_backend
+            .import_head_commits([&commit_id])
+            .map_err(GitImportError::InternalBackend)?;
+    }
+    let commit = store
+        .get_commit(&commit_id)
+        .map_err(GitImportError::InternalBackend)?;
+    mut_repo
+        .add_heads(&[commit.clone()])
+        .map_err(GitImportError::InternalBackend)?;
+    Ok((already_imported, commit))
+}
+
 /// Finds commits that used to be reachable in git that no longer are reachable.
 /// Those commits will be recorded as abandoned in the `MutableRepo`.
 fn abandon_unreachable_commits(
@@ -2117,6 +2140,19 @@ impl<'a> GitFetch<'a> {
         Ok(())
     }
 
+    /// Fetches a single ref and imports its commit.
+    #[tracing::instrument(skip(self, callbacks))]
+    pub fn fetch_and_resolve_ref(
+        &mut self,
+        remote_name: &str,
+        ref_name: &str,
+        callbacks: RemoteCallbacks<'_>,
+        depth: Option<NonZeroU32>,
+    ) -> Result<CommitId, GitFetchError> {
+        self.fetch_impl
+            .fetch_and_resolve_ref(remote_name, ref_name, callbacks, depth)
+    }
+
     /// Queries remote for the default branch name.
     #[tracing::instrument(skip(self, callbacks))]
     pub fn get_default_branch(
@@ -2233,6 +2269,56 @@ impl<'a> GitFetchImpl<'a> {
         }
     }
 
+    fn fetch_and_resolve_ref(
+        &self,
+        remote_name: &str,
+        ref_name: &str,
+        callbacks: RemoteCallbacks<'_>,
+        depth: Option<NonZeroU32>,
+    ) -> Result<CommitId, GitFetchError> {
+        let destination_ref_name = format!("refs/jj/fetch/{remote_name}/{ref_name}");
+        let refspec = RefSpec::forced(ref_name, destination_ref_name.clone());
+        // TODO: correctly handle when ref doesn't exist.
+        let commit_id = match self {
+            GitFetchImpl::Git2 { git_repo } => {
+                git2_fetch_refspecs(git_repo, remote_name, &[refspec], callbacks, depth)?;
+                let mut reference = git_repo
+                    .find_reference(&destination_ref_name)
+                    .map_err(GitFetchError::InternalGitError)?;
+                let commit_id_bytes = reference
+                    .peel_to_commit()
+                    .map_err(GitFetchError::InternalGitError)?
+                    .id()
+                    .as_bytes()
+                    .to_vec();
+                reference
+                    .delete()
+                    .map_err(GitFetchError::InternalGitError)?;
+                CommitId::new(commit_id_bytes)
+            }
+            GitFetchImpl::Subprocess { git_repo, git_ctx } => {
+                subprocess_fetch_refspecs(
+                    git_repo,
+                    git_ctx,
+                    remote_name,
+                    vec![refspec],
+                    callbacks,
+                    false,
+                    depth,
+                )?;
+                let mut reference = git_repo.find_reference(&destination_ref_name).unwrap();
+                let commit_id_bytes = reference.peel_to_commit().unwrap().id().as_bytes().to_vec();
+                git_repo
+                    .find_reference(&destination_ref_name)
+                    .unwrap()
+                    .delete()
+                    .unwrap();
+                CommitId::new(commit_id_bytes)
+            }
+        };
+        Ok(commit_id)
+    }
+
     fn get_default_branch(
         &self,
         remote_name: &str,
@@ -2258,6 +2344,20 @@ fn git2_fetch(
     callbacks: RemoteCallbacks<'_>,
     depth: Option<NonZeroU32>,
 ) -> Result<(), GitFetchError> {
+    // At this point, we are only updating Git's remote tracking branches, not the
+    // local branches.
+    let refspecs = expand_fetch_refspecs(remote_name, branch_names)?;
+    git2_fetch_refspecs(git_repo, remote_name, &refspecs, callbacks, depth)?;
+    Ok(())
+}
+
+fn git2_fetch_refspecs(
+    git_repo: &git2::Repository,
+    remote_name: &str,
+    refspecs: &[RefSpec],
+    callbacks: RemoteCallbacks<'_>,
+    depth: Option<NonZeroU32>,
+) -> Result<(), GitFetchError> {
     let mut remote = git_repo.find_remote(remote_name).map_err(|err| {
         if is_remote_not_found_err(&err) {
             GitFetchError::NoSuchRemote(remote_name.to_string())
@@ -2265,9 +2365,7 @@ fn git2_fetch(
             GitFetchError::InternalGitError(err)
         }
     })?;
-    // At this point, we are only updating Git's remote tracking branches, not the
-    // local branches.
-    let refspecs: Vec<String> = expand_fetch_refspecs(remote_name, branch_names)?
+    let refspecs: Vec<String> = refspecs
         .iter()
         .map(|refspec| refspec.to_git_format())
         .collect();
@@ -2339,16 +2437,38 @@ fn subprocess_fetch(
     git_ctx: &GitSubprocessContext,
     remote_name: &str,
     branch_names: &[StringPattern],
+    callbacks: RemoteCallbacks<'_>,
+    depth: Option<NonZeroU32>,
+) -> Result<(), GitFetchError> {
+    // At this point, we are only updating Git's remote tracking branches, not the
+    // local branches.
+    let refspecs: Vec<_> = expand_fetch_refspecs(remote_name, branch_names)?;
+    subprocess_fetch_refspecs(
+        git_repo,
+        git_ctx,
+        remote_name,
+        refspecs,
+        callbacks,
+        true,
+        depth,
+    )?;
+    Ok(())
+}
+
+fn subprocess_fetch_refspecs(
+    git_repo: &gix::Repository,
+    git_ctx: &GitSubprocessContext,
+    remote_name: &str,
+    refspecs: Vec<RefSpec>,
     mut callbacks: RemoteCallbacks<'_>,
+    prune_branches: bool,
     depth: Option<NonZeroU32>,
 ) -> Result<(), GitFetchError> {
     // check the remote exists
     if git_repo.try_find_remote(remote_name).is_none() {
         return Err(GitFetchError::NoSuchRemote(remote_name.to_owned()));
     }
-    // At this point, we are only updating Git's remote tracking branches, not the
-    // local branches.
-    let mut remaining_refspecs: Vec<_> = expand_fetch_refspecs(remote_name, branch_names)?;
+    let mut remaining_refspecs: Vec<_> = refspecs;
     if remaining_refspecs.is_empty() {
         // Don't fall back to the base refspecs.
         return Ok(());
@@ -2373,9 +2493,11 @@ fn subprocess_fetch(
         }
     }
 
-    // Even if git fetch has --prune, if a branch is not found it will not be
-    // pruned on fetch
-    git_ctx.spawn_branch_prune(&branches_to_prune)?;
+    if prune_branches {
+        // Even if git fetch has --prune, if a branch is not found it will not be
+        // pruned on fetch
+        git_ctx.spawn_branch_prune(&branches_to_prune)?;
+    }
     Ok(())
 }
 

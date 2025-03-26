@@ -18,6 +18,7 @@ mod fetch;
 mod import;
 mod init;
 mod push;
+mod r#ref;
 mod remote;
 mod root;
 
@@ -30,6 +31,8 @@ use jj_lib::git;
 use jj_lib::git::UnexpectedGitBackendError;
 use jj_lib::refs::RemoteRefSymbol;
 use jj_lib::store::Store;
+use r#ref::cmd_git_ref;
+use r#ref::GitRefCommand;
 
 use self::clone::cmd_git_clone;
 use self::clone::GitCloneArgs;
@@ -69,6 +72,8 @@ pub enum GitCommand {
     Fetch(GitFetchArgs),
     Import(GitImportArgs),
     Init(GitInitArgs),
+    #[command(subcommand)]
+    Ref(GitRefCommand),
     Push(GitPushArgs),
     #[command(subcommand)]
     Remote(RemoteCommand),
@@ -87,6 +92,7 @@ pub fn cmd_git(
         GitCommand::Import(args) => cmd_git_import(ui, command, args),
         GitCommand::Init(args) => cmd_git_init(ui, command, args),
         GitCommand::Push(args) => cmd_git_push(ui, command, args),
+        GitCommand::Ref(args) => cmd_git_ref(ui, command, args),
         GitCommand::Remote(args) => cmd_git_remote(ui, command, args),
         GitCommand::Root(args) => cmd_git_root(ui, command, args),
     }
