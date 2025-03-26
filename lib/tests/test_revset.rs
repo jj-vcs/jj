@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::HashMap;
 use std::iter;
 use std::path::Path;
 
@@ -82,6 +83,7 @@ fn resolve_symbol_with_extensions(
 ) -> Result<Vec<CommitId>, RevsetResolutionError> {
     let context = RevsetParseContext {
         aliases_map: &RevsetAliasesMap::default(),
+        local_variables: HashMap::new(),
         user_email: "",
         date_pattern_context: chrono::Local::now().into(),
         extensions,
@@ -222,6 +224,7 @@ fn test_resolve_symbol_commit_id() {
     );
     let context = RevsetParseContext {
         aliases_map: &RevsetAliasesMap::default(),
+        local_variables: HashMap::new(),
         user_email: settings.user_email(),
         date_pattern_context: chrono::Utc::now().fixed_offset().into(),
         extensions: &RevsetExtensions::default(),
@@ -915,6 +918,7 @@ fn try_resolve_commit_ids(
     let settings = testutils::user_settings();
     let context = RevsetParseContext {
         aliases_map: &RevsetAliasesMap::default(),
+        local_variables: HashMap::new(),
         user_email: settings.user_email(),
         date_pattern_context: chrono::Utc::now().fixed_offset().into(),
         extensions: &RevsetExtensions::default(),
@@ -948,6 +952,7 @@ fn resolve_commit_ids_in_workspace(
     };
     let context = RevsetParseContext {
         aliases_map: &RevsetAliasesMap::default(),
+        local_variables: HashMap::new(),
         user_email: settings.user_email(),
         date_pattern_context: chrono::Utc::now().fixed_offset().into(),
         extensions: &RevsetExtensions::default(),

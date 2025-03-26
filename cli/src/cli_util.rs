@@ -15,6 +15,7 @@
 use std::borrow::Cow;
 use std::cell::OnceCell;
 use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::env;
 use std::ffi::OsString;
@@ -835,6 +836,7 @@ impl WorkspaceCommandEnvironment {
         };
         RevsetParseContext {
             aliases_map: &self.revset_aliases_map,
+            local_variables: HashMap::new(),
             user_email: self.settings.user_email(),
             date_pattern_context: now.into(),
             extensions: self.command.revset_extensions(),
