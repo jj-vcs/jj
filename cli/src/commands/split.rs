@@ -231,9 +231,9 @@ pub(crate) fn cmd_split(
         })?;
     // Move the working copy commit (@) to the second commit for any workspaces
     // where the target commit is the working copy commit.
-    for (workspace_id, working_copy_commit) in tx.base_repo().clone().view().wc_commit_ids() {
+    for (name, working_copy_commit) in tx.base_repo().clone().view().wc_commit_ids() {
         if working_copy_commit == target.commit.id() {
-            tx.repo_mut().edit(workspace_id.clone(), &second_commit)?;
+            tx.repo_mut().edit(name.clone(), &second_commit)?;
         }
     }
 

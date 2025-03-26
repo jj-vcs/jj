@@ -76,8 +76,8 @@ use crate::ref_name::GitRefName;
 use crate::ref_name::RefName;
 use crate::ref_name::RemoteName;
 use crate::ref_name::RemoteRefSymbol;
-use crate::ref_name::WorkspaceId;
-use crate::ref_name::WorkspaceIdBuf;
+use crate::ref_name::WorkspaceName;
+use crate::ref_name::WorkspaceNameBuf;
 use crate::refs::diff_named_ref_targets;
 use crate::refs::diff_named_remote_refs;
 use crate::refs::merge_ref_targets;
@@ -1124,13 +1124,13 @@ impl MutableRepo {
             .view()
             .wc_commit_ids()
             .iter()
-            .filter_map(|(workspace_id, commit_id)| {
+            .filter_map(|(name, commit_id)| {
                 let change = rewrite_mapping.get_key_value(commit_id)?;
-                Some((workspace_id.to_owned(), change))
+                Some((name.to_owned(), change))
             })
             .collect_vec();
         let mut recreated_wc_commits: HashMap<&CommitId, Commit> = HashMap::new();
-        for (workspace_id, (old_commit_id, new_commit_ids)) in changed_wc_commits {
+        for (name, (old_commit_id, new_commit_ids)) in changed_wc_commits {
             let abandoned_old_commit = matches!(
                 self.parent_mapping.get(old_commit_id),
                 Some(Rewrite::Abandoned(_))
@@ -1152,7 +1152,7 @@ impl MutableRepo {
                 recreated_wc_commits.insert(old_commit_id, commit.clone());
                 commit
             };
-            self.edit(workspace_id, &new_wc_commit).unwrap();
+            self.edit(name, &new_wc_commit).unwrap();
         }
         Ok(())
     }
@@ -1353,61 +1353,56 @@ impl MutableRepo {
 
     pub fn set_wc_commit(
         &mut self,
-        workspace_id: WorkspaceIdBuf,
+        name: WorkspaceNameBuf,
         commit_id: CommitId,
     ) -> Result<(), RewriteRootCommit> {
         if &commit_id == self.store().root_commit_id() {
             return Err(RewriteRootCommit);
         }
-        self.view_mut().set_wc_commit(workspace_id, commit_id);
+        self.view_mut().set_wc_commit(name, commit_id);
         Ok(())
     }
 
-    pub fn remove_wc_commit(&mut self, workspace_id: &WorkspaceId) -> Result<(), EditCommitError> {
-        self.maybe_abandon_wc_commit(workspace_id)?;
-        self.view_mut().remove_wc_commit(workspace_id);
+    pub fn remove_wc_commit(&mut self, name: &WorkspaceName) -> Result<(), EditCommitError> {
+        self.maybe_abandon_wc_commit(name)?;
+        self.view_mut().remove_wc_commit(name);
         Ok(())
     }
 
     pub fn rename_workspace(
         &mut self,
-        old_workspace_id: &WorkspaceId,
-        new_workspace_id: WorkspaceIdBuf,
+        old_name: &WorkspaceName,
+        new_name: WorkspaceNameBuf,
     ) -> Result<(), RenameWorkspaceError> {
-        self.view_mut()
-            .rename_workspace(old_workspace_id, new_workspace_id)
+        self.view_mut().rename_workspace(old_name, new_name)
     }
 
     pub fn check_out(
         &mut self,
-        workspace_id: WorkspaceIdBuf,
+        name: WorkspaceNameBuf,
         commit: &Commit,
     ) -> Result<Commit, CheckOutCommitError> {
         let wc_commit = self
             .new_commit(vec![commit.id().clone()], commit.tree_id().clone())
             .write()?;
-        self.edit(workspace_id, &wc_commit)?;
+        self.edit(name, &wc_commit)?;
         Ok(wc_commit)
     }
 
-    pub fn edit(
-        &mut self,
-        workspace_id: WorkspaceIdBuf,
-        commit: &Commit,
-    ) -> Result<(), EditCommitError> {
-        self.maybe_abandon_wc_commit(&workspace_id)?;
+    pub fn edit(&mut self, name: WorkspaceNameBuf, commit: &Commit) -> Result<(), EditCommitError> {
+        self.maybe_abandon_wc_commit(&name)?;
         self.add_head(commit)?;
-        Ok(self.set_wc_commit(workspace_id, commit.id().clone())?)
+        Ok(self.set_wc_commit(name, commit.id().clone())?)
     }
 
     fn maybe_abandon_wc_commit(
         &mut self,
-        workspace_id: &WorkspaceId,
+        workspace_name: &WorkspaceName,
     ) -> Result<(), EditCommitError> {
         let is_commit_referenced = |view: &View, commit_id: &CommitId| -> bool {
             view.wc_commit_ids()
                 .iter()
-                .filter(|&(ws_id, _)| ws_id != workspace_id)
+                .filter(|&(name, _)| name != workspace_name)
                 .map(|(_, wc_id)| wc_id)
                 .chain(
                     view.local_bookmarks()
@@ -1418,7 +1413,7 @@ impl MutableRepo {
 
         let maybe_wc_commit_id = self
             .view
-            .with_ref(|v| v.get_wc_commit_id(workspace_id).cloned());
+            .with_ref(|v| v.get_wc_commit_id(workspace_name).cloned());
         if let Some(wc_commit_id) = maybe_wc_commit_id {
             let wc_commit = self
                 .store()
@@ -1675,30 +1670,29 @@ impl MutableRepo {
     fn merge_view(&mut self, base: &View, other: &View) -> BackendResult<()> {
         // TODO: Use `diff_named_commit_ids` to simplify this.
         // Merge working-copy commits. If there's a conflict, we keep the self side.
-        for (workspace_id, base_wc_commit) in base.wc_commit_ids() {
-            let self_wc_commit = self.view().get_wc_commit_id(workspace_id);
-            let other_wc_commit = other.get_wc_commit_id(workspace_id);
+        for (name, base_wc_commit) in base.wc_commit_ids() {
+            let self_wc_commit = self.view().get_wc_commit_id(name);
+            let other_wc_commit = other.get_wc_commit_id(name);
             if other_wc_commit == Some(base_wc_commit) || other_wc_commit == self_wc_commit {
                 // The other side didn't change or both sides changed in the
                 // same way.
             } else if let Some(other_wc_commit) = other_wc_commit {
                 if self_wc_commit == Some(base_wc_commit) {
                     self.view_mut()
-                        .set_wc_commit(workspace_id.clone(), other_wc_commit.clone());
+                        .set_wc_commit(name.clone(), other_wc_commit.clone());
                 }
             } else {
                 // The other side removed the workspace. We want to remove it even if the self
                 // side changed the working-copy commit.
-                self.view_mut().remove_wc_commit(workspace_id);
+                self.view_mut().remove_wc_commit(name);
             }
         }
-        for (workspace_id, other_wc_commit) in other.wc_commit_ids() {
-            if self.view().get_wc_commit_id(workspace_id).is_none()
-                && base.get_wc_commit_id(workspace_id).is_none()
+        for (name, other_wc_commit) in other.wc_commit_ids() {
+            if self.view().get_wc_commit_id(name).is_none() && base.get_wc_commit_id(name).is_none()
             {
                 // The other side added the workspace.
                 self.view_mut()
-                    .set_wc_commit(workspace_id.clone(), other_wc_commit.clone());
+                    .set_wc_commit(name.clone(), other_wc_commit.clone());
             }
         }
         let base_heads = base.heads().iter().cloned().collect_vec();

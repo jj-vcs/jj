@@ -95,8 +95,8 @@ use crate::merged_tree::MergedTreeBuilder;
 use crate::merged_tree::TreeDiffEntry;
 use crate::object_id::ObjectId as _;
 use crate::op_store::OperationId;
-use crate::ref_name::WorkspaceId;
-use crate::ref_name::WorkspaceIdBuf;
+use crate::ref_name::WorkspaceName;
+use crate::ref_name::WorkspaceNameBuf;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::repo_path::RepoPathComponent;
@@ -1960,7 +1960,7 @@ fn checkout_error_for_stat_error(err: io::Error, path: &Path) -> CheckoutError {
 #[derive(Clone, Debug)]
 struct CheckoutState {
     operation_id: OperationId,
-    workspace_id: WorkspaceIdBuf,
+    workspace_name: WorkspaceNameBuf,
 }
 
 pub struct LocalWorkingCopy {
@@ -1980,8 +1980,8 @@ impl WorkingCopy for LocalWorkingCopy {
         Self::name()
     }
 
-    fn workspace_id(&self) -> &WorkspaceId {
-        &self.checkout_state().workspace_id
+    fn workspace_name(&self) -> &WorkspaceName {
+        &self.checkout_state().workspace_name
     }
 
     fn operation_id(&self) -> &OperationId {
@@ -2021,7 +2021,7 @@ impl WorkingCopy for LocalWorkingCopy {
             old_operation_id,
             old_tree_id,
             tree_state_dirty: false,
-            new_workspace_id: None,
+            new_workspace_name: None,
         }))
     }
 }
@@ -2039,11 +2039,11 @@ impl LocalWorkingCopy {
         working_copy_path: PathBuf,
         state_path: PathBuf,
         operation_id: OperationId,
-        workspace_id: WorkspaceIdBuf,
+        workspace_name: WorkspaceNameBuf,
     ) -> Result<LocalWorkingCopy, WorkingCopyStateError> {
         let proto = crate::protos::working_copy::Checkout {
             operation_id: operation_id.to_bytes(),
-            workspace_id: workspace_id.into(),
+            workspace_name: workspace_name.into(),
         };
         let mut file = OpenOptions::new()
             .create_new(true)
@@ -2102,12 +2102,12 @@ impl LocalWorkingCopy {
             let proto = crate::protos::working_copy::Checkout::decode(&*buf).unwrap();
             CheckoutState {
                 operation_id: OperationId::new(proto.operation_id),
-                workspace_id: if proto.workspace_id.is_empty() {
+                workspace_name: if proto.workspace_name.is_empty() {
                     // For compatibility with old working copies.
                     // TODO: Delete in mid 2022 or so
-                    WorkspaceId::DEFAULT.to_owned()
+                    WorkspaceName::DEFAULT.to_owned()
                 } else {
-                    proto.workspace_id.into()
+                    proto.workspace_name.into()
                 },
             }
         })
@@ -2147,7 +2147,7 @@ impl LocalWorkingCopy {
     fn save(&mut self) {
         self.write_proto(crate::protos::working_copy::Checkout {
             operation_id: self.operation_id().to_bytes(),
-            workspace_id: self.workspace_id().into(),
+            workspace_name: self.workspace_name().into(),
         });
     }
 
@@ -2187,14 +2187,14 @@ impl WorkingCopyFactory for LocalWorkingCopyFactory {
         working_copy_path: PathBuf,
         state_path: PathBuf,
         operation_id: OperationId,
-        workspace_id: WorkspaceIdBuf,
+        workspace_name: WorkspaceNameBuf,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError> {
         Ok(Box::new(LocalWorkingCopy::init(
             store,
             working_copy_path,
             state_path,
             operation_id,
-            workspace_id,
+            workspace_name,
         )?))
     }
 
@@ -2221,7 +2221,7 @@ pub struct LockedLocalWorkingCopy {
     old_operation_id: OperationId,
     old_tree_id: MergedTreeId,
     tree_state_dirty: bool,
-    new_workspace_id: Option<WorkspaceIdBuf>,
+    new_workspace_name: Option<WorkspaceNameBuf>,
 }
 
 impl LockedWorkingCopy for LockedLocalWorkingCopy {
@@ -2281,8 +2281,8 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
         }
     }
 
-    fn rename_workspace(&mut self, new_workspace_id: WorkspaceIdBuf) {
-        self.new_workspace_id = Some(new_workspace_id);
+    fn rename_workspace(&mut self, new_name: WorkspaceNameBuf) {
+        self.new_workspace_name = Some(new_name);
     }
 
     fn reset(&mut self, commit: &Commit) -> Result<(), ResetError> {
@@ -2351,9 +2351,9 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
                     err: Box::new(err),
                 })?;
         }
-        if self.old_operation_id != operation_id || self.new_workspace_id.is_some() {
-            if let Some(new_workspace_id) = self.new_workspace_id {
-                self.wc.checkout_state_mut().workspace_id = new_workspace_id;
+        if self.old_operation_id != operation_id || self.new_workspace_name.is_some() {
+            if let Some(new_name) = self.new_workspace_name {
+                self.wc.checkout_state_mut().workspace_name = new_name;
             }
             self.wc.checkout_state_mut().operation_id = operation_id;
             self.wc.save();

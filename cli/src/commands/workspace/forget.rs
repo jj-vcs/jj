@@ -14,7 +14,7 @@
 
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
-use jj_lib::ref_name::WorkspaceIdBuf;
+use jj_lib::ref_name::WorkspaceNameBuf;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -32,7 +32,7 @@ pub struct WorkspaceForgetArgs {
     /// Names of the workspaces to forget. By default, forgets only the current
     /// workspace.
     #[arg(add = ArgValueCandidates::new(complete::workspaces))]
-    workspaces: Vec<WorkspaceIdBuf>,
+    workspaces: Vec<WorkspaceNameBuf>,
 }
 
 #[instrument(skip_all)]
@@ -44,7 +44,7 @@ pub fn cmd_workspace_forget(
     let mut workspace_command = command.workspace_helper(ui)?;
 
     let wss = if args.workspaces.is_empty() {
-        vec![workspace_command.workspace_id().to_owned()]
+        vec![workspace_command.workspace_name().to_owned()]
     } else {
         args.workspaces.clone()
     };

@@ -45,8 +45,8 @@ use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
-use jj_lib::ref_name::WorkspaceId;
-use jj_lib::ref_name::WorkspaceIdBuf;
+use jj_lib::ref_name::WorkspaceName;
+use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::repo_path::RepoPathUiConverter;
@@ -103,12 +103,12 @@ pub trait CommitTemplateLanguageExtension {
 pub struct CommitTemplateLanguage<'repo> {
     repo: &'repo dyn Repo,
     path_converter: &'repo RepoPathUiConverter,
-    workspace_id: WorkspaceIdBuf,
+    workspace_name: WorkspaceNameBuf,
     // RevsetParseContext doesn't borrow a repo, but we'll need 'repo lifetime
     // anyway to capture it to evaluate dynamically-constructed user expression
     // such as `revset("ancestors(" ++ commit_id ++ ")")`.
-    // TODO: Maybe refactor context structs? RepoPathUiConverter and WorkspaceId
-    // are contained in RevsetParseContext for example.
+    // TODO: Maybe refactor context structs? RepoPathUiConverter and
+    // WorkspaceName are contained in RevsetParseContext for example.
     revset_parse_context: RevsetParseContext<'repo>,
     id_prefix_context: &'repo IdPrefixContext,
     immutable_expression: Rc<UserRevsetExpression>,
@@ -125,7 +125,7 @@ impl<'repo> CommitTemplateLanguage<'repo> {
     pub fn new(
         repo: &'repo dyn Repo,
         path_converter: &'repo RepoPathUiConverter,
-        workspace_id: &WorkspaceId,
+        workspace_name: &WorkspaceName,
         revset_parse_context: RevsetParseContext<'repo>,
         id_prefix_context: &'repo IdPrefixContext,
         immutable_expression: Rc<UserRevsetExpression>,
@@ -145,7 +145,7 @@ impl<'repo> CommitTemplateLanguage<'repo> {
         CommitTemplateLanguage {
             repo,
             path_converter,
-            workspace_id: workspace_id.to_owned(),
+            workspace_name: workspace_name.to_owned(),
             revset_parse_context,
             id_prefix_context,
             immutable_expression,
@@ -342,8 +342,8 @@ impl<'repo> CommitTemplateLanguage<'repo> {
         self.repo
     }
 
-    pub fn workspace_id(&self) -> &WorkspaceId {
-        &self.workspace_id
+    pub fn workspace_name(&self) -> &WorkspaceName {
+        &self.workspace_name
     }
 
     pub fn keyword_cache(&self) -> &CommitKeywordCache<'repo> {
@@ -871,10 +871,9 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
         |language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let repo = language.repo;
-            let workspace_id = language.workspace_id.clone();
-            let out_property = self_property.map(move |commit| {
-                Some(commit.id()) == repo.view().get_wc_commit_id(&workspace_id)
-            });
+            let name = language.workspace_name.clone();
+            let out_property = self_property
+                .map(move |commit| Some(commit.id()) == repo.view().get_wc_commit_id(&name));
             Ok(L::wrap_boolean(out_property))
         },
     );
@@ -1068,9 +1067,9 @@ fn extract_working_copies(repo: &dyn Repo, commit: &Commit) -> String {
         return "".to_string();
     }
     let mut names = vec![];
-    for (workspace_id, wc_commit_id) in wc_commit_ids {
+    for (name, wc_commit_id) in wc_commit_ids {
         if wc_commit_id == commit.id() {
-            names.push(format!("{}@", workspace_id.as_symbol()));
+            names.push(format!("{}@", name.as_symbol()));
         }
     }
     names.join(" ")

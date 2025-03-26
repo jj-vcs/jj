@@ -62,8 +62,8 @@ use crate::op_store::ViewId;
 use crate::ref_name::GitRefNameBuf;
 use crate::ref_name::RefNameBuf;
 use crate::ref_name::RemoteNameBuf;
-use crate::ref_name::WorkspaceId;
-use crate::ref_name::WorkspaceIdBuf;
+use crate::ref_name::WorkspaceName;
+use crate::ref_name::WorkspaceNameBuf;
 
 // BLAKE2b-512 hash length in bytes
 const OPERATION_ID_LENGTH: usize = 64;
@@ -480,10 +480,10 @@ fn view_to_proto(view: &View) -> crate::protos::op_store::View {
     let mut proto = crate::protos::op_store::View {
         ..Default::default()
     };
-    for (workspace_id, commit_id) in &view.wc_commit_ids {
+    for (name, commit_id) in &view.wc_commit_ids {
         proto
             .wc_commit_ids
-            .insert(workspace_id.into(), commit_id.to_bytes());
+            .insert(name.into(), commit_id.to_bytes());
     }
     for head_id in &view.head_ids {
         proto.head_ids.push(head_id.to_bytes());
@@ -519,13 +519,13 @@ fn view_from_proto(proto: crate::protos::op_store::View) -> View {
     #[expect(deprecated)]
     if !proto.wc_commit_id.is_empty() {
         view.wc_commit_ids.insert(
-            WorkspaceId::DEFAULT.to_owned(),
+            WorkspaceName::DEFAULT.to_owned(),
             CommitId::new(proto.wc_commit_id),
         );
     }
-    for (workspace_id, commit_id) in proto.wc_commit_ids {
+    for (name, commit_id) in proto.wc_commit_ids {
         view.wc_commit_ids
-            .insert(WorkspaceIdBuf::from(workspace_id), CommitId::new(commit_id));
+            .insert(WorkspaceNameBuf::from(name), CommitId::new(commit_id));
     }
     for head_id_bytes in proto.head_ids {
         view.head_ids.insert(CommitId::new(head_id_bytes));
@@ -784,7 +784,7 @@ mod tests {
             },
             git_head: RefTarget::normal(CommitId::from_hex("fff111")),
             wc_commit_ids: btreemap! {
-                WorkspaceId::DEFAULT.to_owned() => default_wc_commit_id,
+                WorkspaceName::DEFAULT.to_owned() => default_wc_commit_id,
                 "test".into() => test_wc_commit_id,
             },
         }

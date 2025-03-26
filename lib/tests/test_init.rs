@@ -17,7 +17,7 @@ use std::path::PathBuf;
 
 use jj_lib::config::StackedConfig;
 use jj_lib::git_backend::GitBackend;
-use jj_lib::ref_name::WorkspaceId;
+use jj_lib::ref_name::WorkspaceName;
 use jj_lib::repo::Repo as _;
 use jj_lib::settings::UserSettings;
 use jj_lib::workspace::Workspace;
@@ -145,7 +145,10 @@ fn test_init_with_default_config(backend: TestRepoBackend) {
     let settings = UserSettings::from_config(StackedConfig::with_defaults()).unwrap();
     let test_workspace = TestWorkspace::init_with_backend_and_settings(backend, &settings);
     let repo = &test_workspace.repo;
-    let wc_commit_id = repo.view().get_wc_commit_id(WorkspaceId::DEFAULT).unwrap();
+    let wc_commit_id = repo
+        .view()
+        .get_wc_commit_id(WorkspaceName::DEFAULT)
+        .unwrap();
     let wc_commit = repo.store().get_commit(wc_commit_id).unwrap();
     assert_eq!(wc_commit.author().name, "".to_string());
     assert_eq!(wc_commit.author().email, "".to_string());
@@ -160,7 +163,10 @@ fn test_init_checkout(backend: TestRepoBackend) {
     let settings = testutils::user_settings();
     let test_workspace = TestWorkspace::init_with_backend_and_settings(backend, &settings);
     let repo = &test_workspace.repo;
-    let wc_commit_id = repo.view().get_wc_commit_id(WorkspaceId::DEFAULT).unwrap();
+    let wc_commit_id = repo
+        .view()
+        .get_wc_commit_id(WorkspaceName::DEFAULT)
+        .unwrap();
     let wc_commit = repo.store().get_commit(wc_commit_id).unwrap();
     assert_eq!(*wc_commit.tree_id(), repo.store().empty_merged_tree_id());
     assert_eq!(

@@ -84,8 +84,8 @@ use jj_lib::op_walk::OpsetEvaluationError;
 use jj_lib::operation::Operation;
 use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RefNameBuf;
-use jj_lib::ref_name::WorkspaceId;
-use jj_lib::ref_name::WorkspaceIdBuf;
+use jj_lib::ref_name::WorkspaceName;
+use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::merge_factories_map;
 use jj_lib::repo::CheckOutCommitError;
 use jj_lib::repo::EditCommitError;
@@ -784,7 +784,7 @@ pub struct WorkspaceCommandEnvironment {
     revset_aliases_map: RevsetAliasesMap,
     template_aliases_map: TemplateAliasesMap,
     path_converter: RepoPathUiConverter,
-    workspace_id: WorkspaceIdBuf,
+    workspace_name: WorkspaceNameBuf,
     immutable_heads_expression: Rc<UserRevsetExpression>,
     short_prefixes_expression: Option<Rc<UserRevsetExpression>>,
     conflict_marker_style: ConflictMarkerStyle,
@@ -806,7 +806,7 @@ impl WorkspaceCommandEnvironment {
             revset_aliases_map,
             template_aliases_map,
             path_converter,
-            workspace_id: workspace.workspace_id().to_owned(),
+            workspace_name: workspace.workspace_name().to_owned(),
             immutable_heads_expression: RevsetExpression::root(),
             short_prefixes_expression: None,
             conflict_marker_style: settings.get("ui.conflict-marker-style")?,
@@ -820,14 +820,14 @@ impl WorkspaceCommandEnvironment {
         &self.path_converter
     }
 
-    pub fn workspace_id(&self) -> &WorkspaceId {
-        &self.workspace_id
+    pub fn workspace_name(&self) -> &WorkspaceName {
+        &self.workspace_name
     }
 
     pub(crate) fn revset_parse_context(&self) -> RevsetParseContext {
         let workspace_context = RevsetWorkspaceContext {
             path_converter: &self.path_converter,
-            workspace_id: &self.workspace_id,
+            workspace_name: &self.workspace_name,
         };
         let now = if let Some(timestamp) = self.settings.commit_timestamp() {
             chrono::Local
@@ -998,7 +998,7 @@ impl WorkspaceCommandEnvironment {
         CommitTemplateLanguage::new(
             repo,
             &self.path_converter,
-            &self.workspace_id,
+            &self.workspace_name,
             self.revset_parse_context(),
             id_prefix_context,
             self.immutable_expression(),
@@ -1169,10 +1169,10 @@ impl WorkspaceCommandHelper {
         let old_git_head = self.repo().view().git_head().clone();
         let new_git_head = tx.repo().view().git_head().clone();
         if let Some(new_git_head_id) = new_git_head.as_normal() {
-            let workspace_id = self.workspace_id().to_owned();
+            let workspace_name = self.workspace_name().to_owned();
             let new_git_head_commit = tx.repo().store().get_commit(new_git_head_id)?;
             tx.repo_mut()
-                .check_out(workspace_id, &new_git_head_commit)?;
+                .check_out(workspace_name, &new_git_head_commit)?;
             let mut locked_ws = self.workspace.start_working_copy_mutation()?;
             // The working copy was presumably updated by the git command that updated
             // HEAD, so we just need to reset our working copy
@@ -1289,12 +1289,12 @@ impl WorkspaceCommandHelper {
     ) -> Result<SnapshotStats, CommandError> {
         self.check_working_copy_writable()?;
 
-        let workspace_id = self.workspace_id().to_owned();
+        let workspace_name = self.workspace_name().to_owned();
         let mut locked_ws = self.workspace.start_working_copy_mutation()?;
         let (repo, new_commit) = working_copy::create_and_check_out_recovery_commit(
             locked_ws.locked_wc(),
             &self.user_repo.repo,
-            workspace_id,
+            workspace_name,
             "RECOVERY COMMIT FROM `jj workspace update-stale`
 
 This commit contains changes that were written to the working copy by an
@@ -1321,12 +1321,12 @@ to the current parents may contain changes from multiple commits.
         self.workspace.workspace_root()
     }
 
-    pub fn workspace_id(&self) -> &WorkspaceId {
-        self.workspace.workspace_id()
+    pub fn workspace_name(&self) -> &WorkspaceName {
+        self.workspace.workspace_name()
     }
 
     pub fn get_wc_commit_id(&self) -> Option<&CommitId> {
-        self.repo().view().get_wc_commit_id(self.workspace_id())
+        self.repo().view().get_wc_commit_id(self.workspace_name())
     }
 
     pub fn working_copy_shared_with_git(&self) -> bool {
@@ -1870,10 +1870,10 @@ to the current parents may contain changes from multiple commits.
         &mut self,
         ui: &Ui,
     ) -> Result<SnapshotStats, SnapshotWorkingCopyError> {
-        let workspace_id = self.workspace_id().to_owned();
+        let workspace_name = self.workspace_name().to_owned();
         let get_wc_commit = |repo: &ReadonlyRepo| -> Result<Option<_>, _> {
             repo.view()
-                .get_wc_commit_id(&workspace_id)
+                .get_wc_commit_id(&workspace_name)
                 .map(|id| repo.store().get_commit(id))
                 .transpose()
                 .map_err(snapshot_command_error)
@@ -1969,7 +1969,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
                 .write()
                 .map_err(snapshot_command_error)?;
             mut_repo
-                .set_wc_commit(workspace_id, commit.id().clone())
+                .set_wc_commit(workspace_name, commit.id().clone())
                 .map_err(snapshot_command_error)?;
 
             // Rebase descendants
@@ -2092,19 +2092,19 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
             writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
         }
 
-        for (workspace_id, wc_commit_id) in &tx.repo().view().wc_commit_ids().clone() {
+        for (name, wc_commit_id) in &tx.repo().view().wc_commit_ids().clone() {
             if self
                 .env
                 .find_immutable_commit(tx.repo(), [wc_commit_id])?
                 .is_some()
             {
                 let wc_commit = tx.repo().store().get_commit(wc_commit_id)?;
-                tx.repo_mut().check_out(workspace_id.clone(), &wc_commit)?;
+                tx.repo_mut().check_out(name.clone(), &wc_commit)?;
                 writeln!(
                     ui.warning_default(),
-                    "The working-copy commit in workspace '{}' became immutable, so a new commit \
-                     has been created on top of it.",
-                    workspace_id.as_symbol()
+                    "The working-copy commit in workspace '{name}' became immutable, so a new \
+                     commit has been created on top of it.",
+                    name = name.as_symbol()
                 )?;
             }
         }
@@ -2113,13 +2113,13 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
 
         let maybe_old_wc_commit = old_repo
             .view()
-            .get_wc_commit_id(self.workspace_id())
+            .get_wc_commit_id(self.workspace_name())
             .map(|commit_id| tx.base_repo().store().get_commit(commit_id))
             .transpose()?;
         let maybe_new_wc_commit = tx
             .repo()
             .view()
-            .get_wc_commit_id(self.workspace_id())
+            .get_wc_commit_id(self.workspace_name())
             .map(|commit_id| tx.repo().store().get_commit(commit_id))
             .transpose()?;
 
@@ -2429,15 +2429,15 @@ impl WorkspaceCommandTransaction<'_> {
     }
 
     pub fn check_out(&mut self, commit: &Commit) -> Result<Commit, CheckOutCommitError> {
-        let workspace_id = self.helper.workspace_id().to_owned();
+        let name = self.helper.workspace_name().to_owned();
         self.id_prefix_context.take(); // invalidate
-        self.tx.repo_mut().check_out(workspace_id, commit)
+        self.tx.repo_mut().check_out(name, commit)
     }
 
     pub fn edit(&mut self, commit: &Commit) -> Result<(), EditCommitError> {
-        let workspace_id = self.helper.workspace_id().to_owned();
+        let name = self.helper.workspace_name().to_owned();
         self.id_prefix_context.take(); // invalidate
-        self.tx.repo_mut().edit(workspace_id, commit)
+        self.tx.repo_mut().edit(name, commit)
     }
 
     pub fn format_commit_summary(&self, commit: &Commit) -> String {

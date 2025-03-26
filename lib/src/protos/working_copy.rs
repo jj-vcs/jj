@@ -82,7 +82,7 @@ pub struct Checkout {
     /// TODO: Is it better to make this a UUID and a have map that to a name in
     /// config? That way users can rename a workspace.
     #[prost(string, tag = "3")]
-    pub workspace_id: ::prost::alloc::string::String,
+    pub workspace_name: ::prost::alloc::string::String,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]

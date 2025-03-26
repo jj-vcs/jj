@@ -94,9 +94,9 @@ pub struct RemoteName(str);
 ///
 /// Use `.as_str()` or `.as_symbol()` for displaying. Other than that, this can
 /// be considered an immutable `String`.
-// Eq, Hash, and Ord must be compatible with WorkspaceId.
+// Eq, Hash, and Ord must be compatible with WorkspaceName.
 #[derive(Clone, ContentHash, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct WorkspaceIdBuf(String); // TODO: rename to WorkspaceNameBuf
+pub struct WorkspaceNameBuf(String);
 
 /// Borrowed workspace name.
 ///
@@ -104,7 +104,7 @@ pub struct WorkspaceIdBuf(String); // TODO: rename to WorkspaceNameBuf
 /// be considered an immutable `str`.
 #[derive(ContentHash, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, RefCastCustom)]
 #[repr(transparent)]
-pub struct WorkspaceId(str); // TODO: rename to WorkspaceName
+pub struct WorkspaceName(str);
 
 macro_rules! impl_partial_eq {
     ($borrowed_ty:ty, $lhs:ty, $rhs:ty) => {
@@ -300,7 +300,7 @@ impl_name_type!(GitRefNameBuf, GitRefName);
 // repo/view API surface, but we'll need generic RemoteRefSymbol type, etc.
 impl_name_type!(RefNameBuf, RefName);
 impl_name_type!(RemoteNameBuf, RemoteName);
-impl_name_type!(WorkspaceIdBuf, WorkspaceId);
+impl_name_type!(WorkspaceNameBuf, WorkspaceName);
 
 impl RefName {
     /// Constructs a remote symbol with this local name.
@@ -309,9 +309,9 @@ impl RefName {
     }
 }
 
-impl WorkspaceId {
+impl WorkspaceName {
     /// Default workspace name.
-    pub const DEFAULT: &WorkspaceId = WorkspaceId::new("default");
+    pub const DEFAULT: &WorkspaceName = WorkspaceName::new("default");
 }
 
 /// Symbol for displaying.

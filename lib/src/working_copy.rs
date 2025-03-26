@@ -39,8 +39,8 @@ use crate::op_heads_store::OpHeadsStoreError;
 use crate::op_store::OpStoreError;
 use crate::op_store::OperationId;
 use crate::operation::Operation;
-use crate::ref_name::WorkspaceId;
-use crate::ref_name::WorkspaceIdBuf;
+use crate::ref_name::WorkspaceName;
+use crate::ref_name::WorkspaceNameBuf;
 use crate::repo::ReadonlyRepo;
 use crate::repo::Repo as _;
 use crate::repo::RewriteRootCommit;
@@ -58,8 +58,8 @@ pub trait WorkingCopy: Send {
     /// implementation when loading a working copy.
     fn name(&self) -> &str;
 
-    /// The working copy's workspace ID.
-    fn workspace_id(&self) -> &WorkspaceId;
+    /// The working copy's workspace name (or identifier.)
+    fn workspace_name(&self) -> &WorkspaceName;
 
     /// The operation this working copy was most recently updated to.
     fn operation_id(&self) -> &OperationId;
@@ -87,7 +87,7 @@ pub trait WorkingCopyFactory {
         working_copy_path: PathBuf,
         state_path: PathBuf,
         operation_id: OperationId,
-        workspace_id: WorkspaceIdBuf,
+        workspace_name: WorkspaceNameBuf,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError>;
 
     /// Load an existing working copy.
@@ -127,7 +127,7 @@ pub trait LockedWorkingCopy {
     ) -> Result<CheckoutStats, CheckoutError>;
 
     /// Update the workspace name.
-    fn rename_workspace(&mut self, new_workspace_name: WorkspaceIdBuf);
+    fn rename_workspace(&mut self, new_workspace_name: WorkspaceNameBuf);
 
     /// Update to another commit without touching the files in the working copy.
     fn reset(&mut self, commit: &Commit) -> Result<(), ResetError>;
@@ -428,14 +428,14 @@ pub enum RecoverWorkspaceError {
     RewriteRootCommit(#[from] RewriteRootCommit),
     /// Working copy commit is missing.
     #[error(r#""{}" doesn't have a working-copy commit"#, .0.as_symbol())]
-    WorkspaceMissingWorkingCopy(WorkspaceIdBuf),
+    WorkspaceMissingWorkingCopy(WorkspaceNameBuf),
 }
 
 /// Recover this workspace to its last known checkout.
 pub fn create_and_check_out_recovery_commit(
     locked_wc: &mut dyn LockedWorkingCopy,
     repo: &Arc<ReadonlyRepo>,
-    workspace_id: WorkspaceIdBuf,
+    workspace_name: WorkspaceNameBuf,
     description: &str,
 ) -> Result<(Arc<ReadonlyRepo>, Commit), RecoverWorkspaceError> {
     let mut tx = repo.start_transaction();
@@ -443,14 +443,16 @@ pub fn create_and_check_out_recovery_commit(
 
     let commit_id = repo
         .view()
-        .get_wc_commit_id(&workspace_id)
-        .ok_or_else(|| RecoverWorkspaceError::WorkspaceMissingWorkingCopy(workspace_id.clone()))?;
+        .get_wc_commit_id(&workspace_name)
+        .ok_or_else(|| {
+            RecoverWorkspaceError::WorkspaceMissingWorkingCopy(workspace_name.clone())
+        })?;
     let commit = repo.store().get_commit(commit_id)?;
     let new_commit = repo_mut
         .new_commit(vec![commit_id.clone()], commit.tree_id().clone())
         .set_description(description)
         .write()?;
-    repo_mut.set_wc_commit(workspace_id, new_commit.id().clone())?;
+    repo_mut.set_wc_commit(workspace_name, new_commit.id().clone())?;
 
     let repo = tx.commit("recovery commit")?;
     locked_wc.recover(&new_commit)?;

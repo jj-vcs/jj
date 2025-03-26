@@ -41,7 +41,7 @@ use crate::ref_name::RefNameBuf;
 use crate::ref_name::RemoteName;
 use crate::ref_name::RemoteNameBuf;
 use crate::ref_name::RemoteRefSymbol;
-use crate::ref_name::WorkspaceIdBuf;
+use crate::ref_name::WorkspaceNameBuf;
 
 id_type!(pub ViewId { hex() });
 id_type!(pub OperationId { hex() });
@@ -259,7 +259,7 @@ pub struct View {
     // The commit that *should be* checked out in the workspace. Note that the working copy
     // (.jj/working_copy/) has the source of truth about which commit *is* checked out (to be
     // precise: the commit to which we most recently completed an update to).
-    pub wc_commit_ids: BTreeMap<WorkspaceIdBuf, CommitId>,
+    pub wc_commit_ids: BTreeMap<WorkspaceNameBuf, CommitId>,
 }
 
 impl View {

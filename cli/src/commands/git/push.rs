@@ -826,13 +826,13 @@ fn find_bookmarks_targeted_by_revisions<'a>(
     let mut revision_commit_ids = HashSet::new();
     if use_default_revset {
         // remote_bookmarks(remote=<remote>)..@
-        let workspace_id = workspace_command.workspace_id();
+        let workspace_name = workspace_command.workspace_name();
         let expression = RevsetExpression::remote_bookmarks(
             StringPattern::everything(),
             StringPattern::exact(remote),
             None,
         )
-        .range(&RevsetExpression::working_copy(workspace_id.to_owned()))
+        .range(&RevsetExpression::working_copy(workspace_name.to_owned()))
         .intersection(&RevsetExpression::bookmarks(StringPattern::everything()));
         let mut commit_ids = workspace_command
             .attach_revset_evaluator(expression)

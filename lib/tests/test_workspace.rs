@@ -15,7 +15,7 @@
 use std::thread;
 
 use assert_matches::assert_matches;
-use jj_lib::ref_name::WorkspaceIdBuf;
+use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
 use jj_lib::workspace::default_working_copy_factories;
 use jj_lib::workspace::default_working_copy_factory;
@@ -48,7 +48,7 @@ fn test_init_additional_workspace() {
     let test_workspace = TestWorkspace::init_with_settings(&settings);
     let workspace = &test_workspace.workspace;
 
-    let ws2_id = WorkspaceIdBuf::from("ws2");
+    let ws2_name = WorkspaceNameBuf::from("ws2");
     let ws2_root = test_workspace.root_dir().join("ws2_root");
     std::fs::create_dir(&ws2_root).unwrap();
     let (ws2, repo) = Workspace::init_workspace_with_existing_repo(
@@ -56,10 +56,10 @@ fn test_init_additional_workspace() {
         test_workspace.repo_path(),
         &test_workspace.repo,
         &*default_working_copy_factory(),
-        ws2_id.clone(),
+        ws2_name.clone(),
     )
     .unwrap();
-    let wc_commit_id = repo.view().get_wc_commit_id(&ws2_id);
+    let wc_commit_id = repo.view().get_wc_commit_id(&ws2_name);
     assert_ne!(wc_commit_id, None);
     let wc_commit_id = wc_commit_id.unwrap();
     let wc_commit = repo.store().get_commit(wc_commit_id).unwrap();
@@ -67,7 +67,7 @@ fn test_init_additional_workspace() {
         wc_commit.parent_ids(),
         vec![repo.store().root_commit_id().clone()]
     );
-    assert_eq!(ws2.workspace_id(), &ws2_id);
+    assert_eq!(ws2.workspace_name(), &ws2_name);
     assert_eq!(
         *ws2.repo_path(),
         dunce::canonicalize(workspace.repo_path()).unwrap()
@@ -84,7 +84,7 @@ fn test_init_additional_workspace() {
     );
     assert!(same_workspace.is_ok());
     let same_workspace = same_workspace.unwrap();
-    assert_eq!(same_workspace.workspace_id(), &ws2_id);
+    assert_eq!(same_workspace.workspace_name(), &ws2_name);
     assert_eq!(
         *same_workspace.repo_path(),
         dunce::canonicalize(workspace.repo_path()).unwrap()

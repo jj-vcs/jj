@@ -143,8 +143,8 @@ new working-copy commit.
     commit_builder.set_description(description);
     let new_commit = commit_builder.write(tx.repo_mut())?;
 
-    let workspace_ids = tx.repo().view().workspaces_for_wc_commit_id(commit.id());
-    if !workspace_ids.is_empty() {
+    let workspace_names = tx.repo().view().workspaces_for_wc_commit_id(commit.id());
+    if !workspace_names.is_empty() {
         let new_wc_commit = tx
             .repo_mut()
             .new_commit(vec![new_commit.id().clone()], commit.tree_id().clone())
@@ -153,8 +153,8 @@ new working-copy commit.
         // Does nothing if there's no bookmarks to advance.
         tx.advance_bookmarks(advanceable_bookmarks, new_commit.id());
 
-        for workspace_id in workspace_ids {
-            tx.repo_mut().edit(workspace_id, &new_wc_commit).unwrap();
+        for name in workspace_names {
+            tx.repo_mut().edit(name, &new_wc_commit).unwrap();
         }
     }
     tx.finish(ui, format!("commit {}", commit.id().hex()))?;

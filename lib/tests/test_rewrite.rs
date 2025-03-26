@@ -24,8 +24,8 @@ use jj_lib::op_store::RemoteRefState;
 use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteRefSymbol;
-use jj_lib::ref_name::WorkspaceId;
-use jj_lib::ref_name::WorkspaceIdBuf;
+use jj_lib::ref_name::WorkspaceName;
+use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::rewrite::rebase_commit_with_options;
@@ -1507,17 +1507,17 @@ fn test_rebase_descendants_update_checkout() {
         .set_parents(vec![commit_a.id().clone()])
         .write()
         .unwrap();
-    let ws1_id = WorkspaceIdBuf::from("ws1");
-    let ws2_id = WorkspaceIdBuf::from("ws2");
-    let ws3_id = WorkspaceIdBuf::from("ws3");
+    let ws1_name = WorkspaceNameBuf::from("ws1");
+    let ws2_name = WorkspaceNameBuf::from("ws2");
+    let ws3_name = WorkspaceNameBuf::from("ws3");
     tx.repo_mut()
-        .set_wc_commit(ws1_id.clone(), commit_b.id().clone())
+        .set_wc_commit(ws1_name.clone(), commit_b.id().clone())
         .unwrap();
     tx.repo_mut()
-        .set_wc_commit(ws2_id.clone(), commit_b.id().clone())
+        .set_wc_commit(ws2_name.clone(), commit_b.id().clone())
         .unwrap();
     tx.repo_mut()
-        .set_wc_commit(ws3_id.clone(), commit_a.id().clone())
+        .set_wc_commit(ws3_name.clone(), commit_a.id().clone())
         .unwrap();
     let repo = tx.commit("test").unwrap();
 
@@ -1533,9 +1533,9 @@ fn test_rebase_descendants_update_checkout() {
 
     // Workspaces 1 and 2 had B checked out, so they get updated to C. Workspace 3
     // had A checked out, so it doesn't get updated.
-    assert_eq!(repo.view().get_wc_commit_id(&ws1_id), Some(commit_c.id()));
-    assert_eq!(repo.view().get_wc_commit_id(&ws2_id), Some(commit_c.id()));
-    assert_eq!(repo.view().get_wc_commit_id(&ws3_id), Some(commit_a.id()));
+    assert_eq!(repo.view().get_wc_commit_id(&ws1_name), Some(commit_c.id()));
+    assert_eq!(repo.view().get_wc_commit_id(&ws2_name), Some(commit_c.id()));
+    assert_eq!(repo.view().get_wc_commit_id(&ws3_name), Some(commit_a.id()));
 }
 
 #[test]
@@ -1555,17 +1555,17 @@ fn test_rebase_descendants_update_checkout_abandoned() {
         .set_parents(vec![commit_a.id().clone()])
         .write()
         .unwrap();
-    let ws1_id = WorkspaceIdBuf::from("ws1");
-    let ws2_id = WorkspaceIdBuf::from("ws2");
-    let ws3_id = WorkspaceIdBuf::from("ws3");
+    let ws1_name = WorkspaceNameBuf::from("ws1");
+    let ws2_name = WorkspaceNameBuf::from("ws2");
+    let ws3_name = WorkspaceNameBuf::from("ws3");
     tx.repo_mut()
-        .set_wc_commit(ws1_id.clone(), commit_b.id().clone())
+        .set_wc_commit(ws1_name.clone(), commit_b.id().clone())
         .unwrap();
     tx.repo_mut()
-        .set_wc_commit(ws2_id.clone(), commit_b.id().clone())
+        .set_wc_commit(ws2_name.clone(), commit_b.id().clone())
         .unwrap();
     tx.repo_mut()
-        .set_wc_commit(ws3_id.clone(), commit_a.id().clone())
+        .set_wc_commit(ws3_name.clone(), commit_a.id().clone())
         .unwrap();
     let repo = tx.commit("test").unwrap();
 
@@ -1577,15 +1577,15 @@ fn test_rebase_descendants_update_checkout_abandoned() {
     // Workspaces 1 and 2 had B checked out, so they get updated to the same new
     // commit on top of C. Workspace 3 had A checked out, so it doesn't get updated.
     assert_eq!(
-        repo.view().get_wc_commit_id(&ws1_id),
-        repo.view().get_wc_commit_id(&ws2_id)
+        repo.view().get_wc_commit_id(&ws1_name),
+        repo.view().get_wc_commit_id(&ws2_name)
     );
     let checkout = repo
         .store()
-        .get_commit(repo.view().get_wc_commit_id(&ws1_id).unwrap())
+        .get_commit(repo.view().get_wc_commit_id(&ws1_name).unwrap())
         .unwrap();
     assert_eq!(checkout.parent_ids(), vec![commit_a.id().clone()]);
-    assert_eq!(repo.view().get_wc_commit_id(&ws3_id), Some(commit_a.id()));
+    assert_eq!(repo.view().get_wc_commit_id(&ws3_name), Some(commit_a.id()));
 }
 
 #[test]
@@ -1615,9 +1615,9 @@ fn test_rebase_descendants_update_checkout_abandoned_merge() {
         .set_parents(vec![commit_b.id().clone(), commit_c.id().clone()])
         .write()
         .unwrap();
-    let workspace_id = WorkspaceId::DEFAULT.to_owned();
+    let ws_name = WorkspaceName::DEFAULT.to_owned();
     tx.repo_mut()
-        .set_wc_commit(workspace_id.clone(), commit_d.id().clone())
+        .set_wc_commit(ws_name.clone(), commit_d.id().clone())
         .unwrap();
     let repo = tx.commit("test").unwrap();
 
@@ -1626,7 +1626,7 @@ fn test_rebase_descendants_update_checkout_abandoned_merge() {
     tx.repo_mut().rebase_descendants().unwrap();
     let repo = tx.commit("test").unwrap();
 
-    let new_checkout_id = repo.view().get_wc_commit_id(&workspace_id).unwrap();
+    let new_checkout_id = repo.view().get_wc_commit_id(&ws_name).unwrap();
     let checkout = repo.store().get_commit(new_checkout_id).unwrap();
     assert_eq!(
         checkout.parent_ids(),
@@ -1830,7 +1830,7 @@ fn test_rebase_abandoning_empty() {
         .write()
         .unwrap();
 
-    let workspace = WorkspaceIdBuf::from("ws");
+    let workspace = WorkspaceNameBuf::from("ws");
     tx.repo_mut()
         .set_wc_commit(workspace.clone(), commit_e.id().clone())
         .unwrap();

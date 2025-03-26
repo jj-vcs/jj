@@ -37,8 +37,8 @@ use jj_lib::op_store::RemoteRefState;
 use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteRefSymbol;
-use jj_lib::ref_name::WorkspaceId;
-use jj_lib::ref_name::WorkspaceIdBuf;
+use jj_lib::ref_name::WorkspaceName;
+use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathUiConverter;
@@ -432,8 +432,8 @@ fn test_resolve_working_copy() {
     let commit1 = write_random_commit(mut_repo);
     let commit2 = write_random_commit(mut_repo);
 
-    let ws1 = WorkspaceIdBuf::from("ws1");
-    let ws2 = WorkspaceIdBuf::from("ws2");
+    let ws1 = WorkspaceNameBuf::from("ws1");
+    let ws2 = WorkspaceNameBuf::from("ws2");
 
     // Cannot resolve a working-copy commit for an unknown workspace
     assert_matches!(
@@ -463,8 +463,8 @@ fn test_resolve_working_copy() {
     mut_repo
         .set_wc_commit(ws2.clone(), commit2.id().clone())
         .unwrap();
-    let resolve = |ws_id: WorkspaceIdBuf| -> Vec<CommitId> {
-        RevsetExpression::working_copy(ws_id)
+    let resolve = |name: WorkspaceNameBuf| -> Vec<CommitId> {
+        RevsetExpression::working_copy(name)
             .resolve_user_expression(mut_repo, &FailingSymbolResolver)
             .unwrap()
             .evaluate(mut_repo)
@@ -474,7 +474,7 @@ fn test_resolve_working_copy() {
             .collect()
     };
 
-    // Can resolve "@" shorthand with a default workspace ID
+    // Can resolve "@" shorthand with a default workspace name
     assert_eq!(resolve(ws1), vec![commit1.id().clone()]);
     // Can resolve an explicit checkout
     assert_eq!(resolve(ws2), vec![commit2.id().clone()]);
@@ -492,8 +492,8 @@ fn test_resolve_working_copies() {
     let commit2 = write_random_commit(mut_repo);
 
     // Add some workspaces
-    let ws1 = WorkspaceIdBuf::from("ws1");
-    let ws2 = WorkspaceIdBuf::from("ws2");
+    let ws1 = WorkspaceNameBuf::from("ws1");
+    let ws2 = WorkspaceNameBuf::from("ws2");
 
     // add one commit to each working copy
     mut_repo
@@ -793,9 +793,9 @@ fn test_resolve_symbol_tags() {
     );
 
     // "@" (quoted) can be resolved, and root is a normal symbol.
-    let ws_id = WorkspaceId::DEFAULT.to_owned();
+    let ws_name = WorkspaceName::DEFAULT.to_owned();
     mut_repo
-        .set_wc_commit(ws_id.clone(), commit1.id().clone())
+        .set_wc_commit(ws_name.clone(), commit1.id().clone())
         .unwrap();
     mut_repo.set_tag_target("@".as_ref(), RefTarget::normal(commit2.id().clone()));
     mut_repo.set_tag_target("root".as_ref(), RefTarget::normal(commit3.id().clone()));
@@ -955,7 +955,7 @@ fn resolve_commit_ids_in_workspace(
     };
     let workspace_ctx = RevsetWorkspaceContext {
         path_converter: &path_converter,
-        workspace_id: workspace.workspace_id(),
+        workspace_name: workspace.workspace_name(),
     };
     let context = RevsetParseContext {
         aliases_map: &RevsetAliasesMap::default(),
@@ -1007,7 +1007,7 @@ fn test_evaluate_expression_root_and_checkout() {
 
     // Can find the current working-copy commit
     mut_repo
-        .set_wc_commit(WorkspaceId::DEFAULT.to_owned(), commit1.id().clone())
+        .set_wc_commit(WorkspaceName::DEFAULT.to_owned(), commit1.id().clone())
         .unwrap();
     assert_eq!(
         resolve_commit_ids_in_workspace(mut_repo, "@", &test_workspace.workspace, None),
@@ -1159,7 +1159,7 @@ fn test_evaluate_expression_parents() {
 
     // Can find parents of the current working-copy commit
     mut_repo
-        .set_wc_commit(WorkspaceId::DEFAULT.to_owned(), commit2.id().clone())
+        .set_wc_commit(WorkspaceName::DEFAULT.to_owned(), commit2.id().clone())
         .unwrap();
     assert_eq!(
         resolve_commit_ids_in_workspace(mut_repo, "@-", &test_workspace.workspace, None,),

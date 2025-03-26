@@ -21,7 +21,7 @@ use jj_lib::op_store::RemoteRefState;
 use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteRefSymbol;
-use jj_lib::ref_name::WorkspaceIdBuf;
+use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
 use maplit::btreemap;
 use maplit::hashset;
@@ -139,76 +139,76 @@ fn test_merge_views_checkout() {
     let commit1 = write_random_commit(initial_tx.repo_mut());
     let commit2 = write_random_commit(initial_tx.repo_mut());
     let commit3 = write_random_commit(initial_tx.repo_mut());
-    let ws1_id = WorkspaceIdBuf::from("ws1");
-    let ws2_id = WorkspaceIdBuf::from("ws2");
-    let ws3_id = WorkspaceIdBuf::from("ws3");
-    let ws4_id = WorkspaceIdBuf::from("ws4");
-    let ws5_id = WorkspaceIdBuf::from("ws5");
-    let ws6_id = WorkspaceIdBuf::from("ws6");
-    let ws7_id = WorkspaceIdBuf::from("ws7");
+    let ws1_name = WorkspaceNameBuf::from("ws1");
+    let ws2_name = WorkspaceNameBuf::from("ws2");
+    let ws3_name = WorkspaceNameBuf::from("ws3");
+    let ws4_name = WorkspaceNameBuf::from("ws4");
+    let ws5_name = WorkspaceNameBuf::from("ws5");
+    let ws6_name = WorkspaceNameBuf::from("ws6");
+    let ws7_name = WorkspaceNameBuf::from("ws7");
     initial_tx
         .repo_mut()
-        .set_wc_commit(ws1_id.clone(), commit1.id().clone())
+        .set_wc_commit(ws1_name.clone(), commit1.id().clone())
         .unwrap();
     initial_tx
         .repo_mut()
-        .set_wc_commit(ws2_id.clone(), commit1.id().clone())
+        .set_wc_commit(ws2_name.clone(), commit1.id().clone())
         .unwrap();
     initial_tx
         .repo_mut()
-        .set_wc_commit(ws3_id.clone(), commit1.id().clone())
+        .set_wc_commit(ws3_name.clone(), commit1.id().clone())
         .unwrap();
     initial_tx
         .repo_mut()
-        .set_wc_commit(ws4_id.clone(), commit1.id().clone())
+        .set_wc_commit(ws4_name.clone(), commit1.id().clone())
         .unwrap();
     initial_tx
         .repo_mut()
-        .set_wc_commit(ws5_id.clone(), commit1.id().clone())
+        .set_wc_commit(ws5_name.clone(), commit1.id().clone())
         .unwrap();
     let repo = initial_tx.commit("test").unwrap();
 
     let mut tx1 = repo.start_transaction();
     tx1.repo_mut()
-        .set_wc_commit(ws1_id.clone(), commit2.id().clone())
+        .set_wc_commit(ws1_name.clone(), commit2.id().clone())
         .unwrap();
     tx1.repo_mut()
-        .set_wc_commit(ws2_id.clone(), commit2.id().clone())
+        .set_wc_commit(ws2_name.clone(), commit2.id().clone())
         .unwrap();
-    tx1.repo_mut().remove_wc_commit(&ws4_id).unwrap();
+    tx1.repo_mut().remove_wc_commit(&ws4_name).unwrap();
     tx1.repo_mut()
-        .set_wc_commit(ws5_id.clone(), commit2.id().clone())
+        .set_wc_commit(ws5_name.clone(), commit2.id().clone())
         .unwrap();
     tx1.repo_mut()
-        .set_wc_commit(ws6_id.clone(), commit2.id().clone())
+        .set_wc_commit(ws6_name.clone(), commit2.id().clone())
         .unwrap();
 
     let mut tx2 = repo.start_transaction();
     tx2.repo_mut()
-        .set_wc_commit(ws1_id.clone(), commit3.id().clone())
+        .set_wc_commit(ws1_name.clone(), commit3.id().clone())
         .unwrap();
     tx2.repo_mut()
-        .set_wc_commit(ws3_id.clone(), commit3.id().clone())
+        .set_wc_commit(ws3_name.clone(), commit3.id().clone())
         .unwrap();
     tx2.repo_mut()
-        .set_wc_commit(ws4_id.clone(), commit3.id().clone())
+        .set_wc_commit(ws4_name.clone(), commit3.id().clone())
         .unwrap();
-    tx2.repo_mut().remove_wc_commit(&ws5_id).unwrap();
+    tx2.repo_mut().remove_wc_commit(&ws5_name).unwrap();
     tx2.repo_mut()
-        .set_wc_commit(ws7_id.clone(), commit3.id().clone())
+        .set_wc_commit(ws7_name.clone(), commit3.id().clone())
         .unwrap();
 
     let repo = commit_transactions(vec![tx1, tx2]);
 
     // We currently arbitrarily pick the first transaction's working-copy commit
     // (first by transaction end time).
-    assert_eq!(repo.view().get_wc_commit_id(&ws1_id), Some(commit2.id()));
-    assert_eq!(repo.view().get_wc_commit_id(&ws2_id), Some(commit2.id()));
-    assert_eq!(repo.view().get_wc_commit_id(&ws3_id), Some(commit3.id()));
-    assert_eq!(repo.view().get_wc_commit_id(&ws4_id), None);
-    assert_eq!(repo.view().get_wc_commit_id(&ws5_id), None);
-    assert_eq!(repo.view().get_wc_commit_id(&ws6_id), Some(commit2.id()));
-    assert_eq!(repo.view().get_wc_commit_id(&ws7_id), Some(commit3.id()));
+    assert_eq!(repo.view().get_wc_commit_id(&ws1_name), Some(commit2.id()));
+    assert_eq!(repo.view().get_wc_commit_id(&ws2_name), Some(commit2.id()));
+    assert_eq!(repo.view().get_wc_commit_id(&ws3_name), Some(commit3.id()));
+    assert_eq!(repo.view().get_wc_commit_id(&ws4_name), None);
+    assert_eq!(repo.view().get_wc_commit_id(&ws5_name), None);
+    assert_eq!(repo.view().get_wc_commit_id(&ws6_name), Some(commit2.id()));
+    assert_eq!(repo.view().get_wc_commit_id(&ws7_name), Some(commit3.id()));
 }
 
 #[test]
