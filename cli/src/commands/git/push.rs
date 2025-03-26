@@ -414,7 +414,7 @@ fn process_push_stats(push_stats: &GitPushStats) -> Result<(), CommandError> {
                 )?;
                 for (reference, reason) in &push_stats.rejected {
                     write!(formatter, "  ")?;
-                    write!(formatter.labeled("git_ref"), "{reference}")?;
+                    write!(formatter.labeled("git_ref"), "{}", reference.as_symbol())?;
                     if let Some(r) = reason {
                         write!(formatter, " (reason: {r})")?;
                     }
@@ -432,7 +432,7 @@ fn process_push_stats(push_stats: &GitPushStats) -> Result<(), CommandError> {
                 writeln!(formatter, "The remote rejected the following updates:")?;
                 for (reference, reason) in &push_stats.remote_rejected {
                     write!(formatter, "  ")?;
-                    write!(formatter.labeled("git_ref"), "{reference}")?;
+                    write!(formatter.labeled("git_ref"), "{}", reference.as_symbol())?;
                     if let Some(r) = reason {
                         write!(formatter, " (reason: {r})")?;
                     }

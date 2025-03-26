@@ -114,11 +114,11 @@ pub enum GitRefKind {
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct GitPushStats {
     /// reference accepted by the remote
-    pub pushed: Vec<String>,
+    pub pushed: Vec<GitRefNameBuf>,
     /// rejected reference, due to lease failure, with an optional reason
-    pub rejected: Vec<(String, Option<String>)>,
+    pub rejected: Vec<(GitRefNameBuf, Option<String>)>,
     /// reference rejected by the remote, with an optional reason
-    pub remote_rejected: Vec<(String, Option<String>)>,
+    pub remote_rejected: Vec<(GitRefNameBuf, Option<String>)>,
 }
 
 impl GitPushStats {
@@ -147,6 +147,8 @@ impl<'a: 'b, 'b> Borrow<RemoteRefSymbol<'b>> for RemoteRefKey<'a> {
 #[derive(Debug, Hash, PartialEq, Eq)]
 pub(crate) struct RefSpec {
     forced: bool,
+    // Source and destination may be fully-qualified ref name, glob pattern, or
+    // object ID. The GitRefNameBuf type shouldn't be used.
     source: Option<String>,
     destination: String,
 }
@@ -199,11 +201,16 @@ pub(crate) struct RefToPush<'a> {
 }
 
 impl<'a> RefToPush<'a> {
-    fn new(refspec: &'a RefSpec, expected_locations: &'a HashMap<&str, Option<&CommitId>>) -> Self {
-        let expected_location = *expected_locations.get(refspec.destination.as_str()).expect(
-            "The refspecs and the expected locations were both constructed from the same source \
-             of truth. This means the lookup should always work.",
-        );
+    fn new(
+        refspec: &'a RefSpec,
+        expected_locations: &'a HashMap<&GitRefName, Option<&CommitId>>,
+    ) -> Self {
+        let expected_location = *expected_locations
+            .get(GitRefName::new(&refspec.destination))
+            .expect(
+                "The refspecs and the expected locations were both constructed from the same \
+                 source of truth. This means the lookup should always work.",
+            );
 
         RefToPush {
             refspec,
@@ -2450,7 +2457,7 @@ pub struct GitBranchPushTargets {
 }
 
 pub struct GitRefUpdate {
-    pub qualified_name: String,
+    pub qualified_name: GitRefNameBuf,
     /// Expected position on the remote or None if we expect the ref to not
     /// exist on the remote
     ///
@@ -2473,7 +2480,7 @@ pub fn push_branches(
         .branch_updates
         .iter()
         .map(|(name, update)| GitRefUpdate {
-            qualified_name: format!("refs/heads/{name}", name = name.as_str()),
+            qualified_name: format!("refs/heads/{name}", name = name.as_str()).into(),
             expected_current_target: update.old_target.clone(),
             new_target: update.new_target.clone(),
         })
@@ -2517,7 +2524,7 @@ pub fn push_updates(
     let mut refspecs = vec![];
     for update in updates {
         qualified_remote_refs_expected_locations.insert(
-            update.qualified_name.as_str(),
+            update.qualified_name.as_ref(),
             update.expected_current_target.as_ref(),
         );
         if let Some(new_target) = &update.new_target {
@@ -2567,7 +2574,7 @@ fn git2_push_refs(
     repo: &dyn Repo,
     git_repo: &git2::Repository,
     remote_name: &RemoteName,
-    qualified_remote_refs_expected_locations: &HashMap<&str, Option<&CommitId>>,
+    qualified_remote_refs_expected_locations: &HashMap<&GitRefName, Option<&CommitId>>,
     refspecs: &[String],
     callbacks: RemoteCallbacks<'_>,
 ) -> Result<GitPushStats, GitPushError> {
@@ -2594,9 +2601,10 @@ fn git2_push_refs(
         let mut callbacks = callbacks.into_git();
         callbacks.push_negotiation(|updates| {
             for update in updates {
-                let dst_refname = update
+                let dst_refname: &GitRefName = update
                     .dst_refname()
-                    .expect("Expect reference name to be valid UTF-8");
+                    .expect("Expect reference name to be valid UTF-8")
+                    .as_ref();
                 let expected_remote_location = *qualified_remote_refs_expected_locations
                     .get(dst_refname)
                     .expect("Push is trying to move a ref it wasn't asked to move");
@@ -2614,16 +2622,16 @@ fn git2_push_refs(
                     Ok(PushAllowReason::NormalMatch) => {}
                     Ok(PushAllowReason::UnexpectedNoop) => {
                         tracing::info!(
-                            "The push of {dst_refname} is unexpectedly a no-op, the remote branch \
-                             is already at {actual_remote_location:?}. We expected it to be at \
-                             {expected_remote_location:?}. We don't consider this an error.",
+                            "The push of {dst_refname:?} is unexpectedly a no-op, the remote \
+                             branch is already at {actual_remote_location:?}. We expected it to \
+                             be at {expected_remote_location:?}. We don't consider this an error.",
                         );
                     }
                     Ok(PushAllowReason::ExceptionalFastforward) => {
                         // TODO(ilyagr): We could consider printing a user-facing message at
                         // this point.
                         tracing::info!(
-                            "We allow the push of {dst_refname} to {local_location:?}, even \
+                            "We allow the push of {dst_refname:?} to {local_location:?}, even \
                              though it is unexpectedly at {actual_remote_location:?} on the \
                              server rather than the expected {expected_remote_location:?}. The \
                              desired location is a descendant of the actual location, and the \
@@ -2637,11 +2645,11 @@ fn git2_push_refs(
                         // fetch`, and the resulting branch conflicts should contain
                         // all the information they need.
                         tracing::info!(
-                            "Cannot push {dst_refname} to {local_location:?}; it is at \
+                            "Cannot push {dst_refname:?} to {local_location:?}; it is at \
                              unexpectedly at {actual_remote_location:?} on the server as opposed \
                              to the expected {expected_remote_location:?}",
                         );
-                        failed_push_negotiations.push(dst_refname.to_string());
+                        failed_push_negotiations.push(dst_refname.to_owned());
                     }
                 }
             }
@@ -2653,6 +2661,7 @@ fn git2_push_refs(
             }
         });
         callbacks.push_update_reference(|refname, status| {
+            let refname = GitRefName::new(refname);
             // The status is Some if the ref update was rejected by the remote
             if status.is_none() {
                 remaining_remote_refs.remove(refname);
@@ -2665,7 +2674,7 @@ fn git2_push_refs(
     };
 
     for failed_update in &failed_push_negotiations {
-        remaining_remote_refs.remove(failed_update.as_str());
+        remaining_remote_refs.remove(&**failed_update);
     }
     let rejected: Vec<_> = failed_push_negotiations
         .into_iter()
@@ -2709,7 +2718,7 @@ fn subprocess_push_refs(
     git_repo: &gix::Repository,
     git_ctx: &GitSubprocessContext,
     remote_name: &RemoteName,
-    qualified_remote_refs_expected_locations: &HashMap<&str, Option<&CommitId>>,
+    qualified_remote_refs_expected_locations: &HashMap<&GitRefName, Option<&CommitId>>,
     refspecs: &[RefSpec],
     mut callbacks: RemoteCallbacks<'_>,
 ) -> Result<GitPushStats, GitPushError> {

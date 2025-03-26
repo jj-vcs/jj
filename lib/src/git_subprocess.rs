@@ -34,6 +34,7 @@ use crate::git::RefSpec;
 use crate::git::RefToPush;
 use crate::git::RemoteCallbacks;
 use crate::git_backend::GitBackend;
+use crate::ref_name::GitRefNameBuf;
 use crate::ref_name::RefNameBuf;
 use crate::ref_name::RemoteName;
 
@@ -476,9 +477,9 @@ fn parse_ref_pushes(stdout: &[u8]) -> Result<GitPushStats, GitSubprocessError> {
             })
             .map_err(GitSubprocessError::External)?;
 
-        let reference = full_refspec
+        let reference: GitRefNameBuf = full_refspec
             .split_once(':')
-            .map(|(_refname, reference)| reference.to_string())
+            .map(|(_refname, reference)| reference.into())
             .ok_or_else(|| {
                 GitSubprocessError::External(format!(
                     "Line #{idx} of git-push has full refspec without named ref: {full_refspec}"
@@ -847,32 +848,33 @@ Done";
         } = parse_ref_pushes(SAMPLE_PUSH_REFS_PORCELAIN_OUTPUT).unwrap();
         assert_eq!(
             pushed,
-            vec![
-                "refs/heads/bookmark1".to_string(),
-                "refs/heads/bookmark2".to_string(),
-                "refs/heads/bookmark3".to_string(),
-                "refs/heads/bookmark4".to_string(),
-                "refs/heads/bookmark5".to_string(),
+            [
+                "refs/heads/bookmark1",
+                "refs/heads/bookmark2",
+                "refs/heads/bookmark3",
+                "refs/heads/bookmark4",
+                "refs/heads/bookmark5",
             ]
+            .map(GitRefNameBuf::from)
         );
         assert_eq!(
             rejected,
             vec![
                 (
-                    "refs/heads/bookmark6".to_string(),
+                    "refs/heads/bookmark6".into(),
                     Some("failure lease".to_string())
                 ),
-                ("refs/heads/bookmark7".to_string(), None),
+                ("refs/heads/bookmark7".into(), None),
             ]
         );
         assert_eq!(
             remote_rejected,
             vec![
                 (
-                    "refs/heads/bookmark8".to_string(),
+                    "refs/heads/bookmark8".into(),
                     Some("hook failure".to_string())
                 ),
-                ("refs/heads/bookmark9".to_string(), None)
+                ("refs/heads/bookmark9".into(), None)
             ]
         );
         assert!(parse_ref_pushes(SAMPLE_OK_STDERR).is_err());

@@ -53,6 +53,7 @@ use jj_lib::op_store::BookmarkTarget;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::op_store::RemoteRefState;
+use jj_lib::ref_name::GitRefNameBuf;
 use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RefNameBuf;
 use jj_lib::ref_name::RemoteName;
@@ -168,7 +169,7 @@ fn git_fetch(
     Ok(stats)
 }
 
-fn push_status_rejected_references(push_stats: GitPushStats) -> Vec<String> {
+fn push_status_rejected_references(push_stats: GitPushStats) -> Vec<GitRefNameBuf> {
     assert!(push_stats.pushed.is_empty());
     assert!(push_stats.remote_rejected.is_empty());
     push_stats
@@ -3313,7 +3314,7 @@ fn test_push_bookmarks_success(subprocess: bool) {
     assert_eq!(
         result.unwrap(),
         GitPushStats {
-            pushed: vec!["refs/heads/main".to_owned()],
+            pushed: vec!["refs/heads/main".into()],
             ..Default::default()
         }
     );
@@ -3386,7 +3387,7 @@ fn test_push_bookmarks_deletion(subprocess: bool) {
     assert_eq!(
         result.unwrap(),
         GitPushStats {
-            pushed: vec!["refs/heads/main".to_owned()],
+            pushed: vec!["refs/heads/main".into()],
             ..Default::default()
         }
     );
@@ -3454,7 +3455,7 @@ fn test_push_bookmarks_mixed_deletion_and_addition(subprocess: bool) {
     assert_eq!(
         result.unwrap(),
         GitPushStats {
-            pushed: vec!["refs/heads/main".to_owned(), "refs/heads/topic".to_owned(),],
+            pushed: vec!["refs/heads/main".into(), "refs/heads/topic".into()],
             ..Default::default()
         }
     );
@@ -3525,7 +3526,7 @@ fn test_push_bookmarks_not_fast_forward(subprocess: bool) {
     assert_eq!(
         result.unwrap(),
         GitPushStats {
-            pushed: vec!["refs/heads/main".to_owned()],
+            pushed: vec!["refs/heads/main".into()],
             ..Default::default()
         }
     );
@@ -3561,7 +3562,7 @@ fn test_push_updates_unexpectedly_moved_sideways_on_remote(subprocess: bool) {
 
     let attempt_push_expecting_sideways = |target: Option<CommitId>| {
         let targets = [GitRefUpdate {
-            qualified_name: "refs/heads/main".to_string(),
+            qualified_name: "refs/heads/main".into(),
             expected_current_target: Some(setup.sideways_commit.id().clone()),
             new_target: target,
         }];
@@ -3611,7 +3612,7 @@ fn test_push_updates_unexpectedly_moved_sideways_on_remote(subprocess: bool) {
     assert_eq!(
         attempt_push_expecting_sideways(Some(setup.main_commit.id().clone())).unwrap(),
         GitPushStats {
-            pushed: vec!["refs/heads/main".to_owned()],
+            pushed: vec!["refs/heads/main".into()],
             ..Default::default()
         }
     );
@@ -3640,7 +3641,7 @@ fn test_push_updates_unexpectedly_moved_forward_on_remote(subprocess: bool) {
 
     let attempt_push_expecting_parent = |target: Option<CommitId>| {
         let targets = [GitRefUpdate {
-            qualified_name: "refs/heads/main".to_string(),
+            qualified_name: "refs/heads/main".into(),
             expected_current_target: Some(setup.parent_of_main_commit.id().clone()),
             new_target: target,
         }];
@@ -3655,14 +3656,14 @@ fn test_push_updates_unexpectedly_moved_forward_on_remote(subprocess: bool) {
 
     assert_eq!(
         push_status_rejected_references(attempt_push_expecting_parent(None).unwrap()),
-        vec!["refs/heads/main".to_owned()]
+        ["refs/heads/main"].map(GitRefNameBuf::from)
     );
 
     assert_eq!(
         push_status_rejected_references(
             attempt_push_expecting_parent(Some(setup.sideways_commit.id().clone())).unwrap()
         ),
-        vec!["refs/heads/main".to_owned()]
+        ["refs/heads/main"].map(GitRefNameBuf::from)
     );
 
     // Here, the local bookmark hasn't moved from `parent_of_main_commit`, but it
@@ -3674,7 +3675,7 @@ fn test_push_updates_unexpectedly_moved_forward_on_remote(subprocess: bool) {
         push_status_rejected_references(
             attempt_push_expecting_parent(Some(setup.parent_of_main_commit.id().clone())).unwrap()
         ),
-        vec!["refs/heads/main".to_owned()]
+        ["refs/heads/main"].map(GitRefNameBuf::from)
     );
 
     if subprocess {
@@ -3684,7 +3685,7 @@ fn test_push_updates_unexpectedly_moved_forward_on_remote(subprocess: bool) {
                 attempt_push_expecting_parent(Some(setup.child_of_main_commit.id().clone()))
                     .unwrap()
             ),
-            vec!["refs/heads/main".to_owned()]
+            ["refs/heads/main"].map(GitRefNameBuf::from)
         );
     } else {
         // Moving the bookmark *forwards* is OK, as an exception matching our bookmark
@@ -3692,7 +3693,7 @@ fn test_push_updates_unexpectedly_moved_forward_on_remote(subprocess: bool) {
         assert_eq!(
             attempt_push_expecting_parent(Some(setup.child_of_main_commit.id().clone())).unwrap(),
             GitPushStats {
-                pushed: vec!["refs/heads/main".to_owned()],
+                pushed: vec!["refs/heads/main".into()],
                 ..Default::default()
             }
         );
@@ -3718,7 +3719,7 @@ fn test_push_updates_unexpectedly_exists_on_remote(subprocess: bool) {
 
     let attempt_push_expecting_absence = |target: Option<CommitId>| {
         let targets = [GitRefUpdate {
-            qualified_name: "refs/heads/main".to_string(),
+            qualified_name: "refs/heads/main".into(),
             expected_current_target: None,
             new_target: target,
         }];
@@ -3735,7 +3736,7 @@ fn test_push_updates_unexpectedly_exists_on_remote(subprocess: bool) {
         push_status_rejected_references(
             attempt_push_expecting_absence(Some(setup.parent_of_main_commit.id().clone())).unwrap()
         ),
-        vec!["refs/heads/main".to_owned()]
+        ["refs/heads/main"].map(GitRefNameBuf::from)
     );
 
     if subprocess {
@@ -3745,7 +3746,7 @@ fn test_push_updates_unexpectedly_exists_on_remote(subprocess: bool) {
                 attempt_push_expecting_absence(Some(setup.child_of_main_commit.id().clone()))
                     .unwrap()
             ),
-            vec!["refs/heads/main".to_owned()]
+            ["refs/heads/main"].map(GitRefNameBuf::from)
         );
     } else {
         // In git2: We *can* move the bookmark forward even if we didn't expect it to
@@ -3753,7 +3754,7 @@ fn test_push_updates_unexpectedly_exists_on_remote(subprocess: bool) {
         assert_eq!(
             attempt_push_expecting_absence(Some(setup.child_of_main_commit.id().clone())).unwrap(),
             GitPushStats {
-                pushed: vec!["refs/heads/main".to_owned()],
+                pushed: vec!["refs/heads/main".into()],
                 ..Default::default()
             }
         );
@@ -3773,7 +3774,7 @@ fn test_push_updates_success(subprocess: bool) {
         &git_settings,
         "origin".as_ref(),
         &[GitRefUpdate {
-            qualified_name: "refs/heads/main".to_string(),
+            qualified_name: "refs/heads/main".into(),
             expected_current_target: Some(setup.main_commit.id().clone()),
             new_target: Some(setup.child_of_main_commit.id().clone()),
         }],
@@ -3782,7 +3783,7 @@ fn test_push_updates_success(subprocess: bool) {
     assert_eq!(
         result.unwrap(),
         GitPushStats {
-            pushed: vec!["refs/heads/main".to_owned()],
+            pushed: vec!["refs/heads/main".into()],
             ..Default::default()
         }
     );
@@ -3814,7 +3815,7 @@ fn test_push_updates_no_such_remote(subprocess: bool) {
         &git_settings,
         "invalid-remote".as_ref(),
         &[GitRefUpdate {
-            qualified_name: "refs/heads/main".to_string(),
+            qualified_name: "refs/heads/main".into(),
             expected_current_target: Some(setup.main_commit.id().clone()),
             new_target: Some(setup.child_of_main_commit.id().clone()),
         }],
@@ -3835,7 +3836,7 @@ fn test_push_updates_invalid_remote(subprocess: bool) {
         &git_settings,
         "http://invalid-remote".as_ref(),
         &[GitRefUpdate {
-            qualified_name: "refs/heads/main".to_string(),
+            qualified_name: "refs/heads/main".into(),
             expected_current_target: Some(setup.main_commit.id().clone()),
             new_target: Some(setup.child_of_main_commit.id().clone()),
         }],
