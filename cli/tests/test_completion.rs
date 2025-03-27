@@ -793,6 +793,7 @@ fn test_files() {
         &[
             // "unchanged" file
             ("f_modified", Some("modified\n")),
+            ("f_not_yet_renamed", None),
             ("f_renamed", Some("renamed\n")),
             ("f_deleted", None),
             ("f_added", Some("added\n")),
@@ -850,11 +851,11 @@ fn test_files() {
 
     let output = work_dir.run_jj(["log", "-r", "all()", "--summary"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
-    @  wqnwkozp test.user@example.com 2001-02-03 08:05:20 working_copy 45c3a621
+    @  wqnwkozp test.user@example.com 2001-02-03 08:05:20 working_copy cb594eba
     │  working_copy
     │  A f_added_2
     │  M f_modified
-    ○  zsuskuln test.user@example.com 2001-02-03 08:05:11 second 77a99380
+    ○  zsuskuln test.user@example.com 2001-02-03 08:05:11 second 24242473
     │  second
     │  A f_added
     │  D f_deleted
@@ -862,7 +863,7 @@ fn test_files() {
     │  A f_dir/dir_file_2
     │  A f_dir/dir_file_3
     │  M f_modified
-    │  A f_renamed
+    │  R {f_not_yet_renamed => f_renamed}
     │ ×  royxmykx test.user@example.com 2001-02-03 08:05:14 conflicted 0ba6786b conflict
     ├─╯  conflicted
     │    A f_added_2
@@ -899,7 +900,6 @@ fn test_files() {
     f_added_2
     f_dir/
     f_modified
-    f_not_yet_renamed
     f_renamed
     f_unchanged
     [EOF]
@@ -910,7 +910,6 @@ fn test_files() {
     f_added
     f_dir/
     f_modified
-    f_not_yet_renamed
     f_renamed
     f_unchanged
     [EOF]
@@ -921,7 +920,7 @@ fn test_files() {
     f_deleted	Deleted
     f_dir/
     f_modified	Modified
-    f_renamed	Added
+    {f_not_yet_renamed => f_renamed}	Renamed
     [EOF]
     ");
 
@@ -945,7 +944,6 @@ fn test_files() {
     f_added	Added
     f_dir/
     f_modified	Added
-    f_not_yet_renamed	Added
     f_renamed	Added
     f_unchanged	Added
     [EOF]
@@ -991,7 +989,6 @@ fn test_files() {
     f_added_2
     f_dir/
     f_modified
-    f_not_yet_renamed
     f_renamed
     f_unchanged
     [EOF]
