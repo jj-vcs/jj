@@ -10,6 +10,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Release highlights
 
+* Support for adding a `change-id` Git header behind the configuration setting `git.change-id-header`.
+  If this is enabled, `jj` will attempt to preserve the change ID of a commit across Git remotes by
+  storing it in a Git `change-id` header. For example, if you `jj git push` to a remote, edit it,
+  then `jj git fetch` your remote work, it should preserve the logical change ID through those
+  modifications. This is an evolving feature that currently defaults to "false". This default will
+  likely change in the future as we gain confidence with forge support and user expectations.
+
 ### Breaking changes
 
 * The minimum supported Rust version (MSRV) is now 1.84.0.
