@@ -589,6 +589,7 @@ fn show_color_words_diff_hunks(
     contents: [&BStr; 2],
     options: &ColorWordsDiffOptions,
 ) -> io::Result<()> {
+    let labels = ["removed", "added"];
     let line_diff = diff_by_line(contents, &options.line_diff);
     let mut line_number = DiffLineNumber { left: 1, right: 1 };
     // Matching entries shouldn't appear consecutively in diff of two inputs.
@@ -608,14 +609,20 @@ fn show_color_words_diff_hunks(
                     formatter,
                     &contexts,
                     line_number,
+                    labels,
                     options,
                     num_after,
                     num_before,
                 )?;
                 contexts.clear();
                 emitted = true;
-                line_number =
-                    show_color_words_diff_lines(formatter, hunk_contents, line_number, options)?;
+                line_number = show_color_words_diff_lines(
+                    formatter,
+                    hunk_contents,
+                    line_number,
+                    labels,
+                    options,
+                )?;
             }
         }
     }
@@ -626,6 +633,7 @@ fn show_color_words_diff_hunks(
         formatter,
         &contexts,
         line_number,
+        labels,
         options,
         num_after,
         num_before,
@@ -638,6 +646,7 @@ fn show_color_words_context_lines(
     formatter: &mut dyn Formatter,
     contexts: &[[&BStr; 2]],
     mut line_number: DiffLineNumber,
+    labels: [&str; 2],
     options: &ColorWordsDiffOptions,
     num_after: usize,
     num_before: usize,
@@ -661,10 +670,12 @@ fn show_color_words_context_lines(
                 show_color_words_line_number(
                     formatter,
                     [Some(line_number.left), Some(line_number.right)],
+                    labels,
                 )?;
                 show_color_words_inline_hunks(
                     formatter,
                     &[(DiffLineHunkSide::Both, line.as_ref())],
+                    labels,
                 )?;
                 line_number.left += 1;
                 line_number.right += 1;
@@ -677,6 +688,7 @@ fn show_color_words_context_lines(
                 formatter,
                 [&left, &right].map(BStr::new),
                 line_number,
+                labels,
                 options,
             )
         }
@@ -708,6 +720,7 @@ fn show_color_words_diff_lines(
     formatter: &mut dyn Formatter,
     contents: [&BStr; 2],
     mut line_number: DiffLineNumber,
+    labels: [&str; 2],
     options: &ColorWordsDiffOptions,
 ) -> io::Result<DiffLineNumber> {
     let word_diff_hunks = Diff::by_word(contents).hunks().collect_vec();
@@ -733,20 +746,22 @@ fn show_color_words_diff_lines(
                         .has_right_content()
                         .then_some(diff_line.line_number.right),
                 ],
+                labels,
             )?;
-            show_color_words_inline_hunks(formatter, &diff_line.hunks)?;
+            show_color_words_inline_hunks(formatter, &diff_line.hunks, labels)?;
         }
         line_number = diff_line_iter.next_line_number();
     } else {
         let [left_lines, right_lines] = unzip_diff_hunks_to_lines(&word_diff_hunks);
+        let [left_label, right_label] = labels;
         for tokens in &left_lines {
-            show_color_words_line_number(formatter, [Some(line_number.left), None])?;
-            show_color_words_single_sided_line(formatter, tokens, "removed")?;
+            show_color_words_line_number(formatter, [Some(line_number.left), None], labels)?;
+            show_color_words_single_sided_line(formatter, tokens, left_label)?;
             line_number.left += 1;
         }
         for tokens in &right_lines {
-            show_color_words_line_number(formatter, [None, Some(line_number.right)])?;
-            show_color_words_single_sided_line(formatter, tokens, "added")?;
+            show_color_words_line_number(formatter, [None, Some(line_number.right)], labels)?;
+            show_color_words_single_sided_line(formatter, tokens, right_label)?;
             line_number.right += 1;
         }
     }
@@ -756,9 +771,10 @@ fn show_color_words_diff_lines(
 fn show_color_words_line_number(
     formatter: &mut dyn Formatter,
     [left_line_number, right_line_number]: [Option<u32>; 2],
+    [left_label, right_label]: [&str; 2],
 ) -> io::Result<()> {
     if let Some(line_number) = left_line_number {
-        formatter.with_label("removed", |formatter| {
+        formatter.with_label(left_label, |formatter| {
             write!(formatter.labeled("line_number"), "{line_number:>4}")
         })?;
         write!(formatter, " ")?;
@@ -766,7 +782,7 @@ fn show_color_words_line_number(
         write!(formatter, "     ")?;
     }
     if let Some(line_number) = right_line_number {
-        formatter.with_label("added", |formatter| {
+        formatter.with_label(right_label, |formatter| {
             write!(formatter.labeled("line_number"), "{line_number:>4}",)
         })?;
         write!(formatter, ": ")?;
@@ -780,12 +796,13 @@ fn show_color_words_line_number(
 fn show_color_words_inline_hunks(
     formatter: &mut dyn Formatter,
     line_hunks: &[(DiffLineHunkSide, &BStr)],
+    [left_label, right_label]: [&str; 2],
 ) -> io::Result<()> {
     for (side, data) in line_hunks {
         let label = match side {
             DiffLineHunkSide::Both => None,
-            DiffLineHunkSide::Left => Some("removed"),
-            DiffLineHunkSide::Right => Some("added"),
+            DiffLineHunkSide::Left => Some(left_label),
+            DiffLineHunkSide::Right => Some(right_label),
         };
         if let Some(label) = label {
             formatter.with_label(label, |formatter| {
