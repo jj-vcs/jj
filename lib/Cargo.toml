@@ -97,12 +97,6 @@ tokio = { workspace = true, features = ["full"] }
 default = ["git", "git2"]
 git = ["dep:gix"]
 git2 = ["git", "dep:git2"]
-gix-max-performance = [
-    # Requires `cmake` as a build dependency.
-    # Note that this feature is different from `gix/max-performance-safe`.
-    # See: https://docs.rs/gix/latest/gix/#performance
-    "gix/max-performance",
-]
 vendored-openssl = ["git2/vendored-openssl"]
 watchman = ["dep:tokio", "dep:watchman_client"]
 testing = ["git"]
