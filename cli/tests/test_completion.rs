@@ -920,7 +920,8 @@ fn test_files() {
     f_deleted	Deleted
     f_dir/
     f_modified	Modified
-    {f_not_yet_renamed => f_renamed}	Renamed
+    f_not_yet_renamed	Renamed
+    f_renamed	Renamed
     [EOF]
     ");
 

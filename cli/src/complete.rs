@@ -612,14 +612,18 @@ fn modified_files_from_rev_with_jj_cmd(
     let output = cmd.output().map_err(user_error)?;
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    Ok(stdout
-        .lines()
-        .map(|line| {
-            let (mode, path) = line
-                .split_once(' ')
-                .expect("diff --summary should contain a space between mode and path");
+    let mut candidates = Vec::new();
+    // store renamed paths in a separate vector so we don't have to sort later
+    let mut renamed = Vec::new();
 
-            if let Some(dir_path) = dir_prefix_from(path, current) {
+    'line_loop: for line in stdout.lines() {
+        let (mode, path) = line
+            .split_once(' ')
+            .expect("diff --summary should contain a space between mode and path");
+
+        fn path_to_candidate(current: &str, mode: &str, p: impl AsRef<str>) -> CompletionCandidate {
+            let p = p.as_ref();
+            if let Some(dir_path) = dir_prefix_from(p, current) {
                 return CompletionCandidate::new(dir_path);
             }
 
@@ -631,10 +635,36 @@ fn modified_files_from_rev_with_jj_cmd(
                 "C" => "Copied".into(),
                 _ => format!("unknown mode: '{mode}'"),
             };
-            CompletionCandidate::new(path).help(Some(help.into()))
-        })
-        .dedup() // directories may occur multiple times
-        .collect())
+            CompletionCandidate::new(p).help(Some(help.into()))
+        }
+
+        // In case of a rename, one line of `diff --summary` results in
+        // two suggestions.
+        if mode == "R" {
+            'split_renamed_paths: {
+                let Some((prefix, rest)) = path.split_once('{') else {
+                    break 'split_renamed_paths;
+                };
+                let Some((rename, suffix)) = rest.split_once('}') else {
+                    break 'split_renamed_paths;
+                };
+                let Some((before, after)) = rename.split_once(" => ") else {
+                    break 'split_renamed_paths;
+                };
+                let before = format!("{prefix}{before}{suffix}");
+                let after = format!("{prefix}{after}{suffix}");
+                candidates.push(path_to_candidate(current, mode, before));
+                renamed.push(path_to_candidate(current, mode, after));
+                continue 'line_loop;
+            };
+        }
+
+        candidates.push(path_to_candidate(current, mode, path));
+    }
+    candidates.extend(renamed);
+    candidates.dedup();
+
+    Ok(candidates)
 }
 
 fn modified_files_from_rev(
