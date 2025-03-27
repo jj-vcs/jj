@@ -470,6 +470,11 @@
                     "description": "Whether jj spawns a git subprocess for network operations (push/fetch/clone)",
                     "default": true
                 },
+                "write-change-id-header": {
+                    "type": "boolean",
+                    "description": "Whether the change id should be stored in the Git commit object",
+                    "default": false
+                },
                 "executable-path": {
                     "type": "string",
                     "description": "Path to the git executable",

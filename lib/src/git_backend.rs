@@ -69,8 +69,10 @@ use crate::backend::Timestamp;
 use crate::backend::Tree;
 use crate::backend::TreeId;
 use crate::backend::TreeValue;
+use crate::config::ConfigGetError;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
+use crate::hex_util::to_forward_hex;
 use crate::index::Index;
 use crate::lock::FileLock;
 use crate::merge::Merge;
@@ -93,6 +95,7 @@ const NO_GC_REF_NAMESPACE: &str = "refs/jj/keep/";
 const CONFLICT_SUFFIX: &str = ".jjconflict";
 
 pub const JJ_TREES_COMMIT_HEADER: &[u8] = b"jj:trees";
+pub const CHANGE_ID_COMMIT_HEADER: &[u8] = b"change-id";
 
 #[derive(Debug, Error)]
 pub enum GitBackendInitError {
@@ -100,6 +103,8 @@ pub enum GitBackendInitError {
     InitRepository(#[source] gix::init::Error),
     #[error("Failed to open git repository")]
     OpenRepository(#[source] gix::open::Error),
+    #[error(transparent)]
+    Config(ConfigGetError),
     #[error(transparent)]
     Path(PathError),
 }
@@ -159,6 +164,7 @@ pub struct GitBackend {
     empty_tree_id: TreeId,
     extra_metadata_store: TableStore,
     cached_extra_metadata: Mutex<Option<Arc<ReadonlyTable>>>,
+    change_id_setting: bool,
 }
 
 impl GitBackend {
@@ -166,7 +172,11 @@ impl GitBackend {
         "git"
     }
 
-    fn new(base_repo: gix::ThreadSafeRepository, extra_metadata_store: TableStore) -> Self {
+    fn new(
+        base_repo: gix::ThreadSafeRepository,
+        extra_metadata_store: TableStore,
+        change_id_setting: bool,
+    ) -> Self {
         let repo = Mutex::new(base_repo.to_thread_local());
         let root_commit_id = CommitId::from_bytes(&[0; HASH_LENGTH]);
         let root_change_id = ChangeId::from_bytes(&[0; CHANGE_ID_LENGTH]);
@@ -179,6 +189,7 @@ impl GitBackend {
             empty_tree_id,
             extra_metadata_store,
             cached_extra_metadata: Mutex::new(None),
+            change_id_setting,
         }
     }
 
@@ -194,7 +205,12 @@ impl GitBackend {
             gix_open_opts_from_settings(settings),
         )
         .map_err(GitBackendInitError::InitRepository)?;
-        Self::init_with_repo(store_path, git_repo_path, git_repo)
+
+        let change_id_setting = settings
+            .git_settings()
+            .map_err(GitBackendInitError::Config)?
+            .change_id;
+        Self::init_with_repo(store_path, git_repo_path, git_repo, change_id_setting)
     }
 
     /// Initializes backend by creating a new Git repo at the specified
@@ -218,7 +234,11 @@ impl GitBackend {
         )
         .map_err(GitBackendInitError::InitRepository)?;
         let git_repo_path = workspace_root.join(".git");
-        Self::init_with_repo(store_path, &git_repo_path, git_repo)
+        let change_id_setting = settings
+            .git_settings()
+            .map_err(GitBackendInitError::Config)?
+            .change_id;
+        Self::init_with_repo(store_path, &git_repo_path, git_repo, change_id_setting)
     }
 
     /// Initializes backend with an existing Git repo at the specified path.
@@ -238,13 +258,18 @@ impl GitBackend {
             gix_open_opts_from_settings(settings),
         )
         .map_err(GitBackendInitError::OpenRepository)?;
-        Self::init_with_repo(store_path, git_repo_path, git_repo)
+        let change_id_setting = settings
+            .git_settings()
+            .map_err(GitBackendInitError::Config)?
+            .change_id;
+        Self::init_with_repo(store_path, git_repo_path, git_repo, change_id_setting)
     }
 
     fn init_with_repo(
         store_path: &Path,
         git_repo_path: &Path,
         git_repo: gix::ThreadSafeRepository,
+        change_id_setting: bool,
     ) -> Result<Self, Box<GitBackendInitError>> {
         let extra_path = store_path.join("extra");
         fs::create_dir(&extra_path)
@@ -271,7 +296,11 @@ impl GitBackend {
                 .map_err(GitBackendInitError::Path)?;
         };
         let extra_metadata_store = TableStore::init(extra_path, HASH_LENGTH);
-        Ok(GitBackend::new(git_repo, extra_metadata_store))
+        Ok(GitBackend::new(
+            git_repo,
+            extra_metadata_store,
+            change_id_setting,
+        ))
     }
 
     pub fn load(
@@ -294,7 +323,12 @@ impl GitBackend {
         )
         .map_err(GitBackendLoadError::OpenRepository)?;
         let extra_metadata_store = TableStore::load(store_path.join("extra"), HASH_LENGTH);
-        Ok(GitBackend::new(repo, extra_metadata_store))
+        let change_id_setting = settings.git_settings().unwrap_or_default().change_id;
+        Ok(GitBackend::new(
+            repo,
+            extra_metadata_store,
+            change_id_setting,
+        ))
     }
 
     fn lock_git_repo(&self) -> MutexGuard<'_, gix::Repository> {
@@ -516,19 +550,30 @@ fn commit_from_git_without_root_parent(
         .try_to_commit_ref()
         .map_err(|err| to_read_object_err(err, id))?;
 
-    // We reverse the bits of the commit id to create the change id. We don't want
-    // to use the first bytes unmodified because then it would be ambiguous
-    // if a given hash prefix refers to the commit id or the change id. It
-    // would have been enough to pick the last 16 bytes instead of the
-    // leading 16 bytes to address that. We also reverse the bits to make it less
-    // likely that users depend on any relationship between the two ids.
-    let change_id = ChangeId::new(
-        id.as_bytes()[4..HASH_LENGTH]
-            .iter()
-            .rev()
-            .map(|b| b.reverse_bits())
-            .collect(),
-    );
+    // If the git header has a change-id field, we attempt to convert that to a
+    // valid JJ Change Id
+    let change_id = commit
+        .extra_headers()
+        .find("change-id")
+        .and_then(to_forward_hex)
+        .and_then(|change_id_hex| ChangeId::try_from_hex(change_id_hex.as_str()).ok())
+        .filter(|val| val.as_bytes().len() == CHANGE_ID_LENGTH)
+        // Otherwise, we reverse the bits of the commit id to create the change id.
+        // We don't want to use the first bytes unmodified because then it would be
+        // ambiguous if a given hash prefix refers to the commit id or the change id.
+        // It would have been enough to pick the last 16 bytes instead of the
+        // leading 16 bytes to address that. We also reverse the bits to make it
+        // less likely that users depend on any relationship between the two ids.
+        .unwrap_or_else(|| {
+            ChangeId::new(
+                id.as_bytes()[4..HASH_LENGTH]
+                    .iter()
+                    .rev()
+                    .map(|b| b.reverse_bits())
+                    .collect(),
+            )
+        });
+
     // shallow commits don't have parents their parents actually fetched, so we
     // discard them here
     // TODO: This causes issues when a shallow repository is deepened/unshallowed
@@ -664,7 +709,9 @@ fn serialize_extras(commit: &Commit) -> Vec<u8> {
 
 fn deserialize_extras(commit: &mut Commit, bytes: &[u8]) {
     let proto = crate::protos::git_store::Commit::decode(bytes).unwrap();
-    commit.change_id = ChangeId::new(proto.change_id);
+    if !proto.change_id.is_empty() {
+        commit.change_id = ChangeId::new(proto.change_id);
+    }
     if let MergedTreeId::Legacy(legacy_tree_id) = &commit.root_tree {
         if proto.uses_tree_conflict_format {
             if !proto.root_tree.is_empty() {
@@ -1220,6 +1267,13 @@ impl Backend for GitBackend {
                 ));
             }
         }
+        if self.change_id_setting {
+            extra_headers.push((
+                BString::new(CHANGE_ID_COMMIT_HEADER.to_vec()),
+                BString::new(contents.change_id.reverse_hex().into()),
+            ));
+        }
+
         let extras = serialize_extras(&contents);
 
         // If two writers write commits of the same id with different metadata, they
@@ -1511,11 +1565,16 @@ fn bytes_vec_from_json(value: &serde_json::Value) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr as _;
+
     use assert_matches::assert_matches;
     use hex::ToHex as _;
     use pollster::FutureExt as _;
+    use toml_edit::DocumentMut;
 
     use super::*;
+    use crate::config::ConfigLayer;
+    use crate::config::ConfigSource;
     use crate::config::StackedConfig;
     use crate::content_hash::blake2b_hash;
     use crate::tests::new_temp_dir;
@@ -1813,6 +1872,55 @@ mod tests {
         // converting to string for nicer assert diff
         assert_eq!(std::str::from_utf8(&sig.sig).unwrap(), secure_sig);
         assert_eq!(std::str::from_utf8(&sig.data).unwrap(), commit_str);
+    }
+
+    #[test]
+    fn round_trip_change_id_via_git_header() {
+        let settings = user_settings_with_change_id();
+        let temp_dir = new_temp_dir();
+        let store_path = temp_dir.path();
+
+        let temp_dir2 = new_temp_dir();
+        let empty_store = temp_dir2.path();
+
+        let git_repo_path = temp_dir.path().join("git");
+        let git_repo = git_init(git_repo_path);
+
+        let backend = GitBackend::init_external(&settings, store_path, git_repo.path()).unwrap();
+        let original_change_id = ChangeId::from_hex("1111eeee1111eeee1111eeee1111eeee");
+        let commit = Commit {
+            parents: vec![backend.root_commit_id().clone()],
+            predecessors: vec![],
+            root_tree: MergedTreeId::Legacy(backend.empty_tree_id().clone()),
+            change_id: original_change_id.clone(),
+            description: "initial".to_string(),
+            author: create_signature(),
+            committer: create_signature(),
+            secure_sig: None,
+        };
+
+        let (initial_commit_id, _init_commit) =
+            backend.write_commit(commit, None).block_on().unwrap();
+        let commit = backend.read_commit(&initial_commit_id).block_on().unwrap();
+        assert_eq!(
+            commit.change_id, original_change_id,
+            "The change-id header did not roundtrip"
+        );
+
+        // Because of how change ids are also persisted in extra proto files,
+        // initialize a new store without those files, but reuse the same git
+        // storage. This change-id must be derived from the git commit header.
+        let no_extra_backend =
+            GitBackend::init_external(&settings, empty_store, git_repo.path()).unwrap();
+        let no_extra_commit = no_extra_backend
+            .read_commit(&initial_commit_id)
+            .block_on()
+            .unwrap();
+
+        assert_eq!(
+            no_extra_commit.change_id, original_change_id,
+            "The change-id header did not roundtrip"
+        );
     }
 
     #[test]
@@ -2137,7 +2245,7 @@ mod tests {
             parents: vec![backend.root_commit_id().clone()],
             predecessors: vec![],
             root_tree: MergedTreeId::Legacy(backend.empty_tree_id().clone()),
-            change_id: ChangeId::new(vec![]),
+            change_id: ChangeId::from_hex("7f0a7ce70354b22efcccf7bf144017c4"),
             description: "initial".to_string(),
             author: create_signature(),
             committer: create_signature(),
@@ -2251,6 +2359,15 @@ mod tests {
     // our UserSettings type comes from jj_lib (1).
     fn user_settings() -> UserSettings {
         let config = StackedConfig::with_defaults();
+        UserSettings::from_config(config).unwrap()
+    }
+
+    fn user_settings_with_change_id() -> UserSettings {
+        let mut config = StackedConfig::with_defaults();
+        config.add_layer(ConfigLayer::with_data(
+            ConfigSource::Default,
+            DocumentMut::from_str("git.write-change-id-header = true").unwrap(),
+        ));
         UserSettings::from_config(config).unwrap()
     }
 }

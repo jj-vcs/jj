@@ -29,10 +29,11 @@ fn to_forward_hex_digit(b: u8) -> Option<u8> {
     }
 }
 
-pub fn to_forward_hex(reverse_hex: &str) -> Option<String> {
+pub fn to_forward_hex(reverse_hex: impl AsRef<[u8]>) -> Option<String> {
     reverse_hex
-        .bytes()
-        .map(|b| to_forward_hex_digit(b).map(char::from))
+        .as_ref()
+        .iter()
+        .map(|b| to_forward_hex_digit(*b).map(char::from))
         .collect()
 }
 

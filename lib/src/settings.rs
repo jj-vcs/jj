@@ -66,6 +66,7 @@ pub struct GitSettings {
     #[cfg(feature = "git2")]
     pub subprocess: bool,
     pub executable_path: PathBuf,
+    pub change_id: bool,
 }
 
 impl GitSettings {
@@ -76,6 +77,7 @@ impl GitSettings {
             #[cfg(feature = "git2")]
             subprocess: settings.get_bool("git.subprocess")?,
             executable_path: settings.get("git.executable-path")?,
+            change_id: settings.get("git.write-change-id-header")?,
         })
     }
 }
@@ -88,6 +90,7 @@ impl Default for GitSettings {
             #[cfg(feature = "git2")]
             subprocess: true,
             executable_path: PathBuf::from("git"),
+            change_id: false,
         }
     }
 }
