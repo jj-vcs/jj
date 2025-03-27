@@ -52,7 +52,8 @@ program = "vim"
 # `-d` enables diff mode. `-f` makes vim run in foreground even if it starts a GUI.
 # The other options make sure that only the output file can be modified.
 merge-args = ["-f", "-d", "$output", "-M", "$left", "$base", "$right",
-              "-c", "wincmd J", "-c", "set modifiable", "-c", "set write"]
+              "-c", "wincmd J", "-c", "set modifiable", "-c", "set write",
+              "-c", "/<<<<<</+2"]
 merge-tool-edits-conflict-markers = true
 # Using vimdiff as a diff editor is not recommended. For instructions on configuring
 # the DirDiff Vim plugin for a better experience, see
