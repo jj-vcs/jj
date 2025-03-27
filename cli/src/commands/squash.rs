@@ -202,7 +202,6 @@ pub(crate) fn cmd_squash(
                         add_trailers(ui, &tx, &commit_builder)?
                     }
                 } else {
-                    let intro = "Enter a description for the combined commit.";
                     let combined = combine_messages_for_editing(
                         ui,
                         &tx,
@@ -213,6 +212,7 @@ pub(crate) fn cmd_squash(
                     // It's weird that commit.description() contains "JJ: " lines, but works.
                     commit_builder.set_description(combined);
                     let temp_commit = commit_builder.write_hidden()?;
+                    let intro = "Enter a description for the combined commit.";
                     let template = description_template(ui, &tx, intro, &temp_commit)?;
                     edit_description(&text_editor, &template)?
                 }

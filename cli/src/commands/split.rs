@@ -241,12 +241,8 @@ pub(crate) fn cmd_split(
             let new_description = add_trailers(ui, &tx, &commit_builder)?;
             commit_builder.set_description(new_description);
             let temp_commit = commit_builder.write_hidden()?;
-            let template = description_template(
-                ui,
-                &tx,
-                "Enter a description for the selected changes.",
-                &temp_commit,
-            )?;
+            let intro = "Enter a description for the selected changes.";
+            let template = description_template(ui, &tx, intro, &temp_commit)?;
             edit_description(&text_editor, &template)?
         };
         commit_builder.set_description(description);
@@ -291,12 +287,8 @@ pub(crate) fn cmd_split(
             let new_description = add_trailers(ui, &tx, &commit_builder)?;
             commit_builder.set_description(new_description);
             let temp_commit = commit_builder.write_hidden()?;
-            let template = description_template(
-                ui,
-                &tx,
-                "Enter a description for the remaining changes.",
-                &temp_commit,
-            )?;
+            let intro = "Enter a description for the remaining changes.";
+            let template = description_template(ui, &tx, intro, &temp_commit)?;
             edit_description(&text_editor, &template)?
         };
         commit_builder.set_description(description);

@@ -147,7 +147,8 @@ new working-copy commit.
         let description = add_trailers(ui, &tx, &commit_builder)?;
         commit_builder.set_description(description);
         let temp_commit = commit_builder.write_hidden()?;
-        let description = description_template(ui, &tx, "", &temp_commit)?;
+        let intro = "";
+        let description = description_template(ui, &tx, intro, &temp_commit)?;
         let description = edit_description(&text_editor, &description)?;
         if description.is_empty() {
             writedoc!(

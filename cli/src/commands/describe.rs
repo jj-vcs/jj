@@ -205,7 +205,8 @@ pub(crate) fn cmd_describe(
             .try_collect()?;
 
         if let [(_, temp_commit)] = &*temp_commits {
-            let template = description_template(ui, &tx, "", temp_commit)?;
+            let intro = "";
+            let template = description_template(ui, &tx, intro, temp_commit)?;
             let description = edit_description(&text_editor, &template)?;
             commit_builders[0].set_description(description);
         } else {

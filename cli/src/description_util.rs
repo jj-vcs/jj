@@ -206,7 +206,8 @@ pub fn edit_multiple_descriptions(
         bulk_message.push_str(&commit_hash);
         bulk_message.push_str(" -------\n");
         commits_map.insert(commit_hash, *commit_id);
-        let template = description_template(ui, tx, "", temp_commit)?;
+        let intro = "";
+        let template = description_template(ui, tx, intro, temp_commit)?;
         bulk_message.push_str(&template);
         append_blank_line(&mut bulk_message);
     }
