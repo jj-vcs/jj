@@ -26,6 +26,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+### Packaging changes
+
+* Jujutsu now uses
+  [`zlib-rs`](https://github.com/trifectatechfoundation/zlib-rs), a
+  fast compression library written in Rust. Packagers should remove any
+  dependency on CMake and drop the `packaging` Cargo feature.
+
 ## [0.28.2] - 2025-04-07
 
 ### Fixed bugs

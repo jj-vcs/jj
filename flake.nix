@@ -64,10 +64,6 @@
         [
           gzip
           pkg-config
-
-          # for libz-ng-sys (zlib-ng)
-          # TODO: switch to the packaged zlib-ng and drop this dependency
-          cmake
         ]
         ++ lib.optionals stdenv.isLinux [
           mold-wrapped
@@ -109,7 +105,6 @@
           pname = "jujutsu";
           version = "unstable-${self.shortRev or "dirty"}";
 
-          buildFeatures = ["packaging"];
           cargoBuildFlags = ["--bin" "jj"]; # don't build and install the fake editors
           useNextest = true;
           cargoTestFlags = ["--profile" "ci"];
