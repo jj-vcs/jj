@@ -603,13 +603,14 @@ fn show_color_words_diff_hunks(
             DiffHunkKind::Matching => contexts.push(hunk_contents),
             DiffHunkKind::Different => {
                 let num_after = if emitted { options.context } else { 0 };
+                let num_before = options.context;
                 line_number = show_color_words_context_lines(
                     formatter,
                     &contexts,
                     line_number,
                     options,
                     num_after,
-                    options.context,
+                    num_before,
                 )?;
                 contexts.clear();
                 emitted = true;
@@ -619,16 +620,16 @@ fn show_color_words_diff_hunks(
         }
     }
 
-    if emitted {
-        show_color_words_context_lines(
-            formatter,
-            &contexts,
-            line_number,
-            options,
-            options.context,
-            0,
-        )?;
-    }
+    let num_after = if emitted { options.context } else { 0 };
+    let num_before = 0;
+    show_color_words_context_lines(
+        formatter,
+        &contexts,
+        line_number,
+        options,
+        num_after,
+        num_before,
+    )?;
     Ok(())
 }
 
@@ -1077,7 +1078,7 @@ pub fn show_color_words_diff(
                 }
                 if left_content.is_binary || right_content.is_binary {
                     writeln!(formatter.labeled("binary"), "    (binary)")?;
-                } else {
+                } else if left_content.contents != right_content.contents {
                     show_color_words_diff_hunks(
                         formatter,
                         [&left_content.contents, &right_content.contents].map(BStr::new),

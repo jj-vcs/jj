@@ -1602,9 +1602,17 @@ fn test_diff_ignore_whitespace() {
             baz {}
         "},
     );
-    work_dir
-        .run_jj(["new", "-mindent + whitespace insertion"])
-        .success();
+    work_dir.run_jj(["new", "-minsert whitespace"]).success();
+    work_dir.write_file(
+        "file1",
+        indoc! {"
+            foo {
+                bar;
+            }
+            baz {  }
+        "},
+    );
+    work_dir.run_jj(["new", "-mindent"]).success();
     work_dir.write_file(
         "file1",
         indoc! {"
@@ -1616,10 +1624,17 @@ fn test_diff_ignore_whitespace() {
             baz {  }
         "},
     );
-    work_dir.run_jj(["status"]).success();
 
     // Git diff as reference output
-    let output = work_dir.run_jj(["diff", "--git", "--ignore-all-space"]);
+    let output = work_dir.run_jj(["diff", "-r@-", "--git", "--ignore-all-space"]);
+    insta::assert_snapshot!(output, @r"
+    diff --git a/file1 b/file1
+    index f532aa68ad..d33445991b 100644
+    --- a/file1
+    +++ b/file1
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["diff", "--from=@--", "--git", "--ignore-all-space"]);
     insta::assert_snapshot!(output, @r"
     diff --git a/file1 b/file1
     index f532aa68ad..033c4a6168 100644
@@ -1634,7 +1649,7 @@ fn test_diff_ignore_whitespace() {
      baz {  }
     [EOF]
     ");
-    let output = work_dir.run_jj(["diff", "--git", "--ignore-space-change"]);
+    let output = work_dir.run_jj(["diff", "--from=@--", "--git", "--ignore-space-change"]);
     insta::assert_snapshot!(output, @r"
     diff --git a/file1 b/file1
     index f532aa68ad..033c4a6168 100644
@@ -1653,21 +1668,35 @@ fn test_diff_ignore_whitespace() {
     ");
 
     // Diff-stat should respects the whitespace options
-    let output = work_dir.run_jj(["diff", "--stat", "--ignore-all-space"]);
+    let output = work_dir.run_jj(["diff", "-r@-", "--stat", "--ignore-all-space"]);
+    insta::assert_snapshot!(output, @r"
+    file1 | 0
+    1 file changed, 0 insertions(+), 0 deletions(-)
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["diff", "--from=@--", "--stat", "--ignore-all-space"]);
     insta::assert_snapshot!(output, @r"
     file1 | 2 ++
     1 file changed, 2 insertions(+), 0 deletions(-)
     [EOF]
     ");
-    let output = work_dir.run_jj(["diff", "--stat", "--ignore-space-change"]);
+    let output = work_dir.run_jj(["diff", "--from=@--", "--stat", "--ignore-space-change"]);
     insta::assert_snapshot!(output, @r"
     file1 | 6 ++++--
     1 file changed, 4 insertions(+), 2 deletions(-)
     [EOF]
     ");
 
+    // "..." is printed if contents differ only in whitespace
+    let output = work_dir.run_jj(["diff", "-r@-", "--color=always", "--ignore-all-space"]);
+    insta::assert_snapshot!(output, @r"
+    [38;5;3mModified regular file file1:[39m
+        ...
+    [EOF]
+    ");
+
     // Word-level changes are still highlighted
-    let output = work_dir.run_jj(["diff", "--color=always", "--ignore-all-space"]);
+    let output = work_dir.run_jj(["diff", "--from=@--", "--color=always", "--ignore-all-space"]);
     insta::assert_snapshot!(output, @r"
     [38;5;3mModified regular file file1:[39m
          [38;5;2m   1[39m: [4m[38;5;2m{[24m[39m
@@ -1678,7 +1707,12 @@ fn test_diff_ignore_whitespace() {
     [38;5;1m   4[39m [38;5;2m   6[39m: baz {[4m[38;5;2m  [24m[39m}
     [EOF]
     ");
-    let output = work_dir.run_jj(["diff", "--color=always", "--ignore-space-change"]);
+    let output = work_dir.run_jj([
+        "diff",
+        "--from=@--",
+        "--color=always",
+        "--ignore-space-change",
+    ]);
     insta::assert_snapshot!(output, @r"
     [38;5;3mModified regular file file1:[39m
          [38;5;2m   1[39m: [4m[38;5;2m{[24m[39m
