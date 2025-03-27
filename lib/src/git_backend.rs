@@ -480,8 +480,6 @@ fn gix_open_opts_from_settings(settings: &UserSettings) -> gix::open::Options {
         .open_path_as_is(true)
         // Gitoxide recommends this when correctness is preferred
         .strict_config(true)
-        // This breaks tests and generally seems undesirable
-        .lossy_config(false)
 }
 
 /// Reads the `jj:trees` header from the commit.
@@ -1537,7 +1535,6 @@ mod tests {
         gix::open::Options::isolated()
             .config_overrides(git_config())
             .strict_config(true)
-            .lossy_config(false)
     }
 
     fn git_init(directory: impl AsRef<Path>) -> gix::Repository {

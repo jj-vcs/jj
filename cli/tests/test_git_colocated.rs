@@ -156,7 +156,7 @@ fn test_git_colocated_unborn_bookmark() {
         let objects = git_repo.objects.clone();
         gix::worktree::state::checkout(
             &mut index,
-            git_repo.work_dir().unwrap(),
+            git_repo.workdir().unwrap(),
             objects,
             &gix::progress::Discard,
             &gix::progress::Discard,

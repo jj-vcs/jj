@@ -8,6 +8,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security fixes
+
+* Fixed SHA-1 collision attacks not being detected.
+  ([GHSA-794x-2rpg-rfgr](https://github.com/jj-vcs/jj/security/advisories/GHSA-794x-2rpg-rfgr))
+
 ### Release highlights
 
 ### Breaking changes

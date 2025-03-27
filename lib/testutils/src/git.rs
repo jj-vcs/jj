@@ -30,7 +30,6 @@ fn open_options() -> gix::open::Options {
     gix::open::Options::isolated()
         .config_overrides(git_config())
         .strict_config(true)
-        .lossy_config(false)
 }
 
 pub fn open(directory: impl Into<PathBuf>) -> gix::Repository {
@@ -200,7 +199,7 @@ pub fn checkout_tree_index(repo: &gix::Repository, tree_id: gix::ObjectId) {
     let mut index = repo.index_from_tree(&tree_id).unwrap();
     gix::worktree::state::checkout(
         &mut index,
-        repo.work_dir().unwrap(),
+        repo.workdir().unwrap(),
         objects,
         &gix::progress::Discard,
         &gix::progress::Discard,
@@ -334,7 +333,7 @@ impl<'a> IndexManager<'a> {
     }
 
     pub fn add_file(&mut self, name: &str, data: &[u8]) {
-        std::fs::write(self.repo.work_dir().unwrap().join(name), data).unwrap();
+        std::fs::write(self.repo.workdir().unwrap().join(name), data).unwrap();
         let blob_oid = self.repo.write_blob(data).unwrap().detach();
 
         self.index.dangerously_push_entry(
