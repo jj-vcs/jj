@@ -36,7 +36,6 @@ use crate::commit_templater::CommitTemplateLanguage;
 use crate::complete;
 use crate::diff_util::diff_formats_for_log;
 use crate::diff_util::DiffFormatArgs;
-use crate::diff_util::DiffRenderer;
 use crate::formatter::Formatter;
 use crate::graphlog::get_graphlog;
 use crate::graphlog::GraphStyle;
@@ -176,16 +175,8 @@ fn do_op_log(
                     CommitTemplateLanguage::wrap_commit,
                 )?
             };
-            let path_converter = workspace_env.path_converter();
-            let conflict_marker_style = workspace_env.conflict_marker_style();
-            let diff_renderer = (!diff_formats.is_empty()).then(|| {
-                DiffRenderer::new(
-                    repo.as_ref(),
-                    path_converter,
-                    conflict_marker_style,
-                    diff_formats.clone(),
-                )
-            });
+            let diff_renderer =
+                workspace_env.maybe_diff_renderer(repo.as_ref(), diff_formats.clone());
 
             show_op_diff(
                 ui,

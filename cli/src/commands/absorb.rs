@@ -131,7 +131,7 @@ pub(crate) fn cmd_absorb(
             let repo = workspace_command.repo().as_ref();
             if !commit.is_empty(repo)? {
                 writeln!(formatter, "Remaining changes:")?;
-                let diff_renderer = workspace_command.diff_renderer(vec![DiffFormat::Summary]);
+                let diff_renderer = workspace_command.diff_renderer(DiffFormat::Summary);
                 let matcher = &EverythingMatcher; // also print excluded paths
                 let width = ui.term_width();
                 diff_renderer.show_patch(ui, formatter.as_mut(), commit, matcher, width)?;
