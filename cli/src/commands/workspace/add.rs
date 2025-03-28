@@ -91,11 +91,10 @@ pub fn cmd_workspace_add(
     let name = if let Some(name) = &args.name {
         name.to_string()
     } else {
-        destination_path
-            .file_name()
-            .unwrap()
+        let file_name = destination_path.file_name().unwrap();
+        file_name
             .to_str()
-            .unwrap()
+            .ok_or_else(|| user_error("Destination path is not valid UTF-8"))?
             .to_string()
     };
     let workspace_id = WorkspaceId::new(name.clone());
