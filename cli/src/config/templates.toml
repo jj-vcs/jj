@@ -402,3 +402,16 @@ coalesce(
   "o",
 )
 '''
+
+git_format_patch_email_headers = '''
+  concat(
+    "From " ++ commit_id ++ " Mon Sep 17 00:00:00 2001\n",
+    "From: ",
+    coalesce(author.name(), name_placeholder),
+    " <" ++ coalesce(author.email(), email_placeholder) ++ ">\n",
+    "Date: " ++ author.timestamp().format("%a, %e %b %Y %T %z") ++ "\n",
+    "Subject: [PATCH] " ++ description.first_line() ++ "\n",
+    description.remove_prefix(description.first_line()) ++ "---\n",
+    indent(" ", diff.stat()) ++ "\n"
+  )
+'''

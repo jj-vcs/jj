@@ -29,6 +29,9 @@ run_command "jj diff -r b1"
 blank
 run_command "jj diff -r b3"
 
+comment "We can generate a 'git format-patch' compatible diff"
+run_command "jj show --git --template git_format_patch_email_headers"
+
 comment "The repo is backed by the actual Git repo:"
 run_command "git --git-dir=.jj/repo/store/git log --graph --all --decorate --oneline"
 
