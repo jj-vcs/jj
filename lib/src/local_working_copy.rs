@@ -401,23 +401,6 @@ impl<'a> FileStates<'a> {
     }
 }
 
-pub struct TreeState {
-    store: Arc<Store>,
-    working_copy_path: PathBuf,
-    state_path: PathBuf,
-    tree_id: MergedTreeId,
-    file_states: FileStatesMap,
-    // Currently only path prefixes
-    sparse_patterns: Vec<RepoPathBuf>,
-    own_mtime: MillisSinceEpoch,
-    symlink_support: bool,
-
-    /// The most recent clock value returned by Watchman. Will only be set if
-    /// the repo is configured to use the Watchman filesystem monitor and
-    /// Watchman has been queried at least once.
-    watchman_clock: Option<crate::protos::working_copy::WatchmanClock>,
-}
-
 fn file_state_from_proto(proto: &crate::protos::working_copy::FileState) -> FileState {
     let file_type = match proto.file_type() {
         crate::protos::working_copy::FileType::Normal => FileType::Normal {
@@ -712,6 +695,23 @@ fn file_state(metadata: &Metadata) -> Option<FileState> {
 
 struct FsmonitorMatcher {
     matcher: Option<Box<dyn Matcher>>,
+    watchman_clock: Option<crate::protos::working_copy::WatchmanClock>,
+}
+
+pub struct TreeState {
+    store: Arc<Store>,
+    working_copy_path: PathBuf,
+    state_path: PathBuf,
+    tree_id: MergedTreeId,
+    file_states: FileStatesMap,
+    // Currently only path prefixes
+    sparse_patterns: Vec<RepoPathBuf>,
+    own_mtime: MillisSinceEpoch,
+    symlink_support: bool,
+
+    /// The most recent clock value returned by Watchman. Will only be set if
+    /// the repo is configured to use the Watchman filesystem monitor and
+    /// Watchman has been queried at least once.
     watchman_clock: Option<crate::protos::working_copy::WatchmanClock>,
 }
 
