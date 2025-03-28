@@ -19,9 +19,9 @@ use crate::common::TestEnvironment;
 fn test_log_with_empty_revision() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r="]);
+    let output = work_dir.run_jj(["log", "-r="]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: a value is required for '--revisions <REVSETS>' but none was supplied
@@ -36,9 +36,9 @@ fn test_log_with_empty_revision() {
 fn test_log_with_no_template() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-T"]);
+    let output = work_dir.run_jj(["log", "-T"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: a value is required for '--template <TEMPLATE>' but none was supplied
@@ -73,18 +73,14 @@ fn test_log_with_no_template() {
 fn test_log_with_or_without_diff() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(repo_path.join("file1"), "foo\n").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m", "add a file"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["new", "-m", "a new commit"])
-        .success();
-    std::fs::write(repo_path.join("file1"), "foo\nbar\n").unwrap();
+    work_dir.write_file("file1", "foo\n");
+    work_dir.run_jj(["describe", "-m", "add a file"]).success();
+    work_dir.run_jj(["new", "-m", "a new commit"]).success();
+    work_dir.write_file("file1", "foo\nbar\n");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-T", "description"]);
+    let output = work_dir.run_jj(["log", "-T", "description"]);
     insta::assert_snapshot!(output, @r"
     @  a new commit
     ○  add a file
@@ -92,7 +88,7 @@ fn test_log_with_or_without_diff() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-T", "description", "-p"]);
+    let output = work_dir.run_jj(["log", "-T", "description", "-p"]);
     insta::assert_snapshot!(output, @r"
     @  a new commit
     │  Modified regular file file1:
@@ -105,7 +101,7 @@ fn test_log_with_or_without_diff() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-T", "description", "--no-graph"]);
+    let output = work_dir.run_jj(["log", "-T", "description", "--no-graph"]);
     insta::assert_snapshot!(output, @r"
     a new commit
     add a file
@@ -113,7 +109,7 @@ fn test_log_with_or_without_diff() {
     ");
 
     // `-p` for default diff output, `-s` for summary
-    let output = test_env.run_jj_in(&repo_path, ["log", "-T", "description", "-p", "-s"]);
+    let output = work_dir.run_jj(["log", "-T", "description", "-p", "-s"]);
     insta::assert_snapshot!(output, @r"
     @  a new commit
     │  M file1
@@ -129,7 +125,7 @@ fn test_log_with_or_without_diff() {
     ");
 
     // `-s` for summary, `--git` for git diff (which implies `-p`)
-    let output = test_env.run_jj_in(&repo_path, ["log", "-T", "description", "-s", "--git"]);
+    let output = work_dir.run_jj(["log", "-T", "description", "-s", "--git"]);
     insta::assert_snapshot!(output, @r"
     @  a new commit
     │  M file1
@@ -154,7 +150,7 @@ fn test_log_with_or_without_diff() {
     ");
 
     // `-p` for default diff output, `--stat` for diff-stat
-    let output = test_env.run_jj_in(&repo_path, ["log", "-T", "description", "-p", "--stat"]);
+    let output = work_dir.run_jj(["log", "-T", "description", "-p", "--stat"]);
     insta::assert_snapshot!(output, @r"
     @  a new commit
     │  file1 | 1 +
@@ -173,7 +169,7 @@ fn test_log_with_or_without_diff() {
     ");
 
     // `--stat` is short format, which should be printed first
-    let output = test_env.run_jj_in(&repo_path, ["log", "-T", "description", "--git", "--stat"]);
+    let output = work_dir.run_jj(["log", "-T", "description", "--git", "--stat"]);
     insta::assert_snapshot!(output, @r"
     @  a new commit
     │  file1 | 1 +
@@ -201,17 +197,14 @@ fn test_log_with_or_without_diff() {
     ");
 
     // `-p` enables default "summary" output, so `-s` is noop
-    let output = test_env.run_jj_in(
-        &repo_path,
-        [
-            "log",
-            "-T",
-            "description",
-            "-p",
-            "-s",
-            "--config=ui.diff.format=summary",
-        ],
-    );
+    let output = work_dir.run_jj([
+        "log",
+        "-T",
+        "description",
+        "-p",
+        "-s",
+        "--config=ui.diff.format=summary",
+    ]);
     insta::assert_snapshot!(output, @r"
     @  a new commit
     │  M file1
@@ -222,10 +215,7 @@ fn test_log_with_or_without_diff() {
     ");
 
     // `-p` enables default "color-words" diff output, so `--color-words` is noop
-    let output = test_env.run_jj_in(
-        &repo_path,
-        ["log", "-T", "description", "-p", "--color-words"],
-    );
+    let output = work_dir.run_jj(["log", "-T", "description", "-p", "--color-words"]);
     insta::assert_snapshot!(output, @r"
     @  a new commit
     │  Modified regular file file1:
@@ -239,10 +229,7 @@ fn test_log_with_or_without_diff() {
     ");
 
     // `--git` enables git diff, so `-p` is noop
-    let output = test_env.run_jj_in(
-        &repo_path,
-        ["log", "-T", "description", "--no-graph", "-p", "--git"],
-    );
+    let output = work_dir.run_jj(["log", "-T", "description", "--no-graph", "-p", "--git"]);
     insta::assert_snapshot!(output, @r"
     a new commit
     diff --git a/file1 b/file1
@@ -264,18 +251,15 @@ fn test_log_with_or_without_diff() {
     ");
 
     // Cannot use both `--git` and `--color-words`
-    let output = test_env.run_jj_in(
-        &repo_path,
-        [
-            "log",
-            "-T",
-            "description",
-            "--no-graph",
-            "-p",
-            "--git",
-            "--color-words",
-        ],
-    );
+    let output = work_dir.run_jj([
+        "log",
+        "-T",
+        "description",
+        "--no-graph",
+        "-p",
+        "--git",
+        "--color-words",
+    ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: the argument '--git' cannot be used with '--color-words'
@@ -288,7 +272,7 @@ fn test_log_with_or_without_diff() {
     ");
 
     // `-s` with or without graph
-    let output = test_env.run_jj_in(&repo_path, ["log", "-T", "description", "-s"]);
+    let output = work_dir.run_jj(["log", "-T", "description", "-s"]);
     insta::assert_snapshot!(output, @r"
     @  a new commit
     │  M file1
@@ -297,7 +281,7 @@ fn test_log_with_or_without_diff() {
     ◆
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["log", "-T", "description", "--no-graph", "-s"]);
+    let output = work_dir.run_jj(["log", "-T", "description", "--no-graph", "-s"]);
     insta::assert_snapshot!(output, @r"
     a new commit
     M file1
@@ -307,7 +291,7 @@ fn test_log_with_or_without_diff() {
     ");
 
     // `--git` implies `-p`, with or without graph
-    let output = test_env.run_jj_in(&repo_path, ["log", "-T", "description", "-r", "@", "--git"]);
+    let output = work_dir.run_jj(["log", "-T", "description", "-r", "@", "--git"]);
     insta::assert_snapshot!(output, @r"
     @  a new commit
     │  diff --git a/file1 b/file1
@@ -319,10 +303,7 @@ fn test_log_with_or_without_diff() {
        +bar
     [EOF]
     ");
-    let output = test_env.run_jj_in(
-        &repo_path,
-        ["log", "-T", "description", "-r", "@", "--no-graph", "--git"],
-    );
+    let output = work_dir.run_jj(["log", "-T", "description", "-r", "@", "--no-graph", "--git"]);
     insta::assert_snapshot!(output, @r"
     a new commit
     diff --git a/file1 b/file1
@@ -336,10 +317,7 @@ fn test_log_with_or_without_diff() {
     ");
 
     // `--color-words` implies `-p`, with or without graph
-    let output = test_env.run_jj_in(
-        &repo_path,
-        ["log", "-T", "description", "-r", "@", "--color-words"],
-    );
+    let output = work_dir.run_jj(["log", "-T", "description", "-r", "@", "--color-words"]);
     insta::assert_snapshot!(output, @r"
     @  a new commit
     │  Modified regular file file1:
@@ -347,18 +325,15 @@ fn test_log_with_or_without_diff() {
                2: bar
     [EOF]
     ");
-    let output = test_env.run_jj_in(
-        &repo_path,
-        [
-            "log",
-            "-T",
-            "description",
-            "-r",
-            "@",
-            "--no-graph",
-            "--color-words",
-        ],
-    );
+    let output = work_dir.run_jj([
+        "log",
+        "-T",
+        "description",
+        "-r",
+        "@",
+        "--no-graph",
+        "--color-words",
+    ]);
     insta::assert_snapshot!(output, @r"
     a new commit
     Modified regular file file1:
@@ -372,39 +347,27 @@ fn test_log_with_or_without_diff() {
 fn test_log_null_terminate_multiline_descriptions() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    test_env
-        .run_jj_in(
-            &repo_path,
-            ["commit", "-m", "commit 1 line 1", "-m", "commit 1 line 2"],
-        )
+    work_dir
+        .run_jj(["commit", "-m", "commit 1 line 1", "-m", "commit 1 line 2"])
         .success();
-    test_env
-        .run_jj_in(
-            &repo_path,
-            ["commit", "-m", "commit 2 line 1", "-m", "commit 2 line 2"],
-        )
+    work_dir
+        .run_jj(["commit", "-m", "commit 2 line 1", "-m", "commit 2 line 2"])
         .success();
-    test_env
-        .run_jj_in(
-            &repo_path,
-            ["describe", "-m", "commit 3 line 1", "-m", "commit 3 line 2"],
-        )
+    work_dir
+        .run_jj(["describe", "-m", "commit 3 line 1", "-m", "commit 3 line 2"])
         .success();
 
-    let output = test_env
-        .run_jj_in(
-            &repo_path,
-            [
-                "log",
-                "-r",
-                "~root()",
-                "-T",
-                r#"description ++ "\0""#,
-                "--no-graph",
-            ],
-        )
+    let output = work_dir
+        .run_jj([
+            "log",
+            "-r",
+            "~root()",
+            "-T",
+            r#"description ++ "\0""#,
+            "--no-graph",
+        ])
         .success();
     insta::assert_debug_snapshot!(
         output.stdout.normalized(),
@@ -416,10 +379,8 @@ fn test_log_null_terminate_multiline_descriptions() {
 fn test_log_shortest_accessors() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    let render = |rev, template| {
-        test_env.run_jj_in(&repo_path, ["log", "--no-graph", "-r", rev, "-T", template])
-    };
+    let work_dir = test_env.work_dir("repo");
+    let render = |rev, template| work_dir.run_jj(["log", "--no-graph", "-r", rev, "-T", template]);
     test_env.add_config(
         r#"
         [template-aliases]
@@ -427,12 +388,10 @@ fn test_log_shortest_accessors() {
         "#,
     );
 
-    std::fs::write(repo_path.join("file"), "original file\n").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m", "initial"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "c", "-r@", "original"])
+    work_dir.write_file("file", "original file\n");
+    work_dir.run_jj(["describe", "-m", "initial"]).success();
+    work_dir
+        .run_jj(["bookmark", "c", "-r@", "original"])
         .success();
     insta::assert_snapshot!(
         render("original", r#"format_id(change_id) ++ " " ++ format_id(commit_id)"#),
@@ -440,15 +399,15 @@ fn test_log_shortest_accessors() {
 
     // Create a chain of 10 commits
     for i in 1..10 {
-        test_env
-            .run_jj_in(&repo_path, ["new", "-m", &format!("commit{i}")])
+        work_dir
+            .run_jj(["new", "-m", &format!("commit{i}")])
             .success();
-        std::fs::write(repo_path.join("file"), format!("file {i}\n")).unwrap();
+        work_dir.write_file("file", format!("file {i}\n"));
     }
     // Create 2^3 duplicates of the chain
     for _ in 0..3 {
-        test_env
-            .run_jj_in(&repo_path, ["duplicate", "description(commit)"])
+        work_dir
+            .run_jj(["duplicate", "description(commit)"])
             .success();
     }
 
@@ -529,14 +488,14 @@ fn test_log_shortest_accessors() {
 fn test_log_bad_short_prefixes() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
     // Suppress warning in the commit summary template
     test_env.add_config("template-aliases.'format_short_id(id)' = 'id.short(8)'");
 
     // Error on bad config of short prefixes
     test_env.add_config(r#"revsets.short-prefixes = "!nval!d""#);
-    let output = test_env.run_jj_in(&repo_path, ["status"]);
+    let output = work_dir.run_jj(["status"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Config error: Invalid `revsets.short-prefixes`
@@ -553,7 +512,7 @@ fn test_log_bad_short_prefixes() {
 
     // Warn on resolution of short prefixes
     test_env.add_config("revsets.short-prefixes = 'missing'");
-    let output = test_env.run_jj_in(&repo_path, ["log", "-Tcommit_id.shortest()"]);
+    let output = work_dir.run_jj(["log", "-Tcommit_id.shortest()"]);
     insta::assert_snapshot!(output, @r"
     @  2
     ◆  0
@@ -573,7 +532,7 @@ fn test_log_bad_short_prefixes() {
 
     // Error on resolution of short prefixes
     test_env.add_config("revsets.short-prefixes = 'missing'");
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r0"]);
+    let output = work_dir.run_jj(["log", "-r0"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Failed to resolve short-prefixes disambiguation revset
@@ -587,7 +546,7 @@ fn test_log_bad_short_prefixes() {
 fn test_log_prefix_highlight_styled() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
     fn prefix_format(len: Option<usize>) -> String {
         format!(
@@ -604,15 +563,13 @@ fn test_log_prefix_highlight_styled() {
         )
     }
 
-    std::fs::write(repo_path.join("file"), "original file\n").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m", "initial"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "c", "-r@", "original"])
+    work_dir.write_file("file", "original file\n");
+    work_dir.run_jj(["describe", "-m", "initial"]).success();
+    work_dir
+        .run_jj(["bookmark", "c", "-r@", "original"])
         .success();
     insta::assert_snapshot!(
-        test_env.run_jj_in(&repo_path, ["log", "-r", "original", "-T", &prefix_format(Some(12))]), @r"
+        work_dir.run_jj(["log", "-r", "original", "-T", &prefix_format(Some(12))]), @r"
     @  Change qpvuntsmwlqt initial e0e22b9fae75 original
     │
     ~
@@ -621,36 +578,33 @@ fn test_log_prefix_highlight_styled() {
 
     // Create a chain of 10 commits
     for i in 1..10 {
-        test_env
-            .run_jj_in(&repo_path, ["new", "-m", &format!("commit{i}")])
+        work_dir
+            .run_jj(["new", "-m", &format!("commit{i}")])
             .success();
-        std::fs::write(repo_path.join("file"), format!("file {i}\n")).unwrap();
+        work_dir.write_file("file", format!("file {i}\n"));
     }
     // Create 2^3 duplicates of the chain
     for _ in 0..3 {
-        test_env
-            .run_jj_in(&repo_path, ["duplicate", "description(commit)"])
+        work_dir
+            .run_jj(["duplicate", "description(commit)"])
             .success();
     }
 
     insta::assert_snapshot!(
-        test_env.run_jj_in(&repo_path, ["log", "-r", "original", "-T", &prefix_format(Some(12))]), @r"
+        work_dir.run_jj(["log", "-r", "original", "-T", &prefix_format(Some(12))]), @r"
     ○  Change qpvuntsmwlqt initial e0e22b9fae75 original
     │
     ~
     [EOF]
     ");
-    let output = test_env.run_jj_in(
-        &repo_path,
-        [
-            "--color=always",
-            "log",
-            "-r",
-            "@-----------..@",
-            "-T",
-            &prefix_format(Some(12)),
-        ],
-    );
+    let output = work_dir.run_jj([
+        "--color=always",
+        "log",
+        "-r",
+        "@-----------..@",
+        "-T",
+        &prefix_format(Some(12)),
+    ]);
     insta::assert_snapshot!(output, @r"
     [1m[38;5;2m@[0m  Change [1m[38;5;5mwq[0m[38;5;8mnwkozpkust[39m commit9 [1m[38;5;4med[0m[38;5;8me204633421[39m
     ○  Change [1m[38;5;5mkm[0m[38;5;8mkuslswpqwq[39m commit8 [1m[38;5;4mef3[0m[38;5;8md013266cd[39m
@@ -665,17 +619,14 @@ fn test_log_prefix_highlight_styled() {
     [1m[38;5;14m◆[0m  Change [1m[38;5;5mzzz[0m[38;5;8mzzzzzzzzz[39m [1m[38;5;4m00[0m[38;5;8m0000000000[39m
     [EOF]
     ");
-    let output = test_env.run_jj_in(
-        &repo_path,
-        [
-            "--color=always",
-            "log",
-            "-r",
-            "@-----------..@",
-            "-T",
-            &prefix_format(Some(3)),
-        ],
-    );
+    let output = work_dir.run_jj([
+        "--color=always",
+        "log",
+        "-r",
+        "@-----------..@",
+        "-T",
+        &prefix_format(Some(3)),
+    ]);
     insta::assert_snapshot!(output, @r"
     [1m[38;5;2m@[0m  Change [1m[38;5;5mwq[0m[38;5;8mn[39m commit9 [1m[38;5;4med[0m[38;5;8me[39m
     ○  Change [1m[38;5;5mkm[0m[38;5;8mk[39m commit8 [1m[38;5;4mef3[0m
@@ -690,17 +641,14 @@ fn test_log_prefix_highlight_styled() {
     [1m[38;5;14m◆[0m  Change [1m[38;5;5mzzz[0m [1m[38;5;4m00[0m[38;5;8m0[39m
     [EOF]
     ");
-    let output = test_env.run_jj_in(
-        &repo_path,
-        [
-            "--color=always",
-            "log",
-            "-r",
-            "@-----------..@",
-            "-T",
-            &prefix_format(None),
-        ],
-    );
+    let output = work_dir.run_jj([
+        "--color=always",
+        "log",
+        "-r",
+        "@-----------..@",
+        "-T",
+        &prefix_format(None),
+    ]);
     insta::assert_snapshot!(output, @r"
     [1m[38;5;2m@[0m  Change [1m[38;5;5mwq[0m commit9 [1m[38;5;4med[0m
     ○  Change [1m[38;5;5mkm[0m commit8 [1m[38;5;4mef3[0m
@@ -721,7 +669,7 @@ fn test_log_prefix_highlight_styled() {
 fn test_log_prefix_highlight_counts_hidden_commits() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
     test_env.add_config(
         r#"
         [revsets]
@@ -741,51 +689,41 @@ fn test_log_prefix_highlight_counts_hidden_commits() {
     )
     "#;
 
-    std::fs::write(repo_path.join("file"), "original file\n").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m", "initial"])
+    work_dir.write_file("file", "original file\n");
+    work_dir.run_jj(["describe", "-m", "initial"]).success();
+    work_dir
+        .run_jj(["bookmark", "c", "-r@", "original"])
         .success();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "c", "-r@", "original"])
-        .success();
-    insta::assert_snapshot!(
-        test_env.run_jj_in(&repo_path, ["log", "-r", "all()", "-T", prefix_format]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-r", "all()", "-T", prefix_format]), @r"
     @  Change q[pvuntsmwlqt] initial e0[e22b9fae75] original
     ◆  Change z[zzzzzzzzzzz] 0[00000000000]
     [EOF]
     ");
 
     // Create 2^7 hidden commits
-    test_env
-        .run_jj_in(&repo_path, ["new", "root()", "-m", "extra"])
-        .success();
+    work_dir.run_jj(["new", "root()", "-m", "extra"]).success();
     for _ in 0..7 {
-        test_env
-            .run_jj_in(&repo_path, ["duplicate", "description(extra)"])
+        work_dir
+            .run_jj(["duplicate", "description(extra)"])
             .success();
     }
-    test_env
-        .run_jj_in(&repo_path, ["abandon", "description(extra)"])
-        .success();
+    work_dir.run_jj(["abandon", "description(extra)"]).success();
 
     // The unique prefixes became longer.
-    insta::assert_snapshot!(
-        test_env.run_jj_in(&repo_path, ["log", "-T", prefix_format]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-T", prefix_format]), @r"
     @  Change wq[nwkozpkust] 44[4c3c5066d3]
     │ ○  Change qpv[untsmwlqt] initial e0e[22b9fae75] original
     ├─╯
     ◆  Change zzz[zzzzzzzzz] 00[0000000000]
     [EOF]
     ");
-    insta::assert_snapshot!(
-        test_env.run_jj_in(&repo_path, ["log", "-r", "4", "-T", prefix_format]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-r", "4", "-T", prefix_format]), @r"
     ------- stderr -------
     Error: Commit ID prefix `4` is ambiguous
     [EOF]
     [exit status: 1]
     ");
-    insta::assert_snapshot!(
-        test_env.run_jj_in(&repo_path, ["log", "-r", "44", "-T", prefix_format]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-r", "44", "-T", prefix_format]), @r"
     @  Change wq[nwkozpkust] 44[4c3c5066d3]
     │
     ~
@@ -797,8 +735,8 @@ fn test_log_prefix_highlight_counts_hidden_commits() {
 fn test_log_short_shortest_length_parameter() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    let render = |template| test_env.run_jj_in(&repo_path, ["log", "-T", template]);
+    let work_dir = test_env.work_dir("repo");
+    let render = |template| work_dir.run_jj(["log", "-T", template]);
 
     insta::assert_snapshot!(
         render(r#"commit_id.short(0) ++ "|" ++ commit_id.shortest(0)"#), @r"
@@ -830,10 +768,9 @@ fn test_log_short_shortest_length_parameter() {
 fn test_log_author_format() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    insta::assert_snapshot!(
-        test_env.run_jj_in(&repo_path, ["log", "--revisions=@"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["log", "--revisions=@"]), @r"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 230dd059
     │  (empty) (no description set)
     ~
@@ -841,16 +778,12 @@ fn test_log_author_format() {
     ");
 
     let decl = "template-aliases.'format_short_signature(signature)'";
-    insta::assert_snapshot!(
-        test_env.run_jj_in(
-            &repo_path,
-            [
-                "--config",
-                &format!("{decl}='signature.email().local()'"),
-                "log",
-                "--revisions=@",
-            ],
-        ), @r"
+    insta::assert_snapshot!(work_dir.run_jj([
+        "--config",
+        &format!("{decl}='signature.email().local()'"),
+        "log",
+        "--revisions=@",
+    ]), @r"
     @  qpvuntsm test.user 2001-02-03 08:05:07 230dd059
     │  (empty) (no description set)
     ~
@@ -862,15 +795,15 @@ fn test_log_author_format() {
 fn test_log_divergence() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
     let template = r#"description.first_line() ++ if(divergent, " !divergence!")"#;
 
-    std::fs::write(repo_path.join("file"), "foo\n").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m", "description 1"])
+    work_dir.write_file("file", "foo\n");
+    work_dir
+        .run_jj(["describe", "-m", "description 1"])
         .success();
     // No divergence
-    let output = test_env.run_jj_in(&repo_path, ["log", "-T", template]);
+    let output = work_dir.run_jj(["log", "-T", template]);
     insta::assert_snapshot!(output, @r"
     @  description 1
     ◆
@@ -878,13 +811,10 @@ fn test_log_divergence() {
     ");
 
     // Create divergence
-    test_env
-        .run_jj_in(
-            &repo_path,
-            ["describe", "-m", "description 2", "--at-operation", "@-"],
-        )
+    work_dir
+        .run_jj(["describe", "-m", "description 2", "--at-operation", "@-"])
         .success();
-    let output = test_env.run_jj_in(&repo_path, ["log", "-T", template]);
+    let output = work_dir.run_jj(["log", "-T", template]);
     insta::assert_snapshot!(output, @r"
     @  description 1 !divergence!
     │ ○  description 2 !divergence!
@@ -901,16 +831,12 @@ fn test_log_divergence() {
 fn test_log_reversed() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m", "first"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["new", "-m", "second"])
-        .success();
+    work_dir.run_jj(["describe", "-m", "first"]).success();
+    work_dir.run_jj(["new", "-m", "second"]).success();
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-T", "description", "--reversed"]);
+    let output = work_dir.run_jj(["log", "-T", "description", "--reversed"]);
     insta::assert_snapshot!(output, @r"
     ◆
     ○  first
@@ -918,10 +844,7 @@ fn test_log_reversed() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(
-        &repo_path,
-        ["log", "-T", "description", "--reversed", "--no-graph"],
-    );
+    let output = work_dir.run_jj(["log", "-T", "description", "--reversed", "--no-graph"]);
     insta::assert_snapshot!(output, @r"
     first
     second
@@ -933,19 +856,15 @@ fn test_log_reversed() {
 fn test_log_filtered_by_path() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(repo_path.join("file1"), "foo\n").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m", "first"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["new", "-m", "second"])
-        .success();
-    std::fs::write(repo_path.join("file1"), "foo\nbar\n").unwrap();
-    std::fs::write(repo_path.join("file2"), "baz\n").unwrap();
+    work_dir.write_file("file1", "foo\n");
+    work_dir.run_jj(["describe", "-m", "first"]).success();
+    work_dir.run_jj(["new", "-m", "second"]).success();
+    work_dir.write_file("file1", "foo\nbar\n");
+    work_dir.write_file("file2", "baz\n");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-T", "description", "file1"]);
+    let output = work_dir.run_jj(["log", "-T", "description", "file1"]);
     insta::assert_snapshot!(output, @r"
     @  second
     ○  first
@@ -954,7 +873,7 @@ fn test_log_filtered_by_path() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-T", "description", "file2"]);
+    let output = work_dir.run_jj(["log", "-T", "description", "file2"]);
     insta::assert_snapshot!(output, @r"
     @  second
     │
@@ -962,7 +881,7 @@ fn test_log_filtered_by_path() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-T", "description", "-s", "file1"]);
+    let output = work_dir.run_jj(["log", "-T", "description", "-s", "file1"]);
     insta::assert_snapshot!(output, @r"
     @  second
     │  M file1
@@ -972,10 +891,7 @@ fn test_log_filtered_by_path() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(
-        &repo_path,
-        ["log", "-T", "description", "-s", "file2", "--no-graph"],
-    );
+    let output = work_dir.run_jj(["log", "-T", "description", "-s", "file2", "--no-graph"]);
     insta::assert_snapshot!(output, @r"
     second
     A file2
@@ -983,7 +899,7 @@ fn test_log_filtered_by_path() {
     ");
 
     // empty revisions are filtered out by "all()" fileset.
-    let output = test_env.run_jj_in(&repo_path, ["log", "-Tdescription", "-s", "all()"]);
+    let output = work_dir.run_jj(["log", "-Tdescription", "-s", "all()"]);
     insta::assert_snapshot!(output, @r"
     @  second
     │  M file1
@@ -1000,7 +916,7 @@ fn test_log_filtered_by_path() {
         [
             "log",
             "-R",
-            repo_path.to_str().unwrap(),
+            work_dir.root().to_str().unwrap(),
             "-Tdescription",
             "-s",
             "root:file1",
@@ -1016,17 +932,14 @@ fn test_log_filtered_by_path() {
     ");
 
     // files() revset doesn't filter the diff.
-    let output = test_env.run_jj_in(
-        &repo_path,
-        [
-            "log",
-            "-T",
-            "description",
-            "-s",
-            "-rfiles(file2)",
-            "--no-graph",
-        ],
-    );
+    let output = work_dir.run_jj([
+        "log",
+        "-T",
+        "description",
+        "-s",
+        "-rfiles(file2)",
+        "--no-graph",
+    ]);
     insta::assert_snapshot!(output, @r"
     second
     M file1
@@ -1039,26 +952,21 @@ fn test_log_filtered_by_path() {
 fn test_log_limit() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m", "a"])
+    work_dir.run_jj(["describe", "-m", "a"]).success();
+    work_dir.write_file("a", "");
+    work_dir.run_jj(["new", "-m", "b"]).success();
+    work_dir.write_file("b", "");
+    work_dir
+        .run_jj(["new", "-m", "c", "description(a)"])
         .success();
-    std::fs::write(repo_path.join("a"), "").unwrap();
-    test_env.run_jj_in(&repo_path, ["new", "-m", "b"]).success();
-    std::fs::write(repo_path.join("b"), "").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["new", "-m", "c", "description(a)"])
-        .success();
-    std::fs::write(repo_path.join("c"), "").unwrap();
-    test_env
-        .run_jj_in(
-            &repo_path,
-            ["new", "-m", "d", "description(c)", "description(b)"],
-        )
+    work_dir.write_file("c", "");
+    work_dir
+        .run_jj(["new", "-m", "d", "description(c)", "description(b)"])
         .success();
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-T", "description", "--limit=3"]);
+    let output = work_dir.run_jj(["log", "-T", "description", "--limit=3"]);
     insta::assert_snapshot!(output, @r"
     @    d
     ├─╮
@@ -1069,7 +977,7 @@ fn test_log_limit() {
     ");
 
     // Applied on sorted DAG
-    let output = test_env.run_jj_in(&repo_path, ["log", "-T", "description", "--limit=2"]);
+    let output = work_dir.run_jj(["log", "-T", "description", "--limit=2"]);
     insta::assert_snapshot!(output, @r"
     @    d
     ├─╮
@@ -1077,10 +985,7 @@ fn test_log_limit() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(
-        &repo_path,
-        ["log", "-T", "description", "--limit=2", "--no-graph"],
-    );
+    let output = work_dir.run_jj(["log", "-T", "description", "--limit=2", "--no-graph"]);
     insta::assert_snapshot!(output, @r"
     d
     c
@@ -1089,10 +994,7 @@ fn test_log_limit() {
 
     // Applied on reversed DAG: Because the node "a" is omitted, "b" and "c" are
     // rendered as roots.
-    let output = test_env.run_jj_in(
-        &repo_path,
-        ["log", "-T", "description", "--limit=3", "--reversed"],
-    );
+    let output = work_dir.run_jj(["log", "-T", "description", "--limit=3", "--reversed"]);
     insta::assert_snapshot!(output, @r"
     ○  c
     │ ○  b
@@ -1100,17 +1002,14 @@ fn test_log_limit() {
     @  d
     [EOF]
     ");
-    let output = test_env.run_jj_in(
-        &repo_path,
-        [
-            "log",
-            "-T",
-            "description",
-            "--limit=3",
-            "--reversed",
-            "--no-graph",
-        ],
-    );
+    let output = work_dir.run_jj([
+        "log",
+        "-T",
+        "description",
+        "--limit=3",
+        "--reversed",
+        "--no-graph",
+    ]);
     insta::assert_snapshot!(output, @r"
     b
     c
@@ -1119,10 +1018,7 @@ fn test_log_limit() {
     ");
 
     // Applied on filtered commits
-    let output = test_env.run_jj_in(
-        &repo_path,
-        ["log", "-T", "description", "--limit=1", "b", "c"],
-    );
+    let output = work_dir.run_jj(["log", "-T", "description", "--limit=1", "b", "c"]);
     insta::assert_snapshot!(output, @r"
     ○  c
     │
@@ -1135,12 +1031,12 @@ fn test_log_limit() {
 fn test_log_warn_path_might_be_revset() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(repo_path.join("file1"), "foo\n").unwrap();
+    work_dir.write_file("file1", "foo\n");
 
     // Don't warn if the file actually exists.
-    let output = test_env.run_jj_in(&repo_path, ["log", "file1", "-T", "description"]);
+    let output = work_dir.run_jj(["log", "file1", "-T", "description"]);
     insta::assert_snapshot!(output, @r"
     @
     │
@@ -1149,7 +1045,7 @@ fn test_log_warn_path_might_be_revset() {
     ");
 
     // Warn for `jj log .` specifically, for former Mercurial users.
-    let output = test_env.run_jj_in(&repo_path, ["log", ".", "-T", "description"]);
+    let output = work_dir.run_jj(["log", ".", "-T", "description"]);
     insta::assert_snapshot!(output, @r#"
     @
     │
@@ -1161,13 +1057,12 @@ fn test_log_warn_path_might_be_revset() {
     "#);
 
     // ...but checking `jj log .` makes sense in a subdirectory.
-    let subdir = repo_path.join("dir");
-    std::fs::create_dir_all(&subdir).unwrap();
-    let output = test_env.run_jj_in(&subdir, ["log", "."]);
+    let sub_dir = work_dir.create_dir_all("dir");
+    let output = sub_dir.run_jj(["log", "."]);
     insta::assert_snapshot!(output, @"");
 
     // Warn for `jj log @` instead of `jj log -r @`.
-    let output = test_env.run_jj_in(&repo_path, ["log", "@", "-T", "description"]);
+    let output = work_dir.run_jj(["log", "@", "-T", "description"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Warning: The argument "@" is being interpreted as a fileset expression. To specify a revset, pass -r "@" instead.
@@ -1175,7 +1070,7 @@ fn test_log_warn_path_might_be_revset() {
     "#);
 
     // Warn when there's no path with the provided name.
-    let output = test_env.run_jj_in(&repo_path, ["log", "file2", "-T", "description"]);
+    let output = work_dir.run_jj(["log", "file2", "-T", "description"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Warning: The argument "file2" is being interpreted as a fileset expression. To specify a revset, pass -r "file2" instead.
@@ -1183,7 +1078,7 @@ fn test_log_warn_path_might_be_revset() {
     "#);
 
     // If an explicit revision is provided, then suppress the warning.
-    let output = test_env.run_jj_in(&repo_path, ["log", "@", "-r", "@", "-T", "description"]);
+    let output = work_dir.run_jj(["log", "@", "-r", "@", "-T", "description"]);
     insta::assert_snapshot!(output, @"");
 }
 
@@ -1191,27 +1086,23 @@ fn test_log_warn_path_might_be_revset() {
 fn test_default_revset() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(repo_path.join("file1"), "foo\n").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m", "add a file"])
-        .success();
+    work_dir.write_file("file1", "foo\n");
+    work_dir.run_jj(["describe", "-m", "add a file"]).success();
 
     // Set configuration to only show the root commit.
     test_env.add_config(r#"revsets.log = "root()""#);
 
     // Log should only contain one line (for the root commit), and not show the
     // commit created above.
-    insta::assert_snapshot!(
-        test_env.run_jj_in(&repo_path, ["log", "-T", "commit_id"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-T", "commit_id"]), @r"
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
 
     // The default revset is not used if a path is specified
-    insta::assert_snapshot!(
-        test_env.run_jj_in(&repo_path, ["log", "file1", "-T", "description"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["log", "file1", "-T", "description"]), @r"
     @  add a file
     │
     ~
@@ -1223,24 +1114,17 @@ fn test_default_revset() {
 fn test_default_revset_per_repo() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(repo_path.join("file1"), "foo\n").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m", "add a file"])
-        .success();
+    work_dir.write_file("file1", "foo\n");
+    work_dir.run_jj(["describe", "-m", "add a file"]).success();
 
     // Set configuration to only show the root commit.
-    std::fs::write(
-        repo_path.join(".jj/repo/config.toml"),
-        r#"revsets.log = "root()""#,
-    )
-    .unwrap();
+    work_dir.write_file(".jj/repo/config.toml", r#"revsets.log = "root()""#);
 
     // Log should only contain one line (for the root commit), and not show the
     // commit created above.
-    insta::assert_snapshot!(
-        test_env.run_jj_in(&repo_path, ["log", "-T", "commit_id"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-T", "commit_id"]), @r"
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -1250,13 +1134,11 @@ fn test_default_revset_per_repo() {
 fn test_multiple_revsets() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
     for name in ["foo", "bar", "baz"] {
-        test_env
-            .run_jj_in(&repo_path, ["new", "-m", name])
-            .success();
-        test_env
-            .run_jj_in(&repo_path, ["bookmark", "create", "-r@", name])
+        work_dir.run_jj(["new", "-m", name]).success();
+        work_dir
+            .run_jj(["bookmark", "create", "-r@", name])
             .success();
     }
 
@@ -1264,14 +1146,14 @@ fn test_multiple_revsets() {
     test_env.add_config(r#"revsets.log = "root()""#);
 
     insta::assert_snapshot!(
-        test_env.run_jj_in(&repo_path, ["log", "-T", "bookmarks", "-rfoo"]), @r"
+        work_dir.run_jj(["log", "-T", "bookmarks", "-rfoo"]), @r"
     ○  foo
     │
     ~
     [EOF]
     ");
     insta::assert_snapshot!(
-        test_env.run_jj_in(&repo_path, ["log", "-T", "bookmarks", "-rfoo", "-rbar", "-rbaz"]), @r"
+        work_dir.run_jj(["log", "-T", "bookmarks", "-rfoo", "-rbar", "-rbaz"]), @r"
     @  baz
     ○  bar
     ○  foo
@@ -1280,7 +1162,7 @@ fn test_multiple_revsets() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        test_env.run_jj_in(&repo_path, ["log", "-T", "bookmarks", "-rfoo", "-rfoo"]), @r"
+        work_dir.run_jj(["log", "-T", "bookmarks", "-rfoo", "-rfoo"]), @r"
     ○  foo
     │
     ~
@@ -1293,17 +1175,12 @@ fn test_graph_template_color() {
     // Test that color codes from a multi-line template don't span the graph lines.
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    test_env
-        .run_jj_in(
-            &repo_path,
-            ["describe", "-m", "first line\nsecond line\nthird line"],
-        )
+    work_dir
+        .run_jj(["describe", "-m", "first line\nsecond line\nthird line"])
         .success();
-    test_env
-        .run_jj_in(&repo_path, ["new", "-m", "single line"])
-        .success();
+    work_dir.run_jj(["new", "-m", "single line"]).success();
 
     test_env.add_config(
         r#"[colors]
@@ -1314,7 +1191,7 @@ fn test_graph_template_color() {
 
     // First test without color for comparison
     let template = r#"label(if(current_working_copy, "working_copy"), description)"#;
-    let output = test_env.run_jj_in(&repo_path, ["log", "-T", template]);
+    let output = work_dir.run_jj(["log", "-T", template]);
     insta::assert_snapshot!(output, @r"
     @  single line
     ○  first line
@@ -1323,7 +1200,7 @@ fn test_graph_template_color() {
     ◆
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["--color=always", "log", "-T", template]);
+    let output = work_dir.run_jj(["--color=always", "log", "-T", template]);
     insta::assert_snapshot!(output, @r"
     [1m[38;5;2m@[0m  [1m[38;5;2msingle line[0m
     ○  [38;5;1mfirst line[39m
@@ -1332,7 +1209,7 @@ fn test_graph_template_color() {
     [1m[38;5;14m◆[0m
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["--color=debug", "log", "-T", template]);
+    let output = work_dir.run_jj(["--color=debug", "log", "-T", template]);
     insta::assert_snapshot!(output, @r"
     [1m[38;5;2m<<node working_copy::@>>[0m  [1m[38;5;2m<<log working_copy description::single line>>[0m
     <<node::○>>  [38;5;1m<<log description::first line>>[39m
@@ -1348,38 +1225,30 @@ fn test_graph_styles() {
     // Test that different graph styles are available.
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "initial"])
+    work_dir.run_jj(["commit", "-m", "initial"]).success();
+    work_dir
+        .run_jj(["commit", "-m", "main bookmark 1"])
         .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "main bookmark 1"])
+    work_dir
+        .run_jj(["describe", "-m", "main bookmark 2"])
         .success();
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m", "main bookmark 2"])
+    work_dir
+        .run_jj(["new", "-m", "side bookmark\nwith\nlong\ndescription"])
         .success();
-    test_env
-        .run_jj_in(
-            &repo_path,
-            ["new", "-m", "side bookmark\nwith\nlong\ndescription"],
-        )
-        .success();
-    test_env
-        .run_jj_in(
-            &repo_path,
-            [
-                "new",
-                "-m",
-                "merge",
-                r#"description("main bookmark 1")"#,
-                "@",
-            ],
-        )
+    work_dir
+        .run_jj([
+            "new",
+            "-m",
+            "merge",
+            r#"description("main bookmark 1")"#,
+            "@",
+        ])
         .success();
 
     // Default (curved) style
-    let output = test_env.run_jj_in(&repo_path, ["log", "-T=description"]);
+    let output = work_dir.run_jj(["log", "-T=description"]);
     insta::assert_snapshot!(output, @r"
     @    merge
     ├─╮
@@ -1397,7 +1266,7 @@ fn test_graph_styles() {
 
     // ASCII style
     test_env.add_config(r#"ui.graph.style = "ascii""#);
-    let output = test_env.run_jj_in(&repo_path, ["log", "-T=description"]);
+    let output = work_dir.run_jj(["log", "-T=description"]);
     insta::assert_snapshot!(output, @r"
     @    merge
     |\
@@ -1415,7 +1284,7 @@ fn test_graph_styles() {
 
     // Large ASCII style
     test_env.add_config(r#"ui.graph.style = "ascii-large""#);
-    let output = test_env.run_jj_in(&repo_path, ["log", "-T=description"]);
+    let output = work_dir.run_jj(["log", "-T=description"]);
     insta::assert_snapshot!(output, @r"
     @     merge
     |\
@@ -1435,7 +1304,7 @@ fn test_graph_styles() {
 
     // Curved style
     test_env.add_config(r#"ui.graph.style = "curved""#);
-    let output = test_env.run_jj_in(&repo_path, ["log", "-T=description"]);
+    let output = work_dir.run_jj(["log", "-T=description"]);
     insta::assert_snapshot!(output, @r"
     @    merge
     ├─╮
@@ -1453,7 +1322,7 @@ fn test_graph_styles() {
 
     // Square style
     test_env.add_config(r#"ui.graph.style = "square""#);
-    let output = test_env.run_jj_in(&repo_path, ["log", "-T=description"]);
+    let output = work_dir.run_jj(["log", "-T=description"]);
     insta::assert_snapshot!(output, @r"
     @    merge
     ├─┐
@@ -1470,7 +1339,7 @@ fn test_graph_styles() {
     ");
 
     // Invalid style name
-    let output = test_env.run_jj_in(&repo_path, ["log", "--config=ui.graph.style=unknown"]);
+    let output = work_dir.run_jj(["log", "--config=ui.graph.style=unknown"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Config error: Invalid type or value for ui.graph.style
@@ -1486,28 +1355,25 @@ fn test_graph_styles() {
 fn test_log_word_wrap() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
     let render = |args: &[&str], columns: u32, word_wrap: bool| {
         let word_wrap = to_toml_value(word_wrap);
-        test_env.run_jj_with(|cmd| {
-            cmd.current_dir(&repo_path)
-                .args(args)
+        work_dir.run_jj_with(|cmd| {
+            cmd.args(args)
                 .arg(format!("--config=ui.log-word-wrap={word_wrap}"))
                 .env("COLUMNS", columns.to_string())
         })
     };
 
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "main bookmark 1"])
+    work_dir
+        .run_jj(["commit", "-m", "main bookmark 1"])
         .success();
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m", "main bookmark 2"])
+    work_dir
+        .run_jj(["describe", "-m", "main bookmark 2"])
         .success();
-    test_env
-        .run_jj_in(&repo_path, ["new", "-m", "side"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["new", "-m", "merge", "@--", "@"])
+    work_dir.run_jj(["new", "-m", "side"]).success();
+    work_dir
+        .run_jj(["new", "-m", "merge", "@--", "@"])
         .success();
 
     // ui.log-word-wrap option applies to both graph/no-graph outputs
@@ -1594,18 +1460,14 @@ fn test_log_word_wrap() {
 fn test_log_diff_stat_width() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
     let render = |args: &[&str], columns: u32| {
-        test_env.run_jj_with(|cmd| {
-            cmd.current_dir(&repo_path)
-                .args(args)
-                .env("COLUMNS", columns.to_string())
-        })
+        work_dir.run_jj_with(|cmd| cmd.args(args).env("COLUMNS", columns.to_string()))
     };
 
-    std::fs::write(repo_path.join("file1"), "foo\n".repeat(100)).unwrap();
-    test_env.run_jj_in(&repo_path, ["new", "root()"]).success();
-    std::fs::write(repo_path.join("file2"), "foo\n".repeat(100)).unwrap();
+    work_dir.write_file("file1", "foo\n".repeat(100));
+    work_dir.run_jj(["new", "root()"]).success();
+    work_dir.write_file("file2", "foo\n".repeat(100));
 
     insta::assert_snapshot!(render(&["log", "--stat", "--no-graph"], 30), @r"
     rlvkpnrz test.user@example.com 2001-02-03 08:05:09 287520bf
@@ -1642,42 +1504,26 @@ fn test_elided() {
     // Test that elided commits are shown as synthetic nodes.
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m", "initial"])
+    work_dir.run_jj(["describe", "-m", "initial"]).success();
+    work_dir.run_jj(["new", "-m", "main bookmark 1"]).success();
+    work_dir.run_jj(["new", "-m", "main bookmark 2"]).success();
+    work_dir
+        .run_jj(["new", "@--", "-m", "side bookmark 1"])
         .success();
-    test_env
-        .run_jj_in(&repo_path, ["new", "-m", "main bookmark 1"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["new", "-m", "main bookmark 2"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["new", "@--", "-m", "side bookmark 1"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["new", "-m", "side bookmark 2"])
-        .success();
-    test_env
-        .run_jj_in(
-            &repo_path,
-            [
-                "new",
-                "-m",
-                "merge",
-                r#"description("main bookmark 2")"#,
-                "@",
-            ],
-        )
+    work_dir.run_jj(["new", "-m", "side bookmark 2"]).success();
+    work_dir
+        .run_jj([
+            "new",
+            "-m",
+            "merge",
+            r#"description("main bookmark 2")"#,
+            "@",
+        ])
         .success();
 
-    let get_log = |revs: &str| {
-        test_env.run_jj_in(
-            &repo_path,
-            ["log", "-T", r#"description ++ "\n""#, "-r", revs],
-        )
-    };
+    let get_log = |revs: &str| work_dir.run_jj(["log", "-T", r#"description ++ "\n""#, "-r", revs]);
 
     // Test the setup
     insta::assert_snapshot!(get_log("::"), @r"
@@ -1764,42 +1610,26 @@ fn test_log_with_custom_symbols() {
     // Test that elided commits are shown as synthetic nodes.
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m", "initial"])
+    work_dir.run_jj(["describe", "-m", "initial"]).success();
+    work_dir.run_jj(["new", "-m", "main bookmark 1"]).success();
+    work_dir.run_jj(["new", "-m", "main bookmark 2"]).success();
+    work_dir
+        .run_jj(["new", "@--", "-m", "side bookmark 1"])
         .success();
-    test_env
-        .run_jj_in(&repo_path, ["new", "-m", "main bookmark 1"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["new", "-m", "main bookmark 2"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["new", "@--", "-m", "side bookmark 1"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["new", "-m", "side bookmark 2"])
-        .success();
-    test_env
-        .run_jj_in(
-            &repo_path,
-            [
-                "new",
-                "-m",
-                "merge",
-                r#"description("main bookmark 2")"#,
-                "@",
-            ],
-        )
+    work_dir.run_jj(["new", "-m", "side bookmark 2"]).success();
+    work_dir
+        .run_jj([
+            "new",
+            "-m",
+            "merge",
+            r#"description("main bookmark 2")"#,
+            "@",
+        ])
         .success();
 
-    let get_log = |revs: &str| {
-        test_env.run_jj_in(
-            &repo_path,
-            ["log", "-T", r#"description ++ "\n""#, "-r", revs],
-        )
-    };
+    let get_log = |revs: &str| work_dir.run_jj(["log", "-T", r#"description ++ "\n""#, "-r", revs]);
 
     // Simple test with showing default and elided nodes.
     test_env.add_config(
@@ -1853,23 +1683,17 @@ fn test_log_with_custom_symbols() {
 fn test_log_full_description_template() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    test_env
-        .run_jj_in(
-            &repo_path,
-            [
-                "describe",
-                "-m",
-                "this is commit with a multiline description\n\n<full description>",
-            ],
-        )
+    work_dir
+        .run_jj([
+            "describe",
+            "-m",
+            "this is commit with a multiline description\n\n<full description>",
+        ])
         .success();
 
-    let output = test_env.run_jj_in(
-        &repo_path,
-        ["log", "-T", "builtin_log_compact_full_description"],
-    );
+    let output = work_dir.run_jj(["log", "-T", "builtin_log_compact_full_description"]);
     insta::assert_snapshot!(output, @r"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:08 1c504ec6
     │  (empty) this is commit with a multiline description
