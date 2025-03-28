@@ -361,6 +361,7 @@ fn test_evolog_with_no_template() {
     - commit_summary_separator
     - description_placeholder
     - email_placeholder
+    - git_format_patch_email_headers
     - name_placeholder
     [EOF]
     [exit status: 2]

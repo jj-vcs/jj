@@ -402,3 +402,21 @@ coalesce(
   "o",
 )
 '''
+
+# The first line is a fixed magic date string used by
+# programs like file(1) to identify that this is output from
+# 'git format-patch'.
+# See https://git-scm.com/docs/git-format-patch#_description
+git_format_patch_email_headers = '''
+  concat(
+    "From " ++ commit_id ++ " Mon Sep 17 00:00:00 2001\n",
+    "From: " ++ author ++ "\n",
+    "Date: " ++ author.timestamp().format("%a, %-e %b %Y %T %z") ++ "\n",
+    "Subject: [PATCH] " ++ description.first_line() ++ "\n",
+    "\n",
+    description.remove_prefix(description.first_line()).trim_start(),
+    "---\n",
+    indent(" ", diff.stat()),
+    "\n"
+  )
+'''

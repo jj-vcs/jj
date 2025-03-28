@@ -766,6 +766,7 @@ fn test_template_alias() {
     commit_summary_separator
     description_placeholder
     email_placeholder
+    git_format_patch_email_headers
     name_placeholder
     [EOF]
     ");

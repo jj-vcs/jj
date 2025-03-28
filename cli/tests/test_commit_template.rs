@@ -1609,3 +1609,49 @@ fn test_signature_templates() {
     [EOF]
     ");
 }
+
+#[test]
+fn test_log_git_format_patch_template() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "foo\n");
+    work_dir.write_file("file2", "bar\n");
+    work_dir
+        .run_jj([
+            "new",
+            "-m",
+            "some change\n\nmultiline desc\nsecond line\n\nwith blanks\n",
+        ])
+        .success();
+    work_dir.remove_file("file1");
+    work_dir.write_file("file2", "modified\n");
+    work_dir.write_file("file3", "new\n");
+
+    let output = work_dir.run_jj([
+        "log",
+        "--no-graph",
+        "-T",
+        "git_format_patch_email_headers",
+        "-r@",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    From 993219c0b219b5eeac6303b5cb2bf943ea719672 Mon Sep 17 00:00:00 2001
+    From: Test User <test.user@example.com>
+    Date: Sat, 3 Feb 2001 04:05:08 +0700
+    Subject: [PATCH] some change
+
+    multiline desc
+    second line
+
+    with blanks
+    ---
+     file1 | 1 -
+     file2 | 2 +-
+     file3 | 1 +
+     3 files changed, 2 insertions(+), 2 deletions(-)
+
+    [EOF]
+    ");
+}
