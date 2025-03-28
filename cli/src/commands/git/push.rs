@@ -29,7 +29,6 @@ use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::git;
 use jj_lib::git::GitBranchPushTargets;
 use jj_lib::git::GitPushStats;
-use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::RefTarget;
 use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RefNameBuf;
@@ -761,30 +760,17 @@ fn update_change_bookmarks(
     }
 
     let mut bookmark_names = Vec::new();
-    let workspace_command = tx.base_workspace_helper();
-    let all_commits: Vec<_> = workspace_command
+    let all_commits: Vec<_> = tx
+        .base_workspace_helper()
         .resolve_some_revsets_default_single(ui, changes)?
         .iter()
         .map(|id| tx.repo().store().get_commit(id))
         .try_collect()?;
 
     for commit in all_commits {
-        let workspace_command = tx.base_workspace_helper();
         let short_change_id = short_change_hash(commit.change_id());
-        let mut bookmark_name: RefNameBuf =
-            format!("{bookmark_prefix}{}", commit.change_id().hex()).into();
+        let bookmark_name: RefNameBuf = format!("{bookmark_prefix}{short_change_id}").into();
         let view = tx.base_repo().view();
-        if view.get_local_bookmark(&bookmark_name).is_absent() {
-            // A local bookmark with the full change ID doesn't exist already, so use the
-            // short ID if it's not ambiguous (which it shouldn't be most of the time).
-            if workspace_command
-                .resolve_single_rev(ui, &RevisionArg::from(short_change_id.clone()))
-                .is_ok()
-            {
-                // Short change ID is not ambiguous, so update the bookmark name to use it.
-                bookmark_name = format!("{bookmark_prefix}{short_change_id}").into();
-            };
-        }
         if view.get_local_bookmark(&bookmark_name).is_absent() {
             writeln!(
                 ui.status(),

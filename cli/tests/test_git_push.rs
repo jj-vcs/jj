@@ -1225,37 +1225,6 @@ fn test_git_push_mixed(subprocess: bool) {
 
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
-fn test_git_push_existing_long_bookmark(subprocess: bool) {
-    let test_env = TestEnvironment::default();
-    set_up(&test_env);
-    let work_dir = test_env.work_dir("local");
-    if !subprocess {
-        test_env.add_config("git.subprocess = false");
-    }
-    work_dir.run_jj(["describe", "-m", "foo"]).success();
-    work_dir.write_file("file", "contents");
-    work_dir
-        .run_jj([
-            "bookmark",
-            "create",
-            "-r@",
-            "push-19b790168e73f7a73a98deae21e807c0",
-        ])
-        .success();
-
-    let output = work_dir.run_jj(["git", "push", "--change=@"]);
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Changes to push to origin:
-      Add bookmark push-19b790168e73f7a73a98deae21e807c0 to a050abf4ff07
-    [EOF]
-    ");
-    }
-}
-
-#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
-#[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_push_unsnapshotted_change(subprocess: bool) {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
