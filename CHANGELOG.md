@@ -19,6 +19,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+* `jj git push -c`/`--change` no longer moves existing local bookmarks.
+
 ### Deprecations
 
 * `git.subprocess = false` has been deprecated, and the old `libgit2`

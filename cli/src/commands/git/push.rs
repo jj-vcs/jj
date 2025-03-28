@@ -297,10 +297,11 @@ pub fn cmd_git_push(
     } else {
         let mut seen_bookmarks: HashSet<&RefName> = HashSet::new();
 
-        // Process --change bookmarks first because matching bookmarks can be moved.
+        // --change and --named don't move existing bookmarks. If they did, be
+        // careful to not select old state by -r/--revisions and bookmark names.
         let bookmark_prefix = tx.settings().get_string("git.push-bookmark-prefix")?;
         let change_bookmark_names =
-            update_change_bookmarks(ui, &mut tx, &args.change, &bookmark_prefix)?;
+            create_change_bookmarks(ui, &mut tx, &args.change, &bookmark_prefix)?;
         let created_bookmark_names: Vec<RefNameBuf> = args
             .named
             .iter()
@@ -877,8 +878,8 @@ fn create_explicitly_named_bookmarks(
     Ok(name)
 }
 
-/// Creates or moves bookmarks based on the change IDs.
-fn update_change_bookmarks(
+/// Creates bookmarks based on the change IDs.
+fn create_change_bookmarks(
     ui: &Ui,
     tx: &mut WorkspaceCommandTransaction,
     changes: &[RevisionArg],
@@ -900,18 +901,21 @@ fn update_change_bookmarks(
 
     for commit in all_commits {
         let short_change_id = short_change_hash(commit.change_id());
-        let bookmark_name: RefNameBuf = format!("{bookmark_prefix}{short_change_id}").into();
+        let name: RefNameBuf = format!("{bookmark_prefix}{short_change_id}").into();
+        let target = RefTarget::normal(commit.id().clone());
         let view = tx.base_repo().view();
-        if view.get_local_bookmark(&bookmark_name).is_absent() {
+        if view.get_local_bookmark(&name) == &target {
+            // Existing bookmark pointing to the commit, which is allowed
+        } else {
+            ensure_new_bookmark_name(view, &name)?;
             writeln!(
                 ui.status(),
-                "Creating bookmark {bookmark_name} for revision {short_change_id}",
-                bookmark_name = bookmark_name.as_symbol()
+                "Creating bookmark {name} for revision {short_change_id}",
+                name = name.as_symbol()
             )?;
+            tx.repo_mut().set_local_bookmark_target(&name, target);
         }
-        tx.repo_mut()
-            .set_local_bookmark_target(&bookmark_name, RefTarget::normal(commit.id().clone()));
-        bookmark_names.push(bookmark_name);
+        bookmark_names.push(name);
     }
     Ok(bookmark_names)
 }

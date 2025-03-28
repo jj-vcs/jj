@@ -994,7 +994,7 @@ fn test_git_push_changes(subprocess: bool) {
     ");
     }
 
-    // try again with --change that moves the bookmark forward
+    // try again with --change that could move the bookmark forward
     work_dir.write_file("file", "modified5");
     work_dir
         .run_jj([
@@ -1019,9 +1019,10 @@ fn test_git_push_changes(subprocess: bool) {
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Changes to push to origin:
-      Move sideways bookmark push-yostqsxwqrlt from c1e65d3a64ce to 38cb417ce3a6
+    Error: Bookmark already exists: push-yostqsxwqrlt
+    Hint: Use 'jj bookmark move' to move it, and 'jj git push -b push-yostqsxwqrlt [--allow-new]' to push it
     [EOF]
+    [exit status: 1]
     ");
     }
     let output = work_dir.run_jj(["status"]);
@@ -1029,8 +1030,8 @@ fn test_git_push_changes(subprocess: bool) {
     insta::assert_snapshot!(output, @r"
     Working copy changes:
     M file
-    Working copy  (@) : yostqsxw 38cb417c push-yostqsxwqrlt | bar
-    Parent commit (@-): yqosqzyt a050abf4 push-yqosqzytrlsw | foo
+    Working copy  (@) : yostqsxw 38cb417c bar
+    Parent commit (@-): yqosqzyt a050abf4 push-yostqsxwqrlt* push-yqosqzytrlsw | foo
     [EOF]
     ");
     }
