@@ -48,8 +48,8 @@ fn test_evolog_with_or_without_diff() {
     insta::assert_snapshot!(output, @r"
     [1m[38;5;2m@[0m  [1m[38;5;13mr[38;5;8mlvkpnrz[39m [38;5;3mtest.user@example.com[39m [38;5;14m2001-02-03 08:05:10[39m [38;5;12m6[38;5;8m6b42ad3[39m[0m
     │  [1mmy description[0m
-    [1m[38;5;1m×[0m  [1m[39mr[0m[38;5;8mlvkpnrz[39m hidden [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:09[39m [1m[38;5;4m07[0m[38;5;8mb18245[39m [38;5;1mconflict[39m
-    │  my description
+    [1m[38;5;1m×[0m  [1m[39mr[0m[38;5;8mlvkpnrz[38;5;1m hidden [38;5;3mtest.user@example.com[38;5;1m [38;5;6m2001-02-03 08:05:09[38;5;1m [1m[38;5;4m07[0m[38;5;8mb18245[38;5;1m conflict[39m
+    │  [38;5;1mmy description[39m
     ○  [1m[39mr[0m[38;5;8mlvkpnrz[39m hidden [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:09[39m [1m[38;5;4m06[0m[38;5;8m8224a7[39m
     │  my description
     ○  [1m[39mr[0m[38;5;8mlvkpnrz[39m hidden [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:08[39m [1m[38;5;4m2b[0m[38;5;8m023b5f[39m

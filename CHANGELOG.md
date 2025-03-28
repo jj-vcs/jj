@@ -192,6 +192,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj undo` now shows a hint when undoing an undo operation that the user may
    be looking for `jj op restore` instead.
 
+* Divergent changes are no longer marked red in immutable revisions. Since the
+  revision is immutable, the user shouldn't take any action, so the red color
+  was unnecessarily alarming.
+
 ### Fixed bugs
 
 * `jj status` now shows untracked files under untracked directories.
