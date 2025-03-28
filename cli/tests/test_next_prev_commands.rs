@@ -13,11 +13,10 @@
 // limitations under the License.
 //
 
-use std::path::Path;
-
 use crate::common::force_interactive;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
+use crate::common::TestWorkDir;
 
 #[test]
 fn test_next_simple() {
@@ -30,18 +29,12 @@ fn test_next_simple() {
     //
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
     // Create a simple linear history, which we'll traverse.
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "first"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "second"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "third"])
-        .success();
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    work_dir.run_jj(["commit", "-m", "first"]).success();
+    work_dir.run_jj(["commit", "-m", "second"]).success();
+    work_dir.run_jj(["commit", "-m", "third"]).success();
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  zsuskulnrvyr
     ○  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
@@ -51,9 +44,9 @@ fn test_next_simple() {
     ");
 
     // Move to `first`
-    test_env.run_jj_in(&repo_path, ["new", "@--"]).success();
+    work_dir.run_jj(["new", "@--"]).success();
 
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  royxmykxtrkr
     │ ○  kkmpptxzrspx third
     ├─╯
@@ -63,7 +56,7 @@ fn test_next_simple() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["next"]);
+    let output = work_dir.run_jj(["next"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy now at: vruxwmqv 0c7d7732 (empty) (no description set)
@@ -71,7 +64,7 @@ fn test_next_simple() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  vruxwmqvtpmx
     ○  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
@@ -86,22 +79,14 @@ fn test_next_multiple() {
     // Move from first => fourth.
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "first"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "second"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "third"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "fourth"])
-        .success();
-    test_env.run_jj_in(&repo_path, ["new", "@---"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["commit", "-m", "first"]).success();
+    work_dir.run_jj(["commit", "-m", "second"]).success();
+    work_dir.run_jj(["commit", "-m", "third"]).success();
+    work_dir.run_jj(["commit", "-m", "fourth"]).success();
+    work_dir.run_jj(["new", "@---"]).success();
 
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  royxmykxtrkr
     │ ○  zsuskulnrvyr fourth
     │ ○  kkmpptxzrspx third
@@ -113,7 +98,7 @@ fn test_next_multiple() {
     ");
 
     // We should now be the child of the fourth commit.
-    let output = test_env.run_jj_in(&repo_path, ["next", "2"]);
+    let output = work_dir.run_jj(["next", "2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy now at: vruxwmqv 41cc776d (empty) (no description set)
@@ -121,7 +106,7 @@ fn test_next_multiple() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  vruxwmqvtpmx
     ○  zsuskulnrvyr fourth
     ○  kkmpptxzrspx third
@@ -137,17 +122,11 @@ fn test_prev_simple() {
     // Move @- from third to second.
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "first"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "second"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "third"])
-        .success();
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["commit", "-m", "first"]).success();
+    work_dir.run_jj(["commit", "-m", "second"]).success();
+    work_dir.run_jj(["commit", "-m", "third"]).success();
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  zsuskulnrvyr
     ○  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
@@ -156,7 +135,7 @@ fn test_prev_simple() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["prev"]);
+    let output = work_dir.run_jj(["prev"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy now at: royxmykx 6db74f64 (empty) (no description set)
@@ -164,7 +143,7 @@ fn test_prev_simple() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  royxmykxtrkr
     │ ○  kkmpptxzrspx third
     ├─╯
@@ -180,20 +159,12 @@ fn test_prev_multiple_without_root() {
     // Move @- from fourth to second.
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "first"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "second"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "third"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "fourth"])
-        .success();
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["commit", "-m", "first"]).success();
+    work_dir.run_jj(["commit", "-m", "second"]).success();
+    work_dir.run_jj(["commit", "-m", "third"]).success();
+    work_dir.run_jj(["commit", "-m", "fourth"]).success();
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  mzvwutvlkqwt
     ○  zsuskulnrvyr fourth
     ○  kkmpptxzrspx third
@@ -203,7 +174,7 @@ fn test_prev_multiple_without_root() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["prev", "2"]);
+    let output = work_dir.run_jj(["prev", "2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy now at: yqosqzyt 794ffd20 (empty) (no description set)
@@ -211,7 +182,7 @@ fn test_prev_multiple_without_root() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  yqosqzytrlsw
     │ ○  zsuskulnrvyr fourth
     │ ○  kkmpptxzrspx third
@@ -228,21 +199,13 @@ fn test_next_exceeding_history() {
     // Try to step beyond the current repos history.
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "first"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "second"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "third"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["edit", "-r", "@--"])
-        .success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["commit", "-m", "first"]).success();
+    work_dir.run_jj(["commit", "-m", "second"]).success();
+    work_dir.run_jj(["commit", "-m", "third"]).success();
+    work_dir.run_jj(["edit", "-r", "@--"]).success();
 
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     ○  kkmpptxzrspx third
     @  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
@@ -251,7 +214,7 @@ fn test_next_exceeding_history() {
     ");
 
     // `jj next` beyond existing history fails.
-    let output = test_env.run_jj_in(&repo_path, ["next", "3"]);
+    let output = work_dir.run_jj(["next", "3"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: No other descendant found 3 commit(s) forward from the working copy parent(s)
@@ -267,20 +230,14 @@ fn test_next_exceeding_history() {
 fn test_next_parent_has_multiple_descendants() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
     // Setup.
-    test_env
-        .run_jj_in(&repo_path, ["desc", "-m", "1"])
-        .success();
-    test_env.run_jj_in(&repo_path, ["new", "-m", "2"]).success();
-    test_env
-        .run_jj_in(&repo_path, ["new", "root()", "-m", "3"])
-        .success();
-    test_env.run_jj_in(&repo_path, ["new", "-m", "4"]).success();
-    test_env
-        .run_jj_in(&repo_path, ["edit", "description(3)"])
-        .success();
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    work_dir.run_jj(["desc", "-m", "1"]).success();
+    work_dir.run_jj(["new", "-m", "2"]).success();
+    work_dir.run_jj(["new", "root()", "-m", "3"]).success();
+    work_dir.run_jj(["new", "-m", "4"]).success();
+    work_dir.run_jj(["edit", "description(3)"]).success();
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     ○  mzvwutvlkqwt 4
     @  zsuskulnrvyr 3
     │ ○  kkmpptxzrspx 2
@@ -290,14 +247,14 @@ fn test_next_parent_has_multiple_descendants() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["next", "--edit"]);
+    let output = work_dir.run_jj(["next", "--edit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy now at: mzvwutvl 1b8531ce (empty) 4
     Parent commit      : zsuskuln b1394455 (empty) 3
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  mzvwutvlkqwt 4
     ○  zsuskulnrvyr 3
     │ ○  kkmpptxzrspx 2
@@ -312,23 +269,16 @@ fn test_next_parent_has_multiple_descendants() {
 fn test_next_with_merge_commit_parent() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
     // Setup.
-    test_env
-        .run_jj_in(&repo_path, ["desc", "-m", "1"])
+    work_dir.run_jj(["desc", "-m", "1"]).success();
+    work_dir.run_jj(["new", "root()", "-m", "2"]).success();
+    work_dir
+        .run_jj(["new", "description(1)", "description(2)", "-m", "3"])
         .success();
-    test_env
-        .run_jj_in(&repo_path, ["new", "root()", "-m", "2"])
-        .success();
-    test_env
-        .run_jj_in(
-            &repo_path,
-            ["new", "description(1)", "description(2)", "-m", "3"],
-        )
-        .success();
-    test_env.run_jj_in(&repo_path, ["new", "-m", "4"]).success();
-    test_env.run_jj_in(&repo_path, ["prev", "0"]).success();
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    work_dir.run_jj(["new", "-m", "4"]).success();
+    work_dir.run_jj(["prev", "0"]).success();
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  royxmykxtrkr
     │ ○  mzvwutvlkqwt 4
     ├─╯
@@ -341,14 +291,14 @@ fn test_next_with_merge_commit_parent() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["next"]);
+    let output = work_dir.run_jj(["next"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy now at: vruxwmqv e2cefcb7 (empty) (no description set)
     Parent commit      : mzvwutvl b54bbdea (empty) 4
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  vruxwmqvtpmx
     ○  mzvwutvlkqwt 4
     ○    zsuskulnrvyr 3
@@ -365,25 +315,16 @@ fn test_next_with_merge_commit_parent() {
 fn test_next_on_merge_commit() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
     // Setup.
-    test_env
-        .run_jj_in(&repo_path, ["desc", "-m", "1"])
+    work_dir.run_jj(["desc", "-m", "1"]).success();
+    work_dir.run_jj(["new", "root()", "-m", "2"]).success();
+    work_dir
+        .run_jj(["new", "description(1)", "description(2)", "-m", "3"])
         .success();
-    test_env
-        .run_jj_in(&repo_path, ["new", "root()", "-m", "2"])
-        .success();
-    test_env
-        .run_jj_in(
-            &repo_path,
-            ["new", "description(1)", "description(2)", "-m", "3"],
-        )
-        .success();
-    test_env.run_jj_in(&repo_path, ["new", "-m", "4"]).success();
-    test_env
-        .run_jj_in(&repo_path, ["edit", "description(3)"])
-        .success();
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    work_dir.run_jj(["new", "-m", "4"]).success();
+    work_dir.run_jj(["edit", "description(3)"]).success();
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     ○  mzvwutvlkqwt 4
     @    zsuskulnrvyr 3
     ├─╮
@@ -394,14 +335,14 @@ fn test_next_on_merge_commit() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["next", "--edit"]);
+    let output = work_dir.run_jj(["next", "--edit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy now at: mzvwutvl b54bbdea (empty) 4
     Parent commit      : zsuskuln 5542f0b4 (empty) 3
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  mzvwutvlkqwt 4
     ○    zsuskulnrvyr 3
     ├─╮
@@ -417,20 +358,14 @@ fn test_next_on_merge_commit() {
 fn test_next_fails_on_bookmarking_children_no_stdin() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "first"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "second"])
-        .success();
-    test_env.run_jj_in(&repo_path, ["new", "@--"]).success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "third"])
-        .success();
-    test_env.run_jj_in(&repo_path, ["new", "@--"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["commit", "-m", "first"]).success();
+    work_dir.run_jj(["commit", "-m", "second"]).success();
+    work_dir.run_jj(["new", "@--"]).success();
+    work_dir.run_jj(["commit", "-m", "third"]).success();
+    work_dir.run_jj(["new", "@--"]).success();
 
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  royxmykxtrkr
     │ ○  zsuskulnrvyr third
     ├─╯
@@ -442,7 +377,7 @@ fn test_next_fails_on_bookmarking_children_no_stdin() {
     ");
 
     // Try to advance the working copy commit.
-    let output = test_env.run_jj_in(&repo_path, ["next"]);
+    let output = work_dir.run_jj(["next"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     ambiguous next commit, choose one to target:
@@ -459,20 +394,14 @@ fn test_next_fails_on_bookmarking_children_no_stdin() {
 fn test_next_fails_on_bookmarking_children_quit_prompt() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "first"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "second"])
-        .success();
-    test_env.run_jj_in(&repo_path, ["new", "@--"]).success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "third"])
-        .success();
-    test_env.run_jj_in(&repo_path, ["new", "@--"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["commit", "-m", "first"]).success();
+    work_dir.run_jj(["commit", "-m", "second"]).success();
+    work_dir.run_jj(["new", "@--"]).success();
+    work_dir.run_jj(["commit", "-m", "third"]).success();
+    work_dir.run_jj(["new", "@--"]).success();
 
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  royxmykxtrkr
     │ ○  zsuskulnrvyr third
     ├─╯
@@ -484,12 +413,7 @@ fn test_next_fails_on_bookmarking_children_quit_prompt() {
     ");
 
     // Try to advance the working copy commit.
-    let output = test_env.run_jj_with(|cmd| {
-        force_interactive(cmd)
-            .current_dir(&repo_path)
-            .arg("next")
-            .write_stdin("q\n")
-    });
+    let output = work_dir.run_jj_with(|cmd| force_interactive(cmd).arg("next").write_stdin("q\n"));
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     ambiguous next commit, choose one to target:
@@ -506,29 +430,16 @@ fn test_next_fails_on_bookmarking_children_quit_prompt() {
 fn test_next_choose_bookmarking_child() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "first"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "second"])
-        .success();
-    test_env.run_jj_in(&repo_path, ["new", "@--"]).success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "third"])
-        .success();
-    test_env.run_jj_in(&repo_path, ["new", "@--"]).success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "fourth"])
-        .success();
-    test_env.run_jj_in(&repo_path, ["new", "@--"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["commit", "-m", "first"]).success();
+    work_dir.run_jj(["commit", "-m", "second"]).success();
+    work_dir.run_jj(["new", "@--"]).success();
+    work_dir.run_jj(["commit", "-m", "third"]).success();
+    work_dir.run_jj(["new", "@--"]).success();
+    work_dir.run_jj(["commit", "-m", "fourth"]).success();
+    work_dir.run_jj(["new", "@--"]).success();
     // Advance the working copy commit.
-    let output = test_env.run_jj_with(|cmd| {
-        force_interactive(cmd)
-            .current_dir(&repo_path)
-            .arg("next")
-            .write_stdin("2\n")
-    });
+    let output = work_dir.run_jj_with(|cmd| force_interactive(cmd).arg("next").write_stdin("2\n"));
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     ambiguous next commit, choose one to target:
@@ -546,25 +457,15 @@ fn test_next_choose_bookmarking_child() {
 fn test_prev_on_merge_commit() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    test_env
-        .run_jj_in(&repo_path, ["desc", "-m", "first"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "c", "-r@", "left"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["new", "root()", "-m", "second"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "c", "-r@", "right"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["new", "left", "right"])
-        .success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["desc", "-m", "first"]).success();
+    work_dir.run_jj(["bookmark", "c", "-r@", "left"]).success();
+    work_dir.run_jj(["new", "root()", "-m", "second"]).success();
+    work_dir.run_jj(["bookmark", "c", "-r@", "right"]).success();
+    work_dir.run_jj(["new", "left", "right"]).success();
 
     // Check that the graph looks the way we expect.
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @    royxmykxtrkr
     ├─╮
     │ ○  zsuskulnrvyr right second
@@ -574,7 +475,7 @@ fn test_prev_on_merge_commit() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["prev"]);
+    let output = work_dir.run_jj(["prev"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy now at: vruxwmqv 41658cf4 (empty) (no description set)
@@ -582,10 +483,9 @@ fn test_prev_on_merge_commit() {
     [EOF]
     ");
 
-    test_env.run_jj_in(&repo_path, ["undo"]).success();
-    let output = test_env.run_jj_with(|cmd| {
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj_with(|cmd| {
         force_interactive(cmd)
-            .current_dir(&repo_path)
             .args(["prev", "--edit"])
             .write_stdin("2\n")
     });
@@ -605,31 +505,19 @@ fn test_prev_on_merge_commit() {
 fn test_prev_on_merge_commit_with_parent_merge() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    test_env
-        .run_jj_in(&repo_path, ["desc", "-m", "x"])
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["desc", "-m", "x"]).success();
+    work_dir.run_jj(["new", "root()", "-m", "y"]).success();
+    work_dir
+        .run_jj(["new", "description(x)", "description(y)", "-m", "z"])
         .success();
-    test_env
-        .run_jj_in(&repo_path, ["new", "root()", "-m", "y"])
-        .success();
-    test_env
-        .run_jj_in(
-            &repo_path,
-            ["new", "description(x)", "description(y)", "-m", "z"],
-        )
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["new", "root()", "-m", "1"])
-        .success();
-    test_env
-        .run_jj_in(
-            &repo_path,
-            ["new", "description(z)", "description(1)", "-m", "M"],
-        )
+    work_dir.run_jj(["new", "root()", "-m", "1"]).success();
+    work_dir
+        .run_jj(["new", "description(z)", "description(1)", "-m", "M"])
         .success();
 
     // Check that the graph looks the way we expect.
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @    royxmykxtrkr M
     ├─╮
     │ ○  mzvwutvlkqwt 1
@@ -643,12 +531,7 @@ fn test_prev_on_merge_commit_with_parent_merge() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_with(|cmd| {
-        force_interactive(cmd)
-            .current_dir(&repo_path)
-            .arg("prev")
-            .write_stdin("2\n")
-    });
+    let output = work_dir.run_jj_with(|cmd| force_interactive(cmd).arg("prev").write_stdin("2\n"));
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     ambiguous prev commit, choose one to target:
@@ -661,10 +544,9 @@ fn test_prev_on_merge_commit_with_parent_merge() {
     [EOF]
     ");
 
-    test_env.run_jj_in(&repo_path, ["undo"]).success();
-    let output = test_env.run_jj_with(|cmd| {
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj_with(|cmd| {
         force_interactive(cmd)
-            .current_dir(&repo_path)
             .args(["prev", "--edit"])
             .write_stdin("2\n")
     });
@@ -685,31 +567,19 @@ fn test_prev_on_merge_commit_with_parent_merge() {
 fn test_prev_prompts_on_multiple_parents() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "first"])
-        .success();
-    test_env.run_jj_in(&repo_path, ["new", "@--"]).success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "second"])
-        .success();
-    test_env.run_jj_in(&repo_path, ["new", "@--"]).success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "third"])
-        .success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["commit", "-m", "first"]).success();
+    work_dir.run_jj(["new", "@--"]).success();
+    work_dir.run_jj(["commit", "-m", "second"]).success();
+    work_dir.run_jj(["new", "@--"]).success();
+    work_dir.run_jj(["commit", "-m", "third"]).success();
     // Create a merge commit, which has two parents.
-    test_env
-        .run_jj_in(&repo_path, ["new", "all:@--+"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "merge"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "merge+1"])
-        .success();
+    work_dir.run_jj(["new", "all:@--+"]).success();
+    work_dir.run_jj(["commit", "-m", "merge"]).success();
+    work_dir.run_jj(["commit", "-m", "merge+1"]).success();
 
     // Check that the graph looks the way we expect.
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  yostqsxwqrlt
     ○  vruxwmqvtpmx merge+1
     ○      yqosqzytrlsw merge
@@ -724,9 +594,8 @@ fn test_prev_prompts_on_multiple_parents() {
     ");
 
     // Move @ backwards.
-    let output = test_env.run_jj_with(|cmd| {
+    let output = work_dir.run_jj_with(|cmd| {
         force_interactive(cmd)
-            .current_dir(&repo_path)
             .args(["prev", "2"])
             .write_stdin("3\n")
     });
@@ -742,7 +611,7 @@ fn test_prev_prompts_on_multiple_parents() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  kpqxywonksrl
     │ ○  vruxwmqvtpmx merge+1
     │ ○    yqosqzytrlsw merge
@@ -756,10 +625,10 @@ fn test_prev_prompts_on_multiple_parents() {
     [EOF]
     ");
 
-    test_env.run_jj_in(&repo_path, ["next"]).success();
-    test_env.run_jj_in(&repo_path, ["edit", "@-"]).success();
+    work_dir.run_jj(["next"]).success();
+    work_dir.run_jj(["edit", "@-"]).success();
 
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     ○  vruxwmqvtpmx merge+1
     @      yqosqzytrlsw merge
     ├─┬─╮
@@ -772,7 +641,7 @@ fn test_prev_prompts_on_multiple_parents() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["next", "--no-edit"]);
+    let output = work_dir.run_jj(["next", "--no-edit"]);
     insta::assert_snapshot!(output,@r"
     ------- stderr -------
     Error: No other descendant found 1 commit(s) forward from the working copy parent(s)
@@ -788,20 +657,12 @@ fn test_prev_prompts_on_multiple_parents() {
 fn test_prev_beyond_root_fails() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "first"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "second"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "third"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "fourth"])
-        .success();
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["commit", "-m", "first"]).success();
+    work_dir.run_jj(["commit", "-m", "second"]).success();
+    work_dir.run_jj(["commit", "-m", "third"]).success();
+    work_dir.run_jj(["commit", "-m", "fourth"]).success();
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  mzvwutvlkqwt
     ○  zsuskulnrvyr fourth
     ○  kkmpptxzrspx third
@@ -811,7 +672,7 @@ fn test_prev_beyond_root_fails() {
     [EOF]
     ");
     // @- is at "fourth", and there is no parent 5 commits behind it.
-    let output = test_env.run_jj_in(&repo_path, ["prev", "5"]);
+    let output = work_dir.run_jj(["prev", "5"]);
     insta::assert_snapshot!(output,@r"
     ------- stderr -------
     Error: No ancestor found 5 commit(s) back from the working copy parents(s)
@@ -826,23 +687,15 @@ fn test_prev_editing() {
     // Edit the third commit.
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "first"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "second"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "third"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "fourth"])
-        .success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["commit", "-m", "first"]).success();
+    work_dir.run_jj(["commit", "-m", "second"]).success();
+    work_dir.run_jj(["commit", "-m", "third"]).success();
+    work_dir.run_jj(["commit", "-m", "fourth"]).success();
     // Edit the "fourth" commit, which becomes the leaf.
-    test_env.run_jj_in(&repo_path, ["edit", "@-"]).success();
+    work_dir.run_jj(["edit", "@-"]).success();
     // Check that the graph looks the way we expect.
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  zsuskulnrvyr fourth
     ○  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
@@ -851,7 +704,7 @@ fn test_prev_editing() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["prev", "--edit"]);
+    let output = work_dir.run_jj(["prev", "--edit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy now at: kkmpptxz 30056b0c (empty) third
@@ -859,7 +712,7 @@ fn test_prev_editing() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     ○  zsuskulnrvyr fourth
     @  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
@@ -874,22 +727,14 @@ fn test_next_editing() {
     // Edit the second commit.
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "first"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "second"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "third"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "fourth"])
-        .success();
-    test_env.run_jj_in(&repo_path, ["edit", "@---"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["commit", "-m", "first"]).success();
+    work_dir.run_jj(["commit", "-m", "second"]).success();
+    work_dir.run_jj(["commit", "-m", "third"]).success();
+    work_dir.run_jj(["commit", "-m", "fourth"]).success();
+    work_dir.run_jj(["edit", "@---"]).success();
 
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     ○  zsuskulnrvyr fourth
     ○  kkmpptxzrspx third
     @  rlvkpnrzqnoo second
@@ -898,7 +743,7 @@ fn test_next_editing() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["next", "--edit"]);
+    let output = work_dir.run_jj(["next", "--edit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy now at: kkmpptxz 30056b0c (empty) third
@@ -906,7 +751,7 @@ fn test_next_editing() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     ○  zsuskulnrvyr fourth
     @  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
@@ -921,32 +766,19 @@ fn test_prev_conflict() {
     // Make the first commit our new parent.
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    let file_path = repo_path.join("content.txt");
-    std::fs::write(&file_path, "first").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "first"])
-        .success();
-    std::fs::write(&file_path, "second").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "second"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "third"])
-        .success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("content.txt", "first");
+    work_dir.run_jj(["commit", "-m", "first"]).success();
+    work_dir.write_file("content.txt", "second");
+    work_dir.run_jj(["commit", "-m", "second"]).success();
+    work_dir.run_jj(["commit", "-m", "third"]).success();
     // Create a conflict in the first commit, where we'll jump to.
-    test_env
-        .run_jj_in(&repo_path, ["edit", "description(first)"])
-        .success();
-    std::fs::write(&file_path, "first+1").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["new", "description(third)"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "fourth"])
-        .success();
+    work_dir.run_jj(["edit", "description(first)"]).success();
+    work_dir.write_file("content.txt", "first+1");
+    work_dir.run_jj(["new", "description(third)"]).success();
+    work_dir.run_jj(["commit", "-m", "fourth"]).success();
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  yqosqzytrlsw conflict
     ×  royxmykxtrkr conflict fourth
     ×  kkmpptxzrspx conflict third
@@ -955,10 +787,8 @@ fn test_prev_conflict() {
     ◆  zzzzzzzzzzzz
     [EOF]
     ");
-    test_env
-        .run_jj_in(&repo_path, ["prev", "--conflict"])
-        .success();
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    work_dir.run_jj(["prev", "--conflict"]).success();
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  yostqsxwqrlt conflict
     │ ×  royxmykxtrkr conflict fourth
     ├─╯
@@ -975,28 +805,17 @@ fn test_prev_conflict_editing() {
     // Edit the third commit.
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    let file_path = repo_path.join("content.txt");
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "first"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "second"])
-        .success();
-    std::fs::write(&file_path, "second").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "third"])
-        .success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["commit", "-m", "first"]).success();
+    work_dir.run_jj(["commit", "-m", "second"]).success();
+    work_dir.write_file("content.txt", "second");
+    work_dir.run_jj(["commit", "-m", "third"]).success();
     // Create a conflict in the third commit, where we'll jump to.
-    test_env
-        .run_jj_in(&repo_path, ["edit", "description(first)"])
-        .success();
-    std::fs::write(&file_path, "first text").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["new", "description(third)"])
-        .success();
+    work_dir.run_jj(["edit", "description(first)"]).success();
+    work_dir.write_file("content.txt", "first text");
+    work_dir.run_jj(["new", "description(third)"]).success();
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  royxmykxtrkr conflict
     ×  kkmpptxzrspx conflict third
     ○  rlvkpnrzqnoo second
@@ -1004,11 +823,9 @@ fn test_prev_conflict_editing() {
     ◆  zzzzzzzzzzzz
     [EOF]
     ");
-    test_env
-        .run_jj_in(&repo_path, ["prev", "--conflict", "--edit"])
-        .success();
+    work_dir.run_jj(["prev", "--conflict", "--edit"]).success();
     // We now should be editing the third commit.
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  kkmpptxzrspx conflict third
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
@@ -1023,29 +840,20 @@ fn test_next_conflict() {
     // parent.
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    let file_path = repo_path.join("content.txt");
-    std::fs::write(&file_path, "first").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "first"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "second"])
-        .success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("content.txt", "first");
+    work_dir.run_jj(["commit", "-m", "first"]).success();
+    work_dir.run_jj(["commit", "-m", "second"]).success();
     // Create a conflict in the third commit.
-    std::fs::write(&file_path, "third").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "third"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["new", "description(first)"])
-        .success();
-    std::fs::write(&file_path, "first v2").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["squash", "--into", "description(third)"])
+    work_dir.write_file("content.txt", "third");
+    work_dir.run_jj(["commit", "-m", "third"]).success();
+    work_dir.run_jj(["new", "description(first)"]).success();
+    work_dir.write_file("content.txt", "first v2");
+    work_dir
+        .run_jj(["squash", "--into", "description(third)"])
         .success();
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  royxmykxtrkr
     │ ×  kkmpptxzrspx conflict third
     │ ○  rlvkpnrzqnoo second
@@ -1054,10 +862,8 @@ fn test_next_conflict() {
     ◆  zzzzzzzzzzzz
     [EOF]
     ");
-    test_env
-        .run_jj_in(&repo_path, ["next", "--conflict"])
-        .success();
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    work_dir.run_jj(["next", "--conflict"]).success();
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  vruxwmqvtpmx conflict
     ×  kkmpptxzrspx conflict third
     ○  rlvkpnrzqnoo second
@@ -1073,34 +879,25 @@ fn test_next_conflict_editing() {
     // working copy.
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    let file_path = repo_path.join("content.txt");
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "first"])
-        .success();
-    std::fs::write(&file_path, "second").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "second"])
-        .success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["commit", "-m", "first"]).success();
+    work_dir.write_file("content.txt", "second");
+    work_dir.run_jj(["commit", "-m", "second"]).success();
     // Create a conflict in the third commit.
-    std::fs::write(&file_path, "third").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["edit", "description(second)"])
-        .success();
-    std::fs::write(&file_path, "modified second").unwrap();
-    test_env.run_jj_in(&repo_path, ["edit", "@-"]).success();
+    work_dir.write_file("content.txt", "third");
+    work_dir.run_jj(["edit", "description(second)"]).success();
+    work_dir.write_file("content.txt", "modified second");
+    work_dir.run_jj(["edit", "@-"]).success();
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     ×  kkmpptxzrspx conflict
     ○  rlvkpnrzqnoo second
     @  qpvuntsmwlqt first
     ◆  zzzzzzzzzzzz
     [EOF]
     ");
-    test_env
-        .run_jj_in(&repo_path, ["next", "--conflict", "--edit"])
-        .success();
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    work_dir.run_jj(["next", "--conflict", "--edit"]).success();
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  kkmpptxzrspx conflict
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
@@ -1114,20 +911,19 @@ fn test_next_conflict_head() {
     // When editing a head with conflicts, `jj next --conflict [--edit]` errors out.
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    let file_path = repo_path.join("file");
-    std::fs::write(&file_path, "first").unwrap();
-    test_env.run_jj_in(&repo_path, ["new"]).success();
-    std::fs::write(&file_path, "second").unwrap();
-    test_env.run_jj_in(&repo_path, ["abandon", "@-"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("file", "first");
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file", "second");
+    work_dir.run_jj(["abandon", "@-"]).success();
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  rlvkpnrzqnoo conflict
     ◆  zzzzzzzzzzzz
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["next", "--conflict"]);
+    let output = work_dir.run_jj(["next", "--conflict"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: The working copy parent(s) have no other descendants with conflicts
@@ -1136,7 +932,7 @@ fn test_next_conflict_head() {
     [exit status: 1]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["next", "--conflict", "--edit"]);
+    let output = work_dir.run_jj(["next", "--conflict", "--edit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: The working copy has no descendants with conflicts
@@ -1152,18 +948,12 @@ fn test_movement_edit_mode_true() {
     test_env.add_config(r#"ui.movement.edit = true"#);
 
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "first"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "second"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "third"])
-        .success();
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    work_dir.run_jj(["commit", "-m", "first"]).success();
+    work_dir.run_jj(["commit", "-m", "second"]).success();
+    work_dir.run_jj(["commit", "-m", "third"]).success();
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  zsuskulnrvyr
     ○  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
@@ -1172,9 +962,9 @@ fn test_movement_edit_mode_true() {
     [EOF]
     ");
 
-    test_env.run_jj_in(&repo_path, ["prev"]).success();
+    work_dir.run_jj(["prev"]).success();
 
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
@@ -1182,7 +972,7 @@ fn test_movement_edit_mode_true() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["prev"]);
+    let output = work_dir.run_jj(["prev"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy now at: rlvkpnrz 9ed53a4a (empty) second
@@ -1190,7 +980,7 @@ fn test_movement_edit_mode_true() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     ○  kkmpptxzrspx third
     @  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
@@ -1198,7 +988,7 @@ fn test_movement_edit_mode_true() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["prev"]);
+    let output = work_dir.run_jj(["prev"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy now at: qpvuntsm fa15625b (empty) first
@@ -1206,7 +996,7 @@ fn test_movement_edit_mode_true() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     ○  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
     @  qpvuntsmwlqt first
@@ -1214,7 +1004,7 @@ fn test_movement_edit_mode_true() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["prev"]);
+    let output = work_dir.run_jj(["prev"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: The root commit 000000000000 is immutable
@@ -1222,7 +1012,7 @@ fn test_movement_edit_mode_true() {
     [exit status: 1]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["next"]);
+    let output = work_dir.run_jj(["next"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy now at: rlvkpnrz 9ed53a4a (empty) second
@@ -1230,7 +1020,7 @@ fn test_movement_edit_mode_true() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     ○  kkmpptxzrspx third
     @  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
@@ -1238,7 +1028,7 @@ fn test_movement_edit_mode_true() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["next"]);
+    let output = work_dir.run_jj(["next"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy now at: kkmpptxz 30056b0c (empty) third
@@ -1246,7 +1036,7 @@ fn test_movement_edit_mode_true() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
@@ -1254,7 +1044,7 @@ fn test_movement_edit_mode_true() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["prev", "--no-edit"]);
+    let output = work_dir.run_jj(["prev", "--no-edit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy now at: uyznsvlq 7ad57fb8 (empty) (no description set)
@@ -1262,7 +1052,7 @@ fn test_movement_edit_mode_true() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  uyznsvlquzzm
     │ ○  kkmpptxzrspx third
     │ ○  rlvkpnrzqnoo second
@@ -1272,7 +1062,7 @@ fn test_movement_edit_mode_true() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["next", "--no-edit"]);
+    let output = work_dir.run_jj(["next", "--no-edit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy now at: xtnwkqum 7ac7a1c4 (empty) (no description set)
@@ -1280,7 +1070,7 @@ fn test_movement_edit_mode_true() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  xtnwkqumpolk
     │ ○  kkmpptxzrspx third
     ├─╯
@@ -1290,7 +1080,7 @@ fn test_movement_edit_mode_true() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["next"]);
+    let output = work_dir.run_jj(["next"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: No descendant found 1 commit(s) forward from the working copy
@@ -1306,18 +1096,12 @@ fn test_movement_edit_mode_false() {
     test_env.add_config(r#"ui.movement.edit = false"#);
 
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "first"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "second"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "third"])
-        .success();
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    work_dir.run_jj(["commit", "-m", "first"]).success();
+    work_dir.run_jj(["commit", "-m", "second"]).success();
+    work_dir.run_jj(["commit", "-m", "third"]).success();
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  zsuskulnrvyr
     ○  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
@@ -1326,9 +1110,9 @@ fn test_movement_edit_mode_false() {
     [EOF]
     ");
 
-    test_env.run_jj_in(&repo_path, ["prev"]).success();
+    work_dir.run_jj(["prev"]).success();
 
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  royxmykxtrkr
     │ ○  kkmpptxzrspx third
     ├─╯
@@ -1338,7 +1122,7 @@ fn test_movement_edit_mode_false() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["prev", "--no-edit"]);
+    let output = work_dir.run_jj(["prev", "--no-edit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy now at: vruxwmqv 087a65b1 (empty) (no description set)
@@ -1346,7 +1130,7 @@ fn test_movement_edit_mode_false() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  vruxwmqvtpmx
     │ ○  kkmpptxzrspx third
     │ ○  rlvkpnrzqnoo second
@@ -1356,7 +1140,7 @@ fn test_movement_edit_mode_false() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["prev", "3"]);
+    let output = work_dir.run_jj(["prev", "3"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: No ancestor found 3 commit(s) back from the working copy parents(s)
@@ -1365,7 +1149,7 @@ fn test_movement_edit_mode_false() {
     [exit status: 1]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["next"]);
+    let output = work_dir.run_jj(["next"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy now at: kpqxywon d06750fb (empty) (no description set)
@@ -1373,7 +1157,7 @@ fn test_movement_edit_mode_false() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  kpqxywonksrl
     │ ○  kkmpptxzrspx third
     ├─╯
@@ -1383,7 +1167,7 @@ fn test_movement_edit_mode_false() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["next", "--no-edit"]);
+    let output = work_dir.run_jj(["next", "--no-edit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy now at: wqnwkozp 10fa181f (empty) (no description set)
@@ -1391,7 +1175,7 @@ fn test_movement_edit_mode_false() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["prev", "--edit", "2"]);
+    let output = work_dir.run_jj(["prev", "--edit", "2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy now at: rlvkpnrz 9ed53a4a (empty) second
@@ -1399,7 +1183,7 @@ fn test_movement_edit_mode_false() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     ○  kkmpptxzrspx third
     @  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
@@ -1407,7 +1191,7 @@ fn test_movement_edit_mode_false() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["next", "--edit"]);
+    let output = work_dir.run_jj(["next", "--edit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy now at: kkmpptxz 30056b0c (empty) third
@@ -1415,7 +1199,7 @@ fn test_movement_edit_mode_false() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
@@ -1430,38 +1214,20 @@ fn test_next_offset_when_wc_has_descendants() {
     test_env.add_config(r#"ui.movement.edit = false"#);
 
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "base"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "right-wc"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "right-1"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "right-2"])
-        .success();
+    work_dir.run_jj(["commit", "-m", "base"]).success();
+    work_dir.run_jj(["commit", "-m", "right-wc"]).success();
+    work_dir.run_jj(["commit", "-m", "right-1"]).success();
+    work_dir.run_jj(["commit", "-m", "right-2"]).success();
 
-    test_env
-        .run_jj_in(&repo_path, ["new", "description(base)"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "left-wc"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "left-1"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "left-2"])
-        .success();
+    work_dir.run_jj(["new", "description(base)"]).success();
+    work_dir.run_jj(["commit", "-m", "left-wc"]).success();
+    work_dir.run_jj(["commit", "-m", "left-1"]).success();
+    work_dir.run_jj(["commit", "-m", "left-2"]).success();
 
-    test_env
-        .run_jj_in(&repo_path, ["edit", "description(right-wc)"])
-        .success();
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    work_dir.run_jj(["edit", "description(right-wc)"]).success();
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     ○  zsuskulnrvyr right-2
     ○  kkmpptxzrspx right-1
     @  rlvkpnrzqnoo right-wc
@@ -1474,8 +1240,8 @@ fn test_next_offset_when_wc_has_descendants() {
     [EOF]
     ");
 
-    test_env.run_jj_in(&repo_path, ["next", "2"]).success();
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    work_dir.run_jj(["next", "2"]).success();
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  kmkuslswpqwq
     │ ○  vruxwmqvtpmx left-2
     ├─╯
@@ -1490,10 +1256,8 @@ fn test_next_offset_when_wc_has_descendants() {
     [EOF]
     ");
 
-    test_env
-        .run_jj_in(&repo_path, ["edit", "description(left-wc)"])
-        .success();
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    work_dir.run_jj(["edit", "description(left-wc)"]).success();
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     ○  vruxwmqvtpmx left-2
     ○  yqosqzytrlsw left-1
     @  royxmykxtrkr left-wc
@@ -1506,8 +1270,8 @@ fn test_next_offset_when_wc_has_descendants() {
     [EOF]
     ");
 
-    test_env.run_jj_in(&repo_path, ["next"]).success();
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    work_dir.run_jj(["next"]).success();
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  nkmrtpmomlro
     │ ○  zsuskulnrvyr right-2
     │ ○  kkmpptxzrspx right-1
@@ -1524,7 +1288,7 @@ fn test_next_offset_when_wc_has_descendants() {
 }
 
 #[must_use]
-fn get_log_output(test_env: &TestEnvironment, cwd: &Path) -> CommandOutput {
+fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     let template = r#"separate(" ", change_id.short(), local_bookmarks, if(conflict, "conflict"), description)"#;
-    test_env.run_jj_in(cwd, ["log", "-T", template])
+    work_dir.run_jj(["log", "-T", template])
 }
