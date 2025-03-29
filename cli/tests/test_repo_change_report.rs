@@ -18,16 +18,16 @@ use crate::common::TestEnvironment;
 fn test_report_conflicts() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(repo_path.join("file"), "A\n").unwrap();
-    test_env.run_jj_in(&repo_path, ["commit", "-m=A"]).success();
-    std::fs::write(repo_path.join("file"), "B\n").unwrap();
-    test_env.run_jj_in(&repo_path, ["commit", "-m=B"]).success();
-    std::fs::write(repo_path.join("file"), "C\n").unwrap();
-    test_env.run_jj_in(&repo_path, ["commit", "-m=C"]).success();
+    work_dir.write_file("file", "A\n");
+    work_dir.run_jj(["commit", "-m=A"]).success();
+    work_dir.write_file("file", "B\n");
+    work_dir.run_jj(["commit", "-m=B"]).success();
+    work_dir.write_file("file", "C\n");
+    work_dir.run_jj(["commit", "-m=C"]).success();
 
-    let output = test_env.run_jj_in(&repo_path, ["rebase", "-s=description(B)", "-d=root()"]);
+    let output = work_dir.run_jj(["rebase", "-s=description(B)", "-d=root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 3 commits onto destination
@@ -47,7 +47,7 @@ fn test_report_conflicts() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["rebase", "-d=description(A)"]);
+    let output = work_dir.run_jj(["rebase", "-d=description(A)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 3 commits onto destination
@@ -59,7 +59,7 @@ fn test_report_conflicts() {
     ");
 
     // Can get hint about multiple root commits
-    let output = test_env.run_jj_in(&repo_path, ["rebase", "-r=description(B)", "-d=root()"]);
+    let output = work_dir.run_jj(["rebase", "-r=description(B)", "-d=root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits onto destination
@@ -82,7 +82,7 @@ fn test_report_conflicts() {
     ");
 
     // Resolve one of the conflicts by (mostly) following the instructions
-    let output = test_env.run_jj_in(&repo_path, ["new", "rlvkpnrzqnoo"]);
+    let output = work_dir.run_jj(["new", "rlvkpnrzqnoo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy now at: vruxwmqv 0485e30f (conflict) (empty) (no description set)
@@ -92,8 +92,8 @@ fn test_report_conflicts() {
     file    2-sided conflict including 1 deletion
     [EOF]
     ");
-    std::fs::write(repo_path.join("file"), "resolved\n").unwrap();
-    let output = test_env.run_jj_in(&repo_path, ["squash"]);
+    work_dir.write_file("file", "resolved\n");
+    let output = work_dir.run_jj(["squash"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy now at: yostqsxw f5a0cf8c (empty) (no description set)
@@ -107,24 +107,20 @@ fn test_report_conflicts() {
 fn test_report_conflicts_with_divergent_commits() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m=A"])
-        .success();
-    std::fs::write(repo_path.join("file"), "A\n").unwrap();
-    test_env.run_jj_in(&repo_path, ["new", "-m=B"]).success();
-    std::fs::write(repo_path.join("file"), "B\n").unwrap();
-    test_env.run_jj_in(&repo_path, ["new", "-m=C"]).success();
-    std::fs::write(repo_path.join("file"), "C\n").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m=C2"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["describe", "-m=C3", "--at-op=@-"])
+    work_dir.run_jj(["describe", "-m=A"]).success();
+    work_dir.write_file("file", "A\n");
+    work_dir.run_jj(["new", "-m=B"]).success();
+    work_dir.write_file("file", "B\n");
+    work_dir.run_jj(["new", "-m=C"]).success();
+    work_dir.write_file("file", "C\n");
+    work_dir.run_jj(["describe", "-m=C2"]).success();
+    work_dir
+        .run_jj(["describe", "-m=C3", "--at-op=@-"])
         .success();
 
-    let output = test_env.run_jj_in(&repo_path, ["rebase", "-s=description(B)", "-d=root()"]);
+    let output = work_dir.run_jj(["rebase", "-s=description(B)", "-d=root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
@@ -146,7 +142,7 @@ fn test_report_conflicts_with_divergent_commits() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["rebase", "-d=description(A)"]);
+    let output = work_dir.run_jj(["rebase", "-d=description(A)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 3 commits onto destination
@@ -158,7 +154,7 @@ fn test_report_conflicts_with_divergent_commits() {
     ");
 
     // Same thing when rebasing the divergent commits one at a time
-    let output = test_env.run_jj_in(&repo_path, ["rebase", "-s=description(C2)", "-d=root()"]);
+    let output = work_dir.run_jj(["rebase", "-s=description(C2)", "-d=root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits onto destination
@@ -177,7 +173,7 @@ fn test_report_conflicts_with_divergent_commits() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["rebase", "-s=description(C3)", "-d=root()"]);
+    let output = work_dir.run_jj(["rebase", "-s=description(C3)", "-d=root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits onto destination
@@ -191,10 +187,7 @@ fn test_report_conflicts_with_divergent_commits() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(
-        &repo_path,
-        ["rebase", "-s=description(C2)", "-d=description(B)"],
-    );
+    let output = work_dir.run_jj(["rebase", "-s=description(C2)", "-d=description(B)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits onto destination
@@ -205,10 +198,7 @@ fn test_report_conflicts_with_divergent_commits() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(
-        &repo_path,
-        ["rebase", "-s=description(C3)", "-d=description(B)"],
-    );
+    let output = work_dir.run_jj(["rebase", "-s=description(C3)", "-d=description(B)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits onto destination
@@ -221,24 +211,21 @@ fn test_report_conflicts_with_divergent_commits() {
 fn test_report_conflicts_with_resolving_conflicts_hint_disabled() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(repo_path.join("file"), "A\n").unwrap();
-    test_env.run_jj_in(&repo_path, ["commit", "-m=A"]).success();
-    std::fs::write(repo_path.join("file"), "B\n").unwrap();
-    test_env.run_jj_in(&repo_path, ["commit", "-m=B"]).success();
-    std::fs::write(repo_path.join("file"), "C\n").unwrap();
-    test_env.run_jj_in(&repo_path, ["commit", "-m=C"]).success();
+    work_dir.write_file("file", "A\n");
+    work_dir.run_jj(["commit", "-m=A"]).success();
+    work_dir.write_file("file", "B\n");
+    work_dir.run_jj(["commit", "-m=B"]).success();
+    work_dir.write_file("file", "C\n");
+    work_dir.run_jj(["commit", "-m=C"]).success();
 
-    let output = test_env.run_jj_in(
-        &repo_path,
-        [
-            "rebase",
-            "-s=description(B)",
-            "-d=root()",
-            "--config=hints.resolving-conflicts=false",
-        ],
-    );
+    let output = work_dir.run_jj([
+        "rebase",
+        "-s=description(B)",
+        "-d=root()",
+        "--config=hints.resolving-conflicts=false",
+    ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 3 commits onto destination
