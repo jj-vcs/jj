@@ -37,6 +37,9 @@ program = "gpgsm"
 # allowed-signers = <unknown>
 program = "ssh-keygen"
 
+[snapshot]
+max-new-file-size = "1MiB"
+
 [ui]
 conflict-marker-style = "diff"
 
