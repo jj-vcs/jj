@@ -2213,6 +2213,56 @@ fn test_bookmark_list_conflicted() {
 }
 
 #[test]
+fn test_bookmark_list_sort_unknown_key_error() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["bookmark", "list", "--sort", "date"]), @r"
+    ------- stderr -------
+    error: invalid value 'date' for '--sort <SORT_KEY>'
+      [possible values: name, name-, author-name, author-name-, author-email, author-email-, author-date, author-date-, committer-name, committer-name-, committer-email, committer-email-, committer-date, committer-date-]
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+}
+
+#[test]
+fn test_bookmark_list_sort_multiple_keys() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+    for (bookmark, committeremail) in [("c", "bob@g.c"), ("b", "alice@g.c"), ("a", "bob@g.c")] {
+        test_env
+            .run_jj_in(
+                &repo_path,
+                [
+                    &format!("--config=user.email={committeremail}"),
+                    "new",
+                    "root()",
+                    "-m",
+                    "fix",
+                ],
+            )
+            .success();
+        test_env
+            .run_jj_in(&repo_path, ["bookmark", "create", "-r@", bookmark])
+            .success();
+    }
+
+    let template =
+        r#"name ++ ": " ++ if(normal_target, normal_target.committer().email()) ++ "\n""#;
+    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["bookmark", "list", "-T", template, "--sort", "committer-email", "--sort", "committer-date-"]), @r"
+    b: alice@g.c
+    a: bob@g.c
+    c: bob@g.c
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_bookmark_create_with_default_target_revision() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
