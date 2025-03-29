@@ -173,7 +173,7 @@ fn test_init_checkout(backend: TestRepoBackend) {
         wc_commit.store_commit().parents,
         vec![repo.store().root_commit_id().clone()]
     );
-    assert!(wc_commit.predecessors().next().is_none());
+    assert!(wc_commit.predecessors(repo.as_ref()).next().is_none());
     assert_eq!(wc_commit.description(), "");
     assert_eq!(wc_commit.author().name, settings.user_name());
     assert_eq!(wc_commit.author().email, settings.user_email());

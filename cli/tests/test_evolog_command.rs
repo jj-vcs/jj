@@ -331,6 +331,49 @@ fn test_evolog_squash() {
 }
 
 #[test]
+fn test_evolog_abandoned_op() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "");
+    work_dir.run_jj(["describe", "-mfile1"]).success();
+    work_dir.write_file("file2", "");
+    work_dir.run_jj(["describe", "-mfile2"]).success();
+
+    insta::assert_snapshot!(work_dir.run_jj(["evolog", "--summary"]), @r"
+    @  qpvuntsm test.user@example.com 2001-02-03 08:05:09 316e3c73
+    │  file2
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:09 ea734675
+    │  file1
+    │  A file2
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 dc90a674
+    │  file1
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 1c867a07
+    │  (no description set)
+    │  A file1
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 230dd059
+       (empty) (no description set)
+    [EOF]
+    ");
+
+    // Truncate up to the last "describe -mfile2" operation
+    work_dir.run_jj(["op", "abandon", "..@--"]).success();
+
+    // Unreachable predecessors are omitted, therefore the bottom commit shows
+    // diffs from the empty tree.
+    insta::assert_snapshot!(work_dir.run_jj(["evolog", "--summary"]), @r"
+    @  qpvuntsm test.user@example.com 2001-02-03 08:05:09 316e3c73
+    │  file2
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:09 ea734675
+    │  file1
+    ~  A file1
+       A file2
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_evolog_with_no_template() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();

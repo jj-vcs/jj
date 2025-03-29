@@ -35,6 +35,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - `branches()`, `local_branches()`, and `remote_branches()`, which were
     renamed to "bookmarks".
 
+* `jj op abandon` now discards previous versions of a change (or predecessors)
+  if they are only reachable via the evolution log.
+
 ### Deprecations
 
 * `core.watchman.register_snapshot_trigger` has been renamed to `core.watchman.register-snapshot-trigger` for consistency with other configuration options.
