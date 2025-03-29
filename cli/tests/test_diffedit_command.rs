@@ -125,8 +125,8 @@ fn test_diffedit() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created kkmpptxz cbc7a725 (no description set)
-    Working copy now at: kkmpptxz cbc7a725 (no description set)
-    Parent commit      : rlvkpnrz a72506cd (no description set)
+    Working copy  (@) now at: kkmpptxz cbc7a725 (no description set)
+    Parent commit (@-)      : rlvkpnrz a72506cd (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
@@ -144,8 +144,8 @@ fn test_diffedit() {
     ------- stderr -------
     Created rlvkpnrz d4eef3fc (no description set)
     Rebased 1 descendant commits
-    Working copy now at: kkmpptxz 59ef1b95 (no description set)
-    Parent commit      : rlvkpnrz d4eef3fc (no description set)
+    Working copy  (@) now at: kkmpptxz 59ef1b95 (no description set)
+    Parent commit (@-)      : rlvkpnrz d4eef3fc (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
@@ -163,8 +163,8 @@ fn test_diffedit() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created kkmpptxz 5b585bd1 (no description set)
-    Working copy now at: kkmpptxz 5b585bd1 (no description set)
-    Parent commit      : rlvkpnrz a72506cd (no description set)
+    Working copy  (@) now at: kkmpptxz 5b585bd1 (no description set)
+    Parent commit (@-)      : rlvkpnrz a72506cd (no description set)
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -213,8 +213,8 @@ fn test_diffedit_new_file() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created rlvkpnrz b0376e2b (no description set)
-    Working copy now at: rlvkpnrz b0376e2b (no description set)
-    Parent commit      : qpvuntsm b739eb46 (no description set)
+    Working copy  (@) now at: rlvkpnrz b0376e2b (no description set)
+    Parent commit (@-)      : qpvuntsm b739eb46 (no description set)
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -339,9 +339,9 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created mzvwutvl fb39e804 (conflict) (empty) (no description set)
-    Working copy now at: mzvwutvl fb39e804 (conflict) (empty) (no description set)
-    Parent commit      : rlvkpnrz 3765cc27 side-a
-    Parent commit      : zsuskuln 8b3de837 side-b
+    Working copy  (@) now at: mzvwutvl fb39e804 (conflict) (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 3765cc27 side-a
+    Parent commit (@-)      : zsuskuln 8b3de837 side-b
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
@@ -418,9 +418,9 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     let output = work_dir.run_jj(["st"]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
-    Working copy : mzvwutvl fb39e804 (conflict) (empty) (no description set)
-    Parent commit: rlvkpnrz 3765cc27 side-a
-    Parent commit: zsuskuln 8b3de837 side-b
+    Working copy  (@) : mzvwutvl fb39e804 (conflict) (empty) (no description set)
+    Parent commit (@-): rlvkpnrz 3765cc27 side-a
+    Parent commit (@-): zsuskuln 8b3de837 side-b
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
     [EOF]
@@ -488,8 +488,8 @@ fn test_diffedit_3pane() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created kkmpptxz ed8aada3 (no description set)
-    Working copy now at: kkmpptxz ed8aada3 (no description set)
-    Parent commit      : rlvkpnrz a72506cd (no description set)
+    Working copy  (@) now at: kkmpptxz ed8aada3 (no description set)
+    Parent commit (@-)      : rlvkpnrz a72506cd (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
@@ -506,8 +506,8 @@ fn test_diffedit_3pane() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created kkmpptxz 7c19e689 (no description set)
-    Working copy now at: kkmpptxz 7c19e689 (no description set)
-    Parent commit      : rlvkpnrz a72506cd (no description set)
+    Working copy  (@) now at: kkmpptxz 7c19e689 (no description set)
+    Parent commit (@-)      : rlvkpnrz a72506cd (no description set)
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -581,8 +581,8 @@ fn test_diffedit_merge() {
     ------- stderr -------
     Created royxmykx 0105de4a (conflict) merge
     Rebased 1 descendant commits
-    Working copy now at: yqosqzyt abbb78c1 (conflict) (empty) (no description set)
-    Parent commit      : royxmykx 0105de4a (conflict) merge
+    Working copy  (@) now at: yqosqzyt abbb78c1 (conflict) (empty) (no description set)
+    Parent commit (@-)      : royxmykx 0105de4a (conflict) merge
     Added 0 files, modified 0 files, removed 1 files
     Warning: There are unresolved conflicts at these paths:
     file2    2-sided conflict
@@ -661,8 +661,8 @@ fn test_diffedit_old_restore_interactive_tests() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created rlvkpnrz 69811eda (no description set)
-    Working copy now at: rlvkpnrz 69811eda (no description set)
-    Parent commit      : qpvuntsm fc687cb8 (no description set)
+    Working copy  (@) now at: rlvkpnrz 69811eda (no description set)
+    Parent commit (@-)      : qpvuntsm fc687cb8 (no description set)
     Added 0 files, modified 1 files, removed 1 files
     [EOF]
     ");
@@ -679,8 +679,8 @@ fn test_diffedit_old_restore_interactive_tests() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created rlvkpnrz 2b76a42e (no description set)
-    Working copy now at: rlvkpnrz 2b76a42e (no description set)
-    Parent commit      : qpvuntsm fc687cb8 (no description set)
+    Working copy  (@) now at: rlvkpnrz 2b76a42e (no description set)
+    Parent commit (@-)      : qpvuntsm fc687cb8 (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
@@ -731,8 +731,8 @@ fn test_diffedit_restore_descendants() {
     ------- stderr -------
     Created rlvkpnrz 62b8c2ce (no description set)
     Rebased 1 descendant commits (while preserving their content)
-    Working copy now at: kkmpptxz 321d1cd1 (no description set)
-    Parent commit      : rlvkpnrz 62b8c2ce (no description set)
+    Working copy  (@) now at: kkmpptxz 321d1cd1 (no description set)
+    Parent commit (@-)      : rlvkpnrz 62b8c2ce (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "--git"]);

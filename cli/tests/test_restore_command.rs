@@ -48,8 +48,8 @@ fn test_restore() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created kkmpptxz 370d81ea (empty) (no description set)
-    Working copy now at: kkmpptxz 370d81ea (empty) (no description set)
-    Parent commit      : rlvkpnrz ef160660 (no description set)
+    Working copy  (@) now at: kkmpptxz 370d81ea (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz ef160660 (no description set)
     Added 1 files, modified 1 files, removed 1 files
     [EOF]
     ");
@@ -68,8 +68,8 @@ fn test_restore() {
     ------- stderr -------
     Created rlvkpnrz b9b6011e (empty) (no description set)
     Rebased 1 descendant commits
-    Working copy now at: kkmpptxz 5b361547 (conflict) (no description set)
-    Parent commit      : rlvkpnrz b9b6011e (empty) (no description set)
+    Working copy  (@) now at: kkmpptxz 5b361547 (conflict) (no description set)
+    Parent commit (@-)      : rlvkpnrz b9b6011e (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file2    2-sided conflict including 1 deletion
@@ -91,8 +91,8 @@ fn test_restore() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created kkmpptxz 1154634b (no description set)
-    Working copy now at: kkmpptxz 1154634b (no description set)
-    Parent commit      : rlvkpnrz ef160660 (no description set)
+    Working copy  (@) now at: kkmpptxz 1154634b (no description set)
+    Parent commit (@-)      : rlvkpnrz ef160660 (no description set)
     Added 1 files, modified 0 files, removed 2 files
     [EOF]
     ");
@@ -109,8 +109,8 @@ fn test_restore() {
     ------- stderr -------
     Created rlvkpnrz ad805965 (no description set)
     Rebased 1 descendant commits
-    Working copy now at: kkmpptxz 3fcdcbf2 (empty) (no description set)
-    Parent commit      : rlvkpnrz ad805965 (no description set)
+    Working copy  (@) now at: kkmpptxz 3fcdcbf2 (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz ad805965 (no description set)
     [EOF]
     ");
     let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
@@ -130,8 +130,8 @@ fn test_restore() {
     ------- stderr -------
     Created rlvkpnrz f256040a (no description set)
     Rebased 1 descendant commits
-    Working copy now at: kkmpptxz 9c6f2083 (empty) (no description set)
-    Parent commit      : rlvkpnrz f256040a (no description set)
+    Working copy  (@) now at: kkmpptxz 9c6f2083 (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz f256040a (no description set)
     [EOF]
     ");
     let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
@@ -150,8 +150,8 @@ fn test_restore() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created kkmpptxz 4ad35a2f (no description set)
-    Working copy now at: kkmpptxz 4ad35a2f (no description set)
-    Parent commit      : rlvkpnrz ef160660 (no description set)
+    Working copy  (@) now at: kkmpptxz 4ad35a2f (no description set)
+    Parent commit (@-)      : rlvkpnrz ef160660 (no description set)
     Added 0 files, modified 1 files, removed 1 files
     [EOF]
     ");
@@ -231,9 +231,9 @@ fn test_restore_conflicted_merge() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created vruxwmqv 25a37060 conflict | (conflict) (empty) conflict
-    Working copy now at: vruxwmqv 25a37060 conflict | (conflict) (empty) conflict
-    Parent commit      : zsuskuln aa493daf a | a
-    Parent commit      : royxmykx db6a4daf b | b
+    Working copy  (@) now at: vruxwmqv 25a37060 conflict | (conflict) (empty) conflict
+    Parent commit (@-)      : zsuskuln aa493daf a | a
+    Parent commit (@-)      : royxmykx db6a4daf b | b
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
@@ -273,9 +273,9 @@ fn test_restore_conflicted_merge() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created vruxwmqv f2c82b9c conflict | (conflict) (empty) conflict
-    Working copy now at: vruxwmqv f2c82b9c conflict | (conflict) (empty) conflict
-    Parent commit      : zsuskuln aa493daf a | a
-    Parent commit      : royxmykx db6a4daf b | b
+    Working copy  (@) now at: vruxwmqv f2c82b9c conflict | (conflict) (empty) conflict
+    Parent commit (@-)      : zsuskuln aa493daf a | a
+    Parent commit (@-)      : royxmykx db6a4daf b | b
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
@@ -348,9 +348,9 @@ fn test_restore_restore_descendants() {
     ------- stderr -------
     Created royxmykx 3fd5aa05 b | b
     Rebased 1 descendant commits (while preserving their content)
-    Working copy now at: vruxwmqv bf5491a0 ab | ab
-    Parent commit      : zsuskuln aa493daf a | a
-    Parent commit      : royxmykx 3fd5aa05 b | b
+    Working copy  (@) now at: vruxwmqv bf5491a0 ab | ab
+    Parent commit (@-)      : zsuskuln aa493daf a | a
+    Parent commit (@-)      : royxmykx 3fd5aa05 b | b
     [EOF]
     ");
 
@@ -433,8 +433,8 @@ fn test_restore_interactive() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created zsuskuln bccde490 b | b
-    Working copy now at: zsuskuln bccde490 b | b
-    Parent commit      : rlvkpnrz 186caaef a | a
+    Working copy  (@) now at: zsuskuln bccde490 b | b
+    Parent commit (@-)      : rlvkpnrz 186caaef a | a
     Added 0 files, modified 1 files, removed 1 files
     [EOF]
     ");
@@ -467,8 +467,8 @@ fn test_restore_interactive() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created zsuskuln 5921de19 b | b
-    Working copy now at: zsuskuln 5921de19 b | b
-    Parent commit      : rlvkpnrz 186caaef a | a
+    Working copy  (@) now at: zsuskuln 5921de19 b | b
+    Parent commit (@-)      : rlvkpnrz 186caaef a | a
     Added 0 files, modified 1 files, removed 1 files
     [EOF]
     ");
@@ -543,9 +543,9 @@ fn test_restore_interactive_merge() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created royxmykx 72e0cbf4 c | c
-    Working copy now at: royxmykx 72e0cbf4 c | c
-    Parent commit      : rlvkpnrz 79c1b823 a | a
-    Parent commit      : zsuskuln 29e70804 b | b
+    Working copy  (@) now at: royxmykx 72e0cbf4 c | c
+    Parent commit (@-)      : rlvkpnrz 79c1b823 a | a
+    Parent commit (@-)      : zsuskuln 29e70804 b | b
     Added 0 files, modified 1 files, removed 1 files
     [EOF]
     ");
@@ -623,8 +623,8 @@ fn test_restore_interactive_with_paths() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created zsuskuln 7187da33 b | b
-    Working copy now at: zsuskuln 7187da33 b | b
-    Parent commit      : rlvkpnrz 186caaef a | a
+    Working copy  (@) now at: zsuskuln 7187da33 b | b
+    Parent commit (@-)      : rlvkpnrz 186caaef a | a
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");

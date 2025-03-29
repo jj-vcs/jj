@@ -48,8 +48,8 @@ fn test_absorb_simple() {
     Absorbed changes into 2 revisions:
       zsuskuln 3027ca7a 2
       kkmpptxz d0f1e8dd 1
-    Working copy now at: yqosqzyt 277bed24 (empty) (no description set)
-    Parent commit      : zsuskuln 3027ca7a 2
+    Working copy  (@) now at: yqosqzyt 277bed24 (empty) (no description set)
+    Parent commit (@-)      : zsuskuln 3027ca7a 2
     [EOF]
     ");
 
@@ -61,8 +61,8 @@ fn test_absorb_simple() {
     Absorbed changes into 1 revisions:
       kkmpptxz d366d92c 1
     Rebased 1 descendant commits.
-    Working copy now at: vruxwmqv 32eb72fe (empty) (no description set)
-    Parent commit      : zsuskuln 5bf0bc06 2
+    Working copy  (@) now at: vruxwmqv 32eb72fe (empty) (no description set)
+    Parent commit (@-)      : zsuskuln 5bf0bc06 2
     [EOF]
     ");
 
@@ -73,8 +73,8 @@ fn test_absorb_simple() {
     ------- stderr -------
     Absorbed changes into 1 revisions:
       zsuskuln 6e2c4777 2
-    Working copy now at: yostqsxw 4a48490c (empty) (no description set)
-    Parent commit      : zsuskuln 6e2c4777 2
+    Working copy  (@) now at: yostqsxw 4a48490c (empty) (no description set)
+    Parent commit (@-)      : zsuskuln 6e2c4777 2
     [EOF]
     ");
 
@@ -178,8 +178,8 @@ fn test_absorb_replace_single_line_hunk() {
     Absorbed changes into 1 revisions:
       qpvuntsm 7e885236 (conflict) 1
     Rebased 1 descendant commits.
-    Working copy now at: mzvwutvl e9c3b95b (empty) (no description set)
-    Parent commit      : kkmpptxz 7c36845c 2
+    Working copy  (@) now at: mzvwutvl e9c3b95b (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz 7c36845c 2
     New conflicts appeared in 1 commits:
       qpvuntsm 7e885236 (conflict) 1
     Hint: To resolve the conflicts, start by updating to it:
@@ -247,9 +247,9 @@ fn test_absorb_merge() {
     let output = work_dir.run_jj(["new", "-m3", "description(1)", "description(2)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: mzvwutvl 08898161 (empty) 3
-    Parent commit      : kkmpptxz 7e9df299 1
-    Parent commit      : zsuskuln baf056cf 2
+    Working copy  (@) now at: mzvwutvl 08898161 (empty) 3
+    Parent commit (@-)      : kkmpptxz 7e9df299 1
+    Parent commit (@-)      : zsuskuln baf056cf 2
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
@@ -263,9 +263,9 @@ fn test_absorb_merge() {
       zsuskuln 71d1ee56 2
       kkmpptxz 4d379399 1
     Rebased 1 descendant commits.
-    Working copy now at: mzvwutvl 9db19b54 (empty) 3
-    Parent commit      : kkmpptxz 4d379399 1
-    Parent commit      : zsuskuln 71d1ee56 2
+    Working copy  (@) now at: mzvwutvl 9db19b54 (empty) 3
+    Parent commit (@-)      : kkmpptxz 4d379399 1
+    Parent commit (@-)      : zsuskuln 71d1ee56 2
     [EOF]
     ");
 
@@ -280,8 +280,8 @@ fn test_absorb_merge() {
     ------- stderr -------
     Absorbed changes into 1 revisions:
       mzvwutvl e93c0210 3
-    Working copy now at: vruxwmqv 1b10dfa4 (empty) (no description set)
-    Parent commit      : mzvwutvl e93c0210 3
+    Working copy  (@) now at: vruxwmqv 1b10dfa4 (empty) (no description set)
+    Parent commit (@-)      : mzvwutvl e93c0210 3
     [EOF]
     ");
 
@@ -343,9 +343,9 @@ fn test_absorb_discardable_merge_with_descendant() {
     let output = work_dir.run_jj(["new", "description(1)", "description(2)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: mzvwutvl f59b2364 (empty) (no description set)
-    Parent commit      : kkmpptxz 7e9df299 1
-    Parent commit      : zsuskuln baf056cf 2
+    Working copy  (@) now at: mzvwutvl f59b2364 (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz 7e9df299 1
+    Parent commit (@-)      : zsuskuln baf056cf 2
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
@@ -363,9 +363,9 @@ fn test_absorb_discardable_merge_with_descendant() {
       zsuskuln 02668cf6 2
       kkmpptxz fcabe394 1
     Rebased 1 descendant commits.
-    Working copy now at: royxmykx f04f1247 3
-    Parent commit      : kkmpptxz fcabe394 1
-    Parent commit      : zsuskuln 02668cf6 2
+    Working copy  (@) now at: royxmykx f04f1247 3
+    Parent commit (@-)      : kkmpptxz fcabe394 1
+    Parent commit (@-)      : zsuskuln 02668cf6 2
     [EOF]
     ");
 
@@ -423,8 +423,8 @@ fn test_absorb_conflict() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits onto destination
-    Working copy now at: kkmpptxz 74405a07 (conflict) (no description set)
-    Parent commit      : qpvuntsm 3619e4e5 1
+    Working copy  (@) now at: kkmpptxz 74405a07 (conflict) (no description set)
+    Parent commit (@-)      : qpvuntsm 3619e4e5 1
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file1    2-sided conflict
@@ -514,8 +514,8 @@ fn test_absorb_file_mode() {
     Absorbed changes into 1 revisions:
       qpvuntsm 991365da 1
     Rebased 1 descendant commits.
-    Working copy now at: zsuskuln 77de368e (no description set)
-    Parent commit      : qpvuntsm 991365da 1
+    Working copy  (@) now at: zsuskuln 77de368e (no description set)
+    Parent commit (@-)      : qpvuntsm 991365da 1
     Remaining changes:
     M file1
     [EOF]
@@ -560,8 +560,8 @@ fn test_absorb_from_into() {
     Absorbed changes into 1 revisions:
       kkmpptxz 91df4543 2
     Rebased 1 descendant commits.
-    Working copy now at: zsuskuln d5424357 (no description set)
-    Parent commit      : kkmpptxz 91df4543 2
+    Working copy  (@) now at: zsuskuln d5424357 (no description set)
+    Parent commit (@-)      : kkmpptxz 91df4543 2
     Remaining changes:
     M file1
     [EOF]
@@ -605,8 +605,8 @@ fn test_absorb_from_into() {
     Absorbed changes into 1 revisions:
       rlvkpnrz 3a5fd02e 1
     Rebased 2 descendant commits.
-    Working copy now at: zsuskuln 53ce490b (no description set)
-    Parent commit      : kkmpptxz c94cd773 (empty) 2
+    Working copy  (@) now at: zsuskuln 53ce490b (no description set)
+    Parent commit (@-)      : kkmpptxz c94cd773 (empty) 2
     [EOF]
     ");
 
@@ -674,8 +674,8 @@ fn test_absorb_paths() {
     Absorbed changes into 1 revisions:
       qpvuntsm ae044adb 1
     Rebased 1 descendant commits.
-    Working copy now at: kkmpptxz c6f31836 (no description set)
-    Parent commit      : qpvuntsm ae044adb 1
+    Working copy  (@) now at: kkmpptxz c6f31836 (no description set)
+    Parent commit (@-)      : qpvuntsm ae044adb 1
     Remaining changes:
     M file2
     [EOF]
@@ -735,8 +735,8 @@ fn test_absorb_immutable() {
     Absorbed changes into 1 revisions:
       kkmpptxz d80e3c2a 2
     Rebased 1 descendant commits.
-    Working copy now at: mzvwutvl 3021153d (no description set)
-    Parent commit      : kkmpptxz d80e3c2a 2
+    Working copy  (@) now at: mzvwutvl 3021153d (no description set)
+    Parent commit (@-)      : kkmpptxz d80e3c2a 2
     Remaining changes:
     M file1
     [EOF]

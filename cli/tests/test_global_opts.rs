@@ -130,8 +130,8 @@ fn test_no_subcommand() {
     let output = work_dir.run_jj([""; 0]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: kxryzmor 89c70edf (empty) (no description set)
-    Parent commit      : lylxulpl 51bd3589 foo
+    Working copy  (@) now at: kxryzmor 89c70edf (empty) (no description set)
+    Parent commit (@-)      : lylxulpl 51bd3589 foo
     [EOF]
     ");
 }
@@ -200,8 +200,8 @@ fn test_resolve_workspace_directory() {
     let output = sub_dir.run_jj(["status"]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
-    Working copy : qpvuntsm 230dd059 (empty) (no description set)
-    Parent commit: zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) : qpvuntsm 230dd059 (empty) (no description set)
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 
@@ -218,8 +218,8 @@ fn test_resolve_workspace_directory() {
     let output = sub_dir.run_jj(["status", "-R", "../.."]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
-    Working copy : qpvuntsm 230dd059 (empty) (no description set)
-    Parent commit: zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) : qpvuntsm 230dd059 (empty) (no description set)
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 
@@ -596,8 +596,8 @@ fn test_color_ui_messages() {
     let output = work_dir.run_jj(["st", "--color", "debug"]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
-    Working copy : [1m[38;5;13m<<working_copy change_id shortest prefix::m>>[38;5;8m<<working_copy change_id shortest rest::zvwutvl>>[39m<<working_copy:: >>[38;5;12m<<working_copy commit_id shortest prefix::1>>[38;5;8m<<working_copy commit_id shortest rest::67f90e7>>[39m<<working_copy:: >>[38;5;10m<<working_copy empty::(empty)>>[39m<<working_copy:: >>[38;5;10m<<working_copy empty description placeholder::(no description set)>>[0m
-    Parent commit: [1m[38;5;5m<<change_id shortest prefix::q>>[0m[38;5;8m<<change_id shortest rest::pvuntsm>>[39m [1m[38;5;4m<<commit_id shortest prefix::2>>[0m[38;5;8m<<commit_id shortest rest::30dd059>>[39m [38;5;2m<<empty::(empty)>>[39m [38;5;2m<<empty description placeholder::(no description set)>>[39m
+    Working copy  (@) : [1m[38;5;13m<<working_copy change_id shortest prefix::m>>[38;5;8m<<working_copy change_id shortest rest::zvwutvl>>[39m<<working_copy:: >>[38;5;12m<<working_copy commit_id shortest prefix::1>>[38;5;8m<<working_copy commit_id shortest rest::67f90e7>>[39m<<working_copy:: >>[38;5;10m<<working_copy empty::(empty)>>[39m<<working_copy:: >>[38;5;10m<<working_copy empty description placeholder::(no description set)>>[0m
+    Parent commit (@-): [1m[38;5;5m<<change_id shortest prefix::q>>[0m[38;5;8m<<change_id shortest rest::pvuntsm>>[39m [1m[38;5;4m<<commit_id shortest prefix::2>>[0m[38;5;8m<<commit_id shortest rest::30dd059>>[39m [38;5;2m<<empty::(empty)>>[39m [38;5;2m<<empty description placeholder::(no description set)>>[39m
     [EOF]
     ");
 }
@@ -867,15 +867,15 @@ fn test_conditional_config() {
     let output = test_env.run_jj_in(&test_env.home_dir().join("repo1"), ["foo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: royxmykx 82899b03 (empty) repo1
-    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) now at: royxmykx 82899b03 (empty) repo1
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
     let output = test_env.run_jj_in(&test_env.home_dir().join("repo2"), ["foo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: yqosqzyt 3bd315a9 (empty) home
-    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) now at: yqosqzyt 3bd315a9 (empty) home
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 }
@@ -955,8 +955,8 @@ fn test_default_config() {
     let output = run_jj(&work_dir, &["new"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Working copy now at: <change-id> <id> (empty) (no description set)
-    Parent commit      : <change-id> <id> (empty) (no description set)
+    Working copy  (@) now at: <change-id> <id> (empty) (no description set)
+    Parent commit (@-)      : <change-id> <id> (empty) (no description set)
     Warning: Name and email not configured. Until configured, your commits will be created with the empty identity, and can't be pushed to remotes.
     Hint: To configure, run:
       jj config set --user user.name "Some One"
@@ -1003,8 +1003,8 @@ fn test_no_user_configured() {
     });
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Working copy now at: qpvuntsm 7a7d6016 (empty) without name
-    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) now at: qpvuntsm 7a7d6016 (empty) without name
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Warning: Name not configured. Until configured, your commits will be created with the empty identity, and can't be pushed to remotes.
     Hint: To configure, run:
       jj config set --user user.name "Some One"
@@ -1016,8 +1016,8 @@ fn test_no_user_configured() {
     });
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Working copy now at: qpvuntsm 906f8b89 (empty) without email
-    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) now at: qpvuntsm 906f8b89 (empty) without email
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Warning: Email not configured. Until configured, your commits will be created with the empty identity, and can't be pushed to remotes.
     Hint: To configure, run:
       jj config set --user user.email "someone@example.com"
@@ -1030,8 +1030,8 @@ fn test_no_user_configured() {
     });
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Working copy now at: qpvuntsm 57d3a489 (empty) without name and email
-    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) now at: qpvuntsm 57d3a489 (empty) without name and email
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Warning: Name and email not configured. Until configured, your commits will be created with the empty identity, and can't be pushed to remotes.
     Hint: To configure, run:
       jj config set --user user.name "Some One"

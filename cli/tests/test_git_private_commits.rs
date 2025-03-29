@@ -108,8 +108,8 @@ fn test_git_private_commits_block_pushing() {
     Changes to push to origin:
       Move forward bookmark main from 7eb97bf230ad to aa3058ff8663
     Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
-    Working copy now at: znkkpsqq 2e1adf47 (empty) (no description set)
-    Parent commit      : yqosqzyt aa3058ff main | (empty) private 1
+    Working copy  (@) now at: znkkpsqq 2e1adf47 (empty) (no description set)
+    Parent commit (@-)      : yqosqzyt aa3058ff main | (empty) private 1
     [EOF]
     ");
 }
@@ -144,8 +144,8 @@ fn test_git_private_commits_can_be_overridden() {
     Changes to push to origin:
       Move forward bookmark main from 7eb97bf230ad to aa3058ff8663
     Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
-    Working copy now at: znkkpsqq 2e1adf47 (empty) (no description set)
-    Parent commit      : yqosqzyt aa3058ff main | (empty) private 1
+    Working copy  (@) now at: znkkpsqq 2e1adf47 (empty) (no description set)
+    Parent commit (@-)      : yqosqzyt aa3058ff main | (empty) private 1
     [EOF]
     ");
 }
@@ -169,8 +169,8 @@ fn test_git_private_commits_are_not_checked_if_immutable() {
     Changes to push to origin:
       Move forward bookmark main from 7eb97bf230ad to aa3058ff8663
     Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
-    Working copy now at: yostqsxw dce4a15c (empty) (no description set)
-    Parent commit      : yqosqzyt aa3058ff main | (empty) private 1
+    Working copy  (@) now at: yostqsxw dce4a15c (empty) (no description set)
+    Parent commit (@-)      : yqosqzyt aa3058ff main | (empty) private 1
     [EOF]
     ");
 }
@@ -250,8 +250,8 @@ fn test_git_private_commits_already_on_the_remote_do_not_block_push() {
       Move forward bookmark main from 7eb97bf230ad to fbb352762352
       Add bookmark bookmark1 to 7eb97bf230ad
     Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
-    Working copy now at: kpqxywon a7b08364 (empty) (no description set)
-    Parent commit      : yostqsxw fbb35276 main | (empty) public 3
+    Working copy  (@) now at: kpqxywon a7b08364 (empty) (no description set)
+    Parent commit (@-)      : yostqsxw fbb35276 main | (empty) public 3
     [EOF]
     ");
 

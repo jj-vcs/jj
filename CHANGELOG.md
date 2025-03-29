@@ -89,6 +89,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   reversing colors rather than underlining, you can set
   `colors."diff token"={ underline = false, reverse = true }` in your config.
 
+* `jj status` and output showing the new working copy commit now includes `@`
+  and `@-` to help newcomers learn the symbols.
+
 ### Fixed bugs
 
 * `jj log -p --stat` now shows diff stats as well as the default color-words/git

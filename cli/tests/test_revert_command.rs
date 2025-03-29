@@ -121,8 +121,8 @@ fn test_revert() {
     Reverted 1 commits as follows:
       tlkvzzqu ff67400f Revert "a"
     Rebased 2 descendant commits
-    Working copy now at: vruxwmqv 37ad0315 d | (empty) d
-    Parent commit      : royxmykx ca80e93f c | (empty) c
+    Working copy  (@) now at: vruxwmqv 37ad0315 d | (empty) d
+    Parent commit (@-)      : royxmykx ca80e93f c | (empty) c
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     "#);
@@ -153,8 +153,8 @@ fn test_revert() {
     Reverted 1 commits as follows:
       xlzxqlsl 0b91fe42 Revert "a"
     Rebased 1 descendant commits
-    Working copy now at: vruxwmqv 3a8a8069 d | (empty) d
-    Parent commit      : xlzxqlsl 0b91fe42 Revert "a"
+    Working copy  (@) now at: vruxwmqv 3a8a8069 d | (empty) d
+    Parent commit (@-)      : xlzxqlsl 0b91fe42 Revert "a"
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     "#);
@@ -185,9 +185,9 @@ fn test_revert() {
     Reverted 1 commits as follows:
       pkstwlsy 29508aef Revert "a"
     Rebased 1 descendant commits
-    Working copy now at: vruxwmqv 3489c981 d | (empty) d
-    Parent commit      : royxmykx 14e95430 c | (empty) c
-    Parent commit      : pkstwlsy 29508aef Revert "a"
+    Working copy  (@) now at: vruxwmqv 3489c981 d | (empty) d
+    Parent commit (@-)      : royxmykx 14e95430 c | (empty) c
+    Parent commit (@-)      : pkstwlsy 29508aef Revert "a"
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     "#);

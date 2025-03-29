@@ -31,8 +31,8 @@ fn test_describe() {
     let output = work_dir.run_jj(["describe", "-m", "description from CLI"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: qpvuntsm 95979928 (empty) description from CLI
-    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) now at: qpvuntsm 95979928 (empty) description from CLI
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 
@@ -65,8 +65,8 @@ fn test_describe() {
     let output = work_dir.run_jj(["describe"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: qpvuntsm 94fcb906 (empty) description from editor
-    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) now at: qpvuntsm 94fcb906 (empty) description from editor
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 
@@ -79,8 +79,8 @@ fn test_describe() {
     let output = work_dir.run_jj(["describe"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: qpvuntsm 7a348923 (empty) description among comment
-    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) now at: qpvuntsm 7a348923 (empty) description among comment
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 
@@ -89,8 +89,8 @@ fn test_describe() {
     let output = work_dir.run_jj(["describe"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: qpvuntsm 749361b5 (empty) line1
-    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) now at: qpvuntsm 749361b5 (empty) line1
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
@@ -116,8 +116,8 @@ fn test_describe() {
     let output = work_dir.run_jj(["describe"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: qpvuntsm dc44dbee (empty) line1
-    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) now at: qpvuntsm dc44dbee (empty) line1
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
@@ -131,8 +131,8 @@ fn test_describe() {
     let output = work_dir.run_jj(["describe", "-m", ""]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: qpvuntsm 6296963b (empty) (no description set)
-    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) now at: qpvuntsm 6296963b (empty) (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
     std::fs::write(&edit_script, "write\n").unwrap();
@@ -181,8 +181,8 @@ fn test_describe() {
     let output = work_dir.run_jj(["describe"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: qpvuntsm 10fa2dc7 (empty) description from editor
-    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) now at: qpvuntsm 10fa2dc7 (empty) description from editor
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
@@ -287,8 +287,8 @@ fn test_describe_multiple_commits() {
     ------- stderr -------
     Updated 2 commits
     Rebased 1 descendant commits
-    Working copy now at: kkmpptxz 41659b84 (empty) description from CLI
-    Parent commit      : rlvkpnrz 8d650510 (empty) (no description set)
+    Working copy  (@) now at: kkmpptxz 41659b84 (empty) description from CLI
+    Parent commit (@-)      : rlvkpnrz 8d650510 (empty) (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -351,8 +351,8 @@ fn test_describe_multiple_commits() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Updated 2 commits
-    Working copy now at: kkmpptxz f203494a (empty) description from editor of @
-    Parent commit      : rlvkpnrz 0d76a92c (empty) description from editor of @-
+    Working copy  (@) now at: kkmpptxz f203494a (empty) description from editor of @
+    Parent commit (@-)      : rlvkpnrz 0d76a92c (empty) description from editor of @-
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -518,8 +518,8 @@ fn test_describe_multiple_commits() {
     ------- stderr -------
     Updated 2 commits
     Rebased 1 descendant commits
-    Working copy now at: kkmpptxz 1d7701ee (empty) description from editor of @
-    Parent commit      : rlvkpnrz 5389926e (empty) description from editor for @-
+    Working copy  (@) now at: kkmpptxz 1d7701ee (empty) description from editor of @
+    Parent commit (@-)      : rlvkpnrz 5389926e (empty) description from editor for @-
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -549,8 +549,8 @@ fn test_multiple_message_args() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: qpvuntsm 99a36a50 (empty) First Paragraph from CLI
-    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) now at: qpvuntsm 99a36a50 (empty) First Paragraph from CLI
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 
@@ -588,8 +588,8 @@ fn test_multiple_message_args() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: qpvuntsm 01ac40b3 (empty) First Paragraph from CLI
-    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) now at: qpvuntsm 01ac40b3 (empty) First Paragraph from CLI
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 
@@ -617,8 +617,8 @@ fn test_describe_default_description() {
     let output = work_dir.run_jj(["describe"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: qpvuntsm 573b6df5 TESTED=TODO
-    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) now at: qpvuntsm 573b6df5 TESTED=TODO
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(
@@ -839,8 +839,8 @@ fn test_describe_with_edit_and_message_args_opens_editor() {
     let output = work_dir.run_jj(["describe", "-m", "message from command line", "--edit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: qpvuntsm 61ece7a9 (empty) message from command line
-    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) now at: qpvuntsm 61ece7a9 (empty) message from command line
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(
@@ -866,8 +866,8 @@ fn test_describe_change_with_existing_message_with_edit_and_message_args_opens_e
     let output = work_dir.run_jj(["describe", "-m", "new message", "--edit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: qpvuntsm de694560 (empty) new message
-    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) now at: qpvuntsm de694560 (empty) new message
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(
