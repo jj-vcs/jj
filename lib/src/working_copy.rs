@@ -259,6 +259,9 @@ pub enum UntrackedReason {
     },
     /// File does not match the fileset specified in snapshot.auto-track.
     FileNotAutoTracked,
+    /// File is in a fileset that should be tracked but it matches a
+    /// gitignored pattern.
+    FileInTrackMatcherButIgnored,
 }
 
 /// Options used when checking out a tree in the working copy.
