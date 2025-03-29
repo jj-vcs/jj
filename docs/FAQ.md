@@ -414,19 +414,19 @@ Working on feature B
 ```
 
 Now, we `jj restore` the change `lnvvtr` to its state at commit `b80`. We use
-the `--restore-descendants` flag so that the *file contents* (AKA snapshot) of
+the `--preserve-descendant-content` flag so that the *file contents* (AKA snapshot) of
 the "featureB" change is preserved.
 
 ```console
 $ # We refer to `lnvvtr` as `@-` for brevity
-$ jj restore --from b80 --into @- --restore-descendants
+$ jj restore --from b80 --into @- --preserve-descendant-content
 Created lnvvtr 599994e featureA
 Rebased 1 descendant commits (while preserving their content)
 Working copy now at: pvnrkl 468104c featureB
 Parent commit      : lnvvtr 599994e featureA
 ```
 
-Even though `@-` was modified, `--restore-descendants` preserved the contents of
+Even though `@-` was modified, `--preserve-descendant-content` preserved the contents of
 the current change:
 
 ```console
@@ -437,13 +437,13 @@ $ jj file show -r @- file
 Done with feature A
 ```
 
-??? info "More details on what `--restore-descendants` does"
+??? info "More details on what `--preserve-descendant-content` does"
 
     When we ran the `jj restore` command, the working copy change `@` was
     at commit `471` and `@` was the only child of `@-`. In this situation,
 
     ```shell
-    jj restore --from b80 --into @- --restore-descendants
+    jj restore --from b80 --into @- --preserve-descendant-content
     ```
 
     is equivalent to

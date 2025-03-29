@@ -342,7 +342,13 @@ fn test_restore_restore_descendants() {
     // while preserving its child commit content.
     let output = test_env.run_jj_in(
         &repo_path,
-        ["restore", "-c", "b", "file", "--restore-descendants"],
+        [
+            "restore",
+            "-c",
+            "b",
+            "file",
+            "--preserve-descendant-content",
+        ],
     );
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -351,6 +357,22 @@ fn test_restore_restore_descendants() {
     Working copy now at: vruxwmqv bf5491a0 ab | ab
     Parent commit      : zsuskuln aa493daf a | a
     Parent commit      : royxmykx 3fd5aa05 b | b
+    [EOF]
+    ");
+    // Test the warning for `--restore-descendants`
+    test_env.run_jj_in(&repo_path, ["undo"]).success();
+    let output = test_env.run_jj_in(
+        &repo_path,
+        ["restore", "-c", "b", "file", "--restore-descendants"],
+    );
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: `--restore-descendants` has been renamed to `--preserve-descendant-content` AKA `--pdc`. The old name will become a hard error in the future.
+    Created royxmykx 6c9552cd b | b
+    Rebased 1 descendant commits (while preserving their content)
+    Working copy now at: vruxwmqv b337794b ab | ab
+    Parent commit      : zsuskuln aa493daf a | a
+    Parent commit      : royxmykx 6c9552cd b | b
     [EOF]
     ");
 

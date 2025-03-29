@@ -21,6 +21,7 @@ use itertools::Itertools as _;
 use jj_lib::object_id::ObjectId as _;
 use tracing::instrument;
 
+use crate::cli_util::restore_descendants_warning;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::command_error::user_error;
@@ -100,7 +101,11 @@ pub(crate) struct RestoreArgs {
     #[arg(long, value_name = "NAME")]
     tool: Option<String>,
     /// Preserve the content (not the diff) when rebasing descendants
-    #[arg(long)]
+    #[arg(long, visible_alias = "pdc")]
+    preserve_descendant_content: bool,
+    /// Deprecated alias for `--preserve-descendant-content`. TODO: Remove
+    /// after jj 0.31
+    #[arg(long, hide = true, conflicts_with = "preserve_descendant_content")]
     restore_descendants: bool,
 }
 
@@ -110,6 +115,11 @@ pub(crate) fn cmd_restore(
     command: &CommandHelper,
     args: &RestoreArgs,
 ) -> Result<(), CommandError> {
+    if args.restore_descendants {
+        restore_descendants_warning(ui)?;
+    };
+    let preserve_descendant_content = args.preserve_descendant_content || args.restore_descendants;
+
     let mut workspace_command = command.workspace_helper(ui)?;
     let (from_commits, from_tree, to_commit);
     if args.revision.is_some() {
@@ -168,7 +178,7 @@ pub(crate) fn cmd_restore(
             .write()?;
         // rebase_descendants early; otherwise `new_commit` would always have
         // a conflicted change id at this point.
-        let (num_rebased, extra_msg) = if args.restore_descendants {
+        let (num_rebased, extra_msg) = if preserve_descendant_content {
             (
                 tx.repo_mut().reparent_descendants()?,
                 " (while preserving their content)",

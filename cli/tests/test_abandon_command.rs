@@ -442,13 +442,26 @@ fn test_abandon_restore_descendants() {
     work_dir.write_file("file", "baz\n");
 
     // Remove the commit containing "bar"
-    let output = work_dir.run_jj(["abandon", "-r@-", "--restore-descendants"]);
+    let output = work_dir.run_jj(["abandon", "-r@-", "--preserve-descendant-content"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned 1 commits:
       rlvkpnrz 225adef1 (no description set)
     Rebased 1 descendant commits (while preserving their content) onto parents of abandoned commits
     Working copy now at: kkmpptxz a734deb0 (no description set)
+    Parent commit      : qpvuntsm 485d52a9 (no description set)
+    [EOF]
+    ");
+    // Test the warning for `--restore-descendants`
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj(["abandon", "-r@-", "--restore-descendants"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: `--restore-descendants` has been renamed to `--preserve-descendant-content` AKA `--pdc`. The old name will become a hard error in the future.
+    Abandoned 1 commits:
+      rlvkpnrz 225adef1 (no description set)
+    Rebased 1 descendant commits (while preserving their content) onto parents of abandoned commits
+    Working copy now at: kkmpptxz 0d5ce873 (no description set)
     Parent commit      : qpvuntsm 485d52a9 (no description set)
     [EOF]
     ");

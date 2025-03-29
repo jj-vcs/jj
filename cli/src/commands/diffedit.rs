@@ -21,6 +21,7 @@ use jj_lib::object_id::ObjectId as _;
 use jj_lib::rewrite::merge_commit_trees;
 use tracing::instrument;
 
+use crate::cli_util::restore_descendants_warning;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::command_error::CommandError;
@@ -40,8 +41,8 @@ use crate::ui::Ui;
 ///
 /// Edit the right side of the diff until it looks the way you want. Once you
 /// close the editor, the revision specified with `-r` or `--to` will be
-/// updated. Unless `--restore-descendants` is used, descendants will be
-/// rebased on top as usual, which may result in conflicts.
+/// updated. Unless `--preserve-descendant-content` is used, descendants will
+/// be rebased on top as usual, which may result in conflicts.
 ///
 /// See `jj restore` if you want to move entire files from one revision to
 /// another. For moving changes between revisions, see `jj squash -i`.
@@ -86,7 +87,11 @@ pub(crate) struct DiffeditArgs {
     /// compared to its parent(s) is normally preserved, i.e. the same way that
     /// descendants are always rebased. This flag makes it so the content/state
     /// is preserved instead of preserving the diff.
-    #[arg(long)]
+    #[arg(long, visible_alias = "pdc")]
+    preserve_descendant_content: bool,
+    /// Deprecated alias for `--preserve-descendant-content`. TODO: Remove
+    /// after jj 0.31
+    #[arg(long, hide = true, conflicts_with = "preserve_descendant_content")]
     restore_descendants: bool,
 }
 
@@ -97,6 +102,10 @@ pub(crate) fn cmd_diffedit(
     args: &DiffeditArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
+    if args.restore_descendants {
+        restore_descendants_warning(ui)?;
+    };
+    let preserve_descendant_content = args.preserve_descendant_content || args.restore_descendants;
 
     let (target_commit, base_commits, diff_description);
     if args.from.is_some() || args.to.is_some() {
@@ -141,9 +150,9 @@ don't make any changes, then the operation will be aborted.",
             .rewrite_commit(&target_commit)
             .set_tree_id(tree_id)
             .write()?;
-        // rebase_descendants early; otherwise `new_commit` would always have
-        // a conflicted change id at this point.
-        let (num_rebased, extra_msg) = if args.restore_descendants {
+        // --preserve-descendant-content early; otherwise `new_commit` would always
+        // have a conflicted change id at this point.
+        let (num_rebased, extra_msg) = if preserve_descendant_content {
             (
                 tx.repo_mut().reparent_descendants()?,
                 " (while preserving their content)",

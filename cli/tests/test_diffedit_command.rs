@@ -726,13 +726,25 @@ fn test_diffedit_restore_descendants() {
 
     // Add a ";" after the line with "bar". There should be no conflict.
     std::fs::write(edit_script, "write file\nprintln!(\"bar\");\n").unwrap();
-    let output = work_dir.run_jj(["diffedit", "-r", "@-", "--restore-descendants"]);
+    let output = work_dir.run_jj(["diffedit", "-r", "@-", "--preserve-descendant-content"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created rlvkpnrz 62b8c2ce (no description set)
     Rebased 1 descendant commits (while preserving their content)
     Working copy now at: kkmpptxz 321d1cd1 (no description set)
     Parent commit      : rlvkpnrz 62b8c2ce (no description set)
+    [EOF]
+    ");
+    // Test the warning for `--restore-descendants`
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj(["diffedit", "-r", "@-", "--restore-descendants"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: `--restore-descendants` has been renamed to `--preserve-descendant-content` AKA `--pdc`. The old name will become a hard error in the future.
+    Created rlvkpnrz ed153404 (no description set)
+    Rebased 1 descendant commits (while preserving their content)
+    Working copy now at: kkmpptxz f531d9fe (no description set)
+    Parent commit      : rlvkpnrz ed153404 (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "--git"]);
