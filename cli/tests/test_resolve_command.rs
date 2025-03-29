@@ -28,6 +28,7 @@ fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput
 #[test]
 fn test_resolution() {
     let mut test_env = TestEnvironment::default();
+    let editor_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
@@ -77,7 +78,6 @@ fn test_resolution() {
     >>>>>>> Conflict 1 of 1 ends
     ");
 
-    let editor_script = test_env.set_up_fake_editor();
     // Check that output file starts out empty and resolve the conflict
     std::fs::write(
         &editor_script,
@@ -1081,6 +1081,7 @@ fn test_description_with_dir_and_deletion() {
 #[test]
 fn test_resolve_conflicts_with_executable() {
     let mut test_env = TestEnvironment::default();
+    let editor_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
@@ -1138,7 +1139,6 @@ fn test_resolve_conflicts_with_executable() {
     >>>>>>> Conflict 1 of 1 ends
     "
     );
-    let editor_script = test_env.set_up_fake_editor();
 
     // Test resolving the conflict in "file1", which should produce an executable
     std::fs::write(&editor_script, b"write\nresolution1\n").unwrap();
@@ -1231,6 +1231,7 @@ fn test_resolve_conflicts_with_executable() {
 #[test]
 fn test_resolve_long_conflict_markers() {
     let mut test_env = TestEnvironment::default();
+    let editor_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
@@ -1273,7 +1274,6 @@ fn test_resolve_long_conflict_markers() {
     >>>>>>>>>>> Conflict 1 of 1 ends
     "
     );
-    let editor_script = test_env.set_up_fake_editor();
     // Allow signaling that conflict markers were produced even if not editing
     // conflict markers materialized in the output file
     test_env.add_config("merge-tools.fake-editor.merge-conflict-exit-codes = [1]");
@@ -1494,6 +1494,7 @@ fn test_resolve_long_conflict_markers() {
 #[test]
 fn test_multiple_conflicts() {
     let mut test_env = TestEnvironment::default();
+    let editor_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
@@ -1578,8 +1579,6 @@ fn test_multiple_conflicts() {
     this_file_has_a_very_long_name_to_test_padding [38;5;3m2-sided conflict[39m
     [EOF]
     ");
-
-    let editor_script = test_env.set_up_fake_editor();
 
     // Check that we can manually pick which of the conflicts to resolve first
     std::fs::write(&editor_script, "expect\n\0write\nresolution another_file\n").unwrap();
@@ -1692,6 +1691,7 @@ fn test_multiple_conflicts() {
 #[test]
 fn test_multiple_conflicts_with_error() {
     let mut test_env = TestEnvironment::default();
+    let editor_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
@@ -1746,7 +1746,6 @@ fn test_multiple_conflicts_with_error() {
     >>>>>>> Conflict 1 of 1 ends
     "
     );
-    let editor_script = test_env.set_up_fake_editor();
 
     // Test resolving one conflict, then exiting without resolving the second one
     std::fs::write(

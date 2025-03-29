@@ -388,6 +388,7 @@ fn test_restore_restore_descendants() {
 #[test]
 fn test_restore_interactive() {
     let mut test_env = TestEnvironment::default();
+    let diff_editor = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
@@ -418,7 +419,6 @@ fn test_restore_interactive() {
     [EOF]
     ");
 
-    let diff_editor = test_env.set_up_fake_diff_editor();
     let diff_script = [
         "files-before file1 file2 file3",
         "files-after JJ-INSTRUCTIONS file1 file2",
@@ -490,6 +490,7 @@ fn test_restore_interactive() {
 #[test]
 fn test_restore_interactive_merge() {
     let mut test_env = TestEnvironment::default();
+    let diff_editor = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
@@ -528,7 +529,6 @@ fn test_restore_interactive_merge() {
     [EOF]
     ");
 
-    let diff_editor = test_env.set_up_fake_diff_editor();
     let diff_script = [
         "files-before file1 file2 file3",
         "files-after JJ-INSTRUCTIONS file1 file2",
@@ -579,6 +579,7 @@ fn test_restore_interactive_merge() {
 #[test]
 fn test_restore_interactive_with_paths() {
     let mut test_env = TestEnvironment::default();
+    let diff_editor = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
@@ -609,7 +610,6 @@ fn test_restore_interactive_with_paths() {
     [EOF]
     ");
 
-    let diff_editor = test_env.set_up_fake_diff_editor();
     let diff_script = [
         "files-before file1 file2",
         "files-after JJ-INSTRUCTIONS file1 file2",
