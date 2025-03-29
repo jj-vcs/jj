@@ -1057,6 +1057,12 @@ pub struct SquashedCommit<'repo> {
     pub abandoned_commits: Vec<Commit>,
 }
 
+#[derive(Clone, Debug)]
+pub struct SquashOptions {
+    pub keep_emptied: bool,
+    pub restore_descendants: bool,
+}
+
 /// Squash `sources` into `destination` and return a [`SquashedCommit`] for the
 /// resulting commit. Caller is responsible for setting the description and
 /// finishing the commit.
@@ -1064,7 +1070,10 @@ pub fn squash_commits<'repo>(
     repo: &'repo mut MutableRepo,
     sources: &[CommitWithSelection],
     destination: &Commit,
-    keep_emptied: bool,
+    SquashOptions {
+        keep_emptied,
+        restore_descendants,
+    }: SquashOptions,
 ) -> BackendResult<Option<SquashedCommit<'repo>>> {
     struct SourceCommit<'a> {
         commit: &'a CommitWithSelection,
@@ -1109,7 +1118,14 @@ pub fn squash_commits<'repo>(
     }
 
     let mut rewritten_destination = destination.clone();
-    if sources.iter().any(|source| {
+    if restore_descendants {
+        repo.reparent_descendants_with_progress(|old_commit, rebased_commit| {
+            if old_commit.id() != destination.id() {
+                return;
+            }
+            rewritten_destination = rebased_commit;
+        })?;
+    } else if sources.iter().any(|source| {
         repo.index()
             .is_ancestor(source.commit.id(), destination.id())
     }) {
