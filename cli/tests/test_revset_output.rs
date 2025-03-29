@@ -18,9 +18,9 @@ use crate::common::TestEnvironment;
 fn test_syntax_error() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", ":x"]);
+    let output = work_dir.run_jj(["log", "-r", ":x"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Failed to parse revset: `:` is not a prefix operator
@@ -35,7 +35,7 @@ fn test_syntax_error() {
     [exit status: 1]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "x &"]);
+    let output = work_dir.run_jj(["log", "-r", "x &"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Failed to parse revset: Syntax error
@@ -50,7 +50,7 @@ fn test_syntax_error() {
     [exit status: 1]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "x - y"]);
+    let output = work_dir.run_jj(["log", "-r", "x - y"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Failed to parse revset: `-` is not an infix operator
@@ -65,7 +65,7 @@ fn test_syntax_error() {
     [exit status: 1]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "HEAD^"]);
+    let output = work_dir.run_jj(["log", "-r", "HEAD^"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Failed to parse revset: `^` is not a postfix operator
@@ -85,9 +85,9 @@ fn test_syntax_error() {
 fn test_bad_function_call() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "all(or::nothing)"]);
+    let output = work_dir.run_jj(["log", "-r", "all(or::nothing)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Failed to parse revset: Function `all`: Expected 0 arguments
@@ -101,7 +101,7 @@ fn test_bad_function_call() {
     [exit status: 1]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "parents()"]);
+    let output = work_dir.run_jj(["log", "-r", "parents()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Failed to parse revset: Function `parents`: Expected 1 arguments
@@ -115,7 +115,7 @@ fn test_bad_function_call() {
     [exit status: 1]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "parents(foo, bar)"]);
+    let output = work_dir.run_jj(["log", "-r", "parents(foo, bar)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Failed to parse revset: Function `parents`: Expected 1 arguments
@@ -129,7 +129,7 @@ fn test_bad_function_call() {
     [exit status: 1]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "heads(foo, bar)"]);
+    let output = work_dir.run_jj(["log", "-r", "heads(foo, bar)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Failed to parse revset: Function `heads`: Expected 1 arguments
@@ -143,7 +143,7 @@ fn test_bad_function_call() {
     [exit status: 1]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "latest(a, not_an_integer)"]);
+    let output = work_dir.run_jj(["log", "-r", "latest(a, not_an_integer)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Failed to parse revset: Expected expression of type integer
@@ -158,7 +158,7 @@ fn test_bad_function_call() {
     ");
 
     // "N to M arguments"
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "ancestors()"]);
+    let output = work_dir.run_jj(["log", "-r", "ancestors()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Failed to parse revset: Function `ancestors`: Expected 1 to 2 arguments
@@ -172,7 +172,7 @@ fn test_bad_function_call() {
     [exit status: 1]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "files(not::a-fileset)"]);
+    let output = work_dir.run_jj(["log", "-r", "files(not::a-fileset)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Failed to parse revset: In fileset expression
@@ -194,7 +194,7 @@ fn test_bad_function_call() {
     [exit status: 1]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", r#"files(foo:"bar")"#]);
+    let output = work_dir.run_jj(["log", "-r", r#"files(foo:"bar")"#]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: Failed to parse revset: In fileset expression
@@ -217,7 +217,7 @@ fn test_bad_function_call() {
     [exit status: 1]
     "#);
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", r#"files("../out")"#]);
+    let output = work_dir.run_jj(["log", "-r", r#"files("../out")"#]);
     insta::assert_snapshot!(output.normalize_backslash(), @r#"
     ------- stderr -------
     Error: Failed to parse revset: In fileset expression
@@ -240,7 +240,7 @@ fn test_bad_function_call() {
     [exit status: 1]
     "#);
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "bookmarks(bad:pattern)"]);
+    let output = work_dir.run_jj(["log", "-r", "bookmarks(bad:pattern)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Failed to parse revset: Invalid string pattern
@@ -257,7 +257,7 @@ fn test_bad_function_call() {
     [exit status: 1]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "bookmarks(regex:'(')"]);
+    let output = work_dir.run_jj(["log", "-r", "bookmarks(regex:'(')"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Failed to parse revset: Invalid string pattern
@@ -276,7 +276,7 @@ fn test_bad_function_call() {
     [exit status: 1]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "root()::whatever()"]);
+    let output = work_dir.run_jj(["log", "-r", "root()::whatever()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Failed to parse revset: Function `whatever` doesn't exist
@@ -290,10 +290,7 @@ fn test_bad_function_call() {
     [exit status: 1]
     ");
 
-    let output = test_env.run_jj_in(
-        &repo_path,
-        ["log", "-r", "remote_bookmarks(a, b, remote=c)"],
-    );
+    let output = work_dir.run_jj(["log", "-r", "remote_bookmarks(a, b, remote=c)"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: Failed to parse revset: Function `remote_bookmarks`: Got multiple values for keyword "remote"
@@ -307,7 +304,7 @@ fn test_bad_function_call() {
     [exit status: 1]
     "#);
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "remote_bookmarks(remote=a, b)"]);
+    let output = work_dir.run_jj(["log", "-r", "remote_bookmarks(remote=a, b)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Failed to parse revset: Function `remote_bookmarks`: Positional argument follows keyword argument
@@ -321,7 +318,7 @@ fn test_bad_function_call() {
     [exit status: 1]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "remote_bookmarks(=foo)"]);
+    let output = work_dir.run_jj(["log", "-r", "remote_bookmarks(=foo)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Failed to parse revset: Syntax error
@@ -336,7 +333,7 @@ fn test_bad_function_call() {
     [exit status: 1]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "remote_bookmarks(remote=)"]);
+    let output = work_dir.run_jj(["log", "-r", "remote_bookmarks(remote=)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Failed to parse revset: Syntax error
@@ -356,8 +353,8 @@ fn test_bad_function_call() {
 fn test_function_name_hint() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    let evaluate = |expr| test_env.run_jj_in(&repo_path, ["log", "-r", expr]);
+    let work_dir = test_env.work_dir("repo");
+    let evaluate = |expr| work_dir.run_jj(["log", "-r", expr]);
 
     test_env.add_config(
         r###"
@@ -425,7 +422,7 @@ fn test_function_name_hint() {
 fn test_alias() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
     test_env.add_config(
         r###"
@@ -440,19 +437,19 @@ fn test_alias() {
     "###,
     );
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "my-root"]);
+    let output = work_dir.run_jj(["log", "-r", "my-root"]);
     insta::assert_snapshot!(output, @r"
     ◆  zzzzzzzz root() 00000000
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "identity(my-root)"]);
+    let output = work_dir.run_jj(["log", "-r", "identity(my-root)"]);
     insta::assert_snapshot!(output, @r"
     ◆  zzzzzzzz root() 00000000
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "root() & syntax-error"]);
+    let output = work_dir.run_jj(["log", "-r", "root() & syntax-error"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Failed to parse revset: In alias `syntax-error`
@@ -474,7 +471,7 @@ fn test_alias() {
     [exit status: 1]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "identity()"]);
+    let output = work_dir.run_jj(["log", "-r", "identity()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Failed to parse revset: Function `identity`: Expected 1 arguments
@@ -488,7 +485,7 @@ fn test_alias() {
     [exit status: 1]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "my_author(none())"]);
+    let output = work_dir.run_jj(["log", "-r", "my_author(none())"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Failed to parse revset: In alias `my_author(x)`
@@ -515,7 +512,7 @@ fn test_alias() {
     [exit status: 1]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "root() & recurse"]);
+    let output = work_dir.run_jj(["log", "-r", "root() & recurse"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Failed to parse revset: In alias `recurse`
@@ -553,7 +550,7 @@ fn test_alias() {
 fn test_alias_override() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
     test_env.add_config(
         r###"
@@ -564,10 +561,7 @@ fn test_alias_override() {
 
     // 'f(x)' should be overridden by --config 'f(a)'. If aliases were sorted
     // purely by name, 'f(a)' would come first.
-    let output = test_env.run_jj_in(
-        &repo_path,
-        ["log", "-r", "f(_)", "--config=revset-aliases.'f(a)'=arg"],
-    );
+    let output = work_dir.run_jj(["log", "-r", "f(_)", "--config=revset-aliases.'f(a)'=arg"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Revision `arg` doesn't exist
@@ -580,7 +574,7 @@ fn test_alias_override() {
 fn test_bad_alias_decl() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
     test_env.add_config(
         r#"
@@ -592,7 +586,7 @@ fn test_bad_alias_decl() {
     );
 
     // Invalid declaration should be warned and ignored.
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "my-root"]);
+    let output = work_dir.run_jj(["log", "-r", "my-root"]);
     insta::assert_snapshot!(output, @r#"
     ◆  zzzzzzzz root() 00000000
     [EOF]
@@ -617,10 +611,10 @@ fn test_bad_alias_decl() {
 fn test_all_modifier() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
     // Command that accepts single revision by default
-    let output = test_env.run_jj_in(&repo_path, ["new", "all()"]);
+    let output = work_dir.run_jj(["new", "all()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Revset `all()` resolved to more than one revision
@@ -631,7 +625,7 @@ fn test_all_modifier() {
     [EOF]
     [exit status: 1]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["new", "all:all()"]);
+    let output = work_dir.run_jj(["new", "all:all()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: The Git backend does not support creating merge commits with the root commit as one of the parents.
@@ -640,7 +634,7 @@ fn test_all_modifier() {
     ");
 
     // Command that accepts multiple revisions by default
-    let output = test_env.run_jj_in(&repo_path, ["log", "-rall:all()"]);
+    let output = work_dir.run_jj(["log", "-rall:all()"]);
     insta::assert_snapshot!(output, @r"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 230dd059
     │  (empty) (no description set)
@@ -649,13 +643,13 @@ fn test_all_modifier() {
     ");
 
     // Command that accepts only single revision
-    let output = test_env.run_jj_in(&repo_path, ["bookmark", "create", "-rall:@", "x"]);
+    let output = work_dir.run_jj(["bookmark", "create", "-rall:@", "x"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created 1 bookmarks pointing to qpvuntsm 230dd059 x | (empty) (no description set)
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["bookmark", "set", "-rall:all()", "x"]);
+    let output = work_dir.run_jj(["bookmark", "set", "-rall:all()", "x"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Revset `all:all()` resolved to more than one revision
@@ -667,7 +661,7 @@ fn test_all_modifier() {
     ");
 
     // Template expression that accepts multiple revisions by default
-    let output = test_env.run_jj_in(&repo_path, ["log", "-Tself.contained_in('all:all()')"]);
+    let output = work_dir.run_jj(["log", "-Tself.contained_in('all:all()')"]);
     insta::assert_snapshot!(output, @r"
     @  true
     ◆  true
@@ -675,7 +669,7 @@ fn test_all_modifier() {
     ");
 
     // Typo
-    let output = test_env.run_jj_in(&repo_path, ["new", "ale:x"]);
+    let output = work_dir.run_jj(["new", "ale:x"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Failed to parse revset: Modifier `ale` doesn't exist
@@ -690,10 +684,7 @@ fn test_all_modifier() {
     ");
 
     // Modifier shouldn't be allowed in sub expression
-    let output = test_env.run_jj_in(
-        &repo_path,
-        ["new", "x..", "--config=revset-aliases.x='all:@'"],
-    );
+    let output = work_dir.run_jj(["new", "x..", "--config=revset-aliases.x='all:@'"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Failed to parse revset: In alias `x`
@@ -716,14 +707,11 @@ fn test_all_modifier() {
 
     // immutable_heads() alias may be parsed as a top-level expression, but
     // still, modifier shouldn't be allowed there.
-    let output = test_env.run_jj_in(
-        &repo_path,
-        [
-            "new",
-            "--config=revset-aliases.'immutable_heads()'='all:@'",
-            "--config=revsets.short-prefixes='none()'",
-        ],
-    );
+    let output = work_dir.run_jj([
+        "new",
+        "--config=revset-aliases.'immutable_heads()'='all:@'",
+        "--config=revsets.short-prefixes='none()'",
+    ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Config error: Invalid `revset-aliases.immutable_heads()`
@@ -753,71 +741,57 @@ fn test_revset_committer_date_with_time_zone() {
     let mut test_env = TestEnvironment::default();
     test_env.add_env_var("TZ", NEW_YORK);
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    test_env
-        .run_jj_in(
-            &repo_path,
-            [
-                "--config=debug.commit-timestamp=2023-01-25T11:30:00-05:00",
-                "describe",
-                "-m",
-                "first",
-            ],
-        )
+    work_dir
+        .run_jj([
+            "--config=debug.commit-timestamp=2023-01-25T11:30:00-05:00",
+            "describe",
+            "-m",
+            "first",
+        ])
         .success();
-    test_env
-        .run_jj_in(
-            &repo_path,
-            [
-                "--config=debug.commit-timestamp=2023-01-25T12:30:00-05:00",
-                "new",
-                "-m",
-                "second",
-            ],
-        )
+    work_dir
+        .run_jj([
+            "--config=debug.commit-timestamp=2023-01-25T12:30:00-05:00",
+            "new",
+            "-m",
+            "second",
+        ])
         .success();
-    test_env
-        .run_jj_in(
-            &repo_path,
-            [
-                "--config=debug.commit-timestamp=2023-01-25T13:30:00-05:00",
-                "new",
-                "-m",
-                "third",
-            ],
-        )
+    work_dir
+        .run_jj([
+            "--config=debug.commit-timestamp=2023-01-25T13:30:00-05:00",
+            "new",
+            "-m",
+            "third",
+        ])
         .success();
 
     let mut log_commits_before_and_after = |committer_date: &str, now: &str, tz: &str| {
         test_env.add_env_var("TZ", tz);
         let config = format!("debug.commit-timestamp={now}");
-        let before_log = test_env.run_jj_in(
-            &repo_path,
-            [
-                "--config",
-                config.as_str(),
-                "log",
-                "--no-graph",
-                "-T",
-                "description.first_line() ++ ' ' ++ committer.timestamp() ++ '\n'",
-                "-r",
-                format!("committer_date(before:'{committer_date}') ~ root()").as_str(),
-            ],
-        );
-        let after_log = test_env.run_jj_in(
-            &repo_path,
-            [
-                "--config",
-                config.as_str(),
-                "log",
-                "--no-graph",
-                "-T",
-                "description.first_line() ++ ' ' ++ committer.timestamp() ++ '\n'",
-                "-r",
-                format!("committer_date(after:'{committer_date}')").as_str(),
-            ],
-        );
+        let work_dir = test_env.work_dir("repo");
+        let before_log = work_dir.run_jj([
+            "--config",
+            config.as_str(),
+            "log",
+            "--no-graph",
+            "-T",
+            "description.first_line() ++ ' ' ++ committer.timestamp() ++ '\n'",
+            "-r",
+            format!("committer_date(before:'{committer_date}') ~ root()").as_str(),
+        ]);
+        let after_log = work_dir.run_jj([
+            "--config",
+            config.as_str(),
+            "log",
+            "--no-graph",
+            "-T",
+            "description.first_line() ++ ' ' ++ committer.timestamp() ++ '\n'",
+            "-r",
+            format!("committer_date(after:'{committer_date}')").as_str(),
+        ]);
         (before_log, after_log)
     };
 
