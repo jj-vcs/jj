@@ -579,7 +579,9 @@ fn parse_config_arg_item(item_str: &str) -> Result<(ConfigNamePathBuf, ConfigVal
     let split_candidates = item_str.as_bytes().iter().positions(|&b| b == b'=');
     let Some((name, value_str)) = split_candidates
         .map(|p| (&item_str[..p], &item_str[p + 1..]))
-        .map(|(name, value)| name.parse().map(|name| (name, value)))
+        // Trim spaces, similarly to TOML syntax; names or values with spaces would have to be
+        // specified with quotes.
+        .map(|(name, value)| name.trim().parse().map(|name| (name, value.trim())))
         .find_or_last(Result::is_ok)
         .transpose()
         .map_err(|err| config_error_with_message("--config name cannot be parsed", err))?
@@ -827,13 +829,30 @@ mod tests {
         assert!(parse_config_arg_item("").is_err());
         assert!(parse_config_arg_item("a").is_err());
         assert!(parse_config_arg_item("=").is_err());
-        // The value parser is sensitive to leading whitespaces, which seems
-        // good because the parsing falls back to a bare string.
-        assert!(parse_config_arg_item("a = 'b'").is_err());
 
         let (name, value) = parse_config_arg_item("a=b").unwrap();
         assert_eq!(name, ConfigNamePathBuf::from_iter(["a"]));
         assert_eq!(value.as_str(), Some("b"));
+
+        let (name, value) = parse_config_arg_item("a = b").unwrap();
+        assert_eq!(name, ConfigNamePathBuf::from_iter(["a"]));
+        assert_eq!(value.as_str(), Some("b"));
+
+        let (name, value) = parse_config_arg_item("a = 'b'").unwrap();
+        assert_eq!(name, ConfigNamePathBuf::from_iter(["a"]));
+        assert_eq!(value.as_str(), Some("b"));
+
+        let (name, value) = parse_config_arg_item("a = ' '").unwrap();
+        assert_eq!(name, ConfigNamePathBuf::from_iter(["a"]));
+        assert_eq!(value.as_str(), Some(" "));
+
+        let (name, value) =
+            parse_config_arg_item(r#"revsets."immutable_heads()" = "none()""#).unwrap();
+        assert_eq!(
+            name,
+            ConfigNamePathBuf::from_iter(["revsets", "immutable_heads()"])
+        );
+        assert_eq!(value.as_str(), Some("none()"));
 
         let (name, value) = parse_config_arg_item("a=").unwrap();
         assert_eq!(name, ConfigNamePathBuf::from_iter(["a"]));
@@ -841,7 +860,7 @@ mod tests {
 
         let (name, value) = parse_config_arg_item("a= ").unwrap();
         assert_eq!(name, ConfigNamePathBuf::from_iter(["a"]));
-        assert_eq!(value.as_str(), Some(" "));
+        assert_eq!(value.as_str(), Some(""));
 
         // This one is a bit cryptic, but b=c can be a bare string.
         let (name, value) = parse_config_arg_item("a=b=c").unwrap();

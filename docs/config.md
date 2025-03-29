@@ -1573,7 +1573,6 @@ to specify additional configuration settings. This overrides settings defined in
 config files or environment variables. For example,
 
 ```shell
-# Must not have spaces around the `=`
 jj --config ui.color=always --config ui.diff-editor=meld split
 ```
 

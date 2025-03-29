@@ -462,6 +462,14 @@ fn test_color_config() {
     [EOF]
     ");
 
+    // Spaces around the = signs or dots are OK, by analogy with TOML
+    let output = work_dir.run_jj(["--config= ui . color = never", "log", "-T", "commit_id"]);
+    insta::assert_snapshot!(output, @r"
+    @  230dd059e1b059aefc0da06a2e5a7dbf22362f22
+    ◆  0000000000000000000000000000000000000000
+    [EOF]
+    ");
+
     // --color overrides --config 'ui.color=...'.
     let output = work_dir.run_jj([
         "--color",
