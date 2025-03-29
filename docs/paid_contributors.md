@@ -30,5 +30,4 @@ contribute or not.
 * solson
 * spectral54
 * steadmon
-* torquestomp
 * zygoloid
