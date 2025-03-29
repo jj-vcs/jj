@@ -47,6 +47,7 @@ use crate::repo::RewriteRootCommit;
 use crate::repo_path::InvalidRepoPathError;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
+use crate::settings::HumanByteSize;
 use crate::settings::UserSettings;
 use crate::store::Store;
 use crate::transaction::TransactionCommitError;
@@ -171,6 +172,13 @@ pub trait LockedWorkingCopy {
 pub struct WorkingCopySettings {
     /// Conflict marker style to use when materializing files.
     pub conflict_marker_style: ConflictMarkerStyle,
+    /// The fsmonitor (e.g. Watchman) to use, if any.
+    pub fsmonitor_settings: FsmonitorSettings,
+    /// The size of the largest file that should be allowed to become tracked
+    /// (already tracked files are always snapshotted). If there are larger
+    /// files in the working copy, then `LockedWorkingCopy::snapshot()` may
+    /// (depending on implementation) return `SnapshotError::NewFileTooLarge`.
+    pub max_new_file_size: u64,
 }
 
 impl WorkingCopySettings {
@@ -178,6 +186,8 @@ impl WorkingCopySettings {
     pub fn empty_for_test() -> Self {
         WorkingCopySettings {
             conflict_marker_style: ConflictMarkerStyle::default(),
+            fsmonitor_settings: FsmonitorSettings::None,
+            max_new_file_size: u64::MAX,
         }
     }
 
@@ -185,6 +195,16 @@ impl WorkingCopySettings {
     pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
         Ok(WorkingCopySettings {
             conflict_marker_style: settings.get("ui.conflict-marker-style")?,
+            fsmonitor_settings: FsmonitorSettings::from_settings(settings)?,
+            max_new_file_size: {
+                let HumanByteSize(max_new_file_size) =
+                    settings.get_value_with("snapshot.max-new-file-size", TryInto::try_into)?;
+                if max_new_file_size == 0 {
+                    u64::MAX
+                } else {
+                    max_new_file_size
+                }
+            },
         })
     }
 }
@@ -235,21 +255,11 @@ pub struct SnapshotOptions<'a> {
     // because the TreeState may be long-lived if the library is used in a
     // long-lived process.
     pub base_ignores: Arc<GitIgnoreFile>,
-    /// The fsmonitor (e.g. Watchman) to use, if any.
-    // TODO: Should we make this a field on `LocalWorkingCopy` instead since it's quite specific to
-    // that implementation?
-    pub fsmonitor_settings: FsmonitorSettings,
     /// A callback for the UI to display progress.
     pub progress: Option<&'a SnapshotProgress<'a>>,
     /// For new files that are not already tracked, start tracking them if they
     /// match this.
     pub start_tracking_matcher: &'a dyn Matcher,
-    /// The size of the largest file that should be allowed to become tracked
-    /// (already tracked files are always snapshotted). If there are larger
-    /// files in the working copy, then `LockedWorkingCopy::snapshot()` may
-    /// (depending on implementation)
-    /// return `SnapshotError::NewFileTooLarge`.
-    pub max_new_file_size: u64,
 }
 
 impl SnapshotOptions<'_> {
@@ -257,10 +267,8 @@ impl SnapshotOptions<'_> {
     pub fn empty_for_test() -> Self {
         SnapshotOptions {
             base_ignores: GitIgnoreFile::empty(),
-            fsmonitor_settings: FsmonitorSettings::None,
             progress: None,
             start_tracking_matcher: &EverythingMatcher,
-            max_new_file_size: u64::MAX,
         }
     }
 }

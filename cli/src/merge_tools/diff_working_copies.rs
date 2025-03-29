@@ -278,10 +278,8 @@ diff editing in mind and be a little inaccurate.
         );
         wc.snapshot(&SnapshotOptions {
             base_ignores,
-            fsmonitor_settings: FsmonitorSettings::None,
             progress: None,
             start_tracking_matcher: &EverythingMatcher,
-            max_new_file_size: u64::MAX,
         })?;
         Ok(output.state.current_tree_id().clone())
     }
@@ -299,6 +297,9 @@ fn wc_mut<'a>(
         working_copy_path,
         config: WcMutConfig {
             conflict_marker_style,
+            // Merge tools shouldn't care about these settings.
+            fsmonitor_settings: FsmonitorSettings::None,
+            max_new_file_size: u64::MAX,
         },
     }
 }

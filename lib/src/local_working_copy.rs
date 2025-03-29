@@ -947,6 +947,8 @@ pub struct WcTreeMutator<'a> {
 #[derive(Clone)]
 pub struct WcMutConfig {
     pub conflict_marker_style: ConflictMarkerStyle,
+    pub fsmonitor_settings: FsmonitorSettings,
+    pub max_new_file_size: u64,
 }
 
 impl WcTreeMutator<'_> {
@@ -966,20 +968,18 @@ impl WcTreeMutator<'_> {
     ) -> Result<(bool, SnapshotStats), SnapshotError> {
         let &SnapshotOptions {
             ref base_ignores,
-            ref fsmonitor_settings,
             progress,
             start_tracking_matcher,
-            max_new_file_size,
         } = options;
 
         let sparse_matcher = self.state.sparse_matcher();
 
-        let fsmonitor_clock_needs_save = *fsmonitor_settings != FsmonitorSettings::None;
+        let fsmonitor_clock_needs_save = self.config.fsmonitor_settings != FsmonitorSettings::None;
         let mut is_dirty = fsmonitor_clock_needs_save;
         let FsmonitorMatcher {
             matcher: fsmonitor_matcher,
             watchman_clock,
-        } = self.make_fsmonitor_matcher(fsmonitor_settings)?;
+        } = self.make_fsmonitor_matcher(&self.config.fsmonitor_settings)?;
         let fsmonitor_matcher = match fsmonitor_matcher.as_ref() {
             None => &EverythingMatcher,
             Some(fsmonitor_matcher) => fsmonitor_matcher.as_ref(),
@@ -1015,7 +1015,6 @@ impl WcTreeMutator<'_> {
                 deleted_files_tx,
                 error: OnceLock::new(),
                 progress,
-                max_new_file_size,
             };
             // Here we use scope as a queue of per-directory jobs.
             rayon::scope(|scope| {
@@ -1158,7 +1157,6 @@ struct FileSnapshotter<'a> {
     deleted_files_tx: Sender<RepoPathBuf>,
     error: OnceLock<SnapshotError>,
     progress: Option<&'a SnapshotProgress<'a>>,
-    max_new_file_size: u64,
 }
 
 impl FileSnapshotter<'_> {
@@ -1300,11 +1298,12 @@ impl FileSnapshotter<'_> {
                     message: format!("Failed to stat file {}", entry.path().display()),
                     err: err.into(),
                 })?;
-                if maybe_current_file_state.is_none() && metadata.len() > self.max_new_file_size {
+                let max_size = self.wc.config.max_new_file_size;
+                if maybe_current_file_state.is_none() && metadata.len() > max_size {
                     // Leave the large file untracked
                     let reason = UntrackedReason::FileTooLarge {
                         size: metadata.len(),
-                        max_size: self.max_new_file_size,
+                        max_size,
                     };
                     self.untracked_paths_tx.send((path, reason)).ok();
                     Ok(None)
@@ -2033,6 +2032,8 @@ impl WorkingCopy for LocalWorkingCopy {
         let old_tree_id = wc.tree_id()?.clone();
         let wc_config = WcMutConfig {
             conflict_marker_style: wc_settings.conflict_marker_style,
+            fsmonitor_settings: wc_settings.fsmonitor_settings,
+            max_new_file_size: wc_settings.max_new_file_size,
         };
         Ok(Box::new(LockedLocalWorkingCopy {
             wc,
