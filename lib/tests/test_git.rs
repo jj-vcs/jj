@@ -2470,7 +2470,7 @@ fn test_reset_head_detached_out_of_sync() {
     // {expected: commit1, actual: commit5} -> commit3 (= commit4's parent)
     assert_matches!(
         git::reset_head(tx.repo_mut(), &commit4),
-        Err(GitExportError::InternalGitError(_))
+        Err(GitExportError::Git(_))
     );
 
     // Import the HEAD moved by external process

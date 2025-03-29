@@ -495,8 +495,8 @@ jj currently does not support partial clones. To use jj with this repository, tr
                      the full repository contents."
                         .to_string(),
                 ),
-                GitImportError::InternalBackend(_) => None,
-                GitImportError::InternalGitError(_) => None,
+                GitImportError::Backend(_) => None,
+                GitImportError::Git(_) => None,
                 GitImportError::UnexpectedBackend(_) => None,
             };
             let mut cmd_err =
@@ -530,7 +530,7 @@ jj currently does not support partial clones. To use jj with this repository, tr
                 ),
                 GitFetchError::InvalidBranchPattern(_) => user_error(err),
                 #[cfg(feature = "git2")]
-                GitFetchError::InternalGitError(err) => map_git2_error(err),
+                GitFetchError::Git2(err) => map_git2_error(err),
                 GitFetchError::Subprocess(_) => user_error(err),
             }
         }
@@ -555,7 +555,7 @@ jj currently does not support partial clones. To use jj with this repository, tr
                     "Run `jj git remote rename` to give a different name.",
                 ),
                 #[cfg(feature = "git2")]
-                GitPushError::InternalGitError(err) => map_git2_error(err),
+                GitPushError::Git2(err) => map_git2_error(err),
                 GitPushError::Subprocess(_) => user_error(err),
                 GitPushError::UnexpectedBackend(_) => user_error(err),
             }

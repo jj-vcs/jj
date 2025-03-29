@@ -365,17 +365,17 @@ pub enum GitImportError {
         #[source]
         err: BackendError,
     },
-    #[error("Unexpected backend error when importing refs")]
-    InternalBackend(#[source] BackendError),
-    #[error("Unexpected git error when importing refs")]
-    InternalGitError(#[source] Box<dyn std::error::Error + Send + Sync>),
+    #[error(transparent)]
+    Backend(BackendError),
+    #[error(transparent)]
+    Git(Box<dyn std::error::Error + Send + Sync>),
     #[error(transparent)]
     UnexpectedBackend(#[from] UnexpectedGitBackendError),
 }
 
 impl GitImportError {
     fn from_git(source: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
-        GitImportError::InternalGitError(source.into())
+        GitImportError::Git(source.into())
     }
 }
 
@@ -480,7 +480,7 @@ pub fn import_some_refs(
     // can still occur.
     mut_repo
         .add_heads(&head_commits)
-        .map_err(GitImportError::InternalBackend)?;
+        .map_err(GitImportError::Backend)?;
 
     // Apply the change that happened in git since last time we imported refs.
     for (full_name, new_target) in changed_git_refs {
@@ -523,7 +523,7 @@ pub fn import_some_refs(
 
     let abandoned_commits = if git_settings.abandon_unreachable_commits {
         abandon_unreachable_commits(mut_repo, &changed_remote_bookmarks, &changed_remote_tags)
-            .map_err(GitImportError::InternalBackend)?
+            .map_err(GitImportError::Backend)?
     } else {
         vec![]
     };
@@ -814,7 +814,7 @@ pub fn import_head(mut_repo: &mut MutableRepo) -> Result<(), GitImportError> {
         store
             .get_commit(head_id)
             .and_then(|commit| mut_repo.add_head(&commit))
-            .map_err(GitImportError::InternalBackend)?;
+            .map_err(GitImportError::Backend)?;
     }
 
     mut_repo.set_git_head_target(RefTarget::resolved(new_git_head_id));
@@ -823,17 +823,17 @@ pub fn import_head(mut_repo: &mut MutableRepo) -> Result<(), GitImportError> {
 
 #[derive(Error, Debug)]
 pub enum GitExportError {
-    #[error("Git error")]
-    InternalGitError(#[source] Box<dyn std::error::Error + Send + Sync>),
-    #[error(transparent)]
-    UnexpectedBackend(#[from] UnexpectedGitBackendError),
     #[error(transparent)]
     Backend(#[from] BackendError),
+    #[error(transparent)]
+    Git(Box<dyn std::error::Error + Send + Sync>),
+    #[error(transparent)]
+    UnexpectedBackend(#[from] UnexpectedGitBackendError),
 }
 
 impl GitExportError {
     fn from_git(source: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
-        GitExportError::InternalGitError(source.into())
+        GitExportError::Git(source.into())
     }
 }
 
@@ -2062,10 +2062,9 @@ pub enum GitFetchError {
     InvalidBranchPattern(StringPattern),
     #[error(transparent)]
     RemoteName(#[from] GitRemoteNameError),
-    // TODO: I'm sure there are other errors possible, such as transport-level errors.
     #[cfg(feature = "git2")]
-    #[error("Unexpected git error when fetching")]
-    InternalGitError(#[from] git2::Error),
+    #[error(transparent)]
+    Git2(#[from] git2::Error),
     #[error(transparent)]
     Subprocess(#[from] GitSubprocessError),
 }
@@ -2300,7 +2299,7 @@ fn git2_fetch(
         if is_remote_not_found_err(&err) {
             GitFetchError::NoSuchRemote(remote_name.to_owned())
         } else {
-            GitFetchError::InternalGitError(err)
+            GitFetchError::Git2(err)
         }
     })?;
     // At this point, we are only updating Git's remote tracking branches, not the
@@ -2341,7 +2340,7 @@ fn git2_get_default_branch(
         if is_remote_not_found_err(&err) {
             GitFetchError::NoSuchRemote(remote_name.to_owned())
         } else {
-            GitFetchError::InternalGitError(err)
+            GitFetchError::Git2(err)
         }
     })?;
     // Unlike .download(), connect_auth() returns RAII object.
@@ -2440,11 +2439,9 @@ pub enum GitPushError {
     NoSuchRemote(RemoteNameBuf),
     #[error(transparent)]
     RemoteName(#[from] GitRemoteNameError),
-    // TODO: I'm sure there are other errors possible, such as transport-level errors,
-    // and errors caused by the remote rejecting the push.
     #[cfg(feature = "git2")]
-    #[error("Unexpected git error when pushing")]
-    InternalGitError(#[from] git2::Error),
+    #[error(transparent)]
+    Git2(#[from] git2::Error),
     #[error(transparent)]
     Subprocess(#[from] GitSubprocessError),
     #[error(transparent)]
@@ -2582,7 +2579,7 @@ fn git2_push_refs(
         if is_remote_not_found_err(&err) {
             GitPushError::NoSuchRemote(remote_name.to_owned())
         } else {
-            GitPushError::InternalGitError(err)
+            GitPushError::Git2(err)
         }
     })?;
 
