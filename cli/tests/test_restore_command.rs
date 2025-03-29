@@ -12,28 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::path::Path;
-
 use crate::common::create_commit_with_files;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
+use crate::common::TestWorkDir;
 
 #[test]
 fn test_restore() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(repo_path.join("file1"), "a\n").unwrap();
-    test_env.run_jj_in(&repo_path, ["new"]).success();
-    std::fs::write(repo_path.join("file2"), "b\n").unwrap();
-    test_env.run_jj_in(&repo_path, ["new"]).success();
-    std::fs::remove_file(repo_path.join("file1")).unwrap();
-    std::fs::write(repo_path.join("file2"), "c\n").unwrap();
-    std::fs::write(repo_path.join("file3"), "c\n").unwrap();
+    work_dir.write_file("file1", "a\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file2", "b\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir.remove_file("file1");
+    work_dir.write_file("file2", "c\n");
+    work_dir.write_file("file3", "c\n");
 
     // There is no `-r` argument
-    let output = test_env.run_jj_in(&repo_path, ["restore", "-r=@-"]);
+    let output = work_dir.run_jj(["restore", "-r=@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: `jj restore` does not have a `--revision`/`-r` option. If you'd like to modify
@@ -44,7 +43,7 @@ fn test_restore() {
     ");
 
     // Restores from parent by default
-    let output = test_env.run_jj_in(&repo_path, ["restore"]);
+    let output = work_dir.run_jj(["restore"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created kkmpptxz 370d81ea (empty) (no description set)
@@ -53,17 +52,17 @@ fn test_restore() {
     Added 1 files, modified 1 files, removed 1 files
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    let output = work_dir.run_jj(["diff", "-s"]);
     insta::assert_snapshot!(output, @"");
 
     // Can restore another revision from its parents
-    test_env.run_jj_in(&repo_path, ["undo"]).success();
-    let output = test_env.run_jj_in(&repo_path, ["diff", "-s", "-r=@-"]);
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj(["diff", "-s", "-r=@-"]);
     insta::assert_snapshot!(output, @r"
     A file2
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["restore", "-c=@-"]);
+    let output = work_dir.run_jj(["restore", "-c=@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created rlvkpnrz b9b6011e (empty) (no description set)
@@ -82,12 +81,12 @@ fn test_restore() {
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["diff", "-s", "-r=@-"]);
+    let output = work_dir.run_jj(["diff", "-s", "-r=@-"]);
     insta::assert_snapshot!(output, @"");
 
     // Can restore this revision from another revision
-    test_env.run_jj_in(&repo_path, ["undo"]).success();
-    let output = test_env.run_jj_in(&repo_path, ["restore", "--from", "@--"]);
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj(["restore", "--from", "@--"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created kkmpptxz 1154634b (no description set)
@@ -96,15 +95,15 @@ fn test_restore() {
     Added 1 files, modified 0 files, removed 2 files
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    let output = work_dir.run_jj(["diff", "-s"]);
     insta::assert_snapshot!(output, @r"
     D file2
     [EOF]
     ");
 
     // Can restore into other revision
-    test_env.run_jj_in(&repo_path, ["undo"]).success();
-    let output = test_env.run_jj_in(&repo_path, ["restore", "--into", "@-"]);
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj(["restore", "--into", "@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created rlvkpnrz ad805965 (no description set)
@@ -113,9 +112,9 @@ fn test_restore() {
     Parent commit (@-)      : rlvkpnrz ad805965 (no description set)
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    let output = work_dir.run_jj(["diff", "-s"]);
     insta::assert_snapshot!(output, @"");
-    let output = test_env.run_jj_in(&repo_path, ["diff", "-s", "-r", "@-"]);
+    let output = work_dir.run_jj(["diff", "-s", "-r", "@-"]);
     insta::assert_snapshot!(output, @r"
     D file1
     A file2
@@ -124,8 +123,8 @@ fn test_restore() {
     ");
 
     // Can combine `--from` and `--into`
-    test_env.run_jj_in(&repo_path, ["undo"]).success();
-    let output = test_env.run_jj_in(&repo_path, ["restore", "--from", "@", "--into", "@-"]);
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj(["restore", "--from", "@", "--into", "@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created rlvkpnrz f256040a (no description set)
@@ -134,9 +133,9 @@ fn test_restore() {
     Parent commit (@-)      : rlvkpnrz f256040a (no description set)
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    let output = work_dir.run_jj(["diff", "-s"]);
     insta::assert_snapshot!(output, @"");
-    let output = test_env.run_jj_in(&repo_path, ["diff", "-s", "-r", "@-"]);
+    let output = work_dir.run_jj(["diff", "-s", "-r", "@-"]);
     insta::assert_snapshot!(output, @r"
     D file1
     A file2
@@ -145,8 +144,8 @@ fn test_restore() {
     ");
 
     // Can restore only specified paths
-    test_env.run_jj_in(&repo_path, ["undo"]).success();
-    let output = test_env.run_jj_in(&repo_path, ["restore", "file2", "file3"]);
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj(["restore", "file2", "file3"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created kkmpptxz 4ad35a2f (no description set)
@@ -155,7 +154,7 @@ fn test_restore() {
     Added 0 files, modified 1 files, removed 1 files
     [EOF]
     ");
-    let output = test_env.run_jj_in(&repo_path, ["diff", "-s"]);
+    let output = work_dir.run_jj(["diff", "-s"]);
     insta::assert_snapshot!(output, @r"
     D file1
     [EOF]
@@ -167,29 +166,14 @@ fn test_restore() {
 fn test_restore_conflicted_merge() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    create_commit_with_files(
-        &test_env.work_dir(&repo_path),
-        "base",
-        &[],
-        &[("file", "base\n")],
-    );
-    create_commit_with_files(
-        &test_env.work_dir(&repo_path),
-        "a",
-        &["base"],
-        &[("file", "a\n")],
-    );
-    create_commit_with_files(
-        &test_env.work_dir(&repo_path),
-        "b",
-        &["base"],
-        &[("file", "b\n")],
-    );
-    create_commit_with_files(&test_env.work_dir(&repo_path), "conflict", &["a", "b"], &[]);
+    create_commit_with_files(&work_dir, "base", &[], &[("file", "base\n")]);
+    create_commit_with_files(&work_dir, "a", &["base"], &[("file", "a\n")]);
+    create_commit_with_files(&work_dir, "b", &["base"], &[("file", "b\n")]);
+    create_commit_with_files(&work_dir, "conflict", &["a", "b"], &[]);
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @    conflict
     ├─╮
     │ ○  b
@@ -199,9 +183,7 @@ fn test_restore_conflicted_merge() {
     ◆
     [EOF]
     ");
-    insta::assert_snapshot!(
-    std::fs::read_to_string(repo_path.join("file")).unwrap()
-        , @r"
+    insta::assert_snapshot!(work_dir.read_file("file"), @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
     -base
@@ -212,8 +194,8 @@ fn test_restore_conflicted_merge() {
     ");
 
     // Overwrite the file...
-    std::fs::write(repo_path.join("file"), "resolution").unwrap();
-    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["diff"]), @r"
+    work_dir.write_file("file", "resolution");
+    insta::assert_snapshot!(work_dir.run_jj(["diff"]), @r"
     Resolved conflict in file:
        1     : <<<<<<< Conflict 1 of 1
        2     : %%%%%%% Changes from base to side #1
@@ -227,7 +209,7 @@ fn test_restore_conflicted_merge() {
     ");
 
     // ...and restore it back again.
-    let output = test_env.run_jj_in(&repo_path, ["restore", "file"]);
+    let output = work_dir.run_jj(["restore", "file"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created vruxwmqv 25a37060 conflict | (conflict) (empty) conflict
@@ -239,9 +221,7 @@ fn test_restore_conflicted_merge() {
     file    2-sided conflict
     [EOF]
     ");
-    insta::assert_snapshot!(
-    std::fs::read_to_string(repo_path.join("file")).unwrap()
-        , @r"
+    insta::assert_snapshot!(work_dir.read_file("file"), @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
     -base
@@ -250,12 +230,12 @@ fn test_restore_conflicted_merge() {
     b
     >>>>>>> Conflict 1 of 1 ends
     ");
-    let output = test_env.run_jj_in(&repo_path, ["diff"]);
+    let output = work_dir.run_jj(["diff"]);
     insta::assert_snapshot!(output, @"");
 
     // The same, but without the `file` argument. Overwrite the file...
-    std::fs::write(repo_path.join("file"), "resolution").unwrap();
-    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["diff"]), @r"
+    work_dir.write_file("file", "resolution");
+    insta::assert_snapshot!(work_dir.run_jj(["diff"]), @r"
     Resolved conflict in file:
        1     : <<<<<<< Conflict 1 of 1
        2     : %%%%%%% Changes from base to side #1
@@ -269,7 +249,7 @@ fn test_restore_conflicted_merge() {
     ");
 
     // ... and restore it back again.
-    let output = test_env.run_jj_in(&repo_path, ["restore"]);
+    let output = work_dir.run_jj(["restore"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created vruxwmqv f2c82b9c conflict | (conflict) (empty) conflict
@@ -281,9 +261,7 @@ fn test_restore_conflicted_merge() {
     file    2-sided conflict
     [EOF]
     ");
-    insta::assert_snapshot!(
-    std::fs::read_to_string(repo_path.join("file")).unwrap()
-        , @r"
+    insta::assert_snapshot!(work_dir.read_file("file"), @r"
     <<<<<<< Conflict 1 of 1
     %%%%%%% Changes from base to side #1
     -base
@@ -298,34 +276,19 @@ fn test_restore_conflicted_merge() {
 fn test_restore_restore_descendants() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
+    create_commit_with_files(&work_dir, "base", &[], &[("file", "base\n")]);
+    create_commit_with_files(&work_dir, "a", &["base"], &[("file", "a\n")]);
     create_commit_with_files(
-        &test_env.work_dir(&repo_path),
-        "base",
-        &[],
-        &[("file", "base\n")],
-    );
-    create_commit_with_files(
-        &test_env.work_dir(&repo_path),
-        "a",
-        &["base"],
-        &[("file", "a\n")],
-    );
-    create_commit_with_files(
-        &test_env.work_dir(&repo_path),
+        &work_dir,
         "b",
         &["base"],
         &[("file", "b\n"), ("file2", "b\n")],
     );
-    create_commit_with_files(
-        &test_env.work_dir(&repo_path),
-        "ab",
-        &["a", "b"],
-        &[("file", "ab\n")],
-    );
+    create_commit_with_files(&work_dir, "ab", &["a", "b"], &[("file", "ab\n")]);
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @    ab
     ├─╮
     │ ○  b
@@ -335,15 +298,11 @@ fn test_restore_restore_descendants() {
     ◆
     [EOF]
     ");
-    insta::assert_snapshot!(
-    std::fs::read_to_string(repo_path.join("file")).unwrap(), @"ab");
+    insta::assert_snapshot!(work_dir.read_file("file"), @"ab");
 
     // Commit "b" was not supposed to modify "file", restore it from its parent
     // while preserving its child commit content.
-    let output = test_env.run_jj_in(
-        &repo_path,
-        ["restore", "-c", "b", "file", "--restore-descendants"],
-    );
+    let output = work_dir.run_jj(["restore", "-c", "b", "file", "--restore-descendants"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created royxmykx 3fd5aa05 b | b
@@ -356,7 +315,7 @@ fn test_restore_restore_descendants() {
 
     // Check that "a", "b", and "ab" have their expected content by diffing them.
     // "ab" must have kept its content.
-    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["diff", "--from=a", "--to=ab", "--git"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--from=a", "--to=ab", "--git"]), @r"
     diff --git a/file b/file
     index 7898192261..81bf396956 100644
     --- a/file
@@ -373,7 +332,7 @@ fn test_restore_restore_descendants() {
     +b
     [EOF]
     ");
-    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["diff", "--from=b", "--to=ab", "--git"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--from=b", "--to=ab", "--git"]), @r"
     diff --git a/file b/file
     index df967b96a5..81bf396956 100644
     --- a/file
@@ -390,21 +349,16 @@ fn test_restore_interactive() {
     let mut test_env = TestEnvironment::default();
     let diff_editor = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
+    create_commit_with_files(&work_dir, "a", &[], &[("file1", "a1\n"), ("file2", "a2\n")]);
     create_commit_with_files(
-        &test_env.work_dir(&repo_path),
-        "a",
-        &[],
-        &[("file1", "a1\n"), ("file2", "a2\n")],
-    );
-    create_commit_with_files(
-        &test_env.work_dir(&repo_path),
+        &work_dir,
         "b",
         &["a"],
         &[("file1", "b1\n"), ("file2", "b2\n"), ("file3", "b3\n")],
     );
-    let output = test_env.run_jj_in(&repo_path, ["log", "--summary"]);
+    let output = work_dir.run_jj(["log", "--summary"]);
     insta::assert_snapshot!(output, @r"
     @  zsuskuln test.user@example.com 2001-02-03 08:05:11 b c0745ce2
     │  b
@@ -429,7 +383,7 @@ fn test_restore_interactive() {
     std::fs::write(diff_editor, diff_script).unwrap();
 
     // Restore file1 and file3
-    let output = test_env.run_jj_in(&repo_path, ["restore", "-i", "--from=@-"]);
+    let output = work_dir.run_jj(["restore", "-i", "--from=@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created zsuskuln bccde490 b | b
@@ -448,7 +402,7 @@ fn test_restore_interactive() {
     shows the contents you want for the destination commit.
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "--summary"]);
+    let output = work_dir.run_jj(["log", "--summary"]);
     insta::assert_snapshot!(output, @r"
     @  zsuskuln test.user@example.com 2001-02-03 08:05:13 b bccde490
     │  b
@@ -462,8 +416,8 @@ fn test_restore_interactive() {
     ");
 
     // Try again with --tool, which should imply --interactive
-    test_env.run_jj_in(&repo_path, ["undo"]).success();
-    let output = test_env.run_jj_in(&repo_path, ["restore", "--tool=fake-diff-editor"]);
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj(["restore", "--tool=fake-diff-editor"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created zsuskuln 5921de19 b | b
@@ -473,7 +427,7 @@ fn test_restore_interactive() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "--summary"]);
+    let output = work_dir.run_jj(["log", "--summary"]);
     insta::assert_snapshot!(output, @r"
     @  zsuskuln test.user@example.com 2001-02-03 08:05:16 b 5921de19
     │  b
@@ -492,27 +446,17 @@ fn test_restore_interactive_merge() {
     let mut test_env = TestEnvironment::default();
     let diff_editor = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
+    create_commit_with_files(&work_dir, "a", &[], &[("file1", "a1\n")]);
+    create_commit_with_files(&work_dir, "b", &[], &[("file2", "b1\n")]);
     create_commit_with_files(
-        &test_env.work_dir(&repo_path),
-        "a",
-        &[],
-        &[("file1", "a1\n")],
-    );
-    create_commit_with_files(
-        &test_env.work_dir(&repo_path),
-        "b",
-        &[],
-        &[("file2", "b1\n")],
-    );
-    create_commit_with_files(
-        &test_env.work_dir(&repo_path),
+        &work_dir,
         "c",
         &["a", "b"],
         &[("file1", "c1\n"), ("file2", "c2\n"), ("file3", "c3\n")],
     );
-    let output = test_env.run_jj_in(&repo_path, ["log", "--summary"]);
+    let output = work_dir.run_jj(["log", "--summary"]);
     insta::assert_snapshot!(output, @r"
     @    royxmykx test.user@example.com 2001-02-03 08:05:13 c 34042291
     ├─╮  c
@@ -539,7 +483,7 @@ fn test_restore_interactive_merge() {
     std::fs::write(diff_editor, diff_script).unwrap();
 
     // Restore file1 and file3
-    let output = test_env.run_jj_in(&repo_path, ["restore", "-i"]);
+    let output = work_dir.run_jj(["restore", "-i"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created royxmykx 72e0cbf4 c | c
@@ -560,7 +504,7 @@ fn test_restore_interactive_merge() {
     shows the contents you want for the destination commit.
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "--summary"]);
+    let output = work_dir.run_jj(["log", "--summary"]);
     insta::assert_snapshot!(output, @r"
     @    royxmykx test.user@example.com 2001-02-03 08:05:15 c 72e0cbf4
     ├─╮  c
@@ -581,21 +525,16 @@ fn test_restore_interactive_with_paths() {
     let mut test_env = TestEnvironment::default();
     let diff_editor = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
+    create_commit_with_files(&work_dir, "a", &[], &[("file1", "a1\n"), ("file2", "a2\n")]);
     create_commit_with_files(
-        &test_env.work_dir(&repo_path),
-        "a",
-        &[],
-        &[("file1", "a1\n"), ("file2", "a2\n")],
-    );
-    create_commit_with_files(
-        &test_env.work_dir(&repo_path),
+        &work_dir,
         "b",
         &["a"],
         &[("file1", "b1\n"), ("file2", "b2\n"), ("file3", "b3\n")],
     );
-    let output = test_env.run_jj_in(&repo_path, ["log", "--summary"]);
+    let output = work_dir.run_jj(["log", "--summary"]);
     insta::assert_snapshot!(output, @r"
     @  zsuskuln test.user@example.com 2001-02-03 08:05:11 b c0745ce2
     │  b
@@ -619,7 +558,7 @@ fn test_restore_interactive_with_paths() {
     std::fs::write(diff_editor, diff_script).unwrap();
 
     // Restore file1 (file2 is reset by interactive editor)
-    let output = test_env.run_jj_in(&repo_path, ["restore", "-i", "file1", "file2"]);
+    let output = work_dir.run_jj(["restore", "-i", "file1", "file2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created zsuskuln 7187da33 b | b
@@ -629,7 +568,7 @@ fn test_restore_interactive_with_paths() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "--summary"]);
+    let output = work_dir.run_jj(["log", "--summary"]);
     insta::assert_snapshot!(output, @r"
     @  zsuskuln test.user@example.com 2001-02-03 08:05:13 b 7187da33
     │  b
@@ -645,6 +584,6 @@ fn test_restore_interactive_with_paths() {
 }
 
 #[must_use]
-fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput {
-    test_env.run_jj_in(repo_path, ["log", "-T", "bookmarks"])
+fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
+    work_dir.run_jj(["log", "-T", "bookmarks"])
 }
