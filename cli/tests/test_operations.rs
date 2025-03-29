@@ -1514,8 +1514,8 @@ fn test_op_diff() {
     let output = test_env.run_jj_in(&repo_path, ["new", "bookmark-1@origin", "-m", "new commit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: wvuyspvk fefb1e17 (empty) new commit
-    Parent commit      : zkmtkqvo 0dee6313 bookmark-1?? bookmark-1@origin | Commit 4
+    Working copy  (@) now at: wvuyspvk fefb1e17 (empty) new commit
+    Parent commit (@-)      : zkmtkqvo 0dee6313 bookmark-1?? bookmark-1@origin | Commit 4
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -1581,8 +1581,8 @@ fn test_op_diff() {
       Move forward bookmark bookmark-1 from 0dee631320b1 to fefb1e17c853
       Delete bookmark bookmark-2 from e1a239a57eb1
     Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
-    Working copy now at: oupztwtk fe3ad088 (empty) (no description set)
-    Parent commit      : wvuyspvk fefb1e17 bookmark-1 | (empty) new commit
+    Working copy  (@) now at: oupztwtk fe3ad088 (empty) (no description set)
+    Parent commit (@-)      : wvuyspvk fefb1e17 bookmark-1 | (empty) new commit
     [EOF]
     ");
     let output = test_env.run_jj_in(&repo_path, ["op", "diff"]);
@@ -1619,8 +1619,8 @@ fn test_op_diff_patch() {
     let output = test_env.run_jj_in(&repo_path, ["new"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: rlvkpnrz 56950632 (empty) (no description set)
-    Parent commit      : qpvuntsm 6b1027d2 (no description set)
+    Working copy  (@) now at: rlvkpnrz 56950632 (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 6b1027d2 (no description set)
     [EOF]
     ");
     let output = test_env.run_jj_in(&repo_path, ["op", "diff", "--op", "@-", "-p", "--git"]);
@@ -1663,8 +1663,8 @@ fn test_op_diff_patch() {
     let output = test_env.run_jj_in(&repo_path, ["squash"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: mzvwutvl 9f4fb57f (empty) (no description set)
-    Parent commit      : qpvuntsm 2ac85fd1 (no description set)
+    Working copy  (@) now at: mzvwutvl 9f4fb57f (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 2ac85fd1 (no description set)
     [EOF]
     ");
     let output = test_env.run_jj_in(&repo_path, ["op", "diff", "-p", "--git"]);
@@ -1704,8 +1704,8 @@ fn test_op_diff_patch() {
     ------- stderr -------
     Abandoned 1 commits:
       mzvwutvl 9f4fb57f (empty) (no description set)
-    Working copy now at: yqosqzyt 33f321c4 (empty) (no description set)
-    Parent commit      : qpvuntsm 2ac85fd1 (no description set)
+    Working copy  (@) now at: yqosqzyt 33f321c4 (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 2ac85fd1 (no description set)
     [EOF]
     ");
     let output = test_env.run_jj_in(&repo_path, ["op", "diff", "-p", "--git"]);
@@ -2261,8 +2261,8 @@ fn test_op_show() {
     let output = test_env.run_jj_in(&repo_path, ["new", "bookmark-1@origin", "-m", "new commit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: xznxytkn 560df364 (empty) new commit
-    Parent commit      : zkmtkqvo 0dee6313 bookmark-1?? bookmark-1@origin | Commit 4
+    Working copy  (@) now at: xznxytkn 560df364 (empty) new commit
+    Parent commit (@-)      : zkmtkqvo 0dee6313 bookmark-1?? bookmark-1@origin | Commit 4
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -2331,8 +2331,8 @@ fn test_op_show() {
       Move forward bookmark bookmark-1 from 0dee631320b1 to 560df364f0a0
       Delete bookmark bookmark-2 from e1a239a57eb1
     Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
-    Working copy now at: pzsxstzt 91310b51 (empty) (no description set)
-    Parent commit      : xznxytkn 560df364 bookmark-1 | (empty) new commit
+    Working copy  (@) now at: pzsxstzt 91310b51 (empty) (no description set)
+    Parent commit (@-)      : xznxytkn 560df364 bookmark-1 | (empty) new commit
     [EOF]
     ");
     let output = test_env.run_jj_in(&repo_path, ["op", "show"]);
@@ -2370,8 +2370,8 @@ fn test_op_show_patch() {
     let output = test_env.run_jj_in(&repo_path, ["new"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: rlvkpnrz 56950632 (empty) (no description set)
-    Parent commit      : qpvuntsm 6b1027d2 (no description set)
+    Working copy  (@) now at: rlvkpnrz 56950632 (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 6b1027d2 (no description set)
     [EOF]
     ");
     let output = test_env.run_jj_in(&repo_path, ["op", "show", "@-", "-p", "--git"]);
@@ -2416,8 +2416,8 @@ fn test_op_show_patch() {
     let output = test_env.run_jj_in(&repo_path, ["squash"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: mzvwutvl 9f4fb57f (empty) (no description set)
-    Parent commit      : qpvuntsm 2ac85fd1 (no description set)
+    Working copy  (@) now at: mzvwutvl 9f4fb57f (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 2ac85fd1 (no description set)
     [EOF]
     ");
     let output = test_env.run_jj_in(&repo_path, ["op", "show", "-p", "--git"]);
@@ -2458,8 +2458,8 @@ fn test_op_show_patch() {
     ------- stderr -------
     Abandoned 1 commits:
       mzvwutvl 9f4fb57f (empty) (no description set)
-    Working copy now at: yqosqzyt 33f321c4 (empty) (no description set)
-    Parent commit      : qpvuntsm 2ac85fd1 (no description set)
+    Working copy  (@) now at: yqosqzyt 33f321c4 (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 2ac85fd1 (no description set)
     [EOF]
     ");
     let output = test_env.run_jj_in(&repo_path, ["op", "show", "-p", "--git"]);

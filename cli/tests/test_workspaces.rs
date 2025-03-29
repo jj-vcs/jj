@@ -45,8 +45,8 @@ fn test_workspaces_add_second_workspace() {
     insta::assert_snapshot!(output.normalize_backslash(), @r#"
     ------- stderr -------
     Created workspace in "../secondary"
-    Working copy now at: rzvqmyuk 5ed2222c (empty) (no description set)
-    Parent commit      : qpvuntsm 751b12b7 initial
+    Working copy  (@) now at: rzvqmyuk 5ed2222c (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 751b12b7 initial
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -226,8 +226,8 @@ fn test_workspaces_add_at_operation() {
     let output = test_env.run_jj_in(&main_path, ["commit", "-m1"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: rlvkpnrz 18d8b994 (empty) (no description set)
-    Parent commit      : qpvuntsm 3364a7ed 1
+    Working copy  (@) now at: rlvkpnrz 18d8b994 (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 3364a7ed 1
     [EOF]
     ");
 
@@ -235,8 +235,8 @@ fn test_workspaces_add_at_operation() {
     let output = test_env.run_jj_in(&main_path, ["commit", "-m2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: kkmpptxz 2e7dc5ab (empty) (no description set)
-    Parent commit      : rlvkpnrz 0dbaa19a 2
+    Working copy  (@) now at: kkmpptxz 2e7dc5ab (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 0dbaa19a 2
     [EOF]
     ");
 
@@ -250,8 +250,8 @@ fn test_workspaces_add_at_operation() {
     insta::assert_snapshot!(output.normalize_backslash(), @r#"
     ------- stderr -------
     Created workspace in "../secondary"
-    Working copy now at: rzvqmyuk a4d1cbc9 (empty) (no description set)
-    Parent commit      : qpvuntsm 3364a7ed 1
+    Working copy  (@) now at: rzvqmyuk a4d1cbc9 (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 3364a7ed 1
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -263,8 +263,8 @@ fn test_workspaces_add_at_operation() {
     insta::assert_snapshot!(output, @r"
     Working copy changes:
     A file4
-    Working copy : rzvqmyuk 2ba74f85 (no description set)
-    Parent commit: qpvuntsm 3364a7ed 1
+    Working copy  (@) : rzvqmyuk 2ba74f85 (no description set)
+    Parent commit (@-): qpvuntsm 3364a7ed 1
     [EOF]
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
@@ -328,8 +328,8 @@ fn test_workspaces_add_workspace_at_revision() {
     insta::assert_snapshot!(output.normalize_backslash(), @r#"
     ------- stderr -------
     Created workspace in "../secondary"
-    Working copy now at: zxsnswpr e374e74a (empty) (no description set)
-    Parent commit      : qpvuntsm f6097c2f first
+    Working copy  (@) now at: zxsnswpr e374e74a (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm f6097c2f first
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -415,10 +415,10 @@ fn test_workspaces_add_workspace_multiple_revisions() {
     insta::assert_snapshot!(output.normalize_backslash(), @r#"
     ------- stderr -------
     Created workspace in "../merged"
-    Working copy now at: wmwvqwsz f4fa64f4 (empty) (no description set)
-    Parent commit      : mzvwutvl 6c843d62 third
-    Parent commit      : kkmpptxz 544cd61f second
-    Parent commit      : qpvuntsm f6097c2f first
+    Working copy  (@) now at: wmwvqwsz f4fa64f4 (empty) (no description set)
+    Parent commit (@-)      : mzvwutvl 6c843d62 third
+    Parent commit (@-)      : kkmpptxz 544cd61f second
+    Parent commit (@-)      : qpvuntsm f6097c2f first
     Added 3 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -463,8 +463,8 @@ fn test_workspaces_add_workspace_from_subdir() {
     insta::assert_snapshot!(output.normalize_backslash(), @r#"
     ------- stderr -------
     Created workspace in "../../secondary"
-    Working copy now at: rzvqmyuk 7ad84461 (empty) (no description set)
-    Parent commit      : qpvuntsm a3a43d9e initial
+    Working copy  (@) now at: rzvqmyuk 7ad84461 (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm a3a43d9e initial
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -495,8 +495,8 @@ fn test_workspaces_add_workspace_in_current_workspace() {
     ------- stderr -------
     Created workspace in "secondary"
     Warning: Workspace created inside current directory. If this was unintentional, delete the "secondary" directory and run `jj workspace forget secondary` to remove it.
-    Working copy now at: pmmvwywv 0a77a39d (empty) (no description set)
-    Parent commit      : qpvuntsm 751b12b7 initial
+    Working copy  (@) now at: pmmvwywv 0a77a39d (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 751b12b7 initial
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -514,8 +514,8 @@ fn test_workspaces_add_workspace_in_current_workspace() {
     insta::assert_snapshot!(output.normalize_backslash(), @r#"
     ------- stderr -------
     Created workspace in "third"
-    Working copy now at: zxsnswpr 64746d4b (empty) (no description set)
-    Parent commit      : qpvuntsm 751b12b7 initial
+    Working copy  (@) now at: zxsnswpr 64746d4b (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 751b12b7 initial
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -574,8 +574,8 @@ fn test_workspaces_conflicting_edits() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
-    Working copy now at: mzvwutvl a58c9a9b (empty) (no description set)
-    Parent commit      : qpvuntsm d4124476 (no description set)
+    Working copy  (@) now at: mzvwutvl a58c9a9b (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm d4124476 (no description set)
     [EOF]
     ");
 
@@ -615,8 +615,8 @@ fn test_workspaces_conflicting_edits() {
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
     Rebased 1 descendant commits onto commits rewritten by other operation
-    Working copy now at: pmmvwywv?? e82cd4ee (empty) (no description set)
-    Parent commit      : qpvuntsm d4124476 (no description set)
+    Working copy  (@) now at: pmmvwywv?? e82cd4ee (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm d4124476 (no description set)
     Added 0 files, modified 1 files, removed 0 files
     Updated working copy to fresh commit e82cd4ee8faa
     [EOF]
@@ -675,8 +675,8 @@ fn test_workspaces_updated_by_other() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
-    Working copy now at: mzvwutvl a58c9a9b (empty) (no description set)
-    Parent commit      : qpvuntsm d4124476 (no description set)
+    Working copy  (@) now at: mzvwutvl a58c9a9b (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm d4124476 (no description set)
     [EOF]
     ");
 
@@ -703,8 +703,8 @@ fn test_workspaces_updated_by_other() {
     let output = test_env.run_jj_in(&secondary_path, ["workspace", "update-stale"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: pmmvwywv e82cd4ee (empty) (no description set)
-    Parent commit      : qpvuntsm d4124476 (no description set)
+    Working copy  (@) now at: pmmvwywv e82cd4ee (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm d4124476 (no description set)
     Added 0 files, modified 1 files, removed 0 files
     Updated working copy to fresh commit e82cd4ee8faa
     [EOF]
@@ -752,8 +752,8 @@ fn test_workspaces_updated_by_other_automatic() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
-    Working copy now at: mzvwutvl a58c9a9b (empty) (no description set)
-    Parent commit      : qpvuntsm d4124476 (no description set)
+    Working copy  (@) now at: mzvwutvl a58c9a9b (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm d4124476 (no description set)
     [EOF]
     ");
 
@@ -771,12 +771,12 @@ fn test_workspaces_updated_by_other_automatic() {
     let output = test_env.run_jj_in(&secondary_path, ["st"]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
-    Working copy : pmmvwywv e82cd4ee (empty) (no description set)
-    Parent commit: qpvuntsm d4124476 (no description set)
+    Working copy  (@) : pmmvwywv e82cd4ee (empty) (no description set)
+    Parent commit (@-): qpvuntsm d4124476 (no description set)
     [EOF]
     ------- stderr -------
-    Working copy now at: pmmvwywv e82cd4ee (empty) (no description set)
-    Parent commit      : qpvuntsm d4124476 (no description set)
+    Working copy  (@) now at: pmmvwywv e82cd4ee (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm d4124476 (no description set)
     Added 0 files, modified 1 files, removed 0 files
     Updated working copy to fresh commit e82cd4ee8faa
     [EOF]
@@ -890,8 +890,8 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
         C {modified => added}
         D deleted
         M modified
-        Working copy : kmkuslsw 0b518140 RECOVERY COMMIT FROM `jj workspace update-stale`
-        Parent commit: rzvqmyuk 3df3bf89 (empty) (no description set)
+        Working copy  (@) : kmkuslsw 0b518140 RECOVERY COMMIT FROM `jj workspace update-stale`
+        Parent commit (@-): rzvqmyuk 3df3bf89 (empty) (no description set)
         [EOF]
         ------- stderr -------
         Failed to read working copy's current operation; attempting recovery. Error message from read attempt: Object 129f2dca870b954e2966fba35893bb47a5bc6358db6e8c4065cee91d2d49073efc3e055b9b81269a13c443d964abb18e83d25de73db2376ff434c876c59976ac of type operation not found
@@ -947,8 +947,8 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
         C {modified => added}
         D deleted
         M modified
-        Working copy : kmkuslsw 0b518140 RECOVERY COMMIT FROM `jj workspace update-stale`
-        Parent commit: rzvqmyuk 3df3bf89 (empty) (no description set)
+        Working copy  (@) : kmkuslsw 0b518140 RECOVERY COMMIT FROM `jj workspace update-stale`
+        Parent commit (@-): rzvqmyuk 3df3bf89 (empty) (no description set)
         [EOF]
         ");
     }

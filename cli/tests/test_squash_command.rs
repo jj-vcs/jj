@@ -51,8 +51,8 @@ fn test_squash() {
     let output = test_env.run_jj_in(&repo_path, ["squash"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: vruxwmqv f7bb78d8 (empty) (no description set)
-    Parent commit      : kkmpptxz 59f44460 b c | (no description set)
+    Working copy  (@) now at: vruxwmqv f7bb78d8 (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz 59f44460 b c | (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
@@ -74,8 +74,8 @@ fn test_squash() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
-    Working copy now at: mzvwutvl 1d70f50a c | (no description set)
-    Parent commit      : qpvuntsm 9146bcc8 a b | (no description set)
+    Working copy  (@) now at: mzvwutvl 1d70f50a c | (no description set)
+    Parent commit (@-)      : qpvuntsm 9146bcc8 a b | (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
@@ -134,8 +134,8 @@ fn test_squash() {
     let output = test_env.run_jj_in(&repo_path, ["squash"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: xlzxqlsl b50b843d (empty) (no description set)
-    Parent commit      : nmzmmopx 338cbc05 e | (no description set)
+    Working copy  (@) now at: xlzxqlsl b50b843d (empty) (no description set)
+    Parent commit (@-)      : nmzmmopx 338cbc05 e | (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
@@ -197,8 +197,8 @@ fn test_squash_partial() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
-    Working copy now at: mzvwutvl 3c633226 c | (no description set)
-    Parent commit      : qpvuntsm 38ffd8b9 a b | (no description set)
+    Working copy  (@) now at: mzvwutvl 3c633226 c | (no description set)
+    Parent commit (@-)      : qpvuntsm 38ffd8b9 a b | (no description set)
     [EOF]
     ");
 
@@ -235,8 +235,8 @@ fn test_squash_partial() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits
-    Working copy now at: mzvwutvl 57c3cf20 c | (no description set)
-    Parent commit      : kkmpptxz c4925e01 b | (no description set)
+    Working copy  (@) now at: mzvwutvl 57c3cf20 c | (no description set)
+    Parent commit (@-)      : kkmpptxz c4925e01 b | (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
@@ -275,8 +275,8 @@ fn test_squash_partial() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits
-    Working copy now at: mzvwutvl 64d7ad7c c | (no description set)
-    Parent commit      : kkmpptxz 60a26452 b | (no description set)
+    Working copy  (@) now at: mzvwutvl 64d7ad7c c | (no description set)
+    Parent commit (@-)      : kkmpptxz 60a26452 b | (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
@@ -361,8 +361,8 @@ fn test_squash_keep_emptied() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits
-    Working copy now at: mzvwutvl 7ee7f18a c | (no description set)
-    Parent commit      : kkmpptxz 9490bd7f b | (empty) (no description set)
+    Working copy  (@) now at: mzvwutvl 7ee7f18a c | (no description set)
+    Parent commit (@-)      : kkmpptxz 9490bd7f b | (empty) (no description set)
     [EOF]
     ");
     // With --keep-emptied, b remains even though it is now empty.
@@ -455,8 +455,8 @@ fn test_squash_from_to() {
     let output = test_env.run_jj_in(&repo_path, ["squash", "--from", "c"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: kmkuslsw b902d1dd f | (no description set)
-    Parent commit      : znkkpsqq c2f9de87 e | (no description set)
+    Working copy  (@) now at: kmkuslsw b902d1dd f | (no description set)
+    Parent commit (@-)      : znkkpsqq c2f9de87 e | (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
@@ -488,8 +488,8 @@ fn test_squash_from_to() {
     let output = test_env.run_jj_in(&repo_path, ["squash", "--from", "@--"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: kmkuslsw cfc5eb87 f | (no description set)
-    Parent commit      : znkkpsqq 4dc7c279 e | (no description set)
+    Working copy  (@) now at: kmkuslsw cfc5eb87 f | (no description set)
+    Parent commit (@-)      : znkkpsqq 4dc7c279 e | (no description set)
     [EOF]
     ");
     // The change has been removed from the source (the change pointed to by 'd'
@@ -518,8 +518,8 @@ fn test_squash_from_to() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
-    Working copy now at: kmkuslsw 6de62c22 f | (no description set)
-    Parent commit      : vruxwmqv 32196a11 d e | (no description set)
+    Working copy  (@) now at: kmkuslsw 6de62c22 f | (no description set)
+    Parent commit (@-)      : vruxwmqv 32196a11 d e | (no description set)
     [EOF]
     ");
     // The change has been removed from the source (the change pointed to by 'e'
@@ -594,8 +594,8 @@ fn test_squash_from_to_partial() {
     let output = test_env.run_jj_in(&repo_path, ["squash", "-i", "--from", "c"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: vruxwmqv 987bcfb2 d | (no description set)
-    Parent commit      : qpvuntsm b7b76717 a | (no description set)
+    Working copy  (@) now at: vruxwmqv 987bcfb2 d | (no description set)
+    Parent commit (@-)      : qpvuntsm b7b76717 a | (no description set)
     Added 0 files, modified 2 files, removed 0 files
     [EOF]
     ");
@@ -631,8 +631,8 @@ fn test_squash_from_to_partial() {
     let output = test_env.run_jj_in(&repo_path, ["squash", "-i", "--from", "c"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: vruxwmqv 576244e8 d | (no description set)
-    Parent commit      : qpvuntsm b7b76717 a | (no description set)
+    Working copy  (@) now at: vruxwmqv 576244e8 d | (no description set)
+    Parent commit (@-)      : qpvuntsm b7b76717 a | (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
@@ -671,8 +671,8 @@ fn test_squash_from_to_partial() {
     let output = test_env.run_jj_in(&repo_path, ["squash", "--from", "c", "file1"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: vruxwmqv 5b407c24 d | (no description set)
-    Parent commit      : qpvuntsm b7b76717 a | (no description set)
+    Working copy  (@) now at: vruxwmqv 5b407c24 d | (no description set)
+    Parent commit (@-)      : qpvuntsm b7b76717 a | (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
@@ -815,8 +815,8 @@ fn test_squash_from_multiple() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits
-    Working copy now at: kpqxywon 7ea39167 f | (no description set)
-    Parent commit      : yostqsxw acfbf2a0 e | (no description set)
+    Working copy  (@) now at: kpqxywon 7ea39167 f | (no description set)
+    Parent commit (@-)      : yostqsxw acfbf2a0 e | (no description set)
     New conflicts appeared in 1 commits:
       yqosqzyt 4df3b215 d | (conflict) (no description set)
     Hint: To resolve the conflicts, start by updating to it:
@@ -858,8 +858,8 @@ fn test_squash_from_multiple() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
-    Working copy now at: xznxytkn 6a670d1a (empty) (no description set)
-    Parent commit      : yostqsxw c1293ff7 e f | (no description set)
+    Working copy  (@) now at: xznxytkn 6a670d1a (empty) (no description set)
+    Parent commit (@-)      : yostqsxw c1293ff7 e f | (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
@@ -961,8 +961,8 @@ fn test_squash_from_multiple_partial() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits
-    Working copy now at: kpqxywon a8530305 f | (no description set)
-    Parent commit      : yostqsxw 0a3637fc e | (no description set)
+    Working copy  (@) now at: kpqxywon a8530305 f | (no description set)
+    Parent commit (@-)      : yostqsxw 0a3637fc e | (no description set)
     New conflicts appeared in 1 commits:
       yqosqzyt 05a3ab3d d | (conflict) (no description set)
     Hint: To resolve the conflicts, start by updating to it:
@@ -1025,8 +1025,8 @@ fn test_squash_from_multiple_partial() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
-    Working copy now at: kpqxywon 3b7559b8 f | (no description set)
-    Parent commit      : yostqsxw a3b1714c e | (no description set)
+    Working copy  (@) now at: kpqxywon 3b7559b8 f | (no description set)
+    Parent commit (@-)      : yostqsxw a3b1714c e | (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&test_env, &repo_path), @r"
@@ -1119,8 +1119,8 @@ fn test_squash_from_multiple_partial_no_op() {
     );
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: mzvwutvl e178068a d
-    Parent commit      : qpvuntsm 2443ea76 a
+    Working copy  (@) now at: mzvwutvl e178068a d
+    Parent commit (@-)      : qpvuntsm 2443ea76 a
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -1338,8 +1338,8 @@ fn test_squash_empty() {
     let output = test_env.run_jj_in(&repo_path, ["squash"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: kkmpptxz adece6e8 (empty) (no description set)
-    Parent commit      : qpvuntsm 5076fc41 (empty) parent
+    Working copy  (@) now at: kkmpptxz adece6e8 (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 5076fc41 (empty) parent
     [EOF]
     ");
     insta::assert_snapshot!(get_description(&test_env, &repo_path, "@-"), @r"

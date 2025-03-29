@@ -43,8 +43,8 @@ fn test_status_copies() {
     M copy-source
     C {copy-source => copy-target}
     R {rename-source => rename-target}
-    Working copy : rlvkpnrz a96c3086 (no description set)
-    Parent commit: qpvuntsm e3e2c703 (no description set)
+    Working copy  (@) : rlvkpnrz a96c3086 (no description set)
+    Parent commit (@-): qpvuntsm e3e2c703 (no description set)
     [EOF]
     ");
 }
@@ -73,9 +73,9 @@ fn test_status_merge() {
     let output = test_env.run_jj_in(&repo_path, ["status"]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
-    Working copy : mzvwutvl a538c72d (empty) (no description set)
-    Parent commit: rlvkpnrz d3dd19f1 left | (empty) left
-    Parent commit: zsuskuln 705a356d right
+    Working copy  (@) : mzvwutvl a538c72d (empty) (no description set)
+    Parent commit (@-): rlvkpnrz d3dd19f1 left | (empty) left
+    Parent commit (@-): zsuskuln 705a356d right
     [EOF]
     ");
 }
@@ -100,8 +100,8 @@ fn test_status_ignored_gitignore() {
     insta::assert_snapshot!(output, @r"
     Working copy changes:
     A .gitignore
-    Working copy : qpvuntsm 3cef2183 (no description set)
-    Parent commit: zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) : qpvuntsm 3cef2183 (no description set)
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 }
@@ -120,8 +120,8 @@ fn test_status_filtered() {
     insta::assert_snapshot!(output, @r"
     Working copy changes:
     A file_1
-    Working copy : qpvuntsm c8fb8395 (no description set)
-    Parent commit: zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) : qpvuntsm c8fb8395 (no description set)
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 }
@@ -200,8 +200,8 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     let output = test_env.run_jj_in(&repo_path, ["status"]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
-    Working copy : yqosqzyt dcb25635 (conflict) (empty) boom-cont-2
-    Parent commit: royxmykx 664a4c6c (conflict) (empty) boom-cont
+    Working copy  (@) : yqosqzyt dcb25635 (conflict) (empty) boom-cont-2
+    Parent commit (@-): royxmykx 664a4c6c (conflict) (empty) boom-cont
     Warning: There are unresolved conflicts at these paths:
     conflicted.txt    2-sided conflict
     Hint: To resolve the conflicts, start by updating to the first one:
@@ -215,8 +215,8 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     let output = test_env.run_jj_in(&repo_path, ["status", "--color=always"]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
-    Working copy : [1m[38;5;13my[38;5;8mqosqzyt[39m [38;5;12md[38;5;8mcb25635[39m [38;5;9m(conflict)[39m [38;5;10m(empty)[39m boom-cont-2[0m
-    Parent commit: [1m[38;5;5mr[0m[38;5;8moyxmykx[39m [1m[38;5;4m6[0m[38;5;8m64a4c6c[39m [38;5;1m(conflict)[39m [38;5;2m(empty)[39m boom-cont
+    Working copy  (@) : [1m[38;5;13my[38;5;8mqosqzyt[39m [38;5;12md[38;5;8mcb25635[39m [38;5;9m(conflict)[39m [38;5;10m(empty)[39m boom-cont-2[0m
+    Parent commit (@-): [1m[38;5;5mr[0m[38;5;8moyxmykx[39m [1m[38;5;4m6[0m[38;5;8m64a4c6c[39m [38;5;1m(conflict)[39m [38;5;2m(empty)[39m boom-cont
     [1m[38;5;3mWarning: [39mThere are unresolved conflicts at these paths:[0m
     conflicted.txt    [38;5;3m2-sided conflict[39m
     [1m[38;5;6mHint: [0m[39mTo resolve the conflicts, start by updating to the first one:[39m
@@ -233,8 +233,8 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     );
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
-    Working copy : yqosqzyt dcb25635 (conflict) (empty) boom-cont-2
-    Parent commit: royxmykx 664a4c6c (conflict) (empty) boom-cont
+    Working copy  (@) : yqosqzyt dcb25635 (conflict) (empty) boom-cont-2
+    Parent commit (@-): royxmykx 664a4c6c (conflict) (empty) boom-cont
     Warning: There are unresolved conflicts at these paths:
     conflicted.txt    2-sided conflict
     [EOF]
@@ -281,8 +281,8 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     insta::assert_snapshot!(output, @r"
     Working copy changes:
     M conflicted.txt
-    Working copy : wqnwkozp c4a6dbc2 fixed 2
-    Parent commit: kmkuslsw fcebf6ee fixed 1
+    Working copy  (@) : wqnwkozp c4a6dbc2 fixed 2
+    Parent commit (@-): kmkuslsw fcebf6ee fixed 1
     [EOF]
     ");
 
@@ -317,8 +317,8 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     insta::assert_snapshot!(output, @r"
     Working copy changes:
     M conflicted.txt
-    Working copy : kmkuslsw fcebf6ee fixed 1
-    Parent commit: yqosqzyt dcb25635 (conflict) (empty) boom-cont-2
+    Working copy  (@) : kmkuslsw fcebf6ee fixed 1
+    Parent commit (@-): yqosqzyt dcb25635 (conflict) (empty) boom-cont-2
     Hint: Conflict in parent commit has been resolved in working copy
     [EOF]
     ");
@@ -357,8 +357,8 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     insta::assert_snapshot!(output, @r"
     Working copy changes:
     A conflicted.txt
-    Working copy : qpvuntsm aade7195 Initial contents
-    Parent commit: zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) : qpvuntsm aade7195 Initial contents
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 }
@@ -424,9 +424,9 @@ fn test_status_simplify_conflict_sides() {
     insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["status"]),
     @r"
     The working copy has no changes.
-    Working copy : nkmrtpmo 83c4b9e7 conflict | (conflict) (empty) conflict
-    Parent commit: kmkuslsw 4601566f conflictA | (conflict) (empty) conflictA
-    Parent commit: lylxulpl 6f8d8381 conflictB | (conflict) (empty) conflictB
+    Working copy  (@) : nkmrtpmo 83c4b9e7 conflict | (conflict) (empty) conflict
+    Parent commit (@-): kmkuslsw 4601566f conflictA | (conflict) (empty) conflictA
+    Parent commit (@-): lylxulpl 6f8d8381 conflictB | (conflict) (empty) conflictB
     Warning: There are unresolved conflicts at these paths:
     fileA    2-sided conflict
     fileB    2-sided conflict
@@ -461,8 +461,8 @@ fn test_status_untracked_files() {
     ? initially-untracked-file
     ? sub/always-untracked
     ? sub/initially-untracked
-    Working copy : qpvuntsm 230dd059 (empty) (no description set)
-    Parent commit: zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) : qpvuntsm 230dd059 (empty) (no description set)
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 
@@ -486,8 +486,8 @@ fn test_status_untracked_files() {
     Untracked paths:
     ? always-untracked-file
     ? sub/always-untracked
-    Working copy : qpvuntsm 99798fcd (no description set)
-    Parent commit: zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) : qpvuntsm 99798fcd (no description set)
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 
@@ -498,8 +498,8 @@ fn test_status_untracked_files() {
     Untracked paths:
     ? always-untracked-file
     ? sub/always-untracked
-    Working copy : mzvwutvl 30e53c74 (empty) (no description set)
-    Parent commit: qpvuntsm 99798fcd (no description set)
+    Working copy  (@) : mzvwutvl 30e53c74 (empty) (no description set)
+    Parent commit (@-): qpvuntsm 99798fcd (no description set)
     [EOF]
     ");
 
@@ -524,8 +524,8 @@ fn test_status_untracked_files() {
     ? initially-untracked-file
     ? sub/always-untracked
     ? sub/initially-untracked
-    Working copy : mzvwutvl bb362aaf (no description set)
-    Parent commit: qpvuntsm 99798fcd (no description set)
+    Working copy  (@) : mzvwutvl bb362aaf (no description set)
+    Parent commit (@-): qpvuntsm 99798fcd (no description set)
     [EOF]
     ");
 
@@ -538,8 +538,8 @@ fn test_status_untracked_files() {
     ? initially-untracked-file
     ? sub/always-untracked
     ? sub/initially-untracked
-    Working copy : yostqsxw 8e8c02fe (empty) (no description set)
-    Parent commit: mzvwutvl bb362aaf (no description set)
+    Working copy  (@) : yostqsxw 8e8c02fe (empty) (no description set)
+    Parent commit (@-): mzvwutvl bb362aaf (no description set)
     [EOF]
     ");
 }

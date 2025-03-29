@@ -194,8 +194,8 @@ fn test_commit_interactive_with_paths() {
     let output = work_dir.run_jj(["commit", "-i", "file1", "file2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: kkmpptxz f3e6062e (no description set)
-    Parent commit      : rlvkpnrz 9453cb28 edit
+    Working copy  (@) now at: kkmpptxz f3e6062e (no description set)
+    Parent commit (@-)      : rlvkpnrz 9453cb28 edit
     [EOF]
     ");
 
@@ -392,8 +392,8 @@ fn test_commit_paths_warning() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: The given paths do not match any file: file3
-    Working copy now at: rlvkpnrz d1872100 (no description set)
-    Parent commit      : qpvuntsm fa15625b (empty) first
+    Working copy  (@) now at: rlvkpnrz d1872100 (no description set)
+    Parent commit (@-)      : qpvuntsm fa15625b (empty) first
     [EOF]
     ");
 

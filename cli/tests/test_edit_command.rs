@@ -44,8 +44,8 @@ fn test_edit() {
     let output = work_dir.run_jj(["edit", "@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: qpvuntsm 73383c0b first
-    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) now at: qpvuntsm 73383c0b first
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
