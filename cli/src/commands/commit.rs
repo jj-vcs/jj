@@ -22,6 +22,7 @@ use crate::cli_util::CommandHelper;
 use crate::command_error::user_error;
 use crate::command_error::CommandError;
 use crate::complete;
+use crate::description_util::add_trailers;
 use crate::description_util::description_template;
 use crate::description_util::edit_description;
 use crate::description_util::join_message_paragraphs;
@@ -131,14 +132,23 @@ new working-copy commit.
     }
 
     let description = if !args.message_paragraphs.is_empty() {
-        join_message_paragraphs(&args.message_paragraphs)
-    } else {
-        if commit_builder.description().is_empty() {
-            commit_builder.set_description(tx.settings().get_string("ui.default-description")?);
+        let mut description = join_message_paragraphs(&args.message_paragraphs);
+        if !description.is_empty() {
+            let temp_commit = commit_builder.write_hidden()?;
+            description = add_trailers(ui, &tx, &temp_commit, &description)?;
         }
+        description
+    } else {
+        let description = if commit_builder.description().is_empty() {
+            tx.settings().get_string("ui.default-description")?
+        } else {
+            commit_builder.description().to_owned()
+        };
+        let description = add_trailers(ui, &tx, &commit, &description)?;
+        commit_builder.set_description(description);
         let temp_commit = commit_builder.write_hidden()?;
-        let template = description_template(ui, &tx, "", &temp_commit)?;
-        edit_description(&text_editor, &template)?
+        let description = description_template(ui, &tx, "", &temp_commit)?;
+        edit_description(&text_editor, &description)?
     };
     commit_builder.set_description(description);
     let new_commit = commit_builder.write(tx.repo_mut())?;
