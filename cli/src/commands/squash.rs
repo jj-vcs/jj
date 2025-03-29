@@ -33,6 +33,7 @@ use crate::command_error::user_error;
 use crate::command_error::user_error_with_hint;
 use crate::command_error::CommandError;
 use crate::complete;
+use crate::description_util::add_trailers;
 use crate::description_util::combine_messages_for_editing;
 use crate::description_util::description_template;
 use crate::description_util::edit_description;
@@ -176,7 +177,11 @@ pub(crate) fn cmd_squash(
     )? {
         let mut commit_builder = squashed.commit_builder.detach();
         let new_description = match description {
-            SquashedDescription::Exact(description) => description,
+            SquashedDescription::Exact(description) => {
+                commit_builder.set_description(description);
+                let temp_commit = commit_builder.write_hidden()?;
+                add_trailers(ui, &tx, &temp_commit)?
+            }
             SquashedDescription::UseDestination => destination.description().to_owned(),
             SquashedDescription::Combine => {
                 let abandoned_commits = &squashed.abandoned_commits;
