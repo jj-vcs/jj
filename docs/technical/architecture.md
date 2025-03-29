@@ -145,7 +145,7 @@ sparse; they simply track the full repo in most cases.
 
 ### WorkingCopy
 
-The `WorkingCopy` type has a `TreeState` but also knows which `WorkspaceId` it
+The `WorkingCopy` type has a `TreeState` but also knows which `WorkspaceName` it
 has and at which operation it was most recently updated.
 
 ### Workspace

@@ -290,7 +290,7 @@ pub fn show_op_diff(
                 // Usually, there is at most one working copy changed per operation, so we put
                 // the working copy name in the heading.
                 write!(formatter, "Changed working copy ")?;
-                write!(formatter.labeled("working_copies"), "{}@", name.as_str())?;
+                write!(formatter.labeled("working_copies"), "{}@", name.as_symbol())?;
                 writeln!(formatter, ":")?;
                 write_ref_target_summary(
                     formatter,

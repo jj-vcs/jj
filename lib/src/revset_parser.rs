@@ -329,7 +329,7 @@ pub enum ExpressionKind<'i> {
     },
     /// `<name>@<remote>`
     RemoteSymbol(RemoteRefSymbolBuf),
-    /// `<workspace_id>@`
+    /// `<name>@`
     AtWorkspace(String),
     /// `@`
     AtCurrentWorkspace,
@@ -649,7 +649,7 @@ fn parse_primary_node(pair: Pair<Rule>) -> Result<ExpressionNode, RevsetParseErr
                 Some(op) => {
                     assert_eq!(op.as_rule(), Rule::at_op);
                     match pairs.next() {
-                        // postfix "<workspace_id>@"
+                        // postfix "<name>@"
                         None => ExpressionKind::AtWorkspace(name),
                         // infix "<name>@<remote>"
                         Some(second) => {

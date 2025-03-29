@@ -26,13 +26,14 @@ use crate::op_store::BookmarkTarget;
 use crate::op_store::RefTarget;
 use crate::op_store::RefTargetOptionExt as _;
 use crate::op_store::RemoteRef;
-use crate::op_store::WorkspaceId;
 use crate::ref_name::GitRefName;
 use crate::ref_name::GitRefNameBuf;
 use crate::ref_name::RefName;
 use crate::ref_name::RefNameBuf;
 use crate::ref_name::RemoteName;
 use crate::ref_name::RemoteRefSymbol;
+use crate::ref_name::WorkspaceName;
+use crate::ref_name::WorkspaceNameBuf;
 use crate::refs;
 use crate::refs::LocalAndRemoteRef;
 use crate::str_util::StringPattern;
@@ -50,22 +51,22 @@ impl View {
         }
     }
 
-    pub fn wc_commit_ids(&self) -> &BTreeMap<WorkspaceId, CommitId> {
+    pub fn wc_commit_ids(&self) -> &BTreeMap<WorkspaceNameBuf, CommitId> {
         &self.data.wc_commit_ids
     }
 
-    pub fn get_wc_commit_id(&self, workspace_id: &WorkspaceId) -> Option<&CommitId> {
-        self.data.wc_commit_ids.get(workspace_id)
+    pub fn get_wc_commit_id(&self, name: &WorkspaceName) -> Option<&CommitId> {
+        self.data.wc_commit_ids.get(name)
     }
 
-    pub fn workspaces_for_wc_commit_id(&self, commit_id: &CommitId) -> Vec<WorkspaceId> {
-        let mut workspaces_ids = vec![];
-        for (workspace_id, wc_commit_id) in &self.data.wc_commit_ids {
+    pub fn workspaces_for_wc_commit_id(&self, commit_id: &CommitId) -> Vec<WorkspaceNameBuf> {
+        let mut workspace_names = vec![];
+        for (name, wc_commit_id) in &self.data.wc_commit_ids {
             if wc_commit_id == commit_id {
-                workspaces_ids.push(workspace_id.clone());
+                workspace_names.push(name.clone());
             }
         }
-        workspaces_ids
+        workspace_names
     }
 
     pub fn is_wc_commit_id(&self, commit_id: &CommitId) -> bool {
@@ -93,34 +94,30 @@ impl View {
         &self.data.git_head
     }
 
-    pub fn set_wc_commit(&mut self, workspace_id: WorkspaceId, commit_id: CommitId) {
-        self.data.wc_commit_ids.insert(workspace_id, commit_id);
+    pub fn set_wc_commit(&mut self, name: WorkspaceNameBuf, commit_id: CommitId) {
+        self.data.wc_commit_ids.insert(name, commit_id);
     }
 
-    pub fn remove_wc_commit(&mut self, workspace_id: &WorkspaceId) {
-        self.data.wc_commit_ids.remove(workspace_id);
+    pub fn remove_wc_commit(&mut self, name: &WorkspaceName) {
+        self.data.wc_commit_ids.remove(name);
     }
 
     pub fn rename_workspace(
         &mut self,
-        old_workspace_id: &WorkspaceId,
-        new_workspace_id: WorkspaceId,
+        old_name: &WorkspaceName,
+        new_name: WorkspaceNameBuf,
     ) -> Result<(), RenameWorkspaceError> {
-        if self.data.wc_commit_ids.contains_key(&new_workspace_id) {
+        if self.data.wc_commit_ids.contains_key(&new_name) {
             return Err(RenameWorkspaceError::WorkspaceAlreadyExists {
-                workspace_id: new_workspace_id.as_str().to_owned(),
+                name: new_name.clone(),
             });
         }
-        let wc_commit_id = self
-            .data
-            .wc_commit_ids
-            .remove(old_workspace_id)
-            .ok_or_else(|| RenameWorkspaceError::WorkspaceDoesNotExist {
-                workspace_id: old_workspace_id.as_str().to_owned(),
-            })?;
-        self.data
-            .wc_commit_ids
-            .insert(new_workspace_id, wc_commit_id);
+        let wc_commit_id = self.data.wc_commit_ids.remove(old_name).ok_or_else(|| {
+            RenameWorkspaceError::WorkspaceDoesNotExist {
+                name: old_name.to_owned(),
+            }
+        })?;
+        self.data.wc_commit_ids.insert(new_name, wc_commit_id);
         Ok(())
     }
 
@@ -417,9 +414,9 @@ impl View {
 /// Error from attempts to rename a workspace
 #[derive(Debug, Error)]
 pub enum RenameWorkspaceError {
-    #[error("Workspace {workspace_id} not found")]
-    WorkspaceDoesNotExist { workspace_id: String },
+    #[error("Workspace {} not found", name.as_symbol())]
+    WorkspaceDoesNotExist { name: WorkspaceNameBuf },
 
-    #[error("Workspace {workspace_id} already exists")]
-    WorkspaceAlreadyExists { workspace_id: String },
+    #[error("Workspace {} already exists", name.as_symbol())]
+    WorkspaceAlreadyExists { name: WorkspaceNameBuf },
 }

@@ -18,7 +18,7 @@ use itertools::Itertools as _;
 use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::file_util;
 use jj_lib::file_util::IoResultExt as _;
-use jj_lib::op_store::WorkspaceId;
+use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::merge_commit_trees;
 use jj_lib::workspace::Workspace;
@@ -55,7 +55,7 @@ pub struct WorkspaceAddArgs {
     /// To override the default, which is the basename of the destination
     /// directory.
     #[arg(long)]
-    name: Option<String>,
+    name: Option<WorkspaceNameBuf>,
     /// A list of parent revisions for the working-copy commit of the newly
     /// created workspace. You may specify nothing, or any number of parents.
     ///
@@ -88,21 +88,20 @@ pub fn cmd_workspace_add(
     } else {
         fs::create_dir(&destination_path).context(&destination_path)?;
     }
-    let name = if let Some(name) = &args.name {
-        name.to_string()
+    let workspace_name = if let Some(name) = &args.name {
+        name.to_owned()
     } else {
-        destination_path
-            .file_name()
-            .unwrap()
+        let file_name = destination_path.file_name().unwrap();
+        file_name
             .to_str()
-            .unwrap()
-            .to_string()
+            .ok_or_else(|| user_error("Destination path is not valid UTF-8"))?
+            .into()
     };
-    let workspace_id = WorkspaceId::new(name.clone());
     let repo = old_workspace_command.repo();
-    if repo.view().get_wc_commit_id(&workspace_id).is_some() {
+    if repo.view().get_wc_commit_id(&workspace_name).is_some() {
         return Err(user_error(format!(
-            "Workspace named '{name}' already exists"
+            "Workspace named '{name}' already exists",
+            name = workspace_name.as_symbol()
         )));
     }
 
@@ -115,7 +114,7 @@ pub fn cmd_workspace_add(
         repo_path,
         repo,
         working_copy_factory,
-        workspace_id,
+        workspace_name.clone(),
     )?;
     writeln!(
         ui.status(),
@@ -128,7 +127,8 @@ pub fn cmd_workspace_add(
         writeln!(
             ui.warning_default(),
             r#"Workspace created inside current directory. If this was unintentional, delete the "{}" directory and run `jj workspace forget {name}` to remove it."#,
-            args.destination
+            args.destination,
+            name = workspace_name.as_symbol()
         )?;
     }
 
@@ -167,7 +167,7 @@ pub fn cmd_workspace_add(
         if let Some(old_wc_commit_id) = tx
             .base_repo()
             .view()
-            .get_wc_commit_id(old_workspace_command.workspace_id())
+            .get_wc_commit_id(old_workspace_command.workspace_name())
         {
             tx.repo()
                 .store()
@@ -192,7 +192,10 @@ pub fn cmd_workspace_add(
     tx.edit(&new_wc_commit)?;
     tx.finish(
         ui,
-        format!("create initial working-copy commit in workspace {name}"),
+        format!(
+            "create initial working-copy commit in workspace {name}",
+            name = workspace_name.as_symbol()
+        ),
     )?;
     Ok(())
 }
