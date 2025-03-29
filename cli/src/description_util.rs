@@ -16,6 +16,8 @@ use jj_lib::commit::Commit;
 use jj_lib::config::ConfigGetError;
 use jj_lib::file_util::IoResultExt as _;
 use jj_lib::file_util::PathError;
+use jj_lib::footer::parse_description_footer;
+use jj_lib::footer::parse_footer;
 use jj_lib::settings::UserSettings;
 use thiserror::Error;
 
@@ -325,6 +327,52 @@ pub fn join_message_paragraphs(paragraphs: &[String]) -> String {
         .iter()
         .map(|p| text_util::complete_newline(p.as_str()))
         .join("\n")
+}
+
+/// Add the footer lines in the last paragraph of the description
+///
+/// It just lets the description untouched if they are already there.
+/// It also let the description untouched when the description is empty,
+/// because at least one line is required in the description to define
+/// a footer paragraph.
+pub fn add_footer_lines(
+    ui: &Ui,
+    tx: &WorkspaceCommandTransaction,
+    commit: &Commit,
+    description: &str,
+    footer_templates: &[String],
+) -> Result<String, CommandError> {
+    if description.is_empty() || footer_templates.is_empty() {
+        return Ok(description.to_owned());
+    }
+    let mut new_description = description.to_owned();
+    let mut footer_entries = parse_description_footer(description);
+    if footer_entries.is_empty() {
+        // create a new paragraph for the footer
+        new_description.push('\n');
+    }
+    for template_text in footer_templates {
+        let template = tx.parse_commit_template(ui, template_text)?;
+        let mut output = Vec::new();
+        template
+            .format(commit, &mut PlainTextFormatter::new(&mut output))
+            .expect("write() to vec backed formatter should never fail");
+        // Template output is usually UTF-8, but it can contain file content.
+        let mut footer_line = output.into_string_lossy();
+        // add a newline if the template doesn't have one
+        if !footer_line.ends_with('\n') {
+            footer_line.push('\n');
+        }
+        let new_footer_entries = parse_footer(&footer_line);
+        // FIXME: generate an error if there is no valid footer entry generated
+        // by the template, or if there are more than one
+        let footer_entry = &new_footer_entries[0];
+        if !footer_entries.contains(footer_entry) {
+            new_description.push_str(&footer_line);
+            footer_entries.push(footer_entry.to_owned());
+        }
+    }
+    Ok(new_description)
 }
 
 /// Renders commit description template, which will be edited by user.

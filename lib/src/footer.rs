@@ -1,0 +1,179 @@
+// Copyright 2024 The Jujutsu Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+//! Parsing footer lines from commit messages.
+
+use itertools::Itertools as _;
+
+/// A key-value pair representing a footer line in a commit message, of the
+/// form `Key: Value`.
+#[derive(Debug, PartialEq, Clone)]
+pub struct FooterEntry(pub String, pub String);
+
+/// Parse the footer lines from a commit message; these are simple key-value
+/// pairs, separated by a colon, describing extra information in a commit
+/// message; an example is the following:
+///
+/// ```text
+/// chore: fix bug 1234
+///
+/// Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod
+/// tempor incididunt ut labore et dolore magna aliqua.
+///
+/// Co-authored-by: Alice <alice@example.com>
+/// Co-authored-by: Bob <bob@example.com>
+/// Reviewed-by: Charlie <charlie@example.com>
+/// Change-Id: I1234567890abcdef1234567890abcdef12345678
+/// ```
+///
+/// In this case, there are four footer lines: two `Co-authored-by` lines, one
+/// `Reviewed-by` line, and one `Change-Id` line.
+pub fn parse_description_footer(body: &str) -> Vec<FooterEntry> {
+    let (footer, blank) = parse_footer_and_blank(body);
+    if blank {
+        footer
+    } else {
+        // no blank found, this means there was a single paragraph, so whatever
+        // was found can't come from the footer
+        vec![]
+    }
+}
+
+/// Parse the footer lines from a footer paragraph. This function behaves like
+/// `parse_description_footer`, except that it doesn't expect the body to
+/// contain several paragraphs.
+pub fn parse_footer(body: &str) -> Vec<FooterEntry> {
+    let (footer, _) = parse_footer_and_blank(body);
+    footer
+}
+
+fn parse_footer_and_blank(body: &str) -> (Vec<FooterEntry>, bool) {
+    // a footer always comes at the end of a message; we can split the message
+    // by newline, but we need to immediately reverse the order of the lines
+    // to ensure we parse the footer in an unambiguous manner; this avoids cases
+    // where a colon in the body of the message is mistaken for a footer line
+    let lines = body.trim().lines().rev();
+    let footer_entry_re = regex::Regex::new(r"^([a-zA-Z0-9-]+) *: +(.+) *$")
+        .expect("footer entry regex should be valid");
+    let mut footer: Vec<FooterEntry> = Vec::new();
+    let mut multiline_value: Vec<&str> = Vec::new();
+    let mut found_blank = false;
+    for line in lines {
+        if line.starts_with(' ') {
+            multiline_value.push(line.trim());
+        } else if let Some(caps) = footer_entry_re.captures(line) {
+            let key = caps[1].trim().to_string();
+            multiline_value.push(caps.get(2).unwrap().as_str());
+            let value = multiline_value.iter().rev().join(" ");
+            multiline_value.clear();
+            footer.push(FooterEntry(key, value));
+        } else if line.trim().is_empty() {
+            // end of the footer
+            found_blank = true;
+            break;
+        } else {
+            // a non footer entry in the footer
+            // the line is ignored, as well as the multiline value that may
+            // have previously been accumulated
+            multiline_value.clear();
+        }
+    }
+    // reverse the insert order, since we parsed the footer in reverse
+    footer.reverse();
+    (footer, found_blank)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_simple_footer_lines() {
+        let body = r#"chore: fix bug 1234
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed
+do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+
+Acked-by: Austin Seipp <aseipp@pobox.com>
+Reviewed-by: Yuya Nishihara <yuya@tcha.org>
+Reviewed-by: Martin von Zweigbergk <martinvonz@gmail.com>
+Change-Id: I1234567890abcdef1234567890abcdef12345678"#;
+
+        let footer = parse_description_footer(body);
+        assert_eq!(footer.len(), 4);
+
+        assert_eq!(footer.first().unwrap().1, "Austin Seipp <aseipp@pobox.com>");
+        assert_eq!(footer.get(1).unwrap().1, "Yuya Nishihara <yuya@tcha.org>");
+        assert_eq!(
+            footer.get(2).unwrap().1,
+            "Martin von Zweigbergk <martinvonz@gmail.com>"
+        );
+        assert_eq!(
+            footer.get(3).unwrap().1,
+            "I1234567890abcdef1234567890abcdef12345678"
+        );
+    }
+
+    #[test]
+    fn test_footer_lines_with_colon_in_body() {
+        let body = r#"chore: fix bug 1234
+
+Summary: Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod
+tempor incididunt ut labore et dolore magna aliqua.
+
+Change-Id: I1234567890abcdef1234567890abcdef12345678"#;
+
+        let footer = parse_description_footer(body);
+
+        // should only have Change-Id
+        assert_eq!(footer.len(), 1);
+        assert_eq!(footer.first().unwrap().0, "Change-Id");
+    }
+
+    #[test]
+    fn test_multiline_footer_entry() {
+        let body = r#"chore: fix bug 1234
+
+key: This is a very long value, with spaces and
+  newlines in it."#;
+
+        let footer = parse_description_footer(body);
+
+        // should only have Change-Id
+        assert_eq!(footer.len(), 1);
+        assert_eq!(footer.first().unwrap().0, "key");
+        assert!(footer.first().unwrap().1.starts_with("This is"));
+        assert!(footer.first().unwrap().1.ends_with("in it."));
+    }
+
+    #[test]
+    fn test_ignore_line_in_footer() {
+        let body = r#"chore: fix bug 1234
+
+Signed-off-by: Random J Developer <random@developer.example.org>
+[lucky@maintainer.example.org: struct foo moved from foo.c to foo.h]
+Signed-off-by: Lucky K Maintainer <lucky@maintainer.example.org>
+"#;
+
+        let footer = parse_description_footer(body);
+        assert_eq!(footer.len(), 2);
+    }
+
+    #[test]
+    fn test_footer_lines_with_single_line_description() {
+        let body = r#"chore: fix bug 1234"#;
+        let footer = parse_description_footer(body);
+        assert_eq!(footer.len(), 0);
+    }
+}
