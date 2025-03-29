@@ -40,6 +40,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   template, to the commit description. Use cases include DCO Sign Off and
   Gerrit Change Id.
 
+* `jj commit` now uses the `commit_trailers` template.
+
 ### Fixed bugs
 
 ### Packaging changes
