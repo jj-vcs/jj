@@ -395,7 +395,7 @@ revsets (expressions) as arguments.
 
     **function** `fork_point()`
 
-    * `fork_point(E|D)` ⇒ `{A}`
+    * `fork_point(E|D)` ⇒ `{B}`
     * `fork_point(E|C)` ⇒ `{A}`
     * `fork_point(E|B)` ⇒ `{B}`
     * `fork_point(E|A)` ⇒ `{A}`
