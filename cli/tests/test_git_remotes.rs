@@ -439,9 +439,10 @@ fn test_git_remote_with_branch_config() {
         .open(work_dir.root().join(".jj/repo/store/git/config"))
         .unwrap();
     // `git clone` adds branch configuration like this.
-    writeln!(config_file, "[branch \"test\"]").unwrap();
-    writeln!(config_file, "\tremote = foo").unwrap();
-    writeln!(config_file, "\tmerge = refs/heads/test").unwrap();
+    let eol = if cfg!(windows) { "\r\n" } else { "\n" };
+    write!(config_file, "[branch \"test\"]{eol}").unwrap();
+    write!(config_file, "\tremote = foo{eol}").unwrap();
+    write!(config_file, "\tmerge = refs/heads/test{eol}").unwrap();
     drop(config_file);
 
     let output = work_dir.run_jj(["git", "remote", "rename", "foo", "bar"]);
