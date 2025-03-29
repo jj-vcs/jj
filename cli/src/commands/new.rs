@@ -28,6 +28,7 @@ use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::command_error::CommandError;
 use crate::complete;
+use crate::description_util::add_trailers;
 use crate::description_util::join_message_paragraphs;
 use crate::ui::Ui;
 
@@ -129,11 +130,18 @@ pub(crate) fn cmd_new(
 
     let mut tx = workspace_command.start_transaction();
     let merged_tree = merge_commit_trees(tx.repo(), &parent_commits)?;
-    let new_commit = tx
+    let mut commit_builder = tx
         .repo_mut()
         .new_commit(parent_commit_ids, merged_tree.id())
-        .set_description(join_message_paragraphs(&args.message_paragraphs))
-        .write()?;
+        .detach();
+    let mut description = join_message_paragraphs(&args.message_paragraphs);
+    if !description.is_empty() {
+        commit_builder.set_description(description);
+        let temp_commit = commit_builder.write_hidden()?;
+        description = add_trailers(ui, &tx, &temp_commit)?;
+    }
+    commit_builder.set_description(&description);
+    let new_commit = commit_builder.write(tx.repo_mut())?;
 
     let child_commits: Vec<_> = child_commit_ids
         .iter()
