@@ -85,7 +85,7 @@ You can use parentheses to control evaluation order, such as `(x & y) | z` or
 
     Given this history:
     ```
-    D
+    o D
     |\
     | o C
     | |
@@ -350,9 +350,9 @@ revsets (expressions) as arguments.
 
     Given this history:
     ```
-    E
+    o E
     |
-    | D
+    | o D
     |/|
     | o C
     | |
