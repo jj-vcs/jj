@@ -21,7 +21,6 @@ use crate::common::TestWorkDir;
 fn test_revert() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
     let work_dir = test_env.work_dir("repo");
 
     create_commit_with_files(&work_dir, "a", &[], &[("a", "a\n")]);
@@ -42,7 +41,7 @@ fn test_revert() {
     A a
     [EOF]
     ");
-    let setup_opid = test_env.work_dir(&repo_path).current_operation_id();
+    let setup_opid = work_dir.current_operation_id();
 
     // Reverting without a location is an error
     let output = work_dir.run_jj(["revert", "-ra"]);
@@ -110,9 +109,7 @@ fn test_revert() {
     A a
     [EOF]
     ");
-    test_env
-        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
-        .success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
 
     // Revert the commit with `--insert-after`
     let output = work_dir.run_jj(["revert", "-ra", "-Ab"]);
@@ -142,9 +139,7 @@ fn test_revert() {
     D a
     [EOF]
     ");
-    test_env
-        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
-        .success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
 
     // Revert the commit with `--insert-before`
     let output = work_dir.run_jj(["revert", "-ra", "-Bd"]);
@@ -174,9 +169,7 @@ fn test_revert() {
     D a
     [EOF]
     ");
-    test_env
-        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
-        .success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
 
     // Revert the commit with `--insert-after` and `--insert-before`
     let output = work_dir.run_jj(["revert", "-ra", "-Aa", "-Bd"]);
@@ -209,9 +202,7 @@ fn test_revert() {
     D a
     [EOF]
     ");
-    test_env
-        .run_jj_in(&repo_path, ["op", "restore", &setup_opid])
-        .success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
 }
 
 #[test]
