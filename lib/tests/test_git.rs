@@ -39,7 +39,6 @@ use jj_lib::commit_builder::CommitBuilder;
 use jj_lib::git;
 use jj_lib::git::FailedRefExportReason;
 use jj_lib::git::GitBranchPushTargets;
-use jj_lib::git::GitExportError;
 use jj_lib::git::GitFetch;
 use jj_lib::git::GitFetchError;
 use jj_lib::git::GitImportError;
@@ -47,6 +46,7 @@ use jj_lib::git::GitPushError;
 use jj_lib::git::GitPushStats;
 use jj_lib::git::GitRefKind;
 use jj_lib::git::GitRefUpdate;
+use jj_lib::git::GitResetHeadError;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::BookmarkTarget;
@@ -2470,7 +2470,7 @@ fn test_reset_head_detached_out_of_sync() {
     // {expected: commit1, actual: commit5} -> commit3 (= commit4's parent)
     assert_matches!(
         git::reset_head(tx.repo_mut(), &commit4),
-        Err(GitExportError::Git(_))
+        Err(GitResetHeadError::UpdateHeadRef(_))
     );
 
     // Import the HEAD moved by external process
