@@ -1,0 +1,62 @@
+#:schema https://mise.jdx.dev/schema/mise.json
+
+[tools]
+uv = "0.5.1"
+
+[tasks."setup"]
+description = "Set up the dev environment (install Rust, etc)"
+run = [
+  "rustup toolchain install 1.84",
+  # We want rustfmt from nightly
+  "rustup toolchain install nightly --profile minimal --component rustfmt",
+  # Tools installed via Cargo
+  "cargo +1.84 install --locked bacon",
+  "cargo +1.84 install --locked cargo-insta",
+  "cargo +1.84 install --locked cargo-nextest",
+]
+
+[tasks."format"]
+description = "Format the code"
+run = "cargo +nightly fmt"
+
+[tasks."lint"]
+description = "Lint the code"
+run = "cargo +1.84 clippy --workspace --all-targets"
+
+[tasks."lint:ci"]
+description = "Lint the code using the same clippy version as CI would"
+run = [
+  # Check for cmake
+  "cmake --version || echo 'cmake is not installed, cargo clippy might fail'",
+  # `cargo +stable` doesn't check for the latest stable, so we have to discover it.
+  # We just extract versions from the output of `rustup check` and take the latest.
+  '''
+  STABLE=$(rustup check | grep '^stable' | grep -Eo '\d+\.\d+\.\d+' | sort --version-sort | tail -1)
+  cargo +$STABLE clippy --all-features --workspace --all-targets -- -D warnings
+  ''',
+]
+
+[tasks."zizmor"]
+description = "Check GitHub workflows with Zizmor"
+run = "uvx zizmor ."
+
+[tasks."test"]
+description = "Run tests"
+run = [
+  "cargo +1.84 nextest run --workspace",
+  # TODO: this seems to run the same tests as the previous command,
+  # plus the insta tests. Do we need both?
+  "cargo +1.84 insta test --workspace --test-runner nextest",
+]
+
+[tasks."update-cli-help"]
+description = "Update generated CLI help (cli/tests/cli-reference@.md.snap)"
+run = "cargo +1.84 insta test --accept --workspace -- test_generate_md_cli_help"
+
+[tasks."docs:build"]
+description = "Build documentation into rendered-docs/ for offline use"
+run = "uv run mkdocs build -f mkdocs-offline.yml"
+
+[tasks."docs:serve"]
+description = "Preview documentation with live reloading"
+run = "uv run mkdocs serve"
