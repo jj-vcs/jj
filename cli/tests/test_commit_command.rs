@@ -446,6 +446,80 @@ fn test_commit_reset_author() {
     ");
 }
 
+#[test]
+fn test_commit_trailers() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    test_env.add_config(
+        r#"[templates]
+        commit_trailers = '''"Reviewed-by: " ++ self.committer().email()'''"#,
+    );
+    work_dir.write_file("file1", "foo\n");
+
+    let output = work_dir.run_jj(["commit", "-m=first"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: rlvkpnrz e5635290 (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 78139a3f first
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["log", "--no-graph", "-r@-", "-Tdescription"]);
+    insta::assert_snapshot!(output, @r"
+    first
+
+    Reviewed-by: test.user@example.com
+    [EOF]
+    ");
+
+    // the new committer should appear in the trailer
+    let output = work_dir.run_jj(["commit", "--config=user.email=foo@bar.org", "-m=second"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: zsuskuln 3b39fdb9 (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 1e30b4ab (empty) second
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["log", "--no-graph", "-r@-", "-Tdescription"]);
+    insta::assert_snapshot!(output, @r"
+    second
+
+    Reviewed-by: foo@bar.org
+    [EOF]
+    ");
+
+    // the trailer is added in the editor
+    std::fs::write(&edit_script, "dump editor0").unwrap();
+    let output = work_dir.run_jj(["commit", "--config=user.email=foo@bar.org"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: royxmykx 1dd4f5c9 (empty) (no description set)
+    Parent commit (@-)      : zsuskuln 4ca072aa (empty) Reviewed-by: foo@bar.org
+    [EOF]
+    ");
+
+    let editor0 = std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap();
+    insta::assert_snapshot!(
+        format!("-----\n{editor0}-----\n"), @r#"
+    -----
+
+    
+    Reviewed-by: foo@bar.org
+
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    -----
+    "#);
+
+    let output = work_dir.run_jj(["log", "--no-graph", "-r@-", "-Tdescription"]);
+    insta::assert_snapshot!(output, @r"
+    Reviewed-by: foo@bar.org
+    [EOF]
+    ");
+}
+
 #[must_use]
 fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     let template = r#"commit_id.short() ++ " " ++ description"#;

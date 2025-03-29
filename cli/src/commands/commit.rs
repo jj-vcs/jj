@@ -22,6 +22,7 @@ use crate::cli_util::CommandHelper;
 use crate::command_error::user_error;
 use crate::command_error::CommandError;
 use crate::complete;
+use crate::description_util::add_trailers;
 use crate::description_util::description_template;
 use crate::description_util::edit_description;
 use crate::description_util::join_message_paragraphs;
@@ -131,14 +132,26 @@ new working-copy commit.
     }
 
     let description = if !args.message_paragraphs.is_empty() {
-        join_message_paragraphs(&args.message_paragraphs)
+        let mut description = join_message_paragraphs(&args.message_paragraphs);
+        if !description.is_empty() {
+            // The first trailer would become the first line of the description.
+            // Also, a commit with no description is treated in a special way in jujutsu: it
+            // can be discarded as soon as it's no longer the working copy. Adding a
+            // trailer to an empty description would break that logic.
+            commit_builder.set_description(description);
+            description = add_trailers(ui, &tx, &commit_builder)?;
+        }
+        description
     } else {
         if commit_builder.description().is_empty() {
-            commit_builder.set_description(tx.settings().get_string("ui.default-description")?);
+            let description = tx.settings().get_string("ui.default-description")?;
+            commit_builder.set_description(description);
         }
+        let description = add_trailers(ui, &tx, &commit_builder)?;
+        commit_builder.set_description(description);
         let temp_commit = commit_builder.write_hidden()?;
-        let template = description_template(ui, &tx, "", &temp_commit)?;
-        edit_description(&text_editor, &template)?
+        let description = description_template(ui, &tx, "", &temp_commit)?;
+        edit_description(&text_editor, &description)?
     };
     commit_builder.set_description(description);
     let new_commit = commit_builder.write(tx.repo_mut())?;

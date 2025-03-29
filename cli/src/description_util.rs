@@ -13,6 +13,7 @@ use itertools::FoldWhile;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
+use jj_lib::commit_builder::DetachedCommitBuilder;
 use jj_lib::config::ConfigGetError;
 use jj_lib::file_util::IoResultExt as _;
 use jj_lib::file_util::PathError;
@@ -397,12 +398,13 @@ pub fn add_trailers_with_template(
 pub fn add_trailers(
     ui: &Ui,
     tx: &WorkspaceCommandTransaction,
-    commit: &Commit,
+    commit_builder: &DetachedCommitBuilder,
 ) -> Result<String, CommandError> {
     if let Some(renderer) = parse_trailers_template(ui, tx)? {
-        add_trailers_with_template(&renderer, commit)
+        let commit = commit_builder.write_hidden()?;
+        add_trailers_with_template(&renderer, &commit)
     } else {
-        Ok(commit.description().to_owned())
+        Ok(commit_builder.description().to_owned())
     }
 }
 
