@@ -638,9 +638,9 @@ fn test_parallelize_complex_nonlinear_target() {
     let output = work_dir.run_jj(["parallelize", "description(0)::description(4)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: yostqsxw 59a216e5 (empty) 3c
-    Parent commit      : rlvkpnrz 745bea80 (empty) 0
-    Parent commit      : mzvwutvl cb944786 (empty) 3
+    Working copy  (@) now at: yostqsxw 59a216e5 (empty) 3c
+    Parent commit (@-)      : rlvkpnrz 745bea80 (empty) 0
+    Parent commit (@-)      : mzvwutvl cb944786 (empty) 3
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"

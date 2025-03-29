@@ -113,12 +113,13 @@ pub(crate) fn cmd_status(
         }
 
         let template = workspace_command.commit_summary_template();
-        write!(formatter, "Working copy : ")?;
+        write!(formatter, "Working copy  (@) : ")?;
         formatter.with_label("working_copy", |fmt| template.format(wc_commit, fmt))?;
         writeln!(formatter)?;
         for parent in wc_commit.parents() {
             let parent = parent?;
-            write!(formatter, "Parent commit: ")?;
+            //                "Working copy  (@) : "
+            write!(formatter, "Parent commit (@-): ")?;
             template.format(&parent, formatter)?;
             writeln!(formatter)?;
         }

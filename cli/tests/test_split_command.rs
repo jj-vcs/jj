@@ -69,8 +69,8 @@ fn test_split_by_paths() {
     ------- stderr -------
     First part: qpvuntsm 65569ca7 (no description set)
     Second part: zsuskuln 709756f0 (no description set)
-    Working copy now at: zsuskuln 709756f0 (no description set)
-    Parent commit      : qpvuntsm 65569ca7 (no description set)
+    Working copy  (@) now at: zsuskuln 709756f0 (no description set)
+    Parent commit (@-)      : qpvuntsm 65569ca7 (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(
@@ -123,8 +123,8 @@ fn test_split_by_paths() {
     Rebased 1 descendant commits
     First part: qpvuntsm 9da0eea0 (no description set)
     Second part: znkkpsqq 5b5714a3 (empty) (no description set)
-    Working copy now at: zsuskuln 0c798ee7 (no description set)
-    Parent commit      : znkkpsqq 5b5714a3 (empty) (no description set)
+    Working copy  (@) now at: zsuskuln 0c798ee7 (no description set)
+    Parent commit (@-)      : znkkpsqq 5b5714a3 (empty) (no description set)
     [EOF]
     ");
 
@@ -154,8 +154,8 @@ fn test_split_by_paths() {
     Rebased 1 descendant commits
     First part: qpvuntsm bd42f95a (empty) (no description set)
     Second part: lylxulpl ed55c86b (no description set)
-    Working copy now at: zsuskuln 1e1ed741 (no description set)
-    Parent commit      : lylxulpl ed55c86b (no description set)
+    Working copy  (@) now at: zsuskuln 1e1ed741 (no description set)
+    Parent commit (@-)      : lylxulpl ed55c86b (no description set)
     [EOF]
     ");
 
@@ -204,8 +204,8 @@ fn test_split_with_non_empty_description() {
     ------- stderr -------
     First part: qpvuntsm 231a3c00 part 1
     Second part: kkmpptxz e96291aa part 2
-    Working copy now at: kkmpptxz e96291aa part 2
-    Parent commit      : qpvuntsm 231a3c00 part 1
+    Working copy  (@) now at: kkmpptxz e96291aa part 2
+    Parent commit (@-)      : qpvuntsm 231a3c00 part 1
     [EOF]
     ");
 
@@ -258,8 +258,8 @@ fn test_split_with_default_description() {
     ------- stderr -------
     First part: qpvuntsm 02ee5d60 TESTED=TODO
     Second part: rlvkpnrz 33cd046b (no description set)
-    Working copy now at: rlvkpnrz 33cd046b (no description set)
-    Parent commit      : qpvuntsm 02ee5d60 TESTED=TODO
+    Working copy  (@) now at: rlvkpnrz 33cd046b (no description set)
+    Parent commit (@-)      : qpvuntsm 02ee5d60 TESTED=TODO
     [EOF]
     ");
 
@@ -334,15 +334,15 @@ fn test_split_with_descendants() {
     )
     .unwrap();
     let output = test_env.run_jj_in(&workspace_path, ["split", "file1", "-r", "qpvu"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits
     First part: qpvuntsm 34dd141b Add file1
     Second part: royxmykx 465e03d0 Add file2
-    Working copy now at: kkmpptxz 2d5d641f Add file4
-    Parent commit      : rlvkpnrz b3bd9eb7 Add file3
+    Working copy  (@) now at: kkmpptxz 2d5d641f Add file4
+    Parent commit (@-)      : rlvkpnrz b3bd9eb7 Add file3
     [EOF]
-    "###);
+    ");
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r###"
     @  kkmpptxzrspx false Add file4
     ○  rlvkpnrzqnoo false Add file3
@@ -453,9 +453,9 @@ fn test_split_with_merge_child() {
     Rebased 1 descendant commits
     First part: kkmpptxz e8006b47 Add file1
     Second part: royxmykx 5e1b793d Add file2
-    Working copy now at: zsuskuln 696935af (empty) 2
-    Parent commit      : qpvuntsm 8b64ddff (empty) 1
-    Parent commit      : royxmykx 5e1b793d Add file2
+    Working copy  (@) now at: zsuskuln 696935af (empty) 2
+    Parent commit (@-)      : qpvuntsm 8b64ddff (empty) 1
+    Parent commit (@-)      : royxmykx 5e1b793d Add file2
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r"
@@ -499,8 +499,8 @@ fn test_split_parallel_no_descendants() {
     ------- stderr -------
     First part: qpvuntsm 48018df6 TESTED=TODO
     Second part: kkmpptxz 7eddbf93 (no description set)
-    Working copy now at: kkmpptxz 7eddbf93 (no description set)
-    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) now at: kkmpptxz 7eddbf93 (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -618,8 +618,8 @@ fn test_split_parallel_with_descendants() {
     Rebased 2 descendant commits
     First part: qpvuntsm 84df941d Add file1
     Second part: vruxwmqv 94753be3 Add file2
-    Working copy now at: vruxwmqv 94753be3 Add file2
-    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) now at: vruxwmqv 94753be3 Add file2
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -705,10 +705,10 @@ fn test_split_parallel_with_merge_child() {
     Rebased 1 descendant commits
     First part: kkmpptxz e8006b47 Add file1
     Second part: royxmykx 2cc60f3d Add file2
-    Working copy now at: zsuskuln 35b5d7eb (empty) 2
-    Parent commit      : qpvuntsm 8b64ddff (empty) 1
-    Parent commit      : kkmpptxz e8006b47 Add file1
-    Parent commit      : royxmykx 2cc60f3d Add file2
+    Working copy  (@) now at: zsuskuln 35b5d7eb (empty) 2
+    Parent commit (@-)      : qpvuntsm 8b64ddff (empty) 1
+    Parent commit (@-)      : kkmpptxz e8006b47 Add file1
+    Parent commit (@-)      : royxmykx 2cc60f3d Add file2
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&test_env, &workspace_path), @r"
@@ -786,8 +786,8 @@ fn test_split_interactive() {
     ------- stderr -------
     First part: qpvuntsm 0e15949e (no description set)
     Second part: rlvkpnrz 9ed12e4c (no description set)
-    Working copy now at: rlvkpnrz 9ed12e4c (no description set)
-    Parent commit      : qpvuntsm 0e15949e (no description set)
+    Working copy  (@) now at: rlvkpnrz 9ed12e4c (no description set)
+    Parent commit (@-)      : qpvuntsm 0e15949e (no description set)
     [EOF]
     ");
 
@@ -860,8 +860,8 @@ fn test_split_interactive_with_paths() {
     ------- stderr -------
     First part: rlvkpnrz e3d766b8 (no description set)
     Second part: kkmpptxz 4cf22d3b (no description set)
-    Working copy now at: kkmpptxz 4cf22d3b (no description set)
-    Parent commit      : rlvkpnrz e3d766b8 (no description set)
+    Working copy  (@) now at: kkmpptxz 4cf22d3b (no description set)
+    Parent commit (@-)      : rlvkpnrz e3d766b8 (no description set)
     [EOF]
     ");
 
@@ -1089,8 +1089,8 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
             ------- stderr -------
             First part: qpvuntsm 63d0c5ed *le-signet* | first-commit
             Second part: mzvwutvl a9f5665f second-commit
-            Working copy now at: mzvwutvl a9f5665f second-commit
-            Parent commit      : qpvuntsm 63d0c5ed *le-signet* | first-commit
+            Working copy  (@) now at: mzvwutvl a9f5665f second-commit
+            Parent commit (@-)      : qpvuntsm 63d0c5ed *le-signet* | first-commit
             [EOF]
             ");
             }
@@ -1109,8 +1109,8 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
             ------- stderr -------
             First part: qpvuntsm 63d0c5ed first-commit
             Second part: mzvwutvl a9f5665f *le-signet* | second-commit
-            Working copy now at: mzvwutvl a9f5665f *le-signet* | second-commit
-            Parent commit      : qpvuntsm 63d0c5ed first-commit
+            Working copy  (@) now at: mzvwutvl a9f5665f *le-signet* | second-commit
+            Parent commit (@-)      : qpvuntsm 63d0c5ed first-commit
             [EOF]
             ");
             }

@@ -72,8 +72,8 @@ fn test_git_clone(subprocess: bool) {
     Fetching into new repo in "$TEST_ENV/clone"
     bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
-    Working copy now at: uuqppmxq f78d2645 (empty) (no description set)
-    Parent commit      : qomsplrm ebeb70d8 main | message
+    Working copy  (@) now at: uuqppmxq f78d2645 (empty) (no description set)
+    Parent commit (@-)      : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -193,8 +193,8 @@ fn test_git_clone(subprocess: bool) {
     Fetching into new repo in "$TEST_ENV/nested/path/to/repo"
     bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
-    Working copy now at: uuzqqzqu cf5d593e (empty) (no description set)
-    Parent commit      : qomsplrm ebeb70d8 main | message
+    Working copy  (@) now at: uuzqqzqu cf5d593e (empty) (no description set)
+    Parent commit (@-)      : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -276,8 +276,8 @@ fn test_git_clone_colocate(subprocess: bool) {
     Fetching into new repo in "$TEST_ENV/clone"
     bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
-    Working copy now at: uuqppmxq f78d2645 (empty) (no description set)
-    Parent commit      : qomsplrm ebeb70d8 main | message
+    Working copy  (@) now at: uuqppmxq f78d2645 (empty) (no description set)
+    Parent commit (@-)      : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -459,8 +459,8 @@ fn test_git_clone_colocate(subprocess: bool) {
     Fetching into new repo in "$TEST_ENV/nested/path/to/repo"
     bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
-    Working copy now at: vzqnnsmr 589d0921 (empty) (no description set)
-    Parent commit      : qomsplrm ebeb70d8 main | message
+    Working copy  (@) now at: vzqnnsmr 589d0921 (empty) (no description set)
+    Parent commit (@-)      : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -501,8 +501,8 @@ fn test_git_clone_remote_default_bookmark(subprocess: bool) {
     bookmark: feature1@origin [new] tracked
     bookmark: main@origin     [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
-    Working copy now at: sqpuoqvx 2ca1c979 (empty) (no description set)
-    Parent commit      : qomsplrm ebeb70d8 feature1 main | message
+    Working copy  (@) now at: sqpuoqvx 2ca1c979 (empty) (no description set)
+    Parent commit (@-)      : qomsplrm ebeb70d8 feature1 main | message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -537,8 +537,8 @@ fn test_git_clone_remote_default_bookmark(subprocess: bool) {
     bookmark: feature1@origin [new] untracked
     bookmark: main@origin     [new] untracked
     Setting the revset alias `trunk()` to `main@origin`
-    Working copy now at: rzvqmyuk 018092c2 (empty) (no description set)
-    Parent commit      : qomsplrm ebeb70d8 feature1@origin main | message
+    Working copy  (@) now at: rzvqmyuk 018092c2 (empty) (no description set)
+    Parent commit (@-)      : qomsplrm ebeb70d8 feature1@origin main | message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -563,8 +563,8 @@ fn test_git_clone_remote_default_bookmark(subprocess: bool) {
     bookmark: feature1@origin [new] untracked
     bookmark: main@origin     [new] untracked
     Setting the revset alias `trunk()` to `feature1@origin`
-    Working copy now at: nppvrztz 5fd587f4 (empty) (no description set)
-    Parent commit      : qomsplrm ebeb70d8 feature1 main@origin | message
+    Working copy  (@) now at: nppvrztz 5fd587f4 (empty) (no description set)
+    Parent commit (@-)      : qomsplrm ebeb70d8 feature1 main@origin | message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -621,8 +621,8 @@ fn test_git_clone_remote_default_bookmark_with_escape(subprocess: bool) {
     Fetching into new repo in "$TEST_ENV/clone"
     bookmark: "\""@origin [new] untracked
     Setting the revset alias `trunk()` to `"\""@origin`
-    Working copy now at: sqpuoqvx 2ca1c979 (empty) (no description set)
-    Parent commit      : qomsplrm ebeb70d8 " | message
+    Working copy  (@) now at: sqpuoqvx 2ca1c979 (empty) (no description set)
+    Parent commit (@-)      : qomsplrm ebeb70d8 " | message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -668,8 +668,8 @@ fn test_git_clone_ignore_working_copy(subprocess: bool) {
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
-    Working copy : sqpuoqvx 2ca1c979 (empty) (no description set)
-    Parent commit: qomsplrm ebeb70d8 main | message
+    Working copy  (@) : sqpuoqvx 2ca1c979 (empty) (no description set)
+    Parent commit (@-): qomsplrm ebeb70d8 main | message
     [EOF]
     ");
     }
@@ -732,8 +732,8 @@ fn test_git_clone_with_remote_name(subprocess: bool) {
     Fetching into new repo in "$TEST_ENV/clone"
     bookmark: main@upstream [new] tracked
     Setting the revset alias `trunk()` to `main@upstream`
-    Working copy now at: sqpuoqvx 2ca1c979 (empty) (no description set)
-    Parent commit      : qomsplrm ebeb70d8 main | message
+    Working copy  (@) now at: sqpuoqvx 2ca1c979 (empty) (no description set)
+    Parent commit (@-)      : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -804,8 +804,8 @@ fn test_git_clone_trunk_deleted(subprocess: bool) {
     Fetching into new repo in "$TEST_ENV/clone"
     bookmark: main@origin [new] untracked
     Setting the revset alias `trunk()` to `main@origin`
-    Working copy now at: sqpuoqvx 2ca1c979 (empty) (no description set)
-    Parent commit      : qomsplrm ebeb70d8 main | message
+    Working copy  (@) now at: sqpuoqvx 2ca1c979 (empty) (no description set)
+    Parent commit (@-)      : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -898,8 +898,8 @@ fn test_git_clone_conditional_config() {
     Fetching into new repo in "$TEST_ENV/new"
     bookmark: main@origin [new] untracked
     Setting the revset alias `trunk()` to `main@origin`
-    Working copy now at: zxsnswpr 9ffb42e2 (empty) (no description set)
-    Parent commit      : qomsplrm ebeb70d8 main | message
+    Working copy  (@) now at: zxsnswpr 9ffb42e2 (empty) (no description set)
+    Parent commit (@-)      : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -967,8 +967,8 @@ fn test_git_clone_with_depth_subprocess() {
     Fetching into new repo in "$TEST_ENV/clone"
     bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
-    Working copy now at: sqpuoqvx 2ca1c979 (empty) (no description set)
-    Parent commit      : qomsplrm ebeb70d8 main | message
+    Working copy  (@) now at: sqpuoqvx 2ca1c979 (empty) (no description set)
+    Parent commit (@-)      : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -1079,8 +1079,8 @@ fn test_git_clone_malformed(subprocess: bool) {
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
-    Working copy : zsuskuln f652c321 (empty) (no description set)
-    Parent commit: zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) : zsuskuln f652c321 (empty) (no description set)
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
     }
@@ -1153,8 +1153,8 @@ fn test_git_clone_git2_warning() {
     Fetching into new repo in "$TEST_ENV/clone"
     bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
-    Working copy now at: sqpuoqvx 2ca1c979 (empty) (no description set)
-    Parent commit      : qomsplrm ebeb70d8 main | message
+    Working copy  (@) now at: sqpuoqvx 2ca1c979 (empty) (no description set)
+    Parent commit (@-)      : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);

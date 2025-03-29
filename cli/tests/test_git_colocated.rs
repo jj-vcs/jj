@@ -186,8 +186,8 @@ fn test_git_colocated_unborn_bookmark() {
     let output = work_dir.run_jj(["new", "root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: kkmpptxz fcdbbd73 (empty) (no description set)
-    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) now at: kkmpptxz fcdbbd73 (empty) (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -207,8 +207,8 @@ fn test_git_colocated_unborn_bookmark() {
     checkout_index();
     insta::assert_snapshot!(work_dir.run_jj(["status"]), @r"
     The working copy has no changes.
-    Working copy : kkmpptxz fcdbbd73 (empty) (no description set)
-    Parent commit: zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) : kkmpptxz fcdbbd73 (empty) (no description set)
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 
@@ -218,8 +218,8 @@ fn test_git_colocated_unborn_bookmark() {
     let output = work_dir.run_jj(["new"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: royxmykx 0e146103 (empty) (no description set)
-    Parent commit      : kkmpptxz e3e01407 (no description set)
+    Working copy  (@) now at: royxmykx 0e146103 (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz e3e01407 (no description set)
     [EOF]
     ");
     assert!(git_repo.head().unwrap().is_detached());
@@ -239,8 +239,8 @@ fn test_git_colocated_unborn_bookmark() {
     checkout_index();
     insta::assert_snapshot!(work_dir.run_jj(["status"]), @r"
     The working copy has no changes.
-    Working copy : royxmykx 0e146103 (empty) (no description set)
-    Parent commit: kkmpptxz e3e01407 (no description set)
+    Working copy  (@) : royxmykx 0e146103 (empty) (no description set)
+    Parent commit (@-): kkmpptxz e3e01407 (no description set)
     [EOF]
     ");
 
@@ -255,8 +255,8 @@ fn test_git_colocated_unborn_bookmark() {
     let output = work_dir.run_jj(["new", "root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: znkkpsqq 10dd328b (empty) (no description set)
-    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) now at: znkkpsqq 10dd328b (empty) (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
@@ -275,8 +275,8 @@ fn test_git_colocated_unborn_bookmark() {
     checkout_index();
     insta::assert_snapshot!(work_dir.run_jj(["status"]), @r"
     The working copy has no changes.
-    Working copy : znkkpsqq 10dd328b (empty) (no description set)
-    Parent commit: zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) : znkkpsqq 10dd328b (empty) (no description set)
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 
@@ -285,8 +285,8 @@ fn test_git_colocated_unborn_bookmark() {
     let output = work_dir.run_jj(["new"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: wqnwkozp 101e2723 (empty) (no description set)
-    Parent commit      : znkkpsqq fc8af934 (no description set)
+    Working copy  (@) now at: wqnwkozp 101e2723 (empty) (no description set)
+    Parent commit (@-)      : znkkpsqq fc8af934 (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -388,8 +388,8 @@ fn test_git_colocated_rebase_on_import() {
     ------- stderr -------
     Abandoned 1 commits that are no longer reachable.
     Rebased 1 descendant commits off of commits rewritten from git
-    Working copy now at: zsuskuln 15b1d70c (empty) (no description set)
-    Parent commit      : qpvuntsm 47fe984d master | add a file
+    Working copy  (@) now at: zsuskuln 15b1d70c (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 47fe984d master | add a file
     Added 0 files, modified 1 files, removed 0 files
     Done importing changes from the underlying Git repo.
     [EOF]
@@ -453,8 +453,8 @@ fn test_git_colocated_bookmarks() {
     [EOF]
     ------- stderr -------
     Abandoned 1 commits that are no longer reachable.
-    Working copy now at: yqosqzyt 096dc80d (empty) (no description set)
-    Parent commit      : qpvuntsm 230dd059 (empty) (no description set)
+    Working copy  (@) now at: yqosqzyt 096dc80d (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 230dd059 (empty) (no description set)
     Done importing changes from the underlying Git repo.
     [EOF]
     ");
@@ -597,8 +597,8 @@ fn test_git_colocated_checkout_non_empty_working_copy() {
     let output = work_dir.run_jj(["describe", "-m", "new"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: kkmpptxz acea3383 (empty) new
-    Parent commit      : slsumksp 97358f54 master | initial
+    Working copy  (@) now at: kkmpptxz acea3383 (empty) new
+    Parent commit (@-)      : slsumksp 97358f54 master | initial
     [EOF]
     ");
 
@@ -707,8 +707,8 @@ fn test_git_colocated_rebase_dirty_working_copy() {
     insta::assert_snapshot!(output, @r"
     Working copy changes:
     M file
-    Working copy : rlvkpnrz 6bad94b1 feature?? | (no description set)
-    Parent commit: qpvuntsm 3230d522 (no description set)
+    Working copy  (@) : rlvkpnrz 6bad94b1 feature?? | (no description set)
+    Parent commit (@-): qpvuntsm 3230d522 (no description set)
     Warning: These bookmarks have conflicts:
       feature
     Hint: Use `jj bookmark list` to see details. Use `jj bookmark set <name> -r <rev>` to resolve.
@@ -836,8 +836,8 @@ fn test_git_colocated_concurrent_checkout() {
     ------- stderr -------
     Warning: Failed to update Git HEAD ref
     Caused by: The reference "HEAD" should have content 58a6206c70b53dfc30dc2f8c9e3713034cfc323e, actual content was 363a08cf5e683485227336e24a006e0deac341bc
-    Working copy now at: mzvwutvl 6b3bc9c8 (empty) (no description set)
-    Parent commit      : zsuskuln 7d358222 (empty) commit3
+    Working copy  (@) now at: mzvwutvl 6b3bc9c8 (empty) (no description set)
+    Parent commit (@-)      : zsuskuln 7d358222 (empty) commit3
     [EOF]
     "#);
 
@@ -963,8 +963,8 @@ fn test_git_colocated_undo_head_move() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Undid operation: b50ec983d1c1 (2001-02-03 08:05:13) new empty commit
-    Working copy now at: royxmykx eb08b363 (empty) (no description set)
-    Parent commit      : qpvuntsm 230dd059 (empty) (no description set)
+    Working copy  (@) now at: royxmykx eb08b363 (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 230dd059 (empty) (no description set)
     [EOF]
     ");
     assert!(git_repo.head().unwrap().is_detached());
@@ -1602,13 +1602,13 @@ fn test_git_colocated_operation_cleanup() {
 
     // Reset the Git HEAD with Jujutsu.
     let output = work_dir.run_jj(["new", "main"]);
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: kmkuslsw 92667528 (empty) (no description set)
-    Parent commit      : kkmpptxz 52fef888 main | 2
+    Working copy  (@) now at: kmkuslsw 92667528 (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz 52fef888 main | 2
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
-    "#);
+    ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r#"
     @  926675286938f585d83b3646a95df96206968e8c
     │ ○  fbb4e341d1e7e1d3b87377c075bd8a407305ba3a

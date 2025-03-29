@@ -48,9 +48,9 @@ fn test_basics() {
     Abandoned 1 commits:
       vruxwmqv b7c62f28 d | d
     Rebased 1 descendant commits onto parents of abandoned commits
-    Working copy now at: znkkpsqq 11a2e10e e | e
-    Parent commit      : rlvkpnrz 2443ea76 a | a
-    Parent commit      : royxmykx fe2e8e8b c d | c
+    Working copy  (@) now at: znkkpsqq 11a2e10e e | e
+    Parent commit (@-)      : rlvkpnrz 2443ea76 a | a
+    Parent commit (@-)      : royxmykx fe2e8e8b c d | c
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -72,9 +72,9 @@ fn test_basics() {
     ------- stderr -------
     Abandoned 1 commits:
       znkkpsqq 5557ece3 e | e
-    Working copy now at: nkmrtpmo d4f8ea73 (empty) (no description set)
-    Parent commit      : rlvkpnrz 2443ea76 a e?? | a
-    Parent commit      : vruxwmqv b7c62f28 d e?? | d
+    Working copy  (@) now at: nkmrtpmo d4f8ea73 (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 2443ea76 a e?? | a
+    Parent commit (@-)      : vruxwmqv b7c62f28 d e?? | d
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -99,9 +99,9 @@ fn test_basics() {
       znkkpsqq 5557ece3 e | e
       vruxwmqv b7c62f28 d | d
     Deleted bookmarks: d, e
-    Working copy now at: xtnwkqum fa4ee8e6 (empty) (no description set)
-    Parent commit      : rlvkpnrz 2443ea76 a | a
-    Parent commit      : royxmykx fe2e8e8b c | c
+    Working copy  (@) now at: xtnwkqum fa4ee8e6 (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 2443ea76 a | a
+    Parent commit (@-)      : royxmykx fe2e8e8b c | c
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
@@ -147,9 +147,9 @@ fn test_basics() {
       znkkpsqq 5557ece3 e | e
       vruxwmqv b7c62f28 d | d
     Deleted bookmarks: d, e
-    Working copy now at: xlzxqlsl 14991aec (empty) (no description set)
-    Parent commit      : rlvkpnrz 2443ea76 a | a
-    Parent commit      : royxmykx fe2e8e8b c | c
+    Working copy  (@) now at: xlzxqlsl 14991aec (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 2443ea76 a | a
+    Parent commit (@-)      : royxmykx fe2e8e8b c | c
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
@@ -199,8 +199,8 @@ fn test_abandon_many() {
       kkmpptxz 5fc5f374 (empty) commit1
       rlvkpnrz 9451b4ea (empty) commit0
       ...
-    Working copy now at: kmkuslsw 822a2cf5 (empty) (no description set)
-    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) now at: kmkuslsw 822a2cf5 (empty) (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 }
@@ -244,8 +244,8 @@ fn test_bug_2600() {
       zsuskuln 73c929fc base | base
     Deleted bookmarks: base
     Rebased 3 descendant commits onto parents of abandoned commits
-    Working copy now at: znkkpsqq 86e31bec c | c
-    Parent commit      : vruxwmqv fd6eb121 b | b
+    Working copy  (@) now at: znkkpsqq 86e31bec c | c
+    Parent commit (@-)      : vruxwmqv fd6eb121 b | b
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -270,8 +270,8 @@ fn test_bug_2600() {
       royxmykx 98f3b9ba a | a
     Deleted bookmarks: a
     Rebased 2 descendant commits onto parents of abandoned commits
-    Working copy now at: znkkpsqq 683b9435 c | c
-    Parent commit      : vruxwmqv c10cb7b4 b | b
+    Working copy  (@) now at: znkkpsqq 683b9435 c | c
+    Parent commit (@-)      : vruxwmqv c10cb7b4 b | b
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -295,9 +295,9 @@ fn test_bug_2600() {
       vruxwmqv 8c0dced0 b | b
     Deleted bookmarks: b
     Rebased 1 descendant commits onto parents of abandoned commits
-    Working copy now at: znkkpsqq 33a94991 c | c
-    Parent commit      : zsuskuln 73c929fc base | base
-    Parent commit      : royxmykx 98f3b9ba a | a
+    Working copy  (@) now at: znkkpsqq 33a94991 c | c
+    Parent commit (@-)      : zsuskuln 73c929fc base | base
+    Parent commit (@-)      : royxmykx 98f3b9ba a | a
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -333,8 +333,8 @@ fn test_bug_2600() {
       vruxwmqv 8c0dced0 b | b
       royxmykx 98f3b9ba a | a
     Rebased 1 descendant commits onto parents of abandoned commits
-    Working copy now at: znkkpsqq 84fac1f8 c | c
-    Parent commit      : zsuskuln 73c929fc a b base | base
+    Working copy  (@) now at: znkkpsqq 84fac1f8 c | c
+    Parent commit (@-)      : zsuskuln 73c929fc a b base | base
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
@@ -414,8 +414,8 @@ fn test_double_abandon() {
     Abandoned 1 commits:
       rlvkpnrz 2443ea76 a | a
     Deleted bookmarks: a
-    Working copy now at: royxmykx f37b4afd (empty) (no description set)
-    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) now at: royxmykx f37b4afd (empty) (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -448,8 +448,8 @@ fn test_abandon_restore_descendants() {
     Abandoned 1 commits:
       rlvkpnrz 225adef1 (no description set)
     Rebased 1 descendant commits (while preserving their content) onto parents of abandoned commits
-    Working copy now at: kkmpptxz a734deb0 (no description set)
-    Parent commit      : qpvuntsm 485d52a9 (no description set)
+    Working copy  (@) now at: kkmpptxz a734deb0 (no description set)
+    Parent commit (@-)      : qpvuntsm 485d52a9 (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "--git"]);
@@ -517,8 +517,8 @@ fn test_abandon_tracking_bookmarks() {
     Abandoned 1 commits:
       zsuskuln f652c321 bar | (empty) (no description set)
     Deleted bookmarks: bar
-    Working copy now at: vruxwmqv 41658cf4 (empty) (no description set)
-    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) now at: vruxwmqv 41658cf4 (empty) (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 }

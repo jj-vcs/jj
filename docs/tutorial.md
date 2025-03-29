@@ -27,8 +27,8 @@ bookmark: master@origin          [new] untracked
 bookmark: octocat-patch-1@origin [new] untracked
 bookmark: test@origin            [new] untracked
 Setting the revset alias "trunk()" to "master@origin"
-Working copy now at: kntqzsqt d7439b06 (empty) (no description set)
-Parent commit      : orrkosyo 7fd1a60b master | (empty) Merge pull request #6 from Spaceghost/patch-1
+Working copy  (@) now at: kntqzsqt d7439b06 (empty) (no description set)
+Parent commit (@-)      : orrkosyo 7fd1a60b master | (empty) Merge pull request #6 from Spaceghost/patch-1
 Added 1 files, modified 0 files, removed 0 files
 $ cd Hello-World
 ```
@@ -38,8 +38,8 @@ Running `jj st` (short for `jj status`) now yields something like this:
 ```shell
 $ jj st
 The working copy has no changes.
-Working copy : kntqzsqt d7439b06 (empty) (no description set)
-Parent commit: orrkosyo 7fd1a60b master | (empty) Merge pull request #6 from Spaceghost/patch-1
+Working copy  (@) : kntqzsqt d7439b06 (empty) (no description set)
+Parent commit (@-): orrkosyo 7fd1a60b master | (empty) Merge pull request #6 from Spaceghost/patch-1
 ```
 
 Let's look at that output as it introduces new concepts. You can see two
@@ -88,8 +88,8 @@ we don't forget what we're working on:
 # Enter something like "Say goodbye" in the editor and then save the file and close
 # the editor.
 $ jj describe
-Working copy now at: kntqzsqt e427edcf (empty) Say goodbye
-Parent commit      : orrkosyo 7fd1a60b master | (empty) Merge pull request #6 from Spaceghost/patch-1
+Working copy  (@) now at: kntqzsqt e427edcf (empty) Say goodbye
+Parent commit (@-)      : orrkosyo 7fd1a60b master | (empty) Merge pull request #6 from Spaceghost/patch-1
 ```
 
 Now make the change in the README:
@@ -100,8 +100,8 @@ $ sed -i 's/Hello/Goodbye/' README
 $ jj st
 Working copy changes:
 M README
-Working copy : kntqzsqt 5d39e19d Say goodbye
-Parent commit: orrkosyo 7fd1a60b master | (empty) Merge pull request #6 from Spaceghost/patch-1
+Working copy  (@) : kntqzsqt 5d39e19d Say goodbye
+Parent commit (@-): orrkosyo 7fd1a60b master | (empty) Merge pull request #6 from Spaceghost/patch-1
 ```
 
 Note that you didn't have to tell Jujutsu to add the change like you would with
@@ -141,12 +141,12 @@ So, let's say we're now done with this change, so we create a new change:
 
 ```shell
 $ jj new
-Working copy now at: mpqrykyp aef4df99 (empty) (no description set)
-Parent commit      : kntqzsqt 5d39e19d Say goodbye
+Working copy  (@) now at: mpqrykyp aef4df99 (empty) (no description set)
+Parent commit (@-)      : kntqzsqt 5d39e19d Say goodbye
 $ jj st
 The working copy has no changes.
-Working copy : mpqrykyp aef4df99 (empty) (no description set)
-Parent commit: kntqzsqt 5d39e19d Say goodbye
+Working copy  (@) : mpqrykyp aef4df99 (empty) (no description set)
+Parent commit (@-): kntqzsqt 5d39e19d Say goodbye
 ```
 
 If we later realize that we want to make further changes, we can make them in
@@ -233,18 +233,18 @@ descriptions (commit messages) right away.
 ```shell
 # Start creating a chain of commits off of the `master` bookmark
 $ jj new master -m A; echo a > file1
-Working copy now at: nuvyytnq 00a2aeed (empty) A
-Parent commit      : orrkosyo 7fd1a60b master | (empty) Merge pull request #6 from Spaceghost/patch-1
+Working copy  (@) now at: nuvyytnq 00a2aeed (empty) A
+Parent commit (@-)      : orrkosyo 7fd1a60b master | (empty) Merge pull request #6 from Spaceghost/patch-1
 Added 0 files, modified 1 files, removed 0 files
 $ jj new -m B1; echo b1 > file1
-Working copy now at: ovknlmro 967d9f9f (empty) B1
-Parent commit      : nuvyytnq 5dda2f09 A
+Working copy  (@) now at: ovknlmro 967d9f9f (empty) B1
+Parent commit (@-)      : nuvyytnq 5dda2f09 A
 $ jj new -m B2; echo b2 > file1
-Working copy now at: puqltutt 8ebeaffa (empty) B2
-Parent commit      : ovknlmro 7d7c6e6b B1
+Working copy  (@) now at: puqltutt 8ebeaffa (empty) B2
+Parent commit (@-)      : ovknlmro 7d7c6e6b B1
 $ jj new -m C; echo c > file2
-Working copy now at: qzvqqupx 62a3c6d3 (empty) C
-Parent commit      : puqltutt daa6ffd5 B2
+Working copy  (@) now at: qzvqqupx 62a3c6d3 (empty) C
+Parent commit (@-)      : puqltutt daa6ffd5 B2
 $ jj log
 @  qzvqqupx martinvonz@google.com 2023-02-12 15:07:41.946 -08:00 2370ddf3
 │  C
@@ -273,8 +273,8 @@ on A.
 ```shell
 $ jj rebase -s puqltutt -d nuvyytnq  # Replace the IDs by what you have for B2 and A
 Rebased 2 commits
-Working copy now at: qzvqqupx 1978b534 (conflict) C
-Parent commit      : puqltutt f7fb5943 (conflict) B2
+Working copy  (@) now at: qzvqqupx 1978b534 (conflict) C
+Parent commit (@-)      : puqltutt f7fb5943 (conflict) B2
 Added 0 files, modified 1 files, removed 0 files
 There are unresolved conflicts at these paths:
 file1    2-sided conflict
@@ -321,8 +321,8 @@ resolution into the conflicted B2. That might look like this:
 
 ```shell
 $ jj new puqltutt  # Replace the ID by what you have for B2
-Working copy now at: zxoosnnp c7068d1c (conflict) (empty) (no description set)
-Parent commit      : puqltutt f7fb5943 (conflict) B2
+Working copy  (@) now at: zxoosnnp c7068d1c (conflict) (empty) (no description set)
+Parent commit (@-)      : puqltutt f7fb5943 (conflict) B2
 Added 0 files, modified 0 files, removed 1 files
 There are unresolved conflicts at these paths:
 file1    2-sided conflict
@@ -331,8 +331,8 @@ $ jj st
 The working copy has no changes.
 There are unresolved conflicts at these paths:
 file1    2-sided conflict
-Working copy : zxoosnnp c7068d1c (conflict) (empty) (no description set)
-Parent commit: puqltutt f7fb5943 (conflict) B2
+Working copy  (@) : zxoosnnp c7068d1c (conflict) (empty) (no description set)
+Parent commit (@-): puqltutt f7fb5943 (conflict) B2
 To resolve the conflicts, start by updating to it:
   jj new puqltutt
 Then use `jj resolve`, or edit the conflict markers in the file directly.
@@ -353,14 +353,14 @@ $ echo resolved > file1
 $ jj st
 Working copy changes:
 M file1
-Working copy : zxoosnnp c2a31a06 (no description set)
-Parent commit: puqltutt f7fb5943 (conflict) B2
+Working copy  (@) : zxoosnnp c2a31a06 (no description set)
+Parent commit (@-): puqltutt f7fb5943 (conflict) B2
 Conflict in parent commit has been resolved in working copy
 
 $ jj squash
 Rebased 1 descendant commits
-Working copy now at: ntxxqymr e3c279cc (empty) (no description set)
-Parent commit      : puqltutt 2c7a658e B2
+Working copy  (@) now at: ntxxqymr e3c279cc (empty) (no description set)
+Parent commit (@-)      : puqltutt 2c7a658e B2
 Existing conflicts were resolved or abandoned from these commits:
   qzvqqupx hidden 1978b534 (conflict) C
   puqltutt hidden f7fb5943 (conflict) B2
@@ -430,8 +430,8 @@ To resolve the conflicts, start by updating to the first one:
 Then use `jj resolve`, or edit the conflict markers in the file directly.
 Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
 Then run `jj squash` to move the resolution into the conflicted commit.
-Working copy now at: zxoosnnp 63874fe6 (no description set)
-Parent commit      : puqltutt f7fb5943 (conflict) B2
+Working copy  (@) now at: zxoosnnp 63874fe6 (no description set)
+Parent commit (@-)      : puqltutt f7fb5943 (conflict) B2
 
 $ jj log
 @  zxoosnnp martinvonz@google.com 2023-02-12 19:34:09.000 -08:00 63874fe6
@@ -475,17 +475,17 @@ few more commits:
 
 ```shell
 $ jj new master -m abc; printf 'a\nb\nc\n' > file
-Working copy now at: ztqrpvnw f94e49cf (empty) abc
-Parent commit      : orrkosyo 7fd1a60b master | (empty) Merge pull request #6 from Spaceghost/patch-1
+Working copy  (@) now at: ztqrpvnw f94e49cf (empty) abc
+Parent commit (@-)      : orrkosyo 7fd1a60b master | (empty) Merge pull request #6 from Spaceghost/patch-1
 Added 0 files, modified 0 files, removed 1 files
 
 $ jj new -m ABC; printf 'A\nB\nc\n' > file
-Working copy now at: kwtuwqnm 6f30cd1f (empty) ABC
-Parent commit      : ztqrpvnw 51002261 ab
+Working copy  (@) now at: kwtuwqnm 6f30cd1f (empty) ABC
+Parent commit (@-)      : ztqrpvnw 51002261 ab
 
 $ jj new -m ABCD; printf 'A\nB\nC\nD\n' > file
-Working copy now at: mrxqplyk a6749154 (empty) ABCD
-Parent commit      : kwtuwqnm 30aecc08 ABC
+Working copy  (@) now at: mrxqplyk a6749154 (empty) ABCD
+Parent commit (@-)      : kwtuwqnm 30aecc08 ABC
 
 $ jj log -r master::@
 @  mrxqplyk martinvonz@google.com 2023-02-12 19:38:21.000 -08:00 b98c607b
@@ -511,8 +511,8 @@ that:
 $ jj squash -i
 Hint: Using default editor ':builtin'; run `jj config set --user ui.diff-editor :builtin` to disable this message.
 Rebased 1 descendant commits
-Working copy now at: mrxqplyk 52a6c7fd ABCD
-Parent commit      : kwtuwqnm 643061ac ABC
+Working copy  (@) now at: mrxqplyk 52a6c7fd ABCD
+Parent commit (@-)      : kwtuwqnm 643061ac ABC
 ```
 
 That will bring up the built-in diff editor[^alternative_diff_editors] with a
@@ -561,8 +561,8 @@ $ jj diffedit -r @-
 Hint: Using default editor ':builtin'; run `jj config set --user ui.diff-editor :builtin` to disable this message.
 Created kwtuwqnm 70985eaa (empty) ABC
 Rebased 1 descendant commits
-Working copy now at: mrxqplyk 1c72cd50 (conflict) ABCD
-Parent commit      : kwtuwqnm 70985eaa (empty) ABC
+Working copy  (@) now at: mrxqplyk 1c72cd50 (conflict) ABCD
+Parent commit (@-)      : kwtuwqnm 70985eaa (empty) ABC
 Added 0 files, modified 1 files, removed 0 files
 There are unresolved conflicts at these paths:
 file    2-sided conflict

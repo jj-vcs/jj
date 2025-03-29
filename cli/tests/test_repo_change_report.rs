@@ -31,8 +31,8 @@ fn test_report_conflicts() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 3 commits onto destination
-    Working copy now at: zsuskuln f8a2c4e0 (conflict) (empty) (no description set)
-    Parent commit      : kkmpptxz 2271a49e (conflict) C
+    Working copy  (@) now at: zsuskuln f8a2c4e0 (conflict) (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz 2271a49e (conflict) C
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including 1 deletion
@@ -51,8 +51,8 @@ fn test_report_conflicts() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 3 commits onto destination
-    Working copy now at: zsuskuln d70c003d (empty) (no description set)
-    Parent commit      : kkmpptxz 43e94449 C
+    Working copy  (@) now at: zsuskuln d70c003d (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz 43e94449 C
     Added 0 files, modified 1 files, removed 0 files
     Existing conflicts were resolved or abandoned from 2 commits.
     [EOF]
@@ -64,8 +64,8 @@ fn test_report_conflicts() {
     ------- stderr -------
     Rebased 1 commits onto destination
     Rebased 2 descendant commits
-    Working copy now at: zsuskuln 588bd15c (conflict) (empty) (no description set)
-    Parent commit      : kkmpptxz 331a2fce (conflict) C
+    Working copy  (@) now at: zsuskuln 588bd15c (conflict) (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz 331a2fce (conflict) C
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
@@ -85,8 +85,8 @@ fn test_report_conflicts() {
     let output = work_dir.run_jj(["new", "rlvkpnrzqnoo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: vruxwmqv 0485e30f (conflict) (empty) (no description set)
-    Parent commit      : rlvkpnrz b42f84eb (conflict) B
+    Working copy  (@) now at: vruxwmqv 0485e30f (conflict) (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz b42f84eb (conflict) B
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including 1 deletion
@@ -96,8 +96,8 @@ fn test_report_conflicts() {
     let output = work_dir.run_jj(["squash"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy now at: yostqsxw f5a0cf8c (empty) (no description set)
-    Parent commit      : rlvkpnrz 87370844 B
+    Working copy  (@) now at: yostqsxw f5a0cf8c (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 87370844 B
     Existing conflicts were resolved or abandoned from 1 commits.
     [EOF]
     ");
@@ -125,8 +125,8 @@ fn test_report_conflicts_with_divergent_commits() {
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
     Rebased 3 commits onto destination
-    Working copy now at: zsuskuln?? 4ca807ad (conflict) C2
-    Parent commit      : kkmpptxz b42f84eb (conflict) B
+    Working copy  (@) now at: zsuskuln?? 4ca807ad (conflict) C2
+    Parent commit (@-)      : kkmpptxz b42f84eb (conflict) B
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including 1 deletion
@@ -146,8 +146,8 @@ fn test_report_conflicts_with_divergent_commits() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 3 commits onto destination
-    Working copy now at: zsuskuln?? f2d7a228 C2
-    Parent commit      : kkmpptxz db069a22 B
+    Working copy  (@) now at: zsuskuln?? f2d7a228 C2
+    Parent commit (@-)      : kkmpptxz db069a22 B
     Added 0 files, modified 1 files, removed 0 files
     Existing conflicts were resolved or abandoned from 3 commits.
     [EOF]
@@ -158,8 +158,8 @@ fn test_report_conflicts_with_divergent_commits() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits onto destination
-    Working copy now at: zsuskuln?? 3c36afc9 (conflict) C2
-    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) now at: zsuskuln?? 3c36afc9 (conflict) C2
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including 1 deletion
@@ -191,8 +191,8 @@ fn test_report_conflicts_with_divergent_commits() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits onto destination
-    Working copy now at: zsuskuln?? 1f9680bd C2
-    Parent commit      : kkmpptxz db069a22 B
+    Working copy  (@) now at: zsuskuln?? 1f9680bd C2
+    Parent commit (@-)      : kkmpptxz db069a22 B
     Added 0 files, modified 1 files, removed 0 files
     Existing conflicts were resolved or abandoned from 1 commits.
     [EOF]
@@ -229,8 +229,8 @@ fn test_report_conflicts_with_resolving_conflicts_hint_disabled() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 3 commits onto destination
-    Working copy now at: zsuskuln f8a2c4e0 (conflict) (empty) (no description set)
-    Parent commit      : kkmpptxz 2271a49e (conflict) C
+    Working copy  (@) now at: zsuskuln f8a2c4e0 (conflict) (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz 2271a49e (conflict) C
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including 1 deletion

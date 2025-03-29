@@ -240,8 +240,8 @@ First, create a new commit branched from main and add your private changes:
 
 ```shell
 $ jj new main -m "private: my credentials"
-Working copy now at: wwwwwwww 861de9eb (empty) private: my credentials
-Parent commit      : yyyyyyyy b624cf12 main | Existing work
+Working copy  (@) now at: wwwwwwww 861de9eb (empty) private: my credentials
+Parent commit (@-)      : yyyyyyyy b624cf12 main | Existing work
 Added 0 files, modified 1 files, removed 0 files
 
 $ echo '{ "password": "p@ssw0rd1" }' > secret_config.json
@@ -252,9 +252,9 @@ commit:
 
 ```shell
 $ jj new xxxxxxxx wwwwwwww
-Working copy now at: vvvvvvvv ac4d9fbe (empty) (no description set)
-Parent commit      : xxxxxxxx ef612875 Add new feature
-Parent commit      : wwwwwwww 2106921e private: my credentials
+Working copy  (@) now at: vvvvvvvv ac4d9fbe (empty) (no description set)
+Parent commit (@-)      : xxxxxxxx ef612875 Add new feature
+Parent commit (@-)      : wwwwwwww 2106921e private: my credentials
 Added 0 files, modified 1 files, removed 0 files
 
 $ jj log
@@ -283,13 +283,13 @@ If you need a new empty commit on top of `xxxxxxxx` you can use the
 ```shell
 # Insert a new commit after xxxxxxxx
 $ jj new --no-edit -A xxxxxxxx -m "Another feature"
-Working copy now at: uuuuuuuu 1c3cff09 (empty) Another feature
-Parent commit      : xxxxxxxx ef612875 Add new feature
+Working copy  (@) now at: uuuuuuuu 1c3cff09 (empty) Another feature
+Parent commit (@-)      : xxxxxxxx ef612875 Add new feature
 
 # Insert a new commit between yyyyyyyy and vvvvvvvv
 $ jj new --no-edit -A yyyyyyyy -B vvvvvvvv -m "Yet another feature"
-Working copy now at: tttttttt 938ab831 (empty) Yet another feature
-Parent commit      : yyyyyyyy b624cf12 Existing work
+Working copy  (@) now at: tttttttt 938ab831 (empty) Yet another feature
+Parent commit (@-)      : yyyyyyyy b624cf12 Existing work
 ```
 
 To avoid pushing change _wwwwwwww_ by mistake, use the configuration
@@ -406,8 +406,8 @@ contents as `31a`.
 
 ```console
 $ jj new -m "featureB"
-Working copy now at: pvnrkl 47171aa (empty) featureB
-Parent commit      : lnvvtr 31a347e featureA
+Working copy  (@) now at: pvnrkl 47171aa (empty) featureB
+Parent commit (@-)      : lnvvtr 31a347e featureA
 $ cat file
 Done with feature A
 Working on feature B
@@ -422,8 +422,8 @@ $ # We refer to `lnvvtr` as `@-` for brevity
 $ jj restore --from b80 --into @- --restore-descendants
 Created lnvvtr 599994e featureA
 Rebased 1 descendant commits (while preserving their content)
-Working copy now at: pvnrkl 468104c featureB
-Parent commit      : lnvvtr 599994e featureA
+Working copy  (@) now at: pvnrkl 468104c featureB
+Parent commit (@-)      : lnvvtr 599994e featureA
 ```
 
 Even though `@-` was modified, `--restore-descendants` preserved the contents of

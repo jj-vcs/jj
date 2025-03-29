@@ -63,8 +63,8 @@ backend = "test"
       rlvkpnrz 6500b275 (empty) two
       kkmpptxz bcfaa4c3 (empty) three
       zsuskuln 4947c6dd (empty) (no description set)
-    Working copy now at: zsuskuln 4947c6dd (empty) (no description set)
-    Parent commit      : kkmpptxz bcfaa4c3 (empty) three
+    Working copy  (@) now at: zsuskuln 4947c6dd (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz bcfaa4c3 (empty) three
     [EOF]
     ");
 
@@ -92,8 +92,8 @@ backend = "test"
       rlvkpnrz 2085a464 (empty) two
       kkmpptxz 227f5e15 (empty) three
       zsuskuln 15d1b128 (empty) (no description set)
-    Working copy now at: zsuskuln 15d1b128 (empty) (no description set)
-    Parent commit      : kkmpptxz 227f5e15 (empty) three
+    Working copy  (@) now at: zsuskuln 15d1b128 (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz 227f5e15 (empty) three
     [EOF]
     ");
 }
@@ -239,8 +239,8 @@ backend = "test"
       kkmpptxz c2bc0eb0 (empty) three
     Warning: 3 of these commits are not authored by you
     Rebased 1 descendant commits
-    Working copy now at: zsuskuln ede04d15 (empty) (no description set)
-    Parent commit      : kkmpptxz c2bc0eb0 (empty) three
+    Working copy  (@) now at: zsuskuln ede04d15 (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz c2bc0eb0 (empty) three
     [EOF]
     ");
 
@@ -293,8 +293,8 @@ backend = "test"
       qpvuntsm 034b975d (empty) A
       kkmpptxz 29dc7928 (empty) C
     Rebased 1 descendant commits
-    Working copy now at: kkmpptxz 29dc7928 (empty) C
-    Parent commit      : rlvkpnrz 014c011c (empty) B
+    Working copy  (@) now at: kkmpptxz 29dc7928 (empty) C
+    Parent commit (@-)      : rlvkpnrz 014c011c (empty) B
     [EOF]
     ");
 
@@ -389,8 +389,8 @@ backend = "test"
       rlvkpnrz deb0db4b (empty) two
       kkmpptxz 7c11ee12 (empty) three
       zsuskuln be9daa4d (empty) (no description set)
-    Working copy now at: zsuskuln be9daa4d (empty) (no description set)
-    Parent commit      : kkmpptxz 7c11ee12 (empty) three
+    Working copy  (@) now at: zsuskuln be9daa4d (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz 7c11ee12 (empty) three
     [EOF]
     ");
 
@@ -458,8 +458,8 @@ backend = "test"
       kkmpptxz 8859969b (empty) three
       zsuskuln 8cea2d75 (empty) (no description set)
     Warning: 4 of these commits are not authored by you
-    Working copy now at: zsuskuln 8cea2d75 (empty) (no description set)
-    Parent commit      : kkmpptxz 8859969b (empty) three
+    Working copy  (@) now at: zsuskuln 8cea2d75 (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz 8859969b (empty) three
     [EOF]
     ");
 

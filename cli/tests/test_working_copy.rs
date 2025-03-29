@@ -155,8 +155,8 @@ fn test_snapshot_large_file_restore() {
       - Run `jj --config snapshot.max-new-file-size=13 st`
         This will increase the maximum file size allowed for new files, for this command only.
     Created kkmpptxz e3eb7e81 (no description set)
-    Working copy now at: kkmpptxz e3eb7e81 (no description set)
-    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) now at: kkmpptxz e3eb7e81 (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 1 files, modified 0 files, removed 0 files
     Warning: 1 of those updates were skipped because there were conflicting changes in the working copy.
     Hint: Inspect the changes compared to the intended target with `jj diff --from e3eb7e819de5`.
@@ -173,8 +173,8 @@ fn test_snapshot_large_file_restore() {
     insta::assert_snapshot!(output, @r"
     Working copy changes:
     A file
-    Working copy : kkmpptxz b75eed09 (no description set)
-    Parent commit: zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) : kkmpptxz b75eed09 (no description set)
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 }
@@ -441,9 +441,9 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     insta::assert_snapshot!(output, @r"
     Working copy changes:
     M file
-    Working copy : mzvwutvl 3a981880 (conflict) (no description set)
-    Parent commit: rlvkpnrz ce613b49 side-a
-    Parent commit: zsuskuln 7b2b03ab side-b
+    Working copy  (@) : mzvwutvl 3a981880 (conflict) (no description set)
+    Parent commit (@-): rlvkpnrz ce613b49 side-a
+    Parent commit (@-): zsuskuln 7b2b03ab side-b
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
     [EOF]
@@ -496,9 +496,9 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     insta::assert_snapshot!(output, @r"
     Working copy changes:
     M file
-    Working copy : mzvwutvl 1aefd866 (no description set)
-    Parent commit: rlvkpnrz ce613b49 side-a
-    Parent commit: zsuskuln 7b2b03ab side-b
+    Working copy  (@) : mzvwutvl 1aefd866 (no description set)
+    Parent commit (@-): rlvkpnrz ce613b49 side-a
+    Parent commit (@-): zsuskuln 7b2b03ab side-b
     [EOF]
     ");
 

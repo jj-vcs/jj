@@ -274,8 +274,8 @@ fn test_git_import_move_export_with_default_undo() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Restored to operation: eac759b9ab75 (2001-02-03 08:05:07) add workspace 'default'
-    Working copy now at: qpvuntsm 230dd059 (empty) (no description set)
-    Parent commit      : zzzzzzzz 00000000 (empty) (no description set)
+    Working copy  (@) now at: qpvuntsm 230dd059 (empty) (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"");

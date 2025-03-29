@@ -1025,8 +1025,8 @@ fn test_git_push_changes(subprocess: bool) {
     insta::assert_snapshot!(output, @r"
     Working copy changes:
     M file
-    Working copy : yostqsxw 38cb417c bar
-    Parent commit: yqosqzyt a050abf4 push-yostqsxwqrlt* push-yqosqzytrlsw | foo
+    Working copy  (@) : yostqsxw 38cb417c bar
+    Parent commit (@-): yqosqzyt a050abf4 push-yostqsxwqrlt* push-yqosqzytrlsw | foo
     [EOF]
     ");
     }
@@ -1044,8 +1044,8 @@ fn test_git_push_changes(subprocess: bool) {
     insta::assert_snapshot!(output, @r"
     Working copy changes:
     M file
-    Working copy : yostqsxw 38cb417c push-yostqsxwqrlt | bar
-    Parent commit: yqosqzyt a050abf4 push-yqosqzytrlsw | foo
+    Working copy  (@) : yostqsxw 38cb417c push-yostqsxwqrlt | bar
+    Parent commit (@-): yqosqzyt a050abf4 push-yqosqzytrlsw | foo
     [EOF]
     ");
     }
@@ -2458,8 +2458,8 @@ fn test_git_push_sign_on_push() {
     Rebased 2 descendant commits
     Changes to push to origin:
       Move forward bookmark bookmark2 from 8476341eb395 to a6259c482040
-    Working copy now at: kmkuslsw b5f47345 (empty) commit which should not be signed 2
-    Parent commit      : kpqxywon 90df08d3 (empty) commit which should not be signed 1
+    Working copy  (@) now at: kmkuslsw b5f47345 (empty) commit which should not be signed 2
+    Parent commit (@-)      : kpqxywon 90df08d3 (empty) commit which should not be signed 1
     [EOF]
     ");
     // Only commits which are being pushed should be signed
