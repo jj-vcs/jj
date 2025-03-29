@@ -120,6 +120,14 @@ impl TestEnvironment {
         // executables like `git` from the PATH.
         cmd.env("PATH", std::env::var_os("PATH").unwrap_or_default());
         cmd.env("HOME", self.home_dir.to_str().unwrap());
+        // Prevent git.subprocess from reading outside git config
+        let null_device = if cfg!(windows) {
+            "NUL"
+        } else {
+            "/dev/null"
+        };
+        cmd.env("GIT_CONFIG_SYSTEM", null_device);
+        cmd.env("GIT_CONFIG_GLOBAL", null_device);
         cmd.env("JJ_CONFIG", self.config_path.to_str().unwrap());
         cmd.env("JJ_USER", "Test User");
         cmd.env("JJ_EMAIL", "test.user@example.com");
