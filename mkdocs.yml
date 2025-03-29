@@ -88,65 +88,65 @@ markdown_extensions:
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
 
 nav: # This lists all the files that become part of the documentation
-  - 'Home': 'index.md'
+  - Home: 'index.md'
 
-  - 'Getting started':
-      - 'Installation and Setup': 'install-and-setup.md'
-      - 'Tutorial and Birds-Eye View': 'tutorial.md'
-      - 'Working with GitHub': 'github.md'
-      - 'Working on Windows': 'windows.md'
+  - Getting started:
+      - Installation and Setup: 'install-and-setup.md'
+      - Tutorial and Birds-Eye View: 'tutorial.md'
+      - Working with GitHub: 'github.md'
+      - Working on Windows: 'windows.md'
 
   - FAQ: 'FAQ.md'
 
-  - "CLI Reference": 'cli-reference.md'
+  - CLI Reference: 'cli-reference.md'
 
   - Testimonials: 'testimonials.md'
 
-  - "Community-built tools": 'community_tools.md'
+  - Community-built tools: 'community_tools.md'
 
   - Concepts:
-      - 'Working Copy': 'working-copy.md'
-      - 'Bookmarks': 'bookmarks.md'
-      - 'Conflicts': 'conflicts.md'
-      - 'Operation Log': 'operation-log.md'
-      - 'Glossary': 'glossary.md'
+      - Working Copy: 'working-copy.md'
+      - Bookmarks: 'bookmarks.md'
+      - Conflicts: 'conflicts.md'
+      - Operation Log: 'operation-log.md'
+      - Glossary: 'glossary.md'
 
-  - 'Configuration':
-      - 'Settings': 'config.md'
-      - 'Fileset language': 'filesets.md'
-      - 'Revset language': 'revsets.md'
-      - 'Templating language': 'templates.md'
+  - Configuration:
+      - Settings: 'config.md'
+      - Fileset language: 'filesets.md'
+      - Revset language: 'revsets.md'
+      - Templating language: 'templates.md'
 
-  - 'Comparisons':
-      - 'Git comparison': 'git-comparison.md'
-      - 'Git command table': 'git-command-table.md'
-      - 'Git compatibility': 'git-compatibility.md'
-      - 'Sapling': 'sapling-comparison.md'
-      - 'Other related work': 'related-work.md'
+  - Comparisons:
+      - Git comparison: 'git-comparison.md'
+      - Git command table: 'git-command-table.md'
+      - Git compatibility: 'git-compatibility.md'
+      - Sapling: 'sapling-comparison.md'
+      - Other related work: 'related-work.md'
 
-  - 'Technical details':
-      - 'Architecture': 'technical/architecture.md'
-      - 'Concurrency': 'technical/concurrency.md'
-      - 'Conflicts': 'technical/conflicts.md'
+  - Technical details:
+      - Architecture: 'technical/architecture.md'
+      - Concurrency: 'technical/concurrency.md'
+      - Conflicts: 'technical/conflicts.md'
 
   - Contributing:
-      - 'Guidelines and "How to...?"': 'contributing.md'
-      - 'Code of conduct': 'code-of-conduct.md'
-      - 'Design Docs': 'design_docs.md'
-      - 'Design Doc Blueprint': 'design_doc_blueprint.md'
-      - 'Releasing': 'releasing.md'
-      - 'Temporary Voting for Governance': 'governance/temporary-voting.md'
-      - 'Governance': 'governance/GOVERNANCE.md'
+      - Guidelines and "How to...?": 'contributing.md'
+      - Code of conduct: 'code-of-conduct.md'
+      - Design Docs: 'design_docs.md'
+      - Design Doc Blueprint: 'design_doc_blueprint.md'
+      - Releasing: 'releasing.md'
+      - Temporary Voting for Governance: 'governance/temporary-voting.md'
+      - Governance: 'governance/GOVERNANCE.md'
 
-  - 'Design docs':
-      - 'git-submodules': 'design/git-submodules.md'
-      - 'git-submodule-storage': 'design/git-submodule-storage.md'
-      - 'JJ run': 'design/run.md'
-      - 'Sparse Patterns v2': 'design/sparse-v2.md'
-      - 'Tracking branches': 'design/tracking-branches.md'
-      - 'Copy tracking and tracing': 'design/copy-tracking.md'
+  - Design docs:
+      - git-submodules: 'design/git-submodules.md'
+      - git-submodule-storage: 'design/git-submodule-storage.md'
+      - JJ run: 'design/run.md'
+      - Sparse Patterns v2: 'design/sparse-v2.md'
+      - Tracking branches: 'design/tracking-branches.md'
+      - Copy tracking and tracing: 'design/copy-tracking.md'
 
-  - 'Development Roadmap': 'roadmap.md'
+  - Development Roadmap: 'roadmap.md'
 
 # The following follow .gitignore syntax, relative
 # to the docs dir.
