@@ -318,7 +318,13 @@ pub fn try_combine_messages(sources: &[Commit], destination: &Commit) -> Option<
 ///
 /// This includes empty descriptins too, so the user doesn't have to wonder why
 /// they only see 2 descriptions when they combined 3 commits.
-pub fn combine_messages_for_editing(sources: &[Commit], destination: &Commit) -> String {
+pub fn combine_messages_for_editing(
+    ui: &Ui,
+    tx: &WorkspaceCommandTransaction,
+    sources: &[Commit],
+    destination: &Commit,
+    commit_builder: &DetachedCommitBuilder,
+) -> Result<String, CommandError> {
     let mut combined = String::new();
     combined.push_str("JJ: Description from the destination commit:\n");
     combined.push_str(destination.description());
@@ -326,7 +332,35 @@ pub fn combine_messages_for_editing(sources: &[Commit], destination: &Commit) ->
         combined.push_str("\nJJ: Description from source commit:\n");
         combined.push_str(commit.description());
     }
-    combined
+
+    if let Some(template) = parse_trailers_template(ui, tx)? {
+        // show the user only trailers that were not in one of the squashed commits
+        let old_trailers: Vec<_> = sources
+            .iter()
+            .chain(std::iter::once(destination))
+            .flat_map(|commit| parse_description_trailers(commit.description()))
+            .collect();
+        let commit = commit_builder.write_hidden()?;
+        let mut output = Vec::new();
+        template
+            .format(&commit, &mut PlainTextFormatter::new(&mut output))
+            .expect("write() to vec backed formatter should never fail");
+        let trailer_lines = output
+            .into_string()
+            .map_err(|_| user_error("Trailers should be valid utf-8"))?;
+        let new_trailers = parse_trailers(&trailer_lines)?;
+        let trailers: String = new_trailers
+            .iter()
+            .filter(|trailer| !old_trailers.contains(trailer))
+            .map(|trailer| format!("{}: {}\n", trailer.key, trailer.value))
+            .collect();
+        if !trailers.is_empty() {
+            combined.push_str("\nJJ: Trailers not found in the squashed commits:\n");
+            combined.push_str(&trailers);
+        }
+    }
+
+    Ok(combined)
 }
 
 /// Create a description from a list of paragraphs.

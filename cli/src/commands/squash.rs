@@ -33,6 +33,7 @@ use crate::command_error::user_error;
 use crate::command_error::user_error_with_hint;
 use crate::command_error::CommandError;
 use crate::complete;
+use crate::description_util::add_trailers;
 use crate::description_util::combine_messages_for_editing;
 use crate::description_util::description_template;
 use crate::description_util::edit_description;
@@ -176,15 +177,28 @@ pub(crate) fn cmd_squash(
     )? {
         let mut commit_builder = squashed.commit_builder.detach();
         let new_description = match description {
-            SquashedDescription::Exact(description) => description,
-            SquashedDescription::UseDestination => destination.description().to_owned(),
+            SquashedDescription::Exact(description) => {
+                commit_builder.set_description(description);
+                add_trailers(ui, &tx, &commit_builder)?
+            }
+            SquashedDescription::UseDestination => {
+                commit_builder.set_description(destination.description());
+                add_trailers(ui, &tx, &commit_builder)?
+            }
             SquashedDescription::Combine => {
                 let abandoned_commits = &squashed.abandoned_commits;
                 if let Some(description) = try_combine_messages(abandoned_commits, &destination) {
-                    description
+                    commit_builder.set_description(description);
+                    add_trailers(ui, &tx, &commit_builder)?
                 } else {
                     let intro = "Enter a description for the combined commit.";
-                    let combined = combine_messages_for_editing(abandoned_commits, &destination);
+                    let combined = combine_messages_for_editing(
+                        ui,
+                        &tx,
+                        abandoned_commits,
+                        &destination,
+                        &commit_builder,
+                    )?;
                     // It's weird that commit.description() contains "JJ: " lines, but works.
                     commit_builder.set_description(combined);
                     let temp_commit = commit_builder.write_hidden()?;
