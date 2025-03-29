@@ -69,6 +69,8 @@ indoc = "2.0.6"
 insta = { version = "1.42.2", features = ["filters"] }
 interim = { version = "0.2.1", features = ["chrono_0_4"] }
 itertools = "0.13.0"
+# Keep this pinned to the version used by the Taplo LSP.
+jsonschema = { version = "0.17.1", default-features = false }
 libc = { version = "0.2.171" }
 maplit = "1.0.2"
 num_cpus = "1.16.0"

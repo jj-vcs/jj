@@ -68,7 +68,7 @@ jobs:
         toolchain: 1.84
     - uses: taiki-e/install-action@63f2419bb6a642b9973690fd13cf07b750f65635
       with:
-        tool: nextest,taplo-cli
+        tool: nextest
     - name: Install mold
       uses: rui314/setup-mold@f80524ca6eeaa76759b57fb78ddce5d87a20c720
       with:
