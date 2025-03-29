@@ -508,7 +508,7 @@ jj currently does not support partial clones. To use jj with this repository, tr
 
     impl From<GitExportError> for CommandError {
         fn from(err: GitExportError) -> Self {
-            internal_error_with_message("Failed to export refs to underlying Git repo", err)
+            user_error_with_message("Failed to export refs to underlying Git repo", err)
         }
     }
 
