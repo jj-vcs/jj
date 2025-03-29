@@ -365,17 +365,17 @@ pub enum GitImportError {
         #[source]
         err: BackendError,
     },
-    #[error("Unexpected backend error when importing refs")]
-    InternalBackend(#[source] BackendError),
-    #[error("Unexpected git error when importing refs")]
-    InternalGitError(#[source] Box<dyn std::error::Error + Send + Sync>),
+    #[error(transparent)]
+    Backend(BackendError),
+    #[error(transparent)]
+    Git(Box<dyn std::error::Error + Send + Sync>),
     #[error(transparent)]
     UnexpectedBackend(#[from] UnexpectedGitBackendError),
 }
 
 impl GitImportError {
     fn from_git(source: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
-        GitImportError::InternalGitError(source.into())
+        GitImportError::Git(source.into())
     }
 }
 
@@ -480,7 +480,7 @@ pub fn import_some_refs(
     // can still occur.
     mut_repo
         .add_heads(&head_commits)
-        .map_err(GitImportError::InternalBackend)?;
+        .map_err(GitImportError::Backend)?;
 
     // Apply the change that happened in git since last time we imported refs.
     for (full_name, new_target) in changed_git_refs {
@@ -523,7 +523,7 @@ pub fn import_some_refs(
 
     let abandoned_commits = if git_settings.abandon_unreachable_commits {
         abandon_unreachable_commits(mut_repo, &changed_remote_bookmarks, &changed_remote_tags)
-            .map_err(GitImportError::InternalBackend)?
+            .map_err(GitImportError::Backend)?
     } else {
         vec![]
     };
@@ -814,7 +814,7 @@ pub fn import_head(mut_repo: &mut MutableRepo) -> Result<(), GitImportError> {
         store
             .get_commit(head_id)
             .and_then(|commit| mut_repo.add_head(&commit))
-            .map_err(GitImportError::InternalBackend)?;
+            .map_err(GitImportError::Backend)?;
     }
 
     mut_repo.set_git_head_target(RefTarget::resolved(new_git_head_id));
@@ -823,17 +823,15 @@ pub fn import_head(mut_repo: &mut MutableRepo) -> Result<(), GitImportError> {
 
 #[derive(Error, Debug)]
 pub enum GitExportError {
-    #[error("Git error")]
-    InternalGitError(#[source] Box<dyn std::error::Error + Send + Sync>),
+    #[error(transparent)]
+    Git(Box<dyn std::error::Error + Send + Sync>),
     #[error(transparent)]
     UnexpectedBackend(#[from] UnexpectedGitBackendError),
-    #[error(transparent)]
-    Backend(#[from] BackendError),
 }
 
 impl GitExportError {
     fn from_git(source: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
-        GitExportError::InternalGitError(source.into())
+        GitExportError::Git(source.into())
     }
 }
 
@@ -957,7 +955,8 @@ pub fn export_some_refs(
                     &git_repo,
                     gix::refs::transaction::PreviousValue::MustExistAndMatch(old_target),
                     current_oid,
-                )?;
+                )
+                .map_err(GitExportError::from_git)?;
             }
         }
     }
@@ -1197,7 +1196,7 @@ fn update_git_head(
     git_repo: &gix::Repository,
     expected_ref: gix::refs::transaction::PreviousValue,
     new_oid: Option<gix::ObjectId>,
-) -> Result<(), GitExportError> {
+) -> Result<(), gix::reference::edit::Error> {
     let mut ref_edits = Vec::new();
     let new_target = if let Some(oid) = new_oid {
         gix::refs::Target::Object(oid)
@@ -1228,15 +1227,31 @@ fn update_git_head(
         name: "HEAD".try_into().unwrap(),
         deref: false,
     });
-    git_repo
-        .edit_references(ref_edits)
-        .map_err(GitExportError::from_git)?;
+    git_repo.edit_references(ref_edits)?;
     Ok(())
+}
+
+#[derive(Debug, Error)]
+pub enum GitResetHeadError {
+    #[error(transparent)]
+    Backend(#[from] BackendError),
+    #[error(transparent)]
+    Git(Box<dyn std::error::Error + Send + Sync>),
+    #[error("Failed to update Git HEAD ref")]
+    UpdateHeadRef(#[source] Box<gix::reference::edit::Error>),
+    #[error(transparent)]
+    UnexpectedBackend(#[from] UnexpectedGitBackendError),
+}
+
+impl GitResetHeadError {
+    fn from_git(source: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
+        GitResetHeadError::Git(source.into())
+    }
 }
 
 /// Sets Git HEAD to the parent of the given working-copy commit and resets
 /// the Git index.
-pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), GitExportError> {
+pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), GitResetHeadError> {
     let git_repo = get_git_repo(mut_repo.store())?;
 
     let first_parent_id = &wc_commit.parent_ids()[0];
@@ -1252,7 +1267,7 @@ pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), 
         let expected_ref = if let Some(id) = old_head_target.as_normal() {
             // We have to check the actual HEAD state because we don't record a
             // symbolic ref as such.
-            let actual_head = git_repo.head().map_err(GitExportError::from_git)?;
+            let actual_head = git_repo.head().map_err(GitResetHeadError::from_git)?;
             if actual_head.is_detached() {
                 let id = gix::ObjectId::from_bytes_or_panic(id.as_bytes());
                 gix::refs::transaction::PreviousValue::MustExistAndMatch(id.into())
@@ -1268,7 +1283,8 @@ pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), 
         let new_oid = new_head_target
             .as_normal()
             .map(|id| gix::ObjectId::from_bytes_or_panic(id.as_bytes()));
-        update_git_head(&git_repo, expected_ref, new_oid)?;
+        update_git_head(&git_repo, expected_ref, new_oid)
+            .map_err(|err| GitResetHeadError::UpdateHeadRef(err.into()))?;
         mut_repo.set_git_head_target(new_head_target);
     }
 
@@ -1291,7 +1307,7 @@ pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), 
         const STATE_DIR_NAMES: &[&str] = &["rebase-merge", "rebase-apply", "sequencer"];
         let handle_err = |err: PathError| match err.error.kind() {
             std::io::ErrorKind::NotFound => Ok(()),
-            _ => Err(GitExportError::from_git(err)),
+            _ => Err(GitResetHeadError::from_git(err)),
         };
         for file_name in STATE_FILE_NAMES {
             let path = git_repo.path().join(file_name);
@@ -1326,7 +1342,7 @@ pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), 
             // This is more efficient than iterating over the tree and adding each entry.
             git_repo
                 .index_from_tree(&gix::ObjectId::from_bytes_or_panic(tree.id().as_bytes()))
-                .map_err(GitExportError::from_git)?
+                .map_err(GitResetHeadError::from_git)?
         }
     } else {
         build_index_from_merged_tree(&git_repo, parent_tree.clone())?
@@ -1338,7 +1354,7 @@ pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), 
 
     // Match entries in the new index with entries in the old index, and copy stat
     // information if the entry didn't change.
-    if let Some(old_index) = git_repo.try_index().map_err(GitExportError::from_git)? {
+    if let Some(old_index) = git_repo.try_index().map_err(GitResetHeadError::from_git)? {
         index
             .entries_mut_with_paths()
             .merge_join_by(old_index.entries(), |(entry, path), old_entry| {
@@ -1355,7 +1371,7 @@ pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), 
 
     index
         .write(gix::index::write::Options::default())
-        .map_err(GitExportError::from_git)?;
+        .map_err(GitResetHeadError::from_git)?;
 
     Ok(())
 }
@@ -1363,7 +1379,7 @@ pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), 
 fn build_index_from_merged_tree(
     git_repo: &gix::Repository,
     merged_tree: MergedTree,
-) -> Result<gix::index::File, GitExportError> {
+) -> Result<gix::index::File, GitResetHeadError> {
     let mut index = gix::index::File::from_state(
         gix::index::State::new(git_repo.object_hash()),
         git_repo.index_path(),
@@ -1455,7 +1471,7 @@ fn build_index_from_merged_tree(
             .write_blob(
                 b"The working copy commit contains conflicts which cannot be resolved using Git.\n",
             )
-            .map_err(GitExportError::from_git)?;
+            .map_err(GitResetHeadError::from_git)?;
         index.dangerously_push_entry(
             gix::index::entry::Stat::default(),
             file_blob.detach(),
@@ -1481,17 +1497,17 @@ pub fn update_intent_to_add(
     repo: &dyn Repo,
     old_tree: &MergedTree,
     new_tree: &MergedTree,
-) -> Result<(), GitExportError> {
+) -> Result<(), GitResetHeadError> {
     let git_repo = get_git_repo(repo.store())?;
     let mut index = git_repo
         .index_or_empty()
-        .map_err(GitExportError::from_git)?;
+        .map_err(GitResetHeadError::from_git)?;
     let mut_index = Arc::make_mut(&mut index);
     update_intent_to_add_impl(mut_index, old_tree, new_tree, git_repo.object_hash()).block_on()?;
     debug_assert!(mut_index.verify_entries().is_ok());
     mut_index
         .write(gix::index::write::Options::default())
-        .map_err(GitExportError::from_git)?;
+        .map_err(GitResetHeadError::from_git)?;
 
     Ok(())
 }
@@ -2062,10 +2078,9 @@ pub enum GitFetchError {
     InvalidBranchPattern(StringPattern),
     #[error(transparent)]
     RemoteName(#[from] GitRemoteNameError),
-    // TODO: I'm sure there are other errors possible, such as transport-level errors.
     #[cfg(feature = "git2")]
-    #[error("Unexpected git error when fetching")]
-    InternalGitError(#[from] git2::Error),
+    #[error(transparent)]
+    Git2(#[from] git2::Error),
     #[error(transparent)]
     Subprocess(#[from] GitSubprocessError),
 }
@@ -2300,7 +2315,7 @@ fn git2_fetch(
         if is_remote_not_found_err(&err) {
             GitFetchError::NoSuchRemote(remote_name.to_owned())
         } else {
-            GitFetchError::InternalGitError(err)
+            GitFetchError::Git2(err)
         }
     })?;
     // At this point, we are only updating Git's remote tracking branches, not the
@@ -2341,7 +2356,7 @@ fn git2_get_default_branch(
         if is_remote_not_found_err(&err) {
             GitFetchError::NoSuchRemote(remote_name.to_owned())
         } else {
-            GitFetchError::InternalGitError(err)
+            GitFetchError::Git2(err)
         }
     })?;
     // Unlike .download(), connect_auth() returns RAII object.
@@ -2440,11 +2455,9 @@ pub enum GitPushError {
     NoSuchRemote(RemoteNameBuf),
     #[error(transparent)]
     RemoteName(#[from] GitRemoteNameError),
-    // TODO: I'm sure there are other errors possible, such as transport-level errors,
-    // and errors caused by the remote rejecting the push.
     #[cfg(feature = "git2")]
-    #[error("Unexpected git error when pushing")]
-    InternalGitError(#[from] git2::Error),
+    #[error(transparent)]
+    Git2(#[from] git2::Error),
     #[error(transparent)]
     Subprocess(#[from] GitSubprocessError),
     #[error(transparent)]
@@ -2582,7 +2595,7 @@ fn git2_push_refs(
         if is_remote_not_found_err(&err) {
             GitPushError::NoSuchRemote(remote_name.to_owned())
         } else {
-            GitPushError::InternalGitError(err)
+            GitPushError::Git2(err)
         }
     })?;
 

@@ -813,6 +813,75 @@ fn test_git_colocated_external_checkout() {
 }
 
 #[test]
+#[cfg_attr(windows, ignore = "uses POSIX sh")]
+fn test_git_colocated_concurrent_checkout() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["new", "-mcommit1"]).success();
+    work_dir.write_file("file1", "");
+    work_dir.run_jj(["new", "-mcommit2"]).success();
+    work_dir.write_file("file2", "");
+    work_dir.run_jj(["new", "-mcommit3"]).success();
+
+    // Run "jj commit" and "git checkout" concurrently
+    let output = work_dir.run_jj([
+        "commit",
+        "--config=ui.editor=['sh', '-c', 'git checkout -q HEAD^']",
+    ]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Warning: Failed to update Git HEAD ref
+    Caused by: The reference "HEAD" should have content 58a6206c70b53dfc30dc2f8c9e3713034cfc323e, actual content was 363a08cf5e683485227336e24a006e0deac341bc
+    Working copy now at: mzvwutvl 6b3bc9c8 (empty) (no description set)
+    Parent commit      : zsuskuln 7d358222 (empty) commit3
+    [EOF]
+    "#);
+
+    // git_head() isn't updated because the export failed
+    insta::assert_snapshot!(work_dir.run_jj(["log", "--summary", "--ignore-working-copy"]), @r"
+    @  mzvwutvl test.user@example.com 2001-02-03 08:05:11 6b3bc9c8
+    │  (empty) (no description set)
+    ○  zsuskuln test.user@example.com 2001-02-03 08:05:11 7d358222
+    │  (empty) commit3
+    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:10 git_head() 58a6206c
+    │  commit2
+    │  A file2
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 363a08cf
+    │  commit1
+    │  A file1
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:07 230dd059
+    │  (empty) (no description set)
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+
+    // The current Git HEAD is imported on the next jj invocation
+    insta::assert_snapshot!(work_dir.run_jj(["log", "--summary"]), @r"
+    @  yqosqzyt test.user@example.com 2001-02-03 08:05:13 690bd924
+    │  (empty) (no description set)
+    │ ○  zsuskuln test.user@example.com 2001-02-03 08:05:11 7d358222
+    │ │  (empty) commit3
+    │ ○  kkmpptxz test.user@example.com 2001-02-03 08:05:10 58a6206c
+    ├─╯  commit2
+    │    A file2
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 git_head() 363a08cf
+    │  commit1
+    │  A file1
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:07 230dd059
+    │  (empty) (no description set)
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ------- stderr -------
+    Reset the working copy parent to the new Git HEAD.
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_git_colocated_squash_undo() {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");

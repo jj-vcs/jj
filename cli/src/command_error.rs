@@ -480,6 +480,7 @@ mod git {
     use jj_lib::git::GitImportError;
     use jj_lib::git::GitPushError;
     use jj_lib::git::GitRemoteManagementError;
+    use jj_lib::git::GitResetHeadError;
     use jj_lib::git::UnexpectedGitBackendError;
 
     use super::*;
@@ -495,8 +496,8 @@ jj currently does not support partial clones. To use jj with this repository, tr
                      the full repository contents."
                         .to_string(),
                 ),
-                GitImportError::InternalBackend(_) => None,
-                GitImportError::InternalGitError(_) => None,
+                GitImportError::Backend(_) => None,
+                GitImportError::Git(_) => None,
                 GitImportError::UnexpectedBackend(_) => None,
             };
             let mut cmd_err =
@@ -508,7 +509,7 @@ jj currently does not support partial clones. To use jj with this repository, tr
 
     impl From<GitExportError> for CommandError {
         fn from(err: GitExportError) -> Self {
-            internal_error_with_message("Failed to export refs to underlying Git repo", err)
+            user_error_with_message("Failed to export refs to underlying Git repo", err)
         }
     }
 
@@ -530,7 +531,7 @@ jj currently does not support partial clones. To use jj with this repository, tr
                 ),
                 GitFetchError::InvalidBranchPattern(_) => user_error(err),
                 #[cfg(feature = "git2")]
-                GitFetchError::InternalGitError(err) => map_git2_error(err),
+                GitFetchError::Git2(err) => map_git2_error(err),
                 GitFetchError::Subprocess(_) => user_error(err),
             }
         }
@@ -555,7 +556,7 @@ jj currently does not support partial clones. To use jj with this repository, tr
                     "Run `jj git remote rename` to give a different name.",
                 ),
                 #[cfg(feature = "git2")]
-                GitPushError::InternalGitError(err) => map_git2_error(err),
+                GitPushError::Git2(err) => map_git2_error(err),
                 GitPushError::Subprocess(_) => user_error(err),
                 GitPushError::UnexpectedBackend(_) => user_error(err),
             }
@@ -565,6 +566,12 @@ jj currently does not support partial clones. To use jj with this repository, tr
     impl From<GitRemoteManagementError> for CommandError {
         fn from(err: GitRemoteManagementError) -> Self {
             user_error(err)
+        }
+    }
+
+    impl From<GitResetHeadError> for CommandError {
+        fn from(err: GitResetHeadError) -> Self {
+            user_error_with_message("Failed to reset Git HEAD state", err)
         }
     }
 
@@ -950,7 +957,8 @@ fn print_error(
     Ok(())
 }
 
-fn print_error_sources(ui: &Ui, source: Option<&dyn error::Error>) -> io::Result<()> {
+/// Prints error sources one by one from the given `source` inclusive.
+pub fn print_error_sources(ui: &Ui, source: Option<&dyn error::Error>) -> io::Result<()> {
     let Some(err) = source else {
         return Ok(());
     };
