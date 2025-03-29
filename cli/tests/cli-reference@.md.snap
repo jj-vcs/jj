@@ -1237,8 +1237,8 @@ Before the command actually moves, creates, or deletes a remote bookmark, it mak
    By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by [wildcard pattern].
 
    [wildcard pattern]: https://jj-vcs.github.io/jj/latest/revsets#string-patterns
-* `--all` — Push all bookmarks (including new and deleted bookmarks)
-* `--tracked` — Push all tracked bookmarks (including deleted bookmarks)
+* `--all` — Push all bookmarks (including new bookmarks)
+* `--tracked` — Push all tracked bookmarks
 
    This usually means that the bookmark was already pushed to or fetched from the [relevant remote].
 

@@ -1486,7 +1486,7 @@ fn test_op_diff() {
     ");
 
     // Test pushing to Git remote.
-    let output = work_dir.run_jj(["git", "push", "--tracked"]);
+    let output = work_dir.run_jj(["git", "push", "--tracked", "--deleted"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -1500,7 +1500,7 @@ fn test_op_diff() {
     let output = work_dir.run_jj(["op", "diff"]);
     insta::assert_snapshot!(output, @r"
     From operation: 9969a6088fd3 (2001-02-03 08:05:32) delete bookmark bookmark-2
-      To operation: ff305cfe0aca (2001-02-03 08:05:34) push all tracked bookmarks to git remote origin
+      To operation: 9e6d0f3a0396 (2001-02-03 08:05:34) push all tracked bookmarks to git remote origin
 
     Changed commits:
     ○  + oupztwtk fe3ad088 (empty) (no description set)
@@ -2209,7 +2209,7 @@ fn test_op_show() {
     ");
 
     // Test pushing to Git remote.
-    let output = work_dir.run_jj(["git", "push", "--tracked"]);
+    let output = work_dir.run_jj(["git", "push", "--tracked", "--deleted"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -2222,9 +2222,9 @@ fn test_op_show() {
     ");
     let output = work_dir.run_jj(["op", "show"]);
     insta::assert_snapshot!(output, @r"
-    2a7821341a99 test-username@host.example.com 2001-02-03 04:05:30.000 +07:00 - 2001-02-03 04:05:30.000 +07:00
+    a04675aebdf9 test-username@host.example.com 2001-02-03 04:05:30.000 +07:00 - 2001-02-03 04:05:30.000 +07:00
     push all tracked bookmarks to git remote origin
-    args: jj git push --tracked
+    args: jj git push --tracked --deleted
 
     Changed commits:
     ○  + pzsxstzt 91310b51 (empty) (no description set)

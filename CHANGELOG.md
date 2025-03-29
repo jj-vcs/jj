@@ -35,6 +35,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - `branches()`, `local_branches()`, and `remote_branches()`, which were
     renamed to "bookmarks".
 
+* The flags `--all` and `--tracked` on `jj git push` by themself do not cause
+  deleted bookmarks to be pushed anymore, as an additional safety measure. They
+  can now be combined with `--deleted` instead.
+
 ### Deprecations
 
 * `core.watchman.register_snapshot_trigger` has been renamed to `core.watchman.register-snapshot-trigger` for consistency with other configuration options.

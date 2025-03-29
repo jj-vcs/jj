@@ -89,7 +89,7 @@ use crate::ui::Ui;
 
 #[derive(clap::Args, Clone, Debug)]
 #[command(group(ArgGroup::new("specific").args(&["bookmark", "change", "revisions", "named"]).multiple(true)))]
-#[command(group(ArgGroup::new("what").args(&["all", "deleted", "tracked"]).conflicts_with("specific")))]
+#[command(group(ArgGroup::new("what").args(&["all", "tracked"]).conflicts_with("specific")))]
 pub struct GitPushArgs {
     /// The remote to push to (only named remotes are supported)
     ///
@@ -112,10 +112,10 @@ pub struct GitPushArgs {
         add = ArgValueCandidates::new(complete::local_bookmarks),
     )]
     bookmark: Vec<StringPattern>,
-    /// Push all bookmarks (including new and deleted bookmarks)
+    /// Push all bookmarks (including new bookmarks)
     #[arg(long)]
     all: bool,
-    /// Push all tracked bookmarks (including deleted bookmarks)
+    /// Push all tracked bookmarks
     ///
     /// This usually means that the bookmark was already pushed to or fetched
     /// from the [relevant remote].
@@ -129,7 +129,7 @@ pub struct GitPushArgs {
     /// Only tracked bookmarks can be successfully deleted on the remote. A
     /// warning will be printed if any untracked bookmarks on the remote
     /// correspond to missing local bookmarks.
-    #[arg(long)]
+    #[arg(long, conflicts_with = "specific")]
     deleted: bool,
     /// Allow pushing new bookmarks
     ///
@@ -227,7 +227,12 @@ pub fn cmd_git_push(
     if args.all {
         for (name, targets) in view.local_remote_bookmarks(remote) {
             let allow_new = true; // implied by --all
-            match classify_bookmark_update(name.to_remote_symbol(remote), targets, allow_new) {
+            match classify_bookmark_update(
+                name.to_remote_symbol(remote),
+                targets,
+                allow_new,
+                args.deleted,
+            ) {
                 Ok(Some(update)) => bookmark_updates.push((name.to_owned(), update)),
                 Ok(None) => {}
                 Err(reason) => reason.print(ui)?,
@@ -243,7 +248,12 @@ pub fn cmd_git_push(
                 continue;
             }
             let allow_new = false; // doesn't matter
-            match classify_bookmark_update(name.to_remote_symbol(remote), targets, allow_new) {
+            match classify_bookmark_update(
+                name.to_remote_symbol(remote),
+                targets,
+                allow_new,
+                args.deleted,
+            ) {
                 Ok(Some(update)) => bookmark_updates.push((name.to_owned(), update)),
                 Ok(None) => {}
                 Err(reason) => reason.print(ui)?,
@@ -259,7 +269,13 @@ pub fn cmd_git_push(
                 continue;
             }
             let allow_new = false; // doesn't matter
-            match classify_bookmark_update(name.to_remote_symbol(remote), targets, allow_new) {
+            let allow_delete = true;
+            match classify_bookmark_update(
+                name.to_remote_symbol(remote),
+                targets,
+                allow_new,
+                allow_delete,
+            ) {
                 Ok(Some(update)) => bookmark_updates.push((name.to_owned(), update)),
                 Ok(None) => {}
                 Err(reason) => reason.print(ui)?,
@@ -298,7 +314,8 @@ pub fn cmd_git_push(
                 continue;
             }
             let allow_new = true; // --change implies creation of remote bookmark
-            match classify_bookmark_update(remote_symbol, targets, allow_new) {
+            let allow_delete = false; // doesn't matter
+            match classify_bookmark_update(remote_symbol, targets, allow_new, allow_delete) {
                 Ok(Some(update)) => bookmark_updates.push((name.to_owned(), update)),
                 Ok(None) => writeln!(
                     ui.status(),
@@ -317,7 +334,8 @@ pub fn cmd_git_push(
                 continue;
             }
             let remote_symbol = name.to_remote_symbol(remote);
-            match classify_bookmark_update(remote_symbol, targets, allow_new) {
+            let allow_delete = true; // named explicitly, allow delete without --delete
+            match classify_bookmark_update(remote_symbol, targets, allow_new, allow_delete) {
                 Ok(Some(update)) => bookmark_updates.push((name.to_owned(), update)),
                 Ok(None) => writeln!(
                     ui.status(),
@@ -343,7 +361,13 @@ pub fn cmd_git_push(
             if !seen_bookmarks.insert(name) {
                 continue;
             }
-            match classify_bookmark_update(name.to_remote_symbol(remote), targets, allow_new) {
+            let allow_delete = false;
+            match classify_bookmark_update(
+                name.to_remote_symbol(remote),
+                targets,
+                allow_new,
+                allow_delete,
+            ) {
                 Ok(Some(update)) => bookmark_updates.push((name.to_owned(), update)),
                 Ok(None) => {}
                 Err(reason) => reason.print(ui)?,
@@ -730,6 +754,7 @@ fn classify_bookmark_update(
     remote_symbol: RemoteRefSymbol<'_>,
     targets: LocalAndRemoteRef,
     allow_new: bool,
+    allow_delete: bool,
 ) -> Result<Option<BookmarkPushUpdate>, RejectedBookmarkUpdateReason> {
     let push_action = classify_bookmark_push_action(targets);
     match push_action {
@@ -760,6 +785,19 @@ fn classify_bookmark_update(
                 hint: Some(
                     "Use --allow-new to push new bookmark. Use --remote to specify the remote to \
                      push to."
+                        .to_owned(),
+                ),
+            })
+        }
+        BookmarkPushAction::Update(update) if update.new_target.is_none() && !allow_delete => {
+            Err(RejectedBookmarkUpdateReason {
+                message: format!(
+                    "Refusing to push deleted bookmark {name}",
+                    name = remote_symbol.name.as_symbol(),
+                ),
+                hint: Some(
+                    "Push deleted bookmarks with --deleted or forget the bookmark to suppress \
+                     this warning."
                         .to_owned(),
                 ),
             })

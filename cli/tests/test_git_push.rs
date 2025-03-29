@@ -814,7 +814,7 @@ fn test_git_push_multiple(subprocess: bool) {
     ");
     }
     // First dry-run
-    let output = work_dir.run_jj(["git", "push", "--all", "--dry-run"]);
+    let output = work_dir.run_jj(["git", "push", "--all", "--deleted", "--dry-run"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -899,7 +899,30 @@ fn test_git_push_multiple(subprocess: bool) {
     ");
     }
 
-    let output = work_dir.run_jj(["git", "push", "--all"]);
+    // --deleted is required to push deleted bookmarks even with --all
+    let output = work_dir.run_jj(["git", "push", "--all", "--dry-run"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: Refusing to push deleted bookmark bookmark1
+    Hint: Push deleted bookmarks with --deleted or forget the bookmark to suppress this warning.
+    Changes to push to origin:
+      Move sideways bookmark bookmark2 from 8476341eb395 to c4a3c3105d92
+      Add bookmark my-bookmark to c4a3c3105d92
+    Dry-run requested, not pushing.
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["git", "push", "--all", "--deleted", "--dry-run"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Changes to push to origin:
+      Delete bookmark bookmark1 from d13ecdbda2a2
+      Move sideways bookmark bookmark2 from 8476341eb395 to c4a3c3105d92
+      Add bookmark my-bookmark to c4a3c3105d92
+    Dry-run requested, not pushing.
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["git", "push", "--all", "--deleted"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -2188,9 +2211,20 @@ fn test_git_push_tracked_vs_all(subprocess: bool) {
     ");
     }
 
-    // At this point, only bookmark2 is still tracked. `jj git push --tracked` would
-    // try to push it and no other bookmarks.
+    // At this point, only bookmark2 is still tracked.
+    // `jj git push --tracked --deleted` would try to push it and no other
+    // bookmarks.
     let output = work_dir.run_jj(["git", "push", "--tracked", "--dry-run"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: Refusing to push deleted bookmark bookmark2
+    Hint: Push deleted bookmarks with --deleted or forget the bookmark to suppress this warning.
+    Nothing changed.
+    [EOF]
+    ");
+    }
+    let output = work_dir.run_jj(["git", "push", "--tracked", "--deleted", "--dry-run"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
