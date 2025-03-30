@@ -262,7 +262,7 @@ fn print_trackable_remote_bookmarks(ui: &Ui, view: &View) -> io::Result<()> {
             bookmark_target
                 .remote_refs
                 .into_iter()
-                .filter(|&(_, remote_ref)| !remote_ref.is_tracking())
+                .filter(|&(_, remote_ref)| !remote_ref.is_tracked())
                 .map(move |(remote, _)| name.to_remote_symbol(remote))
         })
         .collect_vec();

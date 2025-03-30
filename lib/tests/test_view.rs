@@ -229,7 +229,7 @@ fn test_merge_views_bookmarks() {
     };
     let main_bookmark_alternate_tx0_remote_ref = RemoteRef {
         target: RefTarget::normal(main_bookmark_alternate_tx0.id().clone()),
-        state: RemoteRefState::Tracking,
+        state: RemoteRefState::Tracked,
     };
     mut_repo.set_local_bookmark_target(
         "main".as_ref(),
@@ -267,7 +267,7 @@ fn test_merge_views_bookmarks() {
     let main_bookmark_origin_tx2 = write_random_commit(tx2.repo_mut());
     let main_bookmark_origin_tx2_remote_ref = RemoteRef {
         target: RefTarget::normal(main_bookmark_origin_tx2.id().clone()),
-        state: RemoteRefState::Tracking,
+        state: RemoteRefState::Tracked,
     };
     tx2.repo_mut().set_local_bookmark_target(
         "main".as_ref(),

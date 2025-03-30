@@ -227,7 +227,7 @@ pub fn cmd_git_push(
         );
     } else if args.tracked {
         for (name, targets) in view.local_remote_bookmarks(remote) {
-            if !targets.remote_ref.is_tracking() {
+            if !targets.remote_ref.is_tracked() {
                 continue;
             }
             let allow_new = false; // doesn't matter
@@ -796,9 +796,9 @@ fn find_bookmarks_to_push<'a>(
         let mut matches = view
             .local_remote_bookmarks_matching(pattern, remote)
             .filter(|(_, targets)| {
-                // If the remote exists but is not tracking, the absent local shouldn't
+                // If the remote exists but is not tracked, the absent local shouldn't
                 // be considered a deleted bookmark.
-                targets.local_target.is_present() || targets.remote_ref.is_tracking()
+                targets.local_target.is_present() || targets.remote_ref.is_tracked()
             })
             .peekable();
         if matches.peek().is_none() {

@@ -524,12 +524,12 @@ fn test_resolve_symbol_bookmarks() {
         target,
         state: RemoteRefState::New,
     };
-    let tracking_remote_ref = |target| RemoteRef {
+    let tracked_remote_ref = |target| RemoteRef {
         target,
-        state: RemoteRefState::Tracking,
+        state: RemoteRefState::Tracked,
     };
-    let normal_tracking_remote_ref =
-        |id: &CommitId| tracking_remote_ref(RefTarget::normal(id.clone()));
+    let normal_tracked_remote_ref =
+        |id: &CommitId| tracked_remote_ref(RefTarget::normal(id.clone()));
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
@@ -543,7 +543,7 @@ fn test_resolve_symbol_bookmarks() {
     mut_repo.set_local_bookmark_target("local".as_ref(), RefTarget::normal(commit1.id().clone()));
     mut_repo.set_remote_bookmark(
         remote_symbol("remote", "origin"),
-        normal_tracking_remote_ref(commit2.id()),
+        normal_tracked_remote_ref(commit2.id()),
     );
     mut_repo.set_local_bookmark_target(
         "local-remote".as_ref(),
@@ -551,7 +551,7 @@ fn test_resolve_symbol_bookmarks() {
     );
     mut_repo.set_remote_bookmark(
         remote_symbol("local-remote", "origin"),
-        normal_tracking_remote_ref(commit4.id()),
+        normal_tracked_remote_ref(commit4.id()),
     );
     mut_repo.set_local_bookmark_target(
         "local-remote@origin".as_ref(), // not a remote bookmark
@@ -559,7 +559,7 @@ fn test_resolve_symbol_bookmarks() {
     );
     mut_repo.set_remote_bookmark(
         remote_symbol("local-remote", "mirror"),
-        tracking_remote_ref(mut_repo.get_local_bookmark("local-remote".as_ref())),
+        tracked_remote_ref(mut_repo.get_local_bookmark("local-remote".as_ref())),
     );
     mut_repo.set_remote_bookmark(
         remote_symbol("local-remote", "untracked"),
@@ -567,7 +567,7 @@ fn test_resolve_symbol_bookmarks() {
     );
     mut_repo.set_remote_bookmark(
         remote_symbol("local-remote", git::REMOTE_NAME_FOR_LOCAL_GIT_REPO),
-        tracking_remote_ref(mut_repo.get_local_bookmark("local-remote".as_ref())),
+        tracked_remote_ref(mut_repo.get_local_bookmark("local-remote".as_ref())),
     );
 
     mut_repo.set_local_bookmark_target(
@@ -579,7 +579,7 @@ fn test_resolve_symbol_bookmarks() {
     );
     mut_repo.set_remote_bookmark(
         remote_symbol("remote-conflicted", "origin"),
-        tracking_remote_ref(RefTarget::from_legacy_form(
+        tracked_remote_ref(RefTarget::from_legacy_form(
             [commit3.id().clone()],
             [commit5.id().clone(), commit4.id().clone()],
         )),
@@ -2126,12 +2126,12 @@ fn test_evaluate_expression_bookmarks() {
 fn test_evaluate_expression_remote_bookmarks() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
-    let tracking_remote_ref = |target| RemoteRef {
+    let tracked_remote_ref = |target| RemoteRef {
         target,
-        state: RemoteRefState::Tracking,
+        state: RemoteRefState::Tracked,
     };
-    let normal_tracking_remote_ref =
-        |id: &CommitId| tracking_remote_ref(RefTarget::normal(id.clone()));
+    let normal_tracked_remote_ref =
+        |id: &CommitId| tracked_remote_ref(RefTarget::normal(id.clone()));
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
@@ -2155,12 +2155,12 @@ fn test_evaluate_expression_remote_bookmarks() {
     // Bookmark 2 is tracked on remote private
     mut_repo.set_remote_bookmark(
         remote_symbol("bookmark2", "private"),
-        normal_tracking_remote_ref(commit2.id()),
+        normal_tracked_remote_ref(commit2.id()),
     );
     // Git-tracking bookmarks aren't included
     mut_repo.set_remote_bookmark(
         remote_symbol("bookmark", git::REMOTE_NAME_FOR_LOCAL_GIT_REPO),
-        normal_tracking_remote_ref(commit_git_remote.id()),
+        normal_tracked_remote_ref(commit_git_remote.id()),
     );
     // Can get a few bookmarks
     assert_eq!(
@@ -2259,7 +2259,7 @@ fn test_evaluate_expression_remote_bookmarks() {
     // the revset
     mut_repo.set_remote_bookmark(
         remote_symbol("bookmark3", "origin"),
-        normal_tracking_remote_ref(commit2.id()),
+        normal_tracked_remote_ref(commit2.id()),
     );
     assert_eq!(
         resolve_commit_ids(mut_repo, "remote_bookmarks()"),
@@ -2274,14 +2274,14 @@ fn test_evaluate_expression_remote_bookmarks() {
     // Can get bookmarks when there are conflicted refs
     mut_repo.set_remote_bookmark(
         remote_symbol("bookmark1", "origin"),
-        tracking_remote_ref(RefTarget::from_legacy_form(
+        tracked_remote_ref(RefTarget::from_legacy_form(
             [commit1.id().clone()],
             [commit2.id().clone(), commit3.id().clone()],
         )),
     );
     mut_repo.set_remote_bookmark(
         remote_symbol("bookmark2", "private"),
-        tracking_remote_ref(RefTarget::from_legacy_form(
+        tracked_remote_ref(RefTarget::from_legacy_form(
             [commit2.id().clone()],
             [commit3.id().clone(), commit4.id().clone()],
         )),

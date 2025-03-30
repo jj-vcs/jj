@@ -514,7 +514,7 @@ impl RefStatus {
     ) -> Self {
         let tracking_status = match ref_kind {
             GitRefKind::Bookmark => {
-                if repo.view().get_remote_bookmark(symbol).is_tracking() {
+                if repo.view().get_remote_bookmark(symbol).is_tracked() {
                     TrackingStatus::Tracked
                 } else {
                     TrackingStatus::Untracked

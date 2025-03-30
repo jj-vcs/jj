@@ -608,7 +608,7 @@ fn bookmark_views_from_proto_legacy(
                 // setting could be toggled after the bookmark got merged.
                 let is_git_tracking = crate::git::is_special_git_remote(&remote_name);
                 let default_state = if is_git_tracking || local_target.is_present() {
-                    RemoteRefState::Tracking
+                    RemoteRefState::Tracked
                 } else {
                     RemoteRefState::New
                 };
@@ -712,7 +712,7 @@ fn ref_target_from_proto(maybe_proto: Option<crate::protos::op_store::RefTarget>
 fn remote_ref_state_to_proto(state: RemoteRefState) -> Option<i32> {
     let proto_state = match state {
         RemoteRefState::New => crate::protos::op_store::RemoteRefState::New,
-        RemoteRefState::Tracking => crate::protos::op_store::RemoteRefState::Tracking,
+        RemoteRefState::Tracked => crate::protos::op_store::RemoteRefState::Tracked,
     };
     Some(proto_state as i32)
 }
@@ -721,7 +721,7 @@ fn remote_ref_state_from_proto(proto_value: Option<i32>) -> Option<RemoteRefStat
     let proto_state = proto_value?.try_into().ok()?;
     let state = match proto_state {
         crate::protos::op_store::RemoteRefState::New => RemoteRefState::New,
-        crate::protos::op_store::RemoteRefState::Tracking => RemoteRefState::Tracking,
+        crate::protos::op_store::RemoteRefState::Tracked => RemoteRefState::Tracked,
     };
     Some(state)
 }
@@ -742,9 +742,9 @@ mod tests {
             target: target.clone(),
             state: RemoteRefState::New,
         };
-        let tracking_remote_ref = |target: &RefTarget| RemoteRef {
+        let tracked_remote_ref = |target: &RefTarget| RemoteRef {
             target: target.clone(),
-            state: RemoteRefState::Tracking,
+            state: RemoteRefState::Tracked,
         };
         let head_id1 = CommitId::from_hex("aaa111");
         let head_id2 = CommitId::from_hex("aaa222");
@@ -770,7 +770,7 @@ mod tests {
             remote_views: btreemap! {
                 "origin".into() => RemoteView {
                     bookmarks: btreemap! {
-                        "main".into() => tracking_remote_ref(&bookmark_main_origin_target),
+                        "main".into() => tracked_remote_ref(&bookmark_main_origin_target),
                         "deleted".into() => new_remote_ref(&bookmark_deleted_origin_target),
                     },
                 },
@@ -870,9 +870,9 @@ mod tests {
             target: target.clone(),
             state: RemoteRefState::New,
         };
-        let tracking_remote_ref = |target: &RefTarget| RemoteRef {
+        let tracked_remote_ref = |target: &RefTarget| RemoteRef {
             target: target.clone(),
-            state: RemoteRefState::Tracking,
+            state: RemoteRefState::Tracked,
         };
         let local_bookmark1_target = RefTarget::normal(CommitId::from_hex("111111"));
         let local_bookmark3_target = RefTarget::normal(CommitId::from_hex("222222"));
@@ -887,19 +887,19 @@ mod tests {
         let remote_views = btreemap! {
             "git".into() => RemoteView {
                 bookmarks: btreemap! {
-                    "bookmark1".into() => tracking_remote_ref(&git_bookmark1_target),
+                    "bookmark1".into() => tracked_remote_ref(&git_bookmark1_target),
                 },
             },
             "remote1".into() => RemoteView {
                 bookmarks: btreemap! {
-                    "bookmark1".into() => tracking_remote_ref(&remote1_bookmark1_target),
+                    "bookmark1".into() => tracked_remote_ref(&remote1_bookmark1_target),
                 },
             },
             "remote2".into() => RemoteView {
                 bookmarks: btreemap! {
                     // "bookmark2" is non-tracking. "bookmark4" is tracking, but locally deleted.
                     "bookmark2".into() => new_remote_ref(&remote2_bookmark2_target),
-                    "bookmark4".into() => tracking_remote_ref(&remote2_bookmark4_target),
+                    "bookmark4".into() => tracked_remote_ref(&remote2_bookmark4_target),
                 },
             },
         };

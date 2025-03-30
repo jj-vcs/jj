@@ -389,7 +389,7 @@ pub fn show_op_diff(
         })?;
         let get_remote_ref_prefix = |remote_ref: &RemoteRef| match remote_ref.state {
             RemoteRefState::New => "untracked",
-            RemoteRefState::Tracking => "tracked",
+            RemoteRefState::Tracked => "tracked",
         };
         for (symbol, (from_ref, to_ref)) in changed_remote_bookmarks {
             with_content_format.write(formatter, |formatter| {

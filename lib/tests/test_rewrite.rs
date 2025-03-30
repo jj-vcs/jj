@@ -1023,7 +1023,7 @@ fn test_rebase_descendants_basic_bookmark_update_with_non_local_bookmark() {
     let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
     let commit_b_remote_ref = RemoteRef {
         target: RefTarget::normal(commit_b.id().clone()),
-        state: RemoteRefState::Tracking,
+        state: RemoteRefState::Tracked,
     };
     tx.repo_mut()
         .set_local_bookmark_target("main".as_ref(), RefTarget::normal(commit_b.id().clone()));
@@ -1077,7 +1077,7 @@ fn test_rebase_descendants_update_bookmark_after_abandon(delete_abandoned_bookma
     let commit_c = graph_builder.commit_with_parents(&[&commit_b]);
     let commit_b_remote_ref = RemoteRef {
         target: RefTarget::normal(commit_b.id().clone()),
-        state: RemoteRefState::Tracking,
+        state: RemoteRefState::Tracked,
     };
     tx.repo_mut()
         .set_local_bookmark_target("main".as_ref(), RefTarget::normal(commit_b.id().clone()));

@@ -2899,7 +2899,7 @@ pub fn has_tracked_remote_bookmarks(view: &View, bookmark: &RefName) -> bool {
         &StringPattern::everything(),
     )
     .filter(|&(symbol, _)| !jj_lib::git::is_special_git_remote(symbol.remote))
-    .any(|(_, remote_ref)| remote_ref.is_tracking())
+    .any(|(_, remote_ref)| remote_ref.is_tracked())
 }
 
 pub fn load_template_aliases(

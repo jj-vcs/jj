@@ -126,9 +126,9 @@ branch. `jj branch` sub commands will be added to change the tracking state.
 ```rust
 fn default_state_for_newly_imported_branch(config, remote) {
     if remote == "git" {
-        State::Tracking
+        State::Tracked
     } else if config["git.auto-local-bookmark"] {
-        State::Tracking
+        State::Tracked
     } else {
         State::New
     }
@@ -141,7 +141,7 @@ A branch target to be merged is calculated based on the `state`.
 fn target_in_merge_context(known_target, state) {
     match state {
         State::New => RefTarget::absent(),
-        State::Tracking => known_target,
+        State::Tracked => known_target,
     }
 }
 ```

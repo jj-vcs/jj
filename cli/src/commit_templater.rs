@@ -1173,7 +1173,7 @@ impl CommitRef {
     ) -> Rc<Self> {
         let synced = remote_refs
             .into_iter()
-            .all(|remote_ref| !remote_ref.is_tracking() || remote_ref.target == target);
+            .all(|remote_ref| !remote_ref.is_tracked() || remote_ref.target == target);
         Rc::new(CommitRef {
             name: name.into(),
             remote: None,
@@ -1196,8 +1196,8 @@ impl CommitRef {
         remote_ref: RemoteRef,
         local_target: &RefTarget,
     ) -> Rc<Self> {
-        let synced = remote_ref.is_tracking() && remote_ref.target == *local_target;
-        let tracking_ref = remote_ref.is_tracking().then(|| {
+        let synced = remote_ref.is_tracked() && remote_ref.target == *local_target;
+        let tracking_ref = remote_ref.is_tracked().then(|| {
             let count = if synced {
                 OnceCell::from((0, Some(0))) // fast path for synced remotes
             } else {

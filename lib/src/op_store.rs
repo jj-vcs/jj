@@ -193,16 +193,16 @@ impl RemoteRef {
     }
 
     /// Returns true if the ref is supposed to be merged in to the local ref.
-    pub fn is_tracking(&self) -> bool {
-        self.state == RemoteRefState::Tracking
+    pub fn is_tracked(&self) -> bool {
+        self.state == RemoteRefState::Tracked
     }
 
     /// Target that should have been merged in to the local ref.
     ///
     /// Use this as the base or known target when merging new remote ref in to
     /// local or pushing local ref to remote.
-    pub fn tracking_target(&self) -> &RefTarget {
-        if self.is_tracking() {
+    pub fn tracked_target(&self) -> &RefTarget {
+        if self.is_tracked() {
             &self.target
         } else {
             RefTarget::absent_ref()
@@ -217,7 +217,7 @@ pub enum RemoteRefState {
     New,
     /// Remote ref has been merged in to the local ref. Incoming ref will be
     /// merged, too.
-    Tracking,
+    Tracked,
 }
 
 /// Helper to strip redundant `Option<T>` from `RefTarget` lookup result.
@@ -507,7 +507,7 @@ mod tests {
     fn test_merge_join_bookmark_views() {
         let remote_ref = |target: &RefTarget| RemoteRef {
             target: target.clone(),
-            state: RemoteRefState::Tracking, // doesn't matter
+            state: RemoteRefState::Tracked, // doesn't matter
         };
         let local_bookmark1_target = RefTarget::normal(CommitId::from_hex("111111"));
         let local_bookmark2_target = RefTarget::normal(CommitId::from_hex("222222"));

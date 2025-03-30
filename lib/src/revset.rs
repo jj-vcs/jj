@@ -743,7 +743,7 @@ static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, RevsetFunction>> = Lazy:
     map.insert(
         "tracked_remote_bookmarks",
         |diagnostics, function, _context| {
-            parse_remote_bookmarks_arguments(diagnostics, function, Some(RemoteRefState::Tracking))
+            parse_remote_bookmarks_arguments(diagnostics, function, Some(RemoteRefState::Tracked))
         },
     );
     map.insert(
@@ -1832,7 +1832,7 @@ fn all_formatted_bookmark_symbols(
             .into_iter()
             .filter(move |&(_, remote_ref)| {
                 include_synced_remotes
-                    || !remote_ref.is_tracking()
+                    || !remote_ref.is_tracked()
                     || remote_ref.target != *local_target
             })
             .map(move |(remote, _)| format_remote_symbol(name.as_str(), remote.as_str()));
@@ -2983,7 +2983,7 @@ mod tests {
             RemoteBookmarks {
                 bookmark_pattern: Substring(""),
                 remote_pattern: Substring(""),
-                remote_ref_state: Some(Tracking),
+                remote_ref_state: Some(Tracked),
             },
         )
         "#);
@@ -3317,7 +3317,7 @@ mod tests {
             RemoteBookmarks {
                 bookmark_pattern: Substring("foo"),
                 remote_pattern: Substring("bar"),
-                remote_ref_state: Some(Tracking),
+                remote_ref_state: Some(Tracked),
             },
         )
         "#);

@@ -64,7 +64,7 @@ pub fn cmd_bookmark_untrack(
                 ui.warning_default(),
                 "Git-tracking bookmark cannot be untracked: {symbol}"
             )?;
-        } else if !remote_ref.is_tracking() {
+        } else if !remote_ref.is_tracked() {
             writeln!(
                 ui.warning_default(),
                 "Remote bookmark not tracked yet: {symbol}"

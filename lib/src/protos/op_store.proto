@@ -40,7 +40,7 @@ message RefTarget {
 
 enum RemoteRefState {
   New = 0;
-  Tracking = 1;
+  Tracked = 1;
 }
 
 message RemoteBookmark {

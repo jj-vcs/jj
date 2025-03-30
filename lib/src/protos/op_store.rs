@@ -167,7 +167,7 @@ pub struct OperationMetadata {
 #[repr(i32)]
 pub enum RemoteRefState {
     New = 0,
-    Tracking = 1,
+    Tracked = 1,
 }
 impl RemoteRefState {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -177,14 +177,14 @@ impl RemoteRefState {
     pub fn as_str_name(&self) -> &'static str {
         match self {
             RemoteRefState::New => "New",
-            RemoteRefState::Tracking => "Tracking",
+            RemoteRefState::Tracked => "Tracked",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
     pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
         match value {
             "New" => Some(Self::New),
-            "Tracking" => Some(Self::Tracking),
+            "Tracked" => Some(Self::Tracked),
             _ => None,
         }
     }

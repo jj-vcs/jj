@@ -182,7 +182,7 @@ pub fn cmd_bookmark_list(
     for (name, bookmark_target) in bookmarks_to_list {
         let local_target = bookmark_target.local_target;
         let remote_refs = bookmark_target.remote_refs;
-        let (mut tracking_remote_refs, untracked_remote_refs) = remote_refs
+        let (mut tracked_remote_refs, untracked_remote_refs) = remote_refs
             .iter()
             .copied()
             .filter(|(remote_name, _)| {
@@ -192,22 +192,22 @@ pub fn cmd_bookmark_list(
                         .any(|pattern| pattern.matches(remote_name.as_str()))
                 })
             })
-            .partition::<Vec<_>, _>(|&(_, remote_ref)| remote_ref.is_tracking());
+            .partition::<Vec<_>, _>(|&(_, remote_ref)| remote_ref.is_tracked());
 
         if args.tracked {
-            tracking_remote_refs.retain(|&(remote, _)| !jj_lib::git::is_special_git_remote(remote));
+            tracked_remote_refs.retain(|&(remote, _)| !jj_lib::git::is_special_git_remote(remote));
         } else if !args.all_remotes && args.remotes.is_none() {
-            tracking_remote_refs.retain(|&(_, remote_ref)| remote_ref.target != *local_target);
+            tracked_remote_refs.retain(|&(_, remote_ref)| remote_ref.target != *local_target);
         }
 
         let include_local_only = !args.tracked && args.remotes.is_none();
-        if include_local_only && local_target.is_present() || !tracking_remote_refs.is_empty() {
+        if include_local_only && local_target.is_present() || !tracked_remote_refs.is_empty() {
             let primary = CommitRef::local(
                 name,
                 local_target.clone(),
                 remote_refs.iter().map(|&(_, remote_ref)| remote_ref),
             );
-            let tracked = tracking_remote_refs
+            let tracked = tracked_remote_refs
                 .iter()
                 .map(|&(remote, remote_ref)| {
                     CommitRef::remote(name, remote, remote_ref.clone(), local_target)

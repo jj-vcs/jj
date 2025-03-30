@@ -488,7 +488,7 @@ pub fn import_some_refs(
     }
     for (symbol, (old_remote_ref, new_target)) in &changed_remote_bookmarks {
         let symbol = symbol.as_ref();
-        let base_target = old_remote_ref.tracking_target();
+        let base_target = old_remote_ref.tracked_target();
         let new_remote_ref = RemoteRef {
             target: new_target.clone(),
             state: if old_remote_ref.is_present() {
@@ -497,7 +497,7 @@ pub fn import_some_refs(
                 default_remote_ref_state_for(GitRefKind::Bookmark, symbol, git_settings)
             },
         };
-        if new_remote_ref.is_tracking() {
+        if new_remote_ref.is_tracked() {
             mut_repo.merge_local_bookmark(symbol.name, base_target, &new_remote_ref.target);
         }
         // Remote-tracking branch is the last known state of the branch in the remote.
@@ -506,7 +506,7 @@ pub fn import_some_refs(
     }
     for (symbol, (old_remote_ref, new_target)) in &changed_remote_tags {
         let symbol = symbol.as_ref();
-        let base_target = old_remote_ref.tracking_target();
+        let base_target = old_remote_ref.tracked_target();
         let new_remote_ref = RemoteRef {
             target: new_target.clone(),
             state: if old_remote_ref.is_present() {
@@ -515,7 +515,7 @@ pub fn import_some_refs(
                 default_remote_ref_state_for(GitRefKind::Tag, symbol, git_settings)
             },
         };
-        if new_remote_ref.is_tracking() {
+        if new_remote_ref.is_tracked() {
             mut_repo.merge_tag(symbol.name, base_target, &new_remote_ref.target);
         }
         // TODO: If we add Git-tracking tag, it will be updated here.
@@ -604,7 +604,7 @@ fn diff_refs_to_import(
         .iter()
         .map(|(name, target)| {
             let symbol = name.to_remote_symbol(REMOTE_NAME_FOR_LOCAL_GIT_REPO);
-            let state = RemoteRefState::Tracking;
+            let state = RemoteRefState::Tracked;
             (symbol, (target, state))
         })
         .filter(|&(symbol, _)| git_ref_filter(GitRefKind::Tag, symbol))
@@ -737,12 +737,12 @@ fn default_remote_ref_state_for(
     match kind {
         GitRefKind::Bookmark => {
             if symbol.remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO || git_settings.auto_local_bookmark {
-                RemoteRefState::Tracking
+                RemoteRefState::Tracked
             } else {
                 RemoteRefState::New
             }
         }
-        GitRefKind::Tag => RemoteRefState::Tracking,
+        GitRefKind::Tag => RemoteRefState::Tracked,
     }
 }
 
@@ -769,7 +769,7 @@ fn pinned_commit_ids(view: &View) -> Vec<CommitId> {
 /// branches are considered independent refs.
 fn remotely_pinned_commit_ids(view: &View) -> Vec<CommitId> {
     view.all_remote_bookmarks()
-        .filter(|(_, remote_ref)| !remote_ref.is_tracking())
+        .filter(|(_, remote_ref)| !remote_ref.is_tracked())
         .map(|(_, remote_ref)| &remote_ref.target)
         .flat_map(|target| target.added_ids())
         .cloned()
@@ -1021,7 +1021,7 @@ fn copy_exportable_local_bookmarks_to_remote_view(
     for (name, new_target) in new_local_bookmarks {
         let new_remote_ref = RemoteRef {
             target: new_target,
-            state: RemoteRefState::Tracking,
+            state: RemoteRefState::Tracked,
         };
         mut_repo.set_remote_bookmark(name.to_remote_symbol(remote), new_remote_ref);
     }
@@ -2515,7 +2515,7 @@ pub fn push_branches(
             .into();
             let new_remote_ref = RemoteRef {
                 target: RefTarget::resolved(update.new_target.clone()),
-                state: RemoteRefState::Tracking,
+                state: RemoteRefState::Tracked,
             };
             mut_repo.set_git_ref_target(&git_ref_name, new_remote_ref.target.clone());
             mut_repo.set_remote_bookmark(name.to_remote_symbol(remote), new_remote_ref);

@@ -468,7 +468,7 @@ fn test_has_changed() {
     let repo = &test_repo.repo;
     let normal_remote_ref = |id: &CommitId| RemoteRef {
         target: RefTarget::normal(id.clone()),
-        state: RemoteRefState::Tracking, // doesn't matter
+        state: RemoteRefState::Tracked, // doesn't matter
     };
 
     let mut tx = repo.start_transaction();
@@ -613,7 +613,7 @@ fn test_rename_remote() {
     let commit = write_random_commit(mut_repo);
     let remote_ref = RemoteRef {
         target: RefTarget::normal(commit.id().clone()),
-        state: RemoteRefState::Tracking, // doesn't matter
+        state: RemoteRefState::Tracked, // doesn't matter
     };
     mut_repo.set_remote_bookmark(remote_symbol("main", "origin"), remote_ref.clone());
     mut_repo.rename_remote("origin".as_ref(), "upstream".as_ref());
