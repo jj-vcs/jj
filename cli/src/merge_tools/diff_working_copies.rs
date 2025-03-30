@@ -61,6 +61,10 @@ impl DiffWorkingCopies {
             .map(|state| state.working_copy_path())
     }
 
+    pub fn temp_dir(&self) -> &Path {
+        self._temp_dir.path()
+    }
+
     pub fn to_command_variables(&self) -> HashMap<&'static str, &str> {
         let left_wc_dir = self.left_working_copy_path();
         let right_wc_dir = self.right_working_copy_path();
