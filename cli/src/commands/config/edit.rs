@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use jj_lib::config::ConfigLayer;
 use tracing::instrument;
 
 use super::ConfigLevelArgs;
 use crate::cli_util::CommandHelper;
+use crate::command_error::print_error_sources;
 use crate::command_error::CommandError;
 use crate::ui::Ui;
 
@@ -40,6 +42,34 @@ pub fn cmd_config_edit(
     if !file.path().exists() {
         file.save()?;
     }
-    editor.edit_file(file.path())?;
+
+    // Editing again and again until either of these conditions is met
+    // 1. The config is OK
+    // 2. The user restores previous one
+    loop {
+        editor.edit_file(file.path())?;
+
+        // Trying to load back config. If error, prompt to continue editing
+        if let Err(e) = ConfigLayer::load_from_file(file.layer().source, file.path().to_path_buf())
+        {
+            writeln!(
+                ui.warning_default(),
+                "An error has been found inside the config:"
+            )?;
+            print_error_sources(ui, Some(&e))?;
+            let continue_editing = ui.prompt_yes_no(
+                "Do you want to keep editing the file? If not, previous config will be restored.",
+                Some(true),
+            )?;
+            if !continue_editing {
+                // Saving back previous config
+                file.save()?;
+                break;
+            }
+        } else {
+            // config is OK
+            break;
+        }
+    }
     Ok(())
 }

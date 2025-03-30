@@ -67,6 +67,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Commit objects in templates now have `trailers() -> List<Trailer>`, the Trailer
   objects have `key() -> String` and `value() -> String`.
 
+* `jj config edit` will now roll back to previous version if a syntax error has been introduced in the new config.
+
+
 ### Fixed bugs
 
 * Fixed crash on change-delete conflict resolution.
