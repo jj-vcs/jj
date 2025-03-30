@@ -649,8 +649,14 @@ fn serialize_extras(commit: &Commit) -> Vec<u8> {
         change_id: commit.change_id.to_bytes(),
         ..Default::default()
     };
-    if matches!(commit.root_tree, MergedTreeId::Merge(_)) {
+    if let MergedTreeId::Merge(tree_ids) = &commit.root_tree {
         proto.uses_tree_conflict_format = true;
+        if !tree_ids.is_resolved() {
+            // This is done for the sake of jj versions <0.28 (before commit
+            // f7b14be) being able to read the repo. At some point in the
+            // future, we can stop doing it.
+            proto.root_tree = tree_ids.iter().map(|r| r.to_bytes()).collect();
+        }
     }
     for predecessor in &commit.predecessors {
         proto.predecessors.push(predecessor.to_bytes());
