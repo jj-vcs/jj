@@ -89,6 +89,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   reversing colors rather than underlining, you can set
   `colors."diff token"={ underline = false, reverse = true }` in your config.
 
+* Added `revsets.log-graph-prioritize`, which can be used to configure
+  which branch in the `jj log` graph is displayed on the left instead of `@`
+  (e.g. `coalesce(description("megamerge\n"), trunk())`)
+
+### Fixed bugs
+
 * `jj log -p --stat` now shows diff stats as well as the default color-words/git
   diff output. [#5986](https://github.com/jj-vcs/jj/issues/5986)
 
@@ -101,10 +107,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj config set`/`--config` value parsing rule is relaxed in a way that
   unquoted apostrophes are allowed.
   [#5748](https://github.com/jj-vcs/jj/issues/5748)
-
-* Added `revsets.log-graph-prioritize`, which can be used to configure
-  which branch in the `jj log` graph is displayed on the left instead of `@`
-  (e.g. `coalesce(description("megamerge\n"), trunk())`)
 
 ## [0.27.0] - 2025-03-05
 
