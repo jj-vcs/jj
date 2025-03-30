@@ -3051,6 +3051,49 @@ fn test_diff_external_tool() {
 }
 
 #[test]
+fn test_diff_do_chdir() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_diff_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("file1", "file1\n");
+
+    std::fs::write(&edit_script, "print-current-dir").unwrap();
+    assert_eq!(
+        work_dir
+            .run_jj([
+                "diff",
+                "--tool=fake-diff-editor",
+                "--config=merge-tools.fake-diff-editor.diff-do-chdir=false",
+            ])
+            .to_string()
+            .lines()
+            .next()
+            .unwrap(),
+        "$TEST_ENV/repo"
+    );
+    assert!(
+        work_dir
+            .run_jj(["diff", "--tool=fake-diff-editor"])
+            .to_string()
+            .lines()
+            .next()
+            .unwrap()
+            != "$TEST_ENV/repo"
+    );
+
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--tool=echo"]), @r"
+    left right
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--tool=echo",
+        "--config=merge-tools.echo.diff-invocation-mode=file-by-file"]).normalize_backslash(), @r"
+    left/file1 right/file1
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_diff_external_file_by_file_tool() {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_diff_editor();

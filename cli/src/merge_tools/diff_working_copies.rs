@@ -61,9 +61,21 @@ impl DiffWorkingCopies {
             .map(|state| state.working_copy_path())
     }
 
-    pub fn to_command_variables(&self) -> HashMap<&'static str, &str> {
-        let left_wc_dir = self.left_working_copy_path();
-        let right_wc_dir = self.right_working_copy_path();
+    pub fn temp_dir(&self) -> &Path {
+        self._temp_dir.path()
+    }
+
+    pub fn to_command_variables(&self, relative: bool) -> HashMap<&'static str, &str> {
+        let mut left_wc_dir = self.left_working_copy_path();
+        let mut right_wc_dir = self.right_working_copy_path();
+        if relative {
+            left_wc_dir = left_wc_dir
+                .strip_prefix(self.temp_dir())
+                .expect("path should be relative to temp_dir");
+            right_wc_dir = right_wc_dir
+                .strip_prefix(self.temp_dir())
+                .expect("path should be relative to temp_dir");
+        }
         let mut result = maplit::hashmap! {
             "left" => left_wc_dir.to_str().expect("temp_dir should be valid utf-8"),
             "right" => right_wc_dir.to_str().expect("temp_dir should be valid utf-8"),

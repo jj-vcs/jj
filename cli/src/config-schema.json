@@ -509,6 +509,11 @@
                         "description": "Array of exit codes that do not indicate tool failure, i.e. [0, 1] for unix diff.",
                         "default": [0]
                     },
+                    "diff-do-chdir": {
+                      "type": "boolean",
+                      "description": "Invoke the tool in the temporary diff directory. This setting will be removed soon",
+                      "default": true
+                    },
                     "diff-invocation-mode": {
                       "description": "Invoke the tool with directories or individual files",
                       "enum": [
