@@ -13,6 +13,7 @@ use jj_lib::fsmonitor::FsmonitorSettings;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::local_working_copy::TreeState;
 use jj_lib::local_working_copy::TreeStateError;
+use jj_lib::local_working_copy::WcTreeMutator;
 use jj_lib::matchers::EverythingMatcher;
 use jj_lib::matchers::Matcher;
 use jj_lib::merged_tree::MergedTree;
@@ -133,9 +134,10 @@ pub(crate) fn check_out_trees(
         let state_dir = temp_path.join(format!("{name}_state"));
         std::fs::create_dir(&wc_path).map_err(DiffCheckoutError::SetUpDir)?;
         std::fs::create_dir(&state_dir).map_err(DiffCheckoutError::SetUpDir)?;
-        let mut state = TreeState::init(store.clone(), wc_path.clone(), state_dir)?;
-        state.set_sparse_patterns(files, options)?;
-        state.check_out(tree, options)?;
+        let mut state = TreeState::init(store, &state_dir)?;
+        let mut wc = wc_mut(&mut state, store, &wc_path);
+        wc.set_sparse_patterns(files, options)?;
+        wc.check_out(tree, options)?;
         if read_only {
             set_readonly_recursively(&wc_path).map_err(DiffCheckoutError::SetUpDir)?;
         }
@@ -251,6 +253,7 @@ diff editing in mind and be a little inaccurate.
 
     pub fn snapshot_results(
         self,
+        store: &Arc<Store>,
         base_ignores: Arc<GitIgnoreFile>,
         conflict_marker_style: ConflictMarkerStyle,
     ) -> Result<MergedTreeId, DiffEditError> {
@@ -260,8 +263,9 @@ diff editing in mind and be a little inaccurate.
 
         let diff_wc = self.working_copies;
         // Snapshot changes in the temporary output directory.
-        let mut output_tree_state = diff_wc.output.unwrap_or(diff_wc.right).state;
-        output_tree_state.snapshot(&SnapshotOptions {
+        let mut output = diff_wc.output.unwrap_or(diff_wc.right);
+        let mut wc = wc_mut(&mut output.state, store, &output.wc_path);
+        wc.snapshot(&SnapshotOptions {
             base_ignores,
             fsmonitor_settings: FsmonitorSettings::None,
             progress: None,
@@ -269,6 +273,18 @@ diff editing in mind and be a little inaccurate.
             max_new_file_size: u64::MAX,
             conflict_marker_style,
         })?;
-        Ok(output_tree_state.current_tree_id().clone())
+        Ok(output.state.current_tree_id().clone())
+    }
+}
+
+fn wc_mut<'a>(
+    state: &'a mut TreeState,
+    store: &'a Arc<Store>,
+    working_copy_path: &'a Path,
+) -> WcTreeMutator<'a> {
+    WcTreeMutator {
+        state,
+        store,
+        working_copy_path,
     }
 }

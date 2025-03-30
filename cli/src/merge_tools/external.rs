@@ -416,7 +416,7 @@ pub fn edit_diff_external(
         }));
     }
 
-    diffedit_wc.snapshot_results(base_ignores, options.conflict_marker_style)
+    diffedit_wc.snapshot_results(store, base_ignores, options.conflict_marker_style)
 }
 
 /// Generates textual diff by the specified `tool` and writes into `writer`.
