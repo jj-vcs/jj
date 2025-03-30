@@ -197,6 +197,26 @@ fill in things like BUG=, TESTED= etc.
 default-description = "\n\nTESTED=TODO"
 ```
 
+### Bookmark listing order
+
+By default, `jj bookmark list` displays bookmarks sorted alphabetically by name.
+You can customize this sorting behavior by specifying sort keys in your config
+file:
+
+```toml
+[ui]
+bookmark-list-sort-keys = ["name"]
+```
+
+The configuration works identically to using the `--sort` option for
+`jj bookmark list`. The following sort keys are supported: `name`, `author-name`,
+`author-email`, `author-date`, `committer-name`, `committer-email`,
+`committer-date`. Suffix the key with `-` to sort in descending order. Multiple
+keys can be supplied here, the first key is the most significant.
+
+When the `--sort` option is used with `jj bookmark list`, the configuration
+is ignored.
+
 ### Diff colors and styles
 
 In color-words and git diffs, word-level hunks are rendered with underline. You

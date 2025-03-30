@@ -256,6 +256,29 @@
                             "default": false
                         }
                     }
+                },
+                "bookmark-list-sort-keys": {
+                    "type": "array",
+                    "description": "Specifies the sort keys for the bookmarks list. See the `jj bookmark list --help` for the `--sort` option",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "name",
+                            "name-",
+                            "author-name",
+                            "author-name-",
+                            "author-email",
+                            "author-email-",
+                            "author-date",
+                            "author-date-",
+                            "committer-name",
+                            "committer-name-",
+                            "committer-email",
+                            "committer-email-",
+                            "committer-date",
+                            "committer-date-"
+                        ]
+                    }
                 }
             }
         },

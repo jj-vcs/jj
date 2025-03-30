@@ -18,6 +18,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj show` patches can now be suppressed with `--no-patch`.
 
+* Added `ui.bookmark-list-sort-keys` setting to configure default sort keys for the
+  `jj bookmark list` command.
+
 ### Fixed bugs
 
 ## [0.28.2] - 2025-04-07

@@ -23,6 +23,7 @@ use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
 use jj_lib::backend;
 use jj_lib::backend::CommitId;
+use jj_lib::config::ConfigValue;
 use jj_lib::ref_name::RefName;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
@@ -120,6 +121,8 @@ pub struct BookmarkListArgs {
     /// Suffix the key with `-` to sort in descending order of the value (e.g.
     /// `--sort name-`). Note that when using multiple keys, the first key is
     /// the most significant.
+    ///
+    /// This defaults to the `ui.bookmark-list-sort-keys` setting.
     #[arg(long, value_name = "SORT_KEY", value_enum, value_delimiter = ',')]
     sort: Vec<SortKey>,
 }
@@ -240,9 +243,16 @@ pub fn cmd_bookmark_list(
         }
     }
 
+    let sort_keys = if args.sort.is_empty() {
+        workspace_command
+            .settings()
+            .get_value_with("ui.bookmark-list-sort-keys", parse_sort_keys)?
+    } else {
+        args.sort.clone()
+    };
     let store = repo.store();
     let mut commits: HashMap<CommitId, Arc<backend::Commit>> = HashMap::new();
-    if args.sort.iter().any(|key| key.is_commit_dependant()) {
+    if sort_keys.iter().any(|key| key.is_commit_dependant()) {
         commits = bookmark_list_items
             .iter()
             .filter_map(|item| item.primary.target().added_ids().next())
@@ -254,7 +264,7 @@ pub fn cmd_bookmark_list(
             })
             .try_collect()?;
     }
-    sort(&mut bookmark_list_items, &args.sort, &commits);
+    sort(&mut bookmark_list_items, &sort_keys, &commits);
 
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();
@@ -352,6 +362,21 @@ impl SortKey {
             | SortKey::CommitterDate
             | SortKey::CommitterDateDesc => true,
         }
+    }
+}
+
+fn parse_sort_keys(value: ConfigValue) -> Result<Vec<SortKey>, String> {
+    if let Some(array) = value.as_array() {
+        array
+            .iter()
+            .map(|item| {
+                item.as_str()
+                    .ok_or("Expected sort key as a string".to_owned())
+                    .and_then(|key| SortKey::from_str(key, false))
+            })
+            .try_collect()
+    } else {
+        Err("Expected an array of sort keys as strings".to_owned())
     }
 }
 

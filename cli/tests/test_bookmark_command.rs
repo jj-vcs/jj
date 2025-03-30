@@ -2234,10 +2234,10 @@ fn test_bookmark_list_sort_multiple_keys() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
-    for (bookmark, committeremail) in [("c", "bob@g.c"), ("b", "alice@g.c"), ("a", "bob@g.c")] {
+    for (bookmark, email) in [("c", "bob@g.c"), ("b", "alice@g.c"), ("a", "bob@g.c")] {
         work_dir
             .run_jj([
-                &format!("--config=user.email={committeremail}"),
+                &format!("--config=user.email={email}"),
                 "new",
                 "root()",
                 "-m",
@@ -2255,6 +2255,77 @@ fn test_bookmark_list_sort_multiple_keys() {
     b: alice@g.c
     a: bob@g.c
     c: bob@g.c
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_bookmark_list_sort_using_config() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    for (bookmark, email) in [("c", "bob@g.c"), ("b", "alice@g.c"), ("a", "bob@g.c")] {
+        work_dir
+            .run_jj([
+                &format!("--config=user.email={email}"),
+                "new",
+                "root()",
+                "-m",
+                "fix",
+            ])
+            .success();
+        work_dir
+            .run_jj(["bookmark", "create", "-r@", bookmark])
+            .success();
+    }
+
+    let template = r#"name ++ ": " ++ if(normal_target, normal_target.author().email()) ++ "\n""#;
+    insta::assert_snapshot!(work_dir.run_jj([
+        "--config=ui.bookmark-list-sort-keys=['author-email', 'author-date-']",
+        "bookmark",
+        "list",
+        "-T",
+        template
+    ]), @r"
+    b: alice@g.c
+    a: bob@g.c
+    c: bob@g.c
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_bookmark_list_sort_overriding_config() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    for (bookmark, email) in [("c", "bob@g.c"), ("b", "alice@g.c"), ("a", "bob@g.c")] {
+        work_dir
+            .run_jj([
+                &format!("--config=user.email={email}"),
+                "new",
+                "root()",
+                "-m",
+                "fix",
+            ])
+            .success();
+        work_dir
+            .run_jj(["bookmark", "create", "-r@", bookmark])
+            .success();
+    }
+
+    let template = r#"name ++ ": " ++ if(normal_target, normal_target.author().email()) ++ "\n""#;
+    insta::assert_snapshot!(work_dir.run_jj([
+        "--config=ui.bookmark-list-sort-keys=['author-email', 'author-date-']",
+        "bookmark",
+        "list",
+        "--sort=name-", // overriding config.
+        "-T",
+        template
+    ]), @r"
+    c: bob@g.c
+    b: alice@g.c
+    a: bob@g.c
     [EOF]
     ");
 }
