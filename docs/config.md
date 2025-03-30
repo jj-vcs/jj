@@ -295,6 +295,15 @@ diff.tool = "vimdiff"
 diff-invocation-mode = "file-by-file"
 ```
 
+External tools by default run in the repository, but the `diff-do-chdir`
+config option can be set to run them in the temporary directory instead. This
+produces tidier output if the tool displays file paths prominently.
+
+```toml
+[merge-tools.vimdiff]
+diff-do-chdir = true
+```
+
 By default `jj` will display a warning when the command exits with a non-success
 error code. The `diff-expected-exit-codes` config can suppress this warning
 message for specific exit codes:

@@ -451,6 +451,7 @@ mod tests {
                     0,
                 ],
                 diff_invocation_mode: Dir,
+                diff_do_chdir: false,
                 edit_args: [
                     "$left",
                     "$right",
@@ -481,6 +482,7 @@ mod tests {
                     0,
                 ],
                 diff_invocation_mode: Dir,
+                diff_do_chdir: false,
                 edit_args: [
                     "--edit",
                     "args",
@@ -527,6 +529,7 @@ mod tests {
                     0,
                 ],
                 diff_invocation_mode: Dir,
+                diff_do_chdir: false,
                 edit_args: [
                     "$left",
                     "$right",
@@ -553,6 +556,7 @@ mod tests {
                     0,
                 ],
                 diff_invocation_mode: Dir,
+                diff_do_chdir: false,
                 edit_args: [
                     "-l",
                     "$left",
@@ -581,6 +585,7 @@ mod tests {
                     0,
                 ],
                 diff_invocation_mode: Dir,
+                diff_do_chdir: false,
                 edit_args: [
                     "--diff",
                     "$left",
@@ -613,6 +618,7 @@ mod tests {
                     0,
                 ],
                 diff_invocation_mode: Dir,
+                diff_do_chdir: false,
                 edit_args: [
                     "--edit",
                     "args",
@@ -646,6 +652,7 @@ mod tests {
                     0,
                 ],
                 diff_invocation_mode: Dir,
+                diff_do_chdir: false,
                 edit_args: [
                     "$left",
                     "$right",
@@ -671,6 +678,7 @@ mod tests {
                     0,
                 ],
                 diff_invocation_mode: Dir,
+                diff_do_chdir: false,
                 edit_args: [
                     "$left",
                     "$right",
@@ -727,6 +735,7 @@ mod tests {
                     0,
                 ],
                 diff_invocation_mode: Dir,
+                diff_do_chdir: false,
                 edit_args: [
                     "$left",
                     "$right",
@@ -783,6 +792,7 @@ mod tests {
                     0,
                 ],
                 diff_invocation_mode: Dir,
+                diff_do_chdir: false,
                 edit_args: [
                     "$left",
                     "$right",
@@ -816,6 +826,7 @@ mod tests {
                     0,
                 ],
                 diff_invocation_mode: Dir,
+                diff_do_chdir: false,
                 edit_args: [
                     "$left",
                     "$right",
@@ -852,6 +863,7 @@ mod tests {
                     0,
                 ],
                 diff_invocation_mode: Dir,
+                diff_do_chdir: false,
                 edit_args: [
                     "$left",
                     "$right",

@@ -1148,6 +1148,7 @@ pub fn show_file_by_file_diff(
                 ui,
                 writer.as_mut(),
                 tool,
+                temp_dir.path(),
                 &maplit::hashmap! {
                     "left" => left_path.to_str().expect("temp_dir should be valid utf-8"),
                     "right" => right_path.to_str().expect("temp_dir should be valid utf-8"),
