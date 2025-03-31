@@ -183,10 +183,12 @@ For the equivalent of `git commit --amend -p`/`hg amend -i`, use `jj squash -i`.
 
 ### Is there something like `git rebase --interactive` or `hg histedit`?
 
-Not yet, you can check [this issue] for updates.
+It is often sufficient to use some form of `jj rebase` with `-A/-B`. For
+example, if you have a linear chain of revisions `A` through `C` and want to
+move `C` before `B`, use `jj rebase -r C -B B`. See `jj help rebase` for more
+examples.
 
-To reorder commits, it is for now recommended to rebase commits individually,
-which may require multiple invocations of `jj rebase -r` or `jj rebase -s`.
+There is a [tracking issue][reordering] you can check for updates.
 
 To squash or split commits, use `jj squash` and `jj split`.
 
@@ -584,4 +586,4 @@ detect custom backends and more).
 
 [templates]: templates.md
 
-[this issue]: https://github.com/jj-vcs/jj/issues/1531
+[reordering]: https://github.com/jj-vcs/jj/issues/1531
