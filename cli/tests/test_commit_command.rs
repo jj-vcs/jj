@@ -72,7 +72,7 @@ fn test_commit_with_editor() {
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:     A file2
-
+    JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
 }
@@ -129,7 +129,7 @@ fn test_commit_interactive() {
 
     JJ: This commit contains the following changes:
     JJ:     A file1
-
+    JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
 
@@ -149,7 +149,7 @@ fn test_commit_interactive() {
 
     JJ: This commit contains the following changes:
     JJ:     A file1
-
+    JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
 
@@ -205,7 +205,7 @@ fn test_commit_interactive_with_paths() {
 
     JJ: This commit contains the following changes:
     JJ:     A file1
-
+    JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
 
@@ -253,7 +253,7 @@ fn test_commit_with_default_description() {
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:     A file2
-
+    JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
 }
@@ -300,7 +300,7 @@ fn test_commit_with_description_template() {
 
     JJ: file1 | 1 +
     JJ: 1 file changed, 1 insertion(+), 0 deletions(-)
-
+    JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
 
@@ -320,7 +320,7 @@ fn test_commit_with_description_template() {
 
     JJ: file2 | 1 +
     JJ: 1 file changed, 1 insertion(+), 0 deletions(-)
-
+    JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
 
@@ -333,7 +333,7 @@ fn test_commit_with_description_template() {
 
     JJ: file3 | 1 +
     JJ: 1 file changed, 1 insertion(+), 0 deletions(-)
-
+    JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
 }

@@ -315,14 +315,14 @@ fn test_describe_multiple_commits() {
     JJ: Warning:
     JJ: - The text you enter will be lost on a syntax error.
     JJ: - The syntax of the separator lines may change in the future.
-
+    JJ:
     JJ: describe 8d650510daad -------
 
 
     JJ: describe 41659b846096 -------
     description from CLI
 
-    JJ: Lines starting with "JJ: " (like this one) will be removed.
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
 
     // Set the description of multiple commits in the editor
@@ -629,7 +629,7 @@ fn test_describe_default_description() {
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:     A file2
-
+    JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
 }
@@ -712,7 +712,7 @@ fn test_describe_author() {
     JJ: Committer: Test User <test.user@example.com> (2001-02-03 08:05:12)
 
     JJ: 0 files changed, 0 insertions(+), 0 deletions(-)
-
+    JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
 
@@ -792,22 +792,22 @@ fn test_describe_author() {
     JJ: Warning:
     JJ: - The text you enter will be lost on a syntax error.
     JJ: - The syntax of the separator lines may change in the future.
-
+    JJ:
     JJ: describe eae86afaa20c -------
 
     JJ: Author: Ove Ridder <ove.ridder@example.com> (2001-02-03 08:05:18)
     JJ: Committer: Ove Ridder <ove.ridder@example.com> (2001-02-03 08:05:18)
 
     JJ: 0 files changed, 0 insertions(+), 0 deletions(-)
-
+    JJ:
     JJ: describe ba485659f76a -------
 
     JJ: Author: Ove Ridder <ove.ridder@example.com> (2001-02-03 08:05:18)
     JJ: Committer: Ove Ridder <ove.ridder@example.com> (2001-02-03 08:05:18)
 
     JJ: 0 files changed, 0 insertions(+), 0 deletions(-)
-
-    JJ: Lines starting with "JJ: " (like this one) will be removed.
+    JJ:
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
 }
 

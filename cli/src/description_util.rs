@@ -131,6 +131,18 @@ impl TextEditor {
     }
 }
 
+fn append_blank_line(text: &mut String) {
+    if !text.is_empty() && !text.ends_with('\n') {
+        text.push('\n');
+    }
+    let last_line = text.lines().next_back();
+    if last_line.is_some_and(|line| line.starts_with("JJ:")) {
+        text.push_str("JJ:\n");
+    } else {
+        text.push('\n');
+    }
+}
+
 /// Cleanup a description by normalizing line endings, and removing leading and
 /// trailing blank lines.
 fn cleanup_description_lines<I>(lines: I) -> String
@@ -155,11 +167,9 @@ where
 }
 
 pub fn edit_description(editor: &TextEditor, description: &str) -> Result<String, CommandError> {
-    let description = format!(
-        r#"{description}
-JJ: Lines starting with "JJ:" (like this one) will be removed.
-"#
-    );
+    let mut description = description.to_owned();
+    append_blank_line(&mut description);
+    description.push_str("JJ: Lines starting with \"JJ:\" (like this one) will be removed.\n");
 
     let description = editor
         .edit_str(description, Some(".jjdescription"))
@@ -183,7 +193,7 @@ pub fn edit_multiple_descriptions(
         JJ: Warning:
         JJ: - The text you enter will be lost on a syntax error.
         JJ: - The syntax of the separator lines may change in the future.
-
+        JJ:
     "#});
     for (commit_id, temp_commit) in commits {
         let commit_hash = short_commit_hash(commit_id);
@@ -193,9 +203,9 @@ pub fn edit_multiple_descriptions(
         commits_map.insert(commit_hash, *commit_id);
         let template = description_template(ui, tx, "", temp_commit)?;
         bulk_message.push_str(&template);
-        bulk_message.push('\n');
+        append_blank_line(&mut bulk_message);
     }
-    bulk_message.push_str("JJ: Lines starting with \"JJ: \" (like this one) will be removed.\n");
+    bulk_message.push_str("JJ: Lines starting with \"JJ:\" (like this one) will be removed.\n");
 
     let bulk_message = editor
         .edit_str(bulk_message, Some(".jjdescription"))

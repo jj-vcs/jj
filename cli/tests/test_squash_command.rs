@@ -1264,7 +1264,7 @@ fn test_squash_description() {
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:     A file2
-
+    JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
 
