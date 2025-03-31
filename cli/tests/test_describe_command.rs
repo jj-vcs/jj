@@ -318,6 +318,7 @@ fn test_describe_multiple_commits() {
 
     JJ: describe 8d650510daad -------
 
+
     JJ: describe 41659b846096 -------
     description from CLI
 

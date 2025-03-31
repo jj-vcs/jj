@@ -178,7 +178,7 @@ The editor content of a commit description can be populated by the
 [templates]
 draft_commit_description = '''
 concat(
-  description,
+  coalesce(description, "\n"),
   surround(
     "\nJJ: This commit contains the following changes:\n", "",
     indent("JJ:     ", diff.stat(72)),

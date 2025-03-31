@@ -77,6 +77,7 @@ fn test_split_by_paths() {
         std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r#"
     JJ: Enter a description for the first commit.
 
+
     JJ: This commit contains the following changes:
     JJ:     A file2
 
@@ -805,6 +806,7 @@ fn test_split_interactive() {
         std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
     JJ: Enter a description for the first commit.
 
+
     JJ: This commit contains the following changes:
     JJ:     A file1
 
@@ -868,6 +870,7 @@ fn test_split_interactive_with_paths() {
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
     JJ: Enter a description for the first commit.
+
 
     JJ: This commit contains the following changes:
     JJ:     A file1
