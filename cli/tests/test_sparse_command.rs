@@ -19,39 +19,38 @@ use crate::common::TestEnvironment;
 #[test]
 fn test_sparse_manage_patterns() {
     let mut test_env = TestEnvironment::default();
-    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-
     let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
 
     // Write some files to the working copy
-    std::fs::write(repo_path.join("file1"), "contents").unwrap();
-    std::fs::write(repo_path.join("file2"), "contents").unwrap();
-    std::fs::write(repo_path.join("file3"), "contents").unwrap();
+    work_dir.write_file("file1", "contents");
+    work_dir.write_file("file2", "contents");
+    work_dir.write_file("file3", "contents");
 
     // By default, all files are tracked
-    let output = test_env.run_jj_in(&repo_path, ["sparse", "list"]);
+    let output = work_dir.run_jj(["sparse", "list"]);
     insta::assert_snapshot!(output, @r"
     .
     [EOF]
     ");
 
     // Can stop tracking all files
-    let output = test_env.run_jj_in(&repo_path, ["sparse", "set", "--remove", "."]);
+    let output = work_dir.run_jj(["sparse", "set", "--remove", "."]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Added 0 files, modified 0 files, removed 3 files
     [EOF]
     ");
     // The list is now empty
-    let output = test_env.run_jj_in(&repo_path, ["sparse", "list"]);
+    let output = work_dir.run_jj(["sparse", "list"]);
     insta::assert_snapshot!(output, @"");
     // They're removed from the working copy
-    assert!(!repo_path.join("file1").exists());
-    assert!(!repo_path.join("file2").exists());
-    assert!(!repo_path.join("file3").exists());
+    assert!(!work_dir.root().join("file1").exists());
+    assert!(!work_dir.root().join("file2").exists());
+    assert!(!work_dir.root().join("file3").exists());
     // But they're still in the commit
-    let output = test_env.run_jj_in(&repo_path, ["file", "list"]);
+    let output = work_dir.run_jj(["file", "list"]);
     insta::assert_snapshot!(output, @r"
     file1
     file2
@@ -61,11 +60,10 @@ fn test_sparse_manage_patterns() {
 
     // Run commands in sub directory to ensure that patterns are parsed as
     // workspace-relative paths, not cwd-relative ones.
-    let sub_dir = repo_path.join("sub");
-    std::fs::create_dir(&sub_dir).unwrap();
+    let sub_dir = work_dir.create_dir("sub");
 
     // Not a workspace-relative path
-    let output = test_env.run_jj_in(&sub_dir, ["sparse", "set", "--add=../file2"]);
+    let output = sub_dir.run_jj(["sparse", "set", "--add=../file2"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     error: invalid value '../file2' for '--add <ADD>': Invalid component ".." in repo-relative path "../file2"
@@ -76,77 +74,71 @@ fn test_sparse_manage_patterns() {
     "#);
 
     // Can `--add` a few files
-    let output = test_env.run_jj_in(
-        &sub_dir,
-        ["sparse", "set", "--add", "file2", "--add", "file3"],
-    );
+    let output = sub_dir.run_jj(["sparse", "set", "--add", "file2", "--add", "file3"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Added 2 files, modified 0 files, removed 0 files
     [EOF]
     ");
-    let output = test_env.run_jj_in(&sub_dir, ["sparse", "list"]);
+    let output = sub_dir.run_jj(["sparse", "list"]);
     insta::assert_snapshot!(output, @r"
     file2
     file3
     [EOF]
     ");
-    assert!(!repo_path.join("file1").exists());
-    assert!(repo_path.join("file2").exists());
-    assert!(repo_path.join("file3").exists());
+    assert!(!work_dir.root().join("file1").exists());
+    assert!(work_dir.root().join("file2").exists());
+    assert!(work_dir.root().join("file3").exists());
 
     // Can combine `--add` and `--remove`
-    let output = test_env.run_jj_in(
-        &sub_dir,
-        [
-            "sparse", "set", "--add", "file1", "--remove", "file2", "--remove", "file3",
-        ],
-    );
+    let output = sub_dir.run_jj([
+        "sparse", "set", "--add", "file1", "--remove", "file2", "--remove", "file3",
+    ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Added 1 files, modified 0 files, removed 2 files
     [EOF]
     ");
-    let output = test_env.run_jj_in(&sub_dir, ["sparse", "list"]);
+    let output = sub_dir.run_jj(["sparse", "list"]);
     insta::assert_snapshot!(output, @r"
     file1
     [EOF]
     ");
-    assert!(repo_path.join("file1").exists());
-    assert!(!repo_path.join("file2").exists());
-    assert!(!repo_path.join("file3").exists());
+    assert!(work_dir.root().join("file1").exists());
+    assert!(!work_dir.root().join("file2").exists());
+    assert!(!work_dir.root().join("file3").exists());
 
     // Can use `--clear` and `--add`
-    let output = test_env.run_jj_in(&sub_dir, ["sparse", "set", "--clear", "--add", "file2"]);
+    let output = sub_dir.run_jj(["sparse", "set", "--clear", "--add", "file2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Added 1 files, modified 0 files, removed 1 files
     [EOF]
     ");
-    let output = test_env.run_jj_in(&sub_dir, ["sparse", "list"]);
+    let output = sub_dir.run_jj(["sparse", "list"]);
     insta::assert_snapshot!(output, @r"
     file2
     [EOF]
     ");
-    assert!(!repo_path.join("file1").exists());
-    assert!(repo_path.join("file2").exists());
-    assert!(!repo_path.join("file3").exists());
+    assert!(!work_dir.root().join("file1").exists());
+    assert!(work_dir.root().join("file2").exists());
+    assert!(!work_dir.root().join("file3").exists());
 
     // Can reset back to all files
-    let output = test_env.run_jj_in(&sub_dir, ["sparse", "reset"]);
+    let output = sub_dir.run_jj(["sparse", "reset"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Added 2 files, modified 0 files, removed 0 files
     [EOF]
     ");
-    let output = test_env.run_jj_in(&sub_dir, ["sparse", "list"]);
+    let output = sub_dir.run_jj(["sparse", "list"]);
     insta::assert_snapshot!(output, @r"
     .
     [EOF]
     ");
-    assert!(repo_path.join("file1").exists());
-    assert!(repo_path.join("file2").exists());
-    assert!(repo_path.join("file3").exists());
+    assert!(work_dir.root().join("file1").exists());
+    assert!(work_dir.root().join("file2").exists());
+    assert!(work_dir.root().join("file3").exists());
 
     // Can edit with editor
     let edit_patterns = |patterns: &[&str]| {
@@ -160,14 +152,14 @@ fn test_sparse_manage_patterns() {
     let read_patterns = || std::fs::read_to_string(test_env.env_root().join("patterns0")).unwrap();
 
     edit_patterns(&["file1"]);
-    let output = test_env.run_jj_in(&sub_dir, ["sparse", "edit"]);
+    let output = sub_dir.run_jj(["sparse", "edit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
     insta::assert_snapshot!(read_patterns(), @".");
-    let output = test_env.run_jj_in(&sub_dir, ["sparse", "list"]);
+    let output = sub_dir.run_jj(["sparse", "list"]);
     insta::assert_snapshot!(output, @r"
     file1
     [EOF]
@@ -175,14 +167,14 @@ fn test_sparse_manage_patterns() {
 
     // Can edit with multiple files
     edit_patterns(&["file3", "file2", "file3"]);
-    let output = test_env.run_jj_in(&sub_dir, ["sparse", "edit"]);
+    let output = sub_dir.run_jj(["sparse", "edit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Added 2 files, modified 0 files, removed 1 files
     [EOF]
     ");
     insta::assert_snapshot!(read_patterns(), @"file1");
-    let output = test_env.run_jj_in(&sub_dir, ["sparse", "list"]);
+    let output = sub_dir.run_jj(["sparse", "list"]);
     insta::assert_snapshot!(output, @r"
     file2
     file3
@@ -195,12 +187,12 @@ fn test_sparse_editor_avoids_unc() {
     use std::path::PathBuf;
 
     let mut test_env = TestEnvironment::default();
-    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
     let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
 
     std::fs::write(edit_script, "dump-path path").unwrap();
-    test_env.run_jj_in(&repo_path, ["sparse", "edit"]).success();
+    work_dir.run_jj(["sparse", "edit"]).success();
 
     let edited_path =
         PathBuf::from(std::fs::read_to_string(test_env.env_root().join("path")).unwrap());
