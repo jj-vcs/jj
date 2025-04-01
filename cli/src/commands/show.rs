@@ -50,6 +50,9 @@ pub(crate) struct ShowArgs {
     template: Option<String>,
     #[command(flatten)]
     format: DiffFormatArgs,
+    /// Do not show the patch
+    #[arg(long, conflicts_with = "DiffFormatArgs")]
+    no_patch: bool,
 }
 
 #[instrument(skip_all)]
@@ -70,6 +73,8 @@ pub(crate) fn cmd_show(
     let mut formatter = ui.stdout_formatter();
     let formatter = formatter.as_mut();
     template.format(&commit, formatter)?;
-    diff_renderer.show_patch(ui, formatter, &commit, &EverythingMatcher, ui.term_width())?;
+    if !args.no_patch {
+        diff_renderer.show_patch(ui, formatter, &commit, &EverythingMatcher, ui.term_width())?;
+    }
     Ok(())
 }

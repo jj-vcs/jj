@@ -16,6 +16,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj show` patches can now be suppressed with `--no-patch`.
+
 ### Fixed bugs
 
 ## [0.28.1] - 2025-04-04
