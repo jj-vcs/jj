@@ -112,6 +112,7 @@ pub mod submodule_store;
 #[cfg(feature = "testing")]
 pub mod test_signing_backend;
 pub mod time_util;
+pub mod trailer;
 pub mod transaction;
 pub mod tree;
 pub mod tree_builder;

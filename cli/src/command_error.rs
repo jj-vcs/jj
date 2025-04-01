@@ -51,6 +51,7 @@ use jj_lib::revset::RevsetParseError;
 use jj_lib::revset::RevsetParseErrorKind;
 use jj_lib::revset::RevsetResolutionError;
 use jj_lib::str_util::StringPatternParseError;
+use jj_lib::trailer::TrailerParseError;
 use jj_lib::transaction::TransactionCommitError;
 use jj_lib::view::RenameWorkspaceError;
 use jj_lib::working_copy::RecoverWorkspaceError;
@@ -494,6 +495,12 @@ impl From<TempTextEditError> for CommandError {
         let mut cmd_err = user_error(err);
         cmd_err.extend_hints(hint);
         cmd_err
+    }
+}
+
+impl From<TrailerParseError> for CommandError {
+    fn from(err: TrailerParseError) -> Self {
+        user_error(err)
     }
 }
 
