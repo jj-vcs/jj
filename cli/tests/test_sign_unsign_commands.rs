@@ -30,18 +30,12 @@ backend = "test"
     );
 
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "one"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "two"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "three"])
-        .success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["commit", "-m", "one"]).success();
+    work_dir.run_jj(["commit", "-m", "two"]).success();
+    work_dir.run_jj(["commit", "-m", "three"]).success();
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "all()"]);
+    let output = work_dir.run_jj(["log", "-r", "all()"]);
     insta::assert_snapshot!(output, @r"
     @  zsuskuln test.user@example.com 2001-02-03 08:05:10 7acb64be
     │  (empty) (no description set)
@@ -55,7 +49,7 @@ backend = "test"
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["sign", "-r", "..@"]);
+    let output = work_dir.run_jj(["sign", "-r", "..@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Signed 4 commits:
@@ -68,7 +62,7 @@ backend = "test"
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "all()"]);
+    let output = work_dir.run_jj(["log", "-r", "all()"]);
     insta::assert_snapshot!(output, @r"
     @  zsuskuln test.user@example.com 2001-02-03 08:05:12 4947c6dd [✓︎]
     │  (empty) (no description set)
@@ -84,7 +78,7 @@ backend = "test"
 
     // Commits already always signed, even if they are already signed by me.
     // https://github.com/jj-vcs/jj/issues/5786
-    let output = test_env.run_jj_in(&repo_path, ["sign", "-r", "..@"]);
+    let output = work_dir.run_jj(["sign", "-r", "..@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Signed 4 commits:
@@ -114,16 +108,14 @@ backend = "test"
     );
 
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "one"])
-        .success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["commit", "-m", "one"]).success();
 
     test_env.add_config("revsets.sign = '@'");
 
-    test_env.run_jj_in(&repo_path, ["sign"]).success();
+    work_dir.run_jj(["sign"]).success();
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "all()"]);
+    let output = work_dir.run_jj(["log", "-r", "all()"]);
     insta::assert_snapshot!(output, @r"
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 8623fdf2 [✓︎]
     │  (empty) (no description set)
@@ -151,25 +143,16 @@ key = "some-key"
     );
 
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "one"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "two"])
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["commit", "-m", "one"]).success();
+    work_dir.run_jj(["commit", "-m", "two"]).success();
+
+    work_dir.run_jj(["sign", "-r", "@-"]).success();
+    work_dir
+        .run_jj(["sign", "-r", "@--", "--key", "another-key"])
         .success();
 
-    test_env
-        .run_jj_in(&repo_path, ["sign", "-r", "@-"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["sign", "-r", "@--", "--key", "another-key"])
-        .success();
-
-    let output = test_env.run_jj_in(
-        &repo_path,
-        ["log", "-r", "@-|@--", "-Tbuiltin_log_detailed"],
-    );
+    let output = work_dir.run_jj(["log", "-r", "@-|@--", "-Tbuiltin_log_detailed"]);
     insta::assert_snapshot!(output, @r"
     ○  Commit ID: f1a2b1ef76ee5b995ddbb1b13e8b54e4b0d32a12
     │  Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
@@ -207,30 +190,21 @@ backend = "test"
     );
 
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "one"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "two"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "three"])
-        .success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["commit", "-m", "one"]).success();
+    work_dir.run_jj(["commit", "-m", "two"]).success();
+    work_dir.run_jj(["commit", "-m", "three"]).success();
 
-    test_env
-        .run_jj_in(
-            &repo_path,
-            &[
-                "desc",
-                "--author",
-                "Someone Else <someone@else.com>",
-                "--no-edit",
-                "..@-",
-            ],
-        )
+    work_dir
+        .run_jj(&[
+            "desc",
+            "--author",
+            "Someone Else <someone@else.com>",
+            "--no-edit",
+            "..@-",
+        ])
         .success();
-    let output = test_env.run_jj_in(&repo_path, ["sign", "-r", "..@-"]);
+    let output = work_dir.run_jj(["sign", "-r", "..@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Signed 3 commits:
@@ -244,7 +218,7 @@ backend = "test"
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "all()"]);
+    let output = work_dir.run_jj(["log", "-r", "all()"]);
     insta::assert_snapshot!(output, @r"
     @  zsuskuln test.user@example.com 2001-02-03 08:05:12 ede04d15
     │  (empty) (no description set)
@@ -275,18 +249,12 @@ backend = "test"
     );
 
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "A"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "B"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["desc", "-m", "C"])
-        .success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["commit", "-m", "A"]).success();
+    work_dir.run_jj(["commit", "-m", "B"]).success();
+    work_dir.run_jj(["desc", "-m", "C"]).success();
 
-    let output = test_env.run_jj_in(&repo_path, ["sign", "-r", "@|@--"]);
+    let output = work_dir.run_jj(["sign", "-r", "@|@--"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Signed 2 commits:
@@ -298,7 +266,7 @@ backend = "test"
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "all()"]);
+    let output = work_dir.run_jj(["log", "-r", "all()"]);
     insta::assert_snapshot!(output, @r"
     @  kkmpptxz test.user@example.com 2001-02-03 08:05:11 29dc7928 [✓︎]
     │  (empty) C
@@ -323,9 +291,9 @@ backend = "none"
     );
 
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    let output = test_env.run_jj_in(&repo_path, ["sign", "-r", "@-"]);
+    let output = work_dir.run_jj(["sign", "-r", "@-"]);
 
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -352,22 +320,14 @@ backend = "test"
     );
 
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "one"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "two"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "three"])
-        .success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["commit", "-m", "one"]).success();
+    work_dir.run_jj(["commit", "-m", "two"]).success();
+    work_dir.run_jj(["commit", "-m", "three"]).success();
 
-    test_env
-        .run_jj_in(&repo_path, ["sign", "-r", "..@"])
-        .success();
+    work_dir.run_jj(["sign", "-r", "..@"]).success();
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "all()"]);
+    let output = work_dir.run_jj(["log", "-r", "all()"]);
     insta::assert_snapshot!(output, @r"
     @  zsuskuln test.user@example.com 2001-02-03 08:05:11 7aa7dcdf [✓︎]
     │  (empty) (no description set)
@@ -381,7 +341,7 @@ backend = "test"
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["unsign", "-r", "..@"]);
+    let output = work_dir.run_jj(["unsign", "-r", "..@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Unsigned 4 commits:
@@ -394,7 +354,7 @@ backend = "test"
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "all()"]);
+    let output = work_dir.run_jj(["log", "-r", "all()"]);
     insta::assert_snapshot!(output, @r"
     @  zsuskuln test.user@example.com 2001-02-03 08:05:13 be9daa4d
     │  (empty) (no description set)
@@ -425,25 +385,16 @@ backend = "test"
     );
 
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "one"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "two"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "three"])
-        .success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["commit", "-m", "one"]).success();
+    work_dir.run_jj(["commit", "-m", "two"]).success();
+    work_dir.run_jj(["commit", "-m", "three"]).success();
 
-    test_env
-        .run_jj_in(&repo_path, ["sign", "-r", "..@"])
-        .success();
+    work_dir.run_jj(["sign", "-r", "..@"]).success();
 
     let run_jj_as_someone_else = |args: &[&str]| {
-        let output = test_env.run_jj_with(|cmd| {
-            cmd.current_dir(&repo_path)
-                .env("JJ_USER", "Someone Else")
+        let output = work_dir.run_jj_with(|cmd| {
+            cmd.env("JJ_USER", "Someone Else")
                 .env("JJ_EMAIL", "someone@else.com")
                 .args(args)
         });
@@ -463,7 +414,7 @@ backend = "test"
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "all()"]);
+    let output = work_dir.run_jj(["log", "-r", "all()"]);
     insta::assert_snapshot!(output, @r"
     @  zsuskuln test.user@example.com 2001-02-03 08:05:12 8cea2d75
     │  (empty) (no description set)
