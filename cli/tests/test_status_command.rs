@@ -19,25 +19,17 @@ use crate::common::TestEnvironment;
 fn test_status_copies() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(repo_path.join("copy-source"), "copy1\ncopy2\ncopy3\n").unwrap();
-    std::fs::write(repo_path.join("rename-source"), "rename").unwrap();
-    test_env.run_jj_in(&repo_path, ["new"]).success();
-    std::fs::write(
-        repo_path.join("copy-source"),
-        "copy1\ncopy2\ncopy3\nsource\n",
-    )
-    .unwrap();
-    std::fs::write(
-        repo_path.join("copy-target"),
-        "copy1\ncopy2\ncopy3\ntarget\n",
-    )
-    .unwrap();
-    std::fs::remove_file(repo_path.join("rename-source")).unwrap();
-    std::fs::write(repo_path.join("rename-target"), "rename").unwrap();
+    work_dir.write_file("copy-source", "copy1\ncopy2\ncopy3\n");
+    work_dir.write_file("rename-source", "rename");
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("copy-source", "copy1\ncopy2\ncopy3\nsource\n");
+    work_dir.write_file("copy-target", "copy1\ncopy2\ncopy3\ntarget\n");
+    work_dir.remove_file("rename-source");
+    work_dir.write_file("rename-target", "rename");
 
-    let output = test_env.run_jj_in(&repo_path, ["status"]);
+    let output = work_dir.run_jj(["status"]);
     insta::assert_snapshot!(output, @r"
     Working copy changes:
     M copy-source
@@ -53,24 +45,20 @@ fn test_status_copies() {
 fn test_status_merge() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(repo_path.join("file"), "base").unwrap();
-    test_env.run_jj_in(&repo_path, ["new", "-m=left"]).success();
-    test_env
-        .run_jj_in(&repo_path, ["bookmark", "create", "-r@", "left"])
+    work_dir.write_file("file", "base");
+    work_dir.run_jj(["new", "-m=left"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "left"])
         .success();
-    test_env
-        .run_jj_in(&repo_path, ["new", "@-", "-m=right"])
-        .success();
-    std::fs::write(repo_path.join("file"), "right").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["new", "left", "@"])
-        .success();
+    work_dir.run_jj(["new", "@-", "-m=right"]).success();
+    work_dir.write_file("file", "right");
+    work_dir.run_jj(["new", "left", "@"]).success();
 
     // The output should mention each parent, and the diff should be empty (compared
     // to the auto-merged parents)
-    let output = test_env.run_jj_in(&repo_path, ["status"]);
+    let output = work_dir.run_jj(["status"]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
     Working copy  (@) : mzvwutvl a538c72d (empty) (no description set)
@@ -85,18 +73,14 @@ fn test_status_merge() {
 fn test_status_ignored_gitignore() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    std::fs::create_dir(repo_path.join("untracked")).unwrap();
-    std::fs::write(repo_path.join("untracked").join("inside_untracked"), "test").unwrap();
-    std::fs::write(
-        repo_path.join("untracked").join(".gitignore"),
-        "!inside_untracked\n",
-    )
-    .unwrap();
-    std::fs::write(repo_path.join(".gitignore"), "untracked/\n!dummy\n").unwrap();
+    let untracked_dir = work_dir.create_dir("untracked");
+    untracked_dir.write_file("inside_untracked", "test");
+    untracked_dir.write_file(".gitignore", "!inside_untracked\n");
+    work_dir.write_file(".gitignore", "untracked/\n!dummy\n");
 
-    let output = test_env.run_jj_in(&repo_path, ["status"]);
+    let output = work_dir.run_jj(["status"]);
     insta::assert_snapshot!(output, @r"
     Working copy changes:
     A .gitignore
@@ -110,13 +94,13 @@ fn test_status_ignored_gitignore() {
 fn test_status_filtered() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(repo_path.join("file_1"), "file_1").unwrap();
-    std::fs::write(repo_path.join("file_2"), "file_2").unwrap();
+    work_dir.write_file("file_1", "file_1");
+    work_dir.write_file("file_2", "file_2");
 
     // The output filtered to file_1 should not list the addition of file_2.
-    let output = test_env.run_jj_in(&repo_path, ["status", "file_1"]);
+    let output = work_dir.run_jj(["status", "file_1"]);
     insta::assert_snapshot!(output, @r"
     Working copy changes:
     A file_1
@@ -133,52 +117,42 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
 
-    let repo_path = test_env.env_root().join("repo");
-    let conflicted_path = repo_path.join("conflicted.txt");
-
+    let work_dir = test_env.work_dir("repo");
     // PARENT: Write the initial file
-    std::fs::write(&conflicted_path, "initial contents").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["describe", "--message", "Initial contents"])
+    work_dir.write_file("conflicted.txt", "initial contents");
+    work_dir
+        .run_jj(["describe", "--message", "Initial contents"])
         .success();
 
     // CHILD1: New commit on top of <PARENT>
-    test_env
-        .run_jj_in(
-            &repo_path,
-            ["new", "--message", "First part of conflicting change"],
-        )
+    work_dir
+        .run_jj(["new", "--message", "First part of conflicting change"])
         .success();
-    std::fs::write(&conflicted_path, "Child 1").unwrap();
+    work_dir.write_file("conflicted.txt", "Child 1");
 
     // CHILD2: New commit also on top of <PARENT>
-    test_env
-        .run_jj_in(
-            &repo_path,
-            [
-                "new",
-                "--message",
-                "Second part of conflicting change",
-                "@-",
-            ],
-        )
+    work_dir
+        .run_jj([
+            "new",
+            "--message",
+            "Second part of conflicting change",
+            "@-",
+        ])
         .success();
-    std::fs::write(&conflicted_path, "Child 2").unwrap();
+    work_dir.write_file("conflicted.txt", "Child 2");
 
     // CONFLICT: New commit that is conflicted by merging <CHILD1> and <CHILD2>
-    test_env
-        .run_jj_in(&repo_path, ["new", "--message", "boom", "all:(@-)+"])
+    work_dir
+        .run_jj(["new", "--message", "boom", "all:(@-)+"])
         .success();
     // Adding more descendants to ensure we correctly find the root ancestors with
     // conflicts, not just the parents.
-    test_env
-        .run_jj_in(&repo_path, ["new", "--message", "boom-cont"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["new", "--message", "boom-cont-2"])
+    work_dir.run_jj(["new", "--message", "boom-cont"]).success();
+    work_dir
+        .run_jj(["new", "--message", "boom-cont-2"])
         .success();
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "::"]);
+    let output = work_dir.run_jj(["log", "-r", "::"]);
 
     insta::assert_snapshot!(output, @r"
     @  yqosqzyt test.user@example.com 2001-02-03 08:05:13 dcb25635 conflict
@@ -197,7 +171,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["status"]);
+    let output = work_dir.run_jj(["status"]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
     Working copy  (@) : yqosqzyt dcb25635 (conflict) (empty) boom-cont-2
@@ -212,7 +186,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["status", "--color=always"]);
+    let output = work_dir.run_jj(["status", "--color=always"]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
     Working copy  (@) : [1m[38;5;13my[38;5;8mqosqzyt[39m [38;5;12md[38;5;8mcb25635[39m [38;5;9m(conflict)[39m [38;5;10m(empty)[39m boom-cont-2[0m
@@ -227,10 +201,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(
-        &repo_path,
-        ["status", "--config=hints.resolving-conflicts=false"],
-    );
+    let output = work_dir.run_jj(["status", "--config=hints.resolving-conflicts=false"]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
     Working copy  (@) : yqosqzyt dcb25635 (conflict) (empty) boom-cont-2
@@ -241,19 +212,15 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     ");
 
     // Resolve conflict
-    test_env
-        .run_jj_in(&repo_path, ["new", "--message", "fixed 1"])
-        .success();
-    std::fs::write(&conflicted_path, "first commit to fix conflict").unwrap();
+    work_dir.run_jj(["new", "--message", "fixed 1"]).success();
+    work_dir.write_file("conflicted.txt", "first commit to fix conflict");
 
     // Add one more commit atop the commit that resolves the conflict.
-    test_env
-        .run_jj_in(&repo_path, ["new", "--message", "fixed 2"])
-        .success();
-    std::fs::write(&conflicted_path, "edit not conflict").unwrap();
+    work_dir.run_jj(["new", "--message", "fixed 2"]).success();
+    work_dir.write_file("conflicted.txt", "edit not conflict");
 
     // wc is now conflict free, parent is also conflict free
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "::"]);
+    let output = work_dir.run_jj(["log", "-r", "::"]);
 
     insta::assert_snapshot!(output, @r"
     @  wqnwkozp test.user@example.com 2001-02-03 08:05:20 c4a6dbc2
@@ -276,7 +243,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["status"]);
+    let output = work_dir.run_jj(["status"]);
 
     insta::assert_snapshot!(output, @r"
     Working copy changes:
@@ -288,8 +255,8 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
 
     // Step back one.
     // wc is still conflict free, parent has a conflict.
-    test_env.run_jj_in(&repo_path, ["edit", "@-"]).success();
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "::"]);
+    work_dir.run_jj(["edit", "@-"]).success();
+    let output = work_dir.run_jj(["log", "-r", "::"]);
 
     insta::assert_snapshot!(output, @r"
     ○  wqnwkozp test.user@example.com 2001-02-03 08:05:20 c4a6dbc2
@@ -312,7 +279,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["status"]);
+    let output = work_dir.run_jj(["status"]);
 
     insta::assert_snapshot!(output, @r"
     Working copy changes:
@@ -326,10 +293,8 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     // Step back to all the way to `root()+` so that wc has no conflict, even though
     // there is a conflict later in the tree. So that we can confirm
     // our hinting logic doesn't get confused.
-    test_env
-        .run_jj_in(&repo_path, ["edit", "root()+"])
-        .success();
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r", "::"]);
+    work_dir.run_jj(["edit", "root()+"]).success();
+    let output = work_dir.run_jj(["log", "-r", "::"]);
 
     insta::assert_snapshot!(output, @r"
     ○  wqnwkozp test.user@example.com 2001-02-03 08:05:20 c4a6dbc2
@@ -352,7 +317,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["status"]);
+    let output = work_dir.run_jj(["status"]);
 
     insta::assert_snapshot!(output, @r"
     Working copy changes:
@@ -367,61 +332,26 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
 fn test_status_simplify_conflict_sides() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
     // Creates a 4-sided conflict, with fileA and fileB having different conflicts:
     // fileA: A - B + C - B + B - B + B
     // fileB: A - A + A - A + B - C + D
     create_commit_with_files(
-        &test_env.work_dir(&repo_path),
+        &work_dir,
         "base",
         &[],
         &[("fileA", "base\n"), ("fileB", "base\n")],
     );
-    create_commit_with_files(
-        &test_env.work_dir(&repo_path),
-        "a1",
-        &["base"],
-        &[("fileA", "1\n")],
-    );
-    create_commit_with_files(
-        &test_env.work_dir(&repo_path),
-        "a2",
-        &["base"],
-        &[("fileA", "2\n")],
-    );
-    create_commit_with_files(
-        &test_env.work_dir(&repo_path),
-        "b1",
-        &["base"],
-        &[("fileB", "1\n")],
-    );
-    create_commit_with_files(
-        &test_env.work_dir(&repo_path),
-        "b2",
-        &["base"],
-        &[("fileB", "2\n")],
-    );
-    create_commit_with_files(
-        &test_env.work_dir(&repo_path),
-        "conflictA",
-        &["a1", "a2"],
-        &[],
-    );
-    create_commit_with_files(
-        &test_env.work_dir(&repo_path),
-        "conflictB",
-        &["b1", "b2"],
-        &[],
-    );
-    create_commit_with_files(
-        &test_env.work_dir(&repo_path),
-        "conflict",
-        &["conflictA", "conflictB"],
-        &[],
-    );
+    create_commit_with_files(&work_dir, "a1", &["base"], &[("fileA", "1\n")]);
+    create_commit_with_files(&work_dir, "a2", &["base"], &[("fileA", "2\n")]);
+    create_commit_with_files(&work_dir, "b1", &["base"], &[("fileB", "1\n")]);
+    create_commit_with_files(&work_dir, "b2", &["base"], &[("fileB", "2\n")]);
+    create_commit_with_files(&work_dir, "conflictA", &["a1", "a2"], &[]);
+    create_commit_with_files(&work_dir, "conflictB", &["b1", "b2"], &[]);
+    create_commit_with_files(&work_dir, "conflict", &["conflictA", "conflictB"], &[]);
 
-    insta::assert_snapshot!(test_env.run_jj_in(&repo_path, ["status"]),
+    insta::assert_snapshot!(work_dir.run_jj(["status"]),
     @r"
     The working copy has no changes.
     Working copy  (@) : nkmrtpmo 83c4b9e7 conflict | (conflict) (empty) conflict
@@ -446,15 +376,15 @@ fn test_status_untracked_files() {
     test_env.add_config(r#"snapshot.auto-track = "none()""#);
 
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(repo_path.join("always-untracked-file"), "...").unwrap();
-    std::fs::write(repo_path.join("initially-untracked-file"), "...").unwrap();
-    std::fs::create_dir(repo_path.join("sub")).unwrap();
-    std::fs::write(repo_path.join("sub").join("always-untracked"), "...").unwrap();
-    std::fs::write(repo_path.join("sub").join("initially-untracked"), "...").unwrap();
+    work_dir.write_file("always-untracked-file", "...");
+    work_dir.write_file("initially-untracked-file", "...");
+    let sub_dir = work_dir.create_dir("sub");
+    sub_dir.write_file("always-untracked", "...");
+    sub_dir.write_file("initially-untracked", "...");
 
-    let output = test_env.run_jj_in(&repo_path, ["status"]);
+    let output = work_dir.run_jj(["status"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     Untracked paths:
     ? always-untracked-file
@@ -466,19 +396,16 @@ fn test_status_untracked_files() {
     [EOF]
     ");
 
-    test_env
-        .run_jj_in(
-            &repo_path,
-            [
-                "file",
-                "track",
-                "initially-untracked-file",
-                "sub/initially-untracked",
-            ],
-        )
+    work_dir
+        .run_jj([
+            "file",
+            "track",
+            "initially-untracked-file",
+            "sub/initially-untracked",
+        ])
         .success();
 
-    let output = test_env.run_jj_in(&repo_path, ["status"]);
+    let output = work_dir.run_jj(["status"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     Working copy changes:
     A initially-untracked-file
@@ -491,9 +418,9 @@ fn test_status_untracked_files() {
     [EOF]
     ");
 
-    test_env.run_jj_in(&repo_path, ["new"]).success();
+    work_dir.run_jj(["new"]).success();
 
-    let output = test_env.run_jj_in(&repo_path, ["status"]);
+    let output = work_dir.run_jj(["status"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     Untracked paths:
     ? always-untracked-file
@@ -503,18 +430,15 @@ fn test_status_untracked_files() {
     [EOF]
     ");
 
-    test_env
-        .run_jj_in(
-            &repo_path,
-            [
-                "file",
-                "untrack",
-                "initially-untracked-file",
-                "sub/initially-untracked",
-            ],
-        )
+    work_dir
+        .run_jj([
+            "file",
+            "untrack",
+            "initially-untracked-file",
+            "sub/initially-untracked",
+        ])
         .success();
-    let output = test_env.run_jj_in(&repo_path, ["status"]);
+    let output = work_dir.run_jj(["status"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     Working copy changes:
     D initially-untracked-file
@@ -529,9 +453,9 @@ fn test_status_untracked_files() {
     [EOF]
     ");
 
-    test_env.run_jj_in(&repo_path, ["new"]).success();
+    work_dir.run_jj(["new"]).success();
 
-    let output = test_env.run_jj_in(&repo_path, ["status"]);
+    let output = work_dir.run_jj(["status"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     Untracked paths:
     ? always-untracked-file
