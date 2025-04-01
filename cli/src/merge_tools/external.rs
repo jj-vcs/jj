@@ -258,6 +258,7 @@ fn run_mergetool_external_single_file(
             tool_binary: editor.program.clone(),
             source: e,
         })?;
+    tracing::info!(%exit_status);
 
     // Check whether the exit status implies that there should be conflict markers
     let exit_status_implies_conflict = exit_status
@@ -277,6 +278,12 @@ fn run_mergetool_external_single_file(
     }
 
     let new_file_ids = if editor.merge_tool_edits_conflict_markers || exit_status_implies_conflict {
+        tracing::info!(
+            ?exit_status_implies_conflict,
+            "jj is reparsing output for conflicts, `merge-tool-edits-conflict-markers = {}` in \
+             TOML config;",
+            editor.merge_tool_edits_conflict_markers
+        );
         conflicts::update_from_content(
             file_merge,
             store,
