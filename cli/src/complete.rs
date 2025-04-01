@@ -36,6 +36,8 @@ use crate::config::default_config_layers;
 use crate::config::ConfigArgKind;
 use crate::config::ConfigEnv;
 use crate::config::CONFIG_SCHEMA;
+use crate::merge_tools::configured_merge_tools;
+use crate::merge_tools::get_external_tool_config;
 use crate::revset_util::load_revset_aliases;
 use crate::ui::Ui;
 
@@ -448,6 +450,50 @@ pub fn workspaces() -> Vec<CompletionCandidate> {
                 let (name, desc) = line.split_once(": ").unwrap_or((line, ""));
                 CompletionCandidate::new(name).help(Some(desc.to_string().into()))
             })
+            .collect())
+    })
+}
+pub fn merge_editors() -> Vec<CompletionCandidate> {
+    with_jj(|_, settings| {
+        Ok([":builtin", ":ours", ":theirs"]
+            .into_iter()
+            .chain(configured_merge_tools(settings).filter(|name| {
+                let Ok(Some(tool)) = get_external_tool_config(settings, name) else {
+                    return false;
+                };
+                !tool.merge_args.is_empty()
+            }))
+            .map(CompletionCandidate::new)
+            .collect())
+    })
+}
+
+/// Approximate list of known diff editors
+///
+/// Diff tools can be used without configuration. Some merge tools that are
+/// configured for 3-way merging may not work for diffing/diff editing, and we
+/// can't tell which these are. So, this not reliable, but probably good enough
+/// for command-line completion.
+pub fn diff_editors() -> Vec<CompletionCandidate> {
+    with_jj(|_, settings| {
+        Ok(std::iter::once(":builtin")
+            .chain(configured_merge_tools(settings))
+            .map(CompletionCandidate::new)
+            .collect())
+    })
+}
+
+/// Approximate list of known diff tools
+///
+/// Diff tools can be used without configuration. Some merge tools that are
+/// configured for 3-way merging may not work for diffing/diff editing, and we
+/// can't tell which these are. So, this not reliable, but probably good enough
+/// for command-line completion.
+pub fn diff_formatters() -> Vec<CompletionCandidate> {
+    // TODO: Add :git and , :stat, etc (next commit)
+    with_jj(|_, settings| {
+        Ok(configured_merge_tools(settings)
+            .map(CompletionCandidate::new)
             .collect())
     })
 }

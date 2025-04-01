@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use indoc::writedoc;
 use jj_lib::backend::Signature;
@@ -37,7 +38,11 @@ pub(crate) struct CommitArgs {
     #[arg(short, long)]
     interactive: bool,
     /// Specify diff editor to be used (implies --interactive)
-    #[arg(long, value_name = "NAME")]
+    #[arg(
+        long,
+        value_name = "NAME",
+        add = ArgValueCandidates::new(complete::diff_editors),
+    )]
     tool: Option<String>,
     /// The change description to use (don't open editor)
     #[arg(long = "message", short, value_name = "MESSAGE")]

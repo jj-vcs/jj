@@ -14,6 +14,7 @@
 
 use std::io::Write as _;
 
+use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use indoc::formatdoc;
 use itertools::Itertools as _;
@@ -96,7 +97,11 @@ pub(crate) struct RestoreArgs {
     #[arg(long, short)]
     interactive: bool,
     /// Specify diff editor to be used (implies --interactive)
-    #[arg(long, value_name = "NAME")]
+    #[arg(
+        long,
+        value_name = "NAME",
+        add = ArgValueCandidates::new(complete::diff_editors),
+    )]
     tool: Option<String>,
     /// Preserve the content (not the diff) when rebasing descendants
     #[arg(long)]

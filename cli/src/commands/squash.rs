@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use indoc::formatdoc;
 use itertools::Itertools as _;
@@ -99,7 +100,11 @@ pub(crate) struct SquashArgs {
     #[arg(long, short)]
     interactive: bool,
     /// Specify diff editor to be used (implies --interactive)
-    #[arg(long, value_name = "NAME")]
+    #[arg(
+        long,
+        value_name = "NAME",
+        add = ArgValueCandidates::new(complete::diff_editors),
+    )]
     tool: Option<String>,
     /// Move only changes to these paths (instead of all paths)
     #[arg(

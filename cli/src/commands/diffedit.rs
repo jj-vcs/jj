@@ -14,6 +14,7 @@
 
 use std::io::Write as _;
 
+use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::matchers::EverythingMatcher;
@@ -77,7 +78,11 @@ pub(crate) struct DiffeditArgs {
     )]
     to: Option<RevisionArg>,
     /// Specify diff editor to be used
-    #[arg(long, value_name = "NAME")]
+    #[arg(
+        long,
+        value_name = "NAME",
+        add = ArgValueCandidates::new(complete::diff_editors),
+    )]
     tool: Option<String>,
     /// Preserve the content (not the diff) when rebasing descendants
     ///

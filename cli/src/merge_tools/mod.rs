@@ -208,6 +208,11 @@ fn editor_args_from_settings(
     }
 }
 
+/// List configured merge tools (diff editors, diff tools, merge editors)
+pub fn configured_merge_tools(settings: &UserSettings) -> impl Iterator<Item = &str> {
+    settings.table_keys("merge-tools")
+}
+
 /// Loads external diff/merge tool options from `[merge-tools.<name>]`.
 pub fn get_external_tool_config(
     settings: &UserSettings,
