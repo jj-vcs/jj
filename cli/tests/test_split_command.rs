@@ -41,6 +41,7 @@ fn get_recorded_dates(test_env: &TestEnvironment, cwd: &Path, revset: &str) -> C
 #[test]
 fn test_split_by_paths() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
@@ -58,9 +59,8 @@ fn test_split_by_paths() {
     Committer date: 2001-02-03 04:05:08.000 +07:00[EOF]
     ");
 
-    let edit_script = test_env.set_up_fake_editor();
     std::fs::write(
-        edit_script,
+        &edit_script,
         ["dump editor0", "next invocation\n", "dump editor1"].join("\0"),
     )
     .unwrap();
@@ -116,7 +116,7 @@ fn test_split_by_paths() {
     ");
 
     // Insert an empty commit after @- with "split ."
-    test_env.set_up_fake_editor();
+    std::fs::write(&edit_script, "").unwrap();
     let output = test_env.run_jj_in(&repo_path, ["split", "-r", "@-", "."]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -147,7 +147,7 @@ fn test_split_by_paths() {
     test_env.run_jj_in(&repo_path, ["abandon", "@-"]).success();
 
     // Insert an empty commit before @- with "split nonexistent"
-    test_env.set_up_fake_editor();
+    std::fs::write(&edit_script, "").unwrap();
     let output = test_env.run_jj_in(&repo_path, ["split", "-r", "@-", "nonexistent"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -178,6 +178,7 @@ fn test_split_by_paths() {
 #[test]
 fn test_split_with_non_empty_description() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     test_env.add_config(r#"ui.default-description = "\n\nTESTED=TODO""#);
     let workspace_path = test_env.env_root().join("repo");
@@ -187,7 +188,6 @@ fn test_split_with_non_empty_description() {
     test_env
         .run_jj_in(&workspace_path, ["describe", "-m", "test"])
         .success();
-    let edit_script = test_env.set_up_fake_editor();
     std::fs::write(
         edit_script,
         [
@@ -241,6 +241,7 @@ fn test_split_with_non_empty_description() {
 #[test]
 fn test_split_with_default_description() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     test_env.add_config(r#"ui.default-description = "\n\nTESTED=TODO""#);
     let workspace_path = test_env.env_root().join("repo");
@@ -248,7 +249,6 @@ fn test_split_with_default_description() {
     std::fs::write(workspace_path.join("file1"), "foo\n").unwrap();
     std::fs::write(workspace_path.join("file2"), "bar\n").unwrap();
 
-    let edit_script = test_env.set_up_fake_editor();
     std::fs::write(
         edit_script,
         ["dump editor1", "next invocation\n", "dump editor2"].join("\0"),
@@ -293,6 +293,7 @@ fn test_split_with_default_description() {
 fn test_split_with_descendants() {
     // Configure the environment and make the initial commits.
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
 
@@ -321,7 +322,6 @@ fn test_split_with_descendants() {
     "###);
 
     // Set up the editor and do the split.
-    let edit_script = test_env.set_up_fake_editor();
     std::fs::write(
         edit_script,
         [
@@ -415,6 +415,7 @@ fn test_split_with_descendants() {
 #[test]
 fn test_split_with_merge_child() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
     test_env
@@ -442,7 +443,6 @@ fn test_split_with_merge_child() {
     ");
 
     // Set up the editor and do the split.
-    let edit_script = test_env.set_up_fake_editor();
     std::fs::write(
         edit_script,
         ["write\nAdd file1", "next invocation\n", "write\nAdd file2"].join("\0"),
@@ -476,6 +476,7 @@ fn test_split_with_merge_child() {
 // description is set correctly on the first commit.
 fn test_split_parallel_no_descendants() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     test_env.add_config(r#"ui.default-description = "\n\nTESTED=TODO""#);
     let workspace_path = test_env.env_root().join("repo");
@@ -489,7 +490,6 @@ fn test_split_parallel_no_descendants() {
     [EOF]
     ");
 
-    let edit_script = test_env.set_up_fake_editor();
     std::fs::write(
         edit_script,
         ["dump editor1", "next invocation\n", "dump editor2"].join("\0"),
@@ -564,6 +564,7 @@ fn test_split_parallel_no_descendants() {
 fn test_split_parallel_with_descendants() {
     // Configure the environment and make the initial commits.
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
 
@@ -600,7 +601,6 @@ fn test_split_parallel_with_descendants() {
     ");
 
     // Set up the editor and do the split.
-    let edit_script = test_env.set_up_fake_editor();
     std::fs::write(
         edit_script,
         [
@@ -664,6 +664,7 @@ fn test_split_parallel_with_descendants() {
 #[test]
 fn test_split_parallel_with_merge_child() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
     test_env
@@ -691,7 +692,6 @@ fn test_split_parallel_with_merge_child() {
     ");
 
     // Set up the editor and do the split.
-    let edit_script = test_env.set_up_fake_editor();
     std::fs::write(
         edit_script,
         ["write\nAdd file1", "next invocation\n", "write\nAdd file2"].join("\0"),
@@ -748,13 +748,13 @@ fn test_split_empty() {
 #[test]
 fn test_split_message_editor_avoids_unc() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
     std::fs::write(repo_path.join("file1"), "foo").unwrap();
     std::fs::write(repo_path.join("file2"), "foo").unwrap();
 
-    let edit_script = test_env.set_up_fake_editor();
     std::fs::write(edit_script, "dump-path path").unwrap();
     test_env.run_jj_in(&repo_path, ["split", "file2"]).success();
 
@@ -769,15 +769,15 @@ fn test_split_message_editor_avoids_unc() {
 #[test]
 fn test_split_interactive() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    let diff_editor = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
 
     std::fs::write(workspace_path.join("file1"), "foo\n").unwrap();
     std::fs::write(workspace_path.join("file2"), "bar\n").unwrap();
-    let edit_script = test_env.set_up_fake_editor();
     std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
 
-    let diff_editor = test_env.set_up_fake_diff_editor();
     let diff_script = ["rm file2", "dump JJ-INSTRUCTIONS instrs"].join("\0");
     std::fs::write(diff_editor, diff_script).unwrap();
 
@@ -829,6 +829,8 @@ fn test_split_interactive() {
 #[test]
 fn test_split_interactive_with_paths() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    let diff_editor = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let workspace_path = test_env.env_root().join("repo");
 
@@ -839,9 +841,7 @@ fn test_split_interactive_with_paths() {
     std::fs::write(workspace_path.join("file2"), "bar\n").unwrap();
     std::fs::write(workspace_path.join("file3"), "baz\n").unwrap();
 
-    let edit_script = test_env.set_up_fake_editor();
     std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
-    let diff_editor = test_env.set_up_fake_diff_editor();
     // On the before side, file2 is empty. On the after side, it contains "bar".
     // The "reset file2" copies the empty version from the before side to the
     // after side, effectively "unselecting" the changes and leaving only the
@@ -903,6 +903,7 @@ fn test_split_interactive_with_paths() {
 #[test]
 fn test_split_with_multiple_workspaces_same_working_copy() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_path = test_env.env_root().join("main");
     let secondary_path = test_env.env_root().join("secondary");
@@ -935,7 +936,7 @@ fn test_split_with_multiple_workspaces_same_working_copy() {
 
     // Do the split in the default workspace.
     std::fs::write(
-        test_env.set_up_fake_editor(),
+        &edit_script,
         ["", "next invocation\n", "write\nsecond-commit"].join("\0"),
     )
     .unwrap();
@@ -951,7 +952,7 @@ fn test_split_with_multiple_workspaces_same_working_copy() {
     // Test again with a --parallel split.
     test_env.run_jj_in(&main_path, ["undo"]).success();
     std::fs::write(
-        test_env.set_up_fake_editor(),
+        &edit_script,
         ["", "next invocation\n", "write\nsecond-commit"].join("\0"),
     )
     .unwrap();
@@ -972,6 +973,7 @@ fn test_split_with_multiple_workspaces_same_working_copy() {
 #[test]
 fn test_split_with_multiple_workspaces_different_working_copy() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_path = test_env.env_root().join("main");
 
@@ -1000,7 +1002,7 @@ fn test_split_with_multiple_workspaces_different_working_copy() {
 
     // Do the split in the default workspace.
     std::fs::write(
-        test_env.set_up_fake_editor(),
+        &edit_script,
         ["", "next invocation\n", "write\nsecond-commit"].join("\0"),
     )
     .unwrap();
@@ -1018,7 +1020,7 @@ fn test_split_with_multiple_workspaces_different_working_copy() {
     // Test again with a --parallel split.
     test_env.run_jj_in(&main_path, ["undo"]).success();
     std::fs::write(
-        test_env.set_up_fake_editor(),
+        &edit_script,
         ["", "next invocation\n", "write\nsecond-commit"].join("\0"),
     )
     .unwrap();
@@ -1048,6 +1050,7 @@ enum BookmarkBehavior {
 #[test_case(BookmarkBehavior::LeaveBookmarkWithTarget; "leave_bookmark_with_target")]
 fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_path = test_env.env_root().join("main");
 
@@ -1080,7 +1083,7 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
 
     // Do the split.
     std::fs::write(
-        test_env.set_up_fake_editor(),
+        &edit_script,
         ["", "next invocation\n", "write\nsecond-commit"].join("\0"),
     )
     .unwrap();
@@ -1131,7 +1134,7 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
     // Test again with a --parallel split.
     test_env.run_jj_in(&main_path, ["undo"]).success();
     std::fs::write(
-        test_env.set_up_fake_editor(),
+        &edit_script,
         ["", "next invocation\n", "write\nsecond-commit"].join("\0"),
     )
     .unwrap();

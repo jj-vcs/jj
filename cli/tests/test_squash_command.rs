@@ -160,6 +160,7 @@ fn test_squash() {
 #[test]
 fn test_squash_partial() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
@@ -191,7 +192,6 @@ fn test_squash_partial() {
 
     // If we don't make any changes in the diff-editor, the whole change is moved
     // into the parent
-    let edit_script = test_env.set_up_fake_diff_editor();
     std::fs::write(&edit_script, "dump JJ-INSTRUCTIONS instrs").unwrap();
     let output = test_env.run_jj_in(&repo_path, ["squash", "-r", "b", "-i"]);
     insta::assert_snapshot!(output, @r"
@@ -545,6 +545,7 @@ fn test_squash_from_to() {
 #[test]
 fn test_squash_from_to_partial() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
@@ -587,8 +588,6 @@ fn test_squash_from_to_partial() {
     ◆  000000000000 (empty)
     [EOF]
     ");
-
-    let edit_script = test_env.set_up_fake_diff_editor();
 
     // If we don't make any changes in the diff-editor, the whole change is moved
     let output = test_env.run_jj_in(&repo_path, ["squash", "-i", "--from", "c"]);
@@ -1188,10 +1187,10 @@ fn get_log_output(test_env: &TestEnvironment, repo_path: &Path) -> CommandOutput
 #[test]
 fn test_squash_description() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    let edit_script = test_env.set_up_fake_editor();
     std::fs::write(&edit_script, r#"fail"#).unwrap();
 
     // If both descriptions are empty, the resulting description is empty
@@ -1298,10 +1297,10 @@ fn test_squash_description() {
 #[test]
 fn test_squash_description_editor_avoids_unc() {
     let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
-    let edit_script = test_env.set_up_fake_editor();
     std::fs::write(repo_path.join("file1"), "a\n").unwrap();
     std::fs::write(repo_path.join("file2"), "a\n").unwrap();
     test_env.run_jj_in(&repo_path, ["new"]).success();
@@ -1328,6 +1327,7 @@ fn test_squash_description_editor_avoids_unc() {
 #[test]
 fn test_squash_empty() {
     let mut test_env = TestEnvironment::default();
+    test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
 
@@ -1350,7 +1350,6 @@ fn test_squash_empty() {
     test_env
         .run_jj_in(&repo_path, ["describe", "-m", "child"])
         .success();
-    test_env.set_up_fake_editor();
     test_env.run_jj_in(&repo_path, ["squash"]).success();
     insta::assert_snapshot!(get_description(&test_env, &repo_path, "@-"), @r"
     parent
