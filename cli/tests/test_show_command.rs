@@ -20,9 +20,9 @@ use crate::common::TestEnvironment;
 fn test_show() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    let output = test_env.run_jj_in(&repo_path, ["show"]);
+    let output = work_dir.run_jj(["show"]);
     let output = output.normalize_stdout_with(|s| s.split_inclusive('\n').skip(2).collect());
 
     insta::assert_snapshot!(output, @r"
@@ -39,16 +39,16 @@ fn test_show() {
 fn test_show_basic() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(repo_path.join("file1"), "foo\n").unwrap();
-    std::fs::write(repo_path.join("file2"), "foo\nbaz qux\n").unwrap();
-    test_env.run_jj_in(&repo_path, ["new"]).success();
-    std::fs::remove_file(repo_path.join("file1")).unwrap();
-    std::fs::write(repo_path.join("file2"), "foo\nbar\nbaz quux\n").unwrap();
-    std::fs::write(repo_path.join("file3"), "foo\n").unwrap();
+    work_dir.write_file("file1", "foo\n");
+    work_dir.write_file("file2", "foo\nbaz qux\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir.remove_file("file1");
+    work_dir.write_file("file2", "foo\nbar\nbaz quux\n");
+    work_dir.write_file("file3", "foo\n");
 
-    let output = test_env.run_jj_in(&repo_path, ["show"]);
+    let output = work_dir.run_jj(["show"]);
     insta::assert_snapshot!(output, @r"
     Commit ID: e34f04317a81edc6ba41fef239c0d0180f10656f
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
@@ -65,7 +65,7 @@ fn test_show_basic() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["show", "--context=0"]);
+    let output = work_dir.run_jj(["show", "--context=0"]);
     insta::assert_snapshot!(output, @r"
     Commit ID: e34f04317a81edc6ba41fef239c0d0180f10656f
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
@@ -82,7 +82,7 @@ fn test_show_basic() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["show", "--color=debug"]);
+    let output = work_dir.run_jj(["show", "--color=debug"]);
     insta::assert_snapshot!(output, @r"
     Commit ID: [38;5;4m<<commit_id::e34f04317a81edc6ba41fef239c0d0180f10656f>>[39m
     Change ID: [38;5;5m<<change_id::rlvkpnrzqnoowoytxnquwvuryrwnrmlp>>[39m
@@ -99,7 +99,7 @@ fn test_show_basic() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["show", "-s"]);
+    let output = work_dir.run_jj(["show", "-s"]);
     insta::assert_snapshot!(output, @r"
     Commit ID: e34f04317a81edc6ba41fef239c0d0180f10656f
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
@@ -113,7 +113,7 @@ fn test_show_basic() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["show", "--types"]);
+    let output = work_dir.run_jj(["show", "--types"]);
     insta::assert_snapshot!(output, @r"
     Commit ID: e34f04317a81edc6ba41fef239c0d0180f10656f
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
@@ -127,7 +127,7 @@ fn test_show_basic() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["show", "--git"]);
+    let output = work_dir.run_jj(["show", "--git"]);
     insta::assert_snapshot!(output, @r"
     Commit ID: e34f04317a81edc6ba41fef239c0d0180f10656f
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
@@ -151,7 +151,7 @@ fn test_show_basic() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["show", "--git", "--context=0"]);
+    let output = work_dir.run_jj(["show", "--git", "--context=0"]);
     insta::assert_snapshot!(output, @r"
     Commit ID: e34f04317a81edc6ba41fef239c0d0180f10656f
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
@@ -174,7 +174,7 @@ fn test_show_basic() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["show", "--git", "--color=debug"]);
+    let output = work_dir.run_jj(["show", "--git", "--color=debug"]);
     insta::assert_snapshot!(output, @r"
     Commit ID: [38;5;4m<<commit_id::e34f04317a81edc6ba41fef239c0d0180f10656f>>[39m
     Change ID: [38;5;5m<<change_id::rlvkpnrzqnoowoytxnquwvuryrwnrmlp>>[39m
@@ -198,7 +198,7 @@ fn test_show_basic() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["show", "-s", "--git"]);
+    let output = work_dir.run_jj(["show", "-s", "--git"]);
     insta::assert_snapshot!(output, @r"
     Commit ID: e34f04317a81edc6ba41fef239c0d0180f10656f
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
@@ -224,7 +224,7 @@ fn test_show_basic() {
     [EOF]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["show", "--stat"]);
+    let output = work_dir.run_jj(["show", "--stat"]);
     insta::assert_snapshot!(output, @r"
     Commit ID: e34f04317a81edc6ba41fef239c0d0180f10656f
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
@@ -244,12 +244,10 @@ fn test_show_basic() {
 fn test_show_with_template() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    test_env
-        .run_jj_in(&repo_path, ["new", "-m", "a new commit"])
-        .success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["new", "-m", "a new commit"]).success();
 
-    let output = test_env.run_jj_in(&repo_path, ["show", "-T", "description"]);
+    let output = work_dir.run_jj(["show", "-T", "description"]);
 
     insta::assert_snapshot!(output, @r"
     a new commit
@@ -261,9 +259,9 @@ fn test_show_with_template() {
 fn test_show_with_no_template() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    let output = test_env.run_jj_in(&repo_path, ["show", "-T"]);
+    let output = work_dir.run_jj(["show", "-T"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: a value is required for '--template <TEMPLATE>' but none was supplied
@@ -299,7 +297,7 @@ fn test_show_with_no_template() {
 fn test_show_relative_timestamps() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
     test_env.add_config(
         r#"
@@ -308,7 +306,7 @@ fn test_show_relative_timestamps() {
         "#,
     );
 
-    let output = test_env.run_jj_in(&repo_path, ["show"]);
+    let output = work_dir.run_jj(["show"]);
     let timestamp_re = Regex::new(r"\([0-9]+ years ago\)").unwrap();
     let output = output.normalize_stdout_with(|s| {
         s.split_inclusive('\n')
