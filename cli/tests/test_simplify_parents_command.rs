@@ -12,24 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::path::PathBuf;
-
 use test_case::test_case;
 
 use crate::common::create_commit;
 use crate::common::TestEnvironment;
 
-fn create_repo() -> (TestEnvironment, PathBuf) {
+#[test]
+fn test_simplify_parents_no_commits() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_path = test_env.env_root().join("repo");
-
-    (test_env, repo_path)
-}
-
-#[test]
-fn test_simplify_parents_no_commits() {
-    let (test_env, repo_path) = create_repo();
 
     let output = test_env.run_jj_in(&repo_path, ["simplify-parents", "-r", "root() ~ root()"]);
     insta::assert_snapshot!(output, @r"
@@ -41,7 +33,9 @@ fn test_simplify_parents_no_commits() {
 
 #[test]
 fn test_simplify_parents_immutable() {
-    let (test_env, repo_path) = create_repo();
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
 
     let output = test_env.run_jj_in(&repo_path, ["simplify-parents", "-r", "root()"]);
     insta::assert_snapshot!(output, @r"
@@ -54,7 +48,9 @@ fn test_simplify_parents_immutable() {
 
 #[test]
 fn test_simplify_parents_no_change() {
-    let (test_env, repo_path) = create_repo();
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env.work_dir(&repo_path), "a", &["root()"]);
     create_commit(&test_env.work_dir(&repo_path), "b", &["a"]);
@@ -84,7 +80,9 @@ fn test_simplify_parents_no_change() {
 
 #[test]
 fn test_simplify_parents_no_change_diamond() {
-    let (test_env, repo_path) = create_repo();
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env.work_dir(&repo_path), "a", &["root()"]);
     create_commit(&test_env.work_dir(&repo_path), "b", &["a"]);
@@ -125,7 +123,9 @@ fn test_simplify_parents_no_change_diamond() {
 #[test_case(&["simplify-parents", "-r", "@", "-r", "@-"] ; "revisions")]
 #[test_case(&["simplify-parents", "-s", "@-"] ; "sources")]
 fn test_simplify_parents_redundant_parent(args: &[&str]) {
-    let (test_env, repo_path) = create_repo();
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env.work_dir(&repo_path), "a", &["root()"]);
     create_commit(&test_env.work_dir(&repo_path), "b", &["a"]);
@@ -167,7 +167,9 @@ fn test_simplify_parents_redundant_parent(args: &[&str]) {
 
 #[test]
 fn test_simplify_parents_multiple_redundant_parents() {
-    let (test_env, repo_path) = create_repo();
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env.work_dir(&repo_path), "a", &["root()"]);
     create_commit(&test_env.work_dir(&repo_path), "b", &["a"]);
@@ -244,7 +246,9 @@ fn test_simplify_parents_multiple_redundant_parents() {
 
 #[test]
 fn test_simplify_parents_no_args() {
-    let (test_env, repo_path) = create_repo();
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
 
     create_commit(&test_env.work_dir(&repo_path), "a", &["root()"]);
     create_commit(&test_env.work_dir(&repo_path), "b", &["a"]);
