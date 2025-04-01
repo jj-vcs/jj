@@ -22,7 +22,7 @@ assert_matches = "1.5.0"
 async-trait = "0.1.88"
 blake2 = "0.10.6"
 bstr = "1.11.3"
-clap = { version = "4.5.34", features = [
+clap = { version = "4.5.35", features = [
     "derive",
     "deprecated",
     "wrap_help",
@@ -88,7 +88,7 @@ rayon = "1.10.0"
 ref-cast = "1.0.24"
 regex = "1.11.1"
 rpassword = "7.3.1"
-rustix = { version = "1.0.3", features = ["fs"] }
+rustix = { version = "1.0.5", features = ["fs"] }
 same-file = "1.0.6"
 sapling-renderdag = "0.1.0"
 sapling-streampager = "0.11.0"
