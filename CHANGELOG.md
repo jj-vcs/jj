@@ -21,7 +21,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   commits. The list won't show more than 10 commits to not clutter the console.
 
 * `jj unsquash` has been removed in favor of `jj squash` and
-  `jj diffedit --restore-descendants`.
+  `jj diffedit --preserve-descendant-content`.
 
 * The `jj untrack` subcommand has been removed in favor of `jj file untrack`.
 
@@ -37,9 +37,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Deprecations
 
-* `core.watchman.register_snapshot_trigger` has been renamed to `core.watchman.register-snapshot-trigger` for consistency with other configuration options.
+* `core.watchman.register_snapshot_trigger` has been renamed to
+  `core.watchman.register-snapshot-trigger` for consistency with other
+  configuration options.
 
 * `jj backout` is deprecated in favor of `jj revert`.
+
+* The `--restore-descendants` option for `abandon`, `restore`, and `diffedit`
+  has been renamed to `--preserve-descendant-content` AKA `--pdc`.
+
 
 ### New features
 

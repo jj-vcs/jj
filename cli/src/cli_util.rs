@@ -4033,6 +4033,15 @@ fn warn_if_args_mismatch(
     Ok(())
 }
 
+pub fn restore_descendants_warning(ui: &Ui) -> Result<(), CommandError> {
+    writeln!(
+        ui.warning_default(),
+        "`--restore-descendants` has been renamed to `--preserve-descendant-content` AKA `--pdc`. \
+         The old name will become a hard error in the future."
+    )?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use clap::CommandFactory as _;
