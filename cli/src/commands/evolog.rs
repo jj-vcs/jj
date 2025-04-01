@@ -24,6 +24,7 @@ use jj_lib::graph::reverse_graph;
 use jj_lib::graph::GraphEdge;
 use jj_lib::graph::GraphNode;
 use jj_lib::matchers::EverythingMatcher;
+use jj_lib::repo::Repo as _;
 use tracing::instrument;
 
 use super::log::get_node_template;
@@ -134,11 +135,12 @@ pub(crate) fn cmd_evolog(
     let mut formatter = ui.stdout_formatter();
     let formatter = formatter.as_mut();
 
+    let repo = workspace_command.repo().as_ref();
     let mut commits = topo_order_reverse_ok(
         vec![Ok(start_commit)],
         |commit: &Commit| commit.id().clone(),
         |commit: &Commit| {
-            let mut predecessors = commit.predecessors().collect_vec();
+            let mut predecessors = commit.predecessors(repo).collect_vec();
             // Predecessors don't need to follow any defined order. However in
             // practice, if there are multiple predecessors, then usually the
             // first predecessor is the previous version of the same change, and
@@ -163,8 +165,14 @@ pub(crate) fn cmd_evolog(
         let commit_dag: Vec<GraphNode<Commit, CommitId>> = commits
             .into_iter()
             .map(|c| -> Result<_, BackendError> {
-                let ids = c.predecessor_ids();
-                let edges = ids.iter().cloned().map(GraphEdge::direct).collect();
+                let ids = &c.store_commit().predecessors;
+                let edges = ids
+                    .iter()
+                    .map(|id| match repo.index().has_id(id) {
+                        true => GraphEdge::direct(id.clone()),
+                        false => GraphEdge::missing(id.clone()),
+                    })
+                    .collect();
                 Ok((c, edges))
             })
             .try_collect()?;
@@ -190,7 +198,7 @@ pub(crate) fn cmd_evolog(
                 buffer.push(b'\n');
             }
             if let Some(renderer) = &diff_renderer {
-                let predecessors: Vec<_> = commit.predecessors().try_collect()?;
+                let predecessors: Vec<_> = commit.predecessors(repo).try_collect()?;
                 let mut formatter = ui.new_formatter(&mut buffer);
                 renderer.show_inter_diff(
                     ui,
@@ -218,7 +226,7 @@ pub(crate) fn cmd_evolog(
             with_content_format
                 .write(formatter, |formatter| template.format(&commit, formatter))?;
             if let Some(renderer) = &diff_renderer {
-                let predecessors: Vec<_> = commit.predecessors().try_collect()?;
+                let predecessors: Vec<_> = commit.predecessors(repo).try_collect()?;
                 let width = ui.term_width();
                 renderer.show_inter_diff(
                     ui,

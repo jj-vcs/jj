@@ -32,6 +32,7 @@ use jj_lib::repo::Repo;
 use jj_lib::settings::UserSettings;
 use testutils::create_random_commit;
 use testutils::write_random_commit;
+use testutils::CommitGraphBuilder;
 use testutils::TestRepo;
 
 fn list_dir(dir: &Path) -> Vec<String> {
@@ -414,6 +415,110 @@ fn test_reparent_range_branchy() {
     assert_eq!(new_op_f.metadata(), op_f.metadata());
     assert_eq!(new_op_f.view_id(), op_f.view_id());
     assert_eq!(new_op_f.parent_ids(), slice::from_ref(repo_d.op_id()));
+}
+
+#[test]
+fn test_reparent_discarding_predecessors() {
+    let test_repo = TestRepo::init();
+    let repo_0 = test_repo.repo;
+    let loader = repo_0.loader();
+    let op_store = repo_0.op_store();
+
+    let repo_at = |id| loader.load_at(&loader.load_operation(id).unwrap()).unwrap();
+    let head_commits = |repo: &dyn Repo| {
+        repo.view()
+            .heads()
+            .iter()
+            .map(|id| repo.store().get_commit(id).unwrap())
+            .collect_vec()
+    };
+
+    // Set up rewriting as follows:
+    //
+    //   op1     op2     op3
+    //   B0      B0 B1      B1
+    //   |       |  |       |
+    //   A0      A0 A1   A0 A1
+    let mut tx = repo_0.start_transaction();
+    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
+    let commit_a0 = graph_builder.initial_commit();
+    let commit_b0 = graph_builder.commit_with_parents(&[&commit_a0]);
+    let repo_1 = tx.commit("op1").unwrap();
+
+    let mut tx = repo_1.start_transaction();
+    let commit_a1 = tx.repo_mut().rewrite_commit(&commit_a0).write().unwrap();
+    tx.repo_mut().rebase_descendants().unwrap();
+    let [commit_b1] = head_commits(tx.repo()).try_into().unwrap();
+    tx.repo_mut().add_head(&commit_b0).unwrap(); // resurrect rewritten commits
+    let repo_2 = tx.commit("op2").unwrap();
+
+    let mut tx = repo_2.start_transaction();
+    tx.repo_mut().record_abandoned_commit(&commit_b0);
+    tx.repo_mut().rebase_descendants().unwrap();
+    let repo_3 = tx.commit("op3").unwrap();
+
+    // Sanity check for the setup
+    assert_eq!(repo_1.view().heads().len(), 1);
+    assert_eq!(repo_2.view().heads().len(), 2);
+    assert_eq!(repo_3.view().heads().len(), 2);
+    assert_eq!(repo_3.index().all_heads_for_gc().unwrap().count(), 2);
+    assert_eq!(
+        commit_a1.store_commit().predecessors,
+        [commit_a0.id().clone()]
+    );
+    assert_eq!(
+        commit_b1.store_commit().predecessors,
+        [commit_b0.id().clone()]
+    );
+
+    // Abandon op1
+    let stats = op_walk::reparent_range(
+        op_store.as_ref(),
+        slice::from_ref(repo_1.operation()),
+        slice::from_ref(repo_3.operation()),
+        repo_0.operation(),
+    )
+    .unwrap();
+    assert_eq!(stats.new_head_ids.len(), 1);
+    assert_eq!(stats.rewritten_count, 2);
+    assert_eq!(stats.unreachable_count, 1);
+    // A0 - B0 are still reachable
+    let repo = repo_at(&stats.new_head_ids[0]);
+    assert!(repo.index().has_id(commit_a0.id()));
+    assert!(repo.index().has_id(commit_b0.id()));
+    assert_eq!(
+        commit_a1.predecessor_ids(repo.as_ref()).collect_vec(),
+        [commit_a0.id()]
+    );
+    assert_eq!(
+        commit_b1.predecessor_ids(repo.as_ref()).collect_vec(),
+        [commit_b0.id()]
+    );
+
+    // Abandon op1 and op2
+    let stats = op_walk::reparent_range(
+        op_store.as_ref(),
+        slice::from_ref(repo_2.operation()),
+        slice::from_ref(repo_3.operation()),
+        repo_0.operation(),
+    )
+    .unwrap();
+    assert_eq!(stats.new_head_ids.len(), 1);
+    assert_eq!(stats.rewritten_count, 1);
+    assert_eq!(stats.unreachable_count, 2);
+    // B0 is no longer reachable
+    let repo = repo_at(&stats.new_head_ids[0]);
+    assert!(repo.index().has_id(commit_a0.id()));
+    assert!(!repo.index().has_id(commit_b0.id()));
+    // Unreachable predecessors should be excluded
+    assert_eq!(
+        commit_a1.predecessor_ids(repo.as_ref()).collect_vec(),
+        [commit_a0.id()]
+    );
+    assert_eq!(
+        commit_b1.predecessor_ids(repo.as_ref()).collect_vec(),
+        [] as [&CommitId; 0]
+    );
 }
 
 fn stable_op_id_settings() -> UserSettings {

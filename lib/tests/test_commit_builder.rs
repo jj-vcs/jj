@@ -116,7 +116,7 @@ fn test_initial(backend: TestRepoBackend) {
 
     let parents: Vec<_> = commit.parents().try_collect().unwrap();
     assert_eq!(parents, vec![store.root_commit()]);
-    assert!(commit.predecessors().next().is_none());
+    assert!(commit.predecessors(repo.as_ref()).next().is_none());
     assert_eq!(commit.description(), "description");
     assert_eq!(commit.author(), &author_signature);
     assert_eq!(commit.committer(), &committer_signature);
@@ -190,7 +190,10 @@ fn test_rewrite(backend: TestRepoBackend) {
     tx.commit("test").unwrap();
     let parents: Vec<_> = rewritten_commit.parents().try_collect().unwrap();
     assert_eq!(parents, vec![store.root_commit()]);
-    let predecessors: Vec<_> = rewritten_commit.predecessors().try_collect().unwrap();
+    let predecessors: Vec<_> = rewritten_commit
+        .predecessors(repo.as_ref())
+        .try_collect()
+        .unwrap();
     assert_eq!(predecessors, vec![initial_commit.clone()]);
     assert_eq!(rewritten_commit.author().name, settings.user_name());
     assert_eq!(rewritten_commit.author().email, settings.user_email());

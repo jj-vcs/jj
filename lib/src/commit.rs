@@ -97,14 +97,22 @@ impl Commit {
         self.data.parents.iter().map(|id| self.store.get_commit(id))
     }
 
-    pub fn predecessor_ids(&self) -> &[CommitId] {
-        &self.data.predecessors
+    /// Predecessor commit ids that still exist in the repo. Use
+    /// `.store_commit().predecessors` to inspect the recorded ids.
+    pub fn predecessor_ids<'a, 'b>(
+        &'a self,
+        repo: &'b dyn Repo,
+    ) -> impl Iterator<Item = &'a CommitId> + use<'a, 'b> {
+        let index = repo.index();
+        self.data.predecessors.iter().filter(|id| index.has_id(id))
     }
 
-    pub fn predecessors(&self) -> impl Iterator<Item = BackendResult<Commit>> + use<'_> {
-        self.data
-            .predecessors
-            .iter()
+    /// Predecessor commits that still exist in the repo.
+    pub fn predecessors<'a, 'b>(
+        &'a self,
+        repo: &'b dyn Repo,
+    ) -> impl Iterator<Item = BackendResult<Commit>> + use<'a, 'b> {
+        self.predecessor_ids(repo)
             .map(|id| self.store.get_commit(id))
     }
 

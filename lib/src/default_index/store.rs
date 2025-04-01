@@ -239,8 +239,8 @@ impl DefaultIndexStore {
             heads_count = historical_heads.len(),
             "indexing commits reachable from historical heads"
         );
-        // Build a list of ancestors of heads where parents and predecessors come after
-        // the commit itself.
+        // Build a list of ancestors of heads where parents come after the
+        // commit itself.
         let parent_file_has_id = |id: &CommitId| {
             maybe_parent_file
                 .as_ref()
@@ -263,7 +263,9 @@ impl DefaultIndexStore {
                 .map(|(commit_id, op_id)| get_commit_with_op(commit_id, op_id)),
             |(CommitByCommitterTimestamp(commit), _)| commit.id().clone(),
             |(CommitByCommitterTimestamp(commit), op_id)| {
-                itertools::chain(commit.parent_ids(), commit.predecessor_ids())
+                commit
+                    .parent_ids()
+                    .iter()
                     .filter(|&id| !parent_file_has_id(id))
                     .map(|commit_id| get_commit_with_op(commit_id, op_id))
                     .collect_vec()
