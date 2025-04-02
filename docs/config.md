@@ -247,6 +247,12 @@ commit_trailers = '''
 '''
 ```
 
+Some ready-to-use trailer templates are available for frequently used trailers:
+* `format_signed_off_by_trailer(commit)` creates a "Signed-off-by" trailer
+  using the committer info;
+* `format_gerrit_change_id_trailer(commit)` creates a "Change-Id" trailer
+  suitable to be used with Gerrit. It is based Jujutsu's change id.
+
 ### Diff colors and styles
 
 In color-words and git diffs, word-level hunks are rendered with underline. You
