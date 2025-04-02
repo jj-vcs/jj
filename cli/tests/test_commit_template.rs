@@ -1655,3 +1655,41 @@ fn test_log_git_format_patch_template() {
     [EOF]
     ");
 }
+
+#[test]
+fn test_log_format_gerrit_change_id_trailer() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let output = work_dir.run_jj([
+        "log",
+        "--no-graph",
+        "-T",
+        "format_gerrit_change_id_trailer(self)",
+        "-r@",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    Change-Id: I6a6a69649a45c67d3e96a7e5007c110ede34dec5
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_log_format_signed_off_by_trailer() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let output = work_dir.run_jj([
+        "log",
+        "--no-graph",
+        "-T",
+        "format_signed_off_by_trailer(self)",
+        "-r@",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    Signed-off-by: Test User <test.user@example.com>
+    [EOF]
+    ");
+}

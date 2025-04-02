@@ -422,3 +422,7 @@ git_format_patch_email_headers = '''
     "\n"
   )
 '''
+
+"format_signed_off_by_trailer(commit)" = '"Signed-off-by: " ++ committer ++ "\n"'
+
+"format_gerrit_change_id_trailer(commit)" = '"Change-Id: I6a6a6964" ++ commit.change_id().normal_hex() ++ "\n"'
