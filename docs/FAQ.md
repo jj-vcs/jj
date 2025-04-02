@@ -539,7 +539,7 @@ commits associated with it.
 
 At the moment you'll need a script, which adds the required fields for Gerrit
 like the `Change-Id` footer. Then `jj` can invoke it via an `$EDITOR` override
-in an aliased command. Here's an [example][gerrit-integration] from an
+in an aliased command. Here's an [example][gerrit-integration] from a
 contributor (look for the `jj signoff` alias).
 
 After you have attached the `Change-Id:` footer to the commit series, you'll
