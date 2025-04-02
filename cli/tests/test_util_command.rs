@@ -42,12 +42,12 @@ fn test_util_config_schema() {
 fn test_gc_args() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
-    let output = test_env.run_jj_in(&repo_path, ["util", "gc"]);
+    let output = work_dir.run_jj(["util", "gc"]);
     insta::assert_snapshot!(output, @"");
 
-    let output = test_env.run_jj_in(&repo_path, ["util", "gc", "--at-op=@-"]);
+    let output = work_dir.run_jj(["util", "gc", "--at-op=@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Cannot garbage collect from a non-head operation
@@ -55,7 +55,7 @@ fn test_gc_args() {
     [exit status: 1]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["util", "gc", "--expire=foobar"]);
+    let output = work_dir.run_jj(["util", "gc", "--expire=foobar"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: --expire only accepts 'now'
@@ -68,36 +68,30 @@ fn test_gc_args() {
 fn test_gc_operation_log() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
     // Create an operation.
-    std::fs::write(repo_path.join("file"), "a change\n").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "a change"])
-        .success();
-    let op_to_remove = test_env.work_dir(&repo_path).current_operation_id();
+    work_dir.write_file("file", "a change\n");
+    work_dir.run_jj(["commit", "-m", "a change"]).success();
+    let op_to_remove = work_dir.current_operation_id();
 
     // Make another operation the head.
-    std::fs::write(repo_path.join("file"), "another change\n").unwrap();
-    test_env
-        .run_jj_in(&repo_path, ["commit", "-m", "another change"])
+    work_dir.write_file("file", "another change\n");
+    work_dir
+        .run_jj(["commit", "-m", "another change"])
         .success();
 
     // This works before the operation is removed.
-    test_env
-        .run_jj_in(&repo_path, ["debug", "operation", &op_to_remove])
+    work_dir
+        .run_jj(["debug", "operation", &op_to_remove])
         .success();
 
     // Remove some operations.
-    test_env
-        .run_jj_in(&repo_path, ["operation", "abandon", "..@-"])
-        .success();
-    test_env
-        .run_jj_in(&repo_path, ["util", "gc", "--expire=now"])
-        .success();
+    work_dir.run_jj(["operation", "abandon", "..@-"]).success();
+    work_dir.run_jj(["util", "gc", "--expire=now"]).success();
 
     // Now this doesn't work.
-    let output = test_env.run_jj_in(&repo_path, ["debug", "operation", &op_to_remove]);
+    let output = work_dir.run_jj(["debug", "operation", &op_to_remove]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: No operation ID matching "bda58b425f645d895ce92608576509b4fcc0c96dbc5f18717a817f09a530117dff0c2054a28781b4c7f1fdbf5a726c89ebd8666fe54dc9f3cc52ca9596110418"
