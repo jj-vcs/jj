@@ -548,7 +548,7 @@ Can be customized by the `format_short_signature()` template alias.
 # Both name and email address
 'format_short_signature(signature)' = 'signature'
 # Username part of the email address
-'format_short_signature(signature)' = 'signature.username()'
+'format_short_signature(signature)' = 'signature.email().local()'
 ```
 
 ### Commit timestamp
