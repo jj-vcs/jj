@@ -12,6 +12,27 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+### Deprecations
+
+### New features
+
+### Fixed bugs
+
+## [0.28.0] - 2025-04-02
+
+### Release highlights
+
+* jj's configuration can now be split into multiple files more easily.
+
+* `jj resolve` now accepts built-in tools `:ours` and `:theirs`.
+
+* In colocated repos, newly-created files will now appear in `git diff`.
+
+* A long-standing bug relating to empty files in the built-in diff editor was
+  fixed. [#3702](https://github.com/jj-vcs/jj/issues/3702)
+
+### Breaking changes
+
 * The minimum supported Rust version (MSRV) is now 1.84.0.
 
 * The `git.push-branch-prefix` config has been removed in favor of
@@ -123,6 +144,43 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj fix` could previously create new conflicts when a descendant of a fixed
   revision was already correctly formatted.
+
+### Contributors
+
+Thanks to the people who made this release happen!
+
+* Aleksey Kuznetsov (@zummenix)
+* Anton Älgmyr (@algmyr)
+* Austin Seipp (@thoughtpolice)
+* Baltasar Dinis (@bsdinis)
+* Benjamin Tan (@bnjmnt4n)
+* Brandon Hall (@tenkabuto)
+* Caleb White (@calebdw)
+* Daniel Luz (@mernen)
+* David Rieber (@drieber)
+* demize (@demize)
+* Emily (@emilazy)
+* Evan Mesterhazy (@emesterhazy)
+* Fedor Sheremetyev (@sheremetyev)
+* George Christou (@gechr)
+* Ilya Grigoriev (@ilyagr)
+* Jakob Hellermann (@jakobhellermann)
+* Jo Liss (@joliss)
+* Joachim Desroches (@jedesroches)
+* Johannes Altmanninger (@krobelus)
+* Jonathan Gilchrist (@jgilchrist)
+* Kenyon Ralph (@kenyon)
+* Lucas Garron (@lgarron)
+* Martin von Zweigbergk (@martinvonz)
+* Nick Pupko (@npupko)
+* Philip Metzger (@PhilipMetzger)
+* Raphael Borun Das Gupta (@das-g)
+* Remo Senekowitsch (@senekor)
+* Robin Stocker (@robinst)
+* Scott Taylor (@scott2000)
+* Siva Mahadevan (@svmhdvn)
+* Vincent Ging Ho Yim (@cenviity)
+* Yuya Nishihara (@yuja)
 
 ## [0.27.0] - 2025-03-05
 
