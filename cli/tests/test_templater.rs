@@ -12,19 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::path::Path;
-
 use indoc::indoc;
 
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
+use crate::common::TestWorkDir;
 
 #[test]
 fn test_templater_parse_error() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    let render = |template| get_template_output(&test_env, &repo_path, "@-", template);
+    let work_dir = test_env.work_dir("repo");
+    let render = |template| get_template_output(&work_dir, "@-", template);
 
     insta::assert_snapshot!(render(r#"description ()"#), @r"
     ------- stderr -------
@@ -157,14 +156,14 @@ fn test_templater_parse_error() {
 fn test_template_parse_warning() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
     let template = indoc! {r#"
         separate(' ',
           author.username(),
         )
     "#};
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r@", "-T", template]);
+    let output = work_dir.run_jj(["log", "-r@", "-T", template]);
     insta::assert_snapshot!(output, @r"
     @  test.user
     │
@@ -186,8 +185,8 @@ fn test_template_parse_warning() {
 fn test_templater_upper_lower() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    let render = |template| get_colored_template_output(&test_env, &repo_path, "@-", template);
+    let work_dir = test_env.work_dir("repo");
+    let render = |template| get_colored_template_output(&work_dir, "@-", template);
 
     insta::assert_snapshot!(
         render(r#"change_id.shortest(4).upper() ++ change_id.shortest(4).upper().lower()"#),
@@ -200,8 +199,8 @@ fn test_templater_upper_lower() {
 fn test_templater_alias() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    let render = |template| get_template_output(&test_env, &repo_path, "@-", template);
+    let work_dir = test_env.work_dir("repo");
+    let render = |template| get_template_output(&work_dir, "@-", template);
 
     test_env.add_config(
         r###"
@@ -404,7 +403,7 @@ fn test_templater_alias() {
     [exit status: 1]
     ");
 
-    let output = test_env.run_jj_in(&repo_path, ["log", "-r@", "-Tdeprecated()"]);
+    let output = work_dir.run_jj(["log", "-r@", "-Tdeprecated()"]);
     insta::assert_snapshot!(output, @r"
     #  test.user
     │
@@ -432,7 +431,7 @@ fn test_templater_alias() {
 fn test_templater_alias_override() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
     test_env.add_config(
         r#"
@@ -443,17 +442,14 @@ fn test_templater_alias_override() {
 
     // 'f(x)' should be overridden by --config 'f(a)'. If aliases were sorted
     // purely by name, 'f(a)' would come first.
-    let output = test_env.run_jj_in(
-        &repo_path,
-        [
-            "log",
-            "--no-graph",
-            "-r@",
-            "-T",
-            r#"f(_)"#,
-            r#"--config=template-aliases.'f(a)'='"arg"'"#,
-        ],
-    );
+    let output = work_dir.run_jj([
+        "log",
+        "--no-graph",
+        "-r@",
+        "-T",
+        r#"f(_)"#,
+        r#"--config=template-aliases.'f(a)'='"arg"'"#,
+    ]);
     insta::assert_snapshot!(output, @"arg[EOF]");
 }
 
@@ -461,7 +457,7 @@ fn test_templater_alias_override() {
 fn test_templater_bad_alias_decl() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
 
     test_env.add_config(
         r###"
@@ -472,7 +468,7 @@ fn test_templater_bad_alias_decl() {
     );
 
     // Invalid declaration should be warned and ignored.
-    let output = test_env.run_jj_in(&repo_path, ["log", "--no-graph", "-r@-", "-Tmy_commit_id"]);
+    let output = work_dir.run_jj(["log", "--no-graph", "-r@-", "-Tmy_commit_id"]);
     insta::assert_snapshot!(output, @r"
     000000000000[EOF]
     ------- stderr -------
@@ -490,8 +486,8 @@ fn test_templater_bad_alias_decl() {
 fn test_templater_config_function() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let repo_path = test_env.env_root().join("repo");
-    let render = |template| get_template_output(&test_env, &repo_path, "@-", template);
+    let work_dir = test_env.work_dir("repo");
+    let render = |template| get_template_output(&work_dir, "@-", template);
 
     insta::assert_snapshot!(
         render("config('user.name')"),
@@ -535,32 +531,19 @@ fn test_templater_config_function() {
 }
 
 #[must_use]
-fn get_template_output(
-    test_env: &TestEnvironment,
-    repo_path: &Path,
-    rev: &str,
-    template: &str,
-) -> CommandOutput {
-    test_env.run_jj_in(repo_path, ["log", "--no-graph", "-r", rev, "-T", template])
+fn get_template_output(work_dir: &TestWorkDir, rev: &str, template: &str) -> CommandOutput {
+    work_dir.run_jj(["log", "--no-graph", "-r", rev, "-T", template])
 }
 
 #[must_use]
-fn get_colored_template_output(
-    test_env: &TestEnvironment,
-    repo_path: &Path,
-    rev: &str,
-    template: &str,
-) -> CommandOutput {
-    test_env.run_jj_in(
-        repo_path,
-        [
-            "log",
-            "--color=always",
-            "--no-graph",
-            "-r",
-            rev,
-            "-T",
-            template,
-        ],
-    )
+fn get_colored_template_output(work_dir: &TestWorkDir, rev: &str, template: &str) -> CommandOutput {
+    work_dir.run_jj([
+        "log",
+        "--color=always",
+        "--no-graph",
+        "-r",
+        rev,
+        "-T",
+        template,
+    ])
 }
