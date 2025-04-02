@@ -282,7 +282,7 @@ pub fn fix_files(
         let repo_paths = commit_paths.get(&old_commit_id).unwrap();
         let old_tree = rewriter.old_commit().tree()?;
         let mut tree_builder = MergedTreeBuilder::new(old_tree.id().clone());
-        let mut changes = 0;
+        let mut has_changes = false;
         for repo_path in repo_paths {
             let old_value = old_tree.path_value(repo_path)?;
             let new_value = old_value.map(|old_term| {
@@ -302,15 +302,20 @@ pub fn fix_files(
             });
             if new_value != old_value {
                 tree_builder.set_or_remove(repo_path.clone(), new_value);
-                changes += 1;
+                has_changes = true;
             }
         }
         summary.num_checked_commits += 1;
-        if changes > 0 {
+        if has_changes {
             summary.num_fixed_commits += 1;
             let new_tree = tree_builder.write_tree(rewriter.mut_repo().store())?;
             let builder = rewriter.reparent();
             let new_commit = builder.set_tree_id(new_tree).write()?;
+            summary
+                .rewrites
+                .insert(old_commit_id, new_commit.id().clone());
+        } else if rewriter.parents_changed() {
+            let new_commit = rewriter.reparent().write()?;
             summary
                 .rewrites
                 .insert(old_commit_id, new_commit.id().clone());

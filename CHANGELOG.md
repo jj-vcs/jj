@@ -115,6 +115,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   unquoted apostrophes are allowed.
   [#5748](https://github.com/jj-vcs/jj/issues/5748)
 
+* `jj fix` could previously create new conflicts when a descendant of a fixed
+  revision was already correctly formatted.
+
 ## [0.27.0] - 2025-03-05
 
 ### Release highlights

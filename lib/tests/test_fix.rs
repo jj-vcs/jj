@@ -343,7 +343,7 @@ fn test_already_fixed_descendant() {
     );
 
     let tree2 = create_tree(repo, &[(path1, "CONTENT")]);
-    let _commit_b = create_commit(&mut tx, vec![commit_a.clone()], tree2.id());
+    let commit_b = create_commit(&mut tx, vec![commit_a.clone()], tree2.id());
 
     let root_commits = vec![commit_a.clone()];
     let file_fixer = TestFileFixer::new();
@@ -357,9 +357,9 @@ fn test_already_fixed_descendant() {
     )
     .unwrap();
 
-    // TODO: Should have fixed both commits
-    assert_eq!(summary.rewrites.len(), 1);
+    assert_eq!(summary.rewrites.len(), 2);
     assert!(summary.rewrites.contains_key(&commit_a));
+    assert!(summary.rewrites.contains_key(&commit_b));
     assert_eq!(summary.num_checked_commits, 2);
     assert_eq!(summary.num_fixed_commits, 1);
 
@@ -368,6 +368,11 @@ fn test_already_fixed_descendant() {
         .get_commit(summary.rewrites.get(&commit_a).unwrap())
         .unwrap();
     assert_eq!(*new_commit_a.tree_id(), tree2.id());
+    let new_commit_b = repo
+        .store()
+        .get_commit(summary.rewrites.get(&commit_a).unwrap())
+        .unwrap();
+    assert_eq!(*new_commit_b.tree_id(), tree2.id());
 }
 
 #[test]
