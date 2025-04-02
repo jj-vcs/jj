@@ -326,6 +326,50 @@ fn test_unchanged_file_is_fixed() {
     assert_eq!(*new_commit_b.tree_id(), expected_tree_b.id());
 }
 
+/// If a descendant is already correctly formatted, it should still be rewritten
+/// but its tree should be preserved.
+#[test]
+fn test_already_fixed_descendant() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let mut tx = repo.start_transaction();
+    let path1 = RepoPath::from_internal_string("file1");
+    let tree1 = create_tree(repo, &[(path1, "fixme:content")]);
+    let commit_a = create_commit(
+        &mut tx,
+        vec![repo.store().root_commit_id().clone()],
+        tree1.id(),
+    );
+
+    let tree2 = create_tree(repo, &[(path1, "CONTENT")]);
+    let _commit_b = create_commit(&mut tx, vec![commit_a.clone()], tree2.id());
+
+    let root_commits = vec![commit_a.clone()];
+    let file_fixer = TestFileFixer::new();
+
+    let summary = fix_files(
+        root_commits,
+        &EverythingMatcher,
+        true,
+        tx.repo_mut(),
+        &file_fixer,
+    )
+    .unwrap();
+
+    // TODO: Should have fixed both commits
+    assert_eq!(summary.rewrites.len(), 1);
+    assert!(summary.rewrites.contains_key(&commit_a));
+    assert_eq!(summary.num_checked_commits, 2);
+    assert_eq!(summary.num_fixed_commits, 1);
+
+    let new_commit_a = repo
+        .store()
+        .get_commit(summary.rewrites.get(&commit_a).unwrap())
+        .unwrap();
+    assert_eq!(*new_commit_a.tree_id(), tree2.id());
+}
+
 #[test]
 fn test_parallel_fixer_basic() {
     let test_repo = TestRepo::init();
