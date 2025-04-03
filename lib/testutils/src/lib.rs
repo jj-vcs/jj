@@ -76,23 +76,15 @@ pub mod test_backend;
 // somewhat tricky because `gix` looks at system and user configuration, and
 // `GitBackend` also calls into `git(1)` for things like garbage collection.
 pub fn hermetic_git() {
-    #[cfg(feature = "git2")]
+    // TODO: Remove these with `git2` support.
     {
-        // libgit2 respects init.defaultBranch (and possibly other config
-        // variables) in the user's config files. Disable access to them to make
-        // our tests hermetic.
-        //
-        // set_search_path is unsafe because it cannot guarantee thread safety (as
-        // its documentation states). For the same reason, we wrap these invocations
-        // in `call_once`.
-        use std::sync::Once;
-        static CONFIGURE_GIT2: Once = Once::new();
-        CONFIGURE_GIT2.call_once(|| unsafe {
-            git2::opts::set_search_path(git2::ConfigLevel::System, "").unwrap();
-            git2::opts::set_search_path(git2::ConfigLevel::Global, "").unwrap();
-            git2::opts::set_search_path(git2::ConfigLevel::XDG, "").unwrap();
-            git2::opts::set_search_path(git2::ConfigLevel::ProgramData, "").unwrap();
-        });
+        env::set_var("JJ_DEBUG_HERMETIC_GIT2", "1");
+        if cfg!(target_os = "windows") {
+            env::set_var("PROGRAMDATA", "\\jj-test-nonexistent-xdg-config-home");
+            env::set_var("XDG_CONFIG_HOME", "\\jj-test-nonexistent-xdg-config-home");
+        } else {
+            env::set_var("XDG_CONFIG_HOME", "/jj-test-nonexistent-xdg-config-home");
+        }
     }
 
     // Prevent GitBackend from loading user and system configurations. For

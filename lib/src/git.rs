@@ -2065,6 +2065,19 @@ fn rename_remote_refs(
     }
 }
 
+#[cfg(feature = "git2")]
+fn open_git2_repo(git_backend: &GitBackend) -> Result<git2::Repository, git2::Error> {
+    let mut flags = git2::RepositoryOpenFlags::NO_SEARCH;
+    if std::env::var("JJ_DEBUG_HERMETIC_GIT2").as_deref() == Ok("1") {
+        flags.insert(git2::RepositoryOpenFlags::FROM_ENV);
+    }
+    git2::Repository::open_ext(
+        git_backend.git_repo_path(),
+        flags,
+        &[] as &[&std::ffi::OsStr],
+    )
+}
+
 const INVALID_REFSPEC_CHARS: [char; 5] = [':', '^', '?', '[', ']'];
 
 #[derive(Error, Debug)]
@@ -2254,7 +2267,7 @@ impl<'a> GitFetchImpl<'a> {
         let git_backend = get_git_backend(store)?;
         #[cfg(feature = "git2")]
         if !git_settings.subprocess {
-            let git_repo = git2::Repository::open(git_backend.git_repo_path())?;
+            let git_repo = open_git2_repo(git_backend)?;
             return Ok(GitFetchImpl::Git2 { git_repo });
         }
         let git_repo = Box::new(git_backend.git_repo());
@@ -2558,7 +2571,7 @@ pub fn push_updates(
     let git_backend = get_git_backend(repo.store())?;
     #[cfg(feature = "git2")]
     if !git_settings.subprocess {
-        let git_repo = git2::Repository::open(git_backend.git_repo_path())?;
+        let git_repo = open_git2_repo(git_backend)?;
         let refspecs: Vec<String> = refspecs.iter().map(RefSpec::to_git_format).collect();
         return git2_push_refs(
             repo,
