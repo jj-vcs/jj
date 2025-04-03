@@ -1735,7 +1735,7 @@ fn test_resolve_with_contents_of_side() {
     let output = work_dir.run_jj(["resolve", "--tool", ":ours"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: znkkpsqq 1a1b2ffb conflict | conflict
+    Working copy  (@) now at: znkkpsqq c83edc52 conflict | conflict
     Parent commit (@-)      : zsuskuln 83b81681 a | a
     Parent commit (@-)      : royxmykx 4f6eff49 b | b
     Parent commit (@-)      : vruxwmqv 1e360aff c | c
@@ -1743,8 +1743,7 @@ fn test_resolve_with_contents_of_side() {
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.read_file("file"), @"a");
-    // BUG: this shouldn't be "base"; it should be "left"
-    insta::assert_snapshot!(work_dir.read_file("other"), @"base");
+    insta::assert_snapshot!(work_dir.read_file("other"), @"left");
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r#"
     ------- stderr -------
     Error: No conflicts found at this revision
@@ -1758,17 +1757,15 @@ fn test_resolve_with_contents_of_side() {
     let output = work_dir.run_jj(["resolve", "--tool", ":theirs"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: znkkpsqq 9470925b conflict | conflict
+    Working copy  (@) now at: znkkpsqq baf3a71d conflict | conflict
     Parent commit (@-)      : zsuskuln 83b81681 a | a
     Parent commit (@-)      : royxmykx 4f6eff49 b | b
     Parent commit (@-)      : vruxwmqv 1e360aff c | c
     Added 0 files, modified 2 files, removed 0 files
     [EOF]
     ");
-    // BUG: this shouldn't be "base"; it should be "b"
-    insta::assert_snapshot!(work_dir.read_file("file"), @"base");
-    // BUG: this shouldn't be "left"; it should be "right"
-    insta::assert_snapshot!(work_dir.read_file("other"), @"left");
+    insta::assert_snapshot!(work_dir.read_file("file"), @"b");
+    insta::assert_snapshot!(work_dir.read_file("other"), @"right");
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r#"
     ------- stderr -------
     Error: No conflicts found at this revision

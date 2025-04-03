@@ -316,6 +316,7 @@ struct MergeToolFile {
     repo_path: RepoPathBuf,
     conflict: MergedTreeValue,
     file_merge: Merge<Option<FileId>>,
+    simplified_file_merge: Merge<Option<FileId>>,
     simplified_file_content: Merge<BString>,
 }
 
@@ -347,6 +348,7 @@ impl MergeToolFile {
             repo_path: repo_path.to_owned(),
             conflict,
             file_merge,
+            simplified_file_merge,
             simplified_file_content,
         })
     }
@@ -453,10 +455,23 @@ fn pick_conflict_side(
 ) -> Result<MergedTreeId, BackendError> {
     let mut tree_builder = MergedTreeBuilder::new(tree.id());
     for merge_tool_file in merge_tool_files {
-        tree_builder.set_or_remove(
-            merge_tool_file.repo_path.clone(),
-            Merge::resolved(merge_tool_file.conflict.get_add(add_index).unwrap().clone()),
-        );
+        // We use file IDs here to match the logic for the other external merge tools.
+        // This ensures that the behavior is consistent.
+        let file_id = merge_tool_file
+            .simplified_file_merge
+            .get_add(add_index)
+            .unwrap();
+        // Update the file IDs only, leaving the executable flags unchanged
+        let new_tree_value = merge_tool_file
+            .conflict
+            .with_new_file_ids(&Merge::from_vec(vec![
+                file_id.clone();
+                merge_tool_file
+                    .conflict
+                    .as_slice()
+                    .len()
+            ]));
+        tree_builder.set_or_remove(merge_tool_file.repo_path.clone(), new_tree_value);
     }
     tree_builder.write_tree(tree.store())
 }

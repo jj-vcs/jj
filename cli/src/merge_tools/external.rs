@@ -185,6 +185,7 @@ fn run_mergetool_external_single_file(
         conflict,
         file_merge,
         simplified_file_content,
+        ..
     } = merge_tool_file;
 
     let conflict_marker_style = editor
