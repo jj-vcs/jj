@@ -206,33 +206,23 @@ pub fn merge<T: AsRef<[u8]>>(inputs: &Merge<T>) -> MergeResult {
     // more than 3 parts?
     let num_diffs = inputs.removes().len();
     let diff_inputs = inputs.removes().chain(inputs.adds());
-    merge_hunks(&Diff::by_line(diff_inputs), num_diffs)
+    collect_hunks(resolve_diff_hunks(&Diff::by_line(diff_inputs), num_diffs))
 }
 
-fn merge_hunks(diff: &Diff, num_diffs: usize) -> MergeResult {
+/// Collects merged hunks into either fully-resolved content or list of
+/// partially-resolved hunks.
+fn collect_hunks<'input>(hunks: impl IntoIterator<Item = Merge<&'input BStr>>) -> MergeResult {
     let mut resolved_hunk = BString::new(vec![]);
     let mut merge_hunks: Vec<Merge<BString>> = vec![];
-    for diff_hunk in diff.hunks() {
-        match diff_hunk.kind {
-            DiffHunkKind::Matching => {
-                debug_assert!(diff_hunk.contents.iter().all_equal());
-                resolved_hunk.extend_from_slice(diff_hunk.contents[0]);
+    for hunk in hunks {
+        if let Some(&content) = hunk.as_resolved() {
+            resolved_hunk.extend_from_slice(content);
+        } else {
+            if !resolved_hunk.is_empty() {
+                merge_hunks.push(Merge::resolved(resolved_hunk));
+                resolved_hunk = BString::new(vec![]);
             }
-            DiffHunkKind::Different => {
-                let merge = Merge::from_removes_adds(
-                    diff_hunk.contents[..num_diffs].iter().copied(),
-                    diff_hunk.contents[num_diffs..].iter().copied(),
-                );
-                if let Some(resolved) = merge.resolve_trivial() {
-                    resolved_hunk.extend_from_slice(resolved);
-                } else {
-                    if !resolved_hunk.is_empty() {
-                        merge_hunks.push(Merge::resolved(resolved_hunk));
-                        resolved_hunk = BString::new(vec![]);
-                    }
-                    merge_hunks.push(merge.map(|&s| s.to_owned()));
-                }
-            }
+            merge_hunks.push(hunk.map(|&s| s.to_owned()));
         }
     }
 
@@ -244,6 +234,29 @@ fn merge_hunks(diff: &Diff, num_diffs: usize) -> MergeResult {
         }
         MergeResult::Conflict(merge_hunks)
     }
+}
+
+/// Iterator that attempts to resolve trivial merge conflict for each hunk.
+fn resolve_diff_hunks<'a, 'input>(
+    diff: &'a Diff<'input>,
+    num_diffs: usize,
+) -> impl Iterator<Item = Merge<&'input BStr>> + use<'a, 'input> {
+    diff.hunks().map(move |diff_hunk| match diff_hunk.kind {
+        DiffHunkKind::Matching => {
+            debug_assert!(diff_hunk.contents.iter().all_equal());
+            Merge::resolved(diff_hunk.contents[0])
+        }
+        DiffHunkKind::Different => {
+            let merge = Merge::from_removes_adds(
+                diff_hunk.contents[..num_diffs].iter().copied(),
+                diff_hunk.contents[num_diffs..].iter().copied(),
+            );
+            match merge.resolve_trivial() {
+                Some(&content) => Merge::resolved(content),
+                None => merge,
+            }
+        }
+    })
 }
 
 #[cfg(test)]

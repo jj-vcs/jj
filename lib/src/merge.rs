@@ -150,7 +150,7 @@ impl<T> Merge<T> {
     }
 
     /// Creates a `Merge` with a single resolved value.
-    pub fn resolved(value: T) -> Self {
+    pub const fn resolved(value: T) -> Self {
         Merge {
             values: smallvec_inline![value],
         }
