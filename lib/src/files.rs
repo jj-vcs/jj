@@ -187,18 +187,25 @@ where
     }
 }
 
+/// Merge result in either fully-resolved or conflicts form, akin to
+/// `Result<BString, Vec<Merge<BString>>>`.
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum MergeResult {
+    /// Resolved content if inputs can be merged successfully.
     Resolved(BString),
+    /// List of partially-resolved hunks if some of them cannot be merged.
     Conflict(Vec<Merge<BString>>),
 }
 
-pub fn merge<T: AsRef<[u8]>>(slices: &Merge<T>) -> MergeResult {
+/// Splits `inputs` into hunks, resolves trivial merge conflicts for each.
+///
+/// Returns either fully-resolved content or list of partially-resolved hunks.
+pub fn merge<T: AsRef<[u8]>>(inputs: &Merge<T>) -> MergeResult {
     // TODO: Using the first remove as base (first in the inputs) is how it's
     // usually done for 3-way conflicts. Are there better heuristics when there are
     // more than 3 parts?
-    let num_diffs = slices.removes().len();
-    let diff_inputs = slices.removes().chain(slices.adds());
+    let num_diffs = inputs.removes().len();
+    let diff_inputs = inputs.removes().chain(inputs.adds());
     merge_hunks(&Diff::by_line(diff_inputs), num_diffs)
 }
 
