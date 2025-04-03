@@ -2141,12 +2141,6 @@ impl LocalWorkingCopy {
             })
     }
 
-    fn tree_state_mut(&mut self) -> Result<&mut TreeState, (String, Box<dyn Error + Send + Sync>)> {
-        self.tree_state() // Ensure loaded.
-            .map_err(|WorkingCopyStateError { message, err }| (message, err))?;
-        Ok(self.tree_state.get_mut().unwrap())
-    }
-
     pub fn file_states(&self) -> Result<FileStates<'_>, WorkingCopyStateError> {
         Ok(self.tree_state()?.file_states())
     }
@@ -2223,6 +2217,15 @@ pub struct LockedLocalWorkingCopy {
     _lock: FileLock,
 }
 
+impl LockedLocalWorkingCopy {
+    fn tree_state_mut(&mut self) -> Result<&mut TreeState, (String, Box<dyn Error + Send + Sync>)> {
+        self.wc
+            .tree_state() // Ensure loaded.
+            .map_err(|WorkingCopyStateError { message, err }| (message, err))?;
+        Ok(self.wc.tree_state.get_mut().unwrap())
+    }
+}
+
 impl LockedWorkingCopy for LockedLocalWorkingCopy {
     fn as_any(&self) -> &dyn Any {
         self
@@ -2244,13 +2247,13 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
         &mut self,
         options: &SnapshotOptions,
     ) -> Result<(MergedTreeId, SnapshotStats), SnapshotError> {
-        let tree_state = self
-            .wc
+        let mut tree_state = self
             .tree_state_mut()
             .map_err(|(message, err)| SnapshotError::Other { message, err })?;
         let (is_dirty, stats) = tree_state.snapshot(options)?;
+        let tree_id = tree_state.tree_id.clone();
         self.tree_state_dirty |= is_dirty;
-        Ok((tree_state.current_tree_id().clone(), stats))
+        Ok((tree_id, stats))
     }
 
     fn check_out(
@@ -2261,8 +2264,7 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
         // TODO: Write a "pending_checkout" file with the new TreeId so we can
         // continue an interrupted update if we find such a file.
         let new_tree = commit.tree()?;
-        let tree_state = self
-            .wc
+        let mut tree_state = self
             .tree_state_mut()
             .map_err(|(message, err)| CheckoutError::Other { message, err })?;
         if tree_state.tree_id != *commit.tree_id() {
@@ -2280,8 +2282,7 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
 
     fn reset(&mut self, commit: &Commit) -> Result<(), ResetError> {
         let new_tree = commit.tree()?;
-        self.wc
-            .tree_state_mut()
+        self.tree_state_mut()
             .map_err(|(message, err)| ResetError::Other { message, err })?
             .reset(&new_tree)
             .block_on()?;
@@ -2291,8 +2292,7 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
 
     fn recover(&mut self, commit: &Commit) -> Result<(), ResetError> {
         let new_tree = commit.tree()?;
-        self.wc
-            .tree_state_mut()
+        self.tree_state_mut()
             .map_err(|(message, err)| ResetError::Other { message, err })?
             .recover(&new_tree)
             .block_on()?;
@@ -2312,7 +2312,6 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
         // TODO: Write a "pending_checkout" file with new sparse patterns so we can
         // continue an interrupted update if we find such a file.
         let stats = self
-            .wc
             .tree_state_mut()
             .map_err(|(message, err)| CheckoutError::Other { message, err })?
             .set_sparse_patterns(new_sparse_patterns, options)?;
@@ -2327,8 +2326,7 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError> {
         assert!(self.tree_state_dirty || &self.old_tree_id == self.wc.tree_id()?);
         if self.tree_state_dirty {
-            self.wc
-                .tree_state_mut()
+            self.tree_state_mut()
                 .map_err(|(message, err)| WorkingCopyStateError { message, err })?
                 .save()
                 .map_err(|err| WorkingCopyStateError {
@@ -2355,8 +2353,7 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
 
 impl LockedLocalWorkingCopy {
     pub fn reset_watchman(&mut self) -> Result<(), SnapshotError> {
-        self.wc
-            .tree_state_mut()
+        self.tree_state_mut()
             .map_err(|(message, err)| SnapshotError::Other { message, err })?
             .reset_watchman();
         self.tree_state_dirty = true;
