@@ -1668,15 +1668,38 @@ fn test_resolve_with_contents_of_side() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
-    create_commit_with_files(&work_dir, "base", &[], &[("file", "base\n")]);
-    create_commit_with_files(&work_dir, "a", &["base"], &[("file", "a\n")]);
-    create_commit_with_files(&work_dir, "b", &["base"], &[("file", "b\n")]);
-    create_commit_with_files(&work_dir, "conflict", &["a", "b"], &[]);
+    create_commit_with_files(
+        &work_dir,
+        "base",
+        &[],
+        &[("file", "base\n"), ("other", "base\n")],
+    );
+    create_commit_with_files(
+        &work_dir,
+        "a",
+        &["base"],
+        &[("file", "a\n"), ("other", "base\n")],
+    );
+    create_commit_with_files(
+        &work_dir,
+        "b",
+        &["base"],
+        &[("file", "base\n"), ("other", "left\n")],
+    );
+    create_commit_with_files(
+        &work_dir,
+        "c",
+        &["base"],
+        &[("file", "b\n"), ("other", "right\n")],
+    );
+    create_commit_with_files(&work_dir, "conflict", &["a", "b", "c"], &[]);
     // Test the setup
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @    conflict
-    ├─╮
-    │ ○  b
+    @      conflict
+    ├─┬─╮
+    │ │ ○  c
+    │ ○ │  b
+    │ ├─╯
     ○ │  a
     ├─╯
     ○  base
@@ -1684,7 +1707,8 @@ fn test_resolve_with_contents_of_side() {
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
-    file    2-sided conflict
+    file     2-sided conflict
+    other    2-sided conflict
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.read_file("file"), @r"
@@ -1696,19 +1720,31 @@ fn test_resolve_with_contents_of_side() {
     b
     >>>>>>> Conflict 1 of 1 ends
     ");
+    insta::assert_snapshot!(work_dir.read_file("other"), @r"
+    <<<<<<< Conflict 1 of 1
+    %%%%%%% Changes from base to side #1
+    -base
+    +left
+    +++++++ Contents of side #2
+    right
+    >>>>>>> Conflict 1 of 1 ends
+    ");
 
     // Check that ":ours" merge tool works correctly
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"");
     let output = work_dir.run_jj(["resolve", "--tool", ":ours"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: vruxwmqv 09b42f21 conflict | conflict
-    Parent commit (@-)      : zsuskuln aa493daf a | a
-    Parent commit (@-)      : royxmykx db6a4daf b | b
-    Added 0 files, modified 1 files, removed 0 files
+    Working copy  (@) now at: znkkpsqq 1a1b2ffb conflict | conflict
+    Parent commit (@-)      : zsuskuln 83b81681 a | a
+    Parent commit (@-)      : royxmykx 4f6eff49 b | b
+    Parent commit (@-)      : vruxwmqv 1e360aff c | c
+    Added 0 files, modified 2 files, removed 0 files
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.read_file("file"), @"a");
+    // BUG: this shouldn't be "base"; it should be "left"
+    insta::assert_snapshot!(work_dir.read_file("other"), @"base");
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r#"
     ------- stderr -------
     Error: No conflicts found at this revision
@@ -1722,13 +1758,17 @@ fn test_resolve_with_contents_of_side() {
     let output = work_dir.run_jj(["resolve", "--tool", ":theirs"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: vruxwmqv 91b58732 conflict | conflict
-    Parent commit (@-)      : zsuskuln aa493daf a | a
-    Parent commit (@-)      : royxmykx db6a4daf b | b
-    Added 0 files, modified 1 files, removed 0 files
+    Working copy  (@) now at: znkkpsqq 9470925b conflict | conflict
+    Parent commit (@-)      : zsuskuln 83b81681 a | a
+    Parent commit (@-)      : royxmykx 4f6eff49 b | b
+    Parent commit (@-)      : vruxwmqv 1e360aff c | c
+    Added 0 files, modified 2 files, removed 0 files
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.read_file("file"), @"b");
+    // BUG: this shouldn't be "base"; it should be "b"
+    insta::assert_snapshot!(work_dir.read_file("file"), @"base");
+    // BUG: this shouldn't be "left"; it should be "right"
+    insta::assert_snapshot!(work_dir.read_file("other"), @"left");
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r#"
     ------- stderr -------
     Error: No conflicts found at this revision
