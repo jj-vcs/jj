@@ -1212,8 +1212,8 @@ fn test_graph_template_color() {
     ");
     let output = work_dir.run_jj(["--color=debug", "log", "-T", template]);
     insta::assert_snapshot!(output, @r"
-    [1m[38;5;2m<<node working_copy::@>>[0m  [1m[38;5;2m<<log working_copy description::single line>>[0m
-    <<node::○>>  [38;5;1m<<log description::first line>>[39m
+    [1m[38;5;2m<<node working_copy mutable::@>>[0m  [1m[38;5;2m<<log working_copy description::single line>>[0m
+    <<node mutable::○>>  [38;5;1m<<log description::first line>>[39m
     │  [38;5;1m<<log description::second line>>[39m
     │  [38;5;1m<<log description::third line>>[39m
     [1m[38;5;14m<<node immutable::◆>>[0m
