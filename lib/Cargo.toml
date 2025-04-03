@@ -96,7 +96,7 @@ tokio = { workspace = true, features = ["full"] }
 [features]
 default = ["git", "git2"]
 git = ["dep:gix"]
-git2 = ["git", "testutils/git2", "dep:git2"]
+git2 = ["git", "dep:git2"]
 gix-max-performance = [
     # Requires `cmake` as a build dependency.
     # Note that this feature is different from `gix/max-performance-safe`.

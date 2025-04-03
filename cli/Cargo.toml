@@ -95,9 +95,6 @@ tracing-subscriber = { workspace = true }
 unicode-width = { workspace = true }
 whoami = { workspace = true }
 
-# TODO: Workaround for Cargo weirdness; remove when `git2` goes away.
-testutils = { workspace = true, optional = true }
-
 [target.'cfg(unix)'.dependencies]
 libc = { workspace = true }
 
@@ -115,7 +112,7 @@ jj-cli = { path = ".", features = ["test-fakes"], default-features = false }
 default = ["watchman", "git", "git2"]
 bench = ["dep:criterion"]
 git = ["jj-lib/git", "dep:gix"]
-git2 = ["git", "jj-lib/git2", "testutils?/git2", "dep:git2"]
+git2 = ["git", "jj-lib/git2", "dep:git2"]
 gix-max-performance = ["jj-lib/gix-max-performance"]
 packaging = ["gix-max-performance"]
 test-fakes = ["jj-lib/testing"]

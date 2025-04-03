@@ -3924,7 +3924,6 @@ dependencies = [
  "async-trait",
  "bstr",
  "futures 0.3.31",
- "git2",
  "gix",
  "hex",
  "itertools 0.13.0",
