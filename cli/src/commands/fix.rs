@@ -143,7 +143,7 @@ pub(crate) fn cmd_fix(
         .to_matcher();
 
     let mut tx = workspace_command.start_transaction();
-    let parallel_fixer = ParallelFileFixer::new(|store, file_to_fix| {
+    let mut parallel_fixer = ParallelFileFixer::new(|store, file_to_fix| {
         fix_one_file(&workspace_root, &tools_config, store, file_to_fix)
     });
     let summary = fix_files(
@@ -151,7 +151,7 @@ pub(crate) fn cmd_fix(
         &matcher,
         args.include_unchanged_files,
         tx.repo_mut(),
-        &parallel_fixer,
+        &mut parallel_fixer,
     )?;
     writeln!(
         ui.status(),
