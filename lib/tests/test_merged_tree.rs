@@ -22,7 +22,7 @@ use jj_lib::backend::TreeValue;
 use jj_lib::copies::CopiesTreeDiffEntryPath;
 use jj_lib::copies::CopyOperation;
 use jj_lib::copies::CopyRecords;
-use jj_lib::files::MergeResult;
+use jj_lib::files;
 use jj_lib::matchers::EverythingMatcher;
 use jj_lib::matchers::FilesMatcher;
 use jj_lib::matchers::Matcher;
@@ -1531,10 +1531,7 @@ fn test_merge_simplify_file_conflict() {
             Merge::resolved(child2_text.as_bytes()),
         ],
     );
-    assert!(matches!(
-        jj_lib::files::merge_hunks(&text_merge.flatten()),
-        MergeResult::Conflict(_)
-    ));
+    assert!(files::try_merge(&text_merge.flatten()).is_none());
 }
 
 /// Like `test_merge_simplify_file_conflict()`, but some of the conflicts are

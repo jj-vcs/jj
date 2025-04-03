@@ -201,12 +201,57 @@ pub enum MergeResult {
 ///
 /// Returns either fully-resolved content or list of partially-resolved hunks.
 pub fn merge_hunks<T: AsRef<[u8]>>(inputs: &Merge<T>) -> MergeResult {
+    merge_inner(inputs)
+}
+
+/// Splits `inputs` into hunks, resolves trivial merge conflicts for each, then
+/// concatenates the outcome back to single `Merge` object.
+///
+/// The returned merge object is either fully resolved or conflict having the
+/// same number of terms as the `inputs`.
+pub fn merge<T: AsRef<[u8]>>(inputs: &Merge<T>) -> Merge<BString> {
+    merge_inner(inputs)
+}
+
+/// Splits `inputs` into hunks, attempts to resolve trivial merge conflicts for
+/// each.
+///
+/// If all input hunks can be merged successfully, returns the merged content.
+pub fn try_merge<T: AsRef<[u8]>>(inputs: &Merge<T>) -> Option<BString> {
+    merge_inner(inputs)
+}
+
+fn merge_inner<'input, T: AsRef<[u8]>, B: FromMergeHunks<'input>>(inputs: &'input Merge<T>) -> B {
     // TODO: Using the first remove as base (first in the inputs) is how it's
     // usually done for 3-way conflicts. Are there better heuristics when there are
     // more than 3 parts?
     let num_diffs = inputs.removes().len();
-    let diff_inputs = inputs.removes().chain(inputs.adds());
-    collect_hunks(resolve_diff_hunks(&Diff::by_line(diff_inputs), num_diffs))
+    let diff = Diff::by_line(inputs.removes().chain(inputs.adds()));
+    let hunks = resolve_diff_hunks(&diff, num_diffs);
+    B::from_hunks(hunks)
+}
+
+/// `FromIterator` for merge result.
+trait FromMergeHunks<'input>: Sized {
+    fn from_hunks<I: IntoIterator<Item = Merge<&'input BStr>>>(hunks: I) -> Self;
+}
+
+impl<'input> FromMergeHunks<'input> for MergeResult {
+    fn from_hunks<I: IntoIterator<Item = Merge<&'input BStr>>>(hunks: I) -> Self {
+        collect_hunks(hunks)
+    }
+}
+
+impl<'input> FromMergeHunks<'input> for Merge<BString> {
+    fn from_hunks<I: IntoIterator<Item = Merge<&'input BStr>>>(hunks: I) -> Self {
+        collect_merged(hunks)
+    }
+}
+
+impl<'input> FromMergeHunks<'input> for Option<BString> {
+    fn from_hunks<I: IntoIterator<Item = Merge<&'input BStr>>>(hunks: I) -> Self {
+        collect_resolved(hunks)
+    }
 }
 
 /// Collects merged hunks into either fully-resolved content or list of
@@ -234,6 +279,39 @@ fn collect_hunks<'input>(hunks: impl IntoIterator<Item = Merge<&'input BStr>>) -
         }
         MergeResult::Conflict(merge_hunks)
     }
+}
+
+/// Collects merged hunks back to single `Merge` object, duplicating resolved
+/// hunks to all positive and negative terms.
+fn collect_merged<'input>(hunks: impl IntoIterator<Item = Merge<&'input BStr>>) -> Merge<BString> {
+    let mut maybe_resolved = Merge::resolved(BString::default());
+    for hunk in hunks {
+        if let Some(&content) = hunk.as_resolved() {
+            for buf in maybe_resolved.iter_mut() {
+                buf.extend_from_slice(content);
+            }
+        } else {
+            maybe_resolved = match maybe_resolved.into_resolved() {
+                Ok(content) => Merge::from_vec(vec![content; hunk.as_slice().len()]),
+                Err(conflict) => conflict,
+            };
+            assert_eq!(maybe_resolved.as_slice().len(), hunk.as_slice().len());
+            for (buf, s) in iter::zip(maybe_resolved.iter_mut(), hunk) {
+                buf.extend_from_slice(s);
+            }
+        }
+    }
+    maybe_resolved
+}
+
+/// Collects resolved merge hunks. Short-circuits on unresolved hunk.
+fn collect_resolved<'input>(
+    hunks: impl IntoIterator<Item = Merge<&'input BStr>>,
+) -> Option<BString> {
+    hunks
+        .into_iter()
+        .map(|hunk| hunk.into_resolved().ok())
+        .collect()
 }
 
 /// Iterator that attempts to resolve trivial merge conflict for each hunk.
@@ -448,24 +526,54 @@ mod tests {
     #[test]
     fn test_merge_multi_hunk() {
         // Two sides left one line unchanged, and added conflicting additional lines
+        let inputs = conflict([b"a\nb\n", b"a\n", b"a\nc\n"]);
         assert_eq!(
-            merge_hunks(&conflict([b"a\nb\n", b"a\n", b"a\nc\n"])),
+            merge_hunks(&inputs),
             MergeResult::Conflict(vec![resolved(b"a\n"), conflict([b"b\n", b"", b"c\n"])])
         );
+        assert_eq!(merge(&inputs), conflict([b"a\nb\n", b"a\n", b"a\nc\n"]));
+        assert_eq!(try_merge(&inputs), None);
+
         // Two sides changed different lines: no conflict
+        let inputs = conflict([b"a2\nb\nc\n", b"a\nb\nc\n", b"a\nb\nc2\n"]);
         assert_eq!(
-            merge_hunks(&conflict([b"a2\nb\nc\n", b"a\nb\nc\n", b"a\nb\nc2\n"])),
+            merge_hunks(&inputs),
             MergeResult::Resolved(hunk(b"a2\nb\nc2\n"))
         );
+        assert_eq!(merge(&inputs), resolved(b"a2\nb\nc2\n"));
+        assert_eq!(try_merge(&inputs), Some(hunk(b"a2\nb\nc2\n")));
+
         // Conflict with non-conflicting lines around
+        let inputs = conflict([b"a\nb1\nc\n", b"a\nb\nc\n", b"a\nb2\nc\n"]);
         assert_eq!(
-            merge_hunks(&conflict([b"a\nb1\nc\n", b"a\nb\nc\n", b"a\nb2\nc\n"])),
+            merge_hunks(&inputs),
             MergeResult::Conflict(vec![
                 resolved(b"a\n"),
                 conflict([b"b1\n", b"b\n", b"b2\n"]),
                 resolved(b"c\n"),
             ])
         );
+        assert_eq!(
+            merge(&inputs),
+            conflict([b"a\nb1\nc\n", b"a\nb\nc\n", b"a\nb2\nc\n"])
+        );
+        assert_eq!(try_merge(&inputs), None);
+
+        // Two conflict hunks, one can be resolved
+        let inputs = conflict([b"a\nb\nc\n", b"a1\nb\nc\n", b"a2\nb\nc2\n"]);
+        assert_eq!(
+            merge_hunks(&inputs),
+            MergeResult::Conflict(vec![
+                conflict([b"a\n", b"a1\n", b"a2\n"]),
+                resolved(b"b\nc2\n"),
+            ])
+        );
+        assert_eq!(
+            merge(&inputs),
+            conflict([b"a\nb\nc2\n", b"a1\nb\nc2\n", b"a2\nb\nc2\n"])
+        );
+        assert_eq!(try_merge(&inputs), None);
+
         // One side changes a line and adds a block after. The other side just adds the
         // same block. You might expect the last block would be deduplicated. However,
         // the changes in the first side can be parsed as follows:
@@ -517,9 +625,6 @@ mod tests {
                 x
             }
         "};
-        assert_eq!(
-            merge_hunks(&conflict([left, base, right])),
-            MergeResult::Resolved(hunk(merged))
-        );
+        assert_eq!(merge(&conflict([left, base, right])), resolved(merged));
     }
 }

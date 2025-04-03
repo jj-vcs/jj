@@ -35,7 +35,6 @@ use crate::backend::TreeEntry;
 use crate::backend::TreeId;
 use crate::backend::TreeValue;
 use crate::files;
-use crate::files::MergeResult;
 use crate::matchers::EverythingMatcher;
 use crate::matchers::Matcher;
 use crate::merge::Merge;
@@ -325,14 +324,12 @@ pub async fn try_resolve_file_conflict(
         BackendResult::Ok(content)
     });
     let contents = Merge::from_vec(try_join_all(content_futures).await?);
-    let merge_result = files::merge_hunks(&contents);
-    match merge_result {
-        MergeResult::Resolved(merged_content) => {
-            let id = store
-                .write_file(filename, &mut merged_content.as_slice())
-                .await?;
-            Ok(Some(TreeValue::File { id, executable }))
-        }
-        MergeResult::Conflict(_) => Ok(None),
+    if let Some(merged_content) = files::try_merge(&contents) {
+        let id = store
+            .write_file(filename, &mut merged_content.as_slice())
+            .await?;
+        Ok(Some(TreeValue::File { id, executable }))
+    } else {
+        Ok(None)
     }
 }
