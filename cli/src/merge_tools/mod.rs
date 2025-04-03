@@ -316,7 +316,7 @@ struct MergeToolFile {
     repo_path: RepoPathBuf,
     conflict: MergedTreeValue,
     file_merge: Merge<Option<FileId>>,
-    content: Merge<BString>,
+    simplified_file_content: Merge<BString>,
 }
 
 impl MergeToolFile {
@@ -341,13 +341,13 @@ impl MergeToolFile {
                 sides: simplified_file_merge.num_sides(),
             });
         };
-        let content =
+        let simplified_file_content =
             extract_as_single_hunk(&simplified_file_merge, tree.store(), repo_path).block_on()?;
         Ok(MergeToolFile {
             repo_path: repo_path.to_owned(),
             conflict,
             file_merge,
-            content,
+            simplified_file_content,
         })
     }
 }

@@ -184,7 +184,7 @@ fn run_mergetool_external_single_file(
         repo_path,
         conflict,
         file_merge,
-        content,
+        simplified_file_content,
     } = merge_tool_file;
 
     let conflict_marker_style = editor
@@ -198,24 +198,24 @@ fn run_mergetool_external_single_file(
     // MIN_CONFLICT_MARKER_LEN since the merge tool can't know about our rules for
     // conflict marker length.
     let conflict_marker_len = if editor.merge_tool_edits_conflict_markers || uses_marker_length {
-        choose_materialized_conflict_marker_len(content)
+        choose_materialized_conflict_marker_len(simplified_file_content)
     } else {
         MIN_CONFLICT_MARKER_LEN
     };
     let initial_output_content = if editor.merge_tool_edits_conflict_markers {
         materialize_merge_result_to_bytes_with_marker_len(
-            content,
+            simplified_file_content,
             conflict_marker_style,
             conflict_marker_len,
         )
     } else {
         BString::default()
     };
-    assert_eq!(content.num_sides(), 2);
+    assert_eq!(simplified_file_content.num_sides(), 2);
     let files: HashMap<&str, &[u8]> = maplit::hashmap! {
-        "base" => content.get_remove(0).unwrap().as_slice(),
-        "left" => content.get_add(0).unwrap().as_slice(),
-        "right" => content.get_add(1).unwrap().as_slice(),
+        "base" => simplified_file_content.get_remove(0).unwrap().as_slice(),
+        "left" => simplified_file_content.get_add(0).unwrap().as_slice(),
+        "right" => simplified_file_content.get_add(1).unwrap().as_slice(),
         "output" => initial_output_content.as_slice(),
     };
 

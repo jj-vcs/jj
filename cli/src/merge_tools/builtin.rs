@@ -570,7 +570,7 @@ fn make_merge_sections(
 fn make_merge_file(
     merge_tool_file: &MergeToolFile,
 ) -> Result<scm_record::File<'static>, BuiltinToolError> {
-    let merge_result = files::merge(&merge_tool_file.content);
+    let merge_result = files::merge(&merge_tool_file.simplified_file_content);
     let sections = make_merge_sections(merge_result)?;
     Ok(scm_record::File {
         old_path: None,
