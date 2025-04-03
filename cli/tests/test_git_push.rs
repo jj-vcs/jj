@@ -901,6 +901,7 @@ fn test_git_push_multiple(subprocess: bool) {
 
     // --deleted is required to push deleted bookmarks even with --all
     let output = work_dir.run_jj(["git", "push", "--all", "--dry-run"]);
+    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Refusing to push deleted bookmark bookmark1
@@ -911,7 +912,9 @@ fn test_git_push_multiple(subprocess: bool) {
     Dry-run requested, not pushing.
     [EOF]
     ");
+    }
     let output = work_dir.run_jj(["git", "push", "--all", "--deleted", "--dry-run"]);
+    insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -921,6 +924,7 @@ fn test_git_push_multiple(subprocess: bool) {
     Dry-run requested, not pushing.
     [EOF]
     ");
+    }
 
     let output = work_dir.run_jj(["git", "push", "--all", "--deleted"]);
     insta::allow_duplicates! {
