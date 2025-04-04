@@ -1559,6 +1559,9 @@ Here are some popular editors with TOML schema validation support:
 - Neovim/Vim
   - Use with [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig) and [taplo](https://github.com/tamasfe/taplo)
 
+- Helix
+  - Install [taplo](https://github.com/tamasfe/taplo)
+
 - JetBrains IDEs (IntelliJ, PyCharm, etc)
   - Install [TOML](https://plugins.jetbrains.com/plugin/8195-toml) plugin
 
