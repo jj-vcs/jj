@@ -146,18 +146,17 @@ pub(crate) fn cmd_split(
 
     // Create the first commit, which includes the changes selected by the user.
     let first_commit = {
+        let mut intro = "".to_string();
         let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
         commit_builder.set_tree_id(target.selected_tree.id());
         if commit_builder.description().is_empty() {
             commit_builder.set_description(tx.settings().get_string("ui.default-description")?);
+            intro += "\n";
         }
+        intro += "JJ: Enter a description for the first commit.";
+
         let temp_commit = commit_builder.write_hidden()?;
-        let template = description_template(
-            ui,
-            &tx,
-            "Enter a description for the first commit.",
-            &temp_commit,
-        )?;
+        let template = description_template(ui, &tx, &intro, &temp_commit)?;
         let description = edit_description(&text_editor, &template)?;
         commit_builder.set_description(description);
         commit_builder.write(tx.repo_mut())?
@@ -193,12 +192,8 @@ pub(crate) fn cmd_split(
             "".to_string()
         } else {
             let temp_commit = commit_builder.write_hidden()?;
-            let template = description_template(
-                ui,
-                &tx,
-                "Enter a description for the second commit.",
-                &temp_commit,
-            )?;
+            let intro = "JJ: Enter a description for the second commit.";
+            let template = description_template(ui, &tx, intro, &temp_commit)?;
             edit_description(&text_editor, &template)?
         };
         commit_builder.set_description(description);
