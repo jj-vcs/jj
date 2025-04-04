@@ -1386,10 +1386,48 @@ fn test_git_push_changes_with_name_untracked_or_forgotten(subprocess: bool) {
     insta::assert_snapshot!(output, @"");
     }
 
+    // Make sure push still errors if we try to push a bookmark with the same name
+    // to a different location.
+    let output = work_dir.run_jj(["git", "push", "--named", "b1=@-"]);
+    if subprocess {
+        insta::assert_snapshot!(output, @r"
+        ------- stderr -------
+        Changes to push to origin:
+          Add bookmark b1 to 57ec90f54125
+        Error: Failed to push some bookmarks
+        Hint: The following references unexpectedly moved on the remote:
+          refs/heads/b1 (reason: stale info)
+        Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
+        [EOF]
+        [exit status: 1]
+        ");
+    } else {
+        // For libgit2, the error is the same but missing the "reason: stale info"
+        insta::assert_snapshot!(output, @r"
+        ------- stderr -------
+        Changes to push to origin:
+          Add bookmark b1 to 57ec90f54125
+        Error: Failed to push some bookmarks
+        Hint: The following references unexpectedly moved on the remote:
+          refs/heads/b1
+        Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
+        [EOF]
+        [exit status: 1]
+        ");
+    }
+
+    // The bookmark is still forgotten
+    let output = work_dir.run_jj(["bookmark", "list", "--all", "b1"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @"");
+    }
+    // This command behaves differently. In libgit2 flow, a conflict between a
+    // revision and its descendant is resolved in favor of the latter, like in `jj
+    // git fetch`. In subprocess flow, this logic is not implemented. As far as `jj
+    // git push --named` goes, the stricter behavior of the subprocess flow is
+    // probably slightly better.
     let output = work_dir.run_jj(["git", "push", "--named", "b1=@+"]);
     if subprocess {
-        // Make sure push still errors if we try to push a bookmark with the same name
-        // to a different location.
         insta::assert_snapshot!(output, @r"
         ------- stderr -------
         Changes to push to origin:
@@ -1401,48 +1439,24 @@ fn test_git_push_changes_with_name_untracked_or_forgotten(subprocess: bool) {
         [EOF]
         [exit status: 1]
         ");
-    } else {
-        // `git2` does something else.
-        insta::assert_snapshot!(output, @r"
-        ------- stderr -------
-        Changes to push to origin:
-          Add bookmark b1 to 08fcdf4055ae
-        [EOF]
-        ");
-    }
-
-    let output = work_dir.run_jj(["bookmark", "list", "--all", "b1"]);
-    if subprocess {
-        // The bookmark is still forgotten
-        insta::assert_snapshot!(output, @"");
-    } else {
-        // `git2` continues to do something else.
-        insta::assert_snapshot!(output, @r"
-        b1: znkkpsqq 08fcdf40 (empty) child
-          @origin: znkkpsqq 08fcdf40 (empty) child
-        [EOF]
-        ");
-    }
-    let output = work_dir.run_jj(["git", "push", "--named", "b1=@"]);
-    if subprocess {
         // In this case, pushing the bookmark to the same location where it already is
         // succeeds. TODO: This seems pretty safe, but perhaps it should still show
         // an error or some sort of warning?
+        let output = work_dir.run_jj(["git", "push", "--named", "b1=@"]);
+        insta::allow_duplicates! {
         insta::assert_snapshot!(output, @r"
         ------- stderr -------
         Changes to push to origin:
           Add bookmark b1 to ec992a1a9381
         [EOF]
         ");
+        }
     } else {
-        // `git2` remains an independent free‐thinker operating
-        // entirely on its own radically unique paradigm.
         insta::assert_snapshot!(output, @r"
         ------- stderr -------
-        Error: Bookmark already exists: b1
-        Hint: Use 'jj bookmark move' to move it, and 'jj git push -b b1 [--allow-new]' to push it
+        Changes to push to origin:
+          Add bookmark b1 to 08fcdf4055ae
         [EOF]
-        [exit status: 1]
         ");
     }
 }
