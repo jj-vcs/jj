@@ -90,7 +90,7 @@ pub trait FileFixer {
     /// TODO: Better error handling so we can tell the user what went wrong with
     /// each failed input.
     fn fix_files<'a>(
-        &self,
+        &mut self,
         store: &Store,
         files_to_fix: &'a HashSet<FileToFix>,
     ) -> Result<HashMap<&'a FileToFix, FileId>, FixError>;
@@ -135,7 +135,7 @@ where
 {
     /// Applies `fix_fn()` to the inputs and stores the resulting file content.
     fn fix_files<'a>(
-        &self,
+        &mut self,
         store: &Store,
         files_to_fix: &'a HashSet<FileToFix>,
     ) -> Result<HashMap<&'a FileToFix, FileId>, FixError> {
@@ -178,7 +178,7 @@ pub fn fix_files(
     matcher: &dyn Matcher,
     include_unchanged_files: bool,
     repo_mut: &mut MutableRepo,
-    file_fixer: &impl FileFixer,
+    file_fixer: &mut impl FileFixer,
 ) -> Result<FixSummary, FixError> {
     let mut summary = FixSummary::default();
 

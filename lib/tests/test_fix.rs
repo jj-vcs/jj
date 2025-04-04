@@ -50,7 +50,7 @@ impl TestFileFixer {
 // leaves files unchanged.
 impl FileFixer for TestFileFixer {
     fn fix_files<'a>(
-        &self,
+        &mut self,
         store: &Store,
         files_to_fix: &'a HashSet<FileToFix>,
     ) -> Result<HashMap<&'a FileToFix, FileId>, FixError> {
@@ -131,7 +131,7 @@ fn test_fix_one_file() {
     );
 
     let root_commits = vec![commit_a.clone()];
-    let file_fixer = TestFileFixer::new();
+    let mut file_fixer = TestFileFixer::new();
     let include_unchanged_files = false;
 
     let summary = fix_files(
@@ -139,7 +139,7 @@ fn test_fix_one_file() {
         &EverythingMatcher,
         include_unchanged_files,
         tx.repo_mut(),
-        &file_fixer,
+        &mut file_fixer,
     )
     .unwrap();
 
@@ -171,7 +171,7 @@ fn test_fixer_does_not_change_content() {
     );
 
     let root_commits = vec![commit_a.clone()];
-    let file_fixer = TestFileFixer::new();
+    let mut file_fixer = TestFileFixer::new();
     let include_unchanged_files = false;
 
     let summary = fix_files(
@@ -179,7 +179,7 @@ fn test_fixer_does_not_change_content() {
         &EverythingMatcher,
         include_unchanged_files,
         tx.repo_mut(),
-        &file_fixer,
+        &mut file_fixer,
     )
     .unwrap();
 
@@ -202,7 +202,7 @@ fn test_empty_commit() {
     );
 
     let root_commits = vec![commit_a.clone()];
-    let file_fixer = TestFileFixer::new();
+    let mut file_fixer = TestFileFixer::new();
     let include_unchanged_files = false;
 
     let summary = fix_files(
@@ -210,7 +210,7 @@ fn test_empty_commit() {
         &EverythingMatcher,
         include_unchanged_files,
         tx.repo_mut(),
-        &file_fixer,
+        &mut file_fixer,
     )
     .unwrap();
 
@@ -234,7 +234,7 @@ fn test_fixer_fails() {
     );
 
     let root_commits = vec![commit_a.clone()];
-    let file_fixer = TestFileFixer::new();
+    let mut file_fixer = TestFileFixer::new();
     let include_unchanged_files = false;
 
     let result = fix_files(
@@ -242,7 +242,7 @@ fn test_fixer_fails() {
         &EverythingMatcher,
         include_unchanged_files,
         tx.repo_mut(),
-        &file_fixer,
+        &mut file_fixer,
     );
 
     let error = result.err().unwrap();
@@ -267,7 +267,7 @@ fn test_unchanged_file_is_not_fixed() {
     let commit_b = create_commit(&mut tx, vec![commit_a.clone()], tree2.id());
 
     let root_commits = vec![commit_b.clone()];
-    let file_fixer = TestFileFixer::new();
+    let mut file_fixer = TestFileFixer::new();
     let include_unchanged_files = false;
 
     let summary = fix_files(
@@ -275,7 +275,7 @@ fn test_unchanged_file_is_not_fixed() {
         &EverythingMatcher,
         include_unchanged_files,
         tx.repo_mut(),
-        &file_fixer,
+        &mut file_fixer,
     )
     .unwrap();
 
@@ -302,14 +302,14 @@ fn test_unchanged_file_is_fixed() {
     let commit_b = create_commit(&mut tx, vec![commit_a.clone()], tree2.id());
 
     let root_commits = vec![commit_b.clone()];
-    let file_fixer = TestFileFixer::new();
+    let mut file_fixer = TestFileFixer::new();
 
     let summary = fix_files(
         root_commits,
         &EverythingMatcher,
         true,
         tx.repo_mut(),
-        &file_fixer,
+        &mut file_fixer,
     )
     .unwrap();
 
@@ -346,14 +346,14 @@ fn test_already_fixed_descendant() {
     let commit_b = create_commit(&mut tx, vec![commit_a.clone()], tree2.id());
 
     let root_commits = vec![commit_a.clone()];
-    let file_fixer = TestFileFixer::new();
+    let mut file_fixer = TestFileFixer::new();
 
     let summary = fix_files(
         root_commits,
         &EverythingMatcher,
         true,
         tx.repo_mut(),
-        &file_fixer,
+        &mut file_fixer,
     )
     .unwrap();
 
@@ -391,14 +391,14 @@ fn test_parallel_fixer_basic() {
 
     let root_commits = vec![commit_a.clone()];
     let include_unchanged_files = false;
-    let parallel_fixer = ParallelFileFixer::new(fix_file);
+    let mut parallel_fixer = ParallelFileFixer::new(fix_file);
 
     let summary = fix_files(
         root_commits,
         &EverythingMatcher,
         include_unchanged_files,
         tx.repo_mut(),
-        &parallel_fixer,
+        &mut parallel_fixer,
     )
     .unwrap();
 
@@ -436,14 +436,14 @@ fn test_parallel_fixer_fixes_files() {
 
     let root_commits = vec![commit_a.clone()];
     let include_unchanged_files = false;
-    let parallel_fixer = ParallelFileFixer::new(fix_file);
+    let mut parallel_fixer = ParallelFileFixer::new(fix_file);
 
     let summary = fix_files(
         root_commits,
         &EverythingMatcher,
         include_unchanged_files,
         tx.repo_mut(),
-        &parallel_fixer,
+        &mut parallel_fixer,
     )
     .unwrap();
 
@@ -488,14 +488,14 @@ fn test_parallel_fixer_does_not_change_content() {
 
     let root_commits = vec![commit_a.clone()];
     let include_unchanged_files = false;
-    let parallel_fixer = ParallelFileFixer::new(fix_file);
+    let mut parallel_fixer = ParallelFileFixer::new(fix_file);
 
     let summary = fix_files(
         root_commits,
         &EverythingMatcher,
         include_unchanged_files,
         tx.repo_mut(),
-        &parallel_fixer,
+        &mut parallel_fixer,
     )
     .unwrap();
 
@@ -531,14 +531,14 @@ fn test_parallel_fixer_no_changes_upon_partial_failure() {
 
     let root_commits = vec![commit_a.clone()];
     let include_unchanged_files = false;
-    let parallel_fixer = ParallelFileFixer::new(fix_file);
+    let mut parallel_fixer = ParallelFileFixer::new(fix_file);
 
     let result = fix_files(
         root_commits,
         &EverythingMatcher,
         include_unchanged_files,
         tx.repo_mut(),
-        &parallel_fixer,
+        &mut parallel_fixer,
     );
     let error = result.err().unwrap();
     assert_eq!(error.to_string(), "Forced failure: boo7");
@@ -576,7 +576,7 @@ fn test_fix_multiple_revisions() {
     let _commit_d = create_commit(&mut tx, vec![commit_a.clone()], tree4.id());
 
     let root_commits = vec![commit_a.clone()];
-    let file_fixer = TestFileFixer::new();
+    let mut file_fixer = TestFileFixer::new();
     let include_unchanged_files = false;
 
     let summary = fix_files(
@@ -584,7 +584,7 @@ fn test_fix_multiple_revisions() {
         &EverythingMatcher,
         include_unchanged_files,
         tx.repo_mut(),
-        &file_fixer,
+        &mut file_fixer,
     )
     .unwrap();
 
