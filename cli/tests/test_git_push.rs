@@ -1309,9 +1309,8 @@ fn test_git_push_changes_with_name_untracked_or_forgotten(subprocess: bool) {
     // Unset immutable_heads so that untracking branches does not move the working
     // copy
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
-    work_dir
-        .run_jj(["describe", "-m", "pushed_to_remote"])
-        .success();
+    work_dir.run_jj(["describe", "-m", "parent"]).success();
+    work_dir.run_jj(["new", "-m", "pushed_to_remote"]).success();
     work_dir.write_file("file", "contents");
     work_dir
         .run_jj(["new", "-m", "child", "--no-edit"])
@@ -1336,8 +1335,9 @@ fn test_git_push_changes_with_name_untracked_or_forgotten(subprocess: bool) {
         .success();
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
-    ○  c9c child
-    @  10b b1@origin pushed_to_remote
+    ○  08f child
+    @  ec9 b1@origin pushed_to_remote
+    ○  57e parent
     ◆  000
     [EOF]
     ");
@@ -1347,7 +1347,7 @@ fn test_git_push_changes_with_name_untracked_or_forgotten(subprocess: bool) {
         .success();
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
-    b1@origin: yqosqzyt 10b6b209 pushed_to_remote
+    b1@origin: yostqsxw ec992a1a pushed_to_remote
     [EOF]
     ");
     }
@@ -1393,7 +1393,7 @@ fn test_git_push_changes_with_name_untracked_or_forgotten(subprocess: bool) {
         insta::assert_snapshot!(output, @r"
         ------- stderr -------
         Changes to push to origin:
-          Add bookmark b1 to c9c824c88955
+          Add bookmark b1 to 08fcdf4055ae
         Error: Failed to push some bookmarks
         Hint: The following references unexpectedly moved on the remote:
           refs/heads/b1 (reason: stale info)
@@ -1406,7 +1406,7 @@ fn test_git_push_changes_with_name_untracked_or_forgotten(subprocess: bool) {
         insta::assert_snapshot!(output, @r"
         ------- stderr -------
         Changes to push to origin:
-          Add bookmark b1 to c9c824c88955
+          Add bookmark b1 to 08fcdf4055ae
         [EOF]
         ");
     }
@@ -1418,8 +1418,8 @@ fn test_git_push_changes_with_name_untracked_or_forgotten(subprocess: bool) {
     } else {
         // `git2` continues to do something else.
         insta::assert_snapshot!(output, @r"
-        b1: yostqsxw c9c824c8 (empty) child
-          @origin: yostqsxw c9c824c8 (empty) child
+        b1: znkkpsqq 08fcdf40 (empty) child
+          @origin: znkkpsqq 08fcdf40 (empty) child
         [EOF]
         ");
     }
@@ -1431,7 +1431,7 @@ fn test_git_push_changes_with_name_untracked_or_forgotten(subprocess: bool) {
         insta::assert_snapshot!(output, @r"
         ------- stderr -------
         Changes to push to origin:
-          Add bookmark b1 to 10b6b209c4a3
+          Add bookmark b1 to ec992a1a9381
         [EOF]
         ");
     } else {
