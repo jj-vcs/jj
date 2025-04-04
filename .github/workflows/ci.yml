@@ -294,6 +294,29 @@ jobs:
         with:
           sarif_file: results.sarif
           category: zizmor
+  
+  # Count the number of dependencies in Cargo.lock and bail at a certain limit.
+  # This is extremely approximate because the Cargo.lock file contains
+  # dependencies for all features and platforms, but it helps us keep an eye on
+  # things.
+  check-cargo-lock-bloat:
+    name: check (Cargo.lock bloat)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Check total dependency count in Cargo.lock
+        run: |
+          total_deps=$(grep -c '^\[\[package\]\]' Cargo.lock)
+          if [ "$total_deps" -gt "${TOTAL_DEP_LIMIT}" ]; then
+            ./.github/scripts/dragon-bureaucrat \
+              "Cargo.lock has too many dependencies ($total_deps > ${TOTAL_DEP_LIMIT}). The Dragon banishes thee!"
+          else
+            echo "Cargo.lock is within the allowed limit."
+          fi
+        env:
+          TOTAL_DEP_LIMIT: 500
 
   # Block the merge if required checks fail, but only in the merge
   # queue. See also `required-checks-hack.yml`.
