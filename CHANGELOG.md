@@ -8,13 +8,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Security fixes
-
-* Fixed SHA-1 collision attacks not being detected.
-  ([GHSA-794x-2rpg-rfgr](https://github.com/jj-vcs/jj/security/advisories/GHSA-794x-2rpg-rfgr))
-
-### Release highlights
-
 ### Breaking changes
 
 ### Deprecations
@@ -22,6 +15,31 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### New features
 
 ### Fixed bugs
+
+## [0.28.1] - 2025-04-04
+
+### Security fixes
+
+* Fixed SHA-1 collision attacks not being detected.
+  ([GHSA-794x-2rpg-rfgr](https://github.com/jj-vcs/jj/security/advisories/GHSA-794x-2rpg-rfgr))
+
+### Fixed bugs
+
+* Resolved some potential build issues for packagers.
+  [#6232](https://github.com/jj-vcs/jj/pull/6232)
+
+* Fix a bug with `:ours` and `:theirs` merge tools involving conflicted trees
+  with more than two sides. [#6227](https://github.com/jj-vcs/jj/pull/6227)
+
+### Contributors
+
+Thanks to the people who made this release happen!
+
+* Emily (@emilazy)
+* Ilya Grigoriev (@ilyagr)
+* Nicole Patricia Mazzuca (@strega-nil)
+* Scott Taylor (@scott2000)
+* Yuya Nishihara (@yuja)
 
 ## [0.28.0] - 2025-04-02
 
