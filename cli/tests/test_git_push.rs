@@ -1101,8 +1101,8 @@ fn test_git_push_changes_with_name(subprocess: bool) {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
-    if subprocess {
-        test_env.add_config("git.subprocess = true");
+    if !subprocess {
+        test_env.add_config("git.subprocess = false");
     }
     work_dir.run_jj(["describe", "-m", "foo"]).success();
     work_dir.write_file("file", "contents");
@@ -1240,8 +1240,8 @@ fn test_git_push_changes_with_name_deleted_tracked(subprocess: bool) {
     // copy
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
     let work_dir = test_env.work_dir("local");
-    if subprocess {
-        test_env.add_config("git.subprocess = true");
+    if !subprocess {
+        test_env.add_config("git.subprocess = false");
     }
     // Create a second empty remote `another_remote`
     test_env
@@ -1354,8 +1354,8 @@ fn test_git_push_changes_with_name_untracked_or_forgotten(subprocess: bool) {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
-    if subprocess {
-        test_env.add_config("git.subprocess = true");
+    if !subprocess {
+        test_env.add_config("git.subprocess = false");
     }
     // Unset immutable_heads so that untracking branches does not move the working
     // copy
@@ -1437,39 +1437,64 @@ fn test_git_push_changes_with_name_untracked_or_forgotten(subprocess: bool) {
     insta::assert_snapshot!(output, @"");
     }
 
-    // Make sure push still errors if we try to push a bookmark with the same name
-    // to a different location.
     let output = work_dir.run_jj(["git", "push", "--named", "b1=@+"]);
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Changes to push to origin:
-      Add bookmark b1 to c9c824c88955
-    Error: Failed to push some bookmarks
-    Hint: The following references unexpectedly moved on the remote:
-      refs/heads/b1 (reason: stale info)
-    Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
-    [EOF]
-    [exit status: 1]
-    ");
+    if subprocess {
+        // Make sure push still errors if we try to push a bookmark with the same name
+        // to a different location.
+        insta::assert_snapshot!(output, @r"
+        ------- stderr -------
+        Changes to push to origin:
+          Add bookmark b1 to c9c824c88955
+        Error: Failed to push some bookmarks
+        Hint: The following references unexpectedly moved on the remote:
+          refs/heads/b1 (reason: stale info)
+        Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
+        [EOF]
+        [exit status: 1]
+        ");
+    } else {
+        // `git2` does something else.
+        insta::assert_snapshot!(output, @r"
+        ------- stderr -------
+        Changes to push to origin:
+          Add bookmark b1 to c9c824c88955
+        [EOF]
+        ");
     }
 
-    // The bookmark is still forgotten
     let output = work_dir.run_jj(["bookmark", "list", "--all", "b1"]);
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(output, @"");
+    if subprocess {
+        // The bookmark is still forgotten
+        insta::assert_snapshot!(output, @"");
+    } else {
+        // `git2` continues to do something else.
+        insta::assert_snapshot!(output, @r"
+        b1: yostqsxw c9c824c8 (empty) child
+          @origin: yostqsxw c9c824c8 (empty) child
+        [EOF]
+        ");
     }
-    // In this case, pushing the bookmark to the same location where it already is
-    // succeeds. TODO: This seems pretty safe, but perhaps it should still show
-    // an error or some sort of warning?
     let output = work_dir.run_jj(["git", "push", "--named", "b1=@"]);
-    insta::allow_duplicates! {
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Changes to push to origin:
-      Add bookmark b1 to 10b6b209c4a3
-    [EOF]
-    ");
+    if subprocess {
+        // In this case, pushing the bookmark to the same location where it already is
+        // succeeds. TODO: This seems pretty safe, but perhaps it should still show
+        // an error or some sort of warning?
+        insta::assert_snapshot!(output, @r"
+        ------- stderr -------
+        Changes to push to origin:
+          Add bookmark b1 to 10b6b209c4a3
+        [EOF]
+        ");
+    } else {
+        // `git2` remains an independent free‐thinker operating
+        // entirely on its own radically unique paradigm.
+        insta::assert_snapshot!(output, @r"
+        ------- stderr -------
+        Error: Bookmark already exists: b1
+        Hint: Use 'jj bookmark move' to move it, and 'jj git push -b b1 [--allow-new]' to push it
+        [EOF]
+        [exit status: 1]
+        ");
     }
 }
 
