@@ -108,41 +108,41 @@ No methods are defined. Can be constructed with `false` or `true` literal.
 
 This type cannot be printed. The following methods are defined.
 
-* `description() -> String`
-* `change_id() -> ChangeId`
-* `commit_id() -> CommitId`
-* `parents() -> List<Commit>`
-* `author() -> Signature`
-* `committer() -> Signature`
-* `signature() -> Option<CryptographicSignature>`
-* `mine() -> Boolean`: Commits where the author's email matches the email of the current
-  user.
-* `working_copies() -> String`: For multi-workspace repository, indicate
+* `.description() -> String`
+* `.change_id() -> ChangeId`
+* `.commit_id() -> CommitId`
+* `.parents() -> List<Commit>`
+* `.author() -> Signature`
+* `.committer() -> Signature`
+* `.signature() -> Option<CryptographicSignature>`
+* `.mine() -> Boolean`: Commits where the author's email matches the email of
+  the current user.
+* `.working_copies() -> String`: For multi-workspace repository, indicate
   working-copy commit as `<workspace name>@`.
-* `current_working_copy() -> Boolean`: True for the working-copy commit of the
+* `.current_working_copy() -> Boolean`: True for the working-copy commit of the
   current workspace.
-* `bookmarks() -> List<CommitRef>`: Local and remote bookmarks pointing to the
+* `.bookmarks() -> List<CommitRef>`: Local and remote bookmarks pointing to the
   commit. A tracking remote bookmark will be included only if its target is
   different from the local one.
-* `local_bookmarks() -> List<CommitRef>`: All local bookmarks pointing to the
+* `.local_bookmarks() -> List<CommitRef>`: All local bookmarks pointing to the
   commit.
-* `remote_bookmarks() -> List<CommitRef>`: All remote bookmarks pointing to the
+* `.remote_bookmarks() -> List<CommitRef>`: All remote bookmarks pointing to the
   commit.
-* `tags() -> List<CommitRef>`
-* `git_refs() -> List<CommitRef>`
-* `git_head() -> Boolean`: True for the Git `HEAD` commit.
-* `divergent() -> Boolean`: True if the commit's change id corresponds to multiple
+* `.tags() -> List<CommitRef>`
+* `.git_refs() -> List<CommitRef>`
+* `.git_head() -> Boolean`: True for the Git `HEAD` commit.
+* `.divergent() -> Boolean`: True if the commit's change id corresponds to multiple
   visible commits.
-* `hidden() -> Boolean`: True if the commit is not visible (a.k.a. abandoned).
-* `immutable() -> Boolean`: True if the commit is included in [the set of
+* `.hidden() -> Boolean`: True if the commit is not visible (a.k.a. abandoned).
+* `.immutable() -> Boolean`: True if the commit is included in [the set of
   immutable commits](config.md#set-of-immutable-commits).
-* `contained_in(revset: String) -> Boolean`: True if the commit is included in [the provided revset](revsets.md).
-* `conflict() -> Boolean`: True if the commit contains merge conflicts.
-* `empty() -> Boolean`: True if the commit modifies no files.
-* `diff([files: String]) -> TreeDiff`: Changes from the parents within [the
+* `.contained_in(revset: String) -> Boolean`: True if the commit is included in [the provided revset](revsets.md).
+* `.conflict() -> Boolean`: True if the commit contains merge conflicts.
+* `.empty() -> Boolean`: True if the commit modifies no files.
+* `.diff([files: String]) -> TreeDiff`: Changes from the parents within [the
   `files` expression](filesets.md). All files are compared by default, but it is
   likely to change in future version to respect the command line path arguments.
-* `root() -> Boolean`: True if the commit is the root commit.
+* `.root() -> Boolean`: True if the commit is the root commit.
 
 ### CommitId / ChangeId type
 
@@ -257,14 +257,14 @@ The following methods are defined. See also the `List` type.
 
 This type cannot be printed. The following methods are defined.
 
-* `current_operation() -> Boolean`
-* `description() -> String`
-* `id() -> OperationId`
-* `tags() -> String`
-* `time() -> TimestampRange`
-* `user() -> String`
-* `snapshot() -> Boolean`: True if the operation is a snapshot operation.
-* `root() -> Boolean`: True if the operation is the root operation.
+* `.current_operation() -> Boolean`
+* `.description() -> String`
+* `.id() -> OperationId`
+* `.tags() -> String`
+* `.time() -> TimestampRange`
+* `.user() -> String`
+* `.snapshot() -> Boolean`: True if the operation is a snapshot operation.
+* `.root() -> Boolean`: True if the operation is the root operation.
 
 ### OperationId type
 
