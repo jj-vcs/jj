@@ -1,0 +1,5 @@
+#!/bin/sh
+# This is extremely approximate because the Cargo.lock file contains
+# dependencies for all features and platforms, but it helps us keep an eye on
+# things.
+grep -c '^\[\[package\]\]' Cargo.lock
