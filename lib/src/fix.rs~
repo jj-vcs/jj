@@ -122,6 +122,12 @@ pub struct FixSummary {
     /// The commits that were rewritten. Maps old commit id to new commit id.
     pub rewrites: HashMap<CommitId, CommitId>,
 
+    // TODO:
+    // Information about files which cannot be fixed due to invalid contents.
+    // pub invalid_files: HashMap<CommitId, HashMap<RepoPathBuf, InvalidContentInfo>>,
+    /// Information about files which cannot be fixed due to being too big.
+    pub large_files: HashMap<CommitId, HashSet<RepoPathBuf>>,
+
     /// The number of commits that had files that were passed to the file fixer.
     pub num_checked_commits: i32,
 

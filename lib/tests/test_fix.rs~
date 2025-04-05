@@ -48,6 +48,7 @@ impl TestFileFixer {
 // A file fixer that changes files to uppercase if the file content starts with
 // "fixme", returns an error if the content starts with "error", and otherwise
 // leaves files unchanged.
+// TODO: Test the InvalidContent & FileTooLarge cases.
 impl FileFixer for TestFileFixer {
     fn fix_files<'a>(
         &self,
