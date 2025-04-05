@@ -10,6 +10,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Release highlights
 
+* Experimental support for transferring the change ID to/from Git remotes behind configuration
+  setting `git.write-change-id-header`. If this is enabled, the change ID will be stored in the Git
+  commit itself (in a commit header called `change-id`), which means it will be transferred by
+  regular `git push` etc. This is an evolving feature that currently defaults to "false". This
+  default will likely change in the future as we gain confidence with forge support and user
+  expectations.
+
 ### Breaking changes
 
 ### Deprecations

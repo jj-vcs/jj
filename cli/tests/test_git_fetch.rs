@@ -68,6 +68,12 @@ fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     work_dir.run_jj(["log", "-T", template, "-r", "all()"])
 }
 
+#[must_use]
+fn get_change_log_output(work_dir: &TestWorkDir) -> CommandOutput {
+    let template = r#"'"' ++ change_id.short() ++ '" "' ++ commit_id.short() ++ '" "' ++ description.first_line() ++ '" ' ++ bookmarks"#;
+    work_dir.run_jj(["log", "-T", template, "-r", "all()"])
+}
+
 fn clone_git_remote_into(
     test_env: &TestEnvironment,
     upstream: &str,
@@ -1138,6 +1144,115 @@ fn test_git_fetch_some_of_many_bookmarks(subprocess: bool) {
     [EOF]
     ");
     }
+}
+
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
+#[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_git_fetch_change_id_are_preserved(subprocess: bool) {
+    let test_env = TestEnvironment::default();
+    if !subprocess {
+        test_env.add_config("git.subprocess = false");
+    }
+    test_env.add_config("git.auto-local-bookmark = true");
+    test_env.add_config("git.write-change-id-header = true");
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let source_dir = test_env.work_dir("source");
+    let target_dir = test_env.work_dir("target");
+    git::init(source_dir.root());
+
+    source_dir
+        .run_jj(["git", "init", "--git-repo", "."])
+        .success();
+    create_commit(&source_dir, "trunk1", &[]);
+    create_commit(&source_dir, "a1", &["trunk1"]);
+    create_commit(&source_dir, "a2", &["trunk1"]);
+    create_commit(&source_dir, "b", &["trunk1"]);
+    insta::assert_snapshot!(get_change_log_output(&source_dir) , @r#"
+    @  "yostqsxwqrlt" "bc83465a3090" "b" b
+    │ ○  "yqosqzytrlsw" "d4d535f1d579" "a2" a2
+    ├─╯
+    │ ○  "mzvwutvlkqwt" "c8303692b8e2" "a1" a1
+    ├─╯
+    ○  "kkmpptxzrspx" "382881770501" "trunk1" trunk1
+    ◆  "zzzzzzzzzzzz" "000000000000" ""
+    [EOF]
+    "#);
+
+    let output = test_env.run_jj_in(".", ["git", "clone", "source", "target"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/target"
+    bookmark: a1@origin     [new] tracked
+    bookmark: a2@origin     [new] tracked
+    bookmark: b@origin      [new] tracked
+    bookmark: trunk1@origin [new] tracked
+    Setting the revset alias `trunk()` to `trunk1@origin`
+    Working copy  (@) now at: msksykpx 1f81030b (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz 38288177 trunk1 | trunk1
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    "#);
+    insta::assert_snapshot!(get_change_log_output(&target_dir), @r#"
+    @  "msksykpxotkr" "1f81030ba2bc" ""
+    │ ○  "yostqsxwqrlt" "bc83465a3090" "b" b
+    ├─╯
+    │ ○  "yqosqzytrlsw" "d4d535f1d579" "a2" a2
+    ├─╯
+    │ ○  "mzvwutvlkqwt" "c8303692b8e2" "a1" a1
+    ├─╯
+    ◆  "kkmpptxzrspx" "382881770501" "trunk1" trunk1
+    ◆  "zzzzzzzzzzzz" "000000000000" ""
+    [EOF]
+    "#);
+
+    let _ = target_dir.run_jj(["new", "-r", "c8303692b8e2", "-m", "target dir only change"]);
+    insta::assert_snapshot!(get_change_log_output(&target_dir), @r#"
+    @  "lylxulplsnyw" "bce23f1dd152" "target dir only change"
+    ○  "mzvwutvlkqwt" "c8303692b8e2" "a1" a1
+    │ ○  "yostqsxwqrlt" "bc83465a3090" "b" b
+    ├─╯
+    │ ○  "yqosqzytrlsw" "d4d535f1d579" "a2" a2
+    ├─╯
+    ◆  "kkmpptxzrspx" "382881770501" "trunk1" trunk1
+    ◆  "zzzzzzzzzzzz" "000000000000" ""
+    [EOF]
+    "#);
+
+    let _ = source_dir.run_jj(["rebase", "-r", "mzvwutvl", "-d", "yostqsxw"]);
+    let _ = source_dir.run_jj(["bookmark", "set", "trunk1", "-r", "mzvwutvl"]);
+    insta::assert_snapshot!(get_change_log_output(&source_dir), @r#"
+    ○  "mzvwutvlkqwt" "113171b22392" "a1" a1 trunk1
+    @  "yostqsxwqrlt" "bc83465a3090" "b" b
+    │ ○  "yqosqzytrlsw" "d4d535f1d579" "a2" a2
+    ├─╯
+    ○  "kkmpptxzrspx" "382881770501" "trunk1"
+    ◆  "zzzzzzzzzzzz" "000000000000" ""
+    [EOF]
+    "#);
+
+    let output = target_dir.run_jj(["git", "fetch"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    bookmark: a1@origin     [updated] tracked
+    bookmark: trunk1@origin [updated] tracked
+    Abandoned 1 commits that are no longer reachable.
+    Rebased 1 descendant commits
+    Working copy  (@) now at: lylxulpl 09fefbf9 (empty) target dir only change
+    Parent commit (@-)      : kkmpptxz 38288177 trunk1
+    Added 0 files, modified 0 files, removed 1 files
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_change_log_output(&target_dir), @r#"
+    @  "lylxulplsnyw" "09fefbf9562e" "target dir only change"
+    │ ◆  "mzvwutvlkqwt" "113171b22392" "a1" a1 trunk1
+    │ ◆  "yostqsxwqrlt" "bc83465a3090" "b" b
+    ├─╯
+    │ ○  "yqosqzytrlsw" "d4d535f1d579" "a2" a2
+    ├─╯
+    ◆  "kkmpptxzrspx" "382881770501" "trunk1"
+    ◆  "zzzzzzzzzzzz" "000000000000" ""
+    [EOF]
+    "#);
 }
 
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
