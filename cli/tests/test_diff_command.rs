@@ -14,6 +14,7 @@
 
 use indoc::indoc;
 use itertools::Itertools as _;
+use regex::Regex;
 
 use crate::common::create_commit;
 use crate::common::fake_diff_editor_path;
@@ -2271,6 +2272,59 @@ fn test_diff_external_tool() {
     1: Error executing ':builtin' (run with --debug to see the exact invocation)
     [EOF]
     [exit status: 1]
+    ");
+}
+
+#[test]
+fn test_diff_do_chdir() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("file1", "file1\n");
+
+    assert_eq!(
+        work_dir
+            .run_jj([
+                "diff",
+                "--tool=pwd",
+                "--config=merge-tools.pwd.diff-args=[]"
+            ])
+            .to_string()
+            .lines()
+            .next()
+            .unwrap(),
+        "$TEST_ENV/repo" // I don't know why pwd returns this, but it does
+    );
+    assert!(
+        work_dir
+            .run_jj([
+                "diff",
+                "--tool=pwd",
+                "--config=merge-tools.pwd.diff-do-chdir=true",
+                "--config=merge-tools.pwd.diff-args=[]"
+            ])
+            .to_string()
+            .lines()
+            .next()
+            .unwrap()
+            != "$TEST_ENV/repo"
+    );
+
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--tool=echo",
+        "--config=merge-tools.echo.diff-do-chdir=true"]), @r"
+    left right
+    [EOF]
+    ");
+    let output = work_dir.run_jj([
+        "diff",
+        "--tool=echo",
+        "--config=merge-tools.echo.diff-args=[\"==$left--\", \"==$right--\"]",
+    ]);
+    let regex = Regex::new(r"==.+?/(left|right)--").unwrap();
+    insta::assert_snapshot!(output.normalize_stdout_with(
+        |text| regex.replace_all(&text, "TMPDIR/$1").into_owned()), @r"
+    TMPDIR/left TMPDIR/right
+    [EOF]
     ");
 }
 
