@@ -27,14 +27,12 @@ use std::fs::OpenOptions;
 use std::io;
 use std::io::Read;
 use std::io::Write as _;
-use std::iter;
 use std::mem;
 use std::ops::Range;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt as _;
 use std::path::Path;
 use std::path::PathBuf;
-use std::slice;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
@@ -103,7 +101,6 @@ use crate::repo_path::RepoPathComponent;
 use crate::store::Store;
 use crate::tree::Tree;
 use crate::working_copy::CheckoutError;
-use crate::working_copy::CheckoutOptions;
 use crate::working_copy::CheckoutStats;
 use crate::working_copy::LockedWorkingCopy;
 use crate::working_copy::ResetError;
@@ -114,16 +111,93 @@ use crate::working_copy::SnapshotStats;
 use crate::working_copy::UntrackedReason;
 use crate::working_copy::WorkingCopy;
 use crate::working_copy::WorkingCopyFactory;
+use crate::working_copy::WorkingCopyOptions;
 use crate::working_copy::WorkingCopyStateError;
 
-#[cfg(unix)]
-type FileExecutableFlag = bool;
-#[cfg(windows)]
-type FileExecutableFlag = ();
+/// How to handle file executable bit changes when managing file metadata.
+///
+/// Executable bits are always ignored on Windows, however on Unix they are
+/// respected by default, but may be ignored if we find that the filesystem
+/// doesn't support executable bits or by user configuration.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize)]
+pub enum ExecConfig {
+    #[cfg(unix)]
+    Respect, // We only respect executable bit changes through files on Unix.
+    Ignore,
+}
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[cfg_attr(windows, expect(unused_variables))]
+impl ExecConfig {
+    /// Prepare a default executable configuration state for the given path.
+    ///
+    /// On Windows we always ignore executable bit changes. On Unix, we check
+    /// whether executable bits are supported in the working copy to determine
+    /// respect/ignorance, but we default to respect.
+    pub fn default_for_path(wc_path: &Path) -> Self {
+        #[cfg(unix)]
+        let exec_config = match crate::file_util::check_executable_bit_support(wc_path) {
+            Ok(false) => ExecConfig::Ignore,
+            Ok(true) => ExecConfig::Respect,
+            Err(_) => ExecConfig::Respect,
+        };
+        #[cfg(windows)]
+        let exec_config = ExecConfig::Ignore;
+        exec_config
+    }
+
+    /// The default executable flag given this configuration.
+    pub fn default_flag(self) -> ExecFlag {
+        match self {
+            #[cfg(unix)]
+            ExecConfig::Respect => ExecFlag::Exec(false),
+            ExecConfig::Ignore => ExecFlag::NotDefined,
+        }
+    }
+
+    /// Resolve an executable bit into a flag, potentially ignoring it.
+    pub fn flag(self, executable: bool) -> ExecFlag {
+        match self {
+            #[cfg(unix)]
+            ExecConfig::Respect => ExecFlag::Exec(executable),
+            ExecConfig::Ignore => ExecFlag::NotDefined,
+        }
+    }
+}
+
+/// The executable bit state for a normal file.
+///
+/// On Windows there is no executable bit, so this will always be `NotDefined`.
+/// On Unix it will usually be `Exec(true|false)`, but may be `NotDefined` due
+/// to user configuration or if we determine that the current filesystem doesn't
+/// respect the executable bit.
+#[derive(Debug, Clone, Copy)]
+pub enum ExecFlag {
+    #[cfg(unix)]
+    Exec(bool),
+    NotDefined,
+}
+// Note: cannot derive `PartialEq` since `a == b == c` does not imply `a == c`.
+// E.g. Exec(true) == NotDefined == Exec(false) but Exec(true) != Exec(false)
+
+impl ExecFlag {
+    /// Convert a flag into the executable bit to write with a closure for a
+    /// fallback value if undefined.
+    pub fn get_or_else_fallback(
+        self,
+        exec_config: ExecConfig,
+        fallback: impl Fn() -> Option<bool>,
+    ) -> bool {
+        match (exec_config, self) {
+            #[cfg(unix)]
+            (ExecConfig::Respect, ExecFlag::Exec(executable)) => executable,
+            (_, _) => fallback().unwrap_or(false),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum FileType {
-    Normal { executable: FileExecutableFlag },
+    Normal { exec_flag: ExecFlag },
     Symlink,
     GitSubmodule,
 }
@@ -133,7 +207,7 @@ pub struct MaterializedConflictData {
     pub conflict_marker_len: u32,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, Clone)]
 pub struct FileState {
     pub file_type: FileType,
     pub mtime: MillisSinceEpoch,
@@ -145,23 +219,29 @@ pub struct FileState {
 }
 
 impl FileState {
-    /// Check whether a file state appears clean compared to a previous file
-    /// state, ignoring materialized conflict data.
-    pub fn is_clean(&self, old_file_state: &Self) -> bool {
-        self.file_type == old_file_state.file_type
-            && self.mtime == old_file_state.mtime
-            && self.size == old_file_state.size
+    /// Whether this file state appears clean compared to a previous file state.
+    /// Ignores materialized conflict data, but not executable bits.
+    pub fn matches(&self, other: &Self) -> bool {
+        use FileType as FT;
+        let file_types_match = match (&self.file_type, &other.file_type) {
+            (FT::GitSubmodule, FT::GitSubmodule) | (FT::Symlink, FT::Symlink) => true,
+            (FT::Normal { exec_flag: lhs }, FT::Normal { exec_flag: rhs }) => match (lhs, rhs) {
+                #[cfg(unix)]
+                (ExecFlag::Exec(lhs), ExecFlag::Exec(rhs)) => lhs == rhs,
+                (_, _) => true, // Either is `NotDefined`
+            },
+            (_, _) => false,
+        };
+        file_types_match && self.mtime == other.mtime && self.size == other.size
     }
 
     /// Indicates that a file exists in the tree but that it needs to be
     /// re-stat'ed on the next snapshot.
-    fn placeholder() -> Self {
-        #[cfg(unix)]
-        let executable = false;
-        #[cfg(windows)]
-        let executable = ();
+    fn placeholder(exec_config: ExecConfig) -> Self {
         FileState {
-            file_type: FileType::Normal { executable },
+            file_type: FileType::Normal {
+                exec_flag: exec_config.default_flag(),
+            },
             mtime: MillisSinceEpoch(0),
             size: 0,
             materialized_conflict_data: None,
@@ -169,18 +249,13 @@ impl FileState {
     }
 
     fn for_file(
-        executable: bool,
+        exec_flag: ExecFlag,
         size: u64,
         metadata: &Metadata,
         materialized_conflict_data: Option<MaterializedConflictData>,
     ) -> Self {
-        #[cfg(windows)]
-        let executable = {
-            // Windows doesn't support executable bit.
-            let _ = executable;
-        };
         FileState {
-            file_type: FileType::Normal { executable },
+            file_type: FileType::Normal { exec_flag },
             mtime: mtime_from_metadata(metadata),
             size,
             materialized_conflict_data,
@@ -277,8 +352,8 @@ impl FileStatesMap {
     }
 
     /// Returns read-only map containing all file states.
-    fn all(&self) -> FileStates<'_> {
-        FileStates::from_sorted(&self.data)
+    fn all(&self, exec_config: ExecConfig) -> FileStates<'_> {
+        FileStates::from_sorted(&self.data, exec_config)
     }
 }
 
@@ -286,25 +361,29 @@ impl FileStatesMap {
 #[derive(Clone, Copy, Debug)]
 pub struct FileStates<'a> {
     data: &'a [crate::protos::working_copy::FileStateEntry],
+    exec_config: ExecConfig,
 }
 
 impl<'a> FileStates<'a> {
-    fn from_sorted(data: &'a [crate::protos::working_copy::FileStateEntry]) -> Self {
+    fn from_sorted(
+        data: &'a [crate::protos::working_copy::FileStateEntry],
+        exec_config: ExecConfig,
+    ) -> Self {
         debug_assert!(is_file_state_entries_proto_unique_and_sorted(data));
-        FileStates { data }
+        FileStates { data, exec_config }
     }
 
     /// Returns file states under the given directory path.
     pub fn prefixed(&self, base: &RepoPath) -> Self {
         let range = self.prefixed_range(base);
-        Self::from_sorted(&self.data[range])
+        Self::from_sorted(&self.data[range], self.exec_config)
     }
 
     /// Faster version of `prefixed("<dir>/<base>")`. Requires that all entries
     /// share the same prefix `dir`.
     fn prefixed_at(&self, dir: &RepoPath, base: &RepoPathComponent) -> Self {
         let range = self.prefixed_range_at(dir, base);
-        Self::from_sorted(&self.data[range])
+        Self::from_sorted(&self.data[range], self.exec_config)
     }
 
     /// Returns true if this contains no entries.
@@ -320,7 +399,7 @@ impl<'a> FileStates<'a> {
     /// Returns file state for the given `path`.
     pub fn get(&self, path: &RepoPath) -> Option<FileState> {
         let pos = self.exact_position(path)?;
-        let (_, state) = file_state_entry_from_proto(&self.data[pos]);
+        let (_, state) = file_state_entry_from_proto(&self.data[pos], self.exec_config);
         Some(state)
     }
 
@@ -328,7 +407,7 @@ impl<'a> FileStates<'a> {
     /// the same prefix `dir`.
     fn get_at(&self, dir: &RepoPath, name: &RepoPathComponent) -> Option<FileState> {
         let pos = self.exact_position_at(dir, name)?;
-        let (_, state) = file_state_entry_from_proto(&self.data[pos]);
+        let (_, state) = file_state_entry_from_proto(&self.data[pos], self.exec_config);
         Some(state)
     }
 
@@ -381,8 +460,10 @@ impl<'a> FileStates<'a> {
     }
 
     /// Iterates file state entries sorted by path.
-    pub fn iter(&self) -> FileStatesIter<'a> {
-        self.data.iter().map(file_state_entry_from_proto)
+    pub fn iter(&self) -> impl Iterator<Item = (&'_ RepoPath, FileState)> {
+        self.data
+            .iter()
+            .map(move |proto| file_state_entry_from_proto(proto, self.exec_config))
     }
 
     /// Iterates sorted file paths.
@@ -393,51 +474,19 @@ impl<'a> FileStates<'a> {
     }
 }
 
-type FileStatesIter<'a> = iter::Map<
-    slice::Iter<'a, crate::protos::working_copy::FileStateEntry>,
-    fn(&crate::protos::working_copy::FileStateEntry) -> (&RepoPath, FileState),
->;
-
-impl<'a> IntoIterator for FileStates<'a> {
-    type Item = (&'a RepoPath, FileState);
-    type IntoIter = FileStatesIter<'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}
-
-pub struct TreeState {
-    store: Arc<Store>,
-    working_copy_path: PathBuf,
-    state_path: PathBuf,
-    tree_id: MergedTreeId,
-    file_states: FileStatesMap,
-    // Currently only path prefixes
-    sparse_patterns: Vec<RepoPathBuf>,
-    own_mtime: MillisSinceEpoch,
-    symlink_support: bool,
-
-    /// The most recent clock value returned by Watchman. Will only be set if
-    /// the repo is configured to use the Watchman filesystem monitor and
-    /// Watchman has been queried at least once.
-    watchman_clock: Option<crate::protos::working_copy::WatchmanClock>,
-}
-
-fn file_state_from_proto(proto: &crate::protos::working_copy::FileState) -> FileState {
+fn file_state_from_proto(
+    proto: &crate::protos::working_copy::FileState,
+    exec_config: ExecConfig,
+) -> FileState {
     let file_type = match proto.file_type() {
-        crate::protos::working_copy::FileType::Normal => FileType::Normal {
-            executable: FileExecutableFlag::default(),
+        crate::protos::working_copy::FileType::Normal
+        | crate::protos::working_copy::FileType::Conflict => FileType::Normal {
+            exec_flag: exec_config.default_flag(),
         },
-        #[cfg(unix)]
-        crate::protos::working_copy::FileType::Executable => FileType::Normal { executable: true },
-        // can exist in files written by older versions of jj
-        #[cfg(windows)]
-        crate::protos::working_copy::FileType::Executable => FileType::Normal { executable: () },
+        crate::protos::working_copy::FileType::Executable => FileType::Normal {
+            exec_flag: exec_config.flag(true),
+        },
         crate::protos::working_copy::FileType::Symlink => FileType::Symlink,
-        crate::protos::working_copy::FileType::Conflict => FileType::Normal {
-            executable: FileExecutableFlag::default(),
-        },
         crate::protos::working_copy::FileType::GitSubmodule => FileType::GitSubmodule,
     };
     FileState {
@@ -455,12 +504,13 @@ fn file_state_from_proto(proto: &crate::protos::working_copy::FileState) -> File
 fn file_state_to_proto(file_state: &FileState) -> crate::protos::working_copy::FileState {
     let mut proto = crate::protos::working_copy::FileState::default();
     let file_type = match &file_state.file_type {
-        #[cfg(unix)]
-        FileType::Normal { executable: false } => crate::protos::working_copy::FileType::Normal,
-        #[cfg(unix)]
-        FileType::Normal { executable: true } => crate::protos::working_copy::FileType::Executable,
-        #[cfg(windows)]
-        FileType::Normal { executable: () } => crate::protos::working_copy::FileType::Normal,
+        FileType::Normal { exec_flag } => match exec_flag {
+            #[cfg(unix)]
+            ExecFlag::Exec(true) => crate::protos::working_copy::FileType::Executable,
+            #[cfg(unix)]
+            ExecFlag::Exec(false) => crate::protos::working_copy::FileType::Normal,
+            ExecFlag::NotDefined => crate::protos::working_copy::FileType::Normal,
+        },
         FileType::Symlink => crate::protos::working_copy::FileType::Symlink,
         FileType::GitSubmodule => crate::protos::working_copy::FileType::GitSubmodule,
     };
@@ -477,9 +527,13 @@ fn file_state_to_proto(file_state: &FileState) -> crate::protos::working_copy::F
 
 fn file_state_entry_from_proto(
     proto: &crate::protos::working_copy::FileStateEntry,
+    exec_config: ExecConfig,
 ) -> (&RepoPath, FileState) {
     let path = RepoPath::from_internal_string(&proto.path);
-    (path, file_state_from_proto(proto.state.as_ref().unwrap()))
+    (
+        path,
+        file_state_from_proto(proto.state.as_ref().unwrap(), exec_config),
+    )
 }
 
 fn file_state_entry_to_proto(
@@ -588,7 +642,7 @@ fn remove_old_file(disk_path: &Path) -> Result<bool, CheckoutError> {
     match fs::remove_file(disk_path) {
         Ok(()) => Ok(true),
         Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(false),
-        // TODO: Use io::ErrorKind::IsADirectory if it gets stabilized
+        Err(err) if err.kind() == io::ErrorKind::IsADirectory => Ok(false),
         Err(_) if disk_path.symlink_metadata().is_ok_and(|m| m.is_dir()) => Ok(false),
         Err(err) => Err(CheckoutError::Other {
             message: format!("Failed to remove file {}", disk_path.display()),
@@ -687,21 +741,19 @@ fn mtime_from_metadata(metadata: &Metadata) -> MillisSinceEpoch {
     )
 }
 
-fn file_state(metadata: &Metadata) -> Option<FileState> {
+fn file_state(metadata: &Metadata, exec_config: ExecConfig) -> Option<FileState> {
     let metadata_file_type = metadata.file_type();
     let file_type = if metadata_file_type.is_dir() {
         None
     } else if metadata_file_type.is_symlink() {
         Some(FileType::Symlink)
     } else if metadata_file_type.is_file() {
-        #[cfg(unix)]
-        if metadata.permissions().mode() & 0o111 != 0 {
-            Some(FileType::Normal { executable: true })
-        } else {
-            Some(FileType::Normal { executable: false })
-        }
-        #[cfg(windows)]
-        Some(FileType::Normal { executable: () })
+        let exec_flag = match exec_config {
+            #[cfg(unix)]
+            ExecConfig::Respect => ExecFlag::Exec(metadata.permissions().mode() & 0o111 != 0),
+            ExecConfig::Ignore => ExecFlag::NotDefined,
+        };
+        Some(FileType::Normal { exec_flag })
     } else {
         None
     };
@@ -719,6 +771,21 @@ fn file_state(metadata: &Metadata) -> Option<FileState> {
 
 struct FsmonitorMatcher {
     matcher: Option<Box<dyn Matcher>>,
+    watchman_clock: Option<crate::protos::working_copy::WatchmanClock>,
+}
+
+pub struct TreeState {
+    state_file: PathBuf,
+    tree_id: MergedTreeId,
+    file_states: FileStatesMap,
+    // Currently only path prefixes
+    sparse_patterns: Vec<RepoPathBuf>,
+    own_mtime: MillisSinceEpoch,
+    symlink_support: bool,
+
+    /// The most recent clock value returned by Watchman. Will only be set if
+    /// the repo is configured to use the Watchman filesystem monitor and
+    /// Watchman has been queried at least once.
     watchman_clock: Option<crate::protos::working_copy::WatchmanClock>,
 }
 
@@ -740,16 +807,8 @@ pub enum TreeStateError {
 }
 
 impl TreeState {
-    pub fn working_copy_path(&self) -> &Path {
-        &self.working_copy_path
-    }
-
     pub fn current_tree_id(&self) -> &MergedTreeId {
         &self.tree_id
-    }
-
-    pub fn file_states(&self) -> FileStates<'_> {
-        self.file_states.all()
     }
 
     pub fn sparse_patterns(&self) -> &Vec<RepoPathBuf> {
@@ -760,22 +819,18 @@ impl TreeState {
         Box::new(PrefixMatcher::new(&self.sparse_patterns))
     }
 
-    pub fn init(
-        store: Arc<Store>,
-        working_copy_path: PathBuf,
-        state_path: PathBuf,
-    ) -> Result<TreeState, TreeStateError> {
-        let mut wc = TreeState::empty(store, working_copy_path, state_path);
+    /// Initialize an empty tree state and save it to the filesystem.
+    pub fn init(store: &Arc<Store>, state_path: &Path) -> Result<TreeState, TreeStateError> {
+        let mut wc = TreeState::empty(store, state_path);
         wc.save()?;
         Ok(wc)
     }
 
-    fn empty(store: Arc<Store>, working_copy_path: PathBuf, state_path: PathBuf) -> TreeState {
+    /// Create a new empty tree state for this working copy path.
+    fn empty(store: &Arc<Store>, state_path: &Path) -> TreeState {
         let tree_id = store.empty_merged_tree_id();
         TreeState {
-            store,
-            working_copy_path,
-            state_path,
+            state_file: state_path.join("tree_state"),
             tree_id,
             file_states: FileStatesMap::new(),
             sparse_patterns: vec![RepoPathBuf::root()],
@@ -785,49 +840,46 @@ impl TreeState {
         }
     }
 
-    pub fn load(
-        store: Arc<Store>,
-        working_copy_path: PathBuf,
-        state_path: PathBuf,
-    ) -> Result<TreeState, TreeStateError> {
-        let tree_state_path = state_path.join("tree_state");
-        let file = match File::open(&tree_state_path) {
+    /// Load an existing tree state if present or initialize an empty one.
+    pub fn load(store: &Arc<Store>, state_path: PathBuf) -> Result<TreeState, TreeStateError> {
+        let mut wc = TreeState::empty(store, &state_path);
+        let file = match File::open(&wc.state_file) {
             Err(ref err) if err.kind() == io::ErrorKind::NotFound => {
-                return TreeState::init(store, working_copy_path, state_path);
+                return TreeState::init(store, &state_path);
             }
             Err(err) => {
                 return Err(TreeStateError::ReadTreeState {
-                    path: tree_state_path,
+                    path: wc.state_file,
                     source: err,
                 });
             }
             Ok(file) => file,
         };
 
-        let mut wc = TreeState::empty(store, working_copy_path, state_path);
-        wc.read(&tree_state_path, file)?;
+        wc.read(file)?;
         Ok(wc)
     }
 
     fn update_own_mtime(&mut self) {
-        if let Ok(metadata) = self.state_path.join("tree_state").symlink_metadata() {
+        if let Ok(metadata) = self.state_file.symlink_metadata() {
             self.own_mtime = mtime_from_metadata(&metadata);
         } else {
             self.own_mtime = MillisSinceEpoch(0);
         }
     }
 
-    fn read(&mut self, tree_state_path: &Path, mut file: File) -> Result<(), TreeStateError> {
+    /// Load the tree's data by reading from the filesystem.
+    fn read(&mut self, mut file: File) -> Result<(), TreeStateError> {
         self.update_own_mtime();
         let mut buf = Vec::new();
         file.read_to_end(&mut buf)
             .map_err(|err| TreeStateError::ReadTreeState {
-                path: tree_state_path.to_owned(),
+                path: self.state_file.clone(),
                 source: err,
             })?;
         let proto = crate::protos::working_copy::TreeState::decode(&*buf).map_err(|err| {
             TreeStateError::DecodeTreeState {
-                path: tree_state_path.to_owned(),
+                path: self.state_file.clone(),
                 source: err,
             }
         })?;
@@ -848,6 +900,7 @@ impl TreeState {
         Ok(())
     }
 
+    /// Save the tree's data to the filesystem.
     #[expect(clippy::assigning_clones)]
     fn save(&mut self) -> Result<(), TreeStateError> {
         let mut proto: crate::protos::working_copy::TreeState = Default::default();
@@ -872,12 +925,13 @@ impl TreeState {
         proto.sparse_patterns = Some(sparse_patterns);
         proto.watchman_clock = self.watchman_clock.clone();
 
-        let mut temp_file = NamedTempFile::new_in(&self.state_path).unwrap();
+        let state_path = self.state_file.parent().unwrap();
+        let mut temp_file = NamedTempFile::new_in(state_path).unwrap();
         temp_file
             .as_file_mut()
             .write_all(&proto.encode_to_vec())
             .map_err(|err| TreeStateError::WriteTreeState {
-                path: self.state_path.clone(),
+                path: state_path.to_owned(),
                 source: err,
             })?;
         // update own write time while we before we rename it, so we know
@@ -885,20 +939,13 @@ impl TreeState {
         self.update_own_mtime();
         // TODO: Retry if persisting fails (it will on Windows if the file happened to
         // be open for read).
-        let target_path = self.state_path.join("tree_state");
-        temp_file
-            .persist(&target_path)
-            .map_err(|tempfile::PersistError { error, file: _ }| {
-                TreeStateError::PersistTreeState {
-                    path: target_path.clone(),
-                    source: error,
-                }
-            })?;
+        temp_file.persist(&self.state_file).map_err(
+            |tempfile::PersistError { error, file: _ }| TreeStateError::PersistTreeState {
+                path: self.state_file.clone(),
+                source: error,
+            },
+        )?;
         Ok(())
-    }
-
-    fn current_tree(&self) -> BackendResult<MergedTree> {
-        self.store.get_root_tree(&self.tree_id)
     }
 
     fn reset_watchman(&mut self) {
@@ -910,9 +957,10 @@ impl TreeState {
     #[instrument(skip(self))]
     pub async fn query_watchman(
         &self,
+        working_copy_path: &Path,
         config: &WatchmanConfig,
     ) -> Result<(watchman::Clock, Option<Vec<PathBuf>>), TreeStateError> {
-        let fsmonitor = watchman::Fsmonitor::init(&self.working_copy_path, config)
+        let fsmonitor = watchman::Fsmonitor::init(working_copy_path, config)
             .await
             .map_err(|err| TreeStateError::Fsmonitor(Box::new(err)))?;
         let previous_clock = self.watchman_clock.clone().map(watchman::Clock::from);
@@ -928,9 +976,10 @@ impl TreeState {
     #[instrument(skip(self))]
     pub async fn is_watchman_trigger_registered(
         &self,
+        working_copy_path: &Path,
         config: &WatchmanConfig,
     ) -> Result<bool, TreeStateError> {
-        let fsmonitor = watchman::Fsmonitor::init(&self.working_copy_path, config)
+        let fsmonitor = watchman::Fsmonitor::init(working_copy_path, config)
             .await
             .map_err(|err| TreeStateError::Fsmonitor(Box::new(err)))?;
         fsmonitor
@@ -940,8 +989,31 @@ impl TreeState {
     }
 }
 
+/// A tree state plus configuration needed to mutate it by reading or writing
+/// to the working copy or repository store.
+pub struct WcTreeMutator<'a> {
+    pub state: &'a mut TreeState,
+    pub store: &'a Arc<Store>,
+    pub working_copy_path: &'a Path,
+    pub cfg: WcTreeConfig,
+}
+
+#[derive(Clone)]
+pub struct WcTreeConfig {
+    pub conflict_marker_style: ConflictMarkerStyle,
+    pub exec_config: ExecConfig,
+    pub fsmonitor_settings: FsmonitorSettings,
+    pub max_new_file_size: u64,
+}
+
+impl WcTreeMutator<'_> {
+    fn current_tree(&self) -> BackendResult<MergedTree> {
+        self.store.get_root_tree(&self.state.tree_id)
+    }
+}
+
 /// Functions to snapshot local-disk files to the store.
-impl TreeState {
+impl WcTreeMutator<'_> {
     /// Look for changes to the working copy. If there are any changes, create
     /// a new tree from it.
     #[instrument(skip_all)]
@@ -951,21 +1023,18 @@ impl TreeState {
     ) -> Result<(bool, SnapshotStats), SnapshotError> {
         let &SnapshotOptions {
             ref base_ignores,
-            ref fsmonitor_settings,
             progress,
             start_tracking_matcher,
-            max_new_file_size,
-            conflict_marker_style,
         } = options;
 
-        let sparse_matcher = self.sparse_matcher();
+        let sparse_matcher = self.state.sparse_matcher();
 
-        let fsmonitor_clock_needs_save = *fsmonitor_settings != FsmonitorSettings::None;
+        let fsmonitor_clock_needs_save = self.cfg.fsmonitor_settings != FsmonitorSettings::None;
         let mut is_dirty = fsmonitor_clock_needs_save;
         let FsmonitorMatcher {
             matcher: fsmonitor_matcher,
             watchman_clock,
-        } = self.make_fsmonitor_matcher(fsmonitor_settings)?;
+        } = self.make_fsmonitor_matcher(&self.cfg.fsmonitor_settings)?;
         let fsmonitor_matcher = match fsmonitor_matcher.as_ref() {
             None => &EverythingMatcher,
             Some(fsmonitor_matcher) => fsmonitor_matcher.as_ref(),
@@ -974,7 +1043,7 @@ impl TreeState {
         let matcher = IntersectionMatcher::new(sparse_matcher.as_ref(), fsmonitor_matcher);
         if matcher.visit(RepoPath::root()).is_nothing() {
             // No need to load the current tree, set up channels, etc.
-            self.watchman_clock = watchman_clock;
+            self.state.watchman_clock = watchman_clock;
             return Ok((is_dirty, SnapshotStats::default()));
         }
 
@@ -984,9 +1053,14 @@ impl TreeState {
         let (deleted_files_tx, deleted_files_rx) = channel();
 
         trace_span!("traverse filesystem").in_scope(|| -> Result<(), SnapshotError> {
+            let directory_to_visit = DirectoryToVisit {
+                dir: RepoPathBuf::root(),
+                disk_dir: self.working_copy_path.to_owned(),
+                git_ignore: base_ignores.clone(),
+                file_states: self.state.file_states.all(self.cfg.exec_config),
+            };
             let snapshotter = FileSnapshotter {
-                tree_state: self,
-                current_tree: &self.current_tree()?,
+                wc: self,
                 matcher: &matcher,
                 start_tracking_matcher,
                 // Move tx sides so they'll be dropped at the end of the scope.
@@ -996,14 +1070,6 @@ impl TreeState {
                 deleted_files_tx,
                 error: OnceLock::new(),
                 progress,
-                max_new_file_size,
-                conflict_marker_style,
-            };
-            let directory_to_visit = DirectoryToVisit {
-                dir: RepoPathBuf::root(),
-                disk_dir: self.working_copy_path.clone(),
-                git_ignore: base_ignores.clone(),
-                file_states: self.file_states.all(),
             };
             // Here we use scope as a queue of per-directory jobs.
             rayon::scope(|scope| {
@@ -1017,7 +1083,7 @@ impl TreeState {
         let stats = SnapshotStats {
             untracked_paths: untracked_paths_rx.into_iter().collect(),
         };
-        let mut tree_builder = MergedTreeBuilder::new(self.tree_id.clone());
+        let mut tree_builder = MergedTreeBuilder::new(self.state.tree_id.clone());
         trace_span!("process tree entries").in_scope(|| {
             for (path, tree_values) in &tree_entries_rx {
                 tree_builder.set_or_remove(path, tree_values);
@@ -1037,13 +1103,14 @@ impl TreeState {
                 .sorted_unstable_by(|(path1, _), (path2, _)| path1.cmp(path2))
                 .collect_vec();
             is_dirty |= !changed_file_states.is_empty();
-            self.file_states
+            self.state
+                .file_states
                 .merge_in(changed_file_states, &deleted_files);
         });
         trace_span!("write tree").in_scope(|| {
-            let new_tree_id = tree_builder.write_tree(&self.store).unwrap();
-            is_dirty |= new_tree_id != self.tree_id;
-            self.tree_id = new_tree_id;
+            let new_tree_id = tree_builder.write_tree(self.store).unwrap();
+            is_dirty |= new_tree_id != self.state.tree_id;
+            self.state.tree_id = new_tree_id;
         });
         if cfg!(debug_assertions) {
             let tree = self.current_tree().unwrap();
@@ -1051,7 +1118,7 @@ impl TreeState {
                 .entries_matching(sparse_matcher.as_ref())
                 .filter_map(|(path, result)| result.is_ok().then_some(path))
                 .collect();
-            let file_states = self.file_states.all();
+            let file_states = self.state.file_states.all(self.cfg.exec_config);
             let state_paths: HashSet<_> = file_states.paths().map(|path| path.to_owned()).collect();
             assert_eq!(state_paths, tree_paths);
         }
@@ -1059,7 +1126,7 @@ impl TreeState {
         // rescan the working directory changes to report or track them later.
         // TODO: store untracked paths and update watchman_clock?
         if stats.untracked_paths.is_empty() || watchman_clock.is_none() {
-            self.watchman_clock = watchman_clock;
+            self.state.watchman_clock = watchman_clock;
         } else {
             tracing::info!("not updating watchman clock because there are untracked files");
         }
@@ -1075,7 +1142,10 @@ impl TreeState {
             FsmonitorSettings::None => (None, None),
             FsmonitorSettings::Test { changed_files } => (None, Some(changed_files.clone())),
             #[cfg(feature = "watchman")]
-            FsmonitorSettings::Watchman(config) => match self.query_watchman(config) {
+            FsmonitorSettings::Watchman(config) => match self
+                .state
+                .query_watchman(self.working_copy_path, config)
+            {
                 Ok((watchman_clock, changed_files)) => (Some(watchman_clock.into()), changed_files),
                 Err(err) => {
                     tracing::warn!(?err, "Failed to query filesystem monitor");
@@ -1133,8 +1203,7 @@ struct PresentDirEntries {
 
 /// Helper to scan local-disk directories and files in parallel.
 struct FileSnapshotter<'a> {
-    tree_state: &'a TreeState,
-    current_tree: &'a MergedTree,
+    wc: &'a WcTreeMutator<'a>,
     matcher: &'a dyn Matcher,
     start_tracking_matcher: &'a dyn Matcher,
     tree_entries_tx: Sender<(RepoPathBuf, MergedTreeValue)>,
@@ -1143,8 +1212,6 @@ struct FileSnapshotter<'a> {
     deleted_files_tx: Sender<RepoPathBuf>,
     error: OnceLock<SnapshotError>,
     progress: Option<&'a SnapshotProgress<'a>>,
-    max_new_file_size: u64,
-    conflict_marker_style: ConflictMarkerStyle,
 }
 
 impl FileSnapshotter<'_> {
@@ -1235,7 +1302,7 @@ impl FileSnapshotter<'_> {
         let path = dir.join(name);
         let maybe_current_file_state = file_states.get_at(dir, name);
         if let Some(file_state) = &maybe_current_file_state {
-            if file_state.file_type == FileType::GitSubmodule {
+            if let FileType::GitSubmodule = file_state.file_type {
                 return Ok(None);
             }
         }
@@ -1286,15 +1353,18 @@ impl FileSnapshotter<'_> {
                     message: format!("Failed to stat file {}", entry.path().display()),
                     err: err.into(),
                 })?;
-                if maybe_current_file_state.is_none() && metadata.len() > self.max_new_file_size {
+                if maybe_current_file_state.is_none()
+                    && metadata.len() > self.wc.cfg.max_new_file_size
+                {
                     // Leave the large file untracked
                     let reason = UntrackedReason::FileTooLarge {
                         size: metadata.len(),
-                        max_size: self.max_new_file_size,
+                        max_size: self.wc.cfg.max_new_file_size,
                     };
                     self.untracked_paths_tx.send((path, reason)).ok();
                     Ok(None)
-                } else if let Some(new_file_state) = file_state(&metadata) {
+                } else if let Some(new_file_state) = file_state(&metadata, self.wc.cfg.exec_config)
+                {
                     self.process_present_file(
                         path,
                         &entry.path(),
@@ -1314,14 +1384,14 @@ impl FileSnapshotter<'_> {
 
     /// Visits only paths we're already tracking.
     fn visit_tracked_files(&self, file_states: FileStates<'_>) -> Result<(), SnapshotError> {
-        for (tracked_path, current_file_state) in file_states {
-            if current_file_state.file_type == FileType::GitSubmodule {
+        for (tracked_path, current_file_state) in file_states.iter() {
+            if let FileType::GitSubmodule = current_file_state.file_type {
                 continue;
             }
             if !self.matcher.matches(tracked_path) {
                 continue;
             }
-            let disk_path = tracked_path.to_fs_path(&self.tree_state.working_copy_path)?;
+            let disk_path = tracked_path.to_fs_path(self.wc.working_copy_path)?;
             let metadata = match disk_path.symlink_metadata() {
                 Ok(metadata) => Some(metadata),
                 Err(err) if err.kind() == io::ErrorKind::NotFound => None,
@@ -1332,7 +1402,9 @@ impl FileSnapshotter<'_> {
                     });
                 }
             };
-            if let Some(new_file_state) = metadata.as_ref().and_then(file_state) {
+            if let Some(new_file_state) =
+                metadata.and_then(|metadata| file_state(&metadata, self.wc.cfg.exec_config))
+            {
                 self.process_present_file(
                     tracked_path.to_owned(),
                     &disk_path,
@@ -1369,7 +1441,7 @@ impl FileSnapshotter<'_> {
         if let Some(tree_value) = update {
             self.tree_entries_tx.send((path.clone(), tree_value)).ok();
         }
-        if Some(&new_file_state) != maybe_current_file_state {
+        if !maybe_current_file_state.is_some_and(|current| new_file_state.matches(current)) {
             self.file_states_tx.send((path, new_file_state)).ok();
         }
         Ok(())
@@ -1402,7 +1474,7 @@ impl FileSnapshotter<'_> {
             })
             .flat_map(|(_, chunk)| chunk)
             // Whether or not the entry exists, submodule should be ignored
-            .filter(|(_, state)| state.file_type != FileType::GitSubmodule)
+            .filter(|(_, state)| !matches!(state.file_type, FileType::GitSubmodule))
             .filter(|(path, _)| self.matcher.matches(path))
             .try_for_each(|(path, _)| self.deleted_files_tx.send(path.to_owned()))
             .ok();
@@ -1423,15 +1495,15 @@ impl FileSnapshotter<'_> {
             Some(current_file_state) => {
                 // If the file's mtime was set at the same time as this state file's own mtime,
                 // then we don't know if the file was modified before or after this state file.
-                new_file_state.is_clean(current_file_state)
-                    && current_file_state.mtime < self.tree_state.own_mtime
+                new_file_state.matches(current_file_state)
+                    && current_file_state.mtime < self.wc.state.own_mtime
             }
         };
         if clean {
             Ok(None)
         } else {
-            let current_tree_values = self.current_tree.path_value(repo_path)?;
-            let new_file_type = if !self.tree_state.symlink_support {
+            let current_tree_values = self.wc.current_tree()?.path_value(repo_path)?;
+            let new_file_type = if !self.wc.state.symlink_support {
                 let mut new_file_type = new_file_state.file_type.clone();
                 if matches!(new_file_type, FileType::Normal { .. })
                     && matches!(current_tree_values.as_normal(), Some(TreeValue::Symlink(_)))
@@ -1443,12 +1515,12 @@ impl FileSnapshotter<'_> {
                 new_file_state.file_type.clone()
             };
             let new_tree_values = match new_file_type {
-                FileType::Normal { executable } => self
+                FileType::Normal { exec_flag } => self
                     .write_path_to_store(
                         repo_path,
                         disk_path,
                         &current_tree_values,
-                        executable,
+                        exec_flag,
                         maybe_current_file_state.and_then(|state| state.materialized_conflict_data),
                     )
                     .block_on()?,
@@ -1468,32 +1540,23 @@ impl FileSnapshotter<'_> {
         }
     }
 
-    fn store(&self) -> &Store {
-        &self.tree_state.store
-    }
-
     async fn write_path_to_store(
         &self,
         repo_path: &RepoPath,
         disk_path: &Path,
         current_tree_values: &MergedTreeValue,
-        executable: FileExecutableFlag,
+        exec_flag: ExecFlag,
         materialized_conflict_data: Option<MaterializedConflictData>,
     ) -> Result<MergedTreeValue, SnapshotError> {
         if let Some(current_tree_value) = current_tree_values.as_resolved() {
-            #[cfg(unix)]
-            let _ = current_tree_value; // use the variable
             let id = self.write_file_to_store(repo_path, disk_path).await?;
-            // On Windows, we preserve the executable bit from the current tree.
-            #[cfg(windows)]
-            let executable = {
-                let () = executable; // use the variable
-                if let Some(TreeValue::File { id: _, executable }) = current_tree_value {
-                    *executable
-                } else {
-                    false
+            let executable = exec_flag.get_or_else_fallback(self.wc.cfg.exec_config, || {
+                // Fallback to the executable bit from the current tree.
+                match current_tree_value {
+                    Some(TreeValue::File { id: _, executable }) => Some(*executable),
+                    _ => None,
                 }
-            };
+            });
             Ok(Merge::normal(TreeValue::File { id, executable }))
         } else if let Some(old_file_ids) = current_tree_values.to_file_merge() {
             // If the file contained a conflict before and is a normal file on
@@ -1505,10 +1568,10 @@ impl FileSnapshotter<'_> {
             })?;
             let new_file_ids = conflicts::update_from_content(
                 &old_file_ids,
-                self.store(),
+                self.wc.store,
                 repo_path,
                 &content,
-                self.conflict_marker_style,
+                self.wc.cfg.conflict_marker_style,
                 materialized_conflict_data.map_or(MIN_CONFLICT_MARKER_LEN, |data| {
                     data.conflict_marker_len as usize
                 }),
@@ -1516,16 +1579,13 @@ impl FileSnapshotter<'_> {
             .block_on()?;
             match new_file_ids.into_resolved() {
                 Ok(file_id) => {
-                    // On Windows, we preserve the executable bit from the merged trees.
-                    #[cfg(windows)]
-                    let executable = {
-                        let () = executable; // use the variable
-                        if let Some(merge) = current_tree_values.to_executable_merge() {
-                            merge.resolve_trivial().copied().unwrap_or_default()
-                        } else {
-                            false
-                        }
-                    };
+                    let executable =
+                        exec_flag.get_or_else_fallback(self.wc.cfg.exec_config, || {
+                            // Fallback to the executable bit from the merged trees.
+                            current_tree_values
+                                .to_executable_merge()
+                                .and_then(|merge| merge.resolve_trivial().copied())
+                        });
                     Ok(Merge::normal(TreeValue::File {
                         id: file_id.unwrap(),
                         executable,
@@ -1553,7 +1613,7 @@ impl FileSnapshotter<'_> {
             message: format!("Failed to open file {}", disk_path.display()),
             err: err.into(),
         })?;
-        Ok(self.store().write_file(path, &mut file).await?)
+        Ok(self.wc.store.write_file(path, &mut file).await?)
     }
 
     async fn write_symlink_to_store(
@@ -1561,7 +1621,7 @@ impl FileSnapshotter<'_> {
         path: &RepoPath,
         disk_path: &Path,
     ) -> Result<SymlinkId, SnapshotError> {
-        if self.tree_state.symlink_support {
+        if self.wc.state.symlink_support {
             let target = disk_path.read_link().map_err(|err| SnapshotError::Other {
                 message: format!("Failed to read symlink {}", disk_path.display()),
                 err: err.into(),
@@ -1572,7 +1632,7 @@ impl FileSnapshotter<'_> {
                     .ok_or_else(|| SnapshotError::InvalidUtf8SymlinkTarget {
                         path: disk_path.to_path_buf(),
                     })?;
-            Ok(self.store().write_symlink(path, str_target).await?)
+            Ok(self.wc.store.write_symlink(path, str_target).await?)
         } else {
             let target = fs::read(disk_path).map_err(|err| SnapshotError::Other {
                 message: format!("Failed to read file {}", disk_path.display()),
@@ -1582,18 +1642,19 @@ impl FileSnapshotter<'_> {
                 String::from_utf8(target).map_err(|_| SnapshotError::InvalidUtf8SymlinkTarget {
                     path: disk_path.to_path_buf(),
                 })?;
-            Ok(self.store().write_symlink(path, &string_target).await?)
+            Ok(self.wc.store.write_symlink(path, &string_target).await?)
         }
     }
 }
 
 /// Functions to update local-disk files from the store.
-impl TreeState {
+impl WcTreeMutator<'_> {
     fn write_file(
         &self,
         disk_path: &Path,
         contents: &mut dyn Read,
-        executable: bool,
+        exec_flag: ExecFlag,
+        prev_exec_bit: Option<bool>,
     ) -> Result<FileState, CheckoutError> {
         let mut file = OpenOptions::new()
             .write(true)
@@ -1607,7 +1668,7 @@ impl TreeState {
             message: format!("Failed to write file {}", disk_path.display()),
             err: err.into(),
         })?;
-        self.set_executable(disk_path, executable)?;
+        self.set_executable(disk_path, exec_flag, prev_exec_bit)?;
         // Read the file state from the file descriptor. That way, know that the file
         // exists and is of the expected type, and the stat information is most likely
         // accurate, except for other processes modifying the file concurrently (The
@@ -1615,7 +1676,7 @@ impl TreeState {
         let metadata = file
             .metadata()
             .map_err(|err| checkout_error_for_stat_error(err, disk_path))?;
-        Ok(FileState::for_file(executable, size, &metadata, None))
+        Ok(FileState::for_file(exec_flag, size, &metadata, None))
     }
 
     fn write_symlink(&self, disk_path: &Path, target: String) -> Result<FileState, CheckoutError> {
@@ -1638,7 +1699,8 @@ impl TreeState {
         &self,
         disk_path: &Path,
         conflict_data: Vec<u8>,
-        executable: bool,
+        exec_flag: ExecFlag,
+        prev_exec_bit: Option<bool>,
         materialized_conflict_data: Option<MaterializedConflictData>,
     ) -> Result<FileState, CheckoutError> {
         let mut file = OpenOptions::new()
@@ -1655,34 +1717,45 @@ impl TreeState {
                 err: err.into(),
             })?;
         let size = conflict_data.len() as u64;
-        self.set_executable(disk_path, executable)?;
+        self.set_executable(disk_path, exec_flag, prev_exec_bit)?;
         let metadata = file
             .metadata()
             .map_err(|err| checkout_error_for_stat_error(err, disk_path))?;
         Ok(FileState::for_file(
-            executable,
+            exec_flag,
             size,
             &metadata,
             materialized_conflict_data,
         ))
     }
 
-    #[cfg_attr(windows, allow(unused_variables))]
-    fn set_executable(&self, disk_path: &Path, executable: bool) -> Result<(), CheckoutError> {
-        #[cfg(unix)]
-        {
-            let mode = if executable { 0o755 } else { 0o644 };
-            fs::set_permissions(disk_path, fs::Permissions::from_mode(mode))
-                .map_err(|err| checkout_error_for_stat_error(err, disk_path))?;
+    /// Set the executable bit of a file on disk. This is a no-op on Windows.
+    ///
+    /// On Unix, if the executable bit is undefined, then we set the executable
+    /// bit to the previous value on the filesystem. This is necessary because
+    /// we write all files by creating them new, so files don't preserve their
+    /// permissions naturally.
+    fn set_executable(
+        &self,
+        disk_path: &Path,
+        exec_flag: ExecFlag,
+        prev_exec_bit: Option<bool>,
+    ) -> Result<(), CheckoutError> {
+        #[cfg(windows)]
+        let _ = disk_path;
+        match (exec_flag, prev_exec_bit) {
+            #[cfg(unix)]
+            (ExecFlag::Exec(true), _) | (ExecFlag::NotDefined, Some(true)) => {
+                let mode = 0o755;
+                fs::set_permissions(disk_path, fs::Permissions::from_mode(mode))
+                    .map_err(|err| checkout_error_for_stat_error(err, disk_path))
+            }
+            (_, _) => Ok(()),
         }
-        Ok(())
     }
 
-    pub fn check_out(
-        &mut self,
-        new_tree: &MergedTree,
-        options: &CheckoutOptions,
-    ) -> Result<CheckoutStats, CheckoutError> {
+    /// Check out the new tree.
+    pub fn check_out(&mut self, new_tree: &MergedTree) -> Result<CheckoutStats, CheckoutError> {
         let old_tree = self.current_tree().map_err(|err| match err {
             err @ BackendError::ObjectNotFound { .. } => CheckoutError::SourceNotFound {
                 source: Box::new(err),
@@ -1690,21 +1763,15 @@ impl TreeState {
             other => CheckoutError::InternalBackendError(other),
         })?;
         let stats = self
-            .update(
-                &old_tree,
-                new_tree,
-                self.sparse_matcher().as_ref(),
-                options.conflict_marker_style,
-            )
+            .update(&old_tree, new_tree, self.state.sparse_matcher().as_ref())
             .block_on()?;
-        self.tree_id = new_tree.id();
+        self.state.tree_id = new_tree.id();
         Ok(stats)
     }
 
     pub fn set_sparse_patterns(
         &mut self,
         sparse_patterns: Vec<RepoPathBuf>,
-        options: &CheckoutOptions,
     ) -> Result<CheckoutStats, CheckoutError> {
         let tree = self.current_tree().map_err(|err| match err {
             err @ BackendError::ObjectNotFound { .. } => CheckoutError::SourceNotFound {
@@ -1712,28 +1779,16 @@ impl TreeState {
             },
             other => CheckoutError::InternalBackendError(other),
         })?;
-        let old_matcher = PrefixMatcher::new(&self.sparse_patterns);
+        let old_matcher = PrefixMatcher::new(&self.state.sparse_patterns);
         let new_matcher = PrefixMatcher::new(&sparse_patterns);
         let added_matcher = DifferenceMatcher::new(&new_matcher, &old_matcher);
         let removed_matcher = DifferenceMatcher::new(&old_matcher, &new_matcher);
         let empty_tree = MergedTree::resolved(Tree::empty(self.store.clone(), RepoPathBuf::root()));
-        let added_stats = self
-            .update(
-                &empty_tree,
-                &tree,
-                &added_matcher,
-                options.conflict_marker_style,
-            )
-            .block_on()?;
+        let added_stats = self.update(&empty_tree, &tree, &added_matcher).block_on()?;
         let removed_stats = self
-            .update(
-                &tree,
-                &empty_tree,
-                &removed_matcher,
-                options.conflict_marker_style,
-            )
+            .update(&tree, &empty_tree, &removed_matcher)
             .block_on()?;
-        self.sparse_patterns = sparse_patterns;
+        self.state.sparse_patterns = sparse_patterns;
         assert_eq!(added_stats.updated_files, 0);
         assert_eq!(added_stats.removed_files, 0);
         assert_eq!(removed_stats.updated_files, 0);
@@ -1752,7 +1807,6 @@ impl TreeState {
         old_tree: &MergedTree,
         new_tree: &MergedTree,
         matcher: &dyn Matcher,
-        conflict_marker_style: ConflictMarkerStyle,
     ) -> Result<CheckoutStats, CheckoutError> {
         // TODO: maybe it's better not include the skipped counts in the "intended"
         // counts
@@ -1769,7 +1823,7 @@ impl TreeState {
             .map(|TreeDiffEntry { path, values }| async {
                 match values {
                     Ok((before, after)) => {
-                        let result = materialize_tree_value(&self.store, &path, after).await;
+                        let result = materialize_tree_value(self.store, &path, after).await;
                         (path, result.map(|value| (before, value)))
                     }
                     Err(err) => (path, Err(err)),
@@ -1804,8 +1858,8 @@ impl TreeState {
 
             // Create parent directories no matter if after.is_present(). This
             // ensures that the path never traverses symlinks.
-            let Some(disk_path) = create_parent_dirs(&self.working_copy_path, &path)? else {
-                changed_file_states.push((path, FileState::placeholder()));
+            let Some(disk_path) = create_parent_dirs(self.working_copy_path, &path)? else {
+                changed_file_states.push((path, FileState::placeholder(self.cfg.exec_config)));
                 stats.skipped_files += 1;
                 continue;
             };
@@ -1813,9 +1867,19 @@ impl TreeState {
             let present_file_deleted = before.is_present() && remove_old_file(&disk_path)?;
             // If not, create temporary file to test the path validity.
             if !present_file_deleted && !can_create_new_file(&disk_path)? {
-                changed_file_states.push((path, FileState::placeholder()));
+                changed_file_states.push((path, FileState::placeholder(self.cfg.exec_config)));
                 stats.skipped_files += 1;
                 continue;
+            }
+
+            // If this file already exists and we're ignoring the executable
+            // bit, then we need to preserve its previous bit since we delete
+            // and re-create all checked-out files.
+            let mut prev_exec_bit = None;
+            if cfg!(unix) && self.cfg.exec_config == ExecConfig::Ignore {
+                prev_exec_bit = before
+                    .to_executable_merge()
+                    .and_then(|merge| merge.into_resolved().ok());
             }
 
             // TODO: Check that the file has not changed before overwriting/removing it.
@@ -1832,13 +1896,20 @@ impl TreeState {
                     continue;
                 }
                 MaterializedTreeValue::File(mut file) => {
-                    self.write_file(&disk_path, &mut file.reader, file.executable)?
+                    let exec_flag = self.cfg.exec_config.flag(file.executable);
+                    self.write_file(&disk_path, &mut file.reader, exec_flag, prev_exec_bit)?
                 }
                 MaterializedTreeValue::Symlink { id: _, target } => {
-                    if self.symlink_support {
+                    if self.state.symlink_support {
                         self.write_symlink(&disk_path, target)?
                     } else {
-                        self.write_file(&disk_path, &mut target.as_bytes(), false)?
+                        let exec_flag = self.cfg.exec_config.default_flag();
+                        self.write_file(
+                            &disk_path,
+                            &mut target.as_bytes(),
+                            exec_flag,
+                            prev_exec_bit,
+                        )?
                     }
                 }
                 MaterializedTreeValue::GitSubmodule(_) => {
@@ -1856,7 +1927,7 @@ impl TreeState {
                     let conflict_marker_len = choose_materialized_conflict_marker_len(&contents);
                     let data = materialize_merge_result_to_bytes_with_marker_len(
                         &contents,
-                        conflict_marker_style,
+                        self.cfg.conflict_marker_style,
                         conflict_marker_len,
                     )
                     .into();
@@ -1866,7 +1937,8 @@ impl TreeState {
                     self.write_conflict(
                         &disk_path,
                         data,
-                        executable,
+                        self.cfg.exec_config.flag(executable),
+                        prev_exec_bit,
                         Some(materialized_conflict_data),
                     )?
                 }
@@ -1874,13 +1946,14 @@ impl TreeState {
                     // Unless all terms are regular files, we can't do much
                     // better than trying to describe the merge.
                     let data = id.describe().into_bytes();
-                    let executable = false;
-                    self.write_conflict(&disk_path, data, executable, None)?
+                    let exec_flag = self.cfg.exec_config.default_flag();
+                    self.write_conflict(&disk_path, data, exec_flag, None, None)?
                 }
             };
             changed_file_states.push((path, file_state));
         }
-        self.file_states
+        self.state
+            .file_states
             .merge_in(changed_file_states, &deleted_files);
         Ok(stats)
     }
@@ -1893,7 +1966,7 @@ impl TreeState {
             other => ResetError::InternalBackendError(other),
         })?;
 
-        let matcher = self.sparse_matcher();
+        let matcher = self.state.sparse_matcher();
         let mut changed_file_states = Vec::new();
         let mut deleted_files = HashSet::new();
         let mut diff_stream = old_tree.diff_stream(new_tree, matcher.as_ref());
@@ -1904,10 +1977,9 @@ impl TreeState {
             } else {
                 let file_type = match after.into_resolved() {
                     Ok(value) => match value.unwrap() {
-                        #[cfg(unix)]
-                        TreeValue::File { id: _, executable } => FileType::Normal { executable },
-                        #[cfg(windows)]
-                        TreeValue::File { .. } => FileType::Normal { executable: () },
+                        TreeValue::File { id: _, executable } => FileType::Normal {
+                            exec_flag: self.cfg.exec_config.flag(executable),
+                        },
                         TreeValue::Symlink(_id) => FileType::Symlink,
                         TreeValue::Conflict(_id) => {
                             panic!("unexpected conflict entry in diff at {path:?}");
@@ -1920,11 +1992,15 @@ impl TreeState {
                             panic!("unexpected tree entry in diff at {path:?}");
                         }
                     },
-                    Err(_values) => {
-                        // TODO: Try to set the executable bit based on the conflict
-                        FileType::Normal {
-                            executable: FileExecutableFlag::default(),
+                    Err(values) => {
+                        let mut exec_flag = self.cfg.exec_config.default_flag();
+                        // Use the most recently added executable bit.
+                        for value in values.adds().flatten() {
+                            if let TreeValue::File { id: _, executable } = value {
+                                exec_flag = self.cfg.exec_config.flag(*executable);
+                            }
                         }
+                        FileType::Normal { exec_flag }
                     }
                 };
                 let file_state = FileState {
@@ -1936,15 +2012,16 @@ impl TreeState {
                 changed_file_states.push((path, file_state));
             }
         }
-        self.file_states
+        self.state
+            .file_states
             .merge_in(changed_file_states, &deleted_files);
-        self.tree_id = new_tree.id();
+        self.state.tree_id = new_tree.id();
         Ok(())
     }
 
     pub async fn recover(&mut self, new_tree: &MergedTree) -> Result<(), ResetError> {
-        self.file_states.clear();
-        self.tree_id = self.store.empty_merged_tree_id();
+        self.state.file_states.clear();
+        self.state.tree_id = self.store.empty_merged_tree_id();
         self.reset(new_tree).await
     }
 }
@@ -1963,10 +2040,44 @@ struct CheckoutState {
     workspace_name: WorkspaceNameBuf,
 }
 
+impl CheckoutState {
+    fn load(state_path: &Path) -> CheckoutState {
+        let buf = fs::read(state_path.join("checkout")).unwrap();
+        let proto = crate::protos::working_copy::Checkout::decode(&*buf).unwrap();
+        CheckoutState {
+            operation_id: OperationId::new(proto.operation_id),
+            workspace_name: if proto.workspace_name.is_empty() {
+                // For compatibility with old working copies.
+                // TODO: Delete in mid 2022 or so
+                WorkspaceName::DEFAULT.to_owned()
+            } else {
+                proto.workspace_name.into()
+            },
+        }
+    }
+
+    #[instrument(skip_all)]
+    fn save(&self, state_path: &Path) {
+        let proto = crate::protos::working_copy::Checkout {
+            operation_id: self.operation_id.to_bytes(),
+            workspace_name: (*self.workspace_name).into(),
+        };
+        let mut temp_file = NamedTempFile::new_in(state_path).unwrap();
+        temp_file
+            .as_file_mut()
+            .write_all(&proto.encode_to_vec())
+            .unwrap();
+        // TODO: Retry if persisting fails (it will on Windows if the file happened to
+        // be open for read).
+        temp_file.persist(state_path.join("checkout")).unwrap();
+    }
+}
+
 pub struct LocalWorkingCopy {
     store: Arc<Store>,
     working_copy_path: PathBuf,
     state_path: PathBuf,
+    default_exec_config: ExecConfig,
     checkout_state: OnceCell<CheckoutState>,
     tree_state: OnceCell<TreeState>,
 }
@@ -1996,7 +2107,10 @@ impl WorkingCopy for LocalWorkingCopy {
         Ok(self.tree_state()?.sparse_patterns())
     }
 
-    fn start_mutation(&self) -> Result<Box<dyn LockedWorkingCopy>, WorkingCopyStateError> {
+    fn start_mutation(
+        &self,
+        options: WorkingCopyOptions,
+    ) -> Result<Box<dyn LockedWorkingCopy>, WorkingCopyStateError> {
         let lock_path = self.state_path.join("working_copy.lock");
         let lock = FileLock::lock(lock_path).map_err(|err| WorkingCopyStateError {
             message: "Failed to lock working copy".to_owned(),
@@ -2007,6 +2121,7 @@ impl WorkingCopy for LocalWorkingCopy {
             store: self.store.clone(),
             working_copy_path: self.working_copy_path.clone(),
             state_path: self.state_path.clone(),
+            default_exec_config: self.default_exec_config,
             // Empty so we re-read the state after taking the lock
             checkout_state: OnceCell::new(),
             // TODO: It's expensive to reload the whole tree. We should copy it from `self` if it
@@ -2015,8 +2130,15 @@ impl WorkingCopy for LocalWorkingCopy {
         };
         let old_operation_id = wc.operation_id().clone();
         let old_tree_id = wc.tree_id()?.clone();
+        let wc_config = WcTreeConfig {
+            conflict_marker_style: options.conflict_marker_style,
+            exec_config: options.exec_config.unwrap_or(self.default_exec_config),
+            fsmonitor_settings: options.fsmonitor_settings,
+            max_new_file_size: options.max_new_file_size,
+        };
         Ok(Box::new(LockedLocalWorkingCopy {
             wc,
+            wc_config,
             lock,
             old_operation_id,
             old_tree_id,
@@ -2052,30 +2174,34 @@ impl LocalWorkingCopy {
             .unwrap();
         file.write_all(&proto.encode_to_vec()).unwrap();
         let tree_state =
-            TreeState::init(store.clone(), working_copy_path.clone(), state_path.clone()).map_err(
-                |err| WorkingCopyStateError {
-                    message: "Failed to initialize working copy state".to_string(),
-                    err: err.into(),
-                },
-            )?;
+            TreeState::init(&store, &state_path).map_err(|err| WorkingCopyStateError {
+                message: "Failed to initialize working copy state".to_string(),
+                err: err.into(),
+            })?;
+        let default_exec_config = ExecConfig::default_for_path(&working_copy_path);
         Ok(LocalWorkingCopy {
             store,
             working_copy_path,
             state_path,
+            default_exec_config,
             checkout_state: OnceCell::new(),
             tree_state: OnceCell::with_value(tree_state),
         })
     }
 
+    /// "Load" the working copy lazily to avoid work. This uses an empty
+    /// `OnceCell` to load the tree state in the future as needed.
     pub fn load(
         store: Arc<Store>,
         working_copy_path: PathBuf,
         state_path: PathBuf,
     ) -> LocalWorkingCopy {
+        let default_exec_config = ExecConfig::default_for_path(&working_copy_path);
         LocalWorkingCopy {
             store,
             working_copy_path,
             state_path,
+            default_exec_config,
             checkout_state: OnceCell::new(),
             tree_state: OnceCell::new(),
         }
@@ -2085,70 +2211,24 @@ impl LocalWorkingCopy {
         &self.state_path
     }
 
-    fn write_proto(&self, proto: crate::protos::working_copy::Checkout) {
-        let mut temp_file = NamedTempFile::new_in(&self.state_path).unwrap();
-        temp_file
-            .as_file_mut()
-            .write_all(&proto.encode_to_vec())
-            .unwrap();
-        // TODO: Retry if persisting fails (it will on Windows if the file happened to
-        // be open for read).
-        temp_file.persist(self.state_path.join("checkout")).unwrap();
-    }
-
     fn checkout_state(&self) -> &CheckoutState {
-        self.checkout_state.get_or_init(|| {
-            let buf = fs::read(self.state_path.join("checkout")).unwrap();
-            let proto = crate::protos::working_copy::Checkout::decode(&*buf).unwrap();
-            CheckoutState {
-                operation_id: OperationId::new(proto.operation_id),
-                workspace_name: if proto.workspace_name.is_empty() {
-                    // For compatibility with old working copies.
-                    // TODO: Delete in mid 2022 or so
-                    WorkspaceName::DEFAULT.to_owned()
-                } else {
-                    proto.workspace_name.into()
-                },
-            }
-        })
-    }
-
-    fn checkout_state_mut(&mut self) -> &mut CheckoutState {
-        self.checkout_state(); // ensure loaded
-        self.checkout_state.get_mut().unwrap()
+        self.checkout_state
+            .get_or_init(|| CheckoutState::load(&self.state_path))
     }
 
     #[instrument(skip_all)]
     fn tree_state(&self) -> Result<&TreeState, WorkingCopyStateError> {
         self.tree_state
-            .get_or_try_init(|| {
-                TreeState::load(
-                    self.store.clone(),
-                    self.working_copy_path.clone(),
-                    self.state_path.clone(),
-                )
-            })
+            .get_or_try_init(|| TreeState::load(&self.store, self.state_path.clone()))
             .map_err(|err| WorkingCopyStateError {
                 message: "Failed to read working copy state".to_string(),
                 err: err.into(),
             })
     }
 
-    fn tree_state_mut(&mut self) -> Result<&mut TreeState, WorkingCopyStateError> {
-        self.tree_state()?; // ensure loaded
-        Ok(self.tree_state.get_mut().unwrap())
-    }
-
     pub fn file_states(&self) -> Result<FileStates<'_>, WorkingCopyStateError> {
-        Ok(self.tree_state()?.file_states())
-    }
-
-    #[instrument(skip_all)]
-    fn save(&mut self) {
-        self.write_proto(crate::protos::working_copy::Checkout {
-            operation_id: self.operation_id().to_bytes(),
-            workspace_name: self.workspace_name().into(),
-        });
+        let exec_config = ExecConfig::default_for_path(&self.working_copy_path);
+        Ok(self.tree_state()?.file_states.all(exec_config))
     }
 
     #[cfg(feature = "watchman")]
@@ -2157,7 +2237,7 @@ impl LocalWorkingCopy {
         config: &WatchmanConfig,
     ) -> Result<(watchman::Clock, Option<Vec<PathBuf>>), WorkingCopyStateError> {
         self.tree_state()?
-            .query_watchman(config)
+            .query_watchman(&self.working_copy_path, config)
             .map_err(|err| WorkingCopyStateError {
                 message: "Failed to query watchman".to_string(),
                 err: err.into(),
@@ -2170,7 +2250,7 @@ impl LocalWorkingCopy {
         config: &WatchmanConfig,
     ) -> Result<bool, WorkingCopyStateError> {
         self.tree_state()?
-            .is_watchman_trigger_registered(config)
+            .is_watchman_trigger_registered(&self.working_copy_path, config)
             .map_err(|err| WorkingCopyStateError {
                 message: "Failed to query watchman".to_string(),
                 err: err.into(),
@@ -2216,12 +2296,27 @@ impl WorkingCopyFactory for LocalWorkingCopyFactory {
 /// `finish()` or `discard()`.
 pub struct LockedLocalWorkingCopy {
     wc: LocalWorkingCopy,
+    wc_config: WcTreeConfig,
     #[expect(dead_code)]
     lock: FileLock,
     old_operation_id: OperationId,
     old_tree_id: MergedTreeId,
     tree_state_dirty: bool,
     new_workspace_name: Option<WorkspaceNameBuf>,
+}
+
+impl LockedLocalWorkingCopy {
+    fn wc_mut(&mut self) -> Result<WcTreeMutator<'_>, (String, Box<dyn Error + Send + Sync>)> {
+        self.wc
+            .tree_state() // Ensure loaded.
+            .map_err(|WorkingCopyStateError { message, err }| (message, err))?;
+        Ok(WcTreeMutator {
+            state: self.wc.tree_state.get_mut().unwrap(),
+            store: &self.wc.store,
+            working_copy_path: &self.wc.working_copy_path,
+            cfg: self.wc_config.clone(),
+        })
+    }
 }
 
 impl LockedWorkingCopy for LockedLocalWorkingCopy {
@@ -2245,35 +2340,24 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
         &mut self,
         options: &SnapshotOptions,
     ) -> Result<(MergedTreeId, SnapshotStats), SnapshotError> {
-        let tree_state = self
-            .wc
-            .tree_state_mut()
-            .map_err(|err| SnapshotError::Other {
-                message: "Failed to read the working copy state".to_string(),
-                err: err.into(),
-            })?;
-        let (is_dirty, stats) = tree_state.snapshot(options)?;
+        let mut wc = self
+            .wc_mut()
+            .map_err(|(message, err)| SnapshotError::Other { message, err })?;
+        let (is_dirty, stats) = wc.snapshot(options)?;
+        let tree_id = wc.state.tree_id.clone();
         self.tree_state_dirty |= is_dirty;
-        Ok((tree_state.current_tree_id().clone(), stats))
+        Ok((tree_id, stats))
     }
 
-    fn check_out(
-        &mut self,
-        commit: &Commit,
-        options: &CheckoutOptions,
-    ) -> Result<CheckoutStats, CheckoutError> {
+    fn check_out(&mut self, commit: &Commit) -> Result<CheckoutStats, CheckoutError> {
         // TODO: Write a "pending_checkout" file with the new TreeId so we can
         // continue an interrupted update if we find such a file.
         let new_tree = commit.tree()?;
-        let tree_state = self
-            .wc
-            .tree_state_mut()
-            .map_err(|err| CheckoutError::Other {
-                message: "Failed to load the working copy state".to_string(),
-                err: err.into(),
-            })?;
-        if tree_state.tree_id != *commit.tree_id() {
-            let stats = tree_state.check_out(&new_tree, options)?;
+        let mut wc = self
+            .wc_mut()
+            .map_err(|(message, err)| CheckoutError::Other { message, err })?;
+        if wc.state.tree_id != *commit.tree_id() {
+            let stats = wc.check_out(&new_tree)?;
             self.tree_state_dirty = true;
             Ok(stats)
         } else {
@@ -2287,12 +2371,8 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
 
     fn reset(&mut self, commit: &Commit) -> Result<(), ResetError> {
         let new_tree = commit.tree()?;
-        self.wc
-            .tree_state_mut()
-            .map_err(|err| ResetError::Other {
-                message: "Failed to read the working copy state".to_string(),
-                err: err.into(),
-            })?
+        self.wc_mut()
+            .map_err(|(message, err)| ResetError::Other { message, err })?
             .reset(&new_tree)
             .block_on()?;
         self.tree_state_dirty = true;
@@ -2301,12 +2381,8 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
 
     fn recover(&mut self, commit: &Commit) -> Result<(), ResetError> {
         let new_tree = commit.tree()?;
-        self.wc
-            .tree_state_mut()
-            .map_err(|err| ResetError::Other {
-                message: "Failed to read the working copy state".to_string(),
-                err: err.into(),
-            })?
+        self.wc_mut()
+            .map_err(|(message, err)| ResetError::Other { message, err })?
             .recover(&new_tree)
             .block_on()?;
         self.tree_state_dirty = true;
@@ -2320,18 +2396,13 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
     fn set_sparse_patterns(
         &mut self,
         new_sparse_patterns: Vec<RepoPathBuf>,
-        options: &CheckoutOptions,
     ) -> Result<CheckoutStats, CheckoutError> {
         // TODO: Write a "pending_checkout" file with new sparse patterns so we can
         // continue an interrupted update if we find such a file.
         let stats = self
-            .wc
-            .tree_state_mut()
-            .map_err(|err| CheckoutError::Other {
-                message: "Failed to load the working copy state".to_string(),
-                err: err.into(),
-            })?
-            .set_sparse_patterns(new_sparse_patterns, options)?;
+            .wc_mut()
+            .map_err(|(message, err)| CheckoutError::Other { message, err })?
+            .set_sparse_patterns(new_sparse_patterns)?;
         self.tree_state_dirty = true;
         Ok(stats)
     }
@@ -2343,8 +2414,9 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError> {
         assert!(self.tree_state_dirty || &self.old_tree_id == self.wc.tree_id()?);
         if self.tree_state_dirty {
-            self.wc
-                .tree_state_mut()?
+            self.wc_mut()
+                .map_err(|(message, err)| WorkingCopyStateError { message, err })?
+                .state
                 .save()
                 .map_err(|err| WorkingCopyStateError {
                     message: "Failed to write working copy state".to_string(),
@@ -2352,11 +2424,16 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
                 })?;
         }
         if self.old_operation_id != operation_id || self.new_workspace_name.is_some() {
-            if let Some(new_name) = self.new_workspace_name {
-                self.wc.checkout_state_mut().workspace_name = new_name;
-            }
-            self.wc.checkout_state_mut().operation_id = operation_id;
-            self.wc.save();
+            let workspace_name = self.new_workspace_name.unwrap_or_else(
+                // Only read the filesystem if we're missing the workspace name.
+                || CheckoutState::load(&self.wc.state_path).workspace_name,
+            );
+            let checkout_state = CheckoutState {
+                operation_id,
+                workspace_name,
+            };
+            checkout_state.save(&self.wc.state_path);
+            self.wc.checkout_state = OnceCell::with_value(checkout_state);
         }
         // TODO: Clear the "pending_checkout" file here.
         Ok(Box::new(self.wc))
@@ -2365,12 +2442,9 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
 
 impl LockedLocalWorkingCopy {
     pub fn reset_watchman(&mut self) -> Result<(), SnapshotError> {
-        self.wc
-            .tree_state_mut()
-            .map_err(|err| SnapshotError::Other {
-                message: "Failed to read the working copy state".to_string(),
-                err: err.into(),
-            })?
+        self.wc_mut()
+            .map_err(|(message, err)| SnapshotError::Other { message, err })?
+            .state
             .reset_watchman();
         self.tree_state_dirty = true;
         Ok(())
@@ -2387,16 +2461,33 @@ mod tests {
         RepoPath::from_internal_string(value)
     }
 
-    #[test]
-    fn test_file_states_merge() {
-        let new_state = |size| FileState {
+    // Only for convenience in these tests. FileStates are *not* transitively
+    // equal (due to ExecFlag), so we should not implement PartialEq generally.
+    impl PartialEq for FileState {
+        fn eq(&self, other: &Self) -> bool {
+            self.matches(other)
+        }
+    }
+
+    // Convenience value for testing.
+    #[cfg(unix)]
+    const EXEC_CONFIG: ExecConfig = ExecConfig::Respect;
+    #[cfg(windows)]
+    const EXEC_CONFIG: ExecConfig = ExecConfig::Ignore;
+
+    fn new_state(size: u64) -> FileState {
+        FileState {
             file_type: FileType::Normal {
-                executable: FileExecutableFlag::default(),
+                exec_flag: EXEC_CONFIG.default_flag(),
             },
             mtime: MillisSinceEpoch(0),
             size,
             materialized_conflict_data: None,
-        };
+        }
+    }
+
+    #[test]
+    fn test_file_states_merge() {
         let new_static_entry = |path: &'static str, size| (repo_path(path), new_state(size));
         let new_owned_entry = |path: &str, size| (repo_path(path).to_owned(), new_state(size));
         let new_proto_entry = |path: &str, size| {
@@ -2424,7 +2515,7 @@ mod tests {
         };
         file_states.merge_in(changed_file_states, &deleted_files);
         assert_eq!(
-            file_states.all().iter().collect_vec(),
+            file_states.all(EXEC_CONFIG).iter().collect_vec(),
             vec![
                 new_static_entry("aa", 10),
                 new_static_entry("b/d/e", 2),
@@ -2438,14 +2529,6 @@ mod tests {
 
     #[test]
     fn test_file_states_lookup() {
-        let new_state = |size| FileState {
-            file_type: FileType::Normal {
-                executable: FileExecutableFlag::default(),
-            },
-            mtime: MillisSinceEpoch(0),
-            size,
-            materialized_conflict_data: None,
-        };
         let new_proto_entry = |path: &str, size| {
             file_state_entry_to_proto(repo_path(path).to_owned(), &new_state(size))
         };
@@ -2457,7 +2540,7 @@ mod tests {
             new_proto_entry("b#", 4), // '#' < '/'
             new_proto_entry("bc", 5),
         ];
-        let file_states = FileStates::from_sorted(&data);
+        let file_states = FileStates::from_sorted(&data, EXEC_CONFIG);
 
         assert_eq!(
             file_states.prefixed(repo_path("")).paths().collect_vec(),
@@ -2503,14 +2586,6 @@ mod tests {
 
     #[test]
     fn test_file_states_lookup_at() {
-        let new_state = |size| FileState {
-            file_type: FileType::Normal {
-                executable: FileExecutableFlag::default(),
-            },
-            mtime: MillisSinceEpoch(0),
-            size,
-            materialized_conflict_data: None,
-        };
         let new_proto_entry = |path: &str, size| {
             file_state_entry_to_proto(repo_path(path).to_owned(), &new_state(size))
         };
@@ -2521,7 +2596,7 @@ mod tests {
             new_proto_entry("b/e", 3),
             new_proto_entry("b#", 4), // '#' < '/'
         ];
-        let file_states = FileStates::from_sorted(&data);
+        let file_states = FileStates::from_sorted(&data, EXEC_CONFIG);
 
         // At root
         assert_eq!(
