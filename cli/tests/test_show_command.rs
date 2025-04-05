@@ -256,6 +256,44 @@ fn test_show_with_template() {
 }
 
 #[test]
+fn test_show_with_template_no_patch() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["new", "-m", "a new commit"]).success();
+    work_dir.write_file("file1", "foo\n");
+
+    let output = work_dir.run_jj(["show", "--no-patch", "-T", "description"]);
+
+    insta::assert_snapshot!(output, @r"
+    a new commit
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_show_with_no_patch() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["new", "-m", "a new commit"]).success();
+    work_dir.write_file("file1", "foo\n");
+
+    let output = work_dir.run_jj(["show", "--no-patch"]);
+
+    insta::assert_snapshot!(output, @r"
+    Commit ID: 250b23eb0c4c44580cd5d83ab1c4760ea0534f3c
+    Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
+    Author   : Test User <test.user@example.com> (2001-02-03 08:05:08)
+    Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
+
+        a new commit
+
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_show_with_no_template() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
