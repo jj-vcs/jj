@@ -275,24 +275,6 @@ pub fn with_remote_git_callbacks<T>(ui: &Ui, f: impl FnOnce(git::RemoteCallbacks
         |url: &str| Some((terminal_get_username(ui, url)?, terminal_get_pw(ui, url)?));
     callbacks.get_username_password = Some(&mut get_user_pw);
 
-    #[cfg(feature = "git2")]
-    let mut git2_deprecation_warning;
-    #[cfg(feature = "git2")]
-    if std::env::var("JJ_DEBUG_SUPPRESS_GIT2_DEPRECATION_WARNING").as_deref() != Ok("1") {
-        use std::sync::Once;
-        static GIT2_WARNING: Once = Once::new();
-        git2_deprecation_warning = || {
-            GIT2_WARNING.call_once(|| {
-                _ = writeln!(
-                    ui.warning_default(),
-                    "`git.subprocess = false` will be removed in 0.30; please report any issues \
-                     you have with the default.",
-                );
-            });
-        };
-        callbacks.git2_deprecation_warning = Some(&mut git2_deprecation_warning);
-    }
-
     let result = f(callbacks);
     _ = sideband_progress_writer.flush(ui);
     result
