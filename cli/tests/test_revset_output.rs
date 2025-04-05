@@ -591,18 +591,20 @@ fn test_bad_alias_decl() {
     ◆  zzzzzzzz root() 00000000
     [EOF]
     ------- stderr -------
-    Warning: Failed to load `revset-aliases."bad"`:  --> 1:1
-      |
-    1 | "bad"
-      | ^---
-      |
-      = expected <strict_identifier> or <function_name>
-    Warning: Failed to load `revset-aliases.badfn(a, a)`:  --> 1:7
-      |
-    1 | badfn(a, a)
-      |       ^--^
-      |
-      = Redefinition of function parameter
+    Warning: 
+      Failed to load `revset-aliases."bad"`:  --> 1:1
+        |
+      1 | "bad"
+        | ^---
+        |
+        = expected <strict_identifier> or <function_name>
+    Warning: 
+      Failed to load `revset-aliases.badfn(a, a)`:  --> 1:7
+        |
+      1 | badfn(a, a)
+        |       ^--^
+        |
+        = Redefinition of function parameter
     [EOF]
     "#);
 }

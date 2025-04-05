@@ -35,9 +35,10 @@ fn test_restore() {
     let output = work_dir.run_jj(["restore", "-r=@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: `jj restore` does not have a `--revision`/`-r` option. If you'd like to modify
-    the *current* revision, use `--from`. If you'd like to modify a *different* revision,
-    use `--into` or `--changes-in`.
+    Error: 
+      `jj restore` does not have a `--revision`/`-r` option. If you'd like to modify
+      the *current* revision, use `--from`. If you'd like to modify a *different* revision,
+      use `--into` or `--changes-in`.
     [EOF]
     [exit status: 1]
     ");

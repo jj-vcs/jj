@@ -469,8 +469,9 @@ fn test_git_fetch_from_remote_named_git(subprocess: bool) {
     ------- stderr -------
     Warning: Failed to import some Git refs:
       refs/remotes/git/git
-    Hint: Git remote named 'git' is reserved for local Git repository.
-    Use `jj git remote rename` to give a different name.
+    Hint: 
+      Git remote named 'git' is reserved for local Git repository.
+      Use `jj git remote rename` to give a different name.
     [EOF]
     ");
     }
@@ -483,12 +484,14 @@ fn test_git_fetch_from_remote_named_git(subprocess: bool) {
     ------- stderr -------
     Warning: Failed to import some Git refs:
       refs/remotes/git/git
-    Hint: Git remote named 'git' is reserved for local Git repository.
-    Use `jj git remote rename` to give a different name.
+    Hint: 
+      Git remote named 'git' is reserved for local Git repository.
+      Use `jj git remote rename` to give a different name.
     Warning: Failed to import some Git refs:
       refs/remotes/git/git
-    Hint: Git remote named 'git' is reserved for local Git repository.
-    Use `jj git remote rename` to give a different name.
+    Hint: 
+      Git remote named 'git' is reserved for local Git repository.
+      Use `jj git remote rename` to give a different name.
     Nothing changed.
     [EOF]
     ");

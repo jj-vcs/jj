@@ -137,8 +137,9 @@ fn test_gitignores_ignored_file_in_target_commit() {
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 1 files, modified 0 files, removed 0 files
     Warning: 1 of those updates were skipped because there were conflicting changes in the working copy.
-    Hint: Inspect the changes compared to the intended target with `jj diff --from 5ada929e5d2e`.
-    Discard the conflicting changes with `jj restore --from 5ada929e5d2e`.
+    Hint: 
+      Inspect the changes compared to the intended target with `jj diff --from 5ada929e5d2e`.
+      Discard the conflicting changes with `jj restore --from 5ada929e5d2e`.
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "--git", "--from", &target_commit_id]);
