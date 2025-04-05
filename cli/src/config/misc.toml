@@ -6,6 +6,7 @@ b = ["bookmark"]
 ci = ["commit"]
 
 [diff.color-words]
+conflict = "materialize"
 max-inline-alternation = 3
 context = 3
 

@@ -14,11 +14,13 @@
 
 #![allow(missing_docs)]
 
+use std::borrow::Borrow;
 use std::io;
 use std::io::Read;
 use std::io::Write;
 use std::iter::zip;
 
+use bstr::BStr;
 use bstr::BString;
 use bstr::ByteSlice as _;
 use futures::stream::BoxStream;
@@ -43,6 +45,7 @@ use crate::diff::DiffHunk;
 use crate::diff::DiffHunkKind;
 use crate::files;
 use crate::files::MergeResult;
+use crate::merge;
 use crate::merge::Merge;
 use crate::merge::MergeBuilder;
 use crate::merge::MergedTreeValue;
@@ -1015,4 +1018,177 @@ pub async fn update_from_content(
         Merge::from_vec(new_file_ids)
     };
     Ok(new_file_ids)
+}
+
+/// Diff hunk that may be unresolved conflicts.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ConflictDiffHunk<'input> {
+    pub kind: DiffHunkKind,
+    pub lefts: Merge<&'input BStr>,
+    pub rights: Merge<&'input BStr>,
+}
+
+/// Iterator adaptor that tries to resolve trivial conflicts for each hunk.
+pub fn conflict_diff_hunks<'input, I>(
+    diff_hunks: I,
+    num_lefts: usize,
+) -> impl Iterator<Item = ConflictDiffHunk<'input>>
+where
+    I: IntoIterator,
+    I::Item: Borrow<DiffHunk<'input>>,
+{
+    // This should align with files::merge()
+    fn try_resolve<'input>(contents: &[&'input BStr]) -> Merge<&'input BStr> {
+        if let Some(&content) = merge::trivial_merge(contents) {
+            Merge::resolved(content)
+        } else {
+            Merge::from_vec(contents)
+        }
+    }
+
+    diff_hunks.into_iter().map(move |hunk| {
+        let hunk = hunk.borrow();
+        let (lefts, rights) = hunk.contents.split_at(num_lefts);
+        if let ([left], [right]) = (lefts, rights) {
+            // Non-conflicting diff shouldn't have identical contents
+            ConflictDiffHunk {
+                kind: hunk.kind,
+                lefts: Merge::resolved(left),
+                rights: Merge::resolved(right),
+            }
+        } else {
+            let lefts = try_resolve(lefts);
+            let rights = try_resolve(rights);
+            let kind = match hunk.kind {
+                DiffHunkKind::Matching => DiffHunkKind::Matching,
+                DiffHunkKind::Different if lefts == rights => DiffHunkKind::Matching,
+                DiffHunkKind::Different => DiffHunkKind::Different,
+            };
+            ConflictDiffHunk {
+                kind,
+                lefts,
+                rights,
+            }
+        }
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_conflict_diff_hunks_no_conflicts() {
+        let diff_hunks = [
+            DiffHunk::matching(["a\n"].repeat(2)),
+            DiffHunk::different(["b\n", "c\n"]),
+        ];
+        let num_lefts = 1;
+        insta::assert_debug_snapshot!(
+            conflict_diff_hunks(&diff_hunks, num_lefts).collect_vec(), @r#"
+        [
+            ConflictDiffHunk {
+                kind: Matching,
+                lefts: Resolved(
+                    "a\n",
+                ),
+                rights: Resolved(
+                    "a\n",
+                ),
+            },
+            ConflictDiffHunk {
+                kind: Different,
+                lefts: Resolved(
+                    "b\n",
+                ),
+                rights: Resolved(
+                    "c\n",
+                ),
+            },
+        ]
+        "#);
+    }
+
+    #[test]
+    fn test_conflict_diff_hunks_simple_conflicts() {
+        let diff_hunks = [
+            // conflict hunk
+            DiffHunk::different(["a\n", "X\n", "b\n", "c\n"]),
+            DiffHunk::matching(["d\n"].repeat(4)),
+            // non-conflict hunk
+            DiffHunk::different(["e\n", "e\n", "e\n", "f\n"]),
+        ];
+        let num_lefts = 3;
+        insta::assert_debug_snapshot!(
+            conflict_diff_hunks(&diff_hunks, num_lefts).collect_vec(), @r#"
+        [
+            ConflictDiffHunk {
+                kind: Different,
+                lefts: Conflicted(
+                    [
+                        "a\n",
+                        "X\n",
+                        "b\n",
+                    ],
+                ),
+                rights: Resolved(
+                    "c\n",
+                ),
+            },
+            ConflictDiffHunk {
+                kind: Matching,
+                lefts: Resolved(
+                    "d\n",
+                ),
+                rights: Resolved(
+                    "d\n",
+                ),
+            },
+            ConflictDiffHunk {
+                kind: Different,
+                lefts: Resolved(
+                    "e\n",
+                ),
+                rights: Resolved(
+                    "f\n",
+                ),
+            },
+        ]
+        "#);
+    }
+
+    #[test]
+    fn test_conflict_diff_hunks_trivially_resolved() {
+        let diff_hunks = [DiffHunk::different(["a", "b", "a", "a"])];
+        let num_lefts = 1;
+        insta::assert_debug_snapshot!(
+            conflict_diff_hunks(&diff_hunks, num_lefts).collect_vec(), @r#"
+        [
+            ConflictDiffHunk {
+                kind: Different,
+                lefts: Resolved(
+                    "a",
+                ),
+                rights: Resolved(
+                    "b",
+                ),
+            },
+        ]
+        "#);
+        let num_lefts = 3;
+        insta::assert_debug_snapshot!(
+            conflict_diff_hunks(&diff_hunks, num_lefts).collect_vec(), @r#"
+        [
+            ConflictDiffHunk {
+                kind: Matching,
+                lefts: Resolved(
+                    "a",
+                ),
+                rights: Resolved(
+                    "a",
+                ),
+            },
+        ]
+        "#);
+    }
 }

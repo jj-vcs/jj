@@ -36,8 +36,10 @@ use jj_lib::backend::TreeValue;
 use jj_lib::commit::Commit;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigGetResultExt as _;
+use jj_lib::conflicts::conflict_diff_hunks;
 use jj_lib::conflicts::materialize_merge_result_to_bytes;
 use jj_lib::conflicts::materialized_diff_stream;
+use jj_lib::conflicts::ConflictDiffHunk;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::conflicts::MaterializedFileValue;
 use jj_lib::conflicts::MaterializedTreeDiffEntry;
@@ -57,6 +59,7 @@ use jj_lib::files::DiffLineHunkSide;
 use jj_lib::files::DiffLineIterator;
 use jj_lib::files::DiffLineNumber;
 use jj_lib::matchers::Matcher;
+use jj_lib::merge::Merge;
 use jj_lib::merge::MergedTreeValue;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::ObjectId as _;
@@ -494,6 +497,17 @@ pub fn get_copy_records<'a>(
     Ok(block_on_stream(stream).filter_ok(|record| matcher.matches(&record.target)))
 }
 
+/// How conflicts are processed and rendered in diffs.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ConflictDiffMethod {
+    /// Compares materialized contents.
+    #[default]
+    Materialize,
+    /// Compares individual pairs of left and right contents.
+    Pair,
+}
+
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct LineDiffOptions {
     /// How equivalence of lines is tested.
@@ -547,6 +561,8 @@ fn diff_by_line<'input, T: AsRef<[u8]> + ?Sized + 'input>(
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ColorWordsDiffOptions {
+    /// How conflicts are processed and rendered.
+    pub conflict: ConflictDiffMethod,
     /// Number of context lines to show.
     pub context: usize,
     /// How lines are tokenized and compared.
@@ -569,6 +585,7 @@ impl ColorWordsDiffOptions {
             }
         };
         Ok(ColorWordsDiffOptions {
+            conflict: settings.get("diff.color-words.conflict")?,
             context: settings.get("diff.color-words.context")?,
             line_diff: LineDiffOptions::default(),
             max_inline_alternation,
@@ -585,50 +602,214 @@ impl ColorWordsDiffOptions {
 
 fn show_color_words_diff_hunks(
     formatter: &mut dyn Formatter,
-    contents: [&BStr; 2],
+    [lefts, rights]: [&Merge<BString>; 2],
     options: &ColorWordsDiffOptions,
+    conflict_marker_style: ConflictMarkerStyle,
 ) -> io::Result<()> {
-    let line_diff = diff_by_line(contents, &options.line_diff);
-    let mut line_number = DiffLineNumber { left: 1, right: 1 };
+    let line_number = DiffLineNumber { left: 1, right: 1 };
+    let labels = ["removed", "added"];
+    if let (Some(left), Some(right)) = (lefts.as_resolved(), rights.as_resolved()) {
+        let contents = [left, right].map(BStr::new);
+        show_color_words_resolved_hunks(formatter, contents, line_number, labels, options)?;
+        return Ok(());
+    }
+    match options.conflict {
+        ConflictDiffMethod::Materialize => {
+            let left = materialize_merge_result_to_bytes(lefts, conflict_marker_style);
+            let right = materialize_merge_result_to_bytes(rights, conflict_marker_style);
+            let contents = [&left, &right].map(BStr::new);
+            show_color_words_resolved_hunks(formatter, contents, line_number, labels, options)?;
+        }
+        ConflictDiffMethod::Pair => {
+            let contents = [lefts, rights];
+            show_color_words_conflict_hunks(formatter, contents, line_number, labels, options)?;
+        }
+    }
+    Ok(())
+}
+
+fn show_color_words_conflict_hunks(
+    formatter: &mut dyn Formatter,
+    [lefts, rights]: [&Merge<BString>; 2],
+    mut line_number: DiffLineNumber,
+    labels: [&str; 2],
+    options: &ColorWordsDiffOptions,
+) -> io::Result<DiffLineNumber> {
+    let num_lefts = lefts.as_slice().len();
+    let line_diff = diff_by_line(lefts.iter().chain(rights.iter()), &options.line_diff);
     // Matching entries shouldn't appear consecutively in diff of two inputs.
     // However, if the inputs have conflicts, there may be a hunk that can be
     // resolved, resulting [matching, resolved, matching] sequence.
-    let mut contexts = Vec::new();
+    let mut contexts: Vec<[&BStr; 2]> = Vec::new();
+    let mut emitted = false;
+
+    for hunk in conflict_diff_hunks(line_diff.hunks(), num_lefts) {
+        match hunk.kind {
+            // There may be conflicts in matching hunk, but just pick one. It
+            // would be too verbose to show all conflict pairs as context.
+            DiffHunkKind::Matching => contexts.push([hunk.lefts.first(), hunk.rights.first()]),
+            DiffHunkKind::Different => {
+                let num_after = if emitted { options.context } else { 0 };
+                let num_before = options.context;
+                line_number = show_color_words_context_lines(
+                    formatter,
+                    &contexts,
+                    line_number,
+                    labels,
+                    options,
+                    num_after,
+                    num_before,
+                )?;
+                contexts.clear();
+                emitted = true;
+                line_number = if let (Some(&left), Some(&right)) =
+                    (hunk.lefts.as_resolved(), hunk.rights.as_resolved())
+                {
+                    let contents = [left, right];
+                    show_color_words_diff_lines(formatter, contents, line_number, labels, options)?
+                } else {
+                    show_color_words_unresolved_hunk(
+                        formatter,
+                        &hunk,
+                        line_number,
+                        labels,
+                        options,
+                    )?
+                }
+            }
+        }
+    }
+
+    let num_after = if emitted { options.context } else { 0 };
+    let num_before = 0;
+    show_color_words_context_lines(
+        formatter,
+        &contexts,
+        line_number,
+        labels,
+        options,
+        num_after,
+        num_before,
+    )
+}
+
+fn show_color_words_unresolved_hunk(
+    formatter: &mut dyn Formatter,
+    hunk: &ConflictDiffHunk,
+    line_number: DiffLineNumber,
+    [label1, label2]: [&str; 2],
+    options: &ColorWordsDiffOptions,
+) -> io::Result<DiffLineNumber> {
+    let hunk_desc = if hunk.lefts.is_resolved() {
+        "Created conflict"
+    } else if hunk.rights.is_resolved() {
+        "Resolved conflict"
+    } else {
+        "Modified conflict"
+    };
+    writeln!(formatter.labeled("hunk_header"), "<<<<<<< {hunk_desc}")?;
+
+    // Pad with identical (negative, positive) terms. It's common that one of
+    // the sides is resolved, or both sides have the same numbers of terms. If
+    // both sides are conflicts, and the numbers of terms are different, the
+    // choice of padding terms is arbitrary.
+    let num_terms = max(hunk.lefts.as_slice().len(), hunk.rights.as_slice().len());
+    let lefts = hunk.lefts.iter().enumerate();
+    let rights = hunk.rights.iter().enumerate();
+    let padded = iter::zip(
+        lefts.chain(iter::repeat((0, hunk.lefts.first()))),
+        rights.chain(iter::repeat((0, hunk.rights.first()))),
+    )
+    .take(num_terms);
+    let mut max_line_number = line_number;
+    for (i, ((left_index, &left_content), (right_index, &right_content))) in padded.enumerate() {
+        let positive = i % 2 == 0;
+        // TODO: better hunk description? 1-based index might be better. It
+        // should be compatible with the "tree-set" language. #5307
+        if positive {
+            writeln!(
+                formatter.labeled("hunk_header"),
+                "+++++++ left #{left_index} to right #{right_index}"
+            )?;
+        } else {
+            writeln!(
+                formatter.labeled("hunk_header"),
+                "------- left #{left_index} to right #{right_index} (base)"
+            )?;
+        }
+        let contents = [left_content, right_content];
+        let labels = match positive {
+            true => [label1, label2],
+            false => [label2, label1],
+        };
+        // Individual hunk pair may be largely the same, so diff it again.
+        let new_line_number =
+            show_color_words_resolved_hunks(formatter, contents, line_number, labels, options)?;
+        // Take max to assign unique line numbers to trailing hunks. The line
+        // numbers can't be real anyway because preceding conflict hunks might
+        // have been resolved.
+        max_line_number.left = max(max_line_number.left, new_line_number.left);
+        max_line_number.right = max(max_line_number.right, new_line_number.right);
+    }
+
+    writeln!(formatter.labeled("hunk_header"), ">>>>>>> Conflict ends")?;
+    Ok(max_line_number)
+}
+
+fn show_color_words_resolved_hunks(
+    formatter: &mut dyn Formatter,
+    contents: [&BStr; 2],
+    mut line_number: DiffLineNumber,
+    labels: [&str; 2],
+    options: &ColorWordsDiffOptions,
+) -> io::Result<DiffLineNumber> {
+    let line_diff = diff_by_line(contents, &options.line_diff);
+    // Matching entries shouldn't appear consecutively in diff of two inputs.
+    let mut context: Option<[&BStr; 2]> = None;
     let mut emitted = false;
 
     for hunk in line_diff.hunks() {
         let hunk_contents: [&BStr; 2] = hunk.contents[..].try_into().unwrap();
         match hunk.kind {
-            DiffHunkKind::Matching => contexts.push(hunk_contents),
+            DiffHunkKind::Matching => {
+                context = Some(hunk_contents);
+            }
             DiffHunkKind::Different => {
                 let num_after = if emitted { options.context } else { 0 };
+                let num_before = options.context;
                 line_number = show_color_words_context_lines(
                     formatter,
-                    &contexts,
+                    context.as_slice(),
                     line_number,
+                    labels,
                     options,
                     num_after,
-                    options.context,
+                    num_before,
                 )?;
-                contexts.clear();
+                context = None;
                 emitted = true;
-                line_number =
-                    show_color_words_diff_lines(formatter, hunk_contents, line_number, options)?;
+                line_number = show_color_words_diff_lines(
+                    formatter,
+                    hunk_contents,
+                    line_number,
+                    labels,
+                    options,
+                )?;
             }
         }
     }
 
-    if emitted {
-        show_color_words_context_lines(
-            formatter,
-            &contexts,
-            line_number,
-            options,
-            options.context,
-            0,
-        )?;
-    }
-    Ok(())
+    let num_after = if emitted { options.context } else { 0 };
+    let num_before = 0;
+    show_color_words_context_lines(
+        formatter,
+        context.as_slice(),
+        line_number,
+        labels,
+        options,
+        num_after,
+        num_before,
+    )
 }
 
 /// Prints `num_after` lines, ellipsis, and `num_before` lines.
@@ -636,6 +817,7 @@ fn show_color_words_context_lines(
     formatter: &mut dyn Formatter,
     contexts: &[[&BStr; 2]],
     mut line_number: DiffLineNumber,
+    labels: [&str; 2],
     options: &ColorWordsDiffOptions,
     num_after: usize,
     num_before: usize,
@@ -659,10 +841,12 @@ fn show_color_words_context_lines(
                 show_color_words_line_number(
                     formatter,
                     [Some(line_number.left), Some(line_number.right)],
+                    labels,
                 )?;
                 show_color_words_inline_hunks(
                     formatter,
                     &[(DiffLineHunkSide::Both, line.as_ref())],
+                    labels,
                 )?;
                 line_number.left += 1;
                 line_number.right += 1;
@@ -675,6 +859,7 @@ fn show_color_words_context_lines(
                 formatter,
                 [&left, &right].map(BStr::new),
                 line_number,
+                labels,
                 options,
             )
         }
@@ -706,6 +891,7 @@ fn show_color_words_diff_lines(
     formatter: &mut dyn Formatter,
     contents: [&BStr; 2],
     mut line_number: DiffLineNumber,
+    labels: [&str; 2],
     options: &ColorWordsDiffOptions,
 ) -> io::Result<DiffLineNumber> {
     let word_diff_hunks = Diff::by_word(contents).hunks().collect_vec();
@@ -731,20 +917,22 @@ fn show_color_words_diff_lines(
                         .has_right_content()
                         .then_some(diff_line.line_number.right),
                 ],
+                labels,
             )?;
-            show_color_words_inline_hunks(formatter, &diff_line.hunks)?;
+            show_color_words_inline_hunks(formatter, &diff_line.hunks, labels)?;
         }
         line_number = diff_line_iter.next_line_number();
     } else {
         let [left_lines, right_lines] = unzip_diff_hunks_to_lines(&word_diff_hunks);
+        let [left_label, right_label] = labels;
         for tokens in &left_lines {
-            show_color_words_line_number(formatter, [Some(line_number.left), None])?;
-            show_color_words_single_sided_line(formatter, tokens, "removed")?;
+            show_color_words_line_number(formatter, [Some(line_number.left), None], labels)?;
+            show_color_words_single_sided_line(formatter, tokens, left_label)?;
             line_number.left += 1;
         }
         for tokens in &right_lines {
-            show_color_words_line_number(formatter, [None, Some(line_number.right)])?;
-            show_color_words_single_sided_line(formatter, tokens, "added")?;
+            show_color_words_line_number(formatter, [None, Some(line_number.right)], labels)?;
+            show_color_words_single_sided_line(formatter, tokens, right_label)?;
             line_number.right += 1;
         }
     }
@@ -754,9 +942,10 @@ fn show_color_words_diff_lines(
 fn show_color_words_line_number(
     formatter: &mut dyn Formatter,
     [left_line_number, right_line_number]: [Option<u32>; 2],
+    [left_label, right_label]: [&str; 2],
 ) -> io::Result<()> {
     if let Some(line_number) = left_line_number {
-        formatter.with_label("removed", |formatter| {
+        formatter.with_label(left_label, |formatter| {
             write!(formatter.labeled("line_number"), "{line_number:>4}")
         })?;
         write!(formatter, " ")?;
@@ -764,7 +953,7 @@ fn show_color_words_line_number(
         write!(formatter, "     ")?;
     }
     if let Some(line_number) = right_line_number {
-        formatter.with_label("added", |formatter| {
+        formatter.with_label(right_label, |formatter| {
             write!(formatter.labeled("line_number"), "{line_number:>4}",)
         })?;
         write!(formatter, ": ")?;
@@ -778,12 +967,13 @@ fn show_color_words_line_number(
 fn show_color_words_inline_hunks(
     formatter: &mut dyn Formatter,
     line_hunks: &[(DiffLineHunkSide, &BStr)],
+    [left_label, right_label]: [&str; 2],
 ) -> io::Result<()> {
     for (side, data) in line_hunks {
         let label = match side {
             DiffLineHunkSide::Both => None,
-            DiffLineHunkSide::Left => Some("removed"),
-            DiffLineHunkSide::Right => Some("added"),
+            DiffLineHunkSide::Left => Some(left_label),
+            DiffLineHunkSide::Right => Some(right_label),
         };
         if let Some(label) = label {
             formatter.with_label(label, |formatter| {
@@ -850,29 +1040,23 @@ fn split_diff_hunks_by_matching_newline<'a, 'b>(
     })
 }
 
-struct FileContent {
+struct FileContent<T> {
     /// false if this file is likely text; true if it is likely binary.
     is_binary: bool,
-    contents: BString,
+    contents: T,
 }
 
-impl FileContent {
-    fn empty() -> Self {
-        Self {
-            is_binary: false,
-            contents: BString::default(),
-        }
-    }
-
-    pub(crate) fn is_empty(&self) -> bool {
-        self.contents.is_empty()
+impl FileContent<Merge<BString>> {
+    fn is_empty(&self) -> bool {
+        self.contents.as_resolved().is_some_and(|c| c.is_empty())
     }
 }
 
-fn file_content_for_diff(
+fn file_content_for_diff<T>(
     path: &RepoPath,
     file: &mut MaterializedFileValue,
-) -> BackendResult<FileContent> {
+    map_resolved: impl FnOnce(BString) -> T,
+) -> BackendResult<FileContent<T>> {
     // If this is a binary file, don't show the full contents.
     // Determine whether it's binary by whether the first 8k bytes contain a null
     // character; this is the same heuristic used by git as of writing: https://github.com/git/git/blob/eea0e59ffbed6e33d171ace5be13cde9faa41639/xdiff-interface.c#L192-L198
@@ -884,7 +1068,7 @@ fn file_content_for_diff(
     let start = &contents[..PEEK_SIZE.min(contents.len())];
     Ok(FileContent {
         is_binary: start.contains(&b'\0'),
-        contents,
+        contents: map_resolved(contents),
     })
 }
 
@@ -892,22 +1076,48 @@ fn diff_content(
     path: &RepoPath,
     value: MaterializedTreeValue,
     conflict_marker_style: ConflictMarkerStyle,
-) -> BackendResult<FileContent> {
+) -> BackendResult<FileContent<BString>> {
+    diff_content_with(
+        path,
+        value,
+        |content| content,
+        |contents| materialize_merge_result_to_bytes(&contents, conflict_marker_style),
+    )
+}
+
+fn diff_content_as_merge(
+    path: &RepoPath,
+    value: MaterializedTreeValue,
+) -> BackendResult<FileContent<Merge<BString>>> {
+    diff_content_with(path, value, Merge::resolved, |contents| contents)
+}
+
+fn diff_content_with<T>(
+    path: &RepoPath,
+    value: MaterializedTreeValue,
+    map_resolved: impl FnOnce(BString) -> T,
+    map_conflict: impl FnOnce(Merge<BString>) -> T,
+) -> BackendResult<FileContent<T>> {
     match value {
-        MaterializedTreeValue::Absent => Ok(FileContent::empty()),
+        MaterializedTreeValue::Absent => Ok(FileContent {
+            is_binary: false,
+            contents: map_resolved(BString::default()),
+        }),
         MaterializedTreeValue::AccessDenied(err) => Ok(FileContent {
             is_binary: false,
-            contents: format!("Access denied: {err}").into(),
+            contents: map_resolved(format!("Access denied: {err}").into()),
         }),
-        MaterializedTreeValue::File(mut file) => file_content_for_diff(path, &mut file),
+        MaterializedTreeValue::File(mut file) => {
+            file_content_for_diff(path, &mut file, map_resolved)
+        }
         MaterializedTreeValue::Symlink { id: _, target } => Ok(FileContent {
             // Unix file paths can't contain null bytes.
             is_binary: false,
-            contents: target.into(),
+            contents: map_resolved(target.into()),
         }),
         MaterializedTreeValue::GitSubmodule(id) => Ok(FileContent {
             is_binary: false,
-            contents: format!("Git submodule checked out at {id}").into(),
+            contents: map_resolved(format!("Git submodule checked out at {id}").into()),
         }),
         // TODO: are we sure this is never binary?
         MaterializedTreeValue::FileConflict {
@@ -916,11 +1126,11 @@ fn diff_content(
             executable: _,
         } => Ok(FileContent {
             is_binary: false,
-            contents: materialize_merge_result_to_bytes(&contents, conflict_marker_style),
+            contents: map_conflict(contents),
         }),
         MaterializedTreeValue::OtherConflict { id } => Ok(FileContent {
             is_binary: false,
-            contents: id.describe().into(),
+            contents: map_resolved(id.describe().into()),
         }),
         MaterializedTreeValue::Tree(id) => {
             panic!("Unexpected tree with id {id:?} in diff at path {path:?}");
@@ -957,6 +1167,7 @@ pub fn show_color_words_diff(
     options: &ColorWordsDiffOptions,
     conflict_marker_style: ConflictMarkerStyle,
 ) -> Result<(), DiffRenderError> {
+    let empty_content = || Merge::resolved(BString::default());
     let mut diff_stream = materialized_diff_stream(store, tree_diff);
     async {
         while let Some(MaterializedTreeDiffEntry { path, values }) = diff_stream.next().await {
@@ -991,7 +1202,7 @@ pub fn show_color_words_diff(
                     formatter.labeled("header"),
                     "Added {description} {right_ui_path}:"
                 )?;
-                let right_content = diff_content(right_path, right_value, conflict_marker_style)?;
+                let right_content = diff_content_as_merge(right_path, right_value)?;
                 if right_content.is_empty() {
                     writeln!(formatter.labeled("empty"), "    (empty)")?;
                 } else if right_content.is_binary {
@@ -999,8 +1210,9 @@ pub fn show_color_words_diff(
                 } else {
                     show_color_words_diff_hunks(
                         formatter,
-                        [BStr::new(""), right_content.contents.as_ref()],
+                        [&empty_content(), &right_content.contents],
                         options,
+                        conflict_marker_style,
                     )?;
                 }
             } else if right_value.is_present() {
@@ -1048,8 +1260,8 @@ pub fn show_color_words_diff(
                         )
                     }
                 };
-                let left_content = diff_content(left_path, left_value, conflict_marker_style)?;
-                let right_content = diff_content(right_path, right_value, conflict_marker_style)?;
+                let left_content = diff_content_as_merge(left_path, left_value)?;
+                let right_content = diff_content_as_merge(right_path, right_value)?;
                 if left_path == right_path {
                     writeln!(
                         formatter.labeled("header"),
@@ -1063,11 +1275,12 @@ pub fn show_color_words_diff(
                 }
                 if left_content.is_binary || right_content.is_binary {
                     writeln!(formatter.labeled("binary"), "    (binary)")?;
-                } else {
+                } else if left_content.contents != right_content.contents {
                     show_color_words_diff_hunks(
                         formatter,
-                        [&left_content.contents, &right_content.contents].map(BStr::new),
+                        [&left_content.contents, &right_content.contents],
                         options,
+                        conflict_marker_style,
                     )?;
                 }
             } else {
@@ -1076,7 +1289,7 @@ pub fn show_color_words_diff(
                     formatter.labeled("header"),
                     "Removed {description} {right_ui_path}:"
                 )?;
-                let left_content = diff_content(left_path, left_value, conflict_marker_style)?;
+                let left_content = diff_content_as_merge(left_path, left_value)?;
                 if left_content.is_empty() {
                     writeln!(formatter.labeled("empty"), "    (empty)")?;
                 } else if left_content.is_binary {
@@ -1084,8 +1297,9 @@ pub fn show_color_words_diff(
                 } else {
                     show_color_words_diff_hunks(
                         formatter,
-                        [left_content.contents.as_ref(), BStr::new("")],
+                        [&left_content.contents, &empty_content()],
                         options,
+                        conflict_marker_style,
                     )?;
                 }
             }
@@ -1170,7 +1384,7 @@ struct GitDiffPart {
     /// Octal mode string or `None` if the file is absent.
     mode: Option<&'static str>,
     hash: String,
-    content: FileContent,
+    content: FileContent<BString>,
 }
 
 fn git_diff_part(
@@ -1187,7 +1401,10 @@ fn git_diff_part(
             return Ok(GitDiffPart {
                 mode: None,
                 hash: DUMMY_HASH.to_owned(),
-                content: FileContent::empty(),
+                content: FileContent {
+                    is_binary: false,
+                    contents: BString::default(),
+                },
             });
         }
         MaterializedTreeValue::AccessDenied(err) => {
@@ -1199,7 +1416,7 @@ fn git_diff_part(
         MaterializedTreeValue::File(mut file) => {
             mode = if file.executable { "100755" } else { "100644" };
             hash = file.id.hex();
-            content = file_content_for_diff(path, &mut file)?;
+            content = file_content_for_diff(path, &mut file, |content| content)?;
         }
         MaterializedTreeValue::Symlink { id, target } => {
             mode = "120000";
@@ -1214,7 +1431,10 @@ fn git_diff_part(
             // TODO: What should we actually do here?
             mode = "040000";
             hash = id.hex();
-            content = FileContent::empty();
+            content = FileContent {
+                is_binary: false,
+                contents: BString::default(),
+            };
         }
         MaterializedTreeValue::FileConflict {
             id: _,

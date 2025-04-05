@@ -16,6 +16,7 @@ use indoc::indoc;
 use itertools::Itertools as _;
 
 use crate::common::create_commit;
+use crate::common::create_commit_with_files;
 use crate::common::fake_diff_editor_path;
 use crate::common::to_toml_value;
 use crate::common::CommandOutput;
@@ -1601,9 +1602,17 @@ fn test_diff_ignore_whitespace() {
             baz {}
         "},
     );
-    work_dir
-        .run_jj(["new", "-mindent + whitespace insertion"])
-        .success();
+    work_dir.run_jj(["new", "-minsert whitespace"]).success();
+    work_dir.write_file(
+        "file1",
+        indoc! {"
+            foo {
+                bar;
+            }
+            baz {  }
+        "},
+    );
+    work_dir.run_jj(["new", "-mindent"]).success();
     work_dir.write_file(
         "file1",
         indoc! {"
@@ -1615,10 +1624,17 @@ fn test_diff_ignore_whitespace() {
             baz {  }
         "},
     );
-    work_dir.run_jj(["status"]).success();
 
     // Git diff as reference output
-    let output = work_dir.run_jj(["diff", "--git", "--ignore-all-space"]);
+    let output = work_dir.run_jj(["diff", "-r@-", "--git", "--ignore-all-space"]);
+    insta::assert_snapshot!(output, @r"
+    diff --git a/file1 b/file1
+    index f532aa68ad..d33445991b 100644
+    --- a/file1
+    +++ b/file1
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["diff", "--from=@--", "--git", "--ignore-all-space"]);
     insta::assert_snapshot!(output, @r"
     diff --git a/file1 b/file1
     index f532aa68ad..033c4a6168 100644
@@ -1633,7 +1649,7 @@ fn test_diff_ignore_whitespace() {
      baz {  }
     [EOF]
     ");
-    let output = work_dir.run_jj(["diff", "--git", "--ignore-space-change"]);
+    let output = work_dir.run_jj(["diff", "--from=@--", "--git", "--ignore-space-change"]);
     insta::assert_snapshot!(output, @r"
     diff --git a/file1 b/file1
     index f532aa68ad..033c4a6168 100644
@@ -1652,21 +1668,35 @@ fn test_diff_ignore_whitespace() {
     ");
 
     // Diff-stat should respects the whitespace options
-    let output = work_dir.run_jj(["diff", "--stat", "--ignore-all-space"]);
+    let output = work_dir.run_jj(["diff", "-r@-", "--stat", "--ignore-all-space"]);
+    insta::assert_snapshot!(output, @r"
+    file1 | 0
+    1 file changed, 0 insertions(+), 0 deletions(-)
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["diff", "--from=@--", "--stat", "--ignore-all-space"]);
     insta::assert_snapshot!(output, @r"
     file1 | 2 ++
     1 file changed, 2 insertions(+), 0 deletions(-)
     [EOF]
     ");
-    let output = work_dir.run_jj(["diff", "--stat", "--ignore-space-change"]);
+    let output = work_dir.run_jj(["diff", "--from=@--", "--stat", "--ignore-space-change"]);
     insta::assert_snapshot!(output, @r"
     file1 | 6 ++++--
     1 file changed, 4 insertions(+), 2 deletions(-)
     [EOF]
     ");
 
+    // "..." is printed if contents differ only in whitespace
+    let output = work_dir.run_jj(["diff", "-r@-", "--color=always", "--ignore-all-space"]);
+    insta::assert_snapshot!(output, @r"
+    [38;5;3mModified regular file file1:[39m
+        ...
+    [EOF]
+    ");
+
     // Word-level changes are still highlighted
-    let output = work_dir.run_jj(["diff", "--color=always", "--ignore-all-space"]);
+    let output = work_dir.run_jj(["diff", "--from=@--", "--color=always", "--ignore-all-space"]);
     insta::assert_snapshot!(output, @r"
     [38;5;3mModified regular file file1:[39m
          [38;5;2m   1[39m: [4m[38;5;2m{[24m[39m
@@ -1677,7 +1707,12 @@ fn test_diff_ignore_whitespace() {
     [38;5;1m   4[39m [38;5;2m   6[39m: baz {[4m[38;5;2m  [24m[39m}
     [EOF]
     ");
-    let output = work_dir.run_jj(["diff", "--color=always", "--ignore-space-change"]);
+    let output = work_dir.run_jj([
+        "diff",
+        "--from=@--",
+        "--color=always",
+        "--ignore-space-change",
+    ]);
     insta::assert_snapshot!(output, @r"
     [38;5;3mModified regular file file1:[39m
          [38;5;2m   1[39m: [4m[38;5;2m{[24m[39m
@@ -2115,6 +2150,630 @@ fn test_diff_leading_trailing_context() {
     +R
      7
      8
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_diff_conflict_sides_differ() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Based on test_materialize_conflict_basic() in test_conflicts.rs
+    let base_content = indoc! {"
+        line 1
+        line 2
+        line 3
+        line 4
+        line 5
+    "};
+    let left1_content = indoc! {"
+        line 1
+        line 2
+        left 3.1
+        left 3.2
+        left 3.3
+        line 4
+        line 5
+    "};
+    let left2_content = indoc! {"
+        left 1.1
+        line 2
+        left 3.1
+        left 3.2
+        left 3.3
+        left 3.4
+        line 4
+        line 5
+    "};
+    let right1_content = indoc! {"
+        line 1
+        line 2
+        right 3.1
+        line 4
+        line 5
+    "};
+    let right2_content = indoc! {"
+        line 1
+        line 2
+        right 3.1
+        line 4
+    "};
+    let create_content_commit = |name: &str, parents: &[&str], content: &str| {
+        create_commit_with_files(&work_dir, name, parents, &[("file", content)]);
+    };
+    create_content_commit("base", &[], base_content);
+    create_content_commit("left1", &["base"], left1_content);
+    create_content_commit("left2", &["left1"], left2_content);
+    create_content_commit("right1", &["base"], right1_content);
+    create_content_commit("right2", &["right1"], right2_content);
+    create_commit_with_files(&work_dir, "left1+right1", &["left1", "right1"], &[]);
+    create_commit_with_files(&work_dir, "left2+right2", &["left2", "right2"], &[]);
+
+    // Test the setup. left2+right2 can be considered a modified version of
+    // left1+right1.
+    work_dir.run_jj(["new", "root()"]).success();
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-r~@"]), @r"
+    ×    lylxulpl test.user@example.com 2001-02-03 08:05:20 left2+right2 bfccf5a2 conflict
+    ├─╮  (empty) left2+right2
+    │ ○  znkkpsqq test.user@example.com 2001-02-03 08:05:17 right2 adb6aa86
+    │ │  right2
+    ○ │  royxmykx test.user@example.com 2001-02-03 08:05:13 left2 f4ad65fd
+    │ │  left2
+    │ │ ×  kmkuslsw test.user@example.com 2001-02-03 08:05:18 left1+right1 8dbc225e conflict
+    ╭─┬─╯  (empty) left1+right1
+    │ ○  vruxwmqv test.user@example.com 2001-02-03 08:05:15 right1 32bc5d06
+    │ │  right1
+    ○ │  zsuskuln test.user@example.com 2001-02-03 08:05:11 left1 fd6e26af
+    ├─╯  left1
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 base 236ad5a8
+    │  base
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+
+    // Diff of empty merge commit
+    let output = work_dir.run_jj(["diff", "--git", "-rleft1+right1"]);
+    insta::assert_snapshot!(output, @"");
+    let output = work_dir.run_jj(["diff", "--color=always", "-rleft1+right1"]);
+    insta::assert_snapshot!(output, @"");
+    let output = work_dir.run_jj([
+        "diff",
+        "--color=always",
+        "--config=diff.color-words.conflict=pair",
+        "-rleft1+right1",
+    ]);
+    insta::assert_snapshot!(output, @"");
+
+    let diff_git_materialized = |from: &str, to: &str| {
+        work_dir.run_jj([
+            "diff",
+            "--git",
+            "--context=1",
+            &format!("--from={from}"),
+            &format!("--to={to}"),
+        ])
+    };
+    let diff_color_words_materialized = |from: &str, to: &str| {
+        work_dir.run_jj([
+            "diff",
+            "--color=always",
+            "--context=1",
+            &format!("--from={from}"),
+            &format!("--to={to}"),
+        ])
+    };
+    let diff_color_words_conflict_pair = |from: &str, to: &str| {
+        work_dir.run_jj([
+            "diff",
+            "--color=always",
+            "--context=1",
+            "--config=diff.color-words.conflict=pair",
+            &format!("--from={from}"),
+            &format!("--to={to}"),
+        ])
+    };
+
+    // Diff from resolved to conflict
+    insta::assert_snapshot!(diff_git_materialized("base", "left1+right1"), @r"
+    diff --git a/file b/file
+    index 94c99a3280..0000000000 100644
+    --- a/file
+    +++ b/file
+    @@ -2,3 +2,11 @@
+     line 2
+    -line 3
+    +<<<<<<< Conflict 1 of 1
+    ++++++++ Contents of side #1
+    +left 3.1
+    +left 3.2
+    +left 3.3
+    +%%%%%%% Changes from base to side #2
+    +-line 3
+    ++right 3.1
+    +>>>>>>> Conflict 1 of 1 ends
+     line 4
+    [EOF]
+    ");
+    insta::assert_snapshot!(diff_color_words_materialized("base", "left1+right1"), @r"
+    [38;5;3mCreated conflict in file:[39m
+    [38;5;1m   1[39m [38;5;2m   1[39m: line 1
+    [38;5;1m   2[39m [38;5;2m   2[39m: line 2
+         [38;5;2m   3[39m: [4m[38;5;2m<<<<<<< Conflict 1 of 1[24m[39m
+         [38;5;2m   4[39m: [4m[38;5;2m+++++++ Contents of side #1[24m[39m
+         [38;5;2m   5[39m: [4m[38;5;2mleft 3.1[24m[39m
+         [38;5;2m   6[39m: [4m[38;5;2mleft 3.2[24m[39m
+         [38;5;2m   7[39m: [4m[38;5;2mleft 3.3[24m[39m
+         [38;5;2m   8[39m: [4m[38;5;2m%%%%%%% Changes from base to side #2[24m[39m
+    [38;5;1m   3[39m [38;5;2m   9[39m: [4m[38;5;2m-[24m[39mline 3
+         [38;5;2m  10[39m: [4m[38;5;2m+right 3.1[24m[39m
+         [38;5;2m  11[39m: [4m[38;5;2m>>>>>>> Conflict 1 of 1 ends[24m[39m
+    [38;5;1m   4[39m [38;5;2m  12[39m: line 4
+    [38;5;1m   5[39m [38;5;2m  13[39m: line 5
+    [EOF]
+    ");
+    insta::assert_snapshot!(diff_color_words_conflict_pair("base", "left1+right1"), @r"
+    [38;5;3mCreated conflict in file:[39m
+    [38;5;1m   1[39m [38;5;2m   1[39m: line 1
+    [38;5;1m   2[39m [38;5;2m   2[39m: line 2
+    [38;5;6m<<<<<<< Created conflict[39m
+    [38;5;6m+++++++ left #0 to right #0[39m
+    [38;5;1m   3[39m [38;5;2m   3[39m: [4m[38;5;1mline[38;5;2mleft[24m[39m [4m[38;5;2m3.1[24m[39m
+         [38;5;2m   4[39m: [4m[38;5;2mleft 3.2[24m[39m
+    [38;5;1m   3[39m [38;5;2m   5[39m: [4m[38;5;2mleft 3.[24m[39m3
+    [38;5;6m------- left #0 to right #1 (base)[39m
+    [38;5;2m   3[39m [38;5;1m   3[39m: line 3
+    [38;5;6m+++++++ left #0 to right #2[39m
+    [38;5;1m   3[39m [38;5;2m   3[39m: [4m[38;5;1mline[38;5;2mright[24m[39m 3[4m[38;5;2m.1[24m[39m
+    [38;5;6m>>>>>>> Conflict ends[39m
+    [38;5;1m   4[39m [38;5;2m   6[39m: line 4
+    [38;5;1m   5[39m [38;5;2m   7[39m: line 5
+    [EOF]
+    ");
+
+    // Diff from conflict to resolved
+    insta::assert_snapshot!(diff_git_materialized("left1+right1", "base"), @r"
+    diff --git a/file b/file
+    index 0000000000..94c99a3280 100644
+    --- a/file
+    +++ b/file
+    @@ -2,11 +2,3 @@
+     line 2
+    -<<<<<<< Conflict 1 of 1
+    -+++++++ Contents of side #1
+    -left 3.1
+    -left 3.2
+    -left 3.3
+    -%%%%%%% Changes from base to side #2
+    --line 3
+    -+right 3.1
+    ->>>>>>> Conflict 1 of 1 ends
+    +line 3
+     line 4
+    [EOF]
+    ");
+    insta::assert_snapshot!(diff_color_words_materialized("left1+right1", "base"), @r"
+    [38;5;3mResolved conflict in file:[39m
+    [38;5;1m   1[39m [38;5;2m   1[39m: line 1
+    [38;5;1m   2[39m [38;5;2m   2[39m: line 2
+    [38;5;1m   3[39m     : [4m[38;5;1m<<<<<<< Conflict 1 of 1[24m[39m
+    [38;5;1m   4[39m     : [4m[38;5;1m+++++++ Contents of side #1[24m[39m
+    [38;5;1m   5[39m     : [4m[38;5;1mleft 3.1[24m[39m
+    [38;5;1m   6[39m     : [4m[38;5;1mleft 3.2[24m[39m
+    [38;5;1m   7[39m     : [4m[38;5;1mleft 3.3[24m[39m
+    [38;5;1m   8[39m     : [4m[38;5;1m%%%%%%% Changes from base to side #2[24m[39m
+    [38;5;1m   9[39m [38;5;2m   3[39m: [4m[38;5;1m-[24m[39mline 3
+    [38;5;1m  10[39m     : [4m[38;5;1m+right 3.1[24m[39m
+    [38;5;1m  11[39m     : [4m[38;5;1m>>>>>>> Conflict 1 of 1 ends[24m[39m
+    [38;5;1m  12[39m [38;5;2m   4[39m: line 4
+    [38;5;1m  13[39m [38;5;2m   5[39m: line 5
+    [EOF]
+    ");
+    insta::assert_snapshot!(diff_color_words_conflict_pair("left1+right1", "base"), @r"
+    [38;5;3mResolved conflict in file:[39m
+    [38;5;1m   1[39m [38;5;2m   1[39m: line 1
+    [38;5;1m   2[39m [38;5;2m   2[39m: line 2
+    [38;5;6m<<<<<<< Resolved conflict[39m
+    [38;5;6m+++++++ left #0 to right #0[39m
+    [38;5;1m   3[39m [38;5;2m   3[39m: [4m[38;5;1mleft[38;5;2mline[24m[39m [4m[38;5;1m3.1[24m[39m
+    [38;5;1m   4[39m     : [4m[38;5;1mleft 3.2[24m[39m
+    [38;5;1m   5[39m [38;5;2m   3[39m: [4m[38;5;1mleft 3.[24m[39m3
+    [38;5;6m------- left #1 to right #0 (base)[39m
+    [38;5;2m   3[39m [38;5;1m   3[39m: line 3
+    [38;5;6m+++++++ left #2 to right #0[39m
+    [38;5;1m   3[39m [38;5;2m   3[39m: [4m[38;5;1mright[38;5;2mline[24m[39m 3[4m[38;5;1m.1[24m[39m
+    [38;5;6m>>>>>>> Conflict ends[39m
+    [38;5;1m   6[39m [38;5;2m   4[39m: line 4
+    [38;5;1m   7[39m [38;5;2m   5[39m: line 5
+    [EOF]
+    ");
+
+    // Diff between conflicts
+    insta::assert_snapshot!(diff_git_materialized("left1+right1", "left2+right2"), @r"
+    diff --git a/file b/file
+    --- a/file
+    +++ b/file
+    @@ -1,2 +1,2 @@
+    -line 1
+    +left 1.1
+     line 2
+    @@ -7,2 +7,3 @@
+     left 3.3
+    +left 3.4
+     %%%%%%% Changes from base to side #2
+    @@ -12,2 +13,1 @@
+     line 4
+    -line 5
+    [EOF]
+    ");
+    insta::assert_snapshot!(diff_color_words_materialized("left1+right1", "left2+right2"), @r"
+    [38;5;3mModified conflict in file:[39m
+    [38;5;1m   1[39m [38;5;2m   1[39m: [4m[38;5;1mline[38;5;2mleft[24m[39m [4m[38;5;2m1.[24m[39m1
+    [38;5;1m   2[39m [38;5;2m   2[39m: line 2
+        ...
+    [38;5;1m   7[39m [38;5;2m   7[39m: left 3.3
+         [38;5;2m   8[39m: [4m[38;5;2mleft 3.4[24m[39m
+    [38;5;1m   8[39m [38;5;2m   9[39m: %%%%%%% Changes from base to side #2
+        ...
+    [38;5;1m  12[39m [38;5;2m  13[39m: line 4
+    [38;5;1m  13[39m     : [4m[38;5;1mline 5[24m[39m
+    [EOF]
+    ");
+    insta::assert_snapshot!(diff_color_words_conflict_pair("left1+right1", "left2+right2"), @r"
+    [38;5;3mModified conflict in file:[39m
+    [38;5;1m   1[39m [38;5;2m   1[39m: [4m[38;5;1mline[38;5;2mleft[24m[39m [4m[38;5;2m1.[24m[39m1
+    [38;5;1m   2[39m [38;5;2m   2[39m: line 2
+    [38;5;6m<<<<<<< Modified conflict[39m
+    [38;5;6m+++++++ left #0 to right #0[39m
+        ...
+    [38;5;1m   5[39m [38;5;2m   5[39m: left 3.3
+         [38;5;2m   6[39m: [4m[38;5;2mleft 3.4[24m[39m
+    [38;5;6m------- left #1 to right #1 (base)[39m
+    [38;5;2m   3[39m [38;5;1m   3[39m: line 3
+    [38;5;6m+++++++ left #2 to right #2[39m
+    [38;5;1m   3[39m [38;5;2m   3[39m: right 3.1
+    [38;5;6m>>>>>>> Conflict ends[39m
+    [38;5;1m   6[39m [38;5;2m   7[39m: line 4
+    [38;5;1m   7[39m     : [4m[38;5;1mline 5[24m[39m
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_diff_conflict_bases_differ() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Based on test_materialize_conflict_basic() in test_conflicts.rs
+    //
+    // - "line1" differs between L1-B1+R1 and L2-B2+R2
+    // - "line5" and "line5.1" are deleted cleanly at L1-B1+R1 and L2-B2+R2
+    //   respectively
+    let base1_content = indoc! {"
+        line 1
+        line 2
+        line 3
+        line 4
+        line 5
+    "};
+    let base2_content = indoc! {"
+        line 2
+        line 3.1
+        line 3.2
+        line 4
+        line 5.1
+    "};
+    let left1_content = indoc! {"
+        line 1
+        line 2
+        left 3.1
+        left 3.2
+        left 3.3
+        line 4
+        line 5
+    "};
+    let left2_content = indoc! {"
+        line 2
+        left 3.1
+        left 3.2
+        left 3.3
+        line 4
+        line 5.1
+    "};
+    let right1_content = indoc! {"
+        line 1
+        line 2
+        right 3.1
+        line 4
+    "};
+    let right2_content = indoc! {"
+        line 2
+        right 3.1
+        line 4
+    "};
+    let create_content_commit = |name: &str, parents: &[&str], content: &str| {
+        create_commit_with_files(&work_dir, name, parents, &[("file", content)]);
+    };
+    create_content_commit("base1", &[], base1_content);
+    create_content_commit("left1", &["base1"], left1_content);
+    create_content_commit("right1", &["base1"], right1_content);
+    create_content_commit("base2", &["base1"], base2_content);
+    create_content_commit("left2", &["base2"], left2_content);
+    create_content_commit("right2", &["base2"], right2_content);
+    create_commit_with_files(&work_dir, "left1+right1", &["left1", "right1"], &[]);
+    create_commit_with_files(&work_dir, "left2+right2", &["left2", "right2"], &[]);
+
+    // Test the setup. left2+right2 can be considered a rebased version of
+    // left1+right1.
+    work_dir.run_jj(["new", "root()"]).success();
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-r~@"]), @r"
+    ×    nkmrtpmo test.user@example.com 2001-02-03 08:05:22 left2+right2 569df7b1 conflict
+    ├─╮  (empty) left2+right2
+    │ ○  kmkuslsw test.user@example.com 2001-02-03 08:05:19 right2 d394320d
+    │ │  right2
+    ○ │  znkkpsqq test.user@example.com 2001-02-03 08:05:17 left2 88cb6406
+    ├─╯  left2
+    ○  vruxwmqv test.user@example.com 2001-02-03 08:05:15 base2 bd2e8956
+    │  base2
+    │ ×    lylxulpl test.user@example.com 2001-02-03 08:05:20 left1+right1 5fbf08e0 conflict
+    │ ├─╮  (empty) left1+right1
+    │ │ ○  royxmykx test.user@example.com 2001-02-03 08:05:13 right1 a318e8b9
+    ├───╯  right1
+    │ ○  zsuskuln test.user@example.com 2001-02-03 08:05:11 left1 40ab70b1
+    ├─╯  left1
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 base1 cffa4075
+    │  base1
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+
+    let diff_git_materialized = |from: &str, to: &str| {
+        work_dir.run_jj([
+            "diff",
+            "--git",
+            "--context=1",
+            &format!("--from={from}"),
+            &format!("--to={to}"),
+        ])
+    };
+    let diff_color_words_materialized = |from: &str, to: &str| {
+        work_dir.run_jj([
+            "diff",
+            "--color=always",
+            "--context=1",
+            &format!("--from={from}"),
+            &format!("--to={to}"),
+        ])
+    };
+    let diff_color_words_conflict_pair = |from: &str, to: &str| {
+        work_dir.run_jj([
+            "diff",
+            "--color=always",
+            "--context=1",
+            "--config=diff.color-words.conflict=pair",
+            &format!("--from={from}"),
+            &format!("--to={to}"),
+        ])
+    };
+
+    // Diff between conflicts
+    insta::assert_snapshot!(diff_git_materialized("left1+right1", "left2+right2"), @r"
+    diff --git a/file b/file
+    --- a/file
+    +++ b/file
+    @@ -1,2 +1,1 @@
+    -line 1
+     line 2
+    @@ -8,3 +7,4 @@
+     %%%%%%% Changes from base to side #2
+    --line 3
+    +-line 3.1
+    +-line 3.2
+     +right 3.1
+    [EOF]
+    ");
+    insta::assert_snapshot!(diff_color_words_materialized("left1+right1", "left2+right2"), @r"
+    [38;5;3mModified conflict in file:[39m
+    [38;5;1m   1[39m     : [4m[38;5;1mline 1[24m[39m
+    [38;5;1m   2[39m [38;5;2m   1[39m: line 2
+        ...
+    [38;5;1m   8[39m [38;5;2m   7[39m: %%%%%%% Changes from base to side #2
+    [38;5;1m   9[39m [38;5;2m   8[39m: -line 3[4m[38;5;2m.1[24m[39m
+    [38;5;1m   9[39m [38;5;2m   9[39m: [4m[38;5;2m-line 3.2[24m[39m
+    [38;5;1m  10[39m [38;5;2m  10[39m: +right 3.1
+        ...
+    [EOF]
+    ");
+    insta::assert_snapshot!(diff_color_words_conflict_pair("left1+right1", "left2+right2"), @r"
+    [38;5;3mModified conflict in file:[39m
+    [38;5;1m   1[39m     : [4m[38;5;1mline 1[24m[39m
+    [38;5;1m   2[39m [38;5;2m   1[39m: line 2
+    [38;5;6m<<<<<<< Modified conflict[39m
+    [38;5;6m+++++++ left #0 to right #0[39m
+        ...
+    [38;5;6m------- left #1 to right #1 (base)[39m
+    [38;5;2m   3[39m [38;5;1m   2[39m: line 3[4m[38;5;1m.1[24m[39m
+    [38;5;2m   3[39m [38;5;1m   3[39m: [4m[38;5;1mline 3.2[24m[39m
+    [38;5;6m+++++++ left #2 to right #2[39m
+    [38;5;1m   3[39m [38;5;2m   2[39m: right 3.1
+    [38;5;6m>>>>>>> Conflict ends[39m
+    [38;5;1m   6[39m [38;5;2m   5[39m: line 4
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_diff_conflict_three_sides() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Based on test_materialize_conflict_three_sides() in test_conflicts.rs
+    let base1_content = indoc! {"
+        line 1
+        line 2 base
+        line 5
+    "};
+    let base2_content = indoc! {"
+        line 1
+        line 2 base
+        line 3 base
+        line 4 base
+        line 5
+    "};
+    let side1_content = indoc! {"
+        line 1
+        line 2 a.1
+        line 3 a.2
+        line 4 base
+        line 5
+    "};
+    let side2_content = indoc! {"
+        line 1
+        line 2 b.1
+        line 3 base
+        line 4 b.2
+        line 5
+    "};
+    let side3_content = indoc! {"
+        line 1
+        line 2 base
+        line 3 c.2
+        line 5
+    "};
+    let create_content_commit = |name: &str, parents: &[&str], content: &str| {
+        create_commit_with_files(&work_dir, name, parents, &[("file", content)]);
+    };
+    // S1    S2    S3
+    //    B2
+    //          B1
+    create_content_commit("base1", &[], base1_content);
+    create_content_commit("base2", &["base1"], base2_content);
+    create_content_commit("side1", &["base2"], side1_content);
+    create_content_commit("side2", &["base2"], side2_content);
+    create_content_commit("side3", &["base1"], side3_content);
+    create_commit_with_files(&work_dir, "side1+side2", &["side1", "side2"], &[]);
+    create_commit_with_files(
+        &work_dir,
+        "side1+side2+side3",
+        &["side1+side2", "side3"],
+        &[],
+    );
+
+    // Test the setup
+    work_dir.run_jj(["new", "root()"]).success();
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-r~@"]), @r"
+    ×    lylxulpl test.user@example.com 2001-02-03 08:05:20 side1+side2+side3 ba761075 conflict
+    ├─╮  (empty) side1+side2+side3
+    │ ○  znkkpsqq test.user@example.com 2001-02-03 08:05:17 side3 7139f5ec
+    │ │  side3
+    × │    kmkuslsw test.user@example.com 2001-02-03 08:05:18 side1+side2 aa14223d conflict
+    ├───╮  (empty) side1+side2
+    │ │ ○  vruxwmqv test.user@example.com 2001-02-03 08:05:15 side2 ddf45f8f
+    │ │ │  side2
+    ○ │ │  royxmykx test.user@example.com 2001-02-03 08:05:13 side1 df4007a4
+    ├───╯  side1
+    ○ │  zsuskuln test.user@example.com 2001-02-03 08:05:11 base2 2c7ca1f2
+    ├─╯  base2
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 base1 cd7f3381
+    │  base1
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "-lrside1+side2"]), @r"
+    file    2-sided conflict
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "-lrside1+side2+side3"]), @r"
+    file    3-sided conflict
+    [EOF]
+    ");
+
+    let diff_git_materialized = |from: &str, to: &str| {
+        work_dir.run_jj([
+            "diff",
+            "--git",
+            "--context=1",
+            &format!("--from={from}"),
+            &format!("--to={to}"),
+        ])
+    };
+    let diff_color_words_materialized = |from: &str, to: &str| {
+        work_dir.run_jj([
+            "diff",
+            "--color=always",
+            "--context=1",
+            &format!("--from={from}"),
+            &format!("--to={to}"),
+        ])
+    };
+    let diff_color_words_conflict_pair = |from: &str, to: &str| {
+        work_dir.run_jj([
+            "diff",
+            "--color=always",
+            "--context=1",
+            "--config=diff.color-words.conflict=pair",
+            &format!("--from={from}"),
+            &format!("--to={to}"),
+        ])
+    };
+
+    // Diff between conflicts
+    insta::assert_snapshot!(diff_git_materialized("side1+side2", "side1+side2+side3"), @r"
+    diff --git a/file b/file
+    --- a/file
+    +++ b/file
+    @@ -2,3 +2,3 @@
+     <<<<<<< Conflict 1 of 1
+    -%%%%%%% Changes from base to side #1
+    +%%%%%%% Changes from base #1 to side #1
+     -line 2 base
+    @@ -12,2 +12,5 @@
+     line 4 b.2
+    +%%%%%%% Changes from base #2 to side #3
+    + line 2 base
+    ++line 3 c.2
+     >>>>>>> Conflict 1 of 1 ends
+    [EOF]
+    ");
+    insta::assert_snapshot!(diff_color_words_materialized("side1+side2", "side1+side2+side3"), @r"
+    [38;5;3mModified conflict in file:[39m
+    [38;5;1m   1[39m [38;5;2m   1[39m: line 1
+    [38;5;1m   2[39m [38;5;2m   2[39m: <<<<<<< Conflict 1 of 1
+    [38;5;1m   3[39m [38;5;2m   3[39m: %%%%%%% Changes from base [4m[38;5;2m#1 [24m[39mto side #1
+    [38;5;1m   4[39m [38;5;2m   4[39m: -line 2 base
+        ...
+    [38;5;1m  12[39m [38;5;2m  12[39m: line 4 b.2
+         [38;5;2m  13[39m: [4m[38;5;2m%%%%%%% Changes from base #2 to side #3[24m[39m
+         [38;5;2m  14[39m: [4m[38;5;2m line 2 base[24m[39m
+         [38;5;2m  15[39m: [4m[38;5;2m+line 3 c.2[24m[39m
+    [38;5;1m  13[39m [38;5;2m  16[39m: >>>>>>> Conflict 1 of 1 ends
+    [38;5;1m  14[39m [38;5;2m  17[39m: line 5
+    [EOF]
+    ");
+    insta::assert_snapshot!(diff_color_words_conflict_pair("side1+side2", "side1+side2+side3"), @r"
+    [38;5;3mModified conflict in file:[39m
+    [38;5;1m   1[39m [38;5;2m   1[39m: line 1
+    [38;5;6m<<<<<<< Modified conflict[39m
+    [38;5;6m+++++++ left #0 to right #0[39m
+        ...
+    [38;5;6m------- left #1 to right #1 (base)[39m
+        ...
+    [38;5;6m+++++++ left #2 to right #2[39m
+        ...
+    [38;5;6m------- left #0 to right #3 (base)[39m
+    [38;5;2m   2[39m [38;5;1m   2[39m: line 2 [4m[38;5;2ma.1[24m[39m
+    [38;5;2m   3[39m     : [4m[38;5;2mline 3 a.2[24m[39m
+    [38;5;2m   4[39m [38;5;1m   2[39m: [4m[38;5;2mline 4 [24m[39mbase
+    [38;5;6m+++++++ left #0 to right #4[39m
+    [38;5;1m   2[39m [38;5;2m   2[39m: line 2 [4m[38;5;1ma.1[24m[39m
+    [38;5;1m   3[39m     : [4m[38;5;1mline 3 a.2[24m[39m
+    [38;5;1m   4[39m [38;5;2m   2[39m: [4m[38;5;1mline 4 [24m[39mbase
+         [38;5;2m   3[39m: [4m[38;5;2mline 3 c.2[24m[39m
+    [38;5;6m>>>>>>> Conflict ends[39m
+    [38;5;1m   5[39m [38;5;2m   5[39m: line 5
     [EOF]
     ");
 }

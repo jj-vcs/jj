@@ -21,6 +21,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* Color-words diff has gained [an option to compare conflict pairs without
+  materializing](docs/config.md#color-words-diff-options).
+
 ### Fixed bugs
 
 ## [0.28.0] - 2025-04-02

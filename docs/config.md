@@ -239,6 +239,12 @@ the default number of lines of context shown.
   The default is `3`.
 
   **This parameter is experimental.** The definition is subject to change.
+
+* `conflict`: How conflicts are processed and displayed.
+
+   * `"materialize"`: compare materialized contents (default)
+   * `"pair"`: compare individual pairs
+
 * `context`: Number of lines of context to show in the diff. The default is `3`.
 
 ```toml
