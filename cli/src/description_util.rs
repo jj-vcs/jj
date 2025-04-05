@@ -17,10 +17,13 @@ use jj_lib::config::ConfigGetError;
 use jj_lib::file_util::IoResultExt as _;
 use jj_lib::file_util::PathError;
 use jj_lib::settings::UserSettings;
+use jj_lib::trailer::parse_description_trailers;
+use jj_lib::trailer::parse_trailers;
 use thiserror::Error;
 
 use crate::cli_util::short_commit_hash;
 use crate::cli_util::WorkspaceCommandTransaction;
+use crate::command_error::user_error;
 use crate::command_error::CommandError;
 use crate::config::CommandNameAndArgs;
 use crate::formatter::PlainTextFormatter;
@@ -335,6 +338,41 @@ pub fn join_message_paragraphs(paragraphs: &[String]) -> String {
         .iter()
         .map(|p| text_util::complete_newline(p.as_str()))
         .join("\n")
+}
+
+/// Add the trailers from `templates.commit_trailers` in the last paragraph of
+/// the description
+///
+/// It just lets the description untouched if the trailers are already there.
+pub fn add_trailers(
+    ui: &Ui,
+    tx: &WorkspaceCommandTransaction,
+    commit: &Commit,
+    description: &str,
+) -> Result<String, CommandError> {
+    let trailer_template = tx.settings().get_string("templates.commit_trailers")?;
+    let mut trailers = parse_description_trailers(description);
+    let template = tx.parse_commit_template(ui, &trailer_template)?;
+    let mut output = Vec::new();
+    template
+        .format(commit, &mut PlainTextFormatter::new(&mut output))
+        .expect("write() to vec backed formatter should never fail");
+    let trailer_lines = output
+        .into_string()
+        .map_err(|_| user_error("trailers should be valid utf-8"))?;
+    let new_trailers = parse_trailers(&trailer_lines);
+    let mut new_description = description.to_owned();
+    if trailers.is_empty() && !new_trailers.is_empty() {
+        // create a new paragraph for the trailer
+        new_description.push('\n');
+    }
+    for new_trailer in new_trailers {
+        if !trailers.contains(&new_trailer) {
+            new_description.push_str(&format!("{}: {}\n", new_trailer.key, new_trailer.value,));
+            trailers.push(new_trailer);
+        }
+    }
+    Ok(new_description)
 }
 
 /// Renders commit description template, which will be edited by user.

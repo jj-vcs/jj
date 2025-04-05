@@ -35,6 +35,8 @@ config_list = 'builtin_config_list'
 
 draft_commit_description = 'builtin_draft_commit_description'
 
+commit_trailers = ''
+
 file_list = '''
 path.display() ++ "\n"
 '''
@@ -420,3 +422,14 @@ git_format_patch_email_headers = '''
     "\n"
   )
 '''
+
+"format_signed_off_by_trailer(commit)" = '''
+"Signed-off-by: "
+++ if(commit.committer().name() == "",
+      coalesce(commit.committer().email(), email_placeholder),
+      commit.committer().name() ++ " <" ++ coalesce(commit.committer().email(), email_placeholder) ++ ">",
+   )
+++ "\n"
+'''
+
+"format_gerrit_change_id_trailer(commit)" = '"Change-Id: I6a6a6964" ++ commit.change_id().normal_hex() ++ "\n"'
