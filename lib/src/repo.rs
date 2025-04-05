@@ -1337,18 +1337,33 @@ impl MutableRepo {
     /// The content of those descendants will remain untouched.
     /// Returns the number of reparented descendants.
     pub fn reparent_descendants(&mut self) -> BackendResult<usize> {
-        let roots = self.parent_mapping.keys().cloned().collect_vec();
         let mut num_reparented = 0;
+        self.reparent_descendants_with_progress(|_, _| {
+            num_reparented += 1;
+        })?;
+        Ok(num_reparented)
+    }
+
+    /// Reparent descendants, and call the provided function for each moved
+    /// commit
+    ///
+    /// The function takes the old commit and the reparented commit.
+    pub fn reparent_descendants_with_progress(
+        &mut self,
+        mut progress: impl FnMut(Commit, Commit),
+    ) -> BackendResult<()> {
+        let roots = self.parent_mapping.keys().cloned().collect_vec();
         self.transform_descendants(roots, |rewriter| {
             if rewriter.parents_changed() {
+                let old_commit = rewriter.old_commit().clone();
                 let builder = rewriter.reparent();
-                builder.write()?;
-                num_reparented += 1;
+                let reparented_commit = builder.write()?;
+                progress(old_commit, reparented_commit);
             }
             Ok(())
         })?;
         self.parent_mapping.clear();
-        Ok(num_reparented)
+        Ok(())
     }
 
     pub fn set_wc_commit(

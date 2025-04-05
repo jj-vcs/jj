@@ -1057,6 +1057,12 @@ pub struct SquashedCommit<'repo> {
     pub abandoned_commits: Vec<Commit>,
 }
 
+#[derive(Clone, Debug)]
+pub struct SquashOptions {
+    pub keep_emptied: bool,
+    pub restore_descendants: bool,
+}
+
 /// Squash `sources` into `destination` and return a [`SquashedCommit`] for the
 /// resulting commit. Caller is responsible for setting the description and
 /// finishing the commit.
@@ -1064,7 +1070,10 @@ pub fn squash_commits<'repo>(
     repo: &'repo mut MutableRepo,
     sources: &[CommitWithSelection],
     destination: &Commit,
-    keep_emptied: bool,
+    SquashOptions {
+        keep_emptied,
+        restore_descendants,
+    }: SquashOptions,
 ) -> BackendResult<Option<SquashedCommit<'repo>>> {
     struct SourceCommit<'a> {
         commit: &'a CommitWithSelection,
@@ -1117,16 +1126,25 @@ pub fn squash_commits<'repo>(
         // rewritten sources. Otherwise it will likely already have the content
         // changes we're moving, so applying them will have no effect and the
         // changes will disappear.
-        let options = RebaseOptions::default();
-        repo.rebase_descendants_with_options(&options, |old_commit, rebased_commit| {
-            if old_commit.id() != destination.id() {
-                return;
-            }
-            rewritten_destination = match rebased_commit {
-                RebasedCommit::Rewritten(commit) => commit,
-                RebasedCommit::Abandoned { .. } => panic!("all commits should be kept"),
-            };
-        })?;
+        if restore_descendants {
+            repo.reparent_descendants_with_progress(|old_commit, rebased_commit| {
+                if old_commit.id() != destination.id() {
+                    return;
+                }
+                rewritten_destination = rebased_commit;
+            })?;
+        } else {
+            let options = RebaseOptions::default();
+            repo.rebase_descendants_with_options(&options, |old_commit, rebased_commit| {
+                if old_commit.id() != destination.id() {
+                    return;
+                }
+                rewritten_destination = match rebased_commit {
+                    RebasedCommit::Rewritten(commit) => commit,
+                    RebasedCommit::Abandoned { .. } => panic!("all commits should be kept"),
+                };
+            })?;
+        }
     }
     // Apply the selected changes onto the destination
     let mut destination_tree = rewritten_destination.tree()?;
