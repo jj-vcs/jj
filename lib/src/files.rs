@@ -241,6 +241,8 @@ fn merge_hunks(diff: &Diff, num_diffs: usize) -> MergeResult {
 
 #[cfg(test)]
 mod tests {
+    use indoc::indoc;
+
     use super::*;
 
     fn hunk(data: &[u8]) -> BString {
@@ -479,49 +481,45 @@ mod tests {
         // ```
         // Therefore, the first side modifies the block `a { .. }`, and the second side
         // adds `b { .. }`. Git and Mercurial both duplicate the block in the result.
+        let base = indoc! {b"
+            a {
+                p
+            }
+        "};
+        let left = indoc! {b"
+            a {
+                q
+            }
+
+            b {
+                x
+            }
+        "};
+        let right = indoc! {b"
+            a {
+                p
+            }
+
+            b {
+                x
+            }
+        "};
+        let merged = indoc! {b"
+            a {
+                q
+            }
+
+            b {
+                x
+            }
+
+            b {
+                x
+            }
+        "};
         assert_eq!(
-            merge(
-                &[b"\
-a {
-    p
-}
-"],
-                &[
-                    b"\
-a {
-    q
-}
-
-b {
-    x
-}
-",
-                    b"\
-a {
-    p
-}
-
-b {
-    x
-}
-"
-                ],
-            ),
-            MergeResult::Resolved(hunk(
-                b"\
-a {
-    q
-}
-
-b {
-    x
-}
-
-b {
-    x
-}
-"
-            ))
+            merge(&[base], &[left, right]),
+            MergeResult::Resolved(hunk(merged))
         );
     }
 }
