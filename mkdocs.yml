@@ -100,6 +100,8 @@ nav: # This lists all the files that become part of the documentation
 
   - CLI reference: 'cli-reference.md'
 
+  - Core tenets: 'core_tenets.md'
+
   - Testimonials: 'testimonials.md'
 
   - Community-built tools: 'community_tools.md'
