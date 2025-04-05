@@ -132,7 +132,17 @@ where
             if let Some(heading) = self.heading.take() {
                 write!(formatter.labeled("heading"), "{heading}")?;
             }
-            formatter.write_fmt(args)
+            let msg = args.to_string();
+            if msg.matches('\n').nth(1).is_some() {
+                // message is multi-line, print it in an indented block
+                writeln!(formatter)?;
+                for line in msg.lines() {
+                    writeln!(formatter, "  {line}")?;
+                }
+                Ok(())
+            } else {
+                formatter.write_fmt(args)
+            }
         })
     }
 }

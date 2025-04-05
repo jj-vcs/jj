@@ -2796,11 +2796,11 @@ pub fn print_snapshot_stats(
             ui.hint_default(),
             r"
             This is to prevent large files from being added by accident. You can fix this by:
-              - Adding the file to `.gitignore`
-              - Run `jj config set --repo snapshot.max-new-file-size {size}`
-                This will increase the maximum file size allowed for new files, in this repository only.
-              - Run `jj --config snapshot.max-new-file-size={size} st`
-                This will increase the maximum file size allowed for new files, for this command only.
+            - Adding the file to `.gitignore`
+            - Run `jj config set --repo snapshot.max-new-file-size {size}`
+              This will increase the maximum file size allowed for new files, in this repository only.
+            - Run `jj --config snapshot.max-new-file-size={size} st`
+              This will increase the maximum file size allowed for new files, for this command only.
             "
         )?;
     }

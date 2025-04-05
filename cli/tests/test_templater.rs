@@ -472,12 +472,13 @@ fn test_templater_bad_alias_decl() {
     insta::assert_snapshot!(output, @r"
     000000000000[EOF]
     ------- stderr -------
-    Warning: Failed to load `template-aliases.badfn(a, a)`:  --> 1:7
-      |
-    1 | badfn(a, a)
-      |       ^--^
-      |
-      = Redefinition of function parameter
+    Warning: 
+      Failed to load `template-aliases.badfn(a, a)`:  --> 1:7
+        |
+      1 | badfn(a, a)
+        |       ^--^
+        |
+        = Redefinition of function parameter
     [EOF]
     ");
 }

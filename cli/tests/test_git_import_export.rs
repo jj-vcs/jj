@@ -80,9 +80,10 @@ fn test_git_export_conflicting_git_refs() {
         ------- stderr -------
         Warning: Failed to export some bookmarks:
           main/sub@git: Failed to set: ...
-        Hint: Git doesn't allow a branch name that looks like a parent directory of
-        another (e.g. `foo` and `foo/bar`). Try to rename the bookmarks that failed to
-        export or their "parent" bookmarks.
+        Hint: 
+          Git doesn't allow a branch name that looks like a parent directory of
+          another (e.g. `foo` and `foo/bar`). Try to rename the bookmarks that failed to
+          export or their "parent" bookmarks.
         [EOF]
         "#);
     });

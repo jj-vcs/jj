@@ -1440,9 +1440,10 @@ fn test_config_author_change_warning() {
     let output = work_dir.run_jj(["config", "set", "--repo", "user.email", "'Foo'"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Warning: This setting will only impact future commits.
-    The author of the working copy will stay "Test User <test.user@example.com>".
-    To change the working copy author, use "jj describe --reset-author --no-edit"
+    Warning: 
+      This setting will only impact future commits.
+      The author of the working copy will stay "Test User <test.user@example.com>".
+      To change the working copy author, use "jj describe --reset-author --no-edit"
     [EOF]
     "#);
 

@@ -555,9 +555,10 @@ fn test_git_colocated_conflicting_git_refs() {
         Created 1 bookmarks pointing to qpvuntsm 230dd059 main main/sub | (empty) (no description set)
         Warning: Failed to export some bookmarks:
           main/sub@git: Failed to set: ...
-        Hint: Git doesn't allow a branch name that looks like a parent directory of
-        another (e.g. `foo` and `foo/bar`). Try to rename the bookmarks that failed to
-        export or their "parent" bookmarks.
+        Hint: 
+          Git doesn't allow a branch name that looks like a parent directory of
+          another (e.g. `foo` and `foo/bar`). Try to rename the bookmarks that failed to
+          export or their "parent" bookmarks.
         [EOF]
         "#);
     });

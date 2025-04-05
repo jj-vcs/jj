@@ -35,7 +35,8 @@ fn test_snapshot_large_file() {
     ------- stderr -------
     Warning: Refused to snapshot some files:
       large: 13.0B (13 bytes); the maximum size allowed is 10.0B (10 bytes)
-    Hint: This is to prevent large files from being added by accident. You can fix this by:
+    Hint: 
+      This is to prevent large files from being added by accident. You can fix this by:
       - Adding the file to `.gitignore`
       - Run `jj config set --repo snapshot.max-new-file-size 13`
         This will increase the maximum file size allowed for new files, in this repository only.
@@ -55,7 +56,8 @@ fn test_snapshot_large_file() {
     ------- stderr -------
     Warning: Refused to snapshot some files:
       large: 11.0KiB (11264 bytes); the maximum size allowed is 10.0KiB (10240 bytes)
-    Hint: This is to prevent large files from being added by accident. You can fix this by:
+    Hint: 
+      This is to prevent large files from being added by accident. You can fix this by:
       - Adding the file to `.gitignore`
       - Run `jj config set --repo snapshot.max-new-file-size 11264`
         This will increase the maximum file size allowed for new files, in this repository only.
@@ -78,7 +80,8 @@ fn test_snapshot_large_file() {
     Warning: Refused to snapshot some files:
       large: 11.0KiB (11264 bytes); the maximum size allowed is 10.0KiB (10240 bytes)
       large2: 11.0KiB (11264 bytes); the maximum size allowed is 10.0KiB (10240 bytes)
-    Hint: This is to prevent large files from being added by accident. You can fix this by:
+    Hint: 
+      This is to prevent large files from being added by accident. You can fix this by:
       - Adding the file to `.gitignore`
       - Run `jj config set --repo snapshot.max-new-file-size 11264`
         This will increase the maximum file size allowed for new files, in this repository only.
@@ -134,7 +137,8 @@ fn test_snapshot_large_file_restore() {
     ------- stderr -------
     Warning: Refused to snapshot some files:
       file: 13.0B (13 bytes); the maximum size allowed is 10.0B (10 bytes)
-    Hint: This is to prevent large files from being added by accident. You can fix this by:
+    Hint: 
+      This is to prevent large files from being added by accident. You can fix this by:
       - Adding the file to `.gitignore`
       - Run `jj config set --repo snapshot.max-new-file-size 13`
         This will increase the maximum file size allowed for new files, in this repository only.
@@ -145,8 +149,9 @@ fn test_snapshot_large_file_restore() {
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 1 files, modified 0 files, removed 0 files
     Warning: 1 of those updates were skipped because there were conflicting changes in the working copy.
-    Hint: Inspect the changes compared to the intended target with `jj diff --from e3eb7e819de5`.
-    Discard the conflicting changes with `jj restore --from e3eb7e819de5`.
+    Hint: 
+      Inspect the changes compared to the intended target with `jj diff --from e3eb7e819de5`.
+      Discard the conflicting changes with `jj restore --from e3eb7e819de5`.
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.read_file("file"), @"a lot of text");
