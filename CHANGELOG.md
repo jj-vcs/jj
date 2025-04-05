@@ -16,6 +16,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* Added `ui.bookmark-list-sort-keys` setting to configure default sort keys for the
+  `jj bookmark list` command.
+
 ### Fixed bugs
 
 ## [0.28.1] - 2025-04-04
