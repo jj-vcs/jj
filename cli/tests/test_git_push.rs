@@ -1236,7 +1236,7 @@ fn test_git_push_changes_with_name_deleted_tracked(subprocess: bool) {
       @origin: kpqxywon fd39fc9d pushed
     [EOF]
     ------- stderr -------
-    Hint: Bookmarks marked as deleted will be *deleted permanently* on the remote on the next `jj git push`. Use `jj bookmark forget` to prevent this.
+    Hint: Bookmarks marked as deleted can be *deleted permanently* on the remote by running `jj git push --deleted`. Use `jj bookmark forget` if you don't want that.
     [EOF]
     ");
     }

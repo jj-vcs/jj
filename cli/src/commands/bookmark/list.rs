@@ -282,8 +282,9 @@ pub fn cmd_bookmark_list(
             Some(true) => {
                 writeln!(
                     ui.hint_default(),
-                    "Bookmarks marked as deleted will be *deleted permanently* on the remote on \
-                     the next `jj git push`. Use `jj bookmark forget` to prevent this."
+                    "Bookmarks marked as deleted can be *deleted permanently* on the remote by \
+                     running `jj git push --deleted`. Use `jj bookmark forget` if you don't want \
+                     that."
                 )?;
             }
             Some(false) => {
