@@ -308,7 +308,10 @@ jobs:
           total_deps=$(./.github/scripts/count-cargo-lock-packages)
           if [ "$total_deps" -gt "${TOTAL_DEP_LIMIT}" ]; then
             ./.github/scripts/dragon-bureaucrat \
-              "Cargo.lock has too many dependencies ($total_deps > ${TOTAL_DEP_LIMIT}). The Dragon banishes thee!"
+              "Cargo.lock has too many dependencies ($total_deps > ${TOTAL_DEP_LIMIT}). The Dragon banishes thee!
+
+                 You can raise the limit in \`.github/workflows/ci.yml\` if necessary, but
+                 consider whether it’s possible to trim things down first."
           else
             echo "Counted $total_deps Cargo.lock dependencies." \
                  "This is within the allowed limit of ${TOTAL_DEP_LIMIT}."
@@ -335,6 +338,7 @@ jobs:
     - check-mkdocs
     # - check-mkdocs-latest
     # - check-zizmor
+    - check-cargo-lock-bloat
     runs-on: ubuntu-latest
     steps:
     - name: Block merge if required checks fail
