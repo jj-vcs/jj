@@ -23,6 +23,7 @@ use std::path::PathBuf;
 
 use bstr::BStr;
 use bstr::BString;
+use clap_complete::ArgValueCandidates;
 use futures::executor::block_on_stream;
 use futures::stream::BoxStream;
 use futures::StreamExt as _;
@@ -117,7 +118,10 @@ pub struct DiffFormatArgs {
     #[arg(long)]
     pub color_words: bool,
     /// Generate diff by external command
-    #[arg(long)]
+    #[arg(
+        long,
+        add = ArgValueCandidates::new(crate::complete::diff_tools),
+    )]
     pub tool: Option<String>,
     /// Number of lines of context to show
     #[arg(long)]

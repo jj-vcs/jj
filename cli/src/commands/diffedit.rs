@@ -78,7 +78,11 @@ pub(crate) struct DiffeditArgs {
     )]
     to: Option<RevisionArg>,
     /// Specify diff editor to be used
-    #[arg(long, value_name = "NAME")]
+    #[arg(
+        long,
+        value_name = "NAME",
+        add = ArgValueCandidates::new(complete::diff_editors),
+    )]
     tool: Option<String>,
     /// Preserve the content (not the diff) when rebasing descendants
     ///

@@ -204,6 +204,11 @@ fn editor_args_from_settings(
     }
 }
 
+/// List configured merge tools (diff editors, diff tools, merge editors)
+pub fn configured_merge_tools(settings: &UserSettings) -> impl Iterator<Item = &str> {
+    settings.table_keys("merge-tools")
+}
+
 /// Loads external diff/merge tool options from `[merge-tools.<name>]`.
 pub fn get_external_tool_config(
     settings: &UserSettings,
@@ -374,6 +379,22 @@ impl MergeEditor {
         let tool = MergeTool::get_tool_config(settings, name)?
             .unwrap_or_else(|| MergeTool::external(ExternalMergeTool::with_program(name)));
         Self::new_inner(name, tool, path_converter, conflict_marker_style)
+    }
+
+    /// For the purposes of testing or checking basic config
+    pub fn dummy_with_name(
+        name: &str,
+        settings: &UserSettings,
+    ) -> Result<Self, MergeToolConfigError> {
+        Self::with_name(
+            name,
+            settings,
+            RepoPathUiConverter::Fs {
+                cwd: "".into(),
+                base: "".into(),
+            },
+            ConflictMarkerStyle::Diff,
+        )
     }
 
     /// Loads the default 3-way merge editor from the settings.
@@ -762,12 +783,7 @@ mod tests {
         let get = |name, config_text| {
             let config = config_from_string(config_text);
             let settings = UserSettings::from_config(config).unwrap();
-            let path_converter = RepoPathUiConverter::Fs {
-                cwd: "".into(),
-                base: "".into(),
-            };
-            MergeEditor::with_name(name, &settings, path_converter, ConflictMarkerStyle::Diff)
-                .map(|editor| editor.tool)
+            MergeEditor::dummy_with_name(name, &settings).map(|editor| editor.tool)
         };
 
         insta::assert_debug_snapshot!(get(":builtin", "").unwrap(), @"Builtin");
