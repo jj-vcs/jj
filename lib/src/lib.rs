@@ -52,6 +52,7 @@ pub mod fmt_util;
 pub mod fsmonitor;
 #[cfg(feature = "git")]
 pub mod git;
+pub mod trailer;
 #[cfg(not(feature = "git"))]
 /// A stub module that provides a no-op implementation of some of the functions
 /// in the `git` module.

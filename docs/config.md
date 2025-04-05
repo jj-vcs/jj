@@ -197,6 +197,18 @@ fill in things like BUG=, TESTED= etc.
 default-description = "\n\nTESTED=TODO"
 ```
 
+### Commit trailers
+
+Trailers may be automatically added to the commit description with the
+`commit_trailers` template.
+
+```toml
+[templates]
+commit_trailers = '''
+"Signed-off-by: " ++ self.committer().name() ++ "<" ++ self.committer().email() ++ ">\n"
+'''
+```
+
 ### Diff colors and styles
 
 In color-words and git diffs, word-level hunks are rendered with underline. You
