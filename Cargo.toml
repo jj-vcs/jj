@@ -59,6 +59,7 @@ gix = { version = "0.71.0", default-features = false, features = [
     "blob-diff",
     "index",
     "max-performance-safe",
+    "zlib-rs",
 ] }
 glob = "0.3.2"
 hashbrown = { version = "0.15.2", default-features = false, features = ["inline-more"] }
