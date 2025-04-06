@@ -23,6 +23,7 @@ use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite;
 use jj_lib::rewrite::CommitWithSelection;
+use jj_lib::rewrite::SquashOptions;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -116,6 +117,21 @@ pub(crate) struct SquashArgs {
     /// The source revision will not be abandoned
     #[arg(long, short)]
     keep_emptied: bool,
+    /// Preserve the content (not the diff) when rebasing descendants of the
+    /// source and target commits
+    ///
+    /// Only the snapshots of the `--from` and the `--into` commits will be
+    /// modified.
+    ///
+    /// If you'd like to preserve the content of *only* the target's descendants
+    /// (or *only* the source's), consider using `jj rebase -r` or `jj
+    /// duplicate` before squashing.
+    //
+    // TODO: Once it's implemented, we should recommend `jj rebase -r
+    // --restore-descendants` instead of `jj duplicate`, since you actually
+    // would need to `squash` twice with `duplicate`.
+    #[arg(long)]
+    restore_descendants: bool,
 }
 
 #[instrument(skip_all)]
@@ -169,13 +185,24 @@ pub(crate) fn cmd_squash(
         .check_rewritable(sources.iter().chain(std::iter::once(&destination)).ids())?;
 
     let mut tx = workspace_command.start_transaction();
-    let tx_description = format!("squash commits into {}", destination.id().hex());
+    let tx_description = format!(
+        "squash commits into {}{}",
+        destination.id().hex(),
+        if args.restore_descendants {
+            " while preserving descendant contents"
+        } else {
+            ""
+        }
+    );
     let source_commits = select_diff(&tx, &sources, &destination, &matcher, &diff_selector)?;
     if let Some(squashed) = rewrite::squash_commits(
         tx.repo_mut(),
         &source_commits,
         &destination,
-        args.keep_emptied,
+        SquashOptions {
+            keep_emptied: args.keep_emptied,
+            restore_descendants: args.restore_descendants,
+        },
     )? {
         let mut commit_builder = squashed.commit_builder.detach();
         let new_description = match description {
@@ -223,6 +250,18 @@ pub(crate) fn cmd_squash(
         };
         commit_builder.set_description(new_description);
         commit_builder.write(tx.repo_mut())?;
+
+        if args.restore_descendants {
+            // If !args.restore_descendants, the corresponding steps are done inside
+            // tx.finish()
+            let num_reparented = tx.repo_mut().reparent_descendants()?;
+            if let Some(mut formatter) = ui.status_formatter() {
+                writeln!(
+                    formatter,
+                    "Rebased {num_reparented} descendant commits (while preserving their content)",
+                )?;
+            }
+        }
     } else {
         if diff_selector.is_interactive() {
             return Err(user_error("No changes selected"));
