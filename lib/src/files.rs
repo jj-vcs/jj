@@ -200,7 +200,7 @@ pub enum MergeResult {
 /// Splits `inputs` into hunks, resolves trivial merge conflicts for each.
 ///
 /// Returns either fully-resolved content or list of partially-resolved hunks.
-pub fn merge<T: AsRef<[u8]>>(inputs: &Merge<T>) -> MergeResult {
+pub fn merge_hunks<T: AsRef<[u8]>>(inputs: &Merge<T>) -> MergeResult {
     // TODO: Using the first remove as base (first in the inputs) is how it's
     // usually done for 3-way conflicts. Are there better heuristics when there are
     // more than 3 parts?
@@ -338,109 +338,109 @@ mod tests {
     fn test_merge_single_hunk() {
         // Unchanged and empty on all sides
         assert_eq!(
-            merge(&conflict([b"", b"", b""])),
+            merge_hunks(&conflict([b"", b"", b""])),
             MergeResult::Resolved(hunk(b""))
         );
         // Unchanged on all sides
         assert_eq!(
-            merge(&conflict([b"a", b"a", b"a"])),
+            merge_hunks(&conflict([b"a", b"a", b"a"])),
             MergeResult::Resolved(hunk(b"a"))
         );
         // One side removed, one side unchanged
         assert_eq!(
-            merge(&conflict([b"", b"a\n", b"a\n"])),
+            merge_hunks(&conflict([b"", b"a\n", b"a\n"])),
             MergeResult::Resolved(hunk(b""))
         );
         // One side unchanged, one side removed
         assert_eq!(
-            merge(&conflict([b"a\n", b"a\n", b""])),
+            merge_hunks(&conflict([b"a\n", b"a\n", b""])),
             MergeResult::Resolved(hunk(b""))
         );
         // Both sides removed same line
         assert_eq!(
-            merge(&conflict([b"", b"a\n", b""])),
+            merge_hunks(&conflict([b"", b"a\n", b""])),
             MergeResult::Resolved(hunk(b""))
         );
         // One side modified, one side unchanged
         assert_eq!(
-            merge(&conflict([b"a b", b"a", b"a"])),
+            merge_hunks(&conflict([b"a b", b"a", b"a"])),
             MergeResult::Resolved(hunk(b"a b"))
         );
         // One side unchanged, one side modified
         assert_eq!(
-            merge(&conflict([b"a", b"a", b"a b"])),
+            merge_hunks(&conflict([b"a", b"a", b"a b"])),
             MergeResult::Resolved(hunk(b"a b"))
         );
         // All sides added same content
         assert_eq!(
-            merge(&conflict([b"a\n", b"", b"a\n", b"", b"a\n"])),
+            merge_hunks(&conflict([b"a\n", b"", b"a\n", b"", b"a\n"])),
             MergeResult::Resolved(hunk(b"a\n"))
         );
         // One side modified, two sides added
         assert_eq!(
-            merge(&conflict([b"b", b"a", b"b", b"", b"b"])),
+            merge_hunks(&conflict([b"b", b"a", b"b", b"", b"b"])),
             MergeResult::Conflict(vec![conflict([b"b", b"a", b"b", b"", b"b"])])
         );
         // All sides removed same content
         assert_eq!(
-            merge(&conflict([b"", b"a\n", b"", b"a\n", b"", b"a\n", b""])),
+            merge_hunks(&conflict([b"", b"a\n", b"", b"a\n", b"", b"a\n", b""])),
             MergeResult::Resolved(hunk(b""))
         );
         // One side modified, two sides removed
         assert_eq!(
-            merge(&conflict([b"b\n", b"a\n", b"", b"a\n", b""])),
+            merge_hunks(&conflict([b"b\n", b"a\n", b"", b"a\n", b""])),
             MergeResult::Conflict(vec![conflict([b"b\n", b"a\n", b"", b"a\n", b""])])
         );
         // Three sides made the same change
         assert_eq!(
-            merge(&conflict([b"b", b"a", b"b", b"a", b"b"])),
+            merge_hunks(&conflict([b"b", b"a", b"b", b"a", b"b"])),
             MergeResult::Resolved(hunk(b"b"))
         );
         // One side removed, one side modified
         assert_eq!(
-            merge(&conflict([b"", b"a\n", b"b\n"])),
+            merge_hunks(&conflict([b"", b"a\n", b"b\n"])),
             MergeResult::Conflict(vec![conflict([b"", b"a\n", b"b\n"])])
         );
         // One side modified, one side removed
         assert_eq!(
-            merge(&conflict([b"b\n", b"a\n", b""])),
+            merge_hunks(&conflict([b"b\n", b"a\n", b""])),
             MergeResult::Conflict(vec![conflict([b"b\n", b"a\n", b""])])
         );
         // Two sides modified in different ways
         assert_eq!(
-            merge(&conflict([b"b", b"a", b"c"])),
+            merge_hunks(&conflict([b"b", b"a", b"c"])),
             MergeResult::Conflict(vec![conflict([b"b", b"a", b"c"])])
         );
         // Two of three sides don't change, third side changes
         assert_eq!(
-            merge(&conflict([b"a", b"a", b"", b"a", b"a"])),
+            merge_hunks(&conflict([b"a", b"a", b"", b"a", b"a"])),
             MergeResult::Resolved(hunk(b""))
         );
         // One side unchanged, two other sides make the same change
         assert_eq!(
-            merge(&conflict([b"b", b"a", b"a", b"a", b"b"])),
+            merge_hunks(&conflict([b"b", b"a", b"a", b"a", b"b"])),
             MergeResult::Resolved(hunk(b"b"))
         );
         // One side unchanged, two other sides make the different change
         assert_eq!(
-            merge(&conflict([b"b", b"a", b"a", b"a", b"c"])),
+            merge_hunks(&conflict([b"b", b"a", b"a", b"a", b"c"])),
             MergeResult::Conflict(vec![conflict([b"b", b"a", b"a", b"a", b"c"])])
         );
         // Merge of an unresolved conflict and another branch, where the other branch
         // undid the change from one of the inputs to the unresolved conflict in the
         // first.
         assert_eq!(
-            merge(&conflict([b"b", b"a", b"a", b"b", b"c"])),
+            merge_hunks(&conflict([b"b", b"a", b"a", b"b", b"c"])),
             MergeResult::Resolved(hunk(b"c"))
         );
         // Merge of an unresolved conflict and another branch.
         assert_eq!(
-            merge(&conflict([b"c", b"a", b"d", b"b", b"e"])),
+            merge_hunks(&conflict([b"c", b"a", b"d", b"b", b"e"])),
             MergeResult::Conflict(vec![conflict([b"c", b"a", b"d", b"b", b"e"])])
         );
         // Two sides made the same change, third side made a different change
         assert_eq!(
-            merge(&conflict([b"c", b"a", b"c", b"b", b"c"])),
+            merge_hunks(&conflict([b"c", b"a", b"c", b"b", b"c"])),
             MergeResult::Conflict(vec![conflict([b"c", b"a", b"c", b"b", b"c"])])
         );
     }
@@ -449,17 +449,17 @@ mod tests {
     fn test_merge_multi_hunk() {
         // Two sides left one line unchanged, and added conflicting additional lines
         assert_eq!(
-            merge(&conflict([b"a\nb\n", b"a\n", b"a\nc\n"])),
+            merge_hunks(&conflict([b"a\nb\n", b"a\n", b"a\nc\n"])),
             MergeResult::Conflict(vec![resolved(b"a\n"), conflict([b"b\n", b"", b"c\n"])])
         );
         // Two sides changed different lines: no conflict
         assert_eq!(
-            merge(&conflict([b"a2\nb\nc\n", b"a\nb\nc\n", b"a\nb\nc2\n"])),
+            merge_hunks(&conflict([b"a2\nb\nc\n", b"a\nb\nc\n", b"a\nb\nc2\n"])),
             MergeResult::Resolved(hunk(b"a2\nb\nc2\n"))
         );
         // Conflict with non-conflicting lines around
         assert_eq!(
-            merge(&conflict([b"a\nb1\nc\n", b"a\nb\nc\n", b"a\nb2\nc\n"])),
+            merge_hunks(&conflict([b"a\nb1\nc\n", b"a\nb\nc\n", b"a\nb2\nc\n"])),
             MergeResult::Conflict(vec![
                 resolved(b"a\n"),
                 conflict([b"b1\n", b"b\n", b"b2\n"]),
@@ -518,7 +518,7 @@ mod tests {
             }
         "};
         assert_eq!(
-            merge(&conflict([left, base, right])),
+            merge_hunks(&conflict([left, base, right])),
             MergeResult::Resolved(hunk(merged))
         );
     }

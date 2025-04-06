@@ -570,7 +570,7 @@ fn make_merge_sections(
 fn make_merge_file(
     merge_tool_file: &MergeToolFile,
 ) -> Result<scm_record::File<'static>, BuiltinToolError> {
-    let merge_result = files::merge(&merge_tool_file.simplified_file_content);
+    let merge_result = files::merge_hunks(&merge_tool_file.simplified_file_content);
     let sections = make_merge_sections(merge_result)?;
     Ok(scm_record::File {
         old_path: None,
@@ -1238,7 +1238,7 @@ mod tests {
         let content = extract_as_single_hunk(&merge, store, path)
             .block_on()
             .unwrap();
-        let merge_result = files::merge(&content);
+        let merge_result = files::merge_hunks(&content);
         let sections = make_merge_sections(merge_result).unwrap();
         insta::assert_debug_snapshot!(sections, @r#"
         [

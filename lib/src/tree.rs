@@ -325,7 +325,7 @@ pub async fn try_resolve_file_conflict(
         BackendResult::Ok(content)
     });
     let contents = Merge::from_vec(try_join_all(content_futures).await?);
-    let merge_result = files::merge(&contents);
+    let merge_result = files::merge_hunks(&contents);
     match merge_result {
         MergeResult::Resolved(merged_content) => {
             let id = store

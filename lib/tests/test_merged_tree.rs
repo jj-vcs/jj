@@ -1532,7 +1532,7 @@ fn test_merge_simplify_file_conflict() {
         ],
     );
     assert!(matches!(
-        jj_lib::files::merge(&text_merge.flatten()),
+        jj_lib::files::merge_hunks(&text_merge.flatten()),
         MergeResult::Conflict(_)
     ));
 }

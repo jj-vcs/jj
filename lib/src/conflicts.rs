@@ -362,7 +362,7 @@ pub fn materialize_merge_result<T: AsRef<[u8]>>(
     conflict_marker_style: ConflictMarkerStyle,
     output: &mut dyn Write,
 ) -> io::Result<()> {
-    let merge_result = files::merge(single_hunk);
+    let merge_result = files::merge_hunks(single_hunk);
     match &merge_result {
         MergeResult::Resolved(content) => output.write_all(content),
         MergeResult::Conflict(hunks) => {
@@ -378,7 +378,7 @@ pub fn materialize_merge_result_with_marker_len<T: AsRef<[u8]>>(
     conflict_marker_len: usize,
     output: &mut dyn Write,
 ) -> io::Result<()> {
-    let merge_result = files::merge(single_hunk);
+    let merge_result = files::merge_hunks(single_hunk);
     match &merge_result {
         MergeResult::Resolved(content) => output.write_all(content),
         MergeResult::Conflict(hunks) => {
@@ -391,7 +391,7 @@ pub fn materialize_merge_result_to_bytes<T: AsRef<[u8]>>(
     single_hunk: &Merge<T>,
     conflict_marker_style: ConflictMarkerStyle,
 ) -> BString {
-    let merge_result = files::merge(single_hunk);
+    let merge_result = files::merge_hunks(single_hunk);
     match merge_result {
         MergeResult::Resolved(content) => content,
         MergeResult::Conflict(hunks) => {
@@ -414,7 +414,7 @@ pub fn materialize_merge_result_to_bytes_with_marker_len<T: AsRef<[u8]>>(
     conflict_marker_style: ConflictMarkerStyle,
     conflict_marker_len: usize,
 ) -> BString {
-    let merge_result = files::merge(single_hunk);
+    let merge_result = files::merge_hunks(single_hunk);
     match merge_result {
         MergeResult::Resolved(content) => content,
         MergeResult::Conflict(hunks) => {
