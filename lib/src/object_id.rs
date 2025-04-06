@@ -25,8 +25,8 @@ pub trait ObjectId {
 // a single Vec<u8> used to store an identifier (typically the output of a hash
 // function) as bytes. Types defined using this macro automatically implement
 // the `ObjectId` and `ContentHash` traits.
-// Documentation comments written inside the macro definition and will be
-// captured and associated with the type defined by the macro.
+// Documentation comments written inside the macro definition will be captured
+// and associated with the type defined by the macro.
 //
 // Example:
 // ```no_run
