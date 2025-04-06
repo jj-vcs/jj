@@ -16,6 +16,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* Fixed problem that old commits could be re-imported from Git.
+  https://github.com/GitoxideLabs/gitoxide/issues/1928
+
 ## [0.28.1] - 2025-04-04
 
 ### Security fixes
