@@ -1020,7 +1020,7 @@ dependencies = [
 
 [[package]]
 name = "gen-protos"
-version = "0.28.1"
+version = "0.28.2"
 dependencies = [
  "prost-build",
 ]
@@ -2290,7 +2290,7 @@ dependencies = [
 
 [[package]]
 name = "jj-cli"
-version = "0.28.1"
+version = "0.28.2"
 dependencies = [
  "assert_cmd",
  "assert_matches",
@@ -2349,7 +2349,7 @@ dependencies = [
 
 [[package]]
 name = "jj-lib"
-version = "0.28.1"
+version = "0.28.2"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -2408,7 +2408,7 @@ dependencies = [
 
 [[package]]
 name = "jj-lib-proc-macros"
-version = "0.28.1"
+version = "0.28.2"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3939,7 +3939,7 @@ dependencies = [
 
 [[package]]
 name = "testutils"
-version = "0.28.1"
+version = "0.28.2"
 dependencies = [
  "async-trait",
  "bstr",
