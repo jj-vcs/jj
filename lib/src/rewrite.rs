@@ -1180,3 +1180,82 @@ pub fn squash_commits<'repo>(
         abandoned_commits,
     }))
 }
+
+/// Find divergent commits from the target that are already present with
+/// identical contents in the destination. These commits should be able to be
+/// safely abandoned.
+pub fn find_duplicate_divergent_commits(
+    repo: &dyn Repo,
+    new_parent_ids: &[CommitId],
+    target: &MoveCommitsTarget,
+) -> BackendResult<Vec<Commit>> {
+    let target_commits: Vec<Commit> = match target {
+        MoveCommitsTarget::Commits(commit_ids) => commit_ids
+            .iter()
+            .map(|commit_id| repo.store().get_commit(commit_id))
+            .try_collect()?,
+        MoveCommitsTarget::Roots(root_ids) => RevsetExpression::commits(root_ids.clone())
+            .descendants()
+            .evaluate(repo)
+            .map_err(|err| err.into_backend_error())?
+            .iter()
+            .commits(repo.store())
+            .try_collect()
+            .map_err(|err| err.into_backend_error())?,
+    };
+    let target_commit_ids: HashSet<&CommitId> = target_commits.iter().map(Commit::id).collect();
+
+    // For each divergent change being rebased, we want to find all of the other
+    // commits with the same change ID which are not being rebased.
+    let divergent_changes: Vec<(&Commit, Vec<CommitId>)> = target_commits
+        .iter()
+        .map(|target_commit| {
+            let mut ancestor_candidates = repo
+                .resolve_change_id(target_commit.change_id())
+                .unwrap_or_default();
+            ancestor_candidates.retain(|commit_id| !target_commit_ids.contains(commit_id));
+            (target_commit, ancestor_candidates)
+        })
+        .filter(|(_, candidates)| !candidates.is_empty())
+        .collect();
+    if divergent_changes.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let target_root_ids = match target {
+        MoveCommitsTarget::Commits(commit_ids) => commit_ids,
+        MoveCommitsTarget::Roots(root_ids) => root_ids,
+    };
+
+    // We only care about divergent changes which are new ancestors of the rebased
+    // commits, not ones which were already ancestors of the rebased commits.
+    let is_new_ancestor = RevsetExpression::commits(target_root_ids.clone())
+        .range(&RevsetExpression::commits(new_parent_ids.to_owned()))
+        .evaluate(repo)
+        .map_err(|err| err.into_backend_error())?
+        .containing_fn();
+
+    let mut duplicate_divergent = Vec::new();
+    // Checking every pair of commits between these two sets could be expensive if
+    // there are several commits with the same change ID. However, it should be
+    // uncommon to have more than a couple commits with the same change ID being
+    // rebased at the same time, so it should be good enough in practice.
+    for (target_commit, ancestor_candidates) in divergent_changes {
+        for ancestor_candidate_id in ancestor_candidates {
+            if !is_new_ancestor(&ancestor_candidate_id).map_err(|err| err.into_backend_error())? {
+                continue;
+            }
+
+            let ancestor_candidate = repo.store().get_commit(&ancestor_candidate_id)?;
+            let new_tree =
+                rebase_to_dest_parent(repo, &[target_commit.clone()], &ancestor_candidate)?;
+            // Check whether the rebased commit would have the same tree as the existing
+            // commit if they had the same parents. If so, we can skip this rebased commit.
+            if new_tree.id() == *ancestor_candidate.tree_id() {
+                duplicate_divergent.push(target_commit.clone());
+                break;
+            }
+        }
+    }
+    Ok(duplicate_divergent)
+}

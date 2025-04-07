@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use itertools::Itertools as _;
+use jj_lib::backend::ChangeId;
 use jj_lib::commit::Commit;
 use jj_lib::matchers::EverythingMatcher;
 use jj_lib::matchers::FilesMatcher;
@@ -27,11 +28,13 @@ use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
+use jj_lib::rewrite::find_duplicate_divergent_commits;
 use jj_lib::rewrite::rebase_commit_with_options;
 use jj_lib::rewrite::restore_tree;
 use jj_lib::rewrite::CommitRewriter;
 use jj_lib::rewrite::CommitWithSelection;
 use jj_lib::rewrite::EmptyBehaviour;
+use jj_lib::rewrite::MoveCommitsTarget;
 use jj_lib::rewrite::RebaseOptions;
 use jj_lib::rewrite::RewriteRefsOptions;
 use maplit::hashmap;
@@ -1888,4 +1891,110 @@ fn test_commit_with_selection() {
     };
     assert!(!full_selection.is_empty_selection());
     assert!(full_selection.is_full_selection());
+}
+
+#[test]
+fn test_find_duplicate_divergent_commits() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let mut tx = repo.start_transaction();
+    let store = repo.store();
+    // We want to create the following tree with divergent changes A, B, and C:
+    //     E
+    //     |
+    // A2  C2
+    // |   |
+    // C1  B2
+    // |   |
+    // B1  D
+    // |  /
+    // | /
+    // A1
+
+    let tree_a1 = create_tree(repo, &[(repo_path("file1"), "a\n")]);
+    // Commit b deletes file1 and adds file2
+    let tree_b1 = create_tree(repo, &[(repo_path("file2"), "b\n")]);
+    // Commit c appends to file2
+    let tree_c1 = create_tree(repo, &[(repo_path("file2"), "b\nc\n")]);
+    // Commit a2 re-adds file1, the same as commit a1. Since it already has a1
+    // as an ancestor, it shouldn't be abandoned even though it is divergent.
+    let tree_a2 = create_tree(
+        repo,
+        &[(repo_path("file1"), "a\n"), (repo_path("file2"), "b\nc\n")],
+    );
+    let tree_d = create_tree(
+        repo,
+        &[(repo_path("file1"), "a\n"), (repo_path("file3"), "d\n")],
+    );
+    let tree_b2 = create_tree(
+        repo,
+        &[(repo_path("file2"), "b\n"), (repo_path("file3"), "d\n")],
+    );
+    let tree_c2 = create_tree(
+        repo,
+        &[(repo_path("file2"), "b\nc\n"), (repo_path("file3"), "d\n")],
+    );
+    let tree_e = create_tree(
+        repo,
+        &[
+            (repo_path("file2"), "b\nc\n"),
+            (repo_path("file3"), "d\ne\n"),
+        ],
+    );
+
+    let mut make_commit = |change_id_byte, tree_id, parents| {
+        tx.repo_mut()
+            .new_commit(parents, tree_id)
+            .set_change_id(ChangeId::new(vec![
+                change_id_byte;
+                store.change_id_length()
+            ]))
+            .write()
+            .unwrap()
+    };
+
+    let commit_a1 = make_commit(0xAA, tree_a1.id(), vec![store.root_commit_id().clone()]);
+    let commit_b1 = make_commit(0xBB, tree_b1.id(), vec![commit_a1.id().clone()]);
+    let commit_c1 = make_commit(0xCC, tree_c1.id(), vec![commit_b1.id().clone()]);
+    let commit_a2 = make_commit(0xAA, tree_a2.id(), vec![commit_c1.id().clone()]);
+    let commit_d = make_commit(0xDD, tree_d.id(), vec![commit_a1.id().clone()]);
+    let commit_b2 = make_commit(0xBB, tree_b2.id(), vec![commit_d.id().clone()]);
+    let commit_c2 = make_commit(0xCC, tree_c2.id(), vec![commit_b2.id().clone()]);
+    let commit_e = make_commit(0xEE, tree_e.id(), vec![commit_c2.id().clone()]);
+
+    // Simulate rebase of "d::" onto "a2"
+    let duplicate_commits = find_duplicate_divergent_commits(
+        tx.repo(),
+        &[commit_a2.id().clone()],
+        &MoveCommitsTarget::Roots(vec![commit_d.id().clone()]),
+    )
+    .unwrap();
+    // Commits b2 and c2 are duplicates
+    assert_eq!(duplicate_commits, &[commit_c2.clone(), commit_b2.clone()]);
+
+    // Simulate rebase of "b1::" onto "e"
+    let duplicate_commits = find_duplicate_divergent_commits(
+        tx.repo(),
+        &[commit_e.id().clone()],
+        &MoveCommitsTarget::Roots(vec![commit_b1.id().clone()]),
+    )
+    .unwrap();
+    // Commits b1 and c1 are duplicates. Commit a2 is not a duplicate, because
+    // it already had a1 as an ancestor before the rebase.
+    assert_eq!(duplicate_commits, &[commit_c1.clone(), commit_b1.clone()]);
+
+    // Simulate rebase of "d | c2 | e" onto "a2"
+    let duplicate_commits = find_duplicate_divergent_commits(
+        tx.repo(),
+        &[commit_a2.id().clone()],
+        &MoveCommitsTarget::Commits(vec![
+            commit_d.id().clone(),
+            commit_c2.id().clone(),
+            commit_e.id().clone(),
+        ]),
+    )
+    .unwrap();
+    // Commit c2 is a duplicate
+    assert_eq!(duplicate_commits, &[commit_c2.clone()]);
 }

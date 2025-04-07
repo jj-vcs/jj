@@ -24,6 +24,7 @@ use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
+use jj_lib::rewrite::find_duplicate_divergent_commits;
 use jj_lib::rewrite::move_commits;
 use jj_lib::rewrite::EmptyBehaviour;
 use jj_lib::rewrite::MoveCommitsLocation;
@@ -324,6 +325,14 @@ pub(crate) struct RebaseArgs {
     /// parents.
     #[arg(long)]
     skip_emptied: bool,
+
+    /// Keep divergent commits while rebasing
+    ///
+    /// Without this flag, divergent commits are abandoned while rebasing if
+    /// another commit with the same change ID is already present in the
+    /// destination with identical changes.
+    #[arg(long)]
+    keep_divergent: bool,
 }
 
 #[derive(clap::Args, Clone, Debug)]
@@ -394,6 +403,20 @@ pub(crate) fn cmd_rebase(
     };
 
     let mut tx = workspace_command.start_transaction();
+    if !args.keep_divergent {
+        let abandoned_divergent =
+            find_duplicate_divergent_commits(tx.repo(), &loc.new_parent_ids, &loc.target)?;
+        for commit in &abandoned_divergent {
+            tx.repo_mut().record_abandoned_commit(commit);
+        }
+        if !abandoned_divergent.is_empty() {
+            writeln!(
+                ui.status(),
+                "Skipped {} divergent commits that were already present in the destination",
+                abandoned_divergent.len(),
+            )?;
+        }
+    };
     let stats = move_commits(tx.repo_mut(), &loc, &rebase_options)?;
     print_move_commits_stats(ui, &stats)?;
     tx.finish(ui, tx_description(&loc.target))?;
