@@ -66,7 +66,7 @@ jobs:
       uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
       with:
         toolchain: 1.84
-    - uses: taiki-e/install-action@f1390fd0d8205ae79e5e57b1d1e300dceeb4163e
+    - uses: taiki-e/install-action@d4635f2de61c8b8104d59cd4aede2060638378cc
       with:
         tool: nextest,taplo-cli
     - name: Install mold
@@ -290,7 +290,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@1b549b9259bda1cb5ddde3b41741a82a2d15a841
+        uses: github/codeql-action/upload-sarif@fc7e4a0fa01c3cca5fd6a1fddec5c0740c977aa2
         with:
           sarif_file: results.sarif
           category: zizmor
