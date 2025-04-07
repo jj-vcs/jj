@@ -990,8 +990,14 @@ merge-editor = "meld"  # Or "vscode" or "vscodium" or "kdiff3" or "vimdiff"
 merge-editor = ["meld", "$left", "$base", "$right", "-o", "$output"]
 ```
 
-The "vscode", "vscodium", "meld", "kdiff3", and "vimdiff" tools can be used out of the box,
-as long as they are installed.
+The following tools can be used out of the box, as long as they are installed:
+- "kdiff3"
+- "meld"
+- "mergiraf"
+- "smerge"
+- "vimdiff"
+- "vscode"
+- "vscodium"
 
 Using VS Code as a merge tool works well with VS Code's [Remote
 Development](https://code.visualstudio.com/docs/remote/remote-overview)
