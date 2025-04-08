@@ -376,7 +376,7 @@
   Git command: >
     `git revert <revision>`
   Jujutsu command: >
-    `jj backout -r <revision>`
+    `jj revert -r <revision> -B @`
   Notes: ''
 
 - Use case: Show what revision and author last modified each line of a file
