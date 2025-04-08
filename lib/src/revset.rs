@@ -1807,7 +1807,8 @@ fn reload_repo_at_operation(
         RepoLoaderError::IndexRead(_)
         | RepoLoaderError::OpHeadResolution(_)
         | RepoLoaderError::OpHeadsStoreError(_)
-        | RepoLoaderError::OpStore(_) => RevsetResolutionError::Other(err.into()),
+        | RepoLoaderError::OpStore(_)
+        | RepoLoaderError::TransactionCommit(_) => RevsetResolutionError::Other(err.into()),
     })
 }
 

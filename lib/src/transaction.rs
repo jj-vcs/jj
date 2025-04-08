@@ -21,10 +21,12 @@ use thiserror::Error;
 
 use crate::backend::Timestamp;
 use crate::dag_walk;
+use crate::index::IndexWriteError;
 use crate::index::ReadonlyIndex;
 use crate::op_heads_store::OpHeadsStore;
 use crate::op_heads_store::OpHeadsStoreError;
 use crate::op_store;
+use crate::op_store::OpStoreError;
 use crate::op_store::OperationMetadata;
 use crate::operation::Operation;
 use crate::repo::MutableRepo;
@@ -39,7 +41,9 @@ use crate::view::View;
 #[derive(Debug, Error)]
 #[error("Failed to commit new operation")]
 pub enum TransactionCommitError {
+    IndexWrite(#[from] IndexWriteError),
     OpHeadsStore(#[from] OpHeadsStoreError),
+    OpStore(#[from] OpStoreError),
 }
 
 /// An in-memory representation of a repo and any changes being made to it.
@@ -115,13 +119,16 @@ impl Transaction {
         self,
         description: impl Into<String>,
     ) -> Result<Arc<ReadonlyRepo>, TransactionCommitError> {
-        self.write(description).publish()
+        self.write(description)?.publish()
     }
 
     /// Writes the transaction to the operation store, but does not publish it.
     /// That means that a repo can be loaded at the operation, but the
     /// operation will not be seen when loading the repo at head.
-    pub fn write(mut self, description: impl Into<String>) -> UnpublishedOperation {
+    pub fn write(
+        mut self,
+        description: impl Into<String>,
+    ) -> Result<UnpublishedOperation, TransactionCommitError> {
         let mut_repo = self.mut_repo;
         // TODO: Should we instead just do the rebasing here if necessary?
         assert!(
@@ -132,7 +139,7 @@ impl Transaction {
         let (mut_index, view) = mut_repo.consume();
 
         let operation = {
-            let view_id = base_repo.op_store().write_view(view.store_view()).unwrap();
+            let view_id = base_repo.op_store().write_view(view.store_view())?;
             self.op_metadata.description = description.into();
             self.op_metadata.end_time = self.end_time.unwrap_or_else(Timestamp::now);
             let parents = self.parent_ops.iter().map(|op| op.id().clone()).collect();
@@ -141,18 +148,13 @@ impl Transaction {
                 parents,
                 metadata: self.op_metadata,
             };
-            let new_op_id = base_repo
-                .op_store()
-                .write_operation(&store_operation)
-                .unwrap();
+            let new_op_id = base_repo.op_store().write_operation(&store_operation)?;
             Operation::new(base_repo.op_store().clone(), new_op_id, store_operation)
         };
 
-        let index = base_repo
-            .index_store()
-            .write_index(mut_index, &operation)
-            .unwrap();
-        UnpublishedOperation::new(base_repo.loader(), operation, view, index)
+        let index = base_repo.index_store().write_index(mut_index, &operation)?;
+        let unpublished = UnpublishedOperation::new(base_repo.loader(), operation, view, index);
+        Ok(unpublished)
     }
 }
 

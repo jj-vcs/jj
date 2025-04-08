@@ -100,6 +100,7 @@ use crate::simple_op_store::SimpleOpStore;
 use crate::store::Store;
 use crate::submodule_store::SubmoduleStore;
 use crate::transaction::Transaction;
+use crate::transaction::TransactionCommitError;
 use crate::view::RenameWorkspaceError;
 use crate::view::View;
 
@@ -626,6 +627,8 @@ pub enum RepoLoaderError {
     OpHeadsStoreError(#[from] OpHeadsStoreError),
     #[error(transparent)]
     OpStore(#[from] OpStoreError),
+    #[error(transparent)]
+    TransactionCommit(#[from] TransactionCommitError),
 }
 
 /// Helps create `ReadonlyRepoo` instances of a repo at the head operation or at
@@ -790,7 +793,7 @@ impl RepoLoader {
                 || format!("merge {num_operations} operations"),
                 |tx_description| tx_description.to_string(),
             );
-            let merged_repo = tx.write(tx_description).leave_unpublished();
+            let merged_repo = tx.write(tx_description)?.leave_unpublished();
             merged_repo.operation().clone()
         } else {
             base_op
