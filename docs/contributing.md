@@ -191,6 +191,20 @@ These are listed roughly in order of decreasing importance.
    On Linux, you may be able to speed up `nextest` even further by using
    the `mold` linker, as explained below.
 
+### MSRV (Minimum Supported Rust Version)
+
+While we do require code to compile with our MSRV, we do not enforce this
+with `rust-toolchain.toml`. Instead, we encourage developing using the latest
+compiler, and using `cargo clippy -- -D clippy::incompatible_msrv` (added in
+1.78) to catch violations.
+
+!!! note
+    Clippy will not run the `incompatible_msrv` lint in tests by default. If you
+    are using rust 1.87+, you can enable it with the following:
+    ```toml
+    # clippy.toml
+    check-incompatible-msrv-in-tests = true
+    ```
 
 ### Configuring `jj fix` to run `rustfmt`
 
