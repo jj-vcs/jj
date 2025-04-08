@@ -131,20 +131,22 @@ impl Transaction {
         let base_repo = mut_repo.base_repo().clone();
         let (mut_index, view) = mut_repo.consume();
 
-        let view_id = base_repo.op_store().write_view(view.store_view()).unwrap();
-        self.op_metadata.description = description.into();
-        self.op_metadata.end_time = self.end_time.unwrap_or_else(Timestamp::now);
-        let parents = self.parent_ops.iter().map(|op| op.id().clone()).collect();
-        let store_operation = op_store::Operation {
-            view_id,
-            parents,
-            metadata: self.op_metadata,
+        let operation = {
+            let view_id = base_repo.op_store().write_view(view.store_view()).unwrap();
+            self.op_metadata.description = description.into();
+            self.op_metadata.end_time = self.end_time.unwrap_or_else(Timestamp::now);
+            let parents = self.parent_ops.iter().map(|op| op.id().clone()).collect();
+            let store_operation = op_store::Operation {
+                view_id,
+                parents,
+                metadata: self.op_metadata,
+            };
+            let new_op_id = base_repo
+                .op_store()
+                .write_operation(&store_operation)
+                .unwrap();
+            Operation::new(base_repo.op_store().clone(), new_op_id, store_operation)
         };
-        let new_op_id = base_repo
-            .op_store()
-            .write_operation(&store_operation)
-            .unwrap();
-        let operation = Operation::new(base_repo.op_store().clone(), new_op_id, store_operation);
 
         let index = base_repo
             .index_store()
