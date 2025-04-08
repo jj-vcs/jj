@@ -296,7 +296,7 @@ parent.
     <tr>
       <td>Create a commit that cancels out a previous commit</td>
       <td><code>git revert &lt;revision&gt;</code></td>
-      <td><code>jj backout -r &lt;revision&gt;</code></td>
+      <td><code>jj revert -r &lt;revision&gt; -B @</code></td>
     </tr>
     <tr>
       <td>Show what revision and author last modified each line of a file</td>
