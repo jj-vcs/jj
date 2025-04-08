@@ -198,20 +198,6 @@ impl TestEnvironment {
         self.env_vars.insert(key.into(), val.into());
     }
 
-    // TODO: Remove with the `git.subprocess` setting.
-    pub fn with_git_subprocess(self, subprocess: bool) -> Self {
-        #[cfg(feature = "git2")]
-        if !subprocess {
-            self.add_config(formatdoc! {"
-                git.subprocess = false
-                debug.suppress-git2-deprecation-warning = true
-            "});
-            return self;
-        }
-        assert!(subprocess);
-        self
-    }
-
     /// Sets up the fake editor to read an edit script from the returned path
     /// Also sets up the fake editor as a merge tool named "fake-editor"
     pub fn set_up_fake_editor(&mut self) -> PathBuf {

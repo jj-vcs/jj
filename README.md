@@ -213,7 +213,6 @@ the header of the website when you scroll to the top of any page.
 
 Jujutsu is designed so that the underlying data and storage model is abstract.
 Today, only the Git backend is production-ready. The Git backend uses the
-[libgit2](https://libgit2.org/) C library and the
 [gitoxide](https://github.com/Byron/gitoxide) Rust library.
 
 [backends]: https://jj-vcs.github.io/jj/latest/glossary#backend
