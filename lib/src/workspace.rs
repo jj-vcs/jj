@@ -54,6 +54,7 @@ use crate::signing::SignInitError;
 use crate::signing::Signer;
 use crate::simple_backend::SimpleBackend;
 use crate::store::Store;
+use crate::transaction::TransactionCommitError;
 use crate::working_copy::CheckoutError;
 use crate::working_copy::CheckoutOptions;
 use crate::working_copy::CheckoutStats;
@@ -75,11 +76,13 @@ pub enum WorkspaceInitError {
     #[error(transparent)]
     Path(#[from] PathError),
     #[error(transparent)]
-    OpHeadsStore(#[from] OpHeadsStoreError),
+    OpHeadsStore(OpHeadsStoreError),
     #[error(transparent)]
     Backend(#[from] BackendInitError),
     #[error(transparent)]
     SignInit(#[from] SignInitError),
+    #[error(transparent)]
+    TransactionCommit(#[from] TransactionCommitError),
 }
 
 #[derive(Error, Debug)]

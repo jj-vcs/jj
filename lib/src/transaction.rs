@@ -17,6 +17,7 @@
 use std::sync::Arc;
 
 use itertools::Itertools as _;
+use thiserror::Error;
 
 use crate::backend::Timestamp;
 use crate::dag_walk;
@@ -33,6 +34,13 @@ use crate::repo::RepoLoader;
 use crate::repo::RepoLoaderError;
 use crate::settings::UserSettings;
 use crate::view::View;
+
+/// Error from attempts to write and publish transaction.
+#[derive(Debug, Error)]
+#[error("Failed to commit new operation")]
+pub enum TransactionCommitError {
+    OpHeadsStore(#[from] OpHeadsStoreError),
+}
 
 /// An in-memory representation of a repo and any changes being made to it.
 ///
@@ -106,7 +114,7 @@ impl Transaction {
     pub fn commit(
         self,
         description: impl Into<String>,
-    ) -> Result<Arc<ReadonlyRepo>, OpHeadsStoreError> {
+    ) -> Result<Arc<ReadonlyRepo>, TransactionCommitError> {
         self.write(description).publish()
     }
 
@@ -199,7 +207,7 @@ impl UnpublishedOperation {
         self.repo.operation()
     }
 
-    pub fn publish(self) -> Result<Arc<ReadonlyRepo>, OpHeadsStoreError> {
+    pub fn publish(self) -> Result<Arc<ReadonlyRepo>, TransactionCommitError> {
         let _lock = self.op_heads_store.lock()?;
         self.op_heads_store
             .update_op_heads(self.operation().parent_ids(), self.operation().id())?;

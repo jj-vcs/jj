@@ -35,7 +35,6 @@ use crate::gitignore::GitIgnoreError;
 use crate::gitignore::GitIgnoreFile;
 use crate::matchers::EverythingMatcher;
 use crate::matchers::Matcher;
-use crate::op_heads_store::OpHeadsStoreError;
 use crate::op_store::OpStoreError;
 use crate::op_store::OperationId;
 use crate::operation::Operation;
@@ -48,6 +47,7 @@ use crate::repo_path::InvalidRepoPathError;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::store::Store;
+use crate::transaction::TransactionCommitError;
 
 /// The trait all working-copy implementations must implement.
 pub trait WorkingCopy: Send {
@@ -417,15 +417,15 @@ pub enum RecoverWorkspaceError {
     /// Backend error.
     #[error(transparent)]
     Backend(#[from] BackendError),
-    /// Error during transaction.
-    #[error(transparent)]
-    OpHeadsStore(#[from] OpHeadsStoreError),
     /// Error during checkout.
     #[error(transparent)]
     Reset(#[from] ResetError),
     /// Checkout attempted to modify the root commit.
     #[error(transparent)]
     RewriteRootCommit(#[from] RewriteRootCommit),
+    /// Error during transaction.
+    #[error(transparent)]
+    TransactionCommit(#[from] TransactionCommitError),
     /// Working copy commit is missing.
     #[error(r#""{}" doesn't have a working-copy commit"#, .0.as_symbol())]
     WorkspaceMissingWorkingCopy(WorkspaceNameBuf),

@@ -51,6 +51,7 @@ use jj_lib::revset::RevsetParseError;
 use jj_lib::revset::RevsetParseErrorKind;
 use jj_lib::revset::RevsetResolutionError;
 use jj_lib::str_util::StringPatternParseError;
+use jj_lib::transaction::TransactionCommitError;
 use jj_lib::view::RenameWorkspaceError;
 use jj_lib::working_copy::RecoverWorkspaceError;
 use jj_lib::working_copy::ResetError;
@@ -354,6 +355,7 @@ impl From<WorkspaceInitError> for CommandError {
                 internal_error_with_message("Failed to access the repository", err)
             }
             WorkspaceInitError::SignInit(err) => user_error(err),
+            WorkspaceInitError::TransactionCommit(err) => err.into(),
         }
     }
 }
@@ -405,6 +407,12 @@ impl From<RepoLoaderError> for CommandError {
 impl From<ResetError> for CommandError {
     fn from(err: ResetError) -> Self {
         internal_error_with_message("Failed to reset the working copy", err)
+    }
+}
+
+impl From<TransactionCommitError> for CommandError {
+    fn from(err: TransactionCommitError) -> Self {
+        internal_error(err)
     }
 }
 
@@ -629,9 +637,9 @@ impl From<RecoverWorkspaceError> for CommandError {
     fn from(err: RecoverWorkspaceError) -> Self {
         match err {
             RecoverWorkspaceError::Backend(err) => err.into(),
-            RecoverWorkspaceError::OpHeadsStore(err) => err.into(),
             RecoverWorkspaceError::Reset(err) => err.into(),
             RecoverWorkspaceError::RewriteRootCommit(err) => err.into(),
+            RecoverWorkspaceError::TransactionCommit(err) => err.into(),
             err @ RecoverWorkspaceError::WorkspaceMissingWorkingCopy(_) => user_error(err),
         }
     }
