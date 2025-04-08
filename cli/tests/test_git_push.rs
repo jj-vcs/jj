@@ -179,8 +179,8 @@ fn test_git_push_current_bookmark(subprocess: bool) {
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Changes to push to origin:
-      Move backward bookmark bookmark2 from bc7610b65a91 to 8476341eb395
+    Bookmark bookmark2@origin already matches bookmark2
+    Nothing changed.
     [EOF]
     ");
     }
@@ -740,9 +740,10 @@ fn test_git_push_locally_created_and_rewritten(subprocess: bool) {
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Changes to push to origin:
-      Move sideways bookmark my from fcc999921ce9 to 423bb66069e7
+    Config error: Value not found for revsets.push
+    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
     [EOF]
+    [exit status: 1]
     ");
     }
 }
@@ -2565,12 +2566,6 @@ fn test_git_push_rejected_by_remote() {
     });
 }
 
-#[must_use]
-fn get_bookmark_output(work_dir: &TestWorkDir) -> CommandOutput {
-    // --quiet to suppress deleted bookmarks hint
-    work_dir.run_jj(["bookmark", "list", "--all-remotes", "--quiet"])
-}
-
 // TODO: Remove with the `git.subprocess` setting.
 #[cfg(not(feature = "git2"))]
 #[test]
@@ -2590,4 +2585,64 @@ fn test_git_push_git2_warning() {
       Move sideways bookmark bookmark1 from d13ecdbda2a2 to 0f8dc6560f32
     [EOF]
     "#);
+}
+
+#[test]
+fn test_git_push_custom_revset() {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let work_dir = test_env.work_dir("local");
+    // add a custom revset which simulates ignoring a `private()` revset.
+    test_env.add_config(
+        r#"
+    [revsets]
+    'push(remote)' = "remote_bookmarks(remote=remote)..@ & ~subject(glob:wip:*)"
+    "#,
+    );
+    work_dir
+        .run_jj(["new", "bookmark2", "-m", "commit to be pushed"])
+        .success();
+    work_dir.run_jj(["new", "-m", "wip: stuff"]).success();
+    work_dir
+        .run_jj(["bookmark", "set", "bookmark2", "-r@"])
+        .success();
+    work_dir
+        .run_jj(["new", "-m", "commit which should pushed"])
+        .success();
+    work_dir
+        .run_jj(["new", "-m", "wip: commit which should not be pushed"])
+        .success();
+    //
+    let output = work_dir.run_jj(["log"]);
+    insta::assert_snapshot!(output, @r"
+    @  kmkuslsw test.user@example.com 2001-02-03 08:05:18 94ce0267
+    │  (empty) wip: commit which should not be pushed
+    ○  kpqxywon test.user@example.com 2001-02-03 08:05:17 ea115997
+    │  (empty) commit which should pushed
+    ○  yostqsxw test.user@example.com 2001-02-03 08:05:15 bookmark2* b9aa5e02
+    │  (empty) wip: stuff
+    ○  vruxwmqv test.user@example.com 2001-02-03 08:05:14 1eba4c0d
+    │  (empty) commit to be pushed
+    ○  rlzusymt test.user@example.com 2001-02-03 08:05:10 bookmark2@origin 8476341e
+    │  (empty) description 2
+    │ ○  xtvrqkyv test.user@example.com 2001-02-03 08:05:08 bookmark1 d13ecdbd
+    ├─╯  (empty) description 1
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+    // We should try to push the first two commits but not any containing "wip:".
+    let output = work_dir.run_jj(["git", "push"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Config error: Value not found for revsets.push
+    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[must_use]
+fn get_bookmark_output(work_dir: &TestWorkDir) -> CommandOutput {
+    // --quiet to suppress deleted bookmarks hint
+    work_dir.run_jj(["bookmark", "list", "--all-remotes", "--quiet"])
 }

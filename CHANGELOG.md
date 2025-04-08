@@ -18,6 +18,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj show` patches can now be suppressed with `--no-patch`.
 
+* Added support `revsets.push` which allows you to customize the default
+  commits to push. See [#3650](https://github.com/jj-vcs/jj/issues/3650).
+
 ### Fixed bugs
 
 * Fixed problem that old commits could be re-imported from Git.
