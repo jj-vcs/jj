@@ -41,8 +41,8 @@ criterion = "0.5.1"
 crossterm = { version = "0.28", default-features = false, features = ["windows"] }
 datatest-stable = "0.3.2"
 digest = "0.10.7"
-dirs = "6.0.0"
 dunce = "1.0.5"
+etcetera = "0.10.0"
 either = "1.15.0"
 futures = "0.3.31"
 git2 = { version = "0.20.1", features = [

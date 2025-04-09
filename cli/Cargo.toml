@@ -62,8 +62,8 @@ clap_complete_nushell = { workspace = true }
 clap_mangen = { workspace = true }
 criterion = { workspace = true, optional = true }
 crossterm = { workspace = true }
-dirs = { workspace = true }
 dunce = { workspace = true }
+etcetera = { workspace = true }
 futures = { workspace = true }
 git2 = { workspace = true, optional = true }
 gix = { workspace = true, optional = true }

@@ -853,6 +853,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5692dd7b5a1978a5aeb0ce83b7655c58ca8efdcb79d21036ea249da95afec2c6"
 
 [[package]]
+name = "etcetera"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "26c7b13d0780cb82722fd59f6f57f925e143427e4a75313a6c77243bf5326ae6"
+dependencies = [
+ "cfg-if",
+ "home",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
 name = "euclid"
 version = "0.22.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2352,8 +2363,8 @@ dependencies = [
  "criterion",
  "crossterm",
  "datatest-stable",
- "dirs",
  "dunce",
+ "etcetera",
  "futures 0.3.31",
  "git2",
  "gix",
