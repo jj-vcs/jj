@@ -218,6 +218,7 @@ fn create_dir_all(path: &Path) -> std::io::Result<()> {
 #[derive(Clone, Default, Debug)]
 struct UnresolvedConfigEnv {
     config_dir: Option<PathBuf>,
+    macos_legacy_config_dir: Option<PathBuf>,
     home_dir: Option<PathBuf>,
     jj_config: Option<String>,
 }
@@ -246,9 +247,22 @@ impl UnresolvedConfigEnv {
             config_dir.push("conf.d");
             ConfigPath::new(config_dir)
         });
+        let legacy_platform_config_path =
+            self.macos_legacy_config_dir.clone().map(|mut config_dir| {
+                config_dir.push("jj");
+                config_dir.push("config.toml");
+                ConfigPath::new(config_dir)
+            });
+        let legacy_platform_config_dir = self.macos_legacy_config_dir.map(|mut config_dir| {
+            config_dir.push("jj");
+            config_dir.push("conf.d");
+            ConfigPath::new(config_dir)
+        });
 
         if let Some(path) = home_config_path {
-            if path.exists() || platform_config_path.is_none() {
+            if path.exists()
+                || (platform_config_path.is_none() && legacy_platform_config_path.is_none())
+            {
                 paths.push(path);
             }
         }
@@ -259,13 +273,25 @@ impl UnresolvedConfigEnv {
             paths.push(path);
         }
 
-        // theoretically this should be an `if let Some(...) = ... && ..., but that
+        // theoretically these should be an `if let Some(...) = ... && ..., but that
         // isn't stable
         if let Some(path) = platform_config_dir {
             if path.exists() {
                 paths.push(path);
             }
         }
+
+        if let Some(path) = legacy_platform_config_path {
+            if path.exists() {
+                paths.push(path);
+            }
+        }
+        if let Some(path) = legacy_platform_config_dir {
+            if path.exists() {
+                paths.push(path);
+            }
+        }
+
         paths
     }
 }
@@ -282,7 +308,13 @@ pub struct ConfigEnv {
 impl ConfigEnv {
     /// Initializes configuration loader based on environment variables.
     pub fn from_environment() -> Self {
-        let config_dir = if cfg!(target_os = "macos") {
+        let config_dir = etcetera::choose_base_strategy()
+            .ok()
+            .map(|s| s.config_dir());
+
+        // older versions of jj used a more "GUI" config option,
+        // which is not designed for user-editable configuration of CLI utilities.
+        let macos_legacy_config_dir = if cfg!(target_os = "macos") {
             etcetera::base_strategy::choose_native_strategy()
                 .ok()
                 .map(|s| {
@@ -291,9 +323,7 @@ impl ConfigEnv {
                     s.data_dir()
                 })
         } else {
-            etcetera::choose_base_strategy()
-                .ok()
-                .map(|s| s.config_dir())
+            None
         };
 
         // Canonicalize home as we do canonicalize cwd in CliRunner. $HOME might
@@ -304,6 +334,7 @@ impl ConfigEnv {
 
         let env = UnresolvedConfigEnv {
             config_dir,
+            macos_legacy_config_dir,
             home_dir: home_dir.clone(),
             jj_config: env::var("JJ_CONFIG").ok(),
         };
@@ -1574,6 +1605,51 @@ mod tests {
         }
     }
 
+    fn config_path_macos_legacy_exists() -> TestCase {
+        TestCase {
+            files: &["macos-legacy/jj/config.toml"],
+            env: UnresolvedConfigEnv {
+                home_dir: Some("home".into()),
+                config_dir: Some("config".into()),
+                macos_legacy_config_dir: Some("macos-legacy".into()),
+                ..Default::default()
+            },
+            wants: vec![
+                Want::new("config/jj/config.toml"),
+                Want::existing("macos-legacy/jj/config.toml"),
+            ],
+        }
+    }
+
+    fn config_path_macos_legacy_both_exist() -> TestCase {
+        TestCase {
+            files: &["macos-legacy/jj/config.toml", "config/jj/config.toml"],
+            env: UnresolvedConfigEnv {
+                home_dir: Some("home".into()),
+                config_dir: Some("config".into()),
+                macos_legacy_config_dir: Some("macos-legacy".into()),
+                ..Default::default()
+            },
+            wants: vec![
+                Want::existing("config/jj/config.toml"),
+                Want::existing("macos-legacy/jj/config.toml"),
+            ],
+        }
+    }
+
+    fn config_path_macos_legacy_new() -> TestCase {
+        TestCase {
+            files: &[],
+            env: UnresolvedConfigEnv {
+                home_dir: Some("home".into()),
+                config_dir: Some("config".into()),
+                macos_legacy_config_dir: Some("macos-legacy".into()),
+                ..Default::default()
+            },
+            wants: vec![Want::new("config/jj/config.toml")],
+        }
+    }
+
     #[test_case(config_path_home_existing())]
     #[test_case(config_path_home_new())]
     #[test_case(config_path_home_existing_platform_new())]
@@ -1592,6 +1668,9 @@ mod tests {
     #[test_case(config_path_platform_existing_conf_dir_existing())]
     #[test_case(config_path_all_existing())]
     #[test_case(config_path_none())]
+    #[test_case(config_path_macos_legacy_exists())]
+    #[test_case(config_path_macos_legacy_both_exist())]
+    #[test_case(config_path_macos_legacy_new())]
     fn test_config_path(case: TestCase) {
         let tmp = setup_config_fs(case.files);
         let env = resolve_config_env(&case.env, tmp.path());
@@ -1631,6 +1710,7 @@ mod tests {
         let home_dir = env.home_dir.as_ref().map(|p| root.join(p));
         let env = UnresolvedConfigEnv {
             config_dir: env.config_dir.as_ref().map(|p| root.join(p)),
+            macos_legacy_config_dir: env.macos_legacy_config_dir.as_ref().map(|p| root.join(p)),
             home_dir: home_dir.clone(),
             jj_config: env.jj_config.as_ref().map(|p| {
                 join_paths(split_paths(p).map(|p| {

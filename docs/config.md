@@ -1599,11 +1599,15 @@ The files in the `conf.d` directory are loaded in lexicographic order. This allo
 configs to be split across multiple files and combines well
 with [Conditional Variables](#conditional-variables).
 
-| Platform | Location of `<PLATFORM_SPECIFIC>` dir | Example config file location                              |
-| :------- | :------------------------------------ | :-------------------------------------------------------- |
-| Linux    | `$XDG_CONFIG_HOME` or `$HOME/.config` | `/home/alice/.config/jj/config.toml`                      |
-| macOS    | `$HOME/Library/Application Support`   | `/Users/Alice/Library/Application Support/jj/config.toml` |
-| Windows  | `{FOLDERID_RoamingAppData}`           | `C:\Users\Alice\AppData\Roaming\jj\config.toml`           |
+| Platform        | Location of `<PLATFORM_SPECIFIC>` dir | Example config file location                              |
+| :-------------- | :------------------------------------ | :-------------------------------------------------------- |
+| Linux and macOS | `$XDG_CONFIG_HOME` or `$HOME/.config` | `/home/alice/.config/jj/config.toml`                      |
+| Windows         | `{FOLDERID_RoamingAppData}`           | `C:\Users\Alice\AppData\Roaming\jj\config.toml`           |
+
+On macOS, jj used to put the user config in `~/Library/Application Support`,
+and jj will still look there for backwards compatibility purposes; this is
+considered a deprecated location, and you should use the new default
+`XDG_CONFIG_HOME`.
 
 The location of the `jj` user config files/directories can also be overridden with the
 `JJ_CONFIG` environment variable. If it is not empty, it will be used instead

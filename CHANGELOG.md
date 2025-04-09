@@ -81,6 +81,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Fixed bash and zsh shell completion when completing aliases of multiple arguments.
   [#5377](https://github.com/jj-vcs/jj/issues/5377)
 
+* On macOS, jj now defaults to looking for its config in `$XDG_CONFIG_HOME`
+  (`~/.config` by default) rather than the more GUI-native
+  `~/Library/Application Support`.
+
 ### Packaging changes
 
 * Jujutsu now uses
