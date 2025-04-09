@@ -259,11 +259,31 @@ pub struct ConfigEnv {
 impl ConfigEnv {
     /// Initializes configuration loader based on environment variables.
     pub fn from_environment() -> Self {
+        #[cfg(not(target_os = "macos"))]
+        let config_dir = etcetera::choose_base_strategy().ok().map(|s| {
+            use etcetera::BaseStrategy as _;
+            s.config_dir()
+        });
+        // older versions of jj used the more "GUI" config option due to dirs,
+        // which is not really correct for CLI applications
+        #[cfg(target_os = "macos")]
+        let config_dir = etcetera::base_strategy::choose_native_strategy()
+            .ok()
+            .map(|s| {
+                use etcetera::BaseStrategy as _;
+                // note that etcetera calls Library/Application Support the "data dir",
+                // Library/Preferences is supposed to be exclusively plists
+                s.data_dir()
+            });
+
         // Canonicalize home as we do canonicalize cwd in CliRunner. $HOME might
         // point to symlink.
-        let home_dir = dirs::home_dir().map(|path| dunce::canonicalize(&path).unwrap_or(path));
+        let home_dir = etcetera::home_dir()
+            .ok()
+            .map(|d| dunce::canonicalize(&d).unwrap_or(d));
+
         let env = UnresolvedConfigEnv {
-            config_dir: dirs::config_dir(),
+            config_dir,
             home_dir: home_dir.clone(),
             jj_config: env::var("JJ_CONFIG").ok(),
         };
