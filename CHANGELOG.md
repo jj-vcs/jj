@@ -36,6 +36,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Added `ui.bookmark-list-sort-keys` setting to configure default sort keys for the
   `jj bookmark list` command.
 
+* New `signed` revset function to filter for cryptographically signed commits.
+
 ### Fixed bugs
 
 ### Packaging changes

@@ -181,6 +181,8 @@ pub enum RevsetFilterPredicate {
     },
     /// Commits with conflicts
     HasConflict,
+    /// Commits that are cryptographically signed.
+    Signed,
     /// Custom predicates provided by extensions
     Extension(Rc<dyn RevsetFilterExtension>),
 }
@@ -830,6 +832,11 @@ static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, RevsetFunction>> = Lazy:
         Ok(RevsetExpression::filter(RevsetFilterPredicate::AuthorDate(
             pattern,
         )))
+    });
+    map.insert("signed", |_diagnostics, function, _context| {
+        function.expect_no_arguments()?;
+        let predicate = RevsetFilterPredicate::Signed;
+        Ok(RevsetExpression::filter(predicate))
     });
     map.insert("mine", |_diagnostics, function, context| {
         function.expect_no_arguments()?;
@@ -3245,6 +3252,7 @@ mod tests {
             ),
         )
         "#);
+        insta::assert_debug_snapshot!(parse("signed()").unwrap(), @"Filter(Signed)");
     }
 
     #[test]
