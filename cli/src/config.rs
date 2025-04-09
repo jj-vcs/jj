@@ -202,6 +202,7 @@ fn create_dir_all(path: &Path) -> std::io::Result<()> {
 #[derive(Clone, Default, Debug)]
 struct UnresolvedConfigEnv {
     config_dir: Option<PathBuf>,
+    macos_legacy_config_dir: Option<PathBuf>,
     home_dir: Option<PathBuf>,
     jj_config: Option<String>,
 }
@@ -229,12 +230,36 @@ impl UnresolvedConfigEnv {
             config_dir.push("conf.d");
             ConfigPath::new(config_dir)
         });
+
         use ConfigPath::*;
-        if let Some(path @ Existing(_)) = home_config_path {
-            paths.push(path);
-        } else if let (Some(path @ New(_)), None) = (home_config_path, &platform_config_path) {
-            paths.push(path);
+
+        match home_config_path {
+            Some(path @ Existing(_)) => paths.push(path),
+            Some(path @ New(_)) if platform_config_path.is_none() => paths.push(path),
+            _ => (),
         }
+
+        if cfg!(target_os = "macos") {
+            let legacy_platform_config_path =
+                self.macos_legacy_config_dir.clone().map(|mut config_dir| {
+                    config_dir.push("jj");
+                    config_dir.push("config.toml");
+                    ConfigPath::new(config_dir)
+                });
+            let legacy_platform_config_dir = self.macos_legacy_config_dir.map(|mut config_dir| {
+                config_dir.push("jj");
+                config_dir.push("conf.d");
+                ConfigPath::new(config_dir)
+            });
+
+            if let Some(path @ Existing(_)) = legacy_platform_config_path {
+                paths.push(path);
+            }
+            if let Some(path @ Existing(_)) = legacy_platform_config_dir {
+                paths.push(path);
+            }
+        }
+
         // This should be the default config created if there's
         // no user config and `jj config edit` is executed.
         if let Some(path) = platform_config_path {
@@ -243,6 +268,7 @@ impl UnresolvedConfigEnv {
         if let Some(path @ Existing(_)) = platform_config_dir {
             paths.push(path);
         }
+
         paths
     }
 }
@@ -259,22 +285,25 @@ pub struct ConfigEnv {
 impl ConfigEnv {
     /// Initializes configuration loader based on environment variables.
     pub fn from_environment() -> Self {
-        #[cfg(not(target_os = "macos"))]
         let config_dir = etcetera::choose_base_strategy().ok().map(|s| {
             use etcetera::BaseStrategy as _;
             s.config_dir()
         });
+
         // older versions of jj used the more "GUI" config option due to dirs,
-        // which is not really correct for CLI applications
-        #[cfg(target_os = "macos")]
-        let config_dir = etcetera::base_strategy::choose_native_strategy()
-            .ok()
-            .map(|s| {
-                use etcetera::BaseStrategy as _;
-                // note that etcetera calls Library/Application Support the "data dir",
-                // Library/Preferences is supposed to be exclusively plists
-                s.data_dir()
-            });
+        // which is not designed for user-editable configuration of CLI utilities.
+        let macos_legacy_config_dir = if cfg!(target_os = "macos") {
+            etcetera::base_strategy::choose_native_strategy()
+                .ok()
+                .map(|s| {
+                    use etcetera::BaseStrategy as _;
+                    // note that etcetera calls Library/Application Support the "data dir",
+                    // Library/Preferences is supposed to be exclusively plists
+                    s.data_dir()
+                })
+        } else {
+            None
+        };
 
         // Canonicalize home as we do canonicalize cwd in CliRunner. $HOME might
         // point to symlink.
@@ -284,6 +313,7 @@ impl ConfigEnv {
 
         let env = UnresolvedConfigEnv {
             config_dir,
+            macos_legacy_config_dir,
             home_dir: home_dir.clone(),
             jj_config: env::var("JJ_CONFIG").ok(),
         };
@@ -1527,6 +1557,36 @@ mod tests {
         }
     }
 
+    #[cfg(target_os = "macos")]
+    fn config_path_macos_legacy_exists() -> TestCase {
+        TestCase {
+            files: &["macos-legacy/jj/config.toml"],
+            env: UnresolvedConfigEnv {
+                home_dir: Some("home".into()),
+                config_dir: Some("config".into()),
+                macos_legacy_config_dir: Some("macos-legacy".into()),
+                ..Default::default()
+            },
+            wants: &[
+                Want::Existing("macos-legacy/jj/config.toml"),
+                Want::New("config/jj/config.toml"),
+            ],
+        }
+    }
+    #[cfg(target_os = "macos")]
+    fn config_path_macos_legacy_new() -> TestCase {
+        TestCase {
+            files: &[],
+            env: UnresolvedConfigEnv {
+                home_dir: Some("home".into()),
+                config_dir: Some("config".into()),
+                macos_legacy_config_dir: Some("macos-legacy".into()),
+                ..Default::default()
+            },
+            wants: &[Want::New("config/jj/config.toml")],
+        }
+    }
+
     #[test_case(config_path_home_existing())]
     #[test_case(config_path_home_new())]
     #[test_case(config_path_home_existing_platform_new())]
@@ -1545,6 +1605,8 @@ mod tests {
     #[test_case(config_path_platform_existing_conf_dir_existing())]
     #[test_case(config_path_all_existing())]
     #[test_case(config_path_none())]
+    #[cfg_attr(target_os = "macos", test_case(config_path_macos_legacy_exists()))]
+    #[cfg_attr(target_os = "macos", test_case(config_path_macos_legacy_new()))]
     fn test_config_path(case: TestCase) {
         let tmp = setup_config_fs(case.files);
         let env = resolve_config_env(&case.env, tmp.path());
@@ -1588,6 +1650,7 @@ mod tests {
         let home_dir = env.home_dir.as_ref().map(|p| root.join(p));
         let env = UnresolvedConfigEnv {
             config_dir: env.config_dir.as_ref().map(|p| root.join(p)),
+            macos_legacy_config_dir: env.macos_legacy_config_dir.as_ref().map(|p| root.join(p)),
             home_dir: home_dir.clone(),
             jj_config: env.jj_config.as_ref().map(|p| {
                 join_paths(split_paths(p).map(|p| {
