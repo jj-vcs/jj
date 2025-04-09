@@ -1248,6 +1248,11 @@ fn build_predicate_fn(
             let commit = store.get_commit(&entry.commit_id())?;
             Ok(commit.has_conflict()?)
         }),
+        RevsetFilterPredicate::Signed => box_pure_predicate_fn(move |index, pos| {
+            let entry = index.entry_by_pos(pos);
+            let commit = store.get_commit(&entry.commit_id())?;
+            Ok(commit.is_signed())
+        }),
         RevsetFilterPredicate::Extension(ext) => {
             let ext = ext.clone();
             box_pure_predicate_fn(move |index, pos| {

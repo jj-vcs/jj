@@ -304,6 +304,8 @@ revsets (expressions) as arguments.
 * `committer_date(pattern)`: Commits with committer dates matching the specified
   [date pattern](#date-patterns).
 
+* `signed()`: Commits that are cryptographically signed.
+
 * `empty()`: Commits modifying no files. This also includes `merges()` without
   user modifications and `root()`.
 

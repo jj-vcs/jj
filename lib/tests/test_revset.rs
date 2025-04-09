@@ -56,6 +56,9 @@ use jj_lib::revset::RevsetResolutionError;
 use jj_lib::revset::RevsetWorkspaceContext;
 use jj_lib::revset::SymbolResolver as _;
 use jj_lib::revset::SymbolResolverExtension;
+use jj_lib::signing::SignBehavior;
+use jj_lib::signing::Signer;
+use jj_lib::test_signing_backend::TestSigningBackend;
 use jj_lib::workspace::Workspace;
 use test_case::test_case;
 use testutils::create_random_commit;
@@ -3047,6 +3050,54 @@ fn test_evaluate_expression_mine() {
             commit1.id().clone()
         ]
     );
+}
+
+#[test]
+fn test_evaluate_expression_signed() {
+    let signer = Signer::new(Some(Box::new(TestSigningBackend)), vec![]);
+    let settings = testutils::user_settings();
+    let test_workspace =
+        TestWorkspace::init_with_backend_and_signer(TestRepoBackend::Test, signer, &settings);
+    let repo = &test_workspace.repo;
+    let repo = repo.clone();
+
+    let mut tx = repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+
+    let timestamp = Timestamp {
+        timestamp: MillisSinceEpoch(0),
+        tz_offset: 0,
+    };
+    let commit1 = create_random_commit(mut_repo)
+        .set_committer(Signature {
+            name: "name1".to_string(),
+            email: "email1".to_string(),
+            timestamp,
+        })
+        .set_sign_behavior(SignBehavior::Own)
+        .write()
+        .unwrap();
+    let commit2 = create_random_commit(mut_repo)
+        .set_parents(vec![commit1.id().clone()])
+        .set_committer(Signature {
+            name: "name2".to_string(),
+            email: "email2".to_string(),
+            timestamp,
+        })
+        .set_sign_behavior(SignBehavior::Drop)
+        .write()
+        .unwrap();
+
+    assert!(commit1.is_signed());
+    assert!(!commit2.is_signed());
+
+    let signed_commits = resolve_commit_ids(mut_repo, "signed()");
+    assert!(signed_commits.contains(commit1.id()));
+    assert!(!signed_commits.contains(commit2.id()));
+
+    let unsigned_commits = resolve_commit_ids(mut_repo, "~signed()");
+    assert!(!unsigned_commits.contains(commit1.id()));
+    assert!(unsigned_commits.contains(commit2.id()));
 }
 
 #[test]
