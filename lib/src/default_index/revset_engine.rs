@@ -27,6 +27,7 @@ use std::rc::Rc;
 use std::str;
 use std::sync::Arc;
 
+use bstr::BString;
 use futures::StreamExt as _;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
@@ -41,16 +42,18 @@ use crate::backend::ChangeId;
 use crate::backend::CommitId;
 use crate::backend::MillisSinceEpoch;
 use crate::commit::Commit;
-use crate::conflicts::materialize_merge_result_to_bytes;
 use crate::conflicts::materialize_tree_value;
-use crate::conflicts::ConflictMarkerStyle;
 use crate::conflicts::MaterializedTreeValue;
 use crate::default_index::AsCompositeIndex;
 use crate::default_index::CompositeIndex;
 use crate::default_index::IndexPosition;
+use crate::diff::Diff;
+use crate::diff::DiffHunkKind;
+use crate::files;
 use crate::graph::GraphNode;
 use crate::matchers::Matcher;
 use crate::matchers::Visit;
+use crate::merge::Merge;
 use crate::merged_tree::resolve_file_values;
 use crate::object_id::ObjectId as _;
 use crate::repo_path::RepoPath;
@@ -1322,24 +1325,41 @@ fn matches_diff_from_parent(
             if left_value == right_value {
                 continue;
             }
-            // Conflicts are compared in materialized form. Alternatively,
-            // conflict pairs can be compared one by one. #4062
             let left_future = materialize_tree_value(store, &entry.path, left_value);
             let right_future = materialize_tree_value(store, &entry.path, right_value);
             let (left_value, right_value) = futures::try_join!(left_future, right_future)?;
-            let left_content = to_file_content(&entry.path, left_value)?;
-            let right_content = to_file_content(&entry.path, right_value)?;
-            // Filter lines prior to comparison. This might produce inferior
-            // hunks due to lack of contexts, but is way faster than full diff.
-            let left_lines = match_lines(&left_content, text_pattern);
-            let right_lines = match_lines(&right_content, text_pattern);
-            if left_lines.ne(right_lines) {
+            let left_contents = to_file_content(&entry.path, left_value)?;
+            let right_contents = to_file_content(&entry.path, right_value)?;
+            if diff_match_lines(&left_contents, &right_contents, text_pattern)? {
                 return Ok(true);
             }
         }
         Ok(false)
     }
     .block_on()
+}
+
+fn diff_match_lines(
+    lefts: &Merge<BString>,
+    rights: &Merge<BString>,
+    pattern: &StringPattern,
+) -> BackendResult<bool> {
+    // Filter lines prior to comparison. This might produce inferior hunks due
+    // to lack of contexts, but is way faster than full diff.
+    if let (Some(left), Some(right)) = (lefts.as_resolved(), rights.as_resolved()) {
+        let left_lines = match_lines(left, pattern);
+        let right_lines = match_lines(right, pattern);
+        Ok(left_lines.ne(right_lines))
+    } else {
+        let lefts: Merge<BString> = lefts.map(|text| match_lines(text, pattern).collect());
+        let rights: Merge<BString> = rights.map(|text| match_lines(text, pattern).collect());
+        let lefts = files::merge(&lefts);
+        let rights = files::merge(&rights);
+        let diff = Diff::by_line(lefts.iter().chain(rights.iter()));
+        let different = files::conflict_diff_hunks(diff.hunks(), lefts.as_slice().len())
+            .any(|hunk| hunk.kind == DiffHunkKind::Different);
+        Ok(different)
+    }
 }
 
 fn match_lines<'a, 'b>(
@@ -1355,19 +1375,16 @@ fn match_lines<'a, 'b>(
     })
 }
 
-fn to_file_content(path: &RepoPath, value: MaterializedTreeValue) -> BackendResult<Vec<u8>> {
+fn to_file_content(path: &RepoPath, value: MaterializedTreeValue) -> BackendResult<Merge<BString>> {
+    let empty = || Merge::resolved(BString::default());
     match value {
-        MaterializedTreeValue::Absent => Ok(vec![]),
-        MaterializedTreeValue::AccessDenied(_) => Ok(vec![]),
-        MaterializedTreeValue::File(mut file) => file.read_all(path),
-        MaterializedTreeValue::Symlink { id: _, target } => Ok(target.into_bytes()),
-        MaterializedTreeValue::GitSubmodule(_) => Ok(vec![]),
-        MaterializedTreeValue::FileConflict(file) => Ok(materialize_merge_result_to_bytes(
-            &file.contents,
-            ConflictMarkerStyle::default(),
-        )
-        .into()),
-        MaterializedTreeValue::OtherConflict { .. } => Ok(vec![]),
+        MaterializedTreeValue::Absent => Ok(empty()),
+        MaterializedTreeValue::AccessDenied(_) => Ok(empty()),
+        MaterializedTreeValue::File(mut file) => Ok(Merge::resolved(file.read_all(path)?.into())),
+        MaterializedTreeValue::Symlink { id: _, target } => Ok(Merge::resolved(target.into())),
+        MaterializedTreeValue::GitSubmodule(_) => Ok(empty()),
+        MaterializedTreeValue::FileConflict(file) => Ok(file.contents),
+        MaterializedTreeValue::OtherConflict { .. } => Ok(empty()),
         MaterializedTreeValue::Tree(id) => {
             panic!("Unexpected tree with id {id:?} in diff at path {path:?}");
         }
@@ -1376,6 +1393,8 @@ fn to_file_content(path: &RepoPath, value: MaterializedTreeValue) -> BackendResu
 
 #[cfg(test)]
 mod tests {
+    use indoc::indoc;
+
     use super::*;
     use crate::default_index::DefaultMutableIndex;
 
@@ -1697,5 +1716,125 @@ mod tests {
         assert_eq!(positions_accum.consumed_len(), 3);
 
         assert!(positions_accum.contains(&id_1).unwrap());
+    }
+
+    fn diff_match_lines_samples() -> (Merge<BString>, Merge<BString>) {
+        // left2      left1      base       right1      right2
+        // ---------- ---------- ---------- ----------- -----------
+        // "left 1.1" "line 1"   "line 1"   "line 1"    "line 1"
+        // "line 2"   "line 2"   "line 2"   "line 2"    "line 2"
+        // "left 3.1" "left 3.1" "line 3"   "right 3.1" "right 3.1"
+        // "left 3.2" "left 3.2"
+        // "left 3.3"
+        // "line 4"   "line 4"   "line 4"   "line 4"    "line 4"
+        // "line 5"   "line 5"              "line 5"
+        let base = indoc! {"
+            line 1
+            line 2
+            line 3
+            line 4
+        "};
+        let left1 = indoc! {"
+            line 1
+            line 2
+            left 3.1
+            left 3.2
+            line 4
+            line 5
+        "};
+        let left2 = indoc! {"
+            left 1.1
+            line 2
+            left 3.1
+            left 3.2
+            left 3.3
+            line 4
+            line 5
+        "};
+        let right1 = indoc! {"
+            line 1
+            line 2
+            right 3.1
+            line 4
+            line 5
+        "};
+        let right2 = indoc! {"
+            line 1
+            line 2
+            right 3.1
+            line 4
+        "};
+
+        let conflict1 = Merge::from_vec([left1, base, right1].map(BString::from).to_vec());
+        let conflict2 = Merge::from_vec([left2, base, right2].map(BString::from).to_vec());
+        (conflict1, conflict2)
+    }
+
+    #[test]
+    fn test_diff_match_lines_between_resolved() {
+        let (conflict1, conflict2) = diff_match_lines_samples();
+        let left1 = Merge::resolved(conflict1.first().clone());
+        let left2 = Merge::resolved(conflict2.first().clone());
+        let diff = |needle: &str| {
+            let pattern = StringPattern::substring(needle);
+            diff_match_lines(&left1, &left2, &pattern).unwrap()
+        };
+
+        assert!(diff(""));
+        assert!(!diff("no match"));
+        assert!(diff("line "));
+        assert!(diff(" 1"));
+        assert!(!diff(" 2"));
+        assert!(diff(" 3"));
+        assert!(!diff(" 3.1"));
+        assert!(!diff(" 3.2"));
+        assert!(diff(" 3.3"));
+        assert!(!diff(" 4"));
+        assert!(!diff(" 5"));
+    }
+
+    #[test]
+    fn test_diff_match_lines_between_conflicts() {
+        let (conflict1, conflict2) = diff_match_lines_samples();
+        let diff = |needle: &str| {
+            let pattern = StringPattern::substring(needle);
+            diff_match_lines(&conflict1, &conflict2, &pattern).unwrap()
+        };
+
+        assert!(diff(""));
+        assert!(!diff("no match"));
+        assert!(diff("line "));
+        assert!(diff(" 1"));
+        assert!(!diff(" 2"));
+        assert!(diff(" 3"));
+        // " 3.1" and " 3.2" could be considered different because the hunk
+        // includes a changed line " 3.3". However, we filters out unmatched
+        // lines first, therefore the changed line is omitted from the hunk.
+        assert!(!diff(" 3.1"));
+        assert!(!diff(" 3.2"));
+        assert!(diff(" 3.3"));
+        assert!(!diff(" 4"));
+        assert!(!diff(" 5")); // per A-B+A=A rule
+    }
+
+    #[test]
+    fn test_diff_match_lines_between_resolved_and_conflict() {
+        let (_conflict1, conflict2) = diff_match_lines_samples();
+        let base = Merge::resolved(conflict2.get_remove(0).unwrap().clone());
+        let diff = |needle: &str| {
+            let pattern = StringPattern::substring(needle);
+            diff_match_lines(&base, &conflict2, &pattern).unwrap()
+        };
+
+        assert!(diff(""));
+        assert!(!diff("no match"));
+        assert!(diff("line "));
+        assert!(diff(" 1"));
+        assert!(!diff(" 2"));
+        assert!(diff(" 3"));
+        assert!(diff(" 3.1"));
+        assert!(diff(" 3.2"));
+        assert!(!diff(" 4"));
+        assert!(diff(" 5"));
     }
 }

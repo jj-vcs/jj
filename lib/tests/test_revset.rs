@@ -3923,6 +3923,39 @@ fn test_evaluate_expression_diff_contains() {
 }
 
 #[test]
+fn test_evaluate_expression_diff_contains_conflict() {
+    let test_workspace = TestWorkspace::init();
+    let repo = &test_workspace.repo;
+
+    let mut tx = repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+
+    let file_path = RepoPath::from_internal_string("file");
+    let tree1 = create_tree(repo, &[(file_path, "0\n1\n")]);
+    let tree2 = create_tree(repo, &[(file_path, "0\n2\n")]);
+    let tree3 = create_tree(repo, &[(file_path, "0\n3\n")]);
+    let tree4 = tree2.merge(&tree1, &tree3).unwrap();
+
+    let mut create_commit =
+        |parent_ids, tree_id| mut_repo.new_commit(parent_ids, tree_id).write().unwrap();
+    let commit1 = create_commit(vec![repo.store().root_commit_id().clone()], tree1.id());
+    let commit2 = create_commit(vec![commit1.id().clone()], tree4.id());
+
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "diff_contains('0')"),
+        vec![commit1.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "diff_contains('1')"),
+        vec![commit2.id().clone(), commit1.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "diff_contains('2')"),
+        vec![commit2.id().clone()]
+    );
+}
+
+#[test]
 fn test_evaluate_expression_file_merged_parents() {
     let test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
