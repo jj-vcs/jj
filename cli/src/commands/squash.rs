@@ -23,6 +23,7 @@ use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite;
 use jj_lib::rewrite::CommitWithSelection;
+use jj_lib::rewrite::SquashOptions;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -112,7 +113,133 @@ pub(crate) struct SquashArgs {
     /// The source revision will not be abandoned
     #[arg(long, short)]
     keep_emptied: bool,
+    /// Preserve the content (not the diff) when rebasing descendants of the
+    /// source and target commits
+    ///
+    /// Only the snapshots of the `--from` and the `--into` commits will be
+    /// modified.
+    ///
+    /// If you'd like to preserve the content of *only* the target's descendants
+    /// (or *only* the source's), consider using `jj rebase -r` or `jj
+    /// duplicate` before squashing.
+    //
+    // See "NOTE: Not implementing `--restore-{target,source}-descendants`" in
+    // squash.rs.
+    //
+    // TODO: Once it's implemented, we should recommend `jj rebase -r
+    // --restore-descendants` instead of `jj duplicate`, since you actually
+    // would need to `squash` twice with `duplicate`.
+    #[arg(long)]
+    restore_descendants: bool,
 }
+
+// NOTE: Not implementing `--restore-{target,source}-descendants`
+// --------------------------------------------------------------
+//
+// We have `jj squash --restore-descendants --from X --into Y` preserve the
+// snapshots of both the descendants of `X` and those of the descendants of `Y`.
+// This behavior makes it simple to understand; it does the same thing to the
+// child of any commit `jj squash` rewrites. As @yuja pointed out it could even
+// be a global flag that would apply to any command that rewrites commits.
+//
+// In this note, we explain why we choose not to have a flag for `jj squash`
+// that preserves *only* the descendants of the source (call it
+// `--restore-source-descendants`) or a similar `--restore-target-descendants`
+// flag, even though they might seem easy to implement at a glance.
+//
+// (The same argument applies to `jj rebase --restore-???-descendants`.)
+//
+// Firstly, such extra flags seem to only be useful in rare cases. If needed,
+// they can be simulated. Instead of `squash --restore-target-descendants`, you
+// could do `jj rebase -r X -d all:X-; jj squash --restore-descendants --from X
+// --into Y`. Instead of `squash --restore-source-descendants`, you could do `jj
+// duplicate -r X; jj squash --restore-descendants --from copy_of_X --into Y; jj
+// abandon --restore-descendants X`. (TODO: When `jj rebase -r
+// --restore-descendants` is implemented, this will become 2 commands instead of
+// 3).
+//
+// Secondly, the behavior of these flags would get confusing in corner cases,
+// when the target is an ancestor or descendant of the source, or for ancestors
+// of merge commits. For example, consider this commit graph with merge commit
+// `Z` where `A` is *not* empty (thanks to @lilyball for suggesting the merge
+// commit example):
+//
+// ```
+// A -> X -
+//         \          (Example I)
+// B -> Y --->Z
+// ```
+//
+// The behavior of `jj squash --from A --into B --restore-descendants` is easy
+// to understand: the snapshots of `X` and `Y` remain the same, and all of their
+// descendants also remain the same by normal rebasing rules.
+//
+// If we allowed `jj squash --from A --into B --restore-target-descendants`,
+// what should it mean? It seems clear that `X`'s snapshot should remain the
+// same, and `X`'s will change. However, should `Z`'s snapshot change? If we
+// follow the logic that Z had one of its parents change and the other stay the
+// same, it seems that yes, it should. This is also what the equivalence with
+// `jj rebase -r A -d A-; jj squash --from A --into B --restore-descendants`
+// would imply.
+//
+// (A contrarian mind could argue that `Z`'s snapshot should be preserved since
+// `Z` is a descendant of the target `B`. We'll put this thought aside for a
+// moment and keep going, to see how things get even more confusing.)
+//
+// Now, let's pretend we squashed `X` and `Y` into `Z` and ask the same
+// question. Our graph is now:
+//
+// ```
+// A -
+//    \         (Example II)
+// B --->Z
+// ```
+//
+// By the logic above, the snapshot of `Z` will again change after `jj squash
+// --from A --into B --restore-target-descendants`. This is unsatisfying and
+// would probably be unexpected, since `Z` is a direct child of the target
+// commit `B`, so the user might expect its snapshot to be preserved.
+//
+// Now, there are a few options:
+//
+//  1. Allow the confusing but seemingly correct definition of
+//     `--restore-target-descendants` as above.
+//  2. Allow `--restore-target-descendants`, but forbid it in some set of
+//     situations we deem too confusing.
+//  3. Have the effect of `jj squash --from A --into B
+//     --restore-target-descendants` on `Z`'s snapshot differ between Example I
+//     and Example II. In other words, the behavior will depend on whether there
+//     are commits (even if they are empty commits!) between `A` and `Z`, or
+//     between `B` and `Z`.
+//  4. Declare that in both Example I and Example II above, the snapshot of `Z`
+//     should be preserved.
+//
+//     The first problem with this (and with option 3 above) would be that
+//     `--restore-target-descendants` would now be equivalent to a rebase
+//     followed by `squash --restore-descendants` *almost* always, but would
+//     differ in corner cases.
+//
+//     Perhaps more importantly, this would break the important property of `jj
+//     squash --restore-target-descendants` that its difference from the
+//     behavior of normal `jj squash` is local; affects only the direct children
+//     of the modified commits. All others can normally be rebased by normal
+//     `jj` rules.
+//
+//     If `jj squash --restore-target-descendants` preserved the snapshot of `Z`
+//     even if there are 100 commit between it and `A`, this would change its
+//     diff relative to its parents, possibly without any awareness from the
+//     user that this happened or that `Z` even existed.
+//  5. Do not provide `--restore-target-descendants` ourselves, and recommend
+//     that the user manually does `jj rebase -r X -d all:X-; jj squash
+//     --restore-descendants --from X --into Y` if they really need it.
+//
+//  The last option seems easiest. It also has the advantage of requiring fewer
+//  tests and being the simplest to maintain.
+//
+//  Aside: the merge example is probably the easiest to understand and the most
+//  problematic, but for `X -> A -> B -> C -> D`, both `jj squash --from C
+// --into  A --restore-target-descendants` and `jj squash --from A --into C
+//  --restore-source-descendants` have similar problems.
 
 #[instrument(skip_all)]
 pub(crate) fn cmd_squash(
@@ -166,13 +293,26 @@ pub(crate) fn cmd_squash(
         .check_rewritable(sources.iter().chain(std::iter::once(&destination)).ids())?;
 
     let mut tx = workspace_command.start_transaction();
-    let tx_description = format!("squash commits into {}", destination.id().hex());
+    let tx_description = format!(
+        "squash commits into {}{}",
+        destination.id().hex(),
+        if args.restore_descendants {
+            " while preserving descendant contents"
+        } else {
+            ""
+        }
+    );
     let source_commits = select_diff(&tx, &sources, &destination, &matcher, &diff_selector)?;
     if let Some(squashed) = rewrite::squash_commits(
         tx.repo_mut(),
         &source_commits,
         &destination,
-        args.keep_emptied,
+        SquashOptions {
+            keep_emptied: args.keep_emptied,
+            // See "NOTE: Not implementing `--restore-{target,source}-descendants`" in
+            // squash.rs.
+            restore_descendants: args.restore_descendants,
+        },
     )? {
         let mut commit_builder = squashed.commit_builder.detach();
         let new_description = match description {
@@ -195,6 +335,18 @@ pub(crate) fn cmd_squash(
         };
         commit_builder.set_description(new_description);
         commit_builder.write(tx.repo_mut())?;
+
+        if args.restore_descendants {
+            // If !args.restore_descendants, the corresponding steps are done inside
+            // tx.finish()
+            let num_reparented = tx.repo_mut().reparent_descendants()?;
+            if let Some(mut formatter) = ui.status_formatter() {
+                writeln!(
+                    formatter,
+                    "Rebased {num_reparented} descendant commits (while preserving their content)",
+                )?;
+            }
+        }
     } else {
         if diff_selector.is_interactive() {
             return Err(user_error("No changes selected"));
@@ -216,6 +368,8 @@ pub(crate) fn cmd_squash(
             }
         }
     }
+    // TODO: Show the "Rebase NNN descendant commits message", add " (while
+    // preserving their content)" in the --restore-descendants mode
     tx.finish(ui, tx_description)?;
     Ok(())
 }
