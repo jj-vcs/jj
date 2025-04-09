@@ -36,6 +36,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Added `ui.bookmark-list-sort-keys` setting to configure default sort keys for the
   `jj bookmark list` command.
 
+* Added `duplicate_description` template, which allows [customizing the descriptions
+  of the commits `jj duplicate` creates](docs/config.md#duplicate-commit-description).
+
 ### Fixed bugs
 
 ### Packaging changes

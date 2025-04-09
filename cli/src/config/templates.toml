@@ -66,6 +66,8 @@ separate(" ",
 )
 '''
 
+duplicate_description = ''
+
 [template-aliases]
 
 'format_config_item(x)' = '''
