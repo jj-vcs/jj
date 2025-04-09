@@ -33,6 +33,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   [`templates.draft_commit_description`](docs/config.md#default-description),
   and/or [`templates.commit_trailers`](docs/config.md#commit-trailers).
 
+* On macOS, config.toml files in `~/Library/Application Support/jj` are
+  deprecated; one should instead use `$XDG_CONFIG_HOME/jj`.
+
 ### New features
 
 * Color-words diff has gained [an option to compare conflict pairs without
@@ -59,6 +62,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Fixed crash on change-delete conflict resolution.
   [#6250](https://github.com/jj-vcs/jj/issues/6250)
+
+* On macOS, jj now defaults to looking for its config in `$XDG_CONFIG_HOME`
+  rather than the more GUI-native `~/Library/Application Support`.
 
 ### Packaging changes
 
