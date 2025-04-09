@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::HashMap;
+
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::repo::Repo as _;
@@ -76,6 +78,7 @@ fn test_duplicate_linear_contents() {
         duplicate_commits(
             tx.repo_mut(),
             &target_commits.iter().copied().cloned().collect_vec(),
+            &HashMap::new(),
             &parent_commit_ids.iter().copied().cloned().collect_vec(),
             &children_commit_ids.iter().copied().cloned().collect_vec(),
         )

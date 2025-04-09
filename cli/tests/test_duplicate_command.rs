@@ -2427,6 +2427,99 @@ fn test_rebase_duplicates() {
     ");
 }
 
+#[test]
+fn test_duplicate_description_template() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    create_commit(&work_dir, "a", &[]);
+    create_commit(&work_dir, "b", &["a"]);
+    create_commit(&work_dir, "c", &["b"]);
+
+    // Test the setup
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  7e4fbf4f2759   c
+    ○  1394f625cbbd   b
+    ○  2443ea76b0b1   a
+    ◆  000000000000
+    [EOF]
+    ");
+
+    // Test duplicate_commits()
+    test_env.add_config(r#"templates.duplicate_description = "concat(description, '\n(cherry picked from commit ', commit_id, ')')""#);
+    let output = work_dir.run_jj(["duplicate", "a"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Duplicated 2443ea76b0b1 as yostqsxw 20d8e008 a
+    [EOF]
+    ");
+
+    // Test duplicate_commits_onto_parents()
+    let output = work_dir.run_jj(["duplicate", "a", "-B", "b"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: Duplicating commit 2443ea76b0b1 as a descendant of itself
+    Duplicated 2443ea76b0b1 as znkkpsqq 14ab622d (empty) a
+    Rebased 2 commits onto duplicated commits
+    Working copy  (@) now at: royxmykx 7f7870c2 c | c
+    Parent commit (@-)      : zsuskuln c92a59b0 b | b
+    [EOF]
+    ");
+
+    // Test empty template
+    test_env.add_config("templates.duplicate_description = ''");
+    let output = work_dir.run_jj(["duplicate", "b", "-d", "root()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Duplicated c92a59b0d9e6 as kpqxywon d32164b2 (no description set)
+    [EOF]
+    ");
+
+    // Test `description` as an alias
+    test_env.add_config("templates.duplicate_description = 'description'");
+    let output = work_dir.run_jj([
+        "duplicate",
+        "c",
+        "-d",
+        "root()",
+        // Use an argument here so we can actually see the log in the last test
+        // (We don't have a way to remove a config in TestEnvironment)
+        "--config",
+        "template-aliases.description='\"alias\"'",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Duplicated 7f7870c2c58d as kmkuslsw d107a339 alias
+    [EOF]
+    ");
+
+    let template = r#"commit_id.short() ++ "\n" ++ description"#;
+    let output = work_dir.run_jj(["log", "-T", template]);
+    insta::assert_snapshot!(output, @r"
+    @  7f7870c2c58d
+    │  c
+    ○  c92a59b0d9e6
+    │  b
+    ○  14ab622d51b3
+    │  a
+    │
+    │  (cherry picked from commit 2443ea76b0b1c531326908326aab7020abab8e6c)
+    ○  2443ea76b0b1
+    │  a
+    │ ○  d107a3395c1c
+    ├─╯  alias
+    │ ○  d32164b275c2
+    ├─╯
+    │ ○  20d8e008cc0f
+    ├─╯  a
+    │
+    │    (cherry picked from commit 2443ea76b0b1c531326908326aab7020abab8e6c)
+    ◆  000000000000
+    [EOF]
+    ");
+}
+
 #[must_use]
 fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     let template = r#"commit_id.short() ++ "   " ++ description.first_line()"#;

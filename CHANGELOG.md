@@ -42,6 +42,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   template, to the commit description. Use cases include DCO Sign Off and
   Gerrit Change Id.
 
+* Added `duplicate_description` template, which allows [customizing the descriptions
+  of the commits `jj duplicate` creates](docs/config.md#duplicate-commit-description).
+
 ### Fixed bugs
 
 * Fixed crash on change-delete conflict resolution.

@@ -766,6 +766,10 @@ pub struct DuplicateCommitsStats {
 /// `children_commit_ids` is not empty, the `children_commit_ids` will be
 /// rebased onto the heads of the duplicated target commits.
 ///
+/// If `target_descriptions` is not empty, it will be consulted to retrieve the
+/// new descriptions of the target commits, falling back to the original if
+/// the map does not contain an entry for a given commit.
+///
 /// This assumes that commits in `children_commit_ids` can be rewritten. There
 /// should also be no cycles in the resulting graph, i.e. `children_commit_ids`
 /// should not be ancestors of `parent_commit_ids`. Commits in `target_commits`
@@ -773,6 +777,7 @@ pub struct DuplicateCommitsStats {
 pub fn duplicate_commits(
     mut_repo: &mut MutableRepo,
     target_commits: &[CommitId],
+    target_descriptions: &HashMap<CommitId, String>,
     parent_commit_ids: &[CommitId],
     children_commit_ids: &[CommitId],
 ) -> BackendResult<DuplicateCommitsStats> {
@@ -843,11 +848,13 @@ pub fn duplicate_commits(
                 })
                 .collect()
         };
-        let new_commit = CommitRewriter::new(mut_repo, original_commit, new_parent_ids)
+        let mut new_commit_builder = CommitRewriter::new(mut_repo, original_commit, new_parent_ids)
             .rebase()?
-            .generate_new_change_id()
-            .write()?;
-        duplicated_old_to_new.insert(original_commit_id.clone(), new_commit);
+            .generate_new_change_id();
+        if let Some(desc) = target_descriptions.get(original_commit_id) {
+            new_commit_builder = new_commit_builder.set_description(desc);
+        }
+        duplicated_old_to_new.insert(original_commit_id.clone(), new_commit_builder.write()?);
     }
 
     // Replace the original commit IDs in `target_head_ids` with the duplicated
@@ -898,9 +905,14 @@ pub fn duplicate_commits(
 ///
 /// Commits in `target_commits` should be in reverse topological order (children
 /// before parents).
+///
+/// If `target_descriptions` is not empty, it will be consulted to retrieve the
+/// new descriptions of the target commits, falling back to the original if
+/// the map does not contain an entry for a given commit.
 pub fn duplicate_commits_onto_parents(
     mut_repo: &mut MutableRepo,
     target_commits: &[CommitId],
+    target_descriptions: &HashMap<CommitId, String>,
 ) -> BackendResult<DuplicateCommitsStats> {
     if target_commits.is_empty() {
         return Ok(DuplicateCommitsStats::default());
@@ -922,12 +934,14 @@ pub fn duplicate_commits_onto_parents(
                     .clone()
             })
             .collect();
-        let new_commit = mut_repo
+        let mut new_commit_builder = mut_repo
             .rewrite_commit(&original_commit)
             .generate_new_change_id()
-            .set_parents(new_parent_ids)
-            .write()?;
-        duplicated_old_to_new.insert(original_commit_id.clone(), new_commit);
+            .set_parents(new_parent_ids);
+        if let Some(desc) = target_descriptions.get(original_commit_id) {
+            new_commit_builder = new_commit_builder.set_description(desc);
+        }
+        duplicated_old_to_new.insert(original_commit_id.clone(), new_commit_builder.write()?);
     }
 
     Ok(DuplicateCommitsStats {

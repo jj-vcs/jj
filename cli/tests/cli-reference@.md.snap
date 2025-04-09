@@ -802,6 +802,8 @@ When none of the `--destination`, `--insert-after`, or `--insert-before` argumen
 
 When any of the `--destination`, `--insert-after`, or `--insert-before` arguments are provided, the roots of the specified commits will be duplicated onto the destination indicated by the arguments. Other specified commits will be duplicated onto these newly duplicated commits. If the `--insert-after` or `--insert-before` arguments are provided, the new children indicated by the arguments will be rebased onto the heads of the specified commits.
 
+By default, the duplicated commits retain the descriptions of the originals. This can be customized with the `templates.duplicate_description` setting.
+
 **Usage:** `jj duplicate [OPTIONS] [REVSETS]...`
 
 ###### **Arguments:**

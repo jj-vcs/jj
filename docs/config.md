@@ -197,6 +197,24 @@ fill in things like BUG=, TESTED= etc.
 default-description = "\n\nTESTED=TODO"
 ```
 
+### Duplicate commit description
+
+By default, `jj duplicate` copies the descriptions from the original commits.
+You can customize this behavior by specifying the `duplicate_description`
+template, which is given a `Commit` type of the original commit.
+
+```toml
+[templates]
+duplicate_description = '''
+concat(
+  description,
+  "\n(cherry picked from commit ",
+  commit_id,
+  ")"
+)
+'''
+```
+
 ### Bookmark listing order
 
 By default, `jj bookmark list` displays bookmarks sorted alphabetically by name.
