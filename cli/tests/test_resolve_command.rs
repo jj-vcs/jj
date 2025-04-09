@@ -1048,6 +1048,86 @@ fn test_resolve_conflicts_with_executable() {
     file1    2-sided conflict including an executable
     [EOF]
     ");
+
+    // Pick "our" contents, but merges executable bits
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj(["resolve", "--tool=:ours"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: znkkpsqq 5b59d7f0 conflict | conflict
+    Parent commit (@-)      : mzvwutvl 08932848 a | a
+    Parent commit (@-)      : yqosqzyt b69b3de6 b | b
+    Added 0 files, modified 2 files, removed 0 files
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r"
+    diff --git a/file1 b/file1
+    index 0000000000..da0f8ed91a 100755
+    --- a/file1
+    +++ b/file1
+    @@ -1,7 +1,1 @@
+    -<<<<<<< Conflict 1 of 1
+    -%%%%%%% Changes from base to side #1
+    --base1
+    -+a1
+    -+++++++ Contents of side #2
+    -b1
+    ->>>>>>> Conflict 1 of 1 ends
+    +a1
+    diff --git a/file2 b/file2
+    index 0000000000..c1827f07e1 100755
+    --- a/file2
+    +++ b/file2
+    @@ -1,7 +1,1 @@
+    -<<<<<<< Conflict 1 of 1
+    -%%%%%%% Changes from base to side #1
+    --base2
+    -+a2
+    -+++++++ Contents of side #2
+    -b2
+    ->>>>>>> Conflict 1 of 1 ends
+    +a2
+    [EOF]
+    ");
+
+    // Pick "their" contents, but merges executable bits
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj(["resolve", "--tool=:theirs"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: znkkpsqq 087b8637 conflict | conflict
+    Parent commit (@-)      : mzvwutvl 08932848 a | a
+    Parent commit (@-)      : yqosqzyt b69b3de6 b | b
+    Added 0 files, modified 2 files, removed 0 files
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r"
+    diff --git a/file1 b/file1
+    index 0000000000..c9c6af7f78 100755
+    --- a/file1
+    +++ b/file1
+    @@ -1,7 +1,1 @@
+    -<<<<<<< Conflict 1 of 1
+    -%%%%%%% Changes from base to side #1
+    --base1
+    -+a1
+    -+++++++ Contents of side #2
+     b1
+    ->>>>>>> Conflict 1 of 1 ends
+    diff --git a/file2 b/file2
+    index 0000000000..e6bfff5c1d 100755
+    --- a/file2
+    +++ b/file2
+    @@ -1,7 +1,1 @@
+    -<<<<<<< Conflict 1 of 1
+    -%%%%%%% Changes from base to side #1
+    --base2
+    -+a2
+    -+++++++ Contents of side #2
+     b2
+    ->>>>>>> Conflict 1 of 1 ends
+    [EOF]
+    ");
 }
 
 #[test]
@@ -1213,7 +1293,19 @@ fn test_resolve_change_delete_executable() {
     insta::assert_snapshot!(output, @"");
     std::fs::write(&editor_script, "write\nresolved\n").unwrap();
     let output = work_dir.run_jj(["resolve", "file2"]);
-    assert_eq!(output.status.code(), Some(101)); // FIXME
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Resolving conflicts in: file2
+    Working copy  (@) now at: kmkuslsw cab8be9b conflict | (conflict) conflict
+    Parent commit (@-)      : mzvwutvl 4a44e1a9 a | a
+    Parent commit (@-)      : vruxwmqv 19e7d2ff b | b
+    Added 0 files, modified 1 files, removed 0 files
+    Warning: There are unresolved conflicts at these paths:
+    file3    2-sided conflict including an executable
+    file4    2-sided conflict including 1 deletion
+    file5    2-sided conflict including 1 deletion and an executable
+    [EOF]
+    ");
 
     // Exec bit conflict can be resolved by chmod
     let output = work_dir.run_jj(["resolve", "file3"]);
@@ -1233,17 +1325,34 @@ fn test_resolve_change_delete_executable() {
 
     // Take modified content, the executable bit should be kept as "-"
     let output = work_dir.run_jj(["resolve", "file4", "--tool=:ours"]);
-    assert_eq!(output.status.code(), Some(101)); // FIXME
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: kmkuslsw 14b5c3d2 conflict | (conflict) conflict
+    Parent commit (@-)      : mzvwutvl 4a44e1a9 a | a
+    Parent commit (@-)      : vruxwmqv 19e7d2ff b | b
+    Added 0 files, modified 1 files, removed 0 files
+    Warning: There are unresolved conflicts at these paths:
+    file5    2-sided conflict including 1 deletion and an executable
+    [EOF]
+    ");
 
     // Take modified content, the executable bit should be kept as "x"
     let output = work_dir.run_jj(["resolve", "file5", "--tool=:theirs"]);
-    assert_eq!(output.status.code(), Some(101)); // FIXME
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: kmkuslsw 5de68577 conflict | conflict
+    Parent commit (@-)      : mzvwutvl 4a44e1a9 a | a
+    Parent commit (@-)      : vruxwmqv 19e7d2ff b | b
+    Added 0 files, modified 1 files, removed 0 files
+    Existing conflicts were resolved or abandoned from 1 commits.
+    [EOF]
+    ");
 
     insta::assert_snapshot!(file_list("all()"), @r"
-    file2 c -
+    file2 - -
     file3 - x
-    file4 c -
-    file5 c x
+    file4 - -
+    file5 - x
     [EOF]
     ");
 }

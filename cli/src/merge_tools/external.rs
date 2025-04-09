@@ -9,6 +9,7 @@ use std::sync::Arc;
 use bstr::BString;
 use itertools::Itertools as _;
 use jj_lib::backend::MergedTreeId;
+use jj_lib::backend::TreeValue;
 use jj_lib::conflicts;
 use jj_lib::conflicts::choose_materialized_conflict_marker_len;
 use jj_lib::conflicts::materialize_merge_result_to_bytes_with_marker_len;
@@ -308,13 +309,15 @@ fn run_mergetool_external_single_file(
             ExternalToolError::InvalidConflictMarkers { exit_status },
         ));
     }
-    // Update the file ids only, leaving the executable flags unchanged
-    let new_file_ids = if let Some(resolved) = new_file_ids.as_resolved() {
-        Merge::from_vec(vec![resolved.clone(); conflict.as_slice().len()])
-    } else {
-        new_file_ids
+
+    let new_tree_value = match new_file_ids.into_resolved() {
+        Ok(file_id) => {
+            let executable = file.executable.expect("should have been resolved");
+            Merge::resolved(file_id.map(|id| TreeValue::File { id, executable }))
+        }
+        // Update the file ids only, leaving the executable flags unchanged
+        Err(file_ids) => conflict.with_new_file_ids(&file_ids),
     };
-    let new_tree_value = conflict.with_new_file_ids(&new_file_ids);
     tree_builder.set_or_remove(repo_path.to_owned(), new_tree_value);
     Ok(())
 }
