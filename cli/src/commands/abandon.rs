@@ -176,7 +176,7 @@ pub(crate) fn cmd_abandon(
             writeln!(
                 ui.warning_default(),
                 "Remote bookmarks tracked by deleted bookmarks will be deleted on the next `jj \
-                 git push`."
+                 git push --deleted`."
             )?;
         }
     }
