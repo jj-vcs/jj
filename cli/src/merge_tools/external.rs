@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::io;
 use std::io::Write;
+use std::path::Path;
 use std::process::Command;
 use std::process::ExitStatus;
 use std::process::Stdio;
@@ -55,6 +56,8 @@ pub struct ExternalMergeTool {
     /// Whether to execute the tool with a pair of directories or individual
     /// files.
     pub diff_invocation_mode: DiffToolMode,
+    /// Whether to execute the tool in the temporary diff directory
+    pub diff_do_chdir: bool,
     /// Arguments to pass to the program when editing diffs.
     /// `$left` and `$right` are replaced with the corresponding directories.
     pub edit_args: Vec<String>,
@@ -109,6 +112,7 @@ impl Default for ExternalMergeTool {
             merge_conflict_exit_codes: vec![],
             merge_tool_edits_conflict_markers: false,
             conflict_marker_style: None,
+            diff_do_chdir: false,
             diff_invocation_mode: DiffToolMode::Dir,
         }
     }
@@ -435,7 +439,13 @@ pub fn generate_diff(
         .map_err(ExternalToolError::SetUpDir)?;
     set_readonly_recursively(diff_wc.right_working_copy_path())
         .map_err(ExternalToolError::SetUpDir)?;
-    invoke_external_diff(ui, writer, tool, &diff_wc.to_command_variables())
+    invoke_external_diff(
+        ui,
+        writer,
+        tool,
+        diff_wc.temp_dir(),
+        &diff_wc.to_command_variables(),
+    )
 }
 
 /// Invokes the specified `tool` directing its output into `writer`.
@@ -443,11 +453,24 @@ pub fn invoke_external_diff(
     ui: &Ui,
     writer: &mut dyn Write,
     tool: &ExternalMergeTool,
+    diff_dir: &Path,
     patterns: &HashMap<&str, &str>,
 ) -> Result<(), DiffGenerateError> {
     // TODO: Somehow propagate --color to the external command?
     let mut cmd = Command::new(&tool.program);
-    cmd.args(interpolate_variables(&tool.diff_args, patterns));
+    if tool.diff_do_chdir {
+        cmd.args(interpolate_variables(
+            &tool.diff_args,
+            &maplit::hashmap! {
+                "left" => "left",
+                "right" => "right",
+            },
+        ));
+        cmd.current_dir(diff_dir);
+    } else {
+        cmd.args(interpolate_variables(&tool.diff_args, patterns));
+    }
+
     tracing::info!(?cmd, "Invoking the external diff generator:");
     let mut child = cmd
         .stdin(Stdio::null())
