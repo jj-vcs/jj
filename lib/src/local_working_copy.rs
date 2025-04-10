@@ -1521,7 +1521,7 @@ impl FileSnapshotter<'_> {
                     let executable = {
                         let () = executable; // use the variable
                         if let Some(merge) = current_tree_values.to_executable_merge() {
-                            merge.resolve_trivial().copied().unwrap_or_default()
+                            conflicts::resolve_file_executable(&merge).unwrap_or(false)
                         } else {
                             false
                         }
@@ -1863,7 +1863,7 @@ impl TreeState {
                     self.write_conflict(
                         &disk_path,
                         data,
-                        file.executable,
+                        file.executable.unwrap_or(false),
                         Some(materialized_conflict_data),
                     )?
                 }

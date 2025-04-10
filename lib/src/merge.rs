@@ -566,10 +566,10 @@ where
 
     /// If this merge contains only files or absent entries, returns a merge of
     /// the files' executable bits.
-    pub fn to_executable_merge(&self) -> Option<Merge<bool>> {
+    pub fn to_executable_merge(&self) -> Option<Merge<Option<bool>>> {
         self.try_map(|term| match borrow_tree_value(term.as_ref()) {
-            None => Ok(false),
-            Some(TreeValue::File { id: _, executable }) => Ok(*executable),
+            None => Ok(None),
+            Some(TreeValue::File { id: _, executable }) => Ok(Some(*executable)),
             _ => Err(()),
         })
         .ok()

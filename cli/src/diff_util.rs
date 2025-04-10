@@ -1435,7 +1435,10 @@ fn git_diff_part(
             };
         }
         MaterializedTreeValue::FileConflict(file) => {
-            mode = if file.executable { "100755" } else { "100644" };
+            mode = match file.executable {
+                Some(true) => "100755",
+                Some(false) | None => "100644",
+            };
             hash = DUMMY_HASH.to_owned();
             content = FileContent {
                 is_binary: false, // TODO: are we sure this is never binary?

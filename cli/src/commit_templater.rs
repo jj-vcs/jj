@@ -29,6 +29,7 @@ use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::TreeValue;
 use jj_lib::commit::Commit;
+use jj_lib::conflicts;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::copies::CopiesTreeDiffEntry;
 use jj_lib::copies::CopiesTreeDiffEntryPath;
@@ -2096,7 +2097,7 @@ fn describe_file_type(value: &MergedTreeValue) -> &'static str {
 
 fn is_executable_file(value: &MergedTreeValue) -> Option<bool> {
     let executable = value.to_executable_merge()?;
-    executable.resolve_trivial().copied()
+    conflicts::resolve_file_executable(&executable)
 }
 
 /// [`DiffStats`] with rendering parameters.

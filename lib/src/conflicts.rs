@@ -186,7 +186,9 @@ pub struct MaterializedFileConflictValue {
     // TODO: or Vec<(FileId, Box<dyn Read>)> so that caller can stop reading
     // when null bytes found?
     pub contents: Merge<BString>,
-    pub executable: bool,
+    /// Merged executable bit. `None` if there are changes in both executable
+    /// bit and file absence.
+    pub executable: Option<bool>,
 }
 
 /// Reads the data associated with a `MergedTreeValue` so it can be written to
@@ -242,22 +244,34 @@ pub async fn try_materialize_file_conflict_value(
     path: &RepoPath,
     conflict: &MergedTreeValue,
 ) -> BackendResult<Option<MaterializedFileConflictValue>> {
-    let Some(unsimplified_ids) = conflict.to_file_merge() else {
+    let (Some(unsimplified_ids), Some(executable_bits)) =
+        (conflict.to_file_merge(), conflict.to_executable_merge())
+    else {
         return Ok(None);
     };
     let ids = unsimplified_ids.clone().simplify();
     let contents = extract_as_single_hunk(&ids, store, path).await?;
-    let executable = if let Some(merge) = conflict.to_executable_merge() {
-        merge.resolve_trivial().copied().unwrap_or_default()
-    } else {
-        false
-    };
+    let executable = resolve_file_executable(&executable_bits);
     Ok(Some(MaterializedFileConflictValue {
         unsimplified_ids,
         ids,
         contents,
         executable,
     }))
+}
+
+/// Resolves conflicts in file executable bit, returns the original state if the
+/// file is deleted and executable bit is unchanged.
+pub fn resolve_file_executable(merge: &Merge<Option<bool>>) -> Option<bool> {
+    let resolved = merge.resolve_trivial().copied()?;
+    if resolved.is_some() {
+        resolved
+    } else {
+        // If the merge is resolved to None (absent), there should be the same
+        // number of Some(true) and Some(false). Pick the old state if
+        // unambiguous, so the new file inherits the original executable bit.
+        merge.removes().flatten().copied().all_equal_value().ok()
+    }
 }
 
 /// Describes what style should be used when materializing conflicts.
@@ -1030,4 +1044,56 @@ pub async fn update_from_content(
         Merge::from_vec(new_file_ids)
     };
     Ok(new_file_ids)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_resolve_file_executable() {
+        fn resolve<const N: usize>(values: [Option<bool>; N]) -> Option<bool> {
+            resolve_file_executable(&Merge::from_vec(values.to_vec()))
+        }
+
+        // already resolved
+        assert_eq!(resolve([None]), None);
+        assert_eq!(resolve([Some(false)]), Some(false));
+        assert_eq!(resolve([Some(true)]), Some(true));
+
+        // trivially resolved
+        assert_eq!(resolve([Some(true), Some(true), Some(true)]), Some(true));
+        assert_eq!(resolve([Some(true), Some(false), Some(false)]), Some(true));
+        assert_eq!(resolve([Some(false), Some(true), Some(false)]), Some(false));
+        assert_eq!(resolve([None, None, Some(true)]), Some(true));
+
+        // unresolvable
+        assert_eq!(resolve([Some(false), Some(true), None]), None);
+
+        // trivially resolved to absent, so pick the original state
+        assert_eq!(resolve([Some(true), Some(true), None]), Some(true));
+        assert_eq!(resolve([None, Some(false), Some(false)]), Some(false));
+        assert_eq!(
+            resolve([None, None, Some(true), Some(true), None]),
+            Some(true)
+        );
+
+        // trivially resolved to absent, and the original state is ambiguous
+        assert_eq!(
+            resolve([Some(true), Some(true), None, Some(false), Some(false)]),
+            None
+        );
+        assert_eq!(
+            resolve([
+                None,
+                Some(true),
+                Some(true),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+            ]),
+            None
+        );
+    }
 }
