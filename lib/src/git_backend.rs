@@ -120,6 +120,8 @@ pub enum GitBackendLoadError {
     #[error("Failed to open git repository")]
     OpenRepository(#[source] gix::open::Error),
     #[error(transparent)]
+    Config(ConfigGetError),
+    #[error(transparent)]
     Path(PathError),
 }
 
@@ -323,7 +325,10 @@ impl GitBackend {
         )
         .map_err(GitBackendLoadError::OpenRepository)?;
         let extra_metadata_store = TableStore::load(store_path.join("extra"), HASH_LENGTH);
-        let change_id_setting = settings.git_settings().unwrap_or_default().change_id;
+        let change_id_setting = settings
+            .git_settings()
+            .map_err(GitBackendLoadError::Config)?
+            .change_id;
         Ok(GitBackend::new(
             repo,
             extra_metadata_store,
