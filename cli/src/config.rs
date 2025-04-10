@@ -235,14 +235,21 @@ impl UnresolvedConfigEnv {
         } else if let (Some(path @ New(_)), None) = (home_config_path, &platform_config_path) {
             paths.push(path);
         }
-        // This should be the default config created if there's
-        // no user config and `jj config edit` is executed.
-        if let Some(path) = platform_config_path {
-            paths.push(path);
-        }
+
         if let Some(path @ Existing(_)) = platform_config_dir {
             paths.push(path);
         }
+
+        // This should be the default config created if there's
+        // no user config and `jj config edit` is executed.
+        if let Some(path) = platform_config_path {
+            if paths.is_empty() {
+                paths.push(path);
+            } else if let ConfigPath::Existing(_) = path {
+                paths.push(path);
+            }
+        }
+
         paths
     }
 }
@@ -1280,10 +1287,7 @@ mod tests {
                 config_dir: Some("config".into()),
                 ..Default::default()
             },
-            wants: &[
-                Want::Existing("home/.jjconfig.toml"),
-                Want::New("config/jj/config.toml"),
-            ],
+            wants: &[Want::Existing("home/.jjconfig.toml")],
         }
     }
 
@@ -1426,10 +1430,7 @@ mod tests {
                 config_dir: Some("config".into()),
                 ..Default::default()
             },
-            wants: &[
-                Want::Existing("home/.jjconfig.toml"),
-                Want::New("config/jj/config.toml"),
-            ],
+            wants: &[Want::Existing("home/.jjconfig.toml")],
         }
     }
 
@@ -1441,10 +1442,7 @@ mod tests {
                 config_dir: Some("config".into()),
                 ..Default::default()
             },
-            wants: &[
-                Want::New("config/jj/config.toml"),
-                Want::Existing("config/jj/conf.d"),
-            ],
+            wants: &[Want::Existing("config/jj/conf.d")],
         }
     }
 
@@ -1457,8 +1455,8 @@ mod tests {
                 ..Default::default()
             },
             wants: &[
-                Want::Existing("config/jj/config.toml"),
                 Want::Existing("config/jj/conf.d"),
+                Want::Existing("config/jj/config.toml"),
             ],
         }
     }
@@ -1478,8 +1476,8 @@ mod tests {
             // Precedence order is important
             wants: &[
                 Want::Existing("home/.jjconfig.toml"),
-                Want::Existing("config/jj/config.toml"),
                 Want::Existing("config/jj/conf.d"),
+                Want::Existing("config/jj/config.toml"),
             ],
         }
     }
