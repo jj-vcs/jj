@@ -19,8 +19,6 @@ mod path;
 mod set;
 mod unset;
 
-use std::path::Path;
-
 use itertools::Itertools as _;
 use jj_lib::config::ConfigFile;
 use jj_lib::config::ConfigSource;
@@ -42,6 +40,8 @@ use crate::cli_util::CommandHelper;
 use crate::command_error::user_error;
 use crate::command_error::CommandError;
 use crate::config::ConfigEnv;
+use crate::config::ConfigPath;
+use crate::config::DeprecatedLocation;
 use crate::ui::Ui;
 
 #[derive(clap::Args, Clone, Debug)]
@@ -67,11 +67,38 @@ impl ConfigLevelArgs {
         }
     }
 
-    fn config_paths<'a>(&self, config_env: &'a ConfigEnv) -> Result<Vec<&'a Path>, CommandError> {
+    fn config_paths<'a>(
+        &self,
+        ui: &mut Ui,
+        config_env: &'a ConfigEnv,
+    ) -> Result<Vec<&'a ConfigPath>, CommandError> {
         if self.user {
             let paths = config_env.user_config_paths().collect_vec();
             if paths.is_empty() {
                 return Err(user_error("No user config path found"));
+            } else {
+                for p in &paths {
+                    if let Some(DeprecatedLocation {
+                        old_location,
+                        new_location,
+                    }) = p.deprecated_location()
+                    {
+                        writeln!(
+                            ui.warning_default(),
+                            "Deprecated configuration file `{}`:",
+                            p.path().display()
+                        )?;
+                        writeln!(
+                            ui.warning_default(),
+                            "configuration files in `{old_location}` are deprecated, and support \
+                             will be removed in a future release.",
+                        )?;
+                        writeln!(
+                            ui.warning_default(),
+                            "Instead, move your configuration files to `{new_location}`.",
+                        )?;
+                    }
+                }
             }
             Ok(paths)
         } else if self.repo {
