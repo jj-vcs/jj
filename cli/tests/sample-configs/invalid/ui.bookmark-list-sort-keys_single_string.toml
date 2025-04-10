@@ -1,0 +1,3 @@
+#:schema ../../../src/config-schema.json
+[ui]
+bookmark-list-sort-keys = "author-name"

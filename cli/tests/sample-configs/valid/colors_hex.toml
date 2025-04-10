@@ -1,0 +1,19 @@
+#:schema ../../../src/config-schema.json
+[colors]
+author = "yellow"
+committer = "#00ff00"
+timestamp = { bold = true }
+working_copies = { underline = true, reverse = true }
+bookmark = { bg = "bright green"}
+tag = "magenta"
+git_ref = "green"
+working_copy = "bright magenta"
+'working_copy change_id' = "default"
+
+[colors.'working_copy commit_id']
+fg = "bright green"
+bg = "#fefe00"
+bold = true
+italic = true
+underline = true
+reverse = true

@@ -1,0 +1,9 @@
+#:schema ../../../src/config-schema.json
+[fix.tools.clang-format]
+command = [
+  "/usr/bin/clang-format",
+  "--sort-includes",
+  "--assume-filename=$path",
+]
+patterns = ["glob:'**/*.c'", "glob:'**/*.h'"]
+enabled = true
