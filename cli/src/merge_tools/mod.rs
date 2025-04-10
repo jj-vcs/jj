@@ -95,10 +95,11 @@ pub enum ConflictResolveError {
     #[error("Couldn't find any conflicts at {0:?} in this revision")]
     NotAConflict(RepoPathBuf),
     #[error(
-        "Only conflicts that involve normal files (not symlinks, not executable, etc.) are \
-         supported. Conflict summary for {0:?}:\n{1}"
+        "Only conflicts that involve normal files (not symlinks, etc.) are supported. Conflict \
+         summary for {path:?}:\n{summary}",
+        summary = summary.trim_end()
     )]
-    NotNormalFiles(RepoPathBuf, String),
+    NotNormalFiles { path: RepoPathBuf, summary: String },
     #[error("The conflict at {path:?} has {sides} sides. At most 2 sides are supported.")]
     ConflictTooComplicated { path: RepoPathBuf, sides: usize },
     #[error(
@@ -329,9 +330,9 @@ impl MergeToolFile {
         };
         let file = try_materialize_file_conflict_value(tree.store(), repo_path, &conflict)
             .block_on()?
-            .ok_or_else(|| {
-                let summary = conflict.describe();
-                ConflictResolveError::NotNormalFiles(repo_path.to_owned(), summary)
+            .ok_or_else(|| ConflictResolveError::NotNormalFiles {
+                path: repo_path.to_owned(),
+                summary: conflict.describe(),
             })?;
         // We only support conflicts with 2 sides (3-way conflicts)
         if file.ids.num_sides() > 2 {
