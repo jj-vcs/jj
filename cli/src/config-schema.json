@@ -136,7 +136,7 @@
                                 "full-screen-clear-output",
                                 "quit-quickly-or-clear-output"
                             ],
-                            "default": "never"
+                            "default": "quit-if-one-page"
                         },
                         "wrapping": {
                             "description": "Whether to wrap long lines",
