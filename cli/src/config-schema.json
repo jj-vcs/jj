@@ -782,6 +782,67 @@
             "additionalProperties": {
                 "type": "boolean"
             }
+        },
+        "templates": {
+            "type": "object",
+            "description": "Definitions for the templates that various jj commands use",
+            "properties": {
+                "backout_description": {
+                    "type": "string",
+                    "description": "The description of commits backed out by `jj backout` (deprecated; use `revert_description` instead)"
+                },
+                "bookmark_list": {
+                    "type": "string",
+                    "description": "`jj bookmark list`'s output"
+                },
+                "commit_summary": {
+                    "type": "string",
+                    "description": "The short commit summary used by many commands"
+                },
+                "file_annotate": {
+                    "type": "string",
+                    "description": "`jj file annotate`'s output"
+                },
+                "config_list": {
+                    "type": "string",
+                    "description": "`jj config list`'s output"
+                },
+                "draft_commit_description": {
+                    "type": "string",
+                    "description": "The draft commit description opened in an editor"
+                },
+                "file_list": {
+                    "type": "string",
+                    "description": "`jj file list`'s output"
+                },
+                "log": {
+                    "type": "string",
+                    "description": "`jj log`'s output"
+                },
+                "op_log": {
+                    "type": "string",
+                    "description": "`jj op log`'s output"
+                },
+                "show": {
+                    "type": "string",
+                    "description": "`jj show`'s output"
+                },
+                "revert_description": {
+                    "type": "string",
+                    "description": "The description of commits reverted by `jj revert`"
+                },
+                "tag_list": {
+                    "type": "string",
+                    "description": "`jj tag list`'s output"
+                },
+                "op_summary": {
+                    "type": "string",
+                    "description": "The operation summary used by many commands"
+                }
+            },
+            "additionalProperties": {
+                "type": "string"
+            }
         }
     }
 }
