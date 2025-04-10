@@ -30,6 +30,7 @@ use crate::cli_util::WorkspaceCommandTransaction;
 use crate::command_error::user_error_with_hint;
 use crate::command_error::CommandError;
 use crate::complete;
+use crate::description_util::add_trailers;
 use crate::description_util::description_template;
 use crate::description_util::edit_description;
 use crate::ui::Ui;
@@ -152,6 +153,8 @@ pub(crate) fn cmd_split(
             // TODO: Remove in jj 0.35.0+
             commit_builder.set_description(tx.settings().get_string("ui.default-description")?);
         }
+        let new_description = add_trailers(ui, &tx, &commit_builder)?;
+        commit_builder.set_description(new_description);
         let temp_commit = commit_builder.write_hidden()?;
         let template = description_template(
             ui,
@@ -193,6 +196,8 @@ pub(crate) fn cmd_split(
             // second commit.
             "".to_string()
         } else {
+            let new_description = add_trailers(ui, &tx, &commit_builder)?;
+            commit_builder.set_description(new_description);
             let temp_commit = commit_builder.write_hidden()?;
             let template = description_template(
                 ui,

@@ -1012,6 +1012,80 @@ fn test_split_with_multiple_workspaces_different_working_copy() {
     ");
 }
 
+#[test]
+fn test_split_with_non_empty_description_and_trailers() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    test_env.add_config(r#"ui.default-description = "\n\nTESTED=TODO""#);
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "foo\n");
+    work_dir.write_file("file2", "bar\n");
+    work_dir.run_jj(["describe", "-m", "test"]).success();
+    std::fs::write(
+        edit_script,
+        [
+            "dump editor1",
+            "write\npart 1",
+            "next invocation\n",
+            "dump editor2",
+            "write\npart 2",
+        ]
+        .join("\0"),
+    )
+    .unwrap();
+
+    test_env.add_config(
+        r#"[templates]
+        commit_trailers = '''"Signed-off-by: " ++ committer.email()'''"#,
+    );
+    let output = work_dir.run_jj(["split", "file1"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: Deprecated config: `ui.default-description` is deprecated; use `templates.draft_commit_description` and/or `templates.commit_trailers` instead.
+    First part: qpvuntsm 231a3c00 part 1
+    Second part: kkmpptxz e96291aa part 2
+    Working copy  (@) now at: kkmpptxz e96291aa part 2
+    Parent commit (@-)      : qpvuntsm 231a3c00 part 1
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor1")).unwrap(), @r#"
+    JJ: Enter a description for the first commit.
+    test
+
+    Signed-off-by: test.user@example.com
+
+    JJ: This commit contains the following changes:
+    JJ:     A file1
+    JJ:
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "#);
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor2")).unwrap(), @r#"
+    JJ: Enter a description for the second commit.
+    test
+
+    Signed-off-by: test.user@example.com
+
+    JJ: This commit contains the following changes:
+    JJ:     A file2
+    JJ:
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "#);
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  kkmpptxzrspx false part 2
+    ○  qpvuntsmwlqt false part 1
+    ◆  zzzzzzzzzzzz true
+    [EOF]
+    ------- stderr -------
+    Warning: Deprecated config: `ui.default-description` is deprecated; use `templates.draft_commit_description` and/or `templates.commit_trailers` instead.
+    [EOF]
+    ");
+}
+
 enum BookmarkBehavior {
     Default,
     MoveBookmarkToChild,

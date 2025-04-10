@@ -42,9 +42,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * New `signed` revset function to filter for cryptographically signed commits.
 
-* `jj describe`, `jj commit`, `jj new` and `jj squash` add the commit trailers,
-  configured in the `commit_trailers` template, to the commit description. Use
-  cases include DCO Sign Off and Gerrit Change Id.
+* `jj describe`, `jj commit`, `jj new`, `jj squash` and `jj split` add the
+  commit trailers, configured in the `commit_trailers` template, to the commit
+  description. Use cases include DCO Sign Off and Gerrit Change Id.
 
 * Added `duplicate_description` template, which allows [customizing the descriptions
   of the commits `jj duplicate` creates](docs/config.md#duplicate-commit-description).
