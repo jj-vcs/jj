@@ -1570,12 +1570,9 @@ fn bytes_vec_from_json(value: &serde_json::Value) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr as _;
-
     use assert_matches::assert_matches;
     use hex::ToHex as _;
     use pollster::FutureExt as _;
-    use toml_edit::DocumentMut;
 
     use super::*;
     use crate::config::ConfigLayer;
@@ -1883,15 +1880,15 @@ mod tests {
     fn round_trip_change_id_via_git_header() {
         let settings = user_settings_with_change_id();
         let temp_dir = new_temp_dir();
-        let store_path = temp_dir.path();
 
-        let temp_dir2 = new_temp_dir();
-        let empty_store = temp_dir2.path();
-
+        let store_path = temp_dir.path().join("store");
+        fs::create_dir(&store_path).unwrap();
+        let empty_store_path = temp_dir.path().join("empty_store");
+        fs::create_dir(&empty_store_path).unwrap();
         let git_repo_path = temp_dir.path().join("git");
         let git_repo = git_init(git_repo_path);
 
-        let backend = GitBackend::init_external(&settings, store_path, git_repo.path()).unwrap();
+        let backend = GitBackend::init_external(&settings, &store_path, git_repo.path()).unwrap();
         let original_change_id = ChangeId::from_hex("1111eeee1111eeee1111eeee1111eeee");
         let commit = Commit {
             parents: vec![backend.root_commit_id().clone()],
@@ -1916,7 +1913,7 @@ mod tests {
         // initialize a new store without those files, but reuse the same git
         // storage. This change-id must be derived from the git commit header.
         let no_extra_backend =
-            GitBackend::init_external(&settings, empty_store, git_repo.path()).unwrap();
+            GitBackend::init_external(&settings, &empty_store_path, git_repo.path()).unwrap();
         let no_extra_commit = no_extra_backend
             .read_commit(&initial_commit_id)
             .block_on()
@@ -2369,10 +2366,9 @@ mod tests {
 
     fn user_settings_with_change_id() -> UserSettings {
         let mut config = StackedConfig::with_defaults();
-        config.add_layer(ConfigLayer::with_data(
-            ConfigSource::Default,
-            DocumentMut::from_str("git.write-change-id-header = true").unwrap(),
-        ));
+        let mut layer = ConfigLayer::empty(ConfigSource::Default);
+        layer.set_value("git.write-change-id-header", true).unwrap();
+        config.add_layer(layer);
         UserSettings::from_config(config).unwrap()
     }
 }
