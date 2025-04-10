@@ -174,9 +174,9 @@ pub(crate) fn cmd_abandon(
             .any(|name| has_tracked_remote_bookmarks(view, name))
         {
             writeln!(
-                ui.warning_default(),
-                "Remote bookmarks tracked by deleted bookmarks will be deleted on the next `jj \
-                 git push`."
+                ui.hint_default(),
+                "Deleted bookmarks can be pushed by name or all at once with `jj git push \
+                 --deleted`."
             )?;
         }
     }

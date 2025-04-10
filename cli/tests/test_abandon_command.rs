@@ -508,7 +508,7 @@ fn test_abandon_tracking_bookmarks() {
     Abandoned 1 commits:
       vvkvtnvv 230dd059 foo | (empty) (no description set)
     Deleted bookmarks: foo
-    Warning: Remote bookmarks tracked by deleted bookmarks will be deleted on the next `jj git push`.
+    Hint: Deleted bookmarks can be pushed by name or all at once with `jj git push --deleted`.
     [EOF]
     ");
     let output = local_dir.run_jj(["abandon", "bar"]);
