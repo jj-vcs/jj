@@ -96,6 +96,7 @@
       env = {
         LIBSSH2_SYS_USE_PKG_CONFIG = "1";
         RUST_BACKTRACE = 1;
+        CARGO_INCREMENTAL = "0"; # https://github.com/rust-lang/rust/issues/139110
       };
     in {
       formatter = pkgs.alejandra;
@@ -124,7 +125,6 @@
             // {
               RUSTFLAGS = pkgs.lib.optionalString pkgs.stdenv.isLinux "-C link-arg=-fuse-ld=mold";
               NIX_JJ_GIT_HASH = self.rev or "";
-              CARGO_INCREMENTAL = "0";
             };
 
           postInstall = ''
