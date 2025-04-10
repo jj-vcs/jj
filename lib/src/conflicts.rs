@@ -177,6 +177,9 @@ impl MaterializedFileValue {
 
 /// Conflicted [`TreeValue::File`]s with file contents.
 pub struct MaterializedFileConflictValue {
+    /// File ids which preserve the shape of the tree conflict, to be used with
+    /// [`Merge::update_from_simplified()`].
+    pub unsimplified_ids: Merge<Option<FileId>>,
     /// Simplified file ids, in which redundant id pairs are dropped.
     pub ids: Merge<Option<FileId>>,
     /// File contents corresponding to the simplified `ids`.
@@ -242,7 +245,7 @@ async fn try_materialize_file_conflict_value(
     let Some(unsimplified_ids) = conflict.to_file_merge() else {
         return Ok(None);
     };
-    let ids = unsimplified_ids.simplify();
+    let ids = unsimplified_ids.clone().simplify();
     let contents = extract_as_single_hunk(&ids, store, path).await?;
     let executable = if let Some(merge) = conflict.to_executable_merge() {
         merge.resolve_trivial().copied().unwrap_or_default()
@@ -250,6 +253,7 @@ async fn try_materialize_file_conflict_value(
         false
     };
     Ok(Some(MaterializedFileConflictValue {
+        unsimplified_ids,
         ids,
         contents,
         executable,
