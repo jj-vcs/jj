@@ -102,6 +102,8 @@ pub enum ConflictResolveError {
     NotNormalFiles { path: RepoPathBuf, summary: String },
     #[error("The conflict at {path:?} has {sides} sides. At most 2 sides are supported.")]
     ConflictTooComplicated { path: RepoPathBuf, sides: usize },
+    #[error("{path:?} has conflicts in executable bit\n{summary}", summary = summary.trim_end())]
+    ExecutableConflict { path: RepoPathBuf, summary: String },
     #[error(
         "The output file is either unchanged or empty after the editor quit (run with --debug to \
          see the exact invocation)."
@@ -341,6 +343,12 @@ impl MergeToolFile {
                 sides: file.ids.num_sides(),
             });
         };
+        if file.executable.is_none() {
+            return Err(ConflictResolveError::ExecutableConflict {
+                path: repo_path.to_owned(),
+                summary: conflict.describe(),
+            });
+        }
         Ok(MergeToolFile {
             repo_path: repo_path.to_owned(),
             conflict,

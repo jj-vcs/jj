@@ -439,7 +439,17 @@ impl From<ConflictResolveError> for CommandError {
         match err {
             ConflictResolveError::Backend(err) => err.into(),
             ConflictResolveError::Io(err) => err.into(),
-            _ => user_error_with_message("Failed to resolve conflicts", err),
+            _ => {
+                let hint = match &err {
+                    ConflictResolveError::ExecutableConflict { .. } => {
+                        Some("Use `jj file chmod` to update the executable bit.".to_owned())
+                    }
+                    _ => None,
+                };
+                let mut cmd_err = user_error_with_message("Failed to resolve conflicts", err);
+                cmd_err.extend_hints(hint);
+                cmd_err
+            }
         }
     }
 }

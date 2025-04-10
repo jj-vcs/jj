@@ -1051,6 +1051,204 @@ fn test_resolve_conflicts_with_executable() {
 }
 
 #[test]
+fn test_resolve_change_delete_executable() {
+    let mut test_env = TestEnvironment::default();
+    let editor_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let file_template =
+        r#"separate(' ', path, if(conflict, "c", "-"), if(executable, "x", "-")) ++ "\n""#;
+    let file_list = |path: &str| work_dir.run_jj(["file", "list", "-T", file_template, path]);
+
+    //        base        a       b
+    // file1: normal -> { exec,   absent }
+    // file2: exec   -> { absent, normal } (with content change)
+    // file3: absent -> { normal, exec   }
+    // file4: normal -> { normal, absent } (with content change)
+    // file5: exec   -> { absent, exec   } (with content change)
+    create_commit_with_files(
+        &work_dir,
+        "base",
+        &[],
+        &[("file1", ""), ("file2", ""), ("file4", ""), ("file5", "")],
+    );
+    work_dir
+        .run_jj(["file", "chmod", "x", "file2", "file5"])
+        .success();
+    create_commit_with_files(
+        &work_dir,
+        "a",
+        &["base"],
+        &[("file1", ""), ("file3", ""), ("file4", "a4\n")],
+    );
+    work_dir.remove_file("file2");
+    work_dir.remove_file("file5");
+    work_dir.run_jj(["file", "chmod", "x", "file1"]).success();
+    create_commit_with_files(
+        &work_dir,
+        "b",
+        &["base"],
+        &[("file2", "b2\n"), ("file3", ""), ("file5", "b5\n")],
+    );
+    work_dir.remove_file("file1");
+    work_dir.remove_file("file4");
+    work_dir.run_jj(["file", "chmod", "n", "file2"]).success();
+    work_dir.run_jj(["file", "chmod", "x", "file3"]).success();
+    create_commit_with_files(&work_dir, "conflict", &["a", "b"], &[]);
+
+    // Test the setup
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    file1    2-sided conflict including 1 deletion and an executable
+    file2    2-sided conflict including 1 deletion and an executable
+    file3    2-sided conflict including an executable
+    file4    2-sided conflict including 1 deletion
+    file5    2-sided conflict including 1 deletion and an executable
+    [EOF]
+    ");
+    insta::assert_snapshot!(file_list("all()"), @r"
+    file1 c -
+    file2 c -
+    file3 c -
+    file4 c -
+    file5 c x
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["log", "--git"]), @r"
+    @    kmkuslsw test.user@example.com 2001-02-03 08:05:18 conflict 5db5dbdf conflict
+    ├─╮  (empty) conflict
+    │ ○  vruxwmqv test.user@example.com 2001-02-03 08:05:17 b 19e7d2ff
+    │ │  b
+    │ │  diff --git a/file1 b/file1
+    │ │  deleted file mode 100644
+    │ │  index e69de29bb2..0000000000
+    │ │  diff --git a/file2 b/file2
+    │ │  old mode 100755
+    │ │  new mode 100644
+    │ │  index e69de29bb2..e6bfff5c1d
+    │ │  --- a/file2
+    │ │  +++ b/file2
+    │ │  @@ -0,0 +1,1 @@
+    │ │  +b2
+    │ │  diff --git a/file3 b/file3
+    │ │  new file mode 100755
+    │ │  index 0000000000..e69de29bb2
+    │ │  diff --git a/file4 b/file4
+    │ │  deleted file mode 100644
+    │ │  index e69de29bb2..0000000000
+    │ │  diff --git a/file5 b/file5
+    │ │  index e69de29bb2..90a5159bf0 100755
+    │ │  --- a/file5
+    │ │  +++ b/file5
+    │ │  @@ -0,0 +1,1 @@
+    │ │  +b5
+    ○ │  mzvwutvl test.user@example.com 2001-02-03 08:05:13 a 4a44e1a9
+    ├─╯  a
+    │    diff --git a/file1 b/file1
+    │    old mode 100644
+    │    new mode 100755
+    │    diff --git a/file2 b/file2
+    │    deleted file mode 100755
+    │    index e69de29bb2..0000000000
+    │    diff --git a/file3 b/file3
+    │    new file mode 100644
+    │    index 0000000000..e69de29bb2
+    │    diff --git a/file4 b/file4
+    │    index e69de29bb2..88ba23dca8 100644
+    │    --- a/file4
+    │    +++ b/file4
+    │    @@ -0,0 +1,1 @@
+    │    +a4
+    │    diff --git a/file5 b/file5
+    │    deleted file mode 100755
+    │    index e69de29bb2..0000000000
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:10 base dd88cb4a
+    │  base
+    │  diff --git a/file1 b/file1
+    │  new file mode 100644
+    │  index 0000000000..e69de29bb2
+    │  diff --git a/file2 b/file2
+    │  new file mode 100755
+    │  index 0000000000..e69de29bb2
+    │  diff --git a/file4 b/file4
+    │  new file mode 100644
+    │  index 0000000000..e69de29bb2
+    │  diff --git a/file5 b/file5
+    │  new file mode 100755
+    │  index 0000000000..e69de29bb2
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+
+    // Exec bit conflict can be resolved by chmod
+    let output = work_dir.run_jj(["resolve", "file1"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Failed to resolve conflicts
+    Caused by: "file1" has conflicts in executable bit
+    Conflict:
+      Removing file with id e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+      Adding executable file with id e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+    Hint: Use `jj file chmod` to update the executable bit.
+    [EOF]
+    [exit status: 1]
+    "#);
+    let output = work_dir.run_jj(["file", "chmod", "--quiet", "x", "file1"]);
+    insta::assert_snapshot!(output, @"");
+
+    // Exec bit conflict can be resolved by chmod, then content conflict
+    let output = work_dir.run_jj(["resolve", "file2"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Failed to resolve conflicts
+    Caused by: "file2" has conflicts in executable bit
+    Conflict:
+      Removing executable file with id e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+      Adding file with id e6bfff5c1d0f0ecd501552b43a1e13d8008abc31
+    Hint: Use `jj file chmod` to update the executable bit.
+    [EOF]
+    [exit status: 1]
+    "#);
+    let output = work_dir.run_jj(["file", "chmod", "--quiet", "n", "file2"]);
+    insta::assert_snapshot!(output, @"");
+    std::fs::write(&editor_script, "write\nresolved\n").unwrap();
+    let output = work_dir.run_jj(["resolve", "file2"]);
+    assert_eq!(output.status.code(), Some(101)); // FIXME
+
+    // Exec bit conflict can be resolved by chmod
+    let output = work_dir.run_jj(["resolve", "file3"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Failed to resolve conflicts
+    Caused by: "file3" has conflicts in executable bit
+    Conflict:
+      Adding file with id e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+      Adding executable file with id e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+    Hint: Use `jj file chmod` to update the executable bit.
+    [EOF]
+    [exit status: 1]
+    "#);
+    let output = work_dir.run_jj(["file", "chmod", "--quiet", "x", "file3"]);
+    insta::assert_snapshot!(output, @"");
+
+    // Take modified content, the executable bit should be kept as "-"
+    let output = work_dir.run_jj(["resolve", "file4", "--tool=:ours"]);
+    assert_eq!(output.status.code(), Some(101)); // FIXME
+
+    // Take modified content, the executable bit should be kept as "x"
+    let output = work_dir.run_jj(["resolve", "file5", "--tool=:theirs"]);
+    assert_eq!(output.status.code(), Some(101)); // FIXME
+
+    insta::assert_snapshot!(file_list("all()"), @r"
+    file2 c -
+    file3 - x
+    file4 c -
+    file5 c x
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_resolve_long_conflict_markers() {
     let mut test_env = TestEnvironment::default();
     let editor_script = test_env.set_up_fake_editor();
