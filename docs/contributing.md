@@ -115,13 +115,16 @@ directory](https://github.com/jj-vcs/jj/tree/main/cli/src/commands). Working
 on them requires setting up a Rust development environment, as described
 below, and may occasionally require adjusting a test.
 
-
 ## Learning Rust
 
 In addition to the [Rust Book](https://doc.rust-lang.org/book/) and the other
 excellent resources at <https://www.rust-lang.org/learn>, we recommend the
 ["Comprehensive Rust" mini-course](https://google.github.io/comprehensive-rust/)
 for an overview, especially if you are familiar with C++.
+
+## Style guide
+
+See [here](style_guide.md).
 
 ## Setting up a development environment
 
