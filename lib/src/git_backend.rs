@@ -166,7 +166,7 @@ pub struct GitBackend {
     empty_tree_id: TreeId,
     extra_metadata_store: TableStore,
     cached_extra_metadata: Mutex<Option<Arc<ReadonlyTable>>>,
-    change_id_setting: bool,
+    write_change_id_header: bool,
 }
 
 impl GitBackend {
@@ -177,7 +177,7 @@ impl GitBackend {
     fn new(
         base_repo: gix::ThreadSafeRepository,
         extra_metadata_store: TableStore,
-        change_id_setting: bool,
+        write_change_id_header: bool,
     ) -> Self {
         let repo = Mutex::new(base_repo.to_thread_local());
         let root_commit_id = CommitId::from_bytes(&[0; HASH_LENGTH]);
@@ -191,7 +191,7 @@ impl GitBackend {
             empty_tree_id,
             extra_metadata_store,
             cached_extra_metadata: Mutex::new(None),
-            change_id_setting,
+            write_change_id_header,
         }
     }
 
@@ -208,11 +208,11 @@ impl GitBackend {
         )
         .map_err(GitBackendInitError::InitRepository)?;
 
-        let change_id_setting = settings
+        let write_change_id_header = settings
             .git_settings()
             .map_err(GitBackendInitError::Config)?
-            .change_id;
-        Self::init_with_repo(store_path, git_repo_path, git_repo, change_id_setting)
+            .write_change_id_header;
+        Self::init_with_repo(store_path, git_repo_path, git_repo, write_change_id_header)
     }
 
     /// Initializes backend by creating a new Git repo at the specified
@@ -236,11 +236,11 @@ impl GitBackend {
         )
         .map_err(GitBackendInitError::InitRepository)?;
         let git_repo_path = workspace_root.join(".git");
-        let change_id_setting = settings
+        let write_change_id_header = settings
             .git_settings()
             .map_err(GitBackendInitError::Config)?
-            .change_id;
-        Self::init_with_repo(store_path, &git_repo_path, git_repo, change_id_setting)
+            .write_change_id_header;
+        Self::init_with_repo(store_path, &git_repo_path, git_repo, write_change_id_header)
     }
 
     /// Initializes backend with an existing Git repo at the specified path.
@@ -260,18 +260,18 @@ impl GitBackend {
             gix_open_opts_from_settings(settings),
         )
         .map_err(GitBackendInitError::OpenRepository)?;
-        let change_id_setting = settings
+        let write_change_id_header = settings
             .git_settings()
             .map_err(GitBackendInitError::Config)?
-            .change_id;
-        Self::init_with_repo(store_path, git_repo_path, git_repo, change_id_setting)
+            .write_change_id_header;
+        Self::init_with_repo(store_path, git_repo_path, git_repo, write_change_id_header)
     }
 
     fn init_with_repo(
         store_path: &Path,
         git_repo_path: &Path,
         git_repo: gix::ThreadSafeRepository,
-        change_id_setting: bool,
+        write_change_id: bool,
     ) -> Result<Self, Box<GitBackendInitError>> {
         let extra_path = store_path.join("extra");
         fs::create_dir(&extra_path)
@@ -301,7 +301,7 @@ impl GitBackend {
         Ok(GitBackend::new(
             git_repo,
             extra_metadata_store,
-            change_id_setting,
+            write_change_id,
         ))
     }
 
@@ -325,14 +325,14 @@ impl GitBackend {
         )
         .map_err(GitBackendLoadError::OpenRepository)?;
         let extra_metadata_store = TableStore::load(store_path.join("extra"), HASH_LENGTH);
-        let change_id_setting = settings
+        let write_change_id_header = settings
             .git_settings()
             .map_err(GitBackendLoadError::Config)?
-            .change_id;
+            .write_change_id_header;
         Ok(GitBackend::new(
             repo,
             extra_metadata_store,
-            change_id_setting,
+            write_change_id_header,
         ))
     }
 
@@ -1272,7 +1272,7 @@ impl Backend for GitBackend {
                 ));
             }
         }
-        if self.change_id_setting {
+        if self.write_change_id_header {
             extra_headers.push((
                 BString::new(CHANGE_ID_COMMIT_HEADER.to_vec()),
                 BString::new(contents.change_id.reverse_hex().into()),
