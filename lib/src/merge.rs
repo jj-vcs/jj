@@ -349,13 +349,6 @@ impl<T> Merge<T> {
     }
 
     /// Creates a new merge by applying `f` to each remove and add, returning
-    /// `None if `f` returns `None` for any of them.
-    pub fn maybe_map<'a, U>(&'a self, f: impl FnMut(&'a T) -> Option<U>) -> Option<Merge<U>> {
-        let values = self.values.iter().map(f).collect::<Option<_>>()?;
-        Some(Merge { values })
-    }
-
-    /// Creates a new merge by applying `f` to each remove and add, returning
     /// `Err if `f` returns `Err` for any of them.
     pub fn try_map<'a, U, E>(
         &'a self,
@@ -563,21 +556,23 @@ where
     /// `Merge::with_new_file_ids()` to produce a new merge with the original
     /// executable bits preserved.
     pub fn to_file_merge(&self) -> Option<Merge<Option<FileId>>> {
-        self.maybe_map(|term| match borrow_tree_value(term.as_ref()) {
-            None => Some(None),
-            Some(TreeValue::File { id, executable: _ }) => Some(Some(id.clone())),
-            _ => None,
+        self.try_map(|term| match borrow_tree_value(term.as_ref()) {
+            None => Ok(None),
+            Some(TreeValue::File { id, executable: _ }) => Ok(Some(id.clone())),
+            _ => Err(()),
         })
+        .ok()
     }
 
     /// If this merge contains only files or absent entries, returns a merge of
     /// the files' executable bits.
     pub fn to_executable_merge(&self) -> Option<Merge<bool>> {
-        self.maybe_map(|term| match borrow_tree_value(term.as_ref()) {
-            None => Some(false),
-            Some(TreeValue::File { id: _, executable }) => Some(*executable),
-            _ => None,
+        self.try_map(|term| match borrow_tree_value(term.as_ref()) {
+            None => Ok(false),
+            Some(TreeValue::File { id: _, executable }) => Ok(*executable),
+            _ => Err(()),
         })
+        .ok()
     }
 
     /// If every non-`None` term of a `MergedTreeValue`
@@ -589,12 +584,12 @@ where
         store: &Arc<Store>,
         dir: &RepoPath,
     ) -> BackendResult<Option<Merge<Tree>>> {
-        let tree_id_merge = self.maybe_map(|term| match borrow_tree_value(term.as_ref()) {
-            None => Some(None),
-            Some(TreeValue::Tree(id)) => Some(Some(id)),
-            Some(_) => None,
+        let tree_id_merge = self.try_map(|term| match borrow_tree_value(term.as_ref()) {
+            None => Ok(None),
+            Some(TreeValue::Tree(id)) => Ok(Some(id)),
+            Some(_) => Err(()),
         });
-        if let Some(tree_id_merge) = tree_id_merge {
+        if let Ok(tree_id_merge) = tree_id_merge {
             let get_tree = |id: &Option<&TreeId>| -> BackendResult<Tree> {
                 if let Some(id) = id {
                     store.get_tree(dir.to_owned(), id)
@@ -1115,24 +1110,6 @@ mod tests {
         assert_eq!(c(&[1]).map(increment), c(&[2]));
         // 3-way merge
         assert_eq!(c(&[1, 3, 5]).map(increment), c(&[2, 4, 6]));
-    }
-
-    #[test]
-    fn test_maybe_map() {
-        fn sqrt(i: &i32) -> Option<i32> {
-            if *i >= 0 {
-                Some((*i as f64).sqrt() as i32)
-            } else {
-                None
-            }
-        }
-        // 1-way merge
-        assert_eq!(c(&[1]).maybe_map(sqrt), Some(c(&[1])));
-        assert_eq!(c(&[-1]).maybe_map(sqrt), None);
-        // 3-way merge
-        assert_eq!(c(&[1, 4, 9]).maybe_map(sqrt), Some(c(&[1, 2, 3])));
-        assert_eq!(c(&[-1, 4, 9]).maybe_map(sqrt), None);
-        assert_eq!(c(&[1, -4, 9]).maybe_map(sqrt), None);
     }
 
     #[test]
