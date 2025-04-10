@@ -598,6 +598,13 @@
                 "type": "string"
             }
         },
+        "templates": {
+            "type": "object",
+            "description": "Template strings used by various commands",
+            "additionalProperties": {
+                "type": "string"
+            }
+        },
         "template-aliases": {
             "type": "object",
             "description": "Custom symbols/function aliases that can used in templates",
