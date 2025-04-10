@@ -39,11 +39,12 @@ pub fn cmd_config_path(
     command: &CommandHelper,
     args: &ConfigPathArgs,
 ) -> Result<(), CommandError> {
-    for config_path in args.level.config_paths(command.config_env())? {
+    for config_path in args.level.config_paths(ui, command.config_env())? {
         writeln!(
             ui.stdout(),
             "{}",
             config_path
+                .path()
                 .to_str()
                 .ok_or_else(|| user_error("The config path is not valid UTF-8"))?
         )?;
