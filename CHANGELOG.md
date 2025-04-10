@@ -36,6 +36,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   [`templates.draft_commit_description`](docs/config.md#default-description),
   and/or [`templates.commit_trailers`](docs/config.md#commit-trailers).
 
+* On macOS, config.toml files in `~/Library/Application Support/jj` are
+  deprecated; one should instead use `$XDG_CONFIG_HOME/jj`
+  (defaults to `~/.config/jj`)
+
 ### New features
 
 * Color-words diff has gained [an option to compare conflict pairs without
