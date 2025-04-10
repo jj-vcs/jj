@@ -18,16 +18,15 @@ mod external;
 
 use std::sync::Arc;
 
-use bstr::BString;
 use itertools::Itertools as _;
 use jj_lib::backend::BackendError;
-use jj_lib::backend::FileId;
 use jj_lib::backend::MergedTreeId;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::config::ConfigNamePathBuf;
-use jj_lib::conflicts::extract_as_single_hunk;
+use jj_lib::conflicts::try_materialize_file_conflict_value;
 use jj_lib::conflicts::ConflictMarkerStyle;
+use jj_lib::conflicts::MaterializedFileConflictValue;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::matchers::Matcher;
 use jj_lib::merge::Merge;
@@ -315,9 +314,7 @@ impl DiffEditor {
 struct MergeToolFile {
     repo_path: RepoPathBuf,
     conflict: MergedTreeValue,
-    file_merge: Merge<Option<FileId>>,
-    simplified_file_merge: Merge<Option<FileId>>,
-    simplified_file_content: Merge<BString>,
+    file: MaterializedFileConflictValue,
 }
 
 impl MergeToolFile {
@@ -330,26 +327,23 @@ impl MergeToolFile {
             Ok(Some(_)) => return Err(ConflictResolveError::NotAConflict(repo_path.to_owned())),
             Ok(None) => return Err(ConflictResolveError::PathNotFound(repo_path.to_owned())),
         };
-        let file_merge = conflict.to_file_merge().ok_or_else(|| {
-            let summary = conflict.describe();
-            ConflictResolveError::NotNormalFiles(repo_path.to_owned(), summary)
-        })?;
-        let simplified_file_merge = file_merge.clone().simplify();
+        let file = try_materialize_file_conflict_value(tree.store(), repo_path, &conflict)
+            .block_on()?
+            .ok_or_else(|| {
+                let summary = conflict.describe();
+                ConflictResolveError::NotNormalFiles(repo_path.to_owned(), summary)
+            })?;
         // We only support conflicts with 2 sides (3-way conflicts)
-        if simplified_file_merge.num_sides() > 2 {
+        if file.ids.num_sides() > 2 {
             return Err(ConflictResolveError::ConflictTooComplicated {
                 path: repo_path.to_owned(),
-                sides: simplified_file_merge.num_sides(),
+                sides: file.ids.num_sides(),
             });
         };
-        let simplified_file_content =
-            extract_as_single_hunk(&simplified_file_merge, tree.store(), repo_path).block_on()?;
         Ok(MergeToolFile {
             repo_path: repo_path.to_owned(),
             conflict,
-            file_merge,
-            simplified_file_merge,
-            simplified_file_content,
+            file,
         })
     }
 }
@@ -457,10 +451,7 @@ fn pick_conflict_side(
     for merge_tool_file in merge_tool_files {
         // We use file IDs here to match the logic for the other external merge tools.
         // This ensures that the behavior is consistent.
-        let file_id = merge_tool_file
-            .simplified_file_merge
-            .get_add(add_index)
-            .unwrap();
+        let file_id = merge_tool_file.file.ids.get_add(add_index).unwrap();
         // Update the file IDs only, leaving the executable flags unchanged
         let new_tree_value = merge_tool_file
             .conflict

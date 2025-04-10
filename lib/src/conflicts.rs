@@ -237,7 +237,7 @@ async fn materialize_tree_value_no_access_denied(
 
 /// Suppose `conflict` contains only files or absent entries, reads the file
 /// contents.
-async fn try_materialize_file_conflict_value(
+pub async fn try_materialize_file_conflict_value(
     store: &Store,
     path: &RepoPath,
     conflict: &MergedTreeValue,
