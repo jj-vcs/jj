@@ -357,7 +357,7 @@ pub fn description_template(
 
     let mut output = Vec::new();
     if !intro.is_empty() {
-        writeln!(output, "JJ: {intro}").unwrap();
+        writeln!(output, "{intro}").unwrap();
     }
     template
         .format(commit, &mut PlainTextFormatter::new(&mut output))
