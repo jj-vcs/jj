@@ -444,12 +444,11 @@ pub fn move_commits(
                 RevsetExpression::commits(target_commits.iter().ids().cloned().collect_vec())
                     .connected()
                     .evaluate(mut_repo)
-                    .map_err(|err| err.expect_backend_error())?
+                    .map_err(|err| err.into_backend_error())?
                     .iter()
                     .commits(mut_repo.store())
                     .try_collect()
-                    // TODO: Return evaluation error to caller
-                    .map_err(|err| err.expect_backend_error())?;
+                    .map_err(|err| err.into_backend_error())?;
             connected_target_commits_internal_parents =
                 compute_internal_parents_within(&target_commit_ids, &connected_target_commits);
 
@@ -469,12 +468,11 @@ pub fn move_commits(
             target_commits = RevsetExpression::commits(roots.iter().ids().cloned().collect_vec())
                 .descendants()
                 .evaluate(mut_repo)
-                .map_err(|err| err.expect_backend_error())?
+                .map_err(|err| err.into_backend_error())?
                 .iter()
                 .commits(mut_repo.store())
                 .try_collect()
-                // TODO: Return evaluation error to caller
-                .map_err(|err| err.expect_backend_error())?;
+                .map_err(|err| err.into_backend_error())?;
             target_commit_ids = target_commits.iter().ids().cloned().collect();
 
             connected_target_commits = target_commits.iter().cloned().collect_vec();
@@ -529,12 +527,11 @@ pub fn move_commits(
                         .children(),
                 )
                 .evaluate(mut_repo)
-                .map_err(|err| err.expect_backend_error())?
+                .map_err(|err| err.into_backend_error())?
                 .iter()
                 .commits(mut_repo.store())
                 .try_collect()
-                // TODO: Return evaluation error to caller
-                .map_err(|err| err.expect_backend_error())?;
+                .map_err(|err| err.into_backend_error())?;
 
         // For all commits in the target set, compute its transitive descendant commits
         // which are outside of the target set by up to 1 generation.
@@ -792,12 +789,11 @@ pub fn duplicate_commits(
         RevsetExpression::commits(target_commit_ids.iter().cloned().collect_vec())
             .connected()
             .evaluate(mut_repo)
-            .map_err(|err| err.expect_backend_error())?
+            .map_err(|err| err.into_backend_error())?
             .iter()
             .commits(mut_repo.store())
             .try_collect()
-            // TODO: Return evaluation error to caller
-            .map_err(|err| err.expect_backend_error())?;
+            .map_err(|err| err.into_backend_error())?;
 
     // Commits in the target set should only have other commits in the set as
     // parents, except the roots of the set, which persist their original

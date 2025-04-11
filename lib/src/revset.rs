@@ -103,10 +103,12 @@ pub enum RevsetEvaluationError {
 }
 
 impl RevsetEvaluationError {
-    pub fn expect_backend_error(self) -> BackendError {
+    // TODO: Create a higher-level error instead of putting non-BackendErrors in a
+    // BackendError
+    pub fn into_backend_error(self) -> BackendError {
         match self {
             Self::StoreError(err) => err,
-            Self::Other(err) => panic!("Unexpected revset error: {err}"),
+            Self::Other(err) => BackendError::Other(err),
         }
     }
 }

@@ -1186,13 +1186,12 @@ impl MutableRepo {
                 self.parent_mapping.keys().cloned().collect(),
             ))
             .evaluate(self)
-            .map_err(|err| err.expect_backend_error())?;
+            .map_err(|err| err.into_backend_error())?;
         let to_visit = to_visit_revset
             .iter()
             .commits(self.store())
             .try_collect()
-            // TODO: Return evaluation error to caller
-            .map_err(|err| err.expect_backend_error())?;
+            .map_err(|err| err.into_backend_error())?;
         Ok(to_visit)
     }
 
@@ -1801,10 +1800,10 @@ impl MutableRepo {
     ) -> BackendResult<()> {
         let mut removed_changes: HashMap<ChangeId, Vec<CommitId>> = HashMap::new();
         for item in revset::walk_revs(self, old_heads, new_heads)
-            .map_err(|err| err.expect_backend_error())?
+            .map_err(|err| err.into_backend_error())?
             .commit_change_ids()
         {
-            let (commit_id, change_id) = item.map_err(|err| err.expect_backend_error())?;
+            let (commit_id, change_id) = item.map_err(|err| err.into_backend_error())?;
             removed_changes
                 .entry(change_id)
                 .or_default()
@@ -1817,10 +1816,10 @@ impl MutableRepo {
         let mut rewritten_changes = HashSet::new();
         let mut rewritten_commits: HashMap<CommitId, Vec<CommitId>> = HashMap::new();
         for item in revset::walk_revs(self, new_heads, old_heads)
-            .map_err(|err| err.expect_backend_error())?
+            .map_err(|err| err.into_backend_error())?
             .commit_change_ids()
         {
-            let (commit_id, change_id) = item.map_err(|err| err.expect_backend_error())?;
+            let (commit_id, change_id) = item.map_err(|err| err.into_backend_error())?;
             if let Some(old_commits) = removed_changes.get(&change_id) {
                 for old_commit in old_commits {
                     rewritten_commits
