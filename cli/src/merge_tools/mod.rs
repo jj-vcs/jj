@@ -23,6 +23,7 @@ use itertools::Itertools as _;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::FileId;
 use jj_lib::backend::MergedTreeId;
+use jj_lib::backend::TreeValue;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::config::ConfigNamePathBuf;
@@ -352,6 +353,16 @@ impl MergeToolFile {
             simplified_file_content,
         })
     }
+
+    fn is_executable(&self) -> bool {
+        let merge = self
+            .conflict
+            .to_executable_merge()
+            .expect("conflict must be a file merge");
+        *merge
+            .resolve_trivial()
+            .expect("merge of two states should be trivially resolved")
+    }
 }
 
 /// Configured 3-way merge editor.
@@ -461,16 +472,10 @@ fn pick_conflict_side(
             .simplified_file_merge
             .get_add(add_index)
             .unwrap();
-        // Update the file IDs only, leaving the executable flags unchanged
-        let new_tree_value = merge_tool_file
-            .conflict
-            .with_new_file_ids(&Merge::from_vec(vec![
-                file_id.clone();
-                merge_tool_file
-                    .conflict
-                    .as_slice()
-                    .len()
-            ]));
+        let new_tree_value = Merge::resolved(file_id.clone().map(|id| TreeValue::File {
+            id,
+            executable: merge_tool_file.is_executable(),
+        }));
         tree_builder.set_or_remove(merge_tool_file.repo_path.clone(), new_tree_value);
     }
     tree_builder.write_tree(tree.store())

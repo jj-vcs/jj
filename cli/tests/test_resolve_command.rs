@@ -808,6 +808,48 @@ fn test_edit_delete_conflict_input_files() {
     check_resolve_produces_input_file(&mut test_env, "repo", "file", "base", "base\n");
     check_resolve_produces_input_file(&mut test_env, "repo", "file", "left", "a\n");
     check_resolve_produces_input_file(&mut test_env, "repo", "file", "right", "");
+
+    let editor_script = test_env.set_up_fake_editor();
+    let work_dir = test_env.work_dir("repo");
+
+    // Conflict can be resolved even if the file doesn't exist at one side
+    // (therefore has no metadata such as exec bit)
+    std::fs::write(&editor_script, b"write\nresolved\n").unwrap();
+    let output = work_dir.run_jj(["resolve"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Resolving conflicts in: file
+    Working copy  (@) now at: vruxwmqv b6497903 conflict | conflict
+    Parent commit (@-)      : zsuskuln aa493daf a | a
+    Parent commit (@-)      : royxmykx 5dc746f4 b | b
+    Added 0 files, modified 1 files, removed 0 files
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.read_file("file"), @"resolved");
+
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj(["resolve", "--tool=:ours"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: vruxwmqv 2018e6d7 conflict | conflict
+    Parent commit (@-)      : zsuskuln aa493daf a | a
+    Parent commit (@-)      : royxmykx 5dc746f4 b | b
+    Added 0 files, modified 1 files, removed 0 files
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.read_file("file"), @"a");
+
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj(["resolve", "--tool=:theirs"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: vruxwmqv 2a0fe509 conflict | conflict
+    Parent commit (@-)      : zsuskuln aa493daf a | a
+    Parent commit (@-)      : royxmykx 5dc746f4 b | b
+    Added 0 files, modified 0 files, removed 1 files
+    [EOF]
+    ");
+    assert!(!work_dir.root().join("file").exists());
 }
 
 #[test]
@@ -1048,6 +1090,86 @@ fn test_resolve_conflicts_with_executable() {
     ");
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
     file1    2-sided conflict including an executable
+    [EOF]
+    ");
+
+    // Pick "our" contents, but merges executable bits
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj(["resolve", "--tool=:ours"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: znkkpsqq 5b59d7f0 conflict | conflict
+    Parent commit (@-)      : mzvwutvl 08932848 a | a
+    Parent commit (@-)      : yqosqzyt b69b3de6 b | b
+    Added 0 files, modified 2 files, removed 0 files
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r"
+    diff --git a/file1 b/file1
+    index 0000000000..da0f8ed91a 100755
+    --- a/file1
+    +++ b/file1
+    @@ -1,7 +1,1 @@
+    -<<<<<<< Conflict 1 of 1
+    -%%%%%%% Changes from base to side #1
+    --base1
+    -+a1
+    -+++++++ Contents of side #2
+    -b1
+    ->>>>>>> Conflict 1 of 1 ends
+    +a1
+    diff --git a/file2 b/file2
+    index 0000000000..c1827f07e1 100755
+    --- a/file2
+    +++ b/file2
+    @@ -1,7 +1,1 @@
+    -<<<<<<< Conflict 1 of 1
+    -%%%%%%% Changes from base to side #1
+    --base2
+    -+a2
+    -+++++++ Contents of side #2
+    -b2
+    ->>>>>>> Conflict 1 of 1 ends
+    +a2
+    [EOF]
+    ");
+
+    // Pick "their" contents, but merges executable bits
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj(["resolve", "--tool=:theirs"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: znkkpsqq 087b8637 conflict | conflict
+    Parent commit (@-)      : mzvwutvl 08932848 a | a
+    Parent commit (@-)      : yqosqzyt b69b3de6 b | b
+    Added 0 files, modified 2 files, removed 0 files
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r"
+    diff --git a/file1 b/file1
+    index 0000000000..c9c6af7f78 100755
+    --- a/file1
+    +++ b/file1
+    @@ -1,7 +1,1 @@
+    -<<<<<<< Conflict 1 of 1
+    -%%%%%%% Changes from base to side #1
+    --base1
+    -+a1
+    -+++++++ Contents of side #2
+     b1
+    ->>>>>>> Conflict 1 of 1 ends
+    diff --git a/file2 b/file2
+    index 0000000000..e6bfff5c1d 100755
+    --- a/file2
+    +++ b/file2
+    @@ -1,7 +1,1 @@
+    -<<<<<<< Conflict 1 of 1
+    -%%%%%%% Changes from base to side #1
+    --base2
+    -+a2
+    -+++++++ Contents of side #2
+     b2
+    ->>>>>>> Conflict 1 of 1 ends
     [EOF]
     ");
 }
