@@ -81,6 +81,7 @@ use crate::object_id::ObjectId;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::repo_path::RepoPathComponentBuf;
+use crate::settings::GitSettings;
 use crate::settings::UserSettings;
 use crate::stacked_table::MutableTable;
 use crate::stacked_table::ReadonlyTable;
@@ -177,7 +178,7 @@ impl GitBackend {
     fn new(
         base_repo: gix::ThreadSafeRepository,
         extra_metadata_store: TableStore,
-        write_change_id_header: bool,
+        git_settings: GitSettings,
     ) -> Self {
         let repo = Mutex::new(base_repo.to_thread_local());
         let root_commit_id = CommitId::from_bytes(&[0; HASH_LENGTH]);
@@ -191,7 +192,7 @@ impl GitBackend {
             empty_tree_id,
             extra_metadata_store,
             cached_extra_metadata: Mutex::new(None),
-            write_change_id_header,
+            write_change_id_header: git_settings.write_change_id_header,
         }
     }
 
@@ -207,12 +208,10 @@ impl GitBackend {
             gix_open_opts_from_settings(settings),
         )
         .map_err(GitBackendInitError::InitRepository)?;
-
-        let write_change_id_header = settings
+        let git_settings = settings
             .git_settings()
-            .map_err(GitBackendInitError::Config)?
-            .write_change_id_header;
-        Self::init_with_repo(store_path, git_repo_path, git_repo, write_change_id_header)
+            .map_err(GitBackendInitError::Config)?;
+        Self::init_with_repo(store_path, git_repo_path, git_repo, git_settings)
     }
 
     /// Initializes backend by creating a new Git repo at the specified
@@ -236,11 +235,10 @@ impl GitBackend {
         )
         .map_err(GitBackendInitError::InitRepository)?;
         let git_repo_path = workspace_root.join(".git");
-        let write_change_id_header = settings
+        let git_settings = settings
             .git_settings()
-            .map_err(GitBackendInitError::Config)?
-            .write_change_id_header;
-        Self::init_with_repo(store_path, &git_repo_path, git_repo, write_change_id_header)
+            .map_err(GitBackendInitError::Config)?;
+        Self::init_with_repo(store_path, &git_repo_path, git_repo, git_settings)
     }
 
     /// Initializes backend with an existing Git repo at the specified path.
@@ -260,18 +258,17 @@ impl GitBackend {
             gix_open_opts_from_settings(settings),
         )
         .map_err(GitBackendInitError::OpenRepository)?;
-        let write_change_id_header = settings
+        let git_settings = settings
             .git_settings()
-            .map_err(GitBackendInitError::Config)?
-            .write_change_id_header;
-        Self::init_with_repo(store_path, git_repo_path, git_repo, write_change_id_header)
+            .map_err(GitBackendInitError::Config)?;
+        Self::init_with_repo(store_path, git_repo_path, git_repo, git_settings)
     }
 
     fn init_with_repo(
         store_path: &Path,
         git_repo_path: &Path,
-        git_repo: gix::ThreadSafeRepository,
-        write_change_id: bool,
+        repo: gix::ThreadSafeRepository,
+        git_settings: GitSettings,
     ) -> Result<Self, Box<GitBackendInitError>> {
         let extra_path = store_path.join("extra");
         fs::create_dir(&extra_path)
@@ -298,11 +295,7 @@ impl GitBackend {
                 .map_err(GitBackendInitError::Path)?;
         };
         let extra_metadata_store = TableStore::init(extra_path, HASH_LENGTH);
-        Ok(GitBackend::new(
-            git_repo,
-            extra_metadata_store,
-            write_change_id,
-        ))
+        Ok(GitBackend::new(repo, extra_metadata_store, git_settings))
     }
 
     pub fn load(
@@ -325,15 +318,10 @@ impl GitBackend {
         )
         .map_err(GitBackendLoadError::OpenRepository)?;
         let extra_metadata_store = TableStore::load(store_path.join("extra"), HASH_LENGTH);
-        let write_change_id_header = settings
+        let git_settings = settings
             .git_settings()
-            .map_err(GitBackendLoadError::Config)?
-            .write_change_id_header;
-        Ok(GitBackend::new(
-            repo,
-            extra_metadata_store,
-            write_change_id_header,
-        ))
+            .map_err(GitBackendLoadError::Config)?;
+        Ok(GitBackend::new(repo, extra_metadata_store, git_settings))
     }
 
     fn lock_git_repo(&self) -> MutexGuard<'_, gix::Repository> {
