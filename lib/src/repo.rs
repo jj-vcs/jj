@@ -54,6 +54,7 @@ use crate::index::IndexReadError;
 use crate::index::IndexStore;
 use crate::index::MutableIndex;
 use crate::index::ReadonlyIndex;
+use crate::merge::trivial_merge;
 use crate::merge::MergeBuilder;
 use crate::object_id::HexPrefix;
 use crate::object_id::ObjectId as _;
@@ -78,6 +79,7 @@ use crate::ref_name::RemoteName;
 use crate::ref_name::RemoteRefSymbol;
 use crate::ref_name::WorkspaceName;
 use crate::ref_name::WorkspaceNameBuf;
+use crate::refs::diff_named_commit_ids;
 use crate::refs::diff_named_ref_targets;
 use crate::refs::diff_named_remote_refs;
 use crate::refs::merge_ref_targets;
@@ -1409,6 +1411,34 @@ impl MutableRepo {
         Ok(())
     }
 
+    /// Merges working-copy commit. If there's a conflict, and if the workspace
+    /// isn't removed at either side, we keep the self side.
+    fn merge_wc_commit(
+        &mut self,
+        name: &WorkspaceName,
+        base_id: Option<&CommitId>,
+        other_id: Option<&CommitId>,
+    ) {
+        let view = self.view.get_mut();
+        let self_id = view.get_wc_commit_id(name);
+        // Not using merge_ref_targets(). Since the working-copy pointer moves
+        // towards random direction, it doesn't make sense to resolve conflict
+        // based on ancestry.
+        let new_id = if let Some(resolved) = trivial_merge(&[self_id, base_id, other_id]) {
+            resolved.cloned()
+        } else if self_id.is_none() || other_id.is_none() {
+            // We want to remove the workspace even if the self side changed the
+            // working-copy commit.
+            None
+        } else {
+            self_id.cloned()
+        };
+        match new_id {
+            Some(id) => view.set_wc_commit(name.to_owned(), id),
+            None => view.remove_wc_commit(name),
+        }
+    }
+
     pub fn rename_workspace(
         &mut self,
         old_name: &WorkspaceName,
@@ -1708,33 +1738,11 @@ impl MutableRepo {
     }
 
     fn merge_view(&mut self, base: &View, other: &View) -> BackendResult<()> {
-        // TODO: Use `diff_named_commit_ids` to simplify this.
-        // Merge working-copy commits. If there's a conflict, we keep the self side.
-        for (name, base_wc_commit) in base.wc_commit_ids() {
-            let self_wc_commit = self.view().get_wc_commit_id(name);
-            let other_wc_commit = other.get_wc_commit_id(name);
-            if other_wc_commit == Some(base_wc_commit) || other_wc_commit == self_wc_commit {
-                // The other side didn't change or both sides changed in the
-                // same way.
-            } else if let Some(other_wc_commit) = other_wc_commit {
-                if self_wc_commit == Some(base_wc_commit) {
-                    self.view_mut()
-                        .set_wc_commit(name.clone(), other_wc_commit.clone());
-                }
-            } else {
-                // The other side removed the workspace. We want to remove it even if the self
-                // side changed the working-copy commit.
-                self.view_mut().remove_wc_commit(name);
-            }
+        let changed_wc_commits = diff_named_commit_ids(base.wc_commit_ids(), other.wc_commit_ids());
+        for (name, (base_id, other_id)) in changed_wc_commits {
+            self.merge_wc_commit(name, base_id, other_id);
         }
-        for (name, other_wc_commit) in other.wc_commit_ids() {
-            if self.view().get_wc_commit_id(name).is_none() && base.get_wc_commit_id(name).is_none()
-            {
-                // The other side added the workspace.
-                self.view_mut()
-                    .set_wc_commit(name.clone(), other_wc_commit.clone());
-            }
-        }
+
         let base_heads = base.heads().iter().cloned().collect_vec();
         let own_heads = self.view().heads().iter().cloned().collect_vec();
         let other_heads = other.heads().iter().cloned().collect_vec();
