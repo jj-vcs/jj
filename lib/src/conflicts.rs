@@ -249,7 +249,7 @@ pub async fn try_materialize_file_conflict_value(
     else {
         return Ok(None);
     };
-    let ids = unsimplified_ids.clone().simplify();
+    let ids = unsimplified_ids.simplify();
     let contents = extract_as_single_hunk(&ids, store, path).await?;
     let executable = resolve_file_executable(&executable_bits);
     Ok(Some(MaterializedFileConflictValue {
@@ -950,7 +950,7 @@ pub async fn update_from_content(
     conflict_marker_style: ConflictMarkerStyle,
     conflict_marker_len: usize,
 ) -> BackendResult<Merge<Option<FileId>>> {
-    let simplified_file_ids = file_ids.clone().simplify();
+    let simplified_file_ids = file_ids.simplify();
 
     // First check if the new content is unchanged compared to the old content. If
     // it is, we don't need parse the content or write any new objects to the

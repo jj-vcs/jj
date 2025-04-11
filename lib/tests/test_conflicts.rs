@@ -1764,7 +1764,7 @@ fn test_update_conflict_from_content_simplified_conflict() {
             Some(right_file_id.clone()),
         ],
     );
-    let simplified_conflict = conflict.clone().simplify();
+    let simplified_conflict = conflict.simplify();
 
     // If the content is unchanged compared to the materialized value, we get the
     // old conflict id back.

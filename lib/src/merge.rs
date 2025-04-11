@@ -276,17 +276,18 @@ impl<T> Merge<T> {
 
     /// Simplify the merge by joining diffs like A->B and B->C into A->C.
     /// Also drops trivial diffs like A->A.
-    pub fn simplify(mut self) -> Self
+    #[must_use]
+    pub fn simplify(&self) -> Self
     where
         T: PartialEq + Clone,
     {
         let mapping = self.get_simplified_mapping();
         // Reorder values based on their new indices in the simplified merge.
-        self.values = mapping
+        let values = mapping
             .iter()
             .map(|index| self.values[*index].clone())
             .collect();
-        self
+        Merge { values }
     }
 
     /// Updates the merge based on the given simplified merge.
@@ -1006,13 +1007,13 @@ mod tests {
             let merge = Merge::from_vec(terms.to_vec());
             // `simplify()` is idempotent
             assert_eq!(
-                merge.clone().simplify().simplify(),
-                merge.clone().simplify(),
+                merge.simplify().simplify(),
+                merge.simplify(),
                 "simplify() not idempotent for {merge:?}"
             );
             // `resolve_trivial()` is unaffected by `simplify()`
             assert_eq!(
-                merge.clone().simplify().resolve_trivial(),
+                merge.simplify().resolve_trivial(),
                 merge.resolve_trivial(),
                 "simplify() changed result of resolve_trivial() for {merge:?}"
             );
