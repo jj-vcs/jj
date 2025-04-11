@@ -1239,6 +1239,25 @@ fn test_squash_description() {
     [EOF]
     ");
 
+    // An explicit description on the command-line includes the trailers when
+    // templates.commit_trailers is configured
+    work_dir.run_jj(["undo"]).success();
+    work_dir
+        .run_jj([
+            "squash",
+            "--config",
+            r#"templates.commit_trailers='"CC: " ++ committer.email()'"#,
+            "-m",
+            "custom",
+        ])
+        .success();
+    insta::assert_snapshot!(get_description(&work_dir, "@-"), @r"
+    custom
+
+    CC: test.user@example.com
+    [EOF]
+    ");
+
     // If the source's *content* doesn't become empty, then the source remains and
     // both descriptions are unchanged
     work_dir.run_jj(["undo"]).success();

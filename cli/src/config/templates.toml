@@ -35,6 +35,8 @@ config_list = 'builtin_config_list'
 
 draft_commit_description = 'builtin_draft_commit_description'
 
+commit_trailers = ''
+
 file_list = '''
 path.display() ++ "\n"
 '''

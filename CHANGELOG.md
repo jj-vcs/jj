@@ -36,6 +36,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Added `ui.bookmark-list-sort-keys` setting to configure default sort keys for the
   `jj bookmark list` command.
 
+* `jj describe` adds the commit trailers, configured in the `commit_trailers`
+  template, to the commit description. Use cases include DCO Sign Off and
+  Gerrit Change Id.
+
+* `jj squash` now uses the `commit_trailers` template when the message is
+  provided on the command line.
+
 ### Fixed bugs
 
 ### Packaging changes
