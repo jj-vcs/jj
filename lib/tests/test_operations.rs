@@ -54,7 +54,7 @@ fn test_unpublished_operation() {
 
     let mut tx1 = repo.start_transaction();
     write_random_commit(tx1.repo_mut());
-    let unpublished_op = tx1.write("transaction 1");
+    let unpublished_op = tx1.write("transaction 1").unwrap();
     let op_id1 = unpublished_op.operation().id().clone();
     assert_ne!(op_id1, op_id0);
     assert_eq!(list_dir(&op_heads_dir), vec![op_id0.hex()]);

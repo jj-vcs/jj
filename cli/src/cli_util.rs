@@ -664,7 +664,7 @@ impl CommandHelper {
                         }
                     }
                     Ok(tx
-                        .write("reconcile divergent operations")
+                        .write("reconcile divergent operations")?
                         .leave_unpublished()
                         .operation()
                         .clone())

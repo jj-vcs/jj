@@ -152,7 +152,9 @@ impl OpStore for SimpleOpStore {
         }
 
         let path = self.views_dir().join(id.hex());
-        let buf = fs::read(path).map_err(|err| io_to_read_error(err, id))?;
+        let buf = fs::read(&path)
+            .context(&path)
+            .map_err(|err| io_to_read_error(err, id))?;
 
         let proto = crate::protos::op_store::View::decode(&*buf)
             .map_err(|err| to_read_error(err.into(), id))?;
@@ -161,18 +163,22 @@ impl OpStore for SimpleOpStore {
 
     fn write_view(&self, view: &View) -> OpStoreResult<ViewId> {
         let dir = self.views_dir();
-        let temp_file =
-            NamedTempFile::new_in(&dir).map_err(|err| io_to_write_error(err, "view"))?;
+        let temp_file = NamedTempFile::new_in(&dir)
+            .context(&dir)
+            .map_err(|err| io_to_write_error(err, "view"))?;
 
         let proto = view_to_proto(view);
         temp_file
             .as_file()
             .write_all(&proto.encode_to_vec())
+            .context(temp_file.path())
             .map_err(|err| io_to_write_error(err, "view"))?;
 
         let id = ViewId::new(blake2b_hash(view).to_vec());
 
-        persist_content_addressed_temp_file(temp_file, dir.join(id.hex()))
+        let new_path = dir.join(id.hex());
+        persist_content_addressed_temp_file(temp_file, &new_path)
+            .context(&new_path)
             .map_err(|err| io_to_write_error(err, "view"))?;
         Ok(id)
     }
@@ -183,7 +189,9 @@ impl OpStore for SimpleOpStore {
         }
 
         let path = self.operations_dir().join(id.hex());
-        let buf = fs::read(path).map_err(|err| io_to_read_error(err, id))?;
+        let buf = fs::read(&path)
+            .context(&path)
+            .map_err(|err| io_to_read_error(err, id))?;
 
         let proto = crate::protos::op_store::Operation::decode(&*buf)
             .map_err(|err| to_read_error(err.into(), id))?;
@@ -200,18 +208,22 @@ impl OpStore for SimpleOpStore {
     fn write_operation(&self, operation: &Operation) -> OpStoreResult<OperationId> {
         assert!(!operation.parents.is_empty());
         let dir = self.operations_dir();
-        let temp_file =
-            NamedTempFile::new_in(&dir).map_err(|err| io_to_write_error(err, "operation"))?;
+        let temp_file = NamedTempFile::new_in(&dir)
+            .context(&dir)
+            .map_err(|err| io_to_write_error(err, "operation"))?;
 
         let proto = operation_to_proto(operation);
         temp_file
             .as_file()
             .write_all(&proto.encode_to_vec())
+            .context(temp_file.path())
             .map_err(|err| io_to_write_error(err, "operation"))?;
 
         let id = OperationId::new(blake2b_hash(operation).to_vec());
 
-        persist_content_addressed_temp_file(temp_file, dir.join(id.hex()))
+        let new_path = dir.join(id.hex());
+        persist_content_addressed_temp_file(temp_file, &new_path)
+            .context(&new_path)
             .map_err(|err| io_to_write_error(err, "operation"))?;
         Ok(id)
     }
@@ -345,8 +357,8 @@ impl OpStore for SimpleOpStore {
     }
 }
 
-fn io_to_read_error(err: std::io::Error, id: &impl ObjectId) -> OpStoreError {
-    if err.kind() == ErrorKind::NotFound {
+fn io_to_read_error(err: PathError, id: &impl ObjectId) -> OpStoreError {
+    if err.error.kind() == ErrorKind::NotFound {
         OpStoreError::ObjectNotFound {
             object_type: id.object_type(),
             hash: id.hex(),
@@ -368,7 +380,7 @@ fn to_read_error(
     }
 }
 
-fn io_to_write_error(err: std::io::Error, object_type: &'static str) -> OpStoreError {
+fn io_to_write_error(err: PathError, object_type: &'static str) -> OpStoreError {
     OpStoreError::WriteObject {
         object_type,
         source: Box::new(err),
