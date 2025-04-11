@@ -26,6 +26,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Please report any remaining issues you have with the Git
   subprocessing path.
 
+* On macOS, config.toml files in `~/Library/Application Support/jj` are
+  deprecated; one should instead use `$XDG_CONFIG_HOME/jj`.
+
 ### New features
 
 * Color-words diff has gained [an option to compare conflict pairs without
@@ -37,6 +40,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `jj bookmark list` command.
 
 ### Fixed bugs
+
+* On macOS, jj now defaults to looking for its config in `$XDG_CONFIG_HOME`
+  rather than the more GUI-native `~/Library/Application Support`.
 
 ### Packaging changes
 
