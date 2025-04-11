@@ -16,6 +16,7 @@
 
 use std::any::Any;
 use std::collections::HashSet;
+use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::fmt::Error;
 use std::fmt::Formatter;
@@ -81,6 +82,7 @@ use crate::object_id::ObjectId;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::repo_path::RepoPathComponentBuf;
+use crate::settings::GitSettings;
 use crate::settings::UserSettings;
 use crate::stacked_table::MutableTable;
 use crate::stacked_table::ReadonlyTable;
@@ -166,6 +168,7 @@ pub struct GitBackend {
     empty_tree_id: TreeId,
     extra_metadata_store: TableStore,
     cached_extra_metadata: Mutex<Option<Arc<ReadonlyTable>>>,
+    git_executable: PathBuf,
     write_change_id_header: bool,
 }
 
@@ -177,7 +180,7 @@ impl GitBackend {
     fn new(
         base_repo: gix::ThreadSafeRepository,
         extra_metadata_store: TableStore,
-        write_change_id_header: bool,
+        git_settings: GitSettings,
     ) -> Self {
         let repo = Mutex::new(base_repo.to_thread_local());
         let root_commit_id = CommitId::from_bytes(&[0; HASH_LENGTH]);
@@ -191,7 +194,8 @@ impl GitBackend {
             empty_tree_id,
             extra_metadata_store,
             cached_extra_metadata: Mutex::new(None),
-            write_change_id_header,
+            git_executable: git_settings.executable_path,
+            write_change_id_header: git_settings.write_change_id_header,
         }
     }
 
@@ -207,12 +211,10 @@ impl GitBackend {
             gix_open_opts_from_settings(settings),
         )
         .map_err(GitBackendInitError::InitRepository)?;
-
-        let write_change_id_header = settings
+        let git_settings = settings
             .git_settings()
-            .map_err(GitBackendInitError::Config)?
-            .write_change_id_header;
-        Self::init_with_repo(store_path, git_repo_path, git_repo, write_change_id_header)
+            .map_err(GitBackendInitError::Config)?;
+        Self::init_with_repo(store_path, git_repo_path, git_repo, git_settings)
     }
 
     /// Initializes backend by creating a new Git repo at the specified
@@ -236,11 +238,10 @@ impl GitBackend {
         )
         .map_err(GitBackendInitError::InitRepository)?;
         let git_repo_path = workspace_root.join(".git");
-        let write_change_id_header = settings
+        let git_settings = settings
             .git_settings()
-            .map_err(GitBackendInitError::Config)?
-            .write_change_id_header;
-        Self::init_with_repo(store_path, &git_repo_path, git_repo, write_change_id_header)
+            .map_err(GitBackendInitError::Config)?;
+        Self::init_with_repo(store_path, &git_repo_path, git_repo, git_settings)
     }
 
     /// Initializes backend with an existing Git repo at the specified path.
@@ -260,18 +261,17 @@ impl GitBackend {
             gix_open_opts_from_settings(settings),
         )
         .map_err(GitBackendInitError::OpenRepository)?;
-        let write_change_id_header = settings
+        let git_settings = settings
             .git_settings()
-            .map_err(GitBackendInitError::Config)?
-            .write_change_id_header;
-        Self::init_with_repo(store_path, git_repo_path, git_repo, write_change_id_header)
+            .map_err(GitBackendInitError::Config)?;
+        Self::init_with_repo(store_path, git_repo_path, git_repo, git_settings)
     }
 
     fn init_with_repo(
         store_path: &Path,
         git_repo_path: &Path,
-        git_repo: gix::ThreadSafeRepository,
-        write_change_id: bool,
+        repo: gix::ThreadSafeRepository,
+        git_settings: GitSettings,
     ) -> Result<Self, Box<GitBackendInitError>> {
         let extra_path = store_path.join("extra");
         fs::create_dir(&extra_path)
@@ -298,11 +298,7 @@ impl GitBackend {
                 .map_err(GitBackendInitError::Path)?;
         };
         let extra_metadata_store = TableStore::init(extra_path, HASH_LENGTH);
-        Ok(GitBackend::new(
-            git_repo,
-            extra_metadata_store,
-            write_change_id,
-        ))
+        Ok(GitBackend::new(repo, extra_metadata_store, git_settings))
     }
 
     pub fn load(
@@ -325,15 +321,10 @@ impl GitBackend {
         )
         .map_err(GitBackendLoadError::OpenRepository)?;
         let extra_metadata_store = TableStore::load(store_path.join("extra"), HASH_LENGTH);
-        let write_change_id_header = settings
+        let git_settings = settings
             .git_settings()
-            .map_err(GitBackendLoadError::Config)?
-            .write_change_id_header;
-        Ok(GitBackend::new(
-            repo,
-            extra_metadata_store,
-            write_change_id_header,
-        ))
+            .map_err(GitBackendLoadError::Config)?;
+        Ok(GitBackend::new(repo, extra_metadata_store, git_settings))
     }
 
     fn lock_git_repo(&self) -> MutexGuard<'_, gix::Repository> {
@@ -841,8 +832,8 @@ fn recreate_no_gc_refs(
     Ok(())
 }
 
-fn run_git_gc(git_dir: &Path) -> Result<(), GitGcError> {
-    let mut git = Command::new("git");
+fn run_git_gc(program: &OsStr, git_dir: &Path) -> Result<(), GitGcError> {
+    let mut git = Command::new(program);
     git.arg("--git-dir=."); // turn off discovery
     git.arg("gc");
     // Don't specify it by GIT_DIR/--git-dir. On Windows, the path could be
@@ -1432,7 +1423,8 @@ impl Backend for GitBackend {
         // preserved by the keep_newer timestamp though)
         // TODO: remove unreachable extras table segments
         // TODO: pass in keep_newer to "git gc" command
-        run_git_gc(self.git_repo_path()).map_err(|err| BackendError::Other(err.into()))?;
+        run_git_gc(self.git_executable.as_ref(), self.git_repo_path())
+            .map_err(|err| BackendError::Other(err.into()))?;
         // Since "git gc" will move loose refs into packed refs, in-memory
         // packed-refs cache should be invalidated without relying on mtime.
         git_repo.refs.force_refresh_packed_buffer().ok();
