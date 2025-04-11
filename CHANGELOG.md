@@ -38,6 +38,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* When there are existing config.toml files, don't suggest creating a new file
+  in the config file picker.
+
 ### Packaging changes
 
 * Jujutsu now uses
