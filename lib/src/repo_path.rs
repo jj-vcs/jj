@@ -99,6 +99,12 @@ impl From<&str> for RepoPathComponentBuf {
     }
 }
 
+impl<'a> From<&'a str> for &'a RepoPathComponent {
+    fn from(value: &'a str) -> Self {
+        RepoPathComponent::new(value)
+    }
+}
+
 impl From<String> for RepoPathComponentBuf {
     fn from(value: String) -> Self {
         assert!(is_valid_repo_path_component_str(&value));

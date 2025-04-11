@@ -354,6 +354,7 @@ impl From<WorkspaceInitError> for CommandError {
                 internal_error_with_message("Failed to access the repository", err)
             }
             WorkspaceInitError::SignInit(err) => user_error(err),
+            WorkspaceInitError::ConfigGet(err) => config_error(err),
         }
     }
 }
