@@ -564,10 +564,10 @@ fn abandon_unreachable_commits(
         .intersection(&RevsetExpression::visible_heads().ancestors());
     let abandoned_commit_ids: Vec<_> = abandoned_expression
         .evaluate(mut_repo)
-        .map_err(|err| err.expect_backend_error())?
+        .map_err(|err| err.into_backend_error())?
         .iter()
         .try_collect()
-        .map_err(|err| err.expect_backend_error())?;
+        .map_err(|err| err.into_backend_error())?;
     for id in &abandoned_commit_ids {
         let commit = mut_repo.store().get_commit(id)?;
         mut_repo.record_abandoned_commit(&commit);
