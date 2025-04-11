@@ -217,7 +217,7 @@ fn union_nodes<'i>(lhs: ExpressionNode<'i>, rhs: ExpressionNode<'i>) -> Expressi
 
 fn parse_function_call_node(pair: Pair<Rule>) -> FilesetParseResult<FunctionCallNode> {
     assert_eq!(pair.as_rule(), Rule::function);
-    let (name_pair, args_pair) = pair.into_inner().collect_tuple().unwrap();
+    let [name_pair, args_pair] = pair.into_inner().collect_array().unwrap();
     assert_eq!(name_pair.as_rule(), Rule::function_name);
     assert_eq!(args_pair.as_rule(), Rule::function_arguments);
     let name_span = name_pair.as_span();
@@ -241,7 +241,7 @@ fn parse_as_string_literal(pair: Pair<Rule>) -> String {
         Rule::identifier => pair.as_str().to_owned(),
         Rule::string_literal => STRING_LITERAL_PARSER.parse(pair.into_inner()),
         Rule::raw_string_literal => {
-            let (content,) = pair.into_inner().collect_tuple().unwrap();
+            let [content] = pair.into_inner().collect_array().unwrap();
             assert_eq!(content.as_rule(), Rule::raw_string_content);
             content.as_str().to_owned()
         }
@@ -260,7 +260,7 @@ fn parse_primary_node(pair: Pair<Rule>) -> FilesetParseResult<ExpressionNode> {
             ExpressionKind::FunctionCall(function)
         }
         Rule::string_pattern => {
-            let (lhs, op, rhs) = first.into_inner().collect_tuple().unwrap();
+            let [lhs, op, rhs] = first.into_inner().collect_array().unwrap();
             assert_eq!(lhs.as_rule(), Rule::strict_identifier);
             assert_eq!(op.as_rule(), Rule::pattern_kind_op);
             let kind = lhs.as_str();
@@ -332,7 +332,7 @@ pub fn parse_program_or_bare_string(text: &str) -> FilesetParseResult<Expression
     let expr = match first.as_rule() {
         Rule::expression => return parse_expression_node(first),
         Rule::bare_string_pattern => {
-            let (lhs, op, rhs) = first.into_inner().collect_tuple().unwrap();
+            let [lhs, op, rhs] = first.into_inner().collect_array().unwrap();
             assert_eq!(lhs.as_rule(), Rule::strict_identifier);
             assert_eq!(op.as_rule(), Rule::pattern_kind_op);
             assert_eq!(rhs.as_rule(), Rule::bare_string);

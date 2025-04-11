@@ -459,7 +459,7 @@ fn parse_ref_pushes(stdout: &[u8]) -> Result<GitPushStats, GitSubprocessError> {
         .enumerate()
     {
         tracing::debug!("response #{idx}: {}", line.to_str_lossy());
-        let (flag, reference, summary) = line.split_str("\t").collect_tuple().ok_or_else(|| {
+        let [flag, reference, summary] = line.split_str("\t").collect_array().ok_or_else(|| {
             GitSubprocessError::External(format!(
                 "Line #{idx} of git-push has unknown format: {}",
                 line.to_str_lossy()

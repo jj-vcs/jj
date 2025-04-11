@@ -471,7 +471,7 @@ pub fn parse_program(revset_str: &str) -> Result<ExpressionNode, RevsetParseErro
     match first.as_rule() {
         Rule::expression => parse_expression_node(first.into_inner()),
         Rule::program_modifier => {
-            let (lhs, op) = first.into_inner().collect_tuple().unwrap();
+            let [lhs, op] = first.into_inner().collect_array().unwrap();
             let rhs = pairs.next().unwrap();
             assert_eq!(lhs.as_rule(), Rule::strict_identifier);
             assert_eq!(op.as_rule(), Rule::pattern_kind_op);
@@ -632,7 +632,7 @@ fn parse_primary_node(pair: Pair<Rule>) -> Result<ExpressionNode, RevsetParseErr
             ExpressionKind::FunctionCall(function)
         }
         Rule::string_pattern => {
-            let (lhs, op, rhs) = first.into_inner().collect_tuple().unwrap();
+            let [lhs, op, rhs] = first.into_inner().collect_array().unwrap();
             assert_eq!(lhs.as_rule(), Rule::strict_identifier);
             assert_eq!(op.as_rule(), Rule::pattern_kind_op);
             let kind = lhs.as_str();
@@ -674,7 +674,7 @@ fn parse_as_string_literal(pair: Pair<Rule>) -> String {
         Rule::identifier => pair.as_str().to_owned(),
         Rule::string_literal => STRING_LITERAL_PARSER.parse(pair.into_inner()),
         Rule::raw_string_literal => {
-            let (content,) = pair.into_inner().collect_tuple().unwrap();
+            let [content] = pair.into_inner().collect_array().unwrap();
             assert_eq!(content.as_rule(), Rule::raw_string_content);
             content.as_str().to_owned()
         }
@@ -722,7 +722,7 @@ impl AliasDeclarationParser for RevsetAliasParser {
         match first.as_rule() {
             Rule::strict_identifier => Ok(AliasDeclaration::Symbol(first.as_str().to_owned())),
             Rule::function_alias_declaration => {
-                let (name_pair, params_pair) = first.into_inner().collect_tuple().unwrap();
+                let [name_pair, params_pair] = first.into_inner().collect_array().unwrap();
                 assert_eq!(name_pair.as_rule(), Rule::function_name);
                 assert_eq!(params_pair.as_rule(), Rule::formal_parameters);
                 let name = name_pair.as_str().to_owned();

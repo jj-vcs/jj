@@ -170,7 +170,7 @@ fn test_duplicate_linear_contents() {
         stats.duplicated_commits[commit_b.id()].tree_id(),
         &tree_1_2.id()
     );
-    let (head_id,) = tx.repo().view().heads().iter().collect_tuple().unwrap();
+    let [head_id] = tx.repo().view().heads().iter().collect_array().unwrap();
     assert_ne!(head_id, commit_e.id());
     assert_eq!(
         tx.repo().store().get_commit(head_id).unwrap().tree_id(),
