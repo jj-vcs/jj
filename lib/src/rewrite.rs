@@ -42,6 +42,7 @@ use crate::merged_tree::TreeDiffEntry;
 use crate::repo::MutableRepo;
 use crate::repo::Repo;
 use crate::repo_path::RepoPath;
+use crate::revset::ResolvedRevsetExpression;
 use crate::revset::RevsetExpression;
 use crate::revset::RevsetIteratorExt as _;
 use crate::store::Store;
@@ -220,9 +221,9 @@ impl<'repo> CommitRewriter<'repo> {
 
     /// Rebase the old commit onto the new parents. Returns a `CommitBuilder`
     /// for the new commit. Returns `None` if the commit was abandoned.
-    pub fn rebase_with_empty_behavior(
+    pub fn rebase_with_abandon_options(
         self,
-        empty: EmptyBehaviour,
+        abandon: &AbandonOptions,
     ) -> BackendResult<Option<CommitBuilder<'repo>>> {
         let old_parents: Vec<_> = self.old_commit.parents().try_collect()?;
         let old_parent_trees = old_parents
@@ -243,14 +244,19 @@ impl<'repo> CommitRewriter<'repo> {
             (
                 // Optimization: was_empty is only used for newly empty, but when the
                 // parents haven't changed it can't be newly empty.
+                // TODO: consider what should happen here with abandoning divergent commits
                 true,
                 // Optimization: Skip merging.
                 self.old_commit.tree_id().clone(),
             )
         } else {
             let old_base_tree = merge_commit_trees(self.mut_repo, &old_parents)?;
-            let new_base_tree = merge_commit_trees(self.mut_repo, &new_parents)?;
             let old_tree = self.old_commit.tree()?;
+            if self.should_abandon_divergent(&old_base_tree, &old_tree, abandon.divergent)? {
+                self.abandon();
+                return Ok(None);
+            }
+            let new_base_tree = merge_commit_trees(self.mut_repo, &new_parents)?;
             (
                 old_base_tree.id() == *self.old_commit.tree_id(),
                 new_base_tree.merge(&old_base_tree, &old_tree)?.id(),
@@ -259,7 +265,7 @@ impl<'repo> CommitRewriter<'repo> {
         // Ensure we don't abandon commits with multiple parents (merge commits), even
         // if they're empty.
         if let [parent] = &new_parents[..] {
-            let should_abandon = match empty {
+            let should_abandon = match abandon.empty {
                 EmptyBehaviour::Keep => false,
                 EmptyBehaviour::AbandonNewlyEmpty => *parent.tree_id() == new_tree_id && !was_empty,
                 EmptyBehaviour::AbandonAllEmpty => *parent.tree_id() == new_tree_id,
@@ -278,10 +284,59 @@ impl<'repo> CommitRewriter<'repo> {
         Ok(Some(builder))
     }
 
+    fn should_abandon_divergent(
+        &self,
+        old_base_tree: &MergedTree,
+        old_tree: &MergedTree,
+        divergent: DivergentBehaviour,
+    ) -> BackendResult<bool> {
+        if self.new_parents.len() != 1 || divergent == DivergentBehaviour::Keep {
+            return Ok(false);
+        }
+        // Find all commits with the same change ID as the commit being rebased.
+        // Looking at the base repo ensures we only consider commits that existed before
+        // the rebase. If we used the mutable repo directly, then we might abandon a
+        // commit due to an existing duplicate ancestor, which could be unexpected.
+        let mut candidate_duplicates = self
+            .mut_repo
+            .base_repo()
+            .resolve_change_id(self.old_commit.change_id())
+            .unwrap_or_default();
+        candidate_duplicates.retain(|commit| commit != self.old_commit.id());
+        // If no other commits have the same change ID (i.e. the commit isn't
+        // divergent), then there's no need to abandon anything.
+        if candidate_duplicates.is_empty() {
+            return Ok(false);
+        }
+
+        // We only care about commits which previously weren't ancestors of the rebased
+        // commit, but will become ancestors after the rebase.
+        let candidate_duplicates = ResolvedRevsetExpression::commits(candidate_duplicates)
+            .intersection(
+                &ResolvedRevsetExpression::commit(self.old_commit.id().clone())
+                    .range(&ResolvedRevsetExpression::commits(self.new_parents.clone())),
+            )
+            .evaluate(self.mut_repo)
+            .map_err(|err| BackendError::Other(Box::new(err)))?;
+
+        // Check whether any candidate commit has the same changes as the commits being
+        // rebased. If so, it is a duplicate and can be skipped.
+        for candidate_id in candidate_duplicates.iter() {
+            let candidate_id = candidate_id.map_err(|err| BackendError::Other(Box::new(err)))?;
+            let candidate = self.mut_repo.store().get_commit(&candidate_id)?;
+            let new_base_tree = candidate.parent_tree(self.mut_repo)?;
+            let new_tree = new_base_tree.merge(old_base_tree, old_tree)?;
+            if new_tree.id() == *candidate.tree_id() {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
     /// Rebase the old commit onto the new parents. Returns a `CommitBuilder`
     /// for the new commit.
     pub fn rebase(self) -> BackendResult<CommitBuilder<'repo>> {
-        let builder = self.rebase_with_empty_behavior(EmptyBehaviour::Keep)?;
+        let builder = self.rebase_with_abandon_options(&AbandonOptions::keep_all())?;
         Ok(builder.unwrap())
     }
 
@@ -317,7 +372,7 @@ pub fn rebase_commit_with_options(
         _ => None,
     };
     let new_parents_len = rewriter.new_parents.len();
-    if let Some(builder) = rewriter.rebase_with_empty_behavior(options.empty)? {
+    if let Some(builder) = rewriter.rebase_with_abandon_options(&options.abandon)? {
         let new_commit = builder.write()?;
         Ok(RebasedCommit::Rewritten(new_commit))
     } else {
@@ -364,6 +419,18 @@ pub enum EmptyBehaviour {
     AbandonAllEmpty,
 }
 
+#[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]
+pub enum DivergentBehaviour {
+    /// Always keep divergent commits
+    #[default]
+    Keep,
+    /// Skips divergent commits whenever they are rebased to become a descendent
+    /// of a commit with the same change ID, but only if the two commits have
+    /// the same diff.
+    /// Will never skip merge commits with multiple non-skipped parents.
+    AbandonIdenticalDuplicates,
+}
+
 /// Controls the configuration of a rebase.
 // If we wanted to add a flag similar to `git rebase --ignore-date`, then this
 // makes it much easier by ensuring that the only changes required are to
@@ -372,11 +439,26 @@ pub enum EmptyBehaviour {
 // plumb it in.
 #[derive(Clone, Debug, Default)]
 pub struct RebaseOptions {
-    pub empty: EmptyBehaviour,
+    pub abandon: AbandonOptions,
     pub rewrite_refs: RewriteRefsOptions,
     /// If a merge commit would end up with one parent being an ancestor of the
     /// other, then filter out the ancestor.
     pub simplify_ancestor_merge: bool,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct AbandonOptions {
+    pub empty: EmptyBehaviour,
+    pub divergent: DivergentBehaviour,
+}
+
+impl AbandonOptions {
+    pub fn keep_all() -> Self {
+        AbandonOptions {
+            empty: EmptyBehaviour::Keep,
+            divergent: DivergentBehaviour::Keep,
+        }
+    }
 }
 
 /// Configuration for [`MutableRepo::update_rewritten_references()`].
@@ -708,7 +790,7 @@ pub fn move_commits(
 
     // Always keep empty commits when rebasing descendants.
     let rebase_descendant_options = &RebaseOptions {
-        empty: EmptyBehaviour::Keep,
+        abandon: AbandonOptions::keep_all(),
         rewrite_refs: options.rewrite_refs.clone(),
         simplify_ancestor_merge: options.simplify_ancestor_merge,
     };

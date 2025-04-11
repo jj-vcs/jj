@@ -27,6 +27,8 @@ use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetIteratorExt as _;
 use jj_lib::rewrite::move_commits;
+use jj_lib::rewrite::AbandonOptions;
+use jj_lib::rewrite::DivergentBehaviour;
 use jj_lib::rewrite::EmptyBehaviour;
 use jj_lib::rewrite::MoveCommitsStats;
 use jj_lib::rewrite::MoveCommitsTarget;
@@ -325,6 +327,14 @@ pub(crate) struct RebaseArgs {
     /// parents.
     #[arg(long)]
     skip_emptied: bool,
+
+    /// Keep divergent commits from being skipped while rebasing
+    ///
+    /// Without this flag, divergent commits are abandoned when they are rebased
+    /// to become descendents of another commit with the same change ID if both
+    /// commits contain the same changes.
+    #[arg(long)]
+    keep_divergent: bool,
 }
 
 #[derive(clap::Args, Clone, Debug)]
@@ -376,9 +386,15 @@ pub(crate) fn cmd_rebase(
     }
 
     let rebase_options = RebaseOptions {
-        empty: match args.skip_emptied {
-            true => EmptyBehaviour::AbandonNewlyEmpty,
-            false => EmptyBehaviour::Keep,
+        abandon: AbandonOptions {
+            empty: match args.skip_emptied {
+                true => EmptyBehaviour::AbandonNewlyEmpty,
+                false => EmptyBehaviour::Keep,
+            },
+            divergent: match args.keep_divergent {
+                true => DivergentBehaviour::Keep,
+                false => DivergentBehaviour::AbandonIdenticalDuplicates,
+            },
         },
         rewrite_refs: RewriteRefsOptions {
             delete_abandoned_bookmarks: false,
@@ -674,6 +690,7 @@ fn print_move_commits_stats(ui: &Ui, stats: &MoveCommitsStats) -> std::io::Resul
         )?;
     }
     if num_abandoned > 0 {
+        // TODO: add better message for divergent commits?
         writeln!(formatter, "Abandoned {num_abandoned} newly emptied commits")?;
     }
     Ok(())
