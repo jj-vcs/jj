@@ -464,7 +464,7 @@
                 "sign-on-push": {
                     "type": "boolean",
                     "description": "Whether jj should sign commits before pushing",
-                    "default": "false"
+                    "default": false
                 },
                 "subprocess": {
                     "type": "boolean",
@@ -627,7 +627,7 @@
                 "auto-update-stale": {
                     "type": "boolean",
                     "description": "Whether to automatically update the working copy if it is stale. See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy",
-                    "default": "false"
+                    "default": false
                 },
                 "max-new-file-size": {
                     "type": [
