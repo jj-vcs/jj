@@ -19,6 +19,7 @@ use indoc::indoc;
 use regex::Regex;
 
 use crate::common::fake_editor_path;
+use crate::common::force_interactive;
 use crate::common::to_toml_value;
 use crate::common::TestEnvironment;
 
@@ -948,6 +949,73 @@ fn test_config_edit_repo() {
         PathBuf::from(std::fs::read_to_string(test_env.env_root().join("path")).unwrap());
     assert_eq!(edited_path, dunce::simplified(&repo_config_path));
     assert!(repo_config_path.exists(), "new file should be created");
+}
+
+#[test]
+fn test_config_edit_invalid_config() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+
+    // Test re-edit
+    std::fs::write(
+        &edit_script,
+        "write\ninvalid config here\0next invocation\n\0write\ntest=\"success\"",
+    )
+    .unwrap();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["config", "edit", "--repo"])
+            .write_stdin("Y\n")
+    });
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: An error has been found inside the config:
+    Caused by:
+    1: Configuration cannot be parsed as TOML document
+    2: TOML parse error at line 1, column 9
+      |
+    1 | invalid config here
+      |         ^
+    expected `.`, `=`
+
+    Do you want to keep editing the file? If not, previous config will be restored. (Yn): [EOF]
+    ");
+
+    let output = work_dir.run_jj(["config", "get", "test"]);
+    insta::assert_snapshot!(output, @r"
+    success
+    [EOF]"
+    );
+
+    // Test the restore previous config
+    std::fs::write(&edit_script, "write\ninvalid config here").unwrap();
+    let work_dir = test_env.work_dir("repo");
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["config", "edit", "--repo"])
+            .write_stdin("n\n")
+    });
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: An error has been found inside the config:
+    Caused by:
+    1: Configuration cannot be parsed as TOML document
+    2: TOML parse error at line 1, column 9
+      |
+    1 | invalid config here
+      |         ^
+    expected `.`, `=`
+
+    Do you want to keep editing the file? If not, previous config will be restored. (Yn): [EOF]
+    ");
+
+    let output = work_dir.run_jj(["config", "get", "test"]);
+    insta::assert_snapshot!(output, @r"
+    success
+    [EOF]"
+    );
 }
 
 #[test]
