@@ -2427,6 +2427,62 @@ fn test_rebase_duplicates() {
     ");
 }
 
+#[test]
+fn test_duplicate_description_template() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    create_commit(&work_dir, "a", &[]);
+    create_commit(&work_dir, "b", &[]);
+    create_commit(&work_dir, "c", &["a", "b"]);
+
+    // Test the setup
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @    17a00fc21654   c
+    ├─╮
+    │ ○  d370aee184ba   b
+    ○ │  2443ea76b0b1   a
+    ├─╯
+    ◆  000000000000
+    [EOF]
+    ");
+
+    test_env.add_config(r#"templates.duplicate_description = "concat(description, '\n(cherry-picked from commit ', commit_id, ')')""#);
+    let output = work_dir.run_jj(["duplicate", "a"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Duplicated 2443ea76b0b1 as yostqsxw b8771261 a
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @    17a00fc21654   c
+    ├─╮
+    │ ○  d370aee184ba   b
+    ○ │  2443ea76b0b1   a
+    ├─╯
+    │ ○  b87712611d0f   a
+    ├─╯
+    ◆  000000000000
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["show", "--summary", "b8"]);
+    insta::assert_snapshot!(output, @r"
+    Commit ID: b87712611d0fea7693cddb93b18ab1e1542b530f
+    Change ID: yostqsxwqrltovqlrlzszywzslusmuup
+    Author   : Test User <test.user@example.com> (2001-02-03 08:05:08)
+    Committer: Test User <test.user@example.com> (2001-02-03 08:05:15)
+
+        a
+
+        (cherry-picked from commit 2443ea76b0b1c531326908326aab7020abab8e6c)
+
+    A a
+    [EOF]
+    ");
+}
+
 #[must_use]
 fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     let template = r#"commit_id.short() ++ "   " ++ description.first_line()"#;

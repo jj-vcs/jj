@@ -12,8 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::HashMap;
 use std::io::Write as _;
 
+use bstr::ByteVec as _;
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
@@ -30,6 +32,7 @@ use crate::cli_util::RevisionArg;
 use crate::command_error::user_error;
 use crate::command_error::CommandError;
 use crate::complete;
+use crate::formatter::PlainTextFormatter;
 use crate::ui::Ui;
 
 /// Create new changes with the same content as existing ones
@@ -45,6 +48,9 @@ use crate::ui::Ui;
 /// `--insert-after` or `--insert-before` arguments are provided, the new
 /// children indicated by the arguments will be rebased onto the heads of the
 /// specified commits.
+///
+/// The descriptions of the duplicated commits can be customized with the
+/// `templates.duplicate_description`.
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct DuplicateArgs {
     /// The revision(s) to duplicate (default: @)
@@ -164,6 +170,26 @@ pub(crate) fn cmd_duplicate(
             }
         }
     }
+    let mut new_descs = HashMap::new();
+    if let Some(template) = tx
+        .settings()
+        .get_string("templates.duplicate_description")
+        .ok()
+        .filter(|t| !String::is_empty(t))
+    {
+        let parsed = tx.parse_commit_template(ui, &template)?;
+
+        for commit_id in &to_duplicate {
+            let mut output = Vec::new();
+            let commit = tx.repo().store().get_commit(commit_id)?;
+            parsed
+                .format(&commit, &mut PlainTextFormatter::new(&mut output))
+                .expect("write() to vec backed formatter should never fail");
+
+            new_descs.insert(commit_id.clone(), output.into_string_lossy());
+        }
+    }
+
     let num_to_duplicate = to_duplicate.len();
     let DuplicateCommitsStats {
         duplicated_commits,
@@ -172,11 +198,12 @@ pub(crate) fn cmd_duplicate(
         duplicate_commits(
             tx.repo_mut(),
             &to_duplicate,
+            &new_descs,
             &parent_commit_ids,
             &children_commit_ids,
         )?
     } else {
-        duplicate_commits_onto_parents(tx.repo_mut(), &to_duplicate)?
+        duplicate_commits_onto_parents(tx.repo_mut(), &to_duplicate, &new_descs)?
     };
 
     if let Some(mut formatter) = ui.status_formatter() {
