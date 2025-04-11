@@ -471,7 +471,7 @@ fn parse_term_node(pair: Pair<Rule>) -> TemplateParseResult<ExpressionNode> {
             ExpressionNode::new(ExpressionKind::String(text), span)
         }
         Rule::raw_string_literal => {
-            let (content,) = expr.into_inner().collect_tuple().unwrap();
+            let [content] = expr.into_inner().collect_array().unwrap();
             assert_eq!(content.as_rule(), Rule::raw_string_content);
             let text = content.as_str().to_owned();
             ExpressionNode::new(ExpressionKind::String(text), span)

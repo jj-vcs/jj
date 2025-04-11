@@ -89,7 +89,7 @@ where
         // TODO: Consider removing this special case, making the algorithm more strict,
         // and maybe add a more lenient version that is used when the user explicitly
         // asks for conflict resolution.
-        let ((value1, count1), (value2, count2)) = counts.into_iter().next_tuple().unwrap();
+        let [(value1, count1), (value2, count2)] = counts.into_iter().next_array().unwrap();
         assert_eq!(count1 + count2, 1);
         if count1 > 0 {
             Some(value1)

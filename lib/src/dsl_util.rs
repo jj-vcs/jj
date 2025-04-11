@@ -475,7 +475,7 @@ impl<R: RuleType> FunctionCallParser<R> {
         parse_name: impl Fn(Pair<'i, R>) -> Result<&'i str, E>,
         parse_value: impl Fn(Pair<'i, R>) -> Result<ExpressionNode<'i, T>, E>,
     ) -> Result<FunctionCallNode<'i, T>, E> {
-        let (name_pair, args_pair) = pair.into_inner().collect_tuple().unwrap();
+        let [name_pair, args_pair] = pair.into_inner().collect_array().unwrap();
         assert_eq!(name_pair.as_rule(), self.function_name_rule);
         assert_eq!(args_pair.as_rule(), self.function_arguments_rule);
         let name_span = name_pair.as_span();
@@ -496,7 +496,7 @@ impl<R: RuleType> FunctionCallParser<R> {
                 }
                 args.push(parse_value(pair)?);
             } else if pair.as_rule() == self.keyword_argument_rule {
-                let (name_pair, value_pair) = pair.into_inner().collect_tuple().unwrap();
+                let [name_pair, value_pair] = pair.into_inner().collect_array().unwrap();
                 assert_eq!(name_pair.as_rule(), self.argument_name_rule);
                 assert_eq!(value_pair.as_rule(), self.argument_value_rule);
                 let name_span = name_pair.as_span();

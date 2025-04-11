@@ -796,7 +796,7 @@ fn test_op_abandon_multiple_heads() {
     let output = work_dir
         .run_jj(["op", "log", "--no-graph", r#"-Tid.short() ++ "\n""#])
         .success();
-    let (head_op_id, prev_op_id) = output.stdout.raw().lines().next_tuple().unwrap();
+    let [head_op_id, prev_op_id] = output.stdout.raw().lines().next_array().unwrap();
     insta::assert_snapshot!(head_op_id, @"b0711a8ac91f");
     insta::assert_snapshot!(prev_op_id, @"116edde65ded");
 
@@ -893,7 +893,7 @@ fn test_op_recover_from_bad_gc() {
     let output = work_dir
         .run_jj(["op", "log", "--no-graph", r#"-Tid.short() ++ "\n""#])
         .success();
-    let (head_op_id, _, _, bad_op_id) = output.stdout.raw().lines().next_tuple().unwrap();
+    let [head_op_id, _, _, bad_op_id] = output.stdout.raw().lines().next_array().unwrap();
     insta::assert_snapshot!(head_op_id, @"f999e12a5d8b");
     insta::assert_snapshot!(bad_op_id, @"e7377e6a642b");
 
@@ -1696,8 +1696,8 @@ fn test_op_diff_sibling() {
     let output = work_dir
         .run_jj(["op", "log", "--no-graph", r#"-Tid.short() ++ "\n""#])
         .success();
-    let (head_op_id, p1_op_id, _, _, _, _, p2_op_id) =
-        output.stdout.raw().lines().next_tuple().unwrap();
+    let [head_op_id, p1_op_id, _, _, _, _, p2_op_id] =
+        output.stdout.raw().lines().next_array().unwrap();
     insta::assert_snapshot!(head_op_id, @"779ecb7ea7f0");
     insta::assert_snapshot!(p1_op_id, @"d700dc16fded");
     insta::assert_snapshot!(p2_op_id, @"13b143e1f4f9");
