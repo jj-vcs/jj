@@ -288,6 +288,7 @@
                 "fsmonitor": {
                     "type": "string",
                     "enum": ["none", "watchman"],
+                    "default": "none",
                     "description": "Whether to use an external filesystem monitor, useful for large repos"
                 },
                 "watchman": {
