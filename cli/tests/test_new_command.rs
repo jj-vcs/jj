@@ -705,6 +705,36 @@ fn test_new_error_revision_does_not_exist() {
     ");
 }
 
+#[test]
+fn test_new_with_trailers() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["describe", "-m", "one"]).success();
+
+    test_env.add_config(
+        r#"[templates]
+        commit_trailers = '"Signed-off-by: " ++ committer.email()'
+        "#,
+    );
+    work_dir.run_jj(["new", "-m", "two"]).success();
+
+    let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
+    insta::assert_snapshot!(output, @r"
+    two
+
+    Signed-off-by: test.user@example.com
+    [EOF]
+    ");
+
+    // new without message has no trailer
+    work_dir.run_jj(["new"]).success();
+
+    let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
+    insta::assert_snapshot!(output, @"");
+}
+
 fn setup_before_insertion(work_dir: &TestWorkDir) {
     work_dir
         .run_jj(["bookmark", "create", "-r@", "A"])
