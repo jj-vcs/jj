@@ -39,6 +39,7 @@ chrono = { version = "0.4.40", default-features = false, features = [
 clru = "0.6.2"
 criterion = "0.5.1"
 crossterm = { version = "0.28", default-features = false, features = ["windows"] }
+datatest-stable = "0.3.2"
 digest = "0.10.7"
 dirs = "6.0.0"
 dunce = "1.0.5"

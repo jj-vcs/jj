@@ -1,0 +1,12 @@
+#:schema ../../../src/config-schema.json
+[git]
+auto-local-bookmark = true
+abandon-unreachable-commits = false
+push-bookmark-prefix = ""
+push-new-bookmarks = true
+fetch = ["origin", "fork"]
+push = "fork"
+sign-on-push = true
+subprocess = false
+write-change-id-header = true
+executable-path = "/home/linus/.local/bin/git"

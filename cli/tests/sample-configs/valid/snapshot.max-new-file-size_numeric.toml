@@ -1,0 +1,3 @@
+#:schema ../../../src/config-schema.json
+[snapshot]
+max-new-file-size = 0
