@@ -16,6 +16,7 @@
 
 use std::any::Any;
 use std::collections::HashSet;
+use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::fmt::Error;
 use std::fmt::Formatter;
@@ -167,6 +168,7 @@ pub struct GitBackend {
     empty_tree_id: TreeId,
     extra_metadata_store: TableStore,
     cached_extra_metadata: Mutex<Option<Arc<ReadonlyTable>>>,
+    git_executable: PathBuf,
     write_change_id_header: bool,
 }
 
@@ -192,6 +194,7 @@ impl GitBackend {
             empty_tree_id,
             extra_metadata_store,
             cached_extra_metadata: Mutex::new(None),
+            git_executable: git_settings.executable_path,
             write_change_id_header: git_settings.write_change_id_header,
         }
     }
@@ -829,8 +832,8 @@ fn recreate_no_gc_refs(
     Ok(())
 }
 
-fn run_git_gc(git_dir: &Path) -> Result<(), GitGcError> {
-    let mut git = Command::new("git");
+fn run_git_gc(program: &OsStr, git_dir: &Path) -> Result<(), GitGcError> {
+    let mut git = Command::new(program);
     git.arg("--git-dir=."); // turn off discovery
     git.arg("gc");
     // Don't specify it by GIT_DIR/--git-dir. On Windows, the path could be
@@ -1420,7 +1423,8 @@ impl Backend for GitBackend {
         // preserved by the keep_newer timestamp though)
         // TODO: remove unreachable extras table segments
         // TODO: pass in keep_newer to "git gc" command
-        run_git_gc(self.git_repo_path()).map_err(|err| BackendError::Other(err.into()))?;
+        run_git_gc(self.git_executable.as_ref(), self.git_repo_path())
+            .map_err(|err| BackendError::Other(err.into()))?;
         // Since "git gc" will move loose refs into packed refs, in-memory
         // packed-refs cache should be invalidated without relying on mtime.
         git_repo.refs.force_refresh_packed_buffer().ok();
