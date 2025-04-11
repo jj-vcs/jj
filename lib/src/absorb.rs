@@ -338,8 +338,9 @@ fn to_file_value(value: MaterializedTreeValue) -> Result<Option<MaterializedFile
         MaterializedTreeValue::AccessDenied(err) => Err(format!("Access is denied: {err}")),
         MaterializedTreeValue::File(file) => Ok(Some(file)),
         MaterializedTreeValue::Symlink { .. } => Err("Is a symlink".into()),
-        MaterializedTreeValue::FileConflict { .. }
-        | MaterializedTreeValue::OtherConflict { .. } => Err("Is a conflict".into()),
+        MaterializedTreeValue::FileConflict(_) | MaterializedTreeValue::OtherConflict { .. } => {
+            Err("Is a conflict".into())
+        }
         MaterializedTreeValue::GitSubmodule(_) => Err("Is a Git submodule".into()),
         MaterializedTreeValue::Tree(_) => panic!("diff should not contain trees"),
     }

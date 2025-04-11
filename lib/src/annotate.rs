@@ -363,9 +363,10 @@ fn get_file_contents(
     let effective_file_value = materialize_tree_value(store, path, file_value).block_on()?;
     match effective_file_value {
         MaterializedTreeValue::File(mut file) => Ok(file.read_all(path)?.into()),
-        MaterializedTreeValue::FileConflict { contents, .. } => Ok(
-            materialize_merge_result_to_bytes(&contents, ConflictMarkerStyle::default()),
-        ),
+        MaterializedTreeValue::FileConflict(file) => Ok(materialize_merge_result_to_bytes(
+            &file.contents,
+            ConflictMarkerStyle::default(),
+        )),
         _ => Ok(BString::default()),
     }
 }

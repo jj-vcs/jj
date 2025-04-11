@@ -165,12 +165,9 @@ fn read_file_contents(
             item: "git submodule",
             id: id.hex(),
         }),
-        MaterializedTreeValue::FileConflict {
-            id: _,
-            contents,
-            executable: _,
-        } => {
-            let buf = materialize_merge_result_to_bytes(&contents, conflict_marker_style).into();
+        MaterializedTreeValue::FileConflict(file) => {
+            let buf =
+                materialize_merge_result_to_bytes(&file.contents, conflict_marker_style).into();
             // TODO: Render the ID somehow?
             let contents = buf_to_file_contents(None, buf);
             Ok(FileInfo {
@@ -570,7 +567,7 @@ fn make_merge_sections(
 fn make_merge_file(
     merge_tool_file: &MergeToolFile,
 ) -> Result<scm_record::File<'static>, BuiltinToolError> {
-    let merge_result = files::merge_hunks(&merge_tool_file.simplified_file_content);
+    let merge_result = files::merge_hunks(&merge_tool_file.file.contents);
     let sections = make_merge_sections(merge_result)?;
     Ok(scm_record::File {
         old_path: None,

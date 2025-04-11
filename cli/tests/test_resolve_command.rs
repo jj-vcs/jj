@@ -844,12 +844,11 @@ fn test_file_vs_dir() {
     ------- stderr -------
     Hint: Using default editor ':builtin'; run `jj config set --user ui.merge-editor :builtin` to disable this message.
     Error: Failed to resolve conflicts
-    Caused by: Only conflicts that involve normal files (not symlinks, not executable, etc.) are supported. Conflict summary for "file":
+    Caused by: Only conflicts that involve normal files (not symlinks, etc.) are supported. Conflict summary for "file":
     Conflict:
       Removing file with id df967b96a579e45a18b8251732d16804b2e56a55
       Adding file with id 78981922613b2afb6025042ff6bd878ac1994e85
       Adding tree with id 133bb38fc4e4bf6b551f1f04db7e48f04cac2877
-
     [EOF]
     [exit status: 1]
     "#);
@@ -898,13 +897,12 @@ fn test_description_with_dir_and_deletion() {
     ------- stderr -------
     Hint: Using default editor ':builtin'; run `jj config set --user ui.merge-editor :builtin` to disable this message.
     Error: Failed to resolve conflicts
-    Caused by: Only conflicts that involve normal files (not symlinks, not executable, etc.) are supported. Conflict summary for "file":
+    Caused by: Only conflicts that involve normal files (not symlinks, etc.) are supported. Conflict summary for "file":
     Conflict:
       Removing file with id df967b96a579e45a18b8251732d16804b2e56a55
       Removing file with id df967b96a579e45a18b8251732d16804b2e56a55
       Adding file with id 61780798228d17af2d34fce4cfbdf35556832472
       Adding tree with id 133bb38fc4e4bf6b551f1f04db7e48f04cac2877
-
     [EOF]
     [exit status: 1]
     "#);

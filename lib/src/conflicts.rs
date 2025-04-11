@@ -135,20 +135,9 @@ pub enum MaterializedTreeValue {
     Absent,
     AccessDenied(Box<dyn std::error::Error + Send + Sync>),
     File(MaterializedFileValue),
-    Symlink {
-        id: SymlinkId,
-        target: String,
-    },
-    FileConflict {
-        id: Merge<Option<FileId>>,
-        // TODO: or Vec<(FileId, Box<dyn Read>)> so that caller can stop reading
-        // when null bytes found?
-        contents: Merge<BString>,
-        executable: bool,
-    },
-    OtherConflict {
-        id: MergedTreeValue,
-    },
+    Symlink { id: SymlinkId, target: String },
+    FileConflict(MaterializedFileConflictValue),
+    OtherConflict { id: MergedTreeValue },
     GitSubmodule(CommitId),
     Tree(TreeId),
 }
@@ -184,6 +173,20 @@ impl MaterializedFileValue {
             })?;
         Ok(buf)
     }
+}
+
+/// Conflicted [`TreeValue::File`]s with file contents.
+pub struct MaterializedFileConflictValue {
+    /// File ids which preserve the shape of the tree conflict, to be used with
+    /// [`Merge::update_from_simplified()`].
+    pub unsimplified_ids: Merge<Option<FileId>>,
+    /// Simplified file ids, in which redundant id pairs are dropped.
+    pub ids: Merge<Option<FileId>>,
+    /// File contents corresponding to the simplified `ids`.
+    // TODO: or Vec<(FileId, Box<dyn Read>)> so that caller can stop reading
+    // when null bytes found?
+    pub contents: Merge<BString>,
+    pub executable: bool,
 }
 
 /// Reads the data associated with a `MergedTreeValue` so it can be written to
@@ -225,24 +228,36 @@ async fn materialize_tree_value_no_access_denied(
         Ok(Some(TreeValue::Conflict(_))) => {
             panic!("cannot materialize legacy conflict object at path {path:?}");
         }
-        Err(conflict) => {
-            let Some(file_merge) = conflict.to_file_merge() else {
-                return Ok(MaterializedTreeValue::OtherConflict { id: conflict });
-            };
-            let file_merge = file_merge.simplify();
-            let contents = extract_as_single_hunk(&file_merge, store, path).await?;
-            let executable = if let Some(merge) = conflict.to_executable_merge() {
-                merge.resolve_trivial().copied().unwrap_or_default()
-            } else {
-                false
-            };
-            Ok(MaterializedTreeValue::FileConflict {
-                id: file_merge,
-                contents,
-                executable,
-            })
-        }
+        Err(conflict) => match try_materialize_file_conflict_value(store, path, &conflict).await? {
+            Some(file) => Ok(MaterializedTreeValue::FileConflict(file)),
+            None => Ok(MaterializedTreeValue::OtherConflict { id: conflict }),
+        },
     }
+}
+
+/// Suppose `conflict` contains only files or absent entries, reads the file
+/// contents.
+pub async fn try_materialize_file_conflict_value(
+    store: &Store,
+    path: &RepoPath,
+    conflict: &MergedTreeValue,
+) -> BackendResult<Option<MaterializedFileConflictValue>> {
+    let Some(unsimplified_ids) = conflict.to_file_merge() else {
+        return Ok(None);
+    };
+    let ids = unsimplified_ids.clone().simplify();
+    let contents = extract_as_single_hunk(&ids, store, path).await?;
+    let executable = if let Some(merge) = conflict.to_executable_merge() {
+        merge.resolve_trivial().copied().unwrap_or_default()
+    } else {
+        false
+    };
+    Ok(Some(MaterializedFileConflictValue {
+        unsimplified_ids,
+        ids,
+        contents,
+        executable,
+    }))
 }
 
 /// Describes what style should be used when materializing conflicts.
