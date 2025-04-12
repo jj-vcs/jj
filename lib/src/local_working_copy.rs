@@ -116,10 +116,34 @@ use crate::working_copy::WorkingCopy;
 use crate::working_copy::WorkingCopyFactory;
 use crate::working_copy::WorkingCopyStateError;
 
+/// On-disk state of file executable bit.
+// TODO: maybe better to preserve the executable bit on all platforms, and
+// ignore conditionally? #3949
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct FileExecutableFlag(#[cfg(unix)] bool);
+
 #[cfg(unix)]
-type FileExecutableFlag = bool;
+impl FileExecutableFlag {
+    pub const fn from_bool_lossy(executable: bool) -> Self {
+        FileExecutableFlag(executable)
+    }
+
+    pub fn unwrap_or_else(self, _: impl FnOnce() -> bool) -> bool {
+        self.0
+    }
+}
+
+// Windows doesn't support executable bit.
 #[cfg(windows)]
-type FileExecutableFlag = ();
+impl FileExecutableFlag {
+    pub const fn from_bool_lossy(_executable: bool) -> Self {
+        FileExecutableFlag()
+    }
+
+    pub fn unwrap_or_else(self, f: impl FnOnce() -> bool) -> bool {
+        f()
+    }
+}
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum FileType {
@@ -156,10 +180,7 @@ impl FileState {
     /// Indicates that a file exists in the tree but that it needs to be
     /// re-stat'ed on the next snapshot.
     fn placeholder() -> Self {
-        #[cfg(unix)]
-        let executable = false;
-        #[cfg(windows)]
-        let executable = ();
+        let executable = FileExecutableFlag::from_bool_lossy(false);
         FileState {
             file_type: FileType::Normal { executable },
             mtime: MillisSinceEpoch(0),
@@ -174,11 +195,7 @@ impl FileState {
         metadata: &Metadata,
         materialized_conflict_data: Option<MaterializedConflictData>,
     ) -> Self {
-        #[cfg(windows)]
-        let executable = {
-            // Windows doesn't support executable bit.
-            let _ = executable;
-        };
+        let executable = FileExecutableFlag::from_bool_lossy(executable);
         FileState {
             file_type: FileType::Normal { executable },
             mtime: mtime_from_metadata(metadata),
@@ -437,16 +454,16 @@ pub struct TreeState {
 fn file_state_from_proto(proto: &crate::protos::working_copy::FileState) -> FileState {
     let file_type = match proto.file_type() {
         crate::protos::working_copy::FileType::Normal => FileType::Normal {
-            executable: FileExecutableFlag::default(),
+            executable: FileExecutableFlag::from_bool_lossy(false),
         },
-        #[cfg(unix)]
-        crate::protos::working_copy::FileType::Executable => FileType::Normal { executable: true },
-        // can exist in files written by older versions of jj
-        #[cfg(windows)]
-        crate::protos::working_copy::FileType::Executable => FileType::Normal { executable: () },
+        // On Windows, FileType::Executable can exist in files written by older
+        // versions of jj
+        crate::protos::working_copy::FileType::Executable => FileType::Normal {
+            executable: FileExecutableFlag::from_bool_lossy(true),
+        },
         crate::protos::working_copy::FileType::Symlink => FileType::Symlink,
         crate::protos::working_copy::FileType::Conflict => FileType::Normal {
-            executable: FileExecutableFlag::default(),
+            executable: FileExecutableFlag::from_bool_lossy(false),
         },
         crate::protos::working_copy::FileType::GitSubmodule => FileType::GitSubmodule,
     };
@@ -465,12 +482,13 @@ fn file_state_from_proto(proto: &crate::protos::working_copy::FileState) -> File
 fn file_state_to_proto(file_state: &FileState) -> crate::protos::working_copy::FileState {
     let mut proto = crate::protos::working_copy::FileState::default();
     let file_type = match &file_state.file_type {
-        #[cfg(unix)]
-        FileType::Normal { executable: false } => crate::protos::working_copy::FileType::Normal,
-        #[cfg(unix)]
-        FileType::Normal { executable: true } => crate::protos::working_copy::FileType::Executable,
-        #[cfg(windows)]
-        FileType::Normal { executable: () } => crate::protos::working_copy::FileType::Normal,
+        FileType::Normal { executable } => {
+            if executable.unwrap_or_else(Default::default) {
+                crate::protos::working_copy::FileType::Executable
+            } else {
+                crate::protos::working_copy::FileType::Normal
+            }
+        }
         FileType::Symlink => crate::protos::working_copy::FileType::Symlink,
         FileType::GitSubmodule => crate::protos::working_copy::FileType::GitSubmodule,
     };
@@ -705,13 +723,11 @@ fn file_state(metadata: &Metadata) -> Option<FileState> {
         Some(FileType::Symlink)
     } else if metadata_file_type.is_file() {
         #[cfg(unix)]
-        if metadata.permissions().mode() & 0o111 != 0 {
-            Some(FileType::Normal { executable: true })
-        } else {
-            Some(FileType::Normal { executable: false })
-        }
+        let executable = metadata.permissions().mode() & 0o111 != 0;
         #[cfg(windows)]
-        Some(FileType::Normal { executable: () })
+        let executable = false;
+        let executable = FileExecutableFlag::from_bool_lossy(executable);
+        Some(FileType::Normal { executable })
     } else {
         None
     };
@@ -1491,19 +1507,15 @@ impl FileSnapshotter<'_> {
         materialized_conflict_data: Option<MaterializedConflictData>,
     ) -> Result<MergedTreeValue, SnapshotError> {
         if let Some(current_tree_value) = current_tree_values.as_resolved() {
-            #[cfg(unix)]
-            let _ = current_tree_value; // use the variable
             let id = self.write_file_to_store(repo_path, disk_path).await?;
             // On Windows, we preserve the executable bit from the current tree.
-            #[cfg(windows)]
-            let executable = {
-                let () = executable; // use the variable
+            let executable = executable.unwrap_or_else(|| {
                 if let Some(TreeValue::File { id: _, executable }) = current_tree_value {
                     *executable
                 } else {
                     false
                 }
-            };
+            });
             Ok(Merge::normal(TreeValue::File { id, executable }))
         } else if let Some(old_file_ids) = current_tree_values.to_file_merge() {
             // If the file contained a conflict before and is a normal file on
@@ -1527,15 +1539,13 @@ impl FileSnapshotter<'_> {
             match new_file_ids.into_resolved() {
                 Ok(file_id) => {
                     // On Windows, we preserve the executable bit from the merged trees.
-                    #[cfg(windows)]
-                    let executable = {
-                        let () = executable; // use the variable
+                    let executable = executable.unwrap_or_else(|| {
                         if let Some(merge) = current_tree_values.to_executable_merge() {
                             conflicts::resolve_file_executable(&merge).unwrap_or(false)
                         } else {
                             false
                         }
-                    };
+                    });
                     Ok(Merge::normal(TreeValue::File {
                         id: file_id.unwrap(),
                         executable,
@@ -1911,10 +1921,9 @@ impl TreeState {
             } else {
                 let file_type = match after.into_resolved() {
                     Ok(value) => match value.unwrap() {
-                        #[cfg(unix)]
-                        TreeValue::File { id: _, executable } => FileType::Normal { executable },
-                        #[cfg(windows)]
-                        TreeValue::File { .. } => FileType::Normal { executable: () },
+                        TreeValue::File { id: _, executable } => FileType::Normal {
+                            executable: FileExecutableFlag::from_bool_lossy(executable),
+                        },
                         TreeValue::Symlink(_id) => FileType::Symlink,
                         TreeValue::Conflict(_id) => {
                             panic!("unexpected conflict entry in diff at {path:?}");
@@ -1930,7 +1939,7 @@ impl TreeState {
                     Err(_values) => {
                         // TODO: Try to set the executable bit based on the conflict
                         FileType::Normal {
-                            executable: FileExecutableFlag::default(),
+                            executable: FileExecutableFlag::from_bool_lossy(false),
                         }
                     }
                 };
@@ -2402,7 +2411,7 @@ mod tests {
     fn test_file_states_merge() {
         let new_state = |size| FileState {
             file_type: FileType::Normal {
-                executable: FileExecutableFlag::default(),
+                executable: FileExecutableFlag::from_bool_lossy(false),
             },
             mtime: MillisSinceEpoch(0),
             size,
@@ -2451,7 +2460,7 @@ mod tests {
     fn test_file_states_lookup() {
         let new_state = |size| FileState {
             file_type: FileType::Normal {
-                executable: FileExecutableFlag::default(),
+                executable: FileExecutableFlag::from_bool_lossy(false),
             },
             mtime: MillisSinceEpoch(0),
             size,
@@ -2516,7 +2525,7 @@ mod tests {
     fn test_file_states_lookup_at() {
         let new_state = |size| FileState {
             file_type: FileType::Normal {
-                executable: FileExecutableFlag::default(),
+                executable: FileExecutableFlag::from_bool_lossy(false),
             },
             mtime: MillisSinceEpoch(0),
             size,
