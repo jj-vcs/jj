@@ -114,6 +114,10 @@ pub(crate) fn cmd_resolve(
     let mut tx = workspace_command.start_transaction();
     let (new_tree_id, partial_resolution_error) =
         merge_editor.edit_files(ui, &tree, &repo_paths)?;
+    if tree.id() == new_tree_id {
+        writeln!(ui.status(), "Nothing changed.")?;
+        return Ok(());
+    }
     let new_commit = tx
         .repo_mut()
         .rewrite_commit(&commit)

@@ -478,8 +478,14 @@ pub fn edit_diff_builtin(
         },
         &mut input,
     );
-    let result = recorder.run().map_err(BuiltinToolError::Record)?;
-    let tree_id = apply_diff_builtin(&store, left_tree, right_tree, changed_files, &result.files)
+
+    let files = match recorder.run() {
+        Ok(res) => res.files,
+        Err(scm_record::RecordError::Cancelled) => return Ok(left_tree.id()),
+        Err(e) => return Err(e.into()),
+    };
+
+    let tree_id = apply_diff_builtin(&store, left_tree, right_tree, changed_files, &files)
         .map_err(BuiltinToolError::BackendError)?;
     Ok(tree_id)
 }
@@ -595,7 +601,12 @@ pub fn edit_merge_builtin(
         },
         &mut input,
     );
-    let state = recorder.run()?;
+
+    let files = match recorder.run() {
+        Ok(res) => res.files,
+        Err(scm_record::RecordError::Cancelled) => return Ok(tree.id()),
+        Err(e) => return Err(e.into()),
+    };
 
     apply_diff_builtin(
         tree.store(),
@@ -605,7 +616,7 @@ pub fn edit_merge_builtin(
             .iter()
             .map(|file| file.repo_path.clone())
             .collect_vec(),
-        &state.files,
+        &files,
     )
     .map_err(BuiltinToolError::BackendError)
 }

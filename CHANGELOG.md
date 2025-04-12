@@ -40,6 +40,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* The `:builtin` diff and merge editors no longer throw an error if the operation is
+  cancelled.
+
 ### Packaging changes
 
 * Jujutsu now uses
