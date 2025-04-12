@@ -541,18 +541,13 @@ fn test_git_remote_with_global_git_remote_config() {
         "origin",
         "https://example.com/repo/origin/2",
     ]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Error: No git remote named 'origin'
-    [EOF]
-    [exit status: 1]
-    ");
+    insta::assert_snapshot!(output, @"");
 
     let output = work_dir.run_jj(["git", "remote", "list"]);
-    // BUG: The remote disappears.
     insta::assert_snapshot!(output, @r"
     bar htps://example.com/repo/foo
     foo htps://example.com/repo/foo
+    origin https://example.com/repo/origin/2
     [EOF]
     ");
     insta::assert_snapshot!(read_git_config(work_dir.root()), @r#"
@@ -563,5 +558,8 @@ fn test_git_remote_with_global_git_remote_config() {
     [remote "bar"]
     	url = htps://example.com/repo/foo
     	fetch = +refs/heads/*:refs/remotes/bar/*
+    [remote "origin"]
+    	url = https://example.com/repo/origin/2
+    	fetch = +refs/heads/*:refs/remotes/origin/*
     "#);
 }

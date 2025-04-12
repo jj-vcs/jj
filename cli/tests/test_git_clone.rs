@@ -1069,14 +1069,16 @@ fn test_git_clone_with_global_git_remote_config(subprocess: bool) {
     set_up_non_empty_git_repo(&git_repo);
 
     let output = root_dir.run_jj(["git", "clone", "source", "clone"]);
-    // BUG: Fails with a remote error.
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
-    Error: No git remote named 'origin'
+    bookmark: main@origin [new] untracked
+    Setting the revset alias `trunk()` to `main@origin`
+    Working copy  (@) now at: sqpuoqvx 2ca1c979 (empty) (no description set)
+    Parent commit (@-)      : qomsplrm ebeb70d8 main | message
+    Added 1 files, modified 0 files, removed 0 files
     [EOF]
-    [exit status: 1]
     "#);
     }
 }
