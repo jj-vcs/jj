@@ -116,6 +116,12 @@
             "^target/"
           ];
 
+          # Taplo requires SystemConfiguration access, as it unconditionally creates a
+          # reqwest client.
+          sandboxProfile = ''
+            (allow mach-lookup (global-name "com.apple.SystemConfiguration.configd"))
+          '';
+
           cargoLock.lockFile = ./Cargo.lock;
           nativeBuildInputs = nativeBuildInputs ++ [pkgs.installShellFiles];
           inherit buildInputs nativeCheckInputs;
