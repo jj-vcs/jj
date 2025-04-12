@@ -112,9 +112,6 @@ impl TestEnvironment {
         cmd.current_dir(&self.env_root);
         cmd.env_clear();
         cmd.env("COLUMNS", "100");
-        for (key, value) in &self.env_vars {
-            cmd.env(key, value);
-        }
         cmd.env("RUST_BACKTRACE", "1");
         // We want to keep the "PATH" environment variable to allow accessing
         // executables like `git` from the PATH.
@@ -129,6 +126,9 @@ impl TestEnvironment {
         cmd.env("JJ_OP_HOSTNAME", "host.example.com");
         cmd.env("JJ_OP_USERNAME", "test-username");
         cmd.env("JJ_TZ_OFFSET_MINS", "660");
+        for (key, value) in &self.env_vars {
+            cmd.env(key, value);
+        }
 
         let mut command_number = self.command_number.borrow_mut();
         *command_number += 1;
