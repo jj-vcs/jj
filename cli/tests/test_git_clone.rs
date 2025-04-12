@@ -15,6 +15,7 @@
 use std::path;
 
 use indoc::formatdoc;
+use indoc::indoc;
 use test_case::test_case;
 use testutils::git;
 
@@ -1043,6 +1044,40 @@ fn test_git_clone_malformed(subprocess: bool) {
     Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
+    }
+}
+
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
+#[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_git_clone_with_global_git_remote_config(subprocess: bool) {
+    let mut test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+    test_env.work_dir("").write_file(
+        "git-config",
+        indoc! {r#"
+            [remote "origin"]
+                prune = true
+        "#},
+    );
+    test_env.add_env_var(
+        "GIT_CONFIG_GLOBAL",
+        test_env.env_root().join("git-config").to_str().unwrap(),
+    );
+
+    let root_dir = test_env.work_dir("");
+    let git_repo_path = root_dir.root().join("source");
+    let git_repo = git::init(git_repo_path);
+    set_up_non_empty_git_repo(&git_repo);
+
+    let output = root_dir.run_jj(["git", "clone", "source", "clone"]);
+    // BUG: Fails with a remote error.
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/clone"
+    Error: No git remote named 'origin'
+    [EOF]
+    [exit status: 1]
+    "#);
     }
 }
 
