@@ -5,15 +5,18 @@ site_dir: 'rendered-docs'
 site_url: 'https://jj-vcs.github.io/jj/'
 repo_url: https://github.com/jj-vcs/jj
 repo_name: jj-vcs/jj
+edit_uri: edit/main/docs/
 theme:
   name: 'material'
   language: 'en'
   favicon: images/favicon-96x96.png
   features:
     # - navigation.top
+    - content.action.edit
 
   icon:
     repo: fontawesome/brands/github
+    edit: material/pencil
 
   # Respect the user's default settings and add a toggle for manually choosing
   # automatic/light/dark palette.
