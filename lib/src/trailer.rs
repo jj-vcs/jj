@@ -58,13 +58,18 @@ pub enum TrailerParseError {
 /// In this case, there are four trailers: two `Co-authored-by` lines, one
 /// `Reviewed-by` line, and one `Change-Id` line.
 pub fn parse_description_trailers(body: &str) -> Vec<Trailer> {
-    let (trailers, blank, _) = parse_trailers_impl(body);
-    if blank {
-        trailers
-    } else {
+    let (trailers, blank, found_git_trailer, non_trailer) = parse_trailers_impl(body);
+    if !blank {
         // no blank found, this means there was a single paragraph, so whatever
         // was found can't come from the trailer
         vec![]
+    } else if non_trailer.is_some() && !found_git_trailer {
+        // at least one non trailer line was found in the trailers paragraph
+        // the trailers are considered as trailers only if there is a predefined
+        // trailers from git
+        vec![]
+    } else {
+        trailers
     }
 }
 
@@ -72,7 +77,7 @@ pub fn parse_description_trailers(body: &str) -> Vec<Trailer> {
 /// `parse_description_trailer`, but will return an error if a blank or
 /// non trailer line is found.
 pub fn parse_trailers(body: &str) -> Result<Vec<Trailer>, TrailerParseError> {
-    let (trailers, blank, non_trailer) = parse_trailers_impl(body);
+    let (trailers, blank, _, non_trailer) = parse_trailers_impl(body);
     if blank {
         return Err(TrailerParseError::BlankLine);
     }
@@ -82,7 +87,7 @@ pub fn parse_trailers(body: &str) -> Result<Vec<Trailer>, TrailerParseError> {
     Ok(trailers)
 }
 
-fn parse_trailers_impl(body: &str) -> (Vec<Trailer>, bool, Option<String>) {
+fn parse_trailers_impl(body: &str) -> (Vec<Trailer>, bool, bool, Option<String>) {
     // a trailer always comes at the end of a message; we can split the message
     // by newline, but we need to immediately reverse the order of the lines
     // to ensure we parse the trailer in an unambiguous manner; this avoids cases
@@ -93,6 +98,7 @@ fn parse_trailers_impl(body: &str) -> (Vec<Trailer>, bool, Option<String>) {
     let mut trailers: Vec<Trailer> = Vec::new();
     let mut multiline_value = vec![];
     let mut found_blank = false;
+    let mut found_git_trailer = false;
     let mut non_trailer_line = None;
     for line in lines {
         if line.starts_with(' ') {
@@ -105,7 +111,14 @@ fn parse_trailers_impl(body: &str) -> (Vec<Trailer>, bool, Option<String>) {
             multiline_value[0] = multiline_value[0].trim_ascii_end();
             let value = multiline_value.iter().rev().join("\n");
             multiline_value.clear();
+            if key == "Signed-off-by" {
+                found_git_trailer = true;
+            }
             trailers.push(Trailer { key, value });
+        } else if line.starts_with("(cherry picked from commit ") {
+            found_git_trailer = true;
+            non_trailer_line = Some(line.to_owned());
+            multiline_value.clear();
         } else if line.trim_ascii().is_empty() {
             // end of the trailer
             found_blank = true;
@@ -120,7 +133,7 @@ fn parse_trailers_impl(body: &str) -> (Vec<Trailer>, bool, Option<String>) {
     }
     // reverse the insert order, since we parsed the trailer in reverse
     trailers.reverse();
-    (trailers, found_blank, non_trailer_line)
+    (trailers, found_blank, found_git_trailer, non_trailer_line)
 }
 
 #[cfg(test)]
@@ -402,8 +415,7 @@ mod tests {
             baz
         "#};
         let trailers = parse_description_trailers(description);
-        assert_eq!(trailers.len(), 1);
-        assert_eq!(trailers[0].value, "bar");
+        assert_eq!(trailers.len(), 0);
     }
 
     #[test]
@@ -424,5 +436,20 @@ mod tests {
         let description = "";
         let trailers = parse_description_trailers(description);
         assert_eq!(trailers.len(), 0);
+    }
+
+    #[test]
+    fn test_cherry_pick_trailer() {
+        let description = indoc! {r#"
+            subject
+
+            some non-trailer text
+            foo: bar
+            (cherry picked from commit 72bb9f9cf4bbb6bbb11da9cda4499c55c44e87b9)
+        "#};
+        let trailers = parse_description_trailers(description);
+        assert_eq!(trailers.len(), 1);
+        assert_eq!(trailers[0].key, "foo");
+        assert_eq!(trailers[0].value, "bar");
     }
 }
