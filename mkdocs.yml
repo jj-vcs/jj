@@ -3,12 +3,17 @@ site_dir: 'rendered-docs'
 # Not having this (or viewing the site locally, or from any place other than the
 # site_url) leads to version switching failing to preserve the current path.
 site_url: 'https://jj-vcs.github.io/jj/'
+repo_url: https://github.com/jj-vcs/jj
+repo_name: jj-vcs/jj
 theme:
   name: 'material'
   language: 'en'
   favicon: images/favicon-96x96.png
   features:
     # - navigation.top
+
+  icon:
+    repo: fontawesome/brands/github
 
   # Respect the user's default settings and add a toggle for manually choosing
   # automatic/light/dark palette.
