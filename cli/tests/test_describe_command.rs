@@ -618,6 +618,7 @@ fn test_describe_default_description() {
     let output = work_dir.run_jj(["describe"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: Deprecated config: `ui.default-description` is deprecated; use `templates.draft_commit_description` and/or `templates.commit_trailers` instead.
     Working copy  (@) now at: qpvuntsm 573b6df5 TESTED=TODO
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
@@ -638,6 +639,7 @@ fn test_describe_default_description() {
     let output = work_dir.run_jj(["describe", "--no-edit", "--reset-author"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: Deprecated config: `ui.default-description` is deprecated; use `templates.draft_commit_description` and/or `templates.commit_trailers` instead.
     Working copy  (@) now at: kkmpptxz f652c321 (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]

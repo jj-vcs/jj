@@ -639,6 +639,21 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
             },
             |_| Ok("`git.subprocess = true` is now the default".into()),
         ),
+        // TODO: Delete with the `ui.default-description` setting.
+        ConfigMigrationRule::custom(
+            |layer| {
+                let Ok(Some(default_desc)) = layer.look_up_item("ui.default-description") else {
+                    return false;
+                };
+                default_desc.as_str().is_some_and(|d| !d.is_empty())
+            },
+            |_| {
+                Ok("`ui.default-description` is deprecated; use \
+                    `templates.draft_commit_description` and/or `templates.commit_trailers` \
+                    instead."
+                    .into())
+            },
+        ),
     ]
 }
 

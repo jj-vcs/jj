@@ -415,12 +415,6 @@ pub fn description_template(
     intro: &str,
     commit: &Commit,
 ) -> Result<String, CommandError> {
-    // TODO: Should "ui.default-description" be deprecated?
-    // We might want default description templates per command instead. For
-    // example, "backout_description" template will be rendered against the
-    // commit to be backed out, and the generated description could be set
-    // without spawning editor.
-
     // Named as "draft" because the output can contain "JJ:" comment lines.
     let template_key = "templates.draft_commit_description";
     let template_text = tx.settings().get_string(template_key)?;

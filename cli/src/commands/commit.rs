@@ -144,6 +144,7 @@ new working-copy commit.
         description
     } else {
         if commit_builder.description().is_empty() {
+            // TODO: Remove in jj 0.35.0+
             let description = tx.settings().get_string("ui.default-description")?;
             commit_builder.set_description(description);
         }

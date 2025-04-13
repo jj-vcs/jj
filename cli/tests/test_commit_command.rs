@@ -245,6 +245,9 @@ fn test_commit_with_default_description() {
     ○  573b6df51aea TESTED=TODO
     ◆  000000000000
     [EOF]
+    ------- stderr -------
+    Warning: Deprecated config: `ui.default-description` is deprecated; use `templates.draft_commit_description` and/or `templates.commit_trailers` instead.
+    [EOF]
     ");
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"

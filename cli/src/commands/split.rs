@@ -149,6 +149,7 @@ pub(crate) fn cmd_split(
         let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
         commit_builder.set_tree_id(target.selected_tree.id());
         if commit_builder.description().is_empty() {
+            // TODO: Remove in jj 0.35.0+
             commit_builder.set_description(tx.settings().get_string("ui.default-description")?);
         }
         let temp_commit = commit_builder.write_hidden()?;

@@ -201,6 +201,7 @@ fn test_split_with_non_empty_description() {
     let output = work_dir.run_jj(["split", "file1"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: Deprecated config: `ui.default-description` is deprecated; use `templates.draft_commit_description` and/or `templates.commit_trailers` instead.
     First part: qpvuntsm 231a3c00 part 1
     Second part: kkmpptxz e96291aa part 2
     Working copy  (@) now at: kkmpptxz e96291aa part 2
@@ -233,6 +234,9 @@ fn test_split_with_non_empty_description() {
     ○  qpvuntsmwlqt false part 1
     ◆  zzzzzzzzzzzz true
     [EOF]
+    ------- stderr -------
+    Warning: Deprecated config: `ui.default-description` is deprecated; use `templates.draft_commit_description` and/or `templates.commit_trailers` instead.
+    [EOF]
     ");
 }
 
@@ -255,6 +259,7 @@ fn test_split_with_default_description() {
     let output = work_dir.run_jj(["split", "file1"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: Deprecated config: `ui.default-description` is deprecated; use `templates.draft_commit_description` and/or `templates.commit_trailers` instead.
     First part: qpvuntsm 02ee5d60 TESTED=TODO
     Second part: rlvkpnrz 33cd046b (no description set)
     Working copy  (@) now at: rlvkpnrz 33cd046b (no description set)
@@ -283,6 +288,9 @@ fn test_split_with_default_description() {
     @  rlvkpnrzqnoo false
     ○  qpvuntsmwlqt false TESTED=TODO
     ◆  zzzzzzzzzzzz true
+    [EOF]
+    ------- stderr -------
+    Warning: Deprecated config: `ui.default-description` is deprecated; use `templates.draft_commit_description` and/or `templates.commit_trailers` instead.
     [EOF]
     ");
 }
@@ -475,6 +483,9 @@ fn test_split_parallel_no_descendants() {
     @  qpvuntsmwlqt false
     ◆  zzzzzzzzzzzz true
     [EOF]
+    ------- stderr -------
+    Warning: Deprecated config: `ui.default-description` is deprecated; use `templates.draft_commit_description` and/or `templates.commit_trailers` instead.
+    [EOF]
     ");
 
     std::fs::write(
@@ -485,6 +496,7 @@ fn test_split_parallel_no_descendants() {
     let output = work_dir.run_jj(["split", "--parallel", "file1"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: Deprecated config: `ui.default-description` is deprecated; use `templates.draft_commit_description` and/or `templates.commit_trailers` instead.
     First part: qpvuntsm 48018df6 TESTED=TODO
     Second part: kkmpptxz 7eddbf93 (no description set)
     Working copy  (@) now at: kkmpptxz 7eddbf93 (no description set)
@@ -497,6 +509,9 @@ fn test_split_parallel_no_descendants() {
     │ ○  qpvuntsmwlqt false TESTED=TODO
     ├─╯
     ◆  zzzzzzzzzzzz true
+    [EOF]
+    ------- stderr -------
+    Warning: Deprecated config: `ui.default-description` is deprecated; use `templates.draft_commit_description` and/or `templates.commit_trailers` instead.
     [EOF]
     ");
 
@@ -523,7 +538,7 @@ fn test_split_parallel_no_descendants() {
     // - The rewritten commit from the snapshot after the files were added.
     // - The rewritten commit after the split.
     let evolog_1 = work_dir.run_jj(["evolog", "-r", "qpvun"]);
-    insta::assert_snapshot!(evolog_1, @r###"
+    insta::assert_snapshot!(evolog_1, @r"
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:09 48018df6
     │  TESTED=TODO
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 44af2155
@@ -531,12 +546,15 @@ fn test_split_parallel_no_descendants() {
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 230dd059
        (empty) (no description set)
     [EOF]
-    "###);
+    ------- stderr -------
+    Warning: Deprecated config: `ui.default-description` is deprecated; use `templates.draft_commit_description` and/or `templates.commit_trailers` instead.
+    [EOF]
+    ");
 
     // The evolog for the second commit is the same, except that the change id
     // changes after the split.
     let evolog_2 = work_dir.run_jj(["evolog", "-r", "kkmpp"]);
-    insta::assert_snapshot!(evolog_2, @r###"
+    insta::assert_snapshot!(evolog_2, @r"
     @  kkmpptxz test.user@example.com 2001-02-03 08:05:09 7eddbf93
     │  (no description set)
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 44af2155
@@ -544,7 +562,10 @@ fn test_split_parallel_no_descendants() {
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 230dd059
        (empty) (no description set)
     [EOF]
-    "###);
+    ------- stderr -------
+    Warning: Deprecated config: `ui.default-description` is deprecated; use `templates.draft_commit_description` and/or `templates.commit_trailers` instead.
+    [EOF]
+    ");
 }
 
 #[test]

@@ -189,14 +189,6 @@ concat(
 '''
 ```
 
-The value of the `ui.default-description` setting can also be used in order to
-fill in things like BUG=, TESTED= etc.
-
-```toml
-[ui]
-default-description = "\n\nTESTED=TODO"
-```
-
 ### Duplicate commit description
 
 By default, `jj duplicate` copies the descriptions from the original commits.

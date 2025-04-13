@@ -142,6 +142,7 @@ pub(crate) fn cmd_describe(
         )
     };
 
+    // TODO: Remove in jj 0.35.0+
     let default_description_to_edit = tx.settings().get_string("ui.default-description")?;
     let shared_description = if args.stdin {
         let mut buffer = String::new();

@@ -26,6 +26,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Please report any remaining issues you have with the Git
   subprocessing path.
 
+* `ui.default-description` has been deprecated, and will be removed
+  in a future release. Please migrate to [`templates.draft_commit_description`](docs/config.md#default-description)
+  and/or [`templates.commit_trailers`](docs/config.md#commit-trailers).
+
 ### New features
 
 * Color-words diff has gained [an option to compare conflict pairs without
