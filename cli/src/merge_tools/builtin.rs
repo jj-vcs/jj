@@ -567,7 +567,13 @@ fn make_merge_sections(
 fn make_merge_file(
     merge_tool_file: &MergeToolFile,
 ) -> Result<scm_record::File<'static>, BuiltinToolError> {
-    let merge_result = files::merge_hunks(&merge_tool_file.file.contents);
+    let file = &merge_tool_file.file;
+    let file_mode = if file.executable.expect("should have been resolved") {
+        mode::EXECUTABLE
+    } else {
+        mode::NORMAL
+    };
+    let merge_result = files::merge_hunks(&file.contents);
     let sections = make_merge_sections(merge_result)?;
     Ok(scm_record::File {
         old_path: None,
@@ -577,7 +583,7 @@ fn make_merge_file(
                 .repo_path
                 .to_fs_path_unchecked(Path::new("")),
         ),
-        file_mode: mode::NORMAL,
+        file_mode,
         sections,
     })
 }
