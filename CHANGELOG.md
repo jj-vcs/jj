@@ -45,6 +45,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Added `duplicate_description` template, which allows [customizing the descriptions
   of the commits `jj duplicate` creates](docs/config.md#duplicate-commit-description).
 
+* `jj git push` now shows a hint to use `--deleted` if there are bookmarks
+  pending deletion.
+
 ### Fixed bugs
 
 * Fixed crash on change-delete conflict resolution.
