@@ -424,7 +424,7 @@ fn tree_from_proto(proto: crate::protos::simple_store::Tree) -> Tree {
     let mut tree = Tree::default();
     for proto_entry in proto.entries {
         let value = tree_value_from_proto(proto_entry.value.unwrap());
-        tree.set(RepoPathComponentBuf::from(proto_entry.name), value);
+        tree.set(RepoPathComponentBuf::new(proto_entry.name).unwrap(), value);
     }
     tree
 }

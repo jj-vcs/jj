@@ -41,6 +41,21 @@ pub struct RepoPathComponentBuf {
     value: String,
 }
 
+impl RepoPathComponentBuf {
+    /// Wraps `value` as `RepoPathComponentBuf`.
+    ///
+    /// Returns an error if the input `value` is empty or contains path
+    /// separator.
+    pub fn new(value: impl Into<String>) -> Result<Self, InvalidNewRepoPathError> {
+        let value: String = value.into();
+        if is_valid_repo_path_component_str(&value) {
+            Ok(Self { value })
+        } else {
+            Err(InvalidNewRepoPathError { value })
+        }
+    }
+}
+
 /// Borrowed `RepoPath` component.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, RefCastCustom)]
 #[repr(transparent)]
@@ -51,10 +66,16 @@ pub struct RepoPathComponent {
 impl RepoPathComponent {
     /// Wraps `value` as `RepoPathComponent`.
     ///
-    /// The input `value` must not be empty and not contain path separator.
-    pub fn new(value: &str) -> &Self {
-        assert!(is_valid_repo_path_component_str(value));
-        Self::new_unchecked(value)
+    /// Returns an error if the input `value` is empty or contains path
+    /// separator.
+    pub fn new(value: &str) -> Result<&Self, InvalidNewRepoPathError> {
+        if is_valid_repo_path_component_str(value) {
+            Ok(Self::new_unchecked(value))
+        } else {
+            Err(InvalidNewRepoPathError {
+                value: value.to_string(),
+            })
+        }
     }
 
     #[ref_cast_custom]
@@ -90,19 +111,6 @@ impl Debug for RepoPathComponent {
 impl Debug for RepoPathComponentBuf {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         <RepoPathComponent as Debug>::fmt(self, f)
-    }
-}
-
-impl From<&str> for RepoPathComponentBuf {
-    fn from(value: &str) -> Self {
-        RepoPathComponentBuf::from(value.to_owned())
-    }
-}
-
-impl From<String> for RepoPathComponentBuf {
-    fn from(value: String) -> Self {
-        assert!(is_valid_repo_path_component_str(&value));
-        RepoPathComponentBuf { value }
     }
 }
 
@@ -217,6 +225,15 @@ impl Debug for RepoPathBuf {
     }
 }
 
+/// The `value` is not a valid repo path because it contains empty path
+/// component. For example, `"/"`, `"/foo"`, `"foo/"`, `"foo//bar"` are all
+/// invalid.
+#[derive(Clone, Debug, Eq, Error, PartialEq)]
+#[error(r#"Invalid repo path input "{value}""#)]
+pub struct InvalidNewRepoPathError {
+    value: String,
+}
+
 impl RepoPathBuf {
     /// Creates owned repository path pointing to the root.
     pub const fn root() -> Self {
@@ -226,13 +243,13 @@ impl RepoPathBuf {
     }
 
     /// Creates `RepoPathBuf` from valid string representation.
-    ///
-    /// The input `value` must not contain empty path components. For example,
-    /// `"/"`, `"/foo"`, `"foo/"`, `"foo//bar"` are all invalid.
-    pub fn from_internal_string(value: impl Into<String>) -> Self {
-        let value = value.into();
-        assert!(is_valid_repo_path_str(&value));
-        RepoPathBuf { value }
+    pub fn from_internal_string(value: impl Into<String>) -> Result<Self, InvalidNewRepoPathError> {
+        let value: String = value.into();
+        if is_valid_repo_path_str(&value) {
+            Ok(RepoPathBuf { value })
+        } else {
+            Err(InvalidNewRepoPathError { value })
+        }
     }
 
     /// Converts repo-relative `Path` to `RepoPathBuf`.
@@ -306,11 +323,16 @@ impl RepoPath {
 
     /// Wraps valid string representation as `RepoPath`.
     ///
-    /// The input `value` must not contain empty path components. For example,
-    /// `"/"`, `"/foo"`, `"foo/"`, `"foo//bar"` are all invalid.
-    pub fn from_internal_string(value: &str) -> &Self {
-        assert!(is_valid_repo_path_str(value));
-        Self::from_internal_string_unchecked(value)
+    /// Returns an error if the input `value` contains empty path component. For
+    /// example, `"/"`, `"/foo"`, `"foo/"`, `"foo//bar"` are all invalid.
+    pub fn from_internal_string(value: &str) -> Result<&Self, InvalidNewRepoPathError> {
+        if is_valid_repo_path_str(value) {
+            Ok(Self::from_internal_string_unchecked(value))
+        } else {
+            Err(InvalidNewRepoPathError {
+                value: value.to_owned(),
+            })
+        }
     }
 
     #[ref_cast_custom]
@@ -665,11 +687,11 @@ mod tests {
     use crate::tests::new_temp_dir;
 
     fn repo_path(value: &str) -> &RepoPath {
-        RepoPath::from_internal_string(value)
+        RepoPath::from_internal_string(value).unwrap()
     }
 
     fn repo_path_component(value: &str) -> &RepoPathComponent {
-        RepoPathComponent::new(value)
+        RepoPathComponent::new(value).unwrap()
     }
 
     #[test]
@@ -681,7 +703,7 @@ mod tests {
 
     #[test]
     fn test_from_internal_string() {
-        let repo_path_buf = |value: &str| RepoPathBuf::from_internal_string(value);
+        let repo_path_buf = |value: &str| RepoPathBuf::from_internal_string(value).unwrap();
         assert_eq!(repo_path_buf(""), RepoPathBuf::root());
         assert!(panic::catch_unwind(|| repo_path_buf("/")).is_err());
         assert!(panic::catch_unwind(|| repo_path_buf("/x")).is_err());

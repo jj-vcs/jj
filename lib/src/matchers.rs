@@ -516,11 +516,11 @@ mod tests {
     use super::*;
 
     fn repo_path(value: &str) -> &RepoPath {
-        RepoPath::from_internal_string(value)
+        RepoPath::from_internal_string(value).unwrap()
     }
 
     fn repo_path_component_buf(value: &str) -> RepoPathComponentBuf {
-        RepoPathComponentBuf::from(value)
+        RepoPathComponentBuf::new(value).unwrap()
     }
 
     #[test]

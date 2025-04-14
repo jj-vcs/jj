@@ -1073,7 +1073,7 @@ impl Backend for GitBackend {
                     (name, TreeValue::GitSubmodule(id))
                 }
             };
-            tree.set(RepoPathComponentBuf::from(name), value);
+            tree.set(RepoPathComponentBuf::new(name).unwrap(), value);
         }
         Ok(tree)
     }
@@ -1365,7 +1365,7 @@ impl Backend for GitBackend {
                 let dest = str::from_utf8(dest_location)
                     .map_err(|err| to_invalid_utf8_err(err, head_id))?;
 
-                let target = RepoPathBuf::from_internal_string(dest);
+                let target = RepoPathBuf::from_internal_string(dest).unwrap();
                 if !paths.is_none_or(|paths| paths.contains(&target)) {
                     return Ok(None);
                 }
@@ -1373,7 +1373,7 @@ impl Backend for GitBackend {
                 Ok(Some(CopyRecord {
                     target,
                     target_commit: head_id.clone(),
-                    source: RepoPathBuf::from_internal_string(source),
+                    source: RepoPathBuf::from_internal_string(source).unwrap(),
                     source_file: FileId::from_bytes(source_id.as_bytes()),
                     source_commit: root_id.clone(),
                 }))
@@ -1738,7 +1738,7 @@ mod tests {
 
         let dir_tree = backend
             .read_tree(
-                RepoPath::from_internal_string("dir"),
+                RepoPath::from_internal_string("dir").unwrap(),
                 &TreeId::from_bytes(dir_tree_id.as_bytes()),
             )
             .block_on()

@@ -500,7 +500,7 @@ mod tests {
     use super::*;
 
     fn repo_path_buf(value: impl Into<String>) -> RepoPathBuf {
-        RepoPathBuf::from_internal_string(value)
+        RepoPathBuf::from_internal_string(value).unwrap()
     }
 
     fn insta_settings() -> insta::Settings {

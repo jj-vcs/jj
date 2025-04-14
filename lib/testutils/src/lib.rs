@@ -356,15 +356,15 @@ pub fn commit_transactions(txs: Vec<Transaction>) -> Arc<ReadonlyRepo> {
 }
 
 pub fn repo_path_component(value: &str) -> &RepoPathComponent {
-    RepoPathComponent::new(value)
+    RepoPathComponent::new(value).unwrap()
 }
 
 pub fn repo_path(value: &str) -> &RepoPath {
-    RepoPath::from_internal_string(value)
+    RepoPath::from_internal_string(value).unwrap()
 }
 
 pub fn repo_path_buf(value: impl Into<String>) -> RepoPathBuf {
-    RepoPathBuf::from_internal_string(value)
+    RepoPathBuf::from_internal_string(value).unwrap()
 }
 
 pub fn read_file(store: &Store, path: &RepoPath, id: &FileId) -> Vec<u8> {
