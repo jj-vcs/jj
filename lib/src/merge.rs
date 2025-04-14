@@ -606,23 +606,21 @@ where
 
     /// Creates a new merge with the file ids from the given merge. In other
     /// words, only the executable bits from `self` will be preserved.
+    ///
+    /// The given `file_ids` should have the same shape as `self`. Only the
+    /// `FileId` values may differ.
     pub fn with_new_file_ids(&self, file_ids: &Merge<Option<FileId>>) -> Merge<Option<TreeValue>> {
         assert_eq!(self.values.len(), file_ids.values.len());
-        let values = zip(self.iter(), file_ids.iter())
-            .map(|(tree_value, file_id)| {
-                if let Some(TreeValue::File { id: _, executable }) =
-                    borrow_tree_value(tree_value.as_ref())
-                {
-                    Some(TreeValue::File {
-                        id: file_id.as_ref().unwrap().clone(),
-                        executable: *executable,
-                    })
-                } else {
-                    assert!(tree_value.is_none());
-                    assert!(file_id.is_none());
-                    None
-                }
-            })
+        let values = zip(self.iter(), file_ids.iter().cloned())
+            .map(
+                |(tree_value, file_id)| match (borrow_tree_value(tree_value.as_ref()), file_id) {
+                    (Some(&TreeValue::File { id: _, executable }), Some(id)) => {
+                        Some(TreeValue::File { id, executable })
+                    }
+                    (None, None) => None,
+                    (old, new) => panic!("incompatible update: {old:?} to {new:?}"),
+                },
+            )
             .collect();
         Merge { values }
     }
