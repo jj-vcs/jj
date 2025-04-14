@@ -50,6 +50,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Fixed crash on change-delete conflict resolution.
   [#6250](https://github.com/jj-vcs/jj/issues/6250)
 
+* Hunk selector in the builtin diff editor is now disabled for conflict files.
+  [#4963](https://github.com/jj-vcs/jj/issues/4963)
+
 ### Packaging changes
 
 * Jujutsu now uses
