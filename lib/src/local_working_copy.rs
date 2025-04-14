@@ -2384,6 +2384,10 @@ mod tests {
         RepoPath::from_internal_string(value)
     }
 
+    fn repo_path_component(value: &str) -> &RepoPathComponent {
+        RepoPathComponent::new(value)
+    }
+
     #[test]
     fn test_file_states_merge() {
         let new_state = |size| FileState {
@@ -2522,56 +2526,53 @@ mod tests {
 
         // At root
         assert_eq!(
-            file_states.get_at(RepoPath::root(), RepoPathComponent::new("b")),
+            file_states.get_at(RepoPath::root(), repo_path_component("b")),
             None
         );
         assert_eq!(
-            file_states.get_at(RepoPath::root(), RepoPathComponent::new("b#")),
+            file_states.get_at(RepoPath::root(), repo_path_component("b#")),
             Some(new_state(4))
         );
 
         // At prefixed dir
-        let prefixed_states =
-            file_states.prefixed_at(RepoPath::root(), RepoPathComponent::new("b"));
+        let prefixed_states = file_states.prefixed_at(RepoPath::root(), repo_path_component("b"));
         assert_eq!(
             prefixed_states.paths().collect_vec(),
             ["b/c", "b/d/e", "b/d#", "b/e"].map(repo_path)
         );
         assert_eq!(
-            prefixed_states.get_at(repo_path("b"), RepoPathComponent::new("c")),
+            prefixed_states.get_at(repo_path("b"), repo_path_component("c")),
             Some(new_state(0))
         );
         assert_eq!(
-            prefixed_states.get_at(repo_path("b"), RepoPathComponent::new("d")),
+            prefixed_states.get_at(repo_path("b"), repo_path_component("d")),
             None
         );
         assert_eq!(
-            prefixed_states.get_at(repo_path("b"), RepoPathComponent::new("d#")),
+            prefixed_states.get_at(repo_path("b"), repo_path_component("d#")),
             Some(new_state(2))
         );
 
         // At nested prefixed dir
-        let prefixed_states =
-            prefixed_states.prefixed_at(repo_path("b"), RepoPathComponent::new("d"));
+        let prefixed_states = prefixed_states.prefixed_at(repo_path("b"), repo_path_component("d"));
         assert_eq!(
             prefixed_states.paths().collect_vec(),
             ["b/d/e"].map(repo_path)
         );
         assert_eq!(
-            prefixed_states.get_at(repo_path("b/d"), RepoPathComponent::new("e")),
+            prefixed_states.get_at(repo_path("b/d"), repo_path_component("e")),
             Some(new_state(1))
         );
         assert_eq!(
-            prefixed_states.get_at(repo_path("b/d"), RepoPathComponent::new("#")),
+            prefixed_states.get_at(repo_path("b/d"), repo_path_component("#")),
             None
         );
 
         // At prefixed file
-        let prefixed_states =
-            file_states.prefixed_at(RepoPath::root(), RepoPathComponent::new("b#"));
+        let prefixed_states = file_states.prefixed_at(RepoPath::root(), repo_path_component("b#"));
         assert_eq!(prefixed_states.paths().collect_vec(), ["b#"].map(repo_path));
         assert_eq!(
-            prefixed_states.get_at(repo_path("b#"), RepoPathComponent::new("#")),
+            prefixed_states.get_at(repo_path("b#"), repo_path_component("#")),
             None
         );
     }

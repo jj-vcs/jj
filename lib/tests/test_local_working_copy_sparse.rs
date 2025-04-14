@@ -25,6 +25,7 @@ use jj_lib::working_copy::WorkingCopy as _;
 use pollster::FutureExt as _;
 use testutils::commit_with_tree;
 use testutils::create_tree;
+use testutils::repo_path;
 use testutils::TestWorkspace;
 
 fn to_owned_path_vec(paths: &[&RepoPath]) -> Vec<RepoPathBuf> {
@@ -37,15 +38,15 @@ fn test_sparse_checkout() {
     let repo = &test_workspace.repo;
     let working_copy_path = test_workspace.workspace.workspace_root().to_owned();
 
-    let root_file1_path = RepoPath::from_internal_string("file1");
-    let root_file2_path = RepoPath::from_internal_string("file2");
-    let dir1_path = RepoPath::from_internal_string("dir1");
-    let dir1_file1_path = RepoPath::from_internal_string("dir1/file1");
-    let dir1_file2_path = RepoPath::from_internal_string("dir1/file2");
-    let dir1_subdir1_path = RepoPath::from_internal_string("dir1/subdir1");
-    let dir1_subdir1_file1_path = RepoPath::from_internal_string("dir1/subdir1/file1");
-    let dir2_path = RepoPath::from_internal_string("dir2");
-    let dir2_file1_path = RepoPath::from_internal_string("dir2/file1");
+    let root_file1_path = repo_path("file1");
+    let root_file2_path = repo_path("file2");
+    let dir1_path = repo_path("dir1");
+    let dir1_file1_path = repo_path("dir1/file1");
+    let dir1_file2_path = repo_path("dir1/file2");
+    let dir1_subdir1_path = repo_path("dir1/subdir1");
+    let dir1_subdir1_file1_path = repo_path("dir1/subdir1/file1");
+    let dir2_path = repo_path("dir2");
+    let dir2_file1_path = repo_path("dir2/file1");
 
     let tree = create_tree(
         repo,
@@ -181,11 +182,11 @@ fn test_sparse_commit() {
     let op_id = repo.op_id().clone();
     let working_copy_path = test_workspace.workspace.workspace_root().to_owned();
 
-    let root_file1_path = RepoPath::from_internal_string("file1");
-    let dir1_path = RepoPath::from_internal_string("dir1");
-    let dir1_file1_path = RepoPath::from_internal_string("dir1/file1");
-    let dir2_path = RepoPath::from_internal_string("dir2");
-    let dir2_file1_path = RepoPath::from_internal_string("dir2/file1");
+    let root_file1_path = repo_path("file1");
+    let dir1_path = repo_path("dir1");
+    let dir1_file1_path = repo_path("dir1/file1");
+    let dir2_path = repo_path("dir2");
+    let dir2_file1_path = repo_path("dir2/file1");
 
     let tree = create_tree(
         repo,
@@ -279,9 +280,9 @@ fn test_sparse_commit_gitignore() {
     let repo = &test_workspace.repo;
     let working_copy_path = test_workspace.workspace.workspace_root().to_owned();
 
-    let dir1_path = RepoPath::from_internal_string("dir1");
-    let dir1_file1_path = RepoPath::from_internal_string("dir1/file1");
-    let dir1_file2_path = RepoPath::from_internal_string("dir1/file2");
+    let dir1_path = repo_path("dir1");
+    let dir1_file1_path = repo_path("dir1/file1");
+    let dir1_file2_path = repo_path("dir1/file2");
 
     // Set sparse patterns to only dir1/
     let mut locked_ws = test_workspace

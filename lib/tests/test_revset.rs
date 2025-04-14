@@ -63,6 +63,7 @@ use jj_lib::workspace::Workspace;
 use test_case::test_case;
 use testutils::create_random_commit;
 use testutils::create_tree;
+use testutils::repo_path;
 use testutils::write_random_commit;
 use testutils::CommitGraphBuilder;
 use testutils::TestRepo;
@@ -3678,9 +3679,9 @@ fn test_evaluate_expression_file() {
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
 
-    let added_clean_clean = RepoPath::from_internal_string("added_clean_clean");
-    let added_modified_clean = RepoPath::from_internal_string("added_modified_clean");
-    let added_modified_removed = RepoPath::from_internal_string("added_modified_removed");
+    let added_clean_clean = repo_path("added_clean_clean");
+    let added_modified_clean = repo_path("added_modified_clean");
+    let added_modified_removed = repo_path("added_modified_removed");
     let tree1 = create_tree(
         repo,
         &[
@@ -3789,13 +3790,10 @@ fn test_evaluate_expression_diff_contains() {
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
 
-    let empty_clean_inserted_deleted =
-        RepoPath::from_internal_string("empty_clean_inserted_deleted");
-    let blank_clean_inserted_clean = RepoPath::from_internal_string("blank_clean_inserted_clean");
-    let noeol_modified_modified_clean =
-        RepoPath::from_internal_string("noeol_modified_modified_clean");
-    let normal_inserted_modified_removed =
-        RepoPath::from_internal_string("normal_inserted_modified_removed");
+    let empty_clean_inserted_deleted = repo_path("empty_clean_inserted_deleted");
+    let blank_clean_inserted_clean = repo_path("blank_clean_inserted_clean");
+    let noeol_modified_modified_clean = repo_path("noeol_modified_modified_clean");
+    let normal_inserted_modified_removed = repo_path("normal_inserted_modified_removed");
     let tree1 = create_tree(
         repo,
         &[
@@ -3930,7 +3928,7 @@ fn test_evaluate_expression_diff_contains_conflict() {
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
 
-    let file_path = RepoPath::from_internal_string("file");
+    let file_path = repo_path("file");
     let tree1 = create_tree(repo, &[(file_path, "0\n1\n")]);
     let tree2 = create_tree(repo, &[(file_path, "0\n2\n")]);
     let tree3 = create_tree(repo, &[(file_path, "0\n3\n")]);
@@ -3964,8 +3962,8 @@ fn test_evaluate_expression_file_merged_parents() {
     let mut_repo = tx.repo_mut();
 
     // file2 can be merged automatically, file1 can't.
-    let file_path1 = RepoPath::from_internal_string("file1");
-    let file_path2 = RepoPath::from_internal_string("file2");
+    let file_path1 = repo_path("file1");
+    let file_path2 = repo_path("file2");
     let tree1 = create_tree(repo, &[(file_path1, "1\n"), (file_path2, "1\n")]);
     let tree2 = create_tree(repo, &[(file_path1, "1\n2\n"), (file_path2, "2\n1\n")]);
     let tree3 = create_tree(repo, &[(file_path1, "1\n3\n"), (file_path2, "1\n3\n")]);
@@ -4033,8 +4031,8 @@ fn test_evaluate_expression_conflict() {
     let mut_repo = tx.repo_mut();
 
     // Create a few trees, including one with a conflict in `file1`
-    let file_path1 = RepoPath::from_internal_string("file1");
-    let file_path2 = RepoPath::from_internal_string("file2");
+    let file_path1 = repo_path("file1");
+    let file_path2 = repo_path("file2");
     let tree1 = create_tree(repo, &[(file_path1, "1"), (file_path2, "1")]);
     let tree2 = create_tree(repo, &[(file_path1, "2"), (file_path2, "2")]);
     let tree3 = create_tree(repo, &[(file_path1, "3"), (file_path2, "1")]);

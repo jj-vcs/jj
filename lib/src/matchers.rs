@@ -519,6 +519,10 @@ mod tests {
         RepoPath::from_internal_string(value)
     }
 
+    fn repo_path_component_buf(value: &str) -> RepoPathComponentBuf {
+        RepoPathComponentBuf::from(value)
+    }
+
     #[test]
     fn test_nothingmatcher() {
         let m = NothingMatcher;
@@ -553,16 +557,16 @@ mod tests {
         assert_eq!(
             m.visit(RepoPath::root()),
             Visit::sets(
-                hashset! {RepoPathComponentBuf::from("dir1")},
-                hashset! {RepoPathComponentBuf::from("file4")}
+                hashset! {repo_path_component_buf("dir1")},
+                hashset! {repo_path_component_buf("file4")}
             )
         );
         assert_eq!(
             m.visit(repo_path("dir1")),
             Visit::sets(
                 hashset! {
-                    RepoPathComponentBuf::from("subdir1"),
-                    RepoPathComponentBuf::from("subdir2"),
+                    repo_path_component_buf("subdir1"),
+                    repo_path_component_buf("subdir2"),
                 },
                 hashset! {}
             )
@@ -572,14 +576,14 @@ mod tests {
             Visit::sets(
                 hashset! {},
                 hashset! {
-                    RepoPathComponentBuf::from("file1"),
-                    RepoPathComponentBuf::from("file2"),
+                    repo_path_component_buf("file1"),
+                    repo_path_component_buf("file2"),
                 },
             )
         );
         assert_eq!(
             m.visit(repo_path("dir1/subdir2")),
-            Visit::sets(hashset! {}, hashset! {RepoPathComponentBuf::from("file3")})
+            Visit::sets(hashset! {}, hashset! {repo_path_component_buf("file3")})
         );
     }
 
@@ -623,15 +627,15 @@ mod tests {
         // shouldn't be visited)
         assert_eq!(
             m.visit(RepoPath::root()),
-            Visit::sets(hashset! {RepoPathComponentBuf::from("foo")}, hashset! {})
+            Visit::sets(hashset! {repo_path_component_buf("foo")}, hashset! {})
         );
         // Inside parent directory "foo/", both subdirectory "bar" and file "bar" may
         // match
         assert_eq!(
             m.visit(repo_path("foo")),
             Visit::sets(
-                hashset! {RepoPathComponentBuf::from("bar")},
-                hashset! {RepoPathComponentBuf::from("bar")}
+                hashset! {repo_path_component_buf("bar")},
+                hashset! {repo_path_component_buf("bar")}
             )
         );
         // Inside a directory that matches the prefix, everything matches recursively
@@ -656,8 +660,8 @@ mod tests {
         assert_eq!(
             m.visit(RepoPath::root()),
             Visit::sets(
-                hashset! {RepoPathComponentBuf::from("foo")},
-                hashset! {RepoPathComponentBuf::from("foo")}
+                hashset! {repo_path_component_buf("foo")},
+                hashset! {repo_path_component_buf("foo")}
             )
         );
         // Inside a directory that matches the prefix, everything matches recursively
@@ -741,8 +745,8 @@ mod tests {
             m.visit(RepoPath::root()),
             Visit::Specific {
                 dirs: VisitDirs::Set(hashset! {
-                    RepoPathComponentBuf::from("foo"),
-                    RepoPathComponentBuf::from("baz"),
+                    repo_path_component_buf("foo"),
+                    repo_path_component_buf("baz"),
                 }),
                 files: VisitFiles::Set(hashset! {}),
             }
@@ -806,7 +810,7 @@ mod tests {
         assert_eq!(
             m.visit(RepoPath::root()),
             Visit::Specific {
-                dirs: VisitDirs::Set(hashset! {RepoPathComponentBuf::from("foo")}),
+                dirs: VisitDirs::Set(hashset! {repo_path_component_buf("foo")}),
                 files: VisitFiles::Set(hashset! {}),
             }
         );
@@ -839,14 +843,14 @@ mod tests {
             m.visit(RepoPath::root()),
             Visit::sets(
                 hashset! {
-                    RepoPathComponentBuf::from("foo"),
-                    RepoPathComponentBuf::from("bar"),
-                    RepoPathComponentBuf::from("baz"),
+                    repo_path_component_buf("foo"),
+                    repo_path_component_buf("bar"),
+                    repo_path_component_buf("baz"),
                 },
                 hashset! {
-                    RepoPathComponentBuf::from("foo"),
-                    RepoPathComponentBuf::from("bar"),
-                    RepoPathComponentBuf::from("baz"),
+                    repo_path_component_buf("foo"),
+                    repo_path_component_buf("bar"),
+                    repo_path_component_buf("baz"),
                 },
             )
         );
@@ -881,9 +885,9 @@ mod tests {
             m.visit(RepoPath::root()),
             Visit::sets(
                 hashset! {
-                    RepoPathComponentBuf::from("common"),
-                    RepoPathComponentBuf::from("1"),
-                    RepoPathComponentBuf::from("2"),
+                    repo_path_component_buf("common"),
+                    repo_path_component_buf("1"),
+                    repo_path_component_buf("2"),
                 },
                 hashset! {},
             )
@@ -892,27 +896,27 @@ mod tests {
             m.visit(repo_path("common")),
             Visit::sets(
                 hashset! {
-                    RepoPathComponentBuf::from("bar"),
-                    RepoPathComponentBuf::from("baz"),
+                    repo_path_component_buf("bar"),
+                    repo_path_component_buf("baz"),
                 },
                 hashset! {
-                    RepoPathComponentBuf::from("bar"),
-                    RepoPathComponentBuf::from("baz"),
+                    repo_path_component_buf("bar"),
+                    repo_path_component_buf("baz"),
                 },
             )
         );
         assert_eq!(
             m.visit(repo_path("1")),
             Visit::sets(
-                hashset! {RepoPathComponentBuf::from("foo")},
-                hashset! {RepoPathComponentBuf::from("foo")},
+                hashset! {repo_path_component_buf("foo")},
+                hashset! {repo_path_component_buf("foo")},
             )
         );
         assert_eq!(
             m.visit(repo_path("2")),
             Visit::sets(
-                hashset! {RepoPathComponentBuf::from("qux")},
-                hashset! {RepoPathComponentBuf::from("qux")},
+                hashset! {repo_path_component_buf("qux")},
+                hashset! {repo_path_component_buf("qux")},
             )
         );
         assert_eq!(m.visit(repo_path("common/bar")), Visit::AllRecursively);
@@ -937,12 +941,12 @@ mod tests {
             m.visit(RepoPath::root()),
             Visit::sets(
                 hashset! {
-                    RepoPathComponentBuf::from("foo"),
-                    RepoPathComponentBuf::from("bar"),
+                    repo_path_component_buf("foo"),
+                    repo_path_component_buf("bar"),
                 },
                 hashset! {
-                    RepoPathComponentBuf::from("foo"),
-                    RepoPathComponentBuf::from("bar"),
+                    repo_path_component_buf("foo"),
+                    repo_path_component_buf("bar"),
                 },
             )
         );
@@ -973,12 +977,12 @@ mod tests {
             m.visit(RepoPath::root()),
             Visit::sets(
                 hashset! {
-                    RepoPathComponentBuf::from("foo"),
-                    RepoPathComponentBuf::from("bar"),
+                    repo_path_component_buf("foo"),
+                    repo_path_component_buf("bar"),
                 },
                 hashset! {
-                    RepoPathComponentBuf::from("foo"),
-                    RepoPathComponentBuf::from("bar"),
+                    repo_path_component_buf("foo"),
+                    repo_path_component_buf("bar"),
                 },
             )
         );
@@ -1004,8 +1008,8 @@ mod tests {
         assert_eq!(
             m.visit(RepoPath::root()),
             Visit::sets(
-                hashset! {RepoPathComponentBuf::from("bar")},
-                hashset! {RepoPathComponentBuf::from("bar")}
+                hashset! {repo_path_component_buf("bar")},
+                hashset! {repo_path_component_buf("bar")}
             )
         );
         assert_eq!(m.visit(repo_path("foo")), Visit::Nothing);
@@ -1030,14 +1034,14 @@ mod tests {
 
         assert_eq!(
             m.visit(RepoPath::root()),
-            Visit::sets(hashset! {RepoPathComponentBuf::from("foo")}, hashset! {})
+            Visit::sets(hashset! {repo_path_component_buf("foo")}, hashset! {})
         );
         assert_eq!(m.visit(repo_path("bar")), Visit::Nothing);
         assert_eq!(
             m.visit(repo_path("foo")),
             Visit::sets(
-                hashset! {RepoPathComponentBuf::from("bar")},
-                hashset! {RepoPathComponentBuf::from("bar")}
+                hashset! {repo_path_component_buf("bar")},
+                hashset! {repo_path_component_buf("bar")}
             )
         );
         assert_eq!(m.visit(repo_path("foo/bar")), Visit::AllRecursively);

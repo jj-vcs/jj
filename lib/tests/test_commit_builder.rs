@@ -34,6 +34,7 @@ use test_case::test_case;
 use testutils::assert_rebased_onto;
 use testutils::create_tree;
 use testutils::rebase_descendants_with_options_return_map;
+use testutils::repo_path;
 use testutils::CommitGraphBuilder;
 use testutils::TestRepo;
 use testutils::TestRepoBackend;
@@ -70,8 +71,8 @@ fn test_initial(backend: TestRepoBackend) {
     let repo = &test_repo.repo;
     let store = repo.store();
 
-    let root_file_path = RepoPath::from_internal_string("file");
-    let dir_file_path = RepoPath::from_internal_string("dir/file");
+    let root_file_path = repo_path("file");
+    let dir_file_path = repo_path("dir/file");
     let tree = create_tree(
         repo,
         &[
@@ -138,8 +139,8 @@ fn test_rewrite(backend: TestRepoBackend) {
     let repo = &test_repo.repo;
     let store = repo.store();
 
-    let root_file_path = RepoPath::from_internal_string("file");
-    let dir_file_path = RepoPath::from_internal_string("dir/file");
+    let root_file_path = repo_path("file");
+    let dir_file_path = repo_path("dir/file");
     let initial_tree = create_tree(
         repo,
         &[

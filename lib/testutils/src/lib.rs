@@ -49,6 +49,7 @@ use jj_lib::repo::RepoLoader;
 use jj_lib::repo::StoreFactories;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
+use jj_lib::repo_path::RepoPathComponent;
 use jj_lib::rewrite::RebaseOptions;
 use jj_lib::rewrite::RebasedCommit;
 use jj_lib::secret_backend::SecretBackend;
@@ -354,6 +355,18 @@ pub fn commit_transactions(txs: Vec<Transaction>) -> Arc<ReadonlyRepo> {
     repo
 }
 
+pub fn repo_path_component(value: &str) -> &RepoPathComponent {
+    RepoPathComponent::new(value)
+}
+
+pub fn repo_path(value: &str) -> &RepoPath {
+    RepoPath::from_internal_string(value)
+}
+
+pub fn repo_path_buf(value: impl Into<String>) -> RepoPathBuf {
+    RepoPathBuf::from_internal_string(value)
+}
+
 pub fn read_file(store: &Store, path: &RepoPath, id: &FileId) -> Vec<u8> {
     let mut reader = store.read_file(path, id).unwrap();
     let mut content = vec![];
@@ -421,7 +434,7 @@ pub fn create_tree(repo: &Arc<ReadonlyRepo>, path_contents: &[(&RepoPath, &str)]
 #[must_use]
 pub fn create_random_tree(repo: &Arc<ReadonlyRepo>) -> MergedTreeId {
     let number = rand::random::<u32>();
-    let path = RepoPathBuf::from_internal_string(format!("file{number}"));
+    let path = repo_path_buf(format!("file{number}"));
     create_tree(repo, &[(&path, "contents")]).id()
 }
 

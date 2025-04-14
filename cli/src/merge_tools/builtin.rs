@@ -622,6 +622,7 @@ mod tests {
     use jj_lib::conflicts::extract_as_single_hunk;
     use jj_lib::merge::MergedTreeValue;
     use jj_lib::repo::Repo as _;
+    use testutils::repo_path;
     use testutils::TestRepo;
 
     use super::*;
@@ -631,10 +632,10 @@ mod tests {
         let test_repo = TestRepo::init();
         let store = test_repo.repo.store();
 
-        let unused_path = RepoPath::from_internal_string("unused");
-        let unchanged = RepoPath::from_internal_string("unchanged");
-        let changed_path = RepoPath::from_internal_string("changed");
-        let added_path = RepoPath::from_internal_string("added");
+        let unused_path = repo_path("unused");
+        let unchanged = repo_path("unchanged");
+        let changed_path = repo_path("changed");
+        let added_path = repo_path("added");
         let left_tree = testutils::create_tree(
             &test_repo.repo,
             &[
@@ -788,7 +789,7 @@ mod tests {
         let test_repo = TestRepo::init();
         let store = test_repo.repo.store();
 
-        let added_empty_file_path = RepoPath::from_internal_string("empty_file");
+        let added_empty_file_path = repo_path("empty_file");
         let left_tree = testutils::create_tree(&test_repo.repo, &[]);
         let right_tree = testutils::create_tree(&test_repo.repo, &[(added_empty_file_path, "")]);
 
@@ -852,7 +853,7 @@ mod tests {
         let test_repo = TestRepo::init();
         let store = test_repo.repo.store();
 
-        let added_executable_file_path = RepoPath::from_internal_string("executable_file");
+        let added_executable_file_path = repo_path("executable_file");
         let left_tree = testutils::create_tree(&test_repo.repo, &[]);
         let right_tree = {
             // let store = test_repo.repo.store();
@@ -935,7 +936,7 @@ mod tests {
         let test_repo = TestRepo::init();
         let store = test_repo.repo.store();
 
-        let file_path = RepoPath::from_internal_string("file_with_content");
+        let file_path = repo_path("file_with_content");
         let left_tree = testutils::create_tree(&test_repo.repo, &[(file_path, "content\n")]);
         let right_tree = testutils::create_tree(&test_repo.repo, &[]);
 
@@ -1008,7 +1009,7 @@ mod tests {
         let test_repo = TestRepo::init();
         let store = test_repo.repo.store();
 
-        let added_empty_file_path = RepoPath::from_internal_string("empty_file");
+        let added_empty_file_path = repo_path("empty_file");
         let left_tree = testutils::create_tree(&test_repo.repo, &[(added_empty_file_path, "")]);
         let right_tree = testutils::create_tree(&test_repo.repo, &[]);
 
@@ -1072,7 +1073,7 @@ mod tests {
         let test_repo = TestRepo::init();
         let store = test_repo.repo.store();
 
-        let empty_file_path = RepoPath::from_internal_string("empty_file");
+        let empty_file_path = repo_path("empty_file");
         let left_tree = testutils::create_tree(&test_repo.repo, &[(empty_file_path, "")]);
         let right_tree =
             testutils::create_tree(&test_repo.repo, &[(empty_file_path, "modified\n")]);
@@ -1142,7 +1143,7 @@ mod tests {
         let test_repo = TestRepo::init();
         let store = test_repo.repo.store();
 
-        let file_path = RepoPath::from_internal_string("file_with_content");
+        let file_path = repo_path("file_with_content");
         let left_tree = testutils::create_tree(&test_repo.repo, &[(file_path, "content\n")]);
         let right_tree = testutils::create_tree(&test_repo.repo, &[(file_path, "")]);
 
@@ -1211,7 +1212,7 @@ mod tests {
         let test_repo = TestRepo::init();
         let store = test_repo.repo.store();
 
-        let path = RepoPath::from_internal_string("file");
+        let path = repo_path("file");
         let base_tree = testutils::create_tree(
             &test_repo.repo,
             &[(path, "base 1\nbase 2\nbase 3\nbase 4\nbase 5\n")],

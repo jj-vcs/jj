@@ -668,6 +668,10 @@ mod tests {
         RepoPath::from_internal_string(value)
     }
 
+    fn repo_path_component(value: &str) -> &RepoPathComponent {
+        RepoPathComponent::new(value)
+    }
+
     #[test]
     fn test_is_root() {
         assert!(RepoPath::root().is_root());
@@ -778,12 +782,12 @@ mod tests {
     #[test]
     fn test_join() {
         let root = RepoPath::root();
-        let dir = root.join(RepoPathComponent::new("dir"));
+        let dir = root.join(repo_path_component("dir"));
         assert_eq!(dir.as_ref(), repo_path("dir"));
-        let subdir = dir.join(RepoPathComponent::new("subdir"));
+        let subdir = dir.join(repo_path_component("subdir"));
         assert_eq!(subdir.as_ref(), repo_path("dir/subdir"));
         assert_eq!(
-            subdir.join(RepoPathComponent::new("file")).as_ref(),
+            subdir.join(repo_path_component("file")).as_ref(),
             repo_path("dir/subdir/file")
         );
     }
@@ -791,8 +795,8 @@ mod tests {
     #[test]
     fn test_parent() {
         let root = RepoPath::root();
-        let dir_component = RepoPathComponent::new("dir");
-        let subdir_component = RepoPathComponent::new("subdir");
+        let dir_component = repo_path_component("dir");
+        let subdir_component = repo_path_component("subdir");
 
         let dir = root.join(dir_component);
         let subdir = dir.join(subdir_component);
@@ -805,8 +809,8 @@ mod tests {
     #[test]
     fn test_split() {
         let root = RepoPath::root();
-        let dir_component = RepoPathComponent::new("dir");
-        let file_component = RepoPathComponent::new("file");
+        let dir_component = repo_path_component("dir");
+        let file_component = repo_path_component("file");
 
         let dir = root.join(dir_component);
         let file = dir.join(file_component);
@@ -821,28 +825,22 @@ mod tests {
         assert!(RepoPath::root().components().next().is_none());
         assert_eq!(
             repo_path("dir").components().collect_vec(),
-            vec![RepoPathComponent::new("dir")]
+            vec![repo_path_component("dir")]
         );
         assert_eq!(
             repo_path("dir/subdir").components().collect_vec(),
-            vec![
-                RepoPathComponent::new("dir"),
-                RepoPathComponent::new("subdir"),
-            ]
+            vec![repo_path_component("dir"), repo_path_component("subdir")]
         );
 
         // Iterates from back
         assert!(RepoPath::root().components().next_back().is_none());
         assert_eq!(
             repo_path("dir").components().rev().collect_vec(),
-            vec![RepoPathComponent::new("dir")]
+            vec![repo_path_component("dir")]
         );
         assert_eq!(
             repo_path("dir/subdir").components().rev().collect_vec(),
-            vec![
-                RepoPathComponent::new("subdir"),
-                RepoPathComponent::new("dir"),
-            ]
+            vec![repo_path_component("subdir"), repo_path_component("dir")]
         );
     }
 

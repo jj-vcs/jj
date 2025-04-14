@@ -17,8 +17,6 @@ use std::thread;
 
 use assert_matches::assert_matches;
 use jj_lib::repo::Repo as _;
-use jj_lib::repo_path::RepoPath;
-use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::working_copy::CheckoutError;
 use jj_lib::working_copy::CheckoutOptions;
 use jj_lib::working_copy::SnapshotOptions;
@@ -26,6 +24,8 @@ use jj_lib::workspace::default_working_copy_factories;
 use jj_lib::workspace::Workspace;
 use testutils::commit_with_tree;
 use testutils::create_tree;
+use testutils::repo_path;
+use testutils::repo_path_buf;
 use testutils::write_working_copy_file;
 use testutils::TestWorkspace;
 
@@ -115,17 +115,14 @@ fn test_checkout_parallel() {
     let num_threads = max(num_cpus::get(), 4);
     let mut tree_ids = vec![];
     for i in 0..num_threads {
-        let path = RepoPathBuf::from_internal_string(format!("file{i}"));
+        let path = repo_path_buf(format!("file{i}"));
         let tree = create_tree(repo, &[(&path, "contents")]);
         tree_ids.push(tree.id());
     }
 
     // Create another tree just so we can test the update stats reliably from the
     // first update
-    let tree = create_tree(
-        repo,
-        &[(RepoPath::from_internal_string("other file"), "contents")],
-    );
+    let tree = create_tree(repo, &[(repo_path("other file"), "contents")]);
     let commit = commit_with_tree(repo.store(), tree.id());
     test_workspace
         .workspace
@@ -186,7 +183,7 @@ fn test_racy_checkout() {
     let op_id = repo.op_id().clone();
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
 
-    let path = RepoPath::from_internal_string("file");
+    let path = repo_path("file");
     let tree = create_tree(repo, &[(path, "1")]);
     let commit = commit_with_tree(repo.store(), tree.id());
 

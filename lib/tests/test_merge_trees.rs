@@ -16,9 +16,9 @@ use jj_lib::backend::MergedTreeId;
 use jj_lib::backend::TreeValue;
 use jj_lib::merge::Merge;
 use jj_lib::repo::Repo as _;
-use jj_lib::repo_path::RepoPath;
 use jj_lib::rewrite::rebase_commit;
 use testutils::create_tree;
+use testutils::repo_path;
 use testutils::TestRepo;
 
 #[test]
@@ -38,7 +38,7 @@ fn test_simplify_conflict_after_resolving_parent() {
     // which creates a conflict. We resolve the conflict in the first line and
     // rebase C2 (the rebased C) onto the resolved conflict. C3 should not have
     // a conflict since it changed an unrelated line.
-    let path = RepoPath::from_internal_string("dir/file");
+    let path = repo_path("dir/file");
     let mut tx = repo.start_transaction();
     let tree_a = create_tree(repo, &[(path, "abc\ndef\nghi\n")]);
     let commit_a = tx
@@ -129,7 +129,7 @@ fn test_rebase_linearize_lossy_merge() {
     // commit D is interpreted that way. If we're going to change that, we will
     // probably also need to drop the "A+(A-B)=A" rule so it requires an
     // explicit action from the user to resolve such conflicts.
-    let path = RepoPath::from_internal_string("foo");
+    let path = repo_path("foo");
     let mut tx = repo.start_transaction();
     let repo_mut = tx.repo_mut();
     let tree_1 = create_tree(repo, &[(path, "1")]);
@@ -179,7 +179,7 @@ fn test_rebase_on_lossy_merge() {
     // auto-merged parents to just "2" before the rebase in order to be
     // consistent with `jj show D` and other commands for inspecting the
     // commit, we instead get a conflict after the rebase.
-    let path = RepoPath::from_internal_string("foo");
+    let path = repo_path("foo");
     let mut tx = repo.start_transaction();
     let repo_mut = tx.repo_mut();
     let tree_1 = create_tree(repo, &[(path, "1")]);

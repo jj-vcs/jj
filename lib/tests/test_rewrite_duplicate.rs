@@ -17,10 +17,10 @@ use std::collections::HashMap;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::repo::Repo as _;
-use jj_lib::repo_path::RepoPath;
 use jj_lib::rewrite::duplicate_commits;
 use jj_lib::transaction::Transaction;
 use testutils::create_tree;
+use testutils::repo_path;
 use testutils::TestRepo;
 
 #[test]
@@ -28,8 +28,8 @@ fn test_duplicate_linear_contents() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
-    let path_1 = RepoPath::from_internal_string("file1");
-    let path_2 = RepoPath::from_internal_string("file2");
+    let path_1 = repo_path("file1");
+    let path_2 = repo_path("file2");
     let empty_tree_id = repo.store().empty_merged_tree_id();
     let tree_1 = create_tree(repo, &[(path_1, "content1")]);
     let tree_2 = create_tree(repo, &[(path_2, "content2")]);

@@ -62,8 +62,6 @@ use jj_lib::refs::BookmarkPushUpdate;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
-use jj_lib::repo_path::RepoPath;
-use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::settings::GitSettings;
 use jj_lib::settings::UserSettings;
 use jj_lib::signing::Signer;
@@ -76,6 +74,8 @@ use tempfile::TempDir;
 use test_case::test_case;
 use testutils::commit_transactions;
 use testutils::create_random_commit;
+use testutils::repo_path;
+use testutils::repo_path_buf;
 use testutils::write_random_commit;
 use testutils::CommitGraphBuilder;
 use testutils::TestRepo;
@@ -2572,21 +2572,21 @@ fn test_reset_head_with_index_no_conflict() {
             TreeBuilder::new(repo.store().clone(), repo.store().empty_tree_id().clone());
         testutils::write_normal_file(
             &mut tree_builder,
-            RepoPath::from_internal_string("some/dir/normal-file"),
+            repo_path("some/dir/normal-file"),
             "file\n",
         );
         testutils::write_executable_file(
             &mut tree_builder,
-            RepoPath::from_internal_string("some/dir/executable-file"),
+            repo_path("some/dir/executable-file"),
             "file\n",
         );
         testutils::write_symlink(
             &mut tree_builder,
-            RepoPath::from_internal_string("some/dir/symlink"),
+            repo_path("some/dir/symlink"),
             "./normal-file",
         );
         tree_builder.set(
-            RepoPathBuf::from_internal_string("some/dir/commit"),
+            repo_path_buf("some/dir/commit"),
             TreeValue::GitSubmodule(testutils::write_random_commit(mut_repo).id().clone()),
         );
         MergedTreeId::resolved(tree_builder.write_tree().unwrap())
@@ -2635,21 +2635,21 @@ fn test_reset_head_with_index_merge_conflict() {
             TreeBuilder::new(repo.store().clone(), repo.store().empty_tree_id().clone());
         testutils::write_normal_file(
             &mut tree_builder,
-            RepoPath::from_internal_string("some/dir/normal-file"),
+            repo_path("some/dir/normal-file"),
             "base\n",
         );
         testutils::write_executable_file(
             &mut tree_builder,
-            RepoPath::from_internal_string("some/dir/executable-file"),
+            repo_path("some/dir/executable-file"),
             "base\n",
         );
         testutils::write_symlink(
             &mut tree_builder,
-            RepoPath::from_internal_string("some/dir/symlink"),
+            repo_path("some/dir/symlink"),
             "./normal-file",
         );
         tree_builder.set(
-            RepoPathBuf::from_internal_string("some/dir/commit"),
+            repo_path_buf("some/dir/commit"),
             TreeValue::GitSubmodule(testutils::write_random_commit(mut_repo).id().clone()),
         );
         MergedTreeId::resolved(tree_builder.write_tree().unwrap())
@@ -2660,21 +2660,21 @@ fn test_reset_head_with_index_merge_conflict() {
             TreeBuilder::new(repo.store().clone(), repo.store().empty_tree_id().clone());
         testutils::write_normal_file(
             &mut tree_builder,
-            RepoPath::from_internal_string("some/dir/normal-file"),
+            repo_path("some/dir/normal-file"),
             "left\n",
         );
         testutils::write_executable_file(
             &mut tree_builder,
-            RepoPath::from_internal_string("some/dir/executable-file"),
+            repo_path("some/dir/executable-file"),
             "left\n",
         );
         testutils::write_symlink(
             &mut tree_builder,
-            RepoPath::from_internal_string("some/dir/symlink"),
+            repo_path("some/dir/symlink"),
             "./executable-file",
         );
         tree_builder.set(
-            RepoPathBuf::from_internal_string("some/dir/commit"),
+            repo_path_buf("some/dir/commit"),
             TreeValue::GitSubmodule(testutils::write_random_commit(mut_repo).id().clone()),
         );
         MergedTreeId::resolved(tree_builder.write_tree().unwrap())
@@ -2685,21 +2685,17 @@ fn test_reset_head_with_index_merge_conflict() {
             TreeBuilder::new(repo.store().clone(), repo.store().empty_tree_id().clone());
         testutils::write_normal_file(
             &mut tree_builder,
-            RepoPath::from_internal_string("some/dir/normal-file"),
+            repo_path("some/dir/normal-file"),
             "right\n",
         );
         testutils::write_executable_file(
             &mut tree_builder,
-            RepoPath::from_internal_string("some/dir/executable-file"),
+            repo_path("some/dir/executable-file"),
             "right\n",
         );
-        testutils::write_symlink(
-            &mut tree_builder,
-            RepoPath::from_internal_string("some/dir/symlink"),
-            "./commit",
-        );
+        testutils::write_symlink(&mut tree_builder, repo_path("some/dir/symlink"), "./commit");
         tree_builder.set(
-            RepoPathBuf::from_internal_string("some/dir/commit"),
+            repo_path_buf("some/dir/commit"),
             TreeValue::GitSubmodule(testutils::write_random_commit(mut_repo).id().clone()),
         );
         MergedTreeId::resolved(tree_builder.write_tree().unwrap())
@@ -2771,22 +2767,14 @@ fn test_reset_head_with_index_file_directory_conflict() {
     let left_tree_id = {
         let mut tree_builder =
             TreeBuilder::new(repo.store().clone(), repo.store().empty_tree_id().clone());
-        testutils::write_normal_file(
-            &mut tree_builder,
-            RepoPath::from_internal_string("test/dir/file"),
-            "dir\n",
-        );
+        testutils::write_normal_file(&mut tree_builder, repo_path("test/dir/file"), "dir\n");
         MergedTreeId::resolved(tree_builder.write_tree().unwrap())
     };
 
     let right_tree_id = {
         let mut tree_builder =
             TreeBuilder::new(repo.store().clone(), repo.store().empty_tree_id().clone());
-        testutils::write_normal_file(
-            &mut tree_builder,
-            RepoPath::from_internal_string("test"),
-            "file\n",
-        );
+        testutils::write_normal_file(&mut tree_builder, repo_path("test"), "file\n");
         MergedTreeId::resolved(tree_builder.write_tree().unwrap())
     };
 

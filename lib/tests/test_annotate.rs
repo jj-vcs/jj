@@ -31,6 +31,7 @@ use jj_lib::repo_path::RepoPath;
 use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::RevsetExpression;
 use testutils::create_tree;
+use testutils::repo_path;
 use testutils::TestRepo;
 
 fn create_commit_fn(
@@ -107,7 +108,7 @@ fn test_annotate_linear() {
     let repo = &test_repo.repo;
 
     let root_commit_id = repo.store().root_commit_id();
-    let file_path = RepoPath::from_internal_string("file");
+    let file_path = repo_path("file");
 
     let mut tx = repo.start_transaction();
     let mut create_commit = create_commit_fn(tx.repo_mut());
@@ -144,7 +145,7 @@ fn test_annotate_merge_simple() {
     let repo = &test_repo.repo;
 
     let root_commit_id = repo.store().root_commit_id();
-    let file_path = RepoPath::from_internal_string("file");
+    let file_path = repo_path("file");
 
     // 4    "2 1 3"
     // |\
@@ -218,7 +219,7 @@ fn test_annotate_merge_split() {
     let repo = &test_repo.repo;
 
     let root_commit_id = repo.store().root_commit_id();
-    let file_path = RepoPath::from_internal_string("file");
+    let file_path = repo_path("file");
 
     // 4    "2 1a 1b 3 4"
     // |\
@@ -258,7 +259,7 @@ fn test_annotate_merge_split_interleaved() {
     let repo = &test_repo.repo;
 
     let root_commit_id = repo.store().root_commit_id();
-    let file_path = RepoPath::from_internal_string("file");
+    let file_path = repo_path("file");
 
     // 6    "1a 4 1b 6 2a 5 2b"
     // |\
@@ -310,7 +311,7 @@ fn test_annotate_merge_dup() {
     let repo = &test_repo.repo;
 
     let root_commit_id = repo.store().root_commit_id();
-    let file_path = RepoPath::from_internal_string("file");
+    let file_path = repo_path("file");
 
     // 4    "2 1 1 3 4"
     // |\
@@ -362,8 +363,8 @@ fn test_annotate_file_directory_transition() {
     let repo = &test_repo.repo;
 
     let root_commit_id = repo.store().root_commit_id();
-    let file_path1 = RepoPath::from_internal_string("file/was_dir");
-    let file_path2 = RepoPath::from_internal_string("file");
+    let file_path1 = repo_path("file/was_dir");
+    let file_path2 = repo_path("file");
 
     let mut tx = repo.start_transaction();
     let mut create_commit = create_commit_fn(tx.repo_mut());

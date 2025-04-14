@@ -41,7 +41,6 @@ use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
-use jj_lib::repo_path::RepoPathComponent;
 use jj_lib::secret_backend::SecretBackend;
 use jj_lib::working_copy::CheckoutError;
 use jj_lib::working_copy::CheckoutOptions;
@@ -56,6 +55,9 @@ use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::commit_with_tree;
 use testutils::create_tree;
+use testutils::repo_path;
+use testutils::repo_path_buf;
+use testutils::repo_path_component;
 use testutils::write_random_commit;
 use testutils::TestRepoBackend;
 use testutils::TestWorkspace;
@@ -229,7 +231,7 @@ fn test_checkout_file_transitions(backend: TestRepoBackend) {
                 Merge::normal(TreeValue::Symlink(id))
             }
             Kind::Tree => {
-                let file_path = path.join(RepoPathComponent::new("file"));
+                let file_path = path.join(repo_path_component("file"));
                 let id = testutils::write_file(store, &file_path, "normal file contents");
                 let value = TreeValue::File {
                     id,
@@ -266,7 +268,7 @@ fn test_checkout_file_transitions(backend: TestRepoBackend) {
     let mut files = vec![];
     for left_kind in &kinds {
         for right_kind in &kinds {
-            let path = RepoPathBuf::from_internal_string(format!("{left_kind:?}_{right_kind:?}"));
+            let path = repo_path_buf(format!("{left_kind:?}_{right_kind:?}"));
             write_path(repo, &mut left_tree_builder, *left_kind, &path);
             write_path(repo, &mut right_tree_builder, *right_kind, &path);
             files.push((*left_kind, *right_kind, path.clone()));
@@ -378,7 +380,7 @@ fn test_checkout_no_op() {
     let mut test_workspace = TestWorkspace::init();
     let repo = test_workspace.repo.clone();
 
-    let file_path = RepoPath::from_internal_string("file");
+    let file_path = repo_path("file");
 
     let tree = create_tree(&repo, &[(file_path, "contents")]);
     let commit1 = commit_with_tree(repo.store(), tree.id());
@@ -421,7 +423,7 @@ fn test_conflict_subdirectory() {
     let mut test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
 
-    let path = RepoPath::from_internal_string("sub/file");
+    let path = repo_path("sub/file");
     let empty_tree = create_tree(repo, &[]);
     let tree1 = create_tree(repo, &[(path, "0")]);
     let tree2 = create_tree(repo, &[(path, "1")]);
@@ -454,11 +456,11 @@ fn test_acl() {
     let repo = &test_workspace.repo;
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
 
-    let secret_modified_path = RepoPath::from_internal_string("secret/modified");
-    let secret_added_path = RepoPath::from_internal_string("secret/added");
-    let secret_deleted_path = RepoPath::from_internal_string("secret/deleted");
-    let became_secret_path = RepoPath::from_internal_string("file1");
-    let became_public_path = RepoPath::from_internal_string("file2");
+    let secret_modified_path = repo_path("secret/modified");
+    let secret_added_path = repo_path("secret/added");
+    let secret_deleted_path = repo_path("secret/deleted");
+    let became_secret_path = repo_path("file1");
+    let became_public_path = repo_path("file2");
     let tree1 = create_tree(
         repo,
         &[
@@ -558,8 +560,8 @@ fn test_tree_builder_file_directory_transition() {
         .unwrap();
     };
 
-    let parent_path = RepoPath::from_internal_string("foo/bar");
-    let child_path = RepoPath::from_internal_string("foo/bar/baz");
+    let parent_path = repo_path("foo/bar");
+    let child_path = repo_path("foo/bar/baz");
 
     // Add file at parent_path
     let mut tree_builder = store.tree_builder(store.empty_tree_id().clone());
@@ -596,17 +598,17 @@ fn test_conflicting_changes_on_disk() {
     let workspace_root = ws.workspace_root().to_owned();
 
     // file on disk conflicts with file in target commit
-    let file_file_path = RepoPath::from_internal_string("file-file");
+    let file_file_path = repo_path("file-file");
     // file on disk conflicts with directory in target commit
-    let file_dir_path = RepoPath::from_internal_string("file-dir");
+    let file_dir_path = repo_path("file-dir");
     // directory on disk conflicts with file in target commit
-    let dir_file_path = RepoPath::from_internal_string("dir-file");
+    let dir_file_path = repo_path("dir-file");
     let tree = create_tree(
         repo,
         &[
             (file_file_path, "committed contents"),
             (
-                &file_dir_path.join(RepoPathComponent::new("file")),
+                &file_dir_path.join(repo_path_component("file")),
                 "committed contents",
             ),
             (dir_file_path, "committed contents"),
@@ -677,8 +679,8 @@ fn test_reset() {
     let op_id = repo.op_id().clone();
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
 
-    let ignored_path = RepoPath::from_internal_string("ignored");
-    let gitignore_path = RepoPath::from_internal_string(".gitignore");
+    let ignored_path = repo_path("ignored");
+    let gitignore_path = repo_path(".gitignore");
 
     let tree_without_file = create_tree(repo, &[(gitignore_path, "ignored\n")]);
     let commit_without_file = commit_with_tree(repo.store(), tree_without_file.id().clone());
@@ -737,8 +739,8 @@ fn test_checkout_discard() {
     let repo = test_workspace.repo.clone();
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
 
-    let file1_path = RepoPath::from_internal_string("file1");
-    let file2_path = RepoPath::from_internal_string("file2");
+    let file1_path = repo_path("file1");
+    let file2_path = repo_path("file2");
 
     let store = repo.store();
     let tree1 = create_tree(&repo, &[(file1_path, "contents")]);
@@ -797,8 +799,8 @@ fn test_snapshot_file_directory_transition() {
     let to_ws_path = |path: &RepoPath| path.to_fs_path(&workspace_root).unwrap();
 
     // file <-> directory transition at root and sub directories
-    let file1_path = RepoPath::from_internal_string("foo/bar");
-    let file2_path = RepoPath::from_internal_string("sub/bar/baz");
+    let file1_path = repo_path("foo/bar");
+    let file2_path = repo_path("sub/bar/baz");
     let file1p_path = file1_path.parent().unwrap();
     let file2p_path = file2_path.parent().unwrap();
 
@@ -847,8 +849,8 @@ fn test_materialize_snapshot_conflicted_files() {
     // conflicts:
     // file1: A - A + A - B + C
     // file2: A - B + C - D + D
-    let file1_path = RepoPath::from_internal_string("file1");
-    let file2_path = RepoPath::from_internal_string("file2");
+    let file1_path = repo_path("file1");
+    let file2_path = repo_path("file2");
     let side1_tree = create_tree(repo, &[(file1_path, "a\n"), (file2_path, "1\n")]);
     let base1_tree = create_tree(repo, &[(file1_path, "a\n"), (file2_path, "2\n")]);
     let side2_tree = create_tree(repo, &[(file1_path, "a\n"), (file2_path, "4\n")]);
@@ -993,10 +995,10 @@ fn test_snapshot_special_file() {
     let store = test_workspace.repo.store();
     let ws = &mut test_workspace.workspace;
 
-    let file1_path = RepoPath::from_internal_string("file1");
+    let file1_path = repo_path("file1");
     let file1_disk_path = file1_path.to_fs_path_unchecked(&workspace_root);
     std::fs::write(&file1_disk_path, "contents".as_bytes()).unwrap();
-    let file2_path = RepoPath::from_internal_string("file2");
+    let file2_path = repo_path("file2");
     let file2_disk_path = file2_path.to_fs_path_unchecked(&workspace_root);
     std::fs::write(file2_disk_path, "contents".as_bytes()).unwrap();
     let socket_disk_path = workspace_root.join("socket");
@@ -1048,13 +1050,13 @@ fn test_gitignores() {
     let mut test_workspace = TestWorkspace::init();
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
 
-    let gitignore_path = RepoPath::from_internal_string(".gitignore");
-    let added_path = RepoPath::from_internal_string("added");
-    let modified_path = RepoPath::from_internal_string("modified");
-    let removed_path = RepoPath::from_internal_string("removed");
-    let ignored_path = RepoPath::from_internal_string("ignored");
-    let subdir_modified_path = RepoPath::from_internal_string("dir/modified");
-    let subdir_ignored_path = RepoPath::from_internal_string("dir/ignored");
+    let gitignore_path = repo_path(".gitignore");
+    let added_path = repo_path("added");
+    let modified_path = repo_path("modified");
+    let removed_path = repo_path("removed");
+    let ignored_path = repo_path("ignored");
+    let subdir_modified_path = repo_path("dir/modified");
+    let subdir_ignored_path = repo_path("dir/ignored");
 
     testutils::write_working_copy_file(&workspace_root, gitignore_path, "ignored\n");
     testutils::write_working_copy_file(&workspace_root, modified_path, "1");
@@ -1108,9 +1110,9 @@ fn test_gitignores_in_ignored_dir() {
     let op_id = test_workspace.repo.op_id().clone();
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
 
-    let gitignore_path = RepoPath::from_internal_string(".gitignore");
-    let nested_gitignore_path = RepoPath::from_internal_string("ignored/.gitignore");
-    let ignored_path = RepoPath::from_internal_string("ignored/file");
+    let gitignore_path = repo_path(".gitignore");
+    let nested_gitignore_path = repo_path("ignored/.gitignore");
+    let ignored_path = repo_path("ignored/file");
 
     let tree1 = create_tree(&test_workspace.repo, &[(gitignore_path, "ignored\n")]);
     let commit1 = commit_with_tree(test_workspace.repo.store(), tree1.id());
@@ -1159,9 +1161,9 @@ fn test_gitignores_checkout_never_overwrites_ignored() {
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
 
     // Write an ignored file called "modified" to disk
-    let gitignore_path = RepoPath::from_internal_string(".gitignore");
+    let gitignore_path = repo_path(".gitignore");
     testutils::write_working_copy_file(&workspace_root, gitignore_path, "modified\n");
-    let modified_path = RepoPath::from_internal_string("modified");
+    let modified_path = repo_path("modified");
     testutils::write_working_copy_file(&workspace_root, modified_path, "garbage");
 
     // Create a tree that adds the same file but with different contents
@@ -1222,16 +1224,16 @@ fn test_gitignores_ignored_directory_already_tracked() {
         MergedTree::resolved(store.get_tree(RepoPathBuf::root(), &id).unwrap())
     };
 
-    let gitignore_path = RepoPath::from_internal_string(".gitignore");
-    let unchanged_normal_path = RepoPath::from_internal_string("ignored/unchanged_normal");
-    let modified_normal_path = RepoPath::from_internal_string("ignored/modified_normal");
-    let deleted_normal_path = RepoPath::from_internal_string("ignored/deleted_normal");
-    let unchanged_executable_path = RepoPath::from_internal_string("ignored/unchanged_executable");
-    let modified_executable_path = RepoPath::from_internal_string("ignored/modified_executable");
-    let deleted_executable_path = RepoPath::from_internal_string("ignored/deleted_executable");
-    let unchanged_symlink_path = RepoPath::from_internal_string("ignored/unchanged_symlink");
-    let modified_symlink_path = RepoPath::from_internal_string("ignored/modified_symlink");
-    let deleted_symlink_path = RepoPath::from_internal_string("ignored/deleted_symlink");
+    let gitignore_path = repo_path(".gitignore");
+    let unchanged_normal_path = repo_path("ignored/unchanged_normal");
+    let modified_normal_path = repo_path("ignored/modified_normal");
+    let deleted_normal_path = repo_path("ignored/deleted_normal");
+    let unchanged_executable_path = repo_path("ignored/unchanged_executable");
+    let modified_executable_path = repo_path("ignored/modified_executable");
+    let deleted_executable_path = repo_path("ignored/deleted_executable");
+    let unchanged_symlink_path = repo_path("ignored/unchanged_symlink");
+    let modified_symlink_path = repo_path("ignored/modified_symlink");
+    let deleted_symlink_path = repo_path("ignored/deleted_symlink");
     let tree = create_tree_with_kind(&[
         (gitignore_path, Kind::Normal, "/ignored/\n"),
         (unchanged_normal_path, Kind::Normal, "contents"),
@@ -1305,22 +1307,14 @@ fn test_dotgit_ignored() {
     // trees)
     let dotgit_path = workspace_root.join(".git");
     std::fs::create_dir(&dotgit_path).unwrap();
-    testutils::write_working_copy_file(
-        &workspace_root,
-        RepoPath::from_internal_string(".git/file"),
-        "contents",
-    );
+    testutils::write_working_copy_file(&workspace_root, repo_path(".git/file"), "contents");
     let new_tree = test_workspace.snapshot().unwrap();
     let empty_tree_id = store.empty_merged_tree_id();
     assert_eq!(new_tree.id(), empty_tree_id);
     std::fs::remove_dir_all(&dotgit_path).unwrap();
 
     // Test with a .git file
-    testutils::write_working_copy_file(
-        &workspace_root,
-        RepoPath::from_internal_string(".git"),
-        "contents",
-    );
+    testutils::write_working_copy_file(&workspace_root, repo_path(".git"), "contents");
     let new_tree = test_workspace.snapshot().unwrap();
     assert_eq!(new_tree.id(), empty_tree_id);
 }
@@ -1345,9 +1339,9 @@ fn test_git_submodule(gitignore_content: &str) {
 
     // Add files in sub directory. Sub directories are traversed differently
     // depending on .gitignore. #5246
-    let added_path = RepoPath::from_internal_string("sub/added");
-    let submodule_path = RepoPath::from_internal_string("sub/module");
-    let added_submodule_path = RepoPath::from_internal_string("sub/module/added");
+    let added_path = repo_path("sub/added");
+    let submodule_path = repo_path("sub/module");
+    let added_submodule_path = repo_path("sub/module/added");
 
     let mut tree_builder = MergedTreeBuilder::new(store.empty_merged_tree_id());
 
@@ -1453,7 +1447,7 @@ fn test_check_out_existing_file_cannot_be_removed() {
     let repo = &test_workspace.repo;
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
 
-    let file_path = RepoPath::from_internal_string("file");
+    let file_path = repo_path("file");
     let tree1 = create_tree(repo, &[(file_path, "0")]);
     let tree2 = create_tree(repo, &[(file_path, "1")]);
     let commit1 = commit_with_tree(repo.store(), tree1.id());
@@ -1497,7 +1491,7 @@ fn test_check_out_existing_file_replaced_with_directory() {
     let repo = &test_workspace.repo;
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
 
-    let file_path = RepoPath::from_internal_string("file");
+    let file_path = repo_path("file");
     let tree1 = create_tree(repo, &[(file_path, "0")]);
     let tree2 = create_tree(repo, &[(file_path, "1")]);
     let commit1 = commit_with_tree(repo.store(), tree1.id());
@@ -1543,7 +1537,7 @@ fn test_check_out_existing_directory_symlink() {
     // under the symlinked directory.
     try_symlink("..", workspace_root.join("parent")).unwrap();
 
-    let file_path = RepoPath::from_internal_string("parent/escaped");
+    let file_path = repo_path("parent/escaped");
     let tree = create_tree(repo, &[(file_path, "contents")]);
     let commit = commit_with_tree(repo.store(), tree.id());
 
@@ -1579,7 +1573,7 @@ fn test_check_out_existing_directory_symlink_icase_fs() {
     // under the symlinked directory.
     try_symlink("..", workspace_root.join("parent")).unwrap();
 
-    let file_path = RepoPath::from_internal_string("PARENT/escaped");
+    let file_path = repo_path("PARENT/escaped");
     let tree = create_tree(repo, &[(file_path, "contents")]);
     let commit = commit_with_tree(repo.store(), tree.id());
 
@@ -1629,7 +1623,7 @@ fn test_check_out_existing_file_symlink_icase_fs(victim_exists: bool) {
     }
     assert_eq!(workspace_root.join("parent").exists(), victim_exists);
 
-    let file_path = RepoPath::from_internal_string("PARENT");
+    let file_path = repo_path("PARENT");
     let tree = create_tree(repo, &[(file_path, "bad")]);
     let commit = commit_with_tree(repo.store(), tree.id());
 
@@ -1668,7 +1662,7 @@ fn test_check_out_file_removal_over_existing_directory_symlink() {
     let repo = &test_workspace.repo;
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
 
-    let file_path = RepoPath::from_internal_string("parent/escaped");
+    let file_path = repo_path("parent/escaped");
     let tree1 = create_tree(repo, &[(file_path, "contents")]);
     let tree2 = create_tree(repo, &[]);
     let commit1 = commit_with_tree(repo.store(), tree1.id());
@@ -1716,7 +1710,7 @@ fn test_check_out_malformed_file_path(file_path_str: &str) {
     let repo = &test_workspace.repo;
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
 
-    let file_path = RepoPath::from_internal_string(file_path_str);
+    let file_path = repo_path(file_path_str);
     let tree = create_tree(repo, &[(file_path, "contents")]);
     let commit = commit_with_tree(repo.store(), tree.id());
 
@@ -1742,7 +1736,7 @@ fn test_check_out_malformed_file_path_windows(file_path_str: &str) {
     let repo = &test_workspace.repo;
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
 
-    let file_path = RepoPath::from_internal_string(file_path_str);
+    let file_path = repo_path(file_path_str);
     let tree = create_tree(repo, &[(file_path, "contents")]);
     let commit = commit_with_tree(repo.store(), tree.id());
 
@@ -1781,7 +1775,7 @@ fn test_check_out_reserved_file_path(file_path_str: &str) {
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
     std::fs::create_dir(workspace_root.join(".git")).unwrap();
 
-    let file_path = RepoPath::from_internal_string(file_path_str);
+    let file_path = repo_path(file_path_str);
     let disk_path = file_path.to_fs_path_unchecked(&workspace_root);
     let tree1 = create_tree(repo, &[(file_path, "contents")]);
     let tree2 = create_tree(repo, &[]);
@@ -1842,7 +1836,7 @@ fn test_check_out_reserved_file_path_icase_fs(file_path_str: &str) {
     std::fs::create_dir(workspace_root.join(".git")).unwrap();
     let is_icase_fs = check_icase_fs(&workspace_root);
 
-    let file_path = RepoPath::from_internal_string(file_path_str);
+    let file_path = repo_path(file_path_str);
     let disk_path = file_path.to_fs_path_unchecked(&workspace_root);
     let tree1 = create_tree(repo, &[(file_path, "contents")]);
     let tree2 = create_tree(repo, &[]);
@@ -1913,7 +1907,7 @@ fn test_check_out_reserved_file_path_hfs_plus(file_path_str: &str) {
     std::fs::create_dir(workspace_root.join(".git")).unwrap();
     let is_hfs_plus = check_hfs_plus(&workspace_root);
 
-    let file_path = RepoPath::from_internal_string(file_path_str);
+    let file_path = repo_path(file_path_str);
     let disk_path = file_path.to_fs_path_unchecked(&workspace_root);
     let tree1 = create_tree(repo, &[(file_path, "contents")]);
     let tree2 = create_tree(repo, &[]);
@@ -1986,10 +1980,7 @@ fn test_check_out_reserved_file_path_vfat(vfat_path_str: &str, file_path_strs: &
     let is_vfat = check_vfat(&workspace_root);
 
     let vfat_disk_path = workspace_root.join(vfat_path_str);
-    let file_paths = file_path_strs
-        .iter()
-        .map(|&s| RepoPath::from_internal_string(s))
-        .collect_vec();
+    let file_paths = file_path_strs.iter().map(|&s| repo_path(s)).collect_vec();
     let tree1 = create_tree(
         repo,
         &file_paths
@@ -2064,15 +2055,15 @@ fn test_fsmonitor() {
         vec![RepoPathBuf::root()]
     );
 
-    let foo_path = RepoPath::from_internal_string("foo");
-    let bar_path = RepoPath::from_internal_string("bar");
-    let nested_path = RepoPath::from_internal_string("path/to/nested");
+    let foo_path = repo_path("foo");
+    let bar_path = repo_path("bar");
+    let nested_path = repo_path("path/to/nested");
     testutils::write_working_copy_file(&workspace_root, foo_path, "foo\n");
     testutils::write_working_copy_file(&workspace_root, bar_path, "bar\n");
     testutils::write_working_copy_file(&workspace_root, nested_path, "nested\n");
 
-    let ignored_path = RepoPath::from_internal_string("path/to/ignored");
-    let gitignore_path = RepoPath::from_internal_string("path/.gitignore");
+    let ignored_path = repo_path("path/to/ignored");
+    let gitignore_path = repo_path("path/.gitignore");
     testutils::write_working_copy_file(&workspace_root, ignored_path, "ignored\n");
     testutils::write_working_copy_file(&workspace_root, gitignore_path, "to/ignored\n");
 
@@ -2153,8 +2144,8 @@ fn test_fsmonitor() {
 fn test_snapshot_max_new_file_size() {
     let mut test_workspace = TestWorkspace::init();
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
-    let small_path = RepoPath::from_internal_string("small");
-    let large_path = RepoPath::from_internal_string("large");
+    let small_path = repo_path("small");
+    let large_path = repo_path("large");
     let limit: usize = 1024;
     std::fs::write(
         small_path.to_fs_path_unchecked(&workspace_root),
@@ -2201,7 +2192,7 @@ fn test_snapshot_max_new_file_size() {
     );
 
     // A file in sub directory should also be caught
-    let sub_large_path = RepoPath::from_internal_string("sub/large");
+    let sub_large_path = repo_path("sub/large");
     std::fs::create_dir(
         sub_large_path
             .parent()

@@ -27,6 +27,7 @@ use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::store::Store;
 use pollster::FutureExt as _;
+use testutils::repo_path;
 use testutils::TestRepo;
 
 #[test]
@@ -34,7 +35,7 @@ fn test_materialize_conflict_basic() {
     let test_repo = TestRepo::init();
     let store = test_repo.repo.store();
 
-    let path = RepoPath::from_internal_string("file");
+    let path = repo_path("file");
     let base_id = testutils::write_file(
         store,
         path,
@@ -173,7 +174,7 @@ fn test_materialize_conflict_three_sides() {
     let test_repo = TestRepo::init();
     let store = test_repo.repo.store();
 
-    let path = RepoPath::from_internal_string("file");
+    let path = repo_path("file");
     let base_1_id = testutils::write_file(
         store,
         path,
@@ -317,7 +318,7 @@ fn test_materialize_conflict_multi_rebase_conflicts() {
     let store = test_repo.repo.store();
 
     // Create changes (a, b, c) on top of the base, and linearize them.
-    let path = RepoPath::from_internal_string("file");
+    let path = repo_path("file");
     let base_id = testutils::write_file(
         store,
         path,
@@ -440,7 +441,7 @@ fn test_materialize_parse_roundtrip() {
     let test_repo = TestRepo::init();
     let store = test_repo.repo.store();
 
-    let path = RepoPath::from_internal_string("file");
+    let path = repo_path("file");
     let base_id = testutils::write_file(
         store,
         path,
@@ -539,7 +540,7 @@ fn test_materialize_parse_roundtrip_different_markers() {
     let test_repo = TestRepo::init();
     let store = test_repo.repo.store();
 
-    let path = RepoPath::from_internal_string("file");
+    let path = repo_path("file");
     let base_id = testutils::write_file(
         store,
         path,
@@ -615,7 +616,7 @@ fn test_materialize_conflict_no_newlines_at_eof() {
     let test_repo = TestRepo::init();
     let store = test_repo.repo.store();
 
-    let path = RepoPath::from_internal_string("file");
+    let path = repo_path("file");
     let base_id = testutils::write_file(store, path, "base");
     let left_empty_id = testutils::write_file(store, path, "");
     let right_id = testutils::write_file(store, path, "right");
@@ -664,7 +665,7 @@ fn test_materialize_conflict_modify_delete() {
     let test_repo = TestRepo::init();
     let store = test_repo.repo.store();
 
-    let path = RepoPath::from_internal_string("file");
+    let path = repo_path("file");
     let base_id = testutils::write_file(
         store,
         path,
@@ -776,7 +777,7 @@ fn test_materialize_conflict_two_forward_diffs() {
     // E
     // >>>>
     // TODO: Maybe we should never have negative snapshots
-    let path = RepoPath::from_internal_string("file");
+    let path = repo_path("file");
     let a_id = testutils::write_file(store, path, "A\n");
     let b_id = testutils::write_file(store, path, "B\n");
     let c_id = testutils::write_file(store, path, "C\n");
@@ -1640,7 +1641,7 @@ fn test_update_conflict_from_content() {
     let test_repo = TestRepo::init();
     let store = test_repo.repo.store();
 
-    let path = RepoPath::from_internal_string("dir/file");
+    let path = repo_path("dir/file");
     let base_file_id = testutils::write_file(store, path, "line 1\nline 2\nline 3\n");
     let left_file_id = testutils::write_file(store, path, "left 1\nline 2\nleft 3\n");
     let right_file_id = testutils::write_file(store, path, "right 1\nline 2\nright 3\n");
@@ -1700,7 +1701,7 @@ fn test_update_conflict_from_content_modify_delete() {
     let test_repo = TestRepo::init();
     let store = test_repo.repo.store();
 
-    let path = RepoPath::from_internal_string("dir/file");
+    let path = repo_path("dir/file");
     let before_file_id = testutils::write_file(store, path, "line 1\nline 2 before\nline 3\n");
     let after_file_id = testutils::write_file(store, path, "line 1\nline 2 after\nline 3\n");
     let conflict =
@@ -1751,7 +1752,7 @@ fn test_update_conflict_from_content_simplified_conflict() {
     let test_repo = TestRepo::init();
     let store = test_repo.repo.store();
 
-    let path = RepoPath::from_internal_string("dir/file");
+    let path = repo_path("dir/file");
     let base_file_id = testutils::write_file(store, path, "line 1\nline 2\nline 3\n");
     let left_file_id = testutils::write_file(store, path, "left 1\nline 2\nleft 3\n");
     let right_file_id = testutils::write_file(store, path, "right 1\nline 2\nright 3\n");
@@ -1850,7 +1851,7 @@ fn test_update_conflict_from_content_with_long_markers() {
     let store = test_repo.repo.store();
 
     // Create conflicts which contain conflict markers of varying lengths
-    let path = RepoPath::from_internal_string("dir/file");
+    let path = repo_path("dir/file");
     let base_file_id = testutils::write_file(
         store,
         path,
@@ -2029,7 +2030,7 @@ fn test_update_conflict_from_content_no_eol() {
     let test_repo = TestRepo::init();
     let store = test_repo.repo.store();
 
-    let path = RepoPath::from_internal_string("file");
+    let path = repo_path("file");
     let base_id = testutils::write_file(store, path, "line 1\nline 2\nline 3\nbase");
     let left_empty_id =
         testutils::write_file(store, path, "line 1\nline 2 left\nline 3\nbase\nleft\n");
@@ -2162,7 +2163,7 @@ fn test_update_conflict_from_content_no_eol_in_diff_hunk() {
     let test_repo = TestRepo::init();
     let store = test_repo.repo.store();
 
-    let path = RepoPath::from_internal_string("file");
+    let path = repo_path("file");
     // Create a conflict with all 4 possible cases for diff "noeol" markers
     let side_1_id = testutils::write_file(store, path, "side\n");
     let base_1_id = testutils::write_file(store, path, "add newline\nline");
@@ -2237,7 +2238,7 @@ fn test_update_conflict_from_content_only_no_eol_change() {
     let test_repo = TestRepo::init();
     let store = test_repo.repo.store();
 
-    let path = RepoPath::from_internal_string("file");
+    let path = repo_path("file");
     // Create a conflict which would be resolved by the "A-B+A = A" rule if the
     // missing newline is wrongly ignored
     let left_id = testutils::write_file(store, path, "line 1\nline 2");
@@ -2281,7 +2282,7 @@ fn test_update_from_content_malformed_conflict() {
     let test_repo = TestRepo::init();
     let store = test_repo.repo.store();
 
-    let path = RepoPath::from_internal_string("dir/file");
+    let path = repo_path("dir/file");
     let base_file_id = testutils::write_file(
         store,
         path,

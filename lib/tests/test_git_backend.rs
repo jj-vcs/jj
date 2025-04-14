@@ -38,6 +38,8 @@ use testutils::commit_with_tree;
 use testutils::create_random_commit;
 use testutils::create_single_tree;
 use testutils::create_tree;
+use testutils::repo_path;
+use testutils::repo_path_buf;
 use testutils::CommitGraphBuilder;
 use testutils::TestRepo;
 use testutils::TestRepoBackend;
@@ -244,9 +246,9 @@ fn test_copy_detection() {
     let repo = &test_repo.repo;
 
     let paths = &[
-        RepoPathBuf::from_internal_string("file0"),
-        RepoPathBuf::from_internal_string("file1"),
-        RepoPathBuf::from_internal_string("file2"),
+        repo_path_buf("file0"),
+        repo_path_buf("file1"),
+        repo_path_buf("file2"),
     ];
 
     let mut tx = repo.start_transaction();
@@ -300,8 +302,8 @@ fn test_jj_trees_header_with_one_tree() {
     let git_backend = get_git_backend(&repo);
     let git_repo = git_backend.git_repo();
 
-    let tree_1 = create_single_tree(&repo, &[(RepoPath::from_internal_string("file"), "aaa")]);
-    let tree_2 = create_single_tree(&repo, &[(RepoPath::from_internal_string("file"), "bbb")]);
+    let tree_1 = create_single_tree(&repo, &[(repo_path("file"), "aaa")]);
+    let tree_2 = create_single_tree(&repo, &[(repo_path("file"), "bbb")]);
 
     // Create a normal commit with tree 1
     let commit = commit_with_tree(
