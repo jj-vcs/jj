@@ -63,6 +63,23 @@ enum FileContents {
     },
 }
 
+impl FileContents {
+    fn describe(&self) -> Option<String> {
+        match self {
+            FileContents::Absent => None,
+            FileContents::Text {
+                contents: _,
+                hash,
+                num_bytes,
+            }
+            | FileContents::Binary { hash, num_bytes } => match hash {
+                Some(hash) => Some(format!("{hash} ({num_bytes}B)")),
+                None => Some(format!("({num_bytes}B)")),
+            },
+        }
+    }
+}
+
 /// Information about a file that was read from disk. Note that the file may not
 /// have existed, in which case its contents will be marked as absent.
 #[derive(Clone, Debug)]
@@ -82,15 +99,6 @@ mod mode {
     pub const NORMAL: scm_record::FileMode = scm_record::FileMode::Unix(0o100644);
     pub const EXECUTABLE: scm_record::FileMode = scm_record::FileMode::Unix(0o100755);
     pub const SYMLINK: scm_record::FileMode = scm_record::FileMode::Unix(0o120000);
-}
-
-fn describe_binary(hash: Option<&str>, num_bytes: u64) -> String {
-    match hash {
-        Some(hash) => {
-            format!("{hash} ({num_bytes}B)")
-        }
-        None => format!("({num_bytes}B)"),
-    }
 }
 
 fn buf_to_file_contents(hash: Option<String>, buf: Vec<u8>) -> FileContents {
@@ -307,14 +315,6 @@ async fn make_diff_files(
                 lines: make_section_changed_lines(&contents, scm_record::ChangeType::Added),
             }),
 
-            (FileContents::Absent, FileContents::Binary { hash, num_bytes }) => {
-                sections.push(scm_record::Section::Binary {
-                    is_checked: false,
-                    old_description: None,
-                    new_description: Some(Cow::Owned(describe_binary(hash.as_deref(), num_bytes))),
-                });
-            }
-
             (
                 FileContents::Text {
                     contents,
@@ -341,42 +341,12 @@ async fn make_diff_files(
                 sections.extend(make_diff_sections(&old_contents, &new_contents)?);
             }
 
-            (
-                FileContents::Text {
-                    contents: _,
-                    hash: old_hash,
-                    num_bytes: old_num_bytes,
-                }
-                | FileContents::Binary {
-                    hash: old_hash,
-                    num_bytes: old_num_bytes,
-                },
-                FileContents::Text {
-                    contents: _,
-                    hash: new_hash,
-                    num_bytes: new_num_bytes,
-                }
-                | FileContents::Binary {
-                    hash: new_hash,
-                    num_bytes: new_num_bytes,
-                },
-            ) => sections.push(scm_record::Section::Binary {
-                is_checked: false,
-                old_description: Some(Cow::Owned(describe_binary(
-                    old_hash.as_deref(),
-                    old_num_bytes,
-                ))),
-                new_description: Some(Cow::Owned(describe_binary(
-                    new_hash.as_deref(),
-                    new_num_bytes,
-                ))),
-            }),
-
-            (FileContents::Binary { hash, num_bytes }, FileContents::Absent) => {
+            (left, right @ FileContents::Binary { .. })
+            | (left @ FileContents::Binary { .. }, right) => {
                 sections.push(scm_record::Section::Binary {
                     is_checked: false,
-                    old_description: Some(Cow::Owned(describe_binary(hash.as_deref(), num_bytes))),
-                    new_description: None,
+                    old_description: left.describe().map(Cow::Owned),
+                    new_description: right.describe().map(Cow::Owned),
                 });
             }
         }
@@ -539,11 +509,11 @@ fn make_merge_sections(
                         .map(|line| Cow::Owned(line.to_owned()))
                         .collect(),
                 }),
-                FileContents::Binary { hash, num_bytes } => Some(scm_record::Section::Binary {
+                FileContents::Binary { .. } => Some(scm_record::Section::Binary {
                     // TODO: Perhaps, this should be an "unchanged" section?
                     is_checked: false,
                     old_description: None,
-                    new_description: Some(Cow::Owned(describe_binary(hash.as_deref(), num_bytes))),
+                    new_description: contents.describe().map(Cow::Owned),
                 }),
             };
             if let Some(section) = section {
