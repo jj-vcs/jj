@@ -119,8 +119,13 @@ impl FileAnnotation {
     }
 }
 
-/// A map from commits to file line mappings and contents.
-type CommitSourceMap = HashMap<CommitId, Source>;
+/// Intermediate state of file annotation.
+#[derive(Clone, Debug)]
+struct AnnotationState {
+    original_line_map: OriginalLineMap,
+    /// Commits to file line mappings and contents.
+    commit_source_map: HashMap<CommitId, Source>,
+}
 
 /// Line mapping and file content at a certain commit.
 #[derive(Clone, Debug)]
@@ -225,26 +230,20 @@ fn process_commits(
         .union(&domain.intersection(&ancestors).filtered(predicate))
         .evaluate(repo)?;
 
-    let mut original_line_map =
-        vec![Err(starting_commit_id.clone()); starting_source.line_map.len()];
-    let mut commit_source_map = HashMap::from([(starting_commit_id.clone(), starting_source)]);
+    let mut state = AnnotationState {
+        original_line_map: vec![Err(starting_commit_id.clone()); starting_source.line_map.len()],
+        commit_source_map: HashMap::from([(starting_commit_id.clone(), starting_source)]),
+    };
 
     for node in revset.iter_graph() {
         let (commit_id, edge_list) = node?;
-        process_commit(
-            repo,
-            file_name,
-            &mut original_line_map,
-            &mut commit_source_map,
-            &commit_id,
-            &edge_list,
-        )?;
-        if commit_source_map.is_empty() {
+        process_commit(repo, file_name, &mut state, &commit_id, &edge_list)?;
+        if state.commit_source_map.is_empty() {
             // No more lines to propagate to ancestors.
             break;
         }
     }
-    Ok(original_line_map)
+    Ok(state.original_line_map)
 }
 
 /// For a given commit, for each parent, we compare the version in the parent
@@ -253,18 +252,17 @@ fn process_commits(
 fn process_commit(
     repo: &dyn Repo,
     file_name: &RepoPath,
-    original_line_map: &mut OriginalLineMap,
-    commit_source_map: &mut CommitSourceMap,
+    state: &mut AnnotationState,
     current_commit_id: &CommitId,
     edges: &[GraphEdge<CommitId>],
 ) -> Result<(), BackendError> {
-    let Some(mut current_source) = commit_source_map.remove(current_commit_id) else {
+    let Some(mut current_source) = state.commit_source_map.remove(current_commit_id) else {
         return Ok(());
     };
 
     for parent_edge in edges {
         let parent_commit_id = &parent_edge.target;
-        let parent_source = match commit_source_map.entry(parent_commit_id.clone()) {
+        let parent_source = match state.commit_source_map.entry(parent_commit_id.clone()) {
             hash_map::Entry::Occupied(entry) => entry.into_mut(),
             hash_map::Entry::Vacant(entry) => {
                 let commit = repo.store().get_commit(entry.key())?;
@@ -308,11 +306,11 @@ fn process_commit(
         // origin of the unresolved lines is represented as Err(root_commit_id).
         if parent_edge.edge_type == GraphEdgeType::Missing {
             for (_, original_line_number) in parent_source.line_map.drain(..) {
-                original_line_map[original_line_number] = Err(current_commit_id.clone());
+                state.original_line_map[original_line_number] = Err(current_commit_id.clone());
             }
         }
         if parent_source.line_map.is_empty() {
-            commit_source_map.remove(parent_commit_id);
+            state.commit_source_map.remove(parent_commit_id);
         }
     }
 
@@ -320,7 +318,7 @@ fn process_commit(
     // original to the current commit, so we save this information in
     // original_line_map.
     for (_, original_line_number) in current_source.line_map {
-        original_line_map[original_line_number] = Ok(current_commit_id.clone());
+        state.original_line_map[original_line_number] = Ok(current_commit_id.clone());
     }
 
     Ok(())
