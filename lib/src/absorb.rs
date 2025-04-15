@@ -25,7 +25,7 @@ use futures::StreamExt as _;
 use itertools::Itertools as _;
 use thiserror::Error;
 
-use crate::annotate::get_annotation_with_file_content;
+use crate::annotate::FileAnnotator;
 use crate::backend::BackendError;
 use crate::backend::BackendResult;
 use crate::backend::CommitId;
@@ -129,13 +129,10 @@ pub async fn split_hunks_to_trees(
         };
 
         // Compute annotation of parent (= left) content to map right hunks
-        let annotation = get_annotation_with_file_content(
-            repo,
-            source.commit.id(),
-            destinations,
-            left_path,
-            left_text.clone(),
-        )?;
+        let mut annotator =
+            FileAnnotator::with_file_content(source.commit.id(), left_path, left_text.clone());
+        annotator.compute(repo, destinations)?;
+        let annotation = annotator.to_annotation();
         let annotation_ranges = annotation
             .compact_line_ranges()
             .filter_map(|(commit_id, range)| Some((commit_id.ok()?, range)))

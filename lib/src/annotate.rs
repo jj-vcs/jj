@@ -30,6 +30,7 @@ use itertools::Itertools as _;
 use pollster::FutureExt as _;
 
 use crate::backend::BackendError;
+use crate::backend::BackendResult;
 use crate::backend::CommitId;
 use crate::commit::Commit;
 use crate::conflicts::materialize_merge_result_to_bytes;
@@ -44,6 +45,7 @@ use crate::graph::GraphEdgeType;
 use crate::merged_tree::MergedTree;
 use crate::repo::Repo;
 use crate::repo_path::RepoPath;
+use crate::repo_path::RepoPathBuf;
 use crate::revset::ResolvedRevsetExpression;
 use crate::revset::RevsetEvaluationError;
 use crate::revset::RevsetExpression;
@@ -119,6 +121,88 @@ impl FileAnnotation {
     }
 }
 
+/// Annotation process for a specific file.
+#[derive(Clone, Debug)]
+pub struct FileAnnotator {
+    // If we add copy-tracing support, file_path might be tracked by state.
+    file_path: RepoPathBuf,
+    original_text: BString,
+    state: AnnotationState,
+}
+
+impl FileAnnotator {
+    /// Initializes annotator for a specific file in the `starting_commit`.
+    ///
+    /// If the file is not found, the result would be empty.
+    pub fn from_commit(starting_commit: &Commit, file_path: &RepoPath) -> BackendResult<Self> {
+        let source = Source::load(starting_commit, file_path)?;
+        Ok(Self::with_source(starting_commit.id(), file_path, source))
+    }
+
+    /// Initializes annotator for a specific file path starting with the given
+    /// content.
+    ///
+    /// The file content at the `starting_commit` is set to `starting_text`.
+    /// This is typically one of the file contents in the conflict or
+    /// merged-parent tree.
+    pub fn with_file_content(
+        starting_commit_id: &CommitId,
+        file_path: &RepoPath,
+        starting_text: impl Into<Vec<u8>>,
+    ) -> Self {
+        let source = Source::new(BString::new(starting_text.into()));
+        Self::with_source(starting_commit_id, file_path, source)
+    }
+
+    fn with_source(
+        starting_commit_id: &CommitId,
+        file_path: &RepoPath,
+        mut source: Source,
+    ) -> Self {
+        source.fill_line_map();
+        let original_text = source.text.clone();
+        let state = AnnotationState {
+            original_line_map: vec![Err(starting_commit_id.clone()); source.line_map.len()],
+            commit_source_map: HashMap::from([(starting_commit_id.clone(), source)]),
+            num_unresolved_roots: 0,
+        };
+        FileAnnotator {
+            file_path: file_path.to_owned(),
+            original_text,
+            state,
+        }
+    }
+
+    /// Computes line-by-line annotation within the `domain`.
+    ///
+    /// The `domain` expression narrows the range of ancestors to search. It
+    /// will be intersected as `domain & ::pending_commits & files(file_path)`.
+    /// The `pending_commits` is assumed to be included in the `domain`.
+    pub fn compute(
+        &mut self,
+        repo: &dyn Repo,
+        domain: &Rc<ResolvedRevsetExpression>,
+    ) -> Result<(), RevsetEvaluationError> {
+        process_commits(repo, &mut self.state, domain, &self.file_path)
+    }
+
+    /// Remaining commit ids to visit from.
+    pub fn pending_commits(&self) -> impl Iterator<Item = &CommitId> {
+        self.state.commit_source_map.keys()
+    }
+
+    /// Returns the current state as line-oriented annotation.
+    pub fn to_annotation(&self) -> FileAnnotation {
+        // Just clone the line map. We might want to change the underlying data
+        // model something akin to interleaved delta in order to get annotation
+        // at a certain ancestor commit without recomputing.
+        FileAnnotation {
+            line_map: self.state.original_line_map.clone(),
+            text: self.original_text.clone(),
+        }
+    }
+}
+
 /// Intermediate state of file annotation.
 #[derive(Clone, Debug)]
 struct AnnotationState {
@@ -162,60 +246,6 @@ impl Source {
 /// List of commit IDs that originated lines, indexed by line numbers in the
 /// original file.
 type OriginalLineMap = Vec<Result<CommitId, CommitId>>;
-
-/// Get line by line annotations for a specific file path in the repo.
-///
-/// The `domain` expression narrows the range of ancestors to search. It will be
-/// intersected as `domain & ::starting_commit & files(file_path)`. The
-/// `starting_commit` is assumed to be included in the `domain`.
-///
-/// If the file is not found, returns empty results.
-pub fn get_annotation_for_file(
-    repo: &dyn Repo,
-    starting_commit: &Commit,
-    domain: &Rc<ResolvedRevsetExpression>,
-    file_path: &RepoPath,
-) -> Result<FileAnnotation, RevsetEvaluationError> {
-    let source = Source::load(starting_commit, file_path)?;
-    compute_file_annotation(repo, starting_commit.id(), domain, file_path, source)
-}
-
-/// Get line by line annotations for a specific file path starting with the
-/// given content.
-///
-/// The file content at the `starting_commit` is set to `starting_text`. This is
-/// typically one of the file contents in the conflict or merged-parent tree.
-///
-/// See [`get_annotation_for_file()`] for the other arguments.
-pub fn get_annotation_with_file_content(
-    repo: &dyn Repo,
-    starting_commit_id: &CommitId,
-    domain: &Rc<ResolvedRevsetExpression>,
-    file_path: &RepoPath,
-    starting_text: impl Into<Vec<u8>>,
-) -> Result<FileAnnotation, RevsetEvaluationError> {
-    let source = Source::new(BString::new(starting_text.into()));
-    compute_file_annotation(repo, starting_commit_id, domain, file_path, source)
-}
-
-fn compute_file_annotation(
-    repo: &dyn Repo,
-    starting_commit_id: &CommitId,
-    domain: &Rc<ResolvedRevsetExpression>,
-    file_path: &RepoPath,
-    mut source: Source,
-) -> Result<FileAnnotation, RevsetEvaluationError> {
-    source.fill_line_map();
-    let text = source.text.clone();
-    let mut state = AnnotationState {
-        original_line_map: vec![Err(starting_commit_id.clone()); source.line_map.len()],
-        commit_source_map: HashMap::from([(starting_commit_id.clone(), source)]),
-        num_unresolved_roots: 0,
-    };
-    process_commits(repo, &mut state, domain, file_path)?;
-    let line_map = state.original_line_map;
-    Ok(FileAnnotation { line_map, text })
-}
 
 /// Starting from the source commits, compute changes at that commit relative to
 /// its direct parents, updating the mappings as we go.
