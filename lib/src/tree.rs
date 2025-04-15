@@ -31,7 +31,6 @@ use crate::backend::BackendError;
 use crate::backend::BackendResult;
 use crate::backend::ConflictId;
 use crate::backend::TreeEntriesNonRecursiveIterator;
-use crate::backend::TreeEntry;
 use crate::backend::TreeId;
 use crate::backend::TreeValue;
 use crate::files;
@@ -126,10 +125,6 @@ impl Tree {
         matcher: &'matcher dyn Matcher,
     ) -> TreeEntriesIterator<'matcher> {
         TreeEntriesIterator::new(self.clone(), matcher)
-    }
-
-    pub fn entry(&self, basename: &RepoPathComponent) -> Option<TreeEntry> {
-        self.data.entry(basename)
     }
 
     pub fn value(&self, basename: &RepoPathComponent) -> Option<&TreeValue> {
