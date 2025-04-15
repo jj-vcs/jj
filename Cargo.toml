@@ -70,7 +70,7 @@ indoc = "2.0.6"
 insta = { version = "1.42.2", features = ["filters"] }
 interim = { version = "0.2.1", features = ["chrono_0_4"] }
 itertools = "0.14.0"
-libc = { version = "0.2.171" }
+libc = { version = "0.2.172" }
 maplit = "1.0.2"
 num_cpus = "1.16.0"
 once_cell = "1.21.3"
