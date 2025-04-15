@@ -125,6 +125,8 @@ struct AnnotationState {
     original_line_map: OriginalLineMap,
     /// Commits to file line mappings and contents.
     commit_source_map: HashMap<CommitId, Source>,
+    /// Number of unresolved root commits in `commit_source_map`.
+    num_unresolved_roots: usize,
 }
 
 /// Line mapping and file content at a certain commit.
@@ -233,12 +235,13 @@ fn process_commits(
     let mut state = AnnotationState {
         original_line_map: vec![Err(starting_commit_id.clone()); starting_source.line_map.len()],
         commit_source_map: HashMap::from([(starting_commit_id.clone(), starting_source)]),
+        num_unresolved_roots: 0,
     };
 
     for node in revset.iter_graph() {
         let (commit_id, edge_list) = node?;
         process_commit(repo, file_name, &mut state, &commit_id, &edge_list)?;
-        if state.commit_source_map.is_empty() {
+        if state.commit_source_map.len() == state.num_unresolved_roots {
             // No more lines to propagate to ancestors.
             break;
         }
@@ -302,15 +305,16 @@ fn process_commit(
         } else {
             itertools::merge(parent_source.line_map.iter().copied(), new_parent_line_map).collect()
         };
-        // If an omitted parent had the file, leave these lines unresolved. The
-        // origin of the unresolved lines is represented as Err(root_commit_id).
-        if parent_edge.edge_type == GraphEdgeType::Missing {
-            for (_, original_line_number) in parent_source.line_map.drain(..) {
-                state.original_line_map[original_line_number] = Err(current_commit_id.clone());
-            }
-        }
         if parent_source.line_map.is_empty() {
             state.commit_source_map.remove(parent_commit_id);
+        } else if parent_edge.edge_type == GraphEdgeType::Missing {
+            // If an omitted parent had the file, leave these lines unresolved.
+            // The origin of the unresolved lines is represented as
+            // Err(root_commit_id).
+            for &(_, original_line_number) in &parent_source.line_map {
+                state.original_line_map[original_line_number] = Err(current_commit_id.clone());
+            }
+            state.num_unresolved_roots += 1;
         }
     }
 
