@@ -207,46 +207,45 @@ fn compute_file_annotation(
 ) -> Result<FileAnnotation, RevsetEvaluationError> {
     source.fill_line_map();
     let text = source.text.clone();
-    let line_map = process_commits(repo, starting_commit_id, source, domain, file_path)?;
+    let mut state = AnnotationState {
+        original_line_map: vec![Err(starting_commit_id.clone()); source.line_map.len()],
+        commit_source_map: HashMap::from([(starting_commit_id.clone(), source)]),
+        num_unresolved_roots: 0,
+    };
+    process_commits(repo, &mut state, domain, file_path)?;
+    let line_map = state.original_line_map;
     Ok(FileAnnotation { line_map, text })
 }
 
-/// Starting at the starting commit, compute changes at that commit relative to
-/// it's direct parents, updating the mappings as we go. We return the final
-/// original line map that represents where each line of the original came from.
+/// Starting from the source commits, compute changes at that commit relative to
+/// its direct parents, updating the mappings as we go.
 fn process_commits(
     repo: &dyn Repo,
-    starting_commit_id: &CommitId,
-    starting_source: Source,
+    state: &mut AnnotationState,
     domain: &Rc<ResolvedRevsetExpression>,
     file_name: &RepoPath,
-) -> Result<OriginalLineMap, RevsetEvaluationError> {
+) -> Result<(), RevsetEvaluationError> {
     let predicate = RevsetFilterPredicate::File(FilesetExpression::file_path(file_name.to_owned()));
     // TODO: If the domain isn't a contiguous range, changes masked out by it
     // might not be caught by the closest ancestor revision. For example,
     // domain=merges() would pick up almost nothing because merge revisions
     // are usually empty. Perhaps, we want to query `files(file_path,
     // within_sub_graph=domain)`, not `domain & files(file_path)`.
-    let ancestors = RevsetExpression::commit(starting_commit_id.clone()).ancestors();
-    let revset = RevsetExpression::commit(starting_commit_id.clone())
-        .union(&domain.intersection(&ancestors).filtered(predicate))
+    let heads = RevsetExpression::commits(state.commit_source_map.keys().cloned().collect());
+    let revset = heads
+        .union(&domain.intersection(&heads.ancestors()).filtered(predicate))
         .evaluate(repo)?;
 
-    let mut state = AnnotationState {
-        original_line_map: vec![Err(starting_commit_id.clone()); starting_source.line_map.len()],
-        commit_source_map: HashMap::from([(starting_commit_id.clone(), starting_source)]),
-        num_unresolved_roots: 0,
-    };
-
+    state.num_unresolved_roots = 0;
     for node in revset.iter_graph() {
         let (commit_id, edge_list) = node?;
-        process_commit(repo, file_name, &mut state, &commit_id, &edge_list)?;
+        process_commit(repo, file_name, state, &commit_id, &edge_list)?;
         if state.commit_source_map.len() == state.num_unresolved_roots {
             // No more lines to propagate to ancestors.
             break;
         }
     }
-    Ok(state.original_line_map)
+    Ok(())
 }
 
 /// For a given commit, for each parent, we compare the version in the parent
