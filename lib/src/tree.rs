@@ -116,10 +116,6 @@ impl Tree {
         self.data.entries()
     }
 
-    pub fn entries(&self) -> TreeEntriesIterator<'static> {
-        TreeEntriesIterator::new(self.clone(), &EverythingMatcher)
-    }
-
     pub fn entries_matching<'matcher>(
         &self,
         matcher: &'matcher dyn Matcher,

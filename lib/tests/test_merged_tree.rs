@@ -42,6 +42,7 @@ use jj_lib::repo_path::RepoPathComponent;
 use pollster::FutureExt as _;
 use pretty_assertions::assert_eq;
 use testutils::create_single_tree;
+use testutils::create_tree;
 use testutils::write_file;
 use testutils::TestRepo;
 
@@ -475,7 +476,7 @@ fn test_resolve_success() {
             (emptied_dir_file1_path, "base1"),
         ],
     );
-    let expected = create_single_tree(
+    let expected = create_tree(
         repo,
         &[
             (unchanged_path, "unchanged"),
@@ -487,8 +488,8 @@ fn test_resolve_success() {
     );
 
     let tree = MergedTree::new(Merge::from_removes_adds(vec![base1], vec![side1, side2]));
-    let resolved = tree.resolve().unwrap().take();
-    let resolved_tree = resolved.as_resolved().unwrap().clone();
+    let resolved_tree = tree.resolve().unwrap();
+    assert!(resolved_tree.as_merge().is_resolved());
     assert_eq!(
         resolved_tree,
         expected,
