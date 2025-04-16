@@ -51,7 +51,7 @@
                     "type": "object",
                     "properties": {
                         "command": {
-                            "type": ["array", "string"],
+                            "type": "array",
                             "items": {
                                 "type": "string"
                             }
