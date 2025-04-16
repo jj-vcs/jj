@@ -1605,6 +1605,7 @@ impl MutableRepo {
             view.add_head(id);
         }
         view.set_local_bookmark_target(name, target);
+        self.view.mark_dirty();
     }
 
     pub fn merge_local_bookmark(

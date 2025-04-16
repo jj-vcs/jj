@@ -756,17 +756,15 @@ fn test_bookmark_hidden_commit() {
     let root_commit = repo.store().root_commit();
 
     let mut tx = repo.start_transaction();
-    let wc_commit = write_random_commit(tx.repo_mut());
-
-    // Intentionally not doing tx.commit, so the commit id is not tracked
-    // in the view head ids.
+    let commit = write_random_commit(tx.repo_mut());
+    tx.repo_mut().remove_head(commit.id());
+    let repo = tx.commit("test").unwrap();
+    // Test the setup
+    assert_eq!(*repo.view().heads(), hashset! {root_commit.id().clone()});
 
     let mut tx = repo.start_transaction();
     tx.repo_mut()
-        .set_local_bookmark_target("b".as_ref(), RefTarget::normal(wc_commit.id().clone()));
+        .set_local_bookmark_target("b".as_ref(), RefTarget::normal(commit.id().clone()));
     let repo = tx.commit("test").unwrap();
-    assert_eq!(
-        *repo.view().heads(),
-        hashset! {wc_commit.id().clone(), root_commit.id().clone()}
-    );
+    assert_eq!(*repo.view().heads(), hashset! {commit.id().clone()});
 }
