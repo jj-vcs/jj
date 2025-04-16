@@ -16,8 +16,10 @@ use std::env::join_paths;
 use std::path::PathBuf;
 
 use indoc::indoc;
+use itertools::Itertools as _;
 use regex::Regex;
 
+use crate::common::default_toml_from_schema;
 use crate::common::fake_editor_path;
 use crate::common::force_interactive;
 use crate::common::to_toml_value;
@@ -1239,6 +1241,82 @@ fn test_config_get() {
     bar
     [EOF]
     ");
+}
+
+#[test]
+fn test_config_get_yields_values_consistent_with_schema_defaults() {
+    let test_env = TestEnvironment::default();
+    let get_true_default = move |key: &str| {
+        let output = test_env.run_jj_in(".", ["config", "get", key]).success();
+        let output_doc =
+            toml_edit::ImDocument::parse(format!("test={}", output.stdout.normalized()))
+                .unwrap_or_else(|_| {
+                    // Unfortunately for this test, `config get` is "lossy" and does not print
+                    // quoted strings. This means that e.g. `false` and `"false"` are not
+                    // distinguishable. If value couldn't be parsed, it's probably a string, so
+                    // let's parse its Debug string instead.
+                    toml_edit::ImDocument::parse(format!(
+                        "test={:?}",
+                        output.stdout.normalized().trim()
+                    ))
+                    .unwrap()
+                });
+        output_doc.get("test").unwrap().as_value().unwrap().clone()
+    };
+
+    let Some(schema_defaults) = default_toml_from_schema() else {
+        testutils::ensure_running_outside_ci("`jq` must be in the PATH");
+        eprintln!("Skipping test because jq is not installed on the system");
+        return;
+    };
+
+    for (key, schema_default) in schema_defaults.as_table().get_values() {
+        let key = key.iter().join(".");
+        match key.as_str() {
+            // These keys technically don't have a default value, but they exhibit a default
+            // behavior consistent with the value claimed by the schema. When these defaults are
+            // used, a hint is printed to stdout.
+            "ui.default-command" => insta::assert_snapshot!(schema_default, @r#""log""#),
+            "ui.diff-editor" => insta::assert_snapshot!(schema_default, @r#"":builtin""#),
+            "ui.merge-editor" => insta::assert_snapshot!(schema_default, @r#"":builtin""#),
+            "git.fetch" => insta::assert_snapshot!(schema_default, @r#""origin""#),
+            "git.push" => insta::assert_snapshot!(schema_default, @r#""origin""#),
+
+            // When no `short-prefixes` revset is explicitly configured, the revset for `log` is
+            // used instead, even if that has a value different from the default. The schema
+            // represents this behavior with a symbolic default value.
+            "revsets.short-prefixes" => {
+                insta::assert_snapshot!(schema_default, @r#""<revsets.log>""#);
+            }
+
+            // The default for `ui.pager` is a table; `ui.pager.command` is an array and `jj config
+            // get` currently cannot print that. The schema default omits the env variable
+            // `LESSCHARSET` and gives the default as a plain string.
+            "ui.pager" => insta::assert_snapshot!(schema_default, @r#""less -FRX""#),
+
+            // The `immutable_heads()` revset actually defaults to `builtin_immutable_heads()` but
+            // this would be a poor starting point for a custom revset, so the schema "inlines"
+            // `builtin_immutable_heads()`.
+            "revset-aliases.'immutable_heads()'" => {
+                let builtin_default =
+                    get_true_default("revset-aliases.'builtin_immutable_heads()'");
+                assert!(
+                    builtin_default.to_string() == schema_default.to_string(),
+                    "{key}: the schema claims a default ({schema_default}) which is different \
+                     from what builtin_immutable_heads() resolves to ({builtin_default})"
+                );
+            }
+
+            _ => {
+                let true_default = get_true_default(&key);
+                assert!(
+                    true_default.to_string() == schema_default.to_string(),
+                    "{key}: true default value ({true_default}) is not consistent with default \
+                     claimed by schema ({schema_default})"
+                );
+            }
+        }
+    }
 }
 
 #[test]

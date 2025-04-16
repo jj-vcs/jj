@@ -13,9 +13,11 @@
 // limitations under the License.
 
 mod command_output;
+mod config_schema_defaults;
 mod test_environment;
 
 pub use self::command_output::CommandOutput;
+pub use self::config_schema_defaults::default_toml_from_schema;
 pub use self::test_environment::TestEnvironment;
 pub use self::test_environment::TestWorkDir;
 
