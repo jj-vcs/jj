@@ -15,6 +15,7 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::env;
+use std::ffi::OsStr;
 use std::fs;
 use std::fs::OpenOptions;
 use std::io::Read as _;
@@ -140,6 +141,15 @@ pub fn user_settings() -> UserSettings {
 pub fn ensure_running_outside_ci(reason: &str) {
     let running_in_ci = std::env::var("CI").is_ok_and(|value| !value.is_empty());
     assert!(!running_in_ci, "Running in CI, {reason}.");
+}
+
+/// Tests if an external tool is installed and in the PATH
+pub fn is_external_tool_installed(program_name: impl AsRef<OsStr>) -> bool {
+    Command::new(program_name)
+        .arg("--version")
+        .stdout(Stdio::null())
+        .status()
+        .is_ok()
 }
 
 #[derive(Debug)]
@@ -627,12 +637,7 @@ pub fn assert_abandoned_with_parent(
 pub fn assert_no_forgotten_test_files(test_dir: &Path) {
     // We require `taplo` for this check; if it's not installed, that's ok unless
     // we're running in CI.
-    if Command::new("taplo")
-        .arg("--version")
-        .stdout(Stdio::null())
-        .status()
-        .is_err()
-    {
+    if !is_external_tool_installed("taplo") {
         ensure_running_outside_ci("`taplo` must be in the PATH");
         eprintln!(
             "Skipping check for forgotten test files because taplo is not installed on the system"

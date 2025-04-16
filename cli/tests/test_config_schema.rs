@@ -4,14 +4,10 @@ use std::process::Output;
 use std::process::Stdio;
 
 use testutils::ensure_running_outside_ci;
+use testutils::is_external_tool_installed;
 
 fn taplo_check_config(file: &Path) -> datatest_stable::Result<Option<Output>> {
-    if Command::new("taplo")
-        .arg("--version")
-        .stdout(Stdio::null())
-        .status()
-        .is_err()
-    {
+    if !is_external_tool_installed("taplo") {
         ensure_running_outside_ci("`taplo` must be in the PATH");
         eprintln!("Skipping test because taplo is not installed on the system");
         return Ok(None);

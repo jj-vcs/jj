@@ -15,7 +15,6 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::Path;
-use std::process::Command;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::SystemTime;
@@ -38,6 +37,7 @@ use testutils::commit_with_tree;
 use testutils::create_random_commit;
 use testutils::create_single_tree;
 use testutils::create_tree;
+use testutils::is_external_tool_installed;
 use testutils::repo_path;
 use testutils::repo_path_buf;
 use testutils::CommitGraphBuilder;
@@ -95,7 +95,7 @@ fn make_commit(
 #[test]
 fn test_gc() {
     // TODO: Better way to disable the test if git command couldn't be executed
-    if Command::new("git").arg("--version").status().is_err() {
+    if !is_external_tool_installed("git") {
         eprintln!("Skipping because git command might fail to run");
         return;
     }
