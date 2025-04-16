@@ -117,17 +117,9 @@ pub async fn split_hunks_to_trees(
                 continue;
             }
         };
-        let right_text = match to_file_value(right_value) {
-            Ok(Some(mut value)) => value.read_all(right_path)?,
-            // Deleted file could be absorbed, but that would require special
-            // handling to propagate deletion of the tree entry
-            Ok(None) => {
-                let reason = "Deleted file".to_owned();
-                selected_trees
-                    .skipped_paths
-                    .push((right_path.to_owned(), reason));
-                continue;
-            }
+        let (right_text, deleted) = match to_file_value(right_value) {
+            Ok(Some(mut value)) => (value.read_all(right_path)?, false),
+            Ok(None) => (vec![], true),
             Err(reason) => {
                 selected_trees
                     .skipped_paths
@@ -157,14 +149,19 @@ pub async fn split_hunks_to_trees(
                 .entry(commit_id.clone())
                 .or_insert_with(|| MergedTreeBuilder::new(left_tree.id().clone()));
             let new_text = combine_texts(&left_text, &right_text, ranges);
-            let id = repo
-                .store()
-                .write_file(left_path, &mut new_text.as_slice())
-                .await?;
-            tree_builder.set_or_remove(
-                left_path.to_owned(),
-                Merge::normal(TreeValue::File { id, executable }),
-            );
+            // Since changes to be absorbed are represented as diffs relative to
+            // the source parent, we can propagate file deletion only if the
+            // whole file content is deleted at a single destination commit.
+            let new_tree_value = if new_text.is_empty() && deleted {
+                Merge::absent()
+            } else {
+                let id = repo
+                    .store()
+                    .write_file(left_path, &mut new_text.as_slice())
+                    .await?;
+                Merge::normal(TreeValue::File { id, executable })
+            };
+            tree_builder.set_or_remove(left_path.to_owned(), new_tree_value);
         }
     }
 

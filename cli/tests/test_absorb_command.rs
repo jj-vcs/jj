@@ -479,15 +479,161 @@ fn test_absorb_deleted_file() {
 
     work_dir.run_jj(["describe", "-m1"]).success();
     work_dir.write_file("file1", "1a\n");
+    work_dir.write_file("file2", "1a\n");
+    work_dir.write_file("file3", "");
 
     work_dir.run_jj(["new"]).success();
     work_dir.remove_file("file1");
+    work_dir.write_file("file2", ""); // emptied
+    work_dir.remove_file("file3"); // no content change
 
+    // Since the destinations are chosen based on content diffs, file3 cannot be
+    // absorbed.
     let output = work_dir.run_jj(["absorb"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Warning: Skipping file1: Deleted file
-    Nothing changed.
+    Absorbed changes into 1 revisions:
+      qpvuntsm f3c5cd48 1
+    Rebased 1 descendant commits.
+    Working copy  (@) now at: kkmpptxz 691fa544 (no description set)
+    Parent commit (@-)      : qpvuntsm f3c5cd48 1
+    Remaining changes:
+    D file3
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @r"
+    @  kkmpptxz 691fa544 (no description set)
+    │  diff --git a/file3 b/file3
+    │  deleted file mode 100644
+    │  index e69de29bb2..0000000000
+    ○  qpvuntsm f3c5cd48 1
+    │  diff --git a/file2 b/file2
+    ~  new file mode 100644
+       index 0000000000..e69de29bb2
+       diff --git a/file3 b/file3
+       new file mode 100644
+       index 0000000000..e69de29bb2
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_absorb_deleted_file_with_multiple_hunks() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["describe", "-m1"]).success();
+    work_dir.write_file("file1", "1a\n1b\n");
+    work_dir.write_file("file2", "1a\n");
+
+    work_dir.run_jj(["new", "-m2"]).success();
+    work_dir.write_file("file1", "1a\n");
+    work_dir.write_file("file2", "1a\n1b\n");
+
+    // These changes produce conflicts because
+    // - for file1, "1a\n" is deleted from the commit 1,
+    // - for file2, two consecutive hunks are deleted.
+    //
+    // Since file2 change is split to two separate hunks, the file deletion
+    // cannot be propagated. If we implement merging based on interleaved delta,
+    // the file2 change will apply cleanly. The file1 change might be split into
+    // "1a\n" deletion at the commit 1 and file deletion at the commit 2, but
+    // I'm not sure if that's intuitive.
+    work_dir.run_jj(["new"]).success();
+    work_dir.remove_file("file1");
+    work_dir.remove_file("file2");
+    let output = work_dir.run_jj(["absorb"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Absorbed changes into 2 revisions:
+      kkmpptxz ca0a3d3c (conflict) 2
+      qpvuntsm f2703d39 (conflict) 1
+    Rebased 1 descendant commits.
+    Working copy  (@) now at: zsuskuln 0156c3af (no description set)
+    Parent commit (@-)      : kkmpptxz ca0a3d3c (conflict) 2
+    New conflicts appeared in 2 commits:
+      kkmpptxz ca0a3d3c (conflict) 2
+      qpvuntsm f2703d39 (conflict) 1
+    Hint: To resolve the conflicts, start by updating to the first one:
+      jj new qpvuntsm
+    Then use `jj resolve`, or edit the conflict markers in the file directly.
+    Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
+    Then run `jj squash` to move the resolution into the conflicted commit.
+    Remaining changes:
+    D file2
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @r"
+    @  zsuskuln 0156c3af (no description set)
+    │  diff --git a/file2 b/file2
+    │  deleted file mode 100644
+    │  index 0000000000..0000000000
+    │  --- a/file2
+    │  +++ /dev/null
+    │  @@ -1,7 +0,0 @@
+    │  -<<<<<<< Conflict 1 of 1
+    │  -%%%%%%% Changes from base to side #1
+    │  --1a
+    │  - 1b
+    │  -+++++++ Contents of side #2
+    │  -1a
+    │  ->>>>>>> Conflict 1 of 1 ends
+    ×  kkmpptxz ca0a3d3c (conflict) 2
+    │  diff --git a/file1 b/file1
+    │  deleted file mode 100644
+    │  index 0000000000..0000000000
+    │  --- a/file1
+    │  +++ /dev/null
+    │  @@ -1,6 +0,0 @@
+    │  -<<<<<<< Conflict 1 of 1
+    │  -%%%%%%% Changes from base to side #1
+    │  - 1a
+    │  -+1b
+    │  -+++++++ Contents of side #2
+    │  ->>>>>>> Conflict 1 of 1 ends
+    │  diff --git a/file2 b/file2
+    │  --- a/file2
+    │  +++ b/file2
+    │  @@ -1,7 +1,7 @@
+    │   <<<<<<< Conflict 1 of 1
+    │   %%%%%%% Changes from base to side #1
+    │  - 1a
+    │  --1b
+    │  +-1a
+    │  + 1b
+    │   +++++++ Contents of side #2
+    │  -1b
+    │  +1a
+    │   >>>>>>> Conflict 1 of 1 ends
+    ×  qpvuntsm f2703d39 (conflict) 1
+    │  diff --git a/file1 b/file1
+    ~  new file mode 100644
+       index 0000000000..0000000000
+       --- /dev/null
+       +++ b/file1
+       @@ -0,0 +1,6 @@
+       +<<<<<<< Conflict 1 of 1
+       +%%%%%%% Changes from base to side #1
+       + 1a
+       ++1b
+       ++++++++ Contents of side #2
+       +>>>>>>> Conflict 1 of 1 ends
+       diff --git a/file2 b/file2
+       new file mode 100644
+       index 0000000000..0000000000
+       --- /dev/null
+       +++ b/file2
+       @@ -0,0 +1,7 @@
+       +<<<<<<< Conflict 1 of 1
+       +%%%%%%% Changes from base to side #1
+       + 1a
+       +-1b
+       ++++++++ Contents of side #2
+       +1b
+       +>>>>>>> Conflict 1 of 1 ends
     [EOF]
     ");
 }

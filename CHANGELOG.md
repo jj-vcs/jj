@@ -45,6 +45,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Added `duplicate_description` template, which allows [customizing the descriptions
   of the commits `jj duplicate` creates](docs/config.md#duplicate-commit-description).
 
+* `jj absorb` can now squash a deleted file if it was added by one of the
+  destination revisions.
+
 ### Fixed bugs
 
 * Fixed crash on change-delete conflict resolution.
