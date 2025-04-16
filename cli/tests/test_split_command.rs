@@ -1266,6 +1266,27 @@ fn test_split_move_first_commit() {
     [EOF]
     ");
 
+    // Check the evolog for the remaining changes commit.
+    let evolog_1 = work_dir.run_jj(["evolog", "-r", "qpvuntsmwlqt"]);
+    insta::assert_snapshot!(evolog_1, @r"
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:17 76ebcbb8
+    │  file2
+    │  -- operation 45cf98ff360e (2001-02-03 08:05:17) split commit 5dad33447a74e157748fc8122486b2c1a5f093c6
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:17 bd58c2c3
+    │  file2
+    │  -- operation 45cf98ff360e (2001-02-03 08:05:17) split commit 5dad33447a74e157748fc8122486b2c1a5f093c6
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 5dad3344
+    │  file2
+    │  -- operation 16bbaf3acf2d (2001-02-03 08:05:08) commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 f5700f8e
+    │  (no description set)
+    │  -- operation 4fdce8eaa016 (2001-02-03 08:05:08) snapshot working copy
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
+       (empty) (no description set)
+       -- operation 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
+    [EOF]
+    ");
+
     // create a new branch anywhere in the tree
     work_dir.run_jj(["undo"]).success();
     let output = work_dir.run_jj([
@@ -1281,8 +1302,8 @@ fn test_split_move_first_commit() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits
-    Selected changes : lylxulpl b42b2604 file1
-    Remaining changes: qpvuntsm 0f76cbf0 file2
+    Selected changes : kxryzmor cb8e2d6d file1
+    Remaining changes: qpvuntsm 0e706715 file2
     [EOF]
     ");
 
@@ -1292,7 +1313,7 @@ fn test_split_move_first_commit() {
     │  A file5
     │ ○  kkmpptxzrspx file4
     │ │  A file4
-    │ │ ○  lylxulplsnyw file1
+    │ │ ○  kxryzmorwvtz file1
     │ ├─╯  A file1
     │ ○  rlvkpnrzqnoo file3
     │ │  A file3
@@ -1319,8 +1340,8 @@ fn test_split_move_first_commit() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits
-    Selected changes : uyznsvlq d0338445 file1
-    Remaining changes: qpvuntsm 16d41320 file2
+    Selected changes : xznxytkn 4acd1fdc file1
+    Remaining changes: qpvuntsm f1d37691 file2
     [EOF]
     ");
 
@@ -1330,7 +1351,7 @@ fn test_split_move_first_commit() {
     │  A file5
     │ ○    kkmpptxzrspx file4
     │ ├─╮  A file4
-    │ │ ○  uyznsvlquzzm file1
+    │ │ ○  xznxytknoqwo file1
     │ │ │  A file1
     │ ○ │  rlvkpnrzqnoo file3
     │ ├─╯  A file3
@@ -1355,17 +1376,17 @@ fn test_split_move_first_commit() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 3 descendant commits
-    Selected changes : nmzmmopx 72225233 file1
-    Remaining changes: qpvuntsm 98b70782 file2
-    Working copy  (@) now at: royxmykx c3dd10b0 (empty) (no description set)
-    Parent commit (@-)      : nmzmmopx 72225233 file1
+    Selected changes : tlkvzzqu 46cee176 file1
+    Remaining changes: qpvuntsm 6bcb7649 file2
+    Working copy  (@) now at: royxmykx a3025f52 (empty) (no description set)
+    Parent commit (@-)      : tlkvzzqu 46cee176 file1
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
 
     insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
     @  royxmykxtrkr
-    ○  nmzmmopxokps file1
+    ○  tlkvzzquwslm file1
     │  A file1
     ○  mzvwutvlkqwt file5
     │  A file5
@@ -1396,17 +1417,17 @@ fn test_split_move_first_commit() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 3 descendant commits
-    Selected changes : nlrtlrxv 1b6975b0 file1
-    Remaining changes: qpvuntsm 905586dd file2
-    Working copy  (@) now at: royxmykx 85be9860 (empty) (no description set)
-    Parent commit (@-)      : nlrtlrxv 1b6975b0 file1
+    Selected changes : pzsxstzt a48482dc file1
+    Remaining changes: qpvuntsm 8d818fe2 file2
+    Working copy  (@) now at: royxmykx b74c42ec (empty) (no description set)
+    Parent commit (@-)      : pzsxstzt a48482dc file1
     Added 4 files, modified 0 files, removed 0 files
     [EOF]
     ");
 
     insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
     @  royxmykxtrkr
-    ○    nlrtlrxvuusk file1
+    ○    pzsxstztnpkv file1
     ├─╮  A file1
     │ ○  kkmpptxzrspx file4
     │ │  A file4
