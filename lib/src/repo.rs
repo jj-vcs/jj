@@ -85,6 +85,7 @@ use crate::refs::diff_named_remote_refs;
 use crate::refs::merge_ref_targets;
 use crate::refs::merge_remote_refs;
 use crate::revset;
+use crate::revset::RevsetEvaluationError;
 use crate::revset::RevsetExpression;
 use crate::revset::RevsetIteratorExt as _;
 use crate::rewrite::merge_commit_trees;
@@ -1076,7 +1077,8 @@ impl MutableRepo {
         options: &RewriteRefsOptions,
     ) -> BackendResult<()> {
         self.update_all_references(options)?;
-        self.update_heads();
+        self.update_heads()
+            .map_err(|err| err.into_backend_error())?;
         Ok(())
     }
 
@@ -1162,17 +1164,16 @@ impl MutableRepo {
         Ok(())
     }
 
-    fn update_heads(&mut self) {
+    fn update_heads(&mut self) -> Result<(), RevsetEvaluationError> {
         let old_commits_expression =
             RevsetExpression::commits(self.parent_mapping.keys().cloned().collect());
         let heads_to_add_expression = old_commits_expression
             .parents()
             .minus(&old_commits_expression);
-        let heads_to_add = heads_to_add_expression
-            .evaluate(self)
-            .unwrap()
+        let heads_to_add: Vec<_> = heads_to_add_expression
+            .evaluate(self)?
             .iter()
-            .map(Result::unwrap); // TODO: Return error to caller
+            .try_collect()?;
 
         let mut view = self.view().store_view().clone();
         for commit_id in self.parent_mapping.keys() {
@@ -1180,6 +1181,7 @@ impl MutableRepo {
         }
         view.head_ids.extend(heads_to_add);
         self.set_view(view);
+        Ok(())
     }
 
     /// Find descendants of `root`, unless they've already been rewritten
