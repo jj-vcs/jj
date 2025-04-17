@@ -69,6 +69,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Fixed crash on change-delete conflict resolution.
   [#6250](https://github.com/jj-vcs/jj/issues/6250)
 
+* The builtin diff editor now tries to preserve unresolved conflicts.
+  [#4963](https://github.com/jj-vcs/jj/issues/4963)
+
 ### Packaging changes
 
 * Jujutsu now uses

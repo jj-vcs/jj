@@ -8,10 +8,12 @@ use itertools::Itertools as _;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::MergedTreeId;
 use jj_lib::backend::TreeValue;
+use jj_lib::conflicts;
 use jj_lib::conflicts::materialize_merge_result_to_bytes;
 use jj_lib::conflicts::materialized_diff_stream;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::conflicts::MaterializedTreeValue;
+use jj_lib::conflicts::MIN_CONFLICT_MARKER_LEN;
 use jj_lib::copies::CopiesTreeDiffEntry;
 use jj_lib::copies::CopyRecords;
 use jj_lib::diff::Diff;
@@ -162,6 +164,9 @@ fn read_file_contents(
             id: id.hex(),
         }),
         MaterializedTreeValue::FileConflict(file) => {
+            // Since scm_record doesn't support diffs of conflicts, file
+            // conflicts are compared in materialized form. The UI would look
+            // scary, but it can at least allow squashing resolved hunks.
             let buf =
                 materialize_merge_result_to_bytes(&file.contents, conflict_marker_style).into();
             // TODO: Render the ID somehow?
@@ -172,6 +177,7 @@ fn read_file_contents(
             })
         }
         MaterializedTreeValue::OtherConflict { id } => {
+            // TODO: Non-file conflict shouldn't be rendered as a normal file
             // TODO: Render the ID somehow?
             let contents = buf_to_file_contents(None, id.describe().into_bytes());
             Ok(FileInfo {
@@ -393,6 +399,7 @@ fn apply_diff_builtin(
     right_tree: &MergedTree,
     changed_files: Vec<RepoPathBuf>,
     files: &[scm_record::File],
+    conflict_marker_style: ConflictMarkerStyle,
 ) -> BackendResult<MergedTreeId> {
     let mut tree_builder = MergedTreeBuilder::new(left_tree.id().clone());
     apply_changes(
@@ -401,8 +408,29 @@ fn apply_diff_builtin(
         files,
         |path| right_tree.path_value(path),
         |path, contents, executable| {
-            let id = store.write_file(path, &mut &contents[..]).block_on()?;
-            Ok(Merge::normal(TreeValue::File { id, executable }))
+            let old_value = left_tree.path_value(path)?;
+            let new_value = if old_value.is_resolved() {
+                let id = store.write_file(path, &mut &contents[..]).block_on()?;
+                Merge::normal(TreeValue::File { id, executable })
+            } else if let Some(old_file_ids) = old_value.to_file_merge() {
+                // TODO: should error out if conflicts couldn't be parsed?
+                let new_file_ids = conflicts::update_from_content(
+                    &old_file_ids,
+                    store,
+                    path,
+                    contents,
+                    conflict_marker_style,
+                    MIN_CONFLICT_MARKER_LEN, // TODO: use the materialization parameter
+                )
+                .block_on()?;
+                match new_file_ids.into_resolved() {
+                    Ok(id) => Merge::resolved(id.map(|id| TreeValue::File { id, executable })),
+                    Err(file_ids) => old_value.with_new_file_ids(&file_ids),
+                }
+            } else {
+                panic!("unexpected content change at {path:?}: {old_value:?}");
+            };
+            Ok(new_value)
         },
     )?;
     tree_builder.write_tree(store)
@@ -480,8 +508,15 @@ pub fn edit_diff_builtin(
         &mut input,
     );
     let result = recorder.run().map_err(BuiltinToolError::Record)?;
-    let tree_id = apply_diff_builtin(&store, left_tree, right_tree, changed_files, &result.files)
-        .map_err(BuiltinToolError::BackendError)?;
+    let tree_id = apply_diff_builtin(
+        &store,
+        left_tree,
+        right_tree,
+        changed_files,
+        &result.files,
+        conflict_marker_style,
+    )
+    .map_err(BuiltinToolError::BackendError)?;
     Ok(tree_id)
 }
 
@@ -659,7 +694,15 @@ mod tests {
         changed_files: &[RepoPathBuf],
         files: &[scm_record::File],
     ) -> MergedTreeId {
-        apply_diff_builtin(store, left_tree, right_tree, changed_files.to_vec(), files).unwrap()
+        apply_diff_builtin(
+            store,
+            left_tree,
+            right_tree,
+            changed_files.to_vec(),
+            files,
+            ConflictMarkerStyle::Diff,
+        )
+        .unwrap()
     }
 
     #[test]
@@ -1130,6 +1173,100 @@ mod tests {
             },
         ]
         "###);
+        let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
+        let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
+        assert_eq!(
+            no_changes_tree.id(),
+            left_tree.id(),
+            "no-changes tree was different",
+        );
+
+        let mut files = files;
+        for file in &mut files {
+            file.toggle_all();
+        }
+        let all_changes_tree_id =
+            apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
+        let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
+        assert_eq!(
+            all_changes_tree.id(),
+            right_tree.id(),
+            "all-changes tree was different",
+        );
+    }
+
+    #[test]
+    fn test_edit_diff_builtin_conflict_file() {
+        let test_repo = TestRepo::init();
+        let store = test_repo.repo.store();
+
+        let file_path = repo_path("file");
+        let left_tree = {
+            let base = testutils::create_single_tree(&test_repo.repo, &[(file_path, "")]);
+            let left = testutils::create_single_tree(&test_repo.repo, &[(file_path, "1\n")]);
+            let right = testutils::create_single_tree(&test_repo.repo, &[(file_path, "2\n")]);
+            MergedTree::new(Merge::from_vec(vec![left, base, right]))
+        };
+        let right_tree = testutils::create_tree(&test_repo.repo, &[(file_path, "resolved\n")]);
+
+        let (changed_files, files) = make_diff(store, &left_tree, &right_tree);
+        insta::assert_debug_snapshot!(changed_files, @r#"
+        [
+            "file",
+        ]
+        "#);
+        insta::assert_debug_snapshot!(files, @r#"
+        [
+            File {
+                old_path: None,
+                path: "file",
+                file_mode: Unix(
+                    33188,
+                ),
+                sections: [
+                    Changed {
+                        lines: [
+                            SectionChangedLine {
+                                is_checked: false,
+                                change_type: Removed,
+                                line: "<<<<<<< Conflict 1 of 1\n",
+                            },
+                            SectionChangedLine {
+                                is_checked: false,
+                                change_type: Removed,
+                                line: "%%%%%%% Changes from base to side #1\n",
+                            },
+                            SectionChangedLine {
+                                is_checked: false,
+                                change_type: Removed,
+                                line: "+1\n",
+                            },
+                            SectionChangedLine {
+                                is_checked: false,
+                                change_type: Removed,
+                                line: "+++++++ Contents of side #2\n",
+                            },
+                            SectionChangedLine {
+                                is_checked: false,
+                                change_type: Removed,
+                                line: "2\n",
+                            },
+                            SectionChangedLine {
+                                is_checked: false,
+                                change_type: Removed,
+                                line: ">>>>>>> Conflict 1 of 1 ends\n",
+                            },
+                            SectionChangedLine {
+                                is_checked: false,
+                                change_type: Added,
+                                line: "resolved\n",
+                            },
+                        ],
+                    },
+                ],
+            },
+        ]
+        "#);
         let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
         assert_eq!(
