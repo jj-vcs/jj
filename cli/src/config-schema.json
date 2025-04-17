@@ -60,7 +60,11 @@
                         "env": {
                             "type": "object"
                         }
-                    }
+                    },
+                    "required": [
+                        "command",
+                        "env"
+                    ]
                 }
             },
             "properties": {
