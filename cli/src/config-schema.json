@@ -47,6 +47,13 @@
                     ],
                     "default": "diff"
                 },
+                "command": {
+                    "type": ["string", "array"],
+                    "minItems": 1,
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "command-env": {
                     "type": "object",
                     "properties": {
@@ -113,23 +120,16 @@
                     "default": "auto"
                 },
                 "pager": {
+                    "description": "Pager to use for displaying command output",
+                    "default": "less -FRX",
                     "oneOf": [
                         {
-                            "type": "string"
-                        },
-                        {
-                            "type": "array",
-                            "minItems": 1,
-                            "items": {
-                                "type": "string"
-                            }
+                            "$ref": "#/properties/ui/definitions/command"
                         },
                         {
                             "$ref": "#/properties/ui/definitions/command-env"
                         }
-                    ],
-                    "description": "Pager to use for displaying command output",
-                    "default": "less -FRX"
+                    ]
                 },
                 "streampager": {
                     "type": "object",
@@ -169,12 +169,15 @@
                             "default": "color-words"
                         },
                         "tool": {
-                            "type": ["array", "string"],
-                            "minItems": 1,
-                            "items": {
-                                "type": "string"
-                            },
-                            "description": "External tool for generating diffs"
+                            "description": "External tool for generating diffs",
+                            "oneOf": [
+                                {
+                                    "$ref": "#/properties/ui/definitions/command"
+                                },
+                                {
+                                    "$ref": "#/properties/ui/definitions/command-env"
+                                }
+                            ]
                         }
                     }
                 },
@@ -210,26 +213,25 @@
                     "default": true
                 },
                 "editor": {
-                    "type": ["array", "string"],
-                    "minItems": 1,
-                    "items": {
-                        "type": "string"
-                    },
-                    "description": "Editor to use for commands that involve editing text"
+                    "description": "Editor to use for commands that involve editing text",
+                    "oneOf": [
+                        {
+                            "$ref": "#/properties/ui/definitions/command"
+                        },
+                        {
+                            "$ref": "#/properties/ui/definitions/command-env"
+                        }
+                    ]
                 },
                 "diff-editor": {
                     "description": "Editor tool to use for editing diffs",
                     "default": ":builtin",
                     "oneOf": [
                         {
-                            "type": "string"
+                            "$ref": "#/properties/ui/definitions/command"
                         },
                         {
-                            "type": "array",
-                            "minItems": 1,
-                            "items": {
-                                "type": "string"
-                            }
+                            "$ref": "#/properties/ui/definitions/command-env"
                         }
                     ]
                 },
@@ -238,14 +240,10 @@
                     "default": ":builtin",
                     "oneOf": [
                         {
-                            "type": "string"
+                            "$ref": "#/properties/ui/definitions/command"
                         },
                         {
-                            "type": "array",
-                            "minItems": 1,
-                            "items": {
-                                "type": "string"
-                            }
+                            "$ref": "#/properties/ui/definitions/command-env"
                         }
                     ]
                 },
@@ -752,12 +750,15 @@
                         "description": "Settings for how specific filesets are affected by a tool",
                         "properties": {
                             "command": {
-                                "type": "array",
-                                "minItems": 1,
-                                "items": {
-                                    "type": "string"
-                                },
-                                "description": "Arguments used to execute this tool"
+                                "description": "Arguments used to execute this tool",
+                                "oneOf": [
+                                    {
+                                        "$ref": "#/properties/ui/definitions/command"
+                                    },
+                                    {
+                                        "$ref": "#/properties/ui/definitions/command-env"
+                                    }
+                                ]
                             },
                             "patterns": {
                                 "type": "array",

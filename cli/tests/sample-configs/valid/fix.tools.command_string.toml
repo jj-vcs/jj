@@ -1,0 +1,3 @@
+#:schema ../../../src/config-schema.json
+[fix.tools.clang-format]
+command = "/usr/bin/clang-format"

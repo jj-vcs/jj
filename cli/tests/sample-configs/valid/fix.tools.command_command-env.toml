@@ -1,0 +1,8 @@
+#:schema ../../../src/config-schema.json
+[fix.tools.clang-format.command]
+command = [
+  "/usr/bin/clang-format",
+  "--sort-includes",
+  "--assume-filename=$path",
+]
+env = { NO_COLOR = 1 }
