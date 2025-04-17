@@ -2468,6 +2468,7 @@ dependencies = [
  "textwrap",
  "thiserror 2.0.12",
  "timeago",
+ "tokio",
  "toml_edit",
  "tracing",
  "tracing-chrome",
@@ -3974,6 +3975,7 @@ dependencies = [
  "pollster",
  "rand",
  "tempfile",
+ "tokio",
  "toml_edit",
 ]
 

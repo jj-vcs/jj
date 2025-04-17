@@ -15,9 +15,9 @@
 #![allow(missing_docs)]
 
 use std::io;
-use std::io::Read;
 use std::io::Write;
 use std::iter::zip;
+use std::pin::Pin;
 
 use bstr::BString;
 use bstr::ByteSlice as _;
@@ -27,6 +27,8 @@ use futures::Stream;
 use futures::StreamExt as _;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
+use tokio::io::AsyncRead;
+use tokio::io::AsyncReadExt as _;
 
 use crate::backend::BackendError;
 use crate::backend::BackendResult;
@@ -97,11 +99,11 @@ async fn get_file_contents(
 ) -> BackendResult<BString> {
     match term {
         Some(id) => {
+            let mut reader = store.read_file(path, id).await?;
             let mut content = vec![];
-            store
-                .read_file(path, id)
-                .await?
+            reader
                 .read_to_end(&mut content)
+                .await
                 .map_err(|err| BackendError::ReadFile {
                     path: path.to_owned(),
                     id: id.clone(),
@@ -152,7 +154,7 @@ impl MaterializedTreeValue {
 pub struct MaterializedFileValue {
     pub id: FileId,
     pub executable: bool,
-    pub reader: Box<dyn Read>,
+    pub reader: Pin<Box<dyn AsyncRead>>,
 }
 
 impl MaterializedFileValue {
@@ -162,6 +164,7 @@ impl MaterializedFileValue {
         let mut buf = Vec::new();
         self.reader
             .read_to_end(&mut buf)
+            .block_on()
             .map_err(|err| BackendError::ReadFile {
                 path: path.to_owned(),
                 id: self.id.clone(),

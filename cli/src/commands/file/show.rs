@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::io;
 use std::io::Write as _;
 
 use clap_complete::ArgValueCompleter;
@@ -20,6 +19,7 @@ use jj_lib::backend::BackendResult;
 use jj_lib::conflicts::materialize_merge_result;
 use jj_lib::conflicts::materialize_tree_value;
 use jj_lib::conflicts::MaterializedTreeValue;
+use jj_lib::file_util::copy_async_to_sync;
 use jj_lib::fileset::FilePattern;
 use jj_lib::fileset::FilesetExpression;
 use jj_lib::merge::MergedTreeValue;
@@ -129,8 +129,8 @@ fn write_tree_entries<P: AsRef<RepoPath>>(
                     "Path '{ui_path}' exists but access is denied: {err}"
                 )?;
             }
-            MaterializedTreeValue::File(mut file) => {
-                io::copy(&mut file.reader, &mut ui.stdout_formatter().as_mut())?;
+            MaterializedTreeValue::File(file) => {
+                copy_async_to_sync(file.reader, ui.stdout_formatter().as_mut()).block_on()?;
             }
             MaterializedTreeValue::FileConflict(file) => {
                 materialize_merge_result(

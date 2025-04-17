@@ -18,10 +18,12 @@ use std::any::Any;
 use std::fmt::Debug;
 use std::fs;
 use std::fs::File;
+use std::io::Cursor;
 use std::io::Read;
 use std::io::Write as _;
 use std::path::Path;
 use std::path::PathBuf;
+use std::pin::Pin;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
@@ -32,6 +34,7 @@ use futures::stream::BoxStream;
 use pollster::FutureExt as _;
 use prost::Message as _;
 use tempfile::NamedTempFile;
+use tokio::io::AsyncRead;
 
 use crate::backend::make_root_commit;
 use crate::backend::Backend;
@@ -184,10 +187,21 @@ impl Backend for SimpleBackend {
         1
     }
 
-    async fn read_file(&self, _path: &RepoPath, id: &FileId) -> BackendResult<Box<dyn Read>> {
-        let path = self.file_path(id);
-        let file = File::open(path).map_err(|err| map_not_found_err(err, id))?;
-        Ok(Box::new(file))
+    async fn read_file(
+        &self,
+        path: &RepoPath,
+        id: &FileId,
+    ) -> BackendResult<Pin<Box<dyn AsyncRead>>> {
+        let disk_path = self.file_path(id);
+        let mut file = File::open(disk_path).map_err(|err| map_not_found_err(err, id))?;
+        let mut buf = vec![];
+        file.read_to_end(&mut buf)
+            .map_err(|err| BackendError::ReadFile {
+                path: path.to_owned(),
+                id: id.clone(),
+                source: err.into(),
+            })?;
+        Ok(Box::pin(Cursor::new(buf)))
     }
 
     async fn write_file(

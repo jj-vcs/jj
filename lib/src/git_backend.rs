@@ -26,6 +26,7 @@ use std::io::Cursor;
 use std::io::Read;
 use std::path::Path;
 use std::path::PathBuf;
+use std::pin::Pin;
 use std::process::Command;
 use std::process::ExitStatus;
 use std::str;
@@ -45,6 +46,7 @@ use pollster::FutureExt as _;
 use prost::Message as _;
 use smallvec::SmallVec;
 use thiserror::Error;
+use tokio::io::AsyncRead;
 
 use crate::backend::make_root_commit;
 use crate::backend::Backend;
@@ -969,9 +971,13 @@ impl Backend for GitBackend {
         1
     }
 
-    async fn read_file(&self, _path: &RepoPath, id: &FileId) -> BackendResult<Box<dyn Read>> {
+    async fn read_file(
+        &self,
+        _path: &RepoPath,
+        id: &FileId,
+    ) -> BackendResult<Pin<Box<dyn AsyncRead>>> {
         let data = self.read_file_sync(id)?;
-        Ok(Box::new(Cursor::new(data)))
+        Ok(Box::pin(Cursor::new(data)))
     }
 
     async fn write_file(

@@ -17,6 +17,7 @@
 use std::fs;
 use std::fs::File;
 use std::io;
+use std::io::Write;
 use std::path::Component;
 use std::path::Path;
 use std::path::PathBuf;
@@ -24,6 +25,8 @@ use std::path::PathBuf;
 use tempfile::NamedTempFile;
 use tempfile::PersistError;
 use thiserror::Error;
+use tokio::io::AsyncRead;
+use tokio::io::AsyncReadExt as _;
 
 pub use self::platform::*;
 
@@ -162,6 +165,26 @@ pub fn persist_content_addressed_temp_file<P: AsRef<Path>>(
     }
 }
 
+/// Reads from an async source and writes to a sync destination. Does not spawn
+/// a task, so writes will block.
+pub async fn copy_async_to_sync<R: AsyncRead, W: Write + ?Sized>(
+    mut reader: R,
+    writer: &mut W,
+) -> io::Result<usize> {
+    let mut buf = vec![0; 16 << 10];
+    let mut total_written_bytes = 0;
+
+    let mut reader = std::pin::pin!(reader);
+    loop {
+        let written_bytes = reader.read(&mut buf).await?;
+        if written_bytes == 0 {
+            return Ok(total_written_bytes);
+        }
+        writer.write_all(&buf[0..written_bytes])?;
+        total_written_bytes += written_bytes;
+    }
+}
+
 #[cfg(unix)]
 mod platform {
     use std::io;
@@ -210,8 +233,11 @@ mod platform {
 
 #[cfg(test)]
 mod tests {
+    use std::io::Cursor;
     use std::io::Write as _;
 
+    use itertools::Itertools as _;
+    use pollster::FutureExt as _;
     use test_case::test_case;
 
     use super::*;
@@ -255,5 +281,28 @@ mod tests {
         }
 
         assert!(persist_content_addressed_temp_file(temp_file, &target).is_ok());
+    }
+
+    #[test]
+    fn test_copy_async_to_sync_small() {
+        let input = b"hello";
+        let mut output = vec![];
+
+        let result = copy_async_to_sync(Cursor::new(&input), &mut output).block_on();
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), 5);
+        assert_eq!(output, input);
+    }
+
+    #[test]
+    fn test_copy_async_to_sync_large() {
+        // More than 1 buffer worth of data
+        let input = (0..100u8).cycle().take(40000).collect_vec();
+        let mut output = vec![];
+
+        let result = copy_async_to_sync(Cursor::new(&input), &mut output).block_on();
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), 40000);
+        assert_eq!(output, input);
     }
 }

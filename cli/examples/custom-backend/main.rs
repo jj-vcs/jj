@@ -15,6 +15,7 @@
 use std::any::Any;
 use std::io::Read;
 use std::path::Path;
+use std::pin::Pin;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
@@ -47,6 +48,7 @@ use jj_lib::settings::UserSettings;
 use jj_lib::signing::Signer;
 use jj_lib::workspace::Workspace;
 use jj_lib::workspace::WorkspaceInitError;
+use tokio::io::AsyncRead;
 
 #[derive(clap::Parser, Clone, Debug)]
 enum CustomCommand {
@@ -146,7 +148,11 @@ impl Backend for JitBackend {
         1
     }
 
-    async fn read_file(&self, path: &RepoPath, id: &FileId) -> BackendResult<Box<dyn Read>> {
+    async fn read_file(
+        &self,
+        path: &RepoPath,
+        id: &FileId,
+    ) -> BackendResult<Pin<Box<dyn AsyncRead>>> {
         self.inner.read_file(path, id).await
     }
 

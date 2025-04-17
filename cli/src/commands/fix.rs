@@ -33,6 +33,7 @@ use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::settings::UserSettings;
 use jj_lib::store::Store;
 use pollster::FutureExt as _;
+use tokio::io::AsyncReadExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -193,7 +194,7 @@ fn fix_one_file(
         let mut read = store
             .read_file(&file_to_fix.repo_path, &file_to_fix.file_id)
             .block_on()?;
-        read.read_to_end(&mut old_content)?;
+        read.read_to_end(&mut old_content).block_on()?;
         let new_content = matching_tools.fold(old_content.clone(), |prev_content, tool_config| {
             match run_tool(
                 workspace_root,

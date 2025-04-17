@@ -25,7 +25,7 @@ use std::fs::File;
 use std::fs::Metadata;
 use std::fs::OpenOptions;
 use std::io;
-use std::io::Read;
+use std::io::Read as _;
 use std::io::Write as _;
 use std::iter;
 use std::mem;
@@ -53,6 +53,7 @@ use rayon::prelude::IndexedParallelIterator as _;
 use rayon::prelude::ParallelIterator as _;
 use tempfile::NamedTempFile;
 use thiserror::Error;
+use tokio::io::AsyncRead;
 use tracing::instrument;
 use tracing::trace_span;
 
@@ -73,6 +74,7 @@ use crate::conflicts::ConflictMarkerStyle;
 use crate::conflicts::MaterializedTreeValue;
 use crate::conflicts::MIN_CONFLICT_MARKER_LEN;
 use crate::file_util::check_symlink_support;
+use crate::file_util::copy_async_to_sync;
 use crate::file_util::try_symlink;
 #[cfg(feature = "watchman")]
 use crate::fsmonitor::watchman;
@@ -1612,7 +1614,7 @@ impl TreeState {
     fn write_file(
         &self,
         disk_path: &Path,
-        mut contents: impl Read,
+        contents: impl AsyncRead,
         executable: bool,
     ) -> Result<FileState, CheckoutError> {
         let mut file = OpenOptions::new()
@@ -1623,10 +1625,12 @@ impl TreeState {
                 message: format!("Failed to open file {} for writing", disk_path.display()),
                 err: err.into(),
             })?;
-        let size = io::copy(&mut contents, &mut file).map_err(|err| CheckoutError::Other {
-            message: format!("Failed to write file {}", disk_path.display()),
-            err: err.into(),
-        })?;
+        let size = copy_async_to_sync(contents, &mut file)
+            .block_on()
+            .map_err(|err| CheckoutError::Other {
+                message: format!("Failed to write file {}", disk_path.display()),
+                err: err.into(),
+            })?;
         self.set_executable(disk_path, executable)?;
         // Read the file state from the file descriptor. That way, know that the file
         // exists and is of the expected type, and the stat information is most likely
@@ -1635,7 +1639,12 @@ impl TreeState {
         let metadata = file
             .metadata()
             .map_err(|err| checkout_error_for_stat_error(err, disk_path))?;
-        Ok(FileState::for_file(executable, size, &metadata, None))
+        Ok(FileState::for_file(
+            executable,
+            size as u64,
+            &metadata,
+            None,
+        ))
     }
 
     fn write_symlink(&self, disk_path: &Path, target: String) -> Result<FileState, CheckoutError> {
@@ -1858,7 +1867,7 @@ impl TreeState {
                     if self.symlink_support {
                         self.write_symlink(&disk_path, target)?
                     } else {
-                        self.write_file(&disk_path, &mut target.as_bytes(), false)?
+                        self.write_file(&disk_path, target.as_bytes(), false)?
                     }
                 }
                 MaterializedTreeValue::GitSubmodule(_) => {

@@ -19,10 +19,10 @@ use std::fmt::Error;
 use std::fmt::Formatter;
 use std::hash::Hash;
 use std::hash::Hasher;
-use std::io::Read as _;
 use std::sync::Arc;
 
 use itertools::Itertools as _;
+use tokio::io::AsyncReadExt as _;
 use tracing::instrument;
 
 use crate::backend;
@@ -306,6 +306,7 @@ pub async fn try_resolve_file_conflict(
             let mut reader = store.read_file(filename, file_id).await?;
             reader
                 .read_to_end(&mut content)
+                .await
                 .map_err(|err| BackendError::ReadObject {
                     object_type: file_id.object_type(),
                     hash: file_id.hex(),

@@ -18,7 +18,6 @@ use std::env;
 use std::ffi::OsStr;
 use std::fs;
 use std::fs::OpenOptions;
-use std::io::Read as _;
 use std::io::Write as _;
 use std::path::Path;
 use std::path::PathBuf;
@@ -70,6 +69,7 @@ use jj_lib::working_copy::SnapshotStats;
 use jj_lib::workspace::Workspace;
 use pollster::FutureExt as _;
 use tempfile::TempDir;
+use tokio::io::AsyncReadExt as _;
 
 use crate::test_backend::TestBackendFactory;
 
@@ -372,7 +372,7 @@ pub fn repo_path_buf(value: impl Into<String>) -> RepoPathBuf {
 pub fn read_file(store: &Store, path: &RepoPath, id: &FileId) -> Vec<u8> {
     let mut reader = store.read_file(path, id).block_on().unwrap();
     let mut content = vec![];
-    reader.read_to_end(&mut content).unwrap();
+    reader.read_to_end(&mut content).block_on().unwrap();
     content
 }
 

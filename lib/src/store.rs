@@ -18,6 +18,7 @@ use std::any::Any;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::io::Read;
+use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::SystemTime;
@@ -25,6 +26,7 @@ use std::time::SystemTime;
 use clru::CLruCache;
 use futures::stream::BoxStream;
 use pollster::FutureExt as _;
+use tokio::io::AsyncRead;
 
 use crate::backend;
 use crate::backend::Backend;
@@ -234,7 +236,11 @@ impl Store {
         Ok(Tree::new(self.clone(), path.to_owned(), tree_id, data))
     }
 
-    pub async fn read_file(&self, path: &RepoPath, id: &FileId) -> BackendResult<Box<dyn Read>> {
+    pub async fn read_file(
+        &self,
+        path: &RepoPath,
+        id: &FileId,
+    ) -> BackendResult<Pin<Box<dyn AsyncRead>>> {
         self.backend.read_file(path, id).await
     }
 

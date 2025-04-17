@@ -21,6 +21,7 @@ use std::io::Cursor;
 use std::io::Read;
 use std::path::Path;
 use std::path::PathBuf;
+use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::MutexGuard;
@@ -49,6 +50,7 @@ use jj_lib::index::Index;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
+use tokio::io::AsyncRead;
 
 const HASH_LENGTH: usize = 10;
 const CHANGE_ID_LENGTH: usize = 16;
@@ -183,7 +185,11 @@ impl Backend for TestBackend {
         10
     }
 
-    async fn read_file(&self, path: &RepoPath, id: &FileId) -> BackendResult<Box<dyn Read>> {
+    async fn read_file(
+        &self,
+        path: &RepoPath,
+        id: &FileId,
+    ) -> BackendResult<Pin<Box<dyn AsyncRead>>> {
         match self
             .locked_data()
             .files
@@ -196,7 +202,7 @@ impl Backend for TestBackend {
                 hash: id.hex(),
                 source: format!("at path {path:?}").into(),
             }),
-            Some(contents) => Ok(Box::new(Cursor::new(contents))),
+            Some(contents) => Ok(Box::pin(Cursor::new(contents))),
         }
     }
 
