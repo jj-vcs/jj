@@ -52,6 +52,7 @@
                     "properties": {
                         "command": {
                             "type": "array",
+                            "minItems": 1,
                             "items": {
                                 "type": "string"
                             }
@@ -114,6 +115,7 @@
                         },
                         {
                             "type": "array",
+                            "minItems": 1,
                             "items": {
                                 "type": "string"
                             }
@@ -164,6 +166,7 @@
                         },
                         "tool": {
                             "type": ["array", "string"],
+                            "minItems": 1,
                             "items": {
                                 "type": "string"
                             },
@@ -204,6 +207,7 @@
                 },
                 "editor": {
                     "type": ["array", "string"],
+                    "minItems": 1,
                     "items": {
                         "type": "string"
                     },
@@ -218,6 +222,7 @@
                         },
                         {
                             "type": "array",
+                            "minItems": 1,
                             "items": {
                                 "type": "string"
                             }
@@ -233,6 +238,7 @@
                         },
                         {
                             "type": "array",
+                            "minItems": 1,
                             "items": {
                                 "type": "string"
                             }
@@ -743,6 +749,7 @@
                         "properties": {
                             "command": {
                                 "type": "array",
+                                "minItems": 1,
                                 "items": {
                                     "type": "string"
                                 },
