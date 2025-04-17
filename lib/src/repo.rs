@@ -1157,7 +1157,11 @@ impl MutableRepo {
                 recreated_wc_commits.insert(old_commit_id, commit.clone());
                 commit
             };
-            self.edit(name, &new_wc_commit).unwrap();
+            self.edit(name, &new_wc_commit).map_err(|err| match err {
+                EditCommitError::BackendError(backend_error) => backend_error,
+                EditCommitError::WorkingCopyCommitNotFound(_)
+                | EditCommitError::RewriteRootCommit(_) => panic!("unexpected error: {err:?}"),
+            })?;
         }
         Ok(())
     }
