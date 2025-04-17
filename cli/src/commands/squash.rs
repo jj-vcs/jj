@@ -183,7 +183,7 @@ pub(crate) fn cmd_squash(
                 if let Some(description) = try_combine_messages(abandoned_commits, &destination) {
                     description
                 } else {
-                    let intro = "Enter a description for the combined commit.";
+                    let intro = "JJ: Enter a description for the combined commit.";
                     let combined = combine_messages_for_editing(abandoned_commits, &destination);
                     // It's weird that commit.description() contains "JJ: " lines, but works.
                     commit_builder.set_description(combined);
