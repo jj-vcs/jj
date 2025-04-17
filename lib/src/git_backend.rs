@@ -23,7 +23,6 @@ use std::fmt::Formatter;
 use std::fs;
 use std::io;
 use std::io::Cursor;
-use std::io::Read;
 use std::path::Path;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -47,6 +46,7 @@ use prost::Message as _;
 use smallvec::SmallVec;
 use thiserror::Error;
 use tokio::io::AsyncRead;
+use tokio::io::AsyncReadExt as _;
 
 use crate::backend::make_root_commit;
 use crate::backend::Backend;
@@ -983,10 +983,10 @@ impl Backend for GitBackend {
     async fn write_file(
         &self,
         _path: &RepoPath,
-        contents: &mut (dyn Read + Send),
+        contents: &mut (dyn AsyncRead + Send + Unpin),
     ) -> BackendResult<FileId> {
         let mut bytes = Vec::new();
-        contents.read_to_end(&mut bytes).unwrap();
+        contents.read_to_end(&mut bytes).await.unwrap();
         let locked_repo = self.lock_git_repo();
         let oid = locked_repo
             .write_blob(bytes)

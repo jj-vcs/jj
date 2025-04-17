@@ -18,7 +18,6 @@ use std::fmt::Debug;
 use std::fmt::Error;
 use std::fmt::Formatter;
 use std::io::Cursor;
-use std::io::Read;
 use std::path::Path;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -51,6 +50,7 @@ use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use tokio::io::AsyncRead;
+use tokio::io::AsyncReadExt as _;
 
 const HASH_LENGTH: usize = 10;
 const CHANGE_ID_LENGTH: usize = 16;
@@ -209,10 +209,10 @@ impl Backend for TestBackend {
     async fn write_file(
         &self,
         path: &RepoPath,
-        contents: &mut (dyn Read + Send),
+        contents: &mut (dyn AsyncRead + Send + Unpin),
     ) -> BackendResult<FileId> {
         let mut bytes = Vec::new();
-        contents.read_to_end(&mut bytes).unwrap();
+        contents.read_to_end(&mut bytes).await.unwrap();
         let id = FileId::new(get_hash(&bytes));
         self.locked_data()
             .files

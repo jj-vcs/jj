@@ -76,6 +76,7 @@ use crate::conflicts::MIN_CONFLICT_MARKER_LEN;
 use crate::file_util::check_symlink_support;
 use crate::file_util::copy_async_to_sync;
 use crate::file_util::try_symlink;
+use crate::file_util::BlockingAsyncReader;
 #[cfg(feature = "watchman")]
 use crate::fsmonitor::watchman;
 use crate::fsmonitor::FsmonitorSettings;
@@ -1571,11 +1572,14 @@ impl FileSnapshotter<'_> {
         path: &RepoPath,
         disk_path: &Path,
     ) -> Result<FileId, SnapshotError> {
-        let mut file = File::open(disk_path).map_err(|err| SnapshotError::Other {
+        let file = File::open(disk_path).map_err(|err| SnapshotError::Other {
             message: format!("Failed to open file {}", disk_path.display()),
             err: err.into(),
         })?;
-        Ok(self.store().write_file(path, &mut file).await?)
+        Ok(self
+            .store()
+            .write_file(path, &mut BlockingAsyncReader::new(file))
+            .await?)
     }
 
     async fn write_symlink_to_store(

@@ -19,7 +19,7 @@ use std::fmt::Debug;
 use std::fs;
 use std::fs::File;
 use std::io::Cursor;
-use std::io::Read;
+use std::io::Read as _;
 use std::io::Write as _;
 use std::path::Path;
 use std::path::PathBuf;
@@ -35,6 +35,7 @@ use pollster::FutureExt as _;
 use prost::Message as _;
 use tempfile::NamedTempFile;
 use tokio::io::AsyncRead;
+use tokio::io::AsyncReadExt as _;
 
 use crate::backend::make_root_commit;
 use crate::backend::Backend;
@@ -207,7 +208,7 @@ impl Backend for SimpleBackend {
     async fn write_file(
         &self,
         _path: &RepoPath,
-        contents: &mut (dyn Read + Send),
+        contents: &mut (dyn AsyncRead + Send + Unpin),
     ) -> BackendResult<FileId> {
         // TODO: Write temporary file in the destination directory (#5712)
         let temp_file = NamedTempFile::new_in(&self.path).map_err(to_other_err)?;
@@ -215,7 +216,7 @@ impl Backend for SimpleBackend {
         let mut hasher = Blake2b512::new();
         let mut buff: Vec<u8> = vec![0; 1 << 14];
         loop {
-            let bytes_read = contents.read(&mut buff).map_err(to_other_err)?;
+            let bytes_read = contents.read(&mut buff).await.map_err(to_other_err)?;
             if bytes_read == 0 {
                 break;
             }

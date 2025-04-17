@@ -17,7 +17,6 @@
 use std::any::Any;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
-use std::io::Read;
 use std::pin::Pin;
 use std::time::SystemTime;
 
@@ -432,7 +431,7 @@ pub trait Backend: Send + Sync + Debug {
     async fn write_file(
         &self,
         path: &RepoPath,
-        contents: &mut (dyn Read + Send),
+        contents: &mut (dyn AsyncRead + Send + Unpin),
     ) -> BackendResult<FileId>;
 
     async fn read_symlink(&self, path: &RepoPath, id: &SymlinkId) -> BackendResult<String>;

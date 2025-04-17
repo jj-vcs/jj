@@ -17,7 +17,6 @@
 use std::any::Any;
 use std::fmt::Debug;
 use std::fmt::Formatter;
-use std::io::Read;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -247,7 +246,7 @@ impl Store {
     pub async fn write_file(
         &self,
         path: &RepoPath,
-        contents: &mut (dyn Read + Send),
+        contents: &mut (dyn AsyncRead + Send + Unpin),
     ) -> BackendResult<FileId> {
         self.backend.write_file(path, contents).await
     }

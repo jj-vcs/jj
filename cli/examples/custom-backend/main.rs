@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use std::any::Any;
-use std::io::Read;
 use std::path::Path;
 use std::pin::Pin;
 use std::time::SystemTime;
@@ -159,7 +158,7 @@ impl Backend for JitBackend {
     async fn write_file(
         &self,
         path: &RepoPath,
-        contents: &mut (dyn Read + Send),
+        contents: &mut (dyn AsyncRead + Send + Unpin),
     ) -> BackendResult<FileId> {
         self.inner.write_file(path, contents).await
     }
