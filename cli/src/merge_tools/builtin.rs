@@ -658,14 +658,12 @@ mod tests {
         let test_repo = TestRepo::init();
         let store = test_repo.repo.store();
 
-        let unused_path = repo_path("unused");
         let unchanged = repo_path("unchanged");
         let changed_path = repo_path("changed");
         let added_path = repo_path("added");
         let left_tree = testutils::create_tree(
             &test_repo.repo,
             &[
-                (unused_path, "unused\n"),
                 (unchanged, "unchanged\n"),
                 (changed_path, "line1\nline2\nline3\n"),
             ],
@@ -673,31 +671,34 @@ mod tests {
         let right_tree = testutils::create_tree(
             &test_repo.repo,
             &[
-                (unused_path, "unused\n"),
                 (unchanged, "unchanged\n"),
                 (changed_path, "line1\nchanged1\nchanged2\nline3\nadded1\n"),
                 (added_path, "added\n"),
             ],
         );
 
-        let changed_files = vec![
-            unchanged.to_owned(),
-            changed_path.to_owned(),
-            added_path.to_owned(),
-        ];
+        let changed_files = vec![added_path.to_owned(), changed_path.to_owned()];
         let files = make_diff(store, &left_tree, &right_tree, &changed_files);
         insta::assert_debug_snapshot!(files, @r#"
         [
             File {
                 old_path: None,
-                path: "unchanged",
-                file_mode: Unix(
-                    33188,
-                ),
+                path: "added",
+                file_mode: Absent,
                 sections: [
-                    Unchanged {
+                    FileMode {
+                        is_checked: false,
+                        mode: Unix(
+                            33188,
+                        ),
+                    },
+                    Changed {
                         lines: [
-                            "unchanged\n",
+                            SectionChangedLine {
+                                is_checked: false,
+                                change_type: Added,
+                                line: "added\n",
+                            },
                         ],
                     },
                 ],
@@ -744,28 +745,6 @@ mod tests {
                                 is_checked: false,
                                 change_type: Added,
                                 line: "added1\n",
-                            },
-                        ],
-                    },
-                ],
-            },
-            File {
-                old_path: None,
-                path: "added",
-                file_mode: Absent,
-                sections: [
-                    FileMode {
-                        is_checked: false,
-                        mode: Unix(
-                            33188,
-                        ),
-                    },
-                    Changed {
-                        lines: [
-                            SectionChangedLine {
-                                is_checked: false,
-                                change_type: Added,
-                                line: "added\n",
                             },
                         ],
                     },
