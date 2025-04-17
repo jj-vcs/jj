@@ -1961,6 +1961,14 @@ fn test_git_push_deleted(subprocess: bool) {
     work_dir
         .run_jj(["bookmark", "delete", "bookmark1"])
         .success();
+    let output = work_dir.run_jj(["git", "push"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: No bookmarks found in the default push revset: remote_bookmarks(remote=origin)..@
+    Hint: You can push 1 deleted bookmark(s) with `--deleted`
+    Nothing changed.
+    [EOF]
+    ");
     let output = work_dir.run_jj(["git", "push", "--deleted"]);
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"

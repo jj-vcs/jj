@@ -393,6 +393,27 @@ pub fn cmd_git_push(
             ),
             remote = remote.as_symbol()
         );
+
+        // We only show this hint when pushing with no arguments because if the user is
+        // explicitly selecting a tracked bookmark with `--revisions`, then they'll get
+        // an error instructing them to use `--deleted`.
+        if use_default_revset {
+            let deleted_bookmarks = tx
+                .repo()
+                .view()
+                .local_remote_bookmarks(remote)
+                .filter(|(_, targets)| {
+                    targets.local_target.is_absent() && targets.remote_ref.is_tracked()
+                })
+                .count();
+
+            if deleted_bookmarks > 0 {
+                writeln!(
+                    ui.hint_default(),
+                    "You can push {deleted_bookmarks} deleted bookmark(s) with `--deleted`"
+                )?;
+            }
+        }
     }
     if bookmark_updates.is_empty() {
         writeln!(ui.status(), "Nothing changed.")?;
