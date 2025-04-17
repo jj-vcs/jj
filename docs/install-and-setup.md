@@ -105,6 +105,14 @@ Once you have synced the GURU repository, you can install `dev-vcs/jj` via Porta
 emerge -av dev-vcs/jj
 ```
 
+#### openSUSE Tumbleweed
+
+`jujutsu` can be installed from the official [openSUSE-Tumbleweed-Oss](http://download.opensuse.org/tumbleweed/repo/oss/) repository:
+
+```shell
+zypper install jujutsu
+```
+
 ### Mac
 
 #### From Source, Vendored OpenSSL
