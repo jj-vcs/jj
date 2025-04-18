@@ -180,6 +180,7 @@ fn test_op_log_with_no_template() {
     - builtin_op_log_node_ascii
     - builtin_op_log_oneline
     - commit_summary_separator
+    - default_commit_description
     - description_placeholder
     - email_placeholder
     - git_format_patch_email_headers

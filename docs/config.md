@@ -178,7 +178,7 @@ The editor content of a commit description can be populated by the
 [templates]
 draft_commit_description = '''
 concat(
-  coalesce(description, "\n"),
+  coalesce(description, default_commit_description),
   surround(
     "\nJJ: This commit contains the following changes:\n", "",
     indent("JJ:     ", diff.stat(72)),
@@ -186,6 +186,17 @@ concat(
   "\nJJ: ignore-rest\n",
   diff.git(),
 )
+'''
+```
+
+You can override only the `default_commit_description` value if you like, e.g.:
+```toml
+[template-aliases]
+default_commit_description = '''
+"
+
+Closes #NNNN
+"
 '''
 ```
 

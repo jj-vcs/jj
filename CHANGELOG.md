@@ -27,7 +27,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   subprocessing path.
 
 * `ui.default-description` has been deprecated, and will be removed
-  in a future release. Please migrate to [`templates.draft_commit_description`](docs/config.md#default-description)
+  in a future release. Please migrate to `template-aliases.default_commit_description`,
+  [`templates.draft_commit_description`](docs/config.md#default-description),
   and/or [`templates.commit_trailers`](docs/config.md#commit-trailers).
 
 ### New features

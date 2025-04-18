@@ -91,7 +91,7 @@ label(if(overridden, "overridden"),
 
 builtin_draft_commit_description = '''
 concat(
-  coalesce(description, "\n"),
+  coalesce(description, default_commit_description, "\n"),
   surround(
     "\nJJ: This commit contains the following changes:\n", "",
     indent("JJ:     ", diff.summary()),
@@ -201,6 +201,7 @@ label(if(current_operation, "current_operation"),
 )
 '''
 
+default_commit_description = '""'
 description_placeholder = 'label("description placeholder", "(no description set)")'
 email_placeholder = 'label("email placeholder", "(no email set)")'
 name_placeholder = 'label("name placeholder", "(no name set)")'
