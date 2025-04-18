@@ -340,7 +340,7 @@ version and the dependencies needed to build the docs. Install it like so:
 
 ### Build the docs
 
-To build the docs, run from the root of the `jj` repository:
+To build the docs, run while inside the `jj` repository:
 
 ``` { .shell .copy }
 uv run mkdocs serve
@@ -355,6 +355,15 @@ reloaded in your browser automatically.
     Check the terminal from which you ran `uv run mkdocs serve` for any build
     errors or warnings. Warnings about `"GET /versions.json HTTP/1.1" code 404`
     are expected and harmless.
+
+#### Offline distribution
+
+To build the rendered docs for offline distribution or to view them from your file
+system, run while inside the `jj` repository:
+
+```shell
+MKDOCS_OFFLINE=true uv run mkdocs build
+```
 
 ## Building the entire website
 
