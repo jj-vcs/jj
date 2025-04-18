@@ -1409,6 +1409,7 @@ to the current parents may contain changes from multiple commits.
             start_tracking_matcher,
             max_new_file_size,
             conflict_marker_style,
+            dry_run: false,
         })
     }
 

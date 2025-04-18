@@ -839,6 +839,33 @@ fn test_snapshot_file_directory_transition() {
 }
 
 #[test]
+fn test_snapshot_dry_run() {
+    let mut test_workspace = TestWorkspace::init();
+    let workspace_root = test_workspace.workspace.workspace_root().to_owned();
+    let file_path = workspace_root.join("file");
+    std::fs::write(&file_path, "contents".as_bytes()).unwrap();
+    let repo = &test_workspace.repo;
+    let mut locked_ws = test_workspace
+        .workspace
+        .start_working_copy_mutation()
+        .unwrap();
+    let (new_tree_id, stats) = locked_ws
+        .locked_wc()
+        .snapshot(&SnapshotOptions {
+            dry_run: true,
+            ..SnapshotOptions::empty_for_test()
+        })
+        .unwrap();
+    assert_eq!(new_tree_id, repo.store().empty_merged_tree_id());
+    assert_ne!(
+        stats
+            .dry_run_tree_id
+            .expect("dry_run_tree_id must be set in dry_run mode"),
+        repo.store().empty_merged_tree_id()
+    );
+}
+
+#[test]
 fn test_materialize_snapshot_conflicted_files() {
     let mut test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo.clone();
