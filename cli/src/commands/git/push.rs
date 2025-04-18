@@ -815,6 +815,29 @@ fn classify_bookmark_update(
     }
 }
 
+fn ensure_new_bookmark_name(view: &View, name: &RefName) -> Result<(), CommandError> {
+    let symbol = name.as_symbol();
+    if view.get_local_bookmark(name).is_present() {
+        return Err(user_error_with_hint(
+            format!("Bookmark already exists: {symbol}"),
+            format!(
+                "Use 'jj bookmark move' to move it, and 'jj git push -b {symbol} [--allow-new]' \
+                 to push it"
+            ),
+        ));
+    }
+    if has_tracked_remote_bookmarks(view, name) {
+        return Err(user_error_with_hint(
+            format!("Tracked remote bookmarks exist for deleted bookmark: {symbol}"),
+            format!(
+                "Use `jj bookmark set` to recreate the local bookmark. Run `jj bookmark untrack \
+                 'glob:{symbol}@*'` to disassociate them."
+            ),
+        ));
+    }
+    Ok(())
+}
+
 /// Creates a bookmark for a single `--named` argument and returns its name
 ///
 /// The logic is not identical to that of `jj bookmark create` since we need to
@@ -845,25 +868,7 @@ fn create_explicitly_named_bookmarks(
         )
         .hinted(hint)
     })?;
-    let symbol = name.as_symbol();
-    if tx.repo().view().get_local_bookmark(&name).is_present() {
-        return Err(user_error_with_hint(
-            format!("Bookmark already exists: {symbol}"),
-            format!(
-                "Use 'jj bookmark move' to move it, and 'jj git push -b {symbol} [--allow-new]' \
-                 to push it"
-            ),
-        ));
-    }
-    if has_tracked_remote_bookmarks(tx.repo().view(), &name) {
-        return Err(user_error_with_hint(
-            format!("Tracked remote bookmarks exist for deleted bookmark: {symbol}"),
-            format!(
-                "Use `jj bookmark set` to recreate the local bookmark. Run `jj bookmark untrack \
-                 'glob:{symbol}@*'` to disassociate them."
-            ),
-        ));
-    }
+    ensure_new_bookmark_name(tx.repo().view(), &name)?;
     let revision = tx
         .base_workspace_helper()
         .resolve_single_rev(ui, &revision_str.to_string().into())?;
