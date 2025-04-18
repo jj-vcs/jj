@@ -104,11 +104,12 @@ jobs:
           version: "0.5.1"
       - name: Compile docs and zip them up
         run: |
-          uv run -- mkdocs build -f mkdocs-offline.yml
+          uv run mkdocs build
           archive="jj-${RELEASE_TAG_NAME}-docs-html.tar.gz"
           tar czf "$archive" -C "rendered-docs" .
           echo "ASSET=$archive" >> $GITHUB_ENV
         env:
+          MKDOCS_OFFLINE: true
           RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
       - name: Upload release archive
         uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5

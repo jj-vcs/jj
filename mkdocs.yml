@@ -47,9 +47,13 @@ extra:
 validation:
   anchors: warn
 
-# IMPORTANT: any changes to plugins have to be duplicated in
-# `mkdocs-offline.yml`. See that file for more details.
 plugins:
+  - group:
+      # If you plan to use the rendered docs from your file system, run:
+      #   MKDOCS_OFFLINE=true uv run mkdocs build
+      enabled: !ENV [MKDOCS_OFFLINE, false]
+      plugins:
+        - offline
   - include-markdown # For the CLI reference
   - mike:
       # Should help search engines point to latest docs
