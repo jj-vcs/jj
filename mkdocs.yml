@@ -141,6 +141,7 @@ nav: # This lists all the files that become part of the documentation
   - Contributing:
       - Guidelines and "How to...?": 'contributing.md'
       - Code of conduct: 'code-of-conduct.md'
+      - Style guide: 'style_guide.md'
       - Design docs: 'design_docs.md'
       - Design doc blueprint: 'design_doc_blueprint.md'
       - Releasing: 'releasing.md'
