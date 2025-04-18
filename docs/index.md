@@ -24,7 +24,7 @@ You may want to jump to:
 
 - [GitHub repo for `jj`](https://github.com/jj-vcs/jj)
 - Overview of `jj` in the repo's [README](https://github.com/jj-vcs/jj?tab=readme-ov-file#readme)
-- [Installation and Setup](install-and-setup.md)
-- [Tutorial and Birds-Eye View](tutorial.md)
+- [Installation and setup](install-and-setup.md)
+- [Tutorial and bird's eye view](tutorial.md)
 - [Working with GitHub](github.md)
-- [Development Roadmap](roadmap.md)
+- [Development roadmap](roadmap.md)
