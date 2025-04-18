@@ -146,6 +146,11 @@
                                 "none"
                             ],
                             "default": "anywhere"
+                        },
+                        "show-ruler": {
+                            "type": "boolean",
+                            "description": "Whether the ruler should start visible",
+                            "default": true
                         }
                     }
                 },
