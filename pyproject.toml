@@ -23,6 +23,8 @@ dev = [
     "mkdocs-redirects<2.0.0,>=1.2.1",
     # Used for the CLI reference
     "mkdocs-include-markdown-plugin<8.0.0,>=7.1.4",
+    # Used to render Markdown tables from YAML files
+    "mkdocs-table-reader-plugin>=3.1.0",
     # Unrelated to docs
     "codespell[toml]>=2.4.0",
 ]
