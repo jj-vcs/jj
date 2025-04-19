@@ -26,6 +26,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The `jj arrange` TUI now includes immediate parents and children. They are not
   selectable and are dimmed by default.
 
+* `jj split` assigns the change id and the bookmarks of the source revision
+  to the revision with the non-selected changes.
+  You can opt out of this change by setting `split.legacy-bookmark-behavior = true`,
+  but this will likely be removed in a future release.
+
 ### Fixed bugs
 
 ## [0.39.0] - 2026-03-04
@@ -465,6 +470,7 @@ Thanks to the people who made this release happen!
 
 * `jj workspace forget` now warns about unknown workspaces instead of failing.
 
+>>>>>>> Side #2 (Conflict 1 of 1 ends)
 ### Fixed bugs
 
 * Broken symlink on Windows. [#6934](https://github.com/jj-vcs/jj/issues/6934).
