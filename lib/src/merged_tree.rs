@@ -194,26 +194,30 @@ impl MergedTree {
     /// Gets the `MergeTree` in a subdirectory of the current tree. If the path
     /// doesn't correspond to a tree in any of the inputs to the merge, then
     /// that entry will be replace by an empty tree in the result.
-    pub fn sub_tree(&self, name: &RepoPathComponent) -> BackendResult<Option<MergedTree>> {
+    pub async fn sub_tree(&self, name: &RepoPathComponent) -> BackendResult<Option<MergedTree>> {
         match self.value(name).into_resolved() {
             Ok(Some(TreeValue::Tree(sub_tree_id))) => {
                 let subdir = self.dir().join(name);
                 Ok(Some(MergedTree::resolved(
-                    self.store().get_tree(subdir, sub_tree_id)?,
+                    self.store().get_tree_async(subdir, sub_tree_id).await?,
                 )))
             }
             Ok(_) => Ok(None),
             Err(merge) => {
-                let trees = merge.try_map(|value| match value {
-                    Some(TreeValue::Tree(sub_tree_id)) => {
-                        let subdir = self.dir().join(name);
-                        self.store().get_tree(subdir, sub_tree_id)
-                    }
-                    _ => {
-                        let subdir = self.dir().join(name);
-                        Ok(Tree::empty(self.store().clone(), subdir))
-                    }
-                })?;
+                let trees = merge
+                    .try_map_async(|value| async move {
+                        match value {
+                            Some(TreeValue::Tree(sub_tree_id)) => {
+                                let subdir = self.dir().join(name);
+                                self.store().get_tree_async(subdir, sub_tree_id).await
+                            }
+                            _ => {
+                                let subdir = self.dir().join(name);
+                                Ok(Tree::empty(self.store().clone(), subdir))
+                            }
+                        }
+                    })
+                    .await?;
                 Ok(Some(MergedTree { trees }))
             }
         }
@@ -223,9 +227,14 @@ impl MergedTree {
     /// `self` is a `Conflict`, which happens if the value at the path can be
     /// trivially merged.
     pub fn path_value(&self, path: &RepoPath) -> BackendResult<MergedTreeValue> {
+        self.path_value_async(path).block_on()
+    }
+
+    /// Async version of `path_value()`.
+    pub async fn path_value_async(&self, path: &RepoPath) -> BackendResult<MergedTreeValue> {
         assert_eq!(self.dir(), RepoPath::root());
         match path.split() {
-            Some((dir, basename)) => match self.sub_tree_recursive(dir)? {
+            Some((dir, basename)) => match self.sub_tree_recursive(dir).await? {
                 None => Ok(Merge::absent()),
                 Some(tree) => Ok(tree.value(basename).cloned()),
             },
@@ -241,10 +250,10 @@ impl MergedTree {
     }
 
     /// Look up the tree at the given path.
-    pub fn sub_tree_recursive(&self, path: &RepoPath) -> BackendResult<Option<MergedTree>> {
+    pub async fn sub_tree_recursive(&self, path: &RepoPath) -> BackendResult<Option<MergedTree>> {
         let mut current_tree = self.clone();
         for name in path.components() {
-            match current_tree.sub_tree(name)? {
+            match current_tree.sub_tree(name).await? {
                 None => {
                     return Ok(None);
                 }
