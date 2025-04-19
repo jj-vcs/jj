@@ -60,6 +60,10 @@ plugins:
       redirect_maps:
         branches.md: bookmarks.md
   - search
+  - table-reader:
+      data_path: docs
+      select_readers:
+        - read_yaml
 
 # Not all of these may be necessary, especially since the material
 # theme substitutes for some of them
