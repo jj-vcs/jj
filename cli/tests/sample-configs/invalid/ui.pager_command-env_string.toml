@@ -1,0 +1,4 @@
+#:schema ../../../src/config-schema.json
+[ui.pager]
+command = "bat -p"
+env = {}

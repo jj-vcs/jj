@@ -3,7 +3,6 @@ use std::fs::Permissions;
 use std::io::Write as _;
 #[cfg(unix)]
 use std::os::unix::prelude::PermissionsExt as _;
-use std::process::Command;
 use std::process::Stdio;
 
 use assert_matches::assert_matches;
@@ -14,6 +13,7 @@ use jj_lib::signing::SigStatus;
 use jj_lib::signing::SignError;
 use jj_lib::signing::SigningBackend as _;
 use testutils::ensure_running_outside_ci;
+use testutils::is_external_tool_installed;
 
 static GPG_PRIVATE_KEY: &str = r#"-----BEGIN PGP PRIVATE KEY BLOCK-----
 
@@ -165,7 +165,7 @@ impl GpgsmEnvironment {
 
 macro_rules! gpg_guard {
     () => {
-        if Command::new("gpg").arg("--version").status().is_err() {
+        if !is_external_tool_installed("gpg") {
             ensure_running_outside_ci("`gpg` must be in the PATH");
             eprintln!("Skipping test because gpg is not installed on the system");
             return;
@@ -175,7 +175,7 @@ macro_rules! gpg_guard {
 
 macro_rules! gpgsm_guard {
     () => {
-        if Command::new("gpgsm").arg("--version").status().is_err() {
+        if !is_external_tool_installed("gpgsm") {
             ensure_running_outside_ci("`gpgsm` must be in the PATH");
             eprintln!("Skipping test because gpgsm is not installed on the system");
             return;
