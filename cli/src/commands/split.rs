@@ -294,11 +294,14 @@ pub(crate) fn cmd_split(
     // Prompt the user to select the changes they want for the first commit.
     let target = select_diff(ui, &tx, &target_commit, &matcher, &diff_selector)?;
 
+    let legacy_bookmark_behavior =
+        !use_move_flags && tx.settings().get_bool("split.legacy-bookmark-behavior")?;
+
     // Create the first commit, which includes the changes selected by the user.
     let first_commit = {
         let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
         commit_builder.set_tree(target.selected_tree.clone());
-        if use_move_flags {
+        if !legacy_bookmark_behavior {
             commit_builder.clear_rewrite_source();
             // Generate a new change id so that the commit being split doesn't
             // become divergent.
@@ -365,7 +368,7 @@ pub(crate) fn cmd_split(
         let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
         commit_builder.set_parents(parents).set_tree(new_tree);
         let mut show_editor = args.editor;
-        if !use_move_flags {
+        if legacy_bookmark_behavior {
             commit_builder.clear_rewrite_source();
             // Generate a new change id so that the commit being split doesn't
             // become divergent.
@@ -507,14 +510,9 @@ fn rewrite_descendants(
         vec![target.commit.id().clone()],
         async |mut rewriter| {
             num_rebased += 1;
-            if parallel && legacy_bookmark_behavior {
-                // The old_parent is the second commit due to the rewrite above.
+            if parallel {
                 rewriter
                     .replace_parent(second_commit.id(), [first_commit.id(), second_commit.id()]);
-            } else if parallel {
-                rewriter.replace_parent(first_commit.id(), [first_commit.id(), second_commit.id()]);
-            } else {
-                rewriter.replace_parent(first_commit.id(), [second_commit.id()]);
             }
             rewriter.rebase().await?.write().await?;
             Ok(())

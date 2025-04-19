@@ -63,4 +63,4 @@ auto-update-stale = false
 # The behavior when this flag is set to false is experimental and may be changed
 # in the future.
 [split]
-legacy-bookmark-behavior = true
+legacy-bookmark-behavior = false
