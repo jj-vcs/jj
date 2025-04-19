@@ -52,6 +52,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Unquoted `*` is now allowed in revsets. `bookmarks(glob:foo*)` no longer
   needs quoting.
 
+* `jj split` assigns the change id and the bookmarks of the source revision
+  to the revision with the non-selected changes.
+  You can opt out of this change by setting `split.legacy-bookmark-behavior = true`,
+  but this will likely be removed in a future release.
+
 ### Fixed bugs
 
 * `jj fix` now prints a warning if a tool failed to run on a file.
