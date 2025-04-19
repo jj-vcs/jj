@@ -1031,8 +1031,8 @@
             "properties": {
                 "legacy-bookmark-behavior": {
                     "type": "boolean",
-                    "description": "If true, bookmarks will move to the second commit instead of the first.",
-                    "default": true
+                    "description": "If true, bookmarks will move to the first commit instead of the second.",
+                    "default": false
                 }
             }
         },
