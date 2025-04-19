@@ -1,0 +1,8 @@
+#:schema ../../../src/config-schema.json
+[diff.color-words]
+conflict = "pair"
+max-inline-alternation = 5
+context = 5
+
+[diff.git]
+context = 5

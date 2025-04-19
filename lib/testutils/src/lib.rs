@@ -13,15 +13,20 @@
 // limitations under the License.
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::env;
+use std::ffi::OsStr;
 use std::fs;
 use std::fs::OpenOptions;
 use std::io::Read as _;
 use std::io::Write as _;
 use std::path::Path;
 use std::path::PathBuf;
+use std::process::Command;
+use std::process::Stdio;
 use std::sync::Arc;
 
+use bstr::ByteSlice as _;
 use itertools::Itertools as _;
 use jj_lib::backend;
 use jj_lib::backend::Backend;
@@ -136,6 +141,15 @@ pub fn user_settings() -> UserSettings {
 pub fn ensure_running_outside_ci(reason: &str) {
     let running_in_ci = std::env::var("CI").is_ok_and(|value| !value.is_empty());
     assert!(!running_in_ci, "Running in CI, {reason}.");
+}
+
+/// Tests if an external tool is installed and in the PATH
+pub fn is_external_tool_installed(program_name: impl AsRef<OsStr>) -> bool {
+    Command::new(program_name)
+        .arg("--version")
+        .stdout(Stdio::null())
+        .status()
+        .is_ok()
 }
 
 #[derive(Debug)]
@@ -621,21 +635,75 @@ pub fn assert_abandoned_with_parent(
 }
 
 pub fn assert_no_forgotten_test_files(test_dir: &Path) {
-    let runner_path = test_dir.join("runner.rs");
-    let runner = fs::read_to_string(&runner_path).unwrap();
-    let entries = fs::read_dir(test_dir).unwrap();
-    for entry in entries {
-        let path = entry.unwrap().path();
-        if let Some(ext) = path.extension() {
-            let name = path.file_stem().unwrap();
-            if ext == "rs" && name != "runner" {
-                let search = format!("mod {};", name.to_str().unwrap());
-                assert!(
-                    runner.contains(&search),
-                    "missing `{search}` declaration in {}",
-                    runner_path.display()
-                );
-            }
-        }
+    // We require `taplo` for this check; if it's not installed, that's ok unless
+    // we're running in CI.
+    if !is_external_tool_installed("taplo") {
+        ensure_running_outside_ci("`taplo` must be in the PATH");
+        eprintln!(
+            "Skipping check for forgotten test files because taplo is not installed on the system"
+        );
+        return;
     }
+
+    // Use taplo to find all the test executable main modules listed in `[[test]]`.
+    let taplo_output = Command::new("taplo")
+        .args(["get", "test[*].name", "-f", "Cargo.toml"])
+        .current_dir(test_dir.parent().unwrap())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
+        .unwrap();
+    assert!(
+        taplo_output.status.success(),
+        "taplo returned with status {}: {}",
+        taplo_output.status,
+        taplo_output.stderr.to_str_lossy(),
+    );
+    let test_bin_mods = taplo_output
+        .stdout
+        .to_str()
+        .unwrap()
+        .trim()
+        .lines()
+        .map(ToString::to_string)
+        .collect_vec();
+
+    // Add to that all submodules which are declared in the main test modules via
+    // `mod`.
+    let mut test_mods: HashSet<_> = test_bin_mods
+        .iter()
+        .flat_map(|test_mod| {
+            let test_mod_path = test_dir.join(test_mod).with_extension("rs");
+            let test_mod_contents = fs::read_to_string(&test_mod_path).unwrap();
+            test_mod_contents
+                .lines()
+                .map(|line| line.trim_start_matches("pub "))
+                .filter_map(|line| line.strip_prefix("mod"))
+                .filter_map(|line| line.strip_suffix(";"))
+                .map(|line| line.trim().to_string())
+                .collect_vec()
+        })
+        .collect();
+    test_mods.extend(test_bin_mods);
+
+    // Gather list of Rust source files in test directory for comparison.
+    let test_mod_files: HashSet<_> = fs::read_dir(test_dir)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| path.extension().is_some_and(|ext| ext == "rs"))
+        .filter_map(|path| {
+            path.file_stem()
+                .and_then(|stem| stem.to_os_string().into_string().ok())
+        })
+        .collect();
+
+    assert!(
+        test_mod_files.is_subset(&test_mods),
+        "the following test source files are not declared as integration tests nor included as \
+         submodules of one: {}",
+        test_mod_files
+            .difference(&test_mods)
+            .map(|mod_stem| format!("{mod_stem}.rs"))
+            .join(", "),
+    );
 }

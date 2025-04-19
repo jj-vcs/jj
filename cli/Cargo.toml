@@ -48,6 +48,10 @@ required-features = ["test-fakes"]
 [[test]]
 name = "runner"
 
+[[test]]
+name = "datatest_runner"
+harness = false
+
 [dependencies]
 bstr = { workspace = true }
 chrono = { workspace = true }
@@ -102,6 +106,7 @@ libc = { workspace = true }
 assert_cmd = { workspace = true }
 assert_matches = { workspace = true }
 async-trait = { workspace = true }
+datatest-stable = { workspace = true }
 insta = { workspace = true }
 test-case = { workspace = true }
 testutils = { workspace = true }
