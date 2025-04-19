@@ -47,9 +47,9 @@ use crate::ui::Ui;
 /// * `jj commit` doesn't have a `-r` option. It always acts on the working-copy
 ///   commit (@).
 ///
-/// * `jj split` (without `-o`/`-A`/`-B`) will move bookmarks forward from the
-///   old change to the child change. `jj commit` doesn't move bookmarks
-///   forward.
+/// * `jj split` creates the new commit as a parent of the source commit, and
+///   doesn't move the working-copy. `jj commit` creates the new commit as a
+///   child of the working-copy, and sets the new commit as the working-copy.
 ///
 /// * `jj split` allows you to move the selected changes to a different
 ///   destination with `-o`/`-A`/`-B`.
