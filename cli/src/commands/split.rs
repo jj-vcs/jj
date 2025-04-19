@@ -221,10 +221,17 @@ pub(crate) fn cmd_split(
     // Prompt the user to select the changes they want for the first commit.
     let target = select_diff(ui, &tx, &target_commit, &matcher, &diff_selector)?;
 
+    let legacy_change_id_behavior = tx.settings().get_bool("split.legacy-change-id-behavior")?;
+
     // Create the first commit, which includes the changes selected by the user.
     let mut first_commit = {
         let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
         commit_builder.set_tree_id(target.selected_tree.id());
+        if !legacy_change_id_behavior {
+            // Generate a new change id so that the commit being split doesn't
+            // become divergent.
+            commit_builder.generate_new_change_id();
+        }
         let description = if !args.message_paragraphs.is_empty() {
             let description = join_message_paragraphs(&args.message_paragraphs);
             if !description.is_empty() {
@@ -269,10 +276,12 @@ pub(crate) fn cmd_split(
         let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
         commit_builder
             .set_parents(parents)
-            .set_tree_id(new_tree.id())
+            .set_tree_id(new_tree.id());
+        if legacy_change_id_behavior {
             // Generate a new change id so that the commit being split doesn't
             // become divergent.
-            .generate_new_change_id();
+            commit_builder.generate_new_change_id();
+        }
         let description = if target.commit.description().is_empty() {
             // If there was no description before, don't ask for one for the
             // second commit.
@@ -297,7 +306,7 @@ pub(crate) fn cmd_split(
     };
 
     let legacy_bookmark_behavior = tx.settings().get_bool("split.legacy-bookmark-behavior")?;
-    if legacy_bookmark_behavior {
+    if legacy_bookmark_behavior && legacy_change_id_behavior {
         // Mark the commit being split as rewritten to the second commit. This
         // moves any bookmarks pointing to the target commit to the second
         // commit.
