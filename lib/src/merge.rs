@@ -20,11 +20,13 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::fmt::Write as _;
+use std::future::Future;
 use std::hash::Hash;
 use std::iter::zip;
 use std::slice;
 use std::sync::Arc;
 
+use futures::future::try_join_all;
 use itertools::Itertools as _;
 use smallvec::smallvec_inline;
 use smallvec::SmallVec;
@@ -357,6 +359,22 @@ impl<T> Merge<T> {
     ) -> Result<Merge<U>, E> {
         let values = self.values.iter().map(f).try_collect()?;
         Ok(Merge { values })
+    }
+
+    /// Creates a new merge by applying the async function `f` to each remove
+    /// and add, running them concurrently, and returning `Err if `f`
+    /// returns `Err` for any of them.
+    pub async fn try_map_async<'a, F, U, E>(
+        &'a self,
+        f: impl FnMut(&'a T) -> F,
+    ) -> Result<Merge<U>, E>
+    where
+        F: Future<Output = Result<U, E>>,
+    {
+        let values = try_join_all(self.values.iter().map(f)).await?;
+        Ok(Merge {
+            values: values.into(),
+        })
     }
 }
 

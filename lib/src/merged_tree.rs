@@ -30,9 +30,7 @@ use std::vec;
 use either::Either;
 use futures::future::BoxFuture;
 use futures::stream::BoxStream;
-use futures::stream::StreamExt as _;
 use futures::Stream;
-use futures::TryStreamExt as _;
 use itertools::EitherOrBoth;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
@@ -960,11 +958,9 @@ impl<'matcher> TreeDiffStreamImpl<'matcher> {
         values: MergedTreeValue,
     ) -> BackendResult<Merge<Tree>> {
         if values.is_tree() {
-            let builder: MergeBuilder<Tree> = futures::stream::iter(values.iter())
-                .then(|value| Self::single_tree(&store, dir.clone(), value.as_ref()))
-                .try_collect()
-                .await?;
-            Ok(builder.build())
+            values
+                .try_map_async(|value| Self::single_tree(&store, dir.clone(), value.as_ref()))
+                .await
         } else {
             Ok(Merge::resolved(Tree::empty(store, dir)))
         }

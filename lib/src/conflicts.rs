@@ -25,7 +25,6 @@ use futures::stream::BoxStream;
 use futures::try_join;
 use futures::Stream;
 use futures::StreamExt as _;
-use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
 
@@ -44,7 +43,6 @@ use crate::diff::DiffHunkKind;
 use crate::files;
 use crate::files::MergeResult;
 use crate::merge::Merge;
-use crate::merge::MergeBuilder;
 use crate::merge::MergedTreeValue;
 use crate::repo_path::RepoPath;
 use crate::store::Store;
@@ -122,11 +120,9 @@ pub async fn extract_as_single_hunk(
     store: &Store,
     path: &RepoPath,
 ) -> BackendResult<Merge<BString>> {
-    let builder: MergeBuilder<BString> = futures::stream::iter(merge.iter())
-        .then(|term| get_file_contents(store, path, term))
-        .try_collect()
-        .await?;
-    Ok(builder.build())
+    merge
+        .try_map_async(|term| get_file_contents(store, path, term))
+        .await
 }
 
 /// A type similar to `MergedTreeValue` but with associated data to include in
