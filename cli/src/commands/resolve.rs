@@ -62,7 +62,12 @@ pub(crate) struct ResolveArgs {
     ///
     /// The built-in merge tools `:ours` and `:theirs` can be used to choose
     /// side #1 and side #2 of the conflict respectively.
-    #[arg(long, conflicts_with = "list", value_name = "NAME")]
+    #[arg(
+        long,
+        conflicts_with = "list",
+        value_name = "NAME",
+        add = ArgValueCandidates::new(complete::merge_tools),
+    )]
     tool: Option<String>,
     /// Only resolve conflicts in these paths. You can use the `--list` argument
     /// to find paths to use here.
