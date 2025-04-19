@@ -1086,6 +1086,62 @@ fn test_split_with_non_empty_description_and_trailers() {
     "#);
 }
 
+#[test]
+fn test_split_with_message() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "foo\n");
+    work_dir.write_file("file2", "bar\n");
+    work_dir.run_jj(["describe", "-m", "my feature"]).success();
+
+    let output = work_dir.run_jj(["split", "-m", "fix in file1", "file1"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    First part: qpvuntsm c002c01e fix in file1
+    Second part: kkmpptxz 0841f981 my feature
+    Working copy  (@) now at: kkmpptxz 0841f981 my feature
+    Parent commit (@-)      : qpvuntsm c002c01e fix in file1
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  kkmpptxzrspx false my feature
+    ○  qpvuntsmwlqt false fix in file1
+    ◆  zzzzzzzzzzzz true
+    [EOF]
+    ");
+
+    // trailers should be added to the message
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj([
+        "split",
+        "--config",
+        r#"templates.commit_trailers='"CC: " ++ committer.email()'"#,
+        "-m",
+        "fix in file1",
+        "file1",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    First part: qpvuntsm 6ffbff48 fix in file1
+    Second part: royxmykx 8cfdeaab my feature
+    Working copy  (@) now at: royxmykx 8cfdeaab my feature
+    Parent commit (@-)      : qpvuntsm 6ffbff48 fix in file1
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  royxmykxtrkr false my feature
+    ○  qpvuntsmwlqt false fix in file1
+    │
+    │  CC: test.user@example.com
+    ◆  zzzzzzzzzzzz true
+    [EOF]
+    ");
+}
+
 enum BookmarkBehavior {
     Default,
     MoveBookmarkToChild,

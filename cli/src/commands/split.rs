@@ -32,6 +32,7 @@ use crate::complete;
 use crate::description_util::add_trailers;
 use crate::description_util::description_template;
 use crate::description_util::edit_description;
+use crate::description_util::join_message_paragraphs;
 use crate::ui::Ui;
 
 /// Split a revision in two
@@ -69,6 +70,12 @@ pub(crate) struct SplitArgs {
         add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     revision: RevisionArg,
+    /// The change description to use (don't open editor)
+    ///
+    /// The description is used for the commit with the selected changes. The
+    /// source commit description is kept unchanged.
+    #[arg(long = "message", short, value_name = "MESSAGE")]
+    message_paragraphs: Vec<String>,
     /// Split the revision into two parallel revisions instead of a parent and
     /// child
     #[arg(long, short)]
@@ -148,16 +155,26 @@ pub(crate) fn cmd_split(
     let first_commit = {
         let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
         commit_builder.set_tree_id(target.selected_tree.id());
-        let new_description = add_trailers(ui, &tx, &commit_builder)?;
-        commit_builder.set_description(new_description);
-        let temp_commit = commit_builder.write_hidden()?;
-        let template = description_template(
-            ui,
-            &tx,
-            "Enter a description for the first commit.",
-            &temp_commit,
-        )?;
-        let description = edit_description(&text_editor, &template)?;
+        let description = if !args.message_paragraphs.is_empty() {
+            let description = join_message_paragraphs(&args.message_paragraphs);
+            if !description.is_empty() {
+                commit_builder.set_description(description);
+                add_trailers(ui, &tx, &commit_builder)?
+            } else {
+                description
+            }
+        } else {
+            let new_description = add_trailers(ui, &tx, &commit_builder)?;
+            commit_builder.set_description(new_description);
+            let temp_commit = commit_builder.write_hidden()?;
+            let template = description_template(
+                ui,
+                &tx,
+                "Enter a description for the first commit.",
+                &temp_commit,
+            )?;
+            edit_description(&text_editor, &template)?
+        };
         commit_builder.set_description(description);
         commit_builder.write(tx.repo_mut())?
     };
@@ -190,6 +207,9 @@ pub(crate) fn cmd_split(
             // If there was no description before, don't ask for one for the
             // second commit.
             "".to_string()
+        } else if !args.message_paragraphs.is_empty() {
+            // Just keep the original message unchanged
+            commit_builder.description().to_owned()
         } else {
             let new_description = add_trailers(ui, &tx, &commit_builder)?;
             commit_builder.set_description(new_description);

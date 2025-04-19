@@ -19,6 +19,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj split` has gained a `--message` option to set the description of the
+  commit with the selected changes.
+
 ### Fixed bugs
 
 ### Packaging changes
