@@ -24,6 +24,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   filesystem's behavior, but this can be overridden manually by setting
   `working-copy.exec-bit-change = "respect" | "ignore"`.
 
+* `jj split` assigns the change id and the bookmarks of the source revision
+  to the revision with the non-selected changes.
+  You can opt out of this change by setting `split.legacy-bookmark-behavior = true`,
+  but this will likely be removed in a future release.
+
 ### Fixed bugs
 
 * Broken symlink on Windows. [#6934](https://github.com/jj-vcs/jj/issues/6934).
