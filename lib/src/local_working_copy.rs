@@ -966,8 +966,8 @@ impl TreeState {
             start_tracking_matcher,
             max_new_file_size,
             conflict_marker_style,
+            dry_run,
         } = options;
-
         let sparse_matcher = self.sparse_matcher();
 
         let fsmonitor_clock_needs_save = *fsmonitor_settings != FsmonitorSettings::None;
@@ -985,6 +985,15 @@ impl TreeState {
         if matcher.visit(RepoPath::root()).is_nothing() {
             // No need to load the current tree, set up channels, etc.
             self.watchman_clock = watchman_clock;
+            if dry_run {
+                return Ok((
+                    false,
+                    SnapshotStats {
+                        dry_run_tree_id: Some(self.tree_id.clone()),
+                        ..SnapshotStats::default()
+                    },
+                ));
+            }
             return Ok((is_dirty, SnapshotStats::default()));
         }
 
@@ -1024,8 +1033,9 @@ impl TreeState {
             snapshotter.into_result()
         })?;
 
-        let stats = SnapshotStats {
+        let mut stats = SnapshotStats {
             untracked_paths: untracked_paths_rx.into_iter().collect(),
+            dry_run_tree_id: None,
         };
         let mut tree_builder = MergedTreeBuilder::new(self.tree_id.clone());
         trace_span!("process tree entries").in_scope(|| {
@@ -1041,6 +1051,18 @@ impl TreeState {
             }
             deleted_files
         });
+        trace_span!("write tree").in_scope(|| {
+            let new_tree_id = tree_builder.write_tree(&self.store).unwrap();
+            if dry_run {
+                stats.dry_run_tree_id = Some(new_tree_id);
+            } else {
+                is_dirty |= new_tree_id != self.tree_id;
+                self.tree_id = new_tree_id;
+            }
+        });
+        if dry_run {
+            return Ok((false, stats));
+        }
         trace_span!("process file states").in_scope(|| {
             let changed_file_states = file_states_rx
                 .iter()
@@ -1049,11 +1071,6 @@ impl TreeState {
             is_dirty |= !changed_file_states.is_empty();
             self.file_states
                 .merge_in(changed_file_states, &deleted_files);
-        });
-        trace_span!("write tree").in_scope(|| {
-            let new_tree_id = tree_builder.write_tree(&self.store).unwrap();
-            is_dirty |= new_tree_id != self.tree_id;
-            self.tree_id = new_tree_id;
         });
         if cfg!(debug_assertions) {
             let tree = self.current_tree().unwrap();

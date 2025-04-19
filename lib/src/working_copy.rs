@@ -222,6 +222,9 @@ pub struct SnapshotOptions<'a> {
     pub max_new_file_size: u64,
     /// Expected conflict marker style for checking for changed files.
     pub conflict_marker_style: ConflictMarkerStyle,
+    /// If true, skip any updates to the working copy metadata files when
+    /// snapshotting.
+    pub dry_run: bool,
 }
 
 impl SnapshotOptions<'_> {
@@ -234,6 +237,7 @@ impl SnapshotOptions<'_> {
             start_tracking_matcher: &EverythingMatcher,
             max_new_file_size: u64::MAX,
             conflict_marker_style: ConflictMarkerStyle::default(),
+            dry_run: false,
         }
     }
 }
@@ -246,6 +250,8 @@ pub type SnapshotProgress<'a> = dyn Fn(&RepoPath) + 'a + Sync;
 pub struct SnapshotStats {
     /// List of new (previously untracked) files which are still untracked.
     pub untracked_paths: BTreeMap<RepoPathBuf, UntrackedReason>,
+    /// The tree id generated in dry_run mode. Set iff dry_run is enabled.
+    pub dry_run_tree_id: Option<MergedTreeId>,
 }
 
 /// Reason why the new path isn't tracked.
