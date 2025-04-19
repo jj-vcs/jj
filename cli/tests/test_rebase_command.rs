@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use crate::common::create_commit;
+use crate::common::create_commit_with_files;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
@@ -2963,6 +2964,240 @@ fn test_rebase_skip_if_on_destination() {
     ○ │  b1  zsuskuln  072d5ae1:  a
     ├─╯
     ○  a  rlvkpnrz  2443ea76
+    ◆    zzzzzzzz  00000000
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_rebase_skip_duplicate_divergent() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Set up commit graph with divergent changes
+    create_commit_with_files(&work_dir, "a", &[], &[("file1", "initial\n")]);
+    create_commit_with_files(&work_dir, "b", &["a"], &[("file1", "initial\nb\n")]);
+    create_commit_with_files(&work_dir, "c", &["b"], &[("file1", "initial\nb\nc\n")]);
+    create_commit_with_files(&work_dir, "d", &["a"], &[("file2", "d\n")]);
+    create_commit_with_files(&work_dir, "e", &["a"], &[("file3", "e\n")]);
+    create_commit_with_files(&work_dir, "f", &["a"], &[("file4", "f\n")]);
+    work_dir.run_jj(["rebase", "-s", "b", "-d", "e"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "c2", "-r", "at_operation(@-, c)"])
+        .success();
+    work_dir
+        .run_jj(["bookmark", "create", "b2", "-r", "c2-"])
+        .success();
+    work_dir.run_jj(["rebase", "-r", "d", "-d", "c2"]).success();
+    work_dir.run_jj(["rebase", "-r", "f", "-d", "c"]).success();
+
+    // Test the setup (commits B and C are duplicated, and there are other changes
+    // present as well)
+    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+    @  f  kmkuslsw  ec5e92e0:  c
+    ○  c  royxmykx  4782f228:  b
+    ○  b  zsuskuln  8561b27a:  e
+    ○  e  znkkpsqq  40cb06c1:  a
+    │ ○  d  vruxwmqv  a0258419:  c2
+    │ ○  c2  royxmykx  66903f9c:  b2
+    │ ○  b2  zsuskuln  3af63618:  a
+    ├─╯
+    ○  a  rlvkpnrz  629935ce
+    ◆    zzzzzzzz  00000000
+    [EOF]
+    ");
+
+    // Test rebase with "-s" should skip B and C
+    insta::assert_snapshot!(work_dir.run_jj(["rebase", "-s", "e", "-d", "d"]).success(), @r"
+    ------- stderr -------
+    Skipped 2 divergent commits that were already present in the destination
+    Rebased 2 commits onto destination
+    Working copy  (@) now at: kmkuslsw ebb3d030 f | f
+    Parent commit (@-)      : znkkpsqq 1b20b939 b c e | e
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+    @  f  kmkuslsw  ebb3d030:  b c e
+    ○  b c e  znkkpsqq  1b20b939:  d
+    ○  d  vruxwmqv  a0258419:  c2
+    ○  c2  royxmykx  66903f9c:  b2
+    ○  b2  zsuskuln  3af63618:  a
+    ○  a  rlvkpnrz  629935ce
+    ◆    zzzzzzzz  00000000
+    [EOF]
+    ");
+
+    // Test rebase with "-b" should skip B and C
+    work_dir.run_jj(["undo"]).success();
+    insta::assert_snapshot!(work_dir.run_jj(["rebase", "-b", "f", "-d", "d"]).success(), @r"
+    ------- stderr -------
+    Skipped 2 divergent commits that were already present in the destination
+    Rebased 2 commits onto destination
+    Working copy  (@) now at: kmkuslsw d12096a8 f | f
+    Parent commit (@-)      : znkkpsqq 25903563 b c e | e
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+    @  f  kmkuslsw  d12096a8:  b c e
+    ○  b c e  znkkpsqq  25903563:  d
+    ○  d  vruxwmqv  a0258419:  c2
+    ○  c2  royxmykx  66903f9c:  b2
+    ○  b2  zsuskuln  3af63618:  a
+    ○  a  rlvkpnrz  629935ce
+    ◆    zzzzzzzz  00000000
+    [EOF]
+    ");
+
+    // Test rebase with "-r" should skip C
+    work_dir.run_jj(["undo"]).success();
+    insta::assert_snapshot!(work_dir.run_jj(["rebase", "-r", "e | c | f", "-d", "d"]).success(), @r"
+    ------- stderr -------
+    Skipped 1 divergent commits that were already present in the destination
+    Rebased 2 commits onto destination
+    Rebased 1 descendant commits
+    Working copy  (@) now at: kmkuslsw a9eccc92 f | f
+    Parent commit (@-)      : zsuskuln?? 77bd9f1b b c | b
+    Added 0 files, modified 1 files, removed 1 files
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+    @  f  kmkuslsw  a9eccc92:  b c
+    ○  b c  zsuskuln  77bd9f1b:  a
+    │ ○  e  znkkpsqq  ca1807c6:  d
+    │ ○  d  vruxwmqv  a0258419:  c2
+    │ ○  c2  royxmykx  66903f9c:  b2
+    │ ○  b2  zsuskuln  3af63618:  a
+    ├─╯
+    ○  a  rlvkpnrz  629935ce
+    ◆    zzzzzzzz  00000000
+    [EOF]
+    ");
+
+    // Rebase with "--keep-divergent" should result in a conflict since no changes
+    // are skipped
+    work_dir.run_jj(["undo"]).success();
+    insta::assert_snapshot!(work_dir.run_jj(["rebase", "-s", "e", "-d", "d", "--keep-divergent"]).success(), @r"
+    ------- stderr -------
+    Rebased 4 commits onto destination
+    Working copy  (@) now at: kmkuslsw 24f605a0 f | f
+    Parent commit (@-)      : royxmykx?? a0aff3cb c | c
+    Added 1 files, modified 0 files, removed 0 files
+    New conflicts appeared in 1 commits:
+      zsuskuln?? 177504bb b | (conflict) b
+    Hint: To resolve the conflicts, start by updating to it:
+      jj new zsuskuln
+    Then use `jj resolve`, or edit the conflict markers in the file directly.
+    Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
+    Then run `jj squash` to move the resolution into the conflicted commit.
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+    @  f  kmkuslsw  24f605a0:  c
+    ○  c  royxmykx  a0aff3cb:  b
+    ×  b  zsuskuln  177504bb:  e
+    ○  e  znkkpsqq  dd8da64f:  d
+    ○  d  vruxwmqv  a0258419:  c2
+    ○  c2  royxmykx  66903f9c:  b2
+    ○  b2  zsuskuln  3af63618:  a
+    ○  a  rlvkpnrz  629935ce
+    ◆    zzzzzzzz  00000000
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_rebase_keep_duplicate_divergent_if_already_ancestor() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Set up commit graph with divergent changes
+    create_commit_with_files(&work_dir, "a", &[], &[("file1", "initial\n")]);
+    create_commit_with_files(&work_dir, "b", &["a"], &[("file1", "initial\nb\n")]);
+    work_dir
+        .run_jj(["describe", "b", "--no-edit", "--reset-author"])
+        .success();
+    work_dir
+        .run_jj(["bookmark", "create", "b2", "-r", "at_operation(@-, b)"])
+        .success();
+    create_commit_with_files(&work_dir, "c", &["b"], &[("file2", "c\n")]);
+    // Simulate commit D reverting B, and then B being reapplied on top with the
+    // same change ID, since this seems like the case where this is most likely to
+    // happen in practice.
+    create_commit_with_files(&work_dir, "d", &["b"], &[("file1", "initial\n")]);
+    work_dir
+        .run_jj(["rebase", "-r", "b2", "-d", "d", "--keep-divergent"])
+        .success();
+
+    // Test the setup (commit B is duplicated, but the duplicate is already an
+    // ancestor, so it should be kept by rebases)
+    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+    ○  b2  zsuskuln  8f8438cd:  d
+    @  d  znkkpsqq  3f411b15:  b
+    │ ○  c  vruxwmqv  83a65980:  b
+    ├─╯
+    ○  b  zsuskuln  75888fa5:  a
+    ○  a  rlvkpnrz  629935ce
+    ◆    zzzzzzzz  00000000
+    [EOF]
+    ");
+
+    // Test rebase with "-s" should keep both versions of B
+    insta::assert_snapshot!(work_dir.run_jj(["rebase", "-s", "d", "-d", "c"]).success(), @r"
+    ------- stderr -------
+    Rebased 2 commits onto destination
+    Working copy  (@) now at: znkkpsqq 07e238e6 d | d
+    Parent commit (@-)      : vruxwmqv 83a65980 c | c
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+    ○  b2  zsuskuln  30de8346:  d
+    @  d  znkkpsqq  07e238e6:  c
+    ○  c  vruxwmqv  83a65980:  b
+    ○  b  zsuskuln  75888fa5:  a
+    ○  a  rlvkpnrz  629935ce
+    ◆    zzzzzzzz  00000000
+    [EOF]
+    ");
+
+    // Test rebase with "-b" should keep both versions of B
+    work_dir.run_jj(["undo"]).success();
+    insta::assert_snapshot!(work_dir.run_jj(["rebase", "-b", "b2", "-d", "c"]).success(), @r"
+    ------- stderr -------
+    Rebased 2 commits onto destination
+    Working copy  (@) now at: znkkpsqq e672376b d | d
+    Parent commit (@-)      : vruxwmqv 83a65980 c | c
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+    ○  b2  zsuskuln  e6ae0acf:  d
+    @  d  znkkpsqq  e672376b:  c
+    ○  c  vruxwmqv  83a65980:  b
+    ○  b  zsuskuln  75888fa5:  a
+    ○  a  rlvkpnrz  629935ce
+    ◆    zzzzzzzz  00000000
+    [EOF]
+    ");
+
+    // Test rebase with "-r" should keep both versions of B
+    work_dir.run_jj(["undo"]).success();
+    insta::assert_snapshot!(work_dir.run_jj(["rebase", "-r", "b2", "-d", "c"]).success(), @r"
+    ------- stderr -------
+    Rebased 1 commits onto destination
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+    @  d  znkkpsqq  3f411b15:  b
+    │ ○  b2  zsuskuln  c5e38217:  c
+    │ ○  c  vruxwmqv  83a65980:  b
+    ├─╯
+    ○  b  zsuskuln  75888fa5:  a
+    ○  a  rlvkpnrz  629935ce
     ◆    zzzzzzzz  00000000
     [EOF]
     ");

@@ -27,6 +27,7 @@ use tracing::instrument;
 
 use crate::backend::BackendError;
 use crate::backend::BackendResult;
+use crate::backend::ChangeId;
 use crate::backend::CommitId;
 use crate::backend::MergedTreeId;
 use crate::commit::Commit;
@@ -1127,4 +1128,134 @@ pub fn squash_commits<'repo>(
         commit_builder,
         abandoned_commits,
     }))
+}
+
+/// Abandon divergent commits from the target that are already present with
+/// identical contents in the destination. Commits with more than one parent are
+/// not abandoned. Returns the number of abandoned commits.
+pub fn abandon_duplicate_divergent_commits(
+    mut_repo: &mut MutableRepo,
+    new_parent_ids: &[CommitId],
+    target: &MoveCommitsTarget,
+) -> BackendResult<usize> {
+    let target_commits = match target {
+        MoveCommitsTarget::Roots(roots) => {
+            let root_ids = roots.iter().map(Commit::id).cloned().collect_vec();
+            RevsetExpression::commits(root_ids)
+                .descendants()
+                .evaluate(mut_repo)
+                .map_err(|err| err.into_backend_error())?
+                .iter()
+                .commits(mut_repo.store())
+                .try_collect()
+                .map_err(|err| err.into_backend_error())?
+        }
+        MoveCommitsTarget::Commits(commits) => commits.clone(),
+    };
+    let change_id_targets = find_divergent_change_id_targets(mut_repo, &target_commits);
+    if change_id_targets.is_empty() {
+        return Ok(0);
+    }
+
+    let target_commit_roots = match target {
+        MoveCommitsTarget::Roots(roots) => roots,
+        MoveCommitsTarget::Commits(commits) => commits,
+    };
+    let target_commit_root_ids = target_commit_roots
+        .iter()
+        .map(Commit::id)
+        .cloned()
+        .collect_vec();
+
+    let mut abandoned_divergent = Vec::new();
+    {
+        // We only care about divergent changes which are new ancestors of the rebased
+        // commits, not ones which were already ancestors of the rebased commits.
+        let is_new_ancestor = RevsetExpression::commits(target_commit_root_ids)
+            .range(&RevsetExpression::commits(new_parent_ids.to_owned()))
+            .evaluate(mut_repo)
+            .map_err(|err| err.into_backend_error())?
+            .containing_fn();
+
+        for targets in change_id_targets.values() {
+            // Checking every pair of commits between these two sets could be expensive if
+            // there are several commits with the same change ID. However, it should be
+            // uncommon to have more than a couple commits with the same change ID being
+            // rebased at the same time, so it should be good enough in practice.
+            for &rebased_commit in &targets.to_rebase {
+                // To maintain the graph structure, we don't abandon any merge commits.
+                if rebased_commit.parent_ids().len() != 1 {
+                    continue;
+                }
+
+                let old_base_tree = rebased_commit.parent_tree(mut_repo)?;
+                let old_tree = rebased_commit.tree()?;
+
+                for existing_commit_id in &targets.not_rebased {
+                    if !is_new_ancestor(existing_commit_id)
+                        .map_err(|err| err.into_backend_error())?
+                    {
+                        continue;
+                    }
+
+                    let existing_commit = mut_repo.store().get_commit(existing_commit_id)?;
+                    let new_base_tree = existing_commit.parent_tree(mut_repo)?;
+                    let new_tree = new_base_tree.merge(&old_base_tree, &old_tree)?;
+                    // Check whether the rebased commit would have the same tree as the existing
+                    // commit if they had the same parents. If so, we can skip this rebased commit.
+                    if new_tree.id() == *existing_commit.tree_id() {
+                        abandoned_divergent.push(rebased_commit);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    for &commit in &abandoned_divergent {
+        mut_repo.record_abandoned_commit(commit);
+    }
+    Ok(abandoned_divergent.len())
+}
+
+/// Finds all commits outside of the set of commits to be rebased which have the
+/// same change ID as a commit within the set of commits to be rebased.
+fn find_divergent_change_id_targets<'a>(
+    repo: &dyn Repo,
+    to_rebase: &'a [Commit],
+) -> HashMap<ChangeId, ChangeIdTargetsForRebase<'a>> {
+    let mut map = HashMap::new();
+    for commit in to_rebase {
+        map.entry(commit.change_id().clone())
+            .or_insert_with(|| {
+                ChangeIdTargetsForRebase::new(
+                    repo.resolve_change_id(commit.change_id())
+                        .unwrap_or_else(Vec::new),
+                )
+            })
+            .add_commit_to_rebase(commit);
+    }
+    map.retain(|_, targets| !targets.not_rebased.is_empty());
+    map
+}
+
+/// Keeps tracks of commits which all share a change ID.
+struct ChangeIdTargetsForRebase<'a> {
+    /// Commits which are in the set of rebased commits.
+    to_rebase: Vec<&'a Commit>,
+    /// Commits which are not in the set of rebased commits.
+    not_rebased: Vec<CommitId>,
+}
+
+impl<'a> ChangeIdTargetsForRebase<'a> {
+    fn new(all_targets: Vec<CommitId>) -> Self {
+        ChangeIdTargetsForRebase {
+            to_rebase: Vec::new(),
+            not_rebased: all_targets,
+        }
+    }
+
+    fn add_commit_to_rebase(&mut self, commit: &'a Commit) {
+        self.not_rebased.retain(|target| target != commit.id());
+        self.to_rebase.push(commit);
+    }
 }

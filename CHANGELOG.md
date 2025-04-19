@@ -21,6 +21,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj git push -c`/`--change` no longer moves existing local bookmarks.
 
+* `jj rebase` now automatically abandons divergent commits if another commit
+  with the same change ID is already present in the destination with identical
+  changes. To keep these divergent commits, use the `--keep-divergent` flag.
+
 ### Deprecations
 
 * `git.subprocess = false` has been deprecated, and the old `libgit2`

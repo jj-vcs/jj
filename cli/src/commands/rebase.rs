@@ -26,6 +26,7 @@ use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetIteratorExt as _;
+use jj_lib::rewrite::abandon_duplicate_divergent_commits;
 use jj_lib::rewrite::move_commits;
 use jj_lib::rewrite::EmptyBehaviour;
 use jj_lib::rewrite::MoveCommitsStats;
@@ -325,6 +326,14 @@ pub(crate) struct RebaseArgs {
     /// parents.
     #[arg(long)]
     skip_emptied: bool,
+
+    /// Keep divergent commits while rebasing
+    ///
+    /// Without this flag, divergent commits are abandoned while rebasing if
+    /// another commit with the same change ID is already present in the
+    /// destination with identical changes.
+    #[arg(long)]
+    keep_divergent: bool,
 }
 
 #[derive(clap::Args, Clone, Debug)]
@@ -393,6 +402,7 @@ pub(crate) fn cmd_rebase(
             &args.revisions,
             &args.destination,
             &rebase_options,
+            args.keep_divergent,
         )?;
     } else if !args.source.is_empty() {
         rebase_source(
@@ -401,6 +411,7 @@ pub(crate) fn cmd_rebase(
             &args.source,
             &args.destination,
             &rebase_options,
+            args.keep_divergent,
         )?;
     } else {
         rebase_branch(
@@ -409,6 +420,7 @@ pub(crate) fn cmd_rebase(
             &args.branch,
             &args.destination,
             &rebase_options,
+            args.keep_divergent,
         )?;
     }
     Ok(())
@@ -420,6 +432,7 @@ fn rebase_revisions(
     revisions: &[RevisionArg],
     rebase_destination: &RebaseDestinationArgs,
     rebase_options: &RebaseOptions,
+    keep_divergent: bool,
 ) -> Result<(), CommandError> {
     let target_commits: Vec<_> = workspace_command
         .parse_union_revsets(ui, revisions)?
@@ -452,6 +465,7 @@ fn rebase_revisions(
         &new_child_ids,
         target_commits,
         rebase_options,
+        keep_divergent,
     )
 }
 
@@ -461,6 +475,7 @@ fn rebase_source(
     source: &[RevisionArg],
     rebase_destination: &RebaseDestinationArgs,
     rebase_options: &RebaseOptions,
+    keep_divergent: bool,
 ) -> Result<(), CommandError> {
     let source_commits: Vec<_> = workspace_command
         .resolve_some_revsets_default_single(ui, source)?
@@ -490,6 +505,7 @@ fn rebase_source(
         &new_child_ids,
         source_commits,
         rebase_options,
+        keep_divergent,
     )
 }
 
@@ -499,6 +515,7 @@ fn rebase_branch(
     branch: &[RevisionArg],
     rebase_destination: &RebaseDestinationArgs,
     rebase_options: &RebaseOptions,
+    keep_divergent: bool,
 ) -> Result<(), CommandError> {
     let branch_commit_ids: Vec<_> = if branch.is_empty() {
         vec![workspace_command
@@ -543,6 +560,7 @@ fn rebase_branch(
         &new_child_ids,
         root_commits,
         rebase_options,
+        keep_divergent,
     )
 }
 
@@ -553,6 +571,7 @@ fn rebase_descendants_transaction(
     new_child_ids: &[CommitId],
     target_roots: Vec<Commit>,
     rebase_options: &RebaseOptions,
+    keep_divergent: bool,
 ) -> Result<(), CommandError> {
     if target_roots.is_empty() {
         writeln!(ui.status(), "Nothing changed.")?;
@@ -576,14 +595,20 @@ fn rebase_descendants_transaction(
         .iter()
         .map(|commit_id| tx.repo().store().get_commit(commit_id))
         .try_collect()?;
+    let target = MoveCommitsTarget::Roots(target_roots);
+    let num_abandoned_divergent = if keep_divergent {
+        0
+    } else {
+        abandon_duplicate_divergent_commits(tx.repo_mut(), new_parent_ids, &target)?
+    };
     let stats = move_commits(
         tx.repo_mut(),
         new_parent_ids,
         &new_children,
-        &MoveCommitsTarget::Roots(target_roots),
+        &target,
         rebase_options,
     )?;
-    print_move_commits_stats(ui, &stats)?;
+    print_move_commits_stats(ui, &stats, num_abandoned_divergent)?;
     tx.finish(ui, tx_description)
 }
 
@@ -595,6 +620,7 @@ fn rebase_revisions_transaction(
     new_child_ids: &[CommitId],
     target_commits: Vec<Commit>,
     rebase_options: &RebaseOptions,
+    keep_divergent: bool,
 ) -> Result<(), CommandError> {
     if target_commits.is_empty() {
         writeln!(ui.status(), "Nothing changed.")?;
@@ -616,14 +642,20 @@ fn rebase_revisions_transaction(
         .iter()
         .map(|commit_id| tx.repo().store().get_commit(commit_id))
         .try_collect()?;
+    let target = MoveCommitsTarget::Commits(target_commits);
+    let num_abandoned_divergent = if keep_divergent {
+        0
+    } else {
+        abandon_duplicate_divergent_commits(tx.repo_mut(), new_parent_ids, &target)?
+    };
     let stats = move_commits(
         tx.repo_mut(),
         new_parent_ids,
         &new_children,
-        &MoveCommitsTarget::Commits(target_commits),
+        &target,
         rebase_options,
     )?;
-    print_move_commits_stats(ui, &stats)?;
+    print_move_commits_stats(ui, &stats, num_abandoned_divergent)?;
     tx.finish(ui, tx_description)
 }
 
@@ -645,10 +677,21 @@ fn check_rebase_destinations(
 }
 
 /// Print details about the provided [`MoveCommitsStats`].
-fn print_move_commits_stats(ui: &Ui, stats: &MoveCommitsStats) -> std::io::Result<()> {
+fn print_move_commits_stats(
+    ui: &Ui,
+    stats: &MoveCommitsStats,
+    num_divergent_abandoned: usize,
+) -> std::io::Result<()> {
     let Some(mut formatter) = ui.status_formatter() else {
         return Ok(());
     };
+    if num_divergent_abandoned > 0 {
+        writeln!(
+            formatter,
+            "Skipped {num_divergent_abandoned} divergent commits that were already present in the \
+             destination"
+        )?;
+    }
     let &MoveCommitsStats {
         num_rebased_targets,
         num_rebased_descendants,
