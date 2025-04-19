@@ -178,18 +178,30 @@ pub(crate) fn cmd_squash(
         let mut commit_builder = squashed.commit_builder.detach();
         let new_description = match description {
             SquashedDescription::Exact(description) => {
-                commit_builder.set_description(description);
-                add_trailers(ui, &tx, &commit_builder)?
+                if description.is_empty() {
+                    description
+                } else {
+                    commit_builder.set_description(description);
+                    add_trailers(ui, &tx, &commit_builder)?
+                }
             }
             SquashedDescription::UseDestination => {
-                commit_builder.set_description(destination.description());
-                add_trailers(ui, &tx, &commit_builder)?
+                if destination.description().is_empty() {
+                    destination.description().to_owned()
+                } else {
+                    commit_builder.set_description(destination.description());
+                    add_trailers(ui, &tx, &commit_builder)?
+                }
             }
             SquashedDescription::Combine => {
                 let abandoned_commits = &squashed.abandoned_commits;
                 if let Some(description) = try_combine_messages(abandoned_commits, &destination) {
-                    commit_builder.set_description(description);
-                    add_trailers(ui, &tx, &commit_builder)?
+                    if description.is_empty() {
+                        description
+                    } else {
+                        commit_builder.set_description(description);
+                        add_trailers(ui, &tx, &commit_builder)?
+                    }
                 } else {
                     let intro = "Enter a description for the combined commit.";
                     let combined = combine_messages_for_editing(

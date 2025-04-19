@@ -1357,6 +1357,68 @@ fn test_squash_description() {
     CC: alice@example.com
     [EOF]
     ");
+
+    // squashing messages with empty descriptions shouldn't add any trailer
+    work_dir.run_jj(["op", "restore", "@--"]).success();
+    work_dir
+        .run_jj(["describe", "-r", "..", "-m", ""])
+        .success();
+    insta::assert_snapshot!(get_log_output_with_description(&work_dir), @r"
+    @  7e485555f641
+    ○  99b4683afeaf
+    ◆  000000000000
+    [EOF]
+    ");
+    work_dir
+        .run_jj([
+            "squash",
+            "--config",
+            r#"templates.commit_trailers='"CC: bob@example.com"'"#,
+        ])
+        .success();
+    insta::assert_snapshot!(get_description(&work_dir, "@-"), @"");
+
+    // squashing messages with --use-destination-message on a commit with an
+    // empty description shouldn't add any trailer
+    work_dir.run_jj(["op", "restore", "@--"]).success();
+    work_dir
+        .run_jj(["describe", "-r", "@-", "-m", ""])
+        .success();
+    insta::assert_snapshot!(get_log_output_with_description(&work_dir), @r"
+    @  e4007dc838a3 source
+    ○  9bb558f5d51c
+    ◆  000000000000
+    [EOF]
+    ");
+    work_dir
+        .run_jj([
+            "squash",
+            "--use-destination-message",
+            "--config",
+            r#"templates.commit_trailers='"CC: bob@example.com"'"#,
+        ])
+        .success();
+    insta::assert_snapshot!(get_description(&work_dir, "@-"), @"");
+
+    // squashing with an empty message on the command line shouldn't add
+    // any trailer
+    work_dir.run_jj(["op", "restore", "@--"]).success();
+    insta::assert_snapshot!(get_log_output_with_description(&work_dir), @r"
+    @  5d1c6e004d1d source
+    ○  98c5890febcb destination
+    ◆  000000000000
+    [EOF]
+    ");
+    work_dir
+        .run_jj([
+            "squash",
+            "--message",
+            "",
+            "--config",
+            r#"templates.commit_trailers='"CC: bob@example.com"'"#,
+        ])
+        .success();
+    insta::assert_snapshot!(get_description(&work_dir, "@-"), @"");
 }
 
 #[test]
