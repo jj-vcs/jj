@@ -62,4 +62,14 @@ state C. We then back out that change. Backing out ("reverting" in Git-speak) a
 change means applying its reverse diff, so the result is `(B+C-A)+(A-(B+C-A))`,
 which we can simplify to just `A` (i.e. no conflict).
 
+## same-change rule
+
+The same-change rule is a pragmatic hack on the conflict algebra, which allows
+us to consider a conflict as automatically resolved when two sides are the same.
+This is similar to Git and Mercurial (hg) and not like Darcs and its
+descendants which would consider it a conflict. It also has some unfortunate
+consequences like when you rebase a commit to upstream and the upstream rebased
+it  to where it was before, you may lose changes (any that overlapped with
+upstream's changes).
+
 [merge-rs]: https://github.com/jj-vcs/jj/blob/main/lib/src/merge.rs
