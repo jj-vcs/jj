@@ -189,6 +189,7 @@ fn warn_if_branches_not_found(
     branches: &[StringPattern],
     remotes: &[&RemoteName],
 ) -> Result<(), CommandError> {
+    let mut missing_branches = vec![];
     for branch in branches {
         let matches = remotes.iter().any(|&remote| {
             let remote = StringPattern::exact(remote);
@@ -205,11 +206,16 @@ fn warn_if_branches_not_found(
                     .is_some()
         });
         if !matches {
-            writeln!(
-                ui.warning_default(),
-                "No branch matching `{branch}` found on any specified/configured remote",
-            )?;
+            missing_branches.push(branch);
         }
+    }
+
+    if !missing_branches.is_empty() {
+        writeln!(
+            ui.warning_default(),
+            "No branch matching {} found on any specified/configured remote",
+            missing_branches.iter().map(|b| format!("`{b}`")).join(", ")
+        )?;
     }
 
     Ok(())
