@@ -302,7 +302,7 @@ version and the dependencies needed to build the docs. Install it like so:
 
 === "macOS/Linux"
 
-    ``` { .shell .copy }
+    ```shell
     curl -LsSf https://astral.sh/uv/install.sh | sh
     ```
 
@@ -310,25 +310,25 @@ version and the dependencies needed to build the docs. Install it like so:
         If you don't have `~/.local/bin` in your `PATH`, the installer will
         modify your shell profile. To avoid it:
 
-        ``` { .shell .copy }
+        ```shell
         curl -LsSf https://astral.sh/uv/install.sh | env INSTALLER_NO_MODIFY_PATH=1 sh
         ```
 
 === "Windows"
 
-    ``` { .shell .copy }
+    ```shell
     powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
     ```
 
 === "Homebrew"
 
-    ``` { .shell .copy }
+    ```shell
     brew install uv
     ```
 
 === "Cargo"
 
-    ``` { .shell .copy }
+    ```shell
     # This might take a while
     cargo install --git https://github.com/astral-sh/uv uv
     ```
@@ -342,7 +342,7 @@ version and the dependencies needed to build the docs. Install it like so:
 
 To build the docs, run from the root of the `jj` repository:
 
-``` { .shell .copy }
+```shell
 uv run mkdocs serve
 ```
 
