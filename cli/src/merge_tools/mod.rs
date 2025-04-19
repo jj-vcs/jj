@@ -293,10 +293,7 @@ impl DiffEditor {
     ) -> Result<MergedTreeId, DiffEditError> {
         match &self.tool {
             DiffTool::Builtin => {
-                Ok(
-                    edit_diff_builtin(left_tree, right_tree, matcher, self.conflict_marker_style)
-                        .map_err(Box::new)?,
-                )
+                Ok(edit_diff_builtin(left_tree, right_tree, matcher).map_err(Box::new)?)
             }
             DiffTool::External(editor) => {
                 let instructions = self.use_instructions.then(format_instructions);
