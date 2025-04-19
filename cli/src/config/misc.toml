@@ -44,6 +44,7 @@ edit = false
 [ui.streampager]
 interface = "quit-if-one-page"
 wrapping = "anywhere"
+show-ruler = true
 
 [snapshot]
 max-new-file-size = "1MiB"

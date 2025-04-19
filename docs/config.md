@@ -763,6 +763,16 @@ interface = "full-screen-clear-output"
 interface = "quit-quickly-or-clear-output"
 ```
 
+#### Showing the ruler on startup
+
+```toml
+[ui.streampager]
+# Start with the ruler showing
+show-ruler = true # (default)
+# Start with the ruler hidden
+show-ruler = false
+```
+
 
 ### Processing contents to be paged
 

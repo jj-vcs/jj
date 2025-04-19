@@ -83,6 +83,7 @@ impl UiOutput {
         let streampager_config = streampager::config::Config {
             wrapping_mode: config.wrapping.into(),
             interface_mode: config.streampager_interface_mode(),
+            show_ruler: config.show_ruler,
             // We could make scroll-past-eof configurable, but I'm guessing people
             // will not miss it. If we do make it configurable, we should mention
             // that it's a bad idea to turn this on if `interface=quit-if-one-page`,
@@ -297,6 +298,7 @@ impl From<StreampagerWrappingMode> for streampager::config::WrappingMode {
 struct StreampagerConfig {
     interface: StreampagerAlternateScreenMode,
     wrapping: StreampagerWrappingMode,
+    show_ruler: bool,
     // TODO: Add an `quit-quickly-delay-seconds` floating point option or a
     // `quit-quickly-delay` option that takes a 's' or 'ms' suffix. Note that as
     // of this writing, floating point numbers do not work with `--config`

@@ -55,6 +55,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj absorb` can now squash a deleted file if it was added by one of the
   destination revisions.
 
+* Added `ui.streampager.show-ruler` setting to configure whether the ruler should be
+  shown when the builtin pager starts up.
+
 ### Fixed bugs
 
 * Fixed crash on change-delete conflict resolution.
