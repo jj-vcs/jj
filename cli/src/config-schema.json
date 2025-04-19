@@ -83,11 +83,6 @@
                         }
                     ]
                 },
-                "default-description": {
-                    "type": "string",
-                    "description": "Default description to use when describing changes with an empty description (deprecated; use `templates.draft_commit_description` and/or `templates.commit_trailers` instead)",
-                    "default": ""
-                },
                 "color": {
                     "description": "Whether to colorize command output",
                     "enum": [

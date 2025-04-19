@@ -22,7 +22,6 @@ sign-on-push = false
 [ui]
 always-allow-large-revsets = false
 color = "auto"
-default-description = ""
 diff-instructions = true
 diff.format = "color-words"
 # diff.tool = <use-format>

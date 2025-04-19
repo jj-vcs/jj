@@ -143,11 +143,6 @@ new working-copy commit.
         }
         description
     } else {
-        if commit_builder.description().is_empty() {
-            // TODO: Remove in jj 0.35.0+
-            let description = tx.settings().get_string("ui.default-description")?;
-            commit_builder.set_description(description);
-        }
         let description = add_trailers(ui, &tx, &commit_builder)?;
         commit_builder.set_description(description);
         let temp_commit = commit_builder.write_hidden()?;

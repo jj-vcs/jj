@@ -240,15 +240,15 @@ fn test_commit_with_default_description() {
     std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
     work_dir.run_jj(["commit"]).success();
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r#"
     @  c65242099289
     ○  573b6df51aea TESTED=TODO
     ◆  000000000000
     [EOF]
     ------- stderr -------
-    Warning: Deprecated config: `ui.default-description` is deprecated; use `templates.draft_commit_description` and/or `templates.commit_trailers` instead.
+    Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
     [EOF]
-    ");
+    "#);
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
     TESTED=TODO

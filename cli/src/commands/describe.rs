@@ -142,8 +142,6 @@ pub(crate) fn cmd_describe(
         )
     };
 
-    // TODO: Remove in jj 0.35.0+
-    let default_description_to_edit = tx.settings().get_string("ui.default-description")?;
     let shared_description = if args.stdin {
         let mut buffer = String::new();
         io::stdin().read_to_string(&mut buffer)?;
@@ -165,8 +163,6 @@ pub(crate) fn cmd_describe(
             let mut commit_builder = tx.repo_mut().rewrite_commit(commit).detach();
             if let Some(description) = &shared_description {
                 commit_builder.set_description(description);
-            } else if use_editor && commit_builder.description().is_empty() {
-                commit_builder.set_description(&default_description_to_edit);
             }
             if args.reset_author {
                 let new_author = commit_builder.committer().clone();

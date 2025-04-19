@@ -33,6 +33,7 @@ use jj_lib::config::ConfigResolutionContext;
 use jj_lib::config::ConfigSource;
 use jj_lib::config::ConfigValue;
 use jj_lib::config::StackedConfig;
+use jj_lib::dsl_util;
 use regex::Captures;
 use regex::Regex;
 use tracing::instrument;
@@ -40,6 +41,7 @@ use tracing::instrument;
 use crate::command_error::config_error;
 use crate::command_error::config_error_with_message;
 use crate::command_error::CommandError;
+use crate::text_util;
 
 // TODO(#879): Consider generating entire schema dynamically vs. static file.
 pub const CONFIG_SCHEMA: &str = include_str!("config-schema.json");
@@ -639,19 +641,16 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
             },
             |_| Ok("`git.subprocess = true` is now the default".into()),
         ),
-        // TODO: Delete with the `ui.default-description` setting.
-        ConfigMigrationRule::custom(
-            |layer| {
-                let Ok(Some(default_desc)) = layer.look_up_item("ui.default-description") else {
-                    return false;
-                };
-                default_desc.as_str().is_some_and(|d| !d.is_empty())
-            },
-            |_| {
-                Ok("`ui.default-description` is deprecated; use \
-                    `templates.draft_commit_description` and/or `templates.commit_trailers` \
-                    instead."
-                    .into())
+        // TODO: Delete in jj 0.35.0+
+        ConfigMigrationRule::rename_update_value(
+            "ui.default-description",
+            "template-aliases.default_commit_description",
+            |old_value| {
+                let value = old_value.as_str().ok_or("expected a string")?;
+                // Trailing newline would be padded by templater
+                let value = text_util::complete_newline(value);
+                let escaped = dsl_util::escape_string(&value);
+                Ok(format!(r#""{escaped}""#).into())
             },
         ),
     ]

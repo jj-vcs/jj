@@ -616,13 +616,13 @@ fn test_describe_default_description() {
     work_dir.write_file("file2", "bar\n");
     std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
     let output = work_dir.run_jj(["describe"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Warning: Deprecated config: `ui.default-description` is deprecated; use `templates.draft_commit_description` and/or `templates.commit_trailers` instead.
+    Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
     Working copy  (@) now at: qpvuntsm 573b6df5 TESTED=TODO
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
-    ");
+    "#);
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
     TESTED=TODO
@@ -637,13 +637,13 @@ fn test_describe_default_description() {
     // Default description shouldn't be used if --no-edit
     work_dir.run_jj(["new", "root()"]).success();
     let output = work_dir.run_jj(["describe", "--no-edit", "--reset-author"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Warning: Deprecated config: `ui.default-description` is deprecated; use `templates.draft_commit_description` and/or `templates.commit_trailers` instead.
+    Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
     Working copy  (@) now at: kkmpptxz f652c321 (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
-    ");
+    "#);
 }
 
 #[test]
