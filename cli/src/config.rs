@@ -160,27 +160,63 @@ impl AsMut<StackedConfig> for RawConfig {
     }
 }
 
+#[derive(Copy, Clone, Debug)]
+pub(crate) struct DeprecatedLocation {
+    pub(crate) old_location: &'static str,
+    pub(crate) new_location: &'static str,
+}
 #[derive(Clone, Debug)]
-enum ConfigPath {
-    /// Existing config file path.
-    Existing(PathBuf),
-    /// Could not find any config file, but a new file can be created at the
-    /// specified location.
-    New(PathBuf),
+enum ConfigPathState {
+    New,
+    Exists,
+    Deprecated(DeprecatedLocation),
+}
+
+#[derive(Clone, Debug)]
+pub struct ConfigPath {
+    path: PathBuf,
+    state: ConfigPathState,
 }
 
 impl ConfigPath {
     fn new(path: PathBuf) -> Self {
-        if path.exists() {
-            ConfigPath::Existing(path)
-        } else {
-            ConfigPath::New(path)
+        use ConfigPathState::*;
+        ConfigPath {
+            state: if path.exists() { Exists } else { New },
+            path,
         }
     }
+    fn new_deprecated(
+        path: PathBuf,
+        old_location: &'static str,
+        new_location: &'static str,
+    ) -> Self {
+        use ConfigPathState::*;
+        let state = if path.exists() {
+            Deprecated(DeprecatedLocation {
+                old_location,
+                new_location,
+            })
+        } else {
+            New
+        };
 
-    fn as_path(&self) -> &Path {
-        match self {
-            ConfigPath::Existing(path) | ConfigPath::New(path) => path,
+        ConfigPath { state, path }
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+    pub(crate) fn exists(&self) -> bool {
+        match self.state {
+            ConfigPathState::Exists | ConfigPathState::Deprecated { .. } => true,
+            ConfigPathState::New => false,
+        }
+    }
+    pub(crate) fn deprecated_location(&self) -> Option<DeprecatedLocation> {
+        match self.state {
+            ConfigPathState::Deprecated(d) => Some(d),
+            ConfigPathState::Exists | ConfigPathState::New => None,
         }
     }
 }
@@ -202,6 +238,8 @@ fn create_dir_all(path: &Path) -> std::io::Result<()> {
 #[derive(Clone, Default, Debug)]
 struct UnresolvedConfigEnv {
     config_dir: Option<PathBuf>,
+    // TODO: remove after jj 0.35
+    macos_legacy_config_dir: Option<PathBuf>,
     home_dir: Option<PathBuf>,
     jj_config: Option<String>,
 }
@@ -214,35 +252,64 @@ impl UnresolvedConfigEnv {
                 .map(ConfigPath::new)
                 .collect();
         }
+
+        let push_if_exists = |v: &mut Vec<ConfigPath>, path: ConfigPath| {
+            if path.exists() {
+                v.push(path);
+            }
+        };
+
         let mut paths = vec![];
-        let home_config_path = self.home_dir.map(|mut home_dir| {
+        if let Some(mut home_dir) = self.home_dir {
             home_dir.push(".jjconfig.toml");
-            ConfigPath::new(home_dir)
-        });
-        let platform_config_path = self.config_dir.clone().map(|mut config_dir| {
-            config_dir.push("jj");
-            config_dir.push("config.toml");
-            ConfigPath::new(config_dir)
-        });
-        let platform_config_dir = self.config_dir.map(|mut config_dir| {
-            config_dir.push("jj");
-            config_dir.push("conf.d");
-            ConfigPath::new(config_dir)
-        });
-        use ConfigPath::*;
-        if let Some(path @ Existing(_)) = home_config_path {
-            paths.push(path);
-        } else if let (Some(path @ New(_)), None) = (home_config_path, &platform_config_path) {
-            paths.push(path);
+            let home_dir_config = ConfigPath::new(home_dir);
+            if self.config_dir.is_none() {
+                paths.push(home_dir_config);
+            } else {
+                push_if_exists(&mut paths, home_dir_config);
+            }
         }
-        // This should be the default config created if there's
-        // no user config and `jj config edit` is executed.
-        if let Some(path) = platform_config_path {
-            paths.push(path);
+
+        if cfg!(target_os = "macos") {
+            if let Some(mut legacy_platform_config_path) = self.macos_legacy_config_dir {
+                legacy_platform_config_path.push("jj");
+                let mut legacy_platform_config_dir = legacy_platform_config_path.clone();
+
+                legacy_platform_config_path.push("config.toml");
+                push_if_exists(
+                    &mut paths,
+                    ConfigPath::new_deprecated(
+                        legacy_platform_config_path,
+                        "~/Library/Application Support",
+                        "~/.config",
+                    ),
+                );
+
+                legacy_platform_config_dir.push("conf.d");
+                push_if_exists(
+                    &mut paths,
+                    ConfigPath::new_deprecated(
+                        legacy_platform_config_dir,
+                        "~/Library/Application Support",
+                        "~/.config",
+                    ),
+                );
+            }
         }
-        if let Some(path @ Existing(_)) = platform_config_dir {
-            paths.push(path);
+
+        if let Some(mut platform_config_path) = self.config_dir.clone() {
+            platform_config_path.push("jj");
+            let mut platform_config_dir = platform_config_path.clone();
+
+            // This should be the default config created if there's
+            // no user config and `jj config edit` is executed.
+            platform_config_path.push("config.toml");
+            paths.push(ConfigPath::new(platform_config_path));
+
+            platform_config_dir.push("conf.d");
+            push_if_exists(&mut paths, ConfigPath::new(platform_config_dir));
         }
+
         paths
     }
 }
@@ -259,11 +326,35 @@ pub struct ConfigEnv {
 impl ConfigEnv {
     /// Initializes configuration loader based on environment variables.
     pub fn from_environment() -> Self {
+        let config_dir = etcetera::choose_base_strategy().ok().map(|s| {
+            use etcetera::BaseStrategy as _;
+            s.config_dir()
+        });
+
+        // older versions of jj used the more "GUI" config option due to dirs,
+        // which is not designed for user-editable configuration of CLI utilities.
+        let macos_legacy_config_dir = if cfg!(target_os = "macos") {
+            etcetera::base_strategy::choose_native_strategy()
+                .ok()
+                .map(|s| {
+                    use etcetera::BaseStrategy as _;
+                    // note that etcetera calls Library/Application Support the "data dir",
+                    // Library/Preferences is supposed to be exclusively plists
+                    s.data_dir()
+                })
+        } else {
+            None
+        };
+
         // Canonicalize home as we do canonicalize cwd in CliRunner. $HOME might
         // point to symlink.
-        let home_dir = dirs::home_dir().map(|path| dunce::canonicalize(&path).unwrap_or(path));
+        let home_dir = etcetera::home_dir()
+            .ok()
+            .map(|d| dunce::canonicalize(&d).unwrap_or(d));
+
         let env = UnresolvedConfigEnv {
-            config_dir: dirs::config_dir(),
+            config_dir,
+            macos_legacy_config_dir,
             home_dir: home_dir.clone(),
             jj_config: env::var("JJ_CONFIG").ok(),
         };
@@ -281,17 +372,14 @@ impl ConfigEnv {
     }
 
     /// Returns the paths to the user-specific config files or directories.
-    pub fn user_config_paths(&self) -> impl Iterator<Item = &Path> {
-        self.user_config_paths.iter().map(|p| p.as_path())
+    pub fn user_config_paths(&self) -> impl Iterator<Item = &ConfigPath> {
+        self.user_config_paths.iter()
     }
 
     /// Returns the paths to the existing user-specific config files or
     /// directories.
-    pub fn existing_user_config_paths(&self) -> impl Iterator<Item = &Path> {
-        self.user_config_paths.iter().filter_map(|p| match p {
-            ConfigPath::Existing(path) => Some(path.as_path()),
-            _ => None,
-        })
+    pub fn existing_user_config_paths(&self) -> impl Iterator<Item = &ConfigPath> {
+        self.user_config_paths.iter().filter(|p| p.exists())
     }
 
     /// Returns user configuration files for modification. Instantiates one if
@@ -313,12 +401,12 @@ impl ConfigEnv {
             .map(|path| {
                 // No need to propagate io::Error here. If the directory
                 // couldn't be created, file.save() would fail later.
-                if let Some(dir) = path.parent() {
+                if let Some(dir) = path.path.parent() {
                     create_dir_all(dir).ok();
                 }
                 // The path doesn't usually exist, but we shouldn't overwrite it
                 // with an empty config if it did exist.
-                ConfigFile::load_or_empty(ConfigSource::User, path)
+                ConfigFile::load_or_empty(ConfigSource::User, &path.path)
             })
             .transpose()
     }
@@ -329,10 +417,10 @@ impl ConfigEnv {
     pub fn reload_user_config(&self, config: &mut RawConfig) -> Result<(), ConfigLoadError> {
         config.as_mut().remove_layers(ConfigSource::User);
         for path in self.existing_user_config_paths() {
-            if path.is_dir() {
-                config.as_mut().load_dir(ConfigSource::User, path)?;
+            if path.path.is_dir() {
+                config.as_mut().load_dir(ConfigSource::User, &path.path)?;
             } else {
-                config.as_mut().load_file(ConfigSource::User, path)?;
+                config.as_mut().load_file(ConfigSource::User, &path.path)?;
             }
         }
         Ok(())
@@ -346,14 +434,14 @@ impl ConfigEnv {
     }
 
     /// Returns a path to the repo-specific config file.
-    pub fn repo_config_path(&self) -> Option<&Path> {
-        self.repo_config_path.as_ref().map(ConfigPath::as_path)
+    pub fn repo_config_path(&self) -> Option<&ConfigPath> {
+        self.repo_config_path.as_ref()
     }
 
     /// Returns a path to the existing repo-specific config file.
     fn existing_repo_config_path(&self) -> Option<&Path> {
-        match &self.repo_config_path {
-            Some(ConfigPath::Existing(path)) => Some(path),
+        match self.repo_config_path {
+            Some(ref path) if path.exists() => Some(&path.path),
             _ => None,
         }
     }
@@ -375,7 +463,7 @@ impl ConfigEnv {
         self.repo_config_path()
             // The path doesn't usually exist, but we shouldn't overwrite it
             // with an empty config if it did exist.
-            .map(|path| ConfigFile::load_or_empty(ConfigSource::Repo, path))
+            .map(|path| ConfigFile::load_or_empty(ConfigSource::Repo, &path.path))
             .transpose()
     }
 
@@ -1257,12 +1345,54 @@ mod tests {
     struct TestCase {
         files: &'static [&'static str],
         env: UnresolvedConfigEnv,
-        wants: &'static [Want],
+        wants: Vec<Want>,
     }
 
-    enum Want {
-        New(&'static str),
-        Existing(&'static str),
+    #[derive(Debug)]
+    enum WantState {
+        New,
+        Existing,
+        #[allow(dead_code)] // only used on macOS
+        Deprecated,
+    }
+    #[derive(Debug)]
+    struct Want {
+        path: &'static str,
+        state: WantState,
+    }
+
+    impl Want {
+        const fn new(path: &'static str) -> Want {
+            Want {
+                path,
+                state: WantState::New,
+            }
+        }
+        const fn existing(path: &'static str) -> Want {
+            Want {
+                path,
+                state: WantState::Existing,
+            }
+        }
+        #[allow(dead_code)] // only used on macOS
+        const fn deprecated(path: &'static str) -> Want {
+            Want {
+                path,
+                state: WantState::Deprecated,
+            }
+        }
+
+        fn matches(&self, root: &Path, path: &ConfigPath) -> bool {
+            if root.join(self.path) != path.path {
+                return false;
+            }
+
+            match self.state {
+                WantState::New => !path.exists(),
+                WantState::Existing => path.exists() && path.deprecated_location().is_none(),
+                WantState::Deprecated => path.exists() && path.deprecated_location().is_some(),
+            }
+        }
     }
 
     fn config_path_home_existing() -> TestCase {
@@ -1272,7 +1402,7 @@ mod tests {
                 home_dir: Some("home".into()),
                 ..Default::default()
             },
-            wants: &[Want::Existing("home/.jjconfig.toml")],
+            wants: vec![Want::existing("home/.jjconfig.toml")],
         }
     }
 
@@ -1283,7 +1413,7 @@ mod tests {
                 home_dir: Some("home".into()),
                 ..Default::default()
             },
-            wants: &[Want::New("home/.jjconfig.toml")],
+            wants: vec![Want::new("home/.jjconfig.toml")],
         }
     }
 
@@ -1295,9 +1425,9 @@ mod tests {
                 config_dir: Some("config".into()),
                 ..Default::default()
             },
-            wants: &[
-                Want::Existing("home/.jjconfig.toml"),
-                Want::New("config/jj/config.toml"),
+            wants: vec![
+                Want::existing("home/.jjconfig.toml"),
+                Want::new("config/jj/config.toml"),
             ],
         }
     }
@@ -1310,7 +1440,7 @@ mod tests {
                 config_dir: Some("config".into()),
                 ..Default::default()
             },
-            wants: &[Want::Existing("config/jj/config.toml")],
+            wants: vec![Want::existing("config/jj/config.toml")],
         }
     }
 
@@ -1321,7 +1451,7 @@ mod tests {
                 config_dir: Some("config".into()),
                 ..Default::default()
             },
-            wants: &[Want::New("config/jj/config.toml")],
+            wants: vec![Want::new("config/jj/config.toml")],
         }
     }
 
@@ -1333,7 +1463,7 @@ mod tests {
                 config_dir: Some("config".into()),
                 ..Default::default()
             },
-            wants: &[Want::New("config/jj/config.toml")],
+            wants: vec![Want::new("config/jj/config.toml")],
         }
     }
 
@@ -1344,7 +1474,7 @@ mod tests {
                 jj_config: Some("custom.toml".into()),
                 ..Default::default()
             },
-            wants: &[Want::Existing("custom.toml")],
+            wants: vec![Want::existing("custom.toml")],
         }
     }
 
@@ -1355,7 +1485,7 @@ mod tests {
                 jj_config: Some("custom.toml".into()),
                 ..Default::default()
             },
-            wants: &[Want::New("custom.toml")],
+            wants: vec![Want::new("custom.toml")],
         }
     }
 
@@ -1371,9 +1501,9 @@ mod tests {
                 ),
                 ..Default::default()
             },
-            wants: &[
-                Want::Existing("custom1.toml"),
-                Want::Existing("custom2.toml"),
+            wants: vec![
+                Want::existing("custom1.toml"),
+                Want::existing("custom2.toml"),
             ],
         }
     }
@@ -1390,7 +1520,7 @@ mod tests {
                 ),
                 ..Default::default()
             },
-            wants: &[Want::Existing("custom1.toml"), Want::New("custom2.toml")],
+            wants: vec![Want::existing("custom1.toml"), Want::new("custom2.toml")],
         }
     }
 
@@ -1406,7 +1536,7 @@ mod tests {
                 ),
                 ..Default::default()
             },
-            wants: &[Want::Existing("custom1.toml"), Want::New("custom2.toml")],
+            wants: vec![Want::existing("custom1.toml"), Want::new("custom2.toml")],
         }
     }
 
@@ -1417,7 +1547,7 @@ mod tests {
                 jj_config: Some("".to_owned()),
                 ..Default::default()
             },
-            wants: &[],
+            wants: vec![],
         }
     }
 
@@ -1429,7 +1559,7 @@ mod tests {
                 config_dir: Some("config".into()),
                 ..Default::default()
             },
-            wants: &[Want::Existing("config/jj/config.toml")],
+            wants: vec![Want::existing("config/jj/config.toml")],
         }
     }
 
@@ -1441,9 +1571,9 @@ mod tests {
                 config_dir: Some("config".into()),
                 ..Default::default()
             },
-            wants: &[
-                Want::Existing("home/.jjconfig.toml"),
-                Want::New("config/jj/config.toml"),
+            wants: vec![
+                Want::existing("home/.jjconfig.toml"),
+                Want::new("config/jj/config.toml"),
             ],
         }
     }
@@ -1456,9 +1586,9 @@ mod tests {
                 config_dir: Some("config".into()),
                 ..Default::default()
             },
-            wants: &[
-                Want::New("config/jj/config.toml"),
-                Want::Existing("config/jj/conf.d"),
+            wants: vec![
+                Want::new("config/jj/config.toml"),
+                Want::existing("config/jj/conf.d"),
             ],
         }
     }
@@ -1471,9 +1601,9 @@ mod tests {
                 config_dir: Some("config".into()),
                 ..Default::default()
             },
-            wants: &[
-                Want::Existing("config/jj/config.toml"),
-                Want::Existing("config/jj/conf.d"),
+            wants: vec![
+                Want::existing("config/jj/config.toml"),
+                Want::existing("config/jj/conf.d"),
             ],
         }
     }
@@ -1491,10 +1621,10 @@ mod tests {
                 ..Default::default()
             },
             // Precedence order is important
-            wants: &[
-                Want::Existing("home/.jjconfig.toml"),
-                Want::Existing("config/jj/config.toml"),
-                Want::Existing("config/jj/conf.d"),
+            wants: vec![
+                Want::existing("home/.jjconfig.toml"),
+                Want::existing("config/jj/config.toml"),
+                Want::existing("config/jj/conf.d"),
             ],
         }
     }
@@ -1503,7 +1633,37 @@ mod tests {
         TestCase {
             files: &[],
             env: Default::default(),
-            wants: &[],
+            wants: vec![],
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    fn config_path_macos_legacy_exists() -> TestCase {
+        TestCase {
+            files: &["macos-legacy/jj/config.toml"],
+            env: UnresolvedConfigEnv {
+                home_dir: Some("home".into()),
+                config_dir: Some("config".into()),
+                macos_legacy_config_dir: Some("macos-legacy".into()),
+                ..Default::default()
+            },
+            wants: vec![
+                Want::deprecated("macos-legacy/jj/config.toml"),
+                Want::new("config/jj/config.toml"),
+            ],
+        }
+    }
+    #[cfg(target_os = "macos")]
+    fn config_path_macos_legacy_new() -> TestCase {
+        TestCase {
+            files: &[],
+            env: UnresolvedConfigEnv {
+                home_dir: Some("home".into()),
+                config_dir: Some("config".into()),
+                macos_legacy_config_dir: Some("macos-legacy".into()),
+                ..Default::default()
+            },
+            wants: vec![Want::new("config/jj/config.toml")],
         }
     }
 
@@ -1525,31 +1685,21 @@ mod tests {
     #[test_case(config_path_platform_existing_conf_dir_existing())]
     #[test_case(config_path_all_existing())]
     #[test_case(config_path_none())]
+    #[cfg_attr(target_os = "macos", test_case(config_path_macos_legacy_exists()))]
+    #[cfg_attr(target_os = "macos", test_case(config_path_macos_legacy_new()))]
     fn test_config_path(case: TestCase) {
         let tmp = setup_config_fs(case.files);
         let env = resolve_config_env(&case.env, tmp.path());
 
-        let expected_existing: Vec<PathBuf> = case
-            .wants
-            .iter()
-            .filter_map(|want| match want {
-                Want::Existing(path) => Some(tmp.path().join(path)),
-                _ => None,
-            })
-            .collect();
-        assert_eq!(
-            env.existing_user_config_paths().collect_vec(),
-            expected_existing
-        );
+        let config_paths = env.user_config_paths().cloned().collect_vec();
+        let correct = case.wants.len() == config_paths.len()
+            && case
+                .wants
+                .iter()
+                .zip(&config_paths)
+                .all(|(w, p)| w.matches(tmp.path(), p));
 
-        let expected_paths: Vec<PathBuf> = case
-            .wants
-            .iter()
-            .map(|want| match want {
-                Want::New(path) | Want::Existing(path) => tmp.path().join(path),
-            })
-            .collect();
-        assert_eq!(env.user_config_paths().collect_vec(), expected_paths);
+        assert!(correct, "{:#?} != {:#?}", case.wants, config_paths);
     }
 
     fn setup_config_fs(files: &[&str]) -> tempfile::TempDir {
@@ -1568,6 +1718,7 @@ mod tests {
         let home_dir = env.home_dir.as_ref().map(|p| root.join(p));
         let env = UnresolvedConfigEnv {
             config_dir: env.config_dir.as_ref().map(|p| root.join(p)),
+            macos_legacy_config_dir: env.macos_legacy_config_dir.as_ref().map(|p| root.join(p)),
             home_dir: home_dir.clone(),
             jj_config: env.jj_config.as_ref().map(|p| {
                 join_paths(split_paths(p).map(|p| {
