@@ -50,6 +50,9 @@ pub(crate) struct FileAnnotateArgs {
         add = ArgValueCandidates::new(complete::all_revisions)
     )]
     revision: Option<RevisionArg>,
+    /// An optional domain to restrict the query to.
+    #[arg(long, value_name = "REVSET", add = ArgValueCandidates::new(complete::all_revisions))]
+    domain: Option<RevisionArg>,
     /// Render each line using the given template
     ///
     /// All 0-argument methods of the [`AnnotationLine` type] are available as
@@ -76,8 +79,22 @@ pub(crate) fn cmd_file_annotate(
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui)?;
     let repo = workspace_command.repo();
+
+    let domain = match &args.domain {
+        None => RevsetExpression::all(),
+        Some(domain) => workspace_command.parse_revset(ui, domain)?.resolve()?,
+    };
     let starting_commit = workspace_command
         .resolve_single_rev(ui, args.revision.as_ref().unwrap_or(&RevisionArg::AT))?;
+
+    if domain
+        .intersection(&RevsetExpression::commit(starting_commit.id().clone()))
+        .evaluate(workspace_command.repo().as_ref())?
+        .is_empty()
+    {
+        return Err(user_error("Starting commit is not contained within domain"));
+    }
+
     let file_path = workspace_command.parse_file_path(&args.path)?;
     let file_value = starting_commit.tree()?.path_value(&file_path)?;
     let ui_path = workspace_command.format_file_path(&file_path);
@@ -104,11 +121,6 @@ pub(crate) fn cmd_file_annotate(
         CommitTemplateLanguage::wrap_annotation_line,
     )?;
 
-    // TODO: Should we add an option to limit the domain to e.g. recent commits?
-    // Note that this is probably different from "--skip REVS", which won't
-    // exclude the revisions, but will ignore diffs in those revisions as if
-    // ancestor revisions had new content.
-    let domain = RevsetExpression::all();
     let annotation = get_annotation_for_file(repo.as_ref(), &starting_commit, &domain, &file_path)?;
 
     render_file_annotation(repo.as_ref(), ui, &template, &annotation)?;
