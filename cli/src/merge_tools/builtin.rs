@@ -20,6 +20,7 @@ use jj_lib::files;
 use jj_lib::files::MergeResult;
 use jj_lib::matchers::Matcher;
 use jj_lib::merge::Merge;
+use jj_lib::merge::MergedTreeValue;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree::MergedTreeBuilder;
 use jj_lib::object_id::ObjectId as _;
@@ -386,7 +387,7 @@ async fn make_diff_files(
     Ok((changed_files, files))
 }
 
-pub fn apply_diff_builtin(
+fn apply_diff_builtin(
     store: &Arc<Store>,
     left_tree: &MergedTree,
     right_tree: &MergedTree,
@@ -394,6 +395,26 @@ pub fn apply_diff_builtin(
     files: &[scm_record::File],
 ) -> BackendResult<MergedTreeId> {
     let mut tree_builder = MergedTreeBuilder::new(left_tree.id().clone());
+    apply_changes(
+        &mut tree_builder,
+        changed_files,
+        files,
+        |path| right_tree.path_value(path),
+        |path, contents, executable| {
+            let id = store.write_file(path, &mut &contents[..]).block_on()?;
+            Ok(Merge::normal(TreeValue::File { id, executable }))
+        },
+    )?;
+    tree_builder.write_tree(store)
+}
+
+fn apply_changes(
+    tree_builder: &mut MergedTreeBuilder,
+    changed_files: Vec<RepoPathBuf>,
+    files: &[scm_record::File],
+    select_right: impl Fn(&RepoPath) -> BackendResult<MergedTreeValue>,
+    write_file: impl Fn(&RepoPath, &[u8], bool) -> BackendResult<MergedTreeValue>,
+) -> BackendResult<()> {
     assert_eq!(
         changed_files.len(),
         files.len(),
@@ -424,27 +445,17 @@ pub fn apply_diff_builtin(
                 old_description: _,
                 new_description: _,
             } => {
-                let value = right_tree.path_value(&path)?;
+                let value = select_right(&path)?;
                 tree_builder.set_or_remove(path, value);
             }
             scm_record::SelectedContents::Text { contents } => {
-                let file_id = store
-                    .write_file(&path, &mut contents.as_bytes())
-                    .block_on()?;
-
-                tree_builder.set_or_remove(
-                    path,
-                    Merge::normal(TreeValue::File {
-                        id: file_id,
-                        executable: file_mode == mode::EXECUTABLE,
-                    }),
-                );
+                let executable = file_mode == mode::EXECUTABLE;
+                let value = write_file(&path, contents.as_bytes(), executable)?;
+                tree_builder.set_or_remove(path, value);
             }
         }
     }
-
-    let tree_id = tree_builder.write_tree(left_tree.store())?;
-    Ok(tree_id)
+    Ok(())
 }
 
 pub fn edit_diff_builtin(
@@ -494,6 +505,7 @@ fn make_merge_sections(
                         .collect(),
                 }),
                 FileContents::Binary { hash, num_bytes } => Some(scm_record::Section::Binary {
+                    // TODO: Perhaps, this should be an "unchanged" section?
                     is_checked: false,
                     old_description: None,
                     new_description: Some(Cow::Owned(describe_binary(hash.as_deref(), num_bytes))),
@@ -563,6 +575,8 @@ fn make_merge_file(
     } else {
         mode::NORMAL
     };
+    // TODO: Maybe we should test binary contents here, and generate per-file
+    // Binary section to select either "our" or "their" file.
     let merge_result = files::merge_hunks(&file.contents);
     let sections = make_merge_sections(merge_result)?;
     Ok(scm_record::File {
@@ -593,17 +607,24 @@ pub fn edit_merge_builtin(
     );
     let state = recorder.run()?;
 
-    apply_diff_builtin(
-        tree.store(),
-        tree,
-        tree,
+    let store = tree.store();
+    let mut tree_builder = MergedTreeBuilder::new(tree.id().clone());
+    apply_changes(
+        &mut tree_builder,
         merge_tool_files
             .iter()
             .map(|file| file.repo_path.clone())
             .collect_vec(),
         &state.files,
-    )
-    .map_err(BuiltinToolError::BackendError)
+        // TODO: It doesn't make sense to select new value from the source tree.
+        // Perhaps, "their" tree value should be extracted from a conflict?
+        |path| tree.path_value(path),
+        |path, contents, executable| {
+            let id = store.write_file(path, &mut &contents[..]).block_on()?;
+            Ok(Merge::normal(TreeValue::File { id, executable }))
+        },
+    )?;
+    Ok(tree_builder.write_tree(store)?)
 }
 
 #[cfg(test)]
