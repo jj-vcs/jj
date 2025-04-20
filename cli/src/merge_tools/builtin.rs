@@ -627,6 +627,32 @@ mod tests {
 
     use super::*;
 
+    fn make_diff(
+        store: &Arc<Store>,
+        left_tree: &MergedTree,
+        right_tree: &MergedTree,
+        changed_files: &[RepoPathBuf],
+    ) -> Vec<scm_record::File<'static>> {
+        make_diff_files(
+            store,
+            left_tree,
+            right_tree,
+            changed_files,
+            ConflictMarkerStyle::Diff,
+        )
+        .unwrap()
+    }
+
+    fn apply_diff(
+        store: &Arc<Store>,
+        left_tree: &MergedTree,
+        right_tree: &MergedTree,
+        changed_files: &[RepoPathBuf],
+        files: &[scm_record::File],
+    ) -> MergedTreeId {
+        apply_diff_builtin(store, left_tree, right_tree, changed_files.to_vec(), files).unwrap()
+    }
+
     #[test]
     fn test_edit_diff_builtin() {
         let test_repo = TestRepo::init();
@@ -659,14 +685,7 @@ mod tests {
             changed_path.to_owned(),
             added_path.to_owned(),
         ];
-        let files = make_diff_files(
-            store,
-            &left_tree,
-            &right_tree,
-            &changed_files,
-            ConflictMarkerStyle::Diff,
-        )
-        .unwrap();
+        let files = make_diff(store, &left_tree, &right_tree, &changed_files);
         insta::assert_debug_snapshot!(files, @r#"
         [
             File {
@@ -755,14 +774,7 @@ mod tests {
         ]
         "#);
 
-        let no_changes_tree_id = apply_diff_builtin(
-            store,
-            &left_tree,
-            &right_tree,
-            changed_files.clone(),
-            &files,
-        )
-        .unwrap();
+        let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
         assert_eq!(
             no_changes_tree.id(),
@@ -775,7 +787,7 @@ mod tests {
             file.toggle_all();
         }
         let all_changes_tree_id =
-            apply_diff_builtin(store, &left_tree, &right_tree, changed_files, &files).unwrap();
+            apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
         assert_eq!(
             all_changes_tree.id(),
@@ -794,14 +806,7 @@ mod tests {
         let right_tree = testutils::create_tree(&test_repo.repo, &[(added_empty_file_path, "")]);
 
         let changed_files = vec![added_empty_file_path.to_owned()];
-        let files = make_diff_files(
-            store,
-            &left_tree,
-            &right_tree,
-            &changed_files,
-            ConflictMarkerStyle::Diff,
-        )
-        .unwrap();
+        let files = make_diff(store, &left_tree, &right_tree, &changed_files);
         insta::assert_debug_snapshot!(files, @r#"
         [
             File {
@@ -819,14 +824,7 @@ mod tests {
             },
         ]
         "#);
-        let no_changes_tree_id = apply_diff_builtin(
-            store,
-            &left_tree,
-            &right_tree,
-            changed_files.clone(),
-            &files,
-        )
-        .unwrap();
+        let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
         assert_eq!(
             no_changes_tree.id(),
@@ -839,7 +837,7 @@ mod tests {
             file.toggle_all();
         }
         let all_changes_tree_id =
-            apply_diff_builtin(store, &left_tree, &right_tree, changed_files, &files).unwrap();
+            apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
         assert_eq!(
             all_changes_tree.id(),
@@ -868,14 +866,7 @@ mod tests {
         };
 
         let changed_files = vec![added_executable_file_path.to_owned()];
-        let files = make_diff_files(
-            store,
-            &left_tree,
-            &right_tree,
-            &changed_files,
-            ConflictMarkerStyle::Diff,
-        )
-        .unwrap();
+        let files = make_diff(store, &left_tree, &right_tree, &changed_files);
         insta::assert_debug_snapshot!(files, @r###"
         [
             File {
@@ -902,14 +893,7 @@ mod tests {
             },
         ]
         "###);
-        let no_changes_tree_id = apply_diff_builtin(
-            store,
-            &left_tree,
-            &right_tree,
-            changed_files.clone(),
-            &files,
-        )
-        .unwrap();
+        let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
         assert_eq!(
             no_changes_tree.id(),
@@ -922,7 +906,7 @@ mod tests {
             file.toggle_all();
         }
         let all_changes_tree_id =
-            apply_diff_builtin(store, &left_tree, &right_tree, changed_files, &files).unwrap();
+            apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
         assert_eq!(
             all_changes_tree.id(),
@@ -941,14 +925,7 @@ mod tests {
         let right_tree = testutils::create_tree(&test_repo.repo, &[]);
 
         let changed_files = vec![file_path.to_owned()];
-        let files = make_diff_files(
-            store,
-            &left_tree,
-            &right_tree,
-            &changed_files,
-            ConflictMarkerStyle::Diff,
-        )
-        .unwrap();
+        let files = make_diff(store, &left_tree, &right_tree, &changed_files);
         insta::assert_debug_snapshot!(files, @r###"
         [
             File {
@@ -975,14 +952,7 @@ mod tests {
             },
         ]
         "###);
-        let no_changes_tree_id = apply_diff_builtin(
-            store,
-            &left_tree,
-            &right_tree,
-            changed_files.clone(),
-            &files,
-        )
-        .unwrap();
+        let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
         assert_eq!(
             no_changes_tree.id(),
@@ -995,7 +965,7 @@ mod tests {
             file.toggle_all();
         }
         let all_changes_tree_id =
-            apply_diff_builtin(store, &left_tree, &right_tree, changed_files, &files).unwrap();
+            apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
         assert_eq!(
             all_changes_tree.id(),
@@ -1014,14 +984,7 @@ mod tests {
         let right_tree = testutils::create_tree(&test_repo.repo, &[]);
 
         let changed_files = vec![added_empty_file_path.to_owned()];
-        let files = make_diff_files(
-            store,
-            &left_tree,
-            &right_tree,
-            &changed_files,
-            ConflictMarkerStyle::Diff,
-        )
-        .unwrap();
+        let files = make_diff(store, &left_tree, &right_tree, &changed_files);
         insta::assert_debug_snapshot!(files, @r#"
         [
             File {
@@ -1039,14 +1002,7 @@ mod tests {
             },
         ]
         "#);
-        let no_changes_tree_id = apply_diff_builtin(
-            store,
-            &left_tree,
-            &right_tree,
-            changed_files.clone(),
-            &files,
-        )
-        .unwrap();
+        let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
         assert_eq!(
             no_changes_tree.id(),
@@ -1059,7 +1015,7 @@ mod tests {
             file.toggle_all();
         }
         let all_changes_tree_id =
-            apply_diff_builtin(store, &left_tree, &right_tree, changed_files, &files).unwrap();
+            apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
         assert_eq!(
             all_changes_tree.id(),
@@ -1079,14 +1035,7 @@ mod tests {
             testutils::create_tree(&test_repo.repo, &[(empty_file_path, "modified\n")]);
 
         let changed_files = vec![empty_file_path.to_owned()];
-        let files = make_diff_files(
-            store,
-            &left_tree,
-            &right_tree,
-            &changed_files,
-            ConflictMarkerStyle::Diff,
-        )
-        .unwrap();
+        let files = make_diff(store, &left_tree, &right_tree, &changed_files);
         insta::assert_debug_snapshot!(files, @r#"
         [
             File {
@@ -1109,14 +1058,7 @@ mod tests {
             },
         ]
         "#);
-        let no_changes_tree_id = apply_diff_builtin(
-            store,
-            &left_tree,
-            &right_tree,
-            changed_files.clone(),
-            &files,
-        )
-        .unwrap();
+        let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
         assert_eq!(
             no_changes_tree.id(),
@@ -1129,7 +1071,7 @@ mod tests {
             file.toggle_all();
         }
         let all_changes_tree_id =
-            apply_diff_builtin(store, &left_tree, &right_tree, changed_files, &files).unwrap();
+            apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
         assert_eq!(
             all_changes_tree.id(),
@@ -1148,14 +1090,7 @@ mod tests {
         let right_tree = testutils::create_tree(&test_repo.repo, &[(file_path, "")]);
 
         let changed_files = vec![file_path.to_owned()];
-        let files = make_diff_files(
-            store,
-            &left_tree,
-            &right_tree,
-            &changed_files,
-            ConflictMarkerStyle::Diff,
-        )
-        .unwrap();
+        let files = make_diff(store, &left_tree, &right_tree, &changed_files);
         insta::assert_debug_snapshot!(files, @r###"
         [
             File {
@@ -1178,14 +1113,7 @@ mod tests {
             },
         ]
         "###);
-        let no_changes_tree_id = apply_diff_builtin(
-            store,
-            &left_tree,
-            &right_tree,
-            changed_files.clone(),
-            &files,
-        )
-        .unwrap();
+        let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
         assert_eq!(
             no_changes_tree.id(),
@@ -1198,7 +1126,7 @@ mod tests {
             file.toggle_all();
         }
         let all_changes_tree_id =
-            apply_diff_builtin(store, &left_tree, &right_tree, changed_files, &files).unwrap();
+            apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
         assert_eq!(
             all_changes_tree.id(),
