@@ -34,7 +34,6 @@ use smallvec::SmallVec;
 use crate::backend;
 use crate::backend::BackendResult;
 use crate::backend::FileId;
-use crate::backend::TreeId;
 use crate::backend::TreeValue;
 use crate::content_hash::ContentHash;
 use crate::content_hash::DigestUpdate;
@@ -598,7 +597,7 @@ where
     /// is a `TreeValue::Tree`, this converts it to
     /// a `Merge<Tree>`, with empty trees instead of
     /// any `None` terms. Otherwise, returns `None`.
-    pub fn to_tree_merge(
+    pub async fn to_tree_merge(
         &self,
         store: &Arc<Store>,
         dir: &RepoPath,
@@ -609,14 +608,17 @@ where
             Some(_) => Err(()),
         });
         if let Ok(tree_id_merge) = tree_id_merge {
-            let get_tree = |id: &Option<&TreeId>| -> BackendResult<Tree> {
-                if let Some(id) = id {
-                    store.get_tree(dir.to_owned(), id)
-                } else {
-                    Ok(Tree::empty(store.clone(), dir.to_owned()))
-                }
-            };
-            Ok(Some(tree_id_merge.try_map(get_tree)?))
+            Ok(Some(
+                tree_id_merge
+                    .try_map_async(|id| async move {
+                        if let Some(id) = id {
+                            store.get_tree_async(dir.to_owned(), id).await
+                        } else {
+                            Ok(Tree::empty(store.clone(), dir.to_owned()))
+                        }
+                    })
+                    .await?,
+            ))
         } else {
             Ok(None)
         }

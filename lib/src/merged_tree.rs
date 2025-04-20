@@ -497,7 +497,7 @@ async fn merge_tree_values(
         return Ok(Merge::resolved(resolved.cloned()));
     }
 
-    if let Some(trees) = values.to_tree_merge(store, path)? {
+    if let Some(trees) = values.to_tree_merge(store, path).await? {
         // If all sides are trees or missing, merge the trees recursively, treating
         // missing trees as empty.
         let empty_tree_id = store.empty_tree_id();
@@ -594,7 +594,7 @@ impl Iterator for TreeEntriesIterator<'_> {
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(top) = self.stack.last_mut() {
             if let Some((path, value)) = top.entries.pop() {
-                let maybe_trees = match value.to_tree_merge(&self.store, &path) {
+                let maybe_trees = match value.to_tree_merge(&self.store, &path).block_on() {
                     Ok(maybe_trees) => maybe_trees,
                     Err(err) => return Some((path, Err(err))),
                 };
@@ -656,7 +656,7 @@ impl Iterator for ConflictIterator {
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(top) = self.stack.last_mut() {
             if let Some((path, tree_values)) = top.entries.pop() {
-                match tree_values.to_tree_merge(&self.store, &path) {
+                match tree_values.to_tree_merge(&self.store, &path).block_on() {
                     Ok(Some(trees)) => {
                         // If all sides are trees or missing, descend into the merged tree
                         self.stack.push(ConflictsDirItem::from(&trees));
@@ -723,7 +723,7 @@ impl<'matcher> TreeDiffIterator<'matcher> {
         dir: &RepoPath,
         values: &MergedTreeValue,
     ) -> BackendResult<Merge<Tree>> {
-        if let Some(trees) = values.to_tree_merge(store, dir)? {
+        if let Some(trees) = values.to_tree_merge(store, dir).block_on()? {
             Ok(trees)
         } else {
             Ok(Merge::resolved(Tree::empty(store.clone(), dir.to_owned())))
