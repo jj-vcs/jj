@@ -560,16 +560,9 @@ fn rebase_descendants_transaction(
     }
 
     let mut tx = workspace_command.start_transaction();
-    let tx_description = if target_roots.len() == 1 {
-        format!(
-            "rebase commit {} and descendants",
-            target_roots.first().unwrap().id().hex()
-        )
-    } else {
-        format!(
-            "rebase {} commits and their descendants",
-            target_roots.len()
-        )
+    let tx_description = match &*target_roots {
+        [commit] => format!("rebase commit {} and descendants", commit.id().hex()),
+        commits => format!("rebase {} commits and their descendants", commits.len()),
     };
 
     let new_children: Vec<_> = new_child_ids
@@ -602,14 +595,14 @@ fn rebase_revisions_transaction(
     }
 
     let mut tx = workspace_command.start_transaction();
-    let tx_description = if target_commits.len() == 1 {
-        format!("rebase commit {}", target_commits[0].id().hex())
-    } else {
-        format!(
+    let tx_description = match &*target_commits {
+        [] => unreachable!(),
+        [commit] => format!("rebase commit {}", commit.id().hex()),
+        [first, others @ ..] => format!(
             "rebase commit {} and {} more",
-            target_commits[0].id().hex(),
-            target_commits.len() - 1
-        )
+            first.id().hex(),
+            others.len()
+        ),
     };
 
     let new_children: Vec<_> = new_child_ids
