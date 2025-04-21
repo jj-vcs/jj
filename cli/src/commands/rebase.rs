@@ -554,11 +554,6 @@ fn rebase_descendants_transaction(
     target_roots: Vec<Commit>,
     rebase_options: &RebaseOptions,
 ) -> Result<(), CommandError> {
-    if target_roots.is_empty() {
-        writeln!(ui.status(), "Nothing changed.")?;
-        return Ok(());
-    }
-
     let mut tx = workspace_command.start_transaction();
     let tx_description = match &*target_roots {
         [commit] => format!("rebase commit {} and descendants", commit.id().hex()),
@@ -589,14 +584,9 @@ fn rebase_revisions_transaction(
     target_commits: Vec<Commit>,
     rebase_options: &RebaseOptions,
 ) -> Result<(), CommandError> {
-    if target_commits.is_empty() {
-        writeln!(ui.status(), "Nothing changed.")?;
-        return Ok(());
-    }
-
     let mut tx = workspace_command.start_transaction();
     let tx_description = match &*target_commits {
-        [] => unreachable!(),
+        commits @ [] => format!("rebase {} commits", commits.len()),
         [commit] => format!("rebase commit {}", commit.id().hex()),
         [first, others @ ..] => format!(
             "rebase commit {} and {} more",
