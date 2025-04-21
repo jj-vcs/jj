@@ -25,6 +25,7 @@ use itertools::Itertools as _;
 use tracing::instrument;
 
 use crate::repo_path::RepoPath;
+use crate::repo_path::RepoPathComponent;
 use crate::repo_path::RepoPathComponentBuf;
 
 #[derive(PartialEq, Eq, Debug)]
@@ -140,7 +141,7 @@ impl FilesMatcher {
     pub fn new(files: impl IntoIterator<Item = impl AsRef<RepoPath>>) -> Self {
         let mut tree = RepoPathTree::default();
         for f in files {
-            tree.add(f.as_ref()).value = FilesNodeKind::File;
+            tree.add(f.as_ref()).set_value(FilesNodeKind::File);
         }
         Self { tree }
     }
@@ -150,7 +151,7 @@ impl Matcher for FilesMatcher {
     fn matches(&self, file: &RepoPath) -> bool {
         self.tree
             .get(file)
-            .is_some_and(|sub| sub.value == FilesNodeKind::File)
+            .is_some_and(|sub| *sub.value() == FilesNodeKind::File)
     }
 
     fn visit(&self, dir: &RepoPath) -> Visit {
@@ -172,13 +173,13 @@ enum FilesNodeKind {
 fn files_tree_to_visit_sets(tree: &RepoPathTree<FilesNodeKind>) -> Visit {
     let mut dirs = HashSet::new();
     let mut files = HashSet::new();
-    for (name, sub) in &tree.entries {
+    for (name, sub) in tree.children() {
         // should visit only intermediate directories
-        if !sub.entries.is_empty() {
-            dirs.insert(name.clone());
+        if sub.has_children() {
+            dirs.insert(name.to_owned());
         }
-        if sub.value == FilesNodeKind::File {
-            files.insert(name.clone());
+        if *sub.value() == FilesNodeKind::File {
+            files.insert(name.to_owned());
         }
     }
     Visit::sets(dirs, files)
@@ -194,7 +195,7 @@ impl PrefixMatcher {
     pub fn new(prefixes: impl IntoIterator<Item = impl AsRef<RepoPath>>) -> Self {
         let mut tree = RepoPathTree::default();
         for prefix in prefixes {
-            tree.add(prefix.as_ref()).value = PrefixNodeKind::Prefix;
+            tree.add(prefix.as_ref()).set_value(PrefixNodeKind::Prefix);
         }
         Self { tree }
     }
@@ -204,13 +205,13 @@ impl Matcher for PrefixMatcher {
     fn matches(&self, file: &RepoPath) -> bool {
         self.tree
             .walk_to(file)
-            .any(|(sub, _)| sub.value == PrefixNodeKind::Prefix)
+            .any(|(sub, _)| *sub.value() == PrefixNodeKind::Prefix)
     }
 
     fn visit(&self, dir: &RepoPath) -> Visit {
         for (sub, tail_path) in self.tree.walk_to(dir) {
             // ancestor of 'dir' matches prefix paths
-            if sub.value == PrefixNodeKind::Prefix {
+            if *sub.value() == PrefixNodeKind::Prefix {
                 return Visit::AllRecursively;
             }
             // 'dir' found, and is an ancestor of prefix paths
@@ -234,11 +235,11 @@ enum PrefixNodeKind {
 fn prefix_tree_to_visit_sets(tree: &RepoPathTree<PrefixNodeKind>) -> Visit {
     let mut dirs = HashSet::new();
     let mut files = HashSet::new();
-    for (name, sub) in &tree.entries {
+    for (name, sub) in tree.children() {
         // should visit both intermediate and prefix directories
-        dirs.insert(name.clone());
-        if sub.value == PrefixNodeKind::Prefix {
-            files.insert(name.clone());
+        dirs.insert(name.to_owned());
+        if *sub.value() == PrefixNodeKind::Prefix {
+            files.insert(name.to_owned());
         }
     }
     Visit::sets(dirs, files)
@@ -269,7 +270,7 @@ impl Matcher for GlobsMatcher {
             .take_while(|(_, tail_path)| !tail_path.is_root()) // only dirs
             .any(|(sub, tail_path)| {
                 let tail = tail_path.as_internal_file_string().as_bytes();
-                sub.value.as_ref().is_some_and(|pat| pat.is_match(tail))
+                sub.value().as_ref().is_some_and(|pat| pat.is_match(tail))
             })
     }
 
@@ -277,7 +278,7 @@ impl Matcher for GlobsMatcher {
         let mut max_visit = Visit::Nothing;
         for (sub, tail_path) in self.tree.walk_to(dir) {
             // ancestor of 'dir' has patterns
-            if let Some(pat) = &sub.value {
+            if let Some(pat) = &sub.value() {
                 let tail = tail_path.as_internal_file_string().as_bytes();
                 if self.matches_prefix_paths && pat.is_match(tail) {
                     // 'dir' matches prefix patterns
@@ -291,7 +292,7 @@ impl Matcher for GlobsMatcher {
             }
             // 'dir' found, and is an ancestor of pattern paths
             if tail_path.is_root() && max_visit == Visit::Nothing {
-                let sub_dirs = sub.entries.keys().cloned().collect();
+                let sub_dirs = sub.children().map(|(name, _)| name.to_owned()).collect();
                 return Visit::sets(sub_dirs, HashSet::new());
             }
         }
@@ -349,8 +350,8 @@ impl<'a> GlobsMatcherBuilder<'a> {
                 .build()
                 .expect("glob regex should be valid");
             let sub = tree.add(dir);
-            assert!(sub.value.is_none());
-            sub.value = Some(regex);
+            assert!(sub.value().is_none());
+            sub.set_value(Some(regex));
         }
 
         GlobsMatcher {
@@ -531,6 +532,24 @@ struct RepoPathTree<V> {
 }
 
 impl<V> RepoPathTree<V> {
+    fn value(&self) -> &V {
+        &self.value
+    }
+
+    fn set_value(&mut self, value: V) {
+        self.value = value;
+    }
+
+    fn children(&self) -> impl Iterator<Item = (&RepoPathComponent, &RepoPathTree<V>)> {
+        self.entries
+            .iter()
+            .map(|(component, value)| (component.as_ref(), value))
+    }
+
+    fn has_children(&self) -> bool {
+        !self.entries.is_empty()
+    }
+
     fn add(&mut self, dir: &RepoPath) -> &mut Self
     where
         V: Default,
