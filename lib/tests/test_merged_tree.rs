@@ -43,6 +43,7 @@ use pretty_assertions::assert_eq;
 use testutils::create_single_tree;
 use testutils::create_tree;
 use testutils::repo_path;
+use testutils::repo_path_buf;
 use testutils::repo_path_component;
 use testutils::write_file;
 use testutils::TestRepo;
@@ -919,6 +920,83 @@ fn test_diff_copy_tracing() {
         )
     );
     diff_stream_equals_iter(&before_merged, &after_merged, &EverythingMatcher);
+}
+
+#[test]
+fn test_diff_copy_tracing_file_and_dir() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    // a -> b (file)
+    // b -> a (dir)
+    // c -> c/file (file)
+    let before = create_tree(
+        repo,
+        &[
+            (repo_path("a"), "content1"),
+            (repo_path("b/file"), "content2"),
+            (repo_path("c"), "content3"),
+        ],
+    );
+    let after = create_tree(
+        repo,
+        &[
+            (repo_path("a/file"), "content2"),
+            (repo_path("b"), "content1"),
+            (repo_path("c/file"), "content3"),
+        ],
+    );
+    let copy_records = create_copy_records(&[
+        (repo_path("a"), repo_path("b")),
+        (repo_path("b/file"), repo_path("a/file")),
+        (repo_path("c"), repo_path("c/file")),
+    ]);
+    let diff: Vec<_> = before
+        .diff_stream_with_copies(&after, &EverythingMatcher, &copy_records)
+        .map(|diff| (diff.path, diff.values.unwrap()))
+        .collect()
+        .block_on();
+    assert_eq!(diff.len(), 3);
+    assert_eq!(
+        diff[0],
+        (
+            CopiesTreeDiffEntryPath {
+                source: Some((repo_path_buf("b/file"), CopyOperation::Rename)),
+                target: repo_path_buf("a/file"),
+            },
+            (
+                before.path_value(repo_path("b/file")).unwrap(),
+                after.path_value(repo_path("a/file")).unwrap(),
+            ),
+        )
+    );
+    assert_eq!(
+        diff[1],
+        (
+            CopiesTreeDiffEntryPath {
+                source: Some((repo_path_buf("a"), CopyOperation::Rename)),
+                target: repo_path_buf("b"),
+            },
+            (
+                before.path_value(repo_path("a")).unwrap(),
+                after.path_value(repo_path("b")).unwrap(),
+            ),
+        )
+    );
+    assert_eq!(
+        diff[2],
+        (
+            CopiesTreeDiffEntryPath {
+                source: Some((repo_path_buf("c"), CopyOperation::Rename)),
+                target: repo_path_buf("c/file"),
+            },
+            (
+                before.path_value(repo_path("c")).unwrap(),
+                after.path_value(repo_path("c/file")).unwrap(),
+            ),
+        )
+    );
+    diff_stream_equals_iter(&before, &after, &EverythingMatcher);
 }
 
 /// Diff two conflicted trees

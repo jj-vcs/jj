@@ -550,7 +550,7 @@ fn test_diff_renamed_file_and_dir() {
     let output = work_dir.run_jj(["diff", "--summary"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     R {y => x}/file
-    C {x => y}
+    R {x => y}
     [EOF]
     ");
 
@@ -560,8 +560,8 @@ fn test_diff_renamed_file_and_dir() {
     rename from y/file
     rename to x/file
     diff --git a/x b/y
-    copy from x
-    copy to y
+    rename from x
+    rename to y
     [EOF]
     ");
 }

@@ -166,7 +166,8 @@ impl<'a> CopiesTreeDiffStream<'a> {
         let (_, target_value) = values?;
         let source_value = self.source_tree.path_value(source)?;
         // If the source path is deleted in the target tree, it's a rename.
-        let copy_op = if self.target_tree.path_value(source)?.is_absent() {
+        let source_value_at_target = self.target_tree.path_value(source)?;
+        let copy_op = if source_value_at_target.is_absent() || source_value_at_target.is_tree() {
             CopyOperation::Rename
         } else {
             CopyOperation::Copy
