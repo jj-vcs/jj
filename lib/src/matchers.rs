@@ -14,19 +14,16 @@
 
 #![expect(missing_docs)]
 
-use std::collections::HashMap;
 use std::collections::HashSet;
-use std::fmt;
 use std::fmt::Debug;
-use std::iter;
 
 use globset::Glob;
 use itertools::Itertools as _;
 use tracing::instrument;
 
 use crate::repo_path::RepoPath;
-use crate::repo_path::RepoPathComponent;
 use crate::repo_path::RepoPathComponentBuf;
+use crate::repo_path::RepoPathTree;
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum Visit {
@@ -521,78 +518,6 @@ impl<M1: Matcher, M2: Matcher> Matcher for IntersectionMatcher<M1, M2> {
                 }
             },
         }
-    }
-}
-
-/// Tree that maps `RepoPath` to value of type `V`.
-#[derive(Clone, Default, Eq, PartialEq)]
-struct RepoPathTree<V> {
-    entries: HashMap<RepoPathComponentBuf, Self>,
-    value: V,
-}
-
-impl<V> RepoPathTree<V> {
-    fn value(&self) -> &V {
-        &self.value
-    }
-
-    fn set_value(&mut self, value: V) {
-        self.value = value;
-    }
-
-    fn children(&self) -> impl Iterator<Item = (&RepoPathComponent, &RepoPathTree<V>)> {
-        self.entries
-            .iter()
-            .map(|(component, value)| (component.as_ref(), value))
-    }
-
-    fn has_children(&self) -> bool {
-        !self.entries.is_empty()
-    }
-
-    fn add(&mut self, dir: &RepoPath) -> &mut Self
-    where
-        V: Default,
-    {
-        dir.components().fold(self, |sub, name| {
-            // Avoid name.clone() if entry already exists.
-            if !sub.entries.contains_key(name) {
-                sub.entries.insert(name.to_owned(), Self::default());
-            }
-            sub.entries.get_mut(name).unwrap()
-        })
-    }
-
-    fn get(&self, dir: &RepoPath) -> Option<&Self> {
-        dir.components()
-            .try_fold(self, |sub, name| sub.entries.get(name))
-    }
-
-    /// Walks the tree from the root to the given `dir`, yielding each sub tree
-    /// and remaining path.
-    fn walk_to<'a, 'b>(
-        &'a self,
-        dir: &'b RepoPath,
-    ) -> impl Iterator<Item = (&'a Self, &'b RepoPath)> {
-        iter::successors(Some((self, dir)), |(sub, dir)| {
-            let mut components = dir.components();
-            let name = components.next()?;
-            Some((sub.entries.get(name)?, components.as_path()))
-        })
-    }
-}
-
-impl<V: Debug> Debug for RepoPathTree<V> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.value.fmt(f)?;
-        f.write_str(" ")?;
-        f.debug_map()
-            .entries(
-                self.entries
-                    .iter()
-                    .sorted_unstable_by_key(|&(name, _)| name),
-            )
-            .finish()
     }
 }
 

@@ -16,9 +16,11 @@
 
 use std::borrow::Borrow;
 use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Formatter;
+use std::iter;
 use std::iter::FusedIterator;
 use std::ops::Deref;
 use std::path::Component;
@@ -758,6 +760,90 @@ impl RepoPathUiConverter {
                 RepoPathBuf::parse_fs_path(cwd, base, input).map_err(UiPathParseError::Fs)
             }
         }
+    }
+}
+
+/// Tree that maps `RepoPath` to value of type `V`.
+#[derive(Clone, Default, Eq, PartialEq)]
+pub struct RepoPathTree<V> {
+    entries: HashMap<RepoPathComponentBuf, Self>,
+    value: V,
+}
+
+impl<V> RepoPathTree<V> {
+    /// The value associated with this path.
+    pub fn value(&self) -> &V {
+        &self.value
+    }
+
+    /// Mutable reference to the value associated with this path.
+    pub fn value_mut(&mut self) -> &mut V {
+        &mut self.value
+    }
+
+    /// Set the value associated with this path.
+    pub fn set_value(&mut self, value: V) {
+        self.value = value;
+    }
+
+    /// The immediate children of this node.
+    pub fn children(&self) -> impl Iterator<Item = (&RepoPathComponent, &Self)> {
+        self.entries
+            .iter()
+            .map(|(component, value)| (component.as_ref(), value))
+    }
+
+    /// Whether this node has any children.
+    pub fn has_children(&self) -> bool {
+        !self.entries.is_empty()
+    }
+
+    /// Add a path to the tree. Normally called on the root tree.
+    pub fn add(&mut self, path: &RepoPath) -> &mut Self
+    where
+        V: Default,
+    {
+        path.components().fold(self, |sub, name| {
+            // Avoid name.clone() if entry already exists.
+            if !sub.entries.contains_key(name) {
+                sub.entries.insert(name.to_owned(), Self::default());
+            }
+            sub.entries.get_mut(name).unwrap()
+        })
+    }
+
+    /// Get a reference to the node for the given `path`, if it exists in the
+    /// tree.
+    pub fn get(&self, path: &RepoPath) -> Option<&Self> {
+        path.components()
+            .try_fold(self, |sub, name| sub.entries.get(name))
+    }
+
+    /// Walks the tree from the root to the given `path`, yielding each sub tree
+    /// and remaining path.
+    pub fn walk_to<'a, 'b>(
+        &'a self,
+        path: &'b RepoPath,
+    ) -> impl Iterator<Item = (&'a Self, &'b RepoPath)> {
+        iter::successors(Some((self, path)), |(sub, path)| {
+            let mut components = path.components();
+            let name = components.next()?;
+            Some((sub.entries.get(name)?, components.as_path()))
+        })
+    }
+}
+
+impl<V: Debug> Debug for RepoPathTree<V> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.value.fmt(f)?;
+        f.write_str(" ")?;
+        f.debug_map()
+            .entries(
+                self.entries
+                    .iter()
+                    .sorted_unstable_by_key(|&(name, _)| name),
+            )
+            .finish()
     }
 }
 
