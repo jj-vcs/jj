@@ -402,6 +402,7 @@ pub struct MoveCommitsStats {
     pub num_abandoned: u32,
 }
 
+#[derive(Clone, Debug)]
 pub enum MoveCommitsTarget {
     /// The commits to be moved. Commits should be mutable and in reverse
     /// topological order.

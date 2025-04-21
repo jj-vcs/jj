@@ -386,41 +386,46 @@ pub(crate) fn cmd_rebase(
         simplify_ancestor_merge: false,
     };
     let mut workspace_command = command.workspace_helper(ui)?;
-    if !args.revisions.is_empty() {
-        rebase_revisions(
-            ui,
-            &mut workspace_command,
-            &args.revisions,
-            &args.destination,
-            &rebase_options,
-        )?;
+    let plan = if !args.revisions.is_empty() {
+        plan_rebase_revisions(ui, &workspace_command, &args.revisions, &args.destination)?
     } else if !args.source.is_empty() {
-        rebase_source(
-            ui,
-            &mut workspace_command,
-            &args.source,
-            &args.destination,
-            &rebase_options,
-        )?;
+        plan_rebase_source(ui, &workspace_command, &args.source, &args.destination)?
     } else {
-        rebase_branch(
-            ui,
-            &mut workspace_command,
-            &args.branch,
-            &args.destination,
-            &rebase_options,
-        )?;
-    }
+        plan_rebase_branch(ui, &workspace_command, &args.branch, &args.destination)?
+    };
+
+    let mut tx = workspace_command.start_transaction();
+    let new_children: Vec<_> = plan
+        .new_child_ids
+        .iter()
+        .map(|commit_id| tx.repo().store().get_commit(commit_id))
+        .try_collect()?;
+    let stats = move_commits(
+        tx.repo_mut(),
+        &plan.new_parent_ids,
+        &new_children,
+        &plan.target,
+        &rebase_options,
+    )?;
+    print_move_commits_stats(ui, &stats)?;
+    tx.finish(ui, tx_description(&plan.target))?;
+
     Ok(())
 }
 
-fn rebase_revisions(
-    ui: &mut Ui,
-    workspace_command: &mut WorkspaceCommandHelper,
+#[derive(Clone, Debug)]
+struct RebasePlan {
+    new_parent_ids: Vec<CommitId>,
+    new_child_ids: Vec<CommitId>,
+    target: MoveCommitsTarget,
+}
+
+fn plan_rebase_revisions(
+    ui: &Ui,
+    workspace_command: &WorkspaceCommandHelper,
     revisions: &[RevisionArg],
     rebase_destination: &RebaseDestinationArgs,
-    rebase_options: &RebaseOptions,
-) -> Result<(), CommandError> {
+) -> Result<RebasePlan, CommandError> {
     let target_commits: Vec<_> = workspace_command
         .parse_union_revsets(ui, revisions)?
         .evaluate_to_commits()?
@@ -445,23 +450,19 @@ fn rebase_revisions(
             }
         }
     }
-    rebase_revisions_transaction(
-        ui,
-        workspace_command,
-        &new_parent_ids,
-        &new_child_ids,
-        target_commits,
-        rebase_options,
-    )
+    Ok(RebasePlan {
+        new_parent_ids,
+        new_child_ids,
+        target: MoveCommitsTarget::Commits(target_commits),
+    })
 }
 
-fn rebase_source(
-    ui: &mut Ui,
-    workspace_command: &mut WorkspaceCommandHelper,
+fn plan_rebase_source(
+    ui: &Ui,
+    workspace_command: &WorkspaceCommandHelper,
     source: &[RevisionArg],
     rebase_destination: &RebaseDestinationArgs,
-    rebase_options: &RebaseOptions,
-) -> Result<(), CommandError> {
+) -> Result<RebasePlan, CommandError> {
     let source_commits: Vec<_> = workspace_command
         .resolve_some_revsets_default_single(ui, source)?
         .iter()
@@ -483,23 +484,19 @@ fn rebase_source(
         }
     }
 
-    rebase_descendants_transaction(
-        ui,
-        workspace_command,
-        &new_parent_ids,
-        &new_child_ids,
-        source_commits,
-        rebase_options,
-    )
+    Ok(RebasePlan {
+        new_parent_ids,
+        new_child_ids,
+        target: MoveCommitsTarget::Roots(source_commits),
+    })
 }
 
-fn rebase_branch(
-    ui: &mut Ui,
-    workspace_command: &mut WorkspaceCommandHelper,
+fn plan_rebase_branch(
+    ui: &Ui,
+    workspace_command: &WorkspaceCommandHelper,
     branch: &[RevisionArg],
     rebase_destination: &RebaseDestinationArgs,
-    rebase_options: &RebaseOptions,
-) -> Result<(), CommandError> {
+) -> Result<RebasePlan, CommandError> {
     let branch_commit_ids: Vec<_> = if branch.is_empty() {
         vec![workspace_command
             .resolve_single_rev(ui, &RevisionArg::AT)?
@@ -536,78 +533,11 @@ fn rebase_branch(
         }
     }
 
-    rebase_descendants_transaction(
-        ui,
-        workspace_command,
-        &new_parent_ids,
-        &new_child_ids,
-        root_commits,
-        rebase_options,
-    )
-}
-
-fn rebase_descendants_transaction(
-    ui: &mut Ui,
-    workspace_command: &mut WorkspaceCommandHelper,
-    new_parent_ids: &[CommitId],
-    new_child_ids: &[CommitId],
-    target_roots: Vec<Commit>,
-    rebase_options: &RebaseOptions,
-) -> Result<(), CommandError> {
-    let mut tx = workspace_command.start_transaction();
-    let tx_description = match &*target_roots {
-        [commit] => format!("rebase commit {} and descendants", commit.id().hex()),
-        commits => format!("rebase {} commits and their descendants", commits.len()),
-    };
-
-    let new_children: Vec<_> = new_child_ids
-        .iter()
-        .map(|commit_id| tx.repo().store().get_commit(commit_id))
-        .try_collect()?;
-    let stats = move_commits(
-        tx.repo_mut(),
+    Ok(RebasePlan {
         new_parent_ids,
-        &new_children,
-        &MoveCommitsTarget::Roots(target_roots),
-        rebase_options,
-    )?;
-    print_move_commits_stats(ui, &stats)?;
-    tx.finish(ui, tx_description)
-}
-
-/// Creates a transaction for rebasing revisions.
-fn rebase_revisions_transaction(
-    ui: &mut Ui,
-    workspace_command: &mut WorkspaceCommandHelper,
-    new_parent_ids: &[CommitId],
-    new_child_ids: &[CommitId],
-    target_commits: Vec<Commit>,
-    rebase_options: &RebaseOptions,
-) -> Result<(), CommandError> {
-    let mut tx = workspace_command.start_transaction();
-    let tx_description = match &*target_commits {
-        commits @ [] => format!("rebase {} commits", commits.len()),
-        [commit] => format!("rebase commit {}", commit.id().hex()),
-        [first, others @ ..] => format!(
-            "rebase commit {} and {} more",
-            first.id().hex(),
-            others.len()
-        ),
-    };
-
-    let new_children: Vec<_> = new_child_ids
-        .iter()
-        .map(|commit_id| tx.repo().store().get_commit(commit_id))
-        .try_collect()?;
-    let stats = move_commits(
-        tx.repo_mut(),
-        new_parent_ids,
-        &new_children,
-        &MoveCommitsTarget::Commits(target_commits),
-        rebase_options,
-    )?;
-    print_move_commits_stats(ui, &stats)?;
-    tx.finish(ui, tx_description)
+        new_child_ids,
+        target: MoveCommitsTarget::Roots(root_commits),
+    })
 }
 
 fn check_rebase_destinations(
@@ -625,6 +555,24 @@ fn check_rebase_destinations(
         }
     }
     Ok(())
+}
+
+fn tx_description(target: &MoveCommitsTarget) -> String {
+    match &target {
+        MoveCommitsTarget::Commits(commits) => match &commits[..] {
+            [] => format!("rebase {} commits", commits.len()),
+            [commit] => format!("rebase commit {}", commit.id().hex()),
+            [first, others @ ..] => format!(
+                "rebase commit {} and {} more",
+                first.id().hex(),
+                others.len()
+            ),
+        },
+        MoveCommitsTarget::Roots(commits) => match &commits[..] {
+            [commit] => format!("rebase commit {} and descendants", commit.id().hex()),
+            _ => format!("rebase {} commits and their descendants", commits.len()),
+        },
+    }
 }
 
 /// Print details about the provided [`MoveCommitsStats`].

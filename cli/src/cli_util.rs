@@ -3091,7 +3091,7 @@ impl fmt::Display for RemoteBookmarkNamePattern {
 /// The `destination` argument is mutually exclusive to the `insert_after` and
 /// `insert_before` arguments.
 pub fn compute_commit_location(
-    ui: &mut Ui,
+    ui: &Ui,
     workspace_command: &WorkspaceCommandHelper,
     destination: Option<&[RevisionArg]>,
     insert_after: Option<&[RevisionArg]>,
