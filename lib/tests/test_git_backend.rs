@@ -33,6 +33,7 @@ use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::store::Store;
 use jj_lib::transaction::Transaction;
+use maplit::hashmap;
 use maplit::hashset;
 use testutils::commit_with_tree;
 use testutils::create_random_commit;
@@ -292,6 +293,44 @@ fn test_copy_detection() {
     assert_eq!(
         get_copy_records(store, Some(paths), &commit_c, &commit_c),
         HashMap::default(),
+    );
+}
+
+#[test]
+fn test_copy_detection_file_and_dir() {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = &test_repo.repo;
+
+    // a -> b (file)
+    // b -> a (dir)
+    // c -> c/file (file)
+    let mut tx = repo.start_transaction();
+    let commit_a = make_commit(
+        &mut tx,
+        vec![repo.store().root_commit_id().clone()],
+        &[
+            (repo_path("a"), "content1"),
+            (repo_path("b/file"), "content2"),
+            (repo_path("c"), "content3"),
+        ],
+    );
+    let commit_b = make_commit(
+        &mut tx,
+        vec![commit_a.id().clone()],
+        &[
+            (repo_path("a/file"), "content2"),
+            (repo_path("b"), "content1"),
+            (repo_path("c/file"), "content3"),
+        ],
+    );
+
+    assert_eq!(
+        get_copy_records(repo.store(), None, &commit_a, &commit_b),
+        hashmap! {
+            "b".to_owned() => "a".to_owned(),
+            "a/file".to_owned() => "b/file".to_owned(),
+            "c/file".to_owned() => "c".to_owned(),
+        }
     );
 }
 

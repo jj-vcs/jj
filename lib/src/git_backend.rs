@@ -1352,13 +1352,20 @@ impl Backend for GitBackend {
             |change: gix::object::tree::diff::Change| -> BackendResult<Option<CopyRecord>> {
                 let gix::object::tree::diff::Change::Rewrite {
                     source_location,
+                    source_entry_mode,
                     source_id,
+                    entry_mode: dest_entry_mode,
                     location: dest_location,
                     ..
                 } = change
                 else {
                     return Ok(None);
                 };
+                // TODO: Renamed symlinks cannot be returned because CopyRecord
+                // expects `source_file: FileId`.
+                if !source_entry_mode.is_blob() || !dest_entry_mode.is_blob() {
+                    return Ok(None);
+                }
 
                 let source = str::from_utf8(source_location)
                     .map_err(|err| to_invalid_utf8_err(err, root_id))?;
