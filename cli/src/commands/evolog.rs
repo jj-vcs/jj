@@ -12,16 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::HashMap;
 use std::convert::Infallible;
+use std::io;
+use std::slice;
 
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
+use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::dag_walk::topo_order_reverse_ok;
 use jj_lib::graph::reverse_graph;
 use jj_lib::graph::GraphEdge;
 use jj_lib::matchers::EverythingMatcher;
+use jj_lib::op_walk;
+use jj_lib::operation::Operation;
+use jj_lib::repo::ReadonlyRepo;
+use jj_lib::repo::RepoLoaderError;
 use tracing::instrument;
 
 use super::log::get_node_template;
@@ -148,6 +156,12 @@ pub(crate) fn cmd_evolog(
     if let Some(n) = args.limit {
         commits.truncate(n);
     }
+
+    // TODO: better styling and --template argument support
+    let op_summary_template = workspace_command.operation_summary_template();
+    let originating_operations =
+        build_originating_operations_index(workspace_command.repo(), &commits)?;
+
     if !args.no_graph {
         let mut raw_output = formatter.raw()?;
         let mut graph = get_graphlog(graph_style, raw_output.as_mut());
@@ -176,7 +190,13 @@ pub(crate) fn cmd_evolog(
             let mut buffer = vec![];
             let within_graph = with_content_format.sub_width(graph.width(commit.id(), &edges));
             within_graph.write(ui.new_formatter(&mut buffer).as_mut(), |formatter| {
-                template.format(&commit, formatter)
+                template.format(&commit, formatter)?;
+                if let Some(op) = originating_operations.get(commit.id()) {
+                    write!(formatter, "-- operation ")?;
+                    op_summary_template.format(op, formatter)?;
+                    writeln!(formatter)?;
+                }
+                io::Result::Ok(())
             })?;
             if !buffer.ends_with(b"\n") {
                 buffer.push(b'\n');
@@ -207,8 +227,15 @@ pub(crate) fn cmd_evolog(
         }
 
         for commit in commits {
-            with_content_format
-                .write(formatter, |formatter| template.format(&commit, formatter))?;
+            with_content_format.write(formatter, |formatter| {
+                template.format(&commit, formatter)?;
+                if let Some(op) = originating_operations.get(commit.id()) {
+                    write!(formatter, "-- operation ")?;
+                    op_summary_template.format(op, formatter)?;
+                    writeln!(formatter)?;
+                }
+                io::Result::Ok(())
+            })?;
             if let Some(renderer) = &diff_renderer {
                 let predecessors: Vec<_> = commit.predecessors().try_collect()?;
                 let width = ui.term_width();
@@ -225,4 +252,66 @@ pub(crate) fn cmd_evolog(
     }
 
     Ok(())
+}
+
+// TODO: Just for PoC. This will be stored in the persistent index.
+fn build_originating_operations_index(
+    current_repo: &ReadonlyRepo,
+    commits: &[Commit],
+) -> Result<HashMap<CommitId, Operation>, RepoLoaderError> {
+    // guess bottom op where the commits could be introduced
+    let Some(until) = commits
+        .iter()
+        .map(|c| c.committer().timestamp.timestamp)
+        .min()
+    else {
+        return Ok(HashMap::new());
+    };
+    let operations: Vec<_> = op_walk::walk_ancestors(slice::from_ref(current_repo.operation()))
+        // since it's slow to load index per op, old operations are omitted
+        .take(1000)
+        .take_while_inclusive(
+            |op| matches!(op, Ok(op) if op.metadata().start_time.timestamp >= until),
+        )
+        .try_collect()?;
+    let Some((earliest_op, operations)) = operations.split_last() else {
+        return Ok(HashMap::new());
+    };
+
+    let repo_loader = current_repo.loader();
+    let load_index = |op: &Operation| {
+        repo_loader
+            .index_store()
+            .get_index_at_op(op, repo_loader.store())
+    };
+    let mut new_commit_ids = {
+        let index = load_index(earliest_op)?;
+        let index = index.as_index();
+        commits
+            .iter()
+            .map(|c| c.id())
+            .filter(|id| !index.has_id(id)) // originating operation is unknown
+            .collect_vec()
+    };
+    // originating operation is the operation where the commit is added to the
+    // index, which may differ from commit visibility.
+    let mut originating_operations = HashMap::new();
+    for op in operations.iter().rev() {
+        if new_commit_ids.is_empty() {
+            break;
+        }
+        let index = load_index(op)?;
+        let index = index.as_index();
+        let mut i = 0;
+        while i < new_commit_ids.len() {
+            let commit_id = new_commit_ids[i];
+            if index.has_id(commit_id) {
+                originating_operations.insert(commit_id.clone(), op.clone());
+                new_commit_ids.swap_remove(i);
+            } else {
+                i += 1;
+            }
+        }
+    }
+    Ok(originating_operations)
 }

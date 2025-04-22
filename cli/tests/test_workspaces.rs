@@ -886,12 +886,24 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
     }
 
     let output = secondary_dir.run_jj(["evolog"]);
-    insta::allow_duplicates! {
+    if automatic {
         insta::assert_snapshot!(output, @r"
         @  kmkuslsw test.user@example.com 2001-02-03 08:05:18 secondary@ 18851b39
         │  RECOVERY COMMIT FROM `jj workspace update-stale`
+        │  -- operation ab79981f373b (2001-02-03 08:05:18) snapshot working copy
         ○  kmkuslsw hidden test.user@example.com 2001-02-03 08:05:18 866928d1
            (empty) RECOVERY COMMIT FROM `jj workspace update-stale`
+           -- operation 770970fb1499 (2001-02-03 08:05:18) recovery commit
+        [EOF]
+        ");
+    } else {
+        insta::assert_snapshot!(output, @r"
+        @  kmkuslsw test.user@example.com 2001-02-03 08:05:18 secondary@ 18851b39
+        │  RECOVERY COMMIT FROM `jj workspace update-stale`
+        │  -- operation 76b3cdce35c2 (2001-02-03 08:05:18) snapshot working copy
+        ○  kmkuslsw hidden test.user@example.com 2001-02-03 08:05:18 866928d1
+           (empty) RECOVERY COMMIT FROM `jj workspace update-stale`
+           -- operation 770970fb1499 (2001-02-03 08:05:18) recovery commit
         [EOF]
         ");
     }

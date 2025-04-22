@@ -128,29 +128,42 @@ fn test_absorb_simple() {
     ");
     insta::assert_snapshot!(get_evolog(&work_dir, "description(1)"), @r"
     ○    kkmpptxz 5810eb0f 1
-    ├─╮
+    ├─╮  -- operation fba2cc32af8a (2001-02-03 08:05:14) absorb changes into 1 commits
     │ ○  yqosqzyt hidden 39b42898 (no description set)
+    │ │  -- operation c4b8fd45aade (2001-02-03 08:05:14) snapshot working copy
     │ ○  yqosqzyt hidden 977269ac (empty) (no description set)
+    │    -- operation 20d869520048 (2001-02-03 08:05:13) absorb changes into 2 commits
     ○    kkmpptxz hidden bd7d4016 1
-    ├─╮
+    ├─╮  -- operation 20d869520048 (2001-02-03 08:05:13) absorb changes into 2 commits
     │ ○  mzvwutvl hidden 0b307741 (no description set)
+    │ │  -- operation 0fb1f6570634 (2001-02-03 08:05:13) snapshot working copy
     │ ○  mzvwutvl hidden f2709b4e (empty) (no description set)
+    │    -- operation 18b16689a878 (2001-02-03 08:05:11) new empty commit
     ○  kkmpptxz hidden 1553c5e8 1
+    │  -- operation 866ea091a874 (2001-02-03 08:05:10) snapshot working copy
     ○  kkmpptxz hidden eb943711 (empty) 1
+       -- operation c90cc262f002 (2001-02-03 08:05:09) new empty commit
     [EOF]
     ");
     insta::assert_snapshot!(get_evolog(&work_dir, "description(2)"), @r"
     ○    zsuskuln dd109863 2
-    ├─╮
+    ├─╮  -- operation b5ffff7cb7fd (2001-02-03 08:05:15) absorb changes into 1 commits
     │ ○  vruxwmqv hidden 761492a8 (no description set)
+    │ │  -- operation 44de74a1dbcf (2001-02-03 08:05:15) snapshot working copy
     │ ○  vruxwmqv hidden 48c7d8fa (empty) (no description set)
+    │    -- operation fba2cc32af8a (2001-02-03 08:05:14) absorb changes into 1 commits
     ○  zsuskuln hidden 8edd60a2 2
+    │  -- operation fba2cc32af8a (2001-02-03 08:05:14) absorb changes into 1 commits
     ○    zsuskuln hidden 95568809 2
-    ├─╮
+    ├─╮  -- operation 20d869520048 (2001-02-03 08:05:13) absorb changes into 2 commits
     │ ○  mzvwutvl hidden 0b307741 (no description set)
+    │ │  -- operation 0fb1f6570634 (2001-02-03 08:05:13) snapshot working copy
     │ ○  mzvwutvl hidden f2709b4e (empty) (no description set)
+    │    -- operation 18b16689a878 (2001-02-03 08:05:11) new empty commit
     ○  zsuskuln hidden 36fad385 2
+    │  -- operation eee8c11a4319 (2001-02-03 08:05:11) snapshot working copy
     ○  zsuskuln hidden 561fbce9 (empty) 2
+       -- operation f6d736fa7512 (2001-02-03 08:05:10) new empty commit
     [EOF]
     ");
 }
