@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::io;
 use std::slice;
 
 use clap_complete::ArgValueCandidates;
@@ -122,6 +123,11 @@ pub(crate) fn cmd_evolog(
             .labeled(["log", "commit", "node"]);
     }
 
+    // TODO: better styling and --template argument support
+    let op_summary_template = workspace_command
+        .operation_summary_template()
+        .labeled(["log"]);
+
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();
     let formatter = formatter.as_mut();
@@ -152,7 +158,14 @@ pub(crate) fn cmd_evolog(
             let within_graph =
                 with_content_format.sub_width(graph.width(entry.commit.id(), &edges));
             within_graph.write(ui.new_formatter(&mut buffer).as_mut(), |formatter| {
-                template.format(&entry.commit, formatter)
+                template.format(&entry.commit, formatter)?;
+                if let Some(op) = &entry.operation {
+                    write!(formatter.labeled("separator"), "--")?;
+                    write!(formatter, " operation ")?;
+                    op_summary_template.format(op, formatter)?;
+                    writeln!(formatter)?;
+                }
+                io::Result::Ok(())
             })?;
             if !buffer.ends_with(b"\n") {
                 buffer.push(b'\n');
@@ -188,7 +201,13 @@ pub(crate) fn cmd_evolog(
         for entry in evolution_entries {
             let entry = entry?;
             with_content_format.write(formatter, |formatter| {
-                template.format(&entry.commit, formatter)
+                template.format(&entry.commit, formatter)?;
+                if let Some(op) = &entry.operation {
+                    write!(formatter, "-- operation ")?;
+                    op_summary_template.format(op, formatter)?;
+                    writeln!(formatter)?;
+                }
+                io::Result::Ok(())
             })?;
             if let Some(renderer) = &diff_renderer {
                 let predecessors: Vec<_> = entry.predecessors().try_collect()?;

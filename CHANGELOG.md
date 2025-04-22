@@ -67,7 +67,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Templates can now do arithmetic on integers with the `+`, `-`, `*`, `/`, and `%`
   infix operators.
 
-* Evolution history is now stored in the operation log.
+* Evolution history is now stored in the operation log. `jj evolog` can show
+  associated operations for commits created by new jj.
 
 ### Fixed bugs
 

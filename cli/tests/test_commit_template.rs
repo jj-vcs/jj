@@ -563,10 +563,13 @@ fn test_log_evolog_divergence() {
     insta::assert_snapshot!(output, @r"
     @  qpvuntsm?? test.user@example.com 2001-02-03 08:05:08 556daeb7
     │  description 1
+    │  -- operation fec5a045b947 (2001-02-03 08:05:08) describe commit d0c049cd993a8d3a2e69ba6df98788e264ea9fa1
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 d0c049cd
     │  (no description set)
+    │  -- operation 911e64a1b666 (2001-02-03 08:05:08) snapshot working copy
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
        (empty) (no description set)
+       -- operation 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
     [EOF]
     ");
 
@@ -575,10 +578,13 @@ fn test_log_evolog_divergence() {
     insta::assert_snapshot!(output, @r"
     [1m[38;5;2m@[0m  [1m[4m[38;5;1mq[24mpvuntsm[38;5;9m??[39m [38;5;3mtest.user@example.com[39m [38;5;14m2001-02-03 08:05:08[39m [38;5;12m55[38;5;8m6daeb7[39m[0m
     │  [1mdescription 1[0m
+    │  [38;5;8m--[39m operation [38;5;4mfec5a045b947[39m ([38;5;6m2001-02-03 08:05:08[39m) describe commit d0c049cd993a8d3a2e69ba6df98788e264ea9fa1
     ○  [1m[39mq[0m[38;5;8mpvuntsm[39m hidden [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:08[39m [1m[38;5;4md[0m[38;5;8m0c049cd[39m
     │  [38;5;3m(no description set)[39m
+    │  [38;5;8m--[39m operation [38;5;4m911e64a1b666[39m ([38;5;6m2001-02-03 08:05:08[39m) snapshot working copy
     ○  [1m[39mq[0m[38;5;8mpvuntsm[39m hidden [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:07[39m [1m[38;5;4me[0m[38;5;8m8849ae1[39m
        [38;5;2m(empty)[39m [38;5;2m(no description set)[39m
+       [38;5;8m--[39m operation [38;5;4m8f47435a3990[39m ([38;5;6m2001-02-03 08:05:07[39m) add workspace 'default'
     [EOF]
     ");
 }
