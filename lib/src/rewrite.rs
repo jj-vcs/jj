@@ -399,6 +399,8 @@ pub struct MoveCommitsStats {
     pub num_skipped_rebases: u32,
     /// The number of commits which were abandoned.
     pub num_abandoned: u32,
+    /// The rebased commits
+    pub rebased_commits: HashMap<CommitId, RebasedCommit>,
 }
 
 /// Target and destination commits to be rebased by [`move_commits()`].
@@ -756,14 +758,15 @@ fn apply_move_commits(
         simplify_ancestor_merge: options.simplify_ancestor_merge,
     };
 
+    let mut rebased_commits: HashMap<CommitId, RebasedCommit> = HashMap::new();
     mut_repo.transform_commits(
         commits.descendants,
         &commits.commit_new_parents_map,
         &options.rewrite_refs,
         |rewriter| {
-            let old_commit_id = rewriter.old_commit().id();
+            let old_commit_id = rewriter.old_commit().id().clone();
             if rewriter.parents_changed() {
-                let is_target_commit = commits.target_commit_ids.contains(old_commit_id);
+                let is_target_commit = commits.target_commit_ids.contains(&old_commit_id);
                 let rebased_commit = rebase_commit_with_options(
                     rewriter,
                     if is_target_commit {
@@ -779,6 +782,7 @@ fn apply_move_commits(
                 } else {
                     num_rebased_descendants += 1;
                 }
+                rebased_commits.insert(old_commit_id, rebased_commit);
             } else {
                 num_skipped_rebases += 1;
             }
@@ -792,6 +796,7 @@ fn apply_move_commits(
         num_rebased_descendants,
         num_skipped_rebases,
         num_abandoned,
+        rebased_commits,
     })
 }
 

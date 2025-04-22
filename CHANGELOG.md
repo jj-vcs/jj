@@ -31,6 +31,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj split` has gained a `--message` option to set the description of the
   commit with the selected changes.
 
+* `jj split` has gained the ability to place the revision with the selected changes
+  anywhere in the revision tree with the `--insert-before`, `--insert-after` and
+  `--destination` command line flags.
+
 ### Fixed bugs
 
 ### Packaging changes

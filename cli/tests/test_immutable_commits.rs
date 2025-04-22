@@ -482,6 +482,20 @@ fn test_rewrite_immutable_commands() {
     [EOF]
     [exit status: 1]
     "#);
+    // split -B
+    let output = work_dir.run_jj(["split", "-B=main", "-m", "will fail", "file"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Commit 4397373a0991 is immutable
+    Hint: Could not modify commit: mzvwutvl 4397373a main | (conflict) merge
+    Hint: Immutable commits are used to protect shared history.
+    Hint: For more information, see:
+          - https://jj-vcs.github.io/jj/latest/config/#set-of-immutable-commits
+          - `jj help -k config`, "Set of immutable commits"
+    Hint: This operation would rewrite 1 immutable commits.
+    [EOF]
+    [exit status: 1]
+    "#);
     // squash -r
     let output = work_dir.run_jj(["squash", "-r=description(b)"]);
     insta::assert_snapshot!(output, @r#"

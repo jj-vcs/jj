@@ -562,6 +562,7 @@ fn print_move_commits_stats(ui: &Ui, stats: &MoveCommitsStats) -> std::io::Resul
         num_rebased_descendants,
         num_skipped_rebases,
         num_abandoned,
+        rebased_commits: _,
     } = stats;
     if num_skipped_rebases > 0 {
         writeln!(
