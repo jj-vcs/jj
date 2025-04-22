@@ -321,6 +321,7 @@ fn test_aliases_are_resolved(shell: Shell) {
 
     // user config alias
     test_env.add_config(r#"aliases.b = ["bookmark"]"#);
+    test_env.add_config(r#"aliases.rlog = ["log", "--reversed"]"#);
     // repo config alias
     work_dir
         .run_jj(["config", "set", "--repo", "aliases.b2", "['bookmark']"])
@@ -359,6 +360,30 @@ fn test_aliases_are_resolved(shell: Shell) {
         }
         _ => unimplemented!("unexpected shell '{shell}'"),
     }
+
+    let output = work_dir.complete_at(shell, 2, ["rlog", "--rev"]);
+    match shell {
+        Shell::Bash => {
+            insta::assert_snapshot!(output, @r"
+            --revisions
+            --reversed[EOF]
+            ");
+        }
+        Shell::Zsh => {
+            insta::assert_snapshot!(output, @r"
+            --revisions:Which revisions to show
+            --reversed:Show revisions in the opposite order (older revisions first)[EOF]
+            ");
+        }
+        Shell::Fish => {
+            insta::assert_snapshot!(output, @r"
+            --revisions	Which revisions to show
+            --reversed	Show revisions in the opposite order (older revisions first)
+            [EOF]
+            ");
+        }
+        _ => unimplemented!("unexpected shell '{shell}'"),
+    }
 }
 
 #[test]
@@ -384,14 +409,105 @@ fn test_completions_are_generated() {
 #[test_case(Shell::Bash; "bash")]
 #[test_case(Shell::Zsh; "zsh")]
 #[test_case(Shell::Fish; "fish")]
+fn test_default_command_is_resolved(shell: Shell) {
+    let test_env = TestEnvironment::default();
+
+    let output = test_env
+        .complete_at(shell, 1, ["--"])
+        .take_stdout_n_lines(2);
+    match shell {
+        Shell::Bash => {
+            insta::assert_snapshot!(output, @r"
+            --revisions
+            --limit
+            [EOF]
+            ");
+        }
+        Shell::Zsh => {
+            insta::assert_snapshot!(output, @r"
+            --revisions:Which revisions to show
+            --limit:Limit number of revisions to show
+            [EOF]
+            ");
+        }
+        Shell::Fish => {
+            insta::assert_snapshot!(output, @r"
+            --revisions	Which revisions to show
+            --limit	Limit number of revisions to show
+            [EOF]
+            ");
+        }
+        _ => unimplemented!("unexpected shell '{shell}'"),
+    }
+
+    test_env.add_config("ui.default-command = ['abandon']");
+    let output = test_env
+        .complete_at(shell, 1, ["--"])
+        .take_stdout_n_lines(2);
+    match shell {
+        Shell::Bash => {
+            insta::assert_snapshot!(output, @r"
+            --retain-bookmarks
+            --restore-descendants
+            [EOF]
+            ");
+        }
+        Shell::Zsh => {
+            insta::assert_snapshot!(output, @r"
+            --retain-bookmarks:Do not delete bookmarks pointing to the revisions to abandon
+            --restore-descendants:Do not modify the content of the children of the abandoned commits
+            [EOF]
+            ");
+        }
+        Shell::Fish => {
+            insta::assert_snapshot!(output, @r"
+            --retain-bookmarks	Do not delete bookmarks pointing to the revisions to abandon
+            --restore-descendants	Do not modify the content of the children of the abandoned commits
+            [EOF]
+            ");
+        }
+        _ => unimplemented!("unexpected shell '{shell}'"),
+    }
+
+    test_env.add_config("ui.default-command = ['bookmark', 'move']");
+    let output = test_env
+        .complete_at(shell, 1, ["--"])
+        .take_stdout_n_lines(2);
+    match shell {
+        Shell::Bash => {
+            insta::assert_snapshot!(output, @r"
+            --from
+            --to
+            [EOF]
+            ");
+        }
+        Shell::Zsh => {
+            insta::assert_snapshot!(output, @r"
+            --from:Move bookmarks from the given revisions
+            --to:Move bookmarks to this revision
+            [EOF]
+            ");
+        }
+        Shell::Fish => {
+            insta::assert_snapshot!(output, @r"
+            --from	Move bookmarks from the given revisions
+            --to	Move bookmarks to this revision
+            [EOF]
+            ");
+        }
+        _ => unimplemented!("unexpected shell '{shell}'"),
+    }
+}
+
+#[test_case(Shell::Bash; "bash")]
+#[test_case(Shell::Zsh; "zsh")]
+#[test_case(Shell::Fish; "fish")]
 fn test_command_completion(shell: Shell) {
     let test_env = TestEnvironment::default();
 
     // Command names should be suggested. If the default command were expanded,
     // only "log" would be listed.
-    let output = test_env
-        .complete_at(shell, 1, [""])
-        .normalize_stdout_with(|s| s.split_inclusive('\n').take(2).collect());
+    let output = test_env.complete_at(shell, 1, [""]).take_stdout_n_lines(2);
     match shell {
         Shell::Bash => {
             insta::assert_snapshot!(output, @r"
@@ -419,7 +535,7 @@ fn test_command_completion(shell: Shell) {
 
     let output = test_env
         .complete_at(shell, 2, ["--no-pager", ""])
-        .normalize_stdout_with(|s| s.split_inclusive('\n').take(2).collect());
+        .take_stdout_n_lines(2);
     match shell {
         Shell::Bash => {
             insta::assert_snapshot!(output, @r"

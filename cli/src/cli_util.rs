@@ -3551,29 +3551,55 @@ fn handle_shell_completion(
     config: &StackedConfig,
     cwd: &Path,
 ) -> Result<(), CommandError> {
+    let mut orig_args = env::args_os();
+
     let mut args = vec![];
     // Take the first two arguments as is, they must be passed to clap_complete
     // without any changes. They are usually "jj --".
-    args.extend(env::args_os().take(2));
+    args.extend(orig_args.by_ref().take(2));
 
     // Make sure aliases are expanded before passing them to clap_complete. We
     // skip the first two args ("jj" and "--") for alias resolution, then we
     // stitch the args back together, like clap_complete expects them.
-    let orig_args = env::args_os().skip(2);
     if orig_args.len() > 0 {
-        let arg_index: Option<usize> = env::var("_CLAP_COMPLETE_INDEX")
+        let complete_index: Option<usize> = env::var("_CLAP_COMPLETE_INDEX")
             .ok()
             .and_then(|s| s.parse().ok());
-        let resolved_aliases = if let Some(index) = arg_index {
+        let resolved_aliases = if let Some(index) = complete_index {
             // As of clap_complete 4.5.38, zsh completion script doesn't pad an
             // empty arg at the complete position. If the args doesn't include a
             // command name, the default command would be expanded at that
             // position. Therefore, no other command names would be suggested.
-            // TODO: Maybe we should instead expand args[..index] + [""], adjust
-            // the index accordingly, strip the last "", and append remainder?
             let pad_len = usize::saturating_sub(index + 1, orig_args.len());
-            let padded_args = orig_args.chain(std::iter::repeat_n(OsString::new(), pad_len));
-            expand_args(ui, app, padded_args, config)?
+            let padded_args = orig_args
+                .by_ref()
+                .chain(std::iter::repeat_n(OsString::new(), pad_len));
+
+            // Expand aliases left of the completion index.
+            let mut expanded_args = expand_args(ui, app, padded_args.take(index + 1), config)?;
+
+            // Adjust env var to compensate for shift of the completion point in the
+            // expanded command line.
+            // SAFETY: Program is running single-threaded at this point.
+            unsafe {
+                env::set_var(
+                    "_CLAP_COMPLETE_INDEX",
+                    (expanded_args.len() - 1).to_string(),
+                );
+            }
+
+            // Remove extra padding again to align with clap_complete's expectations for
+            // zsh.
+            let split_off_padding = expanded_args.split_off(expanded_args.len() - pad_len);
+            assert!(
+                split_off_padding.iter().all(|s| s.is_empty()),
+                "split-off padding should only consist of empty strings but was \
+                 {split_off_padding:?}",
+            );
+
+            // Append the remaining arguments to the right of the completion point.
+            expanded_args.extend(to_string_args(orig_args)?);
+            expanded_args
         } else {
             expand_args(ui, app, orig_args, config)?
         };
@@ -3598,17 +3624,22 @@ pub fn expand_args(
     args_os: impl IntoIterator<Item = OsString>,
     config: &StackedConfig,
 ) -> Result<Vec<String>, CommandError> {
-    let mut string_args: Vec<String> = vec![];
-    for arg_os in args_os {
-        if let Some(string_arg) = arg_os.to_str() {
-            string_args.push(string_arg.to_owned());
-        } else {
-            return Err(cli_error("Non-utf8 argument"));
-        }
-    }
-
+    let string_args = to_string_args(args_os)?;
     let string_args = resolve_default_command(ui, config, app, string_args)?;
     resolve_aliases(ui, config, app, string_args)
+}
+
+fn to_string_args(
+    args_os: impl IntoIterator<Item = OsString>,
+) -> Result<Vec<String>, CommandError> {
+    args_os
+        .into_iter()
+        .map(|arg_os| {
+            arg_os
+                .into_string()
+                .map_err(|_| cli_error("Non-UTF-8 argument"))
+        })
+        .collect()
 }
 
 fn parse_args(app: &Command, string_args: &[String]) -> Result<(ArgMatches, Args), clap::Error> {

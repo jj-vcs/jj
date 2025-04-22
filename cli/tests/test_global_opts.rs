@@ -37,7 +37,7 @@ fn test_non_utf8_arg() {
     let output = test_env.run_jj_in(".", [&invalid_utf]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Non-utf8 argument
+    Error: Non-UTF-8 argument
     [EOF]
     [exit status: 2]
     ");

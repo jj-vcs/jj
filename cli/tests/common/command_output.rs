@@ -57,6 +57,16 @@ impl CommandOutput {
         }
     }
 
+    /// Removes all but the first `n` lines from normalized stdout text.
+    #[must_use]
+    pub fn take_stdout_n_lines(self, n: usize) -> Self {
+        CommandOutput {
+            stdout: self.stdout.take_n_lines(n),
+            stderr: self.stderr,
+            status: self.status,
+        }
+    }
+
     #[must_use]
     pub fn normalize_stdout_with(self, f: impl FnOnce(String) -> String) -> Self {
         CommandOutput {
@@ -139,6 +149,12 @@ impl CommandOutputString {
             s.truncate(strip_last_line(&s).len());
             s
         })
+    }
+
+    /// Removes all but the first `n` lines from the normalized text.
+    #[must_use]
+    pub fn take_n_lines(self, n: usize) -> Self {
+        self.normalize_with(|s| s.split_inclusive("\n").take(n).collect())
     }
 
     #[must_use]

@@ -72,6 +72,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The builtin diff editor now tries to preserve unresolved conflicts.
   [#4963](https://github.com/jj-vcs/jj/issues/4963)
 
+* Fixed bash and zsh shell completion when completing aliases of multiple arguments.
+  [#5377](https://github.com/jj-vcs/jj/issues/5377)
+
 ### Packaging changes
 
 * Jujutsu now uses
