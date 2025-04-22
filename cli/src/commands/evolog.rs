@@ -16,13 +16,10 @@ use std::convert::Infallible;
 
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
-use jj_lib::backend::BackendError;
-use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::dag_walk::topo_order_reverse_ok;
 use jj_lib::graph::reverse_graph;
 use jj_lib::graph::GraphEdge;
-use jj_lib::graph::GraphNode;
 use jj_lib::matchers::EverythingMatcher;
 use tracing::instrument;
 
@@ -160,14 +157,14 @@ pub(crate) fn cmd_evolog(
         let mut raw_output = formatter.raw()?;
         let mut graph = get_graphlog(graph_style, raw_output.as_mut());
 
-        let commit_dag: Vec<GraphNode<Commit, CommitId>> = commits
+        let commit_dag = commits
             .into_iter()
-            .map(|c| -> Result<_, BackendError> {
+            .map(|c| {
                 let ids = c.predecessor_ids();
-                let edges = ids.iter().cloned().map(GraphEdge::direct).collect();
-                Ok((c, edges))
+                let edges = ids.iter().cloned().map(GraphEdge::direct).collect_vec();
+                (c, edges)
             })
-            .try_collect()?;
+            .collect_vec();
 
         let iter_nodes = if args.reversed {
             reverse_graph(
