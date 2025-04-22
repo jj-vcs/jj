@@ -157,7 +157,7 @@ pub(crate) fn cmd_evolog(
         let mut raw_output = formatter.raw()?;
         let mut graph = get_graphlog(graph_style, raw_output.as_mut());
 
-        let commit_dag = commits
+        let commit_nodes = commits
             .into_iter()
             .map(|c| {
                 let ids = c.predecessor_ids();
@@ -166,17 +166,17 @@ pub(crate) fn cmd_evolog(
             })
             .collect_vec();
 
-        let iter_nodes = if args.reversed {
+        let commit_nodes = if args.reversed {
             reverse_graph(
-                commit_dag.into_iter().map(Result::<_, Infallible>::Ok),
+                commit_nodes.into_iter().map(Result::<_, Infallible>::Ok),
                 Commit::id,
             )
             .unwrap()
         } else {
-            commit_dag
+            commit_nodes
         };
 
-        for node in iter_nodes {
+        for node in commit_nodes {
             let (commit, edges) = node;
             let mut buffer = vec![];
             let within_graph = with_content_format.sub_width(graph.width(commit.id(), &edges));
