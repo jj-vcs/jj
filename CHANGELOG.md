@@ -55,6 +55,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj absorb` can now squash a deleted file if it was added by one of the
   destination revisions.
 
+* External diff tools are now run in the temporary directory containing
+  the before (`left`) and after (`right`) directories, making diffs appear
+  more pleasing for tools that display file paths prominently. Users can
+  opt out of this by setting `merge-tools.<tool>.diff-do-chdir = false`,
+  but this will likely be removed in a future release. Please report any
+  issues you run into.
+
 ### Fixed bugs
 
 * Fixed crash on change-delete conflict resolution.
