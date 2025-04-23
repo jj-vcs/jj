@@ -537,13 +537,23 @@ commits associated with it.
 
 ### How do I integrate Jujutsu with Gerrit?
 
-At the moment you'll need a script, which adds the required fields for Gerrit
-like the `Change-Id` footer. Then `jj` can invoke it via an `$EDITOR` override
-in an aliased command. Here's an [example][gerrit-integration] from a
-contributor (look for the `jj signoff` alias).
+Add this to your configuration to automatically add Change-Id trailers to commit messages:
+```toml
+[templates]
+commit_trailers = '''
+if(
+  !trailers.contains_key("Change-Id"),
+  format_gerrit_change_id_trailer(self)
+)
+'''
+```
+Note: If you don't check for the presence of the "Change-Id" trailer, you might
+occasionally get duplicate trailers.
+This happens when Jujutsu's change-id isn't in sync with the "Change-Id" trailer.
+Eg. after `jj split`, the "Change-Id" trailer generated for the new change would
+be different from the original one, it wouldn't be deduplicated.
 
-After you have attached the `Change-Id:` footer to the commit series, you'll
-have to manually invoke `git push` of `HEAD` on the underlying git repository
+You'll have to manually invoke `git push` of `HEAD` on the underlying git repository
 into the remote Gerrit bookmark `refs/for/$BRANCH`, where `$BRANCH` is the base
 bookmark you want your changes to go to (e.g., `git push origin
 HEAD:refs/for/main`). Using a [co-located][co-located] repo
