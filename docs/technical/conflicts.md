@@ -49,17 +49,17 @@ simplify by removing canceling terms. These two steps are implemented in
 `Merge::flatten()` and `Merge::simplify()` in [`merge.rs`][merge-rs].
 
 For example, let's say commit B is based on A and is rebased to C, where it
-results in conflicts (`B+C-A`), which the user leaves unresolved. If the commit
-is then rebased to D, the result will be `(B+C-A)+(D-C)` (`D-C` comes from
-changing the base from C to D). That expression can be simplified to `B+D-A`,
-which is a regular 3-way merge between B and D with A as base (no trace of C).
-This is what lets the user keep old commits rebased to head without resolving
-conflicts and still not get messy recursive conflicts.
+results in conflicts (`C+(B-A)`), which the user leaves unresolved. If the
+commit is then rebased to D, the result will be `D+((C+(B-A))-C)`. That expression
+can be simplified to `D+(B-A)`, which is a regular 3-way merge between D and B
+with A as base (no trace of C). This is what lets the user keep old commits
+rebased to head without resolving conflicts and still not get messy recursive
+conflicts.
 
 As another example, let's go through what happens when you back out a conflicted
-commit. Let's say we have the usual `B+C-A` conflict on top of non-conflict
-state C. We then back out that change. Backing out ("reverting" in Git-speak) a
-change means applying its reverse diff, so the result is `(B+C-A)+(A-(B+C-A))`,
-which we can simplify to just `A` (i.e. no conflict).
+commit. Let's say we have the usual `C+(B-A)` conflict on top of non-conflict
+state C. We then revert that change. Reverting a change means applying its
+reverse diff, so the result is `(C+(B-A))+(A-(C+(B-A)))`, which we can simplify
+to just `A` (i.e. no conflict).
 
 [merge-rs]: https://github.com/jj-vcs/jj/blob/main/lib/src/merge.rs
