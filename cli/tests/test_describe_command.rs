@@ -149,7 +149,7 @@ fn test_describe() {
     insta::with_settings!({
         filters => [
             (r"\bEditor '[^']*'", "Editor '<redacted>'"),
-            (r"\b(editor-)[^.]*(\.jjdescription)\b", "$1<redacted>$2"),
+            (r"in .*(editor-)[^.]*(\.jjdescription)\b", "in <redacted>$1<redacted>$2"),
             ("exit code", "exit status"), // Windows
         ],
     }, {
@@ -157,7 +157,7 @@ fn test_describe() {
         ------- stderr -------
         Error: Failed to edit description
         Caused by: Editor '<redacted>' exited with exit status: 1
-        Hint: Edited description is left in $TEST_ENV/repo/.jj/repo/editor-<redacted>.jjdescription
+        Hint: Edited description is left in <redacted>editor-<redacted>.jjdescription
         [EOF]
         [exit status: 1]
         ");
@@ -481,7 +481,7 @@ fn test_describe_multiple_commits() {
     insta::with_settings!({
         filters => [
             (r"\bEditor '[^']*'", "Editor '<redacted>'"),
-            (r"\b(editor-)[^.]*(\.jjdescription)\b", "$1<redacted>$2"),
+            (r"in .*(editor-)[^.]*(\.jjdescription)\b", "in <redacted>$1<redacted>$2"),
             ("exit code", "exit status"), // Windows
         ],
     }, {
@@ -489,7 +489,7 @@ fn test_describe_multiple_commits() {
         ------- stderr -------
         Error: Failed to edit description
         Caused by: Editor '<redacted>' exited with exit status: 1
-        Hint: Edited description is left in $TEST_ENV/repo/.jj/repo/editor-<redacted>.jjdescription
+        Hint: Edited description is left in <redacted>editor-<redacted>.jjdescription
         [EOF]
         [exit status: 1]
         ");

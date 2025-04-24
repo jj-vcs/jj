@@ -21,6 +21,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj git push -c`/`--change` no longer moves existing local bookmarks.
 
+* The `editor-*.jjdescription` files passed to your editor by e.g. `jj describe`
+  are now written to your system's temporary directory instead of `.jj/repo/`.
+
 ### Deprecations
 
 * `git.subprocess = false` has been deprecated, and the old `libgit2`

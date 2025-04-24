@@ -1565,10 +1565,8 @@ to the current parents may contain changes from multiple commits.
     }
 
     /// Loads text editor from the settings.
-    ///
-    /// Temporary files will be created in the repository directory.
     pub fn text_editor(&self) -> Result<TextEditor, ConfigGetError> {
-        Ok(TextEditor::from_settings(self.settings())?.with_temp_dir(self.repo_path()))
+        TextEditor::from_settings(self.settings())
     }
 
     pub fn resolve_single_op(&self, op_str: &str) -> Result<Operation, OpsetEvaluationError> {
