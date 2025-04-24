@@ -322,7 +322,8 @@ fn test_git_fetch_with_glob_with_no_matching_remotes(subprocess: bool) {
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: No matching git remotes for patterns: rem*
+    Warning: No git remotes matching 'rem*'
+    Error: No git remotes to push
     [EOF]
     [exit status: 1]
     ");
@@ -388,6 +389,28 @@ fn test_git_fetch_multiple_remotes_from_config(subprocess: bool) {
 
 #[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
 #[test_case(true; "spawn a git subprocess for remote calls")]
+fn test_git_fetch_no_matching_remote(subprocess: bool) {
+    let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let output = work_dir.run_jj(["git", "fetch", "--remote", "rem1"]);
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: No git remotes matching 'rem1'
+    Error: No git remotes to push
+    [EOF]
+    [exit status: 1]
+    ");
+    }
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"");
+    }
+}
+
+#[cfg_attr(feature = "git2", test_case(false; "use git2 for remote calls"))]
+#[test_case(true; "spawn a git subprocess for remote calls")]
 fn test_git_fetch_nonexistent_remote(subprocess: bool) {
     let test_env = TestEnvironment::default().with_git_subprocess(subprocess);
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -398,14 +421,16 @@ fn test_git_fetch_nonexistent_remote(subprocess: bool) {
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: No git remote named 'rem2'
+    Warning: No git remotes matching 'rem2'
+    bookmark: rem1@rem1 [new] untracked
     [EOF]
-    [exit status: 1]
     ");
     }
     insta::allow_duplicates! {
-    // No remote should have been fetched as part of the failing transaction
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"");
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    rem1@rem1: ppspxspk 4acd0343 message
+    [EOF]
+    ");
     }
 }
 
@@ -422,14 +447,16 @@ fn test_git_fetch_nonexistent_remote_from_config(subprocess: bool) {
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: No git remote named 'rem2'
+    Warning: No git remotes matching 'rem2'
+    bookmark: rem1@rem1 [new] untracked
     [EOF]
-    [exit status: 1]
     ");
     }
-    // No remote should have been fetched as part of the failing transaction
     insta::allow_duplicates! {
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"");
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    rem1@rem1: ppspxspk 4acd0343 message
+    [EOF]
+    ");
     }
 }
 

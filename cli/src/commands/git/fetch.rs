@@ -98,36 +98,26 @@ pub fn cmd_git_fetch(
     let all_remotes = git::get_all_remote_names(workspace_command.repo().store())?;
 
     let mut matching_remotes = HashSet::new();
-    let mut unmatched_patterns = Vec::new();
     for pattern in remote_patterns {
         let remotes = all_remotes
             .iter()
             .filter(|r| pattern.matches(r.as_str()))
             .collect_vec();
         if remotes.is_empty() {
-            unmatched_patterns.push(pattern);
+            writeln!(ui.warning_default(), "No git remotes matching '{pattern}'")?;
         } else {
             matching_remotes.extend(remotes);
         }
     }
 
-    match &unmatched_patterns[..] {
-        [] => {} // Everything matched, all good
-        [pattern] if pattern.is_exact() => {
-            return Err(user_error(format!("No git remote named '{pattern}'")))
-        }
-        patterns => {
-            return Err(user_error(format!(
-                "No matching git remotes for patterns: {}",
-                patterns.iter().join(", ")
-            )))
-        }
+    if matching_remotes.is_empty() {
+        return Err(user_error("No git remotes to push"));
     }
 
-    let remotes = all_remotes
+    let remotes = matching_remotes
         .iter()
-        .filter(|r| matching_remotes.contains(r))
         .map(|r| r.as_ref())
+        .sorted()
         .collect_vec();
 
     #[cfg(feature = "git2")]

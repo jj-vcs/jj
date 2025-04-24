@@ -58,6 +58,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Added `ui.streampager.show-ruler` setting to configure whether the ruler should be
   shown when the builtin pager starts up.
 
+* `jj git fetch` now warns instead of erroring for unknown `git.fetch` remotes
+  if other remotes are available.
+
 ### Fixed bugs
 
 * Fixed crash on change-delete conflict resolution.
