@@ -159,7 +159,7 @@ impl MergedTree {
     /// Tries to resolve any conflicts, resolving any conflicts that can be
     /// automatically resolved and leaving the rest unresolved.
     pub fn resolve(&self) -> BackendResult<MergedTree> {
-        let merged = merge_trees(&self.trees)?;
+        let merged = merge_trees(&self.trees).block_on()?;
         // If the result can be resolved, then `merge_trees()` above would have returned
         // a resolved merge. However, that function will always preserve the arity of
         // conflicts it cannot resolve. So we simplify the conflict again
@@ -169,7 +169,7 @@ impl MergedTree {
         // particular,  that this last simplification doesn't enable further automatic
         // resolutions
         if cfg!(debug_assertions) {
-            let re_merged = merge_trees(&simplified).unwrap();
+            let re_merged = merge_trees(&simplified).block_on().unwrap();
             debug_assert_eq!(re_merged, simplified);
         }
         Ok(MergedTree { trees: simplified })
@@ -438,7 +438,7 @@ fn trees_value<'a>(trees: &'a Merge<Tree>, basename: &RepoPathComponent) -> Merg
 
 /// The returned conflict will either be resolved or have the same number of
 /// sides as the input.
-fn merge_trees(merge: &Merge<Tree>) -> BackendResult<Merge<Tree>> {
+async fn merge_trees(merge: &Merge<Tree>) -> BackendResult<Merge<Tree>> {
     if let Some(tree) = merge.resolve_trivial() {
         return Ok(Merge::resolved(tree.clone()));
     }
@@ -454,7 +454,7 @@ fn merge_trees(merge: &Merge<Tree>) -> BackendResult<Merge<Tree>> {
     // TODO: Merge values concurrently
     for (basename, path_merge) in all_merged_tree_entries(merge) {
         let path = dir.join(basename);
-        let path_merge = merge_tree_values(store, &path, &path_merge).block_on()?;
+        let path_merge = merge_tree_values(store, &path, &path_merge).await?;
         match path_merge.into_resolved() {
             Ok(value) => {
                 new_tree.set_or_remove(basename, value);
@@ -465,7 +465,7 @@ fn merge_trees(merge: &Merge<Tree>) -> BackendResult<Merge<Tree>> {
         };
     }
     if conflicts.is_empty() {
-        let new_tree_id = store.write_tree(dir, new_tree).block_on()?;
+        let new_tree_id = store.write_tree(dir, new_tree).await?;
         Ok(Merge::resolved(new_tree_id))
     } else {
         // For each side of the conflict, overwrite the entries in `new_tree` with the
@@ -477,7 +477,7 @@ fn merge_trees(merge: &Merge<Tree>) -> BackendResult<Merge<Tree>> {
             for (basename, path_conflict) in &mut conflicts {
                 new_tree.set_or_remove(basename, path_conflict.next().unwrap());
             }
-            let tree = store.write_tree(dir, new_tree.clone()).block_on()?;
+            let tree = store.write_tree(dir, new_tree.clone()).await?;
             new_trees.push(tree);
         }
         Ok(Merge::from_vec(new_trees))
@@ -501,7 +501,7 @@ async fn merge_tree_values(
         // If all sides are trees or missing, merge the trees recursively, treating
         // missing trees as empty.
         let empty_tree_id = store.empty_tree_id();
-        let merged_tree = merge_trees(&trees)?;
+        let merged_tree = Box::pin(merge_trees(&trees)).await?;
         Ok(merged_tree
             .map(|tree| (tree.id() != empty_tree_id).then(|| TreeValue::Tree(tree.id().clone()))))
     } else {
