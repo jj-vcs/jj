@@ -29,6 +29,7 @@ jj-lib = { workspace = true, features = ["testing"] }
 pollster = { workspace = true }
 rand = { workspace = true }
 tempfile = { workspace = true }
+toml_edit = { workspace = true }
 
 [lints]
 workspace = true

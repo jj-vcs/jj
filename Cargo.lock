@@ -4006,6 +4006,7 @@ dependencies = [
  "pollster",
  "rand",
  "tempfile",
+ "toml_edit",
 ]
 
 [[package]]
