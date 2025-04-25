@@ -21,6 +21,7 @@ use std::io;
 use std::io::Write as _;
 use std::path::Path;
 use std::path::PathBuf;
+use std::slice;
 use std::sync::Arc;
 
 use itertools::Itertools as _;
@@ -49,6 +50,7 @@ use crate::index::ReadonlyIndex;
 use crate::object_id::ObjectId as _;
 use crate::op_store::OpStoreError;
 use crate::op_store::OperationId;
+use crate::op_walk;
 use crate::operation::Operation;
 use crate::store::Store;
 
@@ -192,16 +194,10 @@ impl DefaultIndexStore {
         let mut visited_heads: HashSet<CommitId> = HashSet::new();
         let mut historical_heads: Vec<(CommitId, OperationId)> = Vec::new();
         let mut parent_op_id: Option<OperationId> = None;
-        for op in dag_walk::dfs_ok(
-            [Ok(operation.clone())],
-            |op: &Operation| op.id().clone(),
-            |op: &Operation| op.parents().collect_vec(),
-        ) {
+        for op in op_walk::walk_ancestors(slice::from_ref(operation)) {
             let op = op?;
             // Pick the latest existing ancestor operation as the parent
-            // segment. Perhaps, breadth-first search is more appropriate here,
-            // but that wouldn't matter in practice as the operation log is
-            // mostly linear.
+            // segment.
             if parent_op_id.is_none() && operations_dir.join(op.id().hex()).is_file() {
                 parent_op_id = Some(op.id().clone());
             }
