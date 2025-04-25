@@ -186,16 +186,11 @@ impl DefaultIndexStore {
         store: &Arc<Store>,
     ) -> Result<Arc<ReadonlyIndexSegment>, DefaultIndexStoreError> {
         tracing::info!("scanning operations to index");
-        let view = operation.view()?;
         let operations_dir = self.operations_dir();
         let commit_id_length = store.commit_id_length();
         let change_id_length = store.change_id_length();
-        let mut visited_heads: HashSet<CommitId> =
-            view.all_referenced_commit_ids().cloned().collect();
-        let mut historical_heads: Vec<(CommitId, OperationId)> = visited_heads
-            .iter()
-            .map(|commit_id| (commit_id.clone(), operation.id().clone()))
-            .collect();
+        let mut visited_heads: HashSet<CommitId> = HashSet::new();
+        let mut historical_heads: Vec<(CommitId, OperationId)> = Vec::new();
         let mut parent_op_id: Option<OperationId> = None;
         for op in dag_walk::dfs_ok(
             [Ok(operation.clone())],
