@@ -1523,7 +1523,7 @@ impl FileSnapshotter<'_> {
                     data.conflict_marker_len as usize
                 }),
             )
-            .block_on()?;
+            .await?;
             match new_file_ids.into_resolved() {
                 Ok(file_id) => {
                     // On Windows, we preserve the executable bit from the merged trees.
