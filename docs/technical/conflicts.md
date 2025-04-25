@@ -59,7 +59,7 @@ conflicts.
 As another example, let's go through what happens when you back out a conflicted
 commit. Let's say we have the usual `C+(B-A)` conflict on top of non-conflict
 state C. We then revert that change. Reverting a change means applying its
-reverse diff, so the result is `(C+(B-A))+(A-(C+(B-A)))`, which we can simplify
-to just `A` (i.e. no conflict).
+reverse diff, so the result is `(C+(B-A))+(C-(C+(B-A)))`, which we can simplify
+to just `C` (i.e. no conflict).
 
 [merge-rs]: https://github.com/jj-vcs/jj/blob/main/lib/src/merge.rs
