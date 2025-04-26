@@ -104,10 +104,10 @@ impl ReadonlyIndexLoadError {
 }
 
 /// Current format version of the index segment file.
-pub(crate) const INDEX_SEGMENT_FILE_FORMAT_VERSION: u32 = 6;
+pub(super) const INDEX_SEGMENT_FILE_FORMAT_VERSION: u32 = 6;
 
 /// If set, the value is stored in the overflow table.
-pub(crate) const OVERFLOW_FLAG: u32 = 0x8000_0000;
+pub(super) const OVERFLOW_FLAG: u32 = 0x8000_0000;
 
 /// Global index position of parent entry, or overflow pointer.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
