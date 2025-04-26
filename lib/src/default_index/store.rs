@@ -185,6 +185,7 @@ impl DefaultIndexStore {
         operation: &Operation,
         store: &Arc<Store>,
     ) -> Result<Arc<ReadonlyIndexSegment>, DefaultIndexStoreError> {
+        tracing::info!("scanning operations to index");
         let view = operation.view()?;
         let operations_dir = self.operations_dir();
         let commit_id_length = store.commit_id_length();
