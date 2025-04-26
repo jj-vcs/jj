@@ -64,6 +64,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj git fetch` now warns instead of erroring for unknown `git.fetch` remotes
   if other remotes are available.
 
+* Commit objects in templates now have `trailers() -> List<Trailer>`, the Trailer
+  objects have `key() -> String` and `value() -> String`.
+
 ### Fixed bugs
 
 * Fixed crash on change-delete conflict resolution.

@@ -109,6 +109,7 @@ No methods are defined. Can be constructed with `false` or `true` literal.
 This type cannot be printed. The following methods are defined.
 
 * `.description() -> String`
+* `.trailers() -> List<Trailer>`
 * `.change_id() -> ChangeId`
 * `.commit_id() -> CommitId`
 * `.parents() -> List<Commit>`
@@ -384,6 +385,13 @@ The following methods are defined.
 * `.start() -> Timestamp`
 * `.end() -> Timestamp`
 * `.duration() -> String`
+
+### Trailer type
+
+The following methods are defined.
+
+* `.key() -> String`
+* `.value() -> String`
 
 ### TreeDiff type
 

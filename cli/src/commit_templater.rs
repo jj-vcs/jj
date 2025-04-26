@@ -64,6 +64,8 @@ use jj_lib::signing::SignError;
 use jj_lib::signing::SignResult;
 use jj_lib::signing::Verification;
 use jj_lib::store::Store;
+use jj_lib::trailer;
+use jj_lib::trailer::Trailer;
 use once_cell::unsync::OnceCell;
 use pollster::FutureExt as _;
 
@@ -332,6 +334,23 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(self, diagnostics, build_ctx, property, function)
             }
+            CommitTemplatePropertyKind::Trailer(property) => {
+                let table = &self.build_fn_table.trailer_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(self, diagnostics, build_ctx, property, function)
+            }
+            CommitTemplatePropertyKind::TrailerList(property) => {
+                // TODO: migrate to table?
+                template_builder::build_formattable_list_method(
+                    self,
+                    diagnostics,
+                    build_ctx,
+                    property,
+                    function,
+                    Self::wrap_trailer,
+                    Self::wrap_trailer_list,
+                )
+            }
         }
     }
 }
@@ -456,6 +475,18 @@ impl<'repo> CommitTemplateLanguage<'repo> {
     ) -> CommitTemplatePropertyKind<'repo> {
         CommitTemplatePropertyKind::AnnotationLine(Box::new(property))
     }
+
+    pub fn wrap_trailer(
+        property: impl TemplateProperty<Output = Trailer> + 'repo,
+    ) -> CommitTemplatePropertyKind<'repo> {
+        CommitTemplatePropertyKind::Trailer(Box::new(property))
+    }
+
+    pub fn wrap_trailer_list(
+        property: impl TemplateProperty<Output = Vec<Trailer>> + 'repo,
+    ) -> CommitTemplatePropertyKind<'repo> {
+        CommitTemplatePropertyKind::TrailerList(Box::new(property))
+    }
 }
 
 pub enum CommitTemplatePropertyKind<'repo> {
@@ -479,6 +510,8 @@ pub enum CommitTemplatePropertyKind<'repo> {
         Box<dyn TemplateProperty<Output = Option<CryptographicSignature>> + 'repo>,
     ),
     AnnotationLine(Box<dyn TemplateProperty<Output = AnnotationLine> + 'repo>),
+    Trailer(Box<dyn TemplateProperty<Output = Trailer> + 'repo>),
+    TrailerList(Box<dyn TemplateProperty<Output = Vec<Trailer>> + 'repo>),
 }
 
 impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
@@ -504,6 +537,8 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
                 "Option<CryptographicSignature>"
             }
             CommitTemplatePropertyKind::AnnotationLine(_) => "AnnotationLine",
+            CommitTemplatePropertyKind::Trailer(_) => "Trailer",
+            CommitTemplatePropertyKind::TrailerList(_) => "List<Trailer>",
         }
     }
 
@@ -543,6 +578,10 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
                 Some(Box::new(property.map(|sig| sig.is_some())))
             }
             CommitTemplatePropertyKind::AnnotationLine(_) => None,
+            CommitTemplatePropertyKind::Trailer(_) => None,
+            CommitTemplatePropertyKind::TrailerList(property) => {
+                Some(Box::new(property.map(|l| !l.is_empty())))
+            }
         }
     }
 
@@ -587,6 +626,8 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             CommitTemplatePropertyKind::DiffStats(property) => Some(property.into_template()),
             CommitTemplatePropertyKind::CryptographicSignatureOpt(_) => None,
             CommitTemplatePropertyKind::AnnotationLine(_) => None,
+            CommitTemplatePropertyKind::Trailer(property) => Some(property.into_template()),
+            CommitTemplatePropertyKind::TrailerList(property) => Some(property.into_template()),
         }
     }
 
@@ -613,6 +654,8 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             (CommitTemplatePropertyKind::DiffStats(_), _) => None,
             (CommitTemplatePropertyKind::CryptographicSignatureOpt(_), _) => None,
             (CommitTemplatePropertyKind::AnnotationLine(_), _) => None,
+            (CommitTemplatePropertyKind::Trailer(_), _) => None,
+            (CommitTemplatePropertyKind::TrailerList(_), _) => None,
         }
     }
 
@@ -642,6 +685,8 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             (CommitTemplatePropertyKind::DiffStats(_), _) => None,
             (CommitTemplatePropertyKind::CryptographicSignatureOpt(_), _) => None,
             (CommitTemplatePropertyKind::AnnotationLine(_), _) => None,
+            (CommitTemplatePropertyKind::Trailer(_), _) => None,
+            (CommitTemplatePropertyKind::TrailerList(_), _) => None,
         }
     }
 }
@@ -665,6 +710,7 @@ pub struct CommitTemplateBuildFnTable<'repo> {
     pub cryptographic_signature_methods:
         CommitTemplateBuildMethodFnMap<'repo, CryptographicSignature>,
     pub annotation_line_methods: CommitTemplateBuildMethodFnMap<'repo, AnnotationLine>,
+    pub trailer_methods: CommitTemplateBuildMethodFnMap<'repo, Trailer>,
 }
 
 impl<'repo> CommitTemplateBuildFnTable<'repo> {
@@ -683,6 +729,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             diff_stats_methods: builtin_diff_stats_methods(),
             cryptographic_signature_methods: builtin_cryptographic_signature_methods(),
             annotation_line_methods: builtin_annotation_line_methods(),
+            trailer_methods: builtin_trailer_methods(),
         }
     }
 
@@ -700,6 +747,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             diff_stats_methods: HashMap::new(),
             cryptographic_signature_methods: HashMap::new(),
             annotation_line_methods: HashMap::new(),
+            trailer_methods: HashMap::new(),
         }
     }
 
@@ -717,6 +765,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             diff_stats_methods,
             cryptographic_signature_methods,
             annotation_line_methods,
+            trailer_methods,
         } = extension;
 
         self.core.merge(core);
@@ -740,6 +789,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             cryptographic_signature_methods,
         );
         merge_fn_map(&mut self.annotation_line_methods, annotation_line_methods);
+        merge_fn_map(&mut self.trailer_methods, trailer_methods);
     }
 }
 
@@ -796,6 +846,15 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
             let out_property =
                 self_property.map(|commit| text_util::complete_newline(commit.description()));
             Ok(L::wrap_string(out_property))
+        },
+    );
+    map.insert(
+        "trailers",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property
+                .map(|commit| trailer::parse_description_trailers(commit.description()));
+            Ok(L::wrap_trailer_list(out_property))
         },
     );
     map.insert(
@@ -2260,6 +2319,40 @@ pub fn builtin_annotation_line_methods<'repo>(
             function.expect_no_arguments()?;
             let out_property = self_property.map(|line| line.first_line_in_hunk);
             Ok(L::wrap_boolean(out_property))
+        },
+    );
+    map
+}
+
+impl Template for Trailer {
+    fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
+        write!(formatter, "{}: {}", self.key, self.value)
+    }
+}
+
+impl Template for Vec<Trailer> {
+    fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
+        templater::format_joined(formatter, self, "\n")
+    }
+}
+
+fn builtin_trailer_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Trailer> {
+    type L<'repo> = CommitTemplateLanguage<'repo>;
+    let mut map = CommitTemplateBuildMethodFnMap::<Trailer>::new();
+    map.insert(
+        "key",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|trailer| trailer.key);
+            Ok(L::wrap_string(out_property))
+        },
+    );
+    map.insert(
+        "value",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|trailer| trailer.value);
+            Ok(L::wrap_string(out_property))
         },
     );
     map
