@@ -16,7 +16,6 @@
 
 use std::any::Any;
 use std::collections::HashMap;
-use std::collections::HashSet;
 use std::fs;
 use std::io;
 use std::io::Write as _;
@@ -192,8 +191,6 @@ impl DefaultIndexStore {
         let operations_dir = self.operations_dir();
         let commit_id_length = store.commit_id_length();
         let change_id_length = store.change_id_length();
-        let mut visited_heads: HashSet<CommitId> = HashSet::new();
-        let mut historical_heads: Vec<(CommitId, OperationId)> = Vec::new();
         let ops_to_visit: Vec<_> =
             op_walk::walk_ancestors(slice::from_ref(operation)).try_collect()?;
         // Pick the latest existing ancestor operation as the parent segment.
@@ -225,10 +222,11 @@ impl DefaultIndexStore {
             ops_count = ops_to_visit.len(),
             "collecting head commits to index"
         );
+        let mut historical_heads: HashMap<CommitId, OperationId> = HashMap::new();
         for op in &ops_to_visit {
             for commit_id in op.view()?.all_referenced_commit_ids() {
-                if visited_heads.insert(commit_id.clone()) {
-                    historical_heads.push((commit_id.clone(), op.id().clone()));
+                if !historical_heads.contains_key(commit_id) {
+                    historical_heads.insert(commit_id.clone(), op.id().clone());
                 }
             }
         }
