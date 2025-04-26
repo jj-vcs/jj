@@ -718,6 +718,13 @@ mod tests {
     use super::*;
     use crate::backend::ChangeId;
     use crate::backend::CommitId;
+    use crate::default_index::readonly::FieldLengths;
+
+    const TEST_FIELD_LENGTHS: FieldLengths = FieldLengths {
+        // TODO: align with commit_id_generator()?
+        commit_id: 3,
+        change_id: 16,
+    };
 
     /// Generator of unique 16-byte CommitId excluding root id
     fn commit_id_generator() -> impl FnMut() -> CommitId {
@@ -787,7 +794,7 @@ mod tests {
     #[test]
     fn test_walk_ancestors() {
         let mut new_change_id = change_id_generator();
-        let mut index = DefaultMutableIndex::full(3, 16);
+        let mut index = DefaultMutableIndex::full(TEST_FIELD_LENGTHS);
         // 5
         // |\
         // 4 | 3
@@ -869,7 +876,7 @@ mod tests {
     #[test]
     fn test_walk_ancestors_until_roots() {
         let mut new_change_id = change_id_generator();
-        let mut index = DefaultMutableIndex::full(3, 16);
+        let mut index = DefaultMutableIndex::full(TEST_FIELD_LENGTHS);
         //   7
         // 6 |
         // 5 |
@@ -926,7 +933,7 @@ mod tests {
     #[test]
     fn test_walk_ancestors_filtered_by_generation() {
         let mut new_change_id = change_id_generator();
-        let mut index = DefaultMutableIndex::full(3, 16);
+        let mut index = DefaultMutableIndex::full(TEST_FIELD_LENGTHS);
         // 8 6
         // | |
         // 7 5
@@ -1017,7 +1024,7 @@ mod tests {
     #[expect(clippy::redundant_clone)] // allow id_n.clone()
     fn test_walk_ancestors_filtered_by_generation_range_merging() {
         let mut new_change_id = change_id_generator();
-        let mut index = DefaultMutableIndex::full(3, 16);
+        let mut index = DefaultMutableIndex::full(TEST_FIELD_LENGTHS);
         // Long linear history with some short branches
         let ids = (0..11)
             .map(|n| CommitId::try_from_hex(&format!("{n:06x}")).unwrap())
@@ -1073,7 +1080,7 @@ mod tests {
     #[test]
     fn test_walk_descendants_filtered_by_generation() {
         let mut new_change_id = change_id_generator();
-        let mut index = DefaultMutableIndex::full(3, 16);
+        let mut index = DefaultMutableIndex::full(TEST_FIELD_LENGTHS);
         // 8 6
         // | |
         // 7 5
@@ -1181,7 +1188,10 @@ mod tests {
     fn test_ancestors_bit_set() {
         let mut new_commit_id = commit_id_generator();
         let mut new_change_id = change_id_generator();
-        let mut mutable_index = DefaultMutableIndex::full(16, 16);
+        let mut mutable_index = DefaultMutableIndex::full(FieldLengths {
+            commit_id: 16,
+            change_id: 16,
+        });
 
         // F      F = 256
         // |\     E = 193,194,195,..,254

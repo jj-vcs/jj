@@ -67,10 +67,17 @@ mod tests {
     use crate::backend::CommitId;
     use crate::default_index::entry::LocalPosition;
     use crate::default_index::entry::SmallLocalPositionsVec;
+    use crate::default_index::readonly::FieldLengths;
     use crate::index::Index as _;
     use crate::object_id::HexPrefix;
     use crate::object_id::PrefixResolution;
     use crate::tests::new_temp_dir;
+
+    const TEST_FIELD_LENGTHS: FieldLengths = FieldLengths {
+        // TODO: align with commit_id_generator()?
+        commit_id: 3,
+        change_id: 16,
+    };
 
     /// Generator of unique 16-byte CommitId excluding root id
     fn commit_id_generator() -> impl FnMut() -> CommitId {
@@ -88,7 +95,7 @@ mod tests {
     #[test_case(true; "file")]
     fn index_empty(on_disk: bool) {
         let temp_dir = new_temp_dir();
-        let mutable_segment = MutableIndexSegment::full(3, 16);
+        let mutable_segment = MutableIndexSegment::full(TEST_FIELD_LENGTHS);
         let index_segment: Box<DynIndexSegment> = if on_disk {
             let saved_index = mutable_segment.save_in(temp_dir.path()).unwrap();
             Box::new(Arc::try_unwrap(saved_index).unwrap())
@@ -116,7 +123,7 @@ mod tests {
     fn index_root_commit(on_disk: bool) {
         let temp_dir = new_temp_dir();
         let mut new_change_id = change_id_generator();
-        let mut mutable_segment = MutableIndexSegment::full(3, 16);
+        let mut mutable_segment = MutableIndexSegment::full(TEST_FIELD_LENGTHS);
         let id_0 = CommitId::from_hex("000000");
         let change_id0 = new_change_id();
         mutable_segment.add_commit_data(id_0.clone(), change_id0.clone(), &[]);
@@ -155,7 +162,7 @@ mod tests {
     #[should_panic(expected = "parent commit is not indexed")]
     fn index_missing_parent_commit() {
         let mut new_change_id = change_id_generator();
-        let mut index = DefaultMutableIndex::full(3, 16);
+        let mut index = DefaultMutableIndex::full(TEST_FIELD_LENGTHS);
         let id_0 = CommitId::from_hex("000000");
         let id_1 = CommitId::from_hex("111111");
         index.add_commit_data(id_1, new_change_id(), &[id_0]);
@@ -168,7 +175,7 @@ mod tests {
     fn index_multiple_commits(incremental: bool, on_disk: bool) {
         let temp_dir = new_temp_dir();
         let mut new_change_id = change_id_generator();
-        let mut mutable_segment = MutableIndexSegment::full(3, 16);
+        let mut mutable_segment = MutableIndexSegment::full(TEST_FIELD_LENGTHS);
         // 5
         // |\
         // 4 | 3
@@ -286,7 +293,7 @@ mod tests {
     fn index_many_parents(on_disk: bool) {
         let temp_dir = new_temp_dir();
         let mut new_change_id = change_id_generator();
-        let mut mutable_segment = MutableIndexSegment::full(3, 16);
+        let mut mutable_segment = MutableIndexSegment::full(TEST_FIELD_LENGTHS);
         //     6
         //    /|\
         //   / | \
@@ -350,7 +357,7 @@ mod tests {
     fn resolve_commit_id_prefix() {
         let temp_dir = new_temp_dir();
         let mut new_change_id = change_id_generator();
-        let mut mutable_segment = MutableIndexSegment::full(3, 16);
+        let mut mutable_segment = MutableIndexSegment::full(TEST_FIELD_LENGTHS);
 
         // Create some commits with different various common prefixes.
         let id_0 = CommitId::from_hex("000000");
@@ -422,7 +429,7 @@ mod tests {
     fn neighbor_commit_ids() {
         let temp_dir = new_temp_dir();
         let mut new_change_id = change_id_generator();
-        let mut mutable_segment = MutableIndexSegment::full(3, 16);
+        let mut mutable_segment = MutableIndexSegment::full(TEST_FIELD_LENGTHS);
 
         // Create some commits with different various common prefixes.
         let id_0 = CommitId::from_hex("000001");
@@ -550,7 +557,7 @@ mod tests {
     fn shortest_unique_commit_id_prefix() {
         let temp_dir = new_temp_dir();
         let mut new_change_id = change_id_generator();
-        let mut mutable_segment = MutableIndexSegment::full(3, 16);
+        let mut mutable_segment = MutableIndexSegment::full(TEST_FIELD_LENGTHS);
 
         // Create some commits with different various common prefixes.
         let id_0 = CommitId::from_hex("000001");
@@ -619,7 +626,10 @@ mod tests {
         let id_5 = ChangeId::from_hex("05555333");
 
         // Create some commits with different various common prefixes.
-        let mut mutable_segment = MutableIndexSegment::full(16, 4);
+        let mut mutable_segment = MutableIndexSegment::full(FieldLengths {
+            commit_id: 16,
+            change_id: 4,
+        });
         mutable_segment.add_commit_data(new_commit_id(), id_0.clone(), &[]);
         mutable_segment.add_commit_data(new_commit_id(), id_1.clone(), &[]);
         mutable_segment.add_commit_data(new_commit_id(), id_2.clone(), &[]);
@@ -783,7 +793,10 @@ mod tests {
         let id_5 = ChangeId::from_hex("05555333");
 
         // Create some commits with different various common prefixes.
-        let mut mutable_segment = MutableIndexSegment::full(16, 4);
+        let mut mutable_segment = MutableIndexSegment::full(FieldLengths {
+            commit_id: 16,
+            change_id: 4,
+        });
         mutable_segment.add_commit_data(new_commit_id(), id_0.clone(), &[]);
         mutable_segment.add_commit_data(new_commit_id(), id_1.clone(), &[]);
         mutable_segment.add_commit_data(new_commit_id(), id_2.clone(), &[]);
@@ -929,7 +942,10 @@ mod tests {
         let id_5 = ChangeId::from_hex("05555333");
 
         // Create some commits with different various common prefixes.
-        let mut mutable_segment = MutableIndexSegment::full(16, 4);
+        let mut mutable_segment = MutableIndexSegment::full(FieldLengths {
+            commit_id: 16,
+            change_id: 4,
+        });
         mutable_segment.add_commit_data(new_commit_id(), id_0.clone(), &[]);
         mutable_segment.add_commit_data(new_commit_id(), id_1.clone(), &[]);
         mutable_segment.add_commit_data(new_commit_id(), id_2.clone(), &[]);
@@ -979,7 +995,7 @@ mod tests {
     #[test]
     fn test_is_ancestor() {
         let mut new_change_id = change_id_generator();
-        let mut index = DefaultMutableIndex::full(3, 16);
+        let mut index = DefaultMutableIndex::full(TEST_FIELD_LENGTHS);
         // 5
         // |\
         // 4 | 3
@@ -1016,7 +1032,7 @@ mod tests {
     #[test]
     fn test_common_ancestors() {
         let mut new_change_id = change_id_generator();
-        let mut index = DefaultMutableIndex::full(3, 16);
+        let mut index = DefaultMutableIndex::full(TEST_FIELD_LENGTHS);
         // 5
         // |\
         // 4 |
@@ -1110,7 +1126,7 @@ mod tests {
     #[test]
     fn test_common_ancestors_criss_cross() {
         let mut new_change_id = change_id_generator();
-        let mut index = DefaultMutableIndex::full(3, 16);
+        let mut index = DefaultMutableIndex::full(TEST_FIELD_LENGTHS);
         // 3 4
         // |X|
         // 1 2
@@ -1135,7 +1151,7 @@ mod tests {
     #[test]
     fn test_common_ancestors_merge_with_ancestor() {
         let mut new_change_id = change_id_generator();
-        let mut index = DefaultMutableIndex::full(3, 16);
+        let mut index = DefaultMutableIndex::full(TEST_FIELD_LENGTHS);
         // 4   5
         // |\ /|
         // 1 2 3
@@ -1162,7 +1178,7 @@ mod tests {
     #[test]
     fn test_heads() {
         let mut new_change_id = change_id_generator();
-        let mut index = DefaultMutableIndex::full(3, 16);
+        let mut index = DefaultMutableIndex::full(TEST_FIELD_LENGTHS);
         // 5
         // |\
         // 4 | 3
@@ -1236,7 +1252,7 @@ mod tests {
     #[test]
     fn test_heads_range_with_filter() {
         let mut new_change_id = change_id_generator();
-        let mut index = DefaultMutableIndex::full(3, 16);
+        let mut index = DefaultMutableIndex::full(TEST_FIELD_LENGTHS);
         // 5
         // |\
         // 4 | 3

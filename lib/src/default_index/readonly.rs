@@ -137,6 +137,13 @@ impl ChangeLocalPosition {
     }
 }
 
+/// Lengths of fields to be serialized.
+#[derive(Clone, Copy, Debug)]
+pub(super) struct FieldLengths {
+    pub commit_id: usize,
+    pub change_id: usize,
+}
+
 struct CommitGraphEntry<'a> {
     data: &'a [u8],
 }
@@ -222,8 +229,7 @@ pub(super) struct ReadonlyIndexSegment {
     parent_file: Option<Arc<ReadonlyIndexSegment>>,
     num_parent_commits: u32,
     name: String,
-    commit_id_length: usize,
-    change_id_length: usize,
+    field_lengths: FieldLengths,
     // Number of commits not counting the parent file
     num_local_commits: u32,
     num_local_change_ids: u32,
@@ -251,12 +257,11 @@ impl ReadonlyIndexSegment {
     pub(super) fn load(
         dir: &Path,
         name: String,
-        commit_id_length: usize,
-        change_id_length: usize,
+        lengths: FieldLengths,
     ) -> Result<Arc<ReadonlyIndexSegment>, ReadonlyIndexLoadError> {
         let mut file = File::open(dir.join(&name))
             .map_err(|err| ReadonlyIndexLoadError::from_io_err(&name, err))?;
-        Self::load_from(&mut file, dir, name, commit_id_length, change_id_length)
+        Self::load_from(&mut file, dir, name, lengths)
     }
 
     /// Loads both parent segments and local entries from the given `file`.
@@ -264,8 +269,7 @@ impl ReadonlyIndexSegment {
         file: &mut dyn Read,
         dir: &Path,
         name: String,
-        commit_id_length: usize,
-        change_id_length: usize,
+        lengths: FieldLengths,
     ) -> Result<Arc<ReadonlyIndexSegment>, ReadonlyIndexLoadError> {
         let from_io_err = |err| ReadonlyIndexLoadError::from_io_err(&name, err);
         let read_u32 = |file: &mut dyn Read| {
@@ -288,23 +292,12 @@ impl ReadonlyIndexSegment {
             let parent_filename = String::from_utf8(parent_filename_bytes).map_err(|_| {
                 ReadonlyIndexLoadError::invalid_data(&name, "parent file name is not valid UTF-8")
             })?;
-            let parent_file = ReadonlyIndexSegment::load(
-                dir,
-                parent_filename,
-                commit_id_length,
-                change_id_length,
-            )?;
+            let parent_file = ReadonlyIndexSegment::load(dir, parent_filename, lengths)?;
             Some(parent_file)
         } else {
             None
         };
-        Self::load_with_parent_file(
-            file,
-            name,
-            maybe_parent_file,
-            commit_id_length,
-            change_id_length,
-        )
+        Self::load_with_parent_file(file, name, maybe_parent_file, lengths)
     }
 
     /// Loads local entries from the given `file`, returns new segment linked to
@@ -313,8 +306,7 @@ impl ReadonlyIndexSegment {
         file: &mut dyn Read,
         name: String,
         parent_file: Option<Arc<ReadonlyIndexSegment>>,
-        commit_id_length: usize,
-        change_id_length: usize,
+        lengths: FieldLengths,
     ) -> Result<Arc<ReadonlyIndexSegment>, ReadonlyIndexLoadError> {
         let from_io_err = |err| ReadonlyIndexLoadError::from_io_err(&name, err);
         let read_u32 = |file: &mut dyn Read| {
@@ -332,10 +324,10 @@ impl ReadonlyIndexSegment {
         let mut data = vec![];
         file.read_to_end(&mut data).map_err(from_io_err)?;
 
-        let commit_graph_entry_size = CommitGraphEntry::size(commit_id_length);
+        let commit_graph_entry_size = CommitGraphEntry::size(lengths.commit_id);
         let graph_size = (num_local_commits as usize) * commit_graph_entry_size;
         let commit_lookup_size = (num_local_commits as usize) * 4;
-        let change_id_table_size = (num_local_change_ids as usize) * change_id_length;
+        let change_id_table_size = (num_local_change_ids as usize) * lengths.change_id;
         let change_pos_table_size = (num_local_change_ids as usize) * 4;
         let parent_overflow_size = (num_parent_overflow_entries as usize) * 4;
         let change_overflow_size = (num_change_overflow_entries as usize) * 4;
@@ -359,8 +351,7 @@ impl ReadonlyIndexSegment {
             parent_file,
             num_parent_commits,
             name,
-            commit_id_length,
-            change_id_length,
+            field_lengths: lengths,
             num_local_commits,
             num_local_change_ids,
             num_change_overflow_entries,
@@ -381,17 +372,13 @@ impl ReadonlyIndexSegment {
         &self.name
     }
 
-    pub(super) fn commit_id_length(&self) -> usize {
-        self.commit_id_length
-    }
-
-    pub(super) fn change_id_length(&self) -> usize {
-        self.change_id_length
+    pub(super) fn field_lengths(&self) -> FieldLengths {
+        self.field_lengths
     }
 
     fn graph_entry(&self, local_pos: LocalPosition) -> CommitGraphEntry<'_> {
         let table = &self.data[..self.commit_lookup_base];
-        let entry_size = CommitGraphEntry::size(self.commit_id_length);
+        let entry_size = CommitGraphEntry::size(self.field_lengths.commit_id);
         let offset = (local_pos.0 as usize) * entry_size;
         CommitGraphEntry {
             data: &table[offset..][..entry_size],
@@ -411,8 +398,8 @@ impl ReadonlyIndexSegment {
     // might be better to add borrowed version of ChangeId
     fn change_lookup_id_bytes(&self, lookup_pos: u32) -> &[u8] {
         let table = &self.data[self.change_id_table_base..self.change_pos_table_base];
-        let offset = (lookup_pos as usize) * self.change_id_length;
-        &table[offset..][..self.change_id_length]
+        let offset = (lookup_pos as usize) * self.field_lengths.change_id;
+        &table[offset..][..self.field_lengths.change_id]
     }
 
     fn change_lookup_pos(&self, lookup_pos: u32) -> ChangeLocalPosition {

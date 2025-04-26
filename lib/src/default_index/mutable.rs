@@ -41,6 +41,7 @@ use super::entry::LocalPosition;
 use super::entry::SmallIndexPositionsVec;
 use super::entry::SmallLocalPositionsVec;
 use super::readonly::DefaultReadonlyIndex;
+use super::readonly::FieldLengths;
 use super::readonly::ReadonlyIndexSegment;
 use super::readonly::INDEX_SEGMENT_FILE_FORMAT_VERSION;
 use super::readonly::OVERFLOW_FLAG;
@@ -74,20 +75,18 @@ struct MutableGraphEntry {
 pub(super) struct MutableIndexSegment {
     parent_file: Option<Arc<ReadonlyIndexSegment>>,
     num_parent_commits: u32,
-    commit_id_length: usize,
-    change_id_length: usize,
+    field_lengths: FieldLengths,
     graph: Vec<MutableGraphEntry>,
     commit_lookup: BTreeMap<CommitId, LocalPosition>,
     change_lookup: BTreeMap<ChangeId, SmallLocalPositionsVec>,
 }
 
 impl MutableIndexSegment {
-    pub(super) fn full(commit_id_length: usize, change_id_length: usize) -> Self {
+    pub(super) fn full(field_lengths: FieldLengths) -> Self {
         Self {
             parent_file: None,
             num_parent_commits: 0,
-            commit_id_length,
-            change_id_length,
+            field_lengths,
             graph: vec![],
             commit_lookup: BTreeMap::new(),
             change_lookup: BTreeMap::new(),
@@ -96,13 +95,11 @@ impl MutableIndexSegment {
 
     pub(super) fn incremental(parent_file: Arc<ReadonlyIndexSegment>) -> Self {
         let num_parent_commits = parent_file.as_composite().num_commits();
-        let commit_id_length = parent_file.commit_id_length();
-        let change_id_length = parent_file.change_id_length();
+        let field_lengths = parent_file.field_lengths();
         Self {
             parent_file: Some(parent_file),
             num_parent_commits,
-            commit_id_length,
-            change_id_length,
+            field_lengths,
             graph: vec![],
             commit_lookup: BTreeMap::new(),
             change_lookup: BTreeMap::new(),
@@ -271,7 +268,10 @@ impl MutableIndexSegment {
 
             buf.extend(change_id_pos_map[&entry.change_id].to_le_bytes());
 
-            assert_eq!(entry.commit_id.as_bytes().len(), self.commit_id_length);
+            assert_eq!(
+                entry.commit_id.as_bytes().len(),
+                self.field_lengths.commit_id
+            );
             buf.extend_from_slice(entry.commit_id.as_bytes());
         }
 
@@ -280,7 +280,7 @@ impl MutableIndexSegment {
         }
 
         for change_id in self.change_lookup.keys() {
-            assert_eq!(change_id.as_bytes().len(), self.change_id_length);
+            assert_eq!(change_id.as_bytes().len(), self.field_lengths.change_id);
             buf.extend_from_slice(change_id.as_bytes());
         }
 
@@ -340,7 +340,7 @@ impl MutableIndexSegment {
         let mut squashed = if let Some(parent_file) = base_parent_file {
             MutableIndexSegment::incremental(parent_file)
         } else {
-            MutableIndexSegment::full(self.commit_id_length, self.change_id_length)
+            MutableIndexSegment::full(self.field_lengths)
         };
         for parent_file in files_to_squash.iter().rev() {
             squashed.add_commits_from(parent_file.as_ref());
@@ -373,8 +373,7 @@ impl MutableIndexSegment {
             &mut &buf[local_entries_offset..],
             index_file_id_hex,
             self.parent_file,
-            self.commit_id_length,
-            self.change_id_length,
+            self.field_lengths,
         )
         .expect("in-memory index data should be valid and readable"))
     }
@@ -460,8 +459,8 @@ impl IndexSegment for MutableIndexSegment {
 pub struct DefaultMutableIndex(MutableIndexSegment);
 
 impl DefaultMutableIndex {
-    pub(super) fn full(commit_id_length: usize, change_id_length: usize) -> Self {
-        let mutable_segment = MutableIndexSegment::full(commit_id_length, change_id_length);
+    pub(super) fn full(lengths: FieldLengths) -> Self {
+        let mutable_segment = MutableIndexSegment::full(lengths);
         DefaultMutableIndex(mutable_segment)
     }
 

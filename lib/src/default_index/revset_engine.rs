@@ -1437,7 +1437,13 @@ mod tests {
     use indoc::indoc;
 
     use super::*;
+    use crate::default_index::readonly::FieldLengths;
     use crate::default_index::DefaultMutableIndex;
+
+    const TEST_FIELD_LENGTHS: FieldLengths = FieldLengths {
+        commit_id: 3,
+        change_id: 16,
+    };
 
     /// Generator of unique 16-byte ChangeId excluding root id
     fn change_id_generator() -> impl FnMut() -> ChangeId {
@@ -1452,7 +1458,7 @@ mod tests {
     #[test]
     fn test_revset_combinator() {
         let mut new_change_id = change_id_generator();
-        let mut index = DefaultMutableIndex::full(3, 16);
+        let mut index = DefaultMutableIndex::full(TEST_FIELD_LENGTHS);
         let id_0 = CommitId::from_hex("000000");
         let id_1 = CommitId::from_hex("111111");
         let id_2 = CommitId::from_hex("222222");
@@ -1567,7 +1573,7 @@ mod tests {
     #[test]
     fn test_revset_combinator_error_propagation() {
         let mut new_change_id = change_id_generator();
-        let mut index = DefaultMutableIndex::full(3, 16);
+        let mut index = DefaultMutableIndex::full(TEST_FIELD_LENGTHS);
         let id_0 = CommitId::from_hex("000000");
         let id_1 = CommitId::from_hex("111111");
         let id_2 = CommitId::from_hex("222222");
@@ -1701,7 +1707,7 @@ mod tests {
     #[test]
     fn test_positions_accumulator() {
         let mut new_change_id = change_id_generator();
-        let mut index = DefaultMutableIndex::full(3, 16);
+        let mut index = DefaultMutableIndex::full(TEST_FIELD_LENGTHS);
         let id_0 = CommitId::from_hex("000000");
         let id_1 = CommitId::from_hex("111111");
         let id_2 = CommitId::from_hex("222222");

@@ -31,6 +31,7 @@ use thiserror::Error;
 
 use super::mutable::DefaultMutableIndex;
 use super::readonly::DefaultReadonlyIndex;
+use super::readonly::FieldLengths;
 use super::readonly::ReadonlyIndexLoadError;
 use super::readonly::ReadonlyIndexSegment;
 use crate::backend::BackendError;
@@ -154,19 +155,13 @@ impl DefaultIndexStore {
     fn load_index_segments_at_operation(
         &self,
         op_id: &OperationId,
-        commit_id_length: usize,
-        change_id_length: usize,
+        lengths: FieldLengths,
     ) -> Result<Arc<ReadonlyIndexSegment>, DefaultIndexStoreError> {
         let op_id_file = self.operations_dir().join(op_id.hex());
         let index_file_id_hex =
             fs::read_to_string(op_id_file).map_err(DefaultIndexStoreError::LoadAssociation)?;
-        ReadonlyIndexSegment::load(
-            &self.segments_dir(),
-            index_file_id_hex,
-            commit_id_length,
-            change_id_length,
-        )
-        .map_err(DefaultIndexStoreError::LoadIndex)
+        ReadonlyIndexSegment::load(&self.segments_dir(), index_file_id_hex, lengths)
+            .map_err(DefaultIndexStoreError::LoadIndex)
     }
 
     /// Rebuilds index for the given `operation`.
@@ -190,8 +185,10 @@ impl DefaultIndexStore {
     ) -> Result<Arc<ReadonlyIndexSegment>, DefaultIndexStoreError> {
         tracing::info!("scanning operations to index");
         let operations_dir = self.operations_dir();
-        let commit_id_length = store.commit_id_length();
-        let change_id_length = store.change_id_length();
+        let field_lengths = FieldLengths {
+            commit_id: store.commit_id_length(),
+            change_id: store.change_id_length(),
+        };
         // Pick the latest existing ancestor operation as the parent segment.
         let mut unindexed_ops = Vec::new();
         let mut parent_op = None;
@@ -232,14 +229,10 @@ impl DefaultIndexStore {
         match &parent_op {
             None => {
                 maybe_parent_file = None;
-                mutable_index = DefaultMutableIndex::full(commit_id_length, change_id_length);
+                mutable_index = DefaultMutableIndex::full(field_lengths);
             }
             Some(op) => {
-                let parent_file = self.load_index_segments_at_operation(
-                    op.id(),
-                    commit_id_length,
-                    change_id_length,
-                )?;
+                let parent_file = self.load_index_segments_at_operation(op.id(), field_lengths)?;
                 maybe_parent_file = Some(parent_file.clone());
                 mutable_index = DefaultMutableIndex::incremental(parent_file);
             }
@@ -371,11 +364,11 @@ impl IndexStore for DefaultIndexStore {
         op: &Operation,
         store: &Arc<Store>,
     ) -> Result<Box<dyn ReadonlyIndex>, IndexReadError> {
-        let index_segment = match self.load_index_segments_at_operation(
-            op.id(),
-            store.commit_id_length(),
-            store.change_id_length(),
-        ) {
+        let field_lengths = FieldLengths {
+            commit_id: store.commit_id_length(),
+            change_id: store.change_id_length(),
+        };
+        let index_segment = match self.load_index_segments_at_operation(op.id(), field_lengths) {
             Err(DefaultIndexStoreError::LoadAssociation(err))
                 if err.kind() == io::ErrorKind::NotFound =>
             {
