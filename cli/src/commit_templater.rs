@@ -2180,7 +2180,7 @@ impl CryptographicSignature {
     }
 }
 
-pub fn builtin_cryptographic_signature_methods<'repo>(
+fn builtin_cryptographic_signature_methods<'repo>(
 ) -> CommitTemplateBuildMethodFnMap<'repo, CryptographicSignature> {
     type L<'repo> = CommitTemplateLanguage<'repo>;
     // Not using maplit::hashmap!{} or custom declarative macro here because
@@ -2225,8 +2225,8 @@ pub struct AnnotationLine {
     pub first_line_in_hunk: bool,
 }
 
-pub fn builtin_annotation_line_methods<'repo>(
-) -> CommitTemplateBuildMethodFnMap<'repo, AnnotationLine> {
+fn builtin_annotation_line_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, AnnotationLine>
+{
     type L<'repo> = CommitTemplateLanguage<'repo>;
     let mut map = CommitTemplateBuildMethodFnMap::<AnnotationLine>::new();
     map.insert(
