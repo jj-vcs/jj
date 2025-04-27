@@ -1709,4 +1709,22 @@ fn test_log_format_trailers() {
         "-r@",
     ]);
     insta::assert_snapshot!(output, @"Test User <test.user@example.com> I6a6a69649a45c67d3e96a7e5007c110ede34dec5[EOF]");
+
+    let output = work_dir.run_jj([
+        "log",
+        "--no-graph",
+        "-T",
+        r#"self.trailers().contains_key("Signed-off-by")"#,
+        "-r@",
+    ]);
+    insta::assert_snapshot!(output, @"true[EOF]");
+
+    let output = work_dir.run_jj([
+        "log",
+        "--no-graph",
+        "-T",
+        r#"self.trailers().contains_key("foo")"#,
+        "-r@",
+    ]);
+    insta::assert_snapshot!(output, @"false[EOF]");
 }

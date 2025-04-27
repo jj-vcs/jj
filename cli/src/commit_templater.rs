@@ -74,6 +74,7 @@ use crate::diff_util::DiffStats;
 use crate::formatter::Formatter;
 use crate::revset_util;
 use crate::template_builder;
+use crate::template_builder::expect_plain_text_expression;
 use crate::template_builder::merge_fn_map;
 use crate::template_builder::BuildContext;
 use crate::template_builder::CoreTemplateBuildFnTable;
@@ -341,15 +342,24 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
             }
             CommitTemplatePropertyKind::TrailerList(property) => {
                 // TODO: migrate to table?
-                template_builder::build_formattable_list_method(
-                    self,
-                    diagnostics,
-                    build_ctx,
-                    property,
-                    function,
-                    Self::wrap_trailer,
-                    Self::wrap_trailer_list,
-                )
+                if function.name == "contains_key" {
+                    let [key_node] = function.expect_exact_arguments()?;
+                    let key_property =
+                        expect_plain_text_expression(self, diagnostics, build_ctx, key_node)?;
+                    let out_property = (property, key_property)
+                        .map(|(trailers, key)| trailers.iter().any(|t| t.key == key));
+                    Ok(Self::wrap_boolean(out_property))
+                } else {
+                    template_builder::build_formattable_list_method(
+                        self,
+                        diagnostics,
+                        build_ctx,
+                        property,
+                        function,
+                        Self::wrap_trailer,
+                        Self::wrap_trailer_list,
+                    )
+                }
             }
         }
     }

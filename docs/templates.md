@@ -248,6 +248,13 @@ defined.
 * `.map(|item| expression) -> ListTemplate`: Apply template `expression`
   to each element. Example: `parents.map(|c| c.commit_id().short())`
 
+### List<Trailer> type
+
+The following methods are defined. See also the `List` type.
+
+* `.contains_key(key: Template) -> Boolean`: True if the commit description
+  contains at least one trailer with the key `key`.
+
 ### ListTemplate type
 
 The following methods are defined. See also the `List` type.
