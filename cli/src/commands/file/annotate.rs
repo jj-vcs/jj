@@ -47,7 +47,7 @@ pub(crate) struct FileAnnotateArgs {
         long,
         short,
         value_name = "REVSET",
-        add = ArgValueCandidates::new(complete::all_revisions)
+        add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     revision: Option<RevisionArg>,
     /// Render each line using the given template

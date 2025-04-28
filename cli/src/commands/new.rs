@@ -15,7 +15,7 @@
 use std::collections::HashSet;
 use std::io::Write as _;
 
-use clap_complete::ArgValueCandidates;
+use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::repo::Repo as _;
@@ -49,7 +49,7 @@ pub(crate) struct NewArgs {
     #[arg(
         default_value = "@",
         value_name = "REVSETS",
-        add = ArgValueCandidates::new(complete::all_revisions)
+        add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     revisions: Option<Vec<RevisionArg>>,
     /// Ignored (but lets you pass `-d`/`-r` for consistency with other
@@ -98,7 +98,7 @@ pub(crate) struct NewArgs {
         conflicts_with = "revisions",
         value_name = "REVSETS",
         verbatim_doc_comment,
-        add = ArgValueCandidates::new(complete::all_revisions),
+        add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     insert_after: Option<Vec<RevisionArg>>,
     /// Insert the new change before the given commit(s)
@@ -137,7 +137,7 @@ pub(crate) struct NewArgs {
         conflicts_with = "revisions",
         value_name = "REVSETS",
         verbatim_doc_comment,
-        add = ArgValueCandidates::new(complete::mutable_revisions),
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     insert_before: Option<Vec<RevisionArg>>,
 }

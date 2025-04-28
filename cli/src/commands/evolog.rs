@@ -15,6 +15,7 @@
 use std::convert::Infallible;
 
 use clap_complete::ArgValueCandidates;
+use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::commit::Commit;
 use jj_lib::dag_walk::topo_order_reverse_ok;
@@ -46,7 +47,7 @@ pub(crate) struct EvologArgs {
         long, short,
         default_value = "@",
         value_name = "REVSET",
-        add = ArgValueCandidates::new(complete::all_revisions),
+        add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     revision: RevisionArg,
     /// Limit number of revisions to show

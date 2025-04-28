@@ -16,7 +16,7 @@ use std::collections::HashSet;
 
 use bstr::ByteVec as _;
 use clap::ArgGroup;
-use clap_complete::ArgValueCandidates;
+use clap_complete::ArgValueCompleter;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
@@ -48,14 +48,14 @@ pub(crate) struct RevertArgs {
     #[arg(
         long, short,
         value_name = "REVSETS",
-        add = ArgValueCandidates::new(complete::all_revisions),
+        add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     revisions: Vec<RevisionArg>,
     /// The revision(s) to apply the reverse changes on top of
     #[arg(
         long, short,
         value_name = "REVSETS",
-        add = ArgValueCandidates::new(complete::all_revisions),
+        add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     destination: Option<Vec<RevisionArg>>,
     /// The revision(s) to insert the reverse changes after (can be repeated to
@@ -66,7 +66,7 @@ pub(crate) struct RevertArgs {
         visible_alias = "after",
         conflicts_with = "destination",
         value_name = "REVSETS",
-        add = ArgValueCandidates::new(complete::all_revisions),
+        add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     insert_after: Option<Vec<RevisionArg>>,
     /// The revision(s) to insert the reverse changes before (can be repeated to
@@ -77,7 +77,7 @@ pub(crate) struct RevertArgs {
         visible_alias = "before",
         conflicts_with = "destination",
         value_name = "REVSETS",
-        add = ArgValueCandidates::new(complete::mutable_revisions)
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     insert_before: Option<Vec<RevisionArg>>,
 }

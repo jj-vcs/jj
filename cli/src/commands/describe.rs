@@ -17,7 +17,7 @@ use std::io;
 use std::io::Read as _;
 use std::iter;
 
-use clap_complete::ArgValueCandidates;
+use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::backend::Signature;
 use jj_lib::commit::CommitIteratorExt as _;
@@ -49,14 +49,14 @@ pub(crate) struct DescribeArgs {
     /// The revision(s) whose description to edit (default: @)
     #[arg(
         value_name = "REVSETS",
-        add = ArgValueCandidates::new(complete::mutable_revisions)
+        add = ArgValueCompleter::new(complete::revset_expression_mutable)
     )]
     revisions_pos: Vec<RevisionArg>,
     #[arg(
         short = 'r',
         hide = true,
         value_name = "REVSETS",
-        add = ArgValueCandidates::new(complete::mutable_revisions)
+        add = ArgValueCompleter::new(complete::revset_expression_mutable)
     )]
     revisions_opt: Vec<RevisionArg>,
     /// The change description to use (don't open editor)

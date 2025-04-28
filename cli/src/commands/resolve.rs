@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::object_id::ObjectId as _;
@@ -50,7 +49,7 @@ pub(crate) struct ResolveArgs {
         long, short,
         default_value = "@",
         value_name = "REVSET",
-        add = ArgValueCandidates::new(complete::mutable_revisions),
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     revision: RevisionArg,
     /// Instead of resolving conflicts, list all the conflicts

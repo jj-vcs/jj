@@ -230,7 +230,7 @@ pub fn aliases() -> Vec<CompletionCandidate> {
     })
 }
 
-fn revisions(revisions: Option<&str>) -> Vec<CompletionCandidate> {
+fn revisions(match_prefix: &str, revset_filter: Option<&str>) -> Vec<CompletionCandidate> {
     with_jj(|jj, settings| {
         // display order
         const LOCAL_BOOKMARK_MINE: usize = 0;
@@ -257,36 +257,40 @@ fn revisions(revisions: Option<&str>) -> Vec<CompletionCandidate> {
             .arg(
                 r#"if(remote != "git", name ++ if(remote, "@" ++ remote) ++ bookmark_help() ++ "\n")"#,
             );
-        if let Some(revs) = revisions {
+        if let Some(revs) = revset_filter {
             cmd.arg("--revisions").arg(revs);
         }
         let output = cmd.output().map_err(user_error)?;
         let stdout = String::from_utf8_lossy(&output.stdout);
 
-        candidates.extend(stdout.lines().map(|line| {
-            let (bookmark, help) = split_help_text(line);
+        candidates.extend(
+            stdout
+                .lines()
+                .map(split_help_text)
+                .filter(|(bookmark, _)| bookmark.starts_with(match_prefix))
+                .map(|(bookmark, help)| {
+                    let local = !bookmark.contains('@');
+                    let mine = prefix.as_ref().is_some_and(|p| bookmark.starts_with(p));
 
-            let local = !bookmark.contains('@');
-            let mine = prefix.as_ref().is_some_and(|p| bookmark.starts_with(p));
-
-            let display_order = match (local, mine) {
-                (true, true) => LOCAL_BOOKMARK_MINE,
-                (true, false) => LOCAL_BOOKMARK,
-                (false, true) => REMOTE_BOOKMARK_MINE,
-                (false, false) => REMOTE_BOOKMARK,
-            };
-            CompletionCandidate::new(bookmark)
-                .help(help)
-                .display_order(Some(display_order))
-        }));
+                    let display_order = match (local, mine) {
+                        (true, true) => LOCAL_BOOKMARK_MINE,
+                        (true, false) => LOCAL_BOOKMARK,
+                        (false, true) => REMOTE_BOOKMARK_MINE,
+                        (false, false) => REMOTE_BOOKMARK,
+                    };
+                    CompletionCandidate::new(bookmark)
+                        .help(help)
+                        .display_order(Some(display_order))
+                }),
+        );
 
         // tags
 
         // Tags cannot be filtered by revisions. In order to avoid suggesting
         // immutable tags for mutable revision args, we skip tags entirely if
-        // revisions is set. This is not a big loss, since tags usually point
+        // revset_filter is set. This is not a big loss, since tags usually point
         // to immutable revisions anyway.
-        if revisions.is_none() {
+        if revset_filter.is_none() {
             let output = jj
                 .build()
                 .arg("tag")
@@ -295,6 +299,7 @@ fn revisions(revisions: Option<&str>) -> Vec<CompletionCandidate> {
                 .arg(BOOKMARK_HELP_TEMPLATE)
                 .arg("--template")
                 .arg(r#"name ++ bookmark_help() ++ "\n""#)
+                .arg(format!("glob:{}*", glob::Pattern::escape(match_prefix)))
                 .output()
                 .map_err(user_error)?;
             let stdout = String::from_utf8_lossy(&output.stdout);
@@ -309,7 +314,7 @@ fn revisions(revisions: Option<&str>) -> Vec<CompletionCandidate> {
 
         // change IDs
 
-        let revisions = revisions
+        let revisions = revset_filter
             .map(String::from)
             .or_else(|| settings.get_string("revsets.short-prefixes").ok())
             .or_else(|| settings.get_string("revsets.log").ok())
@@ -329,35 +334,92 @@ fn revisions(revisions: Option<&str>) -> Vec<CompletionCandidate> {
             .map_err(user_error)?;
         let stdout = String::from_utf8_lossy(&output.stdout);
 
-        candidates.extend(stdout.lines().map(|line| {
-            let (id, desc) = split_help_text(line);
-            CompletionCandidate::new(id)
-                .help(desc)
-                .display_order(Some(CHANGE_ID))
-        }));
+        candidates.extend(
+            stdout
+                .lines()
+                .map(split_help_text)
+                .filter(|(id, _)| id.starts_with(match_prefix))
+                .map(|(id, desc)| {
+                    CompletionCandidate::new(id)
+                        .help(desc)
+                        .display_order(Some(CHANGE_ID))
+                }),
+        );
 
         // revset aliases
 
         let revset_aliases = load_revset_aliases(&Ui::null(), settings.config())?;
         let mut symbol_names: Vec<_> = revset_aliases.symbol_names().collect();
         symbol_names.sort();
-        candidates.extend(symbol_names.into_iter().map(|symbol| {
-            let (_, defn) = revset_aliases.get_symbol(symbol).unwrap();
-            CompletionCandidate::new(symbol)
-                .help(Some(defn.into()))
-                .display_order(Some(REVSET_ALIAS))
-        }));
+        candidates.extend(
+            symbol_names
+                .into_iter()
+                .filter(|symbol| symbol.starts_with(match_prefix))
+                .map(|symbol| {
+                    let (_, defn) = revset_aliases.get_symbol(symbol).unwrap();
+                    CompletionCandidate::new(symbol)
+                        .help(Some(defn.into()))
+                        .display_order(Some(REVSET_ALIAS))
+                }),
+        );
 
         Ok(candidates)
     })
 }
 
-pub fn mutable_revisions() -> Vec<CompletionCandidate> {
-    revisions(Some("mutable()"))
+fn revset_expression(
+    current: &std::ffi::OsStr,
+    revset_filter: Option<&str>,
+) -> Vec<CompletionCandidate> {
+    let Some(current) = current.to_str() else {
+        return Vec::new();
+    };
+    let (prepend, match_prefix) = split_revset_trailing_name(current).unwrap_or(("", current));
+    let candidates = revisions(match_prefix, revset_filter);
+    if prepend.is_empty() {
+        candidates
+    } else {
+        candidates
+            .into_iter()
+            .map(|candidate| candidate.add_prefix(prepend))
+            .collect()
+    }
 }
 
-pub fn all_revisions() -> Vec<CompletionCandidate> {
-    revisions(None)
+pub fn revset_expression_all(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
+    revset_expression(current, None)
+}
+
+pub fn revset_expression_mutable(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
+    revset_expression(current, Some("mutable()"))
+}
+
+/// Identifies if an incomplete expression ends with a name, or may be continued
+/// with a name.
+///
+/// If the expression ends with an name or a partial name, returns a tuple that
+/// splits the string at the point the name starts.
+/// If the expression is empty or ends with a prefix or infix operator that
+/// could plausibly be followed by a name, returns a tuple where the first
+/// item is the entire input string, and the second item is empty.
+/// Otherwise, returns `None`.
+///
+/// The input expression may be incomplete (e.g. missing closing parentheses),
+/// and the ability to reject invalid expressions is limited.
+fn split_revset_trailing_name(incomplete_revset_str: &str) -> Option<(&str, &str)> {
+    let final_part = incomplete_revset_str
+        .rsplit_once([':', '~', '|', '&', '(', ','])
+        .map(|(_, rest)| rest)
+        .unwrap_or(incomplete_revset_str);
+    let final_part = final_part
+        .rsplit_once("..")
+        .map(|(_, rest)| rest)
+        .unwrap_or(final_part)
+        .trim_ascii_start();
+
+    let re = regex::Regex::new(r"^(?:[\p{XID_CONTINUE}_/]+[@.+-])*[\p{XID_CONTINUE}_/]*$").unwrap();
+    re.is_match(final_part)
+        .then(|| incomplete_revset_str.split_at(incomplete_revset_str.len() - final_part.len()))
 }
 
 pub fn operations() -> Vec<CompletionCandidate> {
@@ -557,13 +619,8 @@ pub fn branch_name_equals_any_revision(current: &std::ffi::OsStr) -> Vec<Complet
         // Don't complete branch names since we want to create a new branch
         return Vec::new();
     };
-    all_revisions()
+    revset_expression(revision.as_ref(), None)
         .into_iter()
-        .filter(|rev| {
-            rev.get_value()
-                .to_str()
-                .is_some_and(|s| s.starts_with(revision))
-        })
         .map(|rev| rev.add_prefix(format!("{branch_name}=")))
         .collect()
 }
@@ -1021,6 +1078,71 @@ mod parse {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_split_revset_trailing_name() {
+        assert_eq!(split_revset_trailing_name(""), Some(("", "")));
+        assert_eq!(split_revset_trailing_name(" "), Some((" ", "")));
+        assert_eq!(split_revset_trailing_name("foo"), Some(("", "foo")));
+        assert_eq!(split_revset_trailing_name(" foo"), Some((" ", "foo")));
+        assert_eq!(split_revset_trailing_name("foo "), None);
+        assert_eq!(split_revset_trailing_name("foo_"), Some(("", "foo_")));
+        assert_eq!(split_revset_trailing_name("foo/"), Some(("", "foo/")));
+        assert_eq!(split_revset_trailing_name("foo/b"), Some(("", "foo/b")));
+
+        assert_eq!(split_revset_trailing_name("foo-"), Some(("", "foo-")));
+        assert_eq!(split_revset_trailing_name("foo+"), Some(("", "foo+")));
+        assert_eq!(
+            split_revset_trailing_name("foo-bar-"),
+            Some(("", "foo-bar-"))
+        );
+        assert_eq!(
+            split_revset_trailing_name("foo-bar-b"),
+            Some(("", "foo-bar-b"))
+        );
+
+        assert_eq!(split_revset_trailing_name("foo."), Some(("", "foo.")));
+        assert_eq!(split_revset_trailing_name("foo..b"), Some(("foo..", "b")));
+        assert_eq!(split_revset_trailing_name("..foo"), Some(("..", "foo")));
+
+        assert_eq!(split_revset_trailing_name("foo(bar"), Some(("foo(", "bar")));
+        assert_eq!(split_revset_trailing_name("foo(bar)"), None);
+        assert_eq!(split_revset_trailing_name("(f"), Some(("(", "f")));
+
+        assert_eq!(split_revset_trailing_name("foo@"), Some(("", "foo@")));
+        assert_eq!(split_revset_trailing_name("foo@b"), Some(("", "foo@b")));
+        assert_eq!(split_revset_trailing_name("..foo@"), Some(("..", "foo@")));
+        assert_eq!(
+            split_revset_trailing_name("::F(foo@origin.1..bar@origin."),
+            Some(("::F(foo@origin.1..", "bar@origin."))
+        );
+    }
+
+    #[test]
+    fn test_split_revset_trailing_name_with_trailing_operator() {
+        assert_eq!(split_revset_trailing_name("foo|"), Some(("foo|", "")));
+        assert_eq!(split_revset_trailing_name("foo | "), Some(("foo | ", "")));
+        assert_eq!(split_revset_trailing_name("foo&"), Some(("foo&", "")));
+        assert_eq!(split_revset_trailing_name("foo~"), Some(("foo~", "")));
+
+        assert_eq!(split_revset_trailing_name(".."), Some(("..", "")));
+        assert_eq!(split_revset_trailing_name("foo.."), Some(("foo..", "")));
+        assert_eq!(split_revset_trailing_name("::"), Some(("::", "")));
+        assert_eq!(split_revset_trailing_name("foo::"), Some(("foo::", "")));
+
+        assert_eq!(split_revset_trailing_name("("), Some(("(", "")));
+        assert_eq!(split_revset_trailing_name("foo("), Some(("foo(", "")));
+        assert_eq!(split_revset_trailing_name("foo()"), None);
+        assert_eq!(split_revset_trailing_name("foo(bar)"), None);
+    }
+
+    #[test]
+    fn test_split_revset_trailing_name_with_modifier() {
+        assert_eq!(split_revset_trailing_name("all:"), Some(("all:", "")));
+        assert_eq!(split_revset_trailing_name("all: "), Some(("all: ", "")));
+        assert_eq!(split_revset_trailing_name("all:f"), Some(("all:", "f")));
+        assert_eq!(split_revset_trailing_name("all: f"), Some(("all: ", "f")));
+    }
 
     #[test]
     fn test_config_keys() {

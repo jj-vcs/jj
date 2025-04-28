@@ -14,7 +14,7 @@
 
 use std::collections::HashMap;
 
-use clap_complete::ArgValueCandidates;
+use clap_complete::ArgValueCompleter;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
@@ -59,7 +59,7 @@ pub(crate) struct ParallelizeArgs {
     /// Revisions to parallelize
     #[arg(
         value_name = "REVSETS",
-        add = ArgValueCandidates::new(complete::mutable_revisions)
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     revisions: Vec<RevisionArg>,
 }

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use clap_complete::ArgValueCandidates;
+use clap_complete::ArgValueCompleter;
 use jj_lib::absorb::absorb_hunks;
 use jj_lib::absorb::split_hunks_to_trees;
 use jj_lib::absorb::AbsorbSource;
@@ -46,7 +46,7 @@ pub(crate) struct AbsorbArgs {
         long, short,
         default_value = "@",
         value_name = "REVSET",
-        add = ArgValueCandidates::new(complete::mutable_revisions),
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     from: RevisionArg,
     /// Destination revisions to absorb into
@@ -56,7 +56,7 @@ pub(crate) struct AbsorbArgs {
         long, short = 't', visible_alias = "to",
         default_value = "mutable()",
         value_name = "REVSETS",
-        add = ArgValueCandidates::new(complete::mutable_revisions),
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     into: Vec<RevisionArg>,
     /// Move only changes to these paths (instead of all paths)

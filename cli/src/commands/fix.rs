@@ -17,7 +17,7 @@ use std::io::Write as _;
 use std::path::Path;
 use std::process::Stdio;
 
-use clap_complete::ArgValueCandidates;
+use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::FileId;
@@ -108,7 +108,7 @@ pub(crate) struct FixArgs {
         long,
         short,
         value_name = "REVSETS",
-        add = ArgValueCandidates::new(complete::mutable_revisions)
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     source: Vec<RevisionArg>,
     /// Fix only these paths

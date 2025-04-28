@@ -73,6 +73,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj config edit` will now roll back to previous version if a syntax error has been introduced in the new config.
 
+* When using dynamic command-line completion, revision names will be completed
+  in more complex expressions. For example, typing
+  `jj log -r first-bookmark..sec` and then pressing Tab could complete the
+  expression to `first-bookmark..second-bookmark`.
+
 
 ### Fixed bugs
 

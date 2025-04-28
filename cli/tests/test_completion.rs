@@ -792,6 +792,22 @@ fn test_revisions() {
     [EOF]
     ");
 
+    // complete all revisions in a revset expression
+    let output = work_dir.complete_fish(["log", "-r", ".."]);
+    insta::assert_snapshot!(output, @r"
+    ..immutable_bookmark	immutable
+    ..mutable_bookmark	mutable
+    ..k	working_copy
+    ..y	mutable
+    ..q	immutable
+    ..zq	remote_commit
+    ..zz	(no description set)
+    ..remote_bookmark@origin	remote_commit
+    ..alias_with_newline	    roots(
+    ..siblings	@-+ ~@
+    [EOF]
+    ");
+
     // complete only mutable revisions
     let output = work_dir.complete_fish(["squash", "--into", ""]);
     insta::assert_snapshot!(output, @r"
@@ -801,6 +817,25 @@ fn test_revisions() {
     zq	remote_commit
     alias_with_newline	    roots(
     siblings	@-+ ~@
+    [EOF]
+    ");
+
+    // complete only mutable revisions in a revset expression
+    let output = work_dir.complete_fish(["abandon", "y::"]);
+    insta::assert_snapshot!(output, @r"
+    y::mutable_bookmark	mutable
+    y::k	working_copy
+    y::y	mutable
+    y::zq	remote_commit
+    y::alias_with_newline	    roots(
+    y::siblings	@-+ ~@
+    [EOF]
+    ");
+
+    // complete remote bookmarks in a revset expression
+    let output = work_dir.complete_fish(["log", "-r", "remote_bookmark@"]);
+    insta::assert_snapshot!(output, @r"
+    remote_bookmark@origin	remote_commit
     [EOF]
     ");
 

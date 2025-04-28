@@ -14,7 +14,6 @@
 
 use std::io::Write as _;
 
-use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use indoc::formatdoc;
 use itertools::Itertools as _;
@@ -58,7 +57,7 @@ pub(crate) struct RestoreArgs {
         long,
         short,
         value_name = "REVSET",
-        add = ArgValueCandidates::new(complete::all_revisions)
+        add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     from: Option<RevisionArg>,
     /// Revision to restore into (destination)
@@ -66,7 +65,7 @@ pub(crate) struct RestoreArgs {
         long, short = 't',
         visible_alias = "to",
         value_name = "REVSET",
-        add = ArgValueCandidates::new(complete::mutable_revisions)
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     into: Option<RevisionArg>,
     /// Undo the changes in a revision as compared to the merge of its parents.
@@ -81,7 +80,7 @@ pub(crate) struct RestoreArgs {
         long, short,
         value_name = "REVSET",
         conflicts_with_all = ["into", "from"],
-        add = ArgValueCandidates::new(complete::all_revisions),
+        add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     changes_in: Option<RevisionArg>,
     /// Prints an error. DO NOT USE.

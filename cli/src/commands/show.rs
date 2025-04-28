@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use clap_complete::ArgValueCandidates;
+use clap_complete::ArgValueCompleter;
 use jj_lib::matchers::EverythingMatcher;
 use tracing::instrument;
 
@@ -30,7 +31,7 @@ pub(crate) struct ShowArgs {
     #[arg(
         default_value = "@",
         value_name = "REVSET",
-        add = ArgValueCandidates::new(complete::all_revisions)
+        add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     revision: RevisionArg,
     /// Ignored (but lets you pass `-r` for consistency with other commands)

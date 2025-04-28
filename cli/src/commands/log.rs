@@ -74,7 +74,7 @@ pub(crate) struct LogArgs {
         long,
         short,
         value_name = "REVSETS",
-        add = ArgValueCandidates::new(complete::all_revisions)
+        add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     revisions: Vec<RevisionArg>,
     /// Show revisions modifying the given paths

@@ -16,7 +16,7 @@ use std::io::Write as _;
 use std::sync::Arc;
 
 use clap::ArgGroup;
-use clap_complete::ArgValueCandidates;
+use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
@@ -278,7 +278,7 @@ pub(crate) struct RebaseArgs {
         long,
         short,
         value_name = "REVSETS",
-        add = ArgValueCandidates::new(complete::mutable_revisions)
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     branch: Vec<RevisionArg>,
 
@@ -294,7 +294,7 @@ pub(crate) struct RebaseArgs {
         long,
         short,
         value_name = "REVSETS",
-        add = ArgValueCandidates::new(complete::mutable_revisions)
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     source: Vec<RevisionArg>,
     /// Rebase the given revisions, rebasing descendants onto this revision's
@@ -308,7 +308,7 @@ pub(crate) struct RebaseArgs {
         long,
         short,
         value_name = "REVSETS",
-        add = ArgValueCandidates::new(complete::mutable_revisions)
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     revisions: Vec<RevisionArg>,
 
@@ -336,7 +336,7 @@ pub struct RebaseDestinationArgs {
         long,
         short,
         value_name = "REVSETS",
-        add = ArgValueCandidates::new(complete::all_revisions)
+        add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     destination: Option<Vec<RevisionArg>>,
     /// The revision(s) to insert after (can be repeated to create a merge
@@ -347,7 +347,7 @@ pub struct RebaseDestinationArgs {
         visible_alias = "after",
         conflicts_with = "destination",
         value_name = "REVSETS",
-        add = ArgValueCandidates::new(complete::all_revisions),
+        add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     insert_after: Option<Vec<RevisionArg>>,
     /// The revision(s) to insert before (can be repeated to create a merge
@@ -358,7 +358,7 @@ pub struct RebaseDestinationArgs {
         visible_alias = "before",
         conflicts_with = "destination",
         value_name = "REVSETS",
-        add = ArgValueCandidates::new(complete::mutable_revisions),
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     insert_before: Option<Vec<RevisionArg>>,
 }

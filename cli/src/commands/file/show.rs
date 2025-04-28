@@ -15,7 +15,6 @@
 use std::io;
 use std::io::Write as _;
 
-use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use jj_lib::backend::BackendResult;
 use jj_lib::conflicts::materialize_merge_result;
@@ -49,7 +48,7 @@ pub(crate) struct FileShowArgs {
         long, short,
         default_value = "@",
         value_name = "REVSET",
-        add = ArgValueCandidates::new(complete::all_revisions),
+        add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     revision: RevisionArg,
     /// Paths to print

@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use jj_lib::backend::TreeValue;
 use jj_lib::merged_tree::MergedTreeBuilder;
@@ -50,7 +49,7 @@ pub(crate) struct FileChmodArgs {
         long, short,
         default_value = "@",
         value_name = "REVSET",
-        add = ArgValueCandidates::new(complete::mutable_revisions),
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     revision: RevisionArg,
     /// Paths to change the executable bit for

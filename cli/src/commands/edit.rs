@@ -14,7 +14,7 @@
 
 use std::io::Write as _;
 
-use clap_complete::ArgValueCandidates;
+use clap_complete::ArgValueCompleter;
 use jj_lib::object_id::ObjectId as _;
 use tracing::instrument;
 
@@ -34,7 +34,7 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct EditArgs {
     /// The commit to edit
-    #[arg(value_name = "REVSET", add = ArgValueCandidates::new(complete::mutable_revisions))]
+    #[arg(value_name = "REVSET", add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     revision: RevisionArg,
     /// Ignored (but lets you pass `-r` for consistency with other commands)
     #[arg(short = 'r', hide = true)]

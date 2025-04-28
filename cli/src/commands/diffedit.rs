@@ -14,7 +14,7 @@
 
 use std::io::Write as _;
 
-use clap_complete::ArgValueCandidates;
+use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::matchers::EverythingMatcher;
 use jj_lib::object_id::ObjectId as _;
@@ -54,7 +54,7 @@ pub(crate) struct DiffeditArgs {
         long,
         short,
         value_name = "REVSET",
-        add = ArgValueCandidates::new(complete::mutable_revisions)
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     revision: Option<RevisionArg>,
     /// Show changes from this revision
@@ -64,7 +64,7 @@ pub(crate) struct DiffeditArgs {
         long, short,
         conflicts_with = "revision",
         value_name = "REVSET",
-        add = ArgValueCandidates::new(complete::all_revisions),
+        add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     from: Option<RevisionArg>,
     /// Edit changes in this revision
@@ -74,7 +74,7 @@ pub(crate) struct DiffeditArgs {
         long, short,
         conflicts_with = "revision",
         value_name = "REVSET",
-        add = ArgValueCandidates::new(complete::mutable_revisions),
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     to: Option<RevisionArg>,
     /// Specify diff editor to be used

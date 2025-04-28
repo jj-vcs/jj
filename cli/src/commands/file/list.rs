@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use clap_complete::ArgValueCandidates;
+use clap_complete::ArgValueCompleter;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -31,7 +31,7 @@ pub(crate) struct FileListArgs {
         long, short,
         default_value = "@",
         value_name = "REVSET",
-        add = ArgValueCandidates::new(complete::all_revisions),
+        add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     revision: RevisionArg,
 

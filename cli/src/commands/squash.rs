@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use indoc::formatdoc;
 use itertools::Itertools as _;
@@ -69,7 +68,7 @@ pub(crate) struct SquashArgs {
         long,
         short,
         value_name = "REVSET",
-        add = ArgValueCandidates::new(complete::mutable_revisions)
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     revision: Option<RevisionArg>,
     /// Revision(s) to squash from (default: @)
@@ -77,7 +76,7 @@ pub(crate) struct SquashArgs {
         long, short,
         conflicts_with = "revision",
         value_name = "REVSETS",
-        add = ArgValueCandidates::new(complete::mutable_revisions),
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     from: Vec<RevisionArg>,
     /// Revision to squash into (default: @)
@@ -86,7 +85,7 @@ pub(crate) struct SquashArgs {
         conflicts_with = "revision",
         visible_alias = "to",
         value_name = "REVSET",
-        add = ArgValueCandidates::new(complete::mutable_revisions),
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     into: Option<RevisionArg>,
     /// The description to use for squashed revision (don't open editor)

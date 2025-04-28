@@ -13,7 +13,6 @@
 // limitations under the License.
 use std::io::Write as _;
 
-use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use jj_lib::commit::Commit;
 use jj_lib::matchers::Matcher;
@@ -67,7 +66,7 @@ pub(crate) struct SplitArgs {
         long, short,
         default_value = "@",
         value_name = "REVSET",
-        add = ArgValueCandidates::new(complete::mutable_revisions)
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     revision: RevisionArg,
     /// Split the revision into two parallel revisions instead of a parent and

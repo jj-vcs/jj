@@ -15,7 +15,7 @@
 use std::io::Write as _;
 
 use bstr::ByteVec as _;
-use clap_complete::ArgValueCandidates;
+use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::CommitId;
@@ -56,14 +56,14 @@ pub(crate) struct DuplicateArgs {
     /// The revision(s) to duplicate (default: @)
     #[arg(
         value_name = "REVSETS",
-        add = ArgValueCandidates::new(complete::all_revisions)
+        add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     revisions_pos: Vec<RevisionArg>,
     #[arg(
         short = 'r',
         hide = true,
         value_name = "REVSETS",
-        add = ArgValueCandidates::new(complete::all_revisions)
+        add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     revisions_opt: Vec<RevisionArg>,
     /// The revision(s) to duplicate onto (can be repeated to create a merge
@@ -72,7 +72,7 @@ pub(crate) struct DuplicateArgs {
         long,
         short,
         value_name = "REVSETS",
-        add = ArgValueCandidates::new(complete::all_revisions)
+        add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     destination: Option<Vec<RevisionArg>>,
     /// The revision(s) to insert after (can be repeated to create a merge
@@ -83,7 +83,7 @@ pub(crate) struct DuplicateArgs {
         visible_alias = "after",
         conflicts_with = "destination",
         value_name = "REVSETS",
-        add = ArgValueCandidates::new(complete::all_revisions),
+        add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     insert_after: Option<Vec<RevisionArg>>,
     /// The revision(s) to insert before (can be repeated to create a merge
@@ -94,7 +94,7 @@ pub(crate) struct DuplicateArgs {
         visible_alias = "before",
         conflicts_with = "destination",
         value_name = "REVSETS",
-        add = ArgValueCandidates::new(complete::mutable_revisions)
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     insert_before: Option<Vec<RevisionArg>>,
 }

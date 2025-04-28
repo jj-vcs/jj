@@ -160,7 +160,7 @@ pub struct GitPushArgs {
         // While `-r` will often be used with mutable revisions, immutable
         // revisions can be useful as parts of revsets or to push
         // special-purpose branches.
-        add = ArgValueCandidates::new(complete::all_revisions)
+        add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     revisions: Vec<RevisionArg>,
     /// Push this commit by creating a bookmark based on its change ID (can be
@@ -177,7 +177,7 @@ pub struct GitPushArgs {
         // recently created mutable revisions, even though it can in theory
         // be used with immutable ones as well. We can change it if the guess
         // turns out to be wrong.
-        add = ArgValueCandidates::new(complete::mutable_revisions)
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     change: Vec<RevisionArg>,
     /// Specify a new bookmark name and a revision to push under that name, e.g.

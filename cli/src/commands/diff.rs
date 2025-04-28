@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
@@ -63,7 +62,7 @@ pub(crate) struct DiffArgs {
         short,
         value_name = "REVSETS",
         alias = "revision",
-        add = ArgValueCandidates::new(complete::all_revisions)
+        add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     revisions: Option<Vec<RevisionArg>>,
     /// Show changes from this revision
@@ -72,7 +71,7 @@ pub(crate) struct DiffArgs {
         short,
         conflicts_with = "revisions",
         value_name = "REVSET",
-        add = ArgValueCandidates::new(complete::all_revisions)
+        add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     from: Option<RevisionArg>,
     /// Show changes to this revision
@@ -81,7 +80,7 @@ pub(crate) struct DiffArgs {
         short,
         conflicts_with = "revisions",
         value_name = "REVSET",
-        add = ArgValueCandidates::new(complete::all_revisions)
+        add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     to: Option<RevisionArg>,
     /// Restrict the diff to these paths

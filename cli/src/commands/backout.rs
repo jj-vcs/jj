@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use bstr::ByteVec as _;
-use clap_complete::ArgValueCandidates;
+use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::rewrite::merge_commit_trees;
@@ -38,7 +38,7 @@ pub(crate) struct BackoutArgs {
         long, short,
         default_value = "@",
         value_name = "REVSETS",
-        add = ArgValueCandidates::new(complete::all_revisions),
+        add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     revisions: Vec<RevisionArg>,
     /// The revision to apply the reverse changes on top of
@@ -48,7 +48,7 @@ pub(crate) struct BackoutArgs {
         long, short,
         default_value = "@",
         value_name = "REVSETS",
-        add = ArgValueCandidates::new(complete::all_revisions),
+        add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     destination: Vec<RevisionArg>,
 }

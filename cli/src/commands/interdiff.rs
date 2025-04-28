@@ -15,7 +15,6 @@
 use std::slice;
 
 use clap::ArgGroup;
-use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use tracing::instrument;
 
@@ -41,7 +40,7 @@ pub(crate) struct InterdiffArgs {
         long,
         short,
         value_name = "REVSET",
-        add = ArgValueCandidates::new(complete::all_revisions)
+        add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     from: Option<RevisionArg>,
     /// Show changes to this revision
@@ -49,7 +48,7 @@ pub(crate) struct InterdiffArgs {
         long,
         short,
         value_name = "REVSET",
-        add = ArgValueCandidates::new(complete::all_revisions)
+        add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     to: Option<RevisionArg>,
     /// Restrict the diff to these paths

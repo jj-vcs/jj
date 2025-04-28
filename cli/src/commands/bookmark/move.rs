@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use clap_complete::ArgValueCandidates;
+use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::RefTarget;
@@ -47,7 +48,7 @@ pub struct BookmarkMoveArgs {
         long, short,
         group = "source",
         value_name = "REVSETS",
-        add = ArgValueCandidates::new(complete::all_revisions),
+        add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     from: Vec<RevisionArg>,
 
@@ -58,7 +59,7 @@ pub struct BookmarkMoveArgs {
     #[arg(
         long, short,
         value_name = "REVSET",
-        add = ArgValueCandidates::new(complete::all_revisions),
+        add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     to: Option<RevisionArg>,
 
