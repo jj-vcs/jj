@@ -3644,7 +3644,7 @@ pub fn format_template<C: Clone>(ui: &Ui, arg: &C, template: &TemplateRenderer<C
 
 /// CLI command builder and runner.
 #[must_use]
-pub struct CliRunner {
+pub struct CliRunner<'a> {
     tracing_subscription: TracingSubscription,
     app: Command,
     config_layers: Vec<ConfigLayer>,
@@ -3655,19 +3655,21 @@ pub struct CliRunner {
     revset_extensions: RevsetExtensions,
     commit_template_extensions: Vec<Arc<dyn CommitTemplateLanguageExtension>>,
     operation_template_extensions: Vec<Arc<dyn OperationTemplateLanguageExtension>>,
-    dispatch_fn: CliDispatchFn,
-    dispatch_hook_fns: Vec<CliDispatchHookFn>,
-    process_global_args_fns: Vec<ProcessGlobalArgsFn>,
+    dispatch_fn: CliDispatchFn<'a>,
+    dispatch_hook_fns: Vec<CliDispatchHookFn<'a>>,
+    process_global_args_fns: Vec<ProcessGlobalArgsFn<'a>>,
 }
 
-pub type CliDispatchFn = Box<dyn FnOnce(&mut Ui, &CommandHelper) -> Result<(), CommandError>>;
+pub type CliDispatchFn<'a> =
+    Box<dyn FnOnce(&mut Ui, &CommandHelper) -> Result<(), CommandError> + 'a>;
 
-type CliDispatchHookFn =
-    Box<dyn FnOnce(&mut Ui, &CommandHelper, CliDispatchFn) -> Result<(), CommandError>>;
+type CliDispatchHookFn<'a> =
+    Box<dyn FnOnce(&mut Ui, &CommandHelper, CliDispatchFn<'a>) -> Result<(), CommandError> + 'a>;
 
-type ProcessGlobalArgsFn = Box<dyn FnOnce(&mut Ui, &ArgMatches) -> Result<(), CommandError>>;
+type ProcessGlobalArgsFn<'a> =
+    Box<dyn FnOnce(&mut Ui, &ArgMatches) -> Result<(), CommandError> + 'a>;
 
-impl CliRunner {
+impl<'a> CliRunner<'a> {
     /// Initializes CLI environment and returns a builder. This should be called
     /// as early as possible.
     pub fn init() -> Self {
@@ -3787,7 +3789,7 @@ impl CliRunner {
     /// run the command.
     pub fn add_dispatch_hook<F>(mut self, dispatch_hook_fn: F) -> Self
     where
-        F: FnOnce(&mut Ui, &CommandHelper, CliDispatchFn) -> Result<(), CommandError> + 'static,
+        F: FnOnce(&mut Ui, &CommandHelper, CliDispatchFn) -> Result<(), CommandError> + 'a,
     {
         self.dispatch_hook_fns.push(Box::new(dispatch_hook_fn));
         self
@@ -3797,7 +3799,7 @@ impl CliRunner {
     pub fn add_subcommand<C, F>(mut self, custom_dispatch_fn: F) -> Self
     where
         C: clap::Subcommand,
-        F: FnOnce(&mut Ui, &CommandHelper, C) -> Result<(), CommandError> + 'static,
+        F: FnOnce(&mut Ui, &CommandHelper, C) -> Result<(), CommandError> + 'a,
     {
         let old_dispatch_fn = self.dispatch_fn;
         let new_dispatch_fn =
@@ -3816,7 +3818,7 @@ impl CliRunner {
     pub fn add_global_args<A, F>(mut self, process_before: F) -> Self
     where
         A: clap::Args,
-        F: FnOnce(&mut Ui, A) -> Result<(), CommandError> + 'static,
+        F: FnOnce(&mut Ui, A) -> Result<(), CommandError> + 'a,
     {
         let process_global_args_fn = move |ui: &mut Ui, matches: &ArgMatches| {
             let custom_args = A::from_arg_matches(matches).unwrap();
