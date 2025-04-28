@@ -95,11 +95,11 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
-      - uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: 3.11
       - name: Install uv
-        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86
+        uses: astral-sh/setup-uv@c7f87aa956e4c323abf06d5dec078e358f6b4d04
         with:
           version: "0.5.1"
       - name: Compile docs and zip them up
@@ -132,11 +132,11 @@ jobs:
           # `.github/scripts/docs-build-deploy` will need to `git push` to the docs branch
           persist-credentials: true
       - run:  "git fetch origin gh-pages --depth=1"
-      - uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: 3.11
       - name: Install uv
-        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86
+        uses: astral-sh/setup-uv@c7f87aa956e4c323abf06d5dec078e358f6b4d04
         with:
           version: "0.5.1"
       - name: Install dependencies, compile and deploy docs to the "latest release" section of the website
