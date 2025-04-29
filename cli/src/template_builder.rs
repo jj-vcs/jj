@@ -63,6 +63,7 @@ use crate::templater::TemplatePropertyError;
 use crate::templater::TemplatePropertyExt as _;
 use crate::templater::TemplateRenderer;
 use crate::templater::TimestampRange;
+use crate::templater::WrapTemplateProperty;
 use crate::text_util;
 use crate::time_util;
 
@@ -101,6 +102,7 @@ macro_rules! impl_core_wrap_property_fns {
         $crate::template_builder::impl_core_wrap_property_fns!($a, std::convert::identity);
     };
     ($a:lifetime, $outer:path) => {
+        // TODO: delete
         $crate::template_builder::impl_wrap_property_fns!(
             $a, $crate::template_builder::CoreTemplatePropertyKind, $outer, {
                 wrap_string(String) => String,
@@ -131,6 +133,7 @@ macro_rules! impl_core_wrap_property_fns {
     };
 }
 
+// TODO: delete
 macro_rules! impl_wrap_property_fns {
     ($a:lifetime, $kind:path, { $($body:tt)* }) => {
         $crate::template_builder::impl_wrap_property_fns!(
@@ -143,8 +146,8 @@ macro_rules! impl_wrap_property_fns {
             $vis fn $func(
                 property: $crate::templater::BoxedTemplateProperty<$a, $ty>,
             ) -> Self {
-                use $kind as Kind; // https://github.com/rust-lang/rust/issues/48067
-                $outer(Kind::$var(property))
+                use $crate::templater::WrapTemplateProperty as _;
+                Self::wrap_property(property)
             }
         )+
     };
@@ -153,8 +156,75 @@ macro_rules! impl_wrap_property_fns {
 pub(crate) use impl_core_wrap_property_fns;
 pub(crate) use impl_wrap_property_fns;
 
+/// Implements [`WrapTemplateProperty<'a, O>`] for property types.
+///
+/// - `impl_property_wrappers!(Kind { Foo(Foo), FooList(Vec<Foo>), .. });` to
+///   implement conversion from types `Foo`, `Vec<Foo>`, ...
+/// - `impl_property_wrappers!(<'a> Kind<'a> { .. });` for types with lifetime.
+/// - `impl_property_wrappers!(Kind => Core { .. });` to forward conversion to
+///   `Kind::Core(_)`.
+macro_rules! impl_property_wrappers {
+    ($kind:path $(=> $var:ident)? { $($body:tt)* }) => {
+        $crate::template_builder::_impl_property_wrappers_many!(
+            [], 'static, $kind $(=> $var)?, { $($body)* });
+    };
+    // capture the first lifetime as the lifetime of template objects.
+    (<$a:lifetime $(, $p:lifetime)* $(, $q:ident)*>
+     $kind:path $(=> $var:ident)? { $($body:tt)* }) => {
+        $crate::template_builder::_impl_property_wrappers_many!(
+            [$a, $($p,)* $($q,)*], $a, $kind $(=> $var)?, { $($body)* });
+    };
+}
+
+macro_rules! _impl_property_wrappers_many {
+    // lifetime/type parameters are packed in order to disable zipping.
+    // https://github.com/rust-lang/rust/issues/96184#issuecomment-1294999418
+    ($ps:tt, $a:lifetime, $kind:path, { $( $var:ident($ty:ty), )* }) => {
+        $(
+            $crate::template_builder::_impl_property_wrappers_one!(
+                $ps, $a, $kind, $var, $ty, std::convert::identity);
+        )*
+    };
+    // variant part in body is ignored so the same body can be reused for
+    // implementing forwarding conversion.
+    ($ps:tt, $a:lifetime, $kind:path => $var:ident, { $( $ignored_var:ident($ty:ty), )* }) => {
+        $(
+            $crate::template_builder::_impl_property_wrappers_one!(
+                $ps, $a, $kind, $var, $ty, $crate::templater::WrapTemplateProperty::wrap_property);
+        )*
+    };
+}
+
+macro_rules! _impl_property_wrappers_one {
+    ([$($p:tt)*], $a:lifetime, $kind:path, $var:ident, $ty:ty, $inner:path) => {
+        impl<$($p)*> $crate::templater::WrapTemplateProperty<$a, $ty> for $kind {
+            fn wrap_property(property: $crate::templater::BoxedTemplateProperty<$a, $ty>) -> Self {
+                Self::$var($inner(property))
+            }
+        }
+    };
+}
+
+pub(crate) use _impl_property_wrappers_many;
+pub(crate) use _impl_property_wrappers_one;
+pub(crate) use impl_property_wrappers;
+
 /// Wrapper for the core template property types.
-pub trait CoreTemplatePropertyVar<'a> {
+pub trait CoreTemplatePropertyVar<'a>
+where
+    Self: WrapTemplateProperty<'a, String>,
+    Self: WrapTemplateProperty<'a, Vec<String>>,
+    Self: WrapTemplateProperty<'a, bool>,
+    Self: WrapTemplateProperty<'a, i64>,
+    Self: WrapTemplateProperty<'a, Option<i64>>,
+    Self: WrapTemplateProperty<'a, ConfigValue>,
+    Self: WrapTemplateProperty<'a, Signature>,
+    Self: WrapTemplateProperty<'a, Email>,
+    Self: WrapTemplateProperty<'a, SizeHint>,
+    Self: WrapTemplateProperty<'a, Timestamp>,
+    Self: WrapTemplateProperty<'a, TimestampRange>,
+{
+    // TODO: delete
     fn wrap_string(property: BoxedTemplateProperty<'a, String>) -> Self;
     fn wrap_string_list(property: BoxedTemplateProperty<'a, Vec<String>>) -> Self;
     fn wrap_boolean(property: BoxedTemplateProperty<'a, bool>) -> Self;
@@ -212,6 +282,32 @@ pub enum CoreTemplatePropertyKind<'a> {
     Template(Box<dyn Template + 'a>),
     ListTemplate(Box<dyn ListTemplate + 'a>),
 }
+
+/// Implements `WrapTemplateProperty<type>` for core property types.
+///
+/// Use `impl_core_property_wrappers!(<'a> Kind<'a> => Core);` to implement
+/// forwarding conversion.
+macro_rules! impl_core_property_wrappers {
+    ($($head:tt)+) => {
+        $crate::template_builder::impl_property_wrappers!($($head)+ {
+            String(String),
+            StringList(Vec<String>),
+            Boolean(bool),
+            Integer(i64),
+            IntegerOpt(Option<i64>),
+            ConfigValue(jj_lib::config::ConfigValue),
+            Signature(jj_lib::backend::Signature),
+            Email($crate::templater::Email),
+            SizeHint($crate::templater::SizeHint),
+            Timestamp(jj_lib::backend::Timestamp),
+            TimestampRange($crate::templater::TimestampRange),
+        });
+    };
+}
+
+pub(crate) use impl_core_property_wrappers;
+
+impl_core_property_wrappers!(<'a> CoreTemplatePropertyKind<'a>);
 
 impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
     impl_core_wrap_property_fns!('a);
@@ -1974,6 +2070,7 @@ mod tests {
     use super::*;
     use crate::formatter;
     use crate::formatter::ColorFormatter;
+    use crate::generic_templater;
     use crate::generic_templater::GenericTemplateLanguage;
 
     #[derive(Clone, Debug)]
@@ -1981,6 +2078,8 @@ mod tests {
 
     type TestTemplateLanguage = GenericTemplateLanguage<'static, Context>;
     type P = <TestTemplateLanguage as TemplateLanguage<'static>>::Property;
+
+    generic_templater::impl_self_property_wrapper!(Context);
 
     /// Helper to set up template evaluation environment.
     struct TestTemplateEnv {
@@ -2031,7 +2130,7 @@ mod tests {
                 &mut TemplateDiagnostics::new(),
                 template,
                 &self.aliases_map,
-                P::wrap_self,
+                P::wrap_property,
             )
         }
 

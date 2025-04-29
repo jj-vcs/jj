@@ -382,6 +382,30 @@ pub enum CommitTemplatePropertyKind<'repo> {
     TrailerList(BoxedTemplateProperty<'repo, Vec<Trailer>>),
 }
 
+template_builder::impl_core_property_wrappers!(<'repo> CommitTemplatePropertyKind<'repo> => Core);
+template_builder::impl_property_wrappers!(<'repo> CommitTemplatePropertyKind<'repo> {
+    Commit(Commit),
+    CommitOpt(Option<Commit>),
+    CommitList(Vec<Commit>),
+    CommitRef(Rc<CommitRef>),
+    CommitRefOpt(Option<Rc<CommitRef>>),
+    CommitRefList(Vec<Rc<CommitRef>>),
+    RepoPath(RepoPathBuf),
+    RepoPathOpt(Option<RepoPathBuf>),
+    CommitOrChangeId(CommitOrChangeId),
+    ShortestIdPrefix(ShortestIdPrefix),
+    TreeDiff(TreeDiff),
+    TreeDiffEntry(TreeDiffEntry),
+    TreeDiffEntryList(Vec<TreeDiffEntry>),
+    TreeEntry(TreeEntry),
+    DiffStats(DiffStatsFormatted<'repo>),
+    CryptographicSignatureOpt(Option<CryptographicSignature>),
+    AnnotationLine(AnnotationLine),
+    Trailer(Trailer),
+    TrailerList(Vec<Trailer>),
+});
+
+// TODO: delete
 impl<'repo> CommitTemplatePropertyKind<'repo> {
     template_builder::impl_wrap_property_fns!('repo, CommitTemplatePropertyKind, {
         pub wrap_commit(Commit) => Commit,

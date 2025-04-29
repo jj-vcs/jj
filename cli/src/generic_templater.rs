@@ -133,11 +133,31 @@ pub enum GenericTemplatePropertyKind<'a, C> {
     Self_(BoxedTemplateProperty<'a, C>),
 }
 
-impl<'a, C> GenericTemplatePropertyKind<'a, C> {
-    template_builder::impl_wrap_property_fns!('a, GenericTemplatePropertyKind, {
-        pub wrap_self(C) => Self_,
-    });
+template_builder::impl_core_property_wrappers!(<'a, C> GenericTemplatePropertyKind<'a, C> => Core);
+
+/// Implements conversion trait for the self property type.
+///
+/// Since we cannot guarantee that the generic type `C` does not conflict with
+/// the core template types, the conversion trait has to be implemented for each
+/// concrete type.
+macro_rules! impl_self_property_wrapper {
+    ($context:path) => {
+        $crate::template_builder::impl_property_wrappers!(
+            $crate::generic_templater::GenericTemplatePropertyKind<'static, $context> {
+                Self_($context),
+            }
+        );
+    };
+    (<$a:lifetime> $context:path) => {
+        $crate::template_builder::impl_property_wrappers!(
+            <$a> $crate::generic_templater::GenericTemplatePropertyKind<$a, $context> {
+                Self_($context),
+            }
+        );
+    };
 }
+
+pub(crate) use impl_self_property_wrapper;
 
 impl<'a, C> CoreTemplatePropertyVar<'a> for GenericTemplatePropertyKind<'a, C> {
     template_builder::impl_core_wrap_property_fns!('a, GenericTemplatePropertyKind::Core);

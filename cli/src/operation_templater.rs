@@ -141,6 +141,13 @@ pub enum OperationTemplatePropertyKind {
     OperationId(BoxedTemplateProperty<'static, OperationId>),
 }
 
+template_builder::impl_core_property_wrappers!(OperationTemplatePropertyKind => Core);
+template_builder::impl_property_wrappers!(OperationTemplatePropertyKind {
+    Operation(Operation),
+    OperationId(OperationId),
+});
+
+// TODO: delete
 impl OperationTemplatePropertyKind {
     template_builder::impl_wrap_property_fns!('static, OperationTemplatePropertyKind, {
         pub wrap_operation(Operation) => Operation,

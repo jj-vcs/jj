@@ -24,11 +24,13 @@ use crate::command_error::CommandError;
 use crate::complete;
 use crate::config::resolved_config_values;
 use crate::config::AnnotatedValue;
+use crate::generic_templater;
 use crate::generic_templater::GenericTemplateLanguage;
 use crate::generic_templater::GenericTemplatePropertyKind;
 use crate::template_builder::CoreTemplatePropertyVar as _;
 use crate::template_builder::TemplateLanguage;
 use crate::templater::TemplatePropertyExt as _;
+use crate::templater::WrapTemplateProperty as _;
 use crate::ui::Ui;
 
 /// List variables set in config files, along with their values.
@@ -85,7 +87,12 @@ pub fn cmd_config_list(
             None => command.settings().get_string("templates.config_list")?,
         };
         command
-            .parse_template(ui, &language, &text, GenericTemplatePropertyKind::wrap_self)?
+            .parse_template(
+                ui,
+                &language,
+                &text,
+                GenericTemplatePropertyKind::wrap_property,
+            )?
             .labeled("config_list")
     };
 
@@ -121,6 +128,8 @@ pub fn cmd_config_list(
 }
 
 type ConfigTemplateLanguage = GenericTemplateLanguage<'static, AnnotatedValue>;
+
+generic_templater::impl_self_property_wrapper!(AnnotatedValue);
 
 // AnnotatedValue will be cloned internally in the templater. If the cloning
 // cost matters, wrap it with Rc.

@@ -445,9 +445,31 @@ pub trait TemplatePropertyExt: TemplateProperty {
     {
         Box::new(self)
     }
+
+    /// Converts this property into wrapped (or tagged) type.
+    ///
+    /// Use `W::wrap_property()` if the self type is known to be boxed.
+    fn into_dyn_wrapped<'a, W>(self) -> W
+    where
+        Self: Sized + 'a,
+        W: WrapTemplateProperty<'a, Self::Output>,
+    {
+        W::wrap_property(self.into_dyn())
+    }
 }
 
 impl<P: TemplateProperty + ?Sized> TemplatePropertyExt for P {}
+
+/// Wraps template property of type `O` in tagged type.
+///
+/// This is basically `From<BoxedTemplateProperty<'a, O>>`, but is restricted to
+/// property types.
+#[diagnostic::on_unimplemented(
+    message = "the template property of type `{O}` cannot be wrapped in `{Self}`"
+)]
+pub trait WrapTemplateProperty<'a, O>: Sized {
+    fn wrap_property(property: BoxedTemplateProperty<'a, O>) -> Self;
+}
 
 /// Adapter that wraps literal value in `TemplateProperty`.
 pub struct Literal<O>(pub O);
