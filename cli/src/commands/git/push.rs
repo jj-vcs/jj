@@ -27,6 +27,7 @@ use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::config::ConfigGetResultExt as _;
+use jj_lib::dsl_util::ExpressionNode;
 use jj_lib::git;
 use jj_lib::git::GitBranchPushTargets;
 use jj_lib::git::GitPushStats;
@@ -41,11 +42,15 @@ use jj_lib::refs::BookmarkPushAction;
 use jj_lib::refs::BookmarkPushUpdate;
 use jj_lib::refs::LocalAndRemoteRef;
 use jj_lib::repo::Repo;
+use jj_lib::revset;
+use jj_lib::revset::ExpressionKind;
+use jj_lib::revset::RevsetDiagnostics;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::settings::UserSettings;
 use jj_lib::signing::SignBehavior;
 use jj_lib::str_util::StringPattern;
 use jj_lib::view::View;
+use pest::Span;
 
 use crate::cli_util::has_tracked_remote_bookmarks;
 use crate::cli_util::short_change_hash;
@@ -960,15 +965,25 @@ fn find_bookmarks_targeted_by_revisions<'a>(
 ) -> Result<Vec<(&'a RefName, LocalAndRemoteRef<'a>)>, CommandError> {
     let mut revision_commit_ids = HashSet::new();
     if use_default_revset {
-        // remote_bookmarks(remote=<remote>)..@
-        let workspace_name = workspace_command.workspace_name();
-        let expression = RevsetExpression::remote_bookmarks(
-            StringPattern::everything(),
-            StringPattern::exact(remote),
-            None,
-        )
-        .range(&RevsetExpression::working_copy(workspace_name.to_owned()))
-        .intersection(&RevsetExpression::bookmarks(StringPattern::everything()));
+        // Get the default revset specified by the user.
+        let push_revset = workspace_command
+            .settings()
+            .get_string("revsets.'push(remote)'")?;
+        let mut context = workspace_command.env().revset_parse_context();
+        // This just panics :-(
+        context
+            .local_variables
+            .insert(
+                "remote",
+                ExpressionNode {
+                    kind: ExpressionKind::String(remote.as_str().to_string()),
+                    span: Span::new("<internal>", 0, 10).expect("programmatic span shouldn't fail"),
+                },
+            )
+            .unwrap();
+        let mut diags = RevsetDiagnostics::default();
+        let (expression, _) = revset::parse_with_modifier(&mut diags, &push_revset, &context)?;
+
         let mut commit_ids = workspace_command
             .attach_revset_evaluator(expression)
             .evaluate_to_commit_ids()?
@@ -976,8 +991,7 @@ fn find_bookmarks_targeted_by_revisions<'a>(
         if commit_ids.peek().is_none() {
             writeln!(
                 ui.warning_default(),
-                "No bookmarks found in the default push revset: \
-                 remote_bookmarks(remote={remote})..@",
+                "No bookmarks found in the default push revset: {push_revset}{remote}",
                 remote = remote.as_symbol()
             )?;
         }

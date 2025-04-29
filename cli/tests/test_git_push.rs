@@ -124,11 +124,45 @@ fn test_git_push_current_bookmark(subprocess: bool) {
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Changes to push to origin:
-      Move forward bookmark bookmark2 from 8476341eb395 to bc7610b65a91
-      Add bookmark my-bookmark to bc7610b65a91
-    Dry-run requested, not pushing.
+
+    thread 'main' panicked at cli/src/commands/git/push.rs:983:14:
+    called `Option::unwrap()` on a `None` value
+    stack backtrace:
+       0: rust_begin_unwind
+                 at /rustc/05f9846f893b09a1be1fc8560e33fc3c815cfecb/library/std/src/panicking.rs:695:5
+       1: core::panicking::panic_fmt
+                 at /rustc/05f9846f893b09a1be1fc8560e33fc3c815cfecb/library/core/src/panicking.rs:75:14
+       2: core::panicking::panic
+                 at /rustc/05f9846f893b09a1be1fc8560e33fc3c815cfecb/library/core/src/panicking.rs:145:5
+       3: core::option::unwrap_failed
+                 at /rustc/05f9846f893b09a1be1fc8560e33fc3c815cfecb/library/core/src/option.rs:2015:5
+       4: core::option::Option<T>::unwrap
+                 at /home/dev/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs:978:21
+       5: jj_cli::commands::git::push::find_bookmarks_targeted_by_revisions
+                 at /home/dev/src/jj/cli/src/commands/git/push.rs:974:9
+       6: jj_cli::commands::git::push::cmd_git_push
+                 at /home/dev/src/jj/cli/src/commands/git/push.rs:368:34
+       7: jj_cli::commands::git::cmd_git
+                 at /home/dev/src/jj/cli/src/commands/git/mod.rs:90:35
+       8: jj_cli::commands::run_command
+                 at /home/dev/src/jj/cli/src/commands/mod.rs:186:31
+       9: core::ops::function::FnOnce::call_once
+                 at /home/dev/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ops/function.rs:250:5
+      10: core::ops::function::FnOnce::call_once{{vtable.shim}}
+                 at /home/dev/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ops/function.rs:250:5
+      11: <alloc::boxed::Box<F,A> as core::ops::function::FnOnce<Args>>::call_once
+                 at /home/dev/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/boxed.rs:1976:9
+      12: jj_cli::cli_util::CliRunner::run_internal
+                 at /home/dev/src/jj/cli/src/cli_util.rs:3946:9
+      13: jj_cli::cli_util::CliRunner::run
+                 at /home/dev/src/jj/cli/src/cli_util.rs:3959:22
+      14: jj::main
+                 at /home/dev/src/jj/cli/src/main.rs:18:5
+      15: core::ops::function::FnOnce::call_once
+                 at /home/dev/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ops/function.rs:250:5
+    note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
     [EOF]
+    [exit status: 101]
     ");
     }
     let output = work_dir.run_jj(["git", "push", "--allow-new"]);
@@ -179,8 +213,8 @@ fn test_git_push_current_bookmark(subprocess: bool) {
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Changes to push to origin:
-      Move backward bookmark bookmark2 from bc7610b65a91 to 8476341eb395
+    Bookmark bookmark2@origin already matches bookmark2
+    Nothing changed.
     [EOF]
     ");
     }
@@ -732,7 +766,6 @@ fn test_git_push_locally_created_and_rewritten(subprocess: bool) {
     bookmark2: rlzusymt 8476341e (empty) description 2
       @origin: rlzusymt 8476341e (empty) description 2
     my: vruxwmqv 423bb660 (empty) local 2
-      @origin (ahead by 1 commits, behind by 1 commits): vruxwmqv hidden fcc99992 (empty) local 1
     [EOF]
     ");
     }
@@ -740,9 +773,10 @@ fn test_git_push_locally_created_and_rewritten(subprocess: bool) {
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Changes to push to origin:
-      Move sideways bookmark my from fcc999921ce9 to 423bb66069e7
+    Config error: Value not found for revsets.push
+    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
     [EOF]
+    [exit status: 1]
     ");
     }
 }
@@ -2461,13 +2495,13 @@ fn test_git_push_sign_on_push() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Created 1 bookmarks pointing to kpqxywon 90df08d3 bookmark3 | (empty) commit which should not be signed 1
+    Created 1 bookmarks pointing to kpqxywon e7cc0577 bookmark3 | (empty) commit which should not be signed 1
     [EOF]
     ");
     let output = work_dir.run_jj(["bookmark", "move", "bookmark2", "--to", "bookmark3"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Moved 1 bookmarks to kpqxywon 90df08d3 bookmark2* bookmark3 | (empty) commit which should not be signed 1
+    Moved 1 bookmarks to kpqxywon e7cc0577 bookmark2* bookmark3 | (empty) commit which should not be signed 1
     [EOF]
     ");
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "bookmark3""#);
@@ -2566,12 +2600,6 @@ fn test_git_push_rejected_by_remote() {
     });
 }
 
-#[must_use]
-fn get_bookmark_output(work_dir: &TestWorkDir) -> CommandOutput {
-    // --quiet to suppress deleted bookmarks hint
-    work_dir.run_jj(["bookmark", "list", "--all-remotes", "--quiet"])
-}
-
 // TODO: Remove with the `git.subprocess` setting.
 #[test]
 fn test_git_push_git2_warning() {
@@ -2600,4 +2628,64 @@ fn test_git_push_git2_warning() {
         [EOF]
         "#);
     }
+}
+
+#[test]
+fn test_git_push_custom_revset() {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let work_dir = test_env.work_dir("local");
+    // add a custom revset which simulates ignoring a `private()` revset.
+    test_env.add_config(
+        r#"
+    [revsets]
+    'push(remote)' = "remote_bookmarks(remote=remote)..@ ~subject(glob:wip:*)"
+    "#,
+    );
+    work_dir
+        .run_jj(["new", "bookmark2", "-m", "commit to be pushed"])
+        .success();
+    work_dir.run_jj(["new", "-m", "wip: stuff"]).success();
+    work_dir
+        .run_jj(["bookmark", "set", "bookmark2", "-r@"])
+        .success();
+    work_dir
+        .run_jj(["new", "-m", "commit which should pushed"])
+        .success();
+    work_dir
+        .run_jj(["new", "-m", "wip: commit which should not be pushed"])
+        .success();
+    //
+    let output = work_dir.run_jj(["log"]);
+    insta::assert_snapshot!(output, @r"
+    @  kmkuslsw test.user@example.com 2001-02-03 08:05:18 94ce0267
+    │  (empty) wip: commit which should not be pushed
+    ○  kpqxywon test.user@example.com 2001-02-03 08:05:17 ea115997
+    │  (empty) commit which should pushed
+    ○  yostqsxw test.user@example.com 2001-02-03 08:05:15 bookmark2* b9aa5e02
+    │  (empty) wip: stuff
+    ○  vruxwmqv test.user@example.com 2001-02-03 08:05:14 1eba4c0d
+    │  (empty) commit to be pushed
+    ○  rlzusymt test.user@example.com 2001-02-03 08:05:10 bookmark2@origin 8476341e
+    │  (empty) description 2
+    │ ○  xtvrqkyv test.user@example.com 2001-02-03 08:05:08 bookmark1 d13ecdbd
+    ├─╯  (empty) description 1
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+    // We should try to push the first two commits but not any containing "wip:".
+    let output = work_dir.run_jj(["git", "push"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Config error: Value not found for revsets.push
+    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[must_use]
+fn get_bookmark_output(work_dir: &TestWorkDir) -> CommandOutput {
+    // --quiet to suppress deleted bookmarks hint
+    work_dir.run_jj(["bookmark", "list", "--all-remotes", "--quiet"])
 }

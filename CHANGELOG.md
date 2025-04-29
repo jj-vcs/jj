@@ -67,6 +67,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Commit objects in templates now have `trailers() -> List<Trailer>`, the Trailer
   objects have `key() -> String` and `value() -> String`.
 
+* Added support `revsets.push` which allows you to customize the default
+  commits to push. See [#3650](https://github.com/jj-vcs/jj/issues/3650).
+
 ### Fixed bugs
 
 * Fixed crash on change-delete conflict resolution.
