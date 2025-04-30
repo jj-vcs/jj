@@ -87,7 +87,7 @@ impl<'a, C> GenericTemplateLanguage<'a, C> {
     }
 }
 
-impl<'a, C: 'a> TemplateLanguage<'a> for GenericTemplateLanguage<'a, C> {
+impl<'a, C> TemplateLanguage<'a> for GenericTemplateLanguage<'a, C> {
     type Property = GenericTemplatePropertyKind<'a, C>;
 
     template_builder::impl_core_wrap_property_fns!('a, GenericTemplatePropertyKind::Core);
@@ -143,7 +143,7 @@ pub enum GenericTemplatePropertyKind<'a, C> {
     Self_(Box<dyn TemplateProperty<Output = C> + 'a>),
 }
 
-impl<'a, C: 'a> IntoTemplateProperty<'a> for GenericTemplatePropertyKind<'a, C> {
+impl<'a, C> IntoTemplateProperty<'a> for GenericTemplatePropertyKind<'a, C> {
     fn type_name(&self) -> &'static str {
         match self {
             GenericTemplatePropertyKind::Core(property) => property.type_name(),
@@ -220,7 +220,7 @@ pub type GenericTemplateBuildKeywordFnMap<'a, C> =
     HashMap<&'static str, GenericTemplateBuildKeywordFn<'a, C>>;
 
 /// Symbol table of methods available in the general-purpose template.
-struct GenericTemplateBuildFnTable<'a, C: 'a> {
+struct GenericTemplateBuildFnTable<'a, C> {
     core: CoreTemplateBuildFnTable<'a, GenericTemplateLanguage<'a, C>>,
     keywords: GenericTemplateBuildKeywordFnMap<'a, C>,
 }
