@@ -237,20 +237,20 @@ impl<'a> IntoTemplateProperty<'a> for CoreTemplatePropertyKind<'a> {
     fn try_into_boolean(self) -> Option<Box<dyn TemplateProperty<Output = bool> + 'a>> {
         match self {
             CoreTemplatePropertyKind::String(property) => {
-                Some(Box::new(property.map(|s| !s.is_empty())))
+                Some(property.map(|s| !s.is_empty()).into_dyn())
             }
             CoreTemplatePropertyKind::StringList(property) => {
-                Some(Box::new(property.map(|l| !l.is_empty())))
+                Some(property.map(|l| !l.is_empty()).into_dyn())
             }
             CoreTemplatePropertyKind::Boolean(property) => Some(property),
             CoreTemplatePropertyKind::Integer(_) => None,
             CoreTemplatePropertyKind::IntegerOpt(property) => {
-                Some(Box::new(property.map(|opt| opt.is_some())))
+                Some(property.map(|opt| opt.is_some()).into_dyn())
             }
             CoreTemplatePropertyKind::ConfigValue(_) => None,
             CoreTemplatePropertyKind::Signature(_) => None,
             CoreTemplatePropertyKind::Email(property) => {
-                Some(Box::new(property.map(|e| !e.0.is_empty())))
+                Some(property.map(|e| !e.0.is_empty()).into_dyn())
             }
             CoreTemplatePropertyKind::SizeHint(_) => None,
             CoreTemplatePropertyKind::Timestamp(_) => None,
@@ -267,7 +267,7 @@ impl<'a> IntoTemplateProperty<'a> for CoreTemplatePropertyKind<'a> {
         match self {
             CoreTemplatePropertyKind::Integer(property) => Some(property),
             CoreTemplatePropertyKind::IntegerOpt(property) => {
-                Some(Box::new(property.try_unwrap("Integer")))
+                Some(property.try_unwrap("Integer").into_dyn())
             }
             _ => None,
         }
@@ -278,7 +278,7 @@ impl<'a> IntoTemplateProperty<'a> for CoreTemplatePropertyKind<'a> {
             CoreTemplatePropertyKind::String(property) => Some(property),
             _ => {
                 let template = self.try_into_template()?;
-                Some(Box::new(PlainTextFormattedProperty::new(template)))
+                Some(PlainTextFormattedProperty::new(template).into_dyn())
             }
         }
     }
@@ -304,22 +304,22 @@ impl<'a> IntoTemplateProperty<'a> for CoreTemplatePropertyKind<'a> {
     fn try_into_eq(self, other: Self) -> Option<Box<dyn TemplateProperty<Output = bool> + 'a>> {
         match (self, other) {
             (CoreTemplatePropertyKind::String(lhs), CoreTemplatePropertyKind::String(rhs)) => {
-                Some(Box::new((lhs, rhs).map(|(l, r)| l == r)))
+                Some((lhs, rhs).map(|(l, r)| l == r).into_dyn())
             }
             (CoreTemplatePropertyKind::String(lhs), CoreTemplatePropertyKind::Email(rhs)) => {
-                Some(Box::new((lhs, rhs).map(|(l, r)| l == r.0)))
+                Some((lhs, rhs).map(|(l, r)| l == r.0).into_dyn())
             }
             (CoreTemplatePropertyKind::Boolean(lhs), CoreTemplatePropertyKind::Boolean(rhs)) => {
-                Some(Box::new((lhs, rhs).map(|(l, r)| l == r)))
+                Some((lhs, rhs).map(|(l, r)| l == r).into_dyn())
             }
             (CoreTemplatePropertyKind::Integer(lhs), CoreTemplatePropertyKind::Integer(rhs)) => {
-                Some(Box::new((lhs, rhs).map(|(l, r)| l == r)))
+                Some((lhs, rhs).map(|(l, r)| l == r).into_dyn())
             }
             (CoreTemplatePropertyKind::Email(lhs), CoreTemplatePropertyKind::Email(rhs)) => {
-                Some(Box::new((lhs, rhs).map(|(l, r)| l == r)))
+                Some((lhs, rhs).map(|(l, r)| l == r).into_dyn())
             }
             (CoreTemplatePropertyKind::Email(lhs), CoreTemplatePropertyKind::String(rhs)) => {
-                Some(Box::new((lhs, rhs).map(|(l, r)| l.0 == r)))
+                Some((lhs, rhs).map(|(l, r)| l.0 == r).into_dyn())
             }
             (CoreTemplatePropertyKind::String(_), _) => None,
             (CoreTemplatePropertyKind::StringList(_), _) => None,
@@ -343,7 +343,7 @@ impl<'a> IntoTemplateProperty<'a> for CoreTemplatePropertyKind<'a> {
     ) -> Option<Box<dyn TemplateProperty<Output = Ordering> + 'a>> {
         match (self, other) {
             (CoreTemplatePropertyKind::Integer(lhs), CoreTemplatePropertyKind::Integer(rhs)) => {
-                Some(Box::new((lhs, rhs).map(|(l, r)| l.cmp(&r))))
+                Some((lhs, rhs).map(|(l, r)| l.cmp(&r)).into_dyn())
             }
             (CoreTemplatePropertyKind::String(_), _) => None,
             (CoreTemplatePropertyKind::StringList(_), _) => None,
@@ -529,14 +529,8 @@ impl<'a, L: TemplateLanguage<'a> + ?Sized> CoreTemplateBuildFnTable<'a, L> {
                 let type_name = "Integer";
                 let table = &self.integer_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
-                let inner_property = property.try_unwrap(type_name);
-                build(
-                    language,
-                    diagnostics,
-                    build_ctx,
-                    Box::new(inner_property),
-                    function,
-                )
+                let inner_property = property.try_unwrap(type_name).into_dyn();
+                build(language, diagnostics, build_ctx, inner_property, function)
             }
             CoreTemplatePropertyKind::ConfigValue(property) => {
                 let table = &self.config_value_methods;
@@ -1394,7 +1388,7 @@ where
             })
             .collect()
     });
-    Ok(wrap_list(Box::new(out_property)))
+    Ok(wrap_list(out_property.into_dyn()))
 }
 
 /// Builds expression that extracts iterable property and applies template to
@@ -1888,7 +1882,7 @@ pub fn expect_isize_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
 ) -> TemplateParseResult<Box<dyn TemplateProperty<Output = isize> + 'a>> {
     let i64_property = expect_integer_expression(language, diagnostics, build_ctx, node)?;
     let isize_property = i64_property.and_then(|v| Ok(isize::try_from(v)?));
-    Ok(Box::new(isize_property))
+    Ok(isize_property.into_dyn())
 }
 
 /// If the given expression `node` is of `Integer` type, converts it to `usize`.
@@ -1900,7 +1894,7 @@ pub fn expect_usize_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
 ) -> TemplateParseResult<Box<dyn TemplateProperty<Output = usize> + 'a>> {
     let i64_property = expect_integer_expression(language, diagnostics, build_ctx, node)?;
     let usize_property = i64_property.and_then(|v| Ok(usize::try_from(v)?));
-    Ok(Box::new(usize_property))
+    Ok(usize_property.into_dyn())
 }
 
 pub fn expect_plain_text_expression<'a, L: TemplateLanguage<'a> + ?Sized>(

@@ -435,6 +435,14 @@ pub trait TemplatePropertyExt: TemplateProperty {
     {
         Box::new(FormattablePropertyTemplate::new(self))
     }
+
+    /// Converts this property into boxed trait object.
+    fn into_dyn<'a>(self) -> Box<dyn TemplateProperty<Output = Self::Output> + 'a>
+    where
+        Self: Sized + 'a,
+    {
+        Box::new(self)
+    }
 }
 
 impl<P: TemplateProperty + ?Sized> TemplatePropertyExt for P {}

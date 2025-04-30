@@ -202,14 +202,8 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 let type_name = "Commit";
                 let table = &self.build_fn_table.commit_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
-                let inner_property = property.try_unwrap(type_name);
-                build(
-                    self,
-                    diagnostics,
-                    build_ctx,
-                    Box::new(inner_property),
-                    function,
-                )
+                let inner_property = property.try_unwrap(type_name).into_dyn();
+                build(self, diagnostics, build_ctx, inner_property, function)
             }
             CommitTemplatePropertyKind::CommitList(property) => {
                 // TODO: migrate to table?
@@ -232,14 +226,8 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 let type_name = "CommitRef";
                 let table = &self.build_fn_table.commit_ref_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
-                let inner_property = property.try_unwrap(type_name);
-                build(
-                    self,
-                    diagnostics,
-                    build_ctx,
-                    Box::new(inner_property),
-                    function,
-                )
+                let inner_property = property.try_unwrap(type_name).into_dyn();
+                build(self, diagnostics, build_ctx, inner_property, function)
             }
             CommitTemplatePropertyKind::CommitRefList(property) => {
                 // TODO: migrate to table?
@@ -262,14 +250,8 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 let type_name = "RepoPath";
                 let table = &self.build_fn_table.repo_path_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
-                let inner_property = property.try_unwrap(type_name);
-                build(
-                    self,
-                    diagnostics,
-                    build_ctx,
-                    Box::new(inner_property),
-                    function,
-                )
+                let inner_property = property.try_unwrap(type_name).into_dyn();
+                build(self, diagnostics, build_ctx, inner_property, function)
             }
             CommitTemplatePropertyKind::CommitOrChangeId(property) => {
                 let table = &self.build_fn_table.commit_or_change_id_methods;
@@ -313,21 +295,15 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 // Strip off formatting parameters which are needed only for the
                 // default template output.
-                let property = Box::new(property.map(|formatted| formatted.stats));
+                let property = property.map(|formatted| formatted.stats).into_dyn();
                 build(self, diagnostics, build_ctx, property, function)
             }
             CommitTemplatePropertyKind::CryptographicSignatureOpt(property) => {
                 let type_name = "CryptographicSignature";
                 let table = &self.build_fn_table.cryptographic_signature_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
-                let inner_property = property.try_unwrap(type_name);
-                build(
-                    self,
-                    diagnostics,
-                    build_ctx,
-                    Box::new(inner_property),
-                    function,
-                )
+                let inner_property = property.try_unwrap(type_name).into_dyn();
+                build(self, diagnostics, build_ctx, inner_property, function)
             }
             CommitTemplatePropertyKind::AnnotationLine(property) => {
                 let type_name = "AnnotationLine";
@@ -557,21 +533,21 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             CommitTemplatePropertyKind::Core(property) => property.try_into_boolean(),
             CommitTemplatePropertyKind::Commit(_) => None,
             CommitTemplatePropertyKind::CommitOpt(property) => {
-                Some(Box::new(property.map(|opt| opt.is_some())))
+                Some(property.map(|opt| opt.is_some()).into_dyn())
             }
             CommitTemplatePropertyKind::CommitList(property) => {
-                Some(Box::new(property.map(|l| !l.is_empty())))
+                Some(property.map(|l| !l.is_empty()).into_dyn())
             }
             CommitTemplatePropertyKind::CommitRef(_) => None,
             CommitTemplatePropertyKind::CommitRefOpt(property) => {
-                Some(Box::new(property.map(|opt| opt.is_some())))
+                Some(property.map(|opt| opt.is_some()).into_dyn())
             }
             CommitTemplatePropertyKind::CommitRefList(property) => {
-                Some(Box::new(property.map(|l| !l.is_empty())))
+                Some(property.map(|l| !l.is_empty()).into_dyn())
             }
             CommitTemplatePropertyKind::RepoPath(_) => None,
             CommitTemplatePropertyKind::RepoPathOpt(property) => {
-                Some(Box::new(property.map(|opt| opt.is_some())))
+                Some(property.map(|opt| opt.is_some()).into_dyn())
             }
             CommitTemplatePropertyKind::CommitOrChangeId(_) => None,
             CommitTemplatePropertyKind::ShortestIdPrefix(_) => None,
@@ -580,17 +556,17 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             CommitTemplatePropertyKind::TreeDiff(_) => None,
             CommitTemplatePropertyKind::TreeDiffEntry(_) => None,
             CommitTemplatePropertyKind::TreeDiffEntryList(property) => {
-                Some(Box::new(property.map(|l| !l.is_empty())))
+                Some(property.map(|l| !l.is_empty()).into_dyn())
             }
             CommitTemplatePropertyKind::TreeEntry(_) => None,
             CommitTemplatePropertyKind::DiffStats(_) => None,
             CommitTemplatePropertyKind::CryptographicSignatureOpt(property) => {
-                Some(Box::new(property.map(|sig| sig.is_some())))
+                Some(property.map(|sig| sig.is_some()).into_dyn())
             }
             CommitTemplatePropertyKind::AnnotationLine(_) => None,
             CommitTemplatePropertyKind::Trailer(_) => None,
             CommitTemplatePropertyKind::TrailerList(property) => {
-                Some(Box::new(property.map(|l| !l.is_empty())))
+                Some(property.map(|l| !l.is_empty()).into_dyn())
             }
         }
     }
@@ -607,7 +583,7 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
             CommitTemplatePropertyKind::Core(property) => property.try_into_plain_text(),
             _ => {
                 let template = self.try_into_template()?;
-                Some(Box::new(PlainTextFormattedProperty::new(template)))
+                Some(PlainTextFormattedProperty::new(template).into_dyn())
             }
         }
     }

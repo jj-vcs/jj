@@ -184,7 +184,7 @@ impl IntoTemplateProperty<'static> for OperationTemplatePropertyKind {
             OperationTemplatePropertyKind::Core(property) => property.try_into_plain_text(),
             _ => {
                 let template = self.try_into_template()?;
-                Some(Box::new(PlainTextFormattedProperty::new(template)))
+                Some(PlainTextFormattedProperty::new(template).into_dyn())
             }
         }
     }
