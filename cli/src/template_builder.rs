@@ -68,7 +68,7 @@ use crate::time_util;
 
 /// Callbacks to build language-specific evaluation objects from AST nodes.
 pub trait TemplateLanguage<'a> {
-    type Property: CoreTemplatePropertyVar<'a> + IntoTemplateProperty<'a>;
+    type Property: CoreTemplatePropertyVar<'a>;
 
     fn settings(&self) -> &UserSettings;
 
@@ -169,11 +169,7 @@ pub trait CoreTemplatePropertyVar<'a> {
 
     fn wrap_template(template: Box<dyn Template + 'a>) -> Self;
     fn wrap_list_template(template: Box<dyn ListTemplate + 'a>) -> Self;
-}
 
-/// Provides access to basic template property types.
-// TODO: merge with CoreTemplatePropertyVar<'a>?
-pub trait IntoTemplateProperty<'a> {
     /// Type name of the property output.
     fn type_name(&self) -> &'static str;
 
@@ -217,7 +213,9 @@ pub enum CoreTemplatePropertyKind<'a> {
     ListTemplate(Box<dyn ListTemplate + 'a>),
 }
 
-impl<'a> IntoTemplateProperty<'a> for CoreTemplatePropertyKind<'a> {
+impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
+    impl_core_wrap_property_fns!('a);
+
     fn type_name(&self) -> &'static str {
         match self {
             CoreTemplatePropertyKind::String(_) => "String",
@@ -591,7 +589,7 @@ impl<P> Expression<P> {
     }
 }
 
-impl<'a, P: IntoTemplateProperty<'a>> Expression<P> {
+impl<'a, P: CoreTemplatePropertyVar<'a>> Expression<P> {
     pub fn type_name(&self) -> &'static str {
         self.property.type_name()
     }

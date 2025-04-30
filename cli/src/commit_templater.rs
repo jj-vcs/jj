@@ -80,7 +80,6 @@ use crate::template_builder::BuildContext;
 use crate::template_builder::CoreTemplateBuildFnTable;
 use crate::template_builder::CoreTemplatePropertyKind;
 use crate::template_builder::CoreTemplatePropertyVar;
-use crate::template_builder::IntoTemplateProperty;
 use crate::template_builder::TemplateBuildMethodFnMap;
 use crate::template_builder::TemplateLanguage;
 use crate::template_parser;
@@ -411,9 +410,7 @@ impl<'repo> CommitTemplatePropertyKind<'repo> {
 
 impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo> {
     template_builder::impl_core_wrap_property_fns!('repo, CommitTemplatePropertyKind::Core);
-}
 
-impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
     fn type_name(&self) -> &'static str {
         match self {
             CommitTemplatePropertyKind::Core(property) => property.type_name(),

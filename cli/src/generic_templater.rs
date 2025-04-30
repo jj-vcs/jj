@@ -22,7 +22,6 @@ use crate::template_builder::BuildContext;
 use crate::template_builder::CoreTemplateBuildFnTable;
 use crate::template_builder::CoreTemplatePropertyKind;
 use crate::template_builder::CoreTemplatePropertyVar;
-use crate::template_builder::IntoTemplateProperty;
 use crate::template_builder::TemplateLanguage;
 use crate::template_parser;
 use crate::template_parser::FunctionCallNode;
@@ -142,9 +141,7 @@ impl<'a, C> GenericTemplatePropertyKind<'a, C> {
 
 impl<'a, C> CoreTemplatePropertyVar<'a> for GenericTemplatePropertyKind<'a, C> {
     template_builder::impl_core_wrap_property_fns!('a, GenericTemplatePropertyKind::Core);
-}
 
-impl<'a, C> IntoTemplateProperty<'a> for GenericTemplatePropertyKind<'a, C> {
     fn type_name(&self) -> &'static str {
         match self {
             GenericTemplatePropertyKind::Core(property) => property.type_name(),

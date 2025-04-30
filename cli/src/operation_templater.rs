@@ -31,7 +31,6 @@ use crate::template_builder::BuildContext;
 use crate::template_builder::CoreTemplateBuildFnTable;
 use crate::template_builder::CoreTemplatePropertyKind;
 use crate::template_builder::CoreTemplatePropertyVar;
-use crate::template_builder::IntoTemplateProperty;
 use crate::template_builder::TemplateBuildMethodFnMap;
 use crate::template_builder::TemplateLanguage;
 use crate::template_parser;
@@ -151,9 +150,7 @@ impl OperationTemplatePropertyKind {
 
 impl CoreTemplatePropertyVar<'static> for OperationTemplatePropertyKind {
     template_builder::impl_core_wrap_property_fns!('static, OperationTemplatePropertyKind::Core);
-}
 
-impl IntoTemplateProperty<'static> for OperationTemplatePropertyKind {
     fn type_name(&self) -> &'static str {
         match self {
             OperationTemplatePropertyKind::Core(property) => property.type_name(),
