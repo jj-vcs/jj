@@ -79,6 +79,7 @@ use crate::template_builder::merge_fn_map;
 use crate::template_builder::BuildContext;
 use crate::template_builder::CoreTemplateBuildFnTable;
 use crate::template_builder::CoreTemplatePropertyKind;
+use crate::template_builder::CoreTemplatePropertyVar;
 use crate::template_builder::IntoTemplateProperty;
 use crate::template_builder::TemplateBuildMethodFnMap;
 use crate::template_builder::TemplateLanguage;
@@ -163,8 +164,6 @@ impl<'repo> CommitTemplateLanguage<'repo> {
 
 impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
     type Property = CommitTemplatePropertyKind<'repo>;
-
-    template_builder::impl_core_wrap_property_fns!('repo, CommitTemplatePropertyKind::Core);
 
     fn settings(&self) -> &UserSettings {
         self.repo.base_repo().settings()
@@ -496,6 +495,10 @@ pub enum CommitTemplatePropertyKind<'repo> {
     AnnotationLine(BoxedTemplateProperty<'repo, AnnotationLine>),
     Trailer(BoxedTemplateProperty<'repo, Trailer>),
     TrailerList(BoxedTemplateProperty<'repo, Vec<Trailer>>),
+}
+
+impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo> {
+    template_builder::impl_core_wrap_property_fns!('repo, CommitTemplatePropertyKind::Core);
 }
 
 impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {

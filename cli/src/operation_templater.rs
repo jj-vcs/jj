@@ -30,6 +30,7 @@ use crate::template_builder::merge_fn_map;
 use crate::template_builder::BuildContext;
 use crate::template_builder::CoreTemplateBuildFnTable;
 use crate::template_builder::CoreTemplatePropertyKind;
+use crate::template_builder::CoreTemplatePropertyVar;
 use crate::template_builder::IntoTemplateProperty;
 use crate::template_builder::TemplateBuildMethodFnMap;
 use crate::template_builder::TemplateLanguage;
@@ -87,8 +88,6 @@ impl OperationTemplateLanguage {
 
 impl TemplateLanguage<'static> for OperationTemplateLanguage {
     type Property = OperationTemplatePropertyKind;
-
-    template_builder::impl_core_wrap_property_fns!('static, OperationTemplatePropertyKind::Core);
 
     fn settings(&self) -> &UserSettings {
         self.repo_loader.settings()
@@ -153,6 +152,10 @@ pub enum OperationTemplatePropertyKind {
     Core(CoreTemplatePropertyKind<'static>),
     Operation(BoxedTemplateProperty<'static, Operation>),
     OperationId(BoxedTemplateProperty<'static, OperationId>),
+}
+
+impl CoreTemplatePropertyVar<'static> for OperationTemplatePropertyKind {
+    template_builder::impl_core_wrap_property_fns!('static, OperationTemplatePropertyKind::Core);
 }
 
 impl IntoTemplateProperty<'static> for OperationTemplatePropertyKind {

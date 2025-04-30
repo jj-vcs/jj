@@ -21,6 +21,7 @@ use crate::template_builder;
 use crate::template_builder::BuildContext;
 use crate::template_builder::CoreTemplateBuildFnTable;
 use crate::template_builder::CoreTemplatePropertyKind;
+use crate::template_builder::CoreTemplatePropertyVar;
 use crate::template_builder::IntoTemplateProperty;
 use crate::template_builder::TemplateLanguage;
 use crate::template_parser;
@@ -90,8 +91,6 @@ impl<'a, C> GenericTemplateLanguage<'a, C> {
 impl<'a, C> TemplateLanguage<'a> for GenericTemplateLanguage<'a, C> {
     type Property = GenericTemplatePropertyKind<'a, C>;
 
-    template_builder::impl_core_wrap_property_fns!('a, GenericTemplatePropertyKind::Core);
-
     fn settings(&self) -> &UserSettings {
         &self.settings
     }
@@ -139,6 +138,10 @@ impl<'a, C> GenericTemplateLanguage<'a, C> {
 pub enum GenericTemplatePropertyKind<'a, C> {
     Core(CoreTemplatePropertyKind<'a>),
     Self_(BoxedTemplateProperty<'a, C>),
+}
+
+impl<'a, C> CoreTemplatePropertyVar<'a> for GenericTemplatePropertyKind<'a, C> {
+    template_builder::impl_core_wrap_property_fns!('a, GenericTemplatePropertyKind::Core);
 }
 
 impl<'a, C> IntoTemplateProperty<'a> for GenericTemplatePropertyKind<'a, C> {

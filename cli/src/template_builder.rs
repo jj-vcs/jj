@@ -68,22 +68,50 @@ use crate::time_util;
 
 /// Callbacks to build language-specific evaluation objects from AST nodes.
 pub trait TemplateLanguage<'a> {
-    type Property: IntoTemplateProperty<'a>;
+    type Property: CoreTemplatePropertyVar<'a> + IntoTemplateProperty<'a>;
 
-    fn wrap_string(property: BoxedTemplateProperty<'a, String>) -> Self::Property;
-    fn wrap_string_list(property: BoxedTemplateProperty<'a, Vec<String>>) -> Self::Property;
-    fn wrap_boolean(property: BoxedTemplateProperty<'a, bool>) -> Self::Property;
-    fn wrap_integer(property: BoxedTemplateProperty<'a, i64>) -> Self::Property;
-    fn wrap_integer_opt(property: BoxedTemplateProperty<'a, Option<i64>>) -> Self::Property;
-    fn wrap_config_value(property: BoxedTemplateProperty<'a, ConfigValue>) -> Self::Property;
-    fn wrap_signature(property: BoxedTemplateProperty<'a, Signature>) -> Self::Property;
-    fn wrap_email(property: BoxedTemplateProperty<'a, Email>) -> Self::Property;
-    fn wrap_size_hint(property: BoxedTemplateProperty<'a, SizeHint>) -> Self::Property;
-    fn wrap_timestamp(property: BoxedTemplateProperty<'a, Timestamp>) -> Self::Property;
-    fn wrap_timestamp_range(property: BoxedTemplateProperty<'a, TimestampRange>) -> Self::Property;
+    // TODO: delete
+    fn wrap_string(property: BoxedTemplateProperty<'a, String>) -> Self::Property {
+        Self::Property::wrap_string(property)
+    }
+    fn wrap_string_list(property: BoxedTemplateProperty<'a, Vec<String>>) -> Self::Property {
+        Self::Property::wrap_string_list(property)
+    }
+    fn wrap_boolean(property: BoxedTemplateProperty<'a, bool>) -> Self::Property {
+        Self::Property::wrap_boolean(property)
+    }
+    fn wrap_integer(property: BoxedTemplateProperty<'a, i64>) -> Self::Property {
+        Self::Property::wrap_integer(property)
+    }
+    fn wrap_integer_opt(property: BoxedTemplateProperty<'a, Option<i64>>) -> Self::Property {
+        Self::Property::wrap_integer_opt(property)
+    }
+    fn wrap_config_value(property: BoxedTemplateProperty<'a, ConfigValue>) -> Self::Property {
+        Self::Property::wrap_config_value(property)
+    }
+    fn wrap_signature(property: BoxedTemplateProperty<'a, Signature>) -> Self::Property {
+        Self::Property::wrap_signature(property)
+    }
+    fn wrap_email(property: BoxedTemplateProperty<'a, Email>) -> Self::Property {
+        Self::Property::wrap_email(property)
+    }
+    fn wrap_size_hint(property: BoxedTemplateProperty<'a, SizeHint>) -> Self::Property {
+        Self::Property::wrap_size_hint(property)
+    }
+    fn wrap_timestamp(property: BoxedTemplateProperty<'a, Timestamp>) -> Self::Property {
+        Self::Property::wrap_timestamp(property)
+    }
+    fn wrap_timestamp_range(property: BoxedTemplateProperty<'a, TimestampRange>) -> Self::Property {
+        Self::Property::wrap_timestamp_range(property)
+    }
 
-    fn wrap_template(template: Box<dyn Template + 'a>) -> Self::Property;
-    fn wrap_list_template(template: Box<dyn ListTemplate + 'a>) -> Self::Property;
+    // TODO: delete
+    fn wrap_template(template: Box<dyn Template + 'a>) -> Self::Property {
+        Self::Property::wrap_template(template)
+    }
+    fn wrap_list_template(template: Box<dyn ListTemplate + 'a>) -> Self::Property {
+        Self::Property::wrap_list_template(template)
+    }
 
     fn settings(&self) -> &UserSettings;
 
@@ -107,7 +135,7 @@ pub trait TemplateLanguage<'a> {
     ) -> TemplateParseResult<Self::Property>;
 }
 
-/// Implements `TemplateLanguage::wrap_<type>()` functions.
+/// Implements `CoreTemplatePropertyVar::wrap_<type>()` functions.
 ///
 /// - `impl_core_wrap_property_fns('a)` for `CoreTemplatePropertyKind`,
 /// - `impl_core_wrap_property_fns('a, MyKind::Core)` for `MyKind::Core(..)`.
@@ -133,13 +161,13 @@ macro_rules! impl_core_wrap_property_fns {
         );
         fn wrap_template(
             template: Box<dyn $crate::templater::Template + $a>,
-        ) -> Self::Property {
+        ) -> Self {
             use $crate::template_builder::CoreTemplatePropertyKind as Kind;
             $outer(Kind::Template(template))
         }
         fn wrap_list_template(
             template: Box<dyn $crate::templater::ListTemplate + $a>,
-        ) -> Self::Property {
+        ) -> Self {
             use $crate::template_builder::CoreTemplatePropertyKind as Kind;
             $outer(Kind::ListTemplate(template))
         }
@@ -151,7 +179,7 @@ macro_rules! impl_wrap_property_fns {
         $(
             fn $func(
                 property: $crate::templater::BoxedTemplateProperty<$a, $ty>,
-            ) -> Self::Property {
+            ) -> Self {
                 use $kind as Kind; // https://github.com/rust-lang/rust/issues/48067
                 $outer(Kind::$var(property))
             }
@@ -162,7 +190,26 @@ macro_rules! impl_wrap_property_fns {
 pub(crate) use impl_core_wrap_property_fns;
 pub(crate) use impl_wrap_property_fns;
 
+/// Wrapper for the core template property types.
+pub trait CoreTemplatePropertyVar<'a> {
+    fn wrap_string(property: BoxedTemplateProperty<'a, String>) -> Self;
+    fn wrap_string_list(property: BoxedTemplateProperty<'a, Vec<String>>) -> Self;
+    fn wrap_boolean(property: BoxedTemplateProperty<'a, bool>) -> Self;
+    fn wrap_integer(property: BoxedTemplateProperty<'a, i64>) -> Self;
+    fn wrap_integer_opt(property: BoxedTemplateProperty<'a, Option<i64>>) -> Self;
+    fn wrap_config_value(property: BoxedTemplateProperty<'a, ConfigValue>) -> Self;
+    fn wrap_signature(property: BoxedTemplateProperty<'a, Signature>) -> Self;
+    fn wrap_email(property: BoxedTemplateProperty<'a, Email>) -> Self;
+    fn wrap_size_hint(property: BoxedTemplateProperty<'a, SizeHint>) -> Self;
+    fn wrap_timestamp(property: BoxedTemplateProperty<'a, Timestamp>) -> Self;
+    fn wrap_timestamp_range(property: BoxedTemplateProperty<'a, TimestampRange>) -> Self;
+
+    fn wrap_template(template: Box<dyn Template + 'a>) -> Self;
+    fn wrap_list_template(template: Box<dyn ListTemplate + 'a>) -> Self;
+}
+
 /// Provides access to basic template property types.
+// TODO: merge with CoreTemplatePropertyVar<'a>?
 pub trait IntoTemplateProperty<'a> {
     /// Type name of the property output.
     fn type_name(&self) -> &'static str;
