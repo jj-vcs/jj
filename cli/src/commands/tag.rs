@@ -18,7 +18,7 @@ use jj_lib::str_util::StringPattern;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::commit_templater::CommitRef;
-use crate::commit_templater::CommitTemplateLanguage;
+use crate::commit_templater::CommitTemplatePropertyKind;
 use crate::complete;
 use crate::ui::Ui;
 
@@ -86,7 +86,7 @@ fn cmd_tag_list(
                 ui,
                 &language,
                 &text,
-                CommitTemplateLanguage::wrap_commit_ref,
+                CommitTemplatePropertyKind::wrap_commit_ref,
             )?
             .labeled("tag_list")
     };

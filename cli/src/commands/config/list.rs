@@ -25,7 +25,9 @@ use crate::complete;
 use crate::config::resolved_config_values;
 use crate::config::AnnotatedValue;
 use crate::generic_templater::GenericTemplateLanguage;
-use crate::template_builder::TemplateLanguage as _;
+use crate::generic_templater::GenericTemplatePropertyKind;
+use crate::template_builder::CoreTemplatePropertyVar as _;
+use crate::template_builder::TemplateLanguage;
 use crate::templater::TemplatePropertyExt as _;
 use crate::ui::Ui;
 
@@ -83,7 +85,7 @@ pub fn cmd_config_list(
             None => command.settings().get_string("templates.config_list")?,
         };
         command
-            .parse_template(ui, &language, &text, GenericTemplateLanguage::wrap_self)?
+            .parse_template(ui, &language, &text, GenericTemplatePropertyKind::wrap_self)?
             .labeled("config_list")
     };
 
@@ -118,25 +120,25 @@ pub fn cmd_config_list(
     Ok(())
 }
 
+type ConfigTemplateLanguage = GenericTemplateLanguage<'static, AnnotatedValue>;
+
 // AnnotatedValue will be cloned internally in the templater. If the cloning
 // cost matters, wrap it with Rc.
-fn config_template_language(
-    settings: &UserSettings,
-) -> GenericTemplateLanguage<'static, AnnotatedValue> {
-    type L = GenericTemplateLanguage<'static, AnnotatedValue>;
-    let mut language = L::new(settings);
+fn config_template_language(settings: &UserSettings) -> ConfigTemplateLanguage {
+    type P = <ConfigTemplateLanguage as TemplateLanguage<'static>>::Property;
+    let mut language = ConfigTemplateLanguage::new(settings);
     language.add_keyword("name", |self_property| {
         let out_property = self_property.map(|annotated| annotated.name.to_string());
-        Ok(L::wrap_string(out_property.into_dyn()))
+        Ok(P::wrap_string(out_property.into_dyn()))
     });
     language.add_keyword("value", |self_property| {
         // .decorated("", "") to trim leading/trailing whitespace
         let out_property = self_property.map(|annotated| annotated.value.decorated("", ""));
-        Ok(L::wrap_config_value(out_property.into_dyn()))
+        Ok(P::wrap_config_value(out_property.into_dyn()))
     });
     language.add_keyword("source", |self_property| {
         let out_property = self_property.map(|annotated| annotated.source.to_string());
-        Ok(L::wrap_string(out_property.into_dyn()))
+        Ok(P::wrap_string(out_property.into_dyn()))
     });
     language.add_keyword("path", |self_property| {
         let out_property = self_property.map(|annotated| {
@@ -146,11 +148,11 @@ fn config_template_language(
                 .as_ref()
                 .map_or_else(String::new, |path| path.to_string_lossy().into_owned())
         });
-        Ok(L::wrap_string(out_property.into_dyn()))
+        Ok(P::wrap_string(out_property.into_dyn()))
     });
     language.add_keyword("overridden", |self_property| {
         let out_property = self_property.map(|annotated| annotated.is_overridden);
-        Ok(L::wrap_boolean(out_property.into_dyn()))
+        Ok(P::wrap_boolean(out_property.into_dyn()))
     });
     language
 }

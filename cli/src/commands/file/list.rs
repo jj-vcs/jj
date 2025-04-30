@@ -18,7 +18,7 @@ use tracing::instrument;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::command_error::CommandError;
-use crate::commit_templater::CommitTemplateLanguage;
+use crate::commit_templater::CommitTemplatePropertyKind;
 use crate::commit_templater::TreeEntry;
 use crate::complete;
 use crate::ui::Ui;
@@ -77,7 +77,7 @@ pub(crate) fn cmd_file_list(
                 ui,
                 &language,
                 &text,
-                CommitTemplateLanguage::wrap_tree_entry,
+                CommitTemplatePropertyKind::wrap_tree_entry,
             )?
             .labeled("file_list")
     };

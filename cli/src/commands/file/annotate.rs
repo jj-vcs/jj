@@ -25,7 +25,7 @@ use crate::cli_util::RevisionArg;
 use crate::command_error::user_error;
 use crate::command_error::CommandError;
 use crate::commit_templater::AnnotationLine;
-use crate::commit_templater::CommitTemplateLanguage;
+use crate::commit_templater::CommitTemplatePropertyKind;
 use crate::complete;
 use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
@@ -101,7 +101,7 @@ pub(crate) fn cmd_file_annotate(
         ui,
         &language,
         &template_text,
-        CommitTemplateLanguage::wrap_annotation_line,
+        CommitTemplatePropertyKind::wrap_annotation_line,
     )?;
 
     // TODO: Should we add an option to limit the domain to e.g. recent commits?

@@ -129,13 +129,6 @@ impl<'a, C> TemplateLanguage<'a> for GenericTemplateLanguage<'a, C> {
     }
 }
 
-impl<'a, C> GenericTemplateLanguage<'a, C> {
-    // TODO: delete
-    pub fn wrap_self(property: BoxedTemplateProperty<'a, C>) -> GenericTemplatePropertyKind<'a, C> {
-        GenericTemplatePropertyKind::wrap_self(property)
-    }
-}
-
 pub enum GenericTemplatePropertyKind<'a, C> {
     Core(CoreTemplatePropertyKind<'a>),
     Self_(BoxedTemplateProperty<'a, C>),

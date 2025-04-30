@@ -29,7 +29,7 @@ use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
 use crate::cli_util::RevisionArg;
 use crate::command_error::CommandError;
-use crate::commit_templater::CommitTemplateLanguage;
+use crate::commit_templater::CommitTemplatePropertyKind;
 use crate::complete;
 use crate::diff_util::DiffFormatArgs;
 use crate::graphlog::get_graphlog;
@@ -114,7 +114,7 @@ pub(crate) fn cmd_evolog(
                 ui,
                 &language,
                 &template_string,
-                CommitTemplateLanguage::wrap_commit,
+                CommitTemplatePropertyKind::wrap_commit,
             )?
             .labeled("log");
         node_template = workspace_command
@@ -122,7 +122,7 @@ pub(crate) fn cmd_evolog(
                 ui,
                 &language,
                 &get_node_template(graph_style, workspace_command.settings())?,
-                CommitTemplateLanguage::wrap_commit_opt,
+                CommitTemplatePropertyKind::wrap_commit_opt,
             )?
             .labeled("node");
     }

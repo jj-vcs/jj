@@ -33,7 +33,7 @@ use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::command_error::CommandError;
 use crate::commit_templater::CommitRef;
-use crate::commit_templater::CommitTemplateLanguage;
+use crate::commit_templater::CommitTemplatePropertyKind;
 use crate::complete;
 use crate::ui::Ui;
 
@@ -184,7 +184,7 @@ pub fn cmd_bookmark_list(
                 ui,
                 &language,
                 &text,
-                CommitTemplateLanguage::wrap_commit_ref,
+                CommitTemplatePropertyKind::wrap_commit_ref,
             )?
             .labeled("bookmark_list")
     };

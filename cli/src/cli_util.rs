@@ -152,6 +152,7 @@ use crate::command_error::user_error_with_hint;
 use crate::command_error::CommandError;
 use crate::commit_templater::CommitTemplateLanguage;
 use crate::commit_templater::CommitTemplateLanguageExtension;
+use crate::commit_templater::CommitTemplatePropertyKind;
 use crate::complete;
 use crate::config::config_from_environment;
 use crate::config::parse_config_args;
@@ -171,6 +172,7 @@ use crate::merge_tools::MergeEditor;
 use crate::merge_tools::MergeToolConfigError;
 use crate::operation_templater::OperationTemplateLanguage;
 use crate::operation_templater::OperationTemplateLanguageExtension;
+use crate::operation_templater::OperationTemplatePropertyKind;
 use crate::revset_util;
 use crate::revset_util::RevsetExpressionEvaluator;
 use crate::template_builder;
@@ -1738,7 +1740,7 @@ to the current parents may contain changes from multiple commits.
             ui,
             &language,
             template_text,
-            CommitTemplateLanguage::wrap_commit,
+            CommitTemplatePropertyKind::wrap_commit,
         )
     }
 
@@ -1753,7 +1755,7 @@ to the current parents may contain changes from multiple commits.
             ui,
             &language,
             template_text,
-            OperationTemplateLanguage::wrap_operation,
+            OperationTemplatePropertyKind::wrap_operation,
         )
     }
 
@@ -1778,7 +1780,7 @@ to the current parents may contain changes from multiple commits.
         self.reparse_valid_template(
             &language,
             &self.commit_summary_template_text,
-            CommitTemplateLanguage::wrap_commit,
+            CommitTemplatePropertyKind::wrap_commit,
         )
     }
 
@@ -1788,7 +1790,7 @@ to the current parents may contain changes from multiple commits.
         self.reparse_valid_template(
             &language,
             &self.op_summary_template_text,
-            OperationTemplateLanguage::wrap_operation,
+            OperationTemplatePropertyKind::wrap_operation,
         )
         .labeled("operation")
     }
@@ -1798,7 +1800,7 @@ to the current parents may contain changes from multiple commits.
         self.reparse_valid_template(
             &language,
             SHORT_CHANGE_ID_TEMPLATE_TEXT,
-            CommitTemplateLanguage::wrap_commit,
+            CommitTemplatePropertyKind::wrap_commit,
         )
     }
 
@@ -2460,7 +2462,7 @@ impl WorkspaceCommandTransaction<'_> {
         self.helper.reparse_valid_template(
             &language,
             &self.helper.commit_summary_template_text,
-            CommitTemplateLanguage::wrap_commit,
+            CommitTemplatePropertyKind::wrap_commit,
         )
     }
 
@@ -2486,7 +2488,7 @@ impl WorkspaceCommandTransaction<'_> {
             ui,
             &language,
             template_text,
-            CommitTemplateLanguage::wrap_commit,
+            CommitTemplatePropertyKind::wrap_commit,
         )
     }
 

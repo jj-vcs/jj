@@ -32,7 +32,7 @@ use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
 use crate::cli_util::WorkspaceCommandEnvironment;
 use crate::command_error::CommandError;
-use crate::commit_templater::CommitTemplateLanguage;
+use crate::commit_templater::CommitTemplatePropertyKind;
 use crate::complete;
 use crate::diff_util::diff_formats_for_log;
 use crate::diff_util::DiffFormatArgs;
@@ -41,6 +41,7 @@ use crate::formatter::Formatter;
 use crate::graphlog::get_graphlog;
 use crate::graphlog::GraphStyle;
 use crate::operation_templater::OperationTemplateLanguage;
+use crate::operation_templater::OperationTemplatePropertyKind;
 use crate::ui::Ui;
 
 /// Show the operation log
@@ -139,7 +140,7 @@ fn do_op_log(
                 ui,
                 &language,
                 &text,
-                OperationTemplateLanguage::wrap_operation,
+                OperationTemplatePropertyKind::wrap_operation,
             )?
             .labeled("operation")
             .labeled("op_log");
@@ -148,7 +149,7 @@ fn do_op_log(
                 ui,
                 &language,
                 &get_node_template(graph_style, settings)?,
-                OperationTemplateLanguage::wrap_operation,
+                OperationTemplatePropertyKind::wrap_operation,
             )?
             .labeled("node");
     }
@@ -173,7 +174,7 @@ fn do_op_log(
                     ui,
                     &language,
                     &template_text,
-                    CommitTemplateLanguage::wrap_commit,
+                    CommitTemplatePropertyKind::wrap_commit,
                 )?
             };
             let path_converter = workspace_env.path_converter();
