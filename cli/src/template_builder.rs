@@ -175,9 +175,15 @@ macro_rules! impl_core_wrap_property_fns {
 }
 
 macro_rules! impl_wrap_property_fns {
-    ($a:lifetime, $kind:path, $outer:path, { $( $func:ident($ty:ty) => $var:ident, )+ }) => {
+    ($a:lifetime, $kind:path, { $($body:tt)* }) => {
+        $crate::template_builder::impl_wrap_property_fns!(
+            $a, $kind, std::convert::identity, { $($body)* });
+    };
+    ($a:lifetime, $kind:path, $outer:path, {
+        $( $vis:vis $func:ident($ty:ty) => $var:ident, )+
+    }) => {
         $(
-            fn $func(
+            $vis fn $func(
                 property: $crate::templater::BoxedTemplateProperty<$a, $ty>,
             ) -> Self {
                 use $kind as Kind; // https://github.com/rust-lang/rust/issues/48067

@@ -135,16 +135,17 @@ impl OperationTemplateLanguage {
         self.cache_extensions.get::<T>()
     }
 
+    // TODO: delete
     pub fn wrap_operation(
         property: BoxedTemplateProperty<'static, Operation>,
     ) -> OperationTemplatePropertyKind {
-        OperationTemplatePropertyKind::Operation(property)
+        OperationTemplatePropertyKind::wrap_operation(property)
     }
 
     pub fn wrap_operation_id(
         property: BoxedTemplateProperty<'static, OperationId>,
     ) -> OperationTemplatePropertyKind {
-        OperationTemplatePropertyKind::OperationId(property)
+        OperationTemplatePropertyKind::wrap_operation_id(property)
     }
 }
 
@@ -152,6 +153,13 @@ pub enum OperationTemplatePropertyKind {
     Core(CoreTemplatePropertyKind<'static>),
     Operation(BoxedTemplateProperty<'static, Operation>),
     OperationId(BoxedTemplateProperty<'static, OperationId>),
+}
+
+impl OperationTemplatePropertyKind {
+    template_builder::impl_wrap_property_fns!('static, OperationTemplatePropertyKind, {
+        pub wrap_operation(Operation) => Operation,
+        pub wrap_operation_id(OperationId) => OperationId,
+    });
 }
 
 impl CoreTemplatePropertyVar<'static> for OperationTemplatePropertyKind {

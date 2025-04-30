@@ -359,118 +359,119 @@ impl<'repo> CommitTemplateLanguage<'repo> {
         self.cache_extensions.get::<T>()
     }
 
+    // TODO: delete
     pub fn wrap_commit(
         property: BoxedTemplateProperty<'repo, Commit>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::Commit(property)
+        CommitTemplatePropertyKind::wrap_commit(property)
     }
 
     pub fn wrap_commit_opt(
         property: BoxedTemplateProperty<'repo, Option<Commit>>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::CommitOpt(property)
+        CommitTemplatePropertyKind::wrap_commit_opt(property)
     }
 
     pub fn wrap_commit_list(
         property: BoxedTemplateProperty<'repo, Vec<Commit>>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::CommitList(property)
+        CommitTemplatePropertyKind::wrap_commit_list(property)
     }
 
     pub fn wrap_commit_ref(
         property: BoxedTemplateProperty<'repo, Rc<CommitRef>>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::CommitRef(property)
+        CommitTemplatePropertyKind::wrap_commit_ref(property)
     }
 
     pub fn wrap_commit_ref_opt(
         property: BoxedTemplateProperty<'repo, Option<Rc<CommitRef>>>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::CommitRefOpt(property)
+        CommitTemplatePropertyKind::wrap_commit_ref_opt(property)
     }
 
     pub fn wrap_commit_ref_list(
         property: BoxedTemplateProperty<'repo, Vec<Rc<CommitRef>>>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::CommitRefList(property)
+        CommitTemplatePropertyKind::wrap_commit_ref_list(property)
     }
 
     pub fn wrap_repo_path(
         property: BoxedTemplateProperty<'repo, RepoPathBuf>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::RepoPath(property)
+        CommitTemplatePropertyKind::wrap_repo_path(property)
     }
 
     pub fn wrap_repo_path_opt(
         property: BoxedTemplateProperty<'repo, Option<RepoPathBuf>>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::RepoPathOpt(property)
+        CommitTemplatePropertyKind::wrap_repo_path_opt(property)
     }
 
     pub fn wrap_commit_or_change_id(
         property: BoxedTemplateProperty<'repo, CommitOrChangeId>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::CommitOrChangeId(property)
+        CommitTemplatePropertyKind::wrap_commit_or_change_id(property)
     }
 
     pub fn wrap_shortest_id_prefix(
         property: BoxedTemplateProperty<'repo, ShortestIdPrefix>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::ShortestIdPrefix(property)
+        CommitTemplatePropertyKind::wrap_shortest_id_prefix(property)
     }
 
     pub fn wrap_tree_diff(
         property: BoxedTemplateProperty<'repo, TreeDiff>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::TreeDiff(property)
+        CommitTemplatePropertyKind::wrap_tree_diff(property)
     }
 
     pub fn wrap_tree_diff_entry(
         property: BoxedTemplateProperty<'repo, TreeDiffEntry>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::TreeDiffEntry(property)
+        CommitTemplatePropertyKind::wrap_tree_diff_entry(property)
     }
 
     pub fn wrap_tree_diff_entry_list(
         property: BoxedTemplateProperty<'repo, Vec<TreeDiffEntry>>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::TreeDiffEntryList(property)
+        CommitTemplatePropertyKind::wrap_tree_diff_entry_list(property)
     }
 
     pub fn wrap_tree_entry(
         property: BoxedTemplateProperty<'repo, TreeEntry>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::TreeEntry(property)
+        CommitTemplatePropertyKind::wrap_tree_entry(property)
     }
 
     pub fn wrap_diff_stats(
         property: BoxedTemplateProperty<'repo, DiffStatsFormatted<'repo>>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::DiffStats(property)
+        CommitTemplatePropertyKind::wrap_diff_stats(property)
     }
 
     fn wrap_cryptographic_signature_opt(
         property: BoxedTemplateProperty<'repo, Option<CryptographicSignature>>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::CryptographicSignatureOpt(property)
+        CommitTemplatePropertyKind::wrap_cryptographic_signature_opt(property)
     }
 
     pub fn wrap_annotation_line(
         property: BoxedTemplateProperty<'repo, AnnotationLine>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::AnnotationLine(property)
+        CommitTemplatePropertyKind::wrap_annotation_line(property)
     }
 
     pub fn wrap_trailer(
         property: BoxedTemplateProperty<'repo, Trailer>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::Trailer(property)
+        CommitTemplatePropertyKind::wrap_trailer(property)
     }
 
     pub fn wrap_trailer_list(
         property: BoxedTemplateProperty<'repo, Vec<Trailer>>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::TrailerList(property)
+        CommitTemplatePropertyKind::wrap_trailer_list(property)
     }
 }
 
@@ -495,6 +496,32 @@ pub enum CommitTemplatePropertyKind<'repo> {
     AnnotationLine(BoxedTemplateProperty<'repo, AnnotationLine>),
     Trailer(BoxedTemplateProperty<'repo, Trailer>),
     TrailerList(BoxedTemplateProperty<'repo, Vec<Trailer>>),
+}
+
+impl<'repo> CommitTemplatePropertyKind<'repo> {
+    template_builder::impl_wrap_property_fns!('repo, CommitTemplatePropertyKind, {
+        pub wrap_commit(Commit) => Commit,
+        pub wrap_commit_opt(Option<Commit>) => CommitOpt,
+        pub wrap_commit_list(Vec<Commit>) => CommitList,
+        pub wrap_commit_ref(Rc<CommitRef>) => CommitRef,
+        pub wrap_commit_ref_opt(Option<Rc<CommitRef>>) => CommitRefOpt,
+        pub wrap_commit_ref_list(Vec<Rc<CommitRef>>) => CommitRefList,
+        pub wrap_repo_path(RepoPathBuf) => RepoPath,
+        pub wrap_repo_path_opt(Option<RepoPathBuf>) => RepoPathOpt,
+        pub wrap_commit_or_change_id(CommitOrChangeId) => CommitOrChangeId,
+        pub wrap_shortest_id_prefix(ShortestIdPrefix) => ShortestIdPrefix,
+        pub wrap_tree_diff(TreeDiff) => TreeDiff,
+        pub wrap_tree_diff_entry(TreeDiffEntry) => TreeDiffEntry,
+        pub wrap_tree_diff_entry_list(Vec<TreeDiffEntry>) => TreeDiffEntryList,
+        pub wrap_tree_entry(TreeEntry) => TreeEntry,
+        pub wrap_diff_stats(DiffStatsFormatted<'repo>) => DiffStats,
+        pub wrap_cryptographic_signature_opt(
+            Option<CryptographicSignature>
+        ) => CryptographicSignatureOpt,
+        pub wrap_annotation_line(AnnotationLine) => AnnotationLine,
+        pub wrap_trailer(Trailer) => Trailer,
+        pub wrap_trailer_list(Vec<Trailer>) => TrailerList,
+    });
 }
 
 impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo> {
