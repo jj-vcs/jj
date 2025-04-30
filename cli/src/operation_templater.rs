@@ -37,10 +37,10 @@ use crate::template_parser;
 use crate::template_parser::FunctionCallNode;
 use crate::template_parser::TemplateDiagnostics;
 use crate::template_parser::TemplateParseResult;
+use crate::templater::BoxedTemplateProperty;
 use crate::templater::PlainTextFormattedProperty;
 use crate::templater::Template;
 use crate::templater::TemplateFormatter;
-use crate::templater::TemplateProperty;
 use crate::templater::TemplatePropertyExt as _;
 use crate::templater::TimestampRange;
 
@@ -137,13 +137,13 @@ impl OperationTemplateLanguage {
     }
 
     pub fn wrap_operation(
-        property: Box<dyn TemplateProperty<Output = Operation> + 'static>,
+        property: BoxedTemplateProperty<'static, Operation>,
     ) -> OperationTemplatePropertyKind {
         OperationTemplatePropertyKind::Operation(property)
     }
 
     pub fn wrap_operation_id(
-        property: Box<dyn TemplateProperty<Output = OperationId> + 'static>,
+        property: BoxedTemplateProperty<'static, OperationId>,
     ) -> OperationTemplatePropertyKind {
         OperationTemplatePropertyKind::OperationId(property)
     }
@@ -151,8 +151,8 @@ impl OperationTemplateLanguage {
 
 pub enum OperationTemplatePropertyKind {
     Core(CoreTemplatePropertyKind<'static>),
-    Operation(Box<dyn TemplateProperty<Output = Operation>>),
-    OperationId(Box<dyn TemplateProperty<Output = OperationId>>),
+    Operation(BoxedTemplateProperty<'static, Operation>),
+    OperationId(BoxedTemplateProperty<'static, OperationId>),
 }
 
 impl IntoTemplateProperty<'static> for OperationTemplatePropertyKind {
@@ -164,7 +164,7 @@ impl IntoTemplateProperty<'static> for OperationTemplatePropertyKind {
         }
     }
 
-    fn try_into_boolean(self) -> Option<Box<dyn TemplateProperty<Output = bool>>> {
+    fn try_into_boolean(self) -> Option<BoxedTemplateProperty<'static, bool>> {
         match self {
             OperationTemplatePropertyKind::Core(property) => property.try_into_boolean(),
             OperationTemplatePropertyKind::Operation(_) => None,
@@ -172,14 +172,14 @@ impl IntoTemplateProperty<'static> for OperationTemplatePropertyKind {
         }
     }
 
-    fn try_into_integer(self) -> Option<Box<dyn TemplateProperty<Output = i64>>> {
+    fn try_into_integer(self) -> Option<BoxedTemplateProperty<'static, i64>> {
         match self {
             OperationTemplatePropertyKind::Core(property) => property.try_into_integer(),
             _ => None,
         }
     }
 
-    fn try_into_plain_text(self) -> Option<Box<dyn TemplateProperty<Output = String>>> {
+    fn try_into_plain_text(self) -> Option<BoxedTemplateProperty<'static, String>> {
         match self {
             OperationTemplatePropertyKind::Core(property) => property.try_into_plain_text(),
             _ => {
@@ -197,7 +197,7 @@ impl IntoTemplateProperty<'static> for OperationTemplatePropertyKind {
         }
     }
 
-    fn try_into_eq(self, other: Self) -> Option<Box<dyn TemplateProperty<Output = bool>>> {
+    fn try_into_eq(self, other: Self) -> Option<BoxedTemplateProperty<'static, bool>> {
         match (self, other) {
             (
                 OperationTemplatePropertyKind::Core(lhs),
@@ -209,7 +209,7 @@ impl IntoTemplateProperty<'static> for OperationTemplatePropertyKind {
         }
     }
 
-    fn try_into_cmp(self, other: Self) -> Option<Box<dyn TemplateProperty<Output = Ordering>>> {
+    fn try_into_cmp(self, other: Self) -> Option<BoxedTemplateProperty<'static, Ordering>> {
         match (self, other) {
             (
                 OperationTemplatePropertyKind::Core(lhs),

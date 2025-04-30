@@ -27,8 +27,8 @@ use crate::template_parser;
 use crate::template_parser::FunctionCallNode;
 use crate::template_parser::TemplateDiagnostics;
 use crate::template_parser::TemplateParseResult;
+use crate::templater::BoxedTemplateProperty;
 use crate::templater::Template;
-use crate::templater::TemplateProperty;
 
 /// General-purpose template language for basic value types.
 ///
@@ -79,7 +79,7 @@ impl<'a, C> GenericTemplateLanguage<'a, C> {
     pub fn add_keyword<F>(&mut self, name: &'static str, build: F)
     where
         F: Fn(
-                Box<dyn TemplateProperty<Output = C> + 'a>,
+                BoxedTemplateProperty<'a, C>,
             ) -> TemplateParseResult<GenericTemplatePropertyKind<'a, C>>
             + 'a,
     {
@@ -131,16 +131,14 @@ impl<'a, C> TemplateLanguage<'a> for GenericTemplateLanguage<'a, C> {
 }
 
 impl<'a, C> GenericTemplateLanguage<'a, C> {
-    pub fn wrap_self(
-        property: Box<dyn TemplateProperty<Output = C> + 'a>,
-    ) -> GenericTemplatePropertyKind<'a, C> {
+    pub fn wrap_self(property: BoxedTemplateProperty<'a, C>) -> GenericTemplatePropertyKind<'a, C> {
         GenericTemplatePropertyKind::Self_(property)
     }
 }
 
 pub enum GenericTemplatePropertyKind<'a, C> {
     Core(CoreTemplatePropertyKind<'a>),
-    Self_(Box<dyn TemplateProperty<Output = C> + 'a>),
+    Self_(BoxedTemplateProperty<'a, C>),
 }
 
 impl<'a, C> IntoTemplateProperty<'a> for GenericTemplatePropertyKind<'a, C> {
@@ -151,21 +149,21 @@ impl<'a, C> IntoTemplateProperty<'a> for GenericTemplatePropertyKind<'a, C> {
         }
     }
 
-    fn try_into_boolean(self) -> Option<Box<dyn TemplateProperty<Output = bool> + 'a>> {
+    fn try_into_boolean(self) -> Option<BoxedTemplateProperty<'a, bool>> {
         match self {
             GenericTemplatePropertyKind::Core(property) => property.try_into_boolean(),
             GenericTemplatePropertyKind::Self_(_) => None,
         }
     }
 
-    fn try_into_integer(self) -> Option<Box<dyn TemplateProperty<Output = i64> + 'a>> {
+    fn try_into_integer(self) -> Option<BoxedTemplateProperty<'a, i64>> {
         match self {
             GenericTemplatePropertyKind::Core(property) => property.try_into_integer(),
             GenericTemplatePropertyKind::Self_(_) => None,
         }
     }
 
-    fn try_into_plain_text(self) -> Option<Box<dyn TemplateProperty<Output = String> + 'a>> {
+    fn try_into_plain_text(self) -> Option<BoxedTemplateProperty<'a, String>> {
         match self {
             GenericTemplatePropertyKind::Core(property) => property.try_into_plain_text(),
             GenericTemplatePropertyKind::Self_(_) => None,
@@ -179,7 +177,7 @@ impl<'a, C> IntoTemplateProperty<'a> for GenericTemplatePropertyKind<'a, C> {
         }
     }
 
-    fn try_into_eq(self, other: Self) -> Option<Box<dyn TemplateProperty<Output = bool> + 'a>> {
+    fn try_into_eq(self, other: Self) -> Option<BoxedTemplateProperty<'a, bool>> {
         match (self, other) {
             (GenericTemplatePropertyKind::Core(lhs), GenericTemplatePropertyKind::Core(rhs)) => {
                 lhs.try_into_eq(rhs)
@@ -189,10 +187,7 @@ impl<'a, C> IntoTemplateProperty<'a> for GenericTemplatePropertyKind<'a, C> {
         }
     }
 
-    fn try_into_cmp(
-        self,
-        other: Self,
-    ) -> Option<Box<dyn TemplateProperty<Output = Ordering> + 'a>> {
+    fn try_into_cmp(self, other: Self) -> Option<BoxedTemplateProperty<'a, Ordering>> {
         match (self, other) {
             (GenericTemplatePropertyKind::Core(lhs), GenericTemplatePropertyKind::Core(rhs)) => {
                 lhs.try_into_cmp(rhs)
@@ -209,9 +204,7 @@ impl<'a, C> IntoTemplateProperty<'a> for GenericTemplatePropertyKind<'a, C> {
 /// Because the `GenericTemplateLanguage` doesn't provide a way to pass around
 /// global resources, the keyword function is allowed to capture resources.
 pub type GenericTemplateBuildKeywordFn<'a, C> = Box<
-    dyn Fn(
-            Box<dyn TemplateProperty<Output = C> + 'a>,
-        ) -> TemplateParseResult<GenericTemplatePropertyKind<'a, C>>
+    dyn Fn(BoxedTemplateProperty<'a, C>) -> TemplateParseResult<GenericTemplatePropertyKind<'a, C>>
         + 'a,
 >;
 

@@ -89,11 +89,11 @@ use crate::template_parser::TemplateDiagnostics;
 use crate::template_parser::TemplateParseError;
 use crate::template_parser::TemplateParseResult;
 use crate::templater;
+use crate::templater::BoxedTemplateProperty;
 use crate::templater::PlainTextFormattedProperty;
 use crate::templater::SizeHint;
 use crate::templater::Template;
 use crate::templater::TemplateFormatter;
-use crate::templater::TemplateProperty;
 use crate::templater::TemplatePropertyError;
 use crate::templater::TemplatePropertyExt as _;
 use crate::text_util;
@@ -361,115 +361,115 @@ impl<'repo> CommitTemplateLanguage<'repo> {
     }
 
     pub fn wrap_commit(
-        property: Box<dyn TemplateProperty<Output = Commit> + 'repo>,
+        property: BoxedTemplateProperty<'repo, Commit>,
     ) -> CommitTemplatePropertyKind<'repo> {
         CommitTemplatePropertyKind::Commit(property)
     }
 
     pub fn wrap_commit_opt(
-        property: Box<dyn TemplateProperty<Output = Option<Commit>> + 'repo>,
+        property: BoxedTemplateProperty<'repo, Option<Commit>>,
     ) -> CommitTemplatePropertyKind<'repo> {
         CommitTemplatePropertyKind::CommitOpt(property)
     }
 
     pub fn wrap_commit_list(
-        property: Box<dyn TemplateProperty<Output = Vec<Commit>> + 'repo>,
+        property: BoxedTemplateProperty<'repo, Vec<Commit>>,
     ) -> CommitTemplatePropertyKind<'repo> {
         CommitTemplatePropertyKind::CommitList(property)
     }
 
     pub fn wrap_commit_ref(
-        property: Box<dyn TemplateProperty<Output = Rc<CommitRef>> + 'repo>,
+        property: BoxedTemplateProperty<'repo, Rc<CommitRef>>,
     ) -> CommitTemplatePropertyKind<'repo> {
         CommitTemplatePropertyKind::CommitRef(property)
     }
 
     pub fn wrap_commit_ref_opt(
-        property: Box<dyn TemplateProperty<Output = Option<Rc<CommitRef>>> + 'repo>,
+        property: BoxedTemplateProperty<'repo, Option<Rc<CommitRef>>>,
     ) -> CommitTemplatePropertyKind<'repo> {
         CommitTemplatePropertyKind::CommitRefOpt(property)
     }
 
     pub fn wrap_commit_ref_list(
-        property: Box<dyn TemplateProperty<Output = Vec<Rc<CommitRef>>> + 'repo>,
+        property: BoxedTemplateProperty<'repo, Vec<Rc<CommitRef>>>,
     ) -> CommitTemplatePropertyKind<'repo> {
         CommitTemplatePropertyKind::CommitRefList(property)
     }
 
     pub fn wrap_repo_path(
-        property: Box<dyn TemplateProperty<Output = RepoPathBuf> + 'repo>,
+        property: BoxedTemplateProperty<'repo, RepoPathBuf>,
     ) -> CommitTemplatePropertyKind<'repo> {
         CommitTemplatePropertyKind::RepoPath(property)
     }
 
     pub fn wrap_repo_path_opt(
-        property: Box<dyn TemplateProperty<Output = Option<RepoPathBuf>> + 'repo>,
+        property: BoxedTemplateProperty<'repo, Option<RepoPathBuf>>,
     ) -> CommitTemplatePropertyKind<'repo> {
         CommitTemplatePropertyKind::RepoPathOpt(property)
     }
 
     pub fn wrap_commit_or_change_id(
-        property: Box<dyn TemplateProperty<Output = CommitOrChangeId> + 'repo>,
+        property: BoxedTemplateProperty<'repo, CommitOrChangeId>,
     ) -> CommitTemplatePropertyKind<'repo> {
         CommitTemplatePropertyKind::CommitOrChangeId(property)
     }
 
     pub fn wrap_shortest_id_prefix(
-        property: Box<dyn TemplateProperty<Output = ShortestIdPrefix> + 'repo>,
+        property: BoxedTemplateProperty<'repo, ShortestIdPrefix>,
     ) -> CommitTemplatePropertyKind<'repo> {
         CommitTemplatePropertyKind::ShortestIdPrefix(property)
     }
 
     pub fn wrap_tree_diff(
-        property: Box<dyn TemplateProperty<Output = TreeDiff> + 'repo>,
+        property: BoxedTemplateProperty<'repo, TreeDiff>,
     ) -> CommitTemplatePropertyKind<'repo> {
         CommitTemplatePropertyKind::TreeDiff(property)
     }
 
     pub fn wrap_tree_diff_entry(
-        property: Box<dyn TemplateProperty<Output = TreeDiffEntry> + 'repo>,
+        property: BoxedTemplateProperty<'repo, TreeDiffEntry>,
     ) -> CommitTemplatePropertyKind<'repo> {
         CommitTemplatePropertyKind::TreeDiffEntry(property)
     }
 
     pub fn wrap_tree_diff_entry_list(
-        property: Box<dyn TemplateProperty<Output = Vec<TreeDiffEntry>> + 'repo>,
+        property: BoxedTemplateProperty<'repo, Vec<TreeDiffEntry>>,
     ) -> CommitTemplatePropertyKind<'repo> {
         CommitTemplatePropertyKind::TreeDiffEntryList(property)
     }
 
     pub fn wrap_tree_entry(
-        property: Box<dyn TemplateProperty<Output = TreeEntry> + 'repo>,
+        property: BoxedTemplateProperty<'repo, TreeEntry>,
     ) -> CommitTemplatePropertyKind<'repo> {
         CommitTemplatePropertyKind::TreeEntry(property)
     }
 
     pub fn wrap_diff_stats(
-        property: Box<dyn TemplateProperty<Output = DiffStatsFormatted<'repo>> + 'repo>,
+        property: BoxedTemplateProperty<'repo, DiffStatsFormatted<'repo>>,
     ) -> CommitTemplatePropertyKind<'repo> {
         CommitTemplatePropertyKind::DiffStats(property)
     }
 
     fn wrap_cryptographic_signature_opt(
-        property: Box<dyn TemplateProperty<Output = Option<CryptographicSignature>> + 'repo>,
+        property: BoxedTemplateProperty<'repo, Option<CryptographicSignature>>,
     ) -> CommitTemplatePropertyKind<'repo> {
         CommitTemplatePropertyKind::CryptographicSignatureOpt(property)
     }
 
     pub fn wrap_annotation_line(
-        property: Box<dyn TemplateProperty<Output = AnnotationLine> + 'repo>,
+        property: BoxedTemplateProperty<'repo, AnnotationLine>,
     ) -> CommitTemplatePropertyKind<'repo> {
         CommitTemplatePropertyKind::AnnotationLine(property)
     }
 
     pub fn wrap_trailer(
-        property: Box<dyn TemplateProperty<Output = Trailer> + 'repo>,
+        property: BoxedTemplateProperty<'repo, Trailer>,
     ) -> CommitTemplatePropertyKind<'repo> {
         CommitTemplatePropertyKind::Trailer(property)
     }
 
     pub fn wrap_trailer_list(
-        property: Box<dyn TemplateProperty<Output = Vec<Trailer>> + 'repo>,
+        property: BoxedTemplateProperty<'repo, Vec<Trailer>>,
     ) -> CommitTemplatePropertyKind<'repo> {
         CommitTemplatePropertyKind::TrailerList(property)
     }
@@ -477,27 +477,25 @@ impl<'repo> CommitTemplateLanguage<'repo> {
 
 pub enum CommitTemplatePropertyKind<'repo> {
     Core(CoreTemplatePropertyKind<'repo>),
-    Commit(Box<dyn TemplateProperty<Output = Commit> + 'repo>),
-    CommitOpt(Box<dyn TemplateProperty<Output = Option<Commit>> + 'repo>),
-    CommitList(Box<dyn TemplateProperty<Output = Vec<Commit>> + 'repo>),
-    CommitRef(Box<dyn TemplateProperty<Output = Rc<CommitRef>> + 'repo>),
-    CommitRefOpt(Box<dyn TemplateProperty<Output = Option<Rc<CommitRef>>> + 'repo>),
-    CommitRefList(Box<dyn TemplateProperty<Output = Vec<Rc<CommitRef>>> + 'repo>),
-    RepoPath(Box<dyn TemplateProperty<Output = RepoPathBuf> + 'repo>),
-    RepoPathOpt(Box<dyn TemplateProperty<Output = Option<RepoPathBuf>> + 'repo>),
-    CommitOrChangeId(Box<dyn TemplateProperty<Output = CommitOrChangeId> + 'repo>),
-    ShortestIdPrefix(Box<dyn TemplateProperty<Output = ShortestIdPrefix> + 'repo>),
-    TreeDiff(Box<dyn TemplateProperty<Output = TreeDiff> + 'repo>),
-    TreeDiffEntry(Box<dyn TemplateProperty<Output = TreeDiffEntry> + 'repo>),
-    TreeDiffEntryList(Box<dyn TemplateProperty<Output = Vec<TreeDiffEntry>> + 'repo>),
-    TreeEntry(Box<dyn TemplateProperty<Output = TreeEntry> + 'repo>),
-    DiffStats(Box<dyn TemplateProperty<Output = DiffStatsFormatted<'repo>> + 'repo>),
-    CryptographicSignatureOpt(
-        Box<dyn TemplateProperty<Output = Option<CryptographicSignature>> + 'repo>,
-    ),
-    AnnotationLine(Box<dyn TemplateProperty<Output = AnnotationLine> + 'repo>),
-    Trailer(Box<dyn TemplateProperty<Output = Trailer> + 'repo>),
-    TrailerList(Box<dyn TemplateProperty<Output = Vec<Trailer>> + 'repo>),
+    Commit(BoxedTemplateProperty<'repo, Commit>),
+    CommitOpt(BoxedTemplateProperty<'repo, Option<Commit>>),
+    CommitList(BoxedTemplateProperty<'repo, Vec<Commit>>),
+    CommitRef(BoxedTemplateProperty<'repo, Rc<CommitRef>>),
+    CommitRefOpt(BoxedTemplateProperty<'repo, Option<Rc<CommitRef>>>),
+    CommitRefList(BoxedTemplateProperty<'repo, Vec<Rc<CommitRef>>>),
+    RepoPath(BoxedTemplateProperty<'repo, RepoPathBuf>),
+    RepoPathOpt(BoxedTemplateProperty<'repo, Option<RepoPathBuf>>),
+    CommitOrChangeId(BoxedTemplateProperty<'repo, CommitOrChangeId>),
+    ShortestIdPrefix(BoxedTemplateProperty<'repo, ShortestIdPrefix>),
+    TreeDiff(BoxedTemplateProperty<'repo, TreeDiff>),
+    TreeDiffEntry(BoxedTemplateProperty<'repo, TreeDiffEntry>),
+    TreeDiffEntryList(BoxedTemplateProperty<'repo, Vec<TreeDiffEntry>>),
+    TreeEntry(BoxedTemplateProperty<'repo, TreeEntry>),
+    DiffStats(BoxedTemplateProperty<'repo, DiffStatsFormatted<'repo>>),
+    CryptographicSignatureOpt(BoxedTemplateProperty<'repo, Option<CryptographicSignature>>),
+    AnnotationLine(BoxedTemplateProperty<'repo, AnnotationLine>),
+    Trailer(BoxedTemplateProperty<'repo, Trailer>),
+    TrailerList(BoxedTemplateProperty<'repo, Vec<Trailer>>),
 }
 
 impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
@@ -528,7 +526,7 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
         }
     }
 
-    fn try_into_boolean(self) -> Option<Box<dyn TemplateProperty<Output = bool> + 'repo>> {
+    fn try_into_boolean(self) -> Option<BoxedTemplateProperty<'repo, bool>> {
         match self {
             CommitTemplatePropertyKind::Core(property) => property.try_into_boolean(),
             CommitTemplatePropertyKind::Commit(_) => None,
@@ -571,14 +569,14 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
         }
     }
 
-    fn try_into_integer(self) -> Option<Box<dyn TemplateProperty<Output = i64> + 'repo>> {
+    fn try_into_integer(self) -> Option<BoxedTemplateProperty<'repo, i64>> {
         match self {
             CommitTemplatePropertyKind::Core(property) => property.try_into_integer(),
             _ => None,
         }
     }
 
-    fn try_into_plain_text(self) -> Option<Box<dyn TemplateProperty<Output = String> + 'repo>> {
+    fn try_into_plain_text(self) -> Option<BoxedTemplateProperty<'repo, String>> {
         match self {
             CommitTemplatePropertyKind::Core(property) => property.try_into_plain_text(),
             _ => {
@@ -617,7 +615,7 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
         }
     }
 
-    fn try_into_eq(self, other: Self) -> Option<Box<dyn TemplateProperty<Output = bool> + 'repo>> {
+    fn try_into_eq(self, other: Self) -> Option<BoxedTemplateProperty<'repo, bool>> {
         match (self, other) {
             (CommitTemplatePropertyKind::Core(lhs), CommitTemplatePropertyKind::Core(rhs)) => {
                 lhs.try_into_eq(rhs)
@@ -645,10 +643,7 @@ impl<'repo> IntoTemplateProperty<'repo> for CommitTemplatePropertyKind<'repo> {
         }
     }
 
-    fn try_into_cmp(
-        self,
-        other: Self,
-    ) -> Option<Box<dyn TemplateProperty<Output = Ordering> + 'repo>> {
+    fn try_into_cmp(self, other: Self) -> Option<BoxedTemplateProperty<'repo, Ordering>> {
         match (self, other) {
             (CommitTemplatePropertyKind::Core(lhs), CommitTemplatePropertyKind::Core(rhs)) => {
                 lhs.try_into_cmp(rhs)

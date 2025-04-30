@@ -42,6 +42,7 @@ use crate::template_parser::TemplateParseError;
 use crate::template_parser::TemplateParseErrorKind;
 use crate::template_parser::TemplateParseResult;
 use crate::template_parser::UnaryOp;
+use crate::templater::BoxedTemplateProperty;
 use crate::templater::CoalesceTemplate;
 use crate::templater::ConcatTemplate;
 use crate::templater::ConditionalTemplate;
@@ -69,31 +70,17 @@ use crate::time_util;
 pub trait TemplateLanguage<'a> {
     type Property: IntoTemplateProperty<'a>;
 
-    fn wrap_string(property: Box<dyn TemplateProperty<Output = String> + 'a>) -> Self::Property;
-    fn wrap_string_list(
-        property: Box<dyn TemplateProperty<Output = Vec<String>> + 'a>,
-    ) -> Self::Property;
-    fn wrap_boolean(property: Box<dyn TemplateProperty<Output = bool> + 'a>) -> Self::Property;
-    fn wrap_integer(property: Box<dyn TemplateProperty<Output = i64> + 'a>) -> Self::Property;
-    fn wrap_integer_opt(
-        property: Box<dyn TemplateProperty<Output = Option<i64>> + 'a>,
-    ) -> Self::Property;
-    fn wrap_config_value(
-        property: Box<dyn TemplateProperty<Output = ConfigValue> + 'a>,
-    ) -> Self::Property;
-    fn wrap_signature(
-        property: Box<dyn TemplateProperty<Output = Signature> + 'a>,
-    ) -> Self::Property;
-    fn wrap_email(property: Box<dyn TemplateProperty<Output = Email> + 'a>) -> Self::Property;
-    fn wrap_size_hint(
-        property: Box<dyn TemplateProperty<Output = SizeHint> + 'a>,
-    ) -> Self::Property;
-    fn wrap_timestamp(
-        property: Box<dyn TemplateProperty<Output = Timestamp> + 'a>,
-    ) -> Self::Property;
-    fn wrap_timestamp_range(
-        property: Box<dyn TemplateProperty<Output = TimestampRange> + 'a>,
-    ) -> Self::Property;
+    fn wrap_string(property: BoxedTemplateProperty<'a, String>) -> Self::Property;
+    fn wrap_string_list(property: BoxedTemplateProperty<'a, Vec<String>>) -> Self::Property;
+    fn wrap_boolean(property: BoxedTemplateProperty<'a, bool>) -> Self::Property;
+    fn wrap_integer(property: BoxedTemplateProperty<'a, i64>) -> Self::Property;
+    fn wrap_integer_opt(property: BoxedTemplateProperty<'a, Option<i64>>) -> Self::Property;
+    fn wrap_config_value(property: BoxedTemplateProperty<'a, ConfigValue>) -> Self::Property;
+    fn wrap_signature(property: BoxedTemplateProperty<'a, Signature>) -> Self::Property;
+    fn wrap_email(property: BoxedTemplateProperty<'a, Email>) -> Self::Property;
+    fn wrap_size_hint(property: BoxedTemplateProperty<'a, SizeHint>) -> Self::Property;
+    fn wrap_timestamp(property: BoxedTemplateProperty<'a, Timestamp>) -> Self::Property;
+    fn wrap_timestamp_range(property: BoxedTemplateProperty<'a, TimestampRange>) -> Self::Property;
 
     fn wrap_template(template: Box<dyn Template + 'a>) -> Self::Property;
     fn wrap_list_template(template: Box<dyn ListTemplate + 'a>) -> Self::Property;
@@ -163,7 +150,7 @@ macro_rules! impl_wrap_property_fns {
     ($a:lifetime, $kind:path, $outer:path, { $( $func:ident($ty:ty) => $var:ident, )+ }) => {
         $(
             fn $func(
-                property: Box<dyn $crate::templater::TemplateProperty<Output = $ty> + $a>,
+                property: $crate::templater::BoxedTemplateProperty<$a, $ty>,
             ) -> Self::Property {
                 use $kind as Kind; // https://github.com/rust-lang/rust/issues/48067
                 $outer(Kind::$var(property))
@@ -180,32 +167,31 @@ pub trait IntoTemplateProperty<'a> {
     /// Type name of the property output.
     fn type_name(&self) -> &'static str;
 
-    fn try_into_boolean(self) -> Option<Box<dyn TemplateProperty<Output = bool> + 'a>>;
-    fn try_into_integer(self) -> Option<Box<dyn TemplateProperty<Output = i64> + 'a>>;
+    fn try_into_boolean(self) -> Option<BoxedTemplateProperty<'a, bool>>;
+    fn try_into_integer(self) -> Option<BoxedTemplateProperty<'a, i64>>;
 
-    fn try_into_plain_text(self) -> Option<Box<dyn TemplateProperty<Output = String> + 'a>>;
+    fn try_into_plain_text(self) -> Option<BoxedTemplateProperty<'a, String>>;
     fn try_into_template(self) -> Option<Box<dyn Template + 'a>>;
 
     /// Transforms into a property that will evaluate to `self == other`.
-    fn try_into_eq(self, other: Self) -> Option<Box<dyn TemplateProperty<Output = bool> + 'a>>;
+    fn try_into_eq(self, other: Self) -> Option<BoxedTemplateProperty<'a, bool>>;
 
     /// Transforms into a property that will evaluate to an [`Ordering`].
-    fn try_into_cmp(self, other: Self)
-        -> Option<Box<dyn TemplateProperty<Output = Ordering> + 'a>>;
+    fn try_into_cmp(self, other: Self) -> Option<BoxedTemplateProperty<'a, Ordering>>;
 }
 
 pub enum CoreTemplatePropertyKind<'a> {
-    String(Box<dyn TemplateProperty<Output = String> + 'a>),
-    StringList(Box<dyn TemplateProperty<Output = Vec<String>> + 'a>),
-    Boolean(Box<dyn TemplateProperty<Output = bool> + 'a>),
-    Integer(Box<dyn TemplateProperty<Output = i64> + 'a>),
-    IntegerOpt(Box<dyn TemplateProperty<Output = Option<i64>> + 'a>),
-    ConfigValue(Box<dyn TemplateProperty<Output = ConfigValue> + 'a>),
-    Signature(Box<dyn TemplateProperty<Output = Signature> + 'a>),
-    Email(Box<dyn TemplateProperty<Output = Email> + 'a>),
-    SizeHint(Box<dyn TemplateProperty<Output = SizeHint> + 'a>),
-    Timestamp(Box<dyn TemplateProperty<Output = Timestamp> + 'a>),
-    TimestampRange(Box<dyn TemplateProperty<Output = TimestampRange> + 'a>),
+    String(BoxedTemplateProperty<'a, String>),
+    StringList(BoxedTemplateProperty<'a, Vec<String>>),
+    Boolean(BoxedTemplateProperty<'a, bool>),
+    Integer(BoxedTemplateProperty<'a, i64>),
+    IntegerOpt(BoxedTemplateProperty<'a, Option<i64>>),
+    ConfigValue(BoxedTemplateProperty<'a, ConfigValue>),
+    Signature(BoxedTemplateProperty<'a, Signature>),
+    Email(BoxedTemplateProperty<'a, Email>),
+    SizeHint(BoxedTemplateProperty<'a, SizeHint>),
+    Timestamp(BoxedTemplateProperty<'a, Timestamp>),
+    TimestampRange(BoxedTemplateProperty<'a, TimestampRange>),
 
     // Both TemplateProperty and Template can represent a value to be evaluated
     // dynamically, which suggests that `Box<dyn Template + 'a>` could be
@@ -240,7 +226,7 @@ impl<'a> IntoTemplateProperty<'a> for CoreTemplatePropertyKind<'a> {
         }
     }
 
-    fn try_into_boolean(self) -> Option<Box<dyn TemplateProperty<Output = bool> + 'a>> {
+    fn try_into_boolean(self) -> Option<BoxedTemplateProperty<'a, bool>> {
         match self {
             CoreTemplatePropertyKind::String(property) => {
                 Some(property.map(|s| !s.is_empty()).into_dyn())
@@ -269,7 +255,7 @@ impl<'a> IntoTemplateProperty<'a> for CoreTemplatePropertyKind<'a> {
         }
     }
 
-    fn try_into_integer(self) -> Option<Box<dyn TemplateProperty<Output = i64> + 'a>> {
+    fn try_into_integer(self) -> Option<BoxedTemplateProperty<'a, i64>> {
         match self {
             CoreTemplatePropertyKind::Integer(property) => Some(property),
             CoreTemplatePropertyKind::IntegerOpt(property) => {
@@ -279,7 +265,7 @@ impl<'a> IntoTemplateProperty<'a> for CoreTemplatePropertyKind<'a> {
         }
     }
 
-    fn try_into_plain_text(self) -> Option<Box<dyn TemplateProperty<Output = String> + 'a>> {
+    fn try_into_plain_text(self) -> Option<BoxedTemplateProperty<'a, String>> {
         match self {
             CoreTemplatePropertyKind::String(property) => Some(property),
             _ => {
@@ -307,7 +293,7 @@ impl<'a> IntoTemplateProperty<'a> for CoreTemplatePropertyKind<'a> {
         }
     }
 
-    fn try_into_eq(self, other: Self) -> Option<Box<dyn TemplateProperty<Output = bool> + 'a>> {
+    fn try_into_eq(self, other: Self) -> Option<BoxedTemplateProperty<'a, bool>> {
         match (self, other) {
             (CoreTemplatePropertyKind::String(lhs), CoreTemplatePropertyKind::String(rhs)) => {
                 Some((lhs, rhs).map(|(l, r)| l == r).into_dyn())
@@ -343,10 +329,7 @@ impl<'a> IntoTemplateProperty<'a> for CoreTemplatePropertyKind<'a> {
         }
     }
 
-    fn try_into_cmp(
-        self,
-        other: Self,
-    ) -> Option<Box<dyn TemplateProperty<Output = Ordering> + 'a>> {
+    fn try_into_cmp(self, other: Self) -> Option<BoxedTemplateProperty<'a, Ordering>> {
         match (self, other) {
             (CoreTemplatePropertyKind::Integer(lhs), CoreTemplatePropertyKind::Integer(rhs)) => {
                 Some((lhs, rhs).map(|(l, r)| l.cmp(&r)).into_dyn())
@@ -388,7 +371,7 @@ pub type TemplateBuildMethodFn<'a, L, T> =
         &L,
         &mut TemplateDiagnostics,
         &BuildContext<<L as TemplateLanguage<'a>>::Property>,
-        Box<dyn TemplateProperty<Output = T> + 'a>,
+        BoxedTemplateProperty<'a, T>,
         &FunctionCallNode,
     ) -> TemplateParseResult<<L as TemplateLanguage<'a>>::Property>;
 
@@ -603,15 +586,15 @@ impl<'a, P: IntoTemplateProperty<'a>> Expression<P> {
         self.property.type_name()
     }
 
-    pub fn try_into_boolean(self) -> Option<Box<dyn TemplateProperty<Output = bool> + 'a>> {
+    pub fn try_into_boolean(self) -> Option<BoxedTemplateProperty<'a, bool>> {
         self.property.try_into_boolean()
     }
 
-    pub fn try_into_integer(self) -> Option<Box<dyn TemplateProperty<Output = i64> + 'a>> {
+    pub fn try_into_integer(self) -> Option<BoxedTemplateProperty<'a, i64>> {
         self.property.try_into_integer()
     }
 
-    pub fn try_into_plain_text(self) -> Option<Box<dyn TemplateProperty<Output = String> + 'a>> {
+    pub fn try_into_plain_text(self) -> Option<BoxedTemplateProperty<'a, String>> {
         self.property.try_into_plain_text()
     }
 
@@ -624,14 +607,11 @@ impl<'a, P: IntoTemplateProperty<'a>> Expression<P> {
         }
     }
 
-    pub fn try_into_eq(self, other: Self) -> Option<Box<dyn TemplateProperty<Output = bool> + 'a>> {
+    pub fn try_into_eq(self, other: Self) -> Option<BoxedTemplateProperty<'a, bool>> {
         self.property.try_into_eq(other.property)
     }
 
-    pub fn try_into_cmp(
-        self,
-        other: Self,
-    ) -> Option<Box<dyn TemplateProperty<Output = Ordering> + 'a>> {
+    pub fn try_into_cmp(self, other: Self) -> Option<BoxedTemplateProperty<'a, Ordering>> {
         self.property.try_into_cmp(other.property)
     }
 }
@@ -1267,8 +1247,8 @@ pub fn build_formattable_list_method<'a, L, O>(
     function: &FunctionCallNode,
     // TODO: Generic L: WrapProperty<O> trait might be needed to support more
     // list operations such as first()/slice().
-    wrap_item: impl Fn(Box<dyn TemplateProperty<Output = O> + 'a>) -> L::Property,
-    wrap_list: impl Fn(Box<dyn TemplateProperty<Output = Vec<O>> + 'a>) -> L::Property,
+    wrap_item: impl Fn(BoxedTemplateProperty<'a, O>) -> L::Property,
+    wrap_list: impl Fn(BoxedTemplateProperty<'a, Vec<O>>) -> L::Property,
 ) -> TemplateParseResult<L::Property>
 where
     L: TemplateLanguage<'a> + ?Sized,
@@ -1318,8 +1298,8 @@ pub fn build_unformattable_list_method<'a, L, O>(
     build_ctx: &BuildContext<L::Property>,
     self_property: impl TemplateProperty<Output = Vec<O>> + 'a,
     function: &FunctionCallNode,
-    wrap_item: impl Fn(Box<dyn TemplateProperty<Output = O> + 'a>) -> L::Property,
-    wrap_list: impl Fn(Box<dyn TemplateProperty<Output = Vec<O>> + 'a>) -> L::Property,
+    wrap_item: impl Fn(BoxedTemplateProperty<'a, O>) -> L::Property,
+    wrap_list: impl Fn(BoxedTemplateProperty<'a, Vec<O>>) -> L::Property,
 ) -> TemplateParseResult<L::Property>
 where
     L: TemplateLanguage<'a> + ?Sized,
@@ -1364,8 +1344,8 @@ fn build_filter_operation<'a, L, O, P, B>(
     build_ctx: &BuildContext<L::Property>,
     self_property: P,
     function: &FunctionCallNode,
-    wrap_item: impl Fn(Box<dyn TemplateProperty<Output = O> + 'a>) -> L::Property,
-    wrap_list: impl Fn(Box<dyn TemplateProperty<Output = B> + 'a>) -> L::Property,
+    wrap_item: impl Fn(BoxedTemplateProperty<'a, O>) -> L::Property,
+    wrap_list: impl Fn(BoxedTemplateProperty<'a, B>) -> L::Property,
 ) -> TemplateParseResult<L::Property>
 where
     L: TemplateLanguage<'a> + ?Sized,
@@ -1409,7 +1389,7 @@ fn build_map_operation<'a, L, O, P>(
     build_ctx: &BuildContext<L::Property>,
     self_property: P,
     function: &FunctionCallNode,
-    wrap_item: impl Fn(Box<dyn TemplateProperty<Output = O> + 'a>) -> L::Property,
+    wrap_item: impl Fn(BoxedTemplateProperty<'a, O>) -> L::Property,
 ) -> TemplateParseResult<L::Property>
 where
     L: TemplateLanguage<'a> + ?Sized,
@@ -1666,7 +1646,7 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
 fn new_pad_template<'a, W>(
     content: Box<dyn Template + 'a>,
     fill_char: Option<Box<dyn Template + 'a>>,
-    width: Box<dyn TemplateProperty<Output = usize> + 'a>,
+    width: BoxedTemplateProperty<'a, usize>,
     write_padded: W,
 ) -> Box<dyn Template + 'a>
 where
@@ -1695,7 +1675,7 @@ where
 fn new_truncate_template<'a, W>(
     content: Box<dyn Template + 'a>,
     ellipsis: Option<Box<dyn Template + 'a>>,
-    width: Box<dyn TemplateProperty<Output = usize> + 'a>,
+    width: BoxedTemplateProperty<'a, usize>,
     write_truncated: W,
 ) -> Box<dyn Template + 'a>
 where
@@ -1827,7 +1807,7 @@ pub fn build<'a, C: Clone + 'a, L: TemplateLanguage<'a> + ?Sized>(
     node: &ExpressionNode,
     // TODO: Generic L: WrapProperty<C> trait might be better. See the
     // comment in build_formattable_list_method().
-    wrap_self: impl Fn(Box<dyn TemplateProperty<Output = C> + 'a>) -> L::Property,
+    wrap_self: impl Fn(BoxedTemplateProperty<'a, C>) -> L::Property,
 ) -> TemplateParseResult<TemplateRenderer<'a, C>> {
     let self_placeholder = PropertyPlaceholder::new();
     let build_ctx = BuildContext {
@@ -1844,7 +1824,7 @@ pub fn parse<'a, C: Clone + 'a, L: TemplateLanguage<'a> + ?Sized>(
     diagnostics: &mut TemplateDiagnostics,
     template_text: &str,
     aliases_map: &TemplateAliasesMap,
-    wrap_self: impl Fn(Box<dyn TemplateProperty<Output = C> + 'a>) -> L::Property,
+    wrap_self: impl Fn(BoxedTemplateProperty<'a, C>) -> L::Property,
 ) -> TemplateParseResult<TemplateRenderer<'a, C>> {
     let node = template_parser::parse(template_text, aliases_map)?;
     build(language, diagnostics, &node, wrap_self)
@@ -1856,7 +1836,7 @@ pub fn expect_boolean_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
     diagnostics: &mut TemplateDiagnostics,
     build_ctx: &BuildContext<L::Property>,
     node: &ExpressionNode,
-) -> TemplateParseResult<Box<dyn TemplateProperty<Output = bool> + 'a>> {
+) -> TemplateParseResult<BoxedTemplateProperty<'a, bool>> {
     expect_expression_of_type(
         language,
         diagnostics,
@@ -1872,7 +1852,7 @@ pub fn expect_integer_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
     diagnostics: &mut TemplateDiagnostics,
     build_ctx: &BuildContext<L::Property>,
     node: &ExpressionNode,
-) -> TemplateParseResult<Box<dyn TemplateProperty<Output = i64> + 'a>> {
+) -> TemplateParseResult<BoxedTemplateProperty<'a, i64>> {
     expect_expression_of_type(
         language,
         diagnostics,
@@ -1889,7 +1869,7 @@ pub fn expect_isize_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
     diagnostics: &mut TemplateDiagnostics,
     build_ctx: &BuildContext<L::Property>,
     node: &ExpressionNode,
-) -> TemplateParseResult<Box<dyn TemplateProperty<Output = isize> + 'a>> {
+) -> TemplateParseResult<BoxedTemplateProperty<'a, isize>> {
     let i64_property = expect_integer_expression(language, diagnostics, build_ctx, node)?;
     let isize_property = i64_property.and_then(|v| Ok(isize::try_from(v)?));
     Ok(isize_property.into_dyn())
@@ -1901,7 +1881,7 @@ pub fn expect_usize_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
     diagnostics: &mut TemplateDiagnostics,
     build_ctx: &BuildContext<L::Property>,
     node: &ExpressionNode,
-) -> TemplateParseResult<Box<dyn TemplateProperty<Output = usize> + 'a>> {
+) -> TemplateParseResult<BoxedTemplateProperty<'a, usize>> {
     let i64_property = expect_integer_expression(language, diagnostics, build_ctx, node)?;
     let usize_property = i64_property.and_then(|v| Ok(usize::try_from(v)?));
     Ok(usize_property.into_dyn())
@@ -1912,7 +1892,7 @@ pub fn expect_plain_text_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
     diagnostics: &mut TemplateDiagnostics,
     build_ctx: &BuildContext<L::Property>,
     node: &ExpressionNode,
-) -> TemplateParseResult<Box<dyn TemplateProperty<Output = String> + 'a>> {
+) -> TemplateParseResult<BoxedTemplateProperty<'a, String>> {
     // Since any formattable type can be converted to a string property,
     // the expected type is not a String, but a Template.
     expect_expression_of_type(
@@ -2056,11 +2036,11 @@ mod tests {
         }
     }
 
-    fn literal<'a, O: Clone + 'a>(value: O) -> Box<dyn TemplateProperty<Output = O> + 'a> {
+    fn literal<'a, O: Clone + 'a>(value: O) -> BoxedTemplateProperty<'a, O> {
         Literal(value).into_dyn()
     }
 
-    fn new_error_property<O>(message: &str) -> Box<dyn TemplateProperty<Output = O> + '_> {
+    fn new_error_property<O>(message: &str) -> BoxedTemplateProperty<'_, O> {
         Literal(())
             .and_then(|()| Err(TemplatePropertyError(message.into())))
             .into_dyn()

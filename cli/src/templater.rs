@@ -394,6 +394,8 @@ tuple_impls! {
     (0 T0, 1 T1, 2 T2, 3 T3)
 }
 
+pub type BoxedTemplateProperty<'a, O> = Box<dyn TemplateProperty<Output = O> + 'a>;
+
 /// `TemplateProperty` adapters that are useful when implementing methods.
 pub trait TemplatePropertyExt: TemplateProperty {
     /// Translates to a property that will apply fallible `function` to an
@@ -437,7 +439,7 @@ pub trait TemplatePropertyExt: TemplateProperty {
     }
 
     /// Converts this property into boxed trait object.
-    fn into_dyn<'a>(self) -> Box<dyn TemplateProperty<Output = Self::Output> + 'a>
+    fn into_dyn<'a>(self) -> BoxedTemplateProperty<'a, Self::Output>
     where
         Self: Sized + 'a,
     {
