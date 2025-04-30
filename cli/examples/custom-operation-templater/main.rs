@@ -55,9 +55,8 @@ impl OperationTemplateLanguageExtension for HexCounter {
             "num_digits_in_id",
             |_language, _diagnostics, _build_context, property, call| {
                 call.expect_no_arguments()?;
-                Ok(L::wrap_integer(
-                    property.map(|operation| num_digits_in_id(operation.id())),
-                ))
+                let out_property = property.map(|operation| num_digits_in_id(operation.id()));
+                Ok(L::wrap_integer(out_property.into_dyn()))
             },
         );
         table.operation_methods.insert(
@@ -76,9 +75,9 @@ impl OperationTemplateLanguageExtension for HexCounter {
                         }
                     })?;
 
-                Ok(L::wrap_integer(
-                    property.map(move |operation| num_char_in_id(operation, char_arg)),
-                ))
+                let out_property =
+                    property.map(move |operation| num_char_in_id(operation, char_arg));
+                Ok(L::wrap_integer(out_property.into_dyn()))
             },
         );
 

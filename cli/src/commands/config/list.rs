@@ -127,16 +127,16 @@ fn config_template_language(
     let mut language = L::new(settings);
     language.add_keyword("name", |self_property| {
         let out_property = self_property.map(|annotated| annotated.name.to_string());
-        Ok(L::wrap_string(out_property))
+        Ok(L::wrap_string(out_property.into_dyn()))
     });
     language.add_keyword("value", |self_property| {
         // .decorated("", "") to trim leading/trailing whitespace
         let out_property = self_property.map(|annotated| annotated.value.decorated("", ""));
-        Ok(L::wrap_config_value(out_property))
+        Ok(L::wrap_config_value(out_property.into_dyn()))
     });
     language.add_keyword("source", |self_property| {
         let out_property = self_property.map(|annotated| annotated.source.to_string());
-        Ok(L::wrap_string(out_property))
+        Ok(L::wrap_string(out_property.into_dyn()))
     });
     language.add_keyword("path", |self_property| {
         let out_property = self_property.map(|annotated| {
@@ -146,11 +146,11 @@ fn config_template_language(
                 .as_ref()
                 .map_or_else(String::new, |path| path.to_string_lossy().into_owned())
         });
-        Ok(L::wrap_string(out_property))
+        Ok(L::wrap_string(out_property.into_dyn()))
     });
     language.add_keyword("overridden", |self_property| {
         let out_property = self_property.map(|annotated| annotated.is_overridden);
-        Ok(L::wrap_boolean(out_property))
+        Ok(L::wrap_boolean(out_property.into_dyn()))
     });
     language
 }

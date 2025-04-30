@@ -132,9 +132,9 @@ impl<'a, C> TemplateLanguage<'a> for GenericTemplateLanguage<'a, C> {
 
 impl<'a, C> GenericTemplateLanguage<'a, C> {
     pub fn wrap_self(
-        property: impl TemplateProperty<Output = C> + 'a,
+        property: Box<dyn TemplateProperty<Output = C> + 'a>,
     ) -> GenericTemplatePropertyKind<'a, C> {
-        GenericTemplatePropertyKind::Self_(Box::new(property))
+        GenericTemplatePropertyKind::Self_(property)
     }
 }
 

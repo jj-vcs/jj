@@ -69,24 +69,30 @@ use crate::time_util;
 pub trait TemplateLanguage<'a> {
     type Property: IntoTemplateProperty<'a>;
 
-    fn wrap_string(property: impl TemplateProperty<Output = String> + 'a) -> Self::Property;
+    fn wrap_string(property: Box<dyn TemplateProperty<Output = String> + 'a>) -> Self::Property;
     fn wrap_string_list(
-        property: impl TemplateProperty<Output = Vec<String>> + 'a,
+        property: Box<dyn TemplateProperty<Output = Vec<String>> + 'a>,
     ) -> Self::Property;
-    fn wrap_boolean(property: impl TemplateProperty<Output = bool> + 'a) -> Self::Property;
-    fn wrap_integer(property: impl TemplateProperty<Output = i64> + 'a) -> Self::Property;
+    fn wrap_boolean(property: Box<dyn TemplateProperty<Output = bool> + 'a>) -> Self::Property;
+    fn wrap_integer(property: Box<dyn TemplateProperty<Output = i64> + 'a>) -> Self::Property;
     fn wrap_integer_opt(
-        property: impl TemplateProperty<Output = Option<i64>> + 'a,
+        property: Box<dyn TemplateProperty<Output = Option<i64>> + 'a>,
     ) -> Self::Property;
     fn wrap_config_value(
-        property: impl TemplateProperty<Output = ConfigValue> + 'a,
+        property: Box<dyn TemplateProperty<Output = ConfigValue> + 'a>,
     ) -> Self::Property;
-    fn wrap_signature(property: impl TemplateProperty<Output = Signature> + 'a) -> Self::Property;
-    fn wrap_email(property: impl TemplateProperty<Output = Email> + 'a) -> Self::Property;
-    fn wrap_size_hint(property: impl TemplateProperty<Output = SizeHint> + 'a) -> Self::Property;
-    fn wrap_timestamp(property: impl TemplateProperty<Output = Timestamp> + 'a) -> Self::Property;
+    fn wrap_signature(
+        property: Box<dyn TemplateProperty<Output = Signature> + 'a>,
+    ) -> Self::Property;
+    fn wrap_email(property: Box<dyn TemplateProperty<Output = Email> + 'a>) -> Self::Property;
+    fn wrap_size_hint(
+        property: Box<dyn TemplateProperty<Output = SizeHint> + 'a>,
+    ) -> Self::Property;
+    fn wrap_timestamp(
+        property: Box<dyn TemplateProperty<Output = Timestamp> + 'a>,
+    ) -> Self::Property;
     fn wrap_timestamp_range(
-        property: impl TemplateProperty<Output = TimestampRange> + 'a,
+        property: Box<dyn TemplateProperty<Output = TimestampRange> + 'a>,
     ) -> Self::Property;
 
     fn wrap_template(template: Box<dyn Template + 'a>) -> Self::Property;
@@ -157,10 +163,10 @@ macro_rules! impl_wrap_property_fns {
     ($a:lifetime, $kind:path, $outer:path, { $( $func:ident($ty:ty) => $var:ident, )+ }) => {
         $(
             fn $func(
-                property: impl $crate::templater::TemplateProperty<Output = $ty> + $a,
+                property: Box<dyn $crate::templater::TemplateProperty<Output = $ty> + $a>,
             ) -> Self::Property {
                 use $kind as Kind; // https://github.com/rust-lang/rust/issues/48067
-                $outer(Kind::$var(Box::new(property)))
+                $outer(Kind::$var(property))
             }
         )+
     };
@@ -692,14 +698,15 @@ fn build_unary_operation<'a, L: TemplateLanguage<'a> + ?Sized>(
     match op {
         UnaryOp::LogicalNot => {
             let arg = expect_boolean_expression(language, diagnostics, build_ctx, arg_node)?;
-            Ok(L::wrap_boolean(arg.map(|v| !v)))
+            Ok(L::wrap_boolean(arg.map(|v| !v).into_dyn()))
         }
         UnaryOp::Negate => {
             let arg = expect_integer_expression(language, diagnostics, build_ctx, arg_node)?;
-            Ok(L::wrap_integer(arg.and_then(|v| {
+            let out = arg.and_then(|v| {
                 v.checked_neg()
                     .ok_or_else(|| TemplatePropertyError("Attempt to negate with overflow".into()))
-            })))
+            });
+            Ok(L::wrap_integer(out.into_dyn()))
         }
     }
 }
@@ -718,45 +725,47 @@ fn build_binary_operation<'a, L: TemplateLanguage<'a> + ?Sized>(
             let lhs = expect_boolean_expression(language, diagnostics, build_ctx, lhs_node)?;
             let rhs = expect_boolean_expression(language, diagnostics, build_ctx, rhs_node)?;
             let out = lhs.and_then(move |l| Ok(l || rhs.extract()?));
-            Ok(L::wrap_boolean(out))
+            Ok(L::wrap_boolean(out.into_dyn()))
         }
         BinaryOp::LogicalAnd => {
             let lhs = expect_boolean_expression(language, diagnostics, build_ctx, lhs_node)?;
             let rhs = expect_boolean_expression(language, diagnostics, build_ctx, rhs_node)?;
             let out = lhs.and_then(move |l| Ok(l && rhs.extract()?));
-            Ok(L::wrap_boolean(out))
+            Ok(L::wrap_boolean(out.into_dyn()))
         }
         BinaryOp::Eq | BinaryOp::Ne => {
             let lhs = build_expression(language, diagnostics, build_ctx, lhs_node)?;
             let rhs = build_expression(language, diagnostics, build_ctx, rhs_node)?;
             let lty = lhs.type_name();
             let rty = rhs.type_name();
-            let out = lhs.try_into_eq(rhs).ok_or_else(|| {
+            let eq = lhs.try_into_eq(rhs).ok_or_else(|| {
                 let message = format!("Cannot compare expressions of type `{lty}` and `{rty}`");
                 TemplateParseError::expression(message, span)
             })?;
-            match op {
-                BinaryOp::Eq => Ok(L::wrap_boolean(out)),
-                BinaryOp::Ne => Ok(L::wrap_boolean(out.map(|eq| !eq))),
+            let out = match op {
+                BinaryOp::Eq => eq.into_dyn(),
+                BinaryOp::Ne => eq.map(|eq| !eq).into_dyn(),
                 _ => unreachable!(),
-            }
+            };
+            Ok(L::wrap_boolean(out))
         }
         BinaryOp::Ge | BinaryOp::Gt | BinaryOp::Le | BinaryOp::Lt => {
             let lhs = build_expression(language, diagnostics, build_ctx, lhs_node)?;
             let rhs = build_expression(language, diagnostics, build_ctx, rhs_node)?;
             let lty = lhs.type_name();
             let rty = rhs.type_name();
-            let out = lhs.try_into_cmp(rhs).ok_or_else(|| {
+            let cmp = lhs.try_into_cmp(rhs).ok_or_else(|| {
                 let message = format!("Cannot compare expressions of type `{lty}` and `{rty}`");
                 TemplateParseError::expression(message, span)
             })?;
-            match op {
-                BinaryOp::Ge => Ok(L::wrap_boolean(out.map(|ordering| ordering.is_ge()))),
-                BinaryOp::Gt => Ok(L::wrap_boolean(out.map(|ordering| ordering.is_gt()))),
-                BinaryOp::Le => Ok(L::wrap_boolean(out.map(|ordering| ordering.is_le()))),
-                BinaryOp::Lt => Ok(L::wrap_boolean(out.map(|ordering| ordering.is_lt()))),
+            let out = match op {
+                BinaryOp::Ge => cmp.map(|ordering| ordering.is_ge()).into_dyn(),
+                BinaryOp::Gt => cmp.map(|ordering| ordering.is_gt()).into_dyn(),
+                BinaryOp::Le => cmp.map(|ordering| ordering.is_le()).into_dyn(),
+                BinaryOp::Lt => cmp.map(|ordering| ordering.is_lt()).into_dyn(),
                 _ => unreachable!(),
-            }
+            };
+            Ok(L::wrap_boolean(out))
         }
     }
 }
@@ -771,7 +780,7 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|s| Ok(s.len().try_into()?));
-            Ok(L::wrap_integer(out_property))
+            Ok(L::wrap_integer(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -783,7 +792,7 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
                 expect_plain_text_expression(language, diagnostics, build_ctx, needle_node)?;
             let out_property = (self_property, needle_property)
                 .map(|(haystack, needle)| haystack.contains(&needle));
-            Ok(L::wrap_boolean(out_property))
+            Ok(L::wrap_boolean(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -794,7 +803,7 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
                 expect_plain_text_expression(language, diagnostics, build_ctx, needle_node)?;
             let out_property = (self_property, needle_property)
                 .map(|(haystack, needle)| haystack.starts_with(&needle));
-            Ok(L::wrap_boolean(out_property))
+            Ok(L::wrap_boolean(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -805,7 +814,7 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
                 expect_plain_text_expression(language, diagnostics, build_ctx, needle_node)?;
             let out_property = (self_property, needle_property)
                 .map(|(haystack, needle)| haystack.ends_with(&needle));
-            Ok(L::wrap_boolean(out_property))
+            Ok(L::wrap_boolean(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -820,7 +829,7 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
                     .map(ToOwned::to_owned)
                     .unwrap_or(haystack)
             });
-            Ok(L::wrap_string(out_property))
+            Ok(L::wrap_string(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -835,7 +844,7 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
                     .map(ToOwned::to_owned)
                     .unwrap_or(haystack)
             });
-            Ok(L::wrap_string(out_property))
+            Ok(L::wrap_string(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -843,7 +852,7 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|s| s.trim().to_owned());
-            Ok(L::wrap_string(out_property))
+            Ok(L::wrap_string(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -851,7 +860,7 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|s| s.trim_start().to_owned());
-            Ok(L::wrap_string(out_property))
+            Ok(L::wrap_string(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -859,7 +868,7 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|s| s.trim_end().to_owned());
-            Ok(L::wrap_string(out_property))
+            Ok(L::wrap_string(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -877,7 +886,7 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
                     s.get(start_idx..end_idx).unwrap_or_default().to_owned()
                 },
             );
-            Ok(L::wrap_string(out_property))
+            Ok(L::wrap_string(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -886,7 +895,7 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
             function.expect_no_arguments()?;
             let out_property =
                 self_property.map(|s| s.lines().next().unwrap_or_default().to_string());
-            Ok(L::wrap_string(out_property))
+            Ok(L::wrap_string(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -894,7 +903,7 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|s| s.lines().map(|l| l.to_owned()).collect());
-            Ok(L::wrap_string_list(out_property))
+            Ok(L::wrap_string_list(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -902,7 +911,7 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|s| s.to_uppercase());
-            Ok(L::wrap_string(out_property))
+            Ok(L::wrap_string(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -910,7 +919,7 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|s| s.to_lowercase());
-            Ok(L::wrap_string(out_property))
+            Ok(L::wrap_string(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -918,7 +927,7 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|s| serde_json::to_string(&s).unwrap());
-            Ok(L::wrap_string(out_property))
+            Ok(L::wrap_string(out_property.into_dyn()))
         },
     );
     map
@@ -960,7 +969,7 @@ fn builtin_config_value_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(extract);
-            Ok(L::wrap_boolean(out_property))
+            Ok(L::wrap_boolean(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -968,7 +977,7 @@ fn builtin_config_value_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(extract);
-            Ok(L::wrap_integer(out_property))
+            Ok(L::wrap_integer(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -976,7 +985,7 @@ fn builtin_config_value_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(extract);
-            Ok(L::wrap_string(out_property))
+            Ok(L::wrap_string(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -984,7 +993,7 @@ fn builtin_config_value_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(extract);
-            Ok(L::wrap_string_list(out_property))
+            Ok(L::wrap_string_list(out_property.into_dyn()))
         },
     );
     // TODO: add is_<type>() -> Boolean?
@@ -1002,7 +1011,7 @@ fn builtin_signature_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|signature| signature.name);
-            Ok(L::wrap_string(out_property))
+            Ok(L::wrap_string(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1010,7 +1019,7 @@ fn builtin_signature_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|signature| signature.email.into());
-            Ok(L::wrap_email(out_property))
+            Ok(L::wrap_email(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1026,7 +1035,7 @@ fn builtin_signature_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
                 let (username, _) = text_util::split_email(&signature.email);
                 username.to_owned()
             });
-            Ok(L::wrap_string(out_property))
+            Ok(L::wrap_string(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1034,7 +1043,7 @@ fn builtin_signature_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|signature| signature.timestamp);
-            Ok(L::wrap_timestamp(out_property))
+            Ok(L::wrap_timestamp(out_property.into_dyn()))
         },
     );
     map
@@ -1053,7 +1062,7 @@ fn builtin_email_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
                 let (local, _) = text_util::split_email(&email.0);
                 local.to_owned()
             });
-            Ok(L::wrap_string(out_property))
+            Ok(L::wrap_string(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1064,7 +1073,7 @@ fn builtin_email_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
                 let (_, domain) = text_util::split_email(&email.0);
                 domain.unwrap_or_default().to_owned()
             });
-            Ok(L::wrap_string(out_property))
+            Ok(L::wrap_string(out_property.into_dyn()))
         },
     );
     map
@@ -1080,7 +1089,7 @@ fn builtin_size_hint_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|(lower, _)| Ok(i64::try_from(lower)?));
-            Ok(L::wrap_integer(out_property))
+            Ok(L::wrap_integer(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1089,7 +1098,7 @@ fn builtin_size_hint_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
             function.expect_no_arguments()?;
             let out_property =
                 self_property.and_then(|(_, upper)| Ok(upper.map(i64::try_from).transpose()?));
-            Ok(L::wrap_integer_opt(out_property))
+            Ok(L::wrap_integer_opt(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1100,7 +1109,7 @@ fn builtin_size_hint_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
                 let exact = (Some(lower) == upper).then_some(lower);
                 Ok(exact.map(i64::try_from).transpose()?)
             });
-            Ok(L::wrap_integer_opt(out_property))
+            Ok(L::wrap_integer_opt(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1108,7 +1117,7 @@ fn builtin_size_hint_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|(_, upper)| upper == Some(0));
-            Ok(L::wrap_boolean(out_property))
+            Ok(L::wrap_boolean(out_property.into_dyn()))
         },
     );
     map
@@ -1128,7 +1137,7 @@ fn builtin_timestamp_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
             let out_property = self_property.and_then(move |timestamp| {
                 Ok(time_util::format_duration(&timestamp, &now, &format)?)
             });
-            Ok(L::wrap_string(out_property))
+            Ok(L::wrap_string(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1147,7 +1156,7 @@ fn builtin_timestamp_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
                     &timestamp, &format,
                 )?)
             });
-            Ok(L::wrap_string(out_property))
+            Ok(L::wrap_string(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1158,7 +1167,7 @@ fn builtin_timestamp_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
                 timestamp.tz_offset = 0;
                 timestamp
             });
-            Ok(L::wrap_timestamp(out_property))
+            Ok(L::wrap_timestamp(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1173,7 +1182,7 @@ fn builtin_timestamp_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
                 timestamp.tz_offset = tz_offset;
                 timestamp
             });
-            Ok(L::wrap_timestamp(out_property))
+            Ok(L::wrap_timestamp(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1191,7 +1200,7 @@ fn builtin_timestamp_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
                 },
             )?;
             let out_property = self_property.map(move |timestamp| date_pattern.matches(&timestamp));
-            Ok(L::wrap_boolean(out_property))
+            Ok(L::wrap_boolean(out_property.into_dyn()))
         },
     );
     map.insert("before", map["after"]);
@@ -1208,7 +1217,7 @@ fn builtin_timestamp_range_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|time_range| time_range.start);
-            Ok(L::wrap_timestamp(out_property))
+            Ok(L::wrap_timestamp(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1216,7 +1225,7 @@ fn builtin_timestamp_range_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|time_range| time_range.end);
-            Ok(L::wrap_timestamp(out_property))
+            Ok(L::wrap_timestamp(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1224,7 +1233,7 @@ fn builtin_timestamp_range_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|time_range| Ok(time_range.duration()?));
-            Ok(L::wrap_string(out_property))
+            Ok(L::wrap_string(out_property.into_dyn()))
         },
     );
     map
@@ -1257,9 +1266,8 @@ pub fn build_formattable_list_method<'a, L, O>(
     self_property: impl TemplateProperty<Output = Vec<O>> + 'a,
     function: &FunctionCallNode,
     // TODO: Generic L: WrapProperty<O> trait might be needed to support more
-    // list operations such as first()/slice(). For .map(), a simple callback
-    // works. For .filter(), redundant boxing is needed.
-    wrap_item: impl Fn(PropertyPlaceholder<O>) -> L::Property,
+    // list operations such as first()/slice().
+    wrap_item: impl Fn(Box<dyn TemplateProperty<Output = O> + 'a>) -> L::Property,
     wrap_list: impl Fn(Box<dyn TemplateProperty<Output = Vec<O>> + 'a>) -> L::Property,
 ) -> TemplateParseResult<L::Property>
 where
@@ -1270,7 +1278,7 @@ where
         "len" => {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|items| Ok(items.len().try_into()?));
-            L::wrap_integer(out_property)
+            L::wrap_integer(out_property.into_dyn())
         }
         "join" => {
             let [separator_node] = function.expect_exact_arguments()?;
@@ -1310,7 +1318,7 @@ pub fn build_unformattable_list_method<'a, L, O>(
     build_ctx: &BuildContext<L::Property>,
     self_property: impl TemplateProperty<Output = Vec<O>> + 'a,
     function: &FunctionCallNode,
-    wrap_item: impl Fn(PropertyPlaceholder<O>) -> L::Property,
+    wrap_item: impl Fn(Box<dyn TemplateProperty<Output = O> + 'a>) -> L::Property,
     wrap_list: impl Fn(Box<dyn TemplateProperty<Output = Vec<O>> + 'a>) -> L::Property,
 ) -> TemplateParseResult<L::Property>
 where
@@ -1321,7 +1329,7 @@ where
         "len" => {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|items| Ok(items.len().try_into()?));
-            L::wrap_integer(out_property)
+            L::wrap_integer(out_property.into_dyn())
         }
         // No "join"
         "filter" => build_filter_operation(
@@ -1356,7 +1364,7 @@ fn build_filter_operation<'a, L, O, P, B>(
     build_ctx: &BuildContext<L::Property>,
     self_property: P,
     function: &FunctionCallNode,
-    wrap_item: impl Fn(PropertyPlaceholder<O>) -> L::Property,
+    wrap_item: impl Fn(Box<dyn TemplateProperty<Output = O> + 'a>) -> L::Property,
     wrap_list: impl Fn(Box<dyn TemplateProperty<Output = B> + 'a>) -> L::Property,
 ) -> TemplateParseResult<L::Property>
 where
@@ -1372,7 +1380,7 @@ where
         build_lambda_expression(
             build_ctx,
             lambda,
-            &[&|| wrap_item(item_placeholder.clone())],
+            &[&|| wrap_item(item_placeholder.clone().into_dyn())],
             |build_ctx, body| expect_boolean_expression(language, diagnostics, build_ctx, body),
         )
     })?;
@@ -1401,7 +1409,7 @@ fn build_map_operation<'a, L, O, P>(
     build_ctx: &BuildContext<L::Property>,
     self_property: P,
     function: &FunctionCallNode,
-    wrap_item: impl Fn(PropertyPlaceholder<O>) -> L::Property,
+    wrap_item: impl Fn(Box<dyn TemplateProperty<Output = O> + 'a>) -> L::Property,
 ) -> TemplateParseResult<L::Property>
 where
     L: TemplateLanguage<'a> + ?Sized,
@@ -1415,7 +1423,7 @@ where
         build_lambda_expression(
             build_ctx,
             lambda,
-            &[&|| wrap_item(item_placeholder.clone())],
+            &[&|| wrap_item(item_placeholder.clone().into_dyn())],
             |build_ctx, body| expect_template_expression(language, diagnostics, build_ctx, body),
         )
     })?;
@@ -1648,7 +1656,9 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
                 .with_source(err)
         })?;
         // .decorated("", "") to trim leading/trailing whitespace
-        Ok(L::wrap_config_value(Literal(value.decorated("", ""))))
+        Ok(L::wrap_config_value(
+            Literal(value.decorated("", "")).into_dyn(),
+        ))
     });
     map
 }
@@ -1740,15 +1750,15 @@ pub fn build_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
             }
         }
         ExpressionKind::Boolean(value) => {
-            let property = L::wrap_boolean(Literal(*value));
+            let property = L::wrap_boolean(Literal(*value).into_dyn());
             Ok(Expression::unlabeled(property))
         }
         ExpressionKind::Integer(value) => {
-            let property = L::wrap_integer(Literal(*value));
+            let property = L::wrap_integer(Literal(*value).into_dyn());
             Ok(Expression::unlabeled(property))
         }
         ExpressionKind::String(value) => {
-            let property = L::wrap_string(Literal(value.clone()));
+            let property = L::wrap_string(Literal(value.clone()).into_dyn());
             Ok(Expression::unlabeled(property))
         }
         ExpressionKind::Unary(op, arg_node) => {
@@ -1817,12 +1827,12 @@ pub fn build<'a, C: Clone + 'a, L: TemplateLanguage<'a> + ?Sized>(
     node: &ExpressionNode,
     // TODO: Generic L: WrapProperty<C> trait might be better. See the
     // comment in build_formattable_list_method().
-    wrap_self: impl Fn(PropertyPlaceholder<C>) -> L::Property,
+    wrap_self: impl Fn(Box<dyn TemplateProperty<Output = C> + 'a>) -> L::Property,
 ) -> TemplateParseResult<TemplateRenderer<'a, C>> {
     let self_placeholder = PropertyPlaceholder::new();
     let build_ctx = BuildContext {
         local_variables: HashMap::new(),
-        self_variable: &|| wrap_self(self_placeholder.clone()),
+        self_variable: &|| wrap_self(self_placeholder.clone().into_dyn()),
     };
     let template = expect_template_expression(language, diagnostics, &build_ctx, node)?;
     Ok(TemplateRenderer::new(template, self_placeholder))
@@ -1834,7 +1844,7 @@ pub fn parse<'a, C: Clone + 'a, L: TemplateLanguage<'a> + ?Sized>(
     diagnostics: &mut TemplateDiagnostics,
     template_text: &str,
     aliases_map: &TemplateAliasesMap,
-    wrap_self: impl Fn(PropertyPlaceholder<C>) -> L::Property,
+    wrap_self: impl Fn(Box<dyn TemplateProperty<Output = C> + 'a>) -> L::Property,
 ) -> TemplateParseResult<TemplateRenderer<'a, C>> {
     let node = template_parser::parse(template_text, aliases_map)?;
     build(language, diagnostics, &node, wrap_self)
@@ -2046,11 +2056,14 @@ mod tests {
         }
     }
 
-    // TODO: O doesn't have to be captured, but "currently, all type parameters
-    // are required to be mentioned in the precise captures list" as of rustc
-    // 1.85.0.
-    fn new_error_property<O>(message: &str) -> impl TemplateProperty<Output = O> + use<'_, O> {
-        Literal(()).and_then(|()| Err(TemplatePropertyError(message.into())))
+    fn literal<'a, O: Clone + 'a>(value: O) -> Box<dyn TemplateProperty<Output = O> + 'a> {
+        Literal(value).into_dyn()
+    }
+
+    fn new_error_property<O>(message: &str) -> Box<dyn TemplateProperty<Output = O> + '_> {
+        Literal(())
+            .and_then(|()| Err(TemplatePropertyError(message.into())))
+            .into_dyn()
     }
 
     fn new_signature(name: &str, email: &str) -> Signature {
@@ -2071,9 +2084,9 @@ mod tests {
     #[test]
     fn test_parsed_tree() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("divergent", || L::wrap_boolean(Literal(false)));
-        env.add_keyword("empty", || L::wrap_boolean(Literal(true)));
-        env.add_keyword("hello", || L::wrap_string(Literal("Hello".to_owned())));
+        env.add_keyword("divergent", || L::wrap_boolean(literal(false)));
+        env.add_keyword("empty", || L::wrap_boolean(literal(true)));
+        env.add_keyword("hello", || L::wrap_string(literal("Hello".to_owned())));
 
         // Empty
         insta::assert_snapshot!(env.render_ok(r#"  "#), @"");
@@ -2100,8 +2113,8 @@ mod tests {
     #[test]
     fn test_parse_error() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("description", || L::wrap_string(Literal("".to_owned())));
-        env.add_keyword("empty", || L::wrap_boolean(Literal(true)));
+        env.add_keyword("description", || L::wrap_string(literal("".to_owned())));
+        env.add_keyword("empty", || L::wrap_boolean(literal(true)));
 
         insta::assert_snapshot!(env.parse_err(r#"description ()"#), @r"
          --> 1:13
@@ -2345,7 +2358,7 @@ mod tests {
     #[test]
     fn test_self_keyword() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("say_hello", || L::wrap_string(Literal("Hello".to_owned())));
+        env.add_keyword("say_hello", || L::wrap_string(literal("Hello".to_owned())));
 
         insta::assert_snapshot!(env.render_ok(r#"self.say_hello()"#), @"Hello");
         insta::assert_snapshot!(env.parse_err(r#"self"#), @r"
@@ -2366,9 +2379,9 @@ mod tests {
         insta::assert_snapshot!(env.render_ok(r#"if("a", true, false)"#), @"true");
 
         env.add_keyword("sl0", || {
-            L::wrap_string_list(Literal::<Vec<String>>(vec![]))
+            L::wrap_string_list(literal::<Vec<String>>(vec![]))
         });
-        env.add_keyword("sl1", || L::wrap_string_list(Literal(vec!["".to_owned()])));
+        env.add_keyword("sl1", || L::wrap_string_list(literal(vec!["".to_owned()])));
         insta::assert_snapshot!(env.render_ok(r#"if(sl0, true, false)"#), @"false");
         insta::assert_snapshot!(env.render_ok(r#"if(sl1, true, false)"#), @"true");
 
@@ -2383,8 +2396,8 @@ mod tests {
         ");
 
         // Optional integer can be converted to boolean, and Some(0) is truthy.
-        env.add_keyword("none_i64", || L::wrap_integer_opt(Literal(None)));
-        env.add_keyword("some_i64", || L::wrap_integer_opt(Literal(Some(0))));
+        env.add_keyword("none_i64", || L::wrap_integer_opt(literal(None)));
+        env.add_keyword("some_i64", || L::wrap_integer_opt(literal(Some(0))));
         insta::assert_snapshot!(env.render_ok(r#"if(none_i64, true, false)"#), @"false");
         insta::assert_snapshot!(env.render_ok(r#"if(some_i64, true, false)"#), @"true");
 
@@ -2406,10 +2419,10 @@ mod tests {
         ");
 
         env.add_keyword("empty_email", || {
-            L::wrap_email(Literal(Email("".to_owned())))
+            L::wrap_email(literal(Email("".to_owned())))
         });
         env.add_keyword("nonempty_email", || {
-            L::wrap_email(Literal(Email("local@domain".to_owned())))
+            L::wrap_email(literal(Email("local@domain".to_owned())))
         });
         insta::assert_snapshot!(env.render_ok(r#"if(empty_email, true, false)"#), @"false");
         insta::assert_snapshot!(env.render_ok(r#"if(nonempty_email, true, false)"#), @"true");
@@ -2418,9 +2431,9 @@ mod tests {
     #[test]
     fn test_arithmetic_operation() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("none_i64", || L::wrap_integer_opt(Literal(None)));
-        env.add_keyword("some_i64", || L::wrap_integer_opt(Literal(Some(1))));
-        env.add_keyword("i64_min", || L::wrap_integer(Literal(i64::MIN)));
+        env.add_keyword("none_i64", || L::wrap_integer_opt(literal(None)));
+        env.add_keyword("some_i64", || L::wrap_integer_opt(literal(Some(1))));
+        env.add_keyword("i64_min", || L::wrap_integer(literal(i64::MIN)));
 
         insta::assert_snapshot!(env.render_ok(r#"-1"#), @"-1");
         insta::assert_snapshot!(env.render_ok(r#"--2"#), @"2");
@@ -2455,10 +2468,10 @@ mod tests {
     fn test_logical_operation() {
         let mut env = TestTemplateEnv::new();
         env.add_keyword("email1", || {
-            L::wrap_email(Literal(Email("local-1@domain".to_owned())))
+            L::wrap_email(literal(Email("local-1@domain".to_owned())))
         });
         env.add_keyword("email2", || {
-            L::wrap_email(Literal(Email("local-2@domain".to_owned())))
+            L::wrap_email(literal(Email("local-2@domain".to_owned())))
         });
 
         insta::assert_snapshot!(env.render_ok(r#"!false"#), @"true");
@@ -2497,8 +2510,8 @@ mod tests {
     #[test]
     fn test_list_method() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("empty", || L::wrap_boolean(Literal(true)));
-        env.add_keyword("sep", || L::wrap_string(Literal("sep".to_owned())));
+        env.add_keyword("empty", || L::wrap_boolean(literal(true)));
+        env.add_keyword("sep", || L::wrap_string(literal("sep".to_owned())));
 
         insta::assert_snapshot!(env.render_ok(r#""".lines().len()"#), @"0");
         insta::assert_snapshot!(env.render_ok(r#""a\nb\nc".lines().len()"#), @"3");
@@ -2614,7 +2627,7 @@ mod tests {
     fn test_string_method() {
         let mut env = TestTemplateEnv::new();
         env.add_keyword("description", || {
-            L::wrap_string(Literal("description 1".to_owned()))
+            L::wrap_string(literal("description 1".to_owned()))
         });
         env.add_keyword("bad_string", || L::wrap_string(new_error_property("Bad")));
 
@@ -2711,16 +2724,16 @@ mod tests {
     fn test_config_value_method() {
         let mut env = TestTemplateEnv::new();
         env.add_keyword("boolean", || {
-            L::wrap_config_value(Literal(ConfigValue::from(true)))
+            L::wrap_config_value(literal(ConfigValue::from(true)))
         });
         env.add_keyword("integer", || {
-            L::wrap_config_value(Literal(ConfigValue::from(42)))
+            L::wrap_config_value(literal(ConfigValue::from(42)))
         });
         env.add_keyword("string", || {
-            L::wrap_config_value(Literal(ConfigValue::from("foo")))
+            L::wrap_config_value(literal(ConfigValue::from("foo")))
         });
         env.add_keyword("string_list", || {
-            L::wrap_config_value(Literal(ConfigValue::from_iter(["foo", "bar"])))
+            L::wrap_config_value(literal(ConfigValue::from_iter(["foo", "bar"])))
         });
 
         insta::assert_snapshot!(env.render_ok("boolean"), @"true");
@@ -2752,7 +2765,7 @@ mod tests {
         let mut env = TestTemplateEnv::new();
 
         env.add_keyword("author", || {
-            L::wrap_signature(Literal(new_signature("Test User", "test.user@example.com")))
+            L::wrap_signature(literal(new_signature("Test User", "test.user@example.com")))
         });
         insta::assert_snapshot!(env.render_ok(r#"author"#), @"Test User <test.user@example.com>");
         insta::assert_snapshot!(env.render_ok(r#"author.name()"#), @"Test User");
@@ -2760,7 +2773,7 @@ mod tests {
         insta::assert_snapshot!(env.render_ok(r#"author.username()"#), @"test.user");
 
         env.add_keyword("author", || {
-            L::wrap_signature(Literal(new_signature(
+            L::wrap_signature(literal(new_signature(
                 "Another Test User",
                 "test.user@example.com",
             )))
@@ -2771,7 +2784,7 @@ mod tests {
         insta::assert_snapshot!(env.render_ok(r#"author.username()"#), @"test.user");
 
         env.add_keyword("author", || {
-            L::wrap_signature(Literal(new_signature(
+            L::wrap_signature(literal(new_signature(
                 "Test User",
                 "test.user@invalid@example.com",
             )))
@@ -2782,14 +2795,14 @@ mod tests {
         insta::assert_snapshot!(env.render_ok(r#"author.username()"#), @"test.user");
 
         env.add_keyword("author", || {
-            L::wrap_signature(Literal(new_signature("Test User", "test.user")))
+            L::wrap_signature(literal(new_signature("Test User", "test.user")))
         });
         insta::assert_snapshot!(env.render_ok(r#"author"#), @"Test User <test.user>");
         insta::assert_snapshot!(env.render_ok(r#"author.email()"#), @"test.user");
         insta::assert_snapshot!(env.render_ok(r#"author.username()"#), @"test.user");
 
         env.add_keyword("author", || {
-            L::wrap_signature(Literal(new_signature(
+            L::wrap_signature(literal(new_signature(
                 "Test User",
                 "test.user+tag@example.com",
             )))
@@ -2799,14 +2812,14 @@ mod tests {
         insta::assert_snapshot!(env.render_ok(r#"author.username()"#), @"test.user+tag");
 
         env.add_keyword("author", || {
-            L::wrap_signature(Literal(new_signature("Test User", "x@y")))
+            L::wrap_signature(literal(new_signature("Test User", "x@y")))
         });
         insta::assert_snapshot!(env.render_ok(r#"author"#), @"Test User <x@y>");
         insta::assert_snapshot!(env.render_ok(r#"author.email()"#), @"x@y");
         insta::assert_snapshot!(env.render_ok(r#"author.username()"#), @"x");
 
         env.add_keyword("author", || {
-            L::wrap_signature(Literal(new_signature("", "test.user@example.com")))
+            L::wrap_signature(literal(new_signature("", "test.user@example.com")))
         });
         insta::assert_snapshot!(env.render_ok(r#"author"#), @"<test.user@example.com>");
         insta::assert_snapshot!(env.render_ok(r#"author.name()"#), @"");
@@ -2814,7 +2827,7 @@ mod tests {
         insta::assert_snapshot!(env.render_ok(r#"author.username()"#), @"test.user");
 
         env.add_keyword("author", || {
-            L::wrap_signature(Literal(new_signature("Test User", "")))
+            L::wrap_signature(literal(new_signature("Test User", "")))
         });
         insta::assert_snapshot!(env.render_ok(r#"author"#), @"Test User");
         insta::assert_snapshot!(env.render_ok(r#"author.name()"#), @"Test User");
@@ -2822,7 +2835,7 @@ mod tests {
         insta::assert_snapshot!(env.render_ok(r#"author.username()"#), @"");
 
         env.add_keyword("author", || {
-            L::wrap_signature(Literal(new_signature("", "")))
+            L::wrap_signature(literal(new_signature("", "")))
         });
         insta::assert_snapshot!(env.render_ok(r#"author"#), @"");
         insta::assert_snapshot!(env.render_ok(r#"author.name()"#), @"");
@@ -2834,19 +2847,19 @@ mod tests {
     fn test_size_hint_method() {
         let mut env = TestTemplateEnv::new();
 
-        env.add_keyword("unbounded", || L::wrap_size_hint(Literal((5, None))));
+        env.add_keyword("unbounded", || L::wrap_size_hint(literal((5, None))));
         insta::assert_snapshot!(env.render_ok(r#"unbounded.lower()"#), @"5");
         insta::assert_snapshot!(env.render_ok(r#"unbounded.upper()"#), @"");
         insta::assert_snapshot!(env.render_ok(r#"unbounded.exact()"#), @"");
         insta::assert_snapshot!(env.render_ok(r#"unbounded.zero()"#), @"false");
 
-        env.add_keyword("bounded", || L::wrap_size_hint(Literal((0, Some(10)))));
+        env.add_keyword("bounded", || L::wrap_size_hint(literal((0, Some(10)))));
         insta::assert_snapshot!(env.render_ok(r#"bounded.lower()"#), @"0");
         insta::assert_snapshot!(env.render_ok(r#"bounded.upper()"#), @"10");
         insta::assert_snapshot!(env.render_ok(r#"bounded.exact()"#), @"");
         insta::assert_snapshot!(env.render_ok(r#"bounded.zero()"#), @"false");
 
-        env.add_keyword("zero", || L::wrap_size_hint(Literal((0, Some(0)))));
+        env.add_keyword("zero", || L::wrap_size_hint(literal((0, Some(0)))));
         insta::assert_snapshot!(env.render_ok(r#"zero.lower()"#), @"0");
         insta::assert_snapshot!(env.render_ok(r#"zero.upper()"#), @"0");
         insta::assert_snapshot!(env.render_ok(r#"zero.exact()"#), @"0");
@@ -2856,7 +2869,7 @@ mod tests {
     #[test]
     fn test_timestamp_method() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("t0", || L::wrap_timestamp(Literal(new_timestamp(0, 0))));
+        env.add_keyword("t0", || L::wrap_timestamp(literal(new_timestamp(0, 0))));
 
         insta::assert_snapshot!(
             env.render_ok(r#"t0.format("%Y%m%d %H:%M:%S")"#),
@@ -3107,7 +3120,7 @@ mod tests {
     #[test]
     fn test_label_function() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("empty", || L::wrap_boolean(Literal(true)));
+        env.add_keyword("empty", || L::wrap_boolean(literal(true)));
         env.add_color("error", crossterm::style::Color::DarkRed);
         env.add_color("warning", crossterm::style::Color::DarkYellow);
 
@@ -3182,9 +3195,9 @@ mod tests {
     fn test_coalesce_function() {
         let mut env = TestTemplateEnv::new();
         env.add_keyword("bad_string", || L::wrap_string(new_error_property("Bad")));
-        env.add_keyword("empty_string", || L::wrap_string(Literal("".to_owned())));
+        env.add_keyword("empty_string", || L::wrap_string(literal("".to_owned())));
         env.add_keyword("non_empty_string", || {
-            L::wrap_string(Literal("a".to_owned()))
+            L::wrap_string(literal("a".to_owned()))
         });
 
         insta::assert_snapshot!(env.render_ok(r#"coalesce()"#), @"");
@@ -3205,8 +3218,8 @@ mod tests {
     #[test]
     fn test_concat_function() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("empty", || L::wrap_boolean(Literal(true)));
-        env.add_keyword("hidden", || L::wrap_boolean(Literal(false)));
+        env.add_keyword("empty", || L::wrap_boolean(literal(true)));
+        env.add_keyword("hidden", || L::wrap_boolean(literal(false)));
         env.add_color("empty", crossterm::style::Color::DarkGreen);
         env.add_color("error", crossterm::style::Color::DarkRed);
         env.add_color("warning", crossterm::style::Color::DarkYellow);
@@ -3223,9 +3236,9 @@ mod tests {
     #[test]
     fn test_separate_function() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("description", || L::wrap_string(Literal("".to_owned())));
-        env.add_keyword("empty", || L::wrap_boolean(Literal(true)));
-        env.add_keyword("hidden", || L::wrap_boolean(Literal(false)));
+        env.add_keyword("description", || L::wrap_string(literal("".to_owned())));
+        env.add_keyword("empty", || L::wrap_boolean(literal(true)));
+        env.add_keyword("hidden", || L::wrap_boolean(literal(false)));
         env.add_color("empty", crossterm::style::Color::DarkGreen);
         env.add_color("error", crossterm::style::Color::DarkRed);
         env.add_color("warning", crossterm::style::Color::DarkYellow);
@@ -3279,10 +3292,10 @@ mod tests {
     #[test]
     fn test_surround_function() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("lt", || L::wrap_string(Literal("<".to_owned())));
-        env.add_keyword("gt", || L::wrap_string(Literal(">".to_owned())));
-        env.add_keyword("content", || L::wrap_string(Literal("content".to_owned())));
-        env.add_keyword("empty_content", || L::wrap_string(Literal("".to_owned())));
+        env.add_keyword("lt", || L::wrap_string(literal("<".to_owned())));
+        env.add_keyword("gt", || L::wrap_string(literal(">".to_owned())));
+        env.add_keyword("content", || L::wrap_string(literal("content".to_owned())));
+        env.add_keyword("empty_content", || L::wrap_string(literal("".to_owned())));
         env.add_color("error", crossterm::style::Color::DarkRed);
         env.add_color("paren", crossterm::style::Color::Cyan);
 

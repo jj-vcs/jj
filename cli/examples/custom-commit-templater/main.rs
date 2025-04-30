@@ -131,18 +131,17 @@ impl CommitTemplateLanguageExtension for HexCounter {
                     .cache_extension::<MostDigitsInId>()
                     .unwrap()
                     .count(language.repo());
-                Ok(L::wrap_boolean(property.map(move |commit| {
-                    num_digits_in_id(commit.id()) == most_digits
-                })))
+                let out_property =
+                    property.map(move |commit| num_digits_in_id(commit.id()) == most_digits);
+                Ok(L::wrap_boolean(out_property.into_dyn()))
             },
         );
         table.commit_methods.insert(
             "num_digits_in_id",
             |_language, _diagnostics, _build_context, property, call| {
                 call.expect_no_arguments()?;
-                Ok(L::wrap_integer(
-                    property.map(|commit| num_digits_in_id(commit.id())),
-                ))
+                let out_property = property.map(|commit| num_digits_in_id(commit.id()));
+                Ok(L::wrap_integer(out_property.into_dyn()))
             },
         );
         table.commit_methods.insert(
@@ -161,9 +160,8 @@ impl CommitTemplateLanguageExtension for HexCounter {
                         }
                     })?;
 
-                Ok(L::wrap_integer(
-                    property.map(move |commit| num_char_in_id(commit, char_arg)),
-                ))
+                let out_property = property.map(move |commit| num_char_in_id(commit, char_arg));
+                Ok(L::wrap_integer(out_property.into_dyn()))
             },
         );
 

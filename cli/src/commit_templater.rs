@@ -324,7 +324,7 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                         expect_plain_text_expression(self, diagnostics, build_ctx, key_node)?;
                     let out_property = (property, key_property)
                         .map(|(trailers, key)| trailers.iter().any(|t| t.key == key));
-                    Ok(Self::wrap_boolean(out_property))
+                    Ok(Self::wrap_boolean(out_property.into_dyn()))
                 } else {
                     template_builder::build_formattable_list_method(
                         self,
@@ -361,117 +361,117 @@ impl<'repo> CommitTemplateLanguage<'repo> {
     }
 
     pub fn wrap_commit(
-        property: impl TemplateProperty<Output = Commit> + 'repo,
+        property: Box<dyn TemplateProperty<Output = Commit> + 'repo>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::Commit(Box::new(property))
+        CommitTemplatePropertyKind::Commit(property)
     }
 
     pub fn wrap_commit_opt(
-        property: impl TemplateProperty<Output = Option<Commit>> + 'repo,
+        property: Box<dyn TemplateProperty<Output = Option<Commit>> + 'repo>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::CommitOpt(Box::new(property))
+        CommitTemplatePropertyKind::CommitOpt(property)
     }
 
     pub fn wrap_commit_list(
-        property: impl TemplateProperty<Output = Vec<Commit>> + 'repo,
+        property: Box<dyn TemplateProperty<Output = Vec<Commit>> + 'repo>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::CommitList(Box::new(property))
+        CommitTemplatePropertyKind::CommitList(property)
     }
 
     pub fn wrap_commit_ref(
-        property: impl TemplateProperty<Output = Rc<CommitRef>> + 'repo,
+        property: Box<dyn TemplateProperty<Output = Rc<CommitRef>> + 'repo>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::CommitRef(Box::new(property))
+        CommitTemplatePropertyKind::CommitRef(property)
     }
 
     pub fn wrap_commit_ref_opt(
-        property: impl TemplateProperty<Output = Option<Rc<CommitRef>>> + 'repo,
+        property: Box<dyn TemplateProperty<Output = Option<Rc<CommitRef>>> + 'repo>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::CommitRefOpt(Box::new(property))
+        CommitTemplatePropertyKind::CommitRefOpt(property)
     }
 
     pub fn wrap_commit_ref_list(
-        property: impl TemplateProperty<Output = Vec<Rc<CommitRef>>> + 'repo,
+        property: Box<dyn TemplateProperty<Output = Vec<Rc<CommitRef>>> + 'repo>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::CommitRefList(Box::new(property))
+        CommitTemplatePropertyKind::CommitRefList(property)
     }
 
     pub fn wrap_repo_path(
-        property: impl TemplateProperty<Output = RepoPathBuf> + 'repo,
+        property: Box<dyn TemplateProperty<Output = RepoPathBuf> + 'repo>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::RepoPath(Box::new(property))
+        CommitTemplatePropertyKind::RepoPath(property)
     }
 
     pub fn wrap_repo_path_opt(
-        property: impl TemplateProperty<Output = Option<RepoPathBuf>> + 'repo,
+        property: Box<dyn TemplateProperty<Output = Option<RepoPathBuf>> + 'repo>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::RepoPathOpt(Box::new(property))
+        CommitTemplatePropertyKind::RepoPathOpt(property)
     }
 
     pub fn wrap_commit_or_change_id(
-        property: impl TemplateProperty<Output = CommitOrChangeId> + 'repo,
+        property: Box<dyn TemplateProperty<Output = CommitOrChangeId> + 'repo>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::CommitOrChangeId(Box::new(property))
+        CommitTemplatePropertyKind::CommitOrChangeId(property)
     }
 
     pub fn wrap_shortest_id_prefix(
-        property: impl TemplateProperty<Output = ShortestIdPrefix> + 'repo,
+        property: Box<dyn TemplateProperty<Output = ShortestIdPrefix> + 'repo>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::ShortestIdPrefix(Box::new(property))
+        CommitTemplatePropertyKind::ShortestIdPrefix(property)
     }
 
     pub fn wrap_tree_diff(
-        property: impl TemplateProperty<Output = TreeDiff> + 'repo,
+        property: Box<dyn TemplateProperty<Output = TreeDiff> + 'repo>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::TreeDiff(Box::new(property))
+        CommitTemplatePropertyKind::TreeDiff(property)
     }
 
     pub fn wrap_tree_diff_entry(
-        property: impl TemplateProperty<Output = TreeDiffEntry> + 'repo,
+        property: Box<dyn TemplateProperty<Output = TreeDiffEntry> + 'repo>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::TreeDiffEntry(Box::new(property))
+        CommitTemplatePropertyKind::TreeDiffEntry(property)
     }
 
     pub fn wrap_tree_diff_entry_list(
-        property: impl TemplateProperty<Output = Vec<TreeDiffEntry>> + 'repo,
+        property: Box<dyn TemplateProperty<Output = Vec<TreeDiffEntry>> + 'repo>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::TreeDiffEntryList(Box::new(property))
+        CommitTemplatePropertyKind::TreeDiffEntryList(property)
     }
 
     pub fn wrap_tree_entry(
-        property: impl TemplateProperty<Output = TreeEntry> + 'repo,
+        property: Box<dyn TemplateProperty<Output = TreeEntry> + 'repo>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::TreeEntry(Box::new(property))
+        CommitTemplatePropertyKind::TreeEntry(property)
     }
 
     pub fn wrap_diff_stats(
-        property: impl TemplateProperty<Output = DiffStatsFormatted<'repo>> + 'repo,
+        property: Box<dyn TemplateProperty<Output = DiffStatsFormatted<'repo>> + 'repo>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::DiffStats(Box::new(property))
+        CommitTemplatePropertyKind::DiffStats(property)
     }
 
     fn wrap_cryptographic_signature_opt(
-        property: impl TemplateProperty<Output = Option<CryptographicSignature>> + 'repo,
+        property: Box<dyn TemplateProperty<Output = Option<CryptographicSignature>> + 'repo>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::CryptographicSignatureOpt(Box::new(property))
+        CommitTemplatePropertyKind::CryptographicSignatureOpt(property)
     }
 
     pub fn wrap_annotation_line(
-        property: impl TemplateProperty<Output = AnnotationLine> + 'repo,
+        property: Box<dyn TemplateProperty<Output = AnnotationLine> + 'repo>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::AnnotationLine(Box::new(property))
+        CommitTemplatePropertyKind::AnnotationLine(property)
     }
 
     pub fn wrap_trailer(
-        property: impl TemplateProperty<Output = Trailer> + 'repo,
+        property: Box<dyn TemplateProperty<Output = Trailer> + 'repo>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::Trailer(Box::new(property))
+        CommitTemplatePropertyKind::Trailer(property)
     }
 
     pub fn wrap_trailer_list(
-        property: impl TemplateProperty<Output = Vec<Trailer>> + 'repo,
+        property: Box<dyn TemplateProperty<Output = Vec<Trailer>> + 'repo>,
     ) -> CommitTemplatePropertyKind<'repo> {
-        CommitTemplatePropertyKind::TrailerList(Box::new(property))
+        CommitTemplatePropertyKind::TrailerList(property)
     }
 }
 
@@ -831,7 +831,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
             function.expect_no_arguments()?;
             let out_property =
                 self_property.map(|commit| text_util::complete_newline(commit.description()));
-            Ok(L::wrap_string(out_property))
+            Ok(L::wrap_string(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -840,7 +840,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
             function.expect_no_arguments()?;
             let out_property = self_property
                 .map(|commit| trailer::parse_description_trailers(commit.description()));
-            Ok(L::wrap_trailer_list(out_property))
+            Ok(L::wrap_trailer_list(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -849,7 +849,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
             function.expect_no_arguments()?;
             let out_property =
                 self_property.map(|commit| CommitOrChangeId::Change(commit.change_id().to_owned()));
-            Ok(L::wrap_commit_or_change_id(out_property))
+            Ok(L::wrap_commit_or_change_id(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -858,7 +858,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
             function.expect_no_arguments()?;
             let out_property =
                 self_property.map(|commit| CommitOrChangeId::Commit(commit.id().to_owned()));
-            Ok(L::wrap_commit_or_change_id(out_property))
+            Ok(L::wrap_commit_or_change_id(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -867,7 +867,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
             function.expect_no_arguments()?;
             let out_property =
                 self_property.and_then(|commit| Ok(commit.parents().try_collect()?));
-            Ok(L::wrap_commit_list(out_property))
+            Ok(L::wrap_commit_list(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -875,7 +875,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|commit| commit.author().clone());
-            Ok(L::wrap_signature(out_property))
+            Ok(L::wrap_signature(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -883,7 +883,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|commit| commit.committer().clone());
-            Ok(L::wrap_signature(out_property))
+            Ok(L::wrap_signature(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -892,7 +892,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
             function.expect_no_arguments()?;
             let user_email = language.revset_parse_context.user_email.to_owned();
             let out_property = self_property.map(move |commit| commit.author().email == user_email);
-            Ok(L::wrap_boolean(out_property))
+            Ok(L::wrap_boolean(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -900,7 +900,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(CryptographicSignature::new);
-            Ok(L::wrap_cryptographic_signature_opt(out_property))
+            Ok(L::wrap_cryptographic_signature_opt(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -909,7 +909,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
             function.expect_no_arguments()?;
             let repo = language.repo;
             let out_property = self_property.map(|commit| extract_working_copies(repo, &commit));
-            Ok(L::wrap_string(out_property))
+            Ok(L::wrap_string(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -920,7 +920,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
             let name = language.workspace_name.clone();
             let out_property = self_property
                 .map(move |commit| Some(commit.id()) == repo.view().get_wc_commit_id(&name));
-            Ok(L::wrap_boolean(out_property))
+            Ok(L::wrap_boolean(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -939,7 +939,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
                     .cloned()
                     .collect()
             });
-            Ok(L::wrap_commit_ref_list(out_property))
+            Ok(L::wrap_commit_ref_list(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -958,7 +958,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
                     .cloned()
                     .collect()
             });
-            Ok(L::wrap_commit_ref_list(out_property))
+            Ok(L::wrap_commit_ref_list(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -977,7 +977,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
                     .cloned()
                     .collect()
             });
-            Ok(L::wrap_commit_ref_list(out_property))
+            Ok(L::wrap_commit_ref_list(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -986,7 +986,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
             function.expect_no_arguments()?;
             let index = language.keyword_cache.tags_index(language.repo).clone();
             let out_property = self_property.map(move |commit| index.get(commit.id()).to_vec());
-            Ok(L::wrap_commit_ref_list(out_property))
+            Ok(L::wrap_commit_ref_list(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -995,7 +995,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
             function.expect_no_arguments()?;
             let index = language.keyword_cache.git_refs_index(language.repo).clone();
             let out_property = self_property.map(move |commit| index.get(commit.id()).to_vec());
-            Ok(L::wrap_commit_ref_list(out_property))
+            Ok(L::wrap_commit_ref_list(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1007,7 +1007,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
                 let target = repo.view().git_head();
                 target.added_ids().contains(commit.id())
             });
-            Ok(L::wrap_boolean(out_property))
+            Ok(L::wrap_boolean(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1020,7 +1020,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
                 let maybe_entries = repo.resolve_change_id(commit.change_id());
                 maybe_entries.map_or(0, |entries| entries.len()) > 1
             });
-            Ok(L::wrap_boolean(out_property))
+            Ok(L::wrap_boolean(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1029,7 +1029,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
             function.expect_no_arguments()?;
             let repo = language.repo;
             let out_property = self_property.map(|commit| commit.is_hidden(repo));
-            Ok(L::wrap_boolean(out_property))
+            Ok(L::wrap_boolean(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1041,7 +1041,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
                 .is_immutable_fn(language, function.name_span)?
                 .clone();
             let out_property = self_property.and_then(move |commit| Ok(is_immutable(commit.id())?));
-            Ok(L::wrap_boolean(out_property))
+            Ok(L::wrap_boolean(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1055,7 +1055,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
                 })?;
 
             let out_property = self_property.and_then(move |commit| Ok(is_contained(commit.id())?));
-            Ok(L::wrap_boolean(out_property))
+            Ok(L::wrap_boolean(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1063,7 +1063,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|commit| Ok(commit.has_conflict()?));
-            Ok(L::wrap_boolean(out_property))
+            Ok(L::wrap_boolean(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1072,7 +1072,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
             function.expect_no_arguments()?;
             let repo = language.repo;
             let out_property = self_property.and_then(|commit| Ok(commit.is_empty(repo)?));
-            Ok(L::wrap_boolean(out_property))
+            Ok(L::wrap_boolean(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1090,7 +1090,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
             let matcher: Rc<dyn Matcher> = files.to_matcher().into();
             let out_property = self_property
                 .and_then(move |commit| Ok(TreeDiff::from_commit(repo, &commit, matcher.clone())?));
-            Ok(L::wrap_tree_diff(out_property))
+            Ok(L::wrap_tree_diff(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1100,7 +1100,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
             let repo = language.repo;
             let out_property =
                 self_property.map(|commit| commit.id() == repo.store().root_commit_id());
-            Ok(L::wrap_boolean(out_property))
+            Ok(L::wrap_boolean(out_property.into_dyn()))
         },
     );
     map
@@ -1399,7 +1399,7 @@ fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|commit_ref| commit_ref.name.clone());
-            Ok(L::wrap_string(out_property))
+            Ok(L::wrap_string(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1408,7 +1408,7 @@ fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
             function.expect_no_arguments()?;
             let out_property =
                 self_property.map(|commit_ref| commit_ref.remote.clone().unwrap_or_default());
-            Ok(L::wrap_string(out_property))
+            Ok(L::wrap_string(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1416,7 +1416,7 @@ fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|commit_ref| commit_ref.is_present());
-            Ok(L::wrap_boolean(out_property))
+            Ok(L::wrap_boolean(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1424,7 +1424,7 @@ fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|commit_ref| commit_ref.has_conflict());
-            Ok(L::wrap_boolean(out_property))
+            Ok(L::wrap_boolean(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1436,7 +1436,7 @@ fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
                 let maybe_id = commit_ref.target.as_normal();
                 Ok(maybe_id.map(|id| repo.store().get_commit(id)).transpose()?)
             });
-            Ok(L::wrap_commit_opt(out_property))
+            Ok(L::wrap_commit_opt(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1448,7 +1448,7 @@ fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
                 let ids = commit_ref.target.removed_ids();
                 Ok(ids.map(|id| repo.store().get_commit(id)).try_collect()?)
             });
-            Ok(L::wrap_commit_list(out_property))
+            Ok(L::wrap_commit_list(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1460,7 +1460,7 @@ fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
                 let ids = commit_ref.target.added_ids();
                 Ok(ids.map(|id| repo.store().get_commit(id)).try_collect()?)
             });
-            Ok(L::wrap_commit_list(out_property))
+            Ok(L::wrap_commit_list(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1468,7 +1468,7 @@ fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|commit_ref| commit_ref.is_tracked());
-            Ok(L::wrap_boolean(out_property))
+            Ok(L::wrap_boolean(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1476,7 +1476,7 @@ fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|commit_ref| commit_ref.is_tracking_present());
-            Ok(L::wrap_boolean(out_property))
+            Ok(L::wrap_boolean(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1486,7 +1486,7 @@ fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
             let repo = language.repo;
             let out_property =
                 self_property.and_then(|commit_ref| commit_ref.tracking_ahead_count(repo));
-            Ok(L::wrap_size_hint(out_property))
+            Ok(L::wrap_size_hint(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1496,7 +1496,7 @@ fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
             let repo = language.repo;
             let out_property =
                 self_property.and_then(|commit_ref| commit_ref.tracking_behind_count(repo));
-            Ok(L::wrap_size_hint(out_property))
+            Ok(L::wrap_size_hint(out_property.into_dyn()))
         },
     );
     map
@@ -1571,7 +1571,7 @@ fn builtin_repo_path_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, R
             function.expect_no_arguments()?;
             let path_converter = language.path_converter;
             let out_property = self_property.map(|path| path_converter.format_file_path(&path));
-            Ok(L::wrap_string(out_property))
+            Ok(L::wrap_string(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1579,7 +1579,7 @@ fn builtin_repo_path_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, R
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|path| Some(path.parent()?.to_owned()));
-            Ok(L::wrap_repo_path_opt(out_property))
+            Ok(L::wrap_repo_path_opt(out_property.into_dyn()))
         },
     );
     map
@@ -1640,7 +1640,7 @@ fn builtin_commit_or_change_id_methods<'repo>(
         "normal_hex",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            Ok(L::wrap_string(self_property.map(|id| {
+            let out_property = self_property.map(|id| {
                 // Note: this is _not_ the same as id.hex() for ChangeId, which
                 // returns the "reverse" hex (z-k), instead of the "forward" /
                 // normal hex (0-9a-f) we want here.
@@ -1648,7 +1648,8 @@ fn builtin_commit_or_change_id_methods<'repo>(
                     CommitOrChangeId::Commit(id) => id.hex(),
                     CommitOrChangeId::Change(id) => id.hex(),
                 }
-            })))
+            });
+            Ok(L::wrap_string(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1667,7 +1668,7 @@ fn builtin_commit_or_change_id_methods<'repo>(
                 .transpose()?;
             let out_property =
                 (self_property, len_property).map(|(id, len)| id.short(len.unwrap_or(12)));
-            Ok(L::wrap_string(out_property))
+            Ok(L::wrap_string(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1702,7 +1703,7 @@ fn builtin_commit_or_change_id_methods<'repo>(
             };
             let out_property = (self_property, len_property)
                 .map(move |(id, len)| id.shortest(repo, &index, len.unwrap_or(0)));
-            Ok(L::wrap_shortest_id_prefix(out_property))
+            Ok(L::wrap_shortest_id_prefix(out_property.into_dyn()))
         },
     );
     map
@@ -1747,7 +1748,7 @@ fn builtin_shortest_id_prefix_methods<'repo>(
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|id| id.prefix);
-            Ok(L::wrap_string(out_property))
+            Ok(L::wrap_string(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1755,7 +1756,7 @@ fn builtin_shortest_id_prefix_methods<'repo>(
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|id| id.rest);
-            Ok(L::wrap_string(out_property))
+            Ok(L::wrap_string(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1763,7 +1764,7 @@ fn builtin_shortest_id_prefix_methods<'repo>(
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|id| id.to_upper());
-            Ok(L::wrap_shortest_id_prefix(out_property))
+            Ok(L::wrap_shortest_id_prefix(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1771,7 +1772,7 @@ fn builtin_shortest_id_prefix_methods<'repo>(
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|id| id.to_lower());
-            Ok(L::wrap_shortest_id_prefix(out_property))
+            Ok(L::wrap_shortest_id_prefix(out_property.into_dyn()))
         },
     );
     map
@@ -1858,7 +1859,7 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
             // TODO: cache and reuse diff entries within the current evaluation?
             let out_property =
                 self_property.and_then(|diff| Ok(diff.collect_entries().block_on()?));
-            Ok(L::wrap_tree_diff_entry_list(out_property))
+            Ok(L::wrap_tree_diff_entry_list(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -1974,7 +1975,7 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
                     width: width.unwrap_or(80),
                 })
             });
-            Ok(L::wrap_diff_stats(out_property))
+            Ok(L::wrap_diff_stats(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -2049,7 +2050,7 @@ fn builtin_tree_diff_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'r
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|entry| entry.path.target);
-            Ok(L::wrap_repo_path(out_property))
+            Ok(L::wrap_repo_path(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -2057,7 +2058,7 @@ fn builtin_tree_diff_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'r
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|entry| entry.status_label().to_owned());
-            Ok(L::wrap_string(out_property))
+            Ok(L::wrap_string(out_property.into_dyn()))
         },
     );
     // TODO: add status_code() or status_char()?
@@ -2066,7 +2067,7 @@ fn builtin_tree_diff_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'r
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(TreeDiffEntry::into_source_entry);
-            Ok(L::wrap_tree_entry(out_property))
+            Ok(L::wrap_tree_entry(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -2074,7 +2075,7 @@ fn builtin_tree_diff_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'r
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(TreeDiffEntry::into_target_entry);
-            Ok(L::wrap_tree_entry(out_property))
+            Ok(L::wrap_tree_entry(out_property.into_dyn()))
         },
     );
     map
@@ -2097,7 +2098,7 @@ fn builtin_tree_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|entry| entry.path);
-            Ok(L::wrap_repo_path(out_property))
+            Ok(L::wrap_repo_path(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -2105,7 +2106,7 @@ fn builtin_tree_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|entry| !entry.value.is_resolved());
-            Ok(L::wrap_boolean(out_property))
+            Ok(L::wrap_boolean(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -2114,7 +2115,7 @@ fn builtin_tree_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
             function.expect_no_arguments()?;
             let out_property =
                 self_property.map(|entry| describe_file_type(&entry.value).to_owned());
-            Ok(L::wrap_string(out_property))
+            Ok(L::wrap_string(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -2123,7 +2124,7 @@ fn builtin_tree_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
             function.expect_no_arguments()?;
             let out_property =
                 self_property.map(|entry| is_executable_file(&entry.value).unwrap_or_default());
-            Ok(L::wrap_boolean(out_property))
+            Ok(L::wrap_boolean(out_property.into_dyn()))
         },
     );
     map
@@ -2176,7 +2177,7 @@ fn builtin_diff_stats_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
             function.expect_no_arguments()?;
             let out_property =
                 self_property.and_then(|stats| Ok(stats.count_total_added().try_into()?));
-            Ok(L::wrap_integer(out_property))
+            Ok(L::wrap_integer(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -2185,7 +2186,7 @@ fn builtin_diff_stats_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
             function.expect_no_arguments()?;
             let out_property =
                 self_property.and_then(|stats| Ok(stats.count_total_removed().try_into()?));
-            Ok(L::wrap_integer(out_property))
+            Ok(L::wrap_integer(out_property.into_dyn()))
         },
     );
     map
@@ -2240,7 +2241,7 @@ fn builtin_cryptographic_signature_methods<'repo>(
                 Err(SignError::InvalidSignatureFormat) => Ok("invalid".to_string()),
                 Err(err) => Err(err.into()),
             });
-            Ok(L::wrap_string(out_property))
+            Ok(L::wrap_string(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -2248,7 +2249,7 @@ fn builtin_cryptographic_signature_methods<'repo>(
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|sig| Ok(sig.key()?));
-            Ok(L::wrap_string(out_property))
+            Ok(L::wrap_string(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -2256,7 +2257,7 @@ fn builtin_cryptographic_signature_methods<'repo>(
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|sig| Ok(sig.display()?));
-            Ok(L::wrap_string(out_property))
+            Ok(L::wrap_string(out_property.into_dyn()))
         },
     );
     map
@@ -2279,7 +2280,7 @@ fn builtin_annotation_line_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'r
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|line| line.commit);
-            Ok(L::wrap_commit(out_property))
+            Ok(L::wrap_commit(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -2296,7 +2297,7 @@ fn builtin_annotation_line_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'r
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|line| Ok(line.line_number.try_into()?));
-            Ok(L::wrap_integer(out_property))
+            Ok(L::wrap_integer(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -2304,7 +2305,7 @@ fn builtin_annotation_line_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'r
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|line| line.first_line_in_hunk);
-            Ok(L::wrap_boolean(out_property))
+            Ok(L::wrap_boolean(out_property.into_dyn()))
         },
     );
     map
@@ -2330,7 +2331,7 @@ fn builtin_trailer_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Tra
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|trailer| trailer.key);
-            Ok(L::wrap_string(out_property))
+            Ok(L::wrap_string(out_property.into_dyn()))
         },
     );
     map.insert(
@@ -2338,7 +2339,7 @@ fn builtin_trailer_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Tra
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|trailer| trailer.value);
-            Ok(L::wrap_string(out_property))
+            Ok(L::wrap_string(out_property.into_dyn()))
         },
     );
     map

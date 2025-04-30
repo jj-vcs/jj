@@ -177,7 +177,7 @@ use crate::template_builder;
 use crate::template_builder::TemplateLanguage;
 use crate::template_parser::TemplateAliasesMap;
 use crate::template_parser::TemplateDiagnostics;
-use crate::templater::PropertyPlaceholder;
+use crate::templater::TemplateProperty;
 use crate::templater::TemplateRenderer;
 use crate::text_util;
 use crate::ui::ColorChoice;
@@ -386,7 +386,7 @@ impl CommandHelper {
         ui: &Ui,
         language: &L,
         template_text: &str,
-        wrap_self: impl Fn(PropertyPlaceholder<C>) -> L::Property,
+        wrap_self: impl Fn(Box<dyn TemplateProperty<Output = C> + 'a>) -> L::Property,
     ) -> Result<TemplateRenderer<'a, C>, CommandError> {
         let mut diagnostics = TemplateDiagnostics::new();
         let aliases = load_template_aliases(ui, self.settings().config())?;
@@ -974,7 +974,7 @@ impl WorkspaceCommandEnvironment {
         ui: &Ui,
         language: &L,
         template_text: &str,
-        wrap_self: impl Fn(PropertyPlaceholder<C>) -> L::Property,
+        wrap_self: impl Fn(Box<dyn TemplateProperty<Output = C> + 'a>) -> L::Property,
     ) -> Result<TemplateRenderer<'a, C>, CommandError> {
         let mut diagnostics = TemplateDiagnostics::new();
         let template = template_builder::parse(
@@ -1704,7 +1704,7 @@ to the current parents may contain changes from multiple commits.
         ui: &Ui,
         language: &L,
         template_text: &str,
-        wrap_self: impl Fn(PropertyPlaceholder<C>) -> L::Property,
+        wrap_self: impl Fn(Box<dyn TemplateProperty<Output = C> + 'a>) -> L::Property,
     ) -> Result<TemplateRenderer<'a, C>, CommandError> {
         self.env
             .parse_template(ui, language, template_text, wrap_self)
@@ -1715,7 +1715,7 @@ to the current parents may contain changes from multiple commits.
         &self,
         language: &L,
         template_text: &str,
-        wrap_self: impl Fn(PropertyPlaceholder<C>) -> L::Property,
+        wrap_self: impl Fn(Box<dyn TemplateProperty<Output = C> + 'a>) -> L::Property,
     ) -> TemplateRenderer<'a, C> {
         template_builder::parse(
             language,
