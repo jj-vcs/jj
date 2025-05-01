@@ -713,7 +713,7 @@ mod tests {
     use jj_lib::matchers::EverythingMatcher;
     use jj_lib::merge::MergedTreeValue;
     use jj_lib::repo::Repo as _;
-    use testutils::dump_tree;
+    use testutils::assert_tree_eq;
     use testutils::repo_path;
     use testutils::repo_path_component;
     use testutils::TestRepo;
@@ -858,9 +858,10 @@ mod tests {
 
         let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_eq!(
-            no_changes_tree.id(),
-            left_tree.id(),
+        assert_tree_eq!(
+            &left_tree.id(),
+            &no_changes_tree.id(),
+            store,
             "no-changes tree was different",
         );
 
@@ -871,9 +872,10 @@ mod tests {
         let all_changes_tree_id =
             apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
-        assert_eq!(
-            all_changes_tree.id(),
-            right_tree.id(),
+        assert_tree_eq!(
+            &right_tree.id(),
+            &all_changes_tree.id(),
+            store,
             "all-changes tree was different",
         );
     }
@@ -912,9 +914,10 @@ mod tests {
         "#);
         let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_eq!(
-            no_changes_tree.id(),
-            left_tree.id(),
+        assert_tree_eq!(
+            &left_tree.id(),
+            &no_changes_tree.id(),
+            store,
             "no-changes tree was different",
         );
 
@@ -925,9 +928,10 @@ mod tests {
         let all_changes_tree_id =
             apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
-        assert_eq!(
-            all_changes_tree.id(),
-            right_tree.id(),
+        assert_tree_eq!(
+            &right_tree.id(),
+            &all_changes_tree.id(),
+            store,
             "all-changes tree was different",
         );
     }
@@ -979,9 +983,10 @@ mod tests {
         "###);
         let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_eq!(
-            no_changes_tree.id(),
-            left_tree.id(),
+        assert_tree_eq!(
+            &left_tree.id(),
+            &no_changes_tree.id(),
+            store,
             "no-changes tree was different",
         );
 
@@ -992,9 +997,10 @@ mod tests {
         let all_changes_tree_id =
             apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
-        assert_eq!(
-            all_changes_tree.id(),
-            right_tree.id(),
+        assert_tree_eq!(
+            &right_tree.id(),
+            &all_changes_tree.id(),
+            store,
             "all-changes tree was different",
         );
     }
@@ -1039,12 +1045,11 @@ mod tests {
         "#);
         let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_eq!(
-            left_tree.id(),
-            no_changes_tree.id(),
-            "no-changes tree was different:\nexpected tree:\n{}\nactual tree:\n{}",
-            dump_tree(store, &left_tree.id()),
-            dump_tree(store, &no_changes_tree.id()),
+        assert_tree_eq!(
+            &left_tree.id(),
+            &no_changes_tree.id(),
+            store,
+            "no-changes tree was different",
         );
 
         let mut files = files;
@@ -1054,12 +1059,11 @@ mod tests {
         let all_changes_tree_id =
             apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
-        assert_eq!(
-            right_tree.id(),
-            all_changes_tree.id(),
-            "all-changes tree was different:\nexpected tree:\n{}\nactual tree:\n{}",
-            dump_tree(store, &right_tree.id()),
-            dump_tree(store, &all_changes_tree.id()),
+        assert_tree_eq!(
+            &right_tree.id(),
+            &all_changes_tree.id(),
+            store,
+            "all-changes tree was different",
         );
     }
 
@@ -1108,12 +1112,11 @@ mod tests {
         "#);
         let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_eq!(
-            left_tree.id(),
-            no_changes_tree.id(),
-            "no-changes tree was different:\nexpected tree:\n{}\nactual tree:\n{}",
-            dump_tree(store, &left_tree.id()),
-            dump_tree(store, &no_changes_tree.id()),
+        assert_tree_eq!(
+            &left_tree.id(),
+            &no_changes_tree.id(),
+            store,
+            "no-changes tree was different",
         );
 
         let mut files = files;
@@ -1123,12 +1126,11 @@ mod tests {
         let all_changes_tree_id =
             apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
-        assert_eq!(
-            right_tree.id(),
-            all_changes_tree.id(),
-            "all-changes tree was different:\nexpected tree:\n{}\nactual tree:\n{}",
-            dump_tree(store, &right_tree.id()),
-            dump_tree(store, &all_changes_tree.id()),
+        assert_tree_eq!(
+            &right_tree.id(),
+            &all_changes_tree.id(),
+            store,
+            "all-changes tree was different",
         );
     }
 
@@ -1176,12 +1178,11 @@ mod tests {
         "#);
         let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_eq!(
-            left_tree.id(),
-            no_changes_tree.id(),
-            "no-changes tree was different:\nexpected tree:\n{}\nactual tree:\n{}",
-            dump_tree(store, &left_tree.id()),
-            dump_tree(store, &no_changes_tree.id()),
+        assert_tree_eq!(
+            &left_tree.id(),
+            &no_changes_tree.id(),
+            store,
+            "no-changes tree was different",
         );
 
         let mut files = files;
@@ -1191,12 +1192,11 @@ mod tests {
         let all_changes_tree_id =
             apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
-        assert_eq!(
-            right_tree.id(),
-            all_changes_tree.id(),
-            "all-changes tree was different:\nexpected tree:\n{}\nactual tree:\n{}",
-            dump_tree(store, &right_tree.id()),
-            dump_tree(store, &all_changes_tree.id()),
+        assert_tree_eq!(
+            &right_tree.id(),
+            &all_changes_tree.id(),
+            store,
+            "all-changes tree was different",
         );
     }
 
@@ -1269,13 +1269,7 @@ mod tests {
         });
         let actual_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let actual_tree = store.get_root_tree(&actual_tree_id).unwrap();
-        assert_eq!(
-            expected_tree.id(),
-            actual_tree.id(),
-            "tree was different:\nexpected tree:\n{}\nactual tree:\n{}",
-            dump_tree(store, &expected_tree.id()),
-            dump_tree(store, &actual_tree.id()),
-        );
+        assert_tree_eq!(&expected_tree.id(), &actual_tree.id(), store);
     }
 
     #[test]
@@ -1335,13 +1329,7 @@ mod tests {
         });
         let actual_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let actual_tree = store.get_root_tree(&actual_tree_id).unwrap();
-        assert_eq!(
-            expected_tree.id(),
-            actual_tree.id(),
-            "tree was different:\nexpected tree:\n{}\nactual tree:\n{}",
-            dump_tree(store, &expected_tree.id()),
-            dump_tree(store, &actual_tree.id()),
-        );
+        assert_tree_eq!(&expected_tree.id(), &actual_tree.id(), store);
     }
 
     #[test]
@@ -1387,9 +1375,10 @@ mod tests {
         "###);
         let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_eq!(
-            no_changes_tree.id(),
-            left_tree.id(),
+        assert_tree_eq!(
+            &left_tree.id(),
+            &no_changes_tree.id(),
+            store,
             "no-changes tree was different",
         );
 
@@ -1400,9 +1389,10 @@ mod tests {
         let all_changes_tree_id =
             apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
-        assert_eq!(
-            all_changes_tree.id(),
-            right_tree.id(),
+        assert_tree_eq!(
+            &right_tree.id(),
+            &all_changes_tree.id(),
+            store,
             "all-changes tree was different",
         );
     }
@@ -1441,9 +1431,10 @@ mod tests {
         "#);
         let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_eq!(
-            no_changes_tree.id(),
-            left_tree.id(),
+        assert_tree_eq!(
+            &left_tree.id(),
+            &no_changes_tree.id(),
+            store,
             "no-changes tree was different",
         );
 
@@ -1454,9 +1445,10 @@ mod tests {
         let all_changes_tree_id =
             apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
-        assert_eq!(
-            all_changes_tree.id(),
-            right_tree.id(),
+        assert_tree_eq!(
+            &right_tree.id(),
+            &all_changes_tree.id(),
+            store,
             "all-changes tree was different",
         );
     }
@@ -1501,9 +1493,10 @@ mod tests {
         "#);
         let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_eq!(
-            no_changes_tree.id(),
-            left_tree.id(),
+        assert_tree_eq!(
+            &left_tree.id(),
+            &no_changes_tree.id(),
+            store,
             "no-changes tree was different",
         );
 
@@ -1514,9 +1507,10 @@ mod tests {
         let all_changes_tree_id =
             apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
-        assert_eq!(
-            all_changes_tree.id(),
-            right_tree.id(),
+        assert_tree_eq!(
+            &right_tree.id(),
+            &all_changes_tree.id(),
+            store,
             "all-changes tree was different",
         );
     }
@@ -1560,9 +1554,10 @@ mod tests {
         "###);
         let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_eq!(
-            no_changes_tree.id(),
-            left_tree.id(),
+        assert_tree_eq!(
+            &left_tree.id(),
+            &no_changes_tree.id(),
+            store,
             "no-changes tree was different",
         );
 
@@ -1573,9 +1568,10 @@ mod tests {
         let all_changes_tree_id =
             apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
-        assert_eq!(
-            all_changes_tree.id(),
-            right_tree.id(),
+        assert_tree_eq!(
+            &right_tree.id(),
+            &all_changes_tree.id(),
+            store,
             "all-changes tree was different",
         );
     }
@@ -1654,9 +1650,10 @@ mod tests {
         "#);
         let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_eq!(
-            no_changes_tree.id(),
-            left_tree.id(),
+        assert_tree_eq!(
+            &left_tree.id(),
+            &no_changes_tree.id(),
+            store,
             "no-changes tree was different",
         );
 
@@ -1667,9 +1664,10 @@ mod tests {
         let all_changes_tree_id =
             apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
-        assert_eq!(
-            all_changes_tree.id(),
-            right_tree.id(),
+        assert_tree_eq!(
+            &right_tree.id(),
+            &all_changes_tree.id(),
+            store,
             "all-changes tree was different",
         );
     }
@@ -1729,12 +1727,11 @@ mod tests {
         });
         let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_eq!(
-            left_tree.id(),
-            no_changes_tree.id(),
-            "no-changes tree was different:\nexpected tree:\n{}\nactual tree:\n{}",
-            dump_tree(store, &left_tree.id()),
-            dump_tree(store, &no_changes_tree.id()),
+        assert_tree_eq!(
+            &left_tree.id(),
+            &no_changes_tree.id(),
+            store,
+            "no-changes tree was different",
         );
 
         let mut files = files;
@@ -1744,12 +1741,11 @@ mod tests {
         let all_changes_tree_id =
             apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
-        assert_eq!(
-            right_tree.id(),
-            all_changes_tree.id(),
-            "all-changes tree was different:\nexpected tree:\n{}\nactual tree:\n{}",
-            dump_tree(store, &right_tree.id()),
-            dump_tree(store, &all_changes_tree.id()),
+        assert_tree_eq!(
+            &right_tree.id(),
+            &all_changes_tree.id(),
+            store,
+            "all-changes tree was different",
         );
     }
 
