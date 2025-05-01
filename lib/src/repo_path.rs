@@ -427,6 +427,10 @@ impl RepoPath {
         RepoPathComponentsIter { value: &self.value }
     }
 
+    pub fn ancestors(&self) -> impl Iterator<Item = &RepoPath> {
+        std::iter::successors(Some(self), |path| path.parent())
+    }
+
     pub fn join(&self, entry: &RepoPathComponent) -> RepoPathBuf {
         let value = if self.value.is_empty() {
             entry.as_internal_str().to_owned()
@@ -887,6 +891,22 @@ mod tests {
         assert_eq!(
             repo_path("dir/subdir").components().rev().collect_vec(),
             vec![repo_path_component("subdir"), repo_path_component("dir")]
+        );
+    }
+
+    #[test]
+    fn test_ancestors() {
+        assert_eq!(
+            RepoPath::root().ancestors().collect_vec(),
+            vec![RepoPath::root()]
+        );
+        assert_eq!(
+            repo_path("dir").ancestors().collect_vec(),
+            vec![repo_path("dir"), RepoPath::root()]
+        );
+        assert_eq!(
+            repo_path("dir/subdir").ancestors().collect_vec(),
+            vec![repo_path("dir/subdir"), repo_path("dir"), RepoPath::root()]
         );
     }
 
