@@ -503,6 +503,17 @@ impl PartialOrd for RepoPathBuf {
     }
 }
 
+impl<P: AsRef<RepoPathComponent>> Extend<P> for RepoPathBuf {
+    fn extend<T: IntoIterator<Item = P>>(&mut self, iter: T) {
+        for component in iter {
+            if !self.value.is_empty() {
+                self.value.push('/');
+            }
+            self.value.push_str(component.as_ref().as_internal_str());
+        }
+    }
+}
+
 /// `RepoPath` contained invalid file/directory component such as `..`.
 #[derive(Clone, Debug, Eq, Error, PartialEq)]
 #[error(r#"Invalid repository path "{}""#, path.as_internal_file_string())]
@@ -812,6 +823,19 @@ mod tests {
             subdir.join(repo_path_component("file")).as_ref(),
             repo_path("dir/subdir/file")
         );
+    }
+
+    #[test]
+    fn test_extend() {
+        let mut path = RepoPathBuf::root();
+        path.extend(std::iter::empty::<RepoPathComponentBuf>());
+        assert_eq!(path.as_ref(), RepoPath::root());
+        path.extend([repo_path_component("dir")]);
+        assert_eq!(path.as_ref(), repo_path("dir"));
+        path.extend(std::iter::repeat_n(repo_path_component("subdir"), 3));
+        assert_eq!(path.as_ref(), repo_path("dir/subdir/subdir/subdir"));
+        path.extend(std::iter::empty::<RepoPathComponentBuf>());
+        assert_eq!(path.as_ref(), repo_path("dir/subdir/subdir/subdir"));
     }
 
     #[test]
