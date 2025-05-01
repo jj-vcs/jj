@@ -136,8 +136,7 @@ don't make any changes, then the operation will be aborted.",
     if tree_id == *target_commit.tree_id() {
         writeln!(ui.status(), "Nothing changed.")?;
     } else {
-        let new_commit = tx
-            .repo_mut()
+        tx.repo_mut()
             .rewrite_commit(&target_commit)
             .set_tree_id(tree_id)
             .write()?;
@@ -152,9 +151,6 @@ don't make any changes, then the operation will be aborted.",
             (tx.repo_mut().rebase_descendants()?, "")
         };
         if let Some(mut formatter) = ui.status_formatter() {
-            write!(formatter, "Created ")?;
-            tx.write_commit_summary(formatter.as_mut(), &new_commit)?;
-            writeln!(formatter)?;
             if num_rebased > 0 {
                 writeln!(
                     formatter,

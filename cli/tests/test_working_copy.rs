@@ -140,7 +140,6 @@ fn test_snapshot_large_file_restore() {
         This will increase the maximum file size allowed for new files, in this repository only.
       - Run `jj --config snapshot.max-new-file-size=13 st`
         This will increase the maximum file size allowed for new files, for this command only.
-    Created kkmpptxz e3eb7e81 (no description set)
     Working copy  (@) now at: kkmpptxz e3eb7e81 (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 1 files, modified 0 files, removed 0 files

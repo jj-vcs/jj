@@ -161,12 +161,11 @@ pub(crate) fn cmd_restore(
         writeln!(ui.status(), "Nothing changed.")?;
     } else {
         let mut tx = workspace_command.start_transaction();
-        let new_commit = tx
-            .repo_mut()
+        tx.repo_mut()
             .rewrite_commit(&to_commit)
             .set_tree_id(new_tree_id)
             .write()?;
-        // rebase_descendants early; otherwise `new_commit` would always have
+        // rebase_descendants early; otherwise the new commit would always have
         // a conflicted change id at this point.
         let (num_rebased, extra_msg) = if args.restore_descendants {
             (
@@ -177,9 +176,6 @@ pub(crate) fn cmd_restore(
             (tx.repo_mut().rebase_descendants()?, "")
         };
         if let Some(mut formatter) = ui.status_formatter() {
-            write!(formatter, "Created ")?;
-            tx.write_commit_summary(formatter.as_mut(), &new_commit)?;
-            writeln!(formatter)?;
             if num_rebased > 0 {
                 writeln!(
                     formatter,
