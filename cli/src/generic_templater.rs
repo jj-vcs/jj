@@ -73,7 +73,7 @@ impl<'a, C> GenericTemplateLanguage<'a, C> {
     /// ```ignore
     /// language.add_keyword("name", |self_property| {
     ///     let out_property = self_property.map(|v| v.to_string());
-    ///     Ok(GenericTemplateLanguage::wrap_string(out_property))
+    ///     Ok(out_property.into_dyn_wrapped())
     /// });
     /// ```
     pub fn add_keyword<F>(&mut self, name: &'static str, build: F)

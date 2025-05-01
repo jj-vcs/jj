@@ -147,14 +147,6 @@ template_builder::impl_property_wrappers!(OperationTemplatePropertyKind {
     OperationId(OperationId),
 });
 
-// TODO: delete
-impl OperationTemplatePropertyKind {
-    template_builder::impl_wrap_property_fns!('static, OperationTemplatePropertyKind, {
-        pub wrap_operation(Operation) => Operation,
-        pub wrap_operation_id(OperationId) => OperationId,
-    });
-}
-
 impl CoreTemplatePropertyVar<'static> for OperationTemplatePropertyKind {
     template_builder::impl_core_wrap_property_fns!('static, OperationTemplatePropertyKind::Core);
 
@@ -267,7 +259,6 @@ impl OperationTemplateBuildFnTable {
 }
 
 fn builtin_operation_methods() -> OperationTemplateBuildMethodFnMap<Operation> {
-    type P = OperationTemplatePropertyKind;
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = OperationTemplateBuildMethodFnMap::<Operation>::new();
@@ -277,7 +268,7 @@ fn builtin_operation_methods() -> OperationTemplateBuildMethodFnMap<Operation> {
             function.expect_no_arguments()?;
             let current_op_id = language.current_op_id.clone();
             let out_property = self_property.map(move |op| Some(op.id()) == current_op_id.as_ref());
-            Ok(P::wrap_boolean(out_property.into_dyn()))
+            Ok(out_property.into_dyn_wrapped())
         },
     );
     map.insert(
@@ -285,7 +276,7 @@ fn builtin_operation_methods() -> OperationTemplateBuildMethodFnMap<Operation> {
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|op| op.metadata().description.clone());
-            Ok(P::wrap_string(out_property.into_dyn()))
+            Ok(out_property.into_dyn_wrapped())
         },
     );
     map.insert(
@@ -293,7 +284,7 @@ fn builtin_operation_methods() -> OperationTemplateBuildMethodFnMap<Operation> {
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|op| op.id().clone());
-            Ok(P::wrap_operation_id(out_property.into_dyn()))
+            Ok(out_property.into_dyn_wrapped())
         },
     );
     map.insert(
@@ -308,7 +299,7 @@ fn builtin_operation_methods() -> OperationTemplateBuildMethodFnMap<Operation> {
                     .map(|(key, value)| format!("{key}: {value}"))
                     .join("\n")
             });
-            Ok(P::wrap_string(out_property.into_dyn()))
+            Ok(out_property.into_dyn_wrapped())
         },
     );
     map.insert(
@@ -316,7 +307,7 @@ fn builtin_operation_methods() -> OperationTemplateBuildMethodFnMap<Operation> {
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|op| op.metadata().is_snapshot);
-            Ok(P::wrap_boolean(out_property.into_dyn()))
+            Ok(out_property.into_dyn_wrapped())
         },
     );
     map.insert(
@@ -327,7 +318,7 @@ fn builtin_operation_methods() -> OperationTemplateBuildMethodFnMap<Operation> {
                 start: op.metadata().start_time,
                 end: op.metadata().end_time,
             });
-            Ok(P::wrap_timestamp_range(out_property.into_dyn()))
+            Ok(out_property.into_dyn_wrapped())
         },
     );
     map.insert(
@@ -338,7 +329,7 @@ fn builtin_operation_methods() -> OperationTemplateBuildMethodFnMap<Operation> {
                 // TODO: introduce dedicated type and provide accessors?
                 format!("{}@{}", op.metadata().username, op.metadata().hostname)
             });
-            Ok(P::wrap_string(out_property.into_dyn()))
+            Ok(out_property.into_dyn_wrapped())
         },
     );
     map.insert(
@@ -347,7 +338,7 @@ fn builtin_operation_methods() -> OperationTemplateBuildMethodFnMap<Operation> {
             function.expect_no_arguments()?;
             let root_op_id = language.repo_loader.op_store().root_operation_id().clone();
             let out_property = self_property.map(move |op| op.id() == &root_op_id);
-            Ok(P::wrap_boolean(out_property.into_dyn()))
+            Ok(out_property.into_dyn_wrapped())
         },
     );
     map
@@ -360,7 +351,6 @@ impl Template for OperationId {
 }
 
 fn builtin_operation_id_methods() -> OperationTemplateBuildMethodFnMap<OperationId> {
-    type P = OperationTemplatePropertyKind;
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = OperationTemplateBuildMethodFnMap::<OperationId>::new();
@@ -383,7 +373,7 @@ fn builtin_operation_id_methods() -> OperationTemplateBuildMethodFnMap<Operation
                 hex.truncate(len.unwrap_or(12));
                 hex
             });
-            Ok(P::wrap_string(out_property.into_dyn()))
+            Ok(out_property.into_dyn_wrapped())
         },
     );
     map

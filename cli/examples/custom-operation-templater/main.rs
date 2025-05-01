@@ -15,8 +15,6 @@
 use jj_cli::cli_util::CliRunner;
 use jj_cli::operation_templater::OperationTemplateBuildFnTable;
 use jj_cli::operation_templater::OperationTemplateLanguageExtension;
-use jj_cli::operation_templater::OperationTemplatePropertyKind;
-use jj_cli::template_builder::CoreTemplatePropertyVar as _;
 use jj_cli::template_parser;
 use jj_cli::template_parser::TemplateParseError;
 use jj_cli::templater::TemplatePropertyExt as _;
@@ -49,14 +47,13 @@ fn num_char_in_id(operation: Operation, ch_match: char) -> i64 {
 
 impl OperationTemplateLanguageExtension for HexCounter {
     fn build_fn_table(&self) -> OperationTemplateBuildFnTable {
-        type P = OperationTemplatePropertyKind;
         let mut table = OperationTemplateBuildFnTable::empty();
         table.operation_methods.insert(
             "num_digits_in_id",
             |_language, _diagnostics, _build_context, property, call| {
                 call.expect_no_arguments()?;
                 let out_property = property.map(|operation| num_digits_in_id(operation.id()));
-                Ok(P::wrap_integer(out_property.into_dyn()))
+                Ok(out_property.into_dyn_wrapped())
             },
         );
         table.operation_methods.insert(
@@ -77,7 +74,7 @@ impl OperationTemplateLanguageExtension for HexCounter {
 
                 let out_property =
                     property.map(move |operation| num_char_in_id(operation, char_arg));
-                Ok(P::wrap_integer(out_property.into_dyn()))
+                Ok(out_property.into_dyn_wrapped())
             },
         );
 

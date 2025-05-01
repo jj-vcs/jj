@@ -19,8 +19,6 @@ use itertools::Itertools as _;
 use jj_cli::cli_util::CliRunner;
 use jj_cli::commit_templater::CommitTemplateBuildFnTable;
 use jj_cli::commit_templater::CommitTemplateLanguageExtension;
-use jj_cli::commit_templater::CommitTemplatePropertyKind;
-use jj_cli::template_builder::CoreTemplatePropertyVar as _;
 use jj_cli::template_parser;
 use jj_cli::template_parser::TemplateParseError;
 use jj_cli::templater::TemplatePropertyExt as _;
@@ -121,7 +119,6 @@ impl SymbolResolverExtension for TheDigitest {
 
 impl CommitTemplateLanguageExtension for HexCounter {
     fn build_fn_table<'repo>(&self) -> CommitTemplateBuildFnTable<'repo> {
-        type P<'repo> = CommitTemplatePropertyKind<'repo>;
         let mut table = CommitTemplateBuildFnTable::empty();
         table.commit_methods.insert(
             "has_most_digits",
@@ -133,7 +130,7 @@ impl CommitTemplateLanguageExtension for HexCounter {
                     .count(language.repo());
                 let out_property =
                     property.map(move |commit| num_digits_in_id(commit.id()) == most_digits);
-                Ok(P::wrap_boolean(out_property.into_dyn()))
+                Ok(out_property.into_dyn_wrapped())
             },
         );
         table.commit_methods.insert(
@@ -141,7 +138,7 @@ impl CommitTemplateLanguageExtension for HexCounter {
             |_language, _diagnostics, _build_context, property, call| {
                 call.expect_no_arguments()?;
                 let out_property = property.map(|commit| num_digits_in_id(commit.id()));
-                Ok(P::wrap_integer(out_property.into_dyn()))
+                Ok(out_property.into_dyn_wrapped())
             },
         );
         table.commit_methods.insert(
@@ -161,7 +158,7 @@ impl CommitTemplateLanguageExtension for HexCounter {
                     })?;
 
                 let out_property = property.map(move |commit| num_char_in_id(commit, char_arg));
-                Ok(P::wrap_integer(out_property.into_dyn()))
+                Ok(out_property.into_dyn_wrapped())
             },
         );
 
