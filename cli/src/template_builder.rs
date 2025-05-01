@@ -1374,23 +1374,28 @@ where
                 });
             L::Property::wrap_template(Box::new(template))
         }
-        "filter" => build_filter_operation(
-            language,
-            diagnostics,
-            build_ctx,
-            self_property,
-            function,
-            wrap_item,
-            wrap_list,
-        )?,
-        "map" => build_map_operation(
-            language,
-            diagnostics,
-            build_ctx,
-            self_property,
-            function,
-            wrap_item,
-        )?,
+        "filter" => {
+            let out_property = build_filter_operation(
+                language,
+                diagnostics,
+                build_ctx,
+                self_property,
+                function,
+                wrap_item,
+            )?;
+            wrap_list(out_property)
+        }
+        "map" => {
+            let template = build_map_operation(
+                language,
+                diagnostics,
+                build_ctx,
+                self_property,
+                function,
+                wrap_item,
+            )?;
+            L::Property::wrap_list_template(template)
+        }
         _ => return Err(TemplateParseError::no_such_method("List", function)),
     };
     Ok(property)
@@ -1416,23 +1421,28 @@ where
             L::Property::wrap_integer(out_property.into_dyn())
         }
         // No "join"
-        "filter" => build_filter_operation(
-            language,
-            diagnostics,
-            build_ctx,
-            self_property,
-            function,
-            wrap_item,
-            wrap_list,
-        )?,
-        "map" => build_map_operation(
-            language,
-            diagnostics,
-            build_ctx,
-            self_property,
-            function,
-            wrap_item,
-        )?,
+        "filter" => {
+            let out_property = build_filter_operation(
+                language,
+                diagnostics,
+                build_ctx,
+                self_property,
+                function,
+                wrap_item,
+            )?;
+            wrap_list(out_property)
+        }
+        "map" => {
+            let template = build_map_operation(
+                language,
+                diagnostics,
+                build_ctx,
+                self_property,
+                function,
+                wrap_item,
+            )?;
+            L::Property::wrap_list_template(template)
+        }
         _ => return Err(TemplateParseError::no_such_method("List", function)),
     };
     Ok(property)
@@ -1441,7 +1451,6 @@ where
 /// Builds expression that extracts iterable property and filters its items.
 ///
 /// `wrap_item()` is the function to wrap a list item of type `O` as a property.
-/// `wrap_list()` is the function to wrap filtered list.
 fn build_filter_operation<'a, L, O, P, B>(
     language: &L,
     diagnostics: &mut TemplateDiagnostics,
@@ -1449,8 +1458,7 @@ fn build_filter_operation<'a, L, O, P, B>(
     self_property: P,
     function: &FunctionCallNode,
     wrap_item: impl Fn(BoxedTemplateProperty<'a, O>) -> L::Property,
-    wrap_list: impl Fn(BoxedTemplateProperty<'a, B>) -> L::Property,
-) -> TemplateParseResult<L::Property>
+) -> TemplateParseResult<BoxedTemplateProperty<'a, B>>
 where
     L: TemplateLanguage<'a> + ?Sized,
     P: TemplateProperty + 'a,
@@ -1480,7 +1488,7 @@ where
             })
             .collect()
     });
-    Ok(wrap_list(out_property.into_dyn()))
+    Ok(out_property.into_dyn())
 }
 
 /// Builds expression that extracts iterable property and applies template to
@@ -1494,7 +1502,7 @@ fn build_map_operation<'a, L, O, P>(
     self_property: P,
     function: &FunctionCallNode,
     wrap_item: impl Fn(BoxedTemplateProperty<'a, O>) -> L::Property,
-) -> TemplateParseResult<L::Property>
+) -> TemplateParseResult<Box<dyn ListTemplate + 'a>>
 where
     L: TemplateLanguage<'a> + ?Sized,
     P: TemplateProperty + 'a,
@@ -1518,7 +1526,7 @@ where
             item_placeholder.with_value(item, || item_template.format(formatter))
         },
     );
-    Ok(L::Property::wrap_list_template(Box::new(list_template)))
+    Ok(Box::new(list_template))
 }
 
 /// Builds lambda expression to be evaluated with the provided arguments.
