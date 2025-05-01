@@ -211,8 +211,6 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                     build_ctx,
                     property,
                     function,
-                    Self::Property::wrap_commit,
-                    Self::Property::wrap_commit_list,
                 )
             }
             CommitTemplatePropertyKind::CommitRef(property) => {
@@ -235,8 +233,6 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                     build_ctx,
                     property,
                     function,
-                    Self::Property::wrap_commit_ref,
-                    Self::Property::wrap_commit_ref_list,
                 )
             }
             CommitTemplatePropertyKind::RepoPath(property) => {
@@ -279,8 +275,6 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                     build_ctx,
                     property,
                     function,
-                    Self::Property::wrap_tree_diff_entry,
-                    Self::Property::wrap_tree_diff_entry_list,
                 )
             }
             CommitTemplatePropertyKind::TreeEntry(property) => {
@@ -330,8 +324,6 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                         build_ctx,
                         property,
                         function,
-                        Self::Property::wrap_trailer,
-                        Self::Property::wrap_trailer_list,
                     )
                 }
             }

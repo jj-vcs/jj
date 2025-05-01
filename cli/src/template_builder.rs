@@ -598,15 +598,7 @@ impl<'a, L: TemplateLanguage<'a> + ?Sized> CoreTemplateBuildFnTable<'a, L> {
             }
             CoreTemplatePropertyKind::StringList(property) => {
                 // TODO: migrate to table?
-                build_formattable_list_method(
-                    language,
-                    diagnostics,
-                    build_ctx,
-                    property,
-                    function,
-                    L::Property::wrap_string,
-                    L::Property::wrap_string_list,
-                )
+                build_formattable_list_method(language, diagnostics, build_ctx, property, function)
             }
             CoreTemplatePropertyKind::Boolean(property) => {
                 let table = &self.boolean_methods;
@@ -1349,13 +1341,10 @@ pub fn build_formattable_list_method<'a, L, O>(
     build_ctx: &BuildContext<L::Property>,
     self_property: impl TemplateProperty<Output = Vec<O>> + 'a,
     function: &FunctionCallNode,
-    // TODO: Generic L: WrapProperty<O> trait might be needed to support more
-    // list operations such as first()/slice().
-    wrap_item: impl Fn(BoxedTemplateProperty<'a, O>) -> L::Property,
-    wrap_list: impl Fn(BoxedTemplateProperty<'a, Vec<O>>) -> L::Property,
 ) -> TemplateParseResult<L::Property>
 where
     L: TemplateLanguage<'a> + ?Sized,
+    L::Property: WrapTemplateProperty<'a, O> + WrapTemplateProperty<'a, Vec<O>>,
     O: Template + Clone + 'a,
 {
     let property = match function.name {
@@ -1375,25 +1364,13 @@ where
             L::Property::wrap_template(Box::new(template))
         }
         "filter" => {
-            let out_property = build_filter_operation(
-                language,
-                diagnostics,
-                build_ctx,
-                self_property,
-                function,
-                wrap_item,
-            )?;
-            wrap_list(out_property)
+            let out_property: BoxedTemplateProperty<'a, Vec<O>> =
+                build_filter_operation(language, diagnostics, build_ctx, self_property, function)?;
+            L::Property::wrap_property(out_property)
         }
         "map" => {
-            let template = build_map_operation(
-                language,
-                diagnostics,
-                build_ctx,
-                self_property,
-                function,
-                wrap_item,
-            )?;
+            let template =
+                build_map_operation(language, diagnostics, build_ctx, self_property, function)?;
             L::Property::wrap_list_template(template)
         }
         _ => return Err(TemplateParseError::no_such_method("List", function)),
@@ -1407,11 +1384,10 @@ pub fn build_unformattable_list_method<'a, L, O>(
     build_ctx: &BuildContext<L::Property>,
     self_property: impl TemplateProperty<Output = Vec<O>> + 'a,
     function: &FunctionCallNode,
-    wrap_item: impl Fn(BoxedTemplateProperty<'a, O>) -> L::Property,
-    wrap_list: impl Fn(BoxedTemplateProperty<'a, Vec<O>>) -> L::Property,
 ) -> TemplateParseResult<L::Property>
 where
     L: TemplateLanguage<'a> + ?Sized,
+    L::Property: WrapTemplateProperty<'a, O> + WrapTemplateProperty<'a, Vec<O>>,
     O: Clone + 'a,
 {
     let property = match function.name {
@@ -1422,25 +1398,13 @@ where
         }
         // No "join"
         "filter" => {
-            let out_property = build_filter_operation(
-                language,
-                diagnostics,
-                build_ctx,
-                self_property,
-                function,
-                wrap_item,
-            )?;
-            wrap_list(out_property)
+            let out_property: BoxedTemplateProperty<'a, Vec<O>> =
+                build_filter_operation(language, diagnostics, build_ctx, self_property, function)?;
+            L::Property::wrap_property(out_property)
         }
         "map" => {
-            let template = build_map_operation(
-                language,
-                diagnostics,
-                build_ctx,
-                self_property,
-                function,
-                wrap_item,
-            )?;
+            let template =
+                build_map_operation(language, diagnostics, build_ctx, self_property, function)?;
             L::Property::wrap_list_template(template)
         }
         _ => return Err(TemplateParseError::no_such_method("List", function)),
@@ -1449,18 +1413,16 @@ where
 }
 
 /// Builds expression that extracts iterable property and filters its items.
-///
-/// `wrap_item()` is the function to wrap a list item of type `O` as a property.
 fn build_filter_operation<'a, L, O, P, B>(
     language: &L,
     diagnostics: &mut TemplateDiagnostics,
     build_ctx: &BuildContext<L::Property>,
     self_property: P,
     function: &FunctionCallNode,
-    wrap_item: impl Fn(BoxedTemplateProperty<'a, O>) -> L::Property,
 ) -> TemplateParseResult<BoxedTemplateProperty<'a, B>>
 where
     L: TemplateLanguage<'a> + ?Sized,
+    L::Property: WrapTemplateProperty<'a, O>,
     P: TemplateProperty + 'a,
     P::Output: IntoIterator<Item = O>,
     O: Clone + 'a,
@@ -1472,7 +1434,7 @@ where
         build_lambda_expression(
             build_ctx,
             lambda,
-            &[&|| wrap_item(item_placeholder.clone().into_dyn())],
+            &[&|| item_placeholder.clone().into_dyn_wrapped()],
             |build_ctx, body| expect_boolean_expression(language, diagnostics, build_ctx, body),
         )
     })?;
@@ -1493,18 +1455,16 @@ where
 
 /// Builds expression that extracts iterable property and applies template to
 /// each item.
-///
-/// `wrap_item()` is the function to wrap a list item of type `O` as a property.
 fn build_map_operation<'a, L, O, P>(
     language: &L,
     diagnostics: &mut TemplateDiagnostics,
     build_ctx: &BuildContext<L::Property>,
     self_property: P,
     function: &FunctionCallNode,
-    wrap_item: impl Fn(BoxedTemplateProperty<'a, O>) -> L::Property,
 ) -> TemplateParseResult<Box<dyn ListTemplate + 'a>>
 where
     L: TemplateLanguage<'a> + ?Sized,
+    L::Property: WrapTemplateProperty<'a, O>,
     P: TemplateProperty + 'a,
     P::Output: IntoIterator<Item = O>,
     O: Clone + 'a,
@@ -1515,7 +1475,7 @@ where
         build_lambda_expression(
             build_ctx,
             lambda,
-            &[&|| wrap_item(item_placeholder.clone().into_dyn())],
+            &[&|| item_placeholder.clone().into_dyn_wrapped()],
             |build_ctx, body| expect_template_expression(language, diagnostics, build_ctx, body),
         )
     })?;
