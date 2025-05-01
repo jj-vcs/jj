@@ -74,6 +74,9 @@ pest_derive = "2.8.1"
 pollster = "0.4.0"
 pretty_assertions = "1.4.1"
 proc-macro2 = "1.0.95"
+proptest = "1.6.0"
+proptest-derive = "0.6.0"
+proptest-state-machine = "0.3.1"
 prost = "0.13.5"
 prost-build = "0.13.5"
 quote = "1.0.40"
@@ -136,11 +139,16 @@ uninlined_format_args = "warn"
 unused_trait_names = "warn"
 useless_conversion = "warn"
 
+[profile.dev.package]
 # Insta suggests compiling these packages in opt mode for faster testing.
 # See https://docs.rs/insta/latest/insta/#optional-faster-runs.
-[profile.dev.package]
 insta.opt-level = 3
 similar.opt-level = 3
+# Proptest suggests compiling itself and its RNG in opt mode as well.
+# See https://proptest-rs.github.io/proptest/proptest/tips-and-best-practices.html#setting-opt-level
+proptest.opt-level = 3
+proptest-state-machine.opt-level = 3
+rand_chacha.opt-level = 3
 
 [profile.release]
 strip = "debuginfo"
