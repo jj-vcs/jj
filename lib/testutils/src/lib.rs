@@ -579,6 +579,24 @@ pub fn dump_tree(store: &Arc<Store>, tree_id: &MergedTreeId) -> String {
     buf
 }
 
+#[macro_export]
+macro_rules! assert_tree_eq {
+    ($left_tree_id:expr, $right_tree_id:expr, $store:expr $(,)?) => {
+        assert_tree_eq!($left_tree_id, $right_tree_id, $store, "trees are different")
+    };
+    ($left_tree_id:expr, $right_tree_id:expr, $store:expr, $($args:tt)+) => {{
+        let store = $store;
+        assert_eq!(
+            $left_tree_id,
+            $right_tree_id,
+            "{}:\n left: {}\nright: {}",
+            format_args!($($args)*),
+            $crate::dump_tree(store, $left_tree_id),
+            $crate::dump_tree(store, $right_tree_id),
+        )
+    }};
+}
+
 pub fn write_random_commit(mut_repo: &mut MutableRepo) -> Commit {
     create_random_commit(mut_repo).write().unwrap()
 }
