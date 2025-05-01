@@ -1976,7 +1976,10 @@ mod tests {
     use crate::formatter::ColorFormatter;
     use crate::generic_templater::GenericTemplateLanguage;
 
-    type TestTemplateLanguage = GenericTemplateLanguage<'static, ()>;
+    #[derive(Clone, Debug)]
+    struct Context;
+
+    type TestTemplateLanguage = GenericTemplateLanguage<'static, Context>;
     type P = <TestTemplateLanguage as TemplateLanguage<'static>>::Property;
 
     /// Helper to set up template evaluation environment.
@@ -2022,7 +2025,7 @@ mod tests {
             self.color_rules.push((labels, style));
         }
 
-        fn parse(&self, template: &str) -> TemplateParseResult<TemplateRenderer<'static, ()>> {
+        fn parse(&self, template: &str) -> TemplateParseResult<TemplateRenderer<'static, Context>> {
             parse(
                 &self.language,
                 &mut TemplateDiagnostics::new(),
@@ -2042,7 +2045,7 @@ mod tests {
             let mut output = Vec::new();
             let mut formatter =
                 ColorFormatter::new(&mut output, self.color_rules.clone().into(), false);
-            template.format(&(), &mut formatter).unwrap();
+            template.format(&Context, &mut formatter).unwrap();
             drop(formatter);
             String::from_utf8(output).unwrap()
         }
