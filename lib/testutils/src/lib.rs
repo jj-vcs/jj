@@ -75,6 +75,7 @@ use tokio::io::AsyncReadExt as _;
 use crate::test_backend::TestBackendFactory;
 
 pub mod git;
+pub mod proptest;
 pub mod test_backend;
 
 // TODO: Consider figuring out a way to make `GitBackend` and `git(1)` calls in
