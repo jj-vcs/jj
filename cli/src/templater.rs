@@ -97,7 +97,7 @@ impl Template for Signature {
         }
         if !self.email.is_empty() {
             write!(formatter, "<")?;
-            let email: Email = self.email.clone().into();
+            let email = Email(self.email.clone());
             email.format(formatter)?;
             write!(formatter, ">")?;
         }
@@ -107,12 +107,6 @@ impl Template for Signature {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Email(pub String);
-
-impl From<String> for Email {
-    fn from(value: String) -> Self {
-        Self(value)
-    }
-}
 
 impl Template for Email {
     fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {

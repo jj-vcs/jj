@@ -855,7 +855,7 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
         "len",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let out_property = self_property.and_then(|s| Ok(s.len().try_into()?));
+            let out_property = self_property.and_then(|s| Ok(i64::try_from(s.len())?));
             Ok(L::Property::wrap_integer(out_property.into_dyn()))
         },
     );
@@ -978,7 +978,7 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
         "lines",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let out_property = self_property.map(|s| s.lines().map(|l| l.to_owned()).collect());
+            let out_property = self_property.map(|s| s.lines().map(|l| l.to_owned()).collect_vec());
             Ok(L::Property::wrap_string_list(out_property.into_dyn()))
         },
     );
@@ -1044,7 +1044,7 @@ fn builtin_config_value_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
         "as_boolean",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let out_property = self_property.and_then(extract);
+            let out_property = self_property.and_then(extract::<bool>);
             Ok(L::Property::wrap_boolean(out_property.into_dyn()))
         },
     );
@@ -1052,7 +1052,7 @@ fn builtin_config_value_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
         "as_integer",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let out_property = self_property.and_then(extract);
+            let out_property = self_property.and_then(extract::<i64>);
             Ok(L::Property::wrap_integer(out_property.into_dyn()))
         },
     );
@@ -1060,7 +1060,7 @@ fn builtin_config_value_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
         "as_string",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let out_property = self_property.and_then(extract);
+            let out_property = self_property.and_then(extract::<String>);
             Ok(L::Property::wrap_string(out_property.into_dyn()))
         },
     );
@@ -1068,7 +1068,7 @@ fn builtin_config_value_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
         "as_string_list",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let out_property = self_property.and_then(extract);
+            let out_property = self_property.and_then(extract::<Vec<String>>);
             Ok(L::Property::wrap_string_list(out_property.into_dyn()))
         },
     );
@@ -1094,7 +1094,7 @@ fn builtin_signature_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
         "email",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let out_property = self_property.map(|signature| signature.email.into());
+            let out_property = self_property.map(|signature| Email(signature.email));
             Ok(L::Property::wrap_email(out_property.into_dyn()))
         },
     );
@@ -1350,7 +1350,7 @@ where
     let property = match function.name {
         "len" => {
             function.expect_no_arguments()?;
-            let out_property = self_property.and_then(|items| Ok(items.len().try_into()?));
+            let out_property = self_property.and_then(|items| Ok(i64::try_from(items.len())?));
             L::Property::wrap_integer(out_property.into_dyn())
         }
         "join" => {
@@ -1393,7 +1393,7 @@ where
     let property = match function.name {
         "len" => {
             function.expect_no_arguments()?;
-            let out_property = self_property.and_then(|items| Ok(items.len().try_into()?));
+            let out_property = self_property.and_then(|items| Ok(i64::try_from(items.len())?));
             L::Property::wrap_integer(out_property.into_dyn())
         }
         // No "join"

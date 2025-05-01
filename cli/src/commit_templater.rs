@@ -788,8 +788,10 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
         "parents",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let out_property =
-                self_property.and_then(|commit| Ok(commit.parents().try_collect()?));
+            let out_property = self_property.and_then(|commit| {
+                let commits: Vec<_> = commit.parents().try_collect()?;
+                Ok(commits)
+            });
             Ok(P::wrap_commit_list(out_property.into_dyn()))
         },
     );
@@ -860,7 +862,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
                     .iter()
                     .filter(|commit_ref| commit_ref.is_local() || !commit_ref.synced)
                     .cloned()
-                    .collect()
+                    .collect_vec()
             });
             Ok(P::wrap_commit_ref_list(out_property.into_dyn()))
         },
@@ -879,7 +881,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
                     .iter()
                     .filter(|commit_ref| commit_ref.is_local())
                     .cloned()
-                    .collect()
+                    .collect_vec()
             });
             Ok(P::wrap_commit_ref_list(out_property.into_dyn()))
         },
@@ -898,7 +900,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
                     .iter()
                     .filter(|commit_ref| commit_ref.is_remote())
                     .cloned()
-                    .collect()
+                    .collect_vec()
             });
             Ok(P::wrap_commit_ref_list(out_property.into_dyn()))
         },
@@ -1369,7 +1371,8 @@ fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
             let repo = language.repo;
             let out_property = self_property.and_then(|commit_ref| {
                 let ids = commit_ref.target.removed_ids();
-                Ok(ids.map(|id| repo.store().get_commit(id)).try_collect()?)
+                let commits: Vec<_> = ids.map(|id| repo.store().get_commit(id)).try_collect()?;
+                Ok(commits)
             });
             Ok(P::wrap_commit_list(out_property.into_dyn()))
         },
@@ -1381,7 +1384,8 @@ fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
             let repo = language.repo;
             let out_property = self_property.and_then(|commit_ref| {
                 let ids = commit_ref.target.added_ids();
-                Ok(ids.map(|id| repo.store().get_commit(id)).try_collect()?)
+                let commits: Vec<_> = ids.map(|id| repo.store().get_commit(id)).try_collect()?;
+                Ok(commits)
             });
             Ok(P::wrap_commit_list(out_property.into_dyn()))
         },
@@ -2099,7 +2103,7 @@ fn builtin_diff_stats_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property =
-                self_property.and_then(|stats| Ok(stats.count_total_added().try_into()?));
+                self_property.and_then(|stats| Ok(i64::try_from(stats.count_total_added())?));
             Ok(P::wrap_integer(out_property.into_dyn()))
         },
     );
@@ -2108,7 +2112,7 @@ fn builtin_diff_stats_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property =
-                self_property.and_then(|stats| Ok(stats.count_total_removed().try_into()?));
+                self_property.and_then(|stats| Ok(i64::try_from(stats.count_total_removed())?));
             Ok(P::wrap_integer(out_property.into_dyn()))
         },
     );
@@ -2219,7 +2223,7 @@ fn builtin_annotation_line_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'r
         "line_number",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let out_property = self_property.and_then(|line| Ok(line.line_number.try_into()?));
+            let out_property = self_property.and_then(|line| Ok(i64::try_from(line.line_number)?));
             Ok(P::wrap_integer(out_property.into_dyn()))
         },
     );
