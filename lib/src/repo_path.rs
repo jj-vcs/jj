@@ -198,6 +198,21 @@ impl DoubleEndedIterator for RepoPathComponentsIter<'_> {
 
 impl FusedIterator for RepoPathComponentsIter<'_> {}
 
+pub struct RepoPathAncestorsIter<'a> {
+    path: Option<&'a RepoPath>,
+}
+
+impl<'a> Iterator for RepoPathAncestorsIter<'a> {
+    type Item = &'a RepoPath;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let next = self.path.and_then(RepoPath::parent);
+        std::mem::replace(&mut self.path, next)
+    }
+}
+
+impl FusedIterator for RepoPathAncestorsIter<'_> {}
+
 /// Owned repository path.
 #[derive(Clone, Eq, Hash, PartialEq)]
 pub struct RepoPathBuf {
@@ -425,6 +440,10 @@ impl RepoPath {
 
     pub fn components(&self) -> RepoPathComponentsIter<'_> {
         RepoPathComponentsIter { value: &self.value }
+    }
+
+    pub fn ancestors(&self) -> RepoPathAncestorsIter<'_> {
+        RepoPathAncestorsIter { path: Some(self) }
     }
 
     pub fn join(&self, entry: &RepoPathComponent) -> RepoPathBuf {
@@ -885,6 +904,22 @@ mod tests {
         assert_eq!(
             repo_path("dir/subdir").components().rev().collect_vec(),
             vec![repo_path_component("subdir"), repo_path_component("dir")]
+        );
+    }
+
+    #[test]
+    fn test_ancestors() {
+        assert_eq!(
+            RepoPath::root().ancestors().collect_vec(),
+            vec![RepoPath::root()]
+        );
+        assert_eq!(
+            repo_path("dir").ancestors().collect_vec(),
+            vec![repo_path("dir"), RepoPath::root()]
+        );
+        assert_eq!(
+            repo_path("dir/subdir").ancestors().collect_vec(),
+            vec![repo_path("dir/subdir"), repo_path("dir"), RepoPath::root()]
         );
     }
 
