@@ -12,14 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::rc::Rc;
+
 use clap_complete::ArgValueCandidates;
 use jj_lib::str_util::StringPattern;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::commit_templater::CommitRef;
-use crate::commit_templater::CommitTemplatePropertyKind;
 use crate::complete;
+use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
 
 /// Manage tags.
@@ -75,19 +77,14 @@ fn cmd_tag_list(
     let repo = workspace_command.repo();
     let view = repo.view();
 
-    let template = {
+    let template: TemplateRenderer<Rc<CommitRef>> = {
         let language = workspace_command.commit_template_language();
         let text = match &args.template {
             Some(value) => value.to_owned(),
             None => workspace_command.settings().get("templates.tag_list")?,
         };
         workspace_command
-            .parse_template(
-                ui,
-                &language,
-                &text,
-                CommitTemplatePropertyKind::wrap_commit_ref,
-            )?
+            .parse_template(ui, &language, &text)?
             .labeled("tag_list")
     };
 

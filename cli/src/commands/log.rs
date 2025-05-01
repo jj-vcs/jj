@@ -16,6 +16,7 @@ use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
+use jj_lib::commit::Commit;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::graph::reverse_graph;
@@ -35,11 +36,11 @@ use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
 use crate::cli_util::RevisionArg;
 use crate::command_error::CommandError;
-use crate::commit_templater::CommitTemplatePropertyKind;
 use crate::complete;
 use crate::diff_util::DiffFormatArgs;
 use crate::graphlog::get_graphlog;
 use crate::graphlog::GraphStyle;
+use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
 
 /// Show revision history
@@ -163,8 +164,8 @@ pub(crate) fn cmd_log(
     let use_elided_nodes = settings.get_bool("ui.log-synthetic-elided-nodes")?;
     let with_content_format = LogContentFormat::new(ui, settings)?;
 
-    let template;
-    let node_template;
+    let template: TemplateRenderer<Commit>;
+    let node_template: TemplateRenderer<Option<Commit>>;
     {
         let language = workspace_command.commit_template_language();
         let template_string = match &args.template {
@@ -172,20 +173,10 @@ pub(crate) fn cmd_log(
             None => settings.get_string("templates.log")?,
         };
         template = workspace_command
-            .parse_template(
-                ui,
-                &language,
-                &template_string,
-                CommitTemplatePropertyKind::wrap_commit,
-            )?
+            .parse_template(ui, &language, &template_string)?
             .labeled("log");
         node_template = workspace_command
-            .parse_template(
-                ui,
-                &language,
-                &get_node_template(graph_style, settings)?,
-                CommitTemplatePropertyKind::wrap_commit_opt,
-            )?
+            .parse_template(ui, &language, &get_node_template(graph_style, settings)?)?
             .labeled("node");
     }
 

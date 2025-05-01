@@ -26,11 +26,10 @@ use crate::config::resolved_config_values;
 use crate::config::AnnotatedValue;
 use crate::generic_templater;
 use crate::generic_templater::GenericTemplateLanguage;
-use crate::generic_templater::GenericTemplatePropertyKind;
 use crate::template_builder::CoreTemplatePropertyVar as _;
 use crate::template_builder::TemplateLanguage;
 use crate::templater::TemplatePropertyExt as _;
-use crate::templater::WrapTemplateProperty as _;
+use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
 
 /// List variables set in config files, along with their values.
@@ -80,19 +79,14 @@ pub fn cmd_config_list(
     command: &CommandHelper,
     args: &ConfigListArgs,
 ) -> Result<(), CommandError> {
-    let template = {
+    let template: TemplateRenderer<AnnotatedValue> = {
         let language = config_template_language(command.settings());
         let text = match &args.template {
             Some(value) => value.to_owned(),
             None => command.settings().get_string("templates.config_list")?,
         };
         command
-            .parse_template(
-                ui,
-                &language,
-                &text,
-                GenericTemplatePropertyKind::wrap_property,
-            )?
+            .parse_template(ui, &language, &text)?
             .labeled("config_list")
     };
 

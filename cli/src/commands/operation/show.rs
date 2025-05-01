@@ -14,17 +14,18 @@
 
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
+use jj_lib::operation::Operation;
 
 use super::diff::show_op_diff;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
 use crate::command_error::CommandError;
-use crate::commit_templater::CommitTemplatePropertyKind;
 use crate::complete;
 use crate::diff_util::diff_formats_for_log;
 use crate::diff_util::DiffFormatArgs;
 use crate::diff_util::DiffRenderer;
 use crate::graphlog::GraphStyle;
+use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
 
 /// Show changes to the repository in an operation
@@ -66,12 +67,7 @@ pub fn cmd_op_show(
     let commit_summary_template = {
         let language = workspace_env.commit_template_language(repo.as_ref(), &id_prefix_context);
         let text = settings.get_string("templates.commit_summary")?;
-        workspace_env.parse_template(
-            ui,
-            &language,
-            &text,
-            CommitTemplatePropertyKind::wrap_commit,
-        )?
+        workspace_env.parse_template(ui, &language, &text)?
     };
 
     let graph_style = GraphStyle::from_settings(settings)?;
@@ -91,7 +87,7 @@ pub fn cmd_op_show(
     };
 
     // TODO: Should we make this customizable via clap arg?
-    let template = {
+    let template: TemplateRenderer<Operation> = {
         let text = settings.get_string("templates.op_log")?;
         workspace_command
             .parse_operation_template(ui, &text)?

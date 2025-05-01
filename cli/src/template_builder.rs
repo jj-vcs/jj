@@ -1906,37 +1906,39 @@ pub fn build_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
 }
 
 /// Builds template evaluation tree from AST nodes, with fresh build context.
-///
-/// `wrap_self` specifies the type of the top-level property, which should be
-/// one of the `L::Property::wrap_*()` functions.
-pub fn build<'a, C: Clone + 'a, L: TemplateLanguage<'a> + ?Sized>(
+pub fn build<'a, C, L>(
     language: &L,
     diagnostics: &mut TemplateDiagnostics,
     node: &ExpressionNode,
-    // TODO: Generic L: WrapProperty<C> trait might be better. See the
-    // comment in build_formattable_list_method().
-    wrap_self: impl Fn(BoxedTemplateProperty<'a, C>) -> L::Property,
-) -> TemplateParseResult<TemplateRenderer<'a, C>> {
+) -> TemplateParseResult<TemplateRenderer<'a, C>>
+where
+    C: Clone + 'a,
+    L: TemplateLanguage<'a> + ?Sized,
+    L::Property: WrapTemplateProperty<'a, C>,
+{
     let self_placeholder = PropertyPlaceholder::new();
     let build_ctx = BuildContext {
         local_variables: HashMap::new(),
-        self_variable: &|| wrap_self(self_placeholder.clone().into_dyn()),
+        self_variable: &|| self_placeholder.clone().into_dyn_wrapped(),
     };
     let template = expect_template_expression(language, diagnostics, &build_ctx, node)?;
     Ok(TemplateRenderer::new(template, self_placeholder))
 }
 
 /// Parses text, expands aliases, then builds template evaluation tree.
-pub fn parse<'a, C: Clone + 'a, L: TemplateLanguage<'a> + ?Sized>(
+pub fn parse<'a, C, L>(
     language: &L,
     diagnostics: &mut TemplateDiagnostics,
     template_text: &str,
     aliases_map: &TemplateAliasesMap,
-    wrap_self: impl Fn(BoxedTemplateProperty<'a, C>) -> L::Property,
-) -> TemplateParseResult<TemplateRenderer<'a, C>> {
+) -> TemplateParseResult<TemplateRenderer<'a, C>>
+where
+    C: Clone + 'a,
+    L: TemplateLanguage<'a> + ?Sized,
+    L::Property: WrapTemplateProperty<'a, C>,
+{
     let node = template_parser::parse(template_text, aliases_map)?;
-    build(language, diagnostics, &node, wrap_self)
-        .map_err(|err| err.extend_alias_candidates(aliases_map))
+    build(language, diagnostics, &node).map_err(|err| err.extend_alias_candidates(aliases_map))
 }
 
 pub fn expect_boolean_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
@@ -2130,7 +2132,6 @@ mod tests {
                 &mut TemplateDiagnostics::new(),
                 template,
                 &self.aliases_map,
-                P::wrap_property,
             )
         }
 

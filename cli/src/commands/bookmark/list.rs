@@ -33,8 +33,8 @@ use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::command_error::CommandError;
 use crate::commit_templater::CommitRef;
-use crate::commit_templater::CommitTemplatePropertyKind;
 use crate::complete;
+use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
 
 /// List bookmarks and their targets
@@ -171,7 +171,7 @@ pub fn cmd_bookmark_list(
         None
     };
 
-    let template = {
+    let template: TemplateRenderer<Rc<CommitRef>> = {
         let language = workspace_command.commit_template_language();
         let text = match &args.template {
             Some(value) => value.to_owned(),
@@ -180,12 +180,7 @@ pub fn cmd_bookmark_list(
                 .get("templates.bookmark_list")?,
         };
         workspace_command
-            .parse_template(
-                ui,
-                &language,
-                &text,
-                CommitTemplatePropertyKind::wrap_commit_ref,
-            )?
+            .parse_template(ui, &language, &text)?
             .labeled("bookmark_list")
     };
 

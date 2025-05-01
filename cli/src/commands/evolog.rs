@@ -30,11 +30,11 @@ use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
 use crate::cli_util::RevisionArg;
 use crate::command_error::CommandError;
-use crate::commit_templater::CommitTemplatePropertyKind;
 use crate::complete;
 use crate::diff_util::DiffFormatArgs;
 use crate::graphlog::get_graphlog;
 use crate::graphlog::GraphStyle;
+use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
 
 /// Show how a change has evolved over time
@@ -102,8 +102,8 @@ pub(crate) fn cmd_evolog(
     let graph_style = GraphStyle::from_settings(workspace_command.settings())?;
     let with_content_format = LogContentFormat::new(ui, workspace_command.settings())?;
 
-    let template;
-    let node_template;
+    let template: TemplateRenderer<Commit>;
+    let node_template: TemplateRenderer<Option<Commit>>;
     {
         let language = workspace_command.commit_template_language();
         let template_string = match &args.template {
@@ -111,19 +111,13 @@ pub(crate) fn cmd_evolog(
             None => workspace_command.settings().get_string("templates.log")?,
         };
         template = workspace_command
-            .parse_template(
-                ui,
-                &language,
-                &template_string,
-                CommitTemplatePropertyKind::wrap_commit,
-            )?
+            .parse_template(ui, &language, &template_string)?
             .labeled("log");
         node_template = workspace_command
             .parse_template(
                 ui,
                 &language,
                 &get_node_template(graph_style, workspace_command.settings())?,
-                CommitTemplatePropertyKind::wrap_commit_opt,
             )?
             .labeled("node");
     }

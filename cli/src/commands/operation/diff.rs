@@ -40,7 +40,6 @@ use jj_lib::revset::RevsetIteratorExt as _;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
 use crate::command_error::CommandError;
-use crate::commit_templater::CommitTemplatePropertyKind;
 use crate::complete;
 use crate::diff_util::diff_formats_for_log;
 use crate::diff_util::DiffFormatArgs;
@@ -132,12 +131,7 @@ pub fn cmd_op_diff(
     let commit_summary_template = {
         let language = workspace_env.commit_template_language(merged_repo, &id_prefix_context);
         let text = settings.get_string("templates.commit_summary")?;
-        workspace_env.parse_template(
-            ui,
-            &language,
-            &text,
-            CommitTemplatePropertyKind::wrap_commit,
-        )?
+        workspace_env.parse_template(ui, &language, &text)?
     };
 
     let op_summary_template = workspace_command.operation_summary_template();

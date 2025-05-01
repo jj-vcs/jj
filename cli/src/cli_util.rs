@@ -152,7 +152,6 @@ use crate::command_error::user_error_with_hint;
 use crate::command_error::CommandError;
 use crate::commit_templater::CommitTemplateLanguage;
 use crate::commit_templater::CommitTemplateLanguageExtension;
-use crate::commit_templater::CommitTemplatePropertyKind;
 use crate::complete;
 use crate::config::config_from_environment;
 use crate::config::parse_config_args;
@@ -172,15 +171,14 @@ use crate::merge_tools::MergeEditor;
 use crate::merge_tools::MergeToolConfigError;
 use crate::operation_templater::OperationTemplateLanguage;
 use crate::operation_templater::OperationTemplateLanguageExtension;
-use crate::operation_templater::OperationTemplatePropertyKind;
 use crate::revset_util;
 use crate::revset_util::RevsetExpressionEvaluator;
 use crate::template_builder;
 use crate::template_builder::TemplateLanguage;
 use crate::template_parser::TemplateAliasesMap;
 use crate::template_parser::TemplateDiagnostics;
-use crate::templater::BoxedTemplateProperty;
 use crate::templater::TemplateRenderer;
+use crate::templater::WrapTemplateProperty;
 use crate::text_util;
 use crate::ui::ColorChoice;
 use crate::ui::Ui;
@@ -383,22 +381,21 @@ impl CommandHelper {
     /// This function also loads template aliases from the settings. Use
     /// `WorkspaceCommandHelper::parse_template()` if you've already
     /// instantiated the workspace helper.
-    pub fn parse_template<'a, C: Clone + 'a, L: TemplateLanguage<'a> + ?Sized>(
+    pub fn parse_template<'a, C, L>(
         &self,
         ui: &Ui,
         language: &L,
         template_text: &str,
-        wrap_self: impl Fn(BoxedTemplateProperty<'a, C>) -> L::Property,
-    ) -> Result<TemplateRenderer<'a, C>, CommandError> {
+    ) -> Result<TemplateRenderer<'a, C>, CommandError>
+    where
+        C: Clone + 'a,
+        L: TemplateLanguage<'a> + ?Sized,
+        L::Property: WrapTemplateProperty<'a, C>,
+    {
         let mut diagnostics = TemplateDiagnostics::new();
         let aliases = load_template_aliases(ui, self.settings().config())?;
-        let template = template_builder::parse(
-            language,
-            &mut diagnostics,
-            template_text,
-            &aliases,
-            wrap_self,
-        )?;
+        let template =
+            template_builder::parse(language, &mut diagnostics, template_text, &aliases)?;
         print_parse_diagnostics(ui, "In template expression", &diagnostics)?;
         Ok(template)
     }
@@ -968,23 +965,23 @@ impl WorkspaceCommandEnvironment {
     }
 
     /// Parses template of the given language into evaluation tree.
-    ///
-    /// `wrap_self` specifies the type of the top-level property, which should
-    /// be one of the `L::wrap_*()` functions.
-    pub fn parse_template<'a, C: Clone + 'a, L: TemplateLanguage<'a> + ?Sized>(
+    pub fn parse_template<'a, C, L>(
         &self,
         ui: &Ui,
         language: &L,
         template_text: &str,
-        wrap_self: impl Fn(BoxedTemplateProperty<'a, C>) -> L::Property,
-    ) -> Result<TemplateRenderer<'a, C>, CommandError> {
+    ) -> Result<TemplateRenderer<'a, C>, CommandError>
+    where
+        C: Clone + 'a,
+        L: TemplateLanguage<'a> + ?Sized,
+        L::Property: WrapTemplateProperty<'a, C>,
+    {
         let mut diagnostics = TemplateDiagnostics::new();
         let template = template_builder::parse(
             language,
             &mut diagnostics,
             template_text,
             &self.template_aliases_map,
-            wrap_self,
         )?;
         print_parse_diagnostics(ui, "In template expression", &diagnostics)?;
         Ok(template)
@@ -1698,33 +1695,36 @@ to the current parents may contain changes from multiple commits.
     }
 
     /// Parses template of the given language into evaluation tree.
-    ///
-    /// `wrap_self` specifies the type of the top-level property, which should
-    /// be one of the `L::wrap_*()` functions.
-    pub fn parse_template<'a, C: Clone + 'a, L: TemplateLanguage<'a> + ?Sized>(
+    pub fn parse_template<'a, C, L>(
         &self,
         ui: &Ui,
         language: &L,
         template_text: &str,
-        wrap_self: impl Fn(BoxedTemplateProperty<'a, C>) -> L::Property,
-    ) -> Result<TemplateRenderer<'a, C>, CommandError> {
-        self.env
-            .parse_template(ui, language, template_text, wrap_self)
+    ) -> Result<TemplateRenderer<'a, C>, CommandError>
+    where
+        C: Clone + 'a,
+        L: TemplateLanguage<'a> + ?Sized,
+        L::Property: WrapTemplateProperty<'a, C>,
+    {
+        self.env.parse_template(ui, language, template_text)
     }
 
     /// Parses template that is validated by `Self::new()`.
-    fn reparse_valid_template<'a, C: Clone + 'a, L: TemplateLanguage<'a> + ?Sized>(
+    fn reparse_valid_template<'a, C, L>(
         &self,
         language: &L,
         template_text: &str,
-        wrap_self: impl Fn(BoxedTemplateProperty<'a, C>) -> L::Property,
-    ) -> TemplateRenderer<'a, C> {
+    ) -> TemplateRenderer<'a, C>
+    where
+        C: Clone + 'a,
+        L: TemplateLanguage<'a> + ?Sized,
+        L::Property: WrapTemplateProperty<'a, C>,
+    {
         template_builder::parse(
             language,
             &mut TemplateDiagnostics::new(),
             template_text,
             &self.env.template_aliases_map,
-            wrap_self,
         )
         .expect("parse error should be confined by WorkspaceCommandHelper::new()")
     }
@@ -1736,12 +1736,7 @@ to the current parents may contain changes from multiple commits.
         template_text: &str,
     ) -> Result<TemplateRenderer<'_, Commit>, CommandError> {
         let language = self.commit_template_language();
-        self.parse_template(
-            ui,
-            &language,
-            template_text,
-            CommitTemplatePropertyKind::wrap_commit,
-        )
+        self.parse_template(ui, &language, template_text)
     }
 
     /// Parses commit template into evaluation tree.
@@ -1751,12 +1746,7 @@ to the current parents may contain changes from multiple commits.
         template_text: &str,
     ) -> Result<TemplateRenderer<'_, Operation>, CommandError> {
         let language = self.operation_template_language();
-        self.parse_template(
-            ui,
-            &language,
-            template_text,
-            OperationTemplatePropertyKind::wrap_operation,
-        )
+        self.parse_template(ui, &language, template_text)
     }
 
     /// Creates commit template language environment for this workspace.
@@ -1777,31 +1767,19 @@ to the current parents may contain changes from multiple commits.
     /// Template for one-line summary of a commit.
     pub fn commit_summary_template(&self) -> TemplateRenderer<'_, Commit> {
         let language = self.commit_template_language();
-        self.reparse_valid_template(
-            &language,
-            &self.commit_summary_template_text,
-            CommitTemplatePropertyKind::wrap_commit,
-        )
+        self.reparse_valid_template(&language, &self.commit_summary_template_text)
     }
 
     /// Template for one-line summary of an operation.
     pub fn operation_summary_template(&self) -> TemplateRenderer<'_, Operation> {
         let language = self.operation_template_language();
-        self.reparse_valid_template(
-            &language,
-            &self.op_summary_template_text,
-            OperationTemplatePropertyKind::wrap_operation,
-        )
-        .labeled("operation")
+        self.reparse_valid_template(&language, &self.op_summary_template_text)
+            .labeled("operation")
     }
 
     pub fn short_change_id_template(&self) -> TemplateRenderer<'_, Commit> {
         let language = self.commit_template_language();
-        self.reparse_valid_template(
-            &language,
-            SHORT_CHANGE_ID_TEMPLATE_TEXT,
-            CommitTemplatePropertyKind::wrap_commit,
-        )
+        self.reparse_valid_template(&language, SHORT_CHANGE_ID_TEMPLATE_TEXT)
     }
 
     /// Returns one-line summary of the given `commit`.
@@ -2459,11 +2437,8 @@ impl WorkspaceCommandTransaction<'_> {
     /// Template for one-line summary of a commit within transaction.
     pub fn commit_summary_template(&self) -> TemplateRenderer<'_, Commit> {
         let language = self.commit_template_language();
-        self.helper.reparse_valid_template(
-            &language,
-            &self.helper.commit_summary_template_text,
-            CommitTemplatePropertyKind::wrap_commit,
-        )
+        self.helper
+            .reparse_valid_template(&language, &self.helper.commit_summary_template_text)
     }
 
     /// Creates commit template language environment capturing the current
@@ -2484,12 +2459,7 @@ impl WorkspaceCommandTransaction<'_> {
         template_text: &str,
     ) -> Result<TemplateRenderer<'_, Commit>, CommandError> {
         let language = self.commit_template_language();
-        self.helper.env.parse_template(
-            ui,
-            &language,
-            template_text,
-            CommitTemplatePropertyKind::wrap_commit,
-        )
+        self.helper.env.parse_template(ui, &language, template_text)
     }
 
     pub fn finish(self, ui: &Ui, description: impl Into<String>) -> Result<(), CommandError> {

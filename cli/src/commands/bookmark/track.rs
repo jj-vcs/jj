@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
@@ -22,8 +23,8 @@ use crate::cli_util::CommandHelper;
 use crate::cli_util::RemoteBookmarkNamePattern;
 use crate::command_error::CommandError;
 use crate::commit_templater::CommitRef;
-use crate::commit_templater::CommitTemplatePropertyKind;
 use crate::complete;
+use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
 
 /// Start tracking given remote bookmarks
@@ -87,18 +88,13 @@ pub fn cmd_bookmark_track(
     //show conflicted bookmarks if there are some
 
     if let Some(mut formatter) = ui.status_formatter() {
-        let template = {
+        let template: TemplateRenderer<Rc<CommitRef>> = {
             let language = workspace_command.commit_template_language();
             let text = workspace_command
                 .settings()
                 .get::<String>("templates.bookmark_list")?;
             workspace_command
-                .parse_template(
-                    ui,
-                    &language,
-                    &text,
-                    CommitTemplatePropertyKind::wrap_commit_ref,
-                )?
+                .parse_template(ui, &language, &text)?
                 .labeled("bookmark_list")
         };
 

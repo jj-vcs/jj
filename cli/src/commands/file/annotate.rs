@@ -25,7 +25,6 @@ use crate::cli_util::RevisionArg;
 use crate::command_error::user_error;
 use crate::command_error::CommandError;
 use crate::commit_templater::AnnotationLine;
-use crate::commit_templater::CommitTemplatePropertyKind;
 use crate::complete;
 use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
@@ -97,12 +96,7 @@ pub(crate) fn cmd_file_annotate(
             .get_string("templates.file_annotate")?,
     };
     let language = workspace_command.commit_template_language();
-    let template = workspace_command.parse_template(
-        ui,
-        &language,
-        &template_text,
-        CommitTemplatePropertyKind::wrap_annotation_line,
-    )?;
+    let template = workspace_command.parse_template(ui, &language, &template_text)?;
 
     // TODO: Should we add an option to limit the domain to e.g. recent commits?
     // Note that this is probably different from "--skip REVS", which won't

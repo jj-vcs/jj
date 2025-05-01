@@ -18,9 +18,9 @@ use tracing::instrument;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::command_error::CommandError;
-use crate::commit_templater::CommitTemplatePropertyKind;
 use crate::commit_templater::TreeEntry;
 use crate::complete;
+use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
 
 /// List files in a revision
@@ -66,19 +66,14 @@ pub(crate) fn cmd_file_list(
     let matcher = workspace_command
         .parse_file_patterns(ui, &args.paths)?
         .to_matcher();
-    let template = {
+    let template: TemplateRenderer<TreeEntry> = {
         let language = workspace_command.commit_template_language();
         let text = match &args.template {
             Some(value) => value.to_owned(),
             None => workspace_command.settings().get("templates.file_list")?,
         };
         workspace_command
-            .parse_template(
-                ui,
-                &language,
-                &text,
-                CommitTemplatePropertyKind::wrap_tree_entry,
-            )?
+            .parse_template(ui, &language, &text)?
             .labeled("file_list")
     };
 

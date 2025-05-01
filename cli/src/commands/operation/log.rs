@@ -32,7 +32,6 @@ use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
 use crate::cli_util::WorkspaceCommandEnvironment;
 use crate::command_error::CommandError;
-use crate::commit_templater::CommitTemplatePropertyKind;
 use crate::complete;
 use crate::diff_util::diff_formats_for_log;
 use crate::diff_util::DiffFormatArgs;
@@ -41,7 +40,7 @@ use crate::formatter::Formatter;
 use crate::graphlog::get_graphlog;
 use crate::graphlog::GraphStyle;
 use crate::operation_templater::OperationTemplateLanguage;
-use crate::operation_templater::OperationTemplatePropertyKind;
+use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
 
 /// Show the operation log
@@ -123,8 +122,8 @@ fn do_op_log(
     let graph_style = GraphStyle::from_settings(settings)?;
     let with_content_format = LogContentFormat::new(ui, settings)?;
 
-    let template;
-    let op_node_template;
+    let template: TemplateRenderer<Operation>;
+    let op_node_template: TemplateRenderer<Operation>;
     {
         let language = OperationTemplateLanguage::new(
             repo_loader,
@@ -136,21 +135,11 @@ fn do_op_log(
             None => settings.get_string("templates.op_log")?,
         };
         template = workspace_env
-            .parse_template(
-                ui,
-                &language,
-                &text,
-                OperationTemplatePropertyKind::wrap_operation,
-            )?
+            .parse_template(ui, &language, &text)?
             .labeled("operation")
             .labeled("op_log");
         op_node_template = workspace_env
-            .parse_template(
-                ui,
-                &language,
-                &get_node_template(graph_style, settings)?,
-                OperationTemplatePropertyKind::wrap_operation,
-            )?
+            .parse_template(ui, &language, &get_node_template(graph_style, settings)?)?
             .labeled("node");
     }
 
@@ -170,12 +159,7 @@ fn do_op_log(
             let commit_summary_template = {
                 let language =
                     workspace_env.commit_template_language(repo.as_ref(), &id_prefix_context);
-                workspace_env.parse_template(
-                    ui,
-                    &language,
-                    &template_text,
-                    CommitTemplatePropertyKind::wrap_commit,
-                )?
+                workspace_env.parse_template(ui, &language, &template_text)?
             };
             let path_converter = workspace_env.path_converter();
             let conflict_marker_style = workspace_env.conflict_marker_style();
