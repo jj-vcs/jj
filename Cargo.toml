@@ -30,7 +30,9 @@ clap = { version = "4.5.37", features = [
 ] }
 clap_complete = { version = "4.5.47", features = ["unstable-dynamic"] }
 clap_complete_nushell = "4.5.5"
-clap-markdown = "0.1.4"
+# Update clap-markdown manually since test_generate_md_cli_help snapshot
+# will need regenerating.
+clap-markdown = "=0.1.5"
 clap_mangen = "0.2.25"
 chrono = { version = "0.4.40", default-features = false, features = [
     "std",
