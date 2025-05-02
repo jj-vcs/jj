@@ -73,6 +73,7 @@ use crate::backend::TreeValue;
 use crate::config::ConfigGetError;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
+use crate::git_subprocess::GitSubprocessContext;
 use crate::hex_util::to_forward_hex;
 use crate::index::Index;
 use crate::lock::FileLock;
@@ -426,11 +427,8 @@ impl GitBackend {
     }
 
     fn read_file_sync(&self, id: &FileId) -> BackendResult<Box<dyn Read>> {
-        let git_blob_id = validate_git_object_id(id)?;
         let locked_repo = self.lock_git_repo();
-        let mut blob = locked_repo
-            .find_object(git_blob_id)
-            .map_err(|err| map_not_found_err(err, id))?
+        let mut blob = find_object(&locked_repo, id)?
             .try_into_blob()
             .map_err(|err| to_read_object_err(err, id))?;
         Ok(Box::new(Cursor::new(blob.take_data())))
@@ -470,12 +468,10 @@ impl GitBackend {
     ) -> BackendResult<gix::Tree<'repo>> {
         let tree = self.read_commit(id).block_on()?.root_tree.to_merge();
         // TODO(kfm): probably want to do something here if it is a merge
-        let tree_id = tree.first().clone();
-        let gix_id = validate_git_object_id(&tree_id)?;
-        repo.find_object(gix_id)
-            .map_err(|err| map_not_found_err(err, &tree_id))?
+        let tree_id = tree.first();
+        find_object(repo, tree_id)?
             .try_into_tree()
-            .map_err(|err| to_read_object_err(err, &tree_id))
+            .map_err(|err| to_read_object_err(err, tree_id))
     }
 }
 
@@ -859,6 +855,24 @@ fn validate_git_object_id(id: &impl ObjectId) -> BackendResult<gix::ObjectId> {
     Ok(gix::ObjectId::from_bytes_or_panic(id.as_bytes()))
 }
 
+fn find_object<'a>(
+    git_repo: &'a gix::Repository,
+    id: &(impl ObjectId + Send + Sync),
+) -> BackendResult<gix::Object<'a>> {
+    let oid = validate_git_object_id(id)?;
+    let result = match git_repo.find_object(oid) {
+        Err(gix::object::find::existing::Error::NotFound { oid }) => {
+            let ids = [id];
+            ensure_blobs(git_repo.git_dir(), Path::new("git"), &ids)?;
+
+            // Try again
+            git_repo.find_object(oid)
+        }
+        result => result,
+    };
+    result.map_err(|err| map_not_found_err(err, id))
+}
+
 fn map_not_found_err(err: gix::object::find::existing::Error, id: &impl ObjectId) -> BackendError {
     if matches!(err, gix::object::find::existing::Error::NotFound { .. }) {
         BackendError::ObjectNotFound {
@@ -890,6 +904,17 @@ fn to_invalid_utf8_err(source: str::Utf8Error, id: &impl ObjectId) -> BackendErr
     }
 }
 
+fn ensure_blobs(
+    git_dir: impl Into<PathBuf>,
+    git_executable: &Path,
+    ids: &[&(impl ObjectId + Send + Sync)],
+) -> BackendResult<()> {
+    let ctx = GitSubprocessContext::new(git_dir, git_executable);
+    let mut callbacks = crate::git::RemoteCallbacks::default();
+    ctx.spawn_ensure_blobs(ids, &mut callbacks)
+        .map_err(|e| BackendError::Other(Box::new(e)))
+}
+
 fn import_extra_metadata_entries_from_heads(
     git_repo: &gix::Repository,
     mut_table: &mut MutableTable,
@@ -906,9 +931,7 @@ fn import_extra_metadata_entries_from_heads(
         .map(|&id| id.clone())
         .collect_vec();
     while let Some(id) = work_ids.pop() {
-        let git_object = git_repo
-            .find_object(validate_git_object_id(&id)?)
-            .map_err(|err| map_not_found_err(err, &id))?;
+        let git_object = find_object(git_repo, &id)?;
         let is_shallow = shallow_commits
             .as_ref()
             .is_some_and(|shallow| shallow.contains(&git_object.id));
@@ -991,11 +1014,8 @@ impl Backend for GitBackend {
     }
 
     async fn read_symlink(&self, _path: &RepoPath, id: &SymlinkId) -> BackendResult<String> {
-        let git_blob_id = validate_git_object_id(id)?;
         let locked_repo = self.lock_git_repo();
-        let mut blob = locked_repo
-            .find_object(git_blob_id)
-            .map_err(|err| map_not_found_err(err, id))?
+        let mut blob = find_object(&locked_repo, id)?
             .try_into_blob()
             .map_err(|err| to_read_object_err(err, id))?;
         let target = String::from_utf8(blob.take_data())
@@ -1019,12 +1039,9 @@ impl Backend for GitBackend {
         if id == &self.empty_tree_id {
             return Ok(Tree::default());
         }
-        let git_tree_id = validate_git_object_id(id)?;
 
         let locked_repo = self.lock_git_repo();
-        let git_tree = locked_repo
-            .find_object(git_tree_id)
-            .map_err(|err| map_not_found_err(err, id))?
+        let git_tree = find_object(&locked_repo, id)?
             .try_into_tree()
             .map_err(|err| to_read_object_err(err, id))?;
         let mut tree = Tree::default();
@@ -1177,13 +1194,10 @@ impl Backend for GitBackend {
                 self.empty_tree_id.clone(),
             ));
         }
-        let git_commit_id = validate_git_object_id(id)?;
 
         let mut commit = {
             let locked_repo = self.lock_git_repo();
-            let git_object = locked_repo
-                .find_object(git_commit_id)
-                .map_err(|err| map_not_found_err(err, id))?;
+            let git_object = find_object(&locked_repo, id)?;
             let is_shallow = locked_repo
                 .shallow_commits()
                 .ok()
