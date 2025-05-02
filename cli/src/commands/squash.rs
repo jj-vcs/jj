@@ -80,7 +80,7 @@ pub(crate) struct SquashArgs {
         add = ArgValueCandidates::new(complete::mutable_revisions),
     )]
     from: Vec<RevisionArg>,
-    /// Revision to squash into (default: @)
+    /// Revision to squash into (default: @-)
     #[arg(
         long, short = 't',
         conflicts_with = "revision",
