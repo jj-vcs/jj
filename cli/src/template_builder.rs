@@ -1419,7 +1419,7 @@ where
 
 /// Builds lambda expression to be evaluated with the provided arguments.
 /// `arg_fns` is usually an array of wrapped [`PropertyPlaceholder`]s.
-fn build_lambda_expression<'a, 'i, P: IntoTemplateProperty<'a>, T>(
+fn build_lambda_expression<'i, P, T>(
     build_ctx: &BuildContext<'i, P>,
     lambda: &LambdaNode<'i>,
     arg_fns: &[&'i dyn Fn() -> P],
