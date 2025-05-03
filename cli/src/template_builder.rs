@@ -399,15 +399,22 @@ pub type TemplateBuildFunctionFn<'a, L> =
         &FunctionCallNode,
     ) -> TemplateParseResult<<L as TemplateLanguage<'a>>::Property>;
 
+type BuildMethodFn<'a, L, T> = fn(
+    &L,
+    &mut TemplateDiagnostics,
+    &BuildContext<<L as TemplateLanguage<'a>>::Property>,
+    T,
+    &FunctionCallNode,
+) -> TemplateParseResult<<L as TemplateLanguage<'a>>::Property>;
+
 /// Function that translates method call node of self type `T`.
-pub type TemplateBuildMethodFn<'a, L, T> =
-    fn(
-        &L,
-        &mut TemplateDiagnostics,
-        &BuildContext<<L as TemplateLanguage<'a>>::Property>,
-        BoxedTemplateProperty<'a, T>,
-        &FunctionCallNode,
-    ) -> TemplateParseResult<<L as TemplateLanguage<'a>>::Property>;
+pub type TemplateBuildMethodFn<'a, L, T> = BuildMethodFn<'a, L, BoxedTemplateProperty<'a, T>>;
+
+/// Function that translates method call node of `Template`.
+pub type BuildTemplateMethodFn<'a, L> = BuildMethodFn<'a, L, Box<dyn Template + 'a>>;
+
+/// Function that translates method call node of `ListTemplate`.
+pub type BuildListTemplateMethodFn<'a, L> = BuildMethodFn<'a, L, Box<dyn ListTemplate + 'a>>;
 
 /// Table of functions that translate global function call node.
 pub type TemplateBuildFunctionFnMap<'a, L> = HashMap<&'static str, TemplateBuildFunctionFn<'a, L>>;
@@ -415,6 +422,13 @@ pub type TemplateBuildFunctionFnMap<'a, L> = HashMap<&'static str, TemplateBuild
 /// Table of functions that translate method call node of self type `T`.
 pub type TemplateBuildMethodFnMap<'a, L, T> =
     HashMap<&'static str, TemplateBuildMethodFn<'a, L, T>>;
+
+/// Table of functions that translate method call node of `Template`.
+pub type BuildTemplateMethodFnMap<'a, L> = HashMap<&'static str, BuildTemplateMethodFn<'a, L>>;
+
+/// Table of functions that translate method call node of `ListTemplate`.
+pub type BuildListTemplateMethodFnMap<'a, L> =
+    HashMap<&'static str, BuildListTemplateMethodFn<'a, L>>;
 
 /// Symbol table of functions and methods available in the core template.
 pub struct CoreTemplateBuildFnTable<'a, L: TemplateLanguage<'a> + ?Sized> {
@@ -429,6 +443,8 @@ pub struct CoreTemplateBuildFnTable<'a, L: TemplateLanguage<'a> + ?Sized> {
     pub size_hint_methods: TemplateBuildMethodFnMap<'a, L, SizeHint>,
     pub timestamp_methods: TemplateBuildMethodFnMap<'a, L, Timestamp>,
     pub timestamp_range_methods: TemplateBuildMethodFnMap<'a, L, TimestampRange>,
+    pub template_methods: BuildTemplateMethodFnMap<'a, L>,
+    pub list_template_methods: BuildListTemplateMethodFnMap<'a, L>,
 }
 
 pub fn merge_fn_map<'s, F>(base: &mut HashMap<&'s str, F>, extension: HashMap<&'s str, F>) {
@@ -454,6 +470,8 @@ impl<'a, L: TemplateLanguage<'a> + ?Sized> CoreTemplateBuildFnTable<'a, L> {
             size_hint_methods: builtin_size_hint_methods(),
             timestamp_methods: builtin_timestamp_methods(),
             timestamp_range_methods: builtin_timestamp_range_methods(),
+            template_methods: HashMap::new(),
+            list_template_methods: builtin_list_template_methods(),
         }
     }
 
@@ -470,6 +488,8 @@ impl<'a, L: TemplateLanguage<'a> + ?Sized> CoreTemplateBuildFnTable<'a, L> {
             size_hint_methods: HashMap::new(),
             timestamp_methods: HashMap::new(),
             timestamp_range_methods: HashMap::new(),
+            template_methods: HashMap::new(),
+            list_template_methods: HashMap::new(),
         }
     }
 
@@ -486,6 +506,8 @@ impl<'a, L: TemplateLanguage<'a> + ?Sized> CoreTemplateBuildFnTable<'a, L> {
             size_hint_methods,
             timestamp_methods,
             timestamp_range_methods,
+            template_methods,
+            list_template_methods,
         } = extension;
 
         merge_fn_map(&mut self.functions, functions);
@@ -499,6 +521,8 @@ impl<'a, L: TemplateLanguage<'a> + ?Sized> CoreTemplateBuildFnTable<'a, L> {
         merge_fn_map(&mut self.size_hint_methods, size_hint_methods);
         merge_fn_map(&mut self.timestamp_methods, timestamp_methods);
         merge_fn_map(&mut self.timestamp_range_methods, timestamp_range_methods);
+        merge_fn_map(&mut self.template_methods, template_methods);
+        merge_fn_map(&mut self.list_template_methods, list_template_methods);
     }
 
     /// Translates the function call node `function` by using this symbol table.
@@ -583,13 +607,15 @@ impl<'a, L: TemplateLanguage<'a> + ?Sized> CoreTemplateBuildFnTable<'a, L> {
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(language, diagnostics, build_ctx, property, function)
             }
-            CoreTemplatePropertyKind::Template(_) => {
-                // TODO: migrate to table?
-                Err(TemplateParseError::no_such_method(type_name, function))
+            CoreTemplatePropertyKind::Template(template) => {
+                let table = &self.template_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(language, diagnostics, build_ctx, template, function)
             }
             CoreTemplatePropertyKind::ListTemplate(template) => {
-                // TODO: migrate to table?
-                build_list_template_method(language, diagnostics, build_ctx, template, function)
+                let table = &self.list_template_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(language, diagnostics, build_ctx, template, function)
             }
         }
     }
@@ -1251,23 +1277,21 @@ fn builtin_timestamp_range_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
     map
 }
 
-fn build_list_template_method<'a, L: TemplateLanguage<'a> + ?Sized>(
-    language: &L,
-    diagnostics: &mut TemplateDiagnostics,
-    build_ctx: &BuildContext<L::Property>,
-    self_template: Box<dyn ListTemplate + 'a>,
-    function: &FunctionCallNode,
-) -> TemplateParseResult<L::Property> {
-    let property = match function.name {
-        "join" => {
+fn builtin_list_template_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
+) -> BuildListTemplateMethodFnMap<'a, L> {
+    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // code completion inside macro is quite restricted.
+    let mut map = BuildListTemplateMethodFnMap::<L>::new();
+    map.insert(
+        "join",
+        |language, diagnostics, build_ctx, self_template, function| {
             let [separator_node] = function.expect_exact_arguments()?;
             let separator =
                 expect_template_expression(language, diagnostics, build_ctx, separator_node)?;
-            L::Property::wrap_template(self_template.join(separator))
-        }
-        _ => return Err(TemplateParseError::no_such_method("ListTemplate", function)),
-    };
-    Ok(property)
+            Ok(L::Property::wrap_template(self_template.join(separator)))
+        },
+    );
+    map
 }
 
 /// Creates new symbol table for printable list property.
