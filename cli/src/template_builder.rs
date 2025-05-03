@@ -1277,17 +1277,7 @@ where
     L::Property: WrapTemplateProperty<'a, O> + WrapTemplateProperty<'a, Vec<O>>,
     O: Template + Clone + 'a,
 {
-    // Not using maplit::hashmap!{} or custom declarative macro here because
-    // code completion inside macro is quite restricted.
-    let mut map = TemplateBuildMethodFnMap::<L, Vec<O>>::new();
-    map.insert(
-        "len",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
-            function.expect_no_arguments()?;
-            let out_property = self_property.and_then(|items| Ok(i64::try_from(items.len())?));
-            Ok(out_property.into_dyn_wrapped())
-        },
-    );
+    let mut map = builtin_unformattable_list_methods::<L, O>();
     map.insert(
         "join",
         |language, diagnostics, build_ctx, self_property, function| {
@@ -1299,22 +1289,6 @@ where
                     item.format(formatter)
                 });
             Ok(L::Property::wrap_template(Box::new(template)))
-        },
-    );
-    map.insert(
-        "filter",
-        |language, diagnostics, build_ctx, self_property, function| {
-            let out_property: BoxedTemplateProperty<'a, Vec<O>> =
-                build_filter_operation(language, diagnostics, build_ctx, self_property, function)?;
-            Ok(L::Property::wrap_property(out_property))
-        },
-    );
-    map.insert(
-        "map",
-        |language, diagnostics, build_ctx, self_property, function| {
-            let template =
-                build_map_operation(language, diagnostics, build_ctx, self_property, function)?;
-            Ok(L::Property::wrap_list_template(template))
         },
     );
     map
@@ -1338,7 +1312,6 @@ where
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    // No "join"
     map.insert(
         "filter",
         |language, diagnostics, build_ctx, self_property, function| {
