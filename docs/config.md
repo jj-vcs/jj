@@ -1333,7 +1333,30 @@ as follows:
 backends.ssh.allowed-signers = "/path/to/allowed-signers"
 ```
 
-### Sign commits only on `jj git push`
+### Manually signing commits
+
+You can use [`jj sign`](./cli-reference.md#jj-sign)/[`jj unsign`](./cli-reference.md#jj-unsign)
+to sign/unsign commits manually.
+
+!!! warning
+
+    `jj sign` always signs commits, even if they are already signed by the
+    user. While this is cumbersome for users signing via hardware devices, we
+    cannot reliably check if a commit is already signed without creating a
+    signature (see [this issue](https://github.com/jj-vcs/jj/issues/5786)).
+
+### Automatically signing commits
+
+The `signing.behavior` configuration option has four different options for what
+to do with signing commits on modification of a change (e.g., rebasing or edits).
+
+- `drop`: do not automatically sign; if a change was signed before
+  modification, drop that signing after modification.
+- `keep`: if a change was signed before modification, and it was authored by
+  you, attempt to sign it again after the modification.
+- `own`: sign all commits that were authored by you when you modify them.
+- `force`: sign all commits after modification, always, even if you are not the
+  author.
 
 Instead of signing all commits during creation when `signing.behavior` is
 set to `own`, the `git.sign-on-push` configuration can be used to sign
@@ -1353,23 +1376,11 @@ key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGj+J6N6SO+4P8dOZqfR1oiay2yxhhHnagH52
 sign-on-push = true
 ```
 
-### Manually signing commits
-
-You can use [`jj sign`](./cli-reference.md#jj-sign)/[`jj unsign`](./cli-reference.md#jj-unsign)
-to sign/unsign commits manually.
-
-
-!!! warning
-
-    `jj sign` is always signing commits, even if they are already signed by the
-    user. While this is cumbersome for users signing via hardware devices, we
-    cannot reliably check if a commit is already signed without creating a
-    signature (see [this issue](https://github.com/jj-vcs/jj/issues/5786)).
-
 ## Commit Signature Verification
 
 By default signature verification and display is **disabled** as it incurs a
-performance cost when rendering medium to large change logs.
+performance cost when rendering medium to large change logs. You can enable it
+by setting `ui.show-cryptographic-signatures` to true in your configuration.
 
 If you want to display commit signatures in your templates, you can use
 `commit.signature()` (see [Commit type](./templates.md#commit-type)). The
