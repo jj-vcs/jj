@@ -559,11 +559,19 @@ impl ConfigFile {
             Err(ConfigLoadError::Read(PathError { path, error }))
                 if error.kind() == io::ErrorKind::NotFound =>
             {
-                Arc::new(ConfigLayer {
+                let mut data = DocumentMut::new();
+                data.insert(
+                    "$schema",
+                    toml_edit::Item::Value(
+                        "https://jj-vcs.github.io/jj/latest/config-schema.json".into(),
+                    ),
+                );
+                let layer = ConfigLayer {
                     source,
                     path: Some(path),
-                    data: DocumentMut::new(),
-                })
+                    data,
+                };
+                Arc::new(layer)
             }
             Err(err) => return Err(err),
         };
