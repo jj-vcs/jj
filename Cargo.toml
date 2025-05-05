@@ -28,13 +28,13 @@ clap = { version = "4.5.37", features = [
     "wrap_help",
     "string",
 ] }
-clap_complete = { version = "4.5.47", features = ["unstable-dynamic"] }
+clap_complete = { version = "4.5.48", features = ["unstable-dynamic"] }
 clap_complete_nushell = "4.5.5"
 # Update clap-markdown manually since test_generate_md_cli_help snapshot
 # will need regenerating.
 clap-markdown = "=0.1.5"
 clap_mangen = "0.2.25"
-chrono = { version = "0.4.40", default-features = false, features = [
+chrono = { version = "0.4.41", default-features = false, features = [
     "std",
     "clock",
 ] }
@@ -65,12 +65,12 @@ gix = { version = "0.71.0", default-features = false, features = [
     "zlib-rs",
 ] }
 glob = "0.3.2"
-hashbrown = { version = "0.15.2", default-features = false, features = ["inline-more"] }
+hashbrown = { version = "0.15.3", default-features = false, features = ["inline-more"] }
 hex = "0.4.3"
 ignore = "0.4.23"
 indexmap = { version = "2.9.0", features = ["serde"] }
 indoc = "2.0.6"
-insta = { version = "1.43.0", features = ["filters"] }
+insta = { version = "1.43.1", features = ["filters"] }
 interim = { version = "0.2.1", features = ["chrono_0_4"] }
 itertools = "0.14.0"
 libc = { version = "0.2.172" }
@@ -92,7 +92,7 @@ rayon = "1.10.0"
 ref-cast = "1.0.24"
 regex = "1.11.1"
 rpassword = "7.4.0"
-rustix = { version = "1.0.5", features = ["fs"] }
+rustix = { version = "1.0.7", features = ["fs"] }
 same-file = "1.0.6"
 sapling-renderdag = "0.1.0"
 sapling-streampager = "0.11.0"
@@ -113,7 +113,7 @@ textwrap = "0.16.2"
 thiserror = "2.0.12"
 timeago = { version = "0.4.2", default-features = false }
 tokio = { version = "1.44.2" }
-toml_edit = { version = "0.22.25", features = ["serde"] }
+toml_edit = { version = "0.22.26", features = ["serde"] }
 tracing = "0.1.41"
 tracing-chrome = "0.7.2"
 tracing-subscriber = { version = "0.3.19", default-features = false, features = [
