@@ -96,6 +96,19 @@ jobs:
         RUST_BACKTRACE: 1
         CARGO_TERM_COLOR: always
         LIBGIT2_NO_VENDOR: ${{ matrix.LIBGIT2_NO_VENDOR || '0' }}
+    # Try to catch packaging issues that will prevent installation.
+    - name: Install
+      run: >-
+        cargo install
+        --config .cargo/config-ci.toml
+        --profile dev
+        --locked
+        --verbose
+        --path cli
+        --bin jj
+        ${{ matrix.cargo_flags }}
+      env:
+        LIBGIT2_NO_VENDOR: ${{ matrix.LIBGIT2_NO_VENDOR || '0' }}
 
   no-git:
     name: build (no git)
@@ -171,6 +184,28 @@ jobs:
           toolchain: stable
           components: clippy
       - run: cargo +stable clippy --all-features --workspace --all-targets -- -D warnings
+
+  # Try to catch packaging issues that will prevent crate publication.
+  check-publish:
+    name: check (publish)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
+        with:
+          toolchain: nightly
+          components: cargo
+      - name: Check `cargo publish`
+        run: >-
+          cargo +nightly publish
+          -Z package-workspace
+          --dry-run
+          --no-verify
+          -p jj-lib-proc-macros
+          -p jj-lib
+          -p jj-cli
 
   check-cargo-deny:
     runs-on: ubuntu-24.04
@@ -332,6 +367,7 @@ jobs:
     - check-rustfmt
     - check-clippy
     - check-cargo-deny
+    - check-publish
     - check-codespell
     - check-doctests
     - check-mkdocs
