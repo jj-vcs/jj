@@ -76,7 +76,7 @@ jobs:
     - name: Build
       run: >-
         cargo build
-        --config .cargo/config-ci.toml
+        --config .config/cargo-ci-config.toml
         --workspace
         --all-targets
         --verbose
@@ -86,7 +86,7 @@ jobs:
     - name: Test
       run: >-
         cargo nextest run
-        --config .cargo/config-ci.toml
+        --config .config/cargo-ci-config.toml
         --workspace
         --all-targets
         --verbose
