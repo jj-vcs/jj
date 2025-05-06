@@ -111,6 +111,17 @@ impl<'a> GitSubprocessContext<'a> {
         // root to Command::current_dir and then pass a relative path to the git
         // dir
         git_cmd
+            // The gitconfig-controlled automated spawning of the macOS `fsmonitor--daemon`
+            // can cause strange behavior with certain subprocess operations.
+            // For example: https://github.com/jj-vcs/jj/issues/6440.
+            //
+            // Nothing we're doing in `jj` interacts with this daemon, so we force the
+            // config to be false for subprocess operations in order to avoid these
+            // interactions.
+            //
+            // In a colocated repo, the daemon will still get started the first time a `git`
+            // command is run manually if the gitconfigs are set up that way.
+            .args(["-c", "core.fsmonitor=false"])
             .arg("--git-dir")
             .arg(&self.git_dir)
             // Disable translation and other locale-dependent behavior so we can
