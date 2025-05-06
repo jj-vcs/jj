@@ -33,6 +33,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* Work around a git issue that could cause subprocess operations to hang if the
+  `core.fsmonitor` gitconfig is set in the global or system gitconfigs.
+  [#6440](https://github.com/jj-vcs/jj/issues/6440)
+
 ### Packaging changes
 
 * Due to the removal of the `libgit2` code path, packagers should
