@@ -12,7 +12,9 @@ concurrency:
     }}
   cancel-in-progress: true
 
-permissions: {}
+permissions:
+  # TODO
+  actions: write
 
 jobs:
   test:
@@ -73,6 +75,8 @@ jobs:
       uses: rui314/setup-mold@e16410e7f8d9e167b74ad5697a9089a35126eb50
       with:
         make-default: false
+    - name: Set up sccache
+      uses: mozilla-actions/sccache-action@65101d47ea8028ed0c98a1cdea8dd9182e9b5133
     - name: Build
       run: >-
         cargo build
@@ -82,6 +86,8 @@ jobs:
         --verbose
         ${{ matrix.cargo_flags }}
       env:
+        SCCACHE_GHA_ENABLED: 'true'
+        RUSTC_WRAPPER: 'sccache'
         LIBGIT2_NO_VENDOR: ${{ matrix.LIBGIT2_NO_VENDOR || '0' }}
     - name: Test
       run: >-
@@ -93,6 +99,8 @@ jobs:
         --profile ci
         ${{ matrix.cargo_flags }}
       env:
+        SCCACHE_GHA_ENABLED: 'true'
+        RUSTC_WRAPPER: 'sccache'
         RUST_BACKTRACE: 1
         CARGO_TERM_COLOR: always
         LIBGIT2_NO_VENDOR: ${{ matrix.LIBGIT2_NO_VENDOR || '0' }}
