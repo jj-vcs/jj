@@ -26,6 +26,7 @@ use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::RewriteRefsOptions;
 use tracing::instrument;
 
+#[cfg(feature = "git")]
 use crate::cli_util::has_tracked_remote_bookmarks;
 use crate::cli_util::print_updated_commits;
 use crate::cli_util::CommandHelper;
