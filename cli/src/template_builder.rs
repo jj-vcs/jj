@@ -93,28 +93,6 @@ pub trait TemplateLanguage<'a> {
     ) -> TemplateParseResult<Self::Property>;
 }
 
-/// Implements `CoreTemplatePropertyVar::wrap_template()` functions.
-///
-/// - `impl_core_wrap_property_fns('a)` for `CoreTemplatePropertyKind`,
-/// - `impl_core_wrap_property_fns('a, MyKind::Core)` for `MyKind::Core(..)`.
-macro_rules! impl_core_wrap_property_fns {
-    ($a:lifetime) => {
-        $crate::template_builder::impl_core_wrap_property_fns!($a, std::convert::identity);
-    };
-    ($a:lifetime, $outer:path) => {
-        fn wrap_template(template: Box<dyn $crate::templater::Template + $a>) -> Self {
-            use $crate::template_builder::CoreTemplatePropertyKind as Kind;
-            $outer(Kind::Template(template))
-        }
-        fn wrap_list_template(template: Box<dyn $crate::templater::ListTemplate + $a>) -> Self {
-            use $crate::template_builder::CoreTemplatePropertyKind as Kind;
-            $outer(Kind::ListTemplate(template))
-        }
-    };
-}
-
-pub(crate) use impl_core_wrap_property_fns;
-
 /// Implements [`WrapTemplateProperty<'a, O>`] for property types.
 ///
 /// - `impl_property_wrappers!(Kind { Foo(Foo), FooList(Vec<Foo>), .. });` to
@@ -256,7 +234,13 @@ pub(crate) use impl_core_property_wrappers;
 impl_core_property_wrappers!(<'a> CoreTemplatePropertyKind<'a>);
 
 impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
-    impl_core_wrap_property_fns!('a);
+    fn wrap_template(template: Box<dyn Template + 'a>) -> Self {
+        CoreTemplatePropertyKind::Template(template)
+    }
+
+    fn wrap_list_template(template: Box<dyn ListTemplate + 'a>) -> Self {
+        CoreTemplatePropertyKind::ListTemplate(template)
+    }
 
     fn type_name(&self) -> &'static str {
         match self {

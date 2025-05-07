@@ -38,6 +38,7 @@ use crate::template_parser::FunctionCallNode;
 use crate::template_parser::TemplateDiagnostics;
 use crate::template_parser::TemplateParseResult;
 use crate::templater::BoxedTemplateProperty;
+use crate::templater::ListTemplate;
 use crate::templater::PlainTextFormattedProperty;
 use crate::templater::Template;
 use crate::templater::TemplateFormatter;
@@ -148,7 +149,13 @@ template_builder::impl_property_wrappers!(OperationTemplatePropertyKind {
 });
 
 impl CoreTemplatePropertyVar<'static> for OperationTemplatePropertyKind {
-    template_builder::impl_core_wrap_property_fns!('static, OperationTemplatePropertyKind::Core);
+    fn wrap_template(template: Box<dyn Template>) -> Self {
+        OperationTemplatePropertyKind::Core(CoreTemplatePropertyKind::wrap_template(template))
+    }
+
+    fn wrap_list_template(template: Box<dyn ListTemplate>) -> Self {
+        OperationTemplatePropertyKind::Core(CoreTemplatePropertyKind::wrap_list_template(template))
+    }
 
     fn type_name(&self) -> &'static str {
         match self {

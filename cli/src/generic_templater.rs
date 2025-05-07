@@ -28,6 +28,7 @@ use crate::template_parser::FunctionCallNode;
 use crate::template_parser::TemplateDiagnostics;
 use crate::template_parser::TemplateParseResult;
 use crate::templater::BoxedTemplateProperty;
+use crate::templater::ListTemplate;
 use crate::templater::Template;
 
 /// General-purpose template language for basic value types.
@@ -160,7 +161,13 @@ macro_rules! impl_self_property_wrapper {
 pub(crate) use impl_self_property_wrapper;
 
 impl<'a, C> CoreTemplatePropertyVar<'a> for GenericTemplatePropertyKind<'a, C> {
-    template_builder::impl_core_wrap_property_fns!('a, GenericTemplatePropertyKind::Core);
+    fn wrap_template(template: Box<dyn Template + 'a>) -> Self {
+        GenericTemplatePropertyKind::Core(CoreTemplatePropertyKind::wrap_template(template))
+    }
+
+    fn wrap_list_template(template: Box<dyn ListTemplate + 'a>) -> Self {
+        GenericTemplatePropertyKind::Core(CoreTemplatePropertyKind::wrap_list_template(template))
+    }
 
     fn type_name(&self) -> &'static str {
         match self {
