@@ -10,6 +10,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Release highlights
 
+### Breaking changes
+
+### Deprecations
+
+### New features
+
+### Fixed bugs
+
+### Packaging changes
+
+## [0.29.0] - 2025-05-07
+
+### Release highlights
+
 * Experimental support for transferring the change ID to/from Git remotes behind configuration
   setting `git.write-change-id-header`. If this is enabled, the change ID will be stored in the Git
   commit itself (in a commit header called `change-id`), which means it will be transferred by
@@ -78,7 +92,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `jj log -r first-bookmark..sec` and then pressing Tab could complete the
   expression to `first-bookmark..second-bookmark`.
 
-
 ### Fixed bugs
 
 * Fixed crash on change-delete conflict resolution.
@@ -96,6 +109,38 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   [`zlib-rs`](https://github.com/trifectatechfoundation/zlib-rs), a
   fast compression library written in Rust. Packagers should remove any
   dependency on CMake and drop the `packaging` Cargo feature.
+
+### Contributors
+
+Thanks to the people who made this release happen!
+
+* Aleksey Kuznetsov (@zummenix)
+* Austin Seipp (@thoughtpolice)
+* Benjamin Brittain (@benbrittain)
+* Benjamin Tan (@bnjmnt4n)
+* Caleb White (@calebdw)
+* Daniel Luz (@mernen)
+* Emily (@emilazy)
+* Emily (@neongreen)
+* Gaëtan Lehmann (@glehmann)
+* George Christou (@gechr)
+* Ilya Grigoriev (@ilyagr)
+* Jacob Hayes (@JacobHayes)
+* Jonas Greitemann (@jgreitemann)
+* Josh Steadmon (@steadmon)
+* Martin von Zweigbergk (@martinvonz)
+* Mateus Auler (@mateusauler)
+* Nicole Patricia Mazzuca (@strega-nil)
+* Nils Koch (@nilskch)
+* Philip Metzger (@PhilipMetzger)
+* Remo Senekowitsch (@senekor)
+* Sam (@Samasaur1)
+* Steve Fink (@hotsphink)
+* Théo Daron (@tdaron)
+* TimerErTim (@TimerErTim)
+* Vincent Ging Ho Yim (@cenviity)
+* Winter (@winterqt)
+* Yuya Nishihara (@yuja)
 
 ## [0.28.2] - 2025-04-07
 
