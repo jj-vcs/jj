@@ -470,9 +470,8 @@
                     "default": "origin"
                 },
                 "sign-on-push": {
-                    "type": "boolean",
-                    "description": "Whether jj should sign commits before pushing",
-                    "default": false
+                    "type": "string",
+                    "description": "Revset of commits to sign before pushing"
                 },
                 "subprocess": {
                     "type": "boolean",

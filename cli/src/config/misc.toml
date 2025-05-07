@@ -17,7 +17,7 @@ context = 3
 private-commits = "none()"
 push-bookmark-prefix = "push-"
 push-new-bookmarks = false
-sign-on-push = false
+sign-on-push = "none()"
 
 [ui]
 always-allow-large-revsets = false

@@ -747,6 +747,28 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
                 Ok(format!(r#""{escaped}""#).into())
             },
         ),
+        // TODO: Delete in jj 0.34+
+        ConfigMigrationRule::custom(
+            |layer| {
+                if let Ok(Some(value)) = layer.look_up_item("git.sign-on-push") {
+                    value.is_bool()
+                } else {
+                    false
+                }
+            },
+            |layer| match layer.look_up_item("git.sign-on-push") {
+                Ok(Some(value)) => {
+                    let old_value = value.as_bool().unwrap();
+                    let new_value = if old_value { "mine()" } else { "none()" };
+                    layer.set_value("git.sign-on-push", new_value.to_string())?;
+                    Ok(format!(
+                        "git.sign-on-push = {old_value} is updated to git.sign-on-push = \
+                         '{new_value}'",
+                    ))
+                }
+                _ => unreachable!(),
+            },
+        ),
     ]
 }
 
