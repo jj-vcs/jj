@@ -13,7 +13,7 @@ Producing the list of contributors is a bit annoying. The current suggestion is
 to run something like this:
 
 ```shell
-root=$(jj log --no-graph -r 'heads(tags())' -T 'commit_id')
+root=$(jj log --no-graph -r 'heads(tags(glob:"v*.*.*") & ::trunk())' -T 'commit_id')
 gh api "/repos/jj-vcs/jj/compare/$root...main" --paginate \
 | jq -r '.commits[] | select(.author.login | endswith("[bot]") | not) | "* " + .commit.author.name + " (@" + .author.login + ")"' | sort -fu
 ```
