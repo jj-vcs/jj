@@ -94,7 +94,7 @@ fn test_gc_operation_log() {
     let output = work_dir.run_jj(["debug", "operation", &op_to_remove]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: No operation ID matching "bda58b425f645d895ce92608576509b4fcc0c96dbc5f18717a817f09a530117dff0c2054a28781b4c7f1fdbf5a726c89ebd8666fe54dc9f3cc52ca9596110418"
+    Error: No operation ID matching "31c378f62742a80562c8fe790e46895882ed618d1ac06ceeddc182b3f676fc926f07f577cc505059b5345a5111982a193bb25b0601c518b88fd5c0fdac4e229d"
     [EOF]
     [exit status: 1]
     "#);

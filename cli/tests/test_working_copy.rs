@@ -140,12 +140,12 @@ fn test_snapshot_large_file_restore() {
         This will increase the maximum file size allowed for new files, in this repository only.
       - Run `jj --config snapshot.max-new-file-size=13 st`
         This will increase the maximum file size allowed for new files, for this command only.
-    Working copy  (@) now at: kkmpptxz e3eb7e81 (no description set)
+    Working copy  (@) now at: kkmpptxz 119f5156 (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 1 files, modified 0 files, removed 0 files
     Warning: 1 of those updates were skipped because there were conflicting changes in the working copy.
-    Hint: Inspect the changes compared to the intended target with `jj diff --from e3eb7e819de5`.
-    Discard the conflicting changes with `jj restore --from e3eb7e819de5`.
+    Hint: Inspect the changes compared to the intended target with `jj diff --from 119f5156d330`.
+    Discard the conflicting changes with `jj restore --from 119f5156d330`.
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.read_file("file"), @"a lot of text");
@@ -156,7 +156,7 @@ fn test_snapshot_large_file_restore() {
     insta::assert_snapshot!(output, @r"
     Working copy changes:
     A file
-    Working copy  (@) : kkmpptxz b75eed09 (no description set)
+    Working copy  (@) : kkmpptxz 09eba65e (no description set)
     Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
@@ -365,7 +365,7 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     // Working copy should contain conflict marker length
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_output), @r#"
-    Current operation: OperationId("6feb53603f9f7324085d2d89dca19a6dac93fef6795cfd5d57090ff803d404ab1196b45d5b97faa641f6a78302ac0fbd149f5e5a880d1fd64d6520c31beab213")
+    Current operation: OperationId("48a1ea616c63af21072ac9efb7a027770537f8f1a73e60db707f339d0f1a3e0719e2721f73b62a96153fd6e7fd56aa24dbf470292bfa4587661039639d2334aa")
     Current tree: Merge(Conflicted([TreeId("381273b50cf73f8c81b3f1502ee89e9bbd6c1518"), TreeId("771f3d31c4588ea40a8864b2a981749888e596c2"), TreeId("f56b8223da0dab22b03b8323ced4946329aeb4e0")]))
     Normal { <executable> }           249 <timestamp> Some(MaterializedConflictData { conflict_marker_len: 11 }) "file"
     [EOF]
@@ -399,9 +399,9 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     insta::assert_snapshot!(output, @r"
     Working copy changes:
     M file
-    Working copy  (@) : mzvwutvl 3a981880 (conflict) (no description set)
-    Parent commit (@-): rlvkpnrz ce613b49 side-a
-    Parent commit (@-): zsuskuln 7b2b03ab side-b
+    Working copy  (@) : mzvwutvl b6b012dc (conflict) (no description set)
+    Parent commit (@-): rlvkpnrz ccf9527c side-a
+    Parent commit (@-): zsuskuln d7acaf48 side-b
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
     [EOF]
@@ -428,7 +428,7 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     // Working copy should still contain conflict marker length
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_output), @r#"
-    Current operation: OperationId("205bc702428a522e0b175938a51c51b59741c854a609ba63c89de76ffda6e5eff6fcc00725328b1a91f448401769773cefcff01fac3448190d2cea4e137d2166")
+    Current operation: OperationId("cc8300e781c597dc3efe658a25485f6c9b811e35ea30467a0b762bbbbdc22e8f373a4a521f6bb4cc93a2d08973c535e98a2544a7f03a2ed473b85bc818495db3")
     Current tree: Merge(Conflicted([TreeId("381273b50cf73f8c81b3f1502ee89e9bbd6c1518"), TreeId("771f3d31c4588ea40a8864b2a981749888e596c2"), TreeId("3329c18c95f7b7a55c278c2259e9c4ce711fae59")]))
     Normal { <executable> }           289 <timestamp> Some(MaterializedConflictData { conflict_marker_len: 11 }) "file"
     [EOF]
@@ -453,9 +453,9 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     insta::assert_snapshot!(output, @r"
     Working copy changes:
     M file
-    Working copy  (@) : mzvwutvl 1aefd866 (no description set)
-    Parent commit (@-): rlvkpnrz ce613b49 side-a
-    Parent commit (@-): zsuskuln 7b2b03ab side-b
+    Working copy  (@) : mzvwutvl 469d479f (no description set)
+    Parent commit (@-): rlvkpnrz ccf9527c side-a
+    Parent commit (@-): zsuskuln d7acaf48 side-b
     [EOF]
     ");
 
@@ -463,7 +463,7 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     // working copy
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_output), @r#"
-    Current operation: OperationId("2206ce3c108b1573df0841138c226bba1ab3cff900a5899ed31ac69162c7d6f30d37fb5ab43da60dba88047b8ab22d453887fff688f26dfcf04f2c99420a5563")
+    Current operation: OperationId("93b119e5cb434c1ded5ace206be37c99ab8a5aeefd3b9d1f6443edaf8a410e4240d021ebc5a9199fcc60993d8252c19ceeb21343b30a175ce19b5086d4976592")
     Current tree: Merge(Resolved(TreeId("6120567b3cb2472d549753ed3e4b84183d52a650")))
     Normal { <executable> }           130 <timestamp> None "file"
     [EOF]

@@ -237,7 +237,7 @@ fn test_debug_operation_id() {
     let work_dir = test_env.work_dir("repo");
     let output = work_dir.run_jj(["debug", "operation", "--display", "id"]);
     assert_snapshot!(filter_index_stats(output), @r"
-    eac759b9ab75793fd3da96e60939fb48f2cd2b2a9c1f13ffe723cf620f3005b8d3e7e923634a07ea39513e4f2f360c87b9ad5d331cf90d7a844864b83b72eba1
+    2affa702525487ca490c4bc8a9a365adf75f972efb5888dd58716de7603e822ba1ed1ed0a50132ee44572bb9d819f37589d0ceb790b397ddcc88c976fde2bf02
     [EOF]
     ");
 }

@@ -46,11 +46,11 @@ fn test_basics() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned 1 commits:
-      vruxwmqv b7c62f28 d | d
+      vruxwmqv 636920e4 d | d
     Rebased 1 descendant commits onto parents of abandoned commits
-    Working copy  (@) now at: znkkpsqq 11a2e10e e | e
-    Parent commit (@-)      : rlvkpnrz 2443ea76 a | a
-    Parent commit (@-)      : royxmykx fe2e8e8b c d | c
+    Working copy  (@) now at: znkkpsqq 38e96a1f e | e
+    Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
+    Parent commit (@-)      : royxmykx c12952d9 c d | c
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -71,10 +71,10 @@ fn test_basics() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned 1 commits:
-      znkkpsqq 5557ece3 e | e
-    Working copy  (@) now at: nkmrtpmo d4f8ea73 (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 2443ea76 a e?? | a
-    Parent commit (@-)      : vruxwmqv b7c62f28 d e?? | d
+      znkkpsqq 03e0d4bf e | e
+    Working copy  (@) now at: nkmrtpmo 179731fc (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 7d980be7 a e?? | a
+    Parent commit (@-)      : vruxwmqv 636920e4 d e?? | d
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -96,12 +96,12 @@ fn test_basics() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned 2 commits:
-      znkkpsqq 5557ece3 e | e
-      vruxwmqv b7c62f28 d | d
+      znkkpsqq 03e0d4bf e | e
+      vruxwmqv 636920e4 d | d
     Deleted bookmarks: d, e
-    Working copy  (@) now at: xtnwkqum fa4ee8e6 (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 2443ea76 a | a
-    Parent commit (@-)      : royxmykx fe2e8e8b c | c
+    Working copy  (@) now at: xtnwkqum 1c70f4d2 (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
+    Parent commit (@-)      : royxmykx c12952d9 c | c
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
@@ -123,7 +123,7 @@ fn test_basics() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned 1 commits:
-      zsuskuln 1394f625 b | b
+      zsuskuln 123b4d91 b | b
     Deleted bookmarks: b
     [EOF]
     ");
@@ -144,12 +144,12 @@ fn test_basics() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned 2 commits:
-      znkkpsqq 5557ece3 e | e
-      vruxwmqv b7c62f28 d | d
+      znkkpsqq 03e0d4bf e | e
+      vruxwmqv 636920e4 d | d
     Deleted bookmarks: d, e
-    Working copy  (@) now at: xlzxqlsl 14991aec (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 2443ea76 a | a
-    Parent commit (@-)      : royxmykx fe2e8e8b c | c
+    Working copy  (@) now at: xlzxqlsl 55d5c4c2 (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
+    Parent commit (@-)      : royxmykx c12952d9 c | c
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
@@ -188,18 +188,18 @@ fn test_abandon_many() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned 11 commits:
-      kpqxywon 0b998aa3 (empty) commit9
-      znkkpsqq c37abefb (empty) commit8
-      yostqsxw 6256698f (empty) commit7
-      vruxwmqv 9350f605 (empty) commit6
-      yqosqzyt 196bd23d (empty) commit5
-      royxmykx bb676781 (empty) commit4
-      mzvwutvl 6f1e55a6 (empty) commit3
-      zsuskuln baf1311c (empty) commit2
-      kkmpptxz 5fc5f374 (empty) commit1
-      rlvkpnrz 9451b4ea (empty) commit0
+      kpqxywon 6faec5d1 (empty) commit9
+      znkkpsqq 80f67a53 (empty) commit8
+      yostqsxw 8bd72fcc (empty) commit7
+      vruxwmqv 06c46771 (empty) commit6
+      yqosqzyt 168813e3 (empty) commit5
+      royxmykx bd8c3571 (empty) commit4
+      mzvwutvl 57958fa0 (empty) commit3
+      zsuskuln 59515644 (empty) commit2
+      kkmpptxz a969596d (empty) commit1
+      rlvkpnrz 02fe38c9 (empty) commit0
       ...
-    Working copy  (@) now at: kmkuslsw 822a2cf5 (empty) (no description set)
+    Working copy  (@) now at: kmkuslsw a36a913b (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
@@ -241,11 +241,11 @@ fn test_bug_2600() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned 1 commits:
-      zsuskuln 73c929fc base | base
+      zsuskuln 67c2f714 base | base
     Deleted bookmarks: base
     Rebased 3 descendant commits onto parents of abandoned commits
-    Working copy  (@) now at: znkkpsqq 86e31bec c | c
-    Parent commit (@-)      : vruxwmqv fd6eb121 b | b
+    Working copy  (@) now at: znkkpsqq 1e89909f c | c
+    Parent commit (@-)      : vruxwmqv a3a61e53 b | b
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -267,11 +267,11 @@ fn test_bug_2600() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned 1 commits:
-      royxmykx 98f3b9ba a | a
+      royxmykx 183dbbca a | a
     Deleted bookmarks: a
     Rebased 2 descendant commits onto parents of abandoned commits
-    Working copy  (@) now at: znkkpsqq 683b9435 c | c
-    Parent commit (@-)      : vruxwmqv c10cb7b4 b | b
+    Working copy  (@) now at: znkkpsqq a9a97c4c c | c
+    Parent commit (@-)      : vruxwmqv bccf7988 b | b
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -292,12 +292,12 @@ fn test_bug_2600() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned 1 commits:
-      vruxwmqv 8c0dced0 b | b
+      vruxwmqv cedee197 b | b
     Deleted bookmarks: b
     Rebased 1 descendant commits onto parents of abandoned commits
-    Working copy  (@) now at: znkkpsqq 33a94991 c | c
-    Parent commit (@-)      : zsuskuln 73c929fc base | base
-    Parent commit (@-)      : royxmykx 98f3b9ba a | a
+    Working copy  (@) now at: znkkpsqq 8030a364 c | c
+    Parent commit (@-)      : zsuskuln 67c2f714 base | base
+    Parent commit (@-)      : royxmykx 183dbbca a | a
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -330,11 +330,11 @@ fn test_bug_2600() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned 2 commits:
-      vruxwmqv 8c0dced0 b | b
-      royxmykx 98f3b9ba a | a
+      vruxwmqv cedee197 b | b
+      royxmykx 183dbbca a | a
     Rebased 1 descendant commits onto parents of abandoned commits
-    Working copy  (@) now at: znkkpsqq 84fac1f8 c | c
-    Parent commit (@-)      : zsuskuln 73c929fc a b base | base
+    Working copy  (@) now at: znkkpsqq 75bef1a6 c | c
+    Parent commit (@-)      : zsuskuln 67c2f714 a b base | base
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
@@ -349,7 +349,7 @@ fn test_bug_2600() {
     ");
     let output = work_dir.run_jj(["bookmark", "list", "b"]);
     insta::assert_snapshot!(output, @r"
-    b: zsuskuln 73c929fc base
+    b: zsuskuln 67c2f714 base
     [EOF]
     ");
 }
@@ -397,7 +397,7 @@ fn test_double_abandon() {
     create_commit(&work_dir, "a", &[]);
     // Test the setup
     insta::assert_snapshot!(work_dir.run_jj(["log", "--no-graph", "-r", "a"]), @r"
-    rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a 2443ea76
+    rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a 7d980be7
     a
     [EOF]
     ");
@@ -412,9 +412,9 @@ fn test_double_abandon() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned 1 commits:
-      rlvkpnrz 2443ea76 a | a
+      rlvkpnrz 7d980be7 a | a
     Deleted bookmarks: a
-    Working copy  (@) now at: royxmykx f37b4afd (empty) (no description set)
+    Working copy  (@) now at: royxmykx 0cff017c (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
@@ -423,7 +423,7 @@ fn test_double_abandon() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned 1 commits:
-      rlvkpnrz hidden 2443ea76 a
+      rlvkpnrz hidden 7d980be7 a
     Nothing changed.
     [EOF]
     ");
@@ -446,10 +446,10 @@ fn test_abandon_restore_descendants() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned 1 commits:
-      rlvkpnrz 225adef1 (no description set)
+      rlvkpnrz b23f92c3 (no description set)
     Rebased 1 descendant commits (while preserving their content) onto parents of abandoned commits
-    Working copy  (@) now at: kkmpptxz a734deb0 (no description set)
-    Parent commit (@-)      : qpvuntsm 485d52a9 (no description set)
+    Working copy  (@) now at: kkmpptxz 2b575035 (no description set)
+    Parent commit (@-)      : qpvuntsm d0c049cd (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "--git"]);
@@ -496,7 +496,7 @@ fn test_abandon_tracking_bookmarks() {
         .success();
     insta::assert_snapshot!(get_log_output(&local_dir), @r"
     @  [zsu] bar
-    │ ○  [vvk] foo
+    │ ○  [qpv] foo
     ├─╯
     ◆  [zzz]
     [EOF]
@@ -506,7 +506,7 @@ fn test_abandon_tracking_bookmarks() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned 1 commits:
-      vvkvtnvv 230dd059 foo | (empty) (no description set)
+      qpvuntsm e8849ae1 foo | (empty) (no description set)
     Deleted bookmarks: foo
     Hint: Deleted bookmarks can be pushed by name or all at once with `jj git push --deleted`.
     [EOF]
@@ -515,9 +515,9 @@ fn test_abandon_tracking_bookmarks() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned 1 commits:
-      zsuskuln f652c321 bar | (empty) (no description set)
+      zsuskuln c2934cfb bar | (empty) (no description set)
     Deleted bookmarks: bar
-    Working copy  (@) now at: vruxwmqv 41658cf4 (empty) (no description set)
+    Working copy  (@) now at: vruxwmqv b64f323d (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");

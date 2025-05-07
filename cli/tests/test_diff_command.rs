@@ -2251,19 +2251,19 @@ fn test_diff_conflict_sides_differ() {
     // left1+right1.
     work_dir.run_jj(["new", "root()"]).success();
     insta::assert_snapshot!(work_dir.run_jj(["log", "-r~@"]), @r"
-    ×    lylxulpl test.user@example.com 2001-02-03 08:05:20 left2+right2 bfccf5a2 conflict
+    ×    lylxulpl test.user@example.com 2001-02-03 08:05:20 left2+right2 530ede8c conflict
     ├─╮  (empty) left2+right2
-    │ ○  znkkpsqq test.user@example.com 2001-02-03 08:05:17 right2 adb6aa86
+    │ ○  znkkpsqq test.user@example.com 2001-02-03 08:05:17 right2 e57450eb
     │ │  right2
-    ○ │  royxmykx test.user@example.com 2001-02-03 08:05:13 left2 f4ad65fd
+    ○ │  royxmykx test.user@example.com 2001-02-03 08:05:13 left2 b50b218b
     │ │  left2
-    │ │ ×  kmkuslsw test.user@example.com 2001-02-03 08:05:18 left1+right1 8dbc225e conflict
+    │ │ ×  kmkuslsw test.user@example.com 2001-02-03 08:05:18 left1+right1 83cdbdb5 conflict
     ╭─┬─╯  (empty) left1+right1
-    │ ○  vruxwmqv test.user@example.com 2001-02-03 08:05:15 right1 32bc5d06
+    │ ○  vruxwmqv test.user@example.com 2001-02-03 08:05:15 right1 3fe2e860
     │ │  right1
-    ○ │  zsuskuln test.user@example.com 2001-02-03 08:05:11 left1 fd6e26af
+    ○ │  zsuskuln test.user@example.com 2001-02-03 08:05:11 left1 713a980c
     ├─╯  left1
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 base 236ad5a8
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 base aa7e33ed
     │  base
     ◆  zzzzzzzz root() 00000000
     [EOF]
@@ -2545,21 +2545,21 @@ fn test_diff_conflict_bases_differ() {
     // left1+right1.
     work_dir.run_jj(["new", "root()"]).success();
     insta::assert_snapshot!(work_dir.run_jj(["log", "-r~@"]), @r"
-    ×    nkmrtpmo test.user@example.com 2001-02-03 08:05:22 left2+right2 569df7b1 conflict
+    ×    nkmrtpmo test.user@example.com 2001-02-03 08:05:22 left2+right2 22cb40d9 conflict
     ├─╮  (empty) left2+right2
-    │ ○  kmkuslsw test.user@example.com 2001-02-03 08:05:19 right2 d394320d
+    │ ○  kmkuslsw test.user@example.com 2001-02-03 08:05:19 right2 656695c3
     │ │  right2
-    ○ │  znkkpsqq test.user@example.com 2001-02-03 08:05:17 left2 88cb6406
+    ○ │  znkkpsqq test.user@example.com 2001-02-03 08:05:17 left2 218094ec
     ├─╯  left2
-    ○  vruxwmqv test.user@example.com 2001-02-03 08:05:15 base2 bd2e8956
+    ○  vruxwmqv test.user@example.com 2001-02-03 08:05:15 base2 3c4d67e6
     │  base2
-    │ ×    lylxulpl test.user@example.com 2001-02-03 08:05:20 left1+right1 5fbf08e0 conflict
+    │ ×    lylxulpl test.user@example.com 2001-02-03 08:05:20 left1+right1 1711cb65 conflict
     │ ├─╮  (empty) left1+right1
-    │ │ ○  royxmykx test.user@example.com 2001-02-03 08:05:13 right1 a318e8b9
+    │ │ ○  royxmykx test.user@example.com 2001-02-03 08:05:13 right1 3087be1f
     ├───╯  right1
-    │ ○  zsuskuln test.user@example.com 2001-02-03 08:05:11 left1 40ab70b1
+    │ ○  zsuskuln test.user@example.com 2001-02-03 08:05:11 left1 9e995075
     ├─╯  left1
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 base1 cffa4075
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 base1 44cfbde6
     │  base1
     ◆  zzzzzzzz root() 00000000
     [EOF]
@@ -2701,19 +2701,19 @@ fn test_diff_conflict_three_sides() {
     // Test the setup
     work_dir.run_jj(["new", "root()"]).success();
     insta::assert_snapshot!(work_dir.run_jj(["log", "-r~@"]), @r"
-    ×    lylxulpl test.user@example.com 2001-02-03 08:05:20 side1+side2+side3 ba761075 conflict
+    ×    lylxulpl test.user@example.com 2001-02-03 08:05:20 side1+side2+side3 ac1efd43 conflict
     ├─╮  (empty) side1+side2+side3
-    │ ○  znkkpsqq test.user@example.com 2001-02-03 08:05:17 side3 7139f5ec
+    │ ○  znkkpsqq test.user@example.com 2001-02-03 08:05:17 side3 f73063c9
     │ │  side3
-    × │    kmkuslsw test.user@example.com 2001-02-03 08:05:18 side1+side2 aa14223d conflict
+    × │    kmkuslsw test.user@example.com 2001-02-03 08:05:18 side1+side2 a1f24e10 conflict
     ├───╮  (empty) side1+side2
-    │ │ ○  vruxwmqv test.user@example.com 2001-02-03 08:05:15 side2 ddf45f8f
+    │ │ ○  vruxwmqv test.user@example.com 2001-02-03 08:05:15 side2 bc176227
     │ │ │  side2
-    ○ │ │  royxmykx test.user@example.com 2001-02-03 08:05:13 side1 df4007a4
+    ○ │ │  royxmykx test.user@example.com 2001-02-03 08:05:13 side1 3a079496
     ├───╯  side1
-    ○ │  zsuskuln test.user@example.com 2001-02-03 08:05:11 base2 2c7ca1f2
+    ○ │  zsuskuln test.user@example.com 2001-02-03 08:05:11 base2 75289ea3
     ├─╯  base2
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 base1 cd7f3381
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 base1 07965fa1
     │  base1
     ◆  zzzzzzzz root() 00000000
     [EOF]
@@ -2875,14 +2875,14 @@ fn test_diff_external_tool() {
     ");
 
     insta::assert_snapshot!(work_dir.run_jj(["log", "-p", "--tool=fake-diff-editor"]), @r"
-    @  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 39d9055d
+    @  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 b1e84e17
     │  (no description set)
     │  file1
     │  file2
     │  --
     │  file2
     │  file3
-    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 0ad4ef22
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 74c18ac3
     │  (no description set)
     │  --
     │  file1
@@ -2893,7 +2893,7 @@ fn test_diff_external_tool() {
     ");
 
     insta::assert_snapshot!(work_dir.run_jj(["show", "--tool=fake-diff-editor"]), @r"
-    Commit ID: 39d9055d70873099fd924b9af218289d5663eac8
+    Commit ID: b1e84e171e795eeb9cea971f052a30a21255a0a5
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
     Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -2943,7 +2943,7 @@ fn test_diff_external_tool() {
     std::fs::write(&edit_script, "print diff\0fail").unwrap();
     let output = work_dir.run_jj(["show", "--tool=fake-diff-editor"]);
     insta::assert_snapshot!(output.normalize_stderr_exit_status(), @r"
-    Commit ID: 39d9055d70873099fd924b9af218289d5663eac8
+    Commit ID: b1e84e171e795eeb9cea971f052a30a21255a0a5
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
     Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -3024,7 +3024,7 @@ fn test_diff_external_file_by_file_tool() {
     ");
     insta::assert_snapshot!(
         work_dir.run_jj_with(|cmd| cmd.args(["log", "-p"]).args(configs)), @r"
-    @  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 7b01704a
+    @  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 6e901d9d
     │  (no description set)
     │  ==
     │  file2
@@ -3038,7 +3038,7 @@ fn test_diff_external_file_by_file_tool() {
     │  file1
     │  --
     │  file4
-    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 6e485984
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 923beb72
     │  (no description set)
     │  ==
     │  file1
@@ -3053,7 +3053,7 @@ fn test_diff_external_file_by_file_tool() {
     ");
 
     insta::assert_snapshot!(work_dir.run_jj_with(|cmd| cmd.arg("show").args(configs)), @r"
-    Commit ID: 7b01704a670bc77d11ed117d362855cff1d4513b
+    Commit ID: 6e901d9d82f5cdfab386fc2b601186158d12cab7
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
     Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -3489,7 +3489,7 @@ fn test_diff_revisions() {
     insta::assert_snapshot!(diff_revisions("A|C"), @r"
     ------- stderr -------
     Error: Cannot diff revsets with gaps in.
-    Hint: Revision 50c75fd767bf would need to be in the set.
+    Hint: Revision 2378873cd201 would need to be in the set.
     [EOF]
     [exit status: 1]
     ");

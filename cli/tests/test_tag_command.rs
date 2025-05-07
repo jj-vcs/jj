@@ -64,32 +64,32 @@ fn test_tag_list() {
 
     insta::assert_snapshot!(work_dir.run_jj(["tag", "list"]), @r"
     conflicted_tag (conflicted):
-      - rlvkpnrz caf975d0 (empty) commit1
-      + zsuskuln 3db783e0 (empty) commit2
-      + royxmykx 68d950ce (empty) commit3
-    test_tag: rlvkpnrz caf975d0 (empty) commit1
-    test_tag2: zsuskuln 3db783e0 (empty) commit2
+      - rlvkpnrz 893e67dc (empty) commit1
+      + zsuskuln 76abdd20 (empty) commit2
+      + royxmykx 13c4e819 (empty) commit3
+    test_tag: rlvkpnrz 893e67dc (empty) commit1
+    test_tag2: zsuskuln 76abdd20 (empty) commit2
     [EOF]
     ");
 
     insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "--color=always"]), @r"
     [38;5;5mconflicted_tag[39m [38;5;1m(conflicted)[39m:
-      - [1m[38;5;5mrl[0m[38;5;8mvkpnrz[39m [1m[38;5;4mc[0m[38;5;8maf975d0[39m [38;5;2m(empty)[39m commit1
-      + [1m[38;5;5mzs[0m[38;5;8muskuln[39m [1m[38;5;4m3[0m[38;5;8mdb783e0[39m [38;5;2m(empty)[39m commit2
-      + [1m[38;5;5mr[0m[38;5;8moyxmykx[39m [1m[38;5;4m6[0m[38;5;8m8d950ce[39m [38;5;2m(empty)[39m commit3
-    [38;5;5mtest_tag[39m: [1m[38;5;5mrl[0m[38;5;8mvkpnrz[39m [1m[38;5;4mc[0m[38;5;8maf975d0[39m [38;5;2m(empty)[39m commit1
-    [38;5;5mtest_tag2[39m: [1m[38;5;5mzs[0m[38;5;8muskuln[39m [1m[38;5;4m3[0m[38;5;8mdb783e0[39m [38;5;2m(empty)[39m commit2
+      - [1m[38;5;5mrl[0m[38;5;8mvkpnrz[39m [1m[38;5;4m8[0m[38;5;8m93e67dc[39m [38;5;2m(empty)[39m commit1
+      + [1m[38;5;5mzs[0m[38;5;8muskuln[39m [1m[38;5;4m7[0m[38;5;8m6abdd20[39m [38;5;2m(empty)[39m commit2
+      + [1m[38;5;5mr[0m[38;5;8moyxmykx[39m [1m[38;5;4m13[0m[38;5;8mc4e819[39m [38;5;2m(empty)[39m commit3
+    [38;5;5mtest_tag[39m: [1m[38;5;5mrl[0m[38;5;8mvkpnrz[39m [1m[38;5;4m8[0m[38;5;8m93e67dc[39m [38;5;2m(empty)[39m commit1
+    [38;5;5mtest_tag2[39m: [1m[38;5;5mzs[0m[38;5;8muskuln[39m [1m[38;5;4m7[0m[38;5;8m6abdd20[39m [38;5;2m(empty)[39m commit2
     [EOF]
     ");
 
     // Test pattern matching.
     insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "test_tag2"]), @r"
-    test_tag2: zsuskuln 3db783e0 (empty) commit2
+    test_tag2: zsuskuln 76abdd20 (empty) commit2
     [EOF]
     ");
 
     insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "glob:test_tag?"]), @r"
-    test_tag2: zsuskuln 3db783e0 (empty) commit2
+    test_tag2: zsuskuln 76abdd20 (empty) commit2
     [EOF]
     ");
 

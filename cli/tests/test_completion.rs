@@ -784,8 +784,8 @@ fn test_revisions() {
     k	working_copy
     y	mutable
     q	immutable
-    zq	remote_commit
-    zz	(no description set)
+    r	remote_commit
+    z	(no description set)
     remote_bookmark@origin	remote_commit
     alias_with_newline	    roots(
     siblings	@-+ ~@
@@ -800,8 +800,8 @@ fn test_revisions() {
     ..k	working_copy
     ..y	mutable
     ..q	immutable
-    ..zq	remote_commit
-    ..zz	(no description set)
+    ..r	remote_commit
+    ..z	(no description set)
     ..remote_bookmark@origin	remote_commit
     ..alias_with_newline	    roots(
     ..siblings	@-+ ~@
@@ -814,7 +814,7 @@ fn test_revisions() {
     mutable_bookmark	mutable
     k	working_copy
     y	mutable
-    zq	remote_commit
+    r	remote_commit
     alias_with_newline	    roots(
     siblings	@-+ ~@
     [EOF]
@@ -826,7 +826,7 @@ fn test_revisions() {
     y::mutable_bookmark	mutable
     y::k	working_copy
     y::y	mutable
-    y::zq	remote_commit
+    y::r	remote_commit
     y::alias_with_newline	    roots(
     y::siblings	@-+ ~@
     [EOF]
@@ -848,8 +848,8 @@ fn test_revisions() {
     k	working_copy
     y	mutable
     q	immutable
-    zq	remote_commit
-    zz	(no description set)
+    r	remote_commit
+    z	(no description set)
     remote_bookmark@origin	remote_commit
     alias_with_newline	    roots(
     siblings	@-+ ~@
@@ -872,8 +872,8 @@ fn test_revisions() {
     a=k	working_copy
     a=y	mutable
     a=q	immutable
-    a=zq	remote_commit
-    a=zz	(no description set)
+    a=r	remote_commit
+    a=z	(no description set)
     a=remote_bookmark@origin	remote_commit
     a=alias_with_newline	    roots(
     a=siblings	@-+ ~@
@@ -911,6 +911,9 @@ fn test_operations() {
     work_dir
         .run_jj(["describe", "-m", "description 4"])
         .success();
+    work_dir
+        .run_jj(["describe", "-m", "description 5"])
+        .success();
 
     let work_dir = test_env.work_dir("repo");
 
@@ -924,58 +927,58 @@ fn test_operations() {
         .split('\t')
         .next()
         .unwrap();
-    insta::assert_snapshot!(add_workspace_id, @"eac759b9ab75");
+    insta::assert_snapshot!(add_workspace_id, @"09a518cf68a5");
 
-    let output = work_dir.complete_fish(["op", "show", "5"]);
+    let output = work_dir.complete_fish(["op", "show", "8"]);
     insta::assert_snapshot!(output, @r"
-    5bbb4ca536a8	(2001-02-03 08:05:12) describe commit 968261075dddabf4b0e333c1cc9a49ce26a3f710
-    518b588abbc6	(2001-02-03 08:05:09) describe commit 19611c995a342c01f525583e5fcafdd211f6d009
+    8862eab31bc3	(2001-02-03 08:05:13) describe commit aa0b3230e3787076f232a08c8b1c7f54948a2d7a
+    8a1fa92a2a6a	(2001-02-03 08:05:09) describe commit 3ae22e7f50a15d393e412cca72d09a61165d0c84
     [EOF]
     ");
     // make sure global --at-op flag is respected
-    let output = work_dir.complete_fish(["--at-op", "518b588abbc6", "op", "show", "5"]);
+    let output = work_dir.complete_fish(["--at-op", "8a1fa92a2a6a", "op", "show", "8"]);
     insta::assert_snapshot!(output, @r"
-    518b588abbc6	(2001-02-03 08:05:09) describe commit 19611c995a342c01f525583e5fcafdd211f6d009
+    8a1fa92a2a6a	(2001-02-03 08:05:09) describe commit 3ae22e7f50a15d393e412cca72d09a61165d0c84
     [EOF]
     ");
 
-    let output = work_dir.complete_fish(["--at-op", "5b"]);
+    let output = work_dir.complete_fish(["--at-op", "8a"]);
     insta::assert_snapshot!(output, @r"
-    5bbb4ca536a8	(2001-02-03 08:05:12) describe commit 968261075dddabf4b0e333c1cc9a49ce26a3f710
+    8a1fa92a2a6a	(2001-02-03 08:05:09) describe commit 3ae22e7f50a15d393e412cca72d09a61165d0c84
     [EOF]
     ");
 
-    let output = work_dir.complete_fish(["op", "abandon", "5b"]);
+    let output = work_dir.complete_fish(["op", "abandon", "8a"]);
     insta::assert_snapshot!(output, @r"
-    5bbb4ca536a8	(2001-02-03 08:05:12) describe commit 968261075dddabf4b0e333c1cc9a49ce26a3f710
+    8a1fa92a2a6a	(2001-02-03 08:05:09) describe commit 3ae22e7f50a15d393e412cca72d09a61165d0c84
     [EOF]
     ");
 
-    let output = work_dir.complete_fish(["op", "diff", "--op", "5b"]);
+    let output = work_dir.complete_fish(["op", "diff", "--op", "8a"]);
     insta::assert_snapshot!(output, @r"
-    5bbb4ca536a8	(2001-02-03 08:05:12) describe commit 968261075dddabf4b0e333c1cc9a49ce26a3f710
+    8a1fa92a2a6a	(2001-02-03 08:05:09) describe commit 3ae22e7f50a15d393e412cca72d09a61165d0c84
     [EOF]
     ");
-    let output = work_dir.complete_fish(["op", "diff", "--from", "5b"]);
+    let output = work_dir.complete_fish(["op", "diff", "--from", "8a"]);
     insta::assert_snapshot!(output, @r"
-    5bbb4ca536a8	(2001-02-03 08:05:12) describe commit 968261075dddabf4b0e333c1cc9a49ce26a3f710
+    8a1fa92a2a6a	(2001-02-03 08:05:09) describe commit 3ae22e7f50a15d393e412cca72d09a61165d0c84
     [EOF]
     ");
-    let output = work_dir.complete_fish(["op", "diff", "--to", "5b"]);
+    let output = work_dir.complete_fish(["op", "diff", "--to", "8a"]);
     insta::assert_snapshot!(output, @r"
-    5bbb4ca536a8	(2001-02-03 08:05:12) describe commit 968261075dddabf4b0e333c1cc9a49ce26a3f710
-    [EOF]
-    ");
-
-    let output = work_dir.complete_fish(["op", "restore", "5b"]);
-    insta::assert_snapshot!(output, @r"
-    5bbb4ca536a8	(2001-02-03 08:05:12) describe commit 968261075dddabf4b0e333c1cc9a49ce26a3f710
+    8a1fa92a2a6a	(2001-02-03 08:05:09) describe commit 3ae22e7f50a15d393e412cca72d09a61165d0c84
     [EOF]
     ");
 
-    let output = work_dir.complete_fish(["op", "undo", "5b"]);
+    let output = work_dir.complete_fish(["op", "restore", "8a"]);
     insta::assert_snapshot!(output, @r"
-    5bbb4ca536a8	(2001-02-03 08:05:12) describe commit 968261075dddabf4b0e333c1cc9a49ce26a3f710
+    8a1fa92a2a6a	(2001-02-03 08:05:09) describe commit 3ae22e7f50a15d393e412cca72d09a61165d0c84
+    [EOF]
+    ");
+
+    let output = work_dir.complete_fish(["op", "undo", "8a"]);
+    insta::assert_snapshot!(output, @r"
+    8a1fa92a2a6a	(2001-02-03 08:05:09) describe commit 3ae22e7f50a15d393e412cca72d09a61165d0c84
     [EOF]
     ");
 }
@@ -1195,11 +1198,11 @@ fn test_files() {
 
     let output = work_dir.run_jj(["log", "-r", "all()", "--summary"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
-    @  wqnwkozp test.user@example.com 2001-02-03 08:05:20 working_copy cb594eba
+    @  wqnwkozp test.user@example.com 2001-02-03 08:05:20 working_copy 440dd927
     │  working_copy
     │  A f_added_2
     │  M f_modified
-    ○  zsuskuln test.user@example.com 2001-02-03 08:05:11 second 24242473
+    ○  zsuskuln test.user@example.com 2001-02-03 08:05:11 second 90bb4e13
     │  second
     │  A f_added
     │  D f_deleted
@@ -1208,24 +1211,24 @@ fn test_files() {
     │  A f_dir/dir_file_3
     │  M f_modified
     │  R {f_not_yet_renamed => f_renamed}
-    │ ×  royxmykx test.user@example.com 2001-02-03 08:05:14 conflicted 0ba6786b conflict
+    │ ×  royxmykx test.user@example.com 2001-02-03 08:05:14 conflicted b259cb83 conflict
     ├─╯  conflicted
     │    A f_added_2
     │    A f_dir/dir_file_1
     │    A f_dir/dir_file_2
     │    A f_dir/dir_file_3
     │    M f_modified
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 first 2a2f433c
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 first 0600c83e
     │  first
     │  A f_deleted
     │  A f_modified
     │  A f_not_yet_renamed
     │  A f_unchanged
-    │ ○  kpqxywon test.user@example.com 2001-02-03 08:05:18 interdiff_to 302c4041
+    │ ○  kpqxywon test.user@example.com 2001-02-03 08:05:18 interdiff_to 5e448a34
     ├─╯  interdiff_to
     │    A f_interdiff_only_to
     │    A f_interdiff_same
-    │ ○  yostqsxw test.user@example.com 2001-02-03 08:05:16 interdiff_from 083d1cc6
+    │ ○  yostqsxw test.user@example.com 2001-02-03 08:05:16 interdiff_from 039b07b8
     ├─╯  interdiff_from
     │    A f_interdiff_only_from
     │    A f_interdiff_same

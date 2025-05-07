@@ -147,8 +147,8 @@ fn test_simplify_parents_redundant_parent(args: &[&str]) {
         insta::assert_snapshot!(output, @r"
         ------- stderr -------
         Removed 1 edges from 1 out of 3 commits.
-        Working copy  (@) now at: royxmykx 0ac2063b c | c
-        Parent commit (@-)      : zsuskuln 1394f625 b | b
+        Working copy  (@) now at: royxmykx 265f0407 c | c
+        Parent commit (@-)      : zsuskuln 123b4d91 b | b
         [EOF]
         ");
     }
@@ -200,8 +200,8 @@ fn test_simplify_parents_multiple_redundant_parents() {
     ------- stderr -------
     Removed 2 edges from 2 out of 2 commits.
     Rebased 2 descendant commits
-    Working copy  (@) now at: kmkuslsw 8cc01e1b f | f
-    Parent commit (@-)      : znkkpsqq 040ae3a6 e | e
+    Working copy  (@) now at: kmkuslsw 58e098e5 f | f
+    Parent commit (@-)      : znkkpsqq 374f4ddc e | e
     [EOF]
     ");
 
@@ -224,8 +224,8 @@ fn test_simplify_parents_multiple_redundant_parents() {
     ------- stderr -------
     Removed 2 edges from 2 out of 4 commits.
     Rebased 2 descendant commits
-    Working copy  (@) now at: kmkuslsw 70a39dff f | f
-    Parent commit (@-)      : znkkpsqq a021fee9 e | e
+    Working copy  (@) now at: kmkuslsw 37ef137f f | f
+    Parent commit (@-)      : znkkpsqq b982b07d e | e
     [EOF]
     ");
 
@@ -276,8 +276,8 @@ fn test_simplify_parents_no_args() {
     ------- stderr -------
     Removed 2 edges from 2 out of 6 commits.
     Rebased 2 descendant commits
-    Working copy  (@) now at: kmkuslsw 8cc01e1b f | f
-    Parent commit (@-)      : znkkpsqq 040ae3a6 e | e
+    Working copy  (@) now at: kmkuslsw 58e098e5 f | f
+    Parent commit (@-)      : znkkpsqq 374f4ddc e | e
     [EOF]
     ");
 
@@ -300,8 +300,8 @@ fn test_simplify_parents_no_args() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Removed 1 edges from 1 out of 3 commits.
-    Working copy  (@) now at: kmkuslsw 0c6b4c43 f | f
-    Parent commit (@-)      : znkkpsqq 6a679611 e | e
+    Working copy  (@) now at: kmkuslsw 78ceb6e1 f | f
+    Parent commit (@-)      : znkkpsqq 009aef72 e | e
     [EOF]
     ");
 

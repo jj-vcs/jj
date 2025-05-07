@@ -46,10 +46,10 @@ fn test_absorb_simple() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Absorbed changes into 2 revisions:
-      zsuskuln 3027ca7a 2
-      kkmpptxz d0f1e8dd 1
-    Working copy  (@) now at: yqosqzyt 277bed24 (empty) (no description set)
-    Parent commit (@-)      : zsuskuln 3027ca7a 2
+      zsuskuln 95568809 2
+      kkmpptxz bd7d4016 1
+    Working copy  (@) now at: yqosqzyt 977269ac (empty) (no description set)
+    Parent commit (@-)      : zsuskuln 95568809 2
     [EOF]
     ");
 
@@ -59,10 +59,10 @@ fn test_absorb_simple() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Absorbed changes into 1 revisions:
-      kkmpptxz d366d92c 1
+      kkmpptxz 5810eb0f 1
     Rebased 1 descendant commits.
-    Working copy  (@) now at: vruxwmqv 32eb72fe (empty) (no description set)
-    Parent commit (@-)      : zsuskuln 5bf0bc06 2
+    Working copy  (@) now at: vruxwmqv 48c7d8fa (empty) (no description set)
+    Parent commit (@-)      : zsuskuln 8edd60a2 2
     [EOF]
     ");
 
@@ -72,9 +72,9 @@ fn test_absorb_simple() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Absorbed changes into 1 revisions:
-      zsuskuln 6e2c4777 2
-    Working copy  (@) now at: yostqsxw 4a48490c (empty) (no description set)
-    Parent commit (@-)      : zsuskuln 6e2c4777 2
+      zsuskuln dd109863 2
+    Working copy  (@) now at: yostqsxw 7482f74b (empty) (no description set)
+    Parent commit (@-)      : zsuskuln dd109863 2
     [EOF]
     ");
 
@@ -88,7 +88,7 @@ fn test_absorb_simple() {
     ");
 
     insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @r"
-    @  yostqsxw 80965bcc (no description set)
+    @  yostqsxw bde51bc9 (no description set)
     │  diff --git a/file1 b/file1
     │  index 8653ca354d..88eb438902 100644
     │  --- a/file1
@@ -100,7 +100,7 @@ fn test_absorb_simple() {
     │  +Y
     │   2a
     │   2Z
-    ○  zsuskuln 6e2c4777 2
+    ○  zsuskuln dd109863 2
     │  diff --git a/file1 b/file1
     │  index ed237b5112..8653ca354d 100644
     │  --- a/file1
@@ -111,7 +111,7 @@ fn test_absorb_simple() {
     │   1b
     │  +2a
     │  +2Z
-    ○  kkmpptxz d366d92c 1
+    ○  kkmpptxz 5810eb0f 1
     │  diff --git a/file1 b/file1
     │  index e69de29bb2..ed237b5112 100644
     │  --- a/file1
@@ -120,37 +120,37 @@ fn test_absorb_simple() {
     │  +1X
     │  +1A
     │  +1b
-    ○  qpvuntsm 1a4edb91 0
+    ○  qpvuntsm 6a446874 0
     │  diff --git a/file1 b/file1
     ~  new file mode 100644
        index 0000000000..e69de29bb2
     [EOF]
     ");
     insta::assert_snapshot!(get_evolog(&work_dir, "description(1)"), @r"
-    ○    kkmpptxz d366d92c 1
+    ○    kkmpptxz 5810eb0f 1
     ├─╮
-    │ ○  yqosqzyt hidden c506fbc7 (no description set)
-    │ ○  yqosqzyt hidden 277bed24 (empty) (no description set)
-    ○    kkmpptxz hidden d0f1e8dd 1
+    │ ○  yqosqzyt hidden 39b42898 (no description set)
+    │ ○  yqosqzyt hidden 977269ac (empty) (no description set)
+    ○    kkmpptxz hidden bd7d4016 1
     ├─╮
-    │ ○  mzvwutvl hidden 8935ee61 (no description set)
-    │ ○  mzvwutvl hidden 2bc3d2ce (empty) (no description set)
-    ○  kkmpptxz hidden ee76d790 1
-    ○  kkmpptxz hidden 677e62d5 (empty) 1
+    │ ○  mzvwutvl hidden 0b307741 (no description set)
+    │ ○  mzvwutvl hidden f2709b4e (empty) (no description set)
+    ○  kkmpptxz hidden 1553c5e8 1
+    ○  kkmpptxz hidden eb943711 (empty) 1
     [EOF]
     ");
     insta::assert_snapshot!(get_evolog(&work_dir, "description(2)"), @r"
-    ○    zsuskuln 6e2c4777 2
+    ○    zsuskuln dd109863 2
     ├─╮
-    │ ○  vruxwmqv hidden 7b1da5cd (no description set)
-    │ ○  vruxwmqv hidden 32eb72fe (empty) (no description set)
-    ○  zsuskuln hidden 5bf0bc06 2
-    ○    zsuskuln hidden 3027ca7a 2
+    │ ○  vruxwmqv hidden 761492a8 (no description set)
+    │ ○  vruxwmqv hidden 48c7d8fa (empty) (no description set)
+    ○  zsuskuln hidden 8edd60a2 2
+    ○    zsuskuln hidden 95568809 2
     ├─╮
-    │ ○  mzvwutvl hidden 8935ee61 (no description set)
-    │ ○  mzvwutvl hidden 2bc3d2ce (empty) (no description set)
-    ○  zsuskuln hidden cca09b4d 2
-    ○  zsuskuln hidden 7b092471 (empty) 2
+    │ ○  mzvwutvl hidden 0b307741 (no description set)
+    │ ○  mzvwutvl hidden f2709b4e (empty) (no description set)
+    ○  zsuskuln hidden 36fad385 2
+    ○  zsuskuln hidden 561fbce9 (empty) 2
     [EOF]
     ");
 }
@@ -176,12 +176,12 @@ fn test_absorb_replace_single_line_hunk() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Absorbed changes into 1 revisions:
-      qpvuntsm 7e885236 (conflict) 1
+      qpvuntsm 5bdb5ca1 (conflict) 1
     Rebased 1 descendant commits.
-    Working copy  (@) now at: mzvwutvl e9c3b95b (empty) (no description set)
-    Parent commit (@-)      : kkmpptxz 7c36845c 2
+    Working copy  (@) now at: mzvwutvl 804fe9d9 (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz 6068e8fc 2
     New conflicts appeared in 1 commits:
-      qpvuntsm 7e885236 (conflict) 1
+      qpvuntsm 5bdb5ca1 (conflict) 1
     Hint: To resolve the conflicts, start by updating to it:
       jj new qpvuntsm
     Then use `jj resolve`, or edit the conflict markers in the file directly.
@@ -191,8 +191,8 @@ fn test_absorb_replace_single_line_hunk() {
     ");
 
     insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @r"
-    @  mzvwutvl e9c3b95b (empty) (no description set)
-    ○  kkmpptxz 7c36845c 2
+    @  mzvwutvl 804fe9d9 (empty) (no description set)
+    ○  kkmpptxz 6068e8fc 2
     │  diff --git a/file1 b/file1
     │  index 0000000000..2f87e8e465 100644
     │  --- a/file1
@@ -208,7 +208,7 @@ fn test_absorb_replace_single_line_hunk() {
     │   1A
     │   2b
     │  ->>>>>>> Conflict 1 of 1 ends
-    ×  qpvuntsm 7e885236 (conflict) 1
+    ×  qpvuntsm 5bdb5ca1 (conflict) 1
     │  diff --git a/file1 b/file1
     ~  new file mode 100644
        index 0000000000..0000000000
@@ -247,9 +247,9 @@ fn test_absorb_merge() {
     let output = work_dir.run_jj(["new", "-m3", "description(1)", "description(2)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: mzvwutvl 08898161 (empty) 3
-    Parent commit (@-)      : kkmpptxz 7e9df299 1
-    Parent commit (@-)      : zsuskuln baf056cf 2
+    Working copy  (@) now at: mzvwutvl 42875bf7 (empty) 3
+    Parent commit (@-)      : kkmpptxz 9c66f62f 1
+    Parent commit (@-)      : zsuskuln 6a3dcbcf 2
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
@@ -260,12 +260,12 @@ fn test_absorb_merge() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Absorbed changes into 2 revisions:
-      zsuskuln 71d1ee56 2
-      kkmpptxz 4d379399 1
+      zsuskuln a6fde7ea 2
+      kkmpptxz 00ecc958 1
     Rebased 1 descendant commits.
-    Working copy  (@) now at: mzvwutvl 9db19b54 (empty) 3
-    Parent commit (@-)      : kkmpptxz 4d379399 1
-    Parent commit (@-)      : zsuskuln 71d1ee56 2
+    Working copy  (@) now at: mzvwutvl 30499858 (empty) 3
+    Parent commit (@-)      : kkmpptxz 00ecc958 1
+    Parent commit (@-)      : zsuskuln a6fde7ea 2
     [EOF]
     ");
 
@@ -279,15 +279,15 @@ fn test_absorb_merge() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Absorbed changes into 1 revisions:
-      mzvwutvl e93c0210 3
-    Working copy  (@) now at: vruxwmqv 1b10dfa4 (empty) (no description set)
-    Parent commit (@-)      : mzvwutvl e93c0210 3
+      mzvwutvl faf778a4 3
+    Working copy  (@) now at: vruxwmqv cec519a1 (empty) (no description set)
+    Parent commit (@-)      : mzvwutvl faf778a4 3
     [EOF]
     ");
 
     insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @r"
-    @  vruxwmqv 1b10dfa4 (empty) (no description set)
-    ○    mzvwutvl e93c0210 3
+    @  vruxwmqv cec519a1 (empty) (no description set)
+    ○    mzvwutvl faf778a4 3
     ├─╮  diff --git a/file2 b/file2
     │ │  new file mode 100644
     │ │  index 0000000000..44442d2d7b
@@ -295,7 +295,7 @@ fn test_absorb_merge() {
     │ │  +++ b/file2
     │ │  @@ -0,0 +1,1 @@
     │ │  +3A
-    │ ○  zsuskuln 71d1ee56 2
+    │ ○  zsuskuln a6fde7ea 2
     │ │  diff --git a/file1 b/file1
     │ │  index eb6e8821f1..4907935b9f 100644
     │ │  --- a/file1
@@ -304,7 +304,7 @@ fn test_absorb_merge() {
     │ │   0a
     │ │  +2a
     │ │  +2B
-    ○ │  kkmpptxz 4d379399 1
+    ○ │  kkmpptxz 00ecc958 1
     ├─╯  diff --git a/file1 b/file1
     │    index eb6e8821f1..902dd8ef13 100644
     │    --- a/file1
@@ -313,7 +313,7 @@ fn test_absorb_merge() {
     │    +1A
     │    +1b
     │     0a
-    ○  qpvuntsm 3777b700 0
+    ○  qpvuntsm d4f07be5 0
     │  diff --git a/file1 b/file1
     ~  new file mode 100644
        index 0000000000..eb6e8821f1
@@ -343,9 +343,9 @@ fn test_absorb_discardable_merge_with_descendant() {
     let output = work_dir.run_jj(["new", "description(1)", "description(2)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: mzvwutvl f59b2364 (empty) (no description set)
-    Parent commit (@-)      : kkmpptxz 7e9df299 1
-    Parent commit (@-)      : zsuskuln baf056cf 2
+    Working copy  (@) now at: mzvwutvl ad00b91a (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz 9c66f62f 1
+    Parent commit (@-)      : zsuskuln 6a3dcbcf 2
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
@@ -360,17 +360,17 @@ fn test_absorb_discardable_merge_with_descendant() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Absorbed changes into 2 revisions:
-      zsuskuln 02668cf6 2
-      kkmpptxz fcabe394 1
+      zsuskuln a6cd8e87 2
+      kkmpptxz 98b7d214 1
     Rebased 1 descendant commits.
-    Working copy  (@) now at: royxmykx f04f1247 3
-    Parent commit (@-)      : kkmpptxz fcabe394 1
-    Parent commit (@-)      : zsuskuln 02668cf6 2
+    Working copy  (@) now at: royxmykx df946e9b 3
+    Parent commit (@-)      : kkmpptxz 98b7d214 1
+    Parent commit (@-)      : zsuskuln a6cd8e87 2
     [EOF]
     ");
 
     insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @r"
-    @    royxmykx f04f1247 3
+    @    royxmykx df946e9b 3
     ├─╮  diff --git a/file2 b/file2
     │ │  new file mode 100644
     │ │  index 0000000000..31cd755d20
@@ -378,7 +378,7 @@ fn test_absorb_discardable_merge_with_descendant() {
     │ │  +++ b/file2
     │ │  @@ -0,0 +1,1 @@
     │ │  +3a
-    │ ○  zsuskuln 02668cf6 2
+    │ ○  zsuskuln a6cd8e87 2
     │ │  diff --git a/file1 b/file1
     │ │  index eb6e8821f1..4907935b9f 100644
     │ │  --- a/file1
@@ -387,7 +387,7 @@ fn test_absorb_discardable_merge_with_descendant() {
     │ │   0a
     │ │  +2a
     │ │  +2B
-    ○ │  kkmpptxz fcabe394 1
+    ○ │  kkmpptxz 98b7d214 1
     ├─╯  diff --git a/file1 b/file1
     │    index eb6e8821f1..902dd8ef13 100644
     │    --- a/file1
@@ -396,7 +396,7 @@ fn test_absorb_discardable_merge_with_descendant() {
     │    +1A
     │    +1b
     │     0a
-    ○  qpvuntsm 3777b700 0
+    ○  qpvuntsm d4f07be5 0
     │  diff --git a/file1 b/file1
     ~  new file mode 100644
        index 0000000000..eb6e8821f1
@@ -423,13 +423,13 @@ fn test_absorb_conflict() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits onto destination
-    Working copy  (@) now at: kkmpptxz 74405a07 (conflict) (no description set)
-    Parent commit (@-)      : qpvuntsm 3619e4e5 1
+    Working copy  (@) now at: kkmpptxz 66d44b8c (conflict) (no description set)
+    Parent commit (@-)      : qpvuntsm e35bcaff 1
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file1    2-sided conflict
     New conflicts appeared in 1 commits:
-      kkmpptxz 74405a07 (conflict) (no description set)
+      kkmpptxz 66d44b8c (conflict) (no description set)
     Hint: To resolve the conflicts, start by updating to it:
       jj new kkmpptxz
     Then use `jj resolve`, or edit the conflict markers in the file directly.
@@ -493,21 +493,21 @@ fn test_absorb_deleted_file() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Absorbed changes into 1 revisions:
-      qpvuntsm f3c5cd48 1
+      qpvuntsm 38af7fd3 1
     Rebased 1 descendant commits.
-    Working copy  (@) now at: kkmpptxz 691fa544 (no description set)
-    Parent commit (@-)      : qpvuntsm f3c5cd48 1
+    Working copy  (@) now at: kkmpptxz efd883f6 (no description set)
+    Parent commit (@-)      : qpvuntsm 38af7fd3 1
     Remaining changes:
     D file3
     [EOF]
     ");
 
     insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @r"
-    @  kkmpptxz 691fa544 (no description set)
+    @  kkmpptxz efd883f6 (no description set)
     │  diff --git a/file3 b/file3
     │  deleted file mode 100644
     │  index e69de29bb2..0000000000
-    ○  qpvuntsm f3c5cd48 1
+    ○  qpvuntsm 38af7fd3 1
     │  diff --git a/file2 b/file2
     ~  new file mode 100644
        index 0000000000..e69de29bb2
@@ -548,14 +548,14 @@ fn test_absorb_deleted_file_with_multiple_hunks() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Absorbed changes into 2 revisions:
-      kkmpptxz ca0a3d3c (conflict) 2
-      qpvuntsm f2703d39 (conflict) 1
+      kkmpptxz 8407ab95 (conflict) 2
+      qpvuntsm f1473264 (conflict) 1
     Rebased 1 descendant commits.
-    Working copy  (@) now at: zsuskuln 0156c3af (no description set)
-    Parent commit (@-)      : kkmpptxz ca0a3d3c (conflict) 2
+    Working copy  (@) now at: zsuskuln b56f0c39 (no description set)
+    Parent commit (@-)      : kkmpptxz 8407ab95 (conflict) 2
     New conflicts appeared in 2 commits:
-      kkmpptxz ca0a3d3c (conflict) 2
-      qpvuntsm f2703d39 (conflict) 1
+      kkmpptxz 8407ab95 (conflict) 2
+      qpvuntsm f1473264 (conflict) 1
     Hint: To resolve the conflicts, start by updating to the first one:
       jj new qpvuntsm
     Then use `jj resolve`, or edit the conflict markers in the file directly.
@@ -567,7 +567,7 @@ fn test_absorb_deleted_file_with_multiple_hunks() {
     ");
 
     insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @r"
-    @  zsuskuln 0156c3af (no description set)
+    @  zsuskuln b56f0c39 (no description set)
     │  diff --git a/file2 b/file2
     │  deleted file mode 100644
     │  index 0000000000..0000000000
@@ -581,7 +581,7 @@ fn test_absorb_deleted_file_with_multiple_hunks() {
     │  -+++++++ Contents of side #2
     │  -1a
     │  ->>>>>>> Conflict 1 of 1 ends
-    ×  kkmpptxz ca0a3d3c (conflict) 2
+    ×  kkmpptxz 8407ab95 (conflict) 2
     │  diff --git a/file1 b/file1
     │  deleted file mode 100644
     │  index 0000000000..0000000000
@@ -608,7 +608,7 @@ fn test_absorb_deleted_file_with_multiple_hunks() {
     │  -1b
     │  +1a
     │   >>>>>>> Conflict 1 of 1 ends
-    ×  qpvuntsm f2703d39 (conflict) 1
+    ×  qpvuntsm f1473264 (conflict) 1
     │  diff --git a/file1 b/file1
     ~  new file mode 100644
        index 0000000000..0000000000
@@ -658,21 +658,21 @@ fn test_absorb_file_mode() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Absorbed changes into 1 revisions:
-      qpvuntsm 991365da 1
+      qpvuntsm 2a0c7f1d 1
     Rebased 1 descendant commits.
-    Working copy  (@) now at: zsuskuln 77de368e (no description set)
-    Parent commit (@-)      : qpvuntsm 991365da 1
+    Working copy  (@) now at: zsuskuln 8ca9761d (no description set)
+    Parent commit (@-)      : qpvuntsm 2a0c7f1d 1
     Remaining changes:
     M file1
     [EOF]
     ");
 
     insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @r"
-    @  zsuskuln 77de368e (no description set)
+    @  zsuskuln 8ca9761d (no description set)
     │  diff --git a/file1 b/file1
     │  old mode 100755
     │  new mode 100644
-    ○  qpvuntsm 991365da 1
+    ○  qpvuntsm 2a0c7f1d 1
     │  diff --git a/file1 b/file1
     ~  new file mode 100755
        index 0000000000..268de3f3ec
@@ -704,17 +704,17 @@ fn test_absorb_from_into() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Absorbed changes into 1 revisions:
-      kkmpptxz 91df4543 2
+      kkmpptxz cae507ef 2
     Rebased 1 descendant commits.
-    Working copy  (@) now at: zsuskuln d5424357 (no description set)
-    Parent commit (@-)      : kkmpptxz 91df4543 2
+    Working copy  (@) now at: zsuskuln f02fd9ea (no description set)
+    Parent commit (@-)      : kkmpptxz cae507ef 2
     Remaining changes:
     M file1
     [EOF]
     ");
 
     insta::assert_snapshot!(get_diffs(&work_dir, "@-::"), @r"
-    @  zsuskuln d5424357 (no description set)
+    @  zsuskuln f02fd9ea (no description set)
     │  diff --git a/file1 b/file1
     │  index faf62af049..c2d0b12547 100644
     │  --- a/file1
@@ -727,7 +727,7 @@ fn test_absorb_from_into() {
     │   1c
     │   2b
     │   Z
-    ○  kkmpptxz 91df4543 2
+    ○  kkmpptxz cae507ef 2
     │  diff --git a/file1 b/file1
     ~  index 352e9b3794..faf62af049 100644
        --- a/file1
@@ -749,15 +749,15 @@ fn test_absorb_from_into() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Absorbed changes into 1 revisions:
-      rlvkpnrz 3a5fd02e 1
+      rlvkpnrz ddaed33d 1
     Rebased 2 descendant commits.
-    Working copy  (@) now at: zsuskuln 53ce490b (no description set)
-    Parent commit (@-)      : kkmpptxz c94cd773 (empty) 2
+    Working copy  (@) now at: zsuskuln 3652e5e5 (no description set)
+    Parent commit (@-)      : kkmpptxz 7f4339e7 (empty) 2
     [EOF]
     ");
 
     insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @r"
-    @  zsuskuln 53ce490b (no description set)
+    @  zsuskuln 3652e5e5 (no description set)
     │  diff --git a/file1 b/file1
     │  index faf62af049..c2d0b12547 100644
     │  --- a/file1
@@ -770,8 +770,8 @@ fn test_absorb_from_into() {
     │   1c
     │   2b
     │   Z
-    ○  kkmpptxz c94cd773 (empty) 2
-    ○  rlvkpnrz 3a5fd02e 1
+    ○  kkmpptxz 7f4339e7 (empty) 2
+    ○  rlvkpnrz ddaed33d 1
     │  diff --git a/file1 b/file1
     │  new file mode 100644
     │  index 0000000000..faf62af049
@@ -785,7 +785,7 @@ fn test_absorb_from_into() {
     │  +1c
     │  +2b
     │  +Z
-    ○  qpvuntsm 230dd059 (empty) (no description set)
+    ○  qpvuntsm e8849ae1 (empty) (no description set)
     │
     ~
     [EOF]
@@ -818,17 +818,17 @@ fn test_absorb_paths() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Absorbed changes into 1 revisions:
-      qpvuntsm ae044adb 1
+      qpvuntsm ca07fabe 1
     Rebased 1 descendant commits.
-    Working copy  (@) now at: kkmpptxz c6f31836 (no description set)
-    Parent commit (@-)      : qpvuntsm ae044adb 1
+    Working copy  (@) now at: kkmpptxz 4d80ada8 (no description set)
+    Parent commit (@-)      : qpvuntsm ca07fabe 1
     Remaining changes:
     M file2
     [EOF]
     ");
 
     insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @r"
-    @  kkmpptxz c6f31836 (no description set)
+    @  kkmpptxz 4d80ada8 (no description set)
     │  diff --git a/file2 b/file2
     │  index a8994dc188..268de3f3ec 100644
     │  --- a/file2
@@ -836,7 +836,7 @@ fn test_absorb_paths() {
     │  @@ -1,1 +1,1 @@
     │  -1a
     │  +1A
-    ○  qpvuntsm ae044adb 1
+    ○  qpvuntsm ca07fabe 1
     │  diff --git a/file1 b/file1
     ~  new file mode 100644
        index 0000000000..268de3f3ec
@@ -879,10 +879,10 @@ fn test_absorb_immutable() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Absorbed changes into 1 revisions:
-      kkmpptxz d80e3c2a 2
+      kkmpptxz e68cc3e2 2
     Rebased 1 descendant commits.
-    Working copy  (@) now at: mzvwutvl 3021153d (no description set)
-    Parent commit (@-)      : kkmpptxz d80e3c2a 2
+    Working copy  (@) now at: mzvwutvl 88443af7 (no description set)
+    Parent commit (@-)      : kkmpptxz e68cc3e2 2
     Remaining changes:
     M file1
     [EOF]
@@ -892,8 +892,8 @@ fn test_absorb_immutable() {
     let output = work_dir.run_jj(["absorb", "--into=all()"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: Commit 3619e4e52fce is immutable
-    Hint: Could not modify commit: qpvuntsm 3619e4e5 main | 1
+    Error: Commit e35bcaffcb55 is immutable
+    Hint: Could not modify commit: qpvuntsm e35bcaff main | 1
     Hint: Immutable commits are used to protect shared history.
     Hint: For more information, see:
           - https://jj-vcs.github.io/jj/latest/config/#set-of-immutable-commits
@@ -904,7 +904,7 @@ fn test_absorb_immutable() {
     "#);
 
     insta::assert_snapshot!(get_diffs(&work_dir, ".."), @r"
-    @  mzvwutvl 3021153d (no description set)
+    @  mzvwutvl 88443af7 (no description set)
     │  diff --git a/file1 b/file1
     │  index 75e4047831..428796ca20 100644
     │  --- a/file1
@@ -915,7 +915,7 @@ fn test_absorb_immutable() {
     │   1b
     │   2a
     │   2B
-    ○  kkmpptxz d80e3c2a 2
+    ○  kkmpptxz e68cc3e2 2
     │  diff --git a/file1 b/file1
     │  index 8c5268f893..75e4047831 100644
     │  --- a/file1
@@ -925,7 +925,7 @@ fn test_absorb_immutable() {
     │   1b
     │  +2a
     │  +2B
-    ◆  qpvuntsm 3619e4e5 1
+    ◆  qpvuntsm e35bcaff 1
     │  diff --git a/file1 b/file1
     ~  new file mode 100644
        index 0000000000..8c5268f893

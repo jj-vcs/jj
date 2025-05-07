@@ -137,7 +137,7 @@ fn test_git_init_external(bare: bool) {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Done importing changes from the underlying Git repo.
-    Working copy  (@) now at: sqpuoqvx 0bd37cef (empty) (no description set)
+    Working copy  (@) now at: sqpuoqvx ed6b5138 (empty) (no description set)
     Parent commit (@-)      : nntyzxmz e80a42cc my-bookmark | My commit message
     Added 1 files, modified 0 files, removed 0 files
     Initialized repo in "repo"
@@ -164,7 +164,7 @@ fn test_git_init_external(bare: bool) {
     // Check that the Git repo's HEAD got checked out
     insta::allow_duplicates! {
         insta::assert_snapshot!(get_log_output(&work_dir), @r"
-        @  0bd37cef2051
+        @  ed6b513890ae
         ○  e80a42cccd06 my-bookmark git_head() My commit message
         ◆  000000000000
         [EOF]
@@ -215,7 +215,7 @@ fn test_git_init_external_import_trunk(bare: bool) {
     ------- stderr -------
     Done importing changes from the underlying Git repo.
     Setting the revset alias `trunk()` to `trunk@origin`
-    Working copy  (@) now at: sqpuoqvx 0bd37cef (empty) (no description set)
+    Working copy  (@) now at: sqpuoqvx ed6b5138 (empty) (no description set)
     Parent commit (@-)      : nntyzxmz e80a42cc my-bookmark trunk@origin | My commit message
     Added 1 files, modified 0 files, removed 0 files
     Initialized repo in "repo"
@@ -340,7 +340,7 @@ fn test_git_init_colocated_via_git_repo_path() {
 
     // Check that the Git repo's HEAD got checked out
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  5f169ecc57b8
+    @  f3fe58bc88cc
     ○  e80a42cccd06 my-bookmark git_head() My commit message
     ◆  000000000000
     [EOF]
@@ -349,8 +349,8 @@ fn test_git_init_colocated_via_git_repo_path() {
     // Check that the Git repo's HEAD moves
     work_dir.run_jj(["new"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  62eda98b5eb4
-    ○  5f169ecc57b8 git_head()
+    @  0c77f9e21b55
+    ○  f3fe58bc88cc git_head()
     ○  e80a42cccd06 my-bookmark My commit message
     ◆  000000000000
     [EOF]
@@ -378,7 +378,7 @@ fn test_git_init_colocated_via_git_repo_path_gitlink() {
 
     // Check that the Git repo's HEAD got checked out
     insta::assert_snapshot!(get_log_output(&jj_work_dir), @r"
-    @  5f169ecc57b8
+    @  f3fe58bc88cc
     ○  e80a42cccd06 my-bookmark git_head() My commit message
     ◆  000000000000
     [EOF]
@@ -387,8 +387,8 @@ fn test_git_init_colocated_via_git_repo_path_gitlink() {
     // Check that the Git repo's HEAD moves
     jj_work_dir.run_jj(["new"]).success();
     insta::assert_snapshot!(get_log_output(&jj_work_dir), @r"
-    @  62eda98b5eb4
-    ○  5f169ecc57b8 git_head()
+    @  0c77f9e21b55
+    ○  f3fe58bc88cc git_head()
     ○  e80a42cccd06 my-bookmark My commit message
     ◆  000000000000
     [EOF]
@@ -416,7 +416,7 @@ fn test_git_init_colocated_via_git_repo_path_symlink_directory() {
 
     // Check that the Git repo's HEAD got checked out
     insta::assert_snapshot!(get_log_output(&jj_work_dir), @r"
-    @  5f169ecc57b8
+    @  f3fe58bc88cc
     ○  e80a42cccd06 my-bookmark git_head() My commit message
     ◆  000000000000
     [EOF]
@@ -425,8 +425,8 @@ fn test_git_init_colocated_via_git_repo_path_symlink_directory() {
     // Check that the Git repo's HEAD moves
     jj_work_dir.run_jj(["new"]).success();
     insta::assert_snapshot!(get_log_output(&jj_work_dir), @r"
-    @  62eda98b5eb4
-    ○  5f169ecc57b8 git_head()
+    @  0c77f9e21b55
+    ○  f3fe58bc88cc git_head()
     ○  e80a42cccd06 my-bookmark My commit message
     ◆  000000000000
     [EOF]
@@ -458,7 +458,7 @@ fn test_git_init_colocated_via_git_repo_path_symlink_directory_without_bare_conf
 
     // Check that the Git repo's HEAD got checked out
     insta::assert_snapshot!(get_log_output(&jj_work_dir), @r"
-    @  5f169ecc57b8
+    @  f3fe58bc88cc
     ○  e80a42cccd06 my-bookmark git_head() My commit message
     ◆  000000000000
     [EOF]
@@ -467,8 +467,8 @@ fn test_git_init_colocated_via_git_repo_path_symlink_directory_without_bare_conf
     // Check that the Git repo's HEAD moves
     jj_work_dir.run_jj(["new"]).success();
     insta::assert_snapshot!(get_log_output(&jj_work_dir), @r"
-    @  62eda98b5eb4
-    ○  5f169ecc57b8 git_head()
+    @  0c77f9e21b55
+    ○  f3fe58bc88cc git_head()
     ○  e80a42cccd06 my-bookmark My commit message
     ◆  000000000000
     [EOF]
@@ -503,7 +503,7 @@ fn test_git_init_colocated_via_git_repo_path_symlink_gitlink() {
 
     // Check that the Git repo's HEAD got checked out
     insta::assert_snapshot!(get_log_output(&jj_work_dir), @r"
-    @  5f169ecc57b8
+    @  f3fe58bc88cc
     ○  e80a42cccd06 my-bookmark git_head() My commit message
     ◆  000000000000
     [EOF]
@@ -512,8 +512,8 @@ fn test_git_init_colocated_via_git_repo_path_symlink_gitlink() {
     // Check that the Git repo's HEAD moves
     jj_work_dir.run_jj(["new"]).success();
     insta::assert_snapshot!(get_log_output(&jj_work_dir), @r"
-    @  62eda98b5eb4
-    ○  5f169ecc57b8 git_head()
+    @  0c77f9e21b55
+    ○  f3fe58bc88cc git_head()
     ○  e80a42cccd06 my-bookmark My commit message
     ◆  000000000000
     [EOF]
@@ -563,12 +563,12 @@ fn test_git_init_colocated_via_git_repo_path_imported_refs() {
     [EOF]
     "#);
     insta::assert_snapshot!(get_bookmark_output(&local_dir), @r"
-    local-remote: vvkvtnvv 230dd059 (empty) (no description set)
-      @git: vvkvtnvv 230dd059 (empty) (no description set)
-      @origin: vvkvtnvv 230dd059 (empty) (no description set)
-    remote-only: vvkvtnvv 230dd059 (empty) (no description set)
-      @git: vvkvtnvv 230dd059 (empty) (no description set)
-      @origin: vvkvtnvv 230dd059 (empty) (no description set)
+    local-remote: qpvuntsm e8849ae1 (empty) (no description set)
+      @git: qpvuntsm e8849ae1 (empty) (no description set)
+      @origin: qpvuntsm e8849ae1 (empty) (no description set)
+    remote-only: qpvuntsm e8849ae1 (empty) (no description set)
+      @git: qpvuntsm e8849ae1 (empty) (no description set)
+      @origin: qpvuntsm e8849ae1 (empty) (no description set)
     [EOF]
     ");
 
@@ -587,10 +587,10 @@ fn test_git_init_colocated_via_git_repo_path_imported_refs() {
     [EOF]
     "#);
     insta::assert_snapshot!(get_bookmark_output(&local_dir), @r"
-    local-remote: vvkvtnvv 230dd059 (empty) (no description set)
-      @git: vvkvtnvv 230dd059 (empty) (no description set)
-    local-remote@origin: vvkvtnvv 230dd059 (empty) (no description set)
-    remote-only@origin: vvkvtnvv 230dd059 (empty) (no description set)
+    local-remote: qpvuntsm e8849ae1 (empty) (no description set)
+      @git: qpvuntsm e8849ae1 (empty) (no description set)
+    local-remote@origin: qpvuntsm e8849ae1 (empty) (no description set)
+    remote-only@origin: qpvuntsm e8849ae1 (empty) (no description set)
     [EOF]
     ");
 }
@@ -642,7 +642,7 @@ fn test_git_init_colocated_dirty_working_copy() {
     // Working-copy changes should have been snapshotted.
     let output = work_dir.run_jj(["log", "-s", "--ignore-working-copy"]);
     insta::assert_snapshot!(output, @r"
-    @  sqpuoqvx test.user@example.com 2001-02-03 08:05:07 36dbd9a1
+    @  sqpuoqvx test.user@example.com 2001-02-03 08:05:07 6efc2a53
     │  (no description set)
     │  C {some-file => new-staged-file}
     │  M some-file
@@ -747,7 +747,7 @@ fn test_git_init_external_but_git_dir_exists() {
 
     // The local ".git" repository is unrelated, so no commits should be imported
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  230dd059e1b0
+    @  e8849ae12c70
     ◆  000000000000
     [EOF]
     ");
@@ -755,8 +755,8 @@ fn test_git_init_external_but_git_dir_exists() {
     // Check that Git HEAD is not set because this isn't a colocated repo
     work_dir.run_jj(["new"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  4db490c88528
-    ○  230dd059e1b0
+    @  1c1c95df80e5
+    ○  e8849ae12c70
     ◆  000000000000
     [EOF]
     ");
@@ -778,7 +778,7 @@ fn test_git_init_colocated_via_flag_git_dir_exists() {
 
     // Check that the Git repo's HEAD got checked out
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  5f169ecc57b8
+    @  f3fe58bc88cc
     ○  e80a42cccd06 my-bookmark git_head() My commit message
     ◆  000000000000
     [EOF]
@@ -787,8 +787,8 @@ fn test_git_init_colocated_via_flag_git_dir_exists() {
     // Check that the Git repo's HEAD moves
     work_dir.run_jj(["new"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  62eda98b5eb4
-    ○  5f169ecc57b8 git_head()
+    @  0c77f9e21b55
+    ○  f3fe58bc88cc git_head()
     ○  e80a42cccd06 my-bookmark My commit message
     ◆  000000000000
     [EOF]
@@ -807,7 +807,7 @@ fn test_git_init_colocated_via_flag_git_dir_not_exists() {
     "#);
     // No HEAD ref is available yet
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  230dd059e1b0
+    @  e8849ae12c70
     ◆  000000000000
     [EOF]
     ");
@@ -820,7 +820,7 @@ fn test_git_init_colocated_via_flag_git_dir_not_exists() {
     // If .git/HEAD pointed to the default bookmark, new working-copy commit would
     // be created on top.
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  230dd059e1b0 main master
+    @  e8849ae12c70 main master
     ◆  000000000000
     [EOF]
     ");

@@ -106,9 +106,9 @@ fn test_chmod_regular_conflict() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: No matching entries for paths: nonexistent
-    Working copy  (@) now at: yostqsxw 2b11d002 conflict | (conflict) conflict
-    Parent commit (@-)      : royxmykx 427fbd2f x | x
-    Parent commit (@-)      : zsuskuln 3f83a26d n | n
+    Working copy  (@) now at: yostqsxw df2619be conflict | (conflict) conflict
+    Parent commit (@-)      : royxmykx 02247291 x | x
+    Parent commit (@-)      : zsuskuln eb0ba805 n | n
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including an executable
@@ -196,14 +196,14 @@ fn test_chmod_file_dir_deletion_conflicts() {
     let output = work_dir.run_jj(["file", "chmod", "x", "file", "-r=file_deletion"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: kmkuslsw 139dee15 file_deletion | (conflict) file_deletion
-    Parent commit (@-)      : zsuskuln c51c9c55 file | file
-    Parent commit (@-)      : royxmykx 6b18b3c1 deletion | deletion
+    Working copy  (@) now at: kmkuslsw dc89f9e7 file_deletion | (conflict) file_deletion
+    Parent commit (@-)      : zsuskuln bc9cdea1 file | file
+    Parent commit (@-)      : royxmykx d7d39332 deletion | deletion
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including 1 deletion and an executable
     New conflicts appeared in 1 commits:
-      kmkuslsw 139dee15 file_deletion | (conflict) file_deletion
+      kmkuslsw dc89f9e7 file_deletion | (conflict) file_deletion
     Hint: To resolve the conflicts, start by updating to it:
       jj new kmkuslsw
     Then use `jj resolve`, or edit the conflict markers in the file directly.

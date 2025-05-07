@@ -619,7 +619,7 @@ fn test_all_modifier() {
     ------- stderr -------
     Error: Revset `all()` resolved to more than one revision
     Hint: The revset `all()` resolved to these revisions:
-      qpvuntsm 230dd059 (empty) (no description set)
+      qpvuntsm e8849ae1 (empty) (no description set)
       zzzzzzzz 00000000 (empty) (no description set)
     Hint: Prefix the expression with `all:` to allow any number of revisions (i.e. `all:all()`).
     [EOF]
@@ -636,7 +636,7 @@ fn test_all_modifier() {
     // Command that accepts multiple revisions by default
     let output = work_dir.run_jj(["log", "-rall:all()"]);
     insta::assert_snapshot!(output, @r"
-    @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 230dd059
+    @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 e8849ae1
     │  (empty) (no description set)
     ◆  zzzzzzzz root() 00000000
     [EOF]
@@ -646,7 +646,7 @@ fn test_all_modifier() {
     let output = work_dir.run_jj(["bookmark", "create", "-rall:@", "x"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Created 1 bookmarks pointing to qpvuntsm 230dd059 x | (empty) (no description set)
+    Created 1 bookmarks pointing to qpvuntsm e8849ae1 x | (empty) (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["bookmark", "set", "-rall:all()", "x"]);
@@ -654,7 +654,7 @@ fn test_all_modifier() {
     ------- stderr -------
     Error: Revset `all:all()` resolved to more than one revision
     Hint: The revset `all:all()` resolved to these revisions:
-      qpvuntsm 230dd059 x | (empty) (no description set)
+      qpvuntsm e8849ae1 x | (empty) (no description set)
       zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     [exit status: 1]

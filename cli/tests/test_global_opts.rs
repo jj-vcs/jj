@@ -111,13 +111,13 @@ fn test_no_subcommand() {
         .success();
     // TODO: test_env.run_jj(["-r", "help"]).success()
     insta::assert_snapshot!(work_dir.run_jj(["-r", "log"]), @r"
-    @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 help log show 230dd059
+    @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 help log show e8849ae1
     │  (empty) (no description set)
     ~
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["-r", "show"]), @r"
-    @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 help log show 230dd059
+    @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 help log show e8849ae1
     │  (empty) (no description set)
     ~
     [EOF]
@@ -130,8 +130,8 @@ fn test_no_subcommand() {
     let output = work_dir.run_jj([""; 0]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: kxryzmor 89c70edf (empty) (no description set)
-    Parent commit (@-)      : lylxulpl 51bd3589 foo
+    Working copy  (@) now at: kxryzmor 8db1ba9a (empty) (no description set)
+    Parent commit (@-)      : lylxulpl 19f3adb2 foo
     [EOF]
     ");
 }
@@ -145,7 +145,7 @@ fn test_ignore_working_copy() {
     work_dir.write_file("file", "initial");
     let output = work_dir.run_jj(["log", "-T", "commit_id"]);
     insta::assert_snapshot!(output, @r"
-    @  b15ef4cdd277d2c63cce6d67c1916f53a36141f7
+    @  82a10a4d9ef783fd68b661f40ce10dd80d599d9e
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -159,7 +159,7 @@ fn test_ignore_working_copy() {
     // But without --ignore-working-copy, we get a new commit ID.
     let output = work_dir.run_jj(["log", "-T", "commit_id"]);
     insta::assert_snapshot!(output, @r"
-    @  4d2c49a8f8e2f1ba61f48ba79e5f4a5faa6512cf
+    @  00fc09f48ccf5c8b025a0f93b0ec3b0e4294a598
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -200,7 +200,7 @@ fn test_resolve_workspace_directory() {
     let output = sub_dir.run_jj(["status"]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
-    Working copy  (@) : qpvuntsm 230dd059 (empty) (no description set)
+    Working copy  (@) : qpvuntsm e8849ae1 (empty) (no description set)
     Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
@@ -218,7 +218,7 @@ fn test_resolve_workspace_directory() {
     let output = sub_dir.run_jj(["status", "-R", "../.."]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
-    Working copy  (@) : qpvuntsm 230dd059 (empty) (no description set)
+    Working copy  (@) : qpvuntsm e8849ae1 (empty) (no description set)
     Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
@@ -424,7 +424,7 @@ fn test_color_config() {
     // Test that --color=always is respected.
     let output = work_dir.run_jj(["--color=always", "log", "-T", "commit_id"]);
     insta::assert_snapshot!(output, @r"
-    [1m[38;5;2m@[0m  [38;5;4m230dd059e1b059aefc0da06a2e5a7dbf22362f22[39m
+    [1m[38;5;2m@[0m  [38;5;4me8849ae12c709f2321908879bc724fdb2ab8a781[39m
     [1m[38;5;14m◆[0m  [38;5;4m0000000000000000000000000000000000000000[39m
     [EOF]
     ");
@@ -433,7 +433,7 @@ fn test_color_config() {
     test_env.add_config(r#"ui.color="always""#);
     let output = work_dir.run_jj(["log", "-T", "commit_id"]);
     insta::assert_snapshot!(output, @r"
-    [1m[38;5;2m@[0m  [38;5;4m230dd059e1b059aefc0da06a2e5a7dbf22362f22[39m
+    [1m[38;5;2m@[0m  [38;5;4me8849ae12c709f2321908879bc724fdb2ab8a781[39m
     [1m[38;5;14m◆[0m  [38;5;4m0000000000000000000000000000000000000000[39m
     [EOF]
     ");
@@ -441,7 +441,7 @@ fn test_color_config() {
     // Test that --color=never overrides the config.
     let output = work_dir.run_jj(["--color=never", "log", "-T", "commit_id"]);
     insta::assert_snapshot!(output, @r"
-    @  230dd059e1b059aefc0da06a2e5a7dbf22362f22
+    @  e8849ae12c709f2321908879bc724fdb2ab8a781
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -449,7 +449,7 @@ fn test_color_config() {
     // Test that --color=auto overrides the config.
     let output = work_dir.run_jj(["--color=auto", "log", "-T", "commit_id"]);
     insta::assert_snapshot!(output, @r"
-    @  230dd059e1b059aefc0da06a2e5a7dbf22362f22
+    @  e8849ae12c709f2321908879bc724fdb2ab8a781
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -457,7 +457,7 @@ fn test_color_config() {
     // Test that --config 'ui.color=never' overrides the config.
     let output = work_dir.run_jj(["--config=ui.color=never", "log", "-T", "commit_id"]);
     insta::assert_snapshot!(output, @r"
-    @  230dd059e1b059aefc0da06a2e5a7dbf22362f22
+    @  e8849ae12c709f2321908879bc724fdb2ab8a781
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -472,7 +472,7 @@ fn test_color_config() {
         "commit_id",
     ]);
     insta::assert_snapshot!(output, @r"
-    @  230dd059e1b059aefc0da06a2e5a7dbf22362f22
+    @  e8849ae12c709f2321908879bc724fdb2ab8a781
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -482,7 +482,7 @@ fn test_color_config() {
     let work_dir = test_env.work_dir("repo");
     let output = work_dir.run_jj(["log", "-T", "commit_id"]);
     insta::assert_snapshot!(output, @r"
-    [1m[38;5;2m@[0m  [38;5;4m230dd059e1b059aefc0da06a2e5a7dbf22362f22[39m
+    [1m[38;5;2m@[0m  [38;5;4me8849ae12c709f2321908879bc724fdb2ab8a781[39m
     [1m[38;5;14m◆[0m  [38;5;4m0000000000000000000000000000000000000000[39m
     [EOF]
     ");
@@ -491,7 +491,7 @@ fn test_color_config() {
     work_dir.write_file(".jj/repo/config.toml", r#"ui.color = "never""#);
     let output = work_dir.run_jj(["log", "-T", "commit_id"]);
     insta::assert_snapshot!(output, @r"
-    @  230dd059e1b059aefc0da06a2e5a7dbf22362f22
+    @  e8849ae12c709f2321908879bc724fdb2ab8a781
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -573,7 +573,7 @@ fn test_color_ui_messages() {
         "-Tdescription",
     ]);
     insta::assert_snapshot!(output, @r"
-    [38;5;4m167f90e7600a50f85c4f909b53eaf546faa82879[39m
+    [38;5;4m8afc18ff677d32e40043e1bc8c1683c2f9c2e916[39m
     [1m[39m<[38;5;1mError: [39mNo Commit available>[0m  [38;5;8m(elided revisions)[39m
     [38;5;4m0000000000000000000000000000000000000000[39m
     [EOF]
@@ -585,8 +585,8 @@ fn test_color_ui_messages() {
     ------- stderr -------
     [1m[38;5;1mError: [39mRevset `..` resolved to more than one revision[0m
     [1m[38;5;6mHint: [0m[39mThe revset `..` resolved to these revisions:[39m
-    [39m  [1m[38;5;5mm[0m[38;5;8mzvwutvl[39m [1m[38;5;4m1[0m[38;5;8m67f90e7[39m [38;5;2m(empty)[39m [38;5;2m(no description set)[39m[39m
-    [39m  [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [1m[38;5;4m2[0m[38;5;8m30dd059[39m [38;5;2m(empty)[39m [38;5;2m(no description set)[39m[39m
+    [39m  [1m[38;5;5mm[0m[38;5;8mzvwutvl[39m [1m[38;5;4m8[0m[38;5;8mafc18ff[39m [38;5;2m(empty)[39m [38;5;2m(no description set)[39m[39m
+    [39m  [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [1m[38;5;4me[0m[38;5;8m8849ae1[39m [38;5;2m(empty)[39m [38;5;2m(no description set)[39m[39m
     [1m[38;5;6mHint: [0m[39mPrefix the expression with `all:` to allow any number of revisions (i.e. `all:..`).[39m
     [EOF]
     [exit status: 1]
@@ -596,8 +596,8 @@ fn test_color_ui_messages() {
     let output = work_dir.run_jj(["st", "--color", "debug"]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
-    Working copy  (@) : [1m[38;5;13m<<working_copy change_id shortest prefix::m>>[38;5;8m<<working_copy change_id shortest rest::zvwutvl>>[39m<<working_copy:: >>[38;5;12m<<working_copy commit_id shortest prefix::1>>[38;5;8m<<working_copy commit_id shortest rest::67f90e7>>[39m<<working_copy:: >>[38;5;10m<<working_copy empty::(empty)>>[39m<<working_copy:: >>[38;5;10m<<working_copy empty description placeholder::(no description set)>>[0m
-    Parent commit (@-): [1m[38;5;5m<<change_id shortest prefix::q>>[0m[38;5;8m<<change_id shortest rest::pvuntsm>>[39m [1m[38;5;4m<<commit_id shortest prefix::2>>[0m[38;5;8m<<commit_id shortest rest::30dd059>>[39m [38;5;2m<<empty::(empty)>>[39m [38;5;2m<<empty description placeholder::(no description set)>>[39m
+    Working copy  (@) : [1m[38;5;13m<<working_copy change_id shortest prefix::m>>[38;5;8m<<working_copy change_id shortest rest::zvwutvl>>[39m<<working_copy:: >>[38;5;12m<<working_copy commit_id shortest prefix::8>>[38;5;8m<<working_copy commit_id shortest rest::afc18ff>>[39m<<working_copy:: >>[38;5;10m<<working_copy empty::(empty)>>[39m<<working_copy:: >>[38;5;10m<<working_copy empty description placeholder::(no description set)>>[0m
+    Parent commit (@-): [1m[38;5;5m<<change_id shortest prefix::q>>[0m[38;5;8m<<change_id shortest rest::pvuntsm>>[39m [1m[38;5;4m<<commit_id shortest prefix::e>>[0m[38;5;8m<<commit_id shortest rest::8849ae1>>[39m [38;5;2m<<empty::(empty)>>[39m [38;5;2m<<empty description placeholder::(no description set)>>[39m
     [EOF]
     ");
 }
@@ -867,14 +867,14 @@ fn test_conditional_config() {
     let output = test_env.run_jj_in(&test_env.home_dir().join("repo1"), ["foo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: royxmykx 82899b03 (empty) repo1
+    Working copy  (@) now at: royxmykx 7c486962 (empty) repo1
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
     let output = test_env.run_jj_in(&test_env.home_dir().join("repo2"), ["foo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: yqosqzyt 3bd315a9 (empty) home
+    Working copy  (@) now at: yqosqzyt 072741b8 (empty) home
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
@@ -1003,7 +1003,7 @@ fn test_no_user_configured() {
     });
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Working copy  (@) now at: qpvuntsm 7a7d6016 (empty) without name
+    Working copy  (@) now at: qpvuntsm 7e7014c2 (empty) without name
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Warning: Name not configured. Until configured, your commits will be created with the empty identity, and can't be pushed to remotes.
     Hint: To configure, run:
@@ -1016,7 +1016,7 @@ fn test_no_user_configured() {
     });
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Working copy  (@) now at: qpvuntsm 906f8b89 (empty) without email
+    Working copy  (@) now at: qpvuntsm 876580e3 (empty) without email
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Warning: Email not configured. Until configured, your commits will be created with the empty identity, and can't be pushed to remotes.
     Hint: To configure, run:
@@ -1030,7 +1030,7 @@ fn test_no_user_configured() {
     });
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Working copy  (@) now at: qpvuntsm 57d3a489 (empty) without name and email
+    Working copy  (@) now at: qpvuntsm f87356a1 (empty) without name and email
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Warning: Name and email not configured. Until configured, your commits will be created with the empty identity, and can't be pushed to remotes.
     Hint: To configure, run:

@@ -27,12 +27,12 @@ fn test_parallelize_no_descendants() {
     }
     work_dir.run_jj(["describe", "-m=6"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  02b7709cc4e9 6 parents: 5
-    ○  1b2f08d76b66 5 parents: 4
-    ○  e5c4cf44e237 4 parents: 3
-    ○  4cd999dfaac0 3 parents: 2
-    ○  d3902619fade 2 parents: 1
-    ○  8b64ddff700d 1 parents:
+    @  e12cca0818cd 6 parents: 5
+    ○  44f4686efbe9 5 parents: 4
+    ○  6858f6e16a6c 4 parents: 3
+    ○  8cfb27e238c8 3 parents: 2
+    ○  320daf48ba58 2 parents: 1
+    ○  884fe9b9c656 1 parents:
     ◆  000000000000 parents:
     [EOF]
     ");
@@ -41,16 +41,16 @@ fn test_parallelize_no_descendants() {
         .run_jj(["parallelize", "description(1)::"])
         .success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  4850b4629edb 6 parents:
-    │ ○  87627fbb7d29 5 parents:
+    @  22b8a32d1949 6 parents:
+    │ ○  436e81ced43f 5 parents:
     ├─╯
-    │ ○  5b9815e28fae 4 parents:
+    │ ○  823bf930aefb 4 parents:
     ├─╯
-    │ ○  bb1bb465ccc2 3 parents:
+    │ ○  3b6586259aa9 3 parents:
     ├─╯
-    │ ○  337eca1ef3a8 2 parents:
+    │ ○  dfd927ce07c0 2 parents:
     ├─╯
-    │ ○  8b64ddff700d 1 parents:
+    │ ○  884fe9b9c656 1 parents:
     ├─╯
     ◆  000000000000 parents:
     [EOF]
@@ -69,12 +69,12 @@ fn test_parallelize_with_descendants_simple() {
     }
     work_dir.run_jj(["describe", "-m=6"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  02b7709cc4e9 6 parents: 5
-    ○  1b2f08d76b66 5 parents: 4
-    ○  e5c4cf44e237 4 parents: 3
-    ○  4cd999dfaac0 3 parents: 2
-    ○  d3902619fade 2 parents: 1
-    ○  8b64ddff700d 1 parents:
+    @  e12cca0818cd 6 parents: 5
+    ○  44f4686efbe9 5 parents: 4
+    ○  6858f6e16a6c 4 parents: 3
+    ○  8cfb27e238c8 3 parents: 2
+    ○  320daf48ba58 2 parents: 1
+    ○  884fe9b9c656 1 parents:
     ◆  000000000000 parents:
     [EOF]
     ");
@@ -83,15 +83,15 @@ fn test_parallelize_with_descendants_simple() {
         .run_jj(["parallelize", "description(1)::description(4)"])
         .success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  9bc057f8b6e3 6 parents: 5
-    ○        9e36a8afe793 5 parents: 1 2 3 4
+    @  75ac07d7dedc 6 parents: 5
+    ○        39791a4c42c5 5 parents: 1 2 3 4
     ├─┬─┬─╮
-    │ │ │ ○  5b9815e28fae 4 parents:
-    │ │ ○ │  bb1bb465ccc2 3 parents:
+    │ │ │ ○  823bf930aefb 4 parents:
+    │ │ ○ │  3b6586259aa9 3 parents:
     │ │ ├─╯
-    │ ○ │  337eca1ef3a8 2 parents:
+    │ ○ │  dfd927ce07c0 2 parents:
     │ ├─╯
-    ○ │  8b64ddff700d 1 parents:
+    ○ │  884fe9b9c656 1 parents:
     ├─╯
     ◆  000000000000 parents:
     [EOF]
@@ -115,14 +115,14 @@ fn test_parallelize_where_interior_has_non_target_children() {
         .success();
     work_dir.run_jj(["new", "description(5)", "-m=6"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  2508ea92308a 6 parents: 5
-    ○  1b2f08d76b66 5 parents: 4
-    ○  e5c4cf44e237 4 parents: 3
-    ○  4cd999dfaac0 3 parents: 2
-    │ ○  3e7571e62c87 2c parents: 2
+    @  9554e07afe42 6 parents: 5
+    ○  44f4686efbe9 5 parents: 4
+    ○  6858f6e16a6c 4 parents: 3
+    ○  8cfb27e238c8 3 parents: 2
+    │ ○  a5a460ad9943 2c parents: 2
     ├─╯
-    ○  d3902619fade 2 parents: 1
-    ○  8b64ddff700d 1 parents:
+    ○  320daf48ba58 2 parents: 1
+    ○  884fe9b9c656 1 parents:
     ◆  000000000000 parents:
     [EOF]
     ");
@@ -131,17 +131,17 @@ fn test_parallelize_where_interior_has_non_target_children() {
         .run_jj(["parallelize", "description(1)::description(4)"])
         .success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  c9525dff9d03 6 parents: 5
-    ○        b3ad09518546 5 parents: 1 2 3 4
+    @  8bbff9ba415a 6 parents: 5
+    ○        3bfb6f7542f6 5 parents: 1 2 3 4
     ├─┬─┬─╮
-    │ │ │ ○  3b125ed6a683 4 parents:
-    │ │ ○ │  1ed8c0c5be30 3 parents:
+    │ │ │ ○  486dfbb53401 4 parents:
+    │ │ ○ │  71c114f0dd4d 3 parents:
     │ │ ├─╯
-    │ │ │ ○  c01d8e85ea96 2c parents: 1 2
+    │ │ │ ○  154d3801414a 2c parents: 1 2
     ╭─┬───╯
-    │ ○ │  7efea6c89b60 2 parents:
+    │ ○ │  7c8f6e529b52 2 parents:
     │ ├─╯
-    ○ │  8b64ddff700d 1 parents:
+    ○ │  884fe9b9c656 1 parents:
     ├─╯
     ◆  000000000000 parents:
     [EOF]
@@ -162,12 +162,12 @@ fn test_parallelize_where_root_has_non_target_children() {
         .success();
     work_dir.run_jj(["new", "description(3)", "-m=4"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  9132691e6256 4 parents: 3
-    ○  4cd999dfaac0 3 parents: 2
-    ○  d3902619fade 2 parents: 1
-    │ ○  6c64110df0a5 1c parents: 1
+    @  4c392c2965f0 4 parents: 3
+    ○  8cfb27e238c8 3 parents: 2
+    ○  320daf48ba58 2 parents: 1
+    │ ○  2935e6f82e54 1c parents: 1
     ├─╯
-    ○  8b64ddff700d 1 parents:
+    ○  884fe9b9c656 1 parents:
     ◆  000000000000 parents:
     [EOF]
     ");
@@ -175,14 +175,14 @@ fn test_parallelize_where_root_has_non_target_children() {
         .run_jj(["parallelize", "description(1)::description(3)"])
         .success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @      3397916989e7 4 parents: 1 2 3
+    @      a5d4e90a54bf 4 parents: 1 2 3
     ├─┬─╮
-    │ │ ○  1f768c1bc591 3 parents:
-    │ ○ │  12ef12b4640e 2 parents:
+    │ │ ○  1d9fa9e05929 3 parents:
+    │ ○ │  f773cf087413 2 parents:
     │ ├─╯
-    │ │ ○  6c64110df0a5 1c parents: 1
+    │ │ ○  2935e6f82e54 1c parents: 1
     ├───╯
-    ○ │  8b64ddff700d 1 parents:
+    ○ │  884fe9b9c656 1 parents:
     ├─╯
     ◆  000000000000 parents:
     [EOF]
@@ -208,13 +208,13 @@ fn test_parallelize_with_merge_commit_child() {
         .run_jj(["new", "description(3)", "-m", "4"])
         .success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  99ffaf5b3984 4 parents: 3
-    ○  4cd999dfaac0 3 parents: 2
-    │ ○  4313cc3b476f 2a-c parents: 2 a
+    @  e6a543fcc5d8 4 parents: 3
+    ○  8cfb27e238c8 3 parents: 2
+    │ ○  af7ad8059bf1 2a-c parents: 2 a
     ╭─┤
-    │ ○  1eb902150bb9 a parents:
-    ○ │  d3902619fade 2 parents: 1
-    ○ │  8b64ddff700d 1 parents:
+    │ ○  8fa549442479 a parents:
+    ○ │  320daf48ba58 2 parents: 1
+    ○ │  884fe9b9c656 1 parents:
     ├─╯
     ◆  000000000000 parents:
     [EOF]
@@ -225,16 +225,16 @@ fn test_parallelize_with_merge_commit_child() {
         .run_jj(["parallelize", "description(1)::description(3)"])
         .success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @      3ee9279847a6 4 parents: 1 2 3
+    @      431d5005bab0 4 parents: 1 2 3
     ├─┬─╮
-    │ │ ○  bb1bb465ccc2 3 parents:
-    │ │ │ ○  c70ee196514b 2a-c parents: 1 2 a
+    │ │ ○  3b6586259aa9 3 parents:
+    │ │ │ ○  67b28b5cc688 2a-c parents: 1 2 a
     ╭─┬───┤
-    │ │ │ ○  1eb902150bb9 a parents:
+    │ │ │ ○  8fa549442479 a parents:
     │ │ ├─╯
-    │ ○ │  337eca1ef3a8 2 parents:
+    │ ○ │  dfd927ce07c0 2 parents:
     │ ├─╯
-    ○ │  8b64ddff700d 1 parents:
+    ○ │  884fe9b9c656 1 parents:
     ├─╯
     ◆  000000000000 parents:
     [EOF]
@@ -252,9 +252,9 @@ fn test_parallelize_disconnected_target_commits() {
     }
     work_dir.run_jj(["describe", "-m=3"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  4cd999dfaac0 3 parents: 2
-    ○  d3902619fade 2 parents: 1
-    ○  8b64ddff700d 1 parents:
+    @  8cfb27e238c8 3 parents: 2
+    ○  320daf48ba58 2 parents: 1
+    ○  884fe9b9c656 1 parents:
     ◆  000000000000 parents:
     [EOF]
     ");
@@ -266,9 +266,9 @@ fn test_parallelize_disconnected_target_commits() {
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  4cd999dfaac0 3 parents: 2
-    ○  d3902619fade 2 parents: 1
-    ○  8b64ddff700d 1 parents:
+    @  8cfb27e238c8 3 parents: 2
+    ○  320daf48ba58 2 parents: 1
+    ○  884fe9b9c656 1 parents:
     ◆  000000000000 parents:
     [EOF]
     ");
@@ -289,13 +289,13 @@ fn test_parallelize_head_is_a_merge() {
         .run_jj(["new", "description(2)", "description(b)", "-m=merged-head"])
         .success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @    1fb53c45237e merged-head parents: 2 b
+    @    c634925e6ac2 merged-head parents: 2 b
     ├─╮
-    │ ○  a7bf5001cfd8 b parents: a
-    │ ○  6ca0450a05f5 a parents:
-    ○ │  1f81bd465ed0 2 parents: 1
-    ○ │  0c058af014a6 1 parents: 0
-    ○ │  745bea8029c1 0 parents:
+    │ ○  448c6310957c b parents: a
+    │ ○  07fb6466f0cd a parents:
+    ○ │  1ae5c538c8ef 2 parents: 1
+    ○ │  42fc76489fb1 1 parents: 0
+    ○ │  fc8a812f1b99 0 parents:
     ├─╯
     ◆  000000000000 parents:
     [EOF]
@@ -305,15 +305,15 @@ fn test_parallelize_head_is_a_merge() {
         .run_jj(["parallelize", "description(1)::"])
         .success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @    82131a679769 merged-head parents: 0 b
+    @    f97b547cdca0 merged-head parents: 0 b
     ├─╮
-    │ ○  a7bf5001cfd8 b parents: a
-    │ ○  6ca0450a05f5 a parents:
-    │ │ ○  daef04bc3fae 2 parents: 0
+    │ ○  448c6310957c b parents: a
+    │ ○  07fb6466f0cd a parents:
+    │ │ ○  b240f5a52f77 2 parents: 0
     ├───╯
-    │ │ ○  0c058af014a6 1 parents: 0
+    │ │ ○  42fc76489fb1 1 parents: 0
     ├───╯
-    ○ │  745bea8029c1 0 parents:
+    ○ │  fc8a812f1b99 0 parents:
     ├─╯
     ◆  000000000000 parents:
     [EOF]
@@ -333,12 +333,12 @@ fn test_parallelize_interior_target_is_a_merge() {
         .success();
     work_dir.run_jj(["new", "-m=3"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  9b77792c77ac 3 parents: 2
-    ○    1e29145c95fd 2 parents: 1 a
+    @  d84d604297c3 3 parents: 2
+    ○    5684656729e6 2 parents: 1 a
     ├─╮
-    │ ○  427890ea3f2b a parents:
-    ○ │  0c058af014a6 1 parents: 0
-    ○ │  745bea8029c1 0 parents:
+    │ ○  55fc07cbd79b a parents:
+    ○ │  42fc76489fb1 1 parents: 0
+    ○ │  fc8a812f1b99 0 parents:
     ├─╯
     ◆  000000000000 parents:
     [EOF]
@@ -348,14 +348,14 @@ fn test_parallelize_interior_target_is_a_merge() {
         .run_jj(["parallelize", "description(1)::"])
         .success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @    042fc3f4315c 3 parents: 0 a
+    @    d0dae190124d 3 parents: 0 a
     ├─╮
-    │ │ ○  80603361bb48 2 parents: 0 a
+    │ │ ○  d5756d591190 2 parents: 0 a
     ╭─┬─╯
-    │ ○  427890ea3f2b a parents:
-    │ │ ○  0c058af014a6 1 parents: 0
+    │ ○  55fc07cbd79b a parents:
+    │ │ ○  42fc76489fb1 1 parents: 0
     ├───╯
-    ○ │  745bea8029c1 0 parents:
+    ○ │  fc8a812f1b99 0 parents:
     ├─╯
     ◆  000000000000 parents:
     [EOF]
@@ -375,12 +375,12 @@ fn test_parallelize_root_is_a_merge() {
     work_dir.run_jj(["new", "-m=2"]).success();
     work_dir.run_jj(["new", "-m=3"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  cc239b744d01 3 parents: 2
-    ○  2bf00c2ad44c 2 parents: 1
-    ○    1c6853121f3c 1 parents: y x
+    @  ce0ec2d2d844 3 parents: 2
+    ○  44681d919431 2 parents: 1
+    ○    8a06bcc06aad 1 parents: y x
     ├─╮
-    │ ○  4035b23c8f72 x parents:
-    ○ │  ca57511e158f y parents:
+    │ ○  2d5d6dbc7e1f x parents:
+    ○ │  1ecf47f2262c y parents:
     ├─╯
     ◆  000000000000 parents:
     [EOF]
@@ -390,14 +390,14 @@ fn test_parallelize_root_is_a_merge() {
         .run_jj(["parallelize", "description(1)::description(2)"])
         .success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @    2c7fdfa00b38 3 parents: 1 2
+    @    2949bc60f108 3 parents: 1 2
     ├─╮
-    │ ○    3acbd32944d6 2 parents: y x
+    │ ○    bf222a0e51d4 2 parents: y x
     │ ├─╮
-    ○ │ │  1c6853121f3c 1 parents: y x
+    ○ │ │  8a06bcc06aad 1 parents: y x
     ╰─┬─╮
-      │ ○  4035b23c8f72 x parents:
-      ○ │  ca57511e158f y parents:
+      │ ○  2d5d6dbc7e1f x parents:
+      ○ │  1ecf47f2262c y parents:
       ├─╯
       ◆  000000000000 parents:
     [EOF]
@@ -413,10 +413,10 @@ fn test_parallelize_multiple_heads() {
     work_dir.run_jj(["describe", "-m=1"]).success();
     work_dir.run_jj(["new", "description(0)", "-m=2"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  97d7522f40e8 2 parents: 0
-    │ ○  0c058af014a6 1 parents: 0
+    @  96d58e6cf428 2 parents: 0
+    │ ○  42fc76489fb1 1 parents: 0
     ├─╯
-    ○  745bea8029c1 0 parents:
+    ○  fc8a812f1b99 0 parents:
     ◆  000000000000 parents:
     [EOF]
     ");
@@ -425,10 +425,10 @@ fn test_parallelize_multiple_heads() {
         .run_jj(["parallelize", "description(0)::"])
         .success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  e84481c26195 2 parents:
-    │ ○  6270540ee067 1 parents:
+    @  fefea56b23ab 2 parents:
+    │ ○  c4b1ea1106d1 1 parents:
     ├─╯
-    │ ○  745bea8029c1 0 parents:
+    │ ○  fc8a812f1b99 0 parents:
     ├─╯
     ◆  000000000000 parents:
     [EOF]
@@ -447,10 +447,10 @@ fn test_parallelize_multiple_heads_with_and_without_children() {
     work_dir.run_jj(["describe", "-m=1"]).success();
     work_dir.run_jj(["new", "description(0)", "-m=2"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  97d7522f40e8 2 parents: 0
-    │ ○  0c058af014a6 1 parents: 0
+    @  96d58e6cf428 2 parents: 0
+    │ ○  42fc76489fb1 1 parents: 0
     ├─╯
-    ○  745bea8029c1 0 parents:
+    ○  fc8a812f1b99 0 parents:
     ◆  000000000000 parents:
     [EOF]
     ");
@@ -459,9 +459,9 @@ fn test_parallelize_multiple_heads_with_and_without_children() {
         .run_jj(["parallelize", "description(0)", "description(1)"])
         .success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  97d7522f40e8 2 parents: 0
-    ○  745bea8029c1 0 parents:
-    │ ○  6270540ee067 1 parents:
+    @  96d58e6cf428 2 parents: 0
+    ○  fc8a812f1b99 0 parents:
+    │ ○  c4b1ea1106d1 1 parents:
     ├─╯
     ◆  000000000000 parents:
     [EOF]
@@ -480,11 +480,11 @@ fn test_parallelize_multiple_roots() {
         .success();
     work_dir.run_jj(["new", "-m=3"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  34da938ad94a 3 parents: 2
-    ○    85d5043b881d 2 parents: 1 a
+    @  9653da1c76e9 3 parents: 2
+    ○    248a57e1c968 2 parents: 1 a
     ├─╮
-    │ ○  6d37472c632c a parents:
-    ○ │  8b64ddff700d 1 parents:
+    │ ○  3ce82963438f a parents:
+    ○ │  884fe9b9c656 1 parents:
     ├─╯
     ◆  000000000000 parents:
     [EOF]
@@ -493,12 +493,12 @@ fn test_parallelize_multiple_roots() {
     // Succeeds because the roots have the same parents.
     work_dir.run_jj(["parallelize", "root().."]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  3c90598481cd 3 parents:
-    │ ○  b96aa55582e5 2 parents:
+    @  0c77dac691b5 3 parents:
+    │ ○  1a23775d87d5 2 parents:
     ├─╯
-    │ ○  6d37472c632c a parents:
+    │ ○  3ce82963438f a parents:
     ├─╯
-    │ ○  8b64ddff700d 1 parents:
+    │ ○  884fe9b9c656 1 parents:
     ├─╯
     ◆  000000000000 parents:
     [EOF]
@@ -518,13 +518,13 @@ fn test_parallelize_multiple_heads_with_different_children() {
     work_dir.run_jj(["commit", "-m=b"]).success();
     work_dir.run_jj(["commit", "-m=c"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  4bc4dace0e65 parents: c
-    ○  63b0da9212c0 c parents: b
-    ○  a7bf5001cfd8 b parents: a
-    ○  6ca0450a05f5 a parents:
-    │ ○  4cd999dfaac0 3 parents: 2
-    │ ○  d3902619fade 2 parents: 1
-    │ ○  8b64ddff700d 1 parents:
+    @  afa59494cb01 parents: c
+    ○  8897bad1837f c parents: b
+    ○  448c6310957c b parents: a
+    ○  07fb6466f0cd a parents:
+    │ ○  8cfb27e238c8 3 parents: 2
+    │ ○  320daf48ba58 2 parents: 1
+    │ ○  884fe9b9c656 1 parents:
     ├─╯
     ◆  000000000000 parents:
     [EOF]
@@ -538,17 +538,17 @@ fn test_parallelize_multiple_heads_with_different_children() {
         ])
         .success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  f6c9d9ee3db8 parents: c
-    ○    62661d5f0c77 c parents: a b
+    @  7d3e76dfbc7b parents: c
+    ○    6dbfcf648fad c parents: a b
     ├─╮
-    │ ○  c9ea9058f5c7 b parents:
-    ○ │  6ca0450a05f5 a parents:
+    │ ○  8e5c55acd419 b parents:
+    ○ │  07fb6466f0cd a parents:
     ├─╯
-    │ ○    dac1be696563 3 parents: 1 2
+    │ ○    abdef66ee7e9 3 parents: 1 2
     │ ├─╮
-    │ │ ○  7efea6c89b60 2 parents:
+    │ │ ○  7c8f6e529b52 2 parents:
     ├───╯
-    │ ○  8b64ddff700d 1 parents:
+    │ ○  884fe9b9c656 1 parents:
     ├─╯
     ◆  000000000000 parents:
     [EOF]
@@ -569,12 +569,12 @@ fn test_parallelize_multiple_roots_with_different_parents() {
         .run_jj(["new", "description(2)", "description(b)", "-m=merged-head"])
         .success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @    ba4297d53c1a merged-head parents: 2 b
+    @    4e5f16f52b5e merged-head parents: 2 b
     ├─╮
-    │ ○  6577defaca2d b parents: a
-    │ ○  1eb902150bb9 a parents:
-    ○ │  d3902619fade 2 parents: 1
-    ○ │  8b64ddff700d 1 parents:
+    │ ○  7686d0ce4f97 b parents: a
+    │ ○  331119737aad a parents:
+    ○ │  320daf48ba58 2 parents: 1
+    ○ │  884fe9b9c656 1 parents:
     ├─╯
     ◆  000000000000 parents:
     [EOF]
@@ -584,14 +584,14 @@ fn test_parallelize_multiple_roots_with_different_parents() {
         .run_jj(["parallelize", "description(2)::", "description(b)::"])
         .success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @    0943ed52b3ed merged-head parents: 1 a
+    @    180840c2f967 merged-head parents: 1 a
     ├─╮
-    │ │ ○  6577defaca2d b parents: a
+    │ │ ○  7686d0ce4f97 b parents: a
     │ ├─╯
-    │ ○  1eb902150bb9 a parents:
-    │ │ ○  d3902619fade 2 parents: 1
+    │ ○  331119737aad a parents:
+    │ │ ○  320daf48ba58 2 parents: 1
     ├───╯
-    ○ │  8b64ddff700d 1 parents:
+    ○ │  884fe9b9c656 1 parents:
     ├─╯
     ◆  000000000000 parents:
     [EOF]
@@ -618,19 +618,19 @@ fn test_parallelize_complex_nonlinear_target() {
         .run_jj(["new", "-m=3c", "description(3)"])
         .success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  b043eb81416c 3c parents: 3
-    │ ○    48277ee9afe0 4 parents: 3 2 1
+    @  5cca06f145b2 3c parents: 3
+    │ ○    095be6de6f23 4 parents: 3 2 1
     ╭─┼─╮
-    ○ │ │  944922f0c69f 3 parents: 0
-    │ │ │ ○  9d28e8e38435 2c parents: 2
+    ○ │ │  46cc2c450bba 3 parents: 0
+    │ │ │ ○  24113692de1e 2c parents: 2
     │ ├───╯
-    │ ○ │  97d7522f40e8 2 parents: 0
+    │ ○ │  5664a1d6ac8f 2 parents: 0
     ├─╯ │
-    │ ○ │  6c82c22a5e35 1c parents: 1
+    │ ○ │  6d578e6cbc1a 1c parents: 1
     │ ├─╯
-    │ ○  0c058af014a6 1 parents: 0
+    │ ○  883b398bc1fd 1 parents: 0
     ├─╯
-    ○  745bea8029c1 0 parents:
+    ○  973f85cf2550 0 parents:
     ◆  000000000000 parents:
     [EOF]
     ");
@@ -638,26 +638,26 @@ fn test_parallelize_complex_nonlinear_target() {
     let output = work_dir.run_jj(["parallelize", "description(0)::description(4)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: yostqsxw 59a216e5 (empty) 3c
-    Parent commit (@-)      : rlvkpnrz 745bea80 (empty) 0
-    Parent commit (@-)      : mzvwutvl cb944786 (empty) 3
+    Working copy  (@) now at: yostqsxw d6bb6520 (empty) 3c
+    Parent commit (@-)      : rlvkpnrz 973f85cf (empty) 0
+    Parent commit (@-)      : mzvwutvl 47ec86fe (empty) 3
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @    59a216e537c4 3c parents: 0 3
+    @    d6bb652004e4 3c parents: 0 3
     ├─╮
-    │ ○  cb9447869bf0 3 parents:
-    │ │ ○  248ce1ffd76b 2c parents: 0 2
+    │ ○  47ec86fe7334 3 parents:
+    │ │ ○  79e22ba7b736 2c parents: 0 2
     ╭───┤
-    │ │ ○  8f4b8ef68676 2 parents:
+    │ │ ○  9d6818f73e0d 2 parents:
     │ ├─╯
-    │ │ ○  55c626d090e2 1c parents: 0 1
+    │ │ ○  bbeb29b59bee 1c parents: 0 1
     ╭───┤
-    │ │ ○  82918d78c984 1 parents:
+    │ │ ○  ea96e6d5bb04 1 parents:
     │ ├─╯
-    ○ │  745bea8029c1 0 parents:
+    ○ │  973f85cf2550 0 parents:
     ├─╯
-    │ ○  14ca4df576b3 4 parents:
+    │ ○  0f9aae95edbe 4 parents:
     ├─╯
     ◆  000000000000 parents:
     [EOF]

@@ -61,7 +61,7 @@ fn test_builtin_alias_trunk_matches_main() {
 
     let output = work_dir.run_jj(["log", "-r", "trunk()"]);
     insta::assert_snapshot!(output, @r"
-    ◆  xtvrqkyv test.user@example.com 2001-02-03 08:05:08 main d13ecdbd
+    ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:08 main 9b2e76de
     │  (empty) description 1
     ~
     [EOF]
@@ -75,7 +75,7 @@ fn test_builtin_alias_trunk_matches_master() {
 
     let output = work_dir.run_jj(["log", "-r", "trunk()"]);
     insta::assert_snapshot!(output, @r"
-    ◆  xtvrqkyv test.user@example.com 2001-02-03 08:05:08 master d13ecdbd
+    ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:08 master 9b2e76de
     │  (empty) description 1
     ~
     [EOF]
@@ -89,7 +89,7 @@ fn test_builtin_alias_trunk_matches_trunk() {
 
     let output = work_dir.run_jj(["log", "-r", "trunk()"]);
     insta::assert_snapshot!(output, @r"
-    ◆  xtvrqkyv test.user@example.com 2001-02-03 08:05:08 trunk d13ecdbd
+    ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:08 trunk 9b2e76de
     │  (empty) description 1
     ~
     [EOF]
@@ -110,7 +110,7 @@ fn test_builtin_alias_trunk_matches_exactly_one_commit() {
 
     let output = work_dir.run_jj(["log", "-r", "trunk()"]);
     insta::assert_snapshot!(output, @r"
-    ◆  xtvrqkyv test.user@example.com 2001-02-03 08:05:08 main d13ecdbd
+    ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:08 main 9b2e76de
     │  (empty) description 1
     ~
     [EOF]
@@ -128,7 +128,7 @@ fn test_builtin_alias_trunk_override_alias() {
 
     let output = work_dir.run_jj(["log", "-r", "trunk()"]);
     insta::assert_snapshot!(output, @r"
-    ◆  xtvrqkyv test.user@example.com 2001-02-03 08:05:08 override-trunk d13ecdbd
+    ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:08 override-trunk 9b2e76de
     │  (empty) description 1
     ~
     [EOF]
@@ -170,7 +170,7 @@ fn test_builtin_user_redefines_builtin_immutable_heads() {
 
     let output = work_dir.run_jj(["log", "-r", "trunk()"]);
     insta::assert_snapshot!(output, @r"
-    ○  xtvrqkyv test.user@example.com 2001-02-03 08:05:08 main d13ecdbd
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 main 9b2e76de
     │  (empty) description 1
     ~
     [EOF]

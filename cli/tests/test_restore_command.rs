@@ -46,8 +46,8 @@ fn test_restore() {
     let output = work_dir.run_jj(["restore"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: kkmpptxz 370d81ea (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz ef160660 (no description set)
+    Working copy  (@) now at: kkmpptxz 17c14d1e (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 1d3e40a3 (no description set)
     Added 1 files, modified 1 files, removed 1 files
     [EOF]
     ");
@@ -65,13 +65,13 @@ fn test_restore() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
-    Working copy  (@) now at: kkmpptxz 5b361547 (conflict) (no description set)
-    Parent commit (@-)      : rlvkpnrz b9b6011e (empty) (no description set)
+    Working copy  (@) now at: kkmpptxz c1d65a0f (conflict) (no description set)
+    Parent commit (@-)      : rlvkpnrz c1c000ff (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file2    2-sided conflict including 1 deletion
     New conflicts appeared in 1 commits:
-      kkmpptxz 5b361547 (conflict) (no description set)
+      kkmpptxz c1d65a0f (conflict) (no description set)
     Hint: To resolve the conflicts, start by updating to it:
       jj new kkmpptxz
     Then use `jj resolve`, or edit the conflict markers in the file directly.
@@ -87,8 +87,8 @@ fn test_restore() {
     let output = work_dir.run_jj(["restore", "--from", "@--"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: kkmpptxz 1154634b (no description set)
-    Parent commit (@-)      : rlvkpnrz ef160660 (no description set)
+    Working copy  (@) now at: kkmpptxz c1acd0d0 (no description set)
+    Parent commit (@-)      : rlvkpnrz 1d3e40a3 (no description set)
     Added 1 files, modified 0 files, removed 2 files
     [EOF]
     ");
@@ -104,8 +104,8 @@ fn test_restore() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
-    Working copy  (@) now at: kkmpptxz 3fcdcbf2 (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz ad805965 (no description set)
+    Working copy  (@) now at: kkmpptxz dae0b693 (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz fee0934c (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "-s"]);
@@ -124,8 +124,8 @@ fn test_restore() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
-    Working copy  (@) now at: kkmpptxz 9c6f2083 (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz f256040a (no description set)
+    Working copy  (@) now at: kkmpptxz 9091b582 (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 77d86105 (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "-s"]);
@@ -143,8 +143,8 @@ fn test_restore() {
     let output = work_dir.run_jj(["restore", "file2", "file3"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: kkmpptxz 4ad35a2f (no description set)
-    Parent commit (@-)      : rlvkpnrz ef160660 (no description set)
+    Working copy  (@) now at: kkmpptxz 28a274ee (no description set)
+    Parent commit (@-)      : rlvkpnrz 1d3e40a3 (no description set)
     Added 0 files, modified 1 files, removed 1 files
     [EOF]
     ");
@@ -206,9 +206,9 @@ fn test_restore_conflicted_merge() {
     let output = work_dir.run_jj(["restore", "file"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: vruxwmqv 25a37060 conflict | (conflict) (empty) conflict
-    Parent commit (@-)      : zsuskuln aa493daf a | a
-    Parent commit (@-)      : royxmykx db6a4daf b | b
+    Working copy  (@) now at: vruxwmqv f587c5e5 conflict | (conflict) (empty) conflict
+    Parent commit (@-)      : zsuskuln 45537d53 a | a
+    Parent commit (@-)      : royxmykx 89d1b299 b | b
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
@@ -245,9 +245,9 @@ fn test_restore_conflicted_merge() {
     let output = work_dir.run_jj(["restore"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: vruxwmqv f2c82b9c conflict | (conflict) (empty) conflict
-    Parent commit (@-)      : zsuskuln aa493daf a | a
-    Parent commit (@-)      : royxmykx db6a4daf b | b
+    Working copy  (@) now at: vruxwmqv 846bb35c conflict | (conflict) (empty) conflict
+    Parent commit (@-)      : zsuskuln 45537d53 a | a
+    Parent commit (@-)      : royxmykx 89d1b299 b | b
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
@@ -298,9 +298,9 @@ fn test_restore_restore_descendants() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits (while preserving their content)
-    Working copy  (@) now at: vruxwmqv bf5491a0 ab | ab
-    Parent commit (@-)      : zsuskuln aa493daf a | a
-    Parent commit (@-)      : royxmykx 3fd5aa05 b | b
+    Working copy  (@) now at: vruxwmqv 14c0c336 ab | ab
+    Parent commit (@-)      : zsuskuln 45537d53 a | a
+    Parent commit (@-)      : royxmykx 5fd3f8c5 b | b
     [EOF]
     ");
 
@@ -351,12 +351,12 @@ fn test_restore_interactive() {
     );
     let output = work_dir.run_jj(["log", "--summary"]);
     insta::assert_snapshot!(output, @r"
-    @  zsuskuln test.user@example.com 2001-02-03 08:05:11 b c0745ce2
+    @  zsuskuln test.user@example.com 2001-02-03 08:05:11 b 38153274
     │  b
     │  M file1
     │  M file2
     │  A file3
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a 186caaef
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a 6c8d5b87
     │  a
     │  A file1
     │  A file2
@@ -377,16 +377,16 @@ fn test_restore_interactive() {
     let output = work_dir.run_jj(["restore", "-i", "--from=@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: zsuskuln bccde490 b | b
-    Parent commit (@-)      : rlvkpnrz 186caaef a | a
+    Working copy  (@) now at: zsuskuln 7cd0a341 b | b
+    Parent commit (@-)      : rlvkpnrz 6c8d5b87 a | a
     Added 0 files, modified 1 files, removed 1 files
     [EOF]
     ");
 
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @r"
-    You are restoring changes from: rlvkpnrz 186caaef a | a
-    to commit: zsuskuln c0745ce2 b | b
+    You are restoring changes from: rlvkpnrz 6c8d5b87 a | a
+    to commit: zsuskuln 38153274 b | b
 
     The diff initially shows all changes restored. Adjust the right side until it
     shows the contents you want for the destination commit.
@@ -394,10 +394,10 @@ fn test_restore_interactive() {
 
     let output = work_dir.run_jj(["log", "--summary"]);
     insta::assert_snapshot!(output, @r"
-    @  zsuskuln test.user@example.com 2001-02-03 08:05:13 b bccde490
+    @  zsuskuln test.user@example.com 2001-02-03 08:05:13 b 7cd0a341
     │  b
     │  M file2
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a 186caaef
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a 6c8d5b87
     │  a
     │  A file1
     │  A file2
@@ -410,18 +410,18 @@ fn test_restore_interactive() {
     let output = work_dir.run_jj(["restore", "--tool=fake-diff-editor"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: zsuskuln 5921de19 b | b
-    Parent commit (@-)      : rlvkpnrz 186caaef a | a
+    Working copy  (@) now at: zsuskuln 0f1263f5 b | b
+    Parent commit (@-)      : rlvkpnrz 6c8d5b87 a | a
     Added 0 files, modified 1 files, removed 1 files
     [EOF]
     ");
 
     let output = work_dir.run_jj(["log", "--summary"]);
     insta::assert_snapshot!(output, @r"
-    @  zsuskuln test.user@example.com 2001-02-03 08:05:16 b 5921de19
+    @  zsuskuln test.user@example.com 2001-02-03 08:05:16 b 0f1263f5
     │  b
     │  M file2
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a 186caaef
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a 6c8d5b87
     │  a
     │  A file1
     │  A file2
@@ -447,15 +447,15 @@ fn test_restore_interactive_merge() {
     );
     let output = work_dir.run_jj(["log", "--summary"]);
     insta::assert_snapshot!(output, @r"
-    @    royxmykx test.user@example.com 2001-02-03 08:05:13 c 34042291
+    @    royxmykx test.user@example.com 2001-02-03 08:05:13 c e37470c3
     ├─╮  c
     │ │  M file1
     │ │  M file2
     │ │  A file3
-    │ ○  zsuskuln test.user@example.com 2001-02-03 08:05:11 b 29e70804
+    │ ○  zsuskuln test.user@example.com 2001-02-03 08:05:11 b ca7e57cd
     │ │  b
     │ │  A file2
-    ○ │  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a 79c1b823
+    ○ │  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a 78059355
     ├─╯  a
     │    A file1
     ◆  zzzzzzzz root() 00000000
@@ -475,18 +475,18 @@ fn test_restore_interactive_merge() {
     let output = work_dir.run_jj(["restore", "-i"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: royxmykx 72e0cbf4 c | c
-    Parent commit (@-)      : rlvkpnrz 79c1b823 a | a
-    Parent commit (@-)      : zsuskuln 29e70804 b | b
+    Working copy  (@) now at: royxmykx 196af27b c | c
+    Parent commit (@-)      : rlvkpnrz 78059355 a | a
+    Parent commit (@-)      : zsuskuln ca7e57cd b | b
     Added 0 files, modified 1 files, removed 1 files
     [EOF]
     ");
 
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @r"
-    You are restoring changes from: rlvkpnrz 79c1b823 a | a
-                                    zsuskuln 29e70804 b | b
-    to commit: royxmykx 34042291 c | c
+    You are restoring changes from: rlvkpnrz 78059355 a | a
+                                    zsuskuln ca7e57cd b | b
+    to commit: royxmykx e37470c3 c | c
 
     The diff initially shows all changes restored. Adjust the right side until it
     shows the contents you want for the destination commit.
@@ -494,13 +494,13 @@ fn test_restore_interactive_merge() {
 
     let output = work_dir.run_jj(["log", "--summary"]);
     insta::assert_snapshot!(output, @r"
-    @    royxmykx test.user@example.com 2001-02-03 08:05:15 c 72e0cbf4
+    @    royxmykx test.user@example.com 2001-02-03 08:05:15 c 196af27b
     ├─╮  c
     │ │  M file2
-    │ ○  zsuskuln test.user@example.com 2001-02-03 08:05:11 b 29e70804
+    │ ○  zsuskuln test.user@example.com 2001-02-03 08:05:11 b ca7e57cd
     │ │  b
     │ │  A file2
-    ○ │  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a 79c1b823
+    ○ │  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a 78059355
     ├─╯  a
     │    A file1
     ◆  zzzzzzzz root() 00000000
@@ -524,12 +524,12 @@ fn test_restore_interactive_with_paths() {
     );
     let output = work_dir.run_jj(["log", "--summary"]);
     insta::assert_snapshot!(output, @r"
-    @  zsuskuln test.user@example.com 2001-02-03 08:05:11 b c0745ce2
+    @  zsuskuln test.user@example.com 2001-02-03 08:05:11 b 38153274
     │  b
     │  M file1
     │  M file2
     │  A file3
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a 186caaef
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a 6c8d5b87
     │  a
     │  A file1
     │  A file2
@@ -549,19 +549,19 @@ fn test_restore_interactive_with_paths() {
     let output = work_dir.run_jj(["restore", "-i", "file1", "file2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: zsuskuln 7187da33 b | b
-    Parent commit (@-)      : rlvkpnrz 186caaef a | a
+    Working copy  (@) now at: zsuskuln 8b2f997d b | b
+    Parent commit (@-)      : rlvkpnrz 6c8d5b87 a | a
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
 
     let output = work_dir.run_jj(["log", "--summary"]);
     insta::assert_snapshot!(output, @r"
-    @  zsuskuln test.user@example.com 2001-02-03 08:05:13 b 7187da33
+    @  zsuskuln test.user@example.com 2001-02-03 08:05:13 b 8b2f997d
     │  b
     │  M file2
     │  A file3
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a 186caaef
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a 6c8d5b87
     │  a
     │  A file1
     │  A file2

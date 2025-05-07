@@ -34,18 +34,18 @@ fn test_concurrent_operation_divergence() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: The "@" expression resolved to more than one operation
-    Hint: Try specifying one of the operations by ID: 0162305507cc, d74dff64472e
+    Hint: Try specifying one of the operations by ID: c4991b0d765d, 9087f4bfa0de
     [EOF]
     [exit status: 1]
     "#);
 
     // "op log --at-op" should work without merging the head operations
-    let output = work_dir.run_jj(["op", "log", "--at-op=d74dff64472e"]);
+    let output = work_dir.run_jj(["op", "log", "--at-op=9087f4bfa0de"]);
     insta::assert_snapshot!(output, @r"
-    @  d74dff64472e test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
-    │  describe commit 230dd059e1b059aefc0da06a2e5a7dbf22362f22
+    @  9087f4bfa0de test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    │  describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
     │  args: jj describe -m 'message 2' --at-op @-
-    ○  eac759b9ab75 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
+    ○  2affa7025254 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
     │  add workspace 'default'
     ○  000000000000 root()
     [EOF]
@@ -75,13 +75,13 @@ fn test_concurrent_operations_auto_rebase() {
     work_dir.run_jj(["describe", "-m", "initial"]).success();
     let output = work_dir.run_jj(["op", "log"]);
     insta::assert_snapshot!(output, @r"
-    @  c62ace5c0522 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
-    │  describe commit 4e8f9d2be039994f589b4e57ac5e9488703e604d
+    @  aea22f517416 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    │  describe commit 006bd1130b84e90ab082adeabd7409270d5a86da
     │  args: jj describe -m initial
-    ○  82d32fc68fc3 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    ○  b5433cef81fc test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
     │  snapshot working copy
     │  args: jj describe -m initial
-    ○  eac759b9ab75 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
+    ○  2affa7025254 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
     │  add workspace 'default'
     ○  000000000000 root()
     [EOF]
@@ -96,8 +96,8 @@ fn test_concurrent_operations_auto_rebase() {
     // We should be informed about the concurrent modification
     let output = get_log_output(&work_dir);
     insta::assert_snapshot!(output, @r"
-    ○  db141860e12c2d5591c56fde4fc99caf71cec418 new child
-    @  07c3641e495cce57ea4ca789123b52f421c57aa2 rewritten
+    ○  b748b7189c0b301be205ebaf74b941c4ec209e69 new child
+    @  084d39fe0ab1cd01a6b7fd21fdea3a8dcc9a48fc rewritten
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ------- stderr -------
@@ -129,10 +129,10 @@ fn test_concurrent_operations_wc_modified() {
     // We should be informed about the concurrent modification
     let output = get_log_output(&work_dir);
     insta::assert_snapshot!(output, @r"
-    @  4eadcf3df11f46ef3d825c776496221cc8303053 new child1
-    │ ○  68119f1643b7e3c301c5f7c2b6c9bf4ccba87379 new child2
+    @  fe9f87c5ee87d9cbc9a81fa1ebc600bb85471fd5 new child1
+    │ ○  7fd594798328855ba9ca64f2f3708f8e61ea771d new child2
     ├─╯
-    ○  2ff7ae858a3a11837fdf9d1a76be295ef53f1bb3 initial
+    ○  4a8d8ea817a416777a551d7f41d9dfaf5dc2db5d initial
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ------- stderr -------
@@ -160,7 +160,7 @@ fn test_concurrent_operations_wc_modified() {
     ○ │  new empty commit
     │ ○  new empty commit
     ├─╯
-    ○  describe commit 506f4ec3c2c62befa15fabc34ca9d4e6d7bef254
+    ○  describe commit 9a462e35578a347e6a3951bf7a58ad7146959a8b
     ○  snapshot working copy
     ○  add workspace 'default'
     ○
@@ -190,19 +190,19 @@ fn test_concurrent_snapshot_wc_reloadable() {
     let template = r#"id ++ "\n" ++ description ++ "\n" ++ tags"#;
     let output = work_dir.run_jj(["op", "log", "-T", template]);
     insta::assert_snapshot!(output, @r"
-    @  ec6bf266624bbaed55833a34ae62fa95c0e9efa651b94eb28846972da645845052dcdc8580332a5628849f23f48b9e99fc728dc3fb13106df8d0666d746f8b85
-    │  commit 554d22b2c43c1c47e279430197363e8daabe2fd6
+    @  9009349b5198b481138bc77a268145474c016cd218f1f038317f2fa6f25e4e896e0c4c4e3271b188cb2726938b92ba8135ee2fb62ddf82b2bd41a9c839337b04
+    │  commit c91a0909a9d3f3d8392ba9fab88f4b40fc0810ee
     │  args: jj commit -m 'new child1'
-    ○  23858df860b789e8176a73c0eb21804e3f1848f26d68b70d234c004d08980c41499b6669042bca20fbc2543c437222a084c7cd473e91c7a9a095a02bf38544ab
+    ○  0b8f20a1bd79d95aa49a517fbeb0b58caa024ba887c4b8da5b0feee6e2376757fa78fec2a07ee593f61d43eb3487c1ff389df5fb2c9489c313819193ccc0e401
     │  snapshot working copy
     │  args: jj commit -m 'new child1'
-    ○  e1db5fa988fc66e5cc0491b00c53fb93e25e730341c850cb42e1e0db0c76d2b4065005787563301b1d292c104f381918897f7deabeb92d2532f42ce75d3fe588
-    │  commit de71e09289762a65f80bb1c3dae2a949df6bcde7
+    ○  b544b8f44a8b084f965cdb3e5f32b4f3423899c1ac004036567125cb596f3eded7f4141561078463e31e7b3dd5832912348d970c78ed2468d118efe584f6e9f0
+    │  commit 9af4c151edead0304de97ce3a0b414552921a425
     │  args: jj commit -m initial
-    ○  7de878155a459b7751097222132c935f9dcbb8f69a72b0f3a9036345a963010a553dc7c92964220128679ead72b087ca3aaf4ab9e20a221d1ffa4f9e92a32193
+    ○  8b49a5a258dd19ac6ea757de66f57933978e6e7af948da48247ac98d5933ea6d0f78ee2a3c08757ded39ad87805a2e528dd55fd2e1da71da28e501c0c3454d9a
     │  snapshot working copy
     │  args: jj commit -m initial
-    ○  eac759b9ab75793fd3da96e60939fb48f2cd2b2a9c1f13ffe723cf620f3005b8d3e7e923634a07ea39513e4f2f360c87b9ad5d331cf90d7a844864b83b72eba1
+    ○  2affa702525487ca490c4bc8a9a365adf75f972efb5888dd58716de7603e822ba1ed1ed0a50132ee44572bb9d819f37589d0ceb790b397ddcc88c976fde2bf02
     │  add workspace 'default'
     ○  00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 
@@ -223,8 +223,8 @@ fn test_concurrent_snapshot_wc_reloadable() {
     let output = work_dir.run_jj(["describe", "-m", "new child2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: kkmpptxz 1795621b new child2
-    Parent commit (@-)      : rlvkpnrz 86f54245 new child1
+    Working copy  (@) now at: kkmpptxz 5a2a6177 new child2
+    Parent commit (@-)      : rlvkpnrz 15bd889d new child1
     [EOF]
     ");
 
@@ -233,11 +233,11 @@ fn test_concurrent_snapshot_wc_reloadable() {
     let template = r#"commit_id ++ " " ++ description"#;
     let output = work_dir.run_jj(["log", "-T", template, "-s"]);
     insta::assert_snapshot!(output, @r"
-    @  1795621b54f4ebb435978b65d66bc0f90d8f20b6 new child2
+    @  5a2a6177e84f2e9e67b896421155ded751801da6 new child2
     │  A child2
-    ○  86f54245e13f850f8275b5541e56da996b6a47b7 new child1
+    ○  15bd889d60e9f054f5b163a697041a1dad1edfa3 new child1
     │  A child1
-    ○  84f07f6bca2ffeddac84a8b09f60c6b81112375c initial
+    ○  064f230b16b2bd6435a713d7f3363f562fb0d80f initial
     │  A base
     ◆  0000000000000000000000000000000000000000
     [EOF]

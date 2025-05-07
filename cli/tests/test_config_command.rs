@@ -1539,7 +1539,7 @@ fn test_config_author_change_warning() {
 
     let output = work_dir.run_jj(["log"]);
     insta::assert_snapshot!(output, @r"
-    @  qpvuntsm Foo 2001-02-03 08:05:09 ed1febd8
+    @  qpvuntsm Foo 2001-02-03 08:05:09 f64cf908
     │  (empty) (no description set)
     ◆  zzzzzzzz root() 00000000
     [EOF]

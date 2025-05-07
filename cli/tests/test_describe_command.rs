@@ -31,7 +31,7 @@ fn test_describe() {
     let output = work_dir.run_jj(["describe", "-m", "description from CLI"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: qpvuntsm 95979928 (empty) description from CLI
+    Working copy  (@) now at: qpvuntsm 7b186b4f (empty) description from CLI
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
@@ -65,7 +65,7 @@ fn test_describe() {
     let output = work_dir.run_jj(["describe"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: qpvuntsm 94fcb906 (empty) description from editor
+    Working copy  (@) now at: qpvuntsm 28173c3e (empty) description from editor
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
@@ -79,7 +79,7 @@ fn test_describe() {
     let output = work_dir.run_jj(["describe"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: qpvuntsm 7a348923 (empty) description among comment
+    Working copy  (@) now at: qpvuntsm e7488502 (empty) description among comment
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
@@ -89,7 +89,7 @@ fn test_describe() {
     let output = work_dir.run_jj(["describe"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: qpvuntsm 749361b5 (empty) line1
+    Working copy  (@) now at: qpvuntsm 7438c202 (empty) line1
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
@@ -116,7 +116,7 @@ fn test_describe() {
     let output = work_dir.run_jj(["describe"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: qpvuntsm dc44dbee (empty) line1
+    Working copy  (@) now at: qpvuntsm f38e2bd7 (empty) line1
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
@@ -131,7 +131,7 @@ fn test_describe() {
     let output = work_dir.run_jj(["describe", "-m", ""]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: qpvuntsm 6296963b (empty) (no description set)
+    Working copy  (@) now at: qpvuntsm 7c00df81 (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
@@ -181,7 +181,7 @@ fn test_describe() {
     let output = work_dir.run_jj(["describe"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: qpvuntsm 10fa2dc7 (empty) description from editor
+    Working copy  (@) now at: qpvuntsm 0ec68094 (empty) description from editor
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
@@ -274,9 +274,9 @@ fn test_describe_multiple_commits() {
     work_dir.run_jj(["new"]).success();
     work_dir.run_jj(["new"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  c6349e79bbfd
-    ○  65b6b74e0897
-    ○  230dd059e1b0
+    @  3cd3b246e098
+    ○  43444d88b009
+    ○  e8849ae12c70
     ◆  000000000000
     [EOF]
     ");
@@ -287,14 +287,14 @@ fn test_describe_multiple_commits() {
     ------- stderr -------
     Updated 2 commits
     Rebased 1 descendant commits
-    Working copy  (@) now at: kkmpptxz 41659b84 (empty) description from CLI
-    Parent commit (@-)      : rlvkpnrz 8d650510 (empty) (no description set)
+    Working copy  (@) now at: kkmpptxz 4c3ccb9d (empty) description from CLI
+    Parent commit (@-)      : rlvkpnrz 650ac8f2 (empty) (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  41659b846096 description from CLI
-    ○  8d650510daad
-    ○  a42f5755e688 description from CLI
+    @  4c3ccb9d4fb2 description from CLI
+    ○  650ac8f249be
+    ○  0ff65c91377a description from CLI
     ◆  000000000000
     [EOF]
     ");
@@ -316,10 +316,10 @@ fn test_describe_multiple_commits() {
     JJ: - The text you enter will be lost on a syntax error.
     JJ: - The syntax of the separator lines may change in the future.
     JJ:
-    JJ: describe 8d650510daad -------
+    JJ: describe 650ac8f249be -------
 
 
-    JJ: describe 41659b846096 -------
+    JJ: describe 4c3ccb9d4fb2 -------
     description from CLI
 
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -334,12 +334,12 @@ fn test_describe_multiple_commits() {
 
             JJ: More header tests. Library tests verify parsing in other situations.
 
-            JJ: describe 8d650510daad -------
+            JJ: describe 650ac8f249be -------
             description from editor of @-
 
             further commit message of @-
 
-            JJ: describe 41659b846096 -------
+            JJ: describe 4c3ccb9d4fb2 -------
             description from editor of @
 
             further commit message of @
@@ -352,18 +352,18 @@ fn test_describe_multiple_commits() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Updated 2 commits
-    Working copy  (@) now at: kkmpptxz f203494a (empty) description from editor of @
-    Parent commit (@-)      : rlvkpnrz 0d76a92c (empty) description from editor of @-
+    Working copy  (@) now at: kkmpptxz 87c0f3c7 (empty) description from editor of @
+    Parent commit (@-)      : rlvkpnrz 9b9041eb (empty) description from editor of @-
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  f203494a4507 description from editor of @
+    @  87c0f3c75a22 description from editor of @
     │
     │  further commit message of @
-    ○  0d76a92ca7cc description from editor of @-
+    ○  9b9041eb2f04 description from editor of @-
     │
     │  further commit message of @-
-    ○  a42f5755e688 description from CLI
+    ○  0ff65c91377a description from CLI
     ◆  000000000000
     [EOF]
     ");
@@ -373,17 +373,17 @@ fn test_describe_multiple_commits() {
         &edit_script,
         indoc! {"
             write
-            JJ: describe 0d76a92ca7cc -------
+            JJ: describe 9b9041eb2f04 -------
             first description from editor of @-
 
             further commit message of @-
 
-            JJ: describe 0d76a92ca7cc -------
+            JJ: describe 9b9041eb2f04 -------
             second description from editor of @-
 
             further commit message of @-
 
-            JJ: describe f203494a4507 -------
+            JJ: describe 87c0f3c75a22 -------
             updated description from editor of @
 
             further commit message of @
@@ -395,7 +395,7 @@ fn test_describe_multiple_commits() {
     let output = work_dir.run_jj(["describe", "@", "@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: The following commits were found in the edited message multiple times: 0d76a92ca7cc
+    Error: The following commits were found in the edited message multiple times: 9b9041eb2f04
     [EOF]
     [exit status: 1]
     ");
@@ -408,12 +408,12 @@ fn test_describe_multiple_commits() {
             JJ: describe 000000000000 -------
             unexpected commit ID
 
-            JJ: describe 0d76a92ca7cc -------
+            JJ: describe 9b9041eb2f04 -------
             description from editor of @-
 
             further commit message of @-
 
-            JJ: describe f203494a4507 -------
+            JJ: describe 87c0f3c75a22 -------
             description from editor of @
 
             further commit message of @
@@ -435,7 +435,7 @@ fn test_describe_multiple_commits() {
         &edit_script,
         indoc! {"
             write
-            JJ: describe f203494a4507 -------
+            JJ: describe 87c0f3c75a22 -------
             description from editor of @
 
             further commit message of @
@@ -447,7 +447,7 @@ fn test_describe_multiple_commits() {
     let output = work_dir.run_jj(["describe", "@", "@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: The description for the following commits were not found in the edited message: 0d76a92ca7cc
+    Error: The description for the following commits were not found in the edited message: 9b9041eb2f04
     [EOF]
     [exit status: 1]
     ");
@@ -460,7 +460,7 @@ fn test_describe_multiple_commits() {
             write
             description from editor of @-
 
-            JJ: describe f203494a4507 -------
+            JJ: describe 9b9041eb2f04 -------
             description from editor of @
 
             JJ: Lines starting with \"JJ: \" (like this one) will be removed.
@@ -500,13 +500,13 @@ fn test_describe_multiple_commits() {
         &edit_script,
         indoc! {"
             write
-            JJ: describe 0d76a92ca7cc -------
+            JJ: describe 9b9041eb2f04 -------
             description from editor for @-
 
             JJ: ignore-rest
             content after ignore-rest should not be included
 
-            JJ: describe a42f5755e688 -------
+            JJ: describe 0ff65c91377a -------
             description from editor for @--
 
             JJ: ignore-rest
@@ -519,16 +519,16 @@ fn test_describe_multiple_commits() {
     ------- stderr -------
     Updated 2 commits
     Rebased 1 descendant commits
-    Working copy  (@) now at: kkmpptxz 1d7701ee (empty) description from editor of @
-    Parent commit (@-)      : rlvkpnrz 5389926e (empty) description from editor for @-
+    Working copy  (@) now at: kkmpptxz 5a6249e9 (empty) description from editor of @
+    Parent commit (@-)      : rlvkpnrz d1c1edbd (empty) description from editor for @-
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  1d7701eec9bc description from editor of @
+    @  5a6249e9e71a description from editor of @
     │
     │  further commit message of @
-    ○  5389926ebed6 description from editor for @-
-    ○  eaa8547ae37a description from editor for @--
+    ○  d1c1edbd5595 description from editor for @-
+    ○  a8bf976d72fb description from editor for @--
     ◆  000000000000
     [EOF]
     ");
@@ -550,7 +550,7 @@ fn test_multiple_message_args() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: qpvuntsm 99a36a50 (empty) First Paragraph from CLI
+    Working copy  (@) now at: qpvuntsm 9b8ad205 (empty) First Paragraph from CLI
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
@@ -589,7 +589,7 @@ fn test_multiple_message_args() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: qpvuntsm 01ac40b3 (empty) First Paragraph from CLI
+    Working copy  (@) now at: qpvuntsm ac46ea93 (empty) First Paragraph from CLI
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
@@ -619,7 +619,7 @@ fn test_describe_default_description() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
-    Working copy  (@) now at: qpvuntsm 573b6df5 TESTED=TODO
+    Working copy  (@) now at: qpvuntsm 7276dfff TESTED=TODO
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     "#);
@@ -640,7 +640,7 @@ fn test_describe_default_description() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
-    Working copy  (@) now at: kkmpptxz f652c321 (empty) (no description set)
+    Working copy  (@) now at: kkmpptxz 7118bcb8 (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     "#);
@@ -805,14 +805,14 @@ fn test_describe_author() {
     JJ: - The text you enter will be lost on a syntax error.
     JJ: - The syntax of the separator lines may change in the future.
     JJ:
-    JJ: describe eae86afaa20c -------
+    JJ: describe b6fdbcc93170 -------
 
     JJ: Author: Ove Ridder <ove.ridder@example.com> (2001-02-03 08:05:18)
     JJ: Committer: Ove Ridder <ove.ridder@example.com> (2001-02-03 08:05:18)
 
     JJ: 0 files changed, 0 insertions(+), 0 deletions(-)
     JJ:
-    JJ: describe ba485659f76a -------
+    JJ: describe 3c9fefe4bede -------
 
     JJ: Author: Ove Ridder <ove.ridder@example.com> (2001-02-03 08:05:18)
     JJ: Committer: Ove Ridder <ove.ridder@example.com> (2001-02-03 08:05:18)
@@ -852,7 +852,7 @@ fn test_describe_with_edit_and_message_args_opens_editor() {
     let output = work_dir.run_jj(["describe", "-m", "message from command line", "--edit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: qpvuntsm 61ece7a9 (empty) message from command line
+    Working copy  (@) now at: qpvuntsm f9bee6de (empty) message from command line
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
@@ -879,7 +879,7 @@ fn test_describe_change_with_existing_message_with_edit_and_message_args_opens_e
     let output = work_dir.run_jj(["describe", "-m", "new message", "--edit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: qpvuntsm de694560 (empty) new message
+    Working copy  (@) now at: qpvuntsm f8f14f7c (empty) new message
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
@@ -926,7 +926,7 @@ fn test_add_trailer() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: qpvuntsm f576838d (empty) Message from CLI
+    Working copy  (@) now at: qpvuntsm 55c6f83d (empty) Message from CLI
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
@@ -948,7 +948,7 @@ fn test_add_trailer() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: qpvuntsm 2d3438dc (empty) Message from CLI
+    Working copy  (@) now at: qpvuntsm 2b2e302d (empty) Message from CLI
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
@@ -1004,8 +1004,8 @@ fn test_add_trailer() {
     let output = work_dir.run_jj(["new"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: yostqsxw 5a8ea7e1 (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm 2d3438dc (empty) Message from CLI
+    Working copy  (@) now at: yostqsxw dbea21e1 (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 2b2e302d (empty) Message from CLI
     [EOF]
     ");
     let output = work_dir.run_jj([
@@ -1035,7 +1035,7 @@ fn test_add_trailer_committer() {
     let output = work_dir.run_jj(["describe", "-m", "Message from CLI"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: qpvuntsm 500b5e31 (empty) Message from CLI
+    Working copy  (@) now at: qpvuntsm 67458426 (empty) Message from CLI
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
@@ -1057,7 +1057,7 @@ fn test_add_trailer_committer() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: qpvuntsm b71fc9e2 (empty) Message from CLI
+    Working copy  (@) now at: qpvuntsm 05ddee5c (empty) Message from CLI
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
@@ -1076,7 +1076,7 @@ fn test_add_trailer_committer() {
     let output = work_dir.run_jj(["describe", "--config", "user.email=foo@bar.net"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: qpvuntsm d430eef5 (empty) Message from CLI
+    Working copy  (@) now at: qpvuntsm b7dafa2c (empty) Message from CLI
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
@@ -1108,8 +1108,8 @@ fn test_add_trailer_committer() {
     let output = work_dir.run_jj(["describe"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: vruxwmqv bc9e914e (empty) Signed-off-by: test.user@example.com
-    Parent commit (@-)      : qpvuntsm d430eef5 (empty) Message from CLI
+    Working copy  (@) now at: vruxwmqv b6148729 (empty) Signed-off-by: test.user@example.com
+    Parent commit (@-)      : qpvuntsm b7dafa2c (empty) Message from CLI
     [EOF]
     ");
 

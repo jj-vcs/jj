@@ -44,15 +44,15 @@ fn test_edit() {
     let output = work_dir.run_jj(["edit", "@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: qpvuntsm 73383c0b first
+    Working copy  (@) now at: qpvuntsm 1f6994f8 first
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
     let output = get_log_output(&work_dir);
     insta::assert_snapshot!(output, @r"
-    ○  2c910ae2d628 second
-    @  73383c0b6439 first
+    ○  b38b8e65163a second
+    @  1f6994f8b95b first
     ◆  000000000000
     [EOF]
     ");
@@ -62,8 +62,8 @@ fn test_edit() {
     work_dir.write_file("file2", "0");
     let output = get_log_output(&work_dir);
     insta::assert_snapshot!(output, @r"
-    ○  b384b2cc1883 second
-    @  ff3f7b0dc386 first
+    ○  d5aea29cb4cb second
+    @  2636584c21c0 first
     ◆  000000000000
     [EOF]
     ------- stderr -------
@@ -117,8 +117,8 @@ fn test_edit_current_wc_commit_missing() {
     Internal error: Failed to edit a commit
     Caused by:
     1: Current working-copy commit not found
-    2: Object fa15625b4a986997697639dfc2844138900c79f2 of type commit not found
-    3: An object with id fa15625b4a986997697639dfc2844138900c79f2 could not be found
+    2: Object 68a505386f936fff6d718f55005e77ea72589bc1 of type commit not found
+    3: An object with id 68a505386f936fff6d718f55005e77ea72589bc1 could not be found
     [EOF]
     [exit status: 255]
     ");

@@ -26,7 +26,7 @@ fn test_backout() {
     create_commit_with_files(&work_dir, "a", &[], &[("a", "a\n")]);
     // Test the setup
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  2443ea76b0b1 a
+    @  7d980be7a1d4 a
     ◆  000000000000
     [EOF]
     ");
@@ -45,10 +45,10 @@ fn test_backout() {
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r#"
-    ○  6d845ed9fb6a Back out "a"
+    ○  b8c8e82a19bc Back out "a"
     │
-    │  This backs out commit 2443ea76b0b1c531326908326aab7020abab8e6c.
-    @  2443ea76b0b1 a
+    │  This backs out commit 7d980be7a1d499e4d316ab4c01242885032f7eaf.
+    @  7d980be7a1d4 a
     ◆  000000000000
     [EOF]
     "#);
@@ -68,13 +68,13 @@ fn test_backout() {
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r#"
-    ○  79555ea9040b Back out "Back out "a""
+    ○  812d823be175 Back out "Back out "a""
     │
-    │  This backs out commit 6d845ed9fb6a3d367e2d7068ef0256b1a10705a9.
-    @  6d845ed9fb6a Back out "a"
+    │  This backs out commit b8c8e82a19bcf6217e065d1aff9a5f0ba807b565.
+    @  b8c8e82a19bc Back out "a"
     │
-    │  This backs out commit 2443ea76b0b1c531326908326aab7020abab8e6c.
-    ○  2443ea76b0b1 a
+    │  This backs out commit 7d980be7a1d499e4d316ab4c01242885032f7eaf.
+    ○  7d980be7a1d4 a
     ◆  000000000000
     [EOF]
     "#);
@@ -99,11 +99,11 @@ fn test_backout_multiple() {
 
     // Test the setup
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  208f8612074a e
-    ○  ceeec03be46b d
-    ○  413337bbd11f c
-    ○  46cc97af6802 b
-    ○  2443ea76b0b1 a
+    @  51a01d6d8cc4 e
+    ○  4b9d123d3b33 d
+    ○  05e1f540476f c
+    ○  f93a910dbdf0 b
+    ○  7d980be7a1d4 a
     ◆  000000000000
     [EOF]
     ");
@@ -117,34 +117,34 @@ fn test_backout_multiple() {
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r#"
-    ○  6504c4ded177 Back out "b"
+    ○  036128aa5f6e Back out "b"
     │
-    │  This backs out commit 46cc97af6802301d8db381386e8485ff3ff24ae6.
-    ○  d31d42e0267f Back out "c"
+    │  This backs out commit f93a910dbdf0f841e6cf2bc0ab0ba4c336d6f436.
+    ○  156974608bed Back out "c"
     │
-    │  This backs out commit 413337bbd11f7a6636c010d9e196acf801d8df2f.
-    ○  8ff3fbc2ccb0 Back out "e"
+    │  This backs out commit 05e1f540476f8c4207ff44febbe2ce6e6696dc4b.
+    ○  3f72017241e0 Back out "e"
     │
-    │  This backs out commit 208f8612074af4c219d06568a8e1f04f2e80dc25.
-    @  208f8612074a e
-    ○  ceeec03be46b d
-    ○  413337bbd11f c
-    ○  46cc97af6802 b
-    ○  2443ea76b0b1 a
+    │  This backs out commit 51a01d6d8cc48a296cb87f8383b34ade3c050363.
+    @  51a01d6d8cc4 e
+    ○  4b9d123d3b33 d
+    ○  05e1f540476f c
+    ○  f93a910dbdf0 b
+    ○  7d980be7a1d4 a
     ◆  000000000000
     [EOF]
     "#);
     // View the output of each backed out commit
     let output = work_dir.run_jj(["show", "@+"]);
     insta::assert_snapshot!(output, @r#"
-    Commit ID: 8ff3fbc2ccb0d66985f558c461d1643cebb4c7d6
+    Commit ID: 3f72017241e0a32ab837ae929061cdc05ff04f5b
     Change ID: wqnwkozpkustnxypnnntnykwrqrkrpvv
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:19)
     Committer: Test User <test.user@example.com> (2001-02-03 08:05:19)
 
         Back out "e"
 
-        This backs out commit 208f8612074af4c219d06568a8e1f04f2e80dc25.
+        This backs out commit 51a01d6d8cc48a296cb87f8383b34ade3c050363.
 
     Modified regular file a:
        1    1: a
@@ -154,14 +154,14 @@ fn test_backout_multiple() {
     "#);
     let output = work_dir.run_jj(["show", "@++"]);
     insta::assert_snapshot!(output, @r#"
-    Commit ID: d31d42e0267f6524d445348b1dd00926c62a6b57
+    Commit ID: 156974608bed539fb98d89c1f6995d962123cdbd
     Change ID: mouksmquosnpvwqrpsvvxtxpywpnxlss
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:19)
     Committer: Test User <test.user@example.com> (2001-02-03 08:05:19)
 
         Back out "c"
 
-        This backs out commit 413337bbd11f7a6636c010d9e196acf801d8df2f.
+        This backs out commit 05e1f540476f8c4207ff44febbe2ce6e6696dc4b.
 
     Removed regular file b:
        1     : b
@@ -169,14 +169,14 @@ fn test_backout_multiple() {
     "#);
     let output = work_dir.run_jj(["show", "@+++"]);
     insta::assert_snapshot!(output, @r#"
-    Commit ID: 6504c4ded177fba2334f76683d1aa643700d5073
+    Commit ID: 036128aa5f6eb3770cc8284c0dbe198b2c9a5f62
     Change ID: tqvpomtpwrqsylrpsxknultrymmqxmxv
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:19)
     Committer: Test User <test.user@example.com> (2001-02-03 08:05:19)
 
         Back out "b"
 
-        This backs out commit 46cc97af6802301d8db381386e8485ff3ff24ae6.
+        This backs out commit f93a910dbdf0f841e6cf2bc0ab0ba4c336d6f436.
 
     Modified regular file a:
        1    1: a
@@ -206,7 +206,7 @@ fn test_backout_description_template() {
 
     // Test the setup
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  2443ea76b0b1 a
+    @  7d980be7a1d4 a
     ◆  000000000000
     [EOF]
     ");
@@ -225,8 +225,8 @@ fn test_backout_description_template() {
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r#"
-    ○  1db880a5204e Revert commit 2443ea76b0b1 "a"
-    @  2443ea76b0b1 a
+    ○  6bfb98a33f58 Revert commit 7d980be7a1d4 "a"
+    @  7d980be7a1d4 a
     ◆  000000000000
     [EOF]
     "#);

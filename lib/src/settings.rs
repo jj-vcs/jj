@@ -82,7 +82,7 @@ impl Default for GitSettings {
             auto_local_bookmark: false,
             abandon_unreachable_commits: true,
             executable_path: PathBuf::from("git"),
-            write_change_id_header: false,
+            write_change_id_header: true,
         }
     }
 }

@@ -49,7 +49,7 @@ fn test_git_colocated() {
         .run_jj(["git", "init", "--git-repo", "."])
         .success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  c3a12656d5027825bc69f40e11dc0bb381d7c277
+    @  524826059adc6f74de30f6be8f8eb86715d75b62
     ○  97358f54806c7cd005ed5ade68a779595efbae7e master git_head() initial
     ◆  0000000000000000000000000000000000000000
     [EOF]
@@ -63,7 +63,7 @@ fn test_git_colocated() {
     // HEAD commit should not
     work_dir.write_file("file", "modified");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  59642000f061cf23eb37ab6eecce428afe7824da
+    @  f40534d1cfee0e0916dcfbc65c31970b3c705269
     ○  97358f54806c7cd005ed5ade68a779595efbae7e master git_head() initial
     ◆  0000000000000000000000000000000000000000
     [EOF]
@@ -76,8 +76,8 @@ fn test_git_colocated() {
     // Create a new change from jj and check that it's reflected in Git
     work_dir.run_jj(["new"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  fd4e130e43068d76ec6eb2c6df01653ea12eccb4
-    ○  59642000f061cf23eb37ab6eecce428afe7824da git_head()
+    @  b369903b66e2dba03f3f6b24433670784f6180d7
+    ○  f40534d1cfee0e0916dcfbc65c31970b3c705269 git_head()
     ○  97358f54806c7cd005ed5ade68a779595efbae7e master initial
     ◆  0000000000000000000000000000000000000000
     [EOF]
@@ -85,7 +85,7 @@ fn test_git_colocated() {
     assert!(git_repo.head().unwrap().is_detached());
     insta::assert_snapshot!(
         git_repo.head_id().unwrap().to_string(),
-        @"59642000f061cf23eb37ab6eecce428afe7824da"
+        @"f40534d1cfee0e0916dcfbc65c31970b3c705269"
     );
 }
 
@@ -176,7 +176,7 @@ fn test_git_colocated_unborn_bookmark() {
         b"refs/heads/master"
     );
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  230dd059e1b059aefc0da06a2e5a7dbf22362f22
+    @  e8849ae12c709f2321908879bc724fdb2ab8a781
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -186,7 +186,7 @@ fn test_git_colocated_unborn_bookmark() {
     let output = work_dir.run_jj(["new", "root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: kkmpptxz fcdbbd73 (empty) (no description set)
+    Working copy  (@) now at: kkmpptxz 2b17ac71 (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
@@ -197,8 +197,8 @@ fn test_git_colocated_unborn_bookmark() {
         b"refs/heads/master"
     );
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  fcdbbd731496cae17161cd6be9b6cf1f759655a8
-    │ ○  993600f1189571af5bbeb492cf657dc7d0fde48a
+    @  2b17ac719c7db025e2514f5708d2b0328fc6b268
+    │ ○  1d68db605e7f3722d6869beab15183f0e41fd45c
     ├─╯
     ◆  0000000000000000000000000000000000000000
     [EOF]
@@ -207,7 +207,7 @@ fn test_git_colocated_unborn_bookmark() {
     checkout_index();
     insta::assert_snapshot!(work_dir.run_jj(["status"]), @r"
     The working copy has no changes.
-    Working copy  (@) : kkmpptxz fcdbbd73 (empty) (no description set)
+    Working copy  (@) : kkmpptxz 2b17ac71 (empty) (no description set)
     Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
@@ -218,19 +218,19 @@ fn test_git_colocated_unborn_bookmark() {
     let output = work_dir.run_jj(["new"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: royxmykx 0e146103 (empty) (no description set)
-    Parent commit (@-)      : kkmpptxz e3e01407 (no description set)
+    Working copy  (@) now at: royxmykx c5b52bf2 (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz 54ca7830 (no description set)
     [EOF]
     ");
     assert!(git_repo.head().unwrap().is_detached());
     insta::assert_snapshot!(
         git_repo.head_id().unwrap().to_string(),
-        @"e3e01407bd3539722ae4ffff077700d97c60cb11"
+        @"54ca78301ccd2e0da397694ab34160d539a40e86"
     );
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  0e14610343ef50775f5c44db5aeef19aee45d9ad
-    ○  e3e01407bd3539722ae4ffff077700d97c60cb11 git_head()
-    │ ○  993600f1189571af5bbeb492cf657dc7d0fde48a
+    @  c5b52bf20a14ca728cbb2a56b9dffabc266251bd
+    ○  54ca78301ccd2e0da397694ab34160d539a40e86 git_head()
+    │ ○  1d68db605e7f3722d6869beab15183f0e41fd45c
     ├─╯
     ◆  0000000000000000000000000000000000000000
     [EOF]
@@ -239,8 +239,8 @@ fn test_git_colocated_unborn_bookmark() {
     checkout_index();
     insta::assert_snapshot!(work_dir.run_jj(["status"]), @r"
     The working copy has no changes.
-    Working copy  (@) : royxmykx 0e146103 (empty) (no description set)
-    Parent commit (@-): kkmpptxz e3e01407 (no description set)
+    Working copy  (@) : royxmykx c5b52bf2 (empty) (no description set)
+    Parent commit (@-): kkmpptxz 54ca7830 (no description set)
     [EOF]
     ");
 
@@ -255,18 +255,18 @@ fn test_git_colocated_unborn_bookmark() {
     let output = work_dir.run_jj(["new", "root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: znkkpsqq 10dd328b (empty) (no description set)
+    Working copy  (@) now at: znkkpsqq 2b2f7cb0 (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
     assert!(git_repo.head().unwrap().is_unborn());
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  10dd328bb906e15890e55047740eab2812a3b2f7
-    │ ○  ef75c0b0dcc9b080e00226908c21316acaa84dc6
-    │ ○  e3e01407bd3539722ae4ffff077700d97c60cb11 master
+    @  2b2f7cb00d53f5c0675efb09cbe1a826ce1167a4
+    │ ○  6c3d40f5a3260d762cd52a8ff6d09883c88d8db5
+    │ ○  54ca78301ccd2e0da397694ab34160d539a40e86 master
     ├─╯
-    │ ○  993600f1189571af5bbeb492cf657dc7d0fde48a
+    │ ○  1d68db605e7f3722d6869beab15183f0e41fd45c
     ├─╯
     ◆  0000000000000000000000000000000000000000
     [EOF]
@@ -275,7 +275,7 @@ fn test_git_colocated_unborn_bookmark() {
     checkout_index();
     insta::assert_snapshot!(work_dir.run_jj(["status"]), @r"
     The working copy has no changes.
-    Working copy  (@) : znkkpsqq 10dd328b (empty) (no description set)
+    Working copy  (@) : znkkpsqq 2b2f7cb0 (empty) (no description set)
     Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
@@ -285,17 +285,17 @@ fn test_git_colocated_unborn_bookmark() {
     let output = work_dir.run_jj(["new"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: wqnwkozp 101e2723 (empty) (no description set)
-    Parent commit (@-)      : znkkpsqq fc8af934 (no description set)
+    Working copy  (@) now at: wqnwkozp 4253b9c0 (empty) (no description set)
+    Parent commit (@-)      : znkkpsqq b8df84db (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  101e272377a9daff75358f10dbd078df922fe68c
-    ○  fc8af9345b0830dcb14716e04cd2af26e2d19f63 git_head()
-    │ ○  ef75c0b0dcc9b080e00226908c21316acaa84dc6
-    │ ○  e3e01407bd3539722ae4ffff077700d97c60cb11 master
+    @  4253b9c0f70fd5287c2af4e96b779da6066757fd
+    ○  b8df84db65f6a75ace38ceebca6ed8be781ec754 git_head()
+    │ ○  6c3d40f5a3260d762cd52a8ff6d09883c88d8db5
+    │ ○  54ca78301ccd2e0da397694ab34160d539a40e86 master
     ├─╯
-    │ ○  993600f1189571af5bbeb492cf657dc7d0fde48a
+    │ ○  1d68db605e7f3722d6869beab15183f0e41fd45c
     ├─╯
     ◆  0000000000000000000000000000000000000000
     [EOF]
@@ -320,7 +320,7 @@ fn test_git_colocated_export_bookmarks_on_snapshot() {
         .run_jj(["bookmark", "create", "-r@", "foo"])
         .success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  b15ef4cdd277d2c63cce6d67c1916f53a36141f7 foo
+    @  82a10a4d9ef783fd68b661f40ce10dd80d599d9e foo
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -329,7 +329,7 @@ fn test_git_colocated_export_bookmarks_on_snapshot() {
     // exported to Git without requiring any other changes
     work_dir.write_file("file", "modified");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  4d2c49a8f8e2f1ba61f48ba79e5f4a5faa6512cf foo
+    @  00fc09f48ccf5c8b025a0f93b0ec3b0e4294a598 foo
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -337,7 +337,7 @@ fn test_git_colocated_export_bookmarks_on_snapshot() {
         .find_reference("refs/heads/foo")
         .unwrap()
         .id()
-        .to_string(), @"4d2c49a8f8e2f1ba61f48ba79e5f4a5faa6512cf");
+        .to_string(), @"00fc09f48ccf5c8b025a0f93b0ec3b0e4294a598");
 }
 
 #[test]
@@ -381,15 +381,15 @@ fn test_git_colocated_rebase_on_import() {
         )
         .unwrap();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  15b1d70c5e33b5d2b18383292b85324d5153ffed
-    ○  47fe984daf66f7bf3ebf31b9cb3513c995afb857 master git_head() add a file
+    @  d46583362b91d0e172aec469ea1689995540de81
+    ○  cbd6c887108743a4abb0919305646a6a914a665e master git_head() add a file
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ------- stderr -------
     Abandoned 1 commits that are no longer reachable.
     Rebased 1 descendant commits off of commits rewritten from git
-    Working copy  (@) now at: zsuskuln 15b1d70c (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm 47fe984d master | add a file
+    Working copy  (@) now at: zsuskuln d4658336 (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm cbd6c887 master | add a file
     Added 0 files, modified 1 files, removed 0 files
     Done importing changes from the underlying Git repo.
     [EOF]
@@ -407,10 +407,10 @@ fn test_git_colocated_bookmarks() {
     work_dir.run_jj(["new", "-m", "foo"]).success();
     work_dir.run_jj(["new", "@-", "-m", "bar"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  3560559274ab431feea00b7b7e0b9250ecce951f bar
-    │ ○  1e6f0b403ed2ff9713b5d6b1dc601e4804250cda foo
+    @  95e79774f8e7c785fc36da2b798ecfe0dc864e02 bar
+    │ ○  b51ab2e2c88fe2d38bd7ca6946c4d87f281ce7e2 foo
     ├─╯
-    ○  230dd059e1b059aefc0da06a2e5a7dbf22362f22 git_head()
+    ○  e8849ae12c709f2321908879bc724fdb2ab8a781 git_head()
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -422,12 +422,12 @@ fn test_git_colocated_bookmarks() {
         .success();
     insta::assert_snapshot!(
         git_repo.find_reference("refs/heads/master").unwrap().target().id().to_string(),
-        @"3560559274ab431feea00b7b7e0b9250ecce951f"
+        @"95e79774f8e7c785fc36da2b798ecfe0dc864e02"
     );
     assert!(git_repo.head().unwrap().is_detached());
     insta::assert_snapshot!(
         git_repo.head_id().unwrap().to_string(),
-        @"230dd059e1b059aefc0da06a2e5a7dbf22362f22"
+        @"e8849ae12c709f2321908879bc724fdb2ab8a781"
     );
 
     // Update the bookmark in Git
@@ -445,16 +445,16 @@ fn test_git_colocated_bookmarks() {
         )
         .unwrap();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  096dc80da67094fbaa6683e2a205dddffa31f9a8
-    │ ○  1e6f0b403ed2ff9713b5d6b1dc601e4804250cda master foo
+    @  507c0edcfc028f714f3c7a3027cb141f6610e867
+    │ ○  b51ab2e2c88fe2d38bd7ca6946c4d87f281ce7e2 master foo
     ├─╯
-    ○  230dd059e1b059aefc0da06a2e5a7dbf22362f22 git_head()
+    ○  e8849ae12c709f2321908879bc724fdb2ab8a781 git_head()
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ------- stderr -------
     Abandoned 1 commits that are no longer reachable.
-    Working copy  (@) now at: yqosqzyt 096dc80d (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm 230dd059 (empty) (no description set)
+    Working copy  (@) now at: yqosqzyt 507c0edc (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
     Done importing changes from the underlying Git repo.
     [EOF]
     ");
@@ -473,14 +473,14 @@ fn test_git_colocated_bookmark_forget() {
         .run_jj(["bookmark", "create", "-r@", "foo"])
         .success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  65b6b74e08973b88d38404430f119c8c79465250 foo
-    ○  230dd059e1b059aefc0da06a2e5a7dbf22362f22 git_head()
+    @  43444d88b0096888ebfd664c0cf792c9d15e3f14 foo
+    ○  e8849ae12c709f2321908879bc724fdb2ab8a781 git_head()
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
-    foo: rlvkpnrz 65b6b74e (empty) (no description set)
-      @git: rlvkpnrz 65b6b74e (empty) (no description set)
+    foo: rlvkpnrz 43444d88 (empty) (no description set)
+      @git: rlvkpnrz 43444d88 (empty) (no description set)
     [EOF]
     ");
 
@@ -517,7 +517,7 @@ fn test_git_colocated_bookmark_at_root() {
     let output = work_dir.run_jj(["bookmark", "move", "foo", "--to=@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Moved 1 bookmarks to qpvuntsm 230dd059 foo | (empty) (no description set)
+    Moved 1 bookmarks to qpvuntsm e8849ae1 foo | (empty) (no description set)
     [EOF]
     ");
 
@@ -552,7 +552,7 @@ fn test_git_colocated_conflicting_git_refs() {
     insta::with_settings!({filters => vec![("Failed to set: .*", "Failed to set: ...")]}, {
         insta::assert_snapshot!(output, @r#"
         ------- stderr -------
-        Created 1 bookmarks pointing to qpvuntsm 230dd059 main main/sub | (empty) (no description set)
+        Created 1 bookmarks pointing to qpvuntsm e8849ae1 main main/sub | (empty) (no description set)
         Warning: Failed to export some bookmarks:
           main/sub@git: Failed to set: ...
         Hint: Git doesn't allow a branch name that looks like a parent directory of
@@ -597,7 +597,7 @@ fn test_git_colocated_checkout_non_empty_working_copy() {
     let output = work_dir.run_jj(["describe", "-m", "new"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: kkmpptxz acea3383 (empty) new
+    Working copy  (@) now at: kkmpptxz 986aa548 (empty) new
     Parent commit (@-)      : slsumksp 97358f54 master | initial
     [EOF]
     ");
@@ -608,8 +608,8 @@ fn test_git_colocated_checkout_non_empty_working_copy() {
     );
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  acea3383e7a9e4e0df035ee0e83d04cac44a3a14 new
-    │ ○  a99003c2d01be21a82b33c0946c30c596e900287 two
+    @  986aa548466ed43b48c059854720e70d8ec2bf71 new
+    │ ○  6b0f7d59e0749d3a6ff2ecf686d5fa48023b7b93 two
     ├─╯
     ○  97358f54806c7cd005ed5ade68a779595efbae7e master git_head() initial
     ◆  0000000000000000000000000000000000000000
@@ -642,12 +642,12 @@ fn test_git_colocated_fetch_deleted_or_moved_bookmark() {
     clone_dir.run_jj(["git", "init", "--git-repo=."]).success();
     clone_dir.run_jj(["new", "A"]).success();
     insta::assert_snapshot!(get_log_output(&clone_dir), @r"
-    @  9c2de797c3c299a40173c5af724329012b77cbdd
-    │ ○  4a191a9013d3f3398ccf5e172792a61439dbcf3a C_to_move original C
+    @  0060713e4c7c46c4ce0d69a43ac16451582eda79
+    │ ○  dd905babf5b4ad4689f2da1350fd4f0ac5568209 C_to_move original C
     ├─╯
-    │ ○  c49ec4fb50844d0e693f1609da970b11878772ee B_to_delete B_to_delete
+    │ ○  b2ea51c027e11c0f2871cce2a52e648e194df771 B_to_delete B_to_delete
     ├─╯
-    ◆  a7e4cec4256b7995129b9d1e1bda7e1df6e60678 A git_head() A
+    ◆  8777db25171cace71ad014598663d5ffc4fae6b1 A git_head() A
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -670,10 +670,10 @@ fn test_git_colocated_fetch_deleted_or_moved_bookmark() {
     // "original C" and "B_to_delete" are abandoned, as the corresponding bookmarks
     // were deleted or moved on the remote (#864)
     insta::assert_snapshot!(get_log_output(&clone_dir), @r"
-    @  9c2de797c3c299a40173c5af724329012b77cbdd
-    │ ○  4f3d13296f978cbc351c46a43b4619c91b888475 C_to_move moved C
+    @  0060713e4c7c46c4ce0d69a43ac16451582eda79
+    │ ○  fb297975e4ef98dc057f65b761aed2cdb0386598 C_to_move moved C
     ├─╯
-    ◆  a7e4cec4256b7995129b9d1e1bda7e1df6e60678 A git_head() A
+    ◆  8777db25171cace71ad014598663d5ffc4fae6b1 A git_head() A
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -707,8 +707,8 @@ fn test_git_colocated_rebase_dirty_working_copy() {
     insta::assert_snapshot!(output, @r"
     Working copy changes:
     M file
-    Working copy  (@) : rlvkpnrz 6bad94b1 feature?? | (no description set)
-    Parent commit (@-): qpvuntsm 3230d522 (no description set)
+    Working copy  (@) : rlvkpnrz e23559e3 feature?? | (no description set)
+    Parent commit (@-): qpvuntsm f99015d7 (no description set)
     Warning: These bookmarks have conflicts:
       feature
     Hint: Use `jj bookmark list` to see details. Use `jj bookmark set <name> -r <rev>` to resolve.
@@ -720,8 +720,8 @@ fn test_git_colocated_rebase_dirty_working_copy() {
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  6bad94b10401f5fafc8a91064661224650d10d1b feature??
-    ○  3230d52258f6de7e9afbd10da8d64503cc7cdca5 git_head()
+    @  e23559e3bc6f22a5562297696fc357e2c581df77 feature??
+    ○  f99015d7d9b82a5912ec4d96a18d2a4afbd8dd49 git_head()
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -755,9 +755,9 @@ fn test_git_colocated_external_checkout() {
 
     // Checked out anonymous bookmark
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  f8a23336e41840ed1757ef323402a770427dc89a
-    ○  eccedddfa5152d99fc8ddd1081b375387a8a382a git_head() B
-    │ ○  a7e4cec4256b7995129b9d1e1bda7e1df6e60678 master A
+    @  6f8612f0e7f6d52efd8a72615796df06f8d64cdc
+    ○  319eaafc8fd04c763a0683a000bba5452082feb3 git_head() B
+    │ ○  8777db25171cace71ad014598663d5ffc4fae6b1 master A
     ├─╯
     ◆  0000000000000000000000000000000000000000
     [EOF]
@@ -769,9 +769,9 @@ fn test_git_colocated_external_checkout() {
     // The old working-copy commit gets abandoned, but the whole bookmark should not
     // be abandoned. (#1042)
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  8bb9e8d42a37c2a4e8dcfad97fce0b8f49bc7afa
-    ○  a7e4cec4256b7995129b9d1e1bda7e1df6e60678 master git_head() A
-    │ ○  eccedddfa5152d99fc8ddd1081b375387a8a382a B
+    @  7ceeaaae54c8ac99ad34eeed7fe1e896f535be99
+    ○  8777db25171cace71ad014598663d5ffc4fae6b1 master git_head() A
+    │ ○  319eaafc8fd04c763a0683a000bba5452082feb3 B
     ├─╯
     ◆  0000000000000000000000000000000000000000
     [EOF]
@@ -784,10 +784,10 @@ fn test_git_colocated_external_checkout() {
     work_dir.run_jj(["new", "description(B)"]).success();
     work_dir.run_jj(["new", "-m=C", "--no-edit"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    ○  99a813753d6db988d8fc436b0d6b30a54d6b2707 C
-    @  81e086b7f9b1dd7fde252e28bdcf4ba4abd86ce5
-    ○  eccedddfa5152d99fc8ddd1081b375387a8a382a git_head() B
-    │ ○  a7e4cec4256b7995129b9d1e1bda7e1df6e60678 master A
+    ○  823204bc895aad19d46b895bc510fb3e9d0c97c7 C
+    @  c6abf242550b7c4116d3821b69c79326889aeba0
+    ○  319eaafc8fd04c763a0683a000bba5452082feb3 git_head() B
+    │ ○  8777db25171cace71ad014598663d5ffc4fae6b1 master A
     ├─╯
     ◆  0000000000000000000000000000000000000000
     [EOF]
@@ -798,11 +798,11 @@ fn test_git_colocated_external_checkout() {
 
     // The old working-copy commit shouldn't be abandoned. (#3747)
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  ca2a4e32f08688c6fb795c4c034a0a7e09c0d804
-    ○  a7e4cec4256b7995129b9d1e1bda7e1df6e60678 master git_head() A
-    │ ○  99a813753d6db988d8fc436b0d6b30a54d6b2707 C
-    │ ○  81e086b7f9b1dd7fde252e28bdcf4ba4abd86ce5
-    │ ○  eccedddfa5152d99fc8ddd1081b375387a8a382a B
+    @  277b693c61dcdea59ac26d6982370f78751f6ef5
+    ○  8777db25171cace71ad014598663d5ffc4fae6b1 master git_head() A
+    │ ○  823204bc895aad19d46b895bc510fb3e9d0c97c7 C
+    │ ○  c6abf242550b7c4116d3821b69c79326889aeba0
+    │ ○  319eaafc8fd04c763a0683a000bba5452082feb3 B
     ├─╯
     ◆  0000000000000000000000000000000000000000
     [EOF]
@@ -835,25 +835,25 @@ fn test_git_colocated_concurrent_checkout() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Warning: Failed to update Git HEAD ref
-    Caused by: The reference "HEAD" should have content 58a6206c70b53dfc30dc2f8c9e3713034cfc323e, actual content was 363a08cf5e683485227336e24a006e0deac341bc
-    Working copy  (@) now at: mzvwutvl 6b3bc9c8 (empty) (no description set)
-    Parent commit (@-)      : zsuskuln 7d358222 (empty) commit3
+    Caused by: The reference "HEAD" should have content dc0b92dfa0af129b2929fa1789fc896b075782b2, actual content was 091e39feb0aba632ab9a9503ceb1dddeac4dd496
+    Working copy  (@) now at: mzvwutvl cf0ddbb4 (empty) (no description set)
+    Parent commit (@-)      : zsuskuln b6786455 (empty) commit3
     [EOF]
     "#);
 
     // git_head() isn't updated because the export failed
     insta::assert_snapshot!(work_dir.run_jj(["log", "--summary", "--ignore-working-copy"]), @r"
-    @  mzvwutvl test.user@example.com 2001-02-03 08:05:11 6b3bc9c8
+    @  mzvwutvl test.user@example.com 2001-02-03 08:05:11 cf0ddbb4
     │  (empty) (no description set)
-    ○  zsuskuln test.user@example.com 2001-02-03 08:05:11 7d358222
+    ○  zsuskuln test.user@example.com 2001-02-03 08:05:11 b6786455
     │  (empty) commit3
-    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:10 git_head() 58a6206c
+    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:10 git_head() dc0b92df
     │  commit2
     │  A file2
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 363a08cf
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 091e39fe
     │  commit1
     │  A file1
-    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:07 230dd059
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:07 e8849ae1
     │  (empty) (no description set)
     ◆  zzzzzzzz root() 00000000
     [EOF]
@@ -861,17 +861,17 @@ fn test_git_colocated_concurrent_checkout() {
 
     // The current Git HEAD is imported on the next jj invocation
     insta::assert_snapshot!(work_dir.run_jj(["log", "--summary"]), @r"
-    @  yqosqzyt test.user@example.com 2001-02-03 08:05:13 690bd924
+    @  yqosqzyt test.user@example.com 2001-02-03 08:05:13 9529e8f5
     │  (empty) (no description set)
-    │ ○  zsuskuln test.user@example.com 2001-02-03 08:05:11 7d358222
+    │ ○  zsuskuln test.user@example.com 2001-02-03 08:05:11 b6786455
     │ │  (empty) commit3
-    │ ○  kkmpptxz test.user@example.com 2001-02-03 08:05:10 58a6206c
+    │ ○  kkmpptxz test.user@example.com 2001-02-03 08:05:10 dc0b92df
     ├─╯  commit2
     │    A file2
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 git_head() 363a08cf
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 git_head() 091e39fe
     │  commit1
     │  A file1
-    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:07 230dd059
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:07 e8849ae1
     │  (empty) (no description set)
     ◆  zzzzzzzz root() 00000000
     [EOF]
@@ -890,16 +890,16 @@ fn test_git_colocated_squash_undo() {
     work_dir.run_jj(["ci", "-m=A"]).success();
     // Test the setup
     insta::assert_snapshot!(get_log_output_divergence(&work_dir), @r"
-    @  rlvkpnrzqnoo 9670380ac379
-    ○  qpvuntsmwlqt a7e4cec4256b A git_head()
+    @  rlvkpnrzqnoo 682c866b0a2f
+    ○  qpvuntsmwlqt 8777db25171c A git_head()
     ◆  zzzzzzzzzzzz 000000000000
     [EOF]
     ");
 
     work_dir.run_jj(["squash"]).success();
     insta::assert_snapshot!(get_log_output_divergence(&work_dir), @r"
-    @  zsuskulnrvyr 6ee662324e5a
-    ○  qpvuntsmwlqt 13ab6b96d82e A git_head()
+    @  zsuskulnrvyr e1c3034f23b9
+    ○  qpvuntsmwlqt ba304e200f4f A git_head()
     ◆  zzzzzzzzzzzz 000000000000
     [EOF]
     ");
@@ -907,8 +907,8 @@ fn test_git_colocated_squash_undo() {
     // TODO: There should be no divergence here; 2f376ea1478c should be hidden
     // (#922)
     insta::assert_snapshot!(get_log_output_divergence(&work_dir), @r"
-    @  rlvkpnrzqnoo 9670380ac379
-    ○  qpvuntsmwlqt a7e4cec4256b A git_head()
+    @  rlvkpnrzqnoo 682c866b0a2f
+    ○  qpvuntsmwlqt 8777db25171c A git_head()
     ◆  zzzzzzzzzzzz 000000000000
     [EOF]
     ");
@@ -926,10 +926,10 @@ fn test_git_colocated_undo_head_move() {
     assert!(git_repo.head().unwrap().is_detached());
     insta::assert_snapshot!(
         git_repo.head_id().unwrap().to_string(),
-        @"230dd059e1b059aefc0da06a2e5a7dbf22362f22");
+        @"e8849ae12c709f2321908879bc724fdb2ab8a781");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  65b6b74e08973b88d38404430f119c8c79465250
-    ○  230dd059e1b059aefc0da06a2e5a7dbf22362f22 git_head()
+    @  43444d88b0096888ebfd664c0cf792c9d15e3f14
+    ○  e8849ae12c709f2321908879bc724fdb2ab8a781 git_head()
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -938,7 +938,7 @@ fn test_git_colocated_undo_head_move() {
     work_dir.run_jj(["undo"]).success();
     assert!(git_repo.head().unwrap().is_unborn());
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  230dd059e1b059aefc0da06a2e5a7dbf22362f22
+    @  e8849ae12c709f2321908879bc724fdb2ab8a781
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -947,33 +947,33 @@ fn test_git_colocated_undo_head_move() {
     work_dir.run_jj(["new"]).success();
     work_dir.run_jj(["new"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  69b19f73cf584f162f078fb0d91c55ca39d10bc7
-    ○  eb08b363bb5ef8ee549314260488980d7bbe8f63 git_head()
-    ○  230dd059e1b059aefc0da06a2e5a7dbf22362f22
+    @  47762194c5b3d9a9280ee7cfd2b9db16158b1b3c
+    ○  e7d0d5fdaf96051d0dacec1e74d9413d64a15822 git_head()
+    ○  e8849ae12c709f2321908879bc724fdb2ab8a781
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
     assert!(git_repo.head().unwrap().is_detached());
     insta::assert_snapshot!(
         git_repo.head_id().unwrap().to_string(),
-        @"eb08b363bb5ef8ee549314260488980d7bbe8f63");
+        @"e7d0d5fdaf96051d0dacec1e74d9413d64a15822");
 
     // HEAD should be moved back
     let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: b50ec983d1c1 (2001-02-03 08:05:13) new empty commit
-    Working copy  (@) now at: royxmykx eb08b363 (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm 230dd059 (empty) (no description set)
+    Undid operation: 7b91bd9df087 (2001-02-03 08:05:13) new empty commit
+    Working copy  (@) now at: royxmykx e7d0d5fd (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
     [EOF]
     ");
     assert!(git_repo.head().unwrap().is_detached());
     insta::assert_snapshot!(
         git_repo.head_id().unwrap().to_string(),
-        @"230dd059e1b059aefc0da06a2e5a7dbf22362f22");
+        @"e8849ae12c709f2321908879bc724fdb2ab8a781");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  eb08b363bb5ef8ee549314260488980d7bbe8f63
-    ○  230dd059e1b059aefc0da06a2e5a7dbf22362f22 git_head()
+    @  e7d0d5fdaf96051d0dacec1e74d9413d64a15822
+    ○  e8849ae12c709f2321908879bc724fdb2ab8a781 git_head()
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -1006,9 +1006,9 @@ fn test_git_colocated_update_index_preserves_timestamps() {
     work_dir.run_jj(["new"]).success();
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  051508d190ffd04fe2d79367ad8e9c3713ac2375
-    ○  563dbc583c0d82eb10c40d3f3276183ea28a0fa7 commit2 git_head()
-    ○  3c270b473dd871b20d196316eb038f078f80c219 commit1
+    @  a1886a45815f0dcca5cefcc334d11ffb908a1eb8
+    ○  8b0c962ef1fea901fb16f8a484e692a1f0dcbc59 commit2 git_head()
+    ○  d37eac5eea00fa74a41c1512839711f42aca2c35 commit1
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -1035,8 +1035,8 @@ fn test_git_colocated_update_index_preserves_timestamps() {
     work_dir.run_jj(["edit", "commit2"]).success();
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  563dbc583c0d82eb10c40d3f3276183ea28a0fa7 commit2
-    ○  3c270b473dd871b20d196316eb038f078f80c219 commit1 git_head()
+    @  8b0c962ef1fea901fb16f8a484e692a1f0dcbc59 commit2
+    ○  d37eac5eea00fa74a41c1512839711f42aca2c35 commit1 git_head()
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -1053,10 +1053,10 @@ fn test_git_colocated_update_index_preserves_timestamps() {
     work_dir.run_jj(["new", "commit1"]).success();
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  ccb1b1807383dba5ff4d335fd9fb92aa540f4632
-    │ ○  563dbc583c0d82eb10c40d3f3276183ea28a0fa7 commit2
+    @  d9c7f1932e1135856d5905f1a0fc194ce2657065
+    │ ○  8b0c962ef1fea901fb16f8a484e692a1f0dcbc59 commit2
     ├─╯
-    ○  3c270b473dd871b20d196316eb038f078f80c219 commit1 git_head()
+    ○  d37eac5eea00fa74a41c1512839711f42aca2c35 commit1 git_head()
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -1117,12 +1117,12 @@ fn test_git_colocated_update_index_merge_conflict() {
     work_dir.run_jj(["new", "left", "right"]).success();
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @    aea7acd77752c3f74914de1fe327075a579bf7c6
+    @    8b05232ad2cda6f6d06b290486e07251f53c0958
     ├─╮
-    │ ○  df62ad35fc873e89ade730fa9a407cd5cfa5e6ba right
-    ○ │  68cc2177623364e4f0719d6ec8da1d6ea8d6087e left git_head()
+    │ ○  620e15db9fcd05fff912c52d2cafd36c9e01523c right
+    ○ │  d0f55ffafa1e0e72980202c349af23d093f825be left git_head()
     ├─╯
-    ○  14b3ff6c73a234ab2a26fc559512e0f056a46bd9 base
+    ○  1861378a9167e6561bf8ce4a6fef2d7c0897dd87 base
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -1141,13 +1141,13 @@ fn test_git_colocated_update_index_merge_conflict() {
     work_dir.run_jj(["new"]).success();
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  cae33b49a8a514996983caaf171c5edbf0d70e78
-    ×    aea7acd77752c3f74914de1fe327075a579bf7c6 git_head()
+    @  7c98aa1e17acd7829c9ccb9eaae705df9b255bd1
+    ×    8b05232ad2cda6f6d06b290486e07251f53c0958 git_head()
     ├─╮
-    │ ○  df62ad35fc873e89ade730fa9a407cd5cfa5e6ba right
-    ○ │  68cc2177623364e4f0719d6ec8da1d6ea8d6087e left
+    │ ○  620e15db9fcd05fff912c52d2cafd36c9e01523c right
+    ○ │  d0f55ffafa1e0e72980202c349af23d093f825be left
     ├─╯
-    ○  14b3ff6c73a234ab2a26fc559512e0f056a46bd9 base
+    ○  1861378a9167e6561bf8ce4a6fef2d7c0897dd87 base
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -1195,10 +1195,10 @@ fn test_git_colocated_update_index_rebase_conflict() {
     work_dir.run_jj(["edit", "left"]).success();
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  68cc2177623364e4f0719d6ec8da1d6ea8d6087e left
-    │ ○  df62ad35fc873e89ade730fa9a407cd5cfa5e6ba right
+    @  d0f55ffafa1e0e72980202c349af23d093f825be left
+    │ ○  620e15db9fcd05fff912c52d2cafd36c9e01523c right
     ├─╯
-    ○  14b3ff6c73a234ab2a26fc559512e0f056a46bd9 base git_head()
+    ○  1861378a9167e6561bf8ce4a6fef2d7c0897dd87 base git_head()
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -1224,9 +1224,9 @@ fn test_git_colocated_update_index_rebase_conflict() {
         .success();
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  233cb41e128e74aa2fcbf01c85d69b33a118faa8 left
-    ○  df62ad35fc873e89ade730fa9a407cd5cfa5e6ba right git_head()
-    ○  14b3ff6c73a234ab2a26fc559512e0f056a46bd9 base
+    @  535388c5aab1b3a33fdc04a4bf8033de0d1b86ec left
+    ○  620e15db9fcd05fff912c52d2cafd36c9e01523c right git_head()
+    ○  1861378a9167e6561bf8ce4a6fef2d7c0897dd87 base
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -1243,10 +1243,10 @@ fn test_git_colocated_update_index_rebase_conflict() {
     work_dir.run_jj(["new"]).success();
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  6d84b9021f9e07b69770687071c4e8e71113e688
-    ×  233cb41e128e74aa2fcbf01c85d69b33a118faa8 left git_head()
-    ○  df62ad35fc873e89ade730fa9a407cd5cfa5e6ba right
-    ○  14b3ff6c73a234ab2a26fc559512e0f056a46bd9 base
+    @  04ebd7523ac6107ccdd5bc34600a073b94e43299
+    ×  535388c5aab1b3a33fdc04a4bf8033de0d1b86ec left git_head()
+    ○  620e15db9fcd05fff912c52d2cafd36c9e01523c right
+    ○  1861378a9167e6561bf8ce4a6fef2d7c0897dd87 base
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -1320,14 +1320,14 @@ fn test_git_colocated_update_index_3_sided_conflict() {
         .success();
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @      faee07ad76218d193f2784f4988daa2ac46db30c
+    @      3105daa0d68e3cdc22b2533d7d1b231cd41c76ec
     ├─┬─╮
-    │ │ ○  86e722ea6a9da2551f1e05bc9aa914acd1cb2304 side-3
-    │ ○ │  b8b9ca2d8178c4ba727a61e2258603f30ac7c6d3 side-2
+    │ │ ○  5008c8807feaa955d02e96cb1b0dcf51536fefb8 side-3
+    │ ○ │  da6e0a03f8b72f6868a9ea33836123fe965c0cb4 side-2
     │ ├─╯
-    ○ │  a4b3ce25ef4857172e7777567afd497a917a0486 side-1 git_head()
+    ○ │  ad7eaf61b769dce99884d2ceb0ddf48fc4eac463 side-1 git_head()
     ├─╯
-    ○  14b3ff6c73a234ab2a26fc559512e0f056a46bd9 base
+    ○  1861378a9167e6561bf8ce4a6fef2d7c0897dd87 base
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -1346,15 +1346,15 @@ fn test_git_colocated_update_index_3_sided_conflict() {
     work_dir.run_jj(["new"]).success();
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  b0e5644063c2a12fb265e5f65cd88c6a2e1cf865
-    ×      faee07ad76218d193f2784f4988daa2ac46db30c git_head()
+    @  5b4266a02e8fe9febc6294c7d0a02fc8463221e8
+    ×      3105daa0d68e3cdc22b2533d7d1b231cd41c76ec git_head()
     ├─┬─╮
-    │ │ ○  86e722ea6a9da2551f1e05bc9aa914acd1cb2304 side-3
-    │ ○ │  b8b9ca2d8178c4ba727a61e2258603f30ac7c6d3 side-2
+    │ │ ○  5008c8807feaa955d02e96cb1b0dcf51536fefb8 side-3
+    │ ○ │  da6e0a03f8b72f6868a9ea33836123fe965c0cb4 side-2
     │ ├─╯
-    ○ │  a4b3ce25ef4857172e7777567afd497a917a0486 side-1
+    ○ │  ad7eaf61b769dce99884d2ceb0ddf48fc4eac463 side-1
     ├─╯
-    ○  14b3ff6c73a234ab2a26fc559512e0f056a46bd9 base
+    ○  1861378a9167e6561bf8ce4a6fef2d7c0897dd87 base
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -1508,7 +1508,7 @@ fn test_git_colocated_unreachable_commits() {
         .run_jj(["git", "init", "--git-repo", "."])
         .success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  9ff88424a06a94d04738847733e68e510b906345
+    @  f3677b3e3b95a34e7017655ab612e1d11b59c713
     ○  cd740e230992f334de13a0bd0b35709b3f7a89af master git_head() initial
     ◆  0000000000000000000000000000000000000000
     [EOF]
@@ -1558,15 +1558,15 @@ fn test_git_colocated_operation_cleanup() {
         .success();
     work_dir.run_jj(["new"]).success();
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r#"
-    @  e3feb4fda7b5e1d458a460ce76cb840b8f3cae34
-    ○  e810c2ff6f3287a27e5d08aa3f429e284d99fea0 feature git_head() 3
-    │ ○  52fef888179abf5819a0a0d4f7907fcc025cb2a1 main 2
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  40638ce20b8b74e94460e95709cb077f4307ad7c
+    ○  a50e55141dcd5f8f8d549acd2232ce4839eaa798 feature git_head() 3
+    │ ○  cf3bb116ded416d9b202e71303f260e504c2eeb9 main 2
     ├─╯
-    ○  61c11921948922575504d7b9f2df236543d0cec9 1
+    ○  87f64775047d7ce62b7ee81412b8e4cc07aea40a 1
     ◆  0000000000000000000000000000000000000000
     [EOF]
-    "#);
+    ");
 
     // Start a rebase in Git and expect a merge conflict.
     let output = std::process::Command::new("git")
@@ -1587,39 +1587,39 @@ fn test_git_colocated_operation_cleanup() {
     insta::assert_snapshot!(String::from_utf8(output.stdout).unwrap(), @r#"
     UU file
     "#);
-    insta::assert_snapshot!(get_log_output(&work_dir), @r#"
-    @  fbb4e341d1e7e1d3b87377c075bd8a407305ba3a
-    ○  52fef888179abf5819a0a0d4f7907fcc025cb2a1 main git_head() 2
-    │ ○  e810c2ff6f3287a27e5d08aa3f429e284d99fea0 feature 3
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  588c505e689d116180684778b29c540fe7180268
+    ○  cf3bb116ded416d9b202e71303f260e504c2eeb9 main git_head() 2
+    │ ○  a50e55141dcd5f8f8d549acd2232ce4839eaa798 feature 3
     ├─╯
-    ○  61c11921948922575504d7b9f2df236543d0cec9 1
+    ○  87f64775047d7ce62b7ee81412b8e4cc07aea40a 1
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ------- stderr -------
     Reset the working copy parent to the new Git HEAD.
     [EOF]
-    "#);
+    ");
 
     // Reset the Git HEAD with Jujutsu.
     let output = work_dir.run_jj(["new", "main"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: kmkuslsw 92667528 (empty) (no description set)
-    Parent commit (@-)      : kkmpptxz 52fef888 main | 2
+    Working copy  (@) now at: kmkuslsw aa14563c (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz cf3bb116 main | 2
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r#"
-    @  926675286938f585d83b3646a95df96206968e8c
-    │ ○  fbb4e341d1e7e1d3b87377c075bd8a407305ba3a
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  aa14563cf5d892238f1e60260c5c284627d76e7c
+    │ ○  588c505e689d116180684778b29c540fe7180268
     ├─╯
-    ○  52fef888179abf5819a0a0d4f7907fcc025cb2a1 main git_head() 2
-    │ ○  e810c2ff6f3287a27e5d08aa3f429e284d99fea0 feature 3
+    ○  cf3bb116ded416d9b202e71303f260e504c2eeb9 main git_head() 2
+    │ ○  a50e55141dcd5f8f8d549acd2232ce4839eaa798 feature 3
     ├─╯
-    ○  61c11921948922575504d7b9f2df236543d0cec9 1
+    ○  87f64775047d7ce62b7ee81412b8e4cc07aea40a 1
     ◆  0000000000000000000000000000000000000000
     [EOF]
-    "#);
+    ");
 
     // Check that the operation was correctly aborted.
     assert!(!std::fs::exists(work_dir.root().join(".git").join("rebase-merge")).unwrap());

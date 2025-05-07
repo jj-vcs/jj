@@ -37,13 +37,13 @@ backend = "test"
 
     let output = work_dir.run_jj(["log", "-r", "all()"]);
     insta::assert_snapshot!(output, @r"
-    @  zsuskuln test.user@example.com 2001-02-03 08:05:10 7acb64be
+    @  zsuskuln test.user@example.com 2001-02-03 08:05:10 fbef508b
     │  (empty) (no description set)
-    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:10 8bdfe4fb
+    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:10 8c63f712
     │  (empty) three
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 b0e11728
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 26a2c4cb
     │  (empty) two
-    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 876f4b7e
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 401ea16f
     │  (empty) one
     ◆  zzzzzzzz root() 00000000
     [EOF]
@@ -53,24 +53,24 @@ backend = "test"
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Signed 4 commits:
-      qpvuntsm 8174ec98 (empty) one
-      rlvkpnrz 6500b275 (empty) two
-      kkmpptxz bcfaa4c3 (empty) three
-      zsuskuln 4947c6dd (empty) (no description set)
-    Working copy  (@) now at: zsuskuln 4947c6dd (empty) (no description set)
-    Parent commit (@-)      : kkmpptxz bcfaa4c3 (empty) three
+      qpvuntsm 7fb98da0 (empty) one
+      rlvkpnrz 062a3c5a (empty) two
+      kkmpptxz d2174a79 (empty) three
+      zsuskuln 8d7bc037 (empty) (no description set)
+    Working copy  (@) now at: zsuskuln 8d7bc037 (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz d2174a79 (empty) three
     [EOF]
     ");
 
     let output = work_dir.run_jj(["log", "-r", "all()"]);
     insta::assert_snapshot!(output, @r"
-    @  zsuskuln test.user@example.com 2001-02-03 08:05:12 4947c6dd [✓︎]
+    @  zsuskuln test.user@example.com 2001-02-03 08:05:12 8d7bc037 [✓︎]
     │  (empty) (no description set)
-    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:12 bcfaa4c3 [✓︎]
+    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:12 d2174a79 [✓︎]
     │  (empty) three
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:12 6500b275 [✓︎]
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:12 062a3c5a [✓︎]
     │  (empty) two
-    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:12 8174ec98 [✓︎]
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:12 7fb98da0 [✓︎]
     │  (empty) one
     ◆  zzzzzzzz root() 00000000
     [EOF]
@@ -82,12 +82,12 @@ backend = "test"
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Signed 4 commits:
-      qpvuntsm dabebf30 (empty) one
-      rlvkpnrz 2085a464 (empty) two
-      kkmpptxz 227f5e15 (empty) three
-      zsuskuln 15d1b128 (empty) (no description set)
-    Working copy  (@) now at: zsuskuln 15d1b128 (empty) (no description set)
-    Parent commit (@-)      : kkmpptxz 227f5e15 (empty) three
+      qpvuntsm a57217b4 (empty) one
+      rlvkpnrz e0c0e7ad (empty) two
+      kkmpptxz fc827eb8 (empty) three
+      zsuskuln 66574289 (empty) (no description set)
+    Working copy  (@) now at: zsuskuln 66574289 (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz fc827eb8 (empty) three
     [EOF]
     ");
 }
@@ -117,9 +117,9 @@ backend = "test"
 
     let output = work_dir.run_jj(["log", "-r", "all()"]);
     insta::assert_snapshot!(output, @r"
-    @  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 8623fdf2 [✓︎]
+    @  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 72a53d81 [✓︎]
     │  (empty) (no description set)
-    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 876f4b7e
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 401ea16f
     │  (empty) one
     ◆  zzzzzzzz root() 00000000
     [EOF]
@@ -154,7 +154,7 @@ key = "some-key"
 
     let output = work_dir.run_jj(["log", "-r", "@-|@--", "-Tbuiltin_log_detailed"]);
     insta::assert_snapshot!(output, @r"
-    ○  Commit ID: f1a2b1ef76ee5b995ddbb1b13e8b54e4b0d32a12
+    ○  Commit ID: 810ff318afe002ce54260260e4d4f7071eb476ed
     │  Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
     │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:11)
@@ -162,7 +162,7 @@ key = "some-key"
     │
     │      two
     │
-    ○  Commit ID: d0e65e58aef1aca0ab92d3d42a9b00b82b7f76a6
+    ○  Commit ID: eec44cafe0dc853b67cc7e14ca4fe3b80d3687f1
     │  Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
     ~  Author   : Test User <test.user@example.com> (2001-02-03 08:05:08)
        Committer: Test User <test.user@example.com> (2001-02-03 08:05:11)
@@ -208,25 +208,25 @@ backend = "test"
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Signed 3 commits:
-      qpvuntsm 254d1a64 (empty) one
-      rlvkpnrz caa78d30 (empty) two
-      kkmpptxz c2bc0eb0 (empty) three
+      qpvuntsm 2c0b7924 (empty) one
+      rlvkpnrz 0e054ee0 (empty) two
+      kkmpptxz ed55e398 (empty) three
     Warning: 3 of these commits are not authored by you
     Rebased 1 descendant commits
-    Working copy  (@) now at: zsuskuln ede04d15 (empty) (no description set)
-    Parent commit (@-)      : kkmpptxz c2bc0eb0 (empty) three
+    Working copy  (@) now at: zsuskuln 1b3596cb (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz ed55e398 (empty) three
     [EOF]
     ");
 
     let output = work_dir.run_jj(["log", "-r", "all()"]);
     insta::assert_snapshot!(output, @r"
-    @  zsuskuln test.user@example.com 2001-02-03 08:05:12 ede04d15
+    @  zsuskuln test.user@example.com 2001-02-03 08:05:12 1b3596cb
     │  (empty) (no description set)
-    ○  kkmpptxz someone@else.com 2001-02-03 08:05:12 c2bc0eb0 [✓︎]
+    ○  kkmpptxz someone@else.com 2001-02-03 08:05:12 ed55e398 [✓︎]
     │  (empty) three
-    ○  rlvkpnrz someone@else.com 2001-02-03 08:05:12 caa78d30 [✓︎]
+    ○  rlvkpnrz someone@else.com 2001-02-03 08:05:12 0e054ee0 [✓︎]
     │  (empty) two
-    ○  qpvuntsm someone@else.com 2001-02-03 08:05:12 254d1a64 [✓︎]
+    ○  qpvuntsm someone@else.com 2001-02-03 08:05:12 2c0b7924 [✓︎]
     │  (empty) one
     ◆  zzzzzzzz root() 00000000
     [EOF]
@@ -258,21 +258,21 @@ backend = "test"
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Signed 2 commits:
-      qpvuntsm 034b975d (empty) A
-      kkmpptxz 29dc7928 (empty) C
+      qpvuntsm 0e149d92 (empty) A
+      kkmpptxz ab7e21e9 (empty) C
     Rebased 1 descendant commits
-    Working copy  (@) now at: kkmpptxz 29dc7928 (empty) C
-    Parent commit (@-)      : rlvkpnrz 014c011c (empty) B
+    Working copy  (@) now at: kkmpptxz ab7e21e9 (empty) C
+    Parent commit (@-)      : rlvkpnrz 3981b3e4 (empty) B
     [EOF]
     ");
 
     let output = work_dir.run_jj(["log", "-r", "all()"]);
     insta::assert_snapshot!(output, @r"
-    @  kkmpptxz test.user@example.com 2001-02-03 08:05:11 29dc7928 [✓︎]
+    @  kkmpptxz test.user@example.com 2001-02-03 08:05:11 ab7e21e9 [✓︎]
     │  (empty) C
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:11 014c011c
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:11 3981b3e4
     │  (empty) B
-    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:11 034b975d [✓︎]
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:11 0e149d92 [✓︎]
     │  (empty) A
     ◆  zzzzzzzz root() 00000000
     [EOF]
@@ -329,13 +329,13 @@ backend = "test"
 
     let output = work_dir.run_jj(["log", "-r", "all()"]);
     insta::assert_snapshot!(output, @r"
-    @  zsuskuln test.user@example.com 2001-02-03 08:05:11 7aa7dcdf [✓︎]
+    @  zsuskuln test.user@example.com 2001-02-03 08:05:11 be4609e2 [✓︎]
     │  (empty) (no description set)
-    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:11 0413d103 [✓︎]
+    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:11 7b6ad8e6 [✓︎]
     │  (empty) three
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:11 c8768375 [✓︎]
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:11 8dc06170 [✓︎]
     │  (empty) two
-    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:11 b90f5370 [✓︎]
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:11 fbef1f02 [✓︎]
     │  (empty) one
     ◆  zzzzzzzz root() 00000000
     [EOF]
@@ -345,24 +345,24 @@ backend = "test"
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Unsigned 4 commits:
-      qpvuntsm cb05440c (empty) one
-      rlvkpnrz deb0db4b (empty) two
-      kkmpptxz 7c11ee12 (empty) three
-      zsuskuln be9daa4d (empty) (no description set)
-    Working copy  (@) now at: zsuskuln be9daa4d (empty) (no description set)
-    Parent commit (@-)      : kkmpptxz 7c11ee12 (empty) three
+      qpvuntsm c08b67cb (empty) one
+      rlvkpnrz 3081d203 (empty) two
+      kkmpptxz 8c2dc912 (empty) three
+      zsuskuln 9aec4578 (empty) (no description set)
+    Working copy  (@) now at: zsuskuln 9aec4578 (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz 8c2dc912 (empty) three
     [EOF]
     ");
 
     let output = work_dir.run_jj(["log", "-r", "all()"]);
     insta::assert_snapshot!(output, @r"
-    @  zsuskuln test.user@example.com 2001-02-03 08:05:13 be9daa4d
+    @  zsuskuln test.user@example.com 2001-02-03 08:05:13 9aec4578
     │  (empty) (no description set)
-    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:13 7c11ee12
+    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:13 8c2dc912
     │  (empty) three
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:13 deb0db4b
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:13 3081d203
     │  (empty) two
-    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:13 cb05440c
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:13 c08b67cb
     │  (empty) one
     ◆  zzzzzzzz root() 00000000
     [EOF]
@@ -404,25 +404,25 @@ backend = "test"
     let (_, stderr) = run_jj_as_someone_else(&["unsign", "-r", "..@"]);
     insta::assert_snapshot!(stderr, @r"
     Unsigned 4 commits:
-      qpvuntsm 757aba72 (empty) one
-      rlvkpnrz 49a6eeeb (empty) two
-      kkmpptxz 8859969b (empty) three
-      zsuskuln 8cea2d75 (empty) (no description set)
+      qpvuntsm 4430b844 (empty) one
+      rlvkpnrz 65d9cdf7 (empty) two
+      kkmpptxz f6eb4a7e (empty) three
+      zsuskuln 0fda7ce2 (empty) (no description set)
     Warning: 4 of these commits are not authored by you
-    Working copy  (@) now at: zsuskuln 8cea2d75 (empty) (no description set)
-    Parent commit (@-)      : kkmpptxz 8859969b (empty) three
+    Working copy  (@) now at: zsuskuln 0fda7ce2 (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz f6eb4a7e (empty) three
     [EOF]
     ");
 
     let output = work_dir.run_jj(["log", "-r", "all()"]);
     insta::assert_snapshot!(output, @r"
-    @  zsuskuln test.user@example.com 2001-02-03 08:05:12 8cea2d75
+    @  zsuskuln test.user@example.com 2001-02-03 08:05:12 0fda7ce2
     │  (empty) (no description set)
-    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:12 8859969b
+    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:12 f6eb4a7e
     │  (empty) three
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:12 49a6eeeb
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:12 65d9cdf7
     │  (empty) two
-    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:12 757aba72
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:12 4430b844
     │  (empty) one
     ◆  zzzzzzzz root() 00000000
     [EOF]

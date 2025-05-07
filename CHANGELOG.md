@@ -10,6 +10,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Release highlights
 
+* The experimental support from release 0.29.0 for transferring the change ID
+  to/from Git remotes has been enabled by default. The change ID is stored in
+  the Git commit itself (in a commit header called `change-id`), which means
+  it will be transferred by regular `git push` etc. Please let us know if you
+  run into any problems with it. You can disable it setting
+  `git.write-change-id-header`. Note that some Git remotes (e.g GitLab) and
+  some Git commands (e.g. `git rebase`) do not preserve the change ids when
+  they rewrite commits.
+
 ### Breaking changes
 
 * The old `libgit2` code path for fetches and pushes has been removed,

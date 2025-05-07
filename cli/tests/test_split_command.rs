@@ -67,10 +67,10 @@ fn test_split_by_paths() {
     let output = work_dir.run_jj(["split", "file2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    First part: qpvuntsm 65569ca7 (no description set)
-    Second part: zsuskuln 709756f0 (no description set)
-    Working copy  (@) now at: zsuskuln 709756f0 (no description set)
-    Parent commit (@-)      : qpvuntsm 65569ca7 (no description set)
+    First part: qpvuntsm 6dbc7747 (no description set)
+    Second part: zsuskuln 42cbbc02 (no description set)
+    Working copy  (@) now at: zsuskuln 42cbbc02 (no description set)
+    Parent commit (@-)      : qpvuntsm 6dbc7747 (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(
@@ -122,10 +122,10 @@ fn test_split_by_paths() {
     ------- stderr -------
     Warning: All changes have been selected, so the second commit will be empty
     Rebased 1 descendant commits
-    First part: qpvuntsm 9da0eea0 (no description set)
-    Second part: znkkpsqq 5b5714a3 (empty) (no description set)
-    Working copy  (@) now at: zsuskuln 0c798ee7 (no description set)
-    Parent commit (@-)      : znkkpsqq 5b5714a3 (empty) (no description set)
+    First part: qpvuntsm 9fd1c9e1 (no description set)
+    Second part: znkkpsqq 41e0da21 (empty) (no description set)
+    Working copy  (@) now at: zsuskuln a06e40b8 (no description set)
+    Parent commit (@-)      : znkkpsqq 41e0da21 (empty) (no description set)
     [EOF]
     ");
 
@@ -153,10 +153,10 @@ fn test_split_by_paths() {
     ------- stderr -------
     Warning: No changes have been selected, so the first commit will be empty
     Rebased 1 descendant commits
-    First part: qpvuntsm bd42f95a (empty) (no description set)
-    Second part: lylxulpl ed55c86b (no description set)
-    Working copy  (@) now at: zsuskuln 1e1ed741 (no description set)
-    Parent commit (@-)      : lylxulpl ed55c86b (no description set)
+    First part: qpvuntsm 49416632 (empty) (no description set)
+    Second part: lylxulpl 718afbf5 (no description set)
+    Working copy  (@) now at: zsuskuln 0ed53ee6 (no description set)
+    Parent commit (@-)      : lylxulpl 718afbf5 (no description set)
     [EOF]
     ");
 
@@ -202,10 +202,10 @@ fn test_split_with_non_empty_description() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
-    First part: qpvuntsm 231a3c00 part 1
-    Second part: kkmpptxz e96291aa part 2
-    Working copy  (@) now at: kkmpptxz e96291aa part 2
-    Parent commit (@-)      : qpvuntsm 231a3c00 part 1
+    First part: qpvuntsm c7f7b14b part 1
+    Second part: kkmpptxz ac33a5a9 part 2
+    Working copy  (@) now at: kkmpptxz ac33a5a9 part 2
+    Parent commit (@-)      : qpvuntsm c7f7b14b part 1
     [EOF]
     "#);
 
@@ -260,10 +260,10 @@ fn test_split_with_default_description() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
-    First part: qpvuntsm 02ee5d60 TESTED=TODO
-    Second part: rlvkpnrz 33cd046b (no description set)
-    Working copy  (@) now at: rlvkpnrz 33cd046b (no description set)
-    Parent commit (@-)      : qpvuntsm 02ee5d60 TESTED=TODO
+    First part: qpvuntsm ff633dcc TESTED=TODO
+    Second part: rlvkpnrz b1d20b7e (no description set)
+    Working copy  (@) now at: rlvkpnrz b1d20b7e (no description set)
+    Parent commit (@-)      : qpvuntsm ff633dcc TESTED=TODO
     [EOF]
     "#);
 
@@ -340,10 +340,10 @@ fn test_split_with_descendants() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits
-    First part: qpvuntsm 34dd141b Add file1
-    Second part: royxmykx 465e03d0 Add file2
-    Working copy  (@) now at: kkmpptxz 2d5d641f Add file4
-    Parent commit (@-)      : rlvkpnrz b3bd9eb7 Add file3
+    First part: qpvuntsm 74306e35 Add file1
+    Second part: royxmykx 0a37745e Add file2
+    Working copy  (@) now at: kkmpptxz 7ee84812 Add file4
+    Parent commit (@-)      : rlvkpnrz d335bd94 Add file3
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r###"
@@ -384,32 +384,32 @@ fn test_split_with_descendants() {
     // - The rewritten commit once the description is added during `jj commit`.
     // - The rewritten commit after the split.
     let evolog_1 = work_dir.run_jj(["evolog", "-r", "qpvun"]);
-    insta::assert_snapshot!(evolog_1, @r###"
-    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:12 34dd141b
+    insta::assert_snapshot!(evolog_1, @r"
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:12 74306e35
     │  Add file1
-    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 764d46f1
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 1d2499e7
     │  Add file1 & file2
-    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 44af2155
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 f5700f8e
     │  (no description set)
-    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 230dd059
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
        (empty) (no description set)
     [EOF]
-    "###);
+    ");
 
     // The evolog for the second commit is the same, except that the change id
     // changes after the split.
     let evolog_2 = work_dir.run_jj(["evolog", "-r", "royxm"]);
-    insta::assert_snapshot!(evolog_2, @r###"
-    ○  royxmykx test.user@example.com 2001-02-03 08:05:12 465e03d0
+    insta::assert_snapshot!(evolog_2, @r"
+    ○  royxmykx test.user@example.com 2001-02-03 08:05:12 0a37745e
     │  Add file2
-    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 764d46f1
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 1d2499e7
     │  Add file1 & file2
-    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 44af2155
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 f5700f8e
     │  (no description set)
-    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 230dd059
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
        (empty) (no description set)
     [EOF]
-    "###);
+    ");
 }
 
 // This test makes sure that the children of the commit being split retain any
@@ -447,11 +447,11 @@ fn test_split_with_merge_child() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
-    First part: kkmpptxz e8006b47 Add file1
-    Second part: royxmykx 5e1b793d Add file2
-    Working copy  (@) now at: zsuskuln 696935af (empty) 2
-    Parent commit (@-)      : qpvuntsm 8b64ddff (empty) 1
-    Parent commit (@-)      : royxmykx 5e1b793d Add file2
+    First part: kkmpptxz cc199567 Add file1
+    Second part: royxmykx e488409f Add file2
+    Working copy  (@) now at: zsuskuln ace61421 (empty) 2
+    Parent commit (@-)      : qpvuntsm 884fe9b9 (empty) 1
+    Parent commit (@-)      : royxmykx e488409f Add file2
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -497,9 +497,9 @@ fn test_split_parallel_no_descendants() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
-    First part: qpvuntsm 48018df6 TESTED=TODO
-    Second part: kkmpptxz 7eddbf93 (no description set)
-    Working copy  (@) now at: kkmpptxz 7eddbf93 (no description set)
+    First part: qpvuntsm 7bcd474c TESTED=TODO
+    Second part: kkmpptxz 431886f6 (no description set)
+    Working copy  (@) now at: kkmpptxz 431886f6 (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
@@ -539,11 +539,11 @@ fn test_split_parallel_no_descendants() {
     // - The rewritten commit after the split.
     let evolog_1 = work_dir.run_jj(["evolog", "-r", "qpvun"]);
     insta::assert_snapshot!(evolog_1, @r#"
-    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:09 48018df6
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:09 7bcd474c
     │  TESTED=TODO
-    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 44af2155
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 f5700f8e
     │  (no description set)
-    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 230dd059
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
        (empty) (no description set)
     [EOF]
     ------- stderr -------
@@ -555,11 +555,11 @@ fn test_split_parallel_no_descendants() {
     // changes after the split.
     let evolog_2 = work_dir.run_jj(["evolog", "-r", "kkmpp"]);
     insta::assert_snapshot!(evolog_2, @r#"
-    @  kkmpptxz test.user@example.com 2001-02-03 08:05:09 7eddbf93
+    @  kkmpptxz test.user@example.com 2001-02-03 08:05:09 431886f6
     │  (no description set)
-    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 44af2155
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 f5700f8e
     │  (no description set)
-    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 230dd059
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
        (empty) (no description set)
     [EOF]
     ------- stderr -------
@@ -617,9 +617,9 @@ fn test_split_parallel_with_descendants() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits
-    First part: qpvuntsm 84df941d Add file1
-    Second part: vruxwmqv 94753be3 Add file2
-    Working copy  (@) now at: vruxwmqv 94753be3 Add file2
+    First part: qpvuntsm 18c85f56 Add file1
+    Second part: vruxwmqv cbdfd9cf Add file2
+    Working copy  (@) now at: vruxwmqv cbdfd9cf Add file2
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
@@ -694,12 +694,12 @@ fn test_split_parallel_with_merge_child() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
-    First part: kkmpptxz e8006b47 Add file1
-    Second part: royxmykx 2cc60f3d Add file2
-    Working copy  (@) now at: zsuskuln 35b5d7eb (empty) 2
-    Parent commit (@-)      : qpvuntsm 8b64ddff (empty) 1
-    Parent commit (@-)      : kkmpptxz e8006b47 Add file1
-    Parent commit (@-)      : royxmykx 2cc60f3d Add file2
+    First part: kkmpptxz cc199567 Add file1
+    Second part: royxmykx 82a5c527 Add file2
+    Working copy  (@) now at: zsuskuln b7cdcdec (empty) 2
+    Parent commit (@-)      : qpvuntsm 884fe9b9 (empty) 1
+    Parent commit (@-)      : kkmpptxz cc199567 Add file1
+    Parent commit (@-)      : royxmykx 82a5c527 Add file2
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -726,7 +726,7 @@ fn test_split_empty() {
     let output = work_dir.run_jj(["split"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Refusing to split empty commit 2ab033062e9fdf7fad2ded8e89c1f145e3698190.
+    Error: Refusing to split empty commit 64eaeeb3e846248efc8b599a2b583b708104fc01.
     Hint: Use `jj new` if you want to create another empty commit.
     [EOF]
     [exit status: 1]
@@ -773,16 +773,16 @@ fn test_split_interactive() {
     let output = work_dir.run_jj(["split"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    First part: qpvuntsm 0e15949e (no description set)
-    Second part: rlvkpnrz 9ed12e4c (no description set)
-    Working copy  (@) now at: rlvkpnrz 9ed12e4c (no description set)
-    Parent commit (@-)      : qpvuntsm 0e15949e (no description set)
+    First part: qpvuntsm c664a51b (no description set)
+    Second part: rlvkpnrz 7e5d65b1 (no description set)
+    Working copy  (@) now at: rlvkpnrz 7e5d65b1 (no description set)
+    Parent commit (@-)      : qpvuntsm c664a51b (no description set)
     [EOF]
     ");
 
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @r"
-    You are splitting a commit into two: qpvuntsm 44af2155 (no description set)
+    You are splitting a commit into two: qpvuntsm f5700f8e (no description set)
 
     The diff initially shows the changes in the commit you're splitting.
 
@@ -803,10 +803,10 @@ fn test_split_interactive() {
 
     let output = work_dir.run_jj(["log", "--summary"]);
     insta::assert_snapshot!(output, @r"
-    @  rlvkpnrz test.user@example.com 2001-02-03 08:05:08 9ed12e4c
+    @  rlvkpnrz test.user@example.com 2001-02-03 08:05:08 7e5d65b1
     │  (no description set)
     │  A file2
-    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 0e15949e
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 c664a51b
     │  (no description set)
     │  A file1
     ◆  zzzzzzzz root() 00000000
@@ -848,10 +848,10 @@ fn test_split_interactive_with_paths() {
     let output = work_dir.run_jj(["split", "-i", "file1", "file2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    First part: rlvkpnrz e3d766b8 (no description set)
-    Second part: kkmpptxz 4cf22d3b (no description set)
-    Working copy  (@) now at: kkmpptxz 4cf22d3b (no description set)
-    Parent commit (@-)      : rlvkpnrz e3d766b8 (no description set)
+    First part: rlvkpnrz cdc9960a (no description set)
+    Second part: kkmpptxz 7255f070 (no description set)
+    Working copy  (@) now at: kkmpptxz 7255f070 (no description set)
+    Parent commit (@-)      : rlvkpnrz cdc9960a (no description set)
     [EOF]
     ");
 
@@ -868,14 +868,14 @@ fn test_split_interactive_with_paths() {
 
     let output = work_dir.run_jj(["log", "--summary"]);
     insta::assert_snapshot!(output, @r"
-    @  kkmpptxz test.user@example.com 2001-02-03 08:05:09 4cf22d3b
+    @  kkmpptxz test.user@example.com 2001-02-03 08:05:09 7255f070
     │  (no description set)
     │  M file2
     │  M file3
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 e3d766b8
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 cdc9960a
     │  (no description set)
     │  A file1
-    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 497ed465
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 ff687a2f
     │  (no description set)
     │  A file2
     │  A file3
@@ -1044,10 +1044,10 @@ fn test_split_with_non_empty_description_and_trailers() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
-    First part: qpvuntsm 231a3c00 part 1
-    Second part: kkmpptxz e96291aa part 2
-    Working copy  (@) now at: kkmpptxz e96291aa part 2
-    Parent commit (@-)      : qpvuntsm 231a3c00 part 1
+    First part: qpvuntsm c7f7b14b part 1
+    Second part: kkmpptxz ac33a5a9 part 2
+    Working copy  (@) now at: kkmpptxz ac33a5a9 part 2
+    Parent commit (@-)      : qpvuntsm c7f7b14b part 1
     [EOF]
     "#);
 
@@ -1099,10 +1099,10 @@ fn test_split_with_message() {
     let output = work_dir.run_jj(["split", "-m", "fix in file1", "file1"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    First part: qpvuntsm c002c01e fix in file1
-    Second part: kkmpptxz 0841f981 my feature
-    Working copy  (@) now at: kkmpptxz 0841f981 my feature
-    Parent commit (@-)      : qpvuntsm c002c01e fix in file1
+    First part: qpvuntsm f2a70519 fix in file1
+    Second part: kkmpptxz cac11766 my feature
+    Working copy  (@) now at: kkmpptxz cac11766 my feature
+    Parent commit (@-)      : qpvuntsm f2a70519 fix in file1
     [EOF]
     ");
 
@@ -1125,10 +1125,10 @@ fn test_split_with_message() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    First part: qpvuntsm 6ffbff48 fix in file1
-    Second part: royxmykx 8cfdeaab my feature
-    Working copy  (@) now at: royxmykx 8cfdeaab my feature
-    Parent commit (@-)      : qpvuntsm 6ffbff48 fix in file1
+    First part: qpvuntsm d01cf12d fix in file1
+    Second part: royxmykx b1556ed9 my feature
+    Working copy  (@) now at: royxmykx b1556ed9 my feature
+    Parent commit (@-)      : qpvuntsm d01cf12d fix in file1
     [EOF]
     ");
 
@@ -1195,10 +1195,10 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
             insta::allow_duplicates! {
             insta::assert_snapshot!(output, @r"
             ------- stderr -------
-            First part: qpvuntsm 63d0c5ed *le-signet* | first-commit
-            Second part: mzvwutvl a9f5665f second-commit
-            Working copy  (@) now at: mzvwutvl a9f5665f second-commit
-            Parent commit (@-)      : qpvuntsm 63d0c5ed *le-signet* | first-commit
+            First part: qpvuntsm a481fe8a *le-signet* | first-commit
+            Second part: mzvwutvl 5f597a6e second-commit
+            Working copy  (@) now at: mzvwutvl 5f597a6e second-commit
+            Parent commit (@-)      : qpvuntsm a481fe8a *le-signet* | first-commit
             [EOF]
             ");
             }
@@ -1215,10 +1215,10 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
             insta::allow_duplicates! {
             insta::assert_snapshot!(output, @r"
             ------- stderr -------
-            First part: qpvuntsm 63d0c5ed first-commit
-            Second part: mzvwutvl a9f5665f *le-signet* | second-commit
-            Working copy  (@) now at: mzvwutvl a9f5665f *le-signet* | second-commit
-            Parent commit (@-)      : qpvuntsm 63d0c5ed first-commit
+            First part: qpvuntsm a481fe8a first-commit
+            Second part: mzvwutvl 5f597a6e *le-signet* | second-commit
+            Working copy  (@) now at: mzvwutvl 5f597a6e *le-signet* | second-commit
+            Parent commit (@-)      : qpvuntsm a481fe8a first-commit
             [EOF]
             ");
             }

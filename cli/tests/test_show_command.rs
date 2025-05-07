@@ -50,7 +50,7 @@ fn test_show_basic() {
 
     let output = work_dir.run_jj(["show"]);
     insta::assert_snapshot!(output, @r"
-    Commit ID: e34f04317a81edc6ba41fef239c0d0180f10656f
+    Commit ID: 92e687faa4e5b681937f5a9c47feaa33e6b4892c
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
     Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -67,7 +67,7 @@ fn test_show_basic() {
 
     let output = work_dir.run_jj(["show", "--context=0"]);
     insta::assert_snapshot!(output, @r"
-    Commit ID: e34f04317a81edc6ba41fef239c0d0180f10656f
+    Commit ID: 92e687faa4e5b681937f5a9c47feaa33e6b4892c
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
     Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -84,7 +84,7 @@ fn test_show_basic() {
 
     let output = work_dir.run_jj(["show", "--color=debug"]);
     insta::assert_snapshot!(output, @r"
-    Commit ID: [38;5;4m<<commit_id::e34f04317a81edc6ba41fef239c0d0180f10656f>>[39m
+    Commit ID: [38;5;4m<<commit_id::92e687faa4e5b681937f5a9c47feaa33e6b4892c>>[39m
     Change ID: [38;5;5m<<change_id::rlvkpnrzqnoowoytxnquwvuryrwnrmlp>>[39m
     Author   : [38;5;3m<<author name::Test User>>[39m <[38;5;3m<<author email local::test.user>><<author email::@>><<author email domain::example.com>>[39m> ([38;5;6m<<author timestamp local format::2001-02-03 08:05:09>>[39m)
     Committer: [38;5;3m<<committer name::Test User>>[39m <[38;5;3m<<committer email local::test.user>><<committer email::@>><<committer email domain::example.com>>[39m> ([38;5;6m<<committer timestamp local format::2001-02-03 08:05:09>>[39m)
@@ -101,7 +101,7 @@ fn test_show_basic() {
 
     let output = work_dir.run_jj(["show", "-s"]);
     insta::assert_snapshot!(output, @r"
-    Commit ID: e34f04317a81edc6ba41fef239c0d0180f10656f
+    Commit ID: 92e687faa4e5b681937f5a9c47feaa33e6b4892c
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
     Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -115,7 +115,7 @@ fn test_show_basic() {
 
     let output = work_dir.run_jj(["show", "--types"]);
     insta::assert_snapshot!(output, @r"
-    Commit ID: e34f04317a81edc6ba41fef239c0d0180f10656f
+    Commit ID: 92e687faa4e5b681937f5a9c47feaa33e6b4892c
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
     Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -129,7 +129,7 @@ fn test_show_basic() {
 
     let output = work_dir.run_jj(["show", "--git"]);
     insta::assert_snapshot!(output, @r"
-    Commit ID: e34f04317a81edc6ba41fef239c0d0180f10656f
+    Commit ID: 92e687faa4e5b681937f5a9c47feaa33e6b4892c
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
     Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -153,7 +153,7 @@ fn test_show_basic() {
 
     let output = work_dir.run_jj(["show", "--git", "--context=0"]);
     insta::assert_snapshot!(output, @r"
-    Commit ID: e34f04317a81edc6ba41fef239c0d0180f10656f
+    Commit ID: 92e687faa4e5b681937f5a9c47feaa33e6b4892c
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
     Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -176,7 +176,7 @@ fn test_show_basic() {
 
     let output = work_dir.run_jj(["show", "--git", "--color=debug"]);
     insta::assert_snapshot!(output, @r"
-    Commit ID: [38;5;4m<<commit_id::e34f04317a81edc6ba41fef239c0d0180f10656f>>[39m
+    Commit ID: [38;5;4m<<commit_id::92e687faa4e5b681937f5a9c47feaa33e6b4892c>>[39m
     Change ID: [38;5;5m<<change_id::rlvkpnrzqnoowoytxnquwvuryrwnrmlp>>[39m
     Author   : [38;5;3m<<author name::Test User>>[39m <[38;5;3m<<author email local::test.user>><<author email::@>><<author email domain::example.com>>[39m> ([38;5;6m<<author timestamp local format::2001-02-03 08:05:09>>[39m)
     Committer: [38;5;3m<<committer name::Test User>>[39m <[38;5;3m<<committer email local::test.user>><<committer email::@>><<committer email domain::example.com>>[39m> ([38;5;6m<<committer timestamp local format::2001-02-03 08:05:09>>[39m)
@@ -200,7 +200,7 @@ fn test_show_basic() {
 
     let output = work_dir.run_jj(["show", "-s", "--git"]);
     insta::assert_snapshot!(output, @r"
-    Commit ID: e34f04317a81edc6ba41fef239c0d0180f10656f
+    Commit ID: 92e687faa4e5b681937f5a9c47feaa33e6b4892c
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
     Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -226,7 +226,7 @@ fn test_show_basic() {
 
     let output = work_dir.run_jj(["show", "--stat"]);
     insta::assert_snapshot!(output, @r"
-    Commit ID: e34f04317a81edc6ba41fef239c0d0180f10656f
+    Commit ID: 92e687faa4e5b681937f5a9c47feaa33e6b4892c
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
     Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -282,7 +282,7 @@ fn test_show_with_no_patch() {
     let output = work_dir.run_jj(["show", "--no-patch"]);
 
     insta::assert_snapshot!(output, @r"
-    Commit ID: 250b23eb0c4c44580cd5d83ab1c4760ea0534f3c
+    Commit ID: 86d5fa72f4ecc6d51478941ee9160db9c52b842e
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:08)
     Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)

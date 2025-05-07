@@ -36,6 +36,8 @@ use jj_lib::backend::Timestamp;
 use jj_lib::backend::TreeValue;
 use jj_lib::commit::Commit;
 use jj_lib::commit_builder::CommitBuilder;
+use jj_lib::config::ConfigLayer;
+use jj_lib::config::ConfigSource;
 use jj_lib::git;
 use jj_lib::git::FailedRefExportReason;
 use jj_lib::git::GitBranchPushTargets;
@@ -72,6 +74,7 @@ use maplit::btreemap;
 use maplit::hashset;
 use tempfile::TempDir;
 use test_case::test_case;
+use testutils::base_user_config;
 use testutils::commit_transactions;
 use testutils::create_random_commit;
 use testutils::repo_path;
@@ -3830,8 +3833,14 @@ fn test_bulk_update_extra_on_import_refs() {
 
 #[test]
 fn test_rewrite_imported_commit() {
-    let git_settings = GitSettings::default();
-    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let git_settings = jj_lib::settings::GitSettings {
+        write_change_id_header: false,
+        ..Default::default()
+    };
+    let test_repo = TestRepo::init_with_backend_and_settings(
+        TestRepoBackend::Git,
+        &user_settings_without_change_id(),
+    );
     let repo = &test_repo.repo;
     let git_repo = get_git_repo(repo);
 
@@ -3942,7 +3951,7 @@ fn test_concurrent_write_commit() {
 
 #[test]
 fn test_concurrent_read_write_commit() {
-    let settings = &testutils::user_settings();
+    let settings = user_settings_without_change_id();
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let test_env = &test_repo.env;
     let repo = &test_repo.repo;
@@ -3978,7 +3987,7 @@ fn test_concurrent_read_write_commit() {
 
         // Writer assigns random change id
         for (i, commit_id) in commit_ids.iter().enumerate() {
-            let repo = test_env.load_repo_at_head(settings, test_repo.repo_path()); // unshare loader
+            let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path()); // unshare loader
             let barrier = barrier.clone();
             s.spawn(move || {
                 barrier.wait();
@@ -3994,7 +4003,7 @@ fn test_concurrent_read_write_commit() {
 
         // Reader may generate change id (if not yet assigned by the writer)
         for i in 0..num_reader_thread {
-            let mut repo = test_env.load_repo_at_head(settings, test_repo.repo_path()); // unshare loader
+            let mut repo = test_env.load_repo_at_head(&settings, test_repo.repo_path()); // unshare loader
             let barrier = barrier.clone();
             let mut pending_commit_ids = commit_ids.clone();
             pending_commit_ids.rotate_left(i); // start lookup from different place
@@ -4264,4 +4273,14 @@ fn test_remote_rename_refs() {
             .id(),
         commit_foobar_a,
     );
+}
+
+fn user_settings_without_change_id() -> UserSettings {
+    let mut config = base_user_config();
+    let mut layer = ConfigLayer::empty(ConfigSource::Default);
+    layer
+        .set_value("git.write-change-id-header", false)
+        .unwrap();
+    config.add_layer(layer);
+    UserSettings::from_config(config).unwrap()
 }

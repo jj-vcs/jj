@@ -153,13 +153,13 @@ fn test_resolve_symbol_commit_id() {
     };
 
     let mut commits = vec![];
-    for i in &[1, 167, 895] {
+    for i in [156, 268, 869] {
         let commit = mut_repo
             .new_commit(
                 vec![repo.store().root_commit_id().clone()],
                 repo.store().empty_merged_tree_id(),
             )
-            // An arbitrary change id that doesn't start with "04"
+            // An arbitrary change id that doesn't start with "01"
             .set_change_id(ChangeId::from_hex("781199f9d55d18e855a7aa84c5e4b40d"))
             .set_description(format!("test {i}"))
             .set_author(signature.clone())
@@ -172,37 +172,37 @@ fn test_resolve_symbol_commit_id() {
 
     // Test the test setup
     insta::assert_snapshot!(commits.iter().map(|c| c.id().hex()).join("\n"), @r"
-    0454de3cae04c46cda37ba2e8873b4c17ff51dcb
-    045f56cd1b17e8abde86771e2705395dcde6a957
-    0468f7da8de2ce442f512aacf83411d26cd2e0cf
+    019f179b4479a4f3d1373b772866037929e4f63c
+    019fd357eb2a4904c348b62d1f4cc2ac222cdbc7
+    017dc442a1d77bb1620a1a32863580ae81543d7d
     ");
 
     // Test lookup by full commit id
     assert_eq!(
-        resolve_symbol(repo.as_ref(), "0454de3cae04c46cda37ba2e8873b4c17ff51dcb",).unwrap(),
+        resolve_symbol(repo.as_ref(), "019f179b4479a4f3d1373b772866037929e4f63c",).unwrap(),
         vec![commits[0].id().clone()]
     );
     assert_eq!(
-        resolve_symbol(repo.as_ref(), "045f56cd1b17e8abde86771e2705395dcde6a957",).unwrap(),
+        resolve_symbol(repo.as_ref(), "019fd357eb2a4904c348b62d1f4cc2ac222cdbc7",).unwrap(),
         vec![commits[1].id().clone()]
     );
     assert_eq!(
-        resolve_symbol(repo.as_ref(), "0468f7da8de2ce442f512aacf83411d26cd2e0cf",).unwrap(),
+        resolve_symbol(repo.as_ref(), "017dc442a1d77bb1620a1a32863580ae81543d7d",).unwrap(),
         vec![commits[2].id().clone()]
     );
 
     // Test commit id prefix
     assert_eq!(
-        resolve_symbol(repo.as_ref(), "046").unwrap(),
+        resolve_symbol(repo.as_ref(), "017").unwrap(),
         vec![commits[2].id().clone()]
     );
     assert_matches!(
-        resolve_symbol(repo.as_ref(), "04"),
-        Err(RevsetResolutionError::AmbiguousCommitIdPrefix(s)) if s == "04"
+        resolve_symbol(repo.as_ref(), "01"),
+        Err(RevsetResolutionError::AmbiguousCommitIdPrefix(s)) if s == "01"
     );
     assert_matches!(
-        resolve_symbol(repo.as_ref(), "040"),
-        Err(RevsetResolutionError::NoSuchRevision{name, candidates}) if name == "040" && candidates.is_empty()
+        resolve_symbol(repo.as_ref(), "010"),
+        Err(RevsetResolutionError::NoSuchRevision{name, candidates}) if name == "010" && candidates.is_empty()
     );
 
     // Test non-hex string
@@ -226,12 +226,12 @@ fn test_resolve_symbol_commit_id() {
         workspace: None,
     };
     assert_matches!(
-        parse(&mut RevsetDiagnostics::new(), "present(04)", &context).unwrap()
+        parse(&mut RevsetDiagnostics::new(), "present(01)", &context).unwrap()
             .resolve_user_expression(repo.as_ref(), &symbol_resolver),
-        Err(RevsetResolutionError::AmbiguousCommitIdPrefix(s)) if s == "04"
+        Err(RevsetResolutionError::AmbiguousCommitIdPrefix(s)) if s == "01"
     );
     assert_eq!(
-        resolve_commit_ids(repo.as_ref(), "present(046)"),
+        resolve_commit_ids(repo.as_ref(), "present(017)"),
         vec![commits[2].id().clone()]
     );
 }
@@ -274,7 +274,7 @@ fn test_resolve_symbol_change_id(readonly: bool) {
     .map(ChangeId::from_hex);
     let mut commits = vec![];
     let mut tx = repo.start_transaction();
-    for (i, change_id) in iter::zip([0, 1, 2, 5085], change_ids) {
+    for (i, change_id) in iter::zip([0, 1, 2, 5359], change_ids) {
         let commit = tx
             .repo_mut()
             .new_commit(vec![root_commit_id.clone()], empty_tree_id.clone())
@@ -291,10 +291,10 @@ fn test_resolve_symbol_change_id(readonly: bool) {
     insta::allow_duplicates! {
         insta::assert_snapshot!(
             commits.iter().map(|c| format!("{} {}\n", c.id(), c.change_id())).join(""), @r"
-        eaf7e54ceef15f0c5c985c725e7383d6e802a101 zvlyxpuvtsoopsqzlkorrpqrszrqvlnx
-        1e3c39cd4a83ddc116951ea7e43a56b3a30cad17 zvzowopwpuymrlmonvnuruunomzqmlsy
-        f1ca35ab1a9a0153416f730b86ff969b5df542cc zvlynszrxlvlwvkwkwsymrpypvtsszor
-        040031cb4ad0cbc3287914f1d205dabf4a7eb889 qyymsluxkmuopzvorkxrqlyvnwmwzoux
+        cd741d7f2c542e443df3c5bf2d4f8a15a2759e77 zvlyxpuvtsoopsqzlkorrpqrszrqvlnx
+        0af32dcddbdf49c132ad39c3623a6196c6c987a5 zvzowopwpuymrlmonvnuruunomzqmlsy
+        553ee869e64329d1022f5c00c63dff6621924c18 zvlynszrxlvlwvkwkwsymrpypvtsszor
+        0407d5eb08231b546a42518a50a835f17282eaef qyymsluxkmuopzvorkxrqlyvnwmwzoux
         ");
     }
 

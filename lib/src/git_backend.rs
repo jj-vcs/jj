@@ -1574,8 +1574,6 @@ mod tests {
     use pollster::FutureExt as _;
 
     use super::*;
-    use crate::config::ConfigLayer;
-    use crate::config::ConfigSource;
     use crate::config::StackedConfig;
     use crate::content_hash::blake2b_hash;
     use crate::tests::new_temp_dir;
@@ -1877,7 +1875,7 @@ mod tests {
 
     #[test]
     fn round_trip_change_id_via_git_header() {
-        let settings = user_settings_with_change_id();
+        let settings = user_settings();
         let temp_dir = new_temp_dir();
 
         let store_path = temp_dir.path().join("store");
@@ -2313,8 +2311,9 @@ mod tests {
         tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904
         author Someone <someone@example.com> 0 +0000
         committer Someone <someone@example.com> 0 +0000
+        change-id xpxpxpxpxpxpxpxpxpxpxpxpxpxpxpxp
         gpgsig test sig
-         hash=9ad9526c3b2103c41a229f2f3c82d107a0ecd902f476a855f0e1dd5f7bef1430663de12749b73e293a877113895a8a2a0f29da4bbc5a5f9a19c3523fb0e53518
+         hash=03feb0caccbacce2e7b7bca67f4c82292dd487e669ed8a813120c9f82d3fd0801420a1f5d05e1393abfe4e9fc662399ec4a9a1898c5f1e547e0044a52bd4bd29
 
         initial
         ");
@@ -2328,12 +2327,13 @@ mod tests {
 
         insta::assert_snapshot!(std::str::from_utf8(&sig.sig).unwrap(), @r"
         test sig
-        hash=9ad9526c3b2103c41a229f2f3c82d107a0ecd902f476a855f0e1dd5f7bef1430663de12749b73e293a877113895a8a2a0f29da4bbc5a5f9a19c3523fb0e53518
+        hash=03feb0caccbacce2e7b7bca67f4c82292dd487e669ed8a813120c9f82d3fd0801420a1f5d05e1393abfe4e9fc662399ec4a9a1898c5f1e547e0044a52bd4bd29
         ");
         insta::assert_snapshot!(std::str::from_utf8(&sig.data).unwrap(), @r"
         tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904
         author Someone <someone@example.com> 0 +0000
         committer Someone <someone@example.com> 0 +0000
+        change-id xpxpxpxpxpxpxpxpxpxpxpxpxpxpxpxp
 
         initial
         ");
@@ -2360,14 +2360,6 @@ mod tests {
     // our UserSettings type comes from jj_lib (1).
     fn user_settings() -> UserSettings {
         let config = StackedConfig::with_defaults();
-        UserSettings::from_config(config).unwrap()
-    }
-
-    fn user_settings_with_change_id() -> UserSettings {
-        let mut config = StackedConfig::with_defaults();
-        let mut layer = ConfigLayer::empty(ConfigSource::Default);
-        layer.set_value("git.write-change-id-header", true).unwrap();
-        config.add_layer(layer);
         UserSettings::from_config(config).unwrap()
     }
 }

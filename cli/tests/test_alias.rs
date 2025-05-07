@@ -215,7 +215,7 @@ fn test_alias_global_args_before_and_after() {
     // Test the setup
     let output = work_dir.run_jj(["l"]);
     insta::assert_snapshot!(output, @r"
-    @  230dd059e1b059aefc0da06a2e5a7dbf22362f22
+    @  e8849ae12c709f2321908879bc724fdb2ab8a781
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -240,7 +240,7 @@ fn test_alias_global_args_before_and_after() {
     ");
     let output = work_dir.run_jj(["-R", "../nonexistent", "l", "-R", "."]);
     insta::assert_snapshot!(output, @r"
-    @  230dd059e1b059aefc0da06a2e5a7dbf22362f22
+    @  e8849ae12c709f2321908879bc724fdb2ab8a781
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
