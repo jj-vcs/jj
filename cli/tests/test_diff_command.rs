@@ -1375,6 +1375,89 @@ fn test_diff_color_words_inlining_threshold() {
 }
 
 #[test]
+fn test_diff_color_words_omit_blank_right_line() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // The middle hunk of file1 and file3 is
+    //   left = " x\n..."
+    //   right = "\n y\nz "
+    //
+    // file2 is different because left/right sides have the same number of "\n".
+    work_dir.write_file(
+        "file1",
+        indoc! {"
+            a x
+            b
+        "},
+    );
+    work_dir.write_file(
+        "file2",
+        indoc! {"
+            a x
+
+            b
+        "},
+    );
+    work_dir.write_file(
+        "file3",
+        indoc! {"
+            a x
+
+
+            b
+        "},
+    );
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file(
+        "file1",
+        indoc! {"
+            a
+             y
+            z b
+        "},
+    );
+    work_dir.write_file(
+        "file2",
+        indoc! {"
+            a
+             y
+            z b
+        "},
+    );
+    work_dir.write_file(
+        "file3",
+        indoc! {"
+            a
+             y
+            z b
+        "},
+    );
+
+    let output = work_dir.run_jj(["diff"]);
+    insta::assert_snapshot!(output, @r"
+    Modified regular file file1:
+       1    1: a x
+            1: 
+            2:  y
+       2    3: z b
+    Modified regular file file2:
+       1    1: a x
+       2    2:  y
+       3    3: z b
+    Modified regular file file3:
+       1    1: a x
+       2     : 
+       3     : 
+            1: 
+            2:  y
+       4    3: z b
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_diff_missing_newline() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
