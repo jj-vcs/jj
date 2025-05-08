@@ -240,9 +240,16 @@ is ignored.
 
 ### Commit trailers
 
-You can configure automatic addition of trailers to commit descriptions using
-the `commit_trailers` template. Trailers defined in this template will only be
-added if they are not already present in the description.
+You can configure automatic addition of one or more trailers to commit
+descriptions using the `commit_trailers` template.
+
+Each line of the template is an individual trailer, usually in `Key: Value`
+format.
+
+Trailers defined in this template are deduplicated with the existing
+description: if the entire line of a trailer is already present, it will not be
+added again. To deduplicate based only on the trailer key, use the
+`trailers.contains_key(key)` method within the template.
 
 ```toml
 [templates]
@@ -253,12 +260,9 @@ format_signed_off_by_trailer(self)
 
 Some ready-to-use trailer templates are available for frequently used trailers:
 * `format_signed_off_by_trailer(commit)` creates a "Signed-off-by" trailer
-  using the committer info;
+  using the committer info.
 * `format_gerrit_change_id_trailer(commit)` creates a "Change-Id" trailer
   suitable to be used with Gerrit. It is based Jujutsu's change id.
-
-The `trailers.contains_key(key)` method can be used within the template to
-conditionally add a trailer if no other trailer with the same key exists.
 
 Existing trailers are also accessible via `commit.trailers()`.
 
