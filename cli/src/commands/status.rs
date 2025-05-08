@@ -33,8 +33,9 @@ use crate::ui::Ui;
 ///
 /// This includes:
 ///
-///  * The working copy commit and its (first) parent, and a summary of the
-///    changes between them
+///  * The working copy commit and its parents, and a summary of the changes in
+///    the working copy (compared to the merged parents)
+///  * Conflicts in the working copy
 ///  * [Conflicted bookmarks]
 ///
 /// [Conflicted bookmarks]:
