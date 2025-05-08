@@ -159,6 +159,8 @@ fn test_resolve_symbol_commit_id() {
                 vec![repo.store().root_commit_id().clone()],
                 repo.store().empty_merged_tree_id(),
             )
+            // An arbitrary change id that doesn't start with "04"
+            .set_change_id(ChangeId::from_hex("781199f9d55d18e855a7aa84c5e4b40d"))
             .set_description(format!("test {i}"))
             .set_author(signature.clone())
             .set_committer(signature.clone())
@@ -169,23 +171,11 @@ fn test_resolve_symbol_commit_id() {
     let repo = tx.commit("test").unwrap();
 
     // Test the test setup
-    assert_eq!(
-        commits[0].id().hex(),
-        "0454de3cae04c46cda37ba2e8873b4c17ff51dcb"
-    );
-    assert_eq!(
-        commits[1].id().hex(),
-        "045f56cd1b17e8abde86771e2705395dcde6a957"
-    );
-    assert_eq!(
-        commits[2].id().hex(),
-        "0468f7da8de2ce442f512aacf83411d26cd2e0cf"
-    );
-
-    // Change ids should never have prefix "04"
-    insta::assert_snapshot!(commits[0].change_id().hex(), @"781199f9d55d18e855a7aa84c5e4b40d");
-    insta::assert_snapshot!(commits[1].change_id().hex(), @"a2c96fc88f32e487328f04927f20c4b1");
-    insta::assert_snapshot!(commits[2].change_id().hex(), @"4399e4f3123763dfe7d68a2809ecc01b");
+    insta::assert_snapshot!(commits.iter().map(|c| c.id().hex()).join("\n"), @r"
+    0454de3cae04c46cda37ba2e8873b4c17ff51dcb
+    045f56cd1b17e8abde86771e2705395dcde6a957
+    0468f7da8de2ce442f512aacf83411d26cd2e0cf
+    ");
 
     // Test lookup by full commit id
     assert_eq!(
