@@ -66,13 +66,7 @@
           mold-wrapped
         ];
 
-      buildInputs = with pkgs;
-        [ ]
-        ++ lib.optionals stdenv.isDarwin [
-          darwin.apple_sdk.frameworks.Security
-          darwin.apple_sdk.frameworks.SystemConfiguration
-          libiconv
-        ];
+      buildInputs = [ ];
 
       nativeCheckInputs = with pkgs; [
         # for signing tests
