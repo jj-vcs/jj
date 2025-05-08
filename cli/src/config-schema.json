@@ -293,6 +293,11 @@
         "core": {
             "type": "object",
             "properties": {
+                "executable-bit": {
+                    "type": "string",
+                    "enum": ["respect", "ignore"],
+                    "description": "Whether to ignore changes to the executable bit for files on Unix. This setting is unused on Windows."
+                },
                 "fsmonitor": {
                     "type": "string",
                     "enum": ["none", "watchman"],
