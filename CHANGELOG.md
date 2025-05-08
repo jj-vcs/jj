@@ -49,6 +49,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The `editor-*.jjdescription` files passed to your editor by e.g. `jj describe`
   are now written to your system's temporary directory instead of `.jj/repo/`.
 
+* `jj rebase` now automatically abandons divergent commits if another commit
+  with the same change ID is already present in the destination with identical
+  changes. To keep these divergent commits, use the `--keep-divergent` flag.
+
 ### Deprecations
 
 * `git.subprocess = false` has been deprecated, and the old `libgit2`
