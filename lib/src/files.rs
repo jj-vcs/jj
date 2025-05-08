@@ -161,7 +161,23 @@ where
                             self.current_line.line_number.left += 1;
                         }
                     }
-                    let right_lines = right_text.split_inclusive(|b| *b == b'\n').map(BStr::new);
+                    let mut right_lines =
+                        right_text.split_inclusive(|b| *b == b'\n').map(BStr::new);
+                    // Omit blank right line if matching hunk of the same line
+                    // number has already been queued. Here we only need to
+                    // check the first queued line since the other lines should
+                    // be created in the left_lines loop above.
+                    if right_text.starts_with(b"\n")
+                        && self.current_line.hunks.is_empty()
+                        && self
+                            .queued_lines
+                            .front()
+                            .is_some_and(|queued| queued.has_right_content())
+                    {
+                        let blank_line = right_lines.next().unwrap();
+                        assert_eq!(blank_line, b"\n");
+                        self.current_line.line_number.right += 1;
+                    }
                     for right_line in right_lines {
                         self.current_line
                             .hunks
@@ -465,6 +481,130 @@ mod tests {
         assert_eq!(
             line_iter.next_line_number(),
             DiffLineNumber { left: 2, right: 12 }
+        );
+    }
+
+    #[test]
+    fn test_diff_line_iterator_blank_right_line_single_left() {
+        let mut line_iter = DiffLineIterator::new(
+            [
+                DiffHunk::matching(["a"].repeat(2)),
+                DiffHunk::different(["x\n", "\ny\n"]),
+            ]
+            .into_iter(),
+        );
+        assert_eq!(
+            line_iter.next().unwrap(),
+            DiffLine {
+                line_number: DiffLineNumber { left: 1, right: 1 },
+                hunks: vec![
+                    (DiffLineHunkSide::Both, "a".as_ref()),
+                    (DiffLineHunkSide::Left, "x\n".as_ref()),
+                ],
+            }
+        );
+        // "\n" (line_number.right = 1) can be omitted because the previous diff
+        // line has a right content.
+        assert_eq!(
+            line_iter.next().unwrap(),
+            DiffLine {
+                line_number: DiffLineNumber { left: 2, right: 2 },
+                hunks: vec![(DiffLineHunkSide::Right, "y\n".as_ref())],
+            }
+        );
+    }
+
+    #[test]
+    fn test_diff_line_iterator_blank_right_line_multiple_lefts() {
+        let mut line_iter = DiffLineIterator::new(
+            [
+                DiffHunk::matching(["a"].repeat(2)),
+                DiffHunk::different(["x\n\n", "\ny\n"]),
+            ]
+            .into_iter(),
+        );
+        assert_eq!(
+            line_iter.next().unwrap(),
+            DiffLine {
+                line_number: DiffLineNumber { left: 1, right: 1 },
+                hunks: vec![
+                    (DiffLineHunkSide::Both, "a".as_ref()),
+                    (DiffLineHunkSide::Left, "x\n".as_ref()),
+                ],
+            }
+        );
+        assert_eq!(
+            line_iter.next().unwrap(),
+            DiffLine {
+                line_number: DiffLineNumber { left: 2, right: 1 },
+                hunks: vec![(DiffLineHunkSide::Left, "\n".as_ref())],
+            }
+        );
+        // "\n" (line_number.right = 1) can still be omitted because one of the
+        // preceding diff line has a right content.
+        assert_eq!(
+            line_iter.next().unwrap(),
+            DiffLine {
+                line_number: DiffLineNumber { left: 3, right: 2 },
+                hunks: vec![(DiffLineHunkSide::Right, "y\n".as_ref())],
+            }
+        );
+    }
+
+    #[test]
+    fn test_diff_line_iterator_blank_right_line_after_non_empty_left() {
+        let mut line_iter = DiffLineIterator::new(
+            [
+                DiffHunk::matching(["a"].repeat(2)),
+                DiffHunk::different(["x\nz", "\ny\n"]),
+            ]
+            .into_iter(),
+        );
+        assert_eq!(
+            line_iter.next().unwrap(),
+            DiffLine {
+                line_number: DiffLineNumber { left: 1, right: 1 },
+                hunks: vec![
+                    (DiffLineHunkSide::Both, "a".as_ref()),
+                    (DiffLineHunkSide::Left, "x\n".as_ref()),
+                ],
+            }
+        );
+        assert_eq!(
+            line_iter.next().unwrap(),
+            DiffLine {
+                line_number: DiffLineNumber { left: 2, right: 1 },
+                hunks: vec![
+                    (DiffLineHunkSide::Left, "z".as_ref()),
+                    (DiffLineHunkSide::Right, "\n".as_ref()),
+                ],
+            }
+        );
+        assert_eq!(
+            line_iter.next().unwrap(),
+            DiffLine {
+                line_number: DiffLineNumber { left: 2, right: 2 },
+                hunks: vec![(DiffLineHunkSide::Right, "y\n".as_ref())],
+            }
+        );
+    }
+
+    #[test]
+    fn test_diff_line_iterator_blank_right_line_without_preceding_lines() {
+        let mut line_iter = DiffLineIterator::new([DiffHunk::different(["", "\ny\n"])].into_iter());
+        assert_eq!(
+            line_iter.next().unwrap(),
+            DiffLine {
+                line_number: DiffLineNumber { left: 1, right: 1 },
+                hunks: vec![(DiffLineHunkSide::Right, "\n".as_ref())],
+            }
+        );
+        assert_eq!(
+            line_iter.next().unwrap(),
+            DiffLine {
+                line_number: DiffLineNumber { left: 1, right: 2 },
+                hunks: vec![(DiffLineHunkSide::Right, "y\n".as_ref())],
+            }
         );
     }
 

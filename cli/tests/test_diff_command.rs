@@ -1439,7 +1439,6 @@ fn test_diff_color_words_omit_blank_right_line() {
     insta::assert_snapshot!(output, @r"
     Modified regular file file1:
        1    1: a x
-            1: 
             2:  y
        2    3: z b
     Modified regular file file2:
@@ -1450,7 +1449,6 @@ fn test_diff_color_words_omit_blank_right_line() {
        1    1: a x
        2     : 
        3     : 
-            1: 
             2:  y
        4    3: z b
     [EOF]
