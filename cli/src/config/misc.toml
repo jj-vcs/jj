@@ -55,3 +55,4 @@ auto-update-stale = false
 # in the future.
 [split]
 legacy-bookmark-behavior = true
+legacy-change-id-behavior = false

@@ -22,6 +22,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj split` has gained a `--message` option to set the description of the
   commit with the selected changes.
 
+* `jj split` has gained the ability to place the revision with the selected changes
+  anywhere in the revision tree with the `--insert-before`, `--insert-after` and
+  `--destination` command line flags.
+
+* `jj split` assigns the change id of the source revision to the second revision.
+  You can opt out of this change by setting `split.legacy-change-id-behavior = true`,
+  but this will likely be removed in a future release.
+
 ### Fixed bugs
 
 ### Packaging changes
