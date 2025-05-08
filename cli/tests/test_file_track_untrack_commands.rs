@@ -204,9 +204,11 @@ fn test_track_ignored() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
-    work_dir.write_file(".gitignore", "*.bak\n");
+    work_dir.write_file(".gitignore", "*.bak\ntarget/\n");
     work_dir.write_file("file1", "initial");
     work_dir.write_file("file1.bak", "initial");
+    let target_dir = work_dir.create_dir("target");
+    target_dir.write_file("file2", "initial");
 
     // Track an unignored path
     let output = work_dir.run_jj(["file", "track", "file1"]);
@@ -217,8 +219,15 @@ fn test_track_ignored() {
     [EOF]
     ");
     // Track an ignored path
-    let output = work_dir.run_jj(["file", "track", "file1.bak"]);
-    insta::assert_snapshot!(output, @"");
+    let output = work_dir.run_jj(["file", "track", "file1.bak", "target/file2"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: Refused to snapshot some files:
+      file1.bak: the path matches an ignored pattern
+      target: the path matches an ignored pattern
+    Hint: It appears at least one of the files you tried to track is matched by a pattern in one of the .gitignore files in this repo; this is a current limitation of jj, please try removing the pattern from your gitignore file temporarily then start tracking that file.
+    [EOF]
+    ");
     // TODO: We should teach `jj file track` to track ignored paths (possibly
     // requiring a flag)
     let output = work_dir.run_jj(["file", "list"]);
