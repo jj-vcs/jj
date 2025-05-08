@@ -284,7 +284,7 @@ fn test_resolve_symbol_change_id(readonly: bool) {
     .map(ChangeId::from_hex);
     let mut commits = vec![];
     let mut tx = repo.start_transaction();
-    for (i, change_id) in iter::zip([133, 664, 840, 5085], change_ids) {
+    for (i, change_id) in iter::zip([0, 1, 2, 5085], change_ids) {
         let commit = tx
             .repo_mut()
             .new_commit(vec![root_commit_id.clone()], empty_tree_id.clone())
@@ -301,9 +301,9 @@ fn test_resolve_symbol_change_id(readonly: bool) {
     insta::allow_duplicates! {
         insta::assert_snapshot!(
             commits.iter().map(|c| format!("{} {}\n", c.id(), c.change_id())).join(""), @r"
-        8fd68d104372910e19511df709e5dde62a548720 zvlyxpuvtsoopsqzlkorrpqrszrqvlnx
-        5339432b8e7b90bd3aa1a323db71b8a5c5dcd020 zvzowopwpuymrlmonvnuruunomzqmlsy
-        e2ad9d861d0ee625851b8ecfcf2c727410e38720 zvlynszrxlvlwvkwkwsymrpypvtsszor
+        eaf7e54ceef15f0c5c985c725e7383d6e802a101 zvlyxpuvtsoopsqzlkorrpqrszrqvlnx
+        1e3c39cd4a83ddc116951ea7e43a56b3a30cad17 zvzowopwpuymrlmonvnuruunomzqmlsy
+        f1ca35ab1a9a0153416f730b86ff969b5df542cc zvlynszrxlvlwvkwkwsymrpypvtsszor
         040031cb4ad0cbc3287914f1d205dabf4a7eb889 qyymsluxkmuopzvorkxrqlyvnwmwzoux
         ");
     }
