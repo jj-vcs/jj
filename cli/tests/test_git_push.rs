@@ -1948,6 +1948,7 @@ fn test_git_push_to_remote_named_git() {
     Changes to push to git:
       Add bookmark bookmark1 to d13ecdbda2a2
       Add bookmark bookmark2 to 8476341eb395
+    The Git command hasn't reported any progress yet. Perhaps you need to activate your security key?
     Error: Git remote named 'git' is reserved for local Git repository
     Hint: Run `jj git remote rename` to give a different name.
     [EOF]
@@ -1973,6 +1974,7 @@ fn test_git_push_to_remote_with_slashes() {
     Changes to push to slash/origin:
       Add bookmark bookmark1 to d13ecdbda2a2
       Add bookmark bookmark2 to 8476341eb395
+    The Git command hasn't reported any progress yet. Perhaps you need to activate your security key?
     Error: Git remotes with slashes are incompatible with jj: slash/origin
     Hint: Run `jj git remote rename` to give a different name.
     [EOF]

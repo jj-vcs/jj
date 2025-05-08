@@ -52,6 +52,7 @@ fn test_git_clone() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/empty"
+    The Git command hasn't reported any progress yet. Perhaps you need to activate your security key?
     Nothing changed.
     [EOF]
     "#);
@@ -63,6 +64,7 @@ fn test_git_clone() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
+    The Git command hasn't reported any progress yet. Perhaps you need to activate your security key?
     bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
     Working copy  (@) now at: uuqppmxq f78d2645 (empty) (no description set)
@@ -150,6 +152,7 @@ fn test_git_clone() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/nested/path/to/repo"
+    The Git command hasn't reported any progress yet. Perhaps you need to activate your security key?
     bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
     Working copy  (@) now at: uuzqqzqu cf5d593e (empty) (no description set)
@@ -196,6 +199,7 @@ fn test_git_clone_colocate() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/empty"
+    The Git command hasn't reported any progress yet. Perhaps you need to activate your security key?
     Nothing changed.
     [EOF]
     "#);
@@ -215,6 +219,7 @@ fn test_git_clone_colocate() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
+    The Git command hasn't reported any progress yet. Perhaps you need to activate your security key?
     bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
     Working copy  (@) now at: uuqppmxq f78d2645 (empty) (no description set)
@@ -360,6 +365,7 @@ fn test_git_clone_colocate() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/nested/path/to/repo"
+    The Git command hasn't reported any progress yet. Perhaps you need to activate your security key?
     bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
     Working copy  (@) now at: vzqnnsmr 589d0921 (empty) (no description set)
@@ -395,6 +401,7 @@ fn test_git_clone_remote_default_bookmark() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone1"
+    The Git command hasn't reported any progress yet. Perhaps you need to activate your security key?
     bookmark: feature1@origin [new] tracked
     bookmark: main@origin     [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
@@ -425,6 +432,7 @@ fn test_git_clone_remote_default_bookmark() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone2"
+    The Git command hasn't reported any progress yet. Perhaps you need to activate your security key?
     bookmark: feature1@origin [new] untracked
     bookmark: main@origin     [new] untracked
     Setting the revset alias `trunk()` to `main@origin`
@@ -447,6 +455,7 @@ fn test_git_clone_remote_default_bookmark() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone3"
+    The Git command hasn't reported any progress yet. Perhaps you need to activate your security key?
     bookmark: feature1@origin [new] untracked
     bookmark: main@origin     [new] untracked
     Setting the revset alias `trunk()` to `feature1@origin`
@@ -496,6 +505,7 @@ fn test_git_clone_remote_default_bookmark_with_escape() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
+    The Git command hasn't reported any progress yet. Perhaps you need to activate your security key?
     bookmark: "\""@origin [new] untracked
     Setting the revset alias `trunk()` to `"\""@origin`
     Working copy  (@) now at: sqpuoqvx 2ca1c979 (empty) (no description set)
@@ -526,6 +536,7 @@ fn test_git_clone_ignore_working_copy() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
+    The Git command hasn't reported any progress yet. Perhaps you need to activate your security key?
     bookmark: main@origin [new] untracked
     Setting the revset alias `trunk()` to `main@origin`
     [EOF]
@@ -583,6 +594,7 @@ fn test_git_clone_with_remote_name() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
+    The Git command hasn't reported any progress yet. Perhaps you need to activate your security key?
     bookmark: main@upstream [new] tracked
     Setting the revset alias `trunk()` to `main@upstream`
     Working copy  (@) now at: sqpuoqvx 2ca1c979 (empty) (no description set)
@@ -637,6 +649,7 @@ fn test_git_clone_trunk_deleted() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
+    The Git command hasn't reported any progress yet. Perhaps you need to activate your security key?
     bookmark: main@origin [new] untracked
     Setting the revset alias `trunk()` to `main@origin`
     Working copy  (@) now at: sqpuoqvx 2ca1c979 (empty) (no description set)
@@ -726,6 +739,7 @@ fn test_git_clone_conditional_config() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/new"
+    The Git command hasn't reported any progress yet. Perhaps you need to activate your security key?
     bookmark: main@origin [new] untracked
     Setting the revset alias `trunk()` to `main@origin`
     Working copy  (@) now at: zxsnswpr 9ffb42e2 (empty) (no description set)
@@ -768,6 +782,7 @@ fn test_git_clone_with_depth() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
+    The Git command hasn't reported any progress yet. Perhaps you need to activate your security key?
     bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
     Working copy  (@) now at: sqpuoqvx 2ca1c979 (empty) (no description set)
@@ -805,6 +820,7 @@ fn test_git_clone_invalid_immutable_heads() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
+    The Git command hasn't reported any progress yet. Perhaps you need to activate your security key?
     bookmark: main@origin [new] untracked
     Config error: Invalid `revset-aliases.immutable_heads()`
     Caused by: Revision `unknown` doesn't exist
@@ -829,6 +845,7 @@ fn test_git_clone_malformed() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
+    The Git command hasn't reported any progress yet. Perhaps you need to activate your security key?
     bookmark: main@origin [new] untracked
     Setting the revset alias `trunk()` to `main@origin`
     Internal error: Failed to check out commit 0a09cb41583450703459a2310d63da61456364ce
@@ -893,6 +910,7 @@ fn test_git_clone_with_global_git_remote_config() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
+    The Git command hasn't reported any progress yet. Perhaps you need to activate your security key?
     bookmark: main@origin [new] untracked
     Setting the revset alias `trunk()` to `main@origin`
     Working copy  (@) now at: sqpuoqvx 2ca1c979 (empty) (no description set)
@@ -915,6 +933,7 @@ fn test_git_clone_no_git_executable() {
     insta::assert_snapshot!(output.strip_stderr_last_line(), @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
+    The Git command hasn't reported any progress yet. Perhaps you need to activate your security key?
     Error: Could not execute the git process, found in the OS path 'jj-test-missing-program'
     [EOF]
     [exit status: 1]
@@ -938,6 +957,7 @@ fn test_git_clone_no_git_executable_with_path() {
     insta::assert_snapshot!(output.strip_stderr_last_line(), @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
+    The Git command hasn't reported any progress yet. Perhaps you need to activate your security key?
     Error: Could not execute git process at specified path '$TEST_ENV/invalid/path'
     [EOF]
     [exit status: 1]

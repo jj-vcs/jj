@@ -418,6 +418,7 @@ fn test_git_fetch_from_remote_named_git() {
     let output = work_dir.run_jj(["git", "fetch", "--remote=git"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    The Git command hasn't reported any progress yet. Perhaps you need to activate your security key?
     Error: Git remote named 'git' is reserved for local Git repository
     Hint: Run `jj git remote rename` to give a different name.
     [EOF]
@@ -488,6 +489,7 @@ fn test_git_fetch_from_remote_with_slashes() {
     let output = work_dir.run_jj(["git", "fetch", "--remote=slash/origin"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    The Git command hasn't reported any progress yet. Perhaps you need to activate your security key?
     Error: Git remotes with slashes are incompatible with jj: slash/origin
     Hint: Run `jj git remote rename` to give a different name.
     [EOF]
@@ -643,6 +645,7 @@ fn test_git_fetch_all() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/target"
+    The Git command hasn't reported any progress yet. Perhaps you need to activate your security key?
     Nothing changed.
     [EOF]
     "#);
@@ -801,6 +804,7 @@ fn test_git_fetch_some_of_many_bookmarks() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/target"
+    The Git command hasn't reported any progress yet. Perhaps you need to activate your security key?
     Nothing changed.
     [EOF]
     "#);
@@ -823,6 +827,7 @@ fn test_git_fetch_some_of_many_bookmarks() {
     let output = target_dir.run_jj(["git", "fetch", "--branch", "glob:^:a*"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    The Git command hasn't reported any progress yet. Perhaps you need to activate your security key?
     Error: Invalid branch pattern provided. When fetching, branch names and globs may not contain the characters `:`, `^`, `?`, `[`, `]`
     [EOF]
     [exit status: 1]
@@ -830,6 +835,7 @@ fn test_git_fetch_some_of_many_bookmarks() {
     let output = target_dir.run_jj(["git", "fetch", "--branch", "a*"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    The Git command hasn't reported any progress yet. Perhaps you need to activate your security key?
     Error: Branch names may not include `*`.
     Hint: Prefix the pattern with `glob:` to expand `*` as a glob
     [EOF]
@@ -1147,6 +1153,7 @@ fn test_git_fetch_undo() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/target"
+    The Git command hasn't reported any progress yet. Perhaps you need to activate your security key?
     Nothing changed.
     [EOF]
     "#);
@@ -1226,6 +1233,7 @@ fn test_fetch_undo_what() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/target"
+    The Git command hasn't reported any progress yet. Perhaps you need to activate your security key?
     Nothing changed.
     [EOF]
     "#);
@@ -1427,6 +1435,7 @@ fn test_git_fetch_removed_bookmark() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/target"
+    The Git command hasn't reported any progress yet. Perhaps you need to activate your security key?
     Nothing changed.
     [EOF]
     "#);
@@ -1525,6 +1534,7 @@ fn test_git_fetch_removed_parent_bookmark() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/target"
+    The Git command hasn't reported any progress yet. Perhaps you need to activate your security key?
     Nothing changed.
     [EOF]
     "#);

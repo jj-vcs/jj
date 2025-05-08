@@ -639,6 +639,11 @@ fn read_to_end_with_progress<R: Read>(
         // progress sent through sideband channel may be terminated by \r
         let start = data.len();
         read_until_cr_or_lf(&mut reader, &mut data)?;
+
+        if let Some(rx) = callbacks.first_progress.take() {
+            rx.send(()).ok();
+        }
+
         let line = &data[start..];
         if line.is_empty() {
             break;
