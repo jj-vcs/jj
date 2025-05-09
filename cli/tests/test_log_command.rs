@@ -719,17 +719,17 @@ fn test_log_prefix_highlight_counts_hidden_commits() {
     ◆  Change zzz[zzzzzzzzz] 00[0000000000]
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["log", "-r", "4", "-T", prefix_format]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-r", "8", "-T", prefix_format]), @r"
     ------- stderr -------
-    Error: Commit ID prefix `4` is ambiguous
+    Error: Commit ID prefix `8` is ambiguous
     [EOF]
     [exit status: 1]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["log", "-r", "44", "-T", prefix_format]), @r"
-    ------- stderr -------
-    Error: Revision `44` doesn't exist
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-r", "88", "-T", prefix_format]), @r"
+    @  Change wq[nwkozpkust] 88[e8407a4f0a]
+    │
+    ~
     [EOF]
-    [exit status: 1]
     ");
 }
 
