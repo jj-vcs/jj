@@ -726,6 +726,16 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
                 Ok(format!(r#""{escaped}""#).into())
             },
         ),
+        ConfigMigrationRule::custom(
+            |layer| {
+                let Ok(Some(write_change_id)) = layer.look_up_item("git.write-change-id-header")
+                else {
+                    return false;
+                };
+                write_change_id.as_bool() == Some(true) && layer.source != ConfigSource::Default
+            },
+            |_| Ok("`git.write-change-id-header` is now the default".into()),
+        ),
     ]
 }
 
