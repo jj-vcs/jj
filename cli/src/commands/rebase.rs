@@ -26,6 +26,7 @@ use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::rewrite::move_commits;
 use jj_lib::rewrite::EmptyBehaviour;
+use jj_lib::rewrite::MoveCommitsLocation;
 use jj_lib::rewrite::MoveCommitsStats;
 use jj_lib::rewrite::MoveCommitsTarget;
 use jj_lib::rewrite::RebaseOptions;
@@ -384,7 +385,7 @@ pub(crate) fn cmd_rebase(
         simplify_ancestor_merge: false,
     };
     let mut workspace_command = command.workspace_helper(ui)?;
-    let plan = if !args.revisions.is_empty() {
+    let loc = if !args.revisions.is_empty() {
         plan_rebase_revisions(ui, &workspace_command, &args.revisions, &args.destination)?
     } else if !args.source.is_empty() {
         plan_rebase_source(ui, &workspace_command, &args.source, &args.destination)?
@@ -393,24 +394,11 @@ pub(crate) fn cmd_rebase(
     };
 
     let mut tx = workspace_command.start_transaction();
-    let stats = move_commits(
-        tx.repo_mut(),
-        &plan.new_parent_ids,
-        &plan.new_child_ids,
-        &plan.target,
-        &rebase_options,
-    )?;
+    let stats = move_commits(tx.repo_mut(), &loc, &rebase_options)?;
     print_move_commits_stats(ui, &stats)?;
-    tx.finish(ui, tx_description(&plan.target))?;
+    tx.finish(ui, tx_description(&loc.target))?;
 
     Ok(())
-}
-
-#[derive(Clone, Debug)]
-struct RebasePlan {
-    new_parent_ids: Vec<CommitId>,
-    new_child_ids: Vec<CommitId>,
-    target: MoveCommitsTarget,
 }
 
 fn plan_rebase_revisions(
@@ -418,7 +406,7 @@ fn plan_rebase_revisions(
     workspace_command: &WorkspaceCommandHelper,
     revisions: &[RevisionArg],
     rebase_destination: &RebaseDestinationArgs,
-) -> Result<RebasePlan, CommandError> {
+) -> Result<MoveCommitsLocation, CommandError> {
     let target_commit_ids: Vec<_> = workspace_command
         .parse_union_revsets(ui, revisions)?
         .evaluate_to_commit_ids()?
@@ -443,7 +431,7 @@ fn plan_rebase_revisions(
             }
         }
     }
-    Ok(RebasePlan {
+    Ok(MoveCommitsLocation {
         new_parent_ids,
         new_child_ids,
         target: MoveCommitsTarget::Commits(target_commit_ids),
@@ -455,7 +443,7 @@ fn plan_rebase_source(
     workspace_command: &WorkspaceCommandHelper,
     source: &[RevisionArg],
     rebase_destination: &RebaseDestinationArgs,
-) -> Result<RebasePlan, CommandError> {
+) -> Result<MoveCommitsLocation, CommandError> {
     let source_commit_ids =
         Vec::from_iter(workspace_command.resolve_some_revsets_default_single(ui, source)?);
     workspace_command.check_rewritable(&source_commit_ids)?;
@@ -475,7 +463,7 @@ fn plan_rebase_source(
         }
     }
 
-    Ok(RebasePlan {
+    Ok(MoveCommitsLocation {
         new_parent_ids,
         new_child_ids,
         target: MoveCommitsTarget::Roots(source_commit_ids),
@@ -487,7 +475,7 @@ fn plan_rebase_branch(
     workspace_command: &WorkspaceCommandHelper,
     branch: &[RevisionArg],
     rebase_destination: &RebaseDestinationArgs,
-) -> Result<RebasePlan, CommandError> {
+) -> Result<MoveCommitsLocation, CommandError> {
     let branch_commit_ids: Vec<_> = if branch.is_empty() {
         vec![workspace_command
             .resolve_single_rev(ui, &RevisionArg::AT)?
@@ -524,7 +512,7 @@ fn plan_rebase_branch(
         }
     }
 
-    Ok(RebasePlan {
+    Ok(MoveCommitsLocation {
         new_parent_ids,
         new_child_ids,
         target: MoveCommitsTarget::Roots(root_commit_ids),

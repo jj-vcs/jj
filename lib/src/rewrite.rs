@@ -402,6 +402,14 @@ pub struct MoveCommitsStats {
     pub num_abandoned: u32,
 }
 
+/// Target and destination commits to be rebased by [`move_commits()`].
+#[derive(Clone, Debug)]
+pub struct MoveCommitsLocation {
+    pub new_parent_ids: Vec<CommitId>,
+    pub new_child_ids: Vec<CommitId>,
+    pub target: MoveCommitsTarget,
+}
+
 #[derive(Clone, Debug)]
 pub enum MoveCommitsTarget {
     /// The commits to be moved. Commits should be mutable and in reverse
@@ -411,8 +419,8 @@ pub enum MoveCommitsTarget {
     Roots(Vec<CommitId>),
 }
 
-/// Moves `target_commits` from their current location to a new location in the
-/// graph.
+/// Moves `loc.target` commits from their current location to a new location in
+/// the graph.
 ///
 /// Commits in `target` are rebased onto the new parents given by
 /// `new_parent_ids`, while the `new_child_ids` commits are rebased onto the
@@ -421,9 +429,7 @@ pub enum MoveCommitsTarget {
 /// resulting graph. Commits in `target` should be in reverse topological order.
 pub fn move_commits(
     mut_repo: &mut MutableRepo,
-    new_parent_ids: &[CommitId],
-    new_child_ids: &[CommitId],
-    target: &MoveCommitsTarget,
+    loc: &MoveCommitsLocation,
     options: &RebaseOptions,
 ) -> BackendResult<MoveCommitsStats> {
     let target_commit_ids: IndexSet<CommitId>;
@@ -431,7 +437,7 @@ pub fn move_commits(
     let connected_target_commits_internal_parents: HashMap<CommitId, Vec<CommitId>>;
     let target_roots: HashSet<CommitId>;
 
-    match target {
+    match &loc.target {
         MoveCommitsTarget::Commits(commit_ids) => {
             if commit_ids.is_empty() {
                 return Ok(MoveCommitsStats::default());
@@ -502,7 +508,8 @@ pub fn move_commits(
     // If the new parents include a commit in the target set, replace it with the
     // commit's ancestors which are outside the set.
     // e.g. `jj rebase -r A --before A`
-    let new_parent_ids: Vec<_> = new_parent_ids
+    let new_parent_ids: Vec<_> = loc
+        .new_parent_ids
         .iter()
         .flat_map(|parent_id| {
             if let Some(parent_ids) = target_commits_external_parents.get(parent_id) {
@@ -516,7 +523,8 @@ pub fn move_commits(
     // If the new children include a commit in the target set, replace it with the
     // commit's descendants which are outside the set.
     // e.g. `jj rebase -r A --after A`
-    let new_children: Vec<_> = if new_child_ids
+    let new_children: Vec<_> = if loc
+        .new_child_ids
         .iter()
         .any(|id| target_commit_ids.contains(id))
     {
@@ -570,7 +578,7 @@ pub fn move_commits(
         }
 
         let mut new_children = Vec::new();
-        for id in new_child_ids {
+        for id in &loc.new_child_ids {
             if let Some(children) = target_commit_external_descendants.get(id) {
                 new_children.extend(children.iter().cloned());
             } else {
@@ -579,7 +587,7 @@ pub fn move_commits(
         }
         new_children
     } else {
-        new_child_ids
+        loc.new_child_ids
             .iter()
             .map(|id| mut_repo.store().get_commit(id))
             .try_collect()?
