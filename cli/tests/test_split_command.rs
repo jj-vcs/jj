@@ -1142,6 +1142,240 @@ fn test_split_with_message() {
     ");
 }
 
+#[test]
+fn test_split_move_first_commit() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "foo\n");
+    work_dir.write_file("file2", "bar\n");
+    work_dir.run_jj(["commit", "-m", "file2"]).success();
+    work_dir.write_file("file3", "bar\n");
+    work_dir.run_jj(["commit", "-m", "file3"]).success();
+    work_dir.write_file("file4", "bar\n");
+    work_dir.run_jj(["commit", "-m", "file4"]).success();
+    work_dir.run_jj(["new", "root()"]).success();
+    work_dir.write_file("file5", "bar\n");
+    work_dir.run_jj(["commit", "-m", "file5"]).success();
+
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  royxmykxtrkr true
+    ○  mzvwutvlkqwt false file5
+    │ ○  kkmpptxzrspx false file4
+    │ ○  rlvkpnrzqnoo false file3
+    │ ○  qpvuntsmwlqt false file2
+    ├─╯
+    ◆  zzzzzzzzzzzz true
+    [EOF]
+    ");
+
+    // insert the commit before the source commit
+    let output = work_dir.run_jj([
+        "split",
+        "-m",
+        "file1",
+        "-r",
+        "qpvuntsmwlqt",
+        "--insert-before",
+        "qpvuntsmwlqt",
+        "file1",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Rebased 2 descendant commits
+    First part: qpvuntsm 993e3d93 file1
+    Second part: vruxwmqv fabd0df9 file2
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  royxmykxtrkr true
+    ○  mzvwutvlkqwt false file5
+    │ ○  kkmpptxzrspx false file4
+    │ ○  rlvkpnrzqnoo false file3
+    │ ○  vruxwmqvtpmx false file2
+    │ ○  qpvuntsmwlqt false file1
+    ├─╯
+    ◆  zzzzzzzzzzzz true
+    [EOF]
+    ");
+
+    // insert the commit after the source commit
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj([
+        "split",
+        "-m",
+        "file1",
+        "-r",
+        "qpvuntsmwlqt",
+        "--insert-after",
+        "qpvuntsmwlqt",
+        "file1",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Rebased 2 descendant commits
+    First part: qpvuntsm f8c00206 file1
+    Second part: kpqxywon 969c071f file2
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  royxmykxtrkr true
+    ○  mzvwutvlkqwt false file5
+    │ ○  kkmpptxzrspx false file4
+    │ ○  rlvkpnrzqnoo false file3
+    │ ○  qpvuntsmwlqt false file1
+    │ ○  kpqxywonksrl false file2
+    ├─╯
+    ◆  zzzzzzzzzzzz true
+    [EOF]
+    ");
+
+    // create a new branch anywhere in the tree
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj([
+        "split",
+        "-m",
+        "file1",
+        "-r",
+        "qpvuntsmwlqt",
+        "--destination",
+        "rlvkpnrzqnoo",
+        "file1",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Rebased 2 descendant commits
+    First part: qpvuntsm 4b1f1b24 file1
+    Second part: lylxulpl f0ab27d2 file2
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  royxmykxtrkr true
+    ○  mzvwutvlkqwt false file5
+    │ ○  kkmpptxzrspx false file4
+    │ │ ○  qpvuntsmwlqt false file1
+    │ ├─╯
+    │ ○  rlvkpnrzqnoo false file3
+    │ ○  lylxulplsnyw false file2
+    ├─╯
+    ◆  zzzzzzzzzzzz true
+    [EOF]
+    ");
+
+    // create a bubble in the tree
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj([
+        "split",
+        "-m",
+        "file1",
+        "-r",
+        "qpvuntsmwlqt",
+        "--insert-after",
+        "qpvuntsmwlqt",
+        "--insert-before",
+        "kkmpptxzrspx",
+        "file1",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Rebased 2 descendant commits
+    First part: qpvuntsm 95d62ea0 file1
+    Second part: uyznsvlq e6732ebd file2
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  royxmykxtrkr true
+    ○  mzvwutvlkqwt false file5
+    │ ○    kkmpptxzrspx false file4
+    │ ├─╮
+    │ │ ○  qpvuntsmwlqt false file1
+    │ ○ │  rlvkpnrzqnoo false file3
+    │ ├─╯
+    │ ○  uyznsvlquzzm false file2
+    ├─╯
+    ◆  zzzzzzzzzzzz true
+    [EOF]
+    ");
+
+    // create a commit in another branch
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj([
+        "split",
+        "-m",
+        "file1",
+        "-r",
+        "qpvuntsmwlqt",
+        "--before",
+        "@",
+        "file1",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Rebased 3 descendant commits
+    First part: qpvuntsm 7e4685df file1
+    Second part: nmzmmopx f302b4e1 file2
+    Working copy  (@) now at: royxmykx 55d6bd53 (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 7e4685df file1
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  royxmykxtrkr true
+    ○  qpvuntsmwlqt false file1
+    ○  mzvwutvlkqwt false file5
+    │ ○  kkmpptxzrspx false file4
+    │ ○  rlvkpnrzqnoo false file3
+    │ ○  nmzmmopxokps false file2
+    ├─╯
+    ◆  zzzzzzzzzzzz true
+    [EOF]
+    ");
+
+    // merge two branches with the new commit
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj([
+        "split",
+        "-m",
+        "file1",
+        "-r",
+        "qpvuntsmwlqt",
+        "--after",
+        "mzvwutvlkqwt",
+        "--after",
+        "kkmpptxzrspx",
+        "file1",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Rebased 3 descendant commits
+    First part: qpvuntsm ac01b0f7 file1
+    Second part: nlrtlrxv e182224c file2
+    Working copy  (@) now at: royxmykx 42e36126 (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm ac01b0f7 file1
+    Added 4 files, modified 0 files, removed 0 files
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  royxmykxtrkr true
+    ○    qpvuntsmwlqt false file1
+    ├─╮
+    │ ○  kkmpptxzrspx false file4
+    │ ○  rlvkpnrzqnoo false file3
+    │ ○  nlrtlrxvuusk false file2
+    ○ │  mzvwutvlkqwt false file5
+    ├─╯
+    ◆  zzzzzzzzzzzz true
+    [EOF]
+    ");
+}
+
 enum BookmarkBehavior {
     Default,
     MoveBookmarkToChild,

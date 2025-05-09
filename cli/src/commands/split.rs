@@ -11,16 +11,26 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+use std::collections::HashMap;
 use std::io::Write as _;
 
 use clap_complete::ArgValueCompleter;
+use itertools::Itertools as _;
+use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::matchers::Matcher;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
+use jj_lib::rewrite::move_commits;
 use jj_lib::rewrite::CommitWithSelection;
+use jj_lib::rewrite::EmptyBehaviour;
+use jj_lib::rewrite::MoveCommitsTarget;
+use jj_lib::rewrite::RebaseOptions;
+use jj_lib::rewrite::RebasedCommit;
+use jj_lib::rewrite::RewriteRefsOptions;
 use tracing::instrument;
 
+use crate::cli_util::compute_commit_location;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::DiffSelector;
 use crate::cli_util::RevisionArg;
@@ -70,6 +80,40 @@ pub(crate) struct SplitArgs {
         add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     revision: RevisionArg,
+    /// The revision(s) to rebase onto (can be repeated to create a merge
+    /// commit)
+    #[arg(
+        long,
+        short,
+        conflicts_with = "parallel",
+        value_name = "REVSETS",
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
+    )]
+    destination: Option<Vec<RevisionArg>>,
+    /// The revision(s) to insert after (can be repeated to create a merge
+    /// commit)
+    #[arg(
+        long,
+        short = 'A',
+        visible_alias = "after",
+        conflicts_with = "destination",
+        conflicts_with = "parallel",
+        value_name = "REVSETS",
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
+    )]
+    insert_after: Option<Vec<RevisionArg>>,
+    /// The revision(s) to insert before (can be repeated to create a merge
+    /// commit)
+    #[arg(
+        long,
+        short = 'B',
+        visible_alias = "before",
+        conflicts_with = "destination",
+        conflicts_with = "parallel",
+        value_name = "REVSETS",
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
+    )]
+    insert_before: Option<Vec<RevisionArg>>,
     /// The change description to use (don't open editor)
     ///
     /// The description is used for the commit with the selected changes. The
@@ -116,11 +160,29 @@ impl SplitArgs {
             self.tool.as_deref(),
             self.interactive || self.paths.is_empty(),
         )?;
+        let use_move_flags = self.destination.is_some()
+            || self.insert_after.is_some()
+            || self.insert_before.is_some();
+        let (new_parent_ids, new_child_ids) = if use_move_flags {
+            compute_commit_location(
+                ui,
+                workspace_command,
+                self.destination.as_deref(),
+                self.insert_after.as_deref(),
+                self.insert_before.as_deref(),
+                "split-out commit",
+            )?
+        } else {
+            Default::default()
+        };
         Ok(ResolvedSplitArgs {
             target_commit,
             matcher,
             diff_selector,
             parallel: self.parallel,
+            use_move_flags,
+            new_parent_ids,
+            new_child_ids,
         })
     }
 }
@@ -130,6 +192,9 @@ struct ResolvedSplitArgs {
     matcher: Box<dyn Matcher>,
     diff_selector: DiffSelector,
     parallel: bool,
+    use_move_flags: bool,
+    new_parent_ids: Vec<CommitId>,
+    new_child_ids: Vec<CommitId>,
 }
 
 #[instrument(skip_all)]
@@ -144,6 +209,9 @@ pub(crate) fn cmd_split(
         matcher,
         diff_selector,
         parallel,
+        use_move_flags,
+        new_parent_ids,
+        new_child_ids,
     } = args.resolve(ui, &workspace_command)?;
     let text_editor = workspace_command.text_editor()?;
     let mut tx = workspace_command.start_transaction();
@@ -226,6 +294,109 @@ pub(crate) fn cmd_split(
         commit_builder.write(tx.repo_mut())?
     };
 
+    if use_move_flags {
+        new(
+            ui,
+            tx,
+            target,
+            first_commit,
+            second_commit,
+            new_parent_ids,
+            new_child_ids,
+        )
+    } else {
+        legacy(ui, tx, target, first_commit, second_commit, parallel)
+    }
+}
+
+fn new(
+    ui: &mut Ui,
+    mut tx: WorkspaceCommandTransaction,
+    target: CommitWithSelection,
+    mut first_commit: Commit,
+    mut second_commit: Commit,
+    new_parent_ids: Vec<CommitId>,
+    new_child_ids: Vec<CommitId>,
+) -> Result<(), CommandError> {
+    let mut rewritten_commits: HashMap<CommitId, CommitId> = HashMap::new();
+    tx.repo_mut()
+        .set_rewritten_commit(target.commit.id().clone(), second_commit.id().clone());
+    rewritten_commits.insert(target.commit.id().clone(), second_commit.id().clone());
+    tx.repo_mut()
+        .transform_descendants(vec![target.commit.id().clone()], |rewriter| {
+            let old_commit_id = rewriter.old_commit().id().clone();
+            let new_commit = rewriter.rebase()?.write()?;
+            rewritten_commits.insert(old_commit_id, new_commit.id().clone());
+            Ok(())
+        })?;
+
+    let new_parent_ids: Vec<_> = new_parent_ids
+        .iter()
+        .map(|commit_id| rewritten_commits.get(commit_id).unwrap_or(commit_id))
+        .cloned()
+        .collect();
+    let new_children: Vec<_> = new_child_ids
+        .iter()
+        .map(|commit_id| rewritten_commits.get(commit_id).unwrap_or(commit_id))
+        .map(|commit_id| tx.repo().store().get_commit(commit_id))
+        .try_collect()?;
+    let stats = move_commits(
+        tx.repo_mut(),
+        &new_parent_ids,
+        &new_children,
+        &MoveCommitsTarget::Commits(vec![first_commit.clone()]),
+        &RebaseOptions {
+            empty: EmptyBehaviour::Keep,
+            rewrite_refs: RewriteRefsOptions {
+                delete_abandoned_bookmarks: false,
+            },
+            simplify_ancestor_merge: false,
+        },
+    )?;
+
+    let mut num_new_rebased = 1;
+    if let Some(RebasedCommit::Rewritten(commit)) = stats.rebased_commits.get(first_commit.id()) {
+        first_commit = commit.clone();
+        num_new_rebased += 1;
+    }
+    if let Some(RebasedCommit::Rewritten(commit)) = stats.rebased_commits.get(second_commit.id()) {
+        second_commit = commit.clone();
+    }
+
+    if let Some(mut formatter) = ui.status_formatter() {
+        let mut num_rebased_descendants = rewritten_commits.len() + stats.rebased_commits.len();
+        // don't count the commit generated by the split in the rebased commits
+        num_rebased_descendants -= num_new_rebased;
+        for (_, ref rewritten) in rewritten_commits {
+            if stats.rebased_commits.contains_key(rewritten) {
+                // only count once a commit that may have been rewritten twice in the process
+                num_rebased_descendants -= 1;
+            }
+        }
+        if num_rebased_descendants > 0 {
+            writeln!(
+                formatter,
+                "Rebased {num_rebased_descendants} descendant commits"
+            )?;
+        }
+        write!(formatter, "First part: ")?;
+        tx.write_commit_summary(formatter.as_mut(), &first_commit)?;
+        write!(formatter, "\nSecond part: ")?;
+        tx.write_commit_summary(formatter.as_mut(), &second_commit)?;
+        writeln!(formatter)?;
+    }
+    tx.finish(ui, format!("split commit {}", target.commit.id().hex()))?;
+    Ok(())
+}
+
+fn legacy(
+    ui: &mut Ui,
+    mut tx: WorkspaceCommandTransaction,
+    target: CommitWithSelection,
+    first_commit: Commit,
+    second_commit: Commit,
+    parallel: bool,
+) -> Result<(), CommandError> {
     let legacy_bookmark_behavior = tx.settings().get_bool("split.legacy-bookmark-behavior")?;
     if legacy_bookmark_behavior {
         // Mark the commit being split as rewritten to the second commit. This
@@ -234,10 +405,10 @@ pub(crate) fn cmd_split(
         tx.repo_mut()
             .set_rewritten_commit(target.commit.id().clone(), second_commit.id().clone());
     }
-    let mut num_rebased = 0;
+
+    let mut num_rebased_descendants = 0;
     tx.repo_mut()
         .transform_descendants(vec![target.commit.id().clone()], |mut rewriter| {
-            num_rebased += 1;
             if parallel && legacy_bookmark_behavior {
                 // The old_parent is the second commit due to the rewrite above.
                 rewriter
@@ -248,8 +419,10 @@ pub(crate) fn cmd_split(
                 rewriter.replace_parent(first_commit.id(), [second_commit.id()]);
             }
             rewriter.rebase()?.write()?;
+            num_rebased_descendants += 1;
             Ok(())
         })?;
+
     // Move the working copy commit (@) to the second commit for any workspaces
     // where the target commit is the working copy commit.
     for (name, working_copy_commit) in tx.base_repo().clone().view().wc_commit_ids() {
@@ -259,8 +432,11 @@ pub(crate) fn cmd_split(
     }
 
     if let Some(mut formatter) = ui.status_formatter() {
-        if num_rebased > 0 {
-            writeln!(formatter, "Rebased {num_rebased} descendant commits")?;
+        if num_rebased_descendants > 0 {
+            writeln!(
+                formatter,
+                "Rebased {num_rebased_descendants} descendant commits"
+            )?;
         }
         write!(formatter, "First part: ")?;
         tx.write_commit_summary(formatter.as_mut(), &first_commit)?;
