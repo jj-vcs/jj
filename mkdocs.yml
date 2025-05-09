@@ -157,6 +157,7 @@ nav: # This lists all the files that become part of the documentation
       - Style guide: 'style_guide.md'
       - Design docs: 'design_docs.md'
       - Design doc blueprint: 'design_doc_blueprint.md'
+      - Deprecations: 'deprecation.md'
       - Releasing: 'releasing.md'
       - Temporary voting for governance: 'governance/temporary-voting.md'
       - Governance: 'governance/GOVERNANCE.md'
