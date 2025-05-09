@@ -1115,11 +1115,15 @@ fn test_squash_from_multiple_partial_no_op() {
     ]);
     insta::assert_snapshot!(output, @r"
     @    6dfc239e2ba3 d
-    ├─╮
+    ├─╮  -- operation 709cac6874ca (2001-02-03 08:05:13) squash commits into b37ca1ee33063fcee4cdb5b25e8ffa7b486ff1df
     │ ○  b1a17f79a1a5 b
+    │ │  -- operation d083fcea1cc2 (2001-02-03 08:05:10) snapshot working copy
     │ ○  d8b7d57239ca b
+    │    -- operation 45f64a1d273f (2001-02-03 08:05:09) new empty commit
     ○  fdb92bc249a0 d
+    │  -- operation ec3e3ece17bc (2001-02-03 08:05:12) snapshot working copy
     ○  af709ccc1ca9 d
+       -- operation b4efc4afa4b8 (2001-02-03 08:05:11) new empty commit
     [EOF]
     ");
 
