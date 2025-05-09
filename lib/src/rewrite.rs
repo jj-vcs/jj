@@ -426,8 +426,7 @@ pub fn move_commits(
     target: &MoveCommitsTarget,
     options: &RebaseOptions,
 ) -> BackendResult<MoveCommitsStats> {
-    let target_commits: Vec<Commit>;
-    let target_commit_ids: HashSet<_>;
+    let target_commit_ids: IndexSet<CommitId>;
     let connected_target_commits: Vec<Commit>;
     let connected_target_commits_internal_parents: HashMap<CommitId, Vec<CommitId>>;
     let target_roots: HashSet<CommitId>;
@@ -438,11 +437,10 @@ pub fn move_commits(
                 return Ok(MoveCommitsStats::default());
             }
 
-            target_commits = commits.clone();
-            target_commit_ids = target_commits.iter().ids().cloned().collect();
+            target_commit_ids = commits.iter().ids().cloned().collect();
 
             connected_target_commits =
-                RevsetExpression::commits(target_commits.iter().ids().cloned().collect_vec())
+                RevsetExpression::commits(target_commit_ids.iter().cloned().collect_vec())
                     .connected()
                     .evaluate(mut_repo)
                     .map_err(|err| err.into_backend_error())?
@@ -455,7 +453,7 @@ pub fn move_commits(
 
             target_roots = connected_target_commits_internal_parents
                 .iter()
-                .filter(|(commit_id, parents)| {
+                .filter(|&(commit_id, parents)| {
                     target_commit_ids.contains(commit_id) && parents.is_empty()
                 })
                 .map(|(commit_id, _)| commit_id.clone())
@@ -466,17 +464,19 @@ pub fn move_commits(
                 return Ok(MoveCommitsStats::default());
             }
 
-            target_commits = RevsetExpression::commits(roots.iter().ids().cloned().collect_vec())
-                .descendants()
-                .evaluate(mut_repo)
-                .map_err(|err| err.into_backend_error())?
-                .iter()
-                .commits(mut_repo.store())
-                .try_collect()
-                .map_err(|err| err.into_backend_error())?;
-            target_commit_ids = target_commits.iter().ids().cloned().collect();
+            target_commit_ids =
+                RevsetExpression::commits(roots.iter().ids().cloned().collect_vec())
+                    .descendants()
+                    .evaluate(mut_repo)
+                    .map_err(|err| err.into_backend_error())?
+                    .iter()
+                    .try_collect()
+                    .map_err(|err| err.into_backend_error())?;
 
-            connected_target_commits = target_commits.iter().cloned().collect_vec();
+            connected_target_commits = target_commit_ids
+                .iter()
+                .map(|id| mut_repo.store().get_commit(id))
+                .try_collect()?;
             // We don't have to compute the internal parents for the connected target set,
             // since the connected target set is the same as the target set.
             connected_target_commits_internal_parents = HashMap::new();
@@ -488,7 +488,8 @@ pub fn move_commits(
     // parent, then - after the transformation - it should have that commit's
     // ancestors which are not in the target set as parents.
     let mut target_commits_external_parents: HashMap<CommitId, IndexSet<CommitId>> = HashMap::new();
-    for commit in target_commits.iter().rev() {
+    for id in target_commit_ids.iter().rev() {
+        let commit = mut_repo.store().get_commit(id)?;
         let mut new_parents = IndexSet::new();
         for old_parent in commit.parent_ids() {
             if let Some(parents) = target_commits_external_parents.get(old_parent) {
@@ -761,37 +762,38 @@ pub struct DuplicateCommitsStats {
     pub num_rebased: u32,
 }
 
-/// Duplicates the given `target_commits` onto a new location in the graph.
+/// Duplicates the given `target_commit_ids` onto a new location in the graph.
 ///
-/// The roots of `target_commits` are duplicated on top of the new
-/// `parent_commit_ids`, whilst other commits in `target_commits` are duplicated
-/// on top of the newly duplicated commits in the target set. If
+/// The roots of `target_commit_ids` are duplicated on top of the new
+/// `parent_commit_ids`, whilst other commits in `target_commit_ids` are
+/// duplicated on top of the newly duplicated commits in the target set. If
 /// `children_commit_ids` is not empty, the `children_commit_ids` will be
 /// rebased onto the heads of the duplicated target commits.
 ///
 /// If `target_descriptions` is not empty, it will be consulted to retrieve the
-/// new descriptions of the target commits, falling back to the original if
-/// the map does not contain an entry for a given commit.
+/// new descriptions of the target commits, falling back to the original if the
+/// map does not contain an entry for a given commit.
 ///
 /// This assumes that commits in `children_commit_ids` can be rewritten. There
 /// should also be no cycles in the resulting graph, i.e. `children_commit_ids`
-/// should not be ancestors of `parent_commit_ids`. Commits in `target_commits`
-/// should be in reverse topological order (children before parents).
+/// should not be ancestors of `parent_commit_ids`. Commits in
+/// `target_commit_ids` should be in reverse topological order (children before
+/// parents).
 pub fn duplicate_commits(
     mut_repo: &mut MutableRepo,
-    target_commits: &[CommitId],
+    target_commit_ids: &[CommitId],
     target_descriptions: &HashMap<CommitId, String>,
     parent_commit_ids: &[CommitId],
     children_commit_ids: &[CommitId],
 ) -> BackendResult<DuplicateCommitsStats> {
-    if target_commits.is_empty() {
+    if target_commit_ids.is_empty() {
         return Ok(DuplicateCommitsStats::default());
     }
 
     let mut duplicated_old_to_new: IndexMap<CommitId, Commit> = IndexMap::new();
     let mut num_rebased = 0;
 
-    let target_commit_ids: HashSet<_> = target_commits.iter().cloned().collect();
+    let target_commit_ids: IndexSet<_> = target_commit_ids.iter().cloned().collect();
 
     let connected_target_commits: Vec<_> =
         RevsetExpression::commits(target_commit_ids.iter().cloned().collect_vec())
@@ -833,7 +835,7 @@ pub fn duplicate_commits(
 
     // Topological order ensures that any parents of the original commit are
     // either not in `target_commits` or were already duplicated.
-    for original_commit_id in target_commits.iter().rev() {
+    for original_commit_id in target_commit_ids.iter().rev() {
         let original_commit = mut_repo.store().get_commit(original_commit_id)?;
         let new_parent_ids = if target_root_ids.contains(original_commit_id) {
             parent_commit_ids.to_vec()
@@ -961,7 +963,7 @@ pub fn duplicate_commits_onto_parents(
 /// traversing an edge if the parent is in the target set. `graph_commits`
 /// should be in reverse topological order.
 fn compute_internal_parents_within(
-    target_commit_ids: &HashSet<CommitId>,
+    target_commit_ids: &IndexSet<CommitId>,
     graph_commits: &[Commit],
 ) -> HashMap<CommitId, Vec<CommitId>> {
     let mut internal_parents: HashMap<CommitId, Vec<CommitId>> = HashMap::new();
@@ -987,7 +989,7 @@ fn compute_internal_parents_within(
 /// `connected_target_commits` should be in reverse topological order (children
 /// before parents).
 fn compute_commits_heads(
-    target_commit_ids: &HashSet<CommitId>,
+    target_commit_ids: &IndexSet<CommitId>,
     connected_target_commits: &[Commit],
 ) -> Vec<CommitId> {
     let mut target_head_ids: HashSet<CommitId> = HashSet::new();
