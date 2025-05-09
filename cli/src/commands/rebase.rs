@@ -20,12 +20,10 @@ use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
-use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
-use jj_lib::revset::RevsetIteratorExt as _;
 use jj_lib::rewrite::move_commits;
 use jj_lib::rewrite::EmptyBehaviour;
 use jj_lib::rewrite::MoveCommitsStats;
@@ -421,11 +419,11 @@ fn plan_rebase_revisions(
     revisions: &[RevisionArg],
     rebase_destination: &RebaseDestinationArgs,
 ) -> Result<RebasePlan, CommandError> {
-    let target_commits: Vec<_> = workspace_command
+    let target_commit_ids: Vec<_> = workspace_command
         .parse_union_revsets(ui, revisions)?
-        .evaluate_to_commits()?
+        .evaluate_to_commit_ids()?
         .try_collect()?; // in reverse topological order
-    workspace_command.check_rewritable(target_commits.iter().ids())?;
+    workspace_command.check_rewritable(&target_commit_ids)?;
 
     let (new_parent_ids, new_child_ids) = compute_commit_location(
         ui,
@@ -436,11 +434,11 @@ fn plan_rebase_revisions(
         "rebased commits",
     )?;
     if rebase_destination.destination.is_some() && new_child_ids.is_empty() {
-        for commit in &target_commits {
-            if new_parent_ids.contains(commit.id()) {
+        for id in &target_commit_ids {
+            if new_parent_ids.contains(id) {
                 return Err(user_error(format!(
                     "Cannot rebase {} onto itself",
-                    short_commit_hash(commit.id()),
+                    short_commit_hash(id),
                 )));
             }
         }
@@ -448,7 +446,7 @@ fn plan_rebase_revisions(
     Ok(RebasePlan {
         new_parent_ids,
         new_child_ids,
-        target: MoveCommitsTarget::Commits(target_commits),
+        target: MoveCommitsTarget::Commits(target_commit_ids),
     })
 }
 
@@ -458,12 +456,9 @@ fn plan_rebase_source(
     source: &[RevisionArg],
     rebase_destination: &RebaseDestinationArgs,
 ) -> Result<RebasePlan, CommandError> {
-    let source_commits: Vec<_> = workspace_command
-        .resolve_some_revsets_default_single(ui, source)?
-        .iter()
-        .map(|id| workspace_command.repo().store().get_commit(id))
-        .try_collect()?;
-    workspace_command.check_rewritable(source_commits.iter().ids())?;
+    let source_commit_ids =
+        Vec::from_iter(workspace_command.resolve_some_revsets_default_single(ui, source)?);
+    workspace_command.check_rewritable(&source_commit_ids)?;
 
     let (new_parent_ids, new_child_ids) = compute_commit_location(
         ui,
@@ -474,15 +469,16 @@ fn plan_rebase_source(
         "rebased commits",
     )?;
     if rebase_destination.destination.is_some() && new_child_ids.is_empty() {
-        for commit in &source_commits {
-            check_rebase_destinations(workspace_command.repo(), &new_parent_ids, commit)?;
+        for id in &source_commit_ids {
+            let commit = workspace_command.repo().store().get_commit(id)?;
+            check_rebase_destinations(workspace_command.repo(), &new_parent_ids, &commit)?;
         }
     }
 
     Ok(RebasePlan {
         new_parent_ids,
         new_child_ids,
-        target: MoveCommitsTarget::Roots(source_commits),
+        target: MoveCommitsTarget::Roots(source_commit_ids),
     })
 }
 
@@ -515,23 +511,23 @@ fn plan_rebase_branch(
     let roots_expression = RevsetExpression::commits(new_parent_ids.clone())
         .range(&RevsetExpression::commits(branch_commit_ids))
         .roots();
-    let root_commits: Vec<_> = roots_expression
+    let root_commit_ids: Vec<_> = roots_expression
         .evaluate(workspace_command.repo().as_ref())
         .unwrap()
         .iter()
-        .commits(workspace_command.repo().store())
         .try_collect()?;
-    workspace_command.check_rewritable(root_commits.iter().ids())?;
+    workspace_command.check_rewritable(&root_commit_ids)?;
     if rebase_destination.destination.is_some() && new_child_ids.is_empty() {
-        for commit in &root_commits {
-            check_rebase_destinations(workspace_command.repo(), &new_parent_ids, commit)?;
+        for id in &root_commit_ids {
+            let commit = workspace_command.repo().store().get_commit(id)?;
+            check_rebase_destinations(workspace_command.repo(), &new_parent_ids, &commit)?;
         }
     }
 
     Ok(RebasePlan {
         new_parent_ids,
         new_child_ids,
-        target: MoveCommitsTarget::Roots(root_commits),
+        target: MoveCommitsTarget::Roots(root_commit_ids),
     })
 }
 
@@ -554,18 +550,16 @@ fn check_rebase_destinations(
 
 fn tx_description(target: &MoveCommitsTarget) -> String {
     match &target {
-        MoveCommitsTarget::Commits(commits) => match &commits[..] {
-            [] => format!("rebase {} commits", commits.len()),
-            [commit] => format!("rebase commit {}", commit.id().hex()),
-            [first, others @ ..] => format!(
-                "rebase commit {} and {} more",
-                first.id().hex(),
-                others.len()
-            ),
+        MoveCommitsTarget::Commits(ids) => match &ids[..] {
+            [] => format!("rebase {} commits", ids.len()),
+            [id] => format!("rebase commit {}", id.hex()),
+            [first, others @ ..] => {
+                format!("rebase commit {} and {} more", first.hex(), others.len())
+            }
         },
-        MoveCommitsTarget::Roots(commits) => match &commits[..] {
-            [commit] => format!("rebase commit {} and descendants", commit.id().hex()),
-            _ => format!("rebase {} commits and their descendants", commits.len()),
+        MoveCommitsTarget::Roots(ids) => match &ids[..] {
+            [id] => format!("rebase commit {} and descendants", id.hex()),
+            _ => format!("rebase {} commits and their descendants", ids.len()),
         },
     }
 }
