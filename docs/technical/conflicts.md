@@ -62,4 +62,14 @@ non-conflict state `C`. We then revert that change. Reverting a change means
 applying its reverse diff `-(E-C)`, so the result is `E+(C-E) =
 (C+(B-A))+(C-(C+(B-A)))`, which we can simplify to just `C` (i.e. no conflict).
 
+## same-change rule
+
+The same-change rule is a pragmatic hack on the conflict algebra, which allows
+us to consider a conflict as automatically resolved when two sides are the same.
+This is similar to Git and Mercurial (hg) and not like Darcs and its
+descendants which would consider it a conflict. It also has some unfortunate
+consequences like when you rebase a commit to upstream and the upstream rebased
+it  to where it was before, you may lose changes (any that overlapped with
+upstream's changes).
+
 [merge-rs]: https://github.com/jj-vcs/jj/blob/main/lib/src/merge.rs
