@@ -33,15 +33,17 @@ use crate::ui::Ui;
 
 /// Compare file contents between two revisions
 ///
-/// With the `-r` option, which is the default, shows the changes compared to
-/// the parent revision. If there are several parent revisions (i.e., the given
-/// revision is a merge), then they will be merged and the changes from the
-/// result to the given revision will be shown.
+/// With the `-r` option, shows the changes compared to the parent revision.
+/// If there are several parent revisions (i.e., the given revision is a
+/// merge), then they will be merged and the changes from the result to the
+/// given revision will be shown.
 ///
 /// With the `--from` and/or `--to` options, shows the difference from/to the
 /// given revisions. If either is left out, it defaults to the working-copy
 /// commit. For example, `jj diff --from main` shows the changes from "main"
 /// (perhaps a bookmark name) to the working-copy commit.
+///
+/// If no option is specified, it defaults to `-r @`.
 #[derive(clap::Args, Clone, Debug)]
 #[command(mut_arg("ignore_all_space", |a| a.short('w')))]
 #[command(mut_arg("ignore_space_change", |a| a.short('b')))]
@@ -57,6 +59,8 @@ pub(crate) struct DiffArgs {
     /// If a revision is a merge commit, this shows changes *from* the
     /// automatic merge of the contents of all of its parents *to* the contents
     /// of the revision itself.
+    ///
+    /// If none of `-r`, `-f`, or `-t` is provided, then the default is `-r @`.
     #[arg(
         long,
         short,
@@ -66,6 +70,8 @@ pub(crate) struct DiffArgs {
     )]
     revisions: Option<Vec<RevisionArg>>,
     /// Show changes from this revision
+    ///
+    /// If none of `-r`, `-f`, or `-t` is provided, then the default is `-r @`.
     #[arg(
         long,
         short,
@@ -75,6 +81,8 @@ pub(crate) struct DiffArgs {
     )]
     from: Option<RevisionArg>,
     /// Show changes to this revision
+    ///
+    /// If none of `-r`, `-f`, or `-t` is provided, then the default is `-r @`.
     #[arg(
         long,
         short,
