@@ -389,7 +389,6 @@ pub struct RewriteRefsOptions {
     pub delete_abandoned_bookmarks: bool,
 }
 
-#[derive(Default)]
 pub struct MoveCommitsStats {
     /// The number of commits in the target set which were rebased.
     pub num_rebased_targets: u32,
@@ -419,6 +418,23 @@ pub enum MoveCommitsTarget {
     Roots(Vec<CommitId>),
 }
 
+#[derive(Clone, Debug)]
+struct ComputedMoveCommits {
+    target_commit_ids: IndexSet<CommitId>,
+    descendants: Vec<Commit>,
+    commit_new_parents_map: HashMap<CommitId, Vec<CommitId>>,
+}
+
+impl ComputedMoveCommits {
+    fn empty() -> Self {
+        ComputedMoveCommits {
+            target_commit_ids: IndexSet::new(),
+            descendants: vec![],
+            commit_new_parents_map: HashMap::new(),
+        }
+    }
+}
+
 /// Moves `loc.target` commits from their current location to a new location in
 /// the graph.
 ///
@@ -432,6 +448,14 @@ pub fn move_commits(
     loc: &MoveCommitsLocation,
     options: &RebaseOptions,
 ) -> BackendResult<MoveCommitsStats> {
+    let commits = compute_move_commits(mut_repo, loc)?;
+    apply_move_commits(mut_repo, commits, options)
+}
+
+fn compute_move_commits(
+    repo: &MutableRepo,
+    loc: &MoveCommitsLocation,
+) -> BackendResult<ComputedMoveCommits> {
     let target_commit_ids: IndexSet<CommitId>;
     let connected_target_commits: Vec<Commit>;
     let connected_target_commits_internal_parents: HashMap<CommitId, Vec<CommitId>>;
@@ -440,17 +464,17 @@ pub fn move_commits(
     match &loc.target {
         MoveCommitsTarget::Commits(commit_ids) => {
             if commit_ids.is_empty() {
-                return Ok(MoveCommitsStats::default());
+                return Ok(ComputedMoveCommits::empty());
             }
 
             target_commit_ids = commit_ids.iter().cloned().collect();
 
             connected_target_commits = RevsetExpression::commits(commit_ids.clone())
                 .connected()
-                .evaluate(mut_repo)
+                .evaluate(repo)
                 .map_err(|err| err.into_backend_error())?
                 .iter()
-                .commits(mut_repo.store())
+                .commits(repo.store())
                 .try_collect()
                 .map_err(|err| err.into_backend_error())?;
             connected_target_commits_internal_parents =
@@ -466,12 +490,12 @@ pub fn move_commits(
         }
         MoveCommitsTarget::Roots(root_ids) => {
             if root_ids.is_empty() {
-                return Ok(MoveCommitsStats::default());
+                return Ok(ComputedMoveCommits::empty());
             }
 
             target_commit_ids = RevsetExpression::commits(root_ids.clone())
                 .descendants()
-                .evaluate(mut_repo)
+                .evaluate(repo)
                 .map_err(|err| err.into_backend_error())?
                 .iter()
                 .try_collect()
@@ -479,7 +503,7 @@ pub fn move_commits(
 
             connected_target_commits = target_commit_ids
                 .iter()
-                .map(|id| mut_repo.store().get_commit(id))
+                .map(|id| repo.store().get_commit(id))
                 .try_collect()?;
             // We don't have to compute the internal parents for the connected target set,
             // since the connected target set is the same as the target set.
@@ -493,7 +517,7 @@ pub fn move_commits(
     // ancestors which are not in the target set as parents.
     let mut target_commits_external_parents: HashMap<CommitId, IndexSet<CommitId>> = HashMap::new();
     for id in target_commit_ids.iter().rev() {
-        let commit = mut_repo.store().get_commit(id)?;
+        let commit = repo.store().get_commit(id)?;
         let mut new_parents = IndexSet::new();
         for old_parent in commit.parent_ids() {
             if let Some(parents) = target_commits_external_parents.get(old_parent) {
@@ -534,10 +558,10 @@ pub fn move_commits(
                     &RevsetExpression::commits(target_commit_ids.iter().cloned().collect_vec())
                         .children(),
                 )
-                .evaluate(mut_repo)
+                .evaluate(repo)
                 .map_err(|err| err.into_backend_error())?
                 .iter()
-                .commits(mut_repo.store())
+                .commits(repo.store())
                 .try_collect()
                 .map_err(|err| err.into_backend_error())?;
 
@@ -582,14 +606,14 @@ pub fn move_commits(
             if let Some(children) = target_commit_external_descendants.get(id) {
                 new_children.extend(children.iter().cloned());
             } else {
-                new_children.push(mut_repo.store().get_commit(id)?);
+                new_children.push(repo.store().get_commit(id)?);
             }
         }
         new_children
     } else {
         loc.new_child_ids
             .iter()
-            .map(|id| mut_repo.store().get_commit(id))
+            .map(|id| repo.store().get_commit(id))
             .try_collect()?
     };
 
@@ -645,8 +669,8 @@ pub fn move_commits(
     let mut roots = target_roots.iter().cloned().collect_vec();
     roots.extend(new_children.iter().ids().cloned());
 
-    let descendants = mut_repo.find_descendants_for_rebase(roots.clone())?;
-    let commit_new_parents_map: HashMap<_, _> = descendants
+    let descendants = repo.find_descendants_for_rebase(roots.clone())?;
+    let commit_new_parents_map = descendants
         .iter()
         .map(|commit| {
             let commit_id = commit.id();
@@ -678,7 +702,7 @@ pub fn move_commits(
                                 connected_target_commits_internal_parents.get(parent_id) {
                             new_parents.extend(parents.iter().cloned());
                         } else if !new_children.iter().any(|new_child| {
-                                mut_repo.index().is_ancestor(new_child.id(), parent_id) }) {
+                                repo.index().is_ancestor(new_child.id(), parent_id) }) {
                             new_parents.push(parent_id.clone());
                         }
                     }
@@ -708,6 +732,18 @@ pub fn move_commits(
         })
         .collect();
 
+    Ok(ComputedMoveCommits {
+        target_commit_ids,
+        descendants,
+        commit_new_parents_map,
+    })
+}
+
+fn apply_move_commits(
+    mut_repo: &mut MutableRepo,
+    commits: ComputedMoveCommits,
+    options: &RebaseOptions,
+) -> BackendResult<MoveCommitsStats> {
     let mut num_rebased_targets = 0;
     let mut num_rebased_descendants = 0;
     let mut num_skipped_rebases = 0;
@@ -721,13 +757,13 @@ pub fn move_commits(
     };
 
     mut_repo.transform_commits(
-        descendants,
-        &commit_new_parents_map,
+        commits.descendants,
+        &commits.commit_new_parents_map,
         &options.rewrite_refs,
         |rewriter| {
             let old_commit_id = rewriter.old_commit().id();
             if rewriter.parents_changed() {
-                let is_target_commit = target_commit_ids.contains(old_commit_id);
+                let is_target_commit = commits.target_commit_ids.contains(old_commit_id);
                 let rebased_commit = rebase_commit_with_options(
                     rewriter,
                     if is_target_commit {
