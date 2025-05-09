@@ -36,6 +36,9 @@ jobs:
         - build: win-x86_64
           os: windows-2022
           target: x86_64-pc-windows-msvc
+        - build: win-aarch64
+          os: windows-11-arm
+          target: aarch64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20 # NOTE (aseipp): tests aren't run but sometimes builds take a while
 
@@ -63,7 +66,7 @@ jobs:
         run: |
           outdir="target/${{ matrix.target }}/release"
           BIN=$outdir/jj
-          [[ "${{ matrix.os }}" == "windows-latest" ]] && BIN+=".exe"
+          [[ "${{ matrix.os }}" == windows* ]] && BIN+=".exe"
 
           mkdir -p target/out
           cp $BIN target/out

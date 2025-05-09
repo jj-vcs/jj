@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        build: [linux-x86_64-musl, linux-aarch64-musl, macos-x86_64, macos-aarch64, win-msvc]
+        build: [linux-x86_64-musl, linux-aarch64-musl, macos-x86_64, macos-aarch64, win-x86_64, win-aarch64]
         include:
         - build: linux-x86_64-musl
           os: ubuntu-24.04
@@ -31,9 +31,12 @@ jobs:
         - build: macos-aarch64
           os: macos-14
           target: aarch64-apple-darwin
-        - build: win-msvc
+        - build: win-x86_64
           os: windows-2022
           target: x86_64-pc-windows-msvc
+        - build: win-aarch64
+          os: windows-11-arm
+          target: aarch64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
     steps:
     - name: Checkout repository
@@ -60,7 +63,7 @@ jobs:
         staging="jj-${RELEASE_TAG_NAME}-${{ matrix.target }}"
         mkdir "$staging"
         cp {README.md,LICENSE} "$staging/"
-        if [ "${{ matrix.os }}" = "windows-2022" ]; then
+        if [[ "${{ matrix.os }}" == windows* ]]; then
           cp "$outdir/jj.exe" "$staging/"
           cd "$staging"
           7z a "../$staging.zip" .

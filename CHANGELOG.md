@@ -20,6 +20,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Packaging changes
 
+* `aarch64-windows` builds (release binaries and `main` snapshots) are now provided.
+
 ## [0.30.0] - 2025-06-04
 
 ### Release highlights
