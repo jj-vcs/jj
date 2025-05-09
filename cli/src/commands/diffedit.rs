@@ -29,8 +29,7 @@ use crate::ui::Ui;
 
 /// Touch up the content changes in a revision with a diff editor
 ///
-/// With the `-r` option, which is the default, starts a [diff editor] on the
-/// changes in the revision.
+/// With the `-r` option, starts a [diff editor] on the changes in the revision.
 ///
 /// With the `--from` and/or `--to` options, starts a [diff editor] comparing
 /// the "from" revision to the "to" revision.
