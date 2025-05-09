@@ -415,14 +415,14 @@ pub enum MoveCommitsTarget {
 /// graph.
 ///
 /// Commits in `target` are rebased onto the new parents given by
-/// `new_parent_ids`, while the `new_children` commits are rebased onto the
+/// `new_parent_ids`, while the `new_child_ids` commits are rebased onto the
 /// heads of the commits in `targets`. This assumes that commits in `target` and
-/// `new_children` can be rewritten, and there will be no cycles in the
+/// `new_child_ids` can be rewritten, and there will be no cycles in the
 /// resulting graph. Commits in `target` should be in reverse topological order.
 pub fn move_commits(
     mut_repo: &mut MutableRepo,
     new_parent_ids: &[CommitId],
-    new_children: &[Commit],
+    new_child_ids: &[CommitId],
     target: &MoveCommitsTarget,
     options: &RebaseOptions,
 ) -> BackendResult<MoveCommitsStats> {
@@ -517,9 +517,9 @@ pub fn move_commits(
     // If the new children include a commit in the target set, replace it with the
     // commit's descendants which are outside the set.
     // e.g. `jj rebase -r A --after A`
-    let new_children: Vec<_> = if new_children
+    let new_children: Vec<_> = if new_child_ids
         .iter()
-        .any(|child| target_commit_ids.contains(child.id()))
+        .any(|id| target_commit_ids.contains(id))
     {
         let target_commits_descendants: Vec<_> =
             RevsetExpression::commits(target_commit_ids.iter().cloned().collect_vec())
@@ -570,18 +570,20 @@ pub fn move_commits(
             }
         }
 
+        let mut new_children = Vec::new();
+        for id in new_child_ids {
+            if let Some(children) = target_commit_external_descendants.get(id) {
+                new_children.extend(children.iter().cloned());
+            } else {
+                new_children.push(mut_repo.store().get_commit(id)?);
+            }
+        }
         new_children
-            .iter()
-            .flat_map(|child| {
-                if let Some(children) = target_commit_external_descendants.get(child.id()) {
-                    children.iter().cloned().collect_vec()
-                } else {
-                    vec![child.clone()]
-                }
-            })
-            .collect()
     } else {
-        new_children.to_vec()
+        new_child_ids
+            .iter()
+            .map(|id| mut_repo.store().get_commit(id))
+            .try_collect()?
     };
 
     // Compute the parents of the new children, which will include the heads of the

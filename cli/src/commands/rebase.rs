@@ -395,15 +395,10 @@ pub(crate) fn cmd_rebase(
     };
 
     let mut tx = workspace_command.start_transaction();
-    let new_children: Vec<_> = plan
-        .new_child_ids
-        .iter()
-        .map(|commit_id| tx.repo().store().get_commit(commit_id))
-        .try_collect()?;
     let stats = move_commits(
         tx.repo_mut(),
         &plan.new_parent_ids,
-        &new_children,
+        &plan.new_child_ids,
         &plan.target,
         &rebase_options,
     )?;
