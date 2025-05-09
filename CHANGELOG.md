@@ -149,6 +149,8 @@ Thanks to the people who made this release happen!
 * Winter (@winterqt)
 * Yuya Nishihara (@yuja)
 
+* `aarch64-windows` binaries (release and `main` snapshots) are now provided.
+
 ## [0.29.0] - 2025-05-07
 
 ### Release highlights
