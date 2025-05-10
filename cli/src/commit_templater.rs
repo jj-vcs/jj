@@ -2250,6 +2250,14 @@ mod tests {
     use crate::templater::TemplateRenderer;
     use crate::templater::WrapTemplateProperty;
 
+    // TemplateBuildFunctionFn defined for<'a>
+    type BuildFunctionFn = for<'a> fn(
+        &CommitTemplateLanguage<'a>,
+        &mut TemplateDiagnostics,
+        &BuildContext<CommitTemplatePropertyKind<'a>>,
+        &FunctionCallNode,
+    ) -> TemplateParseResult<CommitTemplatePropertyKind<'a>>;
+
     struct CommitTemplateTestEnv {
         test_workspace: TestWorkspace,
         path_converter: RepoPathUiConverter,
@@ -2258,6 +2266,7 @@ mod tests {
         revset_aliases_map: RevsetAliasesMap,
         template_aliases_map: TemplateAliasesMap,
         immutable_expression: Rc<UserRevsetExpression>,
+        extra_functions: HashMap<&'static str, BuildFunctionFn>,
     }
 
     impl CommitTemplateTestEnv {
@@ -2282,6 +2291,7 @@ mod tests {
                 revset_aliases_map: RevsetAliasesMap::new(),
                 template_aliases_map: TemplateAliasesMap::new(),
                 immutable_expression: RevsetExpression::none(),
+                extra_functions: HashMap::new(),
             }
         }
 
@@ -2290,6 +2300,11 @@ mod tests {
                 cwd: self.test_workspace.workspace.workspace_root().join(path),
                 base: self.test_workspace.workspace.workspace_root().to_owned(),
             };
+        }
+
+        #[expect(dead_code)] // TODO
+        fn add_function(&mut self, name: &'static str, f: BuildFunctionFn) {
+            self.extra_functions.insert(name, f);
         }
 
         fn new_language(&self) -> CommitTemplateLanguage<'_> {
@@ -2304,7 +2319,7 @@ mod tests {
                     workspace_name: self.test_workspace.workspace.workspace_name(),
                 }),
             };
-            CommitTemplateLanguage::new(
+            let mut language = CommitTemplateLanguage::new(
                 self.test_workspace.repo.as_ref(),
                 &self.path_converter,
                 self.test_workspace.workspace.workspace_name(),
@@ -2313,7 +2328,12 @@ mod tests {
                 self.immutable_expression.clone(),
                 ConflictMarkerStyle::default(),
                 &[] as &[Box<dyn CommitTemplateLanguageExtension>],
-            )
+            );
+            // Not using .extend() to infer lifetime of f
+            for (&name, &f) in &self.extra_functions {
+                language.build_fn_table.core.functions.insert(name, f);
+            }
+            language
         }
 
         fn parse<'a, C>(&'a self, text: &str) -> TemplateParseResult<TemplateRenderer<'a, C>>
