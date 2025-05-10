@@ -545,9 +545,9 @@ fn config_values(path: &ConfigNamePathBuf) -> Option<Vec<String>> {
         config_entry = json_keypath(&schema, reference, "/")?;
     };
 
-    if let Some(possibile_values) = config_entry.get("enum") {
+    if let Some(possible_values) = config_entry.get("enum") {
         return Some(
-            possibile_values
+            possible_values
                 .as_array()?
                 .iter()
                 .filter_map(|val| val.as_str())
