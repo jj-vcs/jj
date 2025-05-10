@@ -1563,30 +1563,6 @@ impl CommitOrChangeId {
             CommitOrChangeId::Change(id) => id.reverse_hex(),
         }
     }
-
-    pub fn short(&self, total_len: usize) -> String {
-        let mut hex = self.hex();
-        hex.truncate(total_len);
-        hex
-    }
-
-    /// The length of the id printed will be the maximum of `total_len` and the
-    /// length of the shortest unique prefix
-    pub fn shortest(
-        &self,
-        repo: &dyn Repo,
-        index: &IdPrefixIndex,
-        total_len: usize,
-    ) -> ShortestIdPrefix {
-        let mut hex = self.hex();
-        let prefix_len = match self {
-            CommitOrChangeId::Commit(id) => index.shortest_commit_prefix_len(repo, id),
-            CommitOrChangeId::Change(id) => index.shortest_change_prefix_len(repo, id),
-        };
-        hex.truncate(max(prefix_len, total_len));
-        let rest = hex.split_off(prefix_len);
-        ShortestIdPrefix { prefix: hex, rest }
-    }
 }
 
 impl Template for CommitOrChangeId {
@@ -1630,8 +1606,11 @@ fn builtin_commit_or_change_id_methods<'repo>(
                     )
                 })
                 .transpose()?;
-            let out_property =
-                (self_property, len_property).map(|(id, len)| id.short(len.unwrap_or(12)));
+            let out_property = (self_property, len_property).map(|(id, len)| {
+                let mut hex = id.hex();
+                hex.truncate(len.unwrap_or(12));
+                hex
+            });
             Ok(out_property.into_dyn_wrapped())
         },
     );
@@ -1665,8 +1644,18 @@ fn builtin_commit_or_change_id_methods<'repo>(
                     IdPrefixIndex::empty()
                 }
             };
-            let out_property = (self_property, len_property)
-                .map(move |(id, len)| id.shortest(repo, &index, len.unwrap_or(0)));
+            // The length of the id printed will be the maximum of the minimum
+            // `len` and the length of the shortest unique prefix.
+            let out_property = (self_property, len_property).map(move |(id, len)| {
+                let mut hex = id.hex();
+                let prefix_len = match &id {
+                    CommitOrChangeId::Commit(id) => index.shortest_commit_prefix_len(repo, id),
+                    CommitOrChangeId::Change(id) => index.shortest_change_prefix_len(repo, id),
+                };
+                hex.truncate(max(prefix_len, len.unwrap_or(0)));
+                let rest = hex.split_off(prefix_len);
+                ShortestIdPrefix { prefix: hex, rest }
+            });
             Ok(out_property.into_dyn_wrapped())
         },
     );
