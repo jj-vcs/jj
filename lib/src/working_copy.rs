@@ -28,6 +28,7 @@ use tracing::instrument;
 use crate::backend::BackendError;
 use crate::backend::MergedTreeId;
 use crate::commit::Commit;
+use crate::config::ConfigGetError;
 use crate::conflicts::ConflictMarkerStyle;
 use crate::dag_walk;
 use crate::fsmonitor::FsmonitorSettings;
@@ -46,6 +47,8 @@ use crate::repo::RewriteRootCommit;
 use crate::repo_path::InvalidRepoPathError;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
+use crate::settings::HumanByteSize;
+use crate::settings::UserSettings;
 use crate::store::Store;
 use crate::transaction::TransactionCommitError;
 
@@ -75,7 +78,10 @@ pub trait WorkingCopy: Send {
 
     /// Locks the working copy and returns an instance with methods for updating
     /// the working copy files and state.
-    fn start_mutation(&self) -> Result<Box<dyn LockedWorkingCopy>, WorkingCopyStateError>;
+    fn start_mutation(
+        &self,
+        wc_settings: WorkingCopySettings,
+    ) -> Result<Box<dyn LockedWorkingCopy>, WorkingCopyStateError>;
 }
 
 /// The factory which creates and loads a specific type of working copy.
@@ -120,11 +126,7 @@ pub trait LockedWorkingCopy {
     ) -> Result<(MergedTreeId, SnapshotStats), SnapshotError>;
 
     /// Check out the specified commit in the working copy.
-    fn check_out(
-        &mut self,
-        commit: &Commit,
-        options: &CheckoutOptions,
-    ) -> Result<CheckoutStats, CheckoutError>;
+    fn check_out(&mut self, commit: &Commit) -> Result<CheckoutStats, CheckoutError>;
 
     /// Update the workspace name.
     fn rename_workspace(&mut self, new_workspace_name: WorkspaceNameBuf);
@@ -148,7 +150,6 @@ pub trait LockedWorkingCopy {
     fn set_sparse_patterns(
         &mut self,
         new_sparse_patterns: Vec<RepoPathBuf>,
-        options: &CheckoutOptions,
     ) -> Result<CheckoutStats, CheckoutError>;
 
     /// Finish the modifications to the working copy by writing the updated
@@ -157,6 +158,55 @@ pub trait LockedWorkingCopy {
         self: Box<Self>,
         operation_id: OperationId,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError>;
+}
+
+/// Options used by the [`LockedWorkingCopy`] during operations like checkouts
+/// or snapshots that can be loaded solely from user settings. These should not
+/// change during a working copy mutation.
+///
+/// Some of these may be ignored by different working copy implementations.
+///
+/// Options that can't be loaded from user settings should be added to structs
+/// for specific commands such as [`SnapshotOptions`].
+#[derive(Debug, Clone)]
+pub struct WorkingCopySettings {
+    /// Conflict marker style to use when materializing files.
+    pub conflict_marker_style: ConflictMarkerStyle,
+    /// The fsmonitor (e.g. Watchman) to use, if any.
+    pub fsmonitor_settings: FsmonitorSettings,
+    /// The size of the largest file that should be allowed to become tracked
+    /// (already tracked files are always snapshotted). If there are larger
+    /// files in the working copy, then `LockedWorkingCopy::snapshot()` may
+    /// (depending on implementation) return `SnapshotError::NewFileTooLarge`.
+    pub max_new_file_size: u64,
+}
+
+impl WorkingCopySettings {
+    /// Create an instance for use in tests.
+    pub fn empty_for_test() -> Self {
+        WorkingCopySettings {
+            conflict_marker_style: ConflictMarkerStyle::default(),
+            fsmonitor_settings: FsmonitorSettings::None,
+            max_new_file_size: u64::MAX,
+        }
+    }
+
+    /// Create an instance from user settings.
+    pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
+        Ok(WorkingCopySettings {
+            conflict_marker_style: settings.get("ui.conflict-marker-style")?,
+            fsmonitor_settings: FsmonitorSettings::from_settings(settings)?,
+            max_new_file_size: {
+                let HumanByteSize(max_new_file_size) =
+                    settings.get_value_with("snapshot.max-new-file-size", TryInto::try_into)?;
+                if max_new_file_size == 0 {
+                    u64::MAX
+                } else {
+                    max_new_file_size
+                }
+            },
+        })
+    }
 }
 
 /// An error while snapshotting the working copy.
@@ -205,23 +255,11 @@ pub struct SnapshotOptions<'a> {
     // because the TreeState may be long-lived if the library is used in a
     // long-lived process.
     pub base_ignores: Arc<GitIgnoreFile>,
-    /// The fsmonitor (e.g. Watchman) to use, if any.
-    // TODO: Should we make this a field on `LocalWorkingCopy` instead since it's quite specific to
-    // that implementation?
-    pub fsmonitor_settings: FsmonitorSettings,
     /// A callback for the UI to display progress.
     pub progress: Option<&'a SnapshotProgress<'a>>,
     /// For new files that are not already tracked, start tracking them if they
     /// match this.
     pub start_tracking_matcher: &'a dyn Matcher,
-    /// The size of the largest file that should be allowed to become tracked
-    /// (already tracked files are always snapshotted). If there are larger
-    /// files in the working copy, then `LockedWorkingCopy::snapshot()` may
-    /// (depending on implementation)
-    /// return `SnapshotError::NewFileTooLarge`.
-    pub max_new_file_size: u64,
-    /// Expected conflict marker style for checking for changed files.
-    pub conflict_marker_style: ConflictMarkerStyle,
 }
 
 impl SnapshotOptions<'_> {
@@ -229,11 +267,8 @@ impl SnapshotOptions<'_> {
     pub fn empty_for_test() -> Self {
         SnapshotOptions {
             base_ignores: GitIgnoreFile::empty(),
-            fsmonitor_settings: FsmonitorSettings::None,
             progress: None,
             start_tracking_matcher: &EverythingMatcher,
-            max_new_file_size: u64::MAX,
-            conflict_marker_style: ConflictMarkerStyle::default(),
         }
     }
 }
@@ -260,22 +295,6 @@ pub enum UntrackedReason {
     },
     /// File does not match the fileset specified in snapshot.auto-track.
     FileNotAutoTracked,
-}
-
-/// Options used when checking out a tree in the working copy.
-#[derive(Clone)]
-pub struct CheckoutOptions {
-    /// Conflict marker style to use when materializing files
-    pub conflict_marker_style: ConflictMarkerStyle,
-}
-
-impl CheckoutOptions {
-    /// Create an instance for use in tests.
-    pub fn empty_for_test() -> Self {
-        CheckoutOptions {
-            conflict_marker_style: ConflictMarkerStyle::default(),
-        }
-    }
 }
 
 /// Stats about a checkout operation on a working copy. All "files" mentioned
