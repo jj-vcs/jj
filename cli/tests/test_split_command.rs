@@ -1176,11 +1176,11 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
         .run_jj(["bookmark", "set", "'*le-signet*'", "-r", "@"])
         .success();
     insta::allow_duplicates! {
-    insta::assert_snapshot!(get_log_output(&main_dir), @r"
-    @  qpvuntsmwlqt false *le-signet* first-commit
+    insta::assert_snapshot!(get_log_output(&main_dir), @r#"
+    @  qpvuntsmwlqt false "*le-signet*" first-commit
     ◆  zzzzzzzzzzzz true
     [EOF]
-    ");
+    "#);
     }
 
     // Do the split.
@@ -1193,42 +1193,42 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
     match bookmark_behavior {
         BookmarkBehavior::LeaveBookmarkWithTarget => {
             insta::allow_duplicates! {
-            insta::assert_snapshot!(output, @r"
+            insta::assert_snapshot!(output, @r#"
             ------- stderr -------
-            First part: qpvuntsm a481fe8a *le-signet* | first-commit
+            First part: qpvuntsm a481fe8a "*le-signet*" | first-commit
             Second part: mzvwutvl 5f597a6e second-commit
             Working copy  (@) now at: mzvwutvl 5f597a6e second-commit
-            Parent commit (@-)      : qpvuntsm a481fe8a *le-signet* | first-commit
+            Parent commit (@-)      : qpvuntsm a481fe8a "*le-signet*" | first-commit
             [EOF]
-            ");
+            "#);
             }
             insta::allow_duplicates! {
-            insta::assert_snapshot!(get_log_output(&main_dir), @r"
+            insta::assert_snapshot!(get_log_output(&main_dir), @r#"
             @  mzvwutvlkqwt false second-commit
-            ○  qpvuntsmwlqt false *le-signet* first-commit
+            ○  qpvuntsmwlqt false "*le-signet*" first-commit
             ◆  zzzzzzzzzzzz true
             [EOF]
-            ");
+            "#);
             }
         }
         BookmarkBehavior::Default | BookmarkBehavior::MoveBookmarkToChild => {
             insta::allow_duplicates! {
-            insta::assert_snapshot!(output, @r"
+            insta::assert_snapshot!(output, @r#"
             ------- stderr -------
             First part: qpvuntsm a481fe8a first-commit
-            Second part: mzvwutvl 5f597a6e *le-signet* | second-commit
-            Working copy  (@) now at: mzvwutvl 5f597a6e *le-signet* | second-commit
+            Second part: mzvwutvl 5f597a6e "*le-signet*" | second-commit
+            Working copy  (@) now at: mzvwutvl 5f597a6e "*le-signet*" | second-commit
             Parent commit (@-)      : qpvuntsm a481fe8a first-commit
             [EOF]
-            ");
+            "#);
             }
             insta::allow_duplicates! {
-            insta::assert_snapshot!(get_log_output(&main_dir), @r"
-            @  mzvwutvlkqwt false *le-signet* second-commit
+            insta::assert_snapshot!(get_log_output(&main_dir), @r#"
+            @  mzvwutvlkqwt false "*le-signet*" second-commit
             ○  qpvuntsmwlqt false first-commit
             ◆  zzzzzzzzzzzz true
             [EOF]
-            ");
+            "#);
             }
         }
     }
@@ -1244,24 +1244,24 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
     match bookmark_behavior {
         BookmarkBehavior::LeaveBookmarkWithTarget => {
             insta::allow_duplicates! {
-            insta::assert_snapshot!(get_log_output(&main_dir), @r"
+            insta::assert_snapshot!(get_log_output(&main_dir), @r#"
             @  vruxwmqvtpmx false second-commit
-            │ ○  qpvuntsmwlqt false *le-signet* first-commit
+            │ ○  qpvuntsmwlqt false "*le-signet*" first-commit
             ├─╯
             ◆  zzzzzzzzzzzz true
             [EOF]
-            ");
+            "#);
             }
         }
         BookmarkBehavior::Default | BookmarkBehavior::MoveBookmarkToChild => {
             insta::allow_duplicates! {
-            insta::assert_snapshot!(get_log_output(&main_dir), @r"
-            @  vruxwmqvtpmx false *le-signet* second-commit
+            insta::assert_snapshot!(get_log_output(&main_dir), @r#"
+            @  vruxwmqvtpmx false "*le-signet*" second-commit
             │ ○  qpvuntsmwlqt false first-commit
             ├─╯
             ◆  zzzzzzzzzzzz true
             [EOF]
-            ");
+            "#);
             }
         }
     }

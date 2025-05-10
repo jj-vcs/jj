@@ -228,11 +228,11 @@ fn test_bookmark_bad_name() {
 
     // quoted name works
     let output = work_dir.run_jj(["bookmark", "create", "-r@", "'foo@bar'"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Created 1 bookmarks pointing to qpvuntsm e8849ae1 foo@bar | (empty) (no description set)
+    Created 1 bookmarks pointing to qpvuntsm e8849ae1 "foo@bar" | (empty) (no description set)
     [EOF]
-    ");
+    "#);
 }
 
 #[test]
@@ -1921,6 +1921,38 @@ fn test_bookmark_list_filtered() {
       @git: royxmykx e6970e0e (empty) rewritten
     [EOF]
     ");
+}
+
+#[test]
+fn test_bookmark_list_quoted_name() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "'with space'"])
+        .success();
+
+    // quoted by default
+    let output = work_dir.run_jj(["bookmark", "list"]);
+    insta::assert_snapshot!(output, @r#"
+    "with space": qpvuntsm e8849ae1 (empty) (no description set)
+    [EOF]
+    "#);
+
+    // string method should apply to the original (unquoted) name
+    let template = r#"
+    separate(' ',
+      self,
+      name.contains('"'),
+      name.len(),
+    ) ++ "\n"
+    "#;
+    let output = work_dir.run_jj(["bookmark", "list", "-T", template]);
+    insta::assert_snapshot!(output, @r#"
+    "with space" false 10
+    [EOF]
+    "#);
 }
 
 #[test]

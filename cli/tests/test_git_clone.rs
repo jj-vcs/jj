@@ -499,7 +499,7 @@ fn test_git_clone_remote_default_bookmark_with_escape() {
     bookmark: "\""@origin [new] untracked
     Setting the revset alias `trunk()` to `"\""@origin`
     Working copy  (@) now at: sqpuoqvx 1ca44815 (empty) (no description set)
-    Parent commit (@-)      : qomsplrm ebeb70d8 " | message
+    Parent commit (@-)      : qomsplrm ebeb70d8 "\"" | message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);

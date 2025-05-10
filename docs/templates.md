@@ -158,8 +158,8 @@ The following methods are defined.
 
 The following methods are defined.
 
-* `.name() -> String`: Local bookmark or tag name.
-* `.remote() -> String`: Remote name or empty if this is a local ref.
+* `.name() -> RefSymbol`: Local bookmark or tag name.
+* `.remote() -> Option<RefSymbol>`: Remote name if this is a remote ref.
 * `.present() -> Boolean`: True if the ref points to any commit.
 * `.conflict() -> Boolean`: True if [the bookmark or tag is
   conflicted](bookmarks.md#conflicts).
@@ -288,6 +288,12 @@ invoked. If not set, an error will be reported inline on method call.
 
 On comparison between two optional values or optional and non-optional values,
 unset value is not an error. Unset value is considered less than any set values.
+
+### `RefSymbol` type
+
+[A `String` type](#string-type), but is formatted as revset symbol by quoting
+and escaping if necessary. Unlike strings, this cannot be implicitly converted
+to `Boolean`.
 
 ### `RepoPath` type
 

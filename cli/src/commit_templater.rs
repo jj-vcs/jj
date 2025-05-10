@@ -16,6 +16,8 @@ use std::any::Any;
 use std::cmp::max;
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::fmt;
+use std::fmt::Display;
 use std::io;
 use std::rc::Rc;
 
@@ -226,6 +228,22 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(self, diagnostics, build_ctx, property, function)
             }
+            CommitTemplatePropertyKind::RefSymbol(property) => {
+                let table = &self.build_fn_table.core.string_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                let inner_property = property.map(|RefSymbolBuf(s)| s).into_dyn();
+                build(self, diagnostics, build_ctx, inner_property, function)
+            }
+            CommitTemplatePropertyKind::RefSymbolOpt(property) => {
+                let type_name = "RefSymbol";
+                let table = &self.build_fn_table.core.string_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                let inner_property = property
+                    .try_unwrap(type_name)
+                    .map(|RefSymbolBuf(s)| s)
+                    .into_dyn();
+                build(self, diagnostics, build_ctx, inner_property, function)
+            }
             CommitTemplatePropertyKind::RepoPath(property) => {
                 let table = &self.build_fn_table.repo_path_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
@@ -331,6 +349,8 @@ pub enum CommitTemplatePropertyKind<'repo> {
     CommitRef(BoxedTemplateProperty<'repo, Rc<CommitRef>>),
     CommitRefOpt(BoxedTemplateProperty<'repo, Option<Rc<CommitRef>>>),
     CommitRefList(BoxedTemplateProperty<'repo, Vec<Rc<CommitRef>>>),
+    RefSymbol(BoxedTemplateProperty<'repo, RefSymbolBuf>),
+    RefSymbolOpt(BoxedTemplateProperty<'repo, Option<RefSymbolBuf>>),
     RepoPath(BoxedTemplateProperty<'repo, RepoPathBuf>),
     RepoPathOpt(BoxedTemplateProperty<'repo, Option<RepoPathBuf>>),
     CommitOrChangeId(BoxedTemplateProperty<'repo, CommitOrChangeId>),
@@ -354,6 +374,8 @@ template_builder::impl_property_wrappers!(<'repo> CommitTemplatePropertyKind<'re
     CommitRef(Rc<CommitRef>),
     CommitRefOpt(Option<Rc<CommitRef>>),
     CommitRefList(Vec<Rc<CommitRef>>),
+    RefSymbol(RefSymbolBuf),
+    RefSymbolOpt(Option<RefSymbolBuf>),
     RepoPath(RepoPathBuf),
     RepoPathOpt(Option<RepoPathBuf>),
     CommitOrChangeId(CommitOrChangeId),
@@ -387,6 +409,8 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::CommitRef(_) => "CommitRef",
             Self::CommitRefOpt(_) => "Option<CommitRef>",
             Self::CommitRefList(_) => "List<CommitRef>",
+            Self::RefSymbol(_) => "RefSymbol",
+            Self::RefSymbolOpt(_) => "Option<RefSymbol>",
             Self::RepoPath(_) => "RepoPath",
             Self::RepoPathOpt(_) => "Option<RepoPath>",
             Self::CommitOrChangeId(_) => "CommitOrChangeId",
@@ -412,6 +436,8 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::CommitRef(_) => None,
             Self::CommitRefOpt(property) => Some(property.map(|opt| opt.is_some()).into_dyn()),
             Self::CommitRefList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::RefSymbol(_) => None,
+            Self::RefSymbolOpt(property) => Some(property.map(|opt| opt.is_some()).into_dyn()),
             Self::RepoPath(_) => None,
             Self::RepoPathOpt(property) => Some(property.map(|opt| opt.is_some()).into_dyn()),
             Self::CommitOrChangeId(_) => None,
@@ -442,6 +468,13 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     fn try_into_plain_text(self) -> Option<BoxedTemplateProperty<'repo, String>> {
         match self {
             Self::Core(property) => property.try_into_plain_text(),
+            Self::RefSymbol(property) => Some(property.map(|RefSymbolBuf(s)| s).into_dyn()),
+            Self::RefSymbolOpt(property) => Some(
+                property
+                    .try_unwrap("RefSymbol")
+                    .map(|RefSymbolBuf(s)| s)
+                    .into_dyn(),
+            ),
             _ => {
                 let template = self.try_into_template()?;
                 Some(PlainTextFormattedProperty::new(template).into_dyn())
@@ -458,6 +491,8 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::CommitRef(property) => Some(property.into_template()),
             Self::CommitRefOpt(property) => Some(property.into_template()),
             Self::CommitRefList(property) => Some(property.into_template()),
+            Self::RefSymbol(property) => Some(property.into_template()),
+            Self::RefSymbolOpt(property) => Some(property.into_template()),
             Self::RepoPath(property) => Some(property.into_template()),
             Self::RepoPathOpt(property) => Some(property.into_template()),
             Self::CommitOrChangeId(property) => Some(property.into_template()),
@@ -475,8 +510,37 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     }
 
     fn try_into_eq(self, other: Self) -> Option<BoxedTemplateProperty<'repo, bool>> {
+        type Core<'repo> = CoreTemplatePropertyKind<'repo>;
         match (self, other) {
             (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_eq(rhs),
+            (Self::Core(Core::String(lhs)), Self::RefSymbol(rhs)) => {
+                Some((lhs, rhs).map(|(l, r)| RefSymbolBuf(l) == r).into_dyn())
+            }
+            (Self::Core(Core::String(lhs)), Self::RefSymbolOpt(rhs)) => Some(
+                (lhs, rhs)
+                    .map(|(l, r)| Some(RefSymbolBuf(l)) == r)
+                    .into_dyn(),
+            ),
+            (Self::RefSymbol(lhs), Self::Core(Core::String(rhs))) => {
+                Some((lhs, rhs).map(|(l, r)| l == RefSymbolBuf(r)).into_dyn())
+            }
+            (Self::RefSymbol(lhs), Self::RefSymbol(rhs)) => {
+                Some((lhs, rhs).map(|(l, r)| l == r).into_dyn())
+            }
+            (Self::RefSymbol(lhs), Self::RefSymbolOpt(rhs)) => {
+                Some((lhs, rhs).map(|(l, r)| Some(l) == r).into_dyn())
+            }
+            (Self::RefSymbolOpt(lhs), Self::Core(Core::String(rhs))) => Some(
+                (lhs, rhs)
+                    .map(|(l, r)| l == Some(RefSymbolBuf(r)))
+                    .into_dyn(),
+            ),
+            (Self::RefSymbolOpt(lhs), Self::RefSymbol(rhs)) => {
+                Some((lhs, rhs).map(|(l, r)| l == Some(r)).into_dyn())
+            }
+            (Self::RefSymbolOpt(lhs), Self::RefSymbolOpt(rhs)) => {
+                Some((lhs, rhs).map(|(l, r)| l == r).into_dyn())
+            }
             (Self::Core(_), _) => None,
             (Self::Commit(_), _) => None,
             (Self::CommitOpt(_), _) => None,
@@ -484,6 +548,8 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             (Self::CommitRef(_), _) => None,
             (Self::CommitRefOpt(_), _) => None,
             (Self::CommitRefList(_), _) => None,
+            (Self::RefSymbol(_), _) => None,
+            (Self::RefSymbolOpt(_), _) => None,
             (Self::RepoPath(_), _) => None,
             (Self::RepoPathOpt(_), _) => None,
             (Self::CommitOrChangeId(_), _) => None,
@@ -510,6 +576,8 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             (Self::CommitRef(_), _) => None,
             (Self::CommitRefOpt(_), _) => None,
             (Self::CommitRefList(_), _) => None,
+            (Self::RefSymbol(_), _) => None,
+            (Self::RefSymbolOpt(_), _) => None,
             (Self::RepoPath(_), _) => None,
             (Self::RepoPathOpt(_), _) => None,
             (Self::CommitOrChangeId(_), _) => None,
@@ -1057,10 +1125,12 @@ fn evaluate_user_revset<'repo>(
 /// Bookmark or tag name with metadata.
 #[derive(Debug)]
 pub struct CommitRef {
+    // Not using Ref/GitRef/RemoteName types here because it would be overly
+    // complex to generalize the name type as T: RefName|GitRefName.
     /// Local name.
-    name: String,
+    name: RefSymbolBuf,
     /// Remote name if this is a remote or Git-tracking ref.
-    remote: Option<String>,
+    remote: Option<RefSymbolBuf>,
     /// Target commit ids.
     target: RefTarget,
     /// Local ref metadata which tracks this remote ref.
@@ -1095,7 +1165,7 @@ impl CommitRef {
             .into_iter()
             .all(|remote_ref| !remote_ref.is_tracked() || remote_ref.target == target);
         Rc::new(CommitRef {
-            name: name.into(),
+            name: RefSymbolBuf(name.into()),
             remote: None,
             target,
             tracking_ref: None,
@@ -1130,8 +1200,8 @@ impl CommitRef {
             }
         });
         Rc::new(CommitRef {
-            name: name.into(),
-            remote: Some(remote_name.into()),
+            name: RefSymbolBuf(name.into()),
+            remote: Some(RefSymbolBuf(remote_name.into())),
             target: remote_ref.target,
             tracking_ref,
             synced,
@@ -1145,8 +1215,8 @@ impl CommitRef {
         target: RefTarget,
     ) -> Rc<Self> {
         Rc::new(CommitRef {
-            name: name.into(),
-            remote: Some(remote_name.into()),
+            name: RefSymbolBuf(name.into()),
+            remote: Some(RefSymbolBuf(remote_name.into())),
             target,
             tracking_ref: None,
             synced: false, // has no local counterpart
@@ -1155,12 +1225,12 @@ impl CommitRef {
 
     /// Local name.
     pub fn name(&self) -> &str {
-        &self.name
+        self.name.as_ref()
     }
 
     /// Remote name if this is a remote or Git-tracking ref.
     pub fn remote_name(&self) -> Option<&str> {
-        self.remote.as_deref()
+        self.remote.as_ref().map(AsRef::as_ref)
     }
 
     /// Target commit ids.
@@ -1279,8 +1349,7 @@ fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
         "remote",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let out_property =
-                self_property.map(|commit_ref| commit_ref.remote.clone().unwrap_or_default());
+            let out_property = self_property.map(|commit_ref| commit_ref.remote.clone());
             Ok(out_property.into_dyn_wrapped())
         },
     );
@@ -1427,6 +1496,28 @@ fn build_commit_refs_index<'a, K: Into<String>>(
         index.insert(target.added_ids(), commit_ref);
     }
     index
+}
+
+/// Wrapper to render ref/remote name in revset syntax.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RefSymbolBuf(String);
+
+impl AsRef<str> for RefSymbolBuf {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl Display for RefSymbolBuf {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.pad(&revset::format_symbol(&self.0))
+    }
+}
+
+impl Template for RefSymbolBuf {
+    fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
+        write!(formatter, "{self}")
+    }
 }
 
 impl Template for RepoPathBuf {
@@ -2302,7 +2393,6 @@ mod tests {
             };
         }
 
-        #[expect(dead_code)] // TODO
         fn add_function(&mut self, name: &'static str, f: BuildFunctionFn) {
             self.extra_functions.insert(name, f);
         }
@@ -2372,6 +2462,49 @@ mod tests {
             .unwrap();
         config.add_layer(layer);
         UserSettings::from_config(config).unwrap()
+    }
+
+    #[test]
+    fn test_ref_symbol_type() {
+        let mut env = CommitTemplateTestEnv::init();
+        env.add_function("sym", |language, diagnostics, build_ctx, function| {
+            let [value_node] = function.expect_exact_arguments()?;
+            let value = expect_plain_text_expression(language, diagnostics, build_ctx, value_node)?;
+            let out_property = value.map(RefSymbolBuf);
+            Ok(out_property.into_dyn_wrapped())
+        });
+        let sym = |s: &str| RefSymbolBuf(s.to_owned());
+
+        // default formatting
+        insta::assert_snapshot!(env.render_ok("self", &sym("")), @r#""""#);
+        insta::assert_snapshot!(env.render_ok("self", &sym("foo")), @"foo");
+        insta::assert_snapshot!(env.render_ok("self", &sym("foo bar")), @r#""foo bar""#);
+
+        // comparison
+        insta::assert_snapshot!(env.render_ok("self == 'foo'", &sym("foo")), @"true");
+        insta::assert_snapshot!(env.render_ok("'bar' == self", &sym("foo")), @"false");
+        insta::assert_snapshot!(env.render_ok("self == self", &sym("foo")), @"true");
+        insta::assert_snapshot!(env.render_ok("self == sym('bar')", &sym("foo")), @"false");
+
+        insta::assert_snapshot!(env.render_ok("self == 'bar'", &Some(sym("foo"))), @"false");
+        insta::assert_snapshot!(env.render_ok("self == sym('foo')", &Some(sym("foo"))), @"true");
+        insta::assert_snapshot!(env.render_ok("'foo' == self", &Some(sym("foo"))), @"true");
+        insta::assert_snapshot!(env.render_ok("sym('bar') == self", &Some(sym("foo"))), @"false");
+        insta::assert_snapshot!(env.render_ok("self == self", &Some(sym("foo"))), @"true");
+        insta::assert_snapshot!(env.render_ok("self == ''", &None::<RefSymbolBuf>), @"false");
+        insta::assert_snapshot!(env.render_ok("sym('') == self", &None::<RefSymbolBuf>), @"false");
+        insta::assert_snapshot!(env.render_ok("self == self", &None::<RefSymbolBuf>), @"true");
+
+        // string cast != formatting: it would be weird if function argument of
+        // string type were quoted/escaped. (e.g. `"foo".contains(bookmark)`)
+        insta::assert_snapshot!(env.render_ok("stringify(self)", &sym("a b")), @"a b");
+        insta::assert_snapshot!(env.render_ok("stringify(self)", &Some(sym("a b"))), @"a b");
+        insta::assert_snapshot!(
+            env.render_ok("stringify(self)", &None::<RefSymbolBuf>),
+            @"<Error: No RefSymbol available>");
+
+        // string methods
+        insta::assert_snapshot!(env.render_ok("self.len()", &sym("a b")), @"3");
     }
 
     #[test]

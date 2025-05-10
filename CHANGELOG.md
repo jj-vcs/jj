@@ -24,6 +24,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The old `libgit2` code path for fetches and pushes has been removed,
   and the `git.subprocess` setting along with it.
 
+* In templates, bookmark/tag/remote names are now formatted in revset symbol
+  notation. The type of `bookmark.remote()` is changed to `Option<_>`.
+  `bookmark.remote() == "foo"` still works, but `bookmark.remote().<method>()`
+  might need `if(bookmark.remote(), ..)` to suppress error.
+
 ### Deprecations
 
 ### New features
