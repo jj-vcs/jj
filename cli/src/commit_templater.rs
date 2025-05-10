@@ -45,7 +45,7 @@ use jj_lib::id_prefix::IdPrefixIndex;
 use jj_lib::matchers::Matcher;
 use jj_lib::merge::MergedTreeValue;
 use jj_lib::merged_tree::MergedTree;
-use jj_lib::object_id::ObjectId as _;
+use jj_lib::object_id::ObjectId;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::ref_name::WorkspaceName;
@@ -256,8 +256,13 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 let inner_property = property.try_unwrap(type_name).into_dyn();
                 build(self, diagnostics, build_ctx, inner_property, function)
             }
-            CommitTemplatePropertyKind::CommitOrChangeId(property) => {
-                let table = &self.build_fn_table.commit_or_change_id_methods;
+            CommitTemplatePropertyKind::ChangeId(property) => {
+                let table = &self.build_fn_table.change_id_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(self, diagnostics, build_ctx, property, function)
+            }
+            CommitTemplatePropertyKind::CommitId(property) => {
+                let table = &self.build_fn_table.commit_id_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(self, diagnostics, build_ctx, property, function)
             }
@@ -353,7 +358,8 @@ pub enum CommitTemplatePropertyKind<'repo> {
     RefSymbolOpt(BoxedTemplateProperty<'repo, Option<RefSymbolBuf>>),
     RepoPath(BoxedTemplateProperty<'repo, RepoPathBuf>),
     RepoPathOpt(BoxedTemplateProperty<'repo, Option<RepoPathBuf>>),
-    CommitOrChangeId(BoxedTemplateProperty<'repo, CommitOrChangeId>),
+    ChangeId(BoxedTemplateProperty<'repo, ChangeId>),
+    CommitId(BoxedTemplateProperty<'repo, CommitId>),
     ShortestIdPrefix(BoxedTemplateProperty<'repo, ShortestIdPrefix>),
     TreeDiff(BoxedTemplateProperty<'repo, TreeDiff>),
     TreeDiffEntry(BoxedTemplateProperty<'repo, TreeDiffEntry>),
@@ -378,7 +384,8 @@ template_builder::impl_property_wrappers!(<'repo> CommitTemplatePropertyKind<'re
     RefSymbolOpt(Option<RefSymbolBuf>),
     RepoPath(RepoPathBuf),
     RepoPathOpt(Option<RepoPathBuf>),
-    CommitOrChangeId(CommitOrChangeId),
+    ChangeId(ChangeId),
+    CommitId(CommitId),
     ShortestIdPrefix(ShortestIdPrefix),
     TreeDiff(TreeDiff),
     TreeDiffEntry(TreeDiffEntry),
@@ -413,7 +420,8 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::RefSymbolOpt(_) => "Option<RefSymbol>",
             Self::RepoPath(_) => "RepoPath",
             Self::RepoPathOpt(_) => "Option<RepoPath>",
-            Self::CommitOrChangeId(_) => "CommitOrChangeId",
+            Self::ChangeId(_) => "ChangeId",
+            Self::CommitId(_) => "CommitId",
             Self::ShortestIdPrefix(_) => "ShortestIdPrefix",
             Self::TreeDiff(_) => "TreeDiff",
             Self::TreeDiffEntry(_) => "TreeDiffEntry",
@@ -440,7 +448,8 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::RefSymbolOpt(property) => Some(property.map(|opt| opt.is_some()).into_dyn()),
             Self::RepoPath(_) => None,
             Self::RepoPathOpt(property) => Some(property.map(|opt| opt.is_some()).into_dyn()),
-            Self::CommitOrChangeId(_) => None,
+            Self::ChangeId(_) => None,
+            Self::CommitId(_) => None,
             Self::ShortestIdPrefix(_) => None,
             // TODO: boolean cast could be implemented, but explicit
             // diff.empty() method might be better.
@@ -495,7 +504,8 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::RefSymbolOpt(property) => Some(property.into_template()),
             Self::RepoPath(property) => Some(property.into_template()),
             Self::RepoPathOpt(property) => Some(property.into_template()),
-            Self::CommitOrChangeId(property) => Some(property.into_template()),
+            Self::ChangeId(property) => Some(property.into_template()),
+            Self::CommitId(property) => Some(property.into_template()),
             Self::ShortestIdPrefix(property) => Some(property.into_template()),
             Self::TreeDiff(_) => None,
             Self::TreeDiffEntry(_) => None,
@@ -552,7 +562,8 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             (Self::RefSymbolOpt(_), _) => None,
             (Self::RepoPath(_), _) => None,
             (Self::RepoPathOpt(_), _) => None,
-            (Self::CommitOrChangeId(_), _) => None,
+            (Self::ChangeId(_), _) => None,
+            (Self::CommitId(_), _) => None,
             (Self::ShortestIdPrefix(_), _) => None,
             (Self::TreeDiff(_), _) => None,
             (Self::TreeDiffEntry(_), _) => None,
@@ -580,7 +591,8 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             (Self::RefSymbolOpt(_), _) => None,
             (Self::RepoPath(_), _) => None,
             (Self::RepoPathOpt(_), _) => None,
-            (Self::CommitOrChangeId(_), _) => None,
+            (Self::ChangeId(_), _) => None,
+            (Self::CommitId(_), _) => None,
             (Self::ShortestIdPrefix(_), _) => None,
             (Self::TreeDiff(_), _) => None,
             (Self::TreeDiffEntry(_), _) => None,
@@ -607,7 +619,8 @@ pub struct CommitTemplateBuildFnTable<'repo> {
     pub commit_ref_methods: CommitTemplateBuildMethodFnMap<'repo, Rc<CommitRef>>,
     pub commit_ref_list_methods: CommitTemplateBuildMethodFnMap<'repo, Vec<Rc<CommitRef>>>,
     pub repo_path_methods: CommitTemplateBuildMethodFnMap<'repo, RepoPathBuf>,
-    pub commit_or_change_id_methods: CommitTemplateBuildMethodFnMap<'repo, CommitOrChangeId>,
+    pub change_id_methods: CommitTemplateBuildMethodFnMap<'repo, ChangeId>,
+    pub commit_id_methods: CommitTemplateBuildMethodFnMap<'repo, CommitId>,
     pub shortest_id_prefix_methods: CommitTemplateBuildMethodFnMap<'repo, ShortestIdPrefix>,
     pub tree_diff_methods: CommitTemplateBuildMethodFnMap<'repo, TreeDiff>,
     pub tree_diff_entry_methods: CommitTemplateBuildMethodFnMap<'repo, TreeDiffEntry>,
@@ -631,7 +644,8 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             commit_ref_methods: builtin_commit_ref_methods(),
             commit_ref_list_methods: template_builder::builtin_formattable_list_methods(),
             repo_path_methods: builtin_repo_path_methods(),
-            commit_or_change_id_methods: builtin_commit_or_change_id_methods(),
+            change_id_methods: builtin_commit_or_change_id_methods(),
+            commit_id_methods: builtin_commit_or_change_id_methods(),
             shortest_id_prefix_methods: builtin_shortest_id_prefix_methods(),
             tree_diff_methods: builtin_tree_diff_methods(),
             tree_diff_entry_methods: builtin_tree_diff_entry_methods(),
@@ -653,7 +667,8 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             commit_ref_methods: HashMap::new(),
             commit_ref_list_methods: HashMap::new(),
             repo_path_methods: HashMap::new(),
-            commit_or_change_id_methods: HashMap::new(),
+            change_id_methods: HashMap::new(),
+            commit_id_methods: HashMap::new(),
             shortest_id_prefix_methods: HashMap::new(),
             tree_diff_methods: HashMap::new(),
             tree_diff_entry_methods: HashMap::new(),
@@ -675,7 +690,8 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             commit_ref_methods,
             commit_ref_list_methods,
             repo_path_methods,
-            commit_or_change_id_methods,
+            change_id_methods,
+            commit_id_methods,
             shortest_id_prefix_methods,
             tree_diff_methods,
             tree_diff_entry_methods,
@@ -694,10 +710,8 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
         merge_fn_map(&mut self.commit_ref_methods, commit_ref_methods);
         merge_fn_map(&mut self.commit_ref_list_methods, commit_ref_list_methods);
         merge_fn_map(&mut self.repo_path_methods, repo_path_methods);
-        merge_fn_map(
-            &mut self.commit_or_change_id_methods,
-            commit_or_change_id_methods,
-        );
+        merge_fn_map(&mut self.change_id_methods, change_id_methods);
+        merge_fn_map(&mut self.commit_id_methods, commit_id_methods);
         merge_fn_map(
             &mut self.shortest_id_prefix_methods,
             shortest_id_prefix_methods,
@@ -787,8 +801,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
         "change_id",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let out_property =
-                self_property.map(|commit| CommitOrChangeId::Change(commit.change_id().to_owned()));
+            let out_property = self_property.map(|commit| commit.change_id().to_owned());
             Ok(out_property.into_dyn_wrapped())
         },
     );
@@ -796,8 +809,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
         "commit_id",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let out_property =
-                self_property.map(|commit| CommitOrChangeId::Commit(commit.id().to_owned()));
+            let out_property = self_property.map(|commit| commit.id().to_owned());
             Ok(out_property.into_dyn_wrapped())
         },
     );
@@ -1550,45 +1562,49 @@ fn builtin_repo_path_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, R
     map
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum CommitOrChangeId {
-    Commit(CommitId),
-    Change(ChangeId),
+trait ShortestIdPrefixLen {
+    fn shortest_prefix_len(&self, repo: &dyn Repo, index: &IdPrefixIndex) -> usize;
 }
 
-impl CommitOrChangeId {
-    pub fn hex(&self) -> String {
-        match self {
-            CommitOrChangeId::Commit(id) => id.hex(),
-            CommitOrChangeId::Change(id) => id.reverse_hex(),
-        }
+impl ShortestIdPrefixLen for ChangeId {
+    fn shortest_prefix_len(&self, repo: &dyn Repo, index: &IdPrefixIndex) -> usize {
+        index.shortest_change_prefix_len(repo, self)
     }
 }
 
-impl Template for CommitOrChangeId {
+impl Template for ChangeId {
     fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
-        write!(formatter, "{}", self.hex())
+        write!(formatter, "{self}")
     }
 }
 
-fn builtin_commit_or_change_id_methods<'repo>(
-) -> CommitTemplateBuildMethodFnMap<'repo, CommitOrChangeId> {
+impl ShortestIdPrefixLen for CommitId {
+    fn shortest_prefix_len(&self, repo: &dyn Repo, index: &IdPrefixIndex) -> usize {
+        index.shortest_commit_prefix_len(repo, self)
+    }
+}
+
+impl Template for CommitId {
+    fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
+        write!(formatter, "{self}")
+    }
+}
+
+fn builtin_commit_or_change_id_methods<'repo, O>() -> CommitTemplateBuildMethodFnMap<'repo, O>
+where
+    O: Display + ObjectId + ShortestIdPrefixLen + 'repo,
+{
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
-    let mut map = CommitTemplateBuildMethodFnMap::<CommitOrChangeId>::new();
+    let mut map = CommitTemplateBuildMethodFnMap::<O>::new();
     map.insert(
         "normal_hex",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let out_property = self_property.map(|id| {
-                // Note: this is _not_ the same as id.hex() for ChangeId, which
-                // returns the "reverse" hex (z-k), instead of the "forward" /
-                // normal hex (0-9a-f) we want here.
-                match id {
-                    CommitOrChangeId::Commit(id) => id.hex(),
-                    CommitOrChangeId::Change(id) => id.hex(),
-                }
-            });
+            // Note: this is _not_ the same as id.to_string() for ChangeId, which
+            // returns the "reverse" hex (z-k), instead of the "forward" /
+            // normal hex (0-9a-f) we want here.
+            let out_property = self_property.map(|id| id.hex());
             Ok(out_property.into_dyn_wrapped())
         },
     );
@@ -1606,11 +1622,8 @@ fn builtin_commit_or_change_id_methods<'repo>(
                     )
                 })
                 .transpose()?;
-            let out_property = (self_property, len_property).map(|(id, len)| {
-                let mut hex = id.hex();
-                hex.truncate(len.unwrap_or(12));
-                hex
-            });
+            let out_property = (self_property, len_property)
+                .map(|(id, len)| format!("{id:.len$}", len = len.unwrap_or(12)));
             Ok(out_property.into_dyn_wrapped())
         },
     );
@@ -1647,12 +1660,8 @@ fn builtin_commit_or_change_id_methods<'repo>(
             // The length of the id printed will be the maximum of the minimum
             // `len` and the length of the shortest unique prefix.
             let out_property = (self_property, len_property).map(move |(id, len)| {
-                let mut hex = id.hex();
-                let prefix_len = match &id {
-                    CommitOrChangeId::Commit(id) => index.shortest_commit_prefix_len(repo, id),
-                    CommitOrChangeId::Change(id) => index.shortest_change_prefix_len(repo, id),
-                };
-                hex.truncate(max(prefix_len, len.unwrap_or(0)));
+                let prefix_len = id.shortest_prefix_len(repo, &index);
+                let mut hex = format!("{id:.len$}", len = max(prefix_len, len.unwrap_or(0)));
                 let rest = hex.split_off(prefix_len);
                 ShortestIdPrefix { prefix: hex, rest }
             });
@@ -2526,9 +2535,7 @@ mod tests {
     fn test_commit_id_type() {
         let env = CommitTemplateTestEnv::init();
 
-        let id = CommitOrChangeId::Commit(CommitId::from_hex(
-            "08a70ab33d7143b7130ed8594d8216ef688623c0",
-        ));
+        let id = CommitId::from_hex("08a70ab33d7143b7130ed8594d8216ef688623c0");
         insta::assert_snapshot!(
             env.render_ok("self", &id), @"08a70ab33d7143b7130ed8594d8216ef688623c0");
         insta::assert_snapshot!(
@@ -2557,7 +2564,7 @@ mod tests {
     fn test_change_id_type() {
         let env = CommitTemplateTestEnv::init();
 
-        let id = CommitOrChangeId::Change(ChangeId::from_hex("ffdaa62087a280bddc5e3d3ff933b8ae"));
+        let id = ChangeId::from_hex("ffdaa62087a280bddc5e3d3ff933b8ae");
         insta::assert_snapshot!(
             env.render_ok("self", &id), @"kkmpptxzrspxrzommnulwmwkkqwworpl");
         insta::assert_snapshot!(

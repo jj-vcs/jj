@@ -63,13 +63,13 @@ fn test_templater_parse_error() {
     ");
     insta::assert_snapshot!(render(r#"commit_id.shorter()"#), @r"
     ------- stderr -------
-    Error: Failed to parse template: Method `shorter` doesn't exist for type `CommitOrChangeId`
+    Error: Failed to parse template: Method `shorter` doesn't exist for type `CommitId`
     Caused by:  --> 1:11
       |
     1 | commit_id.shorter()
       |           ^-----^
       |
-      = Method `shorter` doesn't exist for type `CommitOrChangeId`
+      = Method `shorter` doesn't exist for type `CommitId`
     Hint: Did you mean `short`, `shortest`?
     [EOF]
     [exit status: 1]
@@ -115,7 +115,7 @@ fn test_templater_parse_error() {
     1 | id.sort()
       |    ^--^
       |
-      = Method `sort` doesn't exist for type `CommitOrChangeId`
+      = Method `sort` doesn't exist for type `CommitId`
     Hint: Did you mean `short`, `shortest`?
     [EOF]
     [exit status: 1]
