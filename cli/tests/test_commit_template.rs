@@ -747,52 +747,6 @@ fn test_log_git_head() {
 }
 
 #[test]
-fn test_log_commit_id_normal_hex() {
-    let test_env = TestEnvironment::default();
-    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let work_dir = test_env.work_dir("repo");
-
-    work_dir.run_jj(["new", "-m", "first"]).success();
-    work_dir.run_jj(["new", "-m", "second"]).success();
-
-    let output = work_dir.run_jj([
-        "log",
-        "-T",
-        r#"commit_id ++ ": " ++ commit_id.normal_hex()"#,
-    ]);
-    insta::assert_snapshot!(output, @r"
-    @  08a70ab33d7143b7130ed8594d8216ef688623c0: 08a70ab33d7143b7130ed8594d8216ef688623c0
-    ○  25cb82357bdcbe96521d6577807de10f729f3a9c: 25cb82357bdcbe96521d6577807de10f729f3a9c
-    ○  e8849ae12c709f2321908879bc724fdb2ab8a781: e8849ae12c709f2321908879bc724fdb2ab8a781
-    ◆  0000000000000000000000000000000000000000: 0000000000000000000000000000000000000000
-    [EOF]
-    ");
-}
-
-#[test]
-fn test_log_change_id_normal_hex() {
-    let test_env = TestEnvironment::default();
-    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let work_dir = test_env.work_dir("repo");
-
-    work_dir.run_jj(["new", "-m", "first"]).success();
-    work_dir.run_jj(["new", "-m", "second"]).success();
-
-    let output = work_dir.run_jj([
-        "log",
-        "-T",
-        r#"change_id ++ ": " ++ change_id.normal_hex()"#,
-    ]);
-    insta::assert_snapshot!(output, @r"
-    @  kkmpptxzrspxrzommnulwmwkkqwworpl: ffdaa62087a280bddc5e3d3ff933b8ae
-    ○  rlvkpnrzqnoowoytxnquwvuryrwnrmlp: 8e4fac809cbb3b162c953458183c8dea
-    ○  qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu: 9a45c67d3e96a7e5007c110ede34dec5
-    ◆  zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz: 00000000000000000000000000000000
-    [EOF]
-    ");
-}
-
-#[test]
 fn test_log_customize_short_id() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -1479,43 +1433,6 @@ fn test_file_list_symlink() {
     let output = work_dir.run_jj(["file", "list", "-T", template]);
     insta::assert_snapshot!(output, @r"
     symlink [symlink]
-    [EOF]
-    ");
-}
-
-#[test]
-fn test_repo_path() {
-    let test_env = TestEnvironment::default();
-    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let work_dir = test_env.work_dir("repo");
-
-    work_dir.create_dir("dir");
-    work_dir.write_file("dir/file", "content1");
-    work_dir.write_file("file", "content1");
-
-    let template = indoc! {r#"
-        separate(" ",
-          path,
-          "display=" ++ path.display(),
-          "parent=" ++ if(path.parent(), path.parent(), "<none>"),
-          "parent^2=" ++ if(path.parent().parent(), path.parent().parent(), "<none>"),
-        ) ++ "\n"
-    "#};
-    let output = work_dir.run_jj(["file", "list", "-T", template]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
-    dir/file display=dir/file parent=dir parent^2=
-    file display=file parent= parent^2=<none>
-    [EOF]
-    ");
-
-    let template = r#"separate(" ", path, "display=" ++ path.display()) ++ "\n""#;
-    let output = test_env.run_jj_in(
-        work_dir.root().join("dir"),
-        ["file", "list", "-T", template],
-    );
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
-    dir/file display=file
-    file display=../file
     [EOF]
     ");
 }

@@ -2228,3 +2228,215 @@ fn builtin_trailer_list_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo
     );
     map
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+    use std::sync::Arc;
+
+    use jj_lib::config::ConfigLayer;
+    use jj_lib::config::ConfigSource;
+    use jj_lib::revset::RevsetAliasesMap;
+    use jj_lib::revset::RevsetExpression;
+    use jj_lib::revset::RevsetExtensions;
+    use jj_lib::revset::RevsetWorkspaceContext;
+    use testutils::repo_path_buf;
+    use testutils::TestRepoBackend;
+    use testutils::TestWorkspace;
+
+    use super::*;
+    use crate::formatter::PlainTextFormatter;
+    use crate::template_parser::TemplateAliasesMap;
+    use crate::templater::TemplateRenderer;
+    use crate::templater::WrapTemplateProperty;
+
+    struct CommitTemplateTestEnv {
+        test_workspace: TestWorkspace,
+        path_converter: RepoPathUiConverter,
+        revset_extensions: Arc<RevsetExtensions>,
+        id_prefix_context: IdPrefixContext,
+        revset_aliases_map: RevsetAliasesMap,
+        template_aliases_map: TemplateAliasesMap,
+        immutable_expression: Rc<UserRevsetExpression>,
+    }
+
+    impl CommitTemplateTestEnv {
+        fn init() -> Self {
+            // Stabilize commit id of the initialized working copy
+            let settings = stable_settings();
+            let test_workspace =
+                TestWorkspace::init_with_backend_and_settings(TestRepoBackend::Git, &settings);
+            let path_converter = RepoPathUiConverter::Fs {
+                cwd: test_workspace.workspace.workspace_root().to_owned(),
+                base: test_workspace.workspace.workspace_root().to_owned(),
+            };
+            // IdPrefixContext::new() expects Arc<RevsetExtensions>
+            #[expect(clippy::arc_with_non_send_sync)]
+            let revset_extensions = Arc::new(RevsetExtensions::new());
+            let id_prefix_context = IdPrefixContext::new(revset_extensions.clone());
+            CommitTemplateTestEnv {
+                test_workspace,
+                path_converter,
+                revset_extensions,
+                id_prefix_context,
+                revset_aliases_map: RevsetAliasesMap::new(),
+                template_aliases_map: TemplateAliasesMap::new(),
+                immutable_expression: RevsetExpression::none(),
+            }
+        }
+
+        fn set_cwd(&mut self, path: impl AsRef<Path>) {
+            self.path_converter = RepoPathUiConverter::Fs {
+                cwd: self.test_workspace.workspace.workspace_root().join(path),
+                base: self.test_workspace.workspace.workspace_root().to_owned(),
+            };
+        }
+
+        fn new_language(&self) -> CommitTemplateLanguage<'_> {
+            let revset_parse_context = RevsetParseContext {
+                aliases_map: &self.revset_aliases_map,
+                local_variables: HashMap::new(),
+                user_email: "test.user@example.com",
+                date_pattern_context: chrono::DateTime::UNIX_EPOCH.fixed_offset().into(),
+                extensions: &self.revset_extensions,
+                workspace: Some(RevsetWorkspaceContext {
+                    path_converter: &self.path_converter,
+                    workspace_name: self.test_workspace.workspace.workspace_name(),
+                }),
+            };
+            CommitTemplateLanguage::new(
+                self.test_workspace.repo.as_ref(),
+                &self.path_converter,
+                self.test_workspace.workspace.workspace_name(),
+                revset_parse_context,
+                &self.id_prefix_context,
+                self.immutable_expression.clone(),
+                ConflictMarkerStyle::default(),
+                &[] as &[Box<dyn CommitTemplateLanguageExtension>],
+            )
+        }
+
+        fn parse<'a, C>(&'a self, text: &str) -> TemplateParseResult<TemplateRenderer<'a, C>>
+        where
+            C: Clone + 'a,
+            CommitTemplatePropertyKind<'a>: WrapTemplateProperty<'a, C>,
+        {
+            let language = self.new_language();
+            let mut diagnostics = TemplateDiagnostics::new();
+            template_builder::parse(
+                &language,
+                &mut diagnostics,
+                text,
+                &self.template_aliases_map,
+            )
+        }
+
+        fn render_ok<'a, C>(&'a self, text: &str, context: &C) -> String
+        where
+            C: Clone + 'a,
+            CommitTemplatePropertyKind<'a>: WrapTemplateProperty<'a, C>,
+        {
+            let template = self.parse(text).unwrap();
+            let mut output = Vec::new();
+            let mut formatter = PlainTextFormatter::new(&mut output);
+            template.format(context, &mut formatter).unwrap();
+            String::from_utf8(output).unwrap()
+        }
+    }
+
+    fn stable_settings() -> UserSettings {
+        let mut config = testutils::base_user_config();
+        let mut layer = ConfigLayer::empty(ConfigSource::User);
+        layer
+            .set_value("debug.commit-timestamp", "2001-02-03T04:05:06+07:00")
+            .unwrap();
+        config.add_layer(layer);
+        UserSettings::from_config(config).unwrap()
+    }
+
+    #[test]
+    fn test_repo_path_type() {
+        let mut env = CommitTemplateTestEnv::init();
+        env.set_cwd("dir");
+
+        // slash-separated by default
+        insta::assert_snapshot!(
+            env.render_ok("self", &repo_path_buf("dir/file")), @"dir/file");
+
+        // .display() to convert to filesystem path
+        insta::assert_snapshot!(
+            env.render_ok("self.display()", &repo_path_buf("dir/file")), @"file");
+        if cfg!(windows) {
+            insta::assert_snapshot!(
+                env.render_ok("self.display()", &repo_path_buf("file")), @"..\\file");
+        } else {
+            insta::assert_snapshot!(
+                env.render_ok("self.display()", &repo_path_buf("file")), @"../file");
+        }
+
+        let template = "if(self.parent(), self.parent(), '<none>')";
+        insta::assert_snapshot!(env.render_ok(template, &repo_path_buf("")), @"<none>");
+        insta::assert_snapshot!(env.render_ok(template, &repo_path_buf("file")), @"");
+        insta::assert_snapshot!(env.render_ok(template, &repo_path_buf("dir/file")), @"dir");
+    }
+
+    #[test]
+    fn test_commit_id_type() {
+        let env = CommitTemplateTestEnv::init();
+
+        let id = CommitOrChangeId::Commit(CommitId::from_hex(
+            "08a70ab33d7143b7130ed8594d8216ef688623c0",
+        ));
+        insta::assert_snapshot!(
+            env.render_ok("self", &id), @"08a70ab33d7143b7130ed8594d8216ef688623c0");
+        insta::assert_snapshot!(
+            env.render_ok("self.normal_hex()", &id), @"08a70ab33d7143b7130ed8594d8216ef688623c0");
+
+        insta::assert_snapshot!(env.render_ok("self.short()", &id), @"08a70ab33d71");
+        insta::assert_snapshot!(env.render_ok("self.short(0)", &id), @"");
+        insta::assert_snapshot!(env.render_ok("self.short(-0)", &id), @"");
+        insta::assert_snapshot!(
+            env.render_ok("self.short(100)", &id), @"08a70ab33d7143b7130ed8594d8216ef688623c0");
+        insta::assert_snapshot!(
+            env.render_ok("self.short(-100)", &id),
+            @"<Error: out of range integral type conversion attempted>");
+
+        insta::assert_snapshot!(env.render_ok("self.shortest()", &id), @"08");
+        insta::assert_snapshot!(env.render_ok("self.shortest(0)", &id), @"08");
+        insta::assert_snapshot!(env.render_ok("self.shortest(-0)", &id), @"08");
+        insta::assert_snapshot!(
+            env.render_ok("self.shortest(100)", &id), @"08a70ab33d7143b7130ed8594d8216ef688623c0");
+        insta::assert_snapshot!(
+            env.render_ok("self.shortest(-100)", &id),
+            @"<Error: out of range integral type conversion attempted>");
+    }
+
+    #[test]
+    fn test_change_id_type() {
+        let env = CommitTemplateTestEnv::init();
+
+        let id = CommitOrChangeId::Change(ChangeId::from_hex("ffdaa62087a280bddc5e3d3ff933b8ae"));
+        insta::assert_snapshot!(
+            env.render_ok("self", &id), @"kkmpptxzrspxrzommnulwmwkkqwworpl");
+        insta::assert_snapshot!(
+            env.render_ok("self.normal_hex()", &id), @"ffdaa62087a280bddc5e3d3ff933b8ae");
+
+        insta::assert_snapshot!(env.render_ok("self.short()", &id), @"kkmpptxzrspx");
+        insta::assert_snapshot!(env.render_ok("self.short(0)", &id), @"");
+        insta::assert_snapshot!(env.render_ok("self.short(-0)", &id), @"");
+        insta::assert_snapshot!(
+            env.render_ok("self.short(100)", &id), @"kkmpptxzrspxrzommnulwmwkkqwworpl");
+        insta::assert_snapshot!(
+            env.render_ok("self.short(-100)", &id),
+            @"<Error: out of range integral type conversion attempted>");
+
+        insta::assert_snapshot!(env.render_ok("self.shortest()", &id), @"k");
+        insta::assert_snapshot!(env.render_ok("self.shortest(0)", &id), @"k");
+        insta::assert_snapshot!(env.render_ok("self.shortest(-0)", &id), @"k");
+        insta::assert_snapshot!(
+            env.render_ok("self.shortest(100)", &id), @"kkmpptxzrspxrzommnulwmwkkqwworpl");
+        insta::assert_snapshot!(
+            env.render_ok("self.shortest(-100)", &id),
+            @"<Error: out of range integral type conversion attempted>");
+    }
+}

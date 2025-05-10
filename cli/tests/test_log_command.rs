@@ -734,39 +734,6 @@ fn test_log_prefix_highlight_counts_hidden_commits() {
 }
 
 #[test]
-fn test_log_short_shortest_length_parameter() {
-    let test_env = TestEnvironment::default();
-    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let work_dir = test_env.work_dir("repo");
-    let render = |template| work_dir.run_jj(["log", "-T", template]);
-
-    insta::assert_snapshot!(
-        render(r#"commit_id.short(0) ++ "|" ++ commit_id.shortest(0)"#), @r"
-    @  |e
-    ◆  |0
-    [EOF]
-    ");
-    insta::assert_snapshot!(
-        render(r#"commit_id.short(-0) ++ "|" ++ commit_id.shortest(-0)"#), @r"
-    @  |e
-    ◆  |0
-    [EOF]
-    ");
-    insta::assert_snapshot!(
-        render(r#"commit_id.short(-100) ++ "|" ++ commit_id.shortest(-100)"#), @r"
-    @  <Error: out of range integral type conversion attempted>|<Error: out of range integral type conversion attempted>
-    ◆  <Error: out of range integral type conversion attempted>|<Error: out of range integral type conversion attempted>
-    [EOF]
-    ");
-    insta::assert_snapshot!(
-        render(r#"commit_id.short(100) ++ "|" ++ commit_id.shortest(100)"#), @r"
-    @  e8849ae12c709f2321908879bc724fdb2ab8a781|e8849ae12c709f2321908879bc724fdb2ab8a781
-    ◆  0000000000000000000000000000000000000000|0000000000000000000000000000000000000000
-    [EOF]
-    ");
-}
-
-#[test]
 fn test_log_author_format() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
