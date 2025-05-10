@@ -205,14 +205,9 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 build(self, diagnostics, build_ctx, inner_property, function)
             }
             CommitTemplatePropertyKind::CommitList(property) => {
-                // TODO: migrate to table?
-                template_builder::build_unformattable_list_method(
-                    self,
-                    diagnostics,
-                    build_ctx,
-                    property,
-                    function,
-                )
+                let table = &self.build_fn_table.commit_list_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(self, diagnostics, build_ctx, property, function)
             }
             CommitTemplatePropertyKind::CommitRef(property) => {
                 let table = &self.build_fn_table.commit_ref_methods;
@@ -227,14 +222,9 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 build(self, diagnostics, build_ctx, inner_property, function)
             }
             CommitTemplatePropertyKind::CommitRefList(property) => {
-                // TODO: migrate to table?
-                template_builder::build_formattable_list_method(
-                    self,
-                    diagnostics,
-                    build_ctx,
-                    property,
-                    function,
-                )
+                let table = &self.build_fn_table.commit_ref_list_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(self, diagnostics, build_ctx, property, function)
             }
             CommitTemplatePropertyKind::RepoPath(property) => {
                 let table = &self.build_fn_table.repo_path_methods;
@@ -269,14 +259,9 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 build(self, diagnostics, build_ctx, property, function)
             }
             CommitTemplatePropertyKind::TreeDiffEntryList(property) => {
-                // TODO: migrate to table?
-                template_builder::build_unformattable_list_method(
-                    self,
-                    diagnostics,
-                    build_ctx,
-                    property,
-                    function,
-                )
+                let table = &self.build_fn_table.tree_diff_entry_list_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(self, diagnostics, build_ctx, property, function)
             }
             CommitTemplatePropertyKind::TreeEntry(property) => {
                 let table = &self.build_fn_table.tree_entry_methods;
@@ -310,23 +295,9 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 build(self, diagnostics, build_ctx, property, function)
             }
             CommitTemplatePropertyKind::TrailerList(property) => {
-                // TODO: migrate to table?
-                if function.name == "contains_key" {
-                    let [key_node] = function.expect_exact_arguments()?;
-                    let key_property =
-                        expect_plain_text_expression(self, diagnostics, build_ctx, key_node)?;
-                    let out_property = (property, key_property)
-                        .map(|(trailers, key)| trailers.iter().any(|t| t.key == key));
-                    Ok(out_property.into_dyn_wrapped())
-                } else {
-                    template_builder::build_formattable_list_method(
-                        self,
-                        diagnostics,
-                        build_ctx,
-                        property,
-                        function,
-                    )
-                }
+                let table = &self.build_fn_table.trailer_list_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(self, diagnostics, build_ctx, property, function)
             }
         }
     }
@@ -588,18 +559,22 @@ pub type CommitTemplateBuildMethodFnMap<'repo, T> =
 pub struct CommitTemplateBuildFnTable<'repo> {
     pub core: CoreTemplateBuildFnTable<'repo, CommitTemplateLanguage<'repo>>,
     pub commit_methods: CommitTemplateBuildMethodFnMap<'repo, Commit>,
+    pub commit_list_methods: CommitTemplateBuildMethodFnMap<'repo, Vec<Commit>>,
     pub commit_ref_methods: CommitTemplateBuildMethodFnMap<'repo, Rc<CommitRef>>,
+    pub commit_ref_list_methods: CommitTemplateBuildMethodFnMap<'repo, Vec<Rc<CommitRef>>>,
     pub repo_path_methods: CommitTemplateBuildMethodFnMap<'repo, RepoPathBuf>,
     pub commit_or_change_id_methods: CommitTemplateBuildMethodFnMap<'repo, CommitOrChangeId>,
     pub shortest_id_prefix_methods: CommitTemplateBuildMethodFnMap<'repo, ShortestIdPrefix>,
     pub tree_diff_methods: CommitTemplateBuildMethodFnMap<'repo, TreeDiff>,
     pub tree_diff_entry_methods: CommitTemplateBuildMethodFnMap<'repo, TreeDiffEntry>,
+    pub tree_diff_entry_list_methods: CommitTemplateBuildMethodFnMap<'repo, Vec<TreeDiffEntry>>,
     pub tree_entry_methods: CommitTemplateBuildMethodFnMap<'repo, TreeEntry>,
     pub diff_stats_methods: CommitTemplateBuildMethodFnMap<'repo, DiffStats>,
     pub cryptographic_signature_methods:
         CommitTemplateBuildMethodFnMap<'repo, CryptographicSignature>,
     pub annotation_line_methods: CommitTemplateBuildMethodFnMap<'repo, AnnotationLine>,
     pub trailer_methods: CommitTemplateBuildMethodFnMap<'repo, Trailer>,
+    pub trailer_list_methods: CommitTemplateBuildMethodFnMap<'repo, Vec<Trailer>>,
 }
 
 impl<'repo> CommitTemplateBuildFnTable<'repo> {
@@ -608,17 +583,21 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
         CommitTemplateBuildFnTable {
             core: CoreTemplateBuildFnTable::builtin(),
             commit_methods: builtin_commit_methods(),
+            commit_list_methods: template_builder::builtin_unformattable_list_methods(),
             commit_ref_methods: builtin_commit_ref_methods(),
+            commit_ref_list_methods: template_builder::builtin_formattable_list_methods(),
             repo_path_methods: builtin_repo_path_methods(),
             commit_or_change_id_methods: builtin_commit_or_change_id_methods(),
             shortest_id_prefix_methods: builtin_shortest_id_prefix_methods(),
             tree_diff_methods: builtin_tree_diff_methods(),
             tree_diff_entry_methods: builtin_tree_diff_entry_methods(),
+            tree_diff_entry_list_methods: template_builder::builtin_unformattable_list_methods(),
             tree_entry_methods: builtin_tree_entry_methods(),
             diff_stats_methods: builtin_diff_stats_methods(),
             cryptographic_signature_methods: builtin_cryptographic_signature_methods(),
             annotation_line_methods: builtin_annotation_line_methods(),
             trailer_methods: builtin_trailer_methods(),
+            trailer_list_methods: builtin_trailer_list_methods(),
         }
     }
 
@@ -626,17 +605,21 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
         CommitTemplateBuildFnTable {
             core: CoreTemplateBuildFnTable::empty(),
             commit_methods: HashMap::new(),
+            commit_list_methods: HashMap::new(),
             commit_ref_methods: HashMap::new(),
+            commit_ref_list_methods: HashMap::new(),
             repo_path_methods: HashMap::new(),
             commit_or_change_id_methods: HashMap::new(),
             shortest_id_prefix_methods: HashMap::new(),
             tree_diff_methods: HashMap::new(),
             tree_diff_entry_methods: HashMap::new(),
+            tree_diff_entry_list_methods: HashMap::new(),
             tree_entry_methods: HashMap::new(),
             diff_stats_methods: HashMap::new(),
             cryptographic_signature_methods: HashMap::new(),
             annotation_line_methods: HashMap::new(),
             trailer_methods: HashMap::new(),
+            trailer_list_methods: HashMap::new(),
         }
     }
 
@@ -644,22 +627,28 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
         let CommitTemplateBuildFnTable {
             core,
             commit_methods,
+            commit_list_methods,
             commit_ref_methods,
+            commit_ref_list_methods,
             repo_path_methods,
             commit_or_change_id_methods,
             shortest_id_prefix_methods,
             tree_diff_methods,
             tree_diff_entry_methods,
+            tree_diff_entry_list_methods,
             tree_entry_methods,
             diff_stats_methods,
             cryptographic_signature_methods,
             annotation_line_methods,
             trailer_methods,
+            trailer_list_methods,
         } = extension;
 
         self.core.merge(core);
         merge_fn_map(&mut self.commit_methods, commit_methods);
+        merge_fn_map(&mut self.commit_list_methods, commit_list_methods);
         merge_fn_map(&mut self.commit_ref_methods, commit_ref_methods);
+        merge_fn_map(&mut self.commit_ref_list_methods, commit_ref_list_methods);
         merge_fn_map(&mut self.repo_path_methods, repo_path_methods);
         merge_fn_map(
             &mut self.commit_or_change_id_methods,
@@ -671,6 +660,10 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
         );
         merge_fn_map(&mut self.tree_diff_methods, tree_diff_methods);
         merge_fn_map(&mut self.tree_diff_entry_methods, tree_diff_entry_methods);
+        merge_fn_map(
+            &mut self.tree_diff_entry_list_methods,
+            tree_diff_entry_list_methods,
+        );
         merge_fn_map(&mut self.tree_entry_methods, tree_entry_methods);
         merge_fn_map(&mut self.diff_stats_methods, diff_stats_methods);
         merge_fn_map(
@@ -679,6 +672,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
         );
         merge_fn_map(&mut self.annotation_line_methods, annotation_line_methods);
         merge_fn_map(&mut self.trailer_methods, trailer_methods);
+        merge_fn_map(&mut self.trailer_list_methods, trailer_list_methods);
     }
 }
 
@@ -2236,6 +2230,23 @@ fn builtin_trailer_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Tra
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|trailer| trailer.value);
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map
+}
+
+fn builtin_trailer_list_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Vec<Trailer>> {
+    let mut map: CommitTemplateBuildMethodFnMap<Vec<Trailer>> =
+        template_builder::builtin_formattable_list_methods();
+    map.insert(
+        "contains_key",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let [key_node] = function.expect_exact_arguments()?;
+            let key_property =
+                expect_plain_text_expression(language, diagnostics, build_ctx, key_node)?;
+            let out_property = (self_property, key_property)
+                .map(|(trailers, key)| trailers.iter().any(|t| t.key == key));
             Ok(out_property.into_dyn_wrapped())
         },
     );

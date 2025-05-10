@@ -167,21 +167,6 @@ impl TemplateParseError {
         self
     }
 
-    // TODO: migrate all callers to table-based lookup_method()
-    pub(crate) fn no_such_method(
-        type_name: impl Into<String>,
-        function: &FunctionCallNode,
-    ) -> Self {
-        TemplateParseError::with_span(
-            TemplateParseErrorKind::NoSuchMethod {
-                type_name: type_name.into(),
-                name: function.name.to_owned(),
-                candidates: vec![],
-            },
-            function.name_span,
-        )
-    }
-
     pub fn expected_type(expected: &str, actual: &str, span: pest::Span<'_>) -> Self {
         let message =
             format!("Expected expression of type `{expected}`, but actual type is `{actual}`");
