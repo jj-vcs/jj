@@ -647,11 +647,11 @@ mod tests {
     use jj_lib::repo::Repo as _;
     use proptest_state_machine::prop_state_machine;
     use proptest_state_machine::StateMachineTest;
-    use testutils::proptest::RepoRefState;
+    use testutils::dump_tree;
     use testutils::proptest::Transition;
+    use testutils::proptest::WorkingCopyReferenceStateMachine;
     use testutils::repo_path;
     use testutils::repo_path_component;
-    use testutils::write_file;
     use testutils::TestRepo;
 
     use super::*;
@@ -1435,94 +1435,66 @@ mod tests {
 
     struct EditDiffBuiltinPropTest {
         test_repo: TestRepo,
-        left_tree_id: MergedTreeId,
-        right_tree_id: MergedTreeId,
+        prev_tree_id: MergedTreeId,
     }
 
     impl StateMachineTest for EditDiffBuiltinPropTest {
         type SystemUnderTest = EditDiffBuiltinPropTest;
 
-        type Reference = RepoRefState;
+        type Reference = WorkingCopyReferenceStateMachine;
 
-        fn init_test(ref_state: &RepoRefState) -> Self::SystemUnderTest {
-            use testutils::proptest::File::*;
-
+        fn init_test(ref_state: &WorkingCopyReferenceStateMachine) -> Self::SystemUnderTest {
             let test_repo = TestRepo::init();
             let store = test_repo.repo.store();
-            let mut tree_builder = MergedTreeBuilder::new(store.empty_merged_tree_id());
-            for (path, file) in ref_state.files() {
-                match file {
-                    RegularFile {
-                        contents,
-                        executable,
-                    } => {
-                        let id = write_file(store, &path, contents);
-                        tree_builder.set_or_remove(
-                            path,
-                            Merge::resolved(Some(TreeValue::File {
-                                id: id.clone(),
-                                executable: *executable,
-                            })),
-                        );
-                    }
-                }
-            }
-
-            let left_tree_id = tree_builder.write_tree(store).unwrap();
-            let right_tree_id = left_tree_id.clone();
+            let initial_tree_id = ref_state.write_tree(&store).unwrap();
             Self {
                 test_repo,
-                left_tree_id,
-                right_tree_id,
+                prev_tree_id: initial_tree_id,
             }
         }
 
         fn apply(
-            mut state: Self::SystemUnderTest,
-            _ref_state: &RepoRefState,
+            state: Self::SystemUnderTest,
+            ref_state: &WorkingCopyReferenceStateMachine,
             transition: Transition,
         ) -> Self::SystemUnderTest {
             let store = state.test_repo.repo.store();
-            let mut tree_builder = MergedTreeBuilder::new(state.right_tree_id);
 
             match transition {
-                Transition::CreateFile {
-                    path,
-                    contents,
-                    executable,
-                } => {
-                    let id = write_file(store, &path, &contents);
-                    tree_builder.set_or_remove(
-                        path,
-                        Merge::resolved(Some(TreeValue::File {
-                            id: id.clone(),
-                            executable,
-                        })),
-                    );
+                Transition::Commit => {
+                    let prev_tree_id = ref_state.write_tree(&store).unwrap();
+                    Self {
+                        test_repo: state.test_repo,
+                        prev_tree_id,
+                    }
                 }
-                Transition::DeleteFile { path } => {
-                    tree_builder.set_or_remove(path, Merge::resolved(None));
+
+                Transition::SetDirEntry { .. } => {
+                    // Do nothing; this is handled by the reference state machine.
+                    state
                 }
             }
-
-            state.right_tree_id = tree_builder.write_tree(store).unwrap();
-            state
         }
 
-        fn check_invariants(state: &Self::SystemUnderTest, _ref_state: &RepoRefState) {
+        fn check_invariants(
+            state: &Self::SystemUnderTest,
+            ref_state: &WorkingCopyReferenceStateMachine,
+        ) {
             let store = state.test_repo.repo.store();
-            let left_tree = store.get_root_tree(&state.left_tree_id).unwrap();
-            let right_tree = store.get_root_tree(&state.right_tree_id).unwrap();
+            let left_tree = store.get_root_tree(&state.prev_tree_id).unwrap();
+            let right_tree_id = ref_state.write_tree(&store).unwrap();
+            let right_tree = store.get_root_tree(&right_tree_id).unwrap();
 
-            let store = state.test_repo.repo.store();
             let (changed_files, files) = make_diff(store, &left_tree, &right_tree);
             let no_changes_tree_id =
                 apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
             let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
             assert_eq!(
+                left_tree.id(),
                 no_changes_tree.id(),
-                state.left_tree_id,
-                "no-changes tree was different",
+                "no-changes tree was different:\nexpected tree:\n{}\nactual tree:\n{}",
+                dump_tree(store, &state.prev_tree_id),
+                dump_tree(store, &no_changes_tree.id()),
             );
 
             let mut files = files;
@@ -1534,7 +1506,7 @@ mod tests {
             let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
             assert_eq!(
                 all_changes_tree.id(),
-                state.right_tree_id,
+                right_tree_id,
                 "all-changes tree was different",
             );
         }

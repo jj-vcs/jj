@@ -14,309 +14,249 @@
 
 use std::collections::BTreeMap;
 use std::fmt::Debug;
+use std::path::Path;
+use std::path::PathBuf;
+use std::sync::Arc;
 
-use itertools::Either;
 use itertools::Itertools as _;
-use jj_lib::repo_path::RepoPath;
+use jj_lib::backend::BackendResult;
+use jj_lib::backend::MergedTreeId;
+use jj_lib::backend::TreeValue;
+use jj_lib::merge::Merge;
+use jj_lib::merged_tree::MergedTreeBuilder;
 use jj_lib::repo_path::RepoPathBuf;
-use jj_lib::repo_path::RepoPathComponentBuf;
-use proptest::collection::btree_map;
-use proptest::collection::vec;
+use jj_lib::store::Store;
 use proptest::prelude::*;
-use proptest::sample::select;
+use proptest_derive::Arbitrary;
 use proptest_state_machine::ReferenceStateMachine;
 
-#[derive(Debug, Clone)]
-pub struct RepoRefState {
-    root: Tree,
+use crate::write_file;
+
+fn arb_file_contents() -> impl Strategy<Value = String> {
+    prop_oneof![
+        Just("".to_string()),
+        // Diffing is line-oriented, so try to generate files with relatively
+        // many newlines.
+        "(\n|[a-z]|.)*".prop_map(|s| s.to_string()),
+    ]
 }
 
-#[derive(Debug, Clone)]
-pub enum File {
-    RegularFile { contents: String, executable: bool },
-}
-
-#[derive(Debug, Clone)]
-pub enum Transition {
-    /// Create a file with the given contents at `path`.
-    ///
-    /// Parent directories are created as necessary, existing files or
-    /// directories are replaced.
-    CreateFile {
-        path: RepoPathBuf,
+#[derive(Arbitrary, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum DirEntry {
+    File {
+        #[proptest(strategy = "arb_file_contents()")]
         contents: String,
         executable: bool,
     },
-
-    /// Delete the file at `path`.
-    ///
-    /// Emptied parent directories are cleaned up (expect repo root).
-    DeleteFile { path: RepoPathBuf },
+    Directory,
 }
 
-#[derive(Clone, Default)]
-struct Tree {
-    nodes: BTreeMap<RepoPathComponentBuf, Node>,
+fn arb_path_component() -> impl Strategy<Value = PathBuf> {
+    // HACK: Forbidding `.` here to avoid `.`/`..` in the path components, which
+    // causes downstream errors.
+    "(a|b|c|d|[\\PC&&[^/.]]+)".prop_map(PathBuf::from)
 }
 
-#[derive(Clone)]
-enum Node {
-    File(File),
-    Directory(Tree),
+#[derive(Arbitrary, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Transition {
+    /// Create a new [`DirEntry`] at [`path`].
+    /// - If there is already a file or directory at [`path`], it is first
+    ///   deleted. (Directories will be recursively deleted.)
+    /// - If [`dir_entry`] is [`None`], the entry at [`path`] is deleted.
+    SetDirEntry {
+        #[proptest(strategy = "arb_path_component()")]
+        path: PathBuf,
+        dir_entry: Option<DirEntry>,
+    },
+
+    /// Commit the current working copy. Used by the system under test.
+    Commit,
 }
 
-impl Debug for Tree {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.nodes
-            .iter()
-            .fold(&mut f.debug_struct("Directory"), |list, (name, node)| {
-                list.field(name.as_internal_str(), node)
-            })
-            .finish()
+#[derive(Clone, Debug)]
+pub struct WorkingCopyReferenceStateMachine {
+    entries: BTreeMap<PathBuf, DirEntry>,
+}
+
+impl WorkingCopyReferenceStateMachine {
+    fn root_dir() -> &'static Path {
+        Path::new("")
     }
-}
 
-impl Debug for Node {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Node::File(file) => file.fmt(f),
-            Node::Directory(tree) => tree.fmt(f),
-        }
-    }
-}
+    /// Check invariants that should be maintained by the test code itself
+    /// (rather than the library code). If these fail, then the test harness is
+    /// buggy.
+    fn check_invariants(&self) {
+        let root_dir_entry = self
+            .entries
+            .get(Self::root_dir())
+            .expect("working copy should always contain root dir");
+        assert_eq!(root_dir_entry, &DirEntry::Directory);
 
-impl Default for Node {
-    fn default() -> Self {
-        Node::Directory(Tree::default())
-    }
-}
-
-impl RepoRefState {
-    pub fn files(&self) -> impl IntoIterator<Item = (RepoPathBuf, &File)> + '_ {
-        self.root.files(RepoPath::root())
-    }
-}
-
-impl Tree {
-    fn files(&self, prefix: &RepoPath) -> Vec<(RepoPathBuf, &File)> {
-        self.nodes
-            .iter()
-            .filter_map(move |(name, node)| match node {
-                Node::File(file) => Some((prefix.join(name), file)),
-                Node::Directory(_) => None,
-            })
-            .chain(
-                self.nodes
-                    .iter()
-                    .filter_map(move |(name, node)| match node {
-                        Node::File(_) => None,
-                        Node::Directory(tree) => Some((prefix.join(name), tree)),
-                    })
-                    .flat_map(|(path, tree)| tree.files(&path)),
-            )
-            .collect()
-    }
-}
-
-fn arb_tree() -> impl Strategy<Value = Tree> {
-    btree_map(arb_path_component(), arb_node(), 1..8).prop_map(|nodes| Tree { nodes })
-}
-
-fn arb_path_component() -> impl Strategy<Value = RepoPathComponentBuf> {
-    // biased towards naming collisions (alpha-delta) but with the option to
-    // generate arbitrary UTF-8
-    "(alpha|beta|gamma|delta|[\\PC&&[^/]]+)".prop_map(|s| RepoPathComponentBuf::new(s).unwrap())
-}
-
-fn arb_node() -> impl Strategy<Value = Node> {
-    let file_leaf = ("[a-z]{0,3}", proptest::bool::ANY).prop_map(|(contents, executable)| {
-        Node::File(File::RegularFile {
-            contents,
-            executable,
-        })
-    });
-    file_leaf.prop_recursive(4, 8, 8, |inner| {
-        btree_map(arb_path_component(), inner, 1..8)
-            .prop_map(|nodes| Node::Directory(Tree { nodes }))
-    })
-}
-
-fn arb_extant_dir(root: Tree) -> impl Strategy<Value = RepoPathBuf> {
-    fn arb_extant_dir_recursive(path: &RepoPath, tree: Tree) -> impl Strategy<Value = RepoPathBuf> {
-        let subdirs: Vec<_> = tree
-            .nodes
-            .into_iter()
-            .filter_map(|(name, node)| match node {
-                Node::File(_) => None,
-                Node::Directory(tree) => Some((path.join(&name), tree)),
-            })
-            .collect();
-
-        if subdirs.is_empty() {
-            Just(path.to_owned()).boxed()
-        } else {
-            prop_oneof![
-                Just(path.to_owned()),
-                select(subdirs)
-                    .prop_flat_map(|(subdir, subtree)| arb_extant_dir_recursive(&subdir, subtree)),
-            ]
-            .boxed()
+        for (path, dir_entry) in &self.entries {
+            match dir_entry {
+                DirEntry::File { .. } => {
+                    let parent_path = path.parent().unwrap();
+                    let parent_dir_entry = self
+                        .entries
+                        .get(parent_path)
+                        .expect("file should have a parent directory");
+                    assert!(
+                        matches!(parent_dir_entry, DirEntry::Directory),
+                        "parent of {path:?} is not a directory: {self:?}"
+                    );
+                }
+                DirEntry::Directory => {}
+            }
         }
     }
 
-    arb_extant_dir_recursive(RepoPath::root(), root)
-}
+    pub fn write_tree(&self, store: &Arc<Store>) -> BackendResult<MergedTreeId> {
+        let mut tree_builder = MergedTreeBuilder::new(store.empty_merged_tree_id());
+        for (path, dir_entry) in self.entries.iter() {
+            match dir_entry {
+                DirEntry::Directory => {
+                    // Do nothing, as we currently don't represent empty directories?
+                    // TODO: Or write directly to `test_repo`?
+                }
 
-fn arb_extant_file(root: Tree) -> impl Strategy<Value = RepoPathBuf> {
-    fn arb_extant_file_recursive(
-        path: &RepoPath,
-        tree: Tree,
-    ) -> impl Strategy<Value = RepoPathBuf> {
-        let (files, subdirs): (Vec<_>, Vec<_>) =
-            tree.nodes
-                .into_iter()
-                .partition_map(|(name, node)| match node {
-                    Node::File(_) => Either::Left(path.join(&name)),
-                    Node::Directory(tree) => Either::Right((path.join(&name), tree)),
-                });
-
-        match (&files[..], &subdirs[..]) {
-            ([], []) => unreachable!("directory must not be empty"),
-            ([], _) => select(subdirs)
-                .prop_flat_map(|(subdir, subtree)| arb_extant_file_recursive(&subdir, subtree))
-                .boxed(),
-            (_, []) => select(files).boxed(),
-            (_, _) => prop_oneof![
-                select(files),
-                select(subdirs)
-                    .prop_flat_map(|(subdir, subtree)| arb_extant_file_recursive(&subdir, subtree)),
-            ]
-            .boxed(),
-        }
-    }
-
-    arb_extant_file_recursive(RepoPath::root(), root)
-}
-
-fn arb_transition_create_file(state: &RepoRefState) -> impl Strategy<Value = Transition> {
-    arb_extant_dir(state.root.clone())
-        .prop_flat_map(|dir| {
-            vec(arb_path_component(), 1..4).prop_map(move |new_path_components| {
-                let mut file_path = dir.clone();
-                file_path.extend(new_path_components);
-                file_path
-            })
-        })
-        .prop_flat_map(|path| {
-            ("[a-z]{0,3}", proptest::bool::ANY).prop_map(move |(contents, executable)| {
-                Transition::CreateFile {
-                    path: path.clone(),
+                DirEntry::File {
                     contents,
                     executable,
+                } => {
+                    let path = RepoPathBuf::from_relative_path(path).unwrap();
+                    let id = write_file(store, &path, contents);
+                    tree_builder.set_or_remove(
+                        path,
+                        Merge::resolved(Some(TreeValue::File {
+                            id: id.clone(),
+                            executable: *executable,
+                        })),
+                    );
+                }
+            }
+        }
+        tree_builder.write_tree(store)
+    }
+}
+
+impl Default for WorkingCopyReferenceStateMachine {
+    fn default() -> Self {
+        let mut entries = BTreeMap::new();
+        entries.insert(Self::root_dir().to_owned(), DirEntry::Directory);
+        Self { entries }
+    }
+}
+
+impl WorkingCopyReferenceStateMachine {
+    fn arb_extant_dir_entry(
+        &self,
+        include_root_dir: bool,
+    ) -> impl Strategy<Value = (PathBuf, DirEntry)> {
+        proptest::sample::select(
+            self.entries
+                .iter()
+                .filter(|(path, _)| {
+                    // NOTE: Avoid using `prop_filter` because it will reject
+                    // often, which will cause the entire test to fail.
+                    if include_root_dir {
+                        true
+                    } else {
+                        *path != Self::root_dir()
+                    }
+                })
+                .map(|(path, file)| (path.clone(), file.clone()))
+                .collect_vec(),
+        )
+    }
+
+    fn arb_transition_create(&self) -> impl Strategy<Value = Transition> {
+        (
+            self.arb_extant_dir_entry(true),
+            arb_path_component(),
+            any::<DirEntry>(),
+        )
+            .prop_map(|(extant_dir_entry, basename, dir_entry)| {
+                let (extant_dir_path, _extant_dir_entry) = extant_dir_entry;
+                let path = extant_dir_path.join(basename);
+                Transition::SetDirEntry {
+                    path,
+                    dir_entry: Some(dir_entry),
                 }
             })
-        })
+    }
+
+    fn arb_transition_modify(&self) -> impl Strategy<Value = Transition> {
+        (self.arb_extant_dir_entry(false), any::<Option<DirEntry>>()).prop_map(
+            |(extant_dir_entry, new_dir_entry)| {
+                let (path, _extant_dir_entry) = extant_dir_entry;
+                Transition::SetDirEntry {
+                    path,
+                    dir_entry: new_dir_entry,
+                }
+            },
+        )
+    }
+
+    fn arb_transition(&self) -> impl Strategy<Value = Transition> {
+        // NOTE: Using `prop_oneof` here instead of `proptest::sample::select`
+        // since it seems to minimize better?
+        if self.entries.len() > [Self::root_dir()].len() {
+            prop_oneof![
+                Just(Transition::Commit),
+                self.arb_transition_create(),
+                self.arb_transition_modify()
+            ]
+            .boxed()
+        } else {
+            prop_oneof![Just(Transition::Commit), self.arb_transition_create()].boxed()
+        }
+    }
 }
 
-fn arb_transition_delete_file(state: &RepoRefState) -> impl Strategy<Value = Transition> {
-    arb_extant_file(state.root.clone()).prop_map(|path| Transition::DeleteFile { path })
-}
-
-impl ReferenceStateMachine for RepoRefState {
+impl ReferenceStateMachine for WorkingCopyReferenceStateMachine {
     type State = Self;
 
     type Transition = Transition;
 
     fn init_state() -> BoxedStrategy<Self::State> {
-        prop_oneof![
-            1 => Just(Self {
-                root: Tree::default()
-            }),
-            10 => arb_tree().prop_map(|root| Self { root }),
-        ]
-        .boxed()
+        Just(Self::State::default()).boxed()
     }
 
     fn transitions(state: &Self::State) -> BoxedStrategy<Self::Transition> {
-        if state.root.nodes.is_empty() {
-            arb_transition_create_file(state).boxed()
-        } else {
-            prop_oneof![
-                arb_transition_create_file(state),
-                arb_transition_delete_file(state),
-            ]
-            .boxed()
-        }
+        state.check_invariants();
+        state.arb_transition().boxed()
     }
 
-    fn apply(mut state: Self::State, transition: &Self::Transition) -> Self::State {
-        match transition {
-            Transition::CreateFile {
-                path,
-                contents,
-                executable,
-            } => {
-                let mut components = path.components();
-                let Some(filename) = components.next_back() else {
-                    panic!("file path cannot be empty");
-                };
-                let directory = components.fold(&mut state.root, |tree, pc| {
-                    let Node::Directory(tree) = tree
-                        .nodes
-                        .entry(pc.to_owned())
-                        .and_modify(|node| {
-                            if let Node::File { .. } = node {
-                                // replace any files along the way with directories
-                                *node = Node::default();
-                            }
-                        })
-                        .or_default()
-                    else {
-                        panic!("encountered file, expected directory: {pc:?}");
-                    };
-                    tree
-                });
-
-                directory.nodes.insert(
-                    filename.to_owned(),
-                    Node::File(File::RegularFile {
-                        contents: contents.clone(),
-                        executable: *executable,
-                    }),
-                );
+    fn apply(state: Self::State, transition: &Self::Transition) -> Self::State {
+        let state = match transition {
+            Transition::Commit => {
+                // Do nothing; this is handled by the system under test.
+                state
             }
-            Transition::DeleteFile { path } => {
-                fn delete_recursive(
-                    directory: &mut Tree,
-                    components: &mut jj_lib::repo_path::RepoPathComponentsIter<'_>,
-                ) -> bool {
-                    let component = components.next().expect("trying to delete a directory");
 
-                    match directory.nodes.get_mut(component) {
-                        Some(Node::File { .. }) => {
-                            assert!(
-                                components.next().is_none(),
-                                "file does not exist: {component:?} is not a directory"
-                            );
-                            directory.nodes.remove(component);
-                            true
+            Transition::SetDirEntry { path, dir_entry } => {
+                assert_ne!(path, Self::root_dir());
+                let Self { entries } = state;
+                let mut entries: BTreeMap<_, _> = entries
+                    .into_iter()
+                    .filter(|(extant_path, _)| !extant_path.starts_with(path))
+                    .collect();
+                match dir_entry {
+                    Some(dir_entry) => {
+                        for parent_path in path.ancestors() {
+                            entries.insert(parent_path.to_owned(), DirEntry::Directory);
                         }
-                        Some(Node::Directory(tree)) => {
-                            if delete_recursive(tree, components) && tree.nodes.is_empty() {
-                                directory.nodes.remove(component);
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                        None => false,
+                        entries.insert(path.to_owned(), dir_entry.to_owned());
+                    }
+                    None => {
+                        assert!(!entries.contains_key(path));
                     }
                 }
-
-                delete_recursive(&mut state.root, &mut path.components());
+                Self { entries }
             }
-        }
-
+        };
+        state.check_invariants();
         state
     }
 }
