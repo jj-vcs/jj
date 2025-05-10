@@ -45,7 +45,7 @@ use jj_lib::id_prefix::IdPrefixIndex;
 use jj_lib::matchers::Matcher;
 use jj_lib::merge::MergedTreeValue;
 use jj_lib::merged_tree::MergedTree;
-use jj_lib::object_id::ObjectId;
+use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::ref_name::WorkspaceName;
@@ -644,8 +644,8 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             commit_ref_methods: builtin_commit_ref_methods(),
             commit_ref_list_methods: template_builder::builtin_formattable_list_methods(),
             repo_path_methods: builtin_repo_path_methods(),
-            change_id_methods: builtin_commit_or_change_id_methods(),
-            commit_id_methods: builtin_commit_or_change_id_methods(),
+            change_id_methods: builtin_change_id_methods(),
+            commit_id_methods: builtin_commit_id_methods(),
             shortest_id_prefix_methods: builtin_shortest_id_prefix_methods(),
             tree_diff_methods: builtin_tree_diff_methods(),
             tree_diff_entry_methods: builtin_tree_diff_entry_methods(),
@@ -1578,6 +1578,22 @@ impl Template for ChangeId {
     }
 }
 
+fn builtin_change_id_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, ChangeId> {
+    let mut map = builtin_commit_or_change_id_methods::<ChangeId>();
+    map.insert(
+        "normal_hex",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            // Note: this is _not_ the same as id.to_string(), which returns the
+            // "reverse" hex (z-k), instead of the "forward" / normal hex
+            // (0-9a-f) we want here.
+            let out_property = self_property.map(|id| id.hex());
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map
+}
+
 impl ShortestIdPrefixLen for CommitId {
     fn shortest_prefix_len(&self, repo: &dyn Repo, index: &IdPrefixIndex) -> usize {
         index.shortest_commit_prefix_len(repo, self)
@@ -1590,24 +1606,31 @@ impl Template for CommitId {
     }
 }
 
-fn builtin_commit_or_change_id_methods<'repo, O>() -> CommitTemplateBuildMethodFnMap<'repo, O>
-where
-    O: Display + ObjectId + ShortestIdPrefixLen + 'repo,
-{
-    // Not using maplit::hashmap!{} or custom declarative macro here because
-    // code completion inside macro is quite restricted.
-    let mut map = CommitTemplateBuildMethodFnMap::<O>::new();
+fn builtin_commit_id_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, CommitId> {
+    let mut map = builtin_commit_or_change_id_methods::<CommitId>();
+    // TODO: Remove in jj 0.36+
     map.insert(
         "normal_hex",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |_language, diagnostics, _build_ctx, self_property, function| {
+            diagnostics.add_warning(TemplateParseError::expression(
+                "commit_id.normal_hex() is deprecated; use stringify(commit_id) instead",
+                function.name_span,
+            ));
             function.expect_no_arguments()?;
-            // Note: this is _not_ the same as id.to_string() for ChangeId, which
-            // returns the "reverse" hex (z-k), instead of the "forward" /
-            // normal hex (0-9a-f) we want here.
             let out_property = self_property.map(|id| id.hex());
             Ok(out_property.into_dyn_wrapped())
         },
     );
+    map
+}
+
+fn builtin_commit_or_change_id_methods<'repo, O>() -> CommitTemplateBuildMethodFnMap<'repo, O>
+where
+    O: Display + ShortestIdPrefixLen + 'repo,
+{
+    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // code completion inside macro is quite restricted.
+    let mut map = CommitTemplateBuildMethodFnMap::<O>::new();
     map.insert(
         "short",
         |language, diagnostics, build_ctx, self_property, function| {

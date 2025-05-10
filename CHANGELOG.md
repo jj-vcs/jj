@@ -35,6 +35,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `ui.diff-formatter`. The builtin format can be specified as `:<format>`
   (e.g. `ui.diff-formatter=":git"` for Git diffs.)
 
+* The `.normal_hex()` method will be removed from the `CommitId` template type.
+  It's useful only for the `ChangeId` type.
+
 ### New features
 
 * `jj split` has gained a `--message` option to set the description of the
