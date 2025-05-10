@@ -31,6 +31,8 @@
         ];
       };
 
+      packageVersion = (builtins.fromTOML (builtins.readFile ./Cargo.toml)).workspace.package.version;
+
       filterSrc = src: regexes:
         pkgs.lib.cleanSourceWith {
           inherit src;
@@ -90,7 +92,7 @@
       packages = {
         jujutsu = rustMinimalPlatform.buildRustPackage {
           pname = "jujutsu";
-          version = "unstable-${self.shortRev or "dirty"}";
+          version = "${packageVersion}-unstable-${self.shortRev or "dirty"}";
 
           cargoBuildFlags = ["--bin" "jj"]; # don't build and install the fake editors
           useNextest = true;
