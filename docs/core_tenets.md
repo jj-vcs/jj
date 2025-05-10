@@ -18,7 +18,7 @@ Jujutsu's core tenets are:
    lots of files): Laziness is important, must avoid accessing data
    unnecessarily.
  * Having as few states as possible.
- * Make it incredibily hard to lose work in your repository.
+ * Make it incredibly hard to lose work in your repository.
  * Concurrent modifications to the repo should be safe.
  * Allow concurrent edits on any commit, pending or finished.
  * Make a "stacked diffs" workflow as easy as possible.
