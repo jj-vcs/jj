@@ -286,6 +286,9 @@ An option can be implicitly converted to `Boolean` denoting whether the
 contained value is set. If set, all methods of the contained value can be
 invoked. If not set, an error will be reported inline on method call.
 
+On comparison between two optional values or optional and non-optional values,
+unset value is not an error. Unset value is considered less than any set values.
+
 ### `RepoPath` type
 
 A slash-separated path relative to the repository root. The following methods
@@ -320,7 +323,8 @@ This type cannot be printed. The following methods are defined.
 * `.upper() -> Option<Integer>`: Upper bound if known.
 * `.exact() -> Option<Integer>`: Exact value if upper bound is known and it
   equals to the lower bound.
-* `.zero() -> Boolean`: True if upper bound is known and is `0`.
+* `.zero() -> Boolean`: True if upper bound is known and is `0`. Equivalent to
+  `.upper() == 0`.
 
 ### `String` type
 

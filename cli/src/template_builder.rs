@@ -331,6 +331,15 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             (Self::Integer(lhs), Self::Integer(rhs)) => {
                 Some((lhs, rhs).map(|(l, r)| l == r).into_dyn())
             }
+            (Self::Integer(lhs), Self::IntegerOpt(rhs)) => {
+                Some((lhs, rhs).map(|(l, r)| Some(l) == r).into_dyn())
+            }
+            (Self::IntegerOpt(lhs), Self::Integer(rhs)) => {
+                Some((lhs, rhs).map(|(l, r)| l == Some(r)).into_dyn())
+            }
+            (Self::IntegerOpt(lhs), Self::IntegerOpt(rhs)) => {
+                Some((lhs, rhs).map(|(l, r)| l == r).into_dyn())
+            }
             (Self::Email(lhs), Self::Email(rhs)) => {
                 Some((lhs, rhs).map(|(l, r)| l == r).into_dyn())
             }
@@ -356,6 +365,15 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
     fn try_into_cmp(self, other: Self) -> Option<BoxedTemplateProperty<'a, Ordering>> {
         match (self, other) {
             (Self::Integer(lhs), Self::Integer(rhs)) => {
+                Some((lhs, rhs).map(|(l, r)| l.cmp(&r)).into_dyn())
+            }
+            (Self::Integer(lhs), Self::IntegerOpt(rhs)) => {
+                Some((lhs, rhs).map(|(l, r)| Some(l).cmp(&r)).into_dyn())
+            }
+            (Self::IntegerOpt(lhs), Self::Integer(rhs)) => {
+                Some((lhs, rhs).map(|(l, r)| l.cmp(&Some(r))).into_dyn())
+            }
+            (Self::IntegerOpt(lhs), Self::IntegerOpt(rhs)) => {
                 Some((lhs, rhs).map(|(l, r)| l.cmp(&r)).into_dyn())
             }
             (Self::String(_), _) => None,
@@ -2449,7 +2467,10 @@ mod tests {
 
     #[test]
     fn test_relational_operation() {
-        let env = TestTemplateEnv::new();
+        let mut env = TestTemplateEnv::new();
+        env.add_keyword("none_i64", || literal(None::<i64>));
+        env.add_keyword("some_i64_0", || literal(Some(0_i64)));
+        env.add_keyword("some_i64_1", || literal(Some(1_i64)));
 
         insta::assert_snapshot!(env.render_ok(r#"1 >= 1"#), @"true");
         insta::assert_snapshot!(env.render_ok(r#"0 >= 1"#), @"false");
@@ -2459,11 +2480,20 @@ mod tests {
         insta::assert_snapshot!(env.render_ok(r#"2 <= 1"#), @"false");
         insta::assert_snapshot!(env.render_ok(r#"0 < 1"#), @"true");
         insta::assert_snapshot!(env.render_ok(r#"1 < 1"#), @"false");
+
+        // none < some
+        insta::assert_snapshot!(env.render_ok(r#"none_i64 < some_i64_0"#), @"true");
+        insta::assert_snapshot!(env.render_ok(r#"some_i64_0 > some_i64_1"#), @"false");
+        insta::assert_snapshot!(env.render_ok(r#"none_i64 < 0"#), @"true");
+        insta::assert_snapshot!(env.render_ok(r#"1 > some_i64_0"#), @"true");
     }
 
     #[test]
     fn test_logical_operation() {
         let mut env = TestTemplateEnv::new();
+        env.add_keyword("none_i64", || literal::<Option<i64>>(None));
+        env.add_keyword("some_i64_0", || literal(Some(0_i64)));
+        env.add_keyword("some_i64_1", || literal(Some(1_i64)));
         env.add_keyword("email1", || literal(Email("local-1@domain".to_owned())));
         env.add_keyword("email2", || literal(Email("local-2@domain".to_owned())));
 
@@ -2474,10 +2504,17 @@ mod tests {
         insta::assert_snapshot!(env.render_ok(r#"true == false"#), @"false");
         insta::assert_snapshot!(env.render_ok(r#"true != true"#), @"false");
         insta::assert_snapshot!(env.render_ok(r#"true != false"#), @"true");
+
         insta::assert_snapshot!(env.render_ok(r#"1 == 1"#), @"true");
         insta::assert_snapshot!(env.render_ok(r#"1 == 2"#), @"false");
         insta::assert_snapshot!(env.render_ok(r#"1 != 1"#), @"false");
         insta::assert_snapshot!(env.render_ok(r#"1 != 2"#), @"true");
+        insta::assert_snapshot!(env.render_ok(r#"none_i64 == none_i64"#), @"true");
+        insta::assert_snapshot!(env.render_ok(r#"some_i64_0 != some_i64_0"#), @"false");
+        insta::assert_snapshot!(env.render_ok(r#"none_i64 == 0"#), @"false");
+        insta::assert_snapshot!(env.render_ok(r#"some_i64_0 != 0"#), @"false");
+        insta::assert_snapshot!(env.render_ok(r#"1 == some_i64_1"#), @"true");
+
         insta::assert_snapshot!(env.render_ok(r#"'a' == 'a'"#), @"true");
         insta::assert_snapshot!(env.render_ok(r#"'a' == 'b'"#), @"false");
         insta::assert_snapshot!(env.render_ok(r#"'a' != 'a'"#), @"false");
