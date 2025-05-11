@@ -2531,6 +2531,7 @@ dependencies = [
  "tracing",
  "version_check",
  "watchman_client",
+ "winapi",
  "winreg",
 ]
 
