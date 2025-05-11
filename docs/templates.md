@@ -248,7 +248,7 @@ defined.
 * `.map(|item| expression) -> ListTemplate`: Apply template `expression`
   to each element. Example: `parents.map(|c| c.commit_id().short())`
 
-### List<Trailer> type
+### List<Trailer\> type
 
 The following methods are defined. See also the `List` type.
 
