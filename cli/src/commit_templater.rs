@@ -371,93 +371,77 @@ template_builder::impl_property_wrappers!(<'repo> CommitTemplatePropertyKind<'re
 
 impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo> {
     fn wrap_template(template: Box<dyn Template + 'repo>) -> Self {
-        CommitTemplatePropertyKind::Core(CoreTemplatePropertyKind::wrap_template(template))
+        Self::Core(CoreTemplatePropertyKind::wrap_template(template))
     }
 
     fn wrap_list_template(template: Box<dyn ListTemplate + 'repo>) -> Self {
-        CommitTemplatePropertyKind::Core(CoreTemplatePropertyKind::wrap_list_template(template))
+        Self::Core(CoreTemplatePropertyKind::wrap_list_template(template))
     }
 
     fn type_name(&self) -> &'static str {
         match self {
-            CommitTemplatePropertyKind::Core(property) => property.type_name(),
-            CommitTemplatePropertyKind::Commit(_) => "Commit",
-            CommitTemplatePropertyKind::CommitOpt(_) => "Option<Commit>",
-            CommitTemplatePropertyKind::CommitList(_) => "List<Commit>",
-            CommitTemplatePropertyKind::CommitRef(_) => "CommitRef",
-            CommitTemplatePropertyKind::CommitRefOpt(_) => "Option<CommitRef>",
-            CommitTemplatePropertyKind::CommitRefList(_) => "List<CommitRef>",
-            CommitTemplatePropertyKind::RepoPath(_) => "RepoPath",
-            CommitTemplatePropertyKind::RepoPathOpt(_) => "Option<RepoPath>",
-            CommitTemplatePropertyKind::CommitOrChangeId(_) => "CommitOrChangeId",
-            CommitTemplatePropertyKind::ShortestIdPrefix(_) => "ShortestIdPrefix",
-            CommitTemplatePropertyKind::TreeDiff(_) => "TreeDiff",
-            CommitTemplatePropertyKind::TreeDiffEntry(_) => "TreeDiffEntry",
-            CommitTemplatePropertyKind::TreeDiffEntryList(_) => "List<TreeDiffEntry>",
-            CommitTemplatePropertyKind::TreeEntry(_) => "TreeEntry",
-            CommitTemplatePropertyKind::DiffStats(_) => "DiffStats",
-            CommitTemplatePropertyKind::CryptographicSignatureOpt(_) => {
-                "Option<CryptographicSignature>"
-            }
-            CommitTemplatePropertyKind::AnnotationLine(_) => "AnnotationLine",
-            CommitTemplatePropertyKind::Trailer(_) => "Trailer",
-            CommitTemplatePropertyKind::TrailerList(_) => "List<Trailer>",
+            Self::Core(property) => property.type_name(),
+            Self::Commit(_) => "Commit",
+            Self::CommitOpt(_) => "Option<Commit>",
+            Self::CommitList(_) => "List<Commit>",
+            Self::CommitRef(_) => "CommitRef",
+            Self::CommitRefOpt(_) => "Option<CommitRef>",
+            Self::CommitRefList(_) => "List<CommitRef>",
+            Self::RepoPath(_) => "RepoPath",
+            Self::RepoPathOpt(_) => "Option<RepoPath>",
+            Self::CommitOrChangeId(_) => "CommitOrChangeId",
+            Self::ShortestIdPrefix(_) => "ShortestIdPrefix",
+            Self::TreeDiff(_) => "TreeDiff",
+            Self::TreeDiffEntry(_) => "TreeDiffEntry",
+            Self::TreeDiffEntryList(_) => "List<TreeDiffEntry>",
+            Self::TreeEntry(_) => "TreeEntry",
+            Self::DiffStats(_) => "DiffStats",
+            Self::CryptographicSignatureOpt(_) => "Option<CryptographicSignature>",
+            Self::AnnotationLine(_) => "AnnotationLine",
+            Self::Trailer(_) => "Trailer",
+            Self::TrailerList(_) => "List<Trailer>",
         }
     }
 
     fn try_into_boolean(self) -> Option<BoxedTemplateProperty<'repo, bool>> {
         match self {
-            CommitTemplatePropertyKind::Core(property) => property.try_into_boolean(),
-            CommitTemplatePropertyKind::Commit(_) => None,
-            CommitTemplatePropertyKind::CommitOpt(property) => {
-                Some(property.map(|opt| opt.is_some()).into_dyn())
-            }
-            CommitTemplatePropertyKind::CommitList(property) => {
-                Some(property.map(|l| !l.is_empty()).into_dyn())
-            }
-            CommitTemplatePropertyKind::CommitRef(_) => None,
-            CommitTemplatePropertyKind::CommitRefOpt(property) => {
-                Some(property.map(|opt| opt.is_some()).into_dyn())
-            }
-            CommitTemplatePropertyKind::CommitRefList(property) => {
-                Some(property.map(|l| !l.is_empty()).into_dyn())
-            }
-            CommitTemplatePropertyKind::RepoPath(_) => None,
-            CommitTemplatePropertyKind::RepoPathOpt(property) => {
-                Some(property.map(|opt| opt.is_some()).into_dyn())
-            }
-            CommitTemplatePropertyKind::CommitOrChangeId(_) => None,
-            CommitTemplatePropertyKind::ShortestIdPrefix(_) => None,
+            Self::Core(property) => property.try_into_boolean(),
+            Self::Commit(_) => None,
+            Self::CommitOpt(property) => Some(property.map(|opt| opt.is_some()).into_dyn()),
+            Self::CommitList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::CommitRef(_) => None,
+            Self::CommitRefOpt(property) => Some(property.map(|opt| opt.is_some()).into_dyn()),
+            Self::CommitRefList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::RepoPath(_) => None,
+            Self::RepoPathOpt(property) => Some(property.map(|opt| opt.is_some()).into_dyn()),
+            Self::CommitOrChangeId(_) => None,
+            Self::ShortestIdPrefix(_) => None,
             // TODO: boolean cast could be implemented, but explicit
             // diff.empty() method might be better.
-            CommitTemplatePropertyKind::TreeDiff(_) => None,
-            CommitTemplatePropertyKind::TreeDiffEntry(_) => None,
-            CommitTemplatePropertyKind::TreeDiffEntryList(property) => {
-                Some(property.map(|l| !l.is_empty()).into_dyn())
-            }
-            CommitTemplatePropertyKind::TreeEntry(_) => None,
-            CommitTemplatePropertyKind::DiffStats(_) => None,
-            CommitTemplatePropertyKind::CryptographicSignatureOpt(property) => {
+            Self::TreeDiff(_) => None,
+            Self::TreeDiffEntry(_) => None,
+            Self::TreeDiffEntryList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::TreeEntry(_) => None,
+            Self::DiffStats(_) => None,
+            Self::CryptographicSignatureOpt(property) => {
                 Some(property.map(|sig| sig.is_some()).into_dyn())
             }
-            CommitTemplatePropertyKind::AnnotationLine(_) => None,
-            CommitTemplatePropertyKind::Trailer(_) => None,
-            CommitTemplatePropertyKind::TrailerList(property) => {
-                Some(property.map(|l| !l.is_empty()).into_dyn())
-            }
+            Self::AnnotationLine(_) => None,
+            Self::Trailer(_) => None,
+            Self::TrailerList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
         }
     }
 
     fn try_into_integer(self) -> Option<BoxedTemplateProperty<'repo, i64>> {
         match self {
-            CommitTemplatePropertyKind::Core(property) => property.try_into_integer(),
+            Self::Core(property) => property.try_into_integer(),
             _ => None,
         }
     }
 
     fn try_into_plain_text(self) -> Option<BoxedTemplateProperty<'repo, String>> {
         match self {
-            CommitTemplatePropertyKind::Core(property) => property.try_into_plain_text(),
+            Self::Core(property) => property.try_into_plain_text(),
             _ => {
                 let template = self.try_into_template()?;
                 Some(PlainTextFormattedProperty::new(template).into_dyn())
@@ -467,86 +451,78 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
 
     fn try_into_template(self) -> Option<Box<dyn Template + 'repo>> {
         match self {
-            CommitTemplatePropertyKind::Core(property) => property.try_into_template(),
-            CommitTemplatePropertyKind::Commit(_) => None,
-            CommitTemplatePropertyKind::CommitOpt(_) => None,
-            CommitTemplatePropertyKind::CommitList(_) => None,
-            CommitTemplatePropertyKind::CommitRef(property) => Some(property.into_template()),
-            CommitTemplatePropertyKind::CommitRefOpt(property) => Some(property.into_template()),
-            CommitTemplatePropertyKind::CommitRefList(property) => Some(property.into_template()),
-            CommitTemplatePropertyKind::RepoPath(property) => Some(property.into_template()),
-            CommitTemplatePropertyKind::RepoPathOpt(property) => Some(property.into_template()),
-            CommitTemplatePropertyKind::CommitOrChangeId(property) => {
-                Some(property.into_template())
-            }
-            CommitTemplatePropertyKind::ShortestIdPrefix(property) => {
-                Some(property.into_template())
-            }
-            CommitTemplatePropertyKind::TreeDiff(_) => None,
-            CommitTemplatePropertyKind::TreeDiffEntry(_) => None,
-            CommitTemplatePropertyKind::TreeDiffEntryList(_) => None,
-            CommitTemplatePropertyKind::TreeEntry(_) => None,
-            CommitTemplatePropertyKind::DiffStats(property) => Some(property.into_template()),
-            CommitTemplatePropertyKind::CryptographicSignatureOpt(_) => None,
-            CommitTemplatePropertyKind::AnnotationLine(_) => None,
-            CommitTemplatePropertyKind::Trailer(property) => Some(property.into_template()),
-            CommitTemplatePropertyKind::TrailerList(property) => Some(property.into_template()),
+            Self::Core(property) => property.try_into_template(),
+            Self::Commit(_) => None,
+            Self::CommitOpt(_) => None,
+            Self::CommitList(_) => None,
+            Self::CommitRef(property) => Some(property.into_template()),
+            Self::CommitRefOpt(property) => Some(property.into_template()),
+            Self::CommitRefList(property) => Some(property.into_template()),
+            Self::RepoPath(property) => Some(property.into_template()),
+            Self::RepoPathOpt(property) => Some(property.into_template()),
+            Self::CommitOrChangeId(property) => Some(property.into_template()),
+            Self::ShortestIdPrefix(property) => Some(property.into_template()),
+            Self::TreeDiff(_) => None,
+            Self::TreeDiffEntry(_) => None,
+            Self::TreeDiffEntryList(_) => None,
+            Self::TreeEntry(_) => None,
+            Self::DiffStats(property) => Some(property.into_template()),
+            Self::CryptographicSignatureOpt(_) => None,
+            Self::AnnotationLine(_) => None,
+            Self::Trailer(property) => Some(property.into_template()),
+            Self::TrailerList(property) => Some(property.into_template()),
         }
     }
 
     fn try_into_eq(self, other: Self) -> Option<BoxedTemplateProperty<'repo, bool>> {
         match (self, other) {
-            (CommitTemplatePropertyKind::Core(lhs), CommitTemplatePropertyKind::Core(rhs)) => {
-                lhs.try_into_eq(rhs)
-            }
-            (CommitTemplatePropertyKind::Core(_), _) => None,
-            (CommitTemplatePropertyKind::Commit(_), _) => None,
-            (CommitTemplatePropertyKind::CommitOpt(_), _) => None,
-            (CommitTemplatePropertyKind::CommitList(_), _) => None,
-            (CommitTemplatePropertyKind::CommitRef(_), _) => None,
-            (CommitTemplatePropertyKind::CommitRefOpt(_), _) => None,
-            (CommitTemplatePropertyKind::CommitRefList(_), _) => None,
-            (CommitTemplatePropertyKind::RepoPath(_), _) => None,
-            (CommitTemplatePropertyKind::RepoPathOpt(_), _) => None,
-            (CommitTemplatePropertyKind::CommitOrChangeId(_), _) => None,
-            (CommitTemplatePropertyKind::ShortestIdPrefix(_), _) => None,
-            (CommitTemplatePropertyKind::TreeDiff(_), _) => None,
-            (CommitTemplatePropertyKind::TreeDiffEntry(_), _) => None,
-            (CommitTemplatePropertyKind::TreeDiffEntryList(_), _) => None,
-            (CommitTemplatePropertyKind::TreeEntry(_), _) => None,
-            (CommitTemplatePropertyKind::DiffStats(_), _) => None,
-            (CommitTemplatePropertyKind::CryptographicSignatureOpt(_), _) => None,
-            (CommitTemplatePropertyKind::AnnotationLine(_), _) => None,
-            (CommitTemplatePropertyKind::Trailer(_), _) => None,
-            (CommitTemplatePropertyKind::TrailerList(_), _) => None,
+            (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_eq(rhs),
+            (Self::Core(_), _) => None,
+            (Self::Commit(_), _) => None,
+            (Self::CommitOpt(_), _) => None,
+            (Self::CommitList(_), _) => None,
+            (Self::CommitRef(_), _) => None,
+            (Self::CommitRefOpt(_), _) => None,
+            (Self::CommitRefList(_), _) => None,
+            (Self::RepoPath(_), _) => None,
+            (Self::RepoPathOpt(_), _) => None,
+            (Self::CommitOrChangeId(_), _) => None,
+            (Self::ShortestIdPrefix(_), _) => None,
+            (Self::TreeDiff(_), _) => None,
+            (Self::TreeDiffEntry(_), _) => None,
+            (Self::TreeDiffEntryList(_), _) => None,
+            (Self::TreeEntry(_), _) => None,
+            (Self::DiffStats(_), _) => None,
+            (Self::CryptographicSignatureOpt(_), _) => None,
+            (Self::AnnotationLine(_), _) => None,
+            (Self::Trailer(_), _) => None,
+            (Self::TrailerList(_), _) => None,
         }
     }
 
     fn try_into_cmp(self, other: Self) -> Option<BoxedTemplateProperty<'repo, Ordering>> {
         match (self, other) {
-            (CommitTemplatePropertyKind::Core(lhs), CommitTemplatePropertyKind::Core(rhs)) => {
-                lhs.try_into_cmp(rhs)
-            }
-            (CommitTemplatePropertyKind::Core(_), _) => None,
-            (CommitTemplatePropertyKind::Commit(_), _) => None,
-            (CommitTemplatePropertyKind::CommitOpt(_), _) => None,
-            (CommitTemplatePropertyKind::CommitList(_), _) => None,
-            (CommitTemplatePropertyKind::CommitRef(_), _) => None,
-            (CommitTemplatePropertyKind::CommitRefOpt(_), _) => None,
-            (CommitTemplatePropertyKind::CommitRefList(_), _) => None,
-            (CommitTemplatePropertyKind::RepoPath(_), _) => None,
-            (CommitTemplatePropertyKind::RepoPathOpt(_), _) => None,
-            (CommitTemplatePropertyKind::CommitOrChangeId(_), _) => None,
-            (CommitTemplatePropertyKind::ShortestIdPrefix(_), _) => None,
-            (CommitTemplatePropertyKind::TreeDiff(_), _) => None,
-            (CommitTemplatePropertyKind::TreeDiffEntry(_), _) => None,
-            (CommitTemplatePropertyKind::TreeDiffEntryList(_), _) => None,
-            (CommitTemplatePropertyKind::TreeEntry(_), _) => None,
-            (CommitTemplatePropertyKind::DiffStats(_), _) => None,
-            (CommitTemplatePropertyKind::CryptographicSignatureOpt(_), _) => None,
-            (CommitTemplatePropertyKind::AnnotationLine(_), _) => None,
-            (CommitTemplatePropertyKind::Trailer(_), _) => None,
-            (CommitTemplatePropertyKind::TrailerList(_), _) => None,
+            (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_cmp(rhs),
+            (Self::Core(_), _) => None,
+            (Self::Commit(_), _) => None,
+            (Self::CommitOpt(_), _) => None,
+            (Self::CommitList(_), _) => None,
+            (Self::CommitRef(_), _) => None,
+            (Self::CommitRefOpt(_), _) => None,
+            (Self::CommitRefList(_), _) => None,
+            (Self::RepoPath(_), _) => None,
+            (Self::RepoPathOpt(_), _) => None,
+            (Self::CommitOrChangeId(_), _) => None,
+            (Self::ShortestIdPrefix(_), _) => None,
+            (Self::TreeDiff(_), _) => None,
+            (Self::TreeDiffEntry(_), _) => None,
+            (Self::TreeDiffEntryList(_), _) => None,
+            (Self::TreeEntry(_), _) => None,
+            (Self::DiffStats(_), _) => None,
+            (Self::CryptographicSignatureOpt(_), _) => None,
+            (Self::AnnotationLine(_), _) => None,
+            (Self::Trailer(_), _) => None,
+            (Self::TrailerList(_), _) => None,
         }
     }
 }

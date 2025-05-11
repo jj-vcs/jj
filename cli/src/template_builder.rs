@@ -235,73 +235,63 @@ impl_core_property_wrappers!(<'a> CoreTemplatePropertyKind<'a>);
 
 impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
     fn wrap_template(template: Box<dyn Template + 'a>) -> Self {
-        CoreTemplatePropertyKind::Template(template)
+        Self::Template(template)
     }
 
     fn wrap_list_template(template: Box<dyn ListTemplate + 'a>) -> Self {
-        CoreTemplatePropertyKind::ListTemplate(template)
+        Self::ListTemplate(template)
     }
 
     fn type_name(&self) -> &'static str {
         match self {
-            CoreTemplatePropertyKind::String(_) => "String",
-            CoreTemplatePropertyKind::StringList(_) => "List<String>",
-            CoreTemplatePropertyKind::Boolean(_) => "Boolean",
-            CoreTemplatePropertyKind::Integer(_) => "Integer",
-            CoreTemplatePropertyKind::IntegerOpt(_) => "Option<Integer>",
-            CoreTemplatePropertyKind::ConfigValue(_) => "ConfigValue",
-            CoreTemplatePropertyKind::Signature(_) => "Signature",
-            CoreTemplatePropertyKind::Email(_) => "Email",
-            CoreTemplatePropertyKind::SizeHint(_) => "SizeHint",
-            CoreTemplatePropertyKind::Timestamp(_) => "Timestamp",
-            CoreTemplatePropertyKind::TimestampRange(_) => "TimestampRange",
-            CoreTemplatePropertyKind::Template(_) => "Template",
-            CoreTemplatePropertyKind::ListTemplate(_) => "ListTemplate",
+            Self::String(_) => "String",
+            Self::StringList(_) => "List<String>",
+            Self::Boolean(_) => "Boolean",
+            Self::Integer(_) => "Integer",
+            Self::IntegerOpt(_) => "Option<Integer>",
+            Self::ConfigValue(_) => "ConfigValue",
+            Self::Signature(_) => "Signature",
+            Self::Email(_) => "Email",
+            Self::SizeHint(_) => "SizeHint",
+            Self::Timestamp(_) => "Timestamp",
+            Self::TimestampRange(_) => "TimestampRange",
+            Self::Template(_) => "Template",
+            Self::ListTemplate(_) => "ListTemplate",
         }
     }
 
     fn try_into_boolean(self) -> Option<BoxedTemplateProperty<'a, bool>> {
         match self {
-            CoreTemplatePropertyKind::String(property) => {
-                Some(property.map(|s| !s.is_empty()).into_dyn())
-            }
-            CoreTemplatePropertyKind::StringList(property) => {
-                Some(property.map(|l| !l.is_empty()).into_dyn())
-            }
-            CoreTemplatePropertyKind::Boolean(property) => Some(property),
-            CoreTemplatePropertyKind::Integer(_) => None,
-            CoreTemplatePropertyKind::IntegerOpt(property) => {
-                Some(property.map(|opt| opt.is_some()).into_dyn())
-            }
-            CoreTemplatePropertyKind::ConfigValue(_) => None,
-            CoreTemplatePropertyKind::Signature(_) => None,
-            CoreTemplatePropertyKind::Email(property) => {
-                Some(property.map(|e| !e.0.is_empty()).into_dyn())
-            }
-            CoreTemplatePropertyKind::SizeHint(_) => None,
-            CoreTemplatePropertyKind::Timestamp(_) => None,
-            CoreTemplatePropertyKind::TimestampRange(_) => None,
+            Self::String(property) => Some(property.map(|s| !s.is_empty()).into_dyn()),
+            Self::StringList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::Boolean(property) => Some(property),
+            Self::Integer(_) => None,
+            Self::IntegerOpt(property) => Some(property.map(|opt| opt.is_some()).into_dyn()),
+            Self::ConfigValue(_) => None,
+            Self::Signature(_) => None,
+            Self::Email(property) => Some(property.map(|e| !e.0.is_empty()).into_dyn()),
+            Self::SizeHint(_) => None,
+            Self::Timestamp(_) => None,
+            Self::TimestampRange(_) => None,
             // Template types could also be evaluated to boolean, but it's less likely
             // to apply label() or .map() and use the result as conditional. It's also
             // unclear whether ListTemplate should behave as a "list" or a "template".
-            CoreTemplatePropertyKind::Template(_) => None,
-            CoreTemplatePropertyKind::ListTemplate(_) => None,
+            Self::Template(_) => None,
+            Self::ListTemplate(_) => None,
         }
     }
 
     fn try_into_integer(self) -> Option<BoxedTemplateProperty<'a, i64>> {
         match self {
-            CoreTemplatePropertyKind::Integer(property) => Some(property),
-            CoreTemplatePropertyKind::IntegerOpt(property) => {
-                Some(property.try_unwrap("Integer").into_dyn())
-            }
+            Self::Integer(property) => Some(property),
+            Self::IntegerOpt(property) => Some(property.try_unwrap("Integer").into_dyn()),
             _ => None,
         }
     }
 
     fn try_into_plain_text(self) -> Option<BoxedTemplateProperty<'a, String>> {
         match self {
-            CoreTemplatePropertyKind::String(property) => Some(property),
+            Self::String(property) => Some(property),
             _ => {
                 let template = self.try_into_template()?;
                 Some(PlainTextFormattedProperty::new(template).into_dyn())
@@ -311,76 +301,76 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
 
     fn try_into_template(self) -> Option<Box<dyn Template + 'a>> {
         match self {
-            CoreTemplatePropertyKind::String(property) => Some(property.into_template()),
-            CoreTemplatePropertyKind::StringList(property) => Some(property.into_template()),
-            CoreTemplatePropertyKind::Boolean(property) => Some(property.into_template()),
-            CoreTemplatePropertyKind::Integer(property) => Some(property.into_template()),
-            CoreTemplatePropertyKind::IntegerOpt(property) => Some(property.into_template()),
-            CoreTemplatePropertyKind::ConfigValue(property) => Some(property.into_template()),
-            CoreTemplatePropertyKind::Signature(property) => Some(property.into_template()),
-            CoreTemplatePropertyKind::Email(property) => Some(property.into_template()),
-            CoreTemplatePropertyKind::SizeHint(_) => None,
-            CoreTemplatePropertyKind::Timestamp(property) => Some(property.into_template()),
-            CoreTemplatePropertyKind::TimestampRange(property) => Some(property.into_template()),
-            CoreTemplatePropertyKind::Template(template) => Some(template),
-            CoreTemplatePropertyKind::ListTemplate(template) => Some(template.into_template()),
+            Self::String(property) => Some(property.into_template()),
+            Self::StringList(property) => Some(property.into_template()),
+            Self::Boolean(property) => Some(property.into_template()),
+            Self::Integer(property) => Some(property.into_template()),
+            Self::IntegerOpt(property) => Some(property.into_template()),
+            Self::ConfigValue(property) => Some(property.into_template()),
+            Self::Signature(property) => Some(property.into_template()),
+            Self::Email(property) => Some(property.into_template()),
+            Self::SizeHint(_) => None,
+            Self::Timestamp(property) => Some(property.into_template()),
+            Self::TimestampRange(property) => Some(property.into_template()),
+            Self::Template(template) => Some(template),
+            Self::ListTemplate(template) => Some(template.into_template()),
         }
     }
 
     fn try_into_eq(self, other: Self) -> Option<BoxedTemplateProperty<'a, bool>> {
         match (self, other) {
-            (CoreTemplatePropertyKind::String(lhs), CoreTemplatePropertyKind::String(rhs)) => {
+            (Self::String(lhs), Self::String(rhs)) => {
                 Some((lhs, rhs).map(|(l, r)| l == r).into_dyn())
             }
-            (CoreTemplatePropertyKind::String(lhs), CoreTemplatePropertyKind::Email(rhs)) => {
+            (Self::String(lhs), Self::Email(rhs)) => {
                 Some((lhs, rhs).map(|(l, r)| l == r.0).into_dyn())
             }
-            (CoreTemplatePropertyKind::Boolean(lhs), CoreTemplatePropertyKind::Boolean(rhs)) => {
+            (Self::Boolean(lhs), Self::Boolean(rhs)) => {
                 Some((lhs, rhs).map(|(l, r)| l == r).into_dyn())
             }
-            (CoreTemplatePropertyKind::Integer(lhs), CoreTemplatePropertyKind::Integer(rhs)) => {
+            (Self::Integer(lhs), Self::Integer(rhs)) => {
                 Some((lhs, rhs).map(|(l, r)| l == r).into_dyn())
             }
-            (CoreTemplatePropertyKind::Email(lhs), CoreTemplatePropertyKind::Email(rhs)) => {
+            (Self::Email(lhs), Self::Email(rhs)) => {
                 Some((lhs, rhs).map(|(l, r)| l == r).into_dyn())
             }
-            (CoreTemplatePropertyKind::Email(lhs), CoreTemplatePropertyKind::String(rhs)) => {
+            (Self::Email(lhs), Self::String(rhs)) => {
                 Some((lhs, rhs).map(|(l, r)| l.0 == r).into_dyn())
             }
-            (CoreTemplatePropertyKind::String(_), _) => None,
-            (CoreTemplatePropertyKind::StringList(_), _) => None,
-            (CoreTemplatePropertyKind::Boolean(_), _) => None,
-            (CoreTemplatePropertyKind::Integer(_), _) => None,
-            (CoreTemplatePropertyKind::IntegerOpt(_), _) => None,
-            (CoreTemplatePropertyKind::ConfigValue(_), _) => None,
-            (CoreTemplatePropertyKind::Signature(_), _) => None,
-            (CoreTemplatePropertyKind::Email(_), _) => None,
-            (CoreTemplatePropertyKind::SizeHint(_), _) => None,
-            (CoreTemplatePropertyKind::Timestamp(_), _) => None,
-            (CoreTemplatePropertyKind::TimestampRange(_), _) => None,
-            (CoreTemplatePropertyKind::Template(_), _) => None,
-            (CoreTemplatePropertyKind::ListTemplate(_), _) => None,
+            (Self::String(_), _) => None,
+            (Self::StringList(_), _) => None,
+            (Self::Boolean(_), _) => None,
+            (Self::Integer(_), _) => None,
+            (Self::IntegerOpt(_), _) => None,
+            (Self::ConfigValue(_), _) => None,
+            (Self::Signature(_), _) => None,
+            (Self::Email(_), _) => None,
+            (Self::SizeHint(_), _) => None,
+            (Self::Timestamp(_), _) => None,
+            (Self::TimestampRange(_), _) => None,
+            (Self::Template(_), _) => None,
+            (Self::ListTemplate(_), _) => None,
         }
     }
 
     fn try_into_cmp(self, other: Self) -> Option<BoxedTemplateProperty<'a, Ordering>> {
         match (self, other) {
-            (CoreTemplatePropertyKind::Integer(lhs), CoreTemplatePropertyKind::Integer(rhs)) => {
+            (Self::Integer(lhs), Self::Integer(rhs)) => {
                 Some((lhs, rhs).map(|(l, r)| l.cmp(&r)).into_dyn())
             }
-            (CoreTemplatePropertyKind::String(_), _) => None,
-            (CoreTemplatePropertyKind::StringList(_), _) => None,
-            (CoreTemplatePropertyKind::Boolean(_), _) => None,
-            (CoreTemplatePropertyKind::Integer(_), _) => None,
-            (CoreTemplatePropertyKind::IntegerOpt(_), _) => None,
-            (CoreTemplatePropertyKind::ConfigValue(_), _) => None,
-            (CoreTemplatePropertyKind::Signature(_), _) => None,
-            (CoreTemplatePropertyKind::Email(_), _) => None,
-            (CoreTemplatePropertyKind::SizeHint(_), _) => None,
-            (CoreTemplatePropertyKind::Timestamp(_), _) => None,
-            (CoreTemplatePropertyKind::TimestampRange(_), _) => None,
-            (CoreTemplatePropertyKind::Template(_), _) => None,
-            (CoreTemplatePropertyKind::ListTemplate(_), _) => None,
+            (Self::String(_), _) => None,
+            (Self::StringList(_), _) => None,
+            (Self::Boolean(_), _) => None,
+            (Self::Integer(_), _) => None,
+            (Self::IntegerOpt(_), _) => None,
+            (Self::ConfigValue(_), _) => None,
+            (Self::Signature(_), _) => None,
+            (Self::Email(_), _) => None,
+            (Self::SizeHint(_), _) => None,
+            (Self::Timestamp(_), _) => None,
+            (Self::TimestampRange(_), _) => None,
+            (Self::Template(_), _) => None,
+            (Self::ListTemplate(_), _) => None,
         }
     }
 }

@@ -150,39 +150,39 @@ template_builder::impl_property_wrappers!(OperationTemplatePropertyKind {
 
 impl CoreTemplatePropertyVar<'static> for OperationTemplatePropertyKind {
     fn wrap_template(template: Box<dyn Template>) -> Self {
-        OperationTemplatePropertyKind::Core(CoreTemplatePropertyKind::wrap_template(template))
+        Self::Core(CoreTemplatePropertyKind::wrap_template(template))
     }
 
     fn wrap_list_template(template: Box<dyn ListTemplate>) -> Self {
-        OperationTemplatePropertyKind::Core(CoreTemplatePropertyKind::wrap_list_template(template))
+        Self::Core(CoreTemplatePropertyKind::wrap_list_template(template))
     }
 
     fn type_name(&self) -> &'static str {
         match self {
-            OperationTemplatePropertyKind::Core(property) => property.type_name(),
-            OperationTemplatePropertyKind::Operation(_) => "Operation",
-            OperationTemplatePropertyKind::OperationId(_) => "OperationId",
+            Self::Core(property) => property.type_name(),
+            Self::Operation(_) => "Operation",
+            Self::OperationId(_) => "OperationId",
         }
     }
 
     fn try_into_boolean(self) -> Option<BoxedTemplateProperty<'static, bool>> {
         match self {
-            OperationTemplatePropertyKind::Core(property) => property.try_into_boolean(),
-            OperationTemplatePropertyKind::Operation(_) => None,
-            OperationTemplatePropertyKind::OperationId(_) => None,
+            Self::Core(property) => property.try_into_boolean(),
+            Self::Operation(_) => None,
+            Self::OperationId(_) => None,
         }
     }
 
     fn try_into_integer(self) -> Option<BoxedTemplateProperty<'static, i64>> {
         match self {
-            OperationTemplatePropertyKind::Core(property) => property.try_into_integer(),
+            Self::Core(property) => property.try_into_integer(),
             _ => None,
         }
     }
 
     fn try_into_plain_text(self) -> Option<BoxedTemplateProperty<'static, String>> {
         match self {
-            OperationTemplatePropertyKind::Core(property) => property.try_into_plain_text(),
+            Self::Core(property) => property.try_into_plain_text(),
             _ => {
                 let template = self.try_into_template()?;
                 Some(PlainTextFormattedProperty::new(template).into_dyn())
@@ -192,33 +192,27 @@ impl CoreTemplatePropertyVar<'static> for OperationTemplatePropertyKind {
 
     fn try_into_template(self) -> Option<Box<dyn Template>> {
         match self {
-            OperationTemplatePropertyKind::Core(property) => property.try_into_template(),
-            OperationTemplatePropertyKind::Operation(_) => None,
-            OperationTemplatePropertyKind::OperationId(property) => Some(property.into_template()),
+            Self::Core(property) => property.try_into_template(),
+            Self::Operation(_) => None,
+            Self::OperationId(property) => Some(property.into_template()),
         }
     }
 
     fn try_into_eq(self, other: Self) -> Option<BoxedTemplateProperty<'static, bool>> {
         match (self, other) {
-            (
-                OperationTemplatePropertyKind::Core(lhs),
-                OperationTemplatePropertyKind::Core(rhs),
-            ) => lhs.try_into_eq(rhs),
-            (OperationTemplatePropertyKind::Core(_), _) => None,
-            (OperationTemplatePropertyKind::Operation(_), _) => None,
-            (OperationTemplatePropertyKind::OperationId(_), _) => None,
+            (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_eq(rhs),
+            (Self::Core(_), _) => None,
+            (Self::Operation(_), _) => None,
+            (Self::OperationId(_), _) => None,
         }
     }
 
     fn try_into_cmp(self, other: Self) -> Option<BoxedTemplateProperty<'static, Ordering>> {
         match (self, other) {
-            (
-                OperationTemplatePropertyKind::Core(lhs),
-                OperationTemplatePropertyKind::Core(rhs),
-            ) => lhs.try_into_cmp(rhs),
-            (OperationTemplatePropertyKind::Core(_), _) => None,
-            (OperationTemplatePropertyKind::Operation(_), _) => None,
-            (OperationTemplatePropertyKind::OperationId(_), _) => None,
+            (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_cmp(rhs),
+            (Self::Core(_), _) => None,
+            (Self::Operation(_), _) => None,
+            (Self::OperationId(_), _) => None,
         }
     }
 }
